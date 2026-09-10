@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Cache.Abstractions.Types;
@@ -61,7 +60,7 @@ public sealed class NpcServiceRegistrationTests
     }
 
     [TestMethod]
-    public async Task Register_WhenInitializationAndCleanupFail_PreservesBothFailures()
+    public async Task Register_WhenInitializationAndCleanupFail_PreservesInitializationFailure()
     {
         var store = new NpcStore();
         var npc = CreateNpc();
@@ -71,16 +70,15 @@ public sealed class NpcServiceRegistrationTests
         npc.When(value => value.Destroy()).Do(_ => throw cleanupFailure);
         var service = CreateService(store);
 
-        var actual = Assert.ThrowsExactly<AggregateException>(() => service.Register(npc));
+        var actual = Assert.ThrowsExactly<InvalidOperationException>(() => service.Register(npc));
 
-        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, registrationFailure)));
-        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, cleanupFailure)));
+        Assert.AreSame(registrationFailure, actual);
         Assert.AreEqual(0, await store.CountAsync());
         npc.Received(1).Destroy();
     }
 
     [TestMethod]
-    public void Register_WhenMultipleCleanupOperationsFail_ReportsAFlatAggregate()
+    public void Register_WhenCleanupOperationsFail_PreservesRegistrationFailure()
     {
         var store = Substitute.For<INpcStore>();
         var npc = CreateNpc();
@@ -93,13 +91,11 @@ public sealed class NpcServiceRegistrationTests
         npc.When(value => value.Destroy()).Do(_ => throw destroyFailure);
         var service = CreateService(store);
 
-        var actual = Assert.ThrowsExactly<AggregateException>(() => service.Register(npc));
+        var actual = Assert.ThrowsExactly<InvalidOperationException>(() => service.Register(npc));
 
-        Assert.AreEqual(3, actual.InnerExceptions.Count);
-        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, registrationFailure)));
-        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, removalFailure)));
-        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, destroyFailure)));
-        Assert.IsFalse(actual.InnerExceptions.Any(exception => exception is AggregateException));
+        Assert.AreSame(registrationFailure, actual);
+        store.Received(1).Remove(npc);
+        npc.Received(1).Destroy();
     }
 
     [TestMethod]
@@ -264,7 +260,7 @@ public sealed class NpcServiceRegistrationTests
     }
 
     [TestMethod]
-    public async Task UnregisterAsync_WhenDestroyAndRemovalBothFail_PreservesBothFailures()
+    public async Task UnregisterAsync_WhenDestroyAndRemovalBothFail_PreservesDestroyFailure()
     {
         var store = Substitute.For<INpcStore>();
         var npc = CreateNpc();
@@ -276,10 +272,9 @@ public sealed class NpcServiceRegistrationTests
 #pragma warning restore CA2012
         var service = CreateService(store);
 
-        var actual = await Assert.ThrowsExactlyAsync<AggregateException>(() => service.UnregisterAsync(npc));
+        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.UnregisterAsync(npc));
 
-        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, destroyFailure)));
-        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, removalFailure)));
+        Assert.AreSame(destroyFailure, actual);
         npc.Received(1).Destroy();
         await store.Received(1).RemoveAsync(npc);
     }

@@ -47,8 +47,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contains character scripts.
         /// </summary>
         private readonly Dictionary<Type, ICharacterScript> _scripts = default!;
-        private readonly HashSet<Type> _destroyedScripts = new();
-        private bool _destroyedEventSent;
 
         /// <summary>
         /// Contains character option handlers.
@@ -393,33 +391,25 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         protected override void OnDestroy()
         {
-            var failures = new List<Exception>();
-            if (!_destroyedEventSent)
+            Exception? failure = null;
+            try
             {
-                try
-                {
-                    EventManager.SendEvent(new CreatureDestroyedEvent(this));
-                    _destroyedEventSent = true;
-                }
-                catch (Exception exception)
-                {
-                    failures.Add(exception);
-                }
+                EventManager.SendEvent(new CreatureDestroyedEvent(this));
+            }
+            catch (Exception exception)
+            {
+                failure = exception;
             }
 
-            foreach (var pair in _scripts)
+            foreach (var script in _scripts.Values)
             {
-                if (_destroyedScripts.Contains(pair.Key))
-                    continue;
-
                 try
                 {
-                    pair.Value.OnDestroy();
-                    _destroyedScripts.Add(pair.Key);
+                    script.OnDestroy();
                 }
                 catch (Exception exception)
                 {
-                    failures.Add(exception);
+                    failure ??= exception;
                 }
             }
 
@@ -429,16 +419,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
             catch (Exception exception)
             {
-                failures.Add(exception);
+                failure ??= exception;
             }
 
-            if (failures.Count == 1)
+            if (failure is not null)
             {
-                ExceptionDispatchInfo.Capture(failures[0]).Throw();
+                ExceptionDispatchInfo.Capture(failure).Throw();
             }
-
-            if (failures.Count > 1)
-                throw new AggregateException("Character destruction failed.", failures);
         }
 
         /// <summary>

@@ -147,7 +147,7 @@ public sealed class CharacterStatePersistenceTests
     }
 
     [TestMethod]
-    public void Destroy_WhenOneCharacterScriptFails_RetriesOnlyFailedScriptAndPublishesEventOnce()
+    public void Destroy_WhenCharacterScriptFails_IsTerminalAndPublishesEventOnce()
     {
         var script = Substitute.For<IDefaultCharacterScript>();
         var failure = new InvalidOperationException("script cleanup failed");
@@ -162,13 +162,13 @@ public sealed class CharacterStatePersistenceTests
         var firstFailure = Assert.ThrowsExactly<InvalidOperationException>(() => character.Destroy());
 
         Assert.AreSame(failure, firstFailure);
-        Assert.IsFalse(character.IsDestroyed);
+        Assert.IsTrue(character.IsDestroyed);
         script.Received(1).OnDestroy();
 
-        character.Destroy();
+        Assert.ThrowsExactly<InvalidOperationException>(() => character.Destroy());
 
         Assert.IsTrue(character.IsDestroyed);
-        script.Received(2).OnDestroy();
+        script.Received(1).OnDestroy();
         character.EventManager.Received(1).SendEvent(Arg.Any<IEvent>());
     }
 

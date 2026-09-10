@@ -68,16 +68,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <value>The bounds.</value>
         public IBounds Bounds { get; }
 
-        private ScriptLifecycleState _scriptLifecycleState;
-        private bool _destroyedEventSent;
-
-        private enum ScriptLifecycleState
-        {
-            NotStarted,
-            Initializing,
-            Initialized,
-            Destroyed
-        }
+        private bool _scriptCreateStarted;
 
         /// <summary>
         /// Gets the path finder.
@@ -165,9 +156,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             // initialize the most important drawing logic first
             RenderInformation.OnRegistered();
             base.OnRegistered();
-            _scriptLifecycleState = ScriptLifecycleState.Initializing;
+            _scriptCreateStarted = true;
             Script.OnCreate();
-            _scriptLifecycleState = ScriptLifecycleState.Initialized;
             if (Definition.WalksRandomly && Definition.BoundsType != BoundsType.Static)
             {
                 QueueTask(new NpcRandomWalkTask(this));
@@ -179,30 +169,25 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         protected override void OnDestroy()
         {
-            var failures = new List<Exception>();
-            if (!_destroyedEventSent)
+            Exception? failure = null;
+            try
             {
-                try
-                {
-                    EventManager.SendEvent(new CreatureDestroyedEvent(this));
-                    _destroyedEventSent = true;
-                }
-                catch (Exception exception)
-                {
-                    failures.Add(exception);
-                }
+                EventManager.SendEvent(new CreatureDestroyedEvent(this));
+            }
+            catch (Exception exception)
+            {
+                failure = exception;
             }
 
-            if (_scriptLifecycleState is ScriptLifecycleState.Initializing or ScriptLifecycleState.Initialized)
+            if (_scriptCreateStarted)
             {
                 try
                 {
                     Script.OnDestroy();
-                    _scriptLifecycleState = ScriptLifecycleState.Destroyed;
                 }
                 catch (Exception exception)
                 {
-                    failures.Add(exception);
+                    failure ??= exception;
                 }
             }
 
@@ -212,17 +197,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             }
             catch (Exception exception)
             {
-                failures.Add(exception);
+                failure ??= exception;
             }
 
-            if (failures.Count == 1)
+            if (failure is not null)
             {
-                ExceptionDispatchInfo.Capture(failures[0]).Throw();
-            }
-
-            if (failures.Count > 1)
-            {
-                throw new AggregateException("NPC destruction failed.", failures);
+                ExceptionDispatchInfo.Capture(failure).Throw();
             }
         }
 

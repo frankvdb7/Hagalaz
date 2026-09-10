@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Hagalaz.Game.Abstractions.Model.Maps;
 
 namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
@@ -13,9 +14,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     {
         private readonly ConcurrentDictionary<int, IMapRegion> _regions = new();
         private readonly ConcurrentDictionary<int, IMapRegion> _idleRegions = new();
-        private readonly ConcurrentDictionary<int, IMapRegion> _pendingDestructionRegions = new();
-        private readonly IReadOnlyDictionary<int, IMapRegion> _regionsView;
-        private readonly IReadOnlyDictionary<int, IMapRegion> _idleRegionsView;
+        private readonly ReadOnlyDictionary<int, IMapRegion> _regionsView;
+        private readonly ReadOnlyDictionary<int, IMapRegion> _idleRegionsView;
         internal object ResidencySyncRoot { get; } = new();
 
         /// <summary>
@@ -37,8 +37,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         internal ConcurrentDictionary<int, IMapRegion> IdleRegionStore => _idleRegions;
 
-        internal ConcurrentDictionary<int, IMapRegion> PendingDestructionRegionStore => _pendingDestructionRegions;
-
         /// <summary>
         /// Constructs new dimension with given Id.
         /// </summary>
@@ -46,8 +44,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         public Dimension(int id)
         {
             Id = id;
-            _regionsView = new ReadOnlyDictionaryView(_regions);
-            _idleRegionsView = new ReadOnlyDictionaryView(_idleRegions);
+            _regionsView = new ReadOnlyDictionary<int, IMapRegion>(_regions);
+            _idleRegionsView = new ReadOnlyDictionary<int, IMapRegion>(_idleRegions);
         }
 
         /// <summary>
@@ -60,20 +58,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 return false;
             }
-            return _regions.Count <= 0 && _idleRegions.Count <= 0 && _pendingDestructionRegions.Count <= 0;
+            return _regions.Count <= 0 && _idleRegions.Count <= 0;
         }
 
-        private sealed class ReadOnlyDictionaryView(ConcurrentDictionary<int, IMapRegion> source)
-            : IReadOnlyDictionary<int, IMapRegion>
-        {
-            public IMapRegion this[int key] => source[key];
-            public IEnumerable<int> Keys => source.Keys;
-            public IEnumerable<IMapRegion> Values => source.Values;
-            public int Count => source.Count;
-            public bool ContainsKey(int key) => source.ContainsKey(key);
-            public bool TryGetValue(int key, out IMapRegion value) => source.TryGetValue(key, out value!);
-            public IEnumerator<KeyValuePair<int, IMapRegion>> GetEnumerator() => source.GetEnumerator();
-            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
-        }
     }
 }

@@ -44,17 +44,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public void RequestLoad(IMapRegion region)
         {
-            if (TryQueueRegion(region, out _) || IsStopping)
-            {
-                return;
-            }
-
-            if (region.State is MapRegionState.Ready or MapRegionState.Discarded || !IsCurrent(region))
-            {
-                return;
-            }
-
-            throw new InvalidOperationException($"Unable to schedule loading for region {region.Id}.");
+            _ = GetOrRequestLoad(region, tolerateInvalidState: true);
         }
 
         /// <summary>
@@ -69,38 +59,9 @@ namespace Hagalaz.Services.GameWorld.Services
             foreach (var region in regions.Distinct())
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (region.State == MapRegionState.Ready)
-                {
-                    continue;
-                }
-
-                if (region.State == MapRegionState.Discarded)
-                {
-                    throw new InvalidOperationException($"Region {region.Id} is discarded and cannot be loaded.");
-                }
-
-                if (!IsCurrent(region))
-                {
-                    throw new InvalidOperationException($"Region {region.Id} is no longer the current region instance.");
-                }
-
-                if (IsStopping)
-                {
-                    throw new InvalidOperationException("The map-region scheduler is stopping.");
-                }
-
-                if (!TryQueueRegion(region, out var completion))
-                {
-                    if (IsStopping)
-                    {
-                        throw new InvalidOperationException("The map-region scheduler is stopping.");
-                    }
-
-                    throw new InvalidOperationException($"Unable to schedule loading for region {region.Id}.");
-                }
-
-                if (completion != null)
-                    waits.Add(completion.Task);
+                var completion = GetOrRequestLoad(region, tolerateInvalidState: false);
+                if (completion is not null)
+                    waits.Add(completion);
             }
 
             await Task.WhenAll(waits).WaitAsync(cancellationToken);
@@ -145,43 +106,54 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
-        private bool TryQueueRegion(IMapRegion region, out TaskCompletionSource? completion)
+        private Task? GetOrRequestLoad(IMapRegion region, bool tolerateInvalidState)
         {
             lock (_stateLock)
             {
                 if (_stopping)
                 {
-                    completion = null;
-                    return false;
+                    if (tolerateInvalidState)
+                        return null;
+
+                    throw new InvalidOperationException("The map-region scheduler is stopping.");
                 }
 
                 if (region.State == MapRegionState.Ready)
                 {
-                    completion = null;
-                    return true;
+                    return null;
                 }
 
-                if (region.State == MapRegionState.Discarded || !IsCurrent(region))
+                if (region.State == MapRegionState.Discarded)
                 {
-                    completion = null;
-                    return false;
+                    if (tolerateInvalidState)
+                        return null;
+
+                    throw new InvalidOperationException($"Region {region.Id} is discarded and cannot be loaded.");
                 }
 
-                if (_inFlight.TryGetValue(region, out completion))
+                if (!IsCurrent(region))
                 {
-                    return true;
+                    if (tolerateInvalidState)
+                        return null;
+
+                    throw new InvalidOperationException($"Region {region.Id} is no longer the current region instance.");
+                }
+
+                if (_inFlight.TryGetValue(region, out var completion))
+                {
+                    return completion.Task;
                 }
 
                 completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 _inFlight.Add(region, completion);
                 if (_requests.Writer.TryWrite(region))
                 {
-                    return true;
+                    return completion.Task;
                 }
 
                 _inFlight.Remove(region);
                 completion.TrySetException(new InvalidOperationException($"Unable to schedule loading for region {region.Id}."));
-                return false;
+                throw new InvalidOperationException($"Unable to schedule loading for region {region.Id}.");
             }
         }
 

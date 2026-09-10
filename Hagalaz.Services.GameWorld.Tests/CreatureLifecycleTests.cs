@@ -50,26 +50,27 @@ public sealed class CreatureLifecycleTests
     }
 
     [TestMethod]
-    public void Destroy_WhenOnDestroyFails_RemainsRetryableAndKeepsOwnedScope()
+    public void Destroy_WhenOnDestroyFails_IsTerminalAndDisposesOwnedScope()
     {
         var (creature, _, scope) = CreateCreature(onDestroyFailure: true);
 
         Assert.ThrowsExactly<InvalidOperationException>(() => creature.Destroy());
 
-        Assert.IsFalse(creature.IsDestroyed);
-        scope.DidNotReceive().Dispose();
+        Assert.IsTrue(creature.IsDestroyed);
+        scope.Received(1).Dispose();
     }
 
     [TestMethod]
-    public void Destroy_WhenRetrySucceeds_ReachesTerminalStateAndDisposesOwnedScope()
+    public void Destroy_WhenCalledAgainAfterFailure_RejectsTheDuplicateCall()
     {
         var (creature, _, scope) = CreateCreature(onDestroyFailure: true);
 
         Assert.ThrowsExactly<InvalidOperationException>(() => creature.Destroy());
         creature.FailOnDestroy = false;
 
-        creature.Destroy();
+        var secondFailure = Assert.ThrowsExactly<InvalidOperationException>(() => creature.Destroy());
 
+        StringAssert.Contains(secondFailure.Message, "already destroyed");
         Assert.IsTrue(creature.IsDestroyed);
         scope.Received(1).Dispose();
     }

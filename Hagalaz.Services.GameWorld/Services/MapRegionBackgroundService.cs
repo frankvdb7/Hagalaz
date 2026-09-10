@@ -48,8 +48,6 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             foreach (var dimension in _regionService.FindAllDimensions())
             {
-                var regionsToDestroy = new List<IMapRegion>();
-
                 foreach (var region in dimension.Regions.Values
                              .Where(region => region.State == MapRegionState.Ready && region.CanSuspend()))
                 {
@@ -61,33 +59,19 @@ namespace Hagalaz.Services.GameWorld.Services
 
                 foreach (var region in dimension.IdleRegions.Values.Where(region => region.CanDestroy()))
                 {
-                    if (!_regionService.TryTakeIdleMapRegionForDestroy(region.Id, dimension.Id, region))
+                    if (!_regionService.TryRemoveIdleMapRegion(region.Id, dimension.Id, region))
                     {
                         continue;
                     }
 
-                    regionsToDestroy.Add(region);
-                }
-
-                foreach (var region in _regionService.FindPendingDestructionRegions(dimension.Id))
-                {
-                    if (!regionsToDestroy.Contains(region, ReferenceEqualityComparer.Instance))
-                    {
-                        regionsToDestroy.Add(region);
-                    }
-                }
-
-                foreach (var region in regionsToDestroy)
-                {
                     try
                     {
                         await region.DestroyAsync();
-                        _regionService.TryCompleteMapRegionDestruction(region);
                         _logger.LogDebug("Region[{id}] was destroyed.", region.Id);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to destroy pending region[{id}] in dimension[{dimension}]; it remains owned for retry.", region.Id, dimension.Id);
+                        _logger.LogError(ex, "Failed to destroy region[{id}] in dimension[{dimension}]; its ownership was already released.", region.Id, dimension.Id);
                     }
                 }
 

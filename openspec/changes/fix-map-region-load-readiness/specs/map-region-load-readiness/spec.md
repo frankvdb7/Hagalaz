@@ -116,12 +116,10 @@ MUST NOT publish into a dimension that has been detached during construction.
 ### Requirement: Terminal destruction attempts all cleanup
 
 Once an idle region is successfully claimed for destruction, it MUST NOT return
-to active or idle residency. The exact instance MUST remain in pending-
-destruction ownership until cleanup succeeds. Destruction MUST attempt cleanup
-for every owned NPC, ground item, and game object even when an individual
-cleanup fails. Cleanup failures MUST be preserved and reported after all
-attempts; a failed attempt MUST remain retryable and MUST NOT mark the region
-destroyed.
+to active or idle residency. Destruction MUST attempt cleanup for every owned
+NPC, ground item, and game object even when an individual cleanup fails. The
+first cleanup failure MUST be reported after all attempts, and the region MUST
+be terminally destroyed even when cleanup is incomplete.
 
 #### Scenario: One NPC cleanup fails
 
@@ -132,14 +130,15 @@ destroyed.
 #### Scenario: Multiple cleanup operations fail
 
 - **WHEN** NPC, ground-item, and game-object cleanup each fail
-- **THEN** destruction MUST report all failures in one aggregate exception
-- **AND** the region MUST remain in the destroying state for reconciliation
+- **THEN** destruction MUST report the first failure
+- **AND** the region MUST transition to `Destroyed`
+- **AND** every later cleanup operation MUST still be attempted
 
-#### Scenario: Cleanup succeeds after a failed attempt
+#### Scenario: Cleanup fails after a region has been claimed
 
-- **WHEN** a later retry completes all previously failed cleanup
-- **THEN** the region MUST transition to `Destroyed`
-- **AND** each already-successful cleanup MUST NOT be repeated
+- **WHEN** cleanup fails after an exact idle region has been removed from residency
+- **THEN** the region MUST remain terminal and non-canonical
+- **AND** the background service MUST log the failure without retaining the region for retry
 
 ### Requirement: Region lifecycle has one explicit source of truth
 

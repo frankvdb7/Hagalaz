@@ -45,15 +45,17 @@
 - [x] 3.6 Delete obsolete region and region-part unpublished-load rollback
       interfaces, reset methods, helpers, and same-instance rollback tests.
 - [x] 3.7 Make terminal region destruction best-effort across NPCs, ground
-      items, and game objects, preserving all cleanup failures after attempts.
-- [x] 3.8 Retain claimed regions in pending-destruction ownership, retry failed
-      cleanup, serialize concurrent destruction, and reject stale mutations.
+      items, and game objects, preserving the first cleanup failure after all
+      attempts.
+- [x] 3.8 Remove pending-destruction residency and retry ownership; serialize
+      concurrent destruction and reject stale mutations.
 
 ## 4. Direct NPC cleanup
 
 - [x] 4.1 Use direct indexed `NpcStore` lookup under the existing reader lock and
       remove the unused predicate lookup API.
-- [x] 4.2 Keep registration/cleanup aggregate exceptions flat and understandable.
+- [x] 4.2 Preserve primary registration/cleanup failures and log best-effort
+      cleanup failures without aggregate exception plumbing.
 - [x] 4.3 Make creature removal exact-owner-safe when an index is reused.
 - [x] 4.4 Track NPC script initialization before `OnCreate` so registration
       rollback invokes `OnDestroy` for partial initialization only.
@@ -72,7 +74,7 @@
       packet selection independently of readiness. Cover concurrent resume,
       stale destruction claims, destruction-before-resume, suspend-vs-create,
       stale-instance operations, non-zero dimensions, exact dimension removal,
-      and terminal cleanup aggregation.
+      and terminal cleanup failure handling.
 - [x] 5.2 Run focused map loader, map service, map provider, NPC, viewport,
       worker, and scheduler tests plus `git diff --check`.
 - [x] 5.3 Run strict OpenSpec validation and the affected project build.

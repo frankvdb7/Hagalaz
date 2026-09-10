@@ -34,8 +34,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private Dictionary<Type, List<EventHappened>> _registeredEventHandlers = new();
         private CreatureUpdateState _updateState = CreatureUpdateState.Initializing;
         private readonly IServiceScope _serviceScope = default!;
-        private bool _regionRemovalCompleted;
-        private bool _areaExitCompleted;
         private int _destructionInProgress;
 
         public bool IsDestroyed { get; private set; }
@@ -230,72 +228,65 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             }
 
             _updateState = CreatureUpdateState.Destroying;
-            var failures = new List<Exception>();
+            Exception? failure = null;
             try
             {
-                if (!_regionRemovalCompleted && Location != null)
-                {
-                    try
-                    {
-                        var region = MapRegionService.GetMapRegion(Location.RegionId, Location.Dimension, false, false);
-                        if (region != null)
-                        {
-                            RemoveFromRegion(region);
-                        }
-
-                        _regionRemovalCompleted = true;
-                    }
-                    catch (Exception exception)
-                    {
-                        failures.Add(exception);
-                    }
-                }
-
-                if (!_areaExitCompleted && Area is not null)
-                {
-                    try
-                    {
-                        Area.OnCreatureExitArea(this);
-                        _areaExitCompleted = true;
-                    }
-                    catch (Exception exception)
-                    {
-                        failures.Add(exception);
-                    }
-                }
-
                 try
                 {
                     OnDestroy();
                 }
                 catch (Exception exception)
                 {
-                    failures.Add(exception);
+                    failure = exception;
                 }
 
-                if (failures.Count > 0)
+                try
                 {
-                    ThrowCleanupFailures(failures);
+                    if (Location != null)
+                    {
+                        var region = MapRegionService.GetMapRegion(Location.RegionId, Location.Dimension, false, false);
+                        if (region != null)
+                        {
+                            RemoveFromRegion(region);
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    failure ??= exception;
                 }
 
-                _serviceScope.Dispose();
-                IsDestroyed = true;
-                _updateState = CreatureUpdateState.Destroyed;
+                try
+                {
+                    if (Area is not null)
+                    {
+                        Area.OnCreatureExitArea(this);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    failure ??= exception;
+                }
             }
             finally
             {
-                Volatile.Write(ref _destructionInProgress, 0);
-            }
-        }
+                try
+                {
+                    _serviceScope.Dispose();
+                }
+                catch (Exception exception)
+                {
+                    failure ??= exception;
+                }
 
-        private static void ThrowCleanupFailures(IReadOnlyCollection<Exception> failures)
-        {
-            if (failures.Count == 1)
+                IsDestroyed = true;
+                _updateState = CreatureUpdateState.Destroyed;
+            }
+
+            if (failure is not null)
             {
-                ExceptionDispatchInfo.Capture(failures.Single()).Throw();
+                ExceptionDispatchInfo.Capture(failure).Throw();
             }
-
-            throw new AggregateException("Creature destruction failed.", failures);
         }
 
         /// <summary>
@@ -982,7 +973,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
             if (failures.Count > 0)
             {
-                ThrowCleanupFailures(failures);
+                throw failures[0];
             }
         }
 

@@ -312,6 +312,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         public async Task DestroyAsync()
         {
             await _destructionLock.WaitAsync().ConfigureAwait(false);
+            Exception? failure = null;
             try
             {
                 INpc[] npcs;
@@ -330,18 +331,19 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     objects = FindAllGameObjects().ToArray();
                 }
 
-                var failures = new List<Exception>();
-
                 foreach (var npc in npcs)
                 {
                     try
                     {
                         await _npcService.UnregisterAsync(npc).ConfigureAwait(false);
-                        RemoveNpcAfterDestruction(npc);
                     }
                     catch (Exception ex)
                     {
-                        failures.Add(ex);
+                        failure ??= ex;
+                    }
+                    finally
+                    {
+                        RemoveNpcAfterDestruction(npc);
                     }
                 }
 
@@ -349,42 +351,43 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     if (item.IsDestroyed)
                     {
+                        RemoveGroundItemAfterDestruction(item);
                         continue;
                     }
 
                     try
                     {
                         item.Destroy();
-                        RemoveGroundItemAfterDestruction(item);
                     }
-                    catch (Exception ex) { failures.Add(ex); }
+                    catch (Exception ex) { failure ??= ex; }
+                    finally { RemoveGroundItemAfterDestruction(item); }
                 }
 
                 foreach (var obj in objects)
                 {
                     if (obj.IsDestroyed)
                     {
+                        RemoveGameObjectAfterDestruction(obj);
                         continue;
                     }
 
                     try
                     {
                         obj.Destroy();
-                        RemoveGameObjectAfterDestruction(obj);
                     }
-                    catch (Exception ex) { failures.Add(ex); }
+                    catch (Exception ex) { failure ??= ex; }
+                    finally { RemoveGameObjectAfterDestruction(obj); }
                 }
-
-                if (failures.Count > 0)
-                {
-                    throw new AggregateException($"Region {this} cleanup failed; the region remains pending reconciliation.", failures);
-                }
-
-                Interlocked.Exchange(ref _destructionState, (int)MapRegionDestructionState.Destroyed);
             }
             finally
             {
+                Interlocked.Exchange(ref _destructionState, (int)MapRegionDestructionState.Destroyed);
                 _destructionLock.Release();
+            }
+
+            if (failure is not null)
+            {
+                throw failure;
             }
         }
 

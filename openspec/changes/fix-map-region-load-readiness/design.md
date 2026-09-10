@@ -38,8 +38,8 @@ is never reset or retried.
 
 Destruction is tracked separately with `MapRegionDestructionState` so initial
 loading semantics remain unchanged. A claimed region transitions from
-`Active` to `Destroying`; cleanup failures leave it in `Destroying` for
-reconciliation, and only complete cleanup transitions it to `Destroyed`.
+`Active` to `Destroying` and then to terminal `Destroyed` even when an
+individual cleanup operation fails.
 
 ### 3. Apply prepared map state before NPC registration
 
@@ -99,16 +99,16 @@ service also leaves initializing regions active until they publish readiness.
 The GameWorker filters its snapshot to ready regions before any major tick
 phase, and collision returns `FloorBlock` for every non-ready state.
 
-### 9. Centralize residency ownership and destruction reconciliation
+### 9. Centralize residency ownership and terminal destruction
 
 `MapRegionService` owns active/idle residency transitions. A small
 per-dimension synchronization root covers only dictionary ownership changes,
 so active-to-idle transfer, idle-to-active resume, and exact idle destruction
 claims cannot expose a gap or create a second canonical instance. A destruction
-claim moves the exact idle instance into a pending-destruction store before
-cleanup starts. That store remains the owner across failures and is retried by
-the background reconciler; successful cleanup removes only the exact pending
-instance. Existing concurrent dictionaries remain the storage mechanism, and
+claim removes the exact idle instance before cleanup starts. Cleanup is terminal:
+the region is no longer canonical even when an individual cleanup operation
+fails, so the background service logs the failure and does not retain a retry
+collection. Existing concurrent dictionaries remain the storage mechanism, and
 exact instance removal remains compare-by-key-and-value cleanup for failed
 loads.
 
@@ -118,11 +118,9 @@ publication revalidates that the captured dimension is still current before
 inserting the region.
 
 `MapRegion` destruction serializes concurrent callers, attempts every NPC,
-ground item, and game object independently, preserves failures as one
-`AggregateException`, and retries only incomplete cleanup. It reports
-`Destroying` until all cleanup succeeds, then marks the region `Destroyed`.
-New mutations are rejected after destruction begins, and pending destruction
-counts prevent a dimension from being removed prematurely.
+ground item, and game object independently, preserves the first failure, and
+always marks the instance `Destroyed`. New mutations are rejected after
+destruction begins; no in-memory retry owner is introduced.
 
 ### 10. Preserve dynamic source dimensions
 
@@ -139,8 +137,8 @@ ownership without introducing a generic template abstraction.
 `NpcStore.FindByIndexAsync` uses `CreatureCollection`'s indexer under a short
 `AsyncReaderWriterLock` reader lock. The unused predicate API is removed. Sync
 writer/readers continue to use the lock's synchronous methods where applicable.
-Registration/cleanup aggregate exceptions are flattened at the public throw
-boundary.
+Registration and cleanup preserve the primary operation failure while logging
+best-effort cleanup failures.
 
 ## Failure flow
 

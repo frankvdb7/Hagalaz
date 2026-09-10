@@ -126,13 +126,13 @@ public sealed class NpcBuilderTests
         var firstFailure = Assert.ThrowsExactly<InvalidOperationException>(() => npc.Destroy());
 
         Assert.AreSame(scriptFailure, firstFailure);
-        Assert.IsFalse(npc.IsDestroyed);
+        Assert.IsTrue(npc.IsDestroyed);
         eventManager.Received(1).StopListen(typeof(CreatureDestroyedEvent), eventHandle);
 
-        npc.Destroy();
+        Assert.ThrowsExactly<InvalidOperationException>(() => npc.Destroy());
 
         Assert.IsTrue(npc.IsDestroyed);
-        script.Received(2).OnDestroy();
+        script.Received(1).OnDestroy();
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(value => value is CreatureDestroyedEvent));
     }
 

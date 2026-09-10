@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
@@ -230,7 +231,7 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
-    public void TryTakeIdleMapRegionForDestroy_FailsAfterRegionResumes()
+    public void TryRemoveIdleMapRegion_FailsAfterRegionResumes()
     {
         using var provider = CreateProvider();
         var service = CreateService(provider);
@@ -241,12 +242,12 @@ public sealed class MapRegionServiceTests
         var resumed = service.GetOrCreateMapRegion(1, 0, true);
 
         Assert.AreSame(region, resumed);
-        Assert.IsFalse(service.TryTakeIdleMapRegionForDestroy(region.Id, 0, region));
+        Assert.IsFalse(service.TryRemoveIdleMapRegion(region.Id, 0, region));
         Assert.IsFalse(region.IsDestroyed);
     }
 
     [TestMethod]
-    public void TryTakeIdleMapRegionForDestroy_WinsBeforeResumeAndForcesFreshCreation()
+    public void TryRemoveIdleMapRegion_WinsBeforeResumeAndForcesFreshCreation()
     {
         using var provider = CreateProvider();
         var service = CreateService(provider);
@@ -254,7 +255,7 @@ public sealed class MapRegionServiceTests
         region.MarkReady();
         Assert.IsTrue(service.TrySuspendMapRegion(region));
 
-        Assert.IsTrue(service.TryTakeIdleMapRegionForDestroy(region.Id, 0, region));
+        Assert.IsTrue(service.TryRemoveIdleMapRegion(region.Id, 0, region));
         var replacement = service.GetOrCreateMapRegion(region.Id, 0, true);
 
         Assert.AreNotSame(region, replacement);
@@ -263,7 +264,7 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
-    public async Task TryTakeIdleMapRegionForDestroy_RetainsExactPendingOwnerUntilCompletion()
+    public async Task TryRemoveIdleMapRegion_ReleasesExactOwnerAfterRemoval()
     {
         using var provider = CreateProvider();
         var service = CreateService(provider);
@@ -272,14 +273,10 @@ public sealed class MapRegionServiceTests
         region.MarkReady();
         Assert.IsTrue(service.TrySuspendMapRegion(region));
 
-        Assert.IsTrue(service.TryTakeIdleMapRegionForDestroy(region.Id, dimension.Id, region));
-        Assert.AreSame(region, service.FindPendingDestructionRegions(dimension.Id).Single());
-        Assert.IsFalse(dimension.CanDestroy());
+        Assert.IsTrue(service.TryRemoveIdleMapRegion(region.Id, dimension.Id, region));
+        Assert.IsTrue(dimension.CanDestroy());
 
         await region.DestroyAsync();
-
-        Assert.IsTrue(service.TryCompleteMapRegionDestruction(region));
-        Assert.IsFalse(service.FindPendingDestructionRegions(dimension.Id).Any());
     }
 
     [TestMethod]
@@ -320,7 +317,7 @@ public sealed class MapRegionServiceTests
         var currentRegion = service.GetOrCreateMapRegion(1, 0, false);
 
         Assert.IsFalse(service.TrySuspendMapRegion(staleRegion));
-        Assert.IsFalse(service.TryTakeIdleMapRegionForDestroy(staleRegion.Id, 0, staleRegion));
+        Assert.IsFalse(service.TryRemoveIdleMapRegion(staleRegion.Id, 0, staleRegion));
         Assert.IsFalse(service.TryRemoveMapRegion(staleRegion.Id, 0, staleRegion));
         Assert.AreSame(currentRegion, service.GetMapRegion(1, 0, false, false));
         Assert.IsFalse(currentRegion.IsDestroyed);
@@ -344,8 +341,8 @@ public sealed class MapRegionServiceTests
         var service = CreateService(provider);
         var dimension = service.FindAllDimensions().Single();
 
-        Assert.IsFalse(dimension.Regions is IDictionary<int, IMapRegion>);
-        Assert.IsFalse(dimension.IdleRegions is IDictionary<int, IMapRegion>);
+        Assert.IsFalse(dimension.Regions is ConcurrentDictionary<int, IMapRegion>);
+        Assert.IsFalse(dimension.IdleRegions is ConcurrentDictionary<int, IMapRegion>);
     }
 
     [TestMethod]

@@ -38,7 +38,8 @@ corrupt map data into apparently empty map data.
   construction or registration failure aborts the load, and cancellation is
   never swallowed.
 - Every NPC successfully registered by a failed attempt is unregistered before
-  the attempt completes, with cleanup failures preserved.
+  the attempt completes, with cleanup failures logged without replacing the
+  primary load failure.
 - The failed region is removed only when the service still holds that exact
   instance; a stale failure cannot remove a replacement region.
 - A later request creates a fresh region instance, and concurrent requests for

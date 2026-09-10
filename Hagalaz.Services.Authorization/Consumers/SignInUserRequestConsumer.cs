@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Authorization.Messages;
@@ -74,7 +72,6 @@ namespace Hagalaz.Services.Authorization.Consumers
             OpenIddictEntityFrameworkCoreAuthorization? authorization = null;
             string? authorizationId = null;
             var authorizationCommitted = false;
-            Exception? primaryFailure = null;
             try
             {
                 authorization = await _authorizationManager.CreateAsync(
@@ -136,35 +133,19 @@ namespace Hagalaz.Services.Authorization.Consumers
                 });
                 authorizationCommitted = true;
             }
-            catch (Exception exception)
-            {
-                primaryFailure = exception;
-                throw;
-            }
             finally
             {
                 if (authorization is not null && !authorizationCommitted)
                 {
-                    var cleanupFailure = await CleanupAuthorizationAsync(authorization, authorizationId);
-                    if (cleanupFailure is not null)
-                    {
-                        if (primaryFailure is not null)
-                        {
-                            throw new AggregateException("Authorization issuance and cleanup both failed.", primaryFailure, cleanupFailure);
-                        }
-
-                        throw cleanupFailure;
-                    }
+                    await CleanupAuthorizationAsync(authorization, authorizationId);
                 }
             }
         }
 
-        private async Task<Exception?> CleanupAuthorizationAsync(
+        private async Task CleanupAuthorizationAsync(
             OpenIddictEntityFrameworkCoreAuthorization authorization,
             string? authorizationId)
         {
-            List<Exception>? failures = null;
-
             if (!string.IsNullOrWhiteSpace(authorizationId))
             {
                 try
@@ -173,7 +154,7 @@ namespace Hagalaz.Services.Authorization.Consumers
                 }
                 catch (Exception exception)
                 {
-                    (failures ??= []).Add(exception);
+                    _logger.LogError(exception, "Failed to revoke tokens for authorization '{AuthorizationId}' after sign-in failed.", authorizationId);
                 }
             }
 
@@ -183,17 +164,8 @@ namespace Hagalaz.Services.Authorization.Consumers
             }
             catch (Exception exception)
             {
-                (failures ??= []).Add(exception);
+                _logger.LogError(exception, "Failed to delete authorization '{AuthorizationId}' after sign-in failed.", authorizationId);
             }
-
-            if (failures is null)
-            {
-                return null;
-            }
-
-            var cleanupFailure = new AggregateException("Failed to clean up the uncommitted authorization.", failures);
-            _logger.LogError(cleanupFailure, "Failed to clean up authorization '{AuthorizationId}' after sign-in failed.", authorizationId);
-            return cleanupFailure;
         }
     }
 }

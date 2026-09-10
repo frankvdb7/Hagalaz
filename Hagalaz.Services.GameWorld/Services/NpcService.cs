@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions.Types;
@@ -39,7 +38,8 @@ namespace Hagalaz.Services.GameWorld.Services
             }
             catch (Exception exception)
             {
-                RethrowRegistrationFailure(exception, CleanupUnpublishedNpc(npc));
+                DestroyAfterFailedRegistration(npc);
+                ExceptionDispatchInfo.Capture(exception).Throw();
                 return;
             }
 
@@ -47,8 +47,8 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 var failure = new InvalidOperationException($"Failed to add NPC '{npc}' to the global store.");
                 _logger.LogWarning(failure, "Failed to add NPC '{npc}' to the global store.", npc);
-                RethrowRegistrationFailure(failure, CleanupUnpublishedNpc(npc));
-                return;
+                DestroyAfterFailedRegistration(npc);
+                throw failure;
             }
 
             try
@@ -57,7 +57,9 @@ namespace Hagalaz.Services.GameWorld.Services
             }
             catch (Exception exception)
             {
-                RethrowRegistrationFailure(exception, await CleanupRegisteredNpcAsync(npc));
+                await RemoveAfterFailedRegistrationAsync(npc);
+                DestroyAfterFailedRegistration(npc);
+                ExceptionDispatchInfo.Capture(exception).Throw();
             }
         }
 
@@ -72,7 +74,8 @@ namespace Hagalaz.Services.GameWorld.Services
             }
             catch (Exception exception)
             {
-                RethrowRegistrationFailure(exception, CleanupUnpublishedNpc(npc));
+                DestroyAfterFailedRegistration(npc);
+                ExceptionDispatchInfo.Capture(exception).Throw();
                 return;
             }
 
@@ -80,8 +83,8 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 var failure = new InvalidOperationException($"Failed to add NPC '{npc}' to the global store.");
                 _logger.LogWarning(failure, "Failed to add NPC '{npc}' to the global store.", npc);
-                RethrowRegistrationFailure(failure, CleanupUnpublishedNpc(npc));
-                return;
+                DestroyAfterFailedRegistration(npc);
+                throw failure;
             }
 
             try
@@ -90,7 +93,9 @@ namespace Hagalaz.Services.GameWorld.Services
             }
             catch (Exception exception)
             {
-                RethrowRegistrationFailure(exception, CleanupRegisteredNpc(npc));
+                RemoveAfterFailedRegistration(npc);
+                DestroyAfterFailedRegistration(npc);
+                ExceptionDispatchInfo.Capture(exception).Throw();
             }
         }
 
@@ -103,116 +108,80 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
-        private Exception? CleanupUnpublishedNpc(INpc npc) =>
-            CreateCleanupFailure(npc, removalFailure: null, destroyFailure: DestroyNpcSafely(npc));
-
-        private async Task<Exception?> CleanupRegisteredNpcAsync(INpc npc) =>
-            CreateCleanupFailure(npc, await RemoveNpcForRegistrationRollbackAsync(npc), destroyFailure: DestroyNpcSafely(npc));
-
-        private Exception? CleanupRegisteredNpc(INpc npc) =>
-            CreateCleanupFailure(npc, RemoveNpcForRegistrationRollback(npc), destroyFailure: DestroyNpcSafely(npc));
-
-        private async Task<Exception?> RemoveNpcForRegistrationRollbackAsync(INpc npc)
+        private async Task RemoveAfterFailedRegistrationAsync(INpc npc)
         {
             try
             {
                 if (!await _npcStore.RemoveAsync(npc))
                 {
-                    return new InvalidOperationException($"Failed to remove NPC '{npc}' from the global store during registration rollback.");
+                    _logger.LogWarning("Failed to remove NPC '{npc}' from the global store during registration rollback.", npc);
                 }
-
-                return null;
             }
             catch (Exception exception)
             {
-                return exception;
+                _logger.LogError(exception, "Failed to remove NPC '{npc}' from the global store during registration rollback.", npc);
             }
         }
 
-        private Exception? RemoveNpcForRegistrationRollback(INpc npc)
+        private void RemoveAfterFailedRegistration(INpc npc)
         {
             try
             {
                 if (!_npcStore.Remove(npc))
                 {
-                    return new InvalidOperationException($"Failed to remove NPC '{npc}' from the global store during registration rollback.");
+                    _logger.LogWarning("Failed to remove NPC '{npc}' from the global store during registration rollback.", npc);
                 }
-
-                return null;
             }
             catch (Exception exception)
             {
-                return exception;
+                _logger.LogError(exception, "Failed to remove NPC '{npc}' from the global store during registration rollback.", npc);
             }
         }
 
-        private Exception? DestroyNpcSafely(INpc npc)
+        private void DestroyAfterFailedRegistration(INpc npc)
         {
             if (npc.IsDestroyed)
             {
-                return null;
+                return;
             }
 
             try
             {
                 npc.Destroy();
-                return null;
             }
             catch (Exception exception)
             {
-                return exception;
+                _logger.LogError(exception, "Failed to destroy NPC '{npc}' after registration failed.", npc);
             }
-        }
-
-        private Exception? CreateCleanupFailure(INpc npc, Exception? removalFailure, Exception? destroyFailure)
-        {
-            List<Exception>? failures = null;
-
-            if (removalFailure is not null)
-            {
-                (failures ??= []).Add(removalFailure);
-            }
-
-            if (destroyFailure is not null)
-            {
-                (failures ??= []).Add(destroyFailure);
-            }
-
-            if (failures is null)
-            {
-                return null;
-            }
-
-            var cleanupFailure = new AggregateException("Failed to clean up the unregistered NPC.", failures);
-            _logger.LogError(cleanupFailure, "Failed to clean up NPC '{npc}' after registration failed.", npc);
-            return cleanupFailure;
-        }
-
-        private static void RethrowRegistrationFailure(Exception registrationFailure, Exception? cleanupFailure)
-        {
-            if (cleanupFailure is not null)
-            {
-                throw new AggregateException("NPC registration and cleanup both failed.", registrationFailure, cleanupFailure).Flatten();
-            }
-
-            ExceptionDispatchInfo.Capture(registrationFailure).Throw();
         }
 
         public async Task UnregisterAsync(INpc npc)
         {
-            var destroyFailure = DestroyNpcSafely(npc);
-            var removalFailure = await RemoveNpcAsync(npc);
-            RethrowUnregisterFailures(destroyFailure, removalFailure);
+            try
+            {
+                if (!npc.IsDestroyed)
+                    npc.Destroy();
+            }
+            finally
+            {
+                await RemoveNpcAsync(npc);
+            }
         }
 
         public void Unregister(INpc npc)
         {
-            var destroyFailure = DestroyNpcSafely(npc);
-            var removalFailure = RemoveNpc(npc);
-            RethrowUnregisterFailures(destroyFailure, removalFailure);
+            try
+            {
+                if (!npc.IsDestroyed)
+                    npc.Destroy();
+            }
+            finally
+            {
+                RemoveNpc(npc);
+            }
         }
 
-        private async Task<Exception?> RemoveNpcAsync(INpc npc)
+        private async Task RemoveNpcAsync(INpc npc)
         {
             try
             {
@@ -221,15 +190,14 @@ namespace Hagalaz.Services.GameWorld.Services
                     _logger.LogWarning("Failed to remove npc '{npc}'", npc);
                 }
 
-                return null;
             }
             catch (Exception exception)
             {
-                return exception;
+                _logger.LogError(exception, "Failed to remove npc '{npc}'", npc);
             }
         }
 
-        private Exception? RemoveNpc(INpc npc)
+        private void RemoveNpc(INpc npc)
         {
             try
             {
@@ -238,29 +206,10 @@ namespace Hagalaz.Services.GameWorld.Services
                     _logger.LogWarning("Failed to remove npc '{npc}'", npc);
                 }
 
-                return null;
             }
             catch (Exception exception)
             {
-                return exception;
-            }
-        }
-
-        private static void RethrowUnregisterFailures(Exception? destroyFailure, Exception? removalFailure)
-        {
-            if (destroyFailure is not null && removalFailure is not null)
-            {
-                throw new AggregateException("NPC destruction and global-store removal both failed.", destroyFailure, removalFailure);
-            }
-
-            if (destroyFailure is not null)
-            {
-                ExceptionDispatchInfo.Capture(destroyFailure).Throw();
-            }
-
-            if (removalFailure is not null)
-            {
-                ExceptionDispatchInfo.Capture(removalFailure).Throw();
+                _logger.LogError(exception, "Failed to remove npc '{npc}'", npc);
             }
         }
 
