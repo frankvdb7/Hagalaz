@@ -27,6 +27,11 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         int DrawRegionZ { get; set; }
 
         /// <summary>
+        /// Gets or sets the dimension of the source region part.
+        /// </summary>
+        int DrawRegionDimension { get; set; }
+
+        /// <summary>
         /// Gets or sets the rotation of this region part.
         /// </summary>
         int Rotation { get; set; }

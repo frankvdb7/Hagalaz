@@ -7,7 +7,6 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
-using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests;
@@ -22,17 +21,69 @@ public sealed class MapRegionDestructionTests
         var first = CreateNpc(1);
         var second = CreateNpc(2);
         var third = CreateNpc(3);
-        npcService.UnregisterAsync(first).Returns(Task.FromException(new InvalidOperationException("npc-a")));
         var region = CreateRegion(npcService);
         region.Add(first);
         region.Add(second);
         region.Add(third);
+        npcService.UnregisterAsync(first)
+            .Returns(_ =>
+            {
+                region.Remove(first);
+                return Task.FromException(new InvalidOperationException("npc-a"));
+            });
 
         await Assert.ThrowsExactlyAsync<AggregateException>(() => region.DestroyAsync());
 
         await npcService.Received(1).UnregisterAsync(first);
         await npcService.Received(1).UnregisterAsync(second);
         await npcService.Received(1).UnregisterAsync(third);
+    }
+
+    [TestMethod]
+    public async Task DestroyAsync_WhenNpcCleanupRemovesLaterNpc_StillAttemptsTheSnapshotEntry()
+    {
+        var npcService = Substitute.For<INpcService>();
+        var first = CreateNpc(1);
+        var second = CreateNpc(2);
+        var region = CreateRegion(npcService);
+        region.Add(first);
+        region.Add(second);
+        npcService.UnregisterAsync(first).Returns(_ =>
+        {
+            region.Remove(second);
+            return Task.CompletedTask;
+        });
+
+        await region.DestroyAsync();
+
+        await npcService.Received(1).UnregisterAsync(first);
+        await npcService.Received(1).UnregisterAsync(second);
+    }
+
+    [TestMethod]
+    public async Task DestroyAsync_WhenNpcCleanupRemovesItemsAndObjects_StillAttemptsTheirSnapshots()
+    {
+        var npcService = Substitute.For<INpcService>();
+        var npc = CreateNpc(1);
+        var item = Substitute.For<IGroundItem>();
+        item.Location.Returns(Location.Create(1, 1, 0, 0));
+        var gameObject = CreateGameObject(Location.Create(2, 2, 0, 0));
+        var region = CreateRegion(npcService);
+        region.Add(npc);
+        region.Add(item);
+        region.Add(gameObject);
+        npcService.UnregisterAsync(npc).Returns(_ =>
+        {
+            region.Remove(item);
+            region.Remove(gameObject);
+            return Task.CompletedTask;
+        });
+
+        await region.DestroyAsync();
+
+        await npcService.Received(1).UnregisterAsync(npc);
+        item.Received(2).Destroy();
+        gameObject.Received(2).Destroy();
     }
 
     [TestMethod]
@@ -46,7 +97,7 @@ public sealed class MapRegionDestructionTests
         var item = Substitute.For<IGroundItem>();
         item.Location.Returns(Location.Create(1, 1, 0, 0));
         region.Add(item);
-        var gameObject = CreateGameObject();
+        var gameObject = CreateGameObject(Location.Create(2, 2, 0, 0));
         region.Add(gameObject);
 
         await Assert.ThrowsExactlyAsync<AggregateException>(() => region.DestroyAsync());
@@ -68,7 +119,7 @@ public sealed class MapRegionDestructionTests
         item.When(itemToDestroy => itemToDestroy.Destroy())
             .Do(_ => throw new InvalidOperationException("item-failure"));
         region.Add(item);
-        var gameObject = CreateGameObject();
+        var gameObject = CreateGameObject(Location.Create(2, 2, 0, 0));
         gameObject.When(objectToDestroy => objectToDestroy.Destroy())
             .Do(_ => throw new InvalidOperationException("object-failure"));
         region.Add(gameObject);
@@ -113,10 +164,10 @@ public sealed class MapRegionDestructionTests
         return npc;
     }
 
-    private static IGameObject CreateGameObject()
+    private static IGameObject CreateGameObject(ILocation location)
     {
         var gameObject = Substitute.For<IGameObject>();
-        gameObject.Location.Returns(Location.Create(2, 2, 0, 0));
+        gameObject.Location.Returns(location);
         gameObject.ShapeType.Returns(ShapeType.GroundDefault);
         var definition = Substitute.For<IGameObjectDefinition>();
         definition.ClipType.Returns(1);

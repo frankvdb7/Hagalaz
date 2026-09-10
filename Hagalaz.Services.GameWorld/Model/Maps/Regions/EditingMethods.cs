@@ -29,6 +29,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                             part.DrawRegionPartX = partX;
                             part.DrawRegionPartY = partY;
                             part.DrawRegionZ = z;
+                            part.DrawRegionDimension = BaseLocation.Dimension;
                             part.Rotation = 0;
                         }
                     }
@@ -79,9 +80,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// <param name="drawPartX">The draw part X.</param>
         /// <param name="drawPartY">The draw part Y.</param>
         /// <param name="drawPartZ">The draw part Z.</param>
-        public void WriteBlock(int partX, int partY, int z, int drawPartX, int drawPartY, int drawPartZ) => WriteBlockByIndex(PartToLocalPart(partX), PartToLocalPart(partY), z, drawPartX, drawPartY, drawPartZ);
+        public void WriteBlock(int partX, int partY, int z, int drawPartX, int drawPartY, int drawPartZ) => WriteBlock(partX, partY, z, drawPartX, drawPartY, drawPartZ, BaseLocation.Dimension);
 
-        public void WriteBlockByIndex(int localPartX, int localPartY, int z, int drawPartX, int drawPartY, int drawPartZ)
+        public void WriteBlock(int partX, int partY, int z, int drawPartX, int drawPartY, int drawPartZ, int drawPartDimension) => WriteBlockByIndex(PartToLocalPart(partX), PartToLocalPart(partY), z, drawPartX, drawPartY, drawPartZ, drawPartDimension);
+
+        public void WriteBlockByIndex(int localPartX, int localPartY, int z, int drawPartX, int drawPartY, int drawPartZ, int drawPartDimension)
         {
             if (!IsDynamic)
             {
@@ -94,6 +97,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             part.DrawRegionPartX = drawPartX;
             part.DrawRegionPartY = drawPartY;
             part.DrawRegionZ = drawPartZ;
+            part.DrawRegionDimension = drawPartDimension;
             UnloadPartGameObjects(partX, partY, z, part.Rotation);
             LoadPartObjects(partX, partY, z, part.Rotation);
         }

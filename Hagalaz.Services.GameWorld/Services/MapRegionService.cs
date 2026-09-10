@@ -79,7 +79,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     for (var yWrite = 0; yWrite < 8; yWrite++)
                     {
                         var zombypart = coolRegion.GetRegionPartData(xWrite, yWrite, z);
-                        lumby.WriteBlock(xWrite, yWrite, z, zombypart.DrawRegionPartX, zombypart.DrawRegionPartY, zombypart.DrawRegionZ);
+                        lumby.WriteBlock(xWrite, yWrite, z, zombypart.DrawRegionPartX, zombypart.DrawRegionPartY, zombypart.DrawRegionZ, zombypart.DrawRegionDimension);
                     }
                 }
             }
@@ -294,7 +294,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     for (var yIndex = 0; yIndex < 8; yIndex++)
                     {
                         var part = standardRegion.GetRegionPartData(xIndex, yIndex, z);
-                        dynamicRegion.WriteBlock(xIndex, yIndex, z, part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ);
+                        dynamicRegion.WriteBlock(xIndex, yIndex, z, part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.DrawRegionDimension);
                     }
                 }
             }

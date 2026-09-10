@@ -18,6 +18,8 @@
       claims in `MapRegionService` without adding lifecycle states.
 - [x] 1.10 Preserve requested dimension identity during region construction and
       revalidate dimension ownership before publication.
+- [x] 1.11 Preserve the source dimension in dynamic region-part mappings while
+      keeping copied runtime objects in the destination dimension.
 
 ## 2. Scheduler and ownership
 
@@ -64,4 +66,5 @@
       worker, and scheduler tests plus `git diff --check`.
 - [x] 5.3 Run strict OpenSpec validation and the affected project build.
 - [ ] 5.4 Rebuild/restart the affected service and manually verify static and
-      custom-object clipping in the client.
+      custom-object clipping in the client using the documented steps in the
+      design artifact. Keep this unchecked until the graphical client is run.

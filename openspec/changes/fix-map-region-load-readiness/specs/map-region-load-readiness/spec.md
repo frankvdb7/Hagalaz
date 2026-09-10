@@ -67,6 +67,21 @@ from the region ID.
 - **THEN** R1's base location dimension MUST be 1
 - **AND** suspend, resume, and current-instance checks MUST address dimension 1
 
+### Requirement: Dynamic regions preserve source and destination dimensions
+
+When a dynamic region copies a mapped part, the system MUST resolve source
+objects and source collision using the part's source/template dimension. Any
+copied runtime object MUST be created with the destination region's dimension,
+and the destination region MUST retain its own dimension identity.
+
+#### Scenario: A dimension-zero source is copied into dimension one
+
+- **WHEN** a dynamic region in dimension 1 maps a part from a source region in
+  dimension 0
+- **THEN** source lookup MUST request the source region in dimension 0
+- **AND** copied collision MUST come from that source region
+- **AND** copied object locations MUST use dimension 1
+
 ### Requirement: Dimension removal preserves exact ownership
 
 A dimension MAY be removed only when the exact expected dimension instance is

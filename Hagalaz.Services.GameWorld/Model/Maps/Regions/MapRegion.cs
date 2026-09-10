@@ -277,7 +277,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             var failures = new List<Exception>();
-            foreach (var npc in FindAllNpcs())
+            var npcs = FindAllNpcs().ToArray();
+            var groundItems = FindAllGroundItems().ToArray();
+            var gameObjects = FindAllGameObjects().ToArray();
+
+            foreach (var npc in npcs)
             {
                 try
                 {
@@ -289,7 +293,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 }
             }
 
-            foreach (var item in FindAllGroundItems())
+            foreach (var item in groundItems)
             {
                 try
                 {
@@ -301,7 +305,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 }
             }
 
-            foreach (var obj in FindAllGameObjects())
+            foreach (var obj in gameObjects)
             {
                 try
                 {
@@ -330,7 +334,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         public IMapRegionPart CreateRegionPart(int partHash) =>
             new MapRegionPart(_mapper, _groundItemBuilder)
             {
-                DrawRegionPartX = partHash & 0x3ff, DrawRegionPartY = (partHash >> 10) & 0x7ff, DrawRegionZ = (partHash >> 21) & 0x3,
+                DrawRegionPartX = partHash & 0x3ff,
+                DrawRegionPartY = (partHash >> 10) & 0x7ff,
+                DrawRegionZ = (partHash >> 21) & 0x3,
+                DrawRegionDimension = BaseLocation.Dimension,
             };
     }
 }

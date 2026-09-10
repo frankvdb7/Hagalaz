@@ -246,6 +246,18 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         void WriteBlock(int partX, int partY, int z, int drawPartX, int drawPartY, int drawPartZ);
 
         /// <summary>
+        /// Writes a dynamic block while preserving the source part dimension.
+        /// </summary>
+        /// <param name="partX">The X-coordinate of the region part.</param>
+        /// <param name="partY">The Y-coordinate of the region part.</param>
+        /// <param name="z">The plane (height level).</param>
+        /// <param name="drawPartX">The X-coordinate of the drawing area.</param>
+        /// <param name="drawPartY">The Y-coordinate of the drawing area.</param>
+        /// <param name="drawPartZ">The plane of the drawing area.</param>
+        /// <param name="drawPartDimension">The dimension of the source drawing area.</param>
+        void WriteBlock(int partX, int partY, int z, int drawPartX, int drawPartY, int drawPartZ, int drawPartDimension);
+
+        /// <summary>
         /// Queues an update for a part of this map region.
         /// </summary>
         /// <param name="update">The region part update to queue.</param>

@@ -14,8 +14,8 @@ and fresh-instance retry through the existing
 service/scheduler.
 
 Non-goals are a generic transaction abstraction, a second queue or worker,
-automatic retries, pathfinding changes, cache-format changes, and unrelated
-GameWorld lifecycle changes.
+automatic retries, dimension-aware pathfinding changes, cache-format changes,
+and unrelated GameWorld lifecycle changes.
 
 ## Decisions
 
@@ -116,7 +116,16 @@ object cleanup independently, marks the region destroyed after all attempts,
 and reports collected failures as one `AggregateException`. A claimed region is
 never reinserted into residency after destruction begins.
 
-### 10. Keep NPC store lookup indexed
+### 10. Preserve dynamic source dimensions
+
+Dynamic map parts retain the source/template dimension alongside their draw
+coordinates. `LoadPartObjects` uses that stored dimension to resolve source
+objects and collision, while copied runtime objects continue to use the
+destination region's `BaseLocation.Dimension`. This keeps source/template
+ownership separate from destination/runtime ownership without introducing a
+generic template abstraction.
+
+### 11. Keep NPC store lookup indexed
 
 `NpcStore.FindByIndexAsync` uses `CreatureCollection`'s indexer under a short
 `AsyncReaderWriterLock` reader lock. The unused predicate API is removed. Sync
@@ -152,3 +161,24 @@ exact replacement, discarded scheduling rejection, canonical identity, stale
 viewport rebinding, ready-only worker ticks, fail-closed collision, and
 existing scheduler coalescing. Run focused tests, strict OpenSpec validation,
 build/diff checks, and broader validation when resources permit.
+
+Dimension-aware collision/pathfinding is tracked separately in
+https://github.com/frankvdb7/Hagalaz/issues/496 because the current coordinate
+only pathfinder APIs would otherwise require a broader API change. Manual
+client verification remains intentionally separate from automated tests.
+
+### Manual client verification for task 5.4
+
+1. Rebuild and restart `Hagalaz.Services.GameWorld` through the normal Aspire
+   AppHost flow, then restart the client.
+2. In a known static map area such as Lumbridge, walk against a solid wall and
+   around a building corner. The player must stop at static clipping boundaries;
+   no walking through walls or visible late collision changes should occur.
+3. Exercise a dynamic/custom-object region created by a script using a source
+   region in dimension 0 and a destination region in the custom dimension.
+   Walk against the copied object from each side. The copied object must block
+   movement in the destination world and must not appear to load or clip from
+   dimension 0.
+4. Treat missing objects, walking through either static or copied objects,
+   objects appearing after entry, or a client disconnect during region loading
+   as failures.
