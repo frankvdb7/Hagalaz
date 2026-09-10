@@ -58,8 +58,9 @@ Pathfinder tests MUST NOT use a call-recording substitute for high-frequency col
 ### Requirement: Generated project output is excluded from MSBuild inputs
 
 Project-local generated `artifacts` output MUST be excluded from implicit
-MSBuild item evaluation so nested publish or plugin output cannot recursively
-become source input during GameWorld validation.
+MSBuild item evaluation, including design-time evaluation, so nested publish
+or plugin output cannot recursively become source input during GameWorld
+validation.
 
 #### Scenario: GameWorld artifacts contain nested build output
 

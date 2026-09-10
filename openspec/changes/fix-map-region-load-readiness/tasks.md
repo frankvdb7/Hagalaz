@@ -12,6 +12,8 @@
 - [x] 1.6 Filter GameWorker processing to `Ready` regions.
 - [x] 1.7 Rebind stale viewport/map-update references through the canonical
       map-region service and consume only `Ready` data.
+- [x] 1.8 Publish concurrent active-region creation through the existing
+      concurrent dictionary so callers converge on one canonical instance.
 
 ## 2. Scheduler and ownership
 
@@ -43,7 +45,8 @@
 
 ## 5. Verification
 
-- [x] 5.1 Retain deterministic scheduler coalescing and ready-region
+- [x] 5.1 Retain deterministic scheduler coalescing, canonical concurrent
+      region creation, and ready-region
       suppression coverage; cover explicit viewport rebinding and dynamic
       packet selection independently of readiness.
 - [x] 5.2 Run focused map loader, map service, map provider, NPC, viewport,

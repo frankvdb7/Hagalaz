@@ -6,6 +6,19 @@ region instances so later requests can create clean replacements.
 
 ## ADDED Requirements
 
+### Requirement: Concurrent region creation has one canonical active instance
+
+When multiple callers create the same absent region concurrently, the map
+service MUST publish one canonical active instance and return that same
+instance to every caller. A losing construction MUST NOT replace or remove
+the instance that won the active-dictionary insertion.
+
+#### Scenario: Concurrent callers create one absent region
+
+- **WHEN** multiple callers request creation of the same absent region
+- **THEN** every caller MUST receive the exact same canonical region instance
+- **AND** the active dimension MUST contain exactly one region for that ID
+
 ### Requirement: Region lifecycle has one explicit source of truth
 
 Every map-region instance MUST expose exactly one initial-load lifecycle state:
@@ -103,8 +116,9 @@ The load scheduler MUST schedule an `Initializing` region only while that exact
 instance remains the canonical region for its ID and dimension. `Ready` regions
 are already loaded, and `Discarded` or stale instances MUST be rejected.
 Viewport and map-update processing MUST resolve retained stale references to
-the canonical current instance where possible. Only `Ready` regions may
-contribute normal creatures, dynamic-map state, full region updates, or world
+the canonical current instance where possible. Dynamic/standard map identity
+is selected from canonical region metadata independently of readiness. Only
+`Ready` regions may contribute normal creatures, full region updates, or world
 ticks. An `Initializing` or `Discarded` region MUST never be treated as ready
 world state.
 

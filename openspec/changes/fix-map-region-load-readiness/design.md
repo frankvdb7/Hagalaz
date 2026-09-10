@@ -94,7 +94,16 @@ service also leaves initializing regions active until they publish readiness.
 The GameWorker filters its snapshot to ready regions before any major tick
 phase, and collision returns `FloorBlock` for every non-ready state.
 
-### 9. Keep NPC store lookup indexed
+### 9. Publish concurrent region creation atomically
+
+`Dimension` owns concurrent dictionaries for active and idle regions. Active
+creation uses `ConcurrentDictionary.GetOrAdd` so the dictionary decides the
+canonical winner and every caller receives its returned value. The region
+constructor has no external registration side effects, so a losing factory
+result is not published and cannot replace or remove the winner. Exact
+instance removal remains compare-by-key-and-value cleanup for failed loads.
+
+### 10. Keep NPC store lookup indexed
 
 `NpcStore.FindByIndexAsync` uses `CreatureCollection`'s indexer under a short
 `AsyncReaderWriterLock` reader lock. The unused predicate API is removed. Sync

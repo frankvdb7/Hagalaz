@@ -1,6 +1,7 @@
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
+using Hagalaz.Game.Abstractions.Builders.Location;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
@@ -100,6 +101,28 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
+    public async Task GetOrCreateMapRegion_ConcurrentCreation_ReturnsOneCanonicalInstance()
+    {
+        const int callerCount = 16;
+        using var provider = CreateProvider();
+        using var creationGate = new Barrier(callerCount);
+        var service = CreateService(provider, new BlockingLocationBuilder(creationGate));
+        var calls = Enumerable.Range(0, callerCount)
+            .Select(_ => Task.Factory.StartNew(
+                () => service.GetOrCreateMapRegion(1, 0, false),
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default))
+            .ToArray();
+
+        var regions = await Task.WhenAll(calls);
+
+        Assert.IsTrue(regions.All(region => ReferenceEquals(regions[0], region)));
+        Assert.AreSame(regions[0], service.GetMapRegion(1, 0, false, false));
+        Assert.AreEqual(1, service.FindRegionsByDimension(0).Count());
+    }
+
+    [TestMethod]
     public void NewRegion_StartsInitializing()
     {
         using var provider = CreateProvider();
@@ -145,11 +168,22 @@ public sealed class MapRegionServiceTests
         .AddSingleton(Substitute.For<INpcService>())
         .BuildServiceProvider();
 
-    private static MapRegionService CreateService(IServiceProvider provider) => new(
+    private static MapRegionService CreateService(IServiceProvider provider) => CreateService(provider, new LocationBuilder());
+
+    private static MapRegionService CreateService(IServiceProvider provider, ILocationBuilder locationBuilder) => new(
         provider,
-        new LocationBuilder(),
+        locationBuilder,
         Substitute.For<IGameObjectBuilder>(),
         Substitute.For<IGroundItemBuilder>(),
         Substitute.For<ILogger<MapRegionService>>(),
         Substitute.For<IMapper>());
+
+    private sealed class BlockingLocationBuilder(Barrier creationGate) : ILocationBuilder
+    {
+        public ILocationX Create()
+        {
+            creationGate.SignalAndWait();
+            return new LocationBuilder();
+        }
+    }
 }

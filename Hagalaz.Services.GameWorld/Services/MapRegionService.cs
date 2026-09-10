@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -29,7 +28,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public const int MaxDimensions = byte.MaxValue;
         private readonly Dictionary<int, int[]> _xteaKeys = new();
-        private readonly IDimension?[] _dimensions = new IDimension?[MaxDimensions];
+        private readonly Dimension?[] _dimensions = new Dimension?[MaxDimensions];
         private readonly IServiceScope _serviceScope;
         private readonly ILocationBuilder _locationBuilder;
         private readonly IGameObjectBuilder _gameObjectBuilder;
@@ -124,23 +123,23 @@ namespace Hagalaz.Services.GameWorld.Services
         public IMapRegion? GetMapRegion(int id, int dimension, bool create, bool resume)
         {
             var dim = _dimensions[dimension] ?? throw new Exception("'" + dimension + "' is not an existing dimension!");
-            if (dim.Regions.TryGetValue(id, out var activeRegion))
+            if (dim.ActiveRegions.TryGetValue(id, out var activeRegion))
             {
                 return activeRegion;
             }
 
-            if (dim.IdleRegions.TryGetValue(id, out var idleRegion))
+            if (dim.IdleRegionStore.TryGetValue(id, out var idleRegion))
             {
                 if (!resume)
                 {
                     return idleRegion;
                 }
 
-                dim.IdleRegions.Remove(id);
+                dim.IdleRegionStore.TryRemove(id, out _);
                 idleRegion.Resume();
-                dim.Regions.Add(id, idleRegion);
+                var resumedRegion = dim.ActiveRegions.GetOrAdd(id, idleRegion);
                 _logger.LogDebug("Region[{id}] was resumed.", id);
-                return idleRegion;
+                return resumedRegion;
             }
 
             if (!create)
@@ -148,17 +147,18 @@ namespace Hagalaz.Services.GameWorld.Services
                 return null;
             }
 
-            var baseLocation = _locationBuilder.Create().FromRegionId(id).Build();
-            var region = new Regions_MapRegion(
-                baseLocation,
-                GetXtea(id),
-                _serviceScope.ServiceProvider.GetRequiredService<INpcService>(),
-                this,
-                _gameObjectBuilder,
-                _groundItemBuilder,
-                _mapper);
-            dim.Regions.Add(id, region);
-            return region;
+            return dim.ActiveRegions.GetOrAdd(id, regionId =>
+            {
+                var baseLocation = _locationBuilder.Create().FromRegionId(regionId).Build();
+                return new Regions_MapRegion(
+                    baseLocation,
+                    GetXtea(regionId),
+                    _serviceScope.ServiceProvider.GetRequiredService<INpcService>(),
+                    this,
+                    _gameObjectBuilder,
+                    _groundItemBuilder,
+                    _mapper);
+            });
         }
 
         public IMapRegion GetOrCreateMapRegion(int id, int dimension, bool resume) => GetMapRegion(id, dimension, true, resume)!;
@@ -168,12 +168,13 @@ namespace Hagalaz.Services.GameWorld.Services
             ArgumentNullException.ThrowIfNull(expectedRegion);
 
             var mapDimension = _dimensions[dimension];
-            if (mapDimension is null || mapDimension.Regions is not ConcurrentDictionary<int, IMapRegion> regions)
+            if (mapDimension is null)
             {
                 return false;
             }
 
-            return ((ICollection<KeyValuePair<int, IMapRegion>>)regions).Remove(new KeyValuePair<int, IMapRegion>(id, expectedRegion));
+            return ((ICollection<KeyValuePair<int, IMapRegion>>)mapDimension.ActiveRegions)
+                .Remove(new KeyValuePair<int, IMapRegion>(id, expectedRegion));
         }
 
         public bool IsCurrentMapRegion(int id, int dimension, IMapRegion expectedRegion)
@@ -182,7 +183,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
             var mapDimension = _dimensions[dimension];
             return mapDimension is not null
-                && mapDimension.Regions.TryGetValue(id, out var currentRegion)
+                && mapDimension.ActiveRegions.TryGetValue(id, out var currentRegion)
                 && ReferenceEquals(currentRegion, expectedRegion);
         }
 
@@ -270,7 +271,9 @@ namespace Hagalaz.Services.GameWorld.Services
             _dimensions[dimensionId] != null ? _dimensions[dimensionId]!.Regions.Values : [];
 
         public IEnumerable<IMapRegion> FindAllRegions() => FindAllDimensions().SelectMany(d => d.Regions.Values);
-        public IEnumerable<IDimension> FindAllDimensions() => _dimensions.Where(dimension => dimension != null)!;
+        public IEnumerable<IDimension> FindAllDimensions() => _dimensions
+            .Where(dimension => dimension != null)
+            .Cast<IDimension>();
 
         public void RemoveDimension(IDimension dimension)
         {

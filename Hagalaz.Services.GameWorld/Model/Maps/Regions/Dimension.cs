@@ -11,6 +11,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     /// </summary>
     public class Dimension : IDimension
     {
+        private readonly ConcurrentDictionary<int, IMapRegion> _regions = new();
+        private readonly ConcurrentDictionary<int, IMapRegion> _idleRegions = new();
+
         /// <summary>
         /// Contains dimension Id.
         /// </summary>
@@ -19,12 +22,16 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// <summary>
         /// Regions that are currently alive and in use.
         /// </summary>
-        public IDictionary<int, IMapRegion> Regions { get; } = new ConcurrentDictionary<int, IMapRegion>();
+        public IDictionary<int, IMapRegion> Regions => _regions;
+
+        internal ConcurrentDictionary<int, IMapRegion> ActiveRegions => _regions;
 
         /// <summary>
         /// Regions that are currently idle.
         /// </summary>
-        public IDictionary<int, IMapRegion> IdleRegions { get; } = new ConcurrentDictionary<int, IMapRegion>();
+        public IDictionary<int, IMapRegion> IdleRegions => _idleRegions;
+
+        internal ConcurrentDictionary<int, IMapRegion> IdleRegionStore => _idleRegions;
 
         /// <summary>
         /// Constructs new dimension with given Id.
