@@ -94,14 +94,17 @@ service also leaves initializing regions active until they publish readiness.
 The GameWorker filters its snapshot to ready regions before any major tick
 phase, and collision returns `FloorBlock` for every non-ready state.
 
-### 9. Publish concurrent region creation atomically
+### 9. Centralize residency ownership
 
-`Dimension` owns concurrent dictionaries for active and idle regions. Active
-creation uses `ConcurrentDictionary.GetOrAdd` so the dictionary decides the
-canonical winner and every caller receives its returned value. The region
-constructor has no external registration side effects, so a losing factory
-result is not published and cannot replace or remove the winner. Exact
-instance removal remains compare-by-key-and-value cleanup for failed loads.
+`MapRegionService` owns active/idle residency transitions. A small
+per-dimension synchronization root covers only dictionary ownership changes,
+so active-to-idle transfer, idle-to-active resume, and exact idle destruction
+claims cannot expose a gap or create a second canonical instance. Region
+callbacks are not run while an asynchronous destruction operation is in
+progress; destruction occurs only after the service has removed the exact idle
+instance from canonical ownership. Existing concurrent dictionaries remain the
+storage mechanism, and exact instance removal remains compare-by-key-and-value
+cleanup for failed loads.
 
 ### 10. Keep NPC store lookup indexed
 

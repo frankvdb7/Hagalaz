@@ -14,6 +14,8 @@
       map-region service and consume only `Ready` data.
 - [x] 1.8 Publish concurrent active-region creation through the existing
       concurrent dictionary so callers converge on one canonical instance.
+- [x] 1.9 Centralize active/idle suspension, resume, and exact idle-destruction
+      claims in `MapRegionService` without adding lifecycle states.
 
 ## 2. Scheduler and ownership
 
@@ -48,7 +50,9 @@
 - [x] 5.1 Retain deterministic scheduler coalescing, canonical concurrent
       region creation, and ready-region
       suppression coverage; cover explicit viewport rebinding and dynamic
-      packet selection independently of readiness.
+      packet selection independently of readiness. Cover concurrent resume,
+      stale destruction claims, destruction-before-resume, suspend-vs-create,
+      and stale-instance operations.
 - [x] 5.2 Run focused map loader, map service, map provider, NPC, viewport,
       worker, and scheduler tests plus `git diff --check`.
 - [x] 5.3 Run strict OpenSpec validation and the affected project build.

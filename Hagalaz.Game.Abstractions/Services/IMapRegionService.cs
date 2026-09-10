@@ -39,6 +39,16 @@ namespace Hagalaz.Game.Abstractions.Services
         bool TryRemoveMapRegion(int id, int dimension, IMapRegion expectedRegion);
 
         /// <summary>
+        /// Moves the expected active region to idle ownership.
+        /// </summary>
+        bool TrySuspendMapRegion(IMapRegion expectedRegion);
+
+        /// <summary>
+        /// Claims an exact idle region for destruction.
+        /// </summary>
+        bool TryTakeIdleMapRegionForDestroy(int id, int dimension, IMapRegion expectedRegion);
+
+        /// <summary>
         /// Checks whether the expected region instance is the current active region for its location.
         /// </summary>
         /// <param name="id">The region ID.</param>

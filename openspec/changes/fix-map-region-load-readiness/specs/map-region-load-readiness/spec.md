@@ -19,6 +19,41 @@ the instance that won the active-dictionary insertion.
 - **THEN** every caller MUST receive the exact same canonical region instance
 - **AND** the active dimension MUST contain exactly one region for that ID
 
+### Requirement: Residency transitions preserve canonical ownership
+
+For each `(dimension, regionId)`, active and idle residency MUST be owned by
+`MapRegionService`. An active-to-idle transfer, idle-to-active resume, or
+idle-to-destroy claim MUST use exact-instance ownership semantics and MUST NOT
+allow two independently owned live canonical instances. A stale reference MUST
+not move, remove, or destroy a newer canonical instance. Idle destruction MUST
+successfully claim the exact idle instance before calling `DestroyAsync`.
+
+#### Scenario: A resumed region cannot be destroyed by stale cleanup
+
+- **WHEN** background cleanup observes idle R1 as destroyable
+- **AND** another caller resumes R1 before cleanup claims it
+- **THEN** the exact destruction claim MUST fail
+- **AND** R1 MUST remain the active, non-destroyed region
+
+#### Scenario: Destruction claims an idle region before resume
+
+- **WHEN** cleanup claims idle R1 before a resume request
+- **THEN** the resume request MUST NOT resurrect R1 as active
+- **AND** a later request MAY create fresh canonical R2
+
+#### Scenario: Suspension races with creation or resume
+
+- **WHEN** active R1 is being transferred to idle ownership while another
+  caller requests the same region
+- **THEN** the callers MUST converge on one canonical R1
+- **AND** active R2 plus idle R1 MUST never be observable as two live owners
+
+#### Scenario: A stale region reference targets a replacement
+
+- **WHEN** stale R1 is no longer canonical and R2 owns the active slot
+- **THEN** suspend, remove, and destroy claims for R1 MUST fail
+- **AND** R2 MUST remain current and unaffected
+
 ### Requirement: Region lifecycle has one explicit source of truth
 
 Every map-region instance MUST expose exactly one initial-load lifecycle state:

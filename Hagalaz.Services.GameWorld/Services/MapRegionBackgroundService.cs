@@ -31,31 +31,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 try
                 {
                     await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
-                    foreach (var dimension in _regionService.FindAllDimensions())
-                    {
-                        var activeRegions = dimension.Regions.Values;
-                        foreach (var region in activeRegions.Where(region => region.State == MapRegionState.Ready && region.CanSuspend()))
-                        {
-                            dimension.Regions.Remove(region.Id);
-                            region.Suspend();
-                            dimension.IdleRegions.Add(region.Id, region);
-                            _logger.LogDebug("Region[{id}] was suspended.", region.Id);
-                        }
-
-                        var idleRegions = dimension.IdleRegions.Values;
-                        foreach (var region in idleRegions.Where(region => region.CanDestroy()))
-                        {
-                            await region.DestroyAsync();
-                            dimension.IdleRegions.Remove(region.Id);
-                            _logger.LogDebug("Region[{id}] was destroyed.", region.Id);
-                        }
-
-                        if (dimension.CanDestroy())
-                        {
-                            _regionService.RemoveDimension(dimension);
-                            _logger.LogDebug("Dimension[{id}] was destroyed.", dimension.Id);
-                        }
-                    }                    
+                    await ProcessRegionsOnceAsync();
                 }
                 catch (TaskCanceledException)
                 {
@@ -63,6 +39,45 @@ namespace Hagalaz.Services.GameWorld.Services
                 catch(Exception ex)
                 {
                     _logger.LogError(ex, "Failed to service regions");
+                }
+            }
+        }
+
+        internal async Task ProcessRegionsOnceAsync()
+        {
+            foreach (var dimension in _regionService.FindAllDimensions())
+            {
+                foreach (var region in dimension.Regions.Values
+                             .Where(region => region.State == MapRegionState.Ready && region.CanSuspend()))
+                {
+                    if (_regionService.TrySuspendMapRegion(region))
+                    {
+                        _logger.LogDebug("Region[{id}] was suspended.", region.Id);
+                    }
+                }
+
+                foreach (var region in dimension.IdleRegions.Values.Where(region => region.CanDestroy()))
+                {
+                    if (!_regionService.TryTakeIdleMapRegionForDestroy(region.Id, dimension.Id, region))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        await region.DestroyAsync();
+                        _logger.LogDebug("Region[{id}] was destroyed.", region.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to destroy claimed region[{id}] in dimension[{dimension}].", region.Id, dimension.Id);
+                    }
+                }
+
+                if (dimension.CanDestroy())
+                {
+                    _regionService.RemoveDimension(dimension);
+                    _logger.LogDebug("Dimension[{id}] was destroyed.", dimension.Id);
                 }
             }
         }

@@ -13,6 +13,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     {
         private readonly ConcurrentDictionary<int, IMapRegion> _regions = new();
         private readonly ConcurrentDictionary<int, IMapRegion> _idleRegions = new();
+        internal object ResidencySyncRoot { get; } = new();
 
         /// <summary>
         /// Contains dimension Id.

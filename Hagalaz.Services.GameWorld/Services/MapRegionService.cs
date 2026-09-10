@@ -123,45 +123,78 @@ namespace Hagalaz.Services.GameWorld.Services
         public IMapRegion? GetMapRegion(int id, int dimension, bool create, bool resume)
         {
             var dim = _dimensions[dimension] ?? throw new Exception("'" + dimension + "' is not an existing dimension!");
-            if (dim.ActiveRegions.TryGetValue(id, out var activeRegion))
+            lock (dim.ResidencySyncRoot)
             {
-                return activeRegion;
-            }
-
-            if (dim.IdleRegionStore.TryGetValue(id, out var idleRegion))
-            {
-                if (!resume)
+                if (dim.ActiveRegions.TryGetValue(id, out var activeRegion))
                 {
-                    return idleRegion;
+                    return activeRegion;
                 }
 
-                dim.IdleRegionStore.TryRemove(id, out _);
-                idleRegion.Resume();
-                var resumedRegion = dim.ActiveRegions.GetOrAdd(id, idleRegion);
-                _logger.LogDebug("Region[{id}] was resumed.", id);
-                return resumedRegion;
+                if (dim.IdleRegionStore.TryGetValue(id, out var idleRegion))
+                {
+                    if (!resume)
+                    {
+                        return idleRegion;
+                    }
+
+                    return ResumeIdleRegion(dim, id, idleRegion);
+                }
+
+                if (!create)
+                {
+                    return null;
+                }
             }
 
-            if (!create)
+            var newRegion = CreateMapRegion(id);
+            lock (dim.ResidencySyncRoot)
             {
-                return null;
-            }
+                if (dim.ActiveRegions.TryGetValue(id, out var activeRegion))
+                {
+                    return activeRegion;
+                }
 
-            return dim.ActiveRegions.GetOrAdd(id, regionId =>
-            {
-                var baseLocation = _locationBuilder.Create().FromRegionId(regionId).Build();
-                return new Regions_MapRegion(
-                    baseLocation,
-                    GetXtea(regionId),
-                    _serviceScope.ServiceProvider.GetRequiredService<INpcService>(),
-                    this,
-                    _gameObjectBuilder,
-                    _groundItemBuilder,
-                    _mapper);
-            });
+                if (dim.IdleRegionStore.TryGetValue(id, out var idleRegion))
+                {
+                    return resume ? ResumeIdleRegion(dim, id, idleRegion) : idleRegion;
+                }
+
+                return dim.ActiveRegions.GetOrAdd(id, newRegion);
+            }
         }
 
         public IMapRegion GetOrCreateMapRegion(int id, int dimension, bool resume) => GetMapRegion(id, dimension, true, resume)!;
+
+        private IMapRegion CreateMapRegion(int id)
+        {
+            var baseLocation = _locationBuilder.Create().FromRegionId(id).Build();
+            return new Regions_MapRegion(
+                baseLocation,
+                GetXtea(id),
+                _serviceScope.ServiceProvider.GetRequiredService<INpcService>(),
+                this,
+                _gameObjectBuilder,
+                _groundItemBuilder,
+                _mapper);
+        }
+
+        private IMapRegion ResumeIdleRegion(Dimension dimension, int id, IMapRegion idleRegion)
+        {
+            if (!dimension.IdleRegionStore.TryRemove(new KeyValuePair<int, IMapRegion>(id, idleRegion)))
+            {
+                if (dimension.ActiveRegions.TryGetValue(id, out var currentRegion))
+                {
+                    return currentRegion;
+                }
+
+                throw new InvalidOperationException($"Idle region[{id}] lost canonical ownership before it could be resumed.");
+            }
+
+            idleRegion.Resume();
+            dimension.ActiveRegions[id] = idleRegion;
+            _logger.LogDebug("Region[{id}] was resumed.", id);
+            return idleRegion;
+        }
 
         public bool TryRemoveMapRegion(int id, int dimension, IMapRegion expectedRegion)
         {
@@ -173,8 +206,57 @@ namespace Hagalaz.Services.GameWorld.Services
                 return false;
             }
 
-            return ((ICollection<KeyValuePair<int, IMapRegion>>)mapDimension.ActiveRegions)
-                .Remove(new KeyValuePair<int, IMapRegion>(id, expectedRegion));
+            lock (mapDimension.ResidencySyncRoot)
+            {
+                return ((ICollection<KeyValuePair<int, IMapRegion>>)mapDimension.ActiveRegions)
+                    .Remove(new KeyValuePair<int, IMapRegion>(id, expectedRegion));
+            }
+        }
+
+        public bool TrySuspendMapRegion(IMapRegion expectedRegion)
+        {
+            ArgumentNullException.ThrowIfNull(expectedRegion);
+
+            var dimension = _dimensions[expectedRegion.BaseLocation.Dimension];
+            if (dimension is null)
+            {
+                return false;
+            }
+
+            lock (dimension.ResidencySyncRoot)
+            {
+                if (!dimension.ActiveRegions.TryGetValue(expectedRegion.Id, out var currentRegion)
+                    || !ReferenceEquals(currentRegion, expectedRegion)
+                    || dimension.IdleRegionStore.ContainsKey(expectedRegion.Id))
+                {
+                    return false;
+                }
+
+                if (!dimension.ActiveRegions.TryRemove(new KeyValuePair<int, IMapRegion>(expectedRegion.Id, expectedRegion)))
+                {
+                    return false;
+                }
+
+                expectedRegion.Suspend();
+                dimension.IdleRegionStore[expectedRegion.Id] = expectedRegion;
+                return true;
+            }
+        }
+
+        public bool TryTakeIdleMapRegionForDestroy(int id, int dimension, IMapRegion expectedRegion)
+        {
+            ArgumentNullException.ThrowIfNull(expectedRegion);
+
+            var mapDimension = _dimensions[dimension];
+            if (mapDimension is null)
+            {
+                return false;
+            }
+
+            lock (mapDimension.ResidencySyncRoot)
+            {
+                return mapDimension.IdleRegionStore.TryRemove(new KeyValuePair<int, IMapRegion>(id, expectedRegion));
+            }
         }
 
         public bool IsCurrentMapRegion(int id, int dimension, IMapRegion expectedRegion)

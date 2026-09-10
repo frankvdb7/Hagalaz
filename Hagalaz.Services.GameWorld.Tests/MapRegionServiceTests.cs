@@ -123,6 +123,109 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
+    public async Task GetOrCreateMapRegion_ConcurrentResume_ReturnsOneCanonicalActiveInstance()
+    {
+        const int callerCount = 16;
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var region = service.GetOrCreateMapRegion(1, 0, false);
+        region.MarkReady();
+        Assert.IsTrue(service.TrySuspendMapRegion(region));
+        using var startGate = new Barrier(callerCount);
+
+        var calls = Enumerable.Range(0, callerCount)
+            .Select(_ => Task.Run(() =>
+            {
+                startGate.SignalAndWait();
+                return service.GetOrCreateMapRegion(1, 0, true);
+            }))
+            .ToArray();
+
+        var regions = await Task.WhenAll(calls);
+
+        Assert.IsTrue(regions.All(resumed => ReferenceEquals(region, resumed)));
+        Assert.AreSame(region, service.GetMapRegion(1, 0, false, false));
+        Assert.IsFalse(service.FindAllDimensions().Single().IdleRegions.ContainsKey(region.Id));
+    }
+
+    [TestMethod]
+    public void TryTakeIdleMapRegionForDestroy_FailsAfterRegionResumes()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var region = service.GetOrCreateMapRegion(1, 0, false);
+        region.MarkReady();
+        Assert.IsTrue(service.TrySuspendMapRegion(region));
+
+        var resumed = service.GetOrCreateMapRegion(1, 0, true);
+
+        Assert.AreSame(region, resumed);
+        Assert.IsFalse(service.TryTakeIdleMapRegionForDestroy(region.Id, 0, region));
+        Assert.IsFalse(region.IsDestroyed);
+    }
+
+    [TestMethod]
+    public void TryTakeIdleMapRegionForDestroy_WinsBeforeResumeAndForcesFreshCreation()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var region = service.GetOrCreateMapRegion(1, 0, false);
+        region.MarkReady();
+        Assert.IsTrue(service.TrySuspendMapRegion(region));
+
+        Assert.IsTrue(service.TryTakeIdleMapRegionForDestroy(region.Id, 0, region));
+        var replacement = service.GetOrCreateMapRegion(region.Id, 0, true);
+
+        Assert.AreNotSame(region, replacement);
+        Assert.AreSame(replacement, service.GetMapRegion(region.Id, 0, false, false));
+        Assert.IsFalse(service.FindAllDimensions().Single().IdleRegions.ContainsKey(region.Id));
+    }
+
+    [TestMethod]
+    public async Task TrySuspendMapRegion_ConcurrentResumeDoesNotCreateDuplicateResidency()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var region = service.GetOrCreateMapRegion(1, 0, false);
+        region.MarkReady();
+        using var startGate = new Barrier(2);
+
+        var suspend = Task.Run(() =>
+        {
+            startGate.SignalAndWait();
+            return service.TrySuspendMapRegion(region);
+        });
+        var resume = Task.Run(() =>
+        {
+            startGate.SignalAndWait();
+            return service.GetOrCreateMapRegion(region.Id, 0, true);
+        });
+
+        await Task.WhenAll(suspend, resume);
+        var dimension = service.FindAllDimensions().Single();
+        var residentRegions = dimension.Regions.Values.Concat(dimension.IdleRegions.Values).ToArray();
+
+        Assert.AreEqual(1, residentRegions.Distinct(ReferenceEqualityComparer.Instance).Count());
+        Assert.AreSame(region, residentRegions.Single());
+    }
+
+    [TestMethod]
+    public void StaleRegionOperations_CannotAffectReplacementActiveRegion()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var staleRegion = service.GetOrCreateMapRegion(1, 0, false);
+        Assert.IsTrue(service.TryRemoveMapRegion(staleRegion.Id, 0, staleRegion));
+        var currentRegion = service.GetOrCreateMapRegion(1, 0, false);
+
+        Assert.IsFalse(service.TrySuspendMapRegion(staleRegion));
+        Assert.IsFalse(service.TryTakeIdleMapRegionForDestroy(staleRegion.Id, 0, staleRegion));
+        Assert.IsFalse(service.TryRemoveMapRegion(staleRegion.Id, 0, staleRegion));
+        Assert.AreSame(currentRegion, service.GetMapRegion(1, 0, false, false));
+        Assert.IsFalse(currentRegion.IsDestroyed);
+    }
+
+    [TestMethod]
     public void NewRegion_StartsInitializing()
     {
         using var provider = CreateProvider();

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Hagalaz.Game.Abstractions.Services;
 
 namespace Hagalaz.Game.Abstractions.Model.Maps
 {
@@ -14,12 +15,14 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         public int Id { get; }
 
         /// <summary>
-        /// Gets a dictionary of the map regions that are currently active in this dimension.
+        /// Gets the map regions currently active in this dimension for read/enumeration.
+        /// Residency mutation is owned by <see cref="IMapRegionService"/>.
         /// </summary>
         public IDictionary<int, IMapRegion> Regions { get; }
 
         /// <summary>
-        /// Gets a dictionary of the map regions that are currently idle (not being processed) in this dimension.
+        /// Gets the map regions currently idle in this dimension for read/enumeration.
+        /// Residency mutation is owned by <see cref="IMapRegionService"/>.
         /// </summary>
         public IDictionary<int, IMapRegion> IdleRegions { get; }
 
