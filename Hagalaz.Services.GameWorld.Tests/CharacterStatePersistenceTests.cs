@@ -145,6 +145,35 @@ public sealed class CharacterStatePersistenceTests
         ((IHydratable<HydratedFamiliarDto>)familiarScript).Received(1).Hydrate(hydration);
     }
 
+    [TestMethod]
+    public void Destroy_WhenOneCharacterScriptFails_RetriesOnlyFailedScriptAndPublishesEventOnce()
+    {
+        var firstScript = Substitute.For<IDefaultCharacterScript>();
+        var secondScript = Substitute.For<IDefaultCharacterScript>();
+        var failure = new InvalidOperationException("script cleanup failed");
+        var attempts = 0;
+        firstScript.When(script => script.OnDestroy()).Do(_ =>
+        {
+            if (++attempts == 1)
+                throw failure;
+        });
+        var character = CreateCharacter(new TestStateService(), out _, new[] { firstScript, secondScript });
+
+        var firstFailure = Assert.ThrowsExactly<InvalidOperationException>(() => character.Destroy());
+
+        Assert.AreSame(failure, firstFailure);
+        Assert.IsFalse(character.IsDestroyed);
+        firstScript.Received(1).OnDestroy();
+        secondScript.Received(1).OnDestroy();
+
+        character.Destroy();
+
+        Assert.IsTrue(character.IsDestroyed);
+        firstScript.Received(2).OnDestroy();
+        secondScript.Received(1).OnDestroy();
+        character.EventManager.Received(1).SendEvent(Arg.Any<IEvent>());
+    }
+
     private static Character CreateCharacter(
         TestStateService stateService,
         out IEquipmentScript equipmentScript,

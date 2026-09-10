@@ -109,6 +109,8 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly ConcurrentDictionary<uint, ICharacter> _pendingLogouts = new();
         private readonly ConcurrentDictionary<uint, byte> _removedPendingLogouts = new();
         private readonly ConcurrentDictionary<uint, byte> _completingLogouts = new();
+        private readonly ConcurrentDictionary<uint, byte> _destroyedPendingLogouts = new();
+        private readonly ConcurrentDictionary<uint, byte> _worldSignOutsPublished = new();
         private readonly Dictionary<uint, LockEntry> _locks = new();
         private readonly object _lockRegistryGate = new();
 
@@ -187,6 +189,8 @@ namespace Hagalaz.Services.GameWorld.Services
             _nextRevisions.TryRemove(masterId, out _);
             _pendingLogouts.TryRemove(masterId, out _);
             _removedPendingLogouts.TryRemove(masterId, out _);
+            _destroyedPendingLogouts.TryRemove(masterId, out _);
+            _worldSignOutsPublished.TryRemove(masterId, out _);
         }
 
         public void TrackPendingLogout(ICharacter character)
@@ -204,6 +208,14 @@ namespace Hagalaz.Services.GameWorld.Services
         public void MarkPendingLogoutRemoved(ICharacter character) => _removedPendingLogouts[character.MasterId] = 0;
 
         public bool IsPendingLogoutRemoved(ICharacter character) => _removedPendingLogouts.ContainsKey(character.MasterId);
+
+        public bool IsCharacterDestroyed(uint masterId) => _destroyedPendingLogouts.ContainsKey(masterId);
+
+        public void MarkCharacterDestroyed(uint masterId) => _destroyedPendingLogouts[masterId] = 0;
+
+        public bool IsWorldSignOutPublished(uint masterId) => _worldSignOutsPublished.ContainsKey(masterId);
+
+        public void MarkWorldSignOutPublished(uint masterId) => _worldSignOutsPublished[masterId] = 0;
 
         public bool IsPersistenceAcknowledged(uint masterId) => !_pendingSnapshots.ContainsKey(masterId);
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Builders.Animation;
@@ -46,6 +47,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contains character scripts.
         /// </summary>
         private readonly Dictionary<Type, ICharacterScript> _scripts = default!;
+        private readonly HashSet<Type> _destroyedScripts = new();
+        private bool _destroyedEventSent;
 
         /// <summary>
         /// Contains character option handlers.
@@ -390,12 +393,52 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         protected override void OnDestroy()
         {
-            EventManager.SendEvent(new CreatureDestroyedEvent(this));
-            foreach (var characterScript in _scripts.Values)
+            var failures = new List<Exception>();
+            if (!_destroyedEventSent)
             {
-                characterScript.OnDestroy();
+                try
+                {
+                    EventManager.SendEvent(new CreatureDestroyedEvent(this));
+                    _destroyedEventSent = true;
+                }
+                catch (Exception exception)
+                {
+                    failures.Add(exception);
+                }
             }
-            UnregisterEventHandlers();
+
+            foreach (var pair in _scripts)
+            {
+                if (_destroyedScripts.Contains(pair.Key))
+                    continue;
+
+                try
+                {
+                    pair.Value.OnDestroy();
+                    _destroyedScripts.Add(pair.Key);
+                }
+                catch (Exception exception)
+                {
+                    failures.Add(exception);
+                }
+            }
+
+            try
+            {
+                UnregisterEventHandlers();
+            }
+            catch (Exception exception)
+            {
+                failures.Add(exception);
+            }
+
+            if (failures.Count == 1)
+            {
+                ExceptionDispatchInfo.Capture(failures[0]).Throw();
+            }
+
+            if (failures.Count > 1)
+                throw new AggregateException("Character destruction failed.", failures);
         }
 
         /// <summary>

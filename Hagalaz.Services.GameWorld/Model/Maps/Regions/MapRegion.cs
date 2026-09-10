@@ -416,7 +416,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         }
 
         private IMapRegionPart CreateRegionPartCore(int partHash) =>
-            new MapRegionPart(_mapper, _groundItemBuilder)
+            new MapRegionPart(_mapper, _groundItemBuilder, ExecuteMutation)
             {
                 DrawRegionPartX = partHash & 0x3ff,
                 DrawRegionPartY = (partHash >> 10) & 0x7ff,
@@ -424,6 +424,15 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 DrawRegionDimension = BaseLocation.Dimension,
                 HasDrawSource = true,
             };
+
+        private void ExecuteMutation(Action mutation)
+        {
+            lock (_mutationGate)
+            {
+                EnsureAcceptsMutation();
+                mutation();
+            }
+        }
 
         private void RemoveNpcAfterDestruction(INpc npc)
         {

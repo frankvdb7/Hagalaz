@@ -226,6 +226,47 @@ public sealed class MapRegionDestructionTests
         Assert.ThrowsExactly<InvalidOperationException>(() => region.Add(CreateNpc(2)));
     }
 
+    [TestMethod]
+    public async Task DestroyAsync_RejectsCachedPartMutationAfterAdmission()
+    {
+        var region = CreateRegion(Substitute.For<INpcService>());
+        var part = region.CreateRegionPart(0);
+        var existing = CreateGameObject(Location.Create(1, 1, 0, 0));
+        part.Add(existing);
+
+        await region.DestroyAsync();
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => part.Add(CreateGameObject(Location.Create(2, 2, 0, 0))));
+        Assert.ThrowsExactly<InvalidOperationException>(() => part.Erase());
+    }
+
+    [TestMethod]
+    public async Task DestroyAsync_ClosesGroundItemTickAdmissionBeforeCleanupRuns()
+    {
+        var destroyStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDestroy = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var item = Substitute.For<IGroundItem>();
+        item.Location.Returns(Location.Create(1, 1, 0, 0));
+        item.IsDestroyed.Returns(false);
+        item.When(value => value.Destroy()).Do(_ =>
+        {
+            destroyStarted.TrySetResult();
+            releaseDestroy.Task.GetAwaiter().GetResult();
+        });
+        var region = CreateRegion(Substitute.For<INpcService>());
+        region.Add(item);
+
+        var destruction = Task.Run(() => region.DestroyAsync());
+        await destroyStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => region.MajorClientPrepareUpdateTick());
+
+        releaseDestroy.TrySetResult();
+        await destruction;
+        Assert.IsTrue(region.IsDestroyed);
+        Assert.IsEmpty(region.FindAllGroundItems());
+    }
+
     private static MapRegion CreateRegion(INpcService npcService) => new(
         Location.Create(0, 0, 0, 0),
         [0, 0, 0, 0],

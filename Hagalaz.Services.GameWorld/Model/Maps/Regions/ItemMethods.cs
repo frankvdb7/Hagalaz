@@ -42,17 +42,21 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         private void TickGroundItems()
         {
-            foreach (var groundItem in FindAllGroundItems().ToArray())
+            lock (_mutationGate)
             {
-                groundItem.TicksLeft--;
-
-                if (groundItem.TicksLeft > 0)
-                    continue;
-
-                var partHash = groundItem.Location.GetRegionPartHash();
-                if (_parts.TryGetValue(partHash, out var part))
+                EnsureAcceptsMutation();
+                foreach (var groundItem in FindAllGroundItems().ToArray())
                 {
-                    part.ProcessExpiredItem(groundItem);
+                    groundItem.TicksLeft--;
+
+                    if (groundItem.TicksLeft > 0)
+                        continue;
+
+                    var partHash = groundItem.Location.GetRegionPartHash();
+                    if (_parts.TryGetValue(partHash, out var part))
+                    {
+                        part.ProcessExpiredItem(groundItem);
+                    }
                 }
             }
         }

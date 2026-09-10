@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.ExceptionServices;
+using System.Threading;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
@@ -35,7 +36,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private readonly IServiceScope _serviceScope = default!;
         private bool _regionRemovalCompleted;
         private bool _areaExitCompleted;
-        private bool _destructionInProgress;
+        private int _destructionInProgress;
 
         public bool IsDestroyed { get; private set; }
 
@@ -223,12 +224,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 throw new InvalidOperationException($"{this} already destroyed!");
             }
 
-            if (_destructionInProgress)
+            if (Interlocked.CompareExchange(ref _destructionInProgress, 1, 0) != 0)
             {
                 throw new InvalidOperationException($"{this} is already being destroyed!");
             }
 
-            _destructionInProgress = true;
             _updateState = CreatureUpdateState.Destroying;
             var failures = new List<Exception>();
             try
@@ -284,7 +284,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             }
             finally
             {
-                _destructionInProgress = false;
+                Volatile.Write(ref _destructionInProgress, 0);
             }
         }
 
