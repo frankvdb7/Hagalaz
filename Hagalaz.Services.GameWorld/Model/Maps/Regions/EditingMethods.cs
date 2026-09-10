@@ -30,6 +30,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                             part.DrawRegionPartY = partY;
                             part.DrawRegionZ = z;
                             part.DrawRegionDimension = BaseLocation.Dimension;
+                            part.HasDrawSource = true;
                             part.Rotation = 0;
                         }
                     }
@@ -98,6 +99,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             part.DrawRegionPartY = drawPartY;
             part.DrawRegionZ = drawPartZ;
             part.DrawRegionDimension = drawPartDimension;
+            part.HasDrawSource = true;
             UnloadPartGameObjects(partX, partY, z, part.Rotation);
             LoadPartObjects(partX, partY, z, part.Rotation);
         }

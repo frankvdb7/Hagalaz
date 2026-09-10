@@ -119,11 +119,12 @@ never reinserted into residency after destruction begins.
 ### 10. Preserve dynamic source dimensions
 
 Dynamic map parts retain the source/template dimension alongside their draw
-coordinates. `LoadPartObjects` uses that stored dimension to resolve source
-objects and collision, while copied runtime objects continue to use the
-destination region's `BaseLocation.Dimension`. This keeps source/template
-ownership separate from destination/runtime ownership without introducing a
-generic template abstraction.
+coordinates and an explicit mapped/unmapped flag. `LoadPartObjects` uses that
+stored dimension to resolve source objects and collision, while copied runtime
+objects continue to use the destination region's `BaseLocation.Dimension`.
+`Erase` clears the mapping flag; hash codes are not used as data-presence
+state. This keeps source/template ownership separate from destination/runtime
+ownership without introducing a generic template abstraction.
 
 ### 11. Keep NPC store lookup indexed
 

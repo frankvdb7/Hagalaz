@@ -17,7 +17,7 @@ public sealed class DynamicRegionDimensionTests
     public void LoadPartObjects_UsesSourceDimensionAndDestinationDimensionForCopiedObjectsAndCollision()
     {
         var regionService = Substitute.For<IMapRegionService>();
-        var source = CreateRegion(Location.Create(64, 64, 0, 0), regionService);
+        var source = CreateRegion(Location.Create(0, 0, 0, 1), regionService);
         var gameObjectBuilder = Substitute.For<IGameObjectBuilder>();
         var objectIdBuilder = Substitute.For<IGameObjectId>();
         var objectLocationBuilder = Substitute.For<IGameObjectLocation>();
@@ -37,13 +37,13 @@ public sealed class DynamicRegionDimensionTests
         copiedObject.ShapeType.Returns(ShapeType.GroundDefault);
         copiedObject.SizeX.Returns(1);
         copiedObject.SizeY.Returns(1);
-        var destination = CreateRegion(Location.Create(128, 64, 0, 1), regionService, gameObjectBuilder);
+        var destination = CreateRegion(Location.Create(128, 64, 0, 2), regionService, gameObjectBuilder);
         source.MakeStandard();
         destination.MakeDynamic();
 
         var sourceObject = Substitute.For<IGameObject>();
         sourceObject.Id.Returns(42);
-        sourceObject.Location.Returns(Location.Create(65, 65, 0, 0));
+        sourceObject.Location.Returns(Location.Create(1, 1, 0, 1));
         sourceObject.IsStatic.Returns(false);
         sourceObject.ShapeType.Returns(ShapeType.GroundDefault);
         sourceObject.Rotation.Returns(0);
@@ -52,20 +52,21 @@ public sealed class DynamicRegionDimensionTests
         source.Add(sourceObject);
         source.FlagCollision(1, 1, 0, CollisionFlag.WallNorth);
 
-        regionService.GetOrCreateMapRegion(source.Id, 0, false).Returns(source);
+        regionService.GetOrCreateMapRegion(source.Id, 1, false).Returns(source);
 
-        var destinationPart = destination.GetRegionPartData(0, 0, 0);
-        destinationPart.DrawRegionPartX = 8;
-        destinationPart.DrawRegionPartY = 8;
-        destinationPart.DrawRegionZ = 0;
-        destinationPart.DrawRegionDimension = 0;
-        destination.LoadPartObjects(0, 0, 0, 0);
+        destination.WriteBlock(0, 0, 0, 0, 0, 0, 1);
 
-        regionService.Received(1).GetOrCreateMapRegion(source.Id, 0, false);
+        regionService.Received(1).GetOrCreateMapRegion(source.Id, 1, false);
         copiedObject = destination.FindGameObjects(1, 1, 0).Single();
-        Assert.AreEqual(1, copiedObject.Location.Dimension);
+        Assert.AreEqual(2, copiedObject.Location.Dimension);
         Assert.AreEqual(CollisionFlag.WallNorth, destination.GetCollision(1, 1, 0));
-        Assert.AreEqual(1, destination.BaseLocation.Dimension);
+        Assert.AreEqual(2, destination.BaseLocation.Dimension);
+
+        var erasedPart = destination.GetRegionPartByLocalPart(1, 1, 0);
+        erasedPart.Erase();
+        destination.LoadPartObjects(destination.LocalPartXToPartX(1), destination.LocalPartYToPartY(1), 0, 0);
+        Assert.IsFalse(erasedPart.HasDrawSource);
+        Assert.IsFalse(destination.FindGameObjects(9, 9, 0).Any());
     }
 
     private static MapRegion CreateRegion(ILocation location, IMapRegionService regionService, IGameObjectBuilder? gameObjectBuilder = null) => new(

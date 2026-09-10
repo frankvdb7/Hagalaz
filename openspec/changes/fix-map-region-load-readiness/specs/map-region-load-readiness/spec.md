@@ -72,7 +72,9 @@ from the region ID.
 When a dynamic region copies a mapped part, the system MUST resolve source
 objects and source collision using the part's source/template dimension. Any
 copied runtime object MUST be created with the destination region's dimension,
-and the destination region MUST retain its own dimension identity.
+and the destination region MUST retain its own dimension identity. Mapped
+state MUST be represented explicitly; hash codes MUST NOT determine whether a
+part has a source mapping.
 
 #### Scenario: A dimension-zero source is copied into dimension one
 
@@ -81,6 +83,12 @@ and the destination region MUST retain its own dimension identity.
 - **THEN** source lookup MUST request the source region in dimension 0
 - **AND** copied collision MUST come from that source region
 - **AND** copied object locations MUST use dimension 1
+
+#### Scenario: An erased dynamic part is empty
+
+- **WHEN** a dynamic part is erased
+- **THEN** the part MUST be explicitly unmapped
+- **AND** loading that part MUST not perform source lookup or copy objects
 
 ### Requirement: Dimension removal preserves exact ownership
 

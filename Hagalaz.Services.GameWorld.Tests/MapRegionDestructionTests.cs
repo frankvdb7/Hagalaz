@@ -68,6 +68,12 @@ public sealed class MapRegionDestructionTests
         var item = Substitute.For<IGroundItem>();
         item.Location.Returns(Location.Create(1, 1, 0, 0));
         var gameObject = CreateGameObject(Location.Create(2, 2, 0, 0));
+        var itemDestroyed = false;
+        var gameObjectDestroyed = false;
+        item.IsDestroyed.Returns(_ => itemDestroyed);
+        item.When(itemToDestroy => itemToDestroy.Destroy()).Do(_ => itemDestroyed = true);
+        gameObject.IsDestroyed.Returns(_ => gameObjectDestroyed);
+        gameObject.When(objectToDestroy => objectToDestroy.Destroy()).Do(_ => gameObjectDestroyed = true);
         var region = CreateRegion(npcService);
         region.Add(npc);
         region.Add(item);
@@ -82,8 +88,10 @@ public sealed class MapRegionDestructionTests
         await region.DestroyAsync();
 
         await npcService.Received(1).UnregisterAsync(npc);
-        item.Received(2).Destroy();
-        gameObject.Received(2).Destroy();
+        item.Received(1).Destroy();
+        gameObject.Received(1).Destroy();
+        Assert.IsTrue(itemDestroyed);
+        Assert.IsTrue(gameObjectDestroyed);
     }
 
     [TestMethod]

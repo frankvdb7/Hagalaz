@@ -295,6 +295,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             foreach (var item in groundItems)
             {
+                if (item.IsDestroyed)
+                {
+                    continue;
+                }
+
                 try
                 {
                     item.Destroy();
@@ -307,6 +312,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             foreach (var obj in gameObjects)
             {
+                if (obj.IsDestroyed)
+                {
+                    continue;
+                }
+
                 try
                 {
                     obj.Destroy();
@@ -338,6 +348,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 DrawRegionPartY = (partHash >> 10) & 0x7ff,
                 DrawRegionZ = (partHash >> 21) & 0x3,
                 DrawRegionDimension = BaseLocation.Dimension,
+                HasDrawSource = true,
             };
     }
 }

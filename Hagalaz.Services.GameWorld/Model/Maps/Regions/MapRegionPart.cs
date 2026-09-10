@@ -61,6 +61,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public int DrawRegionDimension { get; set; }
 
+        public bool HasDrawSource { get; set; }
+
         /// <summary>
         /// Contains rotation of this sector,
         /// It is 0 by default if not modified.
@@ -389,6 +391,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             DrawRegionPartY = 0;
             DrawRegionZ = 0;
             DrawRegionDimension = 0;
+            HasDrawSource = false;
             Rotation = 0;
         }
 
