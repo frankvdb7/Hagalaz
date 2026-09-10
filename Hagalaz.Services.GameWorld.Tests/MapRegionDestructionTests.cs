@@ -194,6 +194,38 @@ public sealed class MapRegionDestructionTests
         Assert.ThrowsExactly<InvalidOperationException>(() => region.Add(CreateNpc(2)));
     }
 
+    [TestMethod]
+    public async Task DestroyAsync_WaitsForAdmittedMutationBeforeTakingCleanupSnapshot()
+    {
+        var npcService = Substitute.For<INpcService>();
+        var admissionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseAdmission = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var existing = CreateNpc(1);
+        existing.Index.Returns(_ =>
+        {
+            admissionStarted.TrySetResult();
+            releaseAdmission.Task.GetAwaiter().GetResult();
+            return 1;
+        });
+        npcService.UnregisterAsync(existing).Returns(Task.CompletedTask);
+        var region = CreateRegion(npcService);
+
+        var addTask = Task.Run(() => region.Add(existing));
+        await admissionStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        var destroyTask = Task.Run(() => region.DestroyAsync());
+        Assert.IsFalse(destroyTask.IsCompleted);
+        Assert.AreEqual(MapRegionDestructionState.Active, region.DestructionState);
+
+        releaseAdmission.TrySetResult();
+        await addTask;
+        await destroyTask;
+
+        await npcService.Received(1).UnregisterAsync(existing);
+        Assert.IsTrue(region.IsDestroyed);
+        Assert.ThrowsExactly<InvalidOperationException>(() => region.Add(CreateNpc(2)));
+    }
+
     private static MapRegion CreateRegion(INpcService npcService) => new(
         Location.Create(0, 0, 0, 0),
         [0, 0, 0, 0],

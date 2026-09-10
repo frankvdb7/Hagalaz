@@ -47,11 +47,25 @@ public sealed class CreatureLifecycleTests
     }
 
     [TestMethod]
-    public void Destroy_WhenOnDestroyFails_StillDisposesOwnedScope()
+    public void Destroy_WhenOnDestroyFails_RemainsRetryableAndKeepsOwnedScope()
     {
         var (creature, _, scope) = CreateCreature(onDestroyFailure: true);
 
         Assert.ThrowsExactly<InvalidOperationException>(() => creature.Destroy());
+
+        Assert.IsFalse(creature.IsDestroyed);
+        scope.DidNotReceive().Dispose();
+    }
+
+    [TestMethod]
+    public void Destroy_WhenRetrySucceeds_ReachesTerminalStateAndDisposesOwnedScope()
+    {
+        var (creature, _, scope) = CreateCreature(onDestroyFailure: true);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => creature.Destroy());
+        creature.FailOnDestroy = false;
+
+        creature.Destroy();
 
         Assert.IsTrue(creature.IsDestroyed);
         scope.Received(1).Dispose();
@@ -74,12 +88,12 @@ public sealed class CreatureLifecycleTests
 
     private sealed class TestCreature : Creature
     {
-        private readonly bool _onDestroyFailure;
+        public bool FailOnDestroy { get; set; }
 
         public TestCreature(IServiceScope scope, bool onDestroyFailure)
             : base(scope)
         {
-            _onDestroyFailure = onDestroyFailure;
+            FailOnDestroy = onDestroyFailure;
             Location = new Location(3200, 3200, 0, 0);
         }
 
@@ -89,7 +103,7 @@ public sealed class CreatureLifecycleTests
         public override bool CanSuspend() => true;
         protected override void OnDestroy()
         {
-            if (_onDestroyFailure)
+            if (FailOnDestroy)
             {
                 throw new InvalidOperationException("destroy failed");
             }

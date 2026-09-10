@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
@@ -32,6 +33,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private Dictionary<Type, List<EventHappened>> _registeredEventHandlers = new();
         private CreatureUpdateState _updateState = CreatureUpdateState.Initializing;
         private readonly IServiceScope _serviceScope = default!;
+        private bool _regionRemovalCompleted;
+        private bool _areaExitCompleted;
+        private bool _destructionInProgress;
 
         public bool IsDestroyed { get; private set; }
 
@@ -218,25 +222,80 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             {
                 throw new InvalidOperationException($"{this} already destroyed!");
             }
-            _updateState = CreatureUpdateState.Destroyed;
-            IsDestroyed = true;
+
+            if (_destructionInProgress)
+            {
+                throw new InvalidOperationException($"{this} is already being destroyed!");
+            }
+
+            _destructionInProgress = true;
+            _updateState = CreatureUpdateState.Destroying;
+            var failures = new List<Exception>();
             try
             {
-                if (Location != null)
+                if (!_regionRemovalCompleted && Location != null)
                 {
-                    var region = MapRegionService.GetMapRegion(Location.RegionId, Location.Dimension, false, false);
-                    if (region != null)
+                    try
                     {
-                        RemoveFromRegion(region);
+                        var region = MapRegionService.GetMapRegion(Location.RegionId, Location.Dimension, false, false);
+                        if (region != null)
+                        {
+                            RemoveFromRegion(region);
+                        }
+
+                        _regionRemovalCompleted = true;
+                    }
+                    catch (Exception exception)
+                    {
+                        failures.Add(exception);
                     }
                 }
-                Area?.OnCreatureExitArea(this);
-                OnDestroy();
+
+                if (!_areaExitCompleted && Area is not null)
+                {
+                    try
+                    {
+                        Area.OnCreatureExitArea(this);
+                        _areaExitCompleted = true;
+                    }
+                    catch (Exception exception)
+                    {
+                        failures.Add(exception);
+                    }
+                }
+
+                try
+                {
+                    OnDestroy();
+                }
+                catch (Exception exception)
+                {
+                    failures.Add(exception);
+                }
+
+                if (failures.Count > 0)
+                {
+                    ThrowCleanupFailures(failures);
+                }
+
+                _serviceScope.Dispose();
+                IsDestroyed = true;
+                _updateState = CreatureUpdateState.Destroyed;
             }
             finally
             {
-                _serviceScope.Dispose();
+                _destructionInProgress = false;
             }
+        }
+
+        private static void ThrowCleanupFailures(IReadOnlyCollection<Exception> failures)
+        {
+            if (failures.Count == 1)
+            {
+                ExceptionDispatchInfo.Capture(failures.Single()).Throw();
+            }
+
+            throw new AggregateException("Creature destruction failed.", failures);
         }
 
         /// <summary>
@@ -888,11 +947,43 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         protected void UnregisterEventHandlers()
         {
+            if (_registeredEventHandlers is null)
+            {
+                return;
+            }
+
             var eventManager = ServiceProvider.GetRequiredService<IEventManager>();
-            foreach (var type in _registeredEventHandlers.Keys)
-                _registeredEventHandlers[type]
-                    .ForEach(eventHappened => eventManager.StopListen(type, eventHappened));
-            _registeredEventHandlers = null!;
+            var failures = new List<Exception>();
+            foreach (var (type, handlers) in _registeredEventHandlers.ToArray())
+            {
+                foreach (var eventHappened in handlers.ToArray())
+                {
+                    try
+                    {
+                        eventManager.StopListen(type, eventHappened);
+                        handlers.Remove(eventHappened);
+                    }
+                    catch (Exception exception)
+                    {
+                        failures.Add(exception);
+                    }
+                }
+
+                if (handlers.Count == 0)
+                {
+                    _registeredEventHandlers.Remove(type);
+                }
+            }
+
+            if (_registeredEventHandlers.Count == 0)
+            {
+                _registeredEventHandlers = null!;
+            }
+
+            if (failures.Count > 0)
+            {
+                ThrowCleanupFailures(failures);
+            }
         }
 
         /// <summary>

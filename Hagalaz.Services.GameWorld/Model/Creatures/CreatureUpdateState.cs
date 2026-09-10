@@ -11,6 +11,7 @@
         ClientPrepareUpdate,
         ClientUpdate,
         ClientUpdateReset,
+        Destroying,
         Destroyed
     }
 }

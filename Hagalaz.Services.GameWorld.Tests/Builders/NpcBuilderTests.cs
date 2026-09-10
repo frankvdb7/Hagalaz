@@ -7,12 +7,14 @@ using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Services.GameWorld.Builders;
+using Hagalaz.Game.Common.Events;
 using Hagalaz.Services.GameWorld.Data.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -76,6 +78,64 @@ public sealed class NpcBuilderTests
         Assert.IsTrue(marker.Disposed);
     }
 
+    [TestMethod]
+    public void Destroy_WhenScriptCleanupFails_RetriesScriptAndUnregistersIndependentHandlers()
+    {
+        var definition = new NpcDefinition(1)
+        {
+            BoundsType = BoundsType.Static,
+            DisplayName = "Test NPC",
+            WalksRandomly = false,
+        };
+        var npcService = Substitute.For<INpcService>();
+        npcService.FindNpcDefinitionById(definition.Id).Returns(definition);
+        var script = Substitute.For<INpcScript>();
+        var scriptCleanupAttempts = 0;
+        var scriptFailure = new InvalidOperationException("script cleanup failed");
+        script.When(value => value.OnDestroy()).Do(_ =>
+        {
+            if (++scriptCleanupAttempts == 1)
+            {
+                throw scriptFailure;
+            }
+        });
+        var scriptActivator = Substitute.For<INpcScriptActivator>();
+        scriptActivator.Create(typeof(INpcScript), Arg.Any<INpc>()).Returns(script);
+        var eventManager = Substitute.For<IEventManager>();
+        var region = Substitute.For<IMapRegion>();
+        var regionService = Substitute.For<IMapRegionService>();
+        regionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>(), true).Returns(region);
+        regionService.GetMapRegion(Arg.Any<int>(), Arg.Any<int>(), false, false).Returns(region);
+        EventHappened eventHandle = _ => false;
+        eventManager.Listen<CreatureDestroyedEvent>(Arg.Any<EventHappened<CreatureDestroyedEvent>>()).Returns(eventHandle);
+        var builder = CreateBuilder(npcService, services =>
+        {
+            services.AddSingleton(scriptActivator);
+            services.AddSingleton(eventManager);
+            services.AddSingleton(regionService);
+        });
+
+        var npc = builder.Create()
+            .WithId(definition.Id)
+            .WithLocation(new Location(3200, 3200, 0, 0))
+            .WithScript(typeof(INpcScript))
+            .Build();
+        npc.OnRegistered();
+        npc.RegisterEventHandler<CreatureDestroyedEvent>(_ => false);
+
+        var firstFailure = Assert.ThrowsExactly<InvalidOperationException>(() => npc.Destroy());
+
+        Assert.AreSame(scriptFailure, firstFailure);
+        Assert.IsFalse(npc.IsDestroyed);
+        eventManager.Received(1).StopListen(typeof(CreatureDestroyedEvent), eventHandle);
+
+        npc.Destroy();
+
+        Assert.IsTrue(npc.IsDestroyed);
+        script.Received(2).OnDestroy();
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(value => value is CreatureDestroyedEvent));
+    }
+
     private static NpcBuilder CreateBuilder(INpcService npcService, Action<IServiceCollection>? configure = null)
     {
         var services = new ServiceCollection()
@@ -84,6 +144,7 @@ public sealed class NpcBuilderTests
             .AddSingleton(Substitute.For<IScopedGameMediator>())
             .AddSingleton(Substitute.For<ISmartPathFinder>())
             .AddSingleton(Substitute.For<IMapRegionService>())
+            .AddSingleton(Substitute.For<IAreaService>())
             .AddSingleton(Substitute.For<IProjectilePathFinder>())
             .AddSingleton<IOptions<CombatOptions>>(Options.Create(new CombatOptions()))
             .AddSingleton(Substitute.For<IHitSplatBuilder>())

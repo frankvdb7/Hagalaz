@@ -68,31 +68,46 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Add(IGameObject gameObject)
         {
-            EnsureAcceptsMutation();
-            _parts
-                .GetOrAdd(gameObject.Location.GetRegionPartHash(), CreateRegionPart)
-                .Add(gameObject);
-            FlagCollision(gameObject);
+            lock (_mutationGate)
+            {
+                EnsureAcceptsMutation();
+                _parts
+                    .GetOrAdd(gameObject.Location.GetRegionPartHash(), CreateRegionPart)
+                    .Add(gameObject);
+                FlagCollision(gameObject);
+            }
         }
 
         public void Remove(IGameObject gameObject)
         {
-            if (DestructionState != MapRegionDestructionState.Active)
+            lock (_mutationGate)
             {
-                return;
-            }
+                if (DestructionState != MapRegionDestructionState.Active)
+                {
+                    return;
+                }
 
-            var partHash = gameObject.Location.GetRegionPartHash();
-            if (!_parts.TryGetValue(partHash, out var part))
-            {
-                return;
-            }
+                var partHash = gameObject.Location.GetRegionPartHash();
+                if (!_parts.TryGetValue(partHash, out var part))
+                {
+                    return;
+                }
 
-            part.Remove(gameObject);
-            UnFlagCollision(gameObject);
+                part.Remove(gameObject);
+                UnFlagCollision(gameObject);
+            }
         }
 
         public void UnloadPartGameObjects(int partX, int partY, int partZ, int partRotation)
+        {
+            lock (_mutationGate)
+            {
+                EnsureAcceptsMutation();
+                UnloadPartGameObjectsCore(partX, partY, partZ, partRotation);
+            }
+        }
+
+        private void UnloadPartGameObjectsCore(int partX, int partY, int partZ, int partRotation)
         {
             var minLocalX = (partX & 0x7) * 8;
             var maxLocalX = minLocalX + 7;
@@ -133,6 +148,15 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// <param name="partRotation">The rotation.</param>
         public void LoadPartObjects(int partX, int partY, int partZ, int partRotation)
         {
+            lock (_mutationGate)
+            {
+                EnsureAcceptsMutation();
+                LoadPartObjectsCore(partX, partY, partZ, partRotation);
+            }
+        }
+
+        private void LoadPartObjectsCore(int partX, int partY, int partZ, int partRotation)
+        {
             var minX = (partX & 0x7) * 8;
             var maxX = minX + 7;
             var minY = (partY & 0x7) * 8;
@@ -166,6 +190,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         private IMapRegionPart GetDynamicRegionPartData(int partX, int partY, int z)
         {
+            EnsureAcceptsMutation();
             var partHash = LocationHelper.GetRegionPartHash(partX, partY, z);
             return _parts.GetOrAdd(partHash, hash =>
             {

@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System;
+using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Factories;
@@ -67,6 +69,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         public IBounds Bounds { get; }
 
         private ScriptLifecycleState _scriptLifecycleState;
+        private bool _destroyedEventSent;
 
         private enum ScriptLifecycleState
         {
@@ -176,19 +179,51 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         protected override void OnDestroy()
         {
-            EventManager.SendEvent(new CreatureDestroyedEvent(this));
+            var failures = new List<Exception>();
+            if (!_destroyedEventSent)
+            {
+                try
+                {
+                    EventManager.SendEvent(new CreatureDestroyedEvent(this));
+                    _destroyedEventSent = true;
+                }
+                catch (Exception exception)
+                {
+                    failures.Add(exception);
+                }
+            }
+
             if (_scriptLifecycleState is ScriptLifecycleState.Initializing or ScriptLifecycleState.Initialized)
             {
                 try
                 {
                     Script.OnDestroy();
-                }
-                finally
-                {
                     _scriptLifecycleState = ScriptLifecycleState.Destroyed;
                 }
+                catch (Exception exception)
+                {
+                    failures.Add(exception);
+                }
             }
-            UnregisterEventHandlers();
+
+            try
+            {
+                UnregisterEventHandlers();
+            }
+            catch (Exception exception)
+            {
+                failures.Add(exception);
+            }
+
+            if (failures.Count == 1)
+            {
+                ExceptionDispatchInfo.Capture(failures[0]).Throw();
+            }
+
+            if (failures.Count > 1)
+            {
+                throw new AggregateException("NPC destruction failed.", failures);
+            }
         }
 
         /// <summary>

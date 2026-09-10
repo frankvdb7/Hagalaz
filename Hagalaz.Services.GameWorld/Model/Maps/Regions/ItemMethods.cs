@@ -15,23 +15,29 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Add(IGroundItem item)
         {
-            EnsureAcceptsMutation();
-            _parts.GetOrAdd(item.Location.GetRegionPartHash(), CreateRegionPart).Add(item);
+            lock (_mutationGate)
+            {
+                EnsureAcceptsMutation();
+                _parts.GetOrAdd(item.Location.GetRegionPartHash(), CreateRegionPart).Add(item);
+            }
         }
 
         public bool Remove(IGroundItem item)
         {
-            if (DestructionState != MapRegionDestructionState.Active)
+            lock (_mutationGate)
             {
-                return false;
-            }
+                if (DestructionState != MapRegionDestructionState.Active)
+                {
+                    return false;
+                }
 
-            var partHash = item.Location.GetRegionPartHash();
-            if (!_parts.TryGetValue(partHash, out var part))
-            {
-                return false;
+                var partHash = item.Location.GetRegionPartHash();
+                if (!_parts.TryGetValue(partHash, out var part))
+                {
+                    return false;
+                }
+                return part.Remove(item);
             }
-            return part.Remove(item);
         }
 
         private void TickGroundItems()

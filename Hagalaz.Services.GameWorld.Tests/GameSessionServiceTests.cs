@@ -72,31 +72,37 @@ public sealed class GameSessionServiceTests
     [Timeout(5000)]
     public async Task GameSessionStore_MoveToPendingAbort_IsAtomicWithConnectionIdReuse()
     {
-        for (var attempt = 0; attempt < 100; attempt++)
+        var store = new GameSessionStore();
+        var retainedSession = Substitute.For<IGameSession>();
+        var connectionReadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseConnectionRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var blockConnectionRead = false;
+        retainedSession.MasterId.Returns(42u);
+        retainedSession.ConnectionId.Returns(_ =>
         {
-            var store = new GameSessionStore();
-            var retainedSession = CreateLobbySession(42, $"reused-connection-{attempt}");
-            var replacementSession = CreateLobbySession(43, retainedSession.ConnectionId);
-            Assert.IsTrue(await store.TryAdd(retainedSession));
-
-            using var startGate = new Barrier(2);
-            var moveTask = Task.Run(async () =>
+            if (blockConnectionRead)
             {
-                startGate.SignalAndWait();
-                return await store.TryMoveToPendingAbort(retainedSession);
-            });
-            var addTask = Task.Run(async () =>
-            {
-                startGate.SignalAndWait();
-                return await store.TryAdd(replacementSession);
-            });
+                connectionReadStarted.TrySetResult();
+                releaseConnectionRead.Task.GetAwaiter().GetResult();
+            }
 
-            await Task.WhenAll(moveTask, addTask);
+            return "reused-connection";
+        });
 
-            Assert.IsTrue(moveTask.Result);
-            Assert.IsFalse(addTask.Result);
-            Assert.AreEqual(1, (await store.FindSessionsPendingAbort()).Count);
-        }
+        var replacementSession = CreateLobbySession(43, "reused-connection");
+        Assert.IsTrue(await store.TryAdd(retainedSession));
+        blockConnectionRead = true;
+
+        var moveTask = Task.Run(async () => await store.TryMoveToPendingAbort(retainedSession));
+        await connectionReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        var addTask = store.TryAdd(replacementSession).AsTask();
+        Assert.IsFalse(addTask.IsCompleted);
+
+        releaseConnectionRead.TrySetResult();
+        Assert.IsTrue(await moveTask);
+        Assert.IsFalse(await addTask);
+        Assert.AreEqual(1, (await store.FindSessionsPendingAbort()).Count);
     }
 
     [TestMethod]
