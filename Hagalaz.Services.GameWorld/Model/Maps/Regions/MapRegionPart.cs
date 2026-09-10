@@ -31,13 +31,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private List<IRegionPartUpdate> _pendingUpdates = [];
         private List<IRegionPartUpdate> _preparedUpdates = [];
         private readonly object _updatesLock = new();
-        private readonly Action<Action> _mutationAdmission;
 
-        public MapRegionPart(IMapper mapper, IGroundItemBuilder groundItemBuilder, Action<Action>? mutationAdmission = null)
+        public MapRegionPart(IMapper mapper, IGroundItemBuilder groundItemBuilder)
         {
             _mapper = mapper;
             _groundItemBuilder = groundItemBuilder;
-            _mutationAdmission = mutationAdmission ?? (mutation => mutation());
         }
 
         /// <summary>
@@ -45,37 +43,31 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// If this part data is not modified this is same
         /// as the PartX of this data.
         /// </summary>
-        private int _drawRegionPartX;
-        public int DrawRegionPartX { get => _drawRegionPartX; set => Mutate(() => _drawRegionPartX = value); }
+        public int DrawRegionPartX { get; set; }
 
         /// <summary>
         /// Contains real (drawed) part Y
         /// If this part data is not modified this is same
         /// as the PartY of this data.
         /// </summary>
-        private int _drawRegionPartY;
-        public int DrawRegionPartY { get => _drawRegionPartY; set => Mutate(() => _drawRegionPartY = value); }
+        public int DrawRegionPartY { get; set; }
 
         /// <summary>
         /// Contains real (drawed) Z
         /// If this part data is not modified this is same
         /// as the Z of this data.
         /// </summary>
-        private int _drawRegionZ;
-        public int DrawRegionZ { get => _drawRegionZ; set => Mutate(() => _drawRegionZ = value); }
+        public int DrawRegionZ { get; set; }
 
-        private int _drawRegionDimension;
-        public int DrawRegionDimension { get => _drawRegionDimension; set => Mutate(() => _drawRegionDimension = value); }
+        public int DrawRegionDimension { get; set; }
 
-        private bool _hasDrawSource;
-        public bool HasDrawSource { get => _hasDrawSource; set => Mutate(() => _hasDrawSource = value); }
+        public bool HasDrawSource { get; set; }
 
         /// <summary>
         /// Contains rotation of this sector,
         /// It is 0 by default if not modified.
         /// </summary>
-        private int _rotation;
-        public int Rotation { get => _rotation; set => Mutate(() => _rotation = value); }
+        public int Rotation { get; set; }
 
         public IEnumerable<IGameObject> FindAllGameObjects() => _gameObjects.Values;
 
@@ -87,9 +79,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public IEnumerable<IGroundItem> FindAllGroundItems() => _groundItems.Values.SelectMany(itemsOnLocation => itemsOnLocation);
 
-        public void Add(IGameObject gameObject) => Mutate(() => AddGameObjectCore(gameObject));
-
-        private void AddGameObjectCore(IGameObject gameObject)
+        public void Add(IGameObject gameObject)
         {
             var localHash = gameObject.GetRegionLocalHash();
             _gameObjects.TryGetValue(localHash, out var gameObjectOnLocation);
@@ -123,9 +113,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
-        public void Add(IGroundItem item) => Mutate(() => AddGroundItemCore(item));
-
-        private void AddGroundItemCore(IGroundItem item)
+        public void Add(IGroundItem item)
         {
             if (_groundItems.Values.SelectMany(list => list).Contains(item))
             {
@@ -167,9 +155,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             QueueUpdate(new AddGroundItemUpdate(item));
         }
 
-        public void Remove(IGameObject gameObject) => Mutate(() => RemoveGameObjectCore(gameObject));
-
-        private void RemoveGameObjectCore(IGameObject gameObject)
+        public void Remove(IGameObject gameObject)
         {
             var localHash = gameObject.GetRegionLocalHash();
             if (!_gameObjects.TryGetValue(localHash, out var gameObjectOnLocation))
@@ -197,13 +183,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         }
 
         public bool Remove(IGroundItem item)
-        {
-            var removed = false;
-            Mutate(() => removed = RemoveGroundItemCore(item));
-            return removed;
-        }
-
-        private bool RemoveGroundItemCore(IGroundItem item)
         {
             var localHash = item.Location.GetRegionLocalHash();
             if (!_groundItems.TryGetValue(localHash, out var itemsOnLocation))
@@ -286,9 +265,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// it, converting it to a public item, or removing it entirely.
         /// </summary>
         /// <param name="item">The ground item whose timer expired.</param>
-        public void ProcessExpiredItem(IGroundItem item) => Mutate(() => ProcessExpiredItemCore(item));
-
-        private void ProcessExpiredItemCore(IGroundItem item)
+        public void ProcessExpiredItem(IGroundItem item)
         {
             var localHash = item.Location.GetRegionLocalHash();
             if (!_groundItems.TryGetValue(localHash, out var itemsOnLocation))
@@ -397,9 +374,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
-        public void QueueUpdate(IRegionPartUpdate update) => Mutate(() => QueueUpdateCore(update));
-
-        private void QueueUpdateCore(IRegionPartUpdate update)
+        public void QueueUpdate(IRegionPartUpdate update)
         {
             ArgumentNullException.ThrowIfNull(update);
 
@@ -414,9 +389,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
-        public void PrepareUpdatesForTick() => Mutate(PrepareUpdatesForTickCore);
-
-        private void PrepareUpdatesForTickCore()
+        public void PrepareUpdatesForTick()
         {
             lock (_updatesLock)
             {
@@ -427,9 +400,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
-        public void CompleteUpdateTick() => Mutate(CompleteUpdateTickCore);
-
-        private void CompleteUpdateTickCore()
+        public void CompleteUpdateTick()
         {
             lock (_updatesLock)
             {
@@ -437,19 +408,15 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
-        public void Erase() => Mutate(EraseCore);
-
-        private void EraseCore()
+        public void Erase()
         {
-            _drawRegionPartX = 0;
-            _drawRegionPartY = 0;
-            _drawRegionZ = 0;
-            _drawRegionDimension = 0;
-            _hasDrawSource = false;
-            _rotation = 0;
+            DrawRegionPartX = 0;
+            DrawRegionPartY = 0;
+            DrawRegionZ = 0;
+            DrawRegionDimension = 0;
+            HasDrawSource = false;
+            Rotation = 0;
         }
-
-        private void Mutate(Action mutation) => _mutationAdmission(mutation);
 
         public override int GetHashCode() =>
             ((Rotation & 0x3) << 1) | ((DrawRegionZ & 0x3) << 24) | ((DrawRegionPartX & 0x3ff) << 14) | ((DrawRegionPartY & 0x7ff) << 3);

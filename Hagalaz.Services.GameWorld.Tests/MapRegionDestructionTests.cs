@@ -227,20 +227,6 @@ public sealed class MapRegionDestructionTests
     }
 
     [TestMethod]
-    public async Task DestroyAsync_RejectsCachedPartMutationAfterAdmission()
-    {
-        var region = CreateRegion(Substitute.For<INpcService>());
-        var part = region.CreateRegionPart(0);
-        var existing = CreateGameObject(Location.Create(1, 1, 0, 0));
-        part.Add(existing);
-
-        await region.DestroyAsync();
-
-        Assert.ThrowsExactly<InvalidOperationException>(() => part.Add(CreateGameObject(Location.Create(2, 2, 0, 0))));
-        Assert.ThrowsExactly<InvalidOperationException>(() => part.Erase());
-    }
-
-    [TestMethod]
     public async Task DestroyAsync_ClosesGroundItemTickAdmissionBeforeCleanupRuns()
     {
         var destroyStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

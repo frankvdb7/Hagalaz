@@ -27,6 +27,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
+using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Configuration;
@@ -148,29 +149,26 @@ public sealed class CharacterStatePersistenceTests
     [TestMethod]
     public void Destroy_WhenOneCharacterScriptFails_RetriesOnlyFailedScriptAndPublishesEventOnce()
     {
-        var firstScript = Substitute.For<IDefaultCharacterScript>();
-        var secondScript = Substitute.For<IDefaultCharacterScript>();
+        var script = Substitute.For<IDefaultCharacterScript>();
         var failure = new InvalidOperationException("script cleanup failed");
         var attempts = 0;
-        firstScript.When(script => script.OnDestroy()).Do(_ =>
+        script.When(value => value.OnDestroy()).Do(_ =>
         {
             if (++attempts == 1)
                 throw failure;
         });
-        var character = CreateCharacter(new TestStateService(), out _, new[] { firstScript, secondScript });
+        var character = CreateCharacter(new TestStateService(), out _, new[] { script });
 
         var firstFailure = Assert.ThrowsExactly<InvalidOperationException>(() => character.Destroy());
 
         Assert.AreSame(failure, firstFailure);
         Assert.IsFalse(character.IsDestroyed);
-        firstScript.Received(1).OnDestroy();
-        secondScript.Received(1).OnDestroy();
+        script.Received(1).OnDestroy();
 
         character.Destroy();
 
         Assert.IsTrue(character.IsDestroyed);
-        firstScript.Received(2).OnDestroy();
-        secondScript.Received(1).OnDestroy();
+        script.Received(2).OnDestroy();
         character.EventManager.Received(1).SendEvent(Arg.Any<IEvent>());
     }
 

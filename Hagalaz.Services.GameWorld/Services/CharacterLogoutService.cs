@@ -95,22 +95,12 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
         {
             var connectionId = character.Session.ConnectionId;
             var sessionGeneration = character.Session.SessionGeneration;
-            if (!_state.IsCharacterDestroyed(masterId))
+            if (!character.IsDestroyed)
             {
-                if (!character.IsDestroyed)
-                {
-                    character.Destroy();
-                }
-
-                _state.MarkCharacterDestroyed(masterId);
+                character.Destroy();
             }
 
-            if (!_state.IsWorldSignOutPublished(masterId))
-            {
-                _mediator.Publish(new WorldSignOutCommand(masterId, sessionGeneration, connectionId));
-                _state.MarkWorldSignOutPublished(masterId);
-            }
-
+            _mediator.Publish(new WorldSignOutCommand(masterId, sessionGeneration, connectionId));
             _state.Forget(masterId);
         }
         finally
