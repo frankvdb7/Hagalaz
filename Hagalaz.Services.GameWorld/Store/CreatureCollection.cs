@@ -71,6 +71,12 @@ namespace Hagalaz.Services.GameWorld.Store
             {
                 return false;
             }
+
+            if (!ReferenceEquals(_creatures[index], creature))
+            {
+                return false;
+            }
+
             RemoveAt(index);
             return true;
         }

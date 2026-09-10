@@ -48,6 +48,12 @@ namespace Hagalaz.Game.Abstractions.Services
         /// </summary>
         bool TryTakeIdleMapRegionForDestroy(int id, int dimension, IMapRegion expectedRegion);
 
+        /// <summary>Returns regions retained for a pending destruction retry.</summary>
+        IEnumerable<IMapRegion> FindPendingDestructionRegions(int dimensionId);
+
+        /// <summary>Completes exact pending ownership after region cleanup succeeds.</summary>
+        bool TryCompleteMapRegionDestruction(IMapRegion expectedRegion);
+
         /// <summary>
         /// Checks whether the expected region instance is the current active region for its location.
         /// </summary>

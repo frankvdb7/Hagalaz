@@ -263,6 +263,26 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
+    public async Task TryTakeIdleMapRegionForDestroy_RetainsExactPendingOwnerUntilCompletion()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        Assert.IsTrue(service.TryCreateDimension(out var dimension));
+        var region = service.GetOrCreateMapRegion(1, dimension!.Id, false);
+        region.MarkReady();
+        Assert.IsTrue(service.TrySuspendMapRegion(region));
+
+        Assert.IsTrue(service.TryTakeIdleMapRegionForDestroy(region.Id, dimension.Id, region));
+        Assert.AreSame(region, service.FindPendingDestructionRegions(dimension.Id).Single());
+        Assert.IsFalse(dimension.CanDestroy());
+
+        await region.DestroyAsync();
+
+        Assert.IsTrue(service.TryCompleteMapRegionDestruction(region));
+        Assert.IsFalse(service.FindPendingDestructionRegions(dimension.Id).Any());
+    }
+
+    [TestMethod]
     public async Task TrySuspendMapRegion_ConcurrentResumeDoesNotCreateDuplicateResidency()
     {
         using var provider = CreateProvider();
@@ -315,6 +335,17 @@ public sealed class MapRegionServiceTests
         var region = service.GetOrCreateMapRegion(Location.Create(67, 69, 0, 0).RegionId, 0, false);
 
         Assert.AreEqual(MapRegionState.Initializing, region.State);
+    }
+
+    [TestMethod]
+    public void DimensionResidencyViews_DoNotExposeMutableDictionaryImplementation()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var dimension = service.FindAllDimensions().Single();
+
+        Assert.IsFalse(dimension.Regions is IDictionary<int, IMapRegion>);
+        Assert.IsFalse(dimension.IdleRegions is IDictionary<int, IMapRegion>);
     }
 
     [TestMethod]

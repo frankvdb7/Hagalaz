@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
@@ -12,12 +13,19 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     {
         public IEnumerable<IGroundItem> FindAllGroundItems() => _parts.SelectMany(part => part.FindAllGroundItems());
 
-        public void Add(IGroundItem item) => _parts
-            .GetOrAdd(item.Location.GetRegionPartHash(), CreateRegionPart)
-            .Add(item);
+        public void Add(IGroundItem item)
+        {
+            EnsureAcceptsMutation();
+            _parts.GetOrAdd(item.Location.GetRegionPartHash(), CreateRegionPart).Add(item);
+        }
 
         public bool Remove(IGroundItem item)
         {
+            if (DestructionState != MapRegionDestructionState.Active)
+            {
+                return false;
+            }
+
             var partHash = item.Location.GetRegionPartHash();
             if (!_parts.TryGetValue(partHash, out var part))
             {

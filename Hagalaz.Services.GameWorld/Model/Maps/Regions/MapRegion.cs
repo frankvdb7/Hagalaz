@@ -35,13 +35,17 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly IGameObjectBuilder _gameObjectBuilder;
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly IMapper _mapper;
+        private readonly SemaphoreSlim _destructionLock = new(1, 1);
+        private readonly HashSet<INpc> _unregisteredNpcs = new();
         public int Id => BaseLocation.RegionId;
         public ILocation BaseLocation { get; }
         public IVector3 Size { get; }
         public bool IsDynamic { get; private set; }
         private int _state = (int)MapRegionState.Initializing;
         public MapRegionState State => (MapRegionState)Volatile.Read(ref _state);
-        public bool IsDestroyed { get; private set; }
+        private int _destructionState = (int)MapRegionDestructionState.Active;
+        public MapRegionDestructionState DestructionState => (MapRegionDestructionState)Volatile.Read(ref _destructionState);
+        public bool IsDestroyed => DestructionState == MapRegionDestructionState.Destroyed;
         public int[] XteaKeys { get; }
 
         public MapRegion(
@@ -67,6 +71,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Add(INpc npc)
         {
+            EnsureAcceptsMutation();
             if (!_npcs.TryAdd(npc.Index, npc))
             {
                 throw new InvalidOperationException($"Npc {npc} is already added to this region");
@@ -75,15 +80,32 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Add(ICharacter character)
         {
+            EnsureAcceptsMutation();
             if (!_characters.TryAdd(character.Index, character))
             {
                 throw new InvalidOperationException($"Character {character} is already added to this region");
             }
         }
 
-        public void Remove(ICharacter character) => _characters.TryRemove(character.Index);
+        public void Remove(ICharacter character)
+        {
+            if (DestructionState != MapRegionDestructionState.Active)
+            {
+                return;
+            }
 
-        public void Remove(INpc npc) => _npcs.TryRemove(npc.Index, npc);
+            _characters.TryRemove(character.Index);
+        }
+
+        public void Remove(INpc npc)
+        {
+            if (DestructionState != MapRegionDestructionState.Active)
+            {
+                return;
+            }
+
+            _npcs.TryRemove(npc.Index, npc);
+        }
 
         public IEnumerable<ICharacter> FindAllCharacters() => _characters;
 
@@ -212,6 +234,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public bool CanDestroy()
         {
+            if (DestructionState != MapRegionDestructionState.Active)
+            {
+                return false;
+            }
+
             if (IsDynamic)
             {
                 return false;
@@ -271,72 +298,81 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public async Task DestroyAsync()
         {
-            if (IsDestroyed)
+            await _destructionLock.WaitAsync().ConfigureAwait(false);
+            try
             {
-                throw new InvalidOperationException($"Region {this} is already destroyed");
+                if (DestructionState == MapRegionDestructionState.Destroyed)
+                {
+                    throw new InvalidOperationException($"Region {this} is already destroyed");
+                }
+
+                Interlocked.Exchange(ref _destructionState, (int)MapRegionDestructionState.Destroying);
+                var failures = new List<Exception>();
+
+                foreach (var npc in FindAllNpcs().ToArray())
+                {
+                    if (_unregisteredNpcs.Contains(npc))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        await _npcService.UnregisterAsync(npc).ConfigureAwait(false);
+                        _unregisteredNpcs.Add(npc);
+                    }
+                    catch (Exception ex)
+                    {
+                        failures.Add(ex);
+                    }
+                }
+
+                foreach (var item in FindAllGroundItems().ToArray())
+                {
+                    if (item.IsDestroyed)
+                    {
+                        continue;
+                    }
+
+                    try { item.Destroy(); }
+                    catch (Exception ex) { failures.Add(ex); }
+                }
+
+                foreach (var obj in FindAllGameObjects().ToArray())
+                {
+                    if (obj.IsDestroyed)
+                    {
+                        continue;
+                    }
+
+                    try { obj.Destroy(); }
+                    catch (Exception ex) { failures.Add(ex); }
+                }
+
+                if (failures.Count > 0)
+                {
+                    throw new AggregateException($"Region {this} cleanup failed; the region remains pending reconciliation.", failures);
+                }
+
+                Interlocked.Exchange(ref _destructionState, (int)MapRegionDestructionState.Destroyed);
             }
-
-            var failures = new List<Exception>();
-            var npcs = FindAllNpcs().ToArray();
-            var groundItems = FindAllGroundItems().ToArray();
-            var gameObjects = FindAllGameObjects().ToArray();
-
-            foreach (var npc in npcs)
+            finally
             {
-                try
-                {
-                    await _npcService.UnregisterAsync(npc);
-                }
-                catch (Exception ex)
-                {
-                    failures.Add(ex);
-                }
+                _destructionLock.Release();
             }
+        }
 
-            foreach (var item in groundItems)
+        private void EnsureAcceptsMutation()
+        {
+            if (DestructionState != MapRegionDestructionState.Active)
             {
-                if (item.IsDestroyed)
-                {
-                    continue;
-                }
-
-                try
-                {
-                    item.Destroy();
-                }
-                catch (Exception ex)
-                {
-                    failures.Add(ex);
-                }
-            }
-
-            foreach (var obj in gameObjects)
-            {
-                if (obj.IsDestroyed)
-                {
-                    continue;
-                }
-
-                try
-                {
-                    obj.Destroy();
-                }
-                catch (Exception ex)
-                {
-                    failures.Add(ex);
-                }
-            }
-
-            IsDestroyed = true;
-
-            if (failures.Count > 0)
-            {
-                throw new AggregateException($"Region {this} cleanup failed after all resources were attempted.", failures);
+                throw new InvalidOperationException($"Region {this} no longer accepts mutations because it is {DestructionState}.");
             }
         }
 
         public void QueueUpdate(IRegionPartUpdate update)
         {
+            EnsureAcceptsMutation();
             var partHash = update.Location.GetRegionPartHash();
             _parts.GetOrAdd(partHash, CreateRegionPart).QueueUpdate(update);
         }

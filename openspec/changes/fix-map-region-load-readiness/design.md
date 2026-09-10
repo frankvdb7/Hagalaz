@@ -27,7 +27,7 @@ loader builds configured items and objects before applying any region state.
 These lists are private implementation details; no transaction or rollback
 abstraction is introduced.
 
-### 2. Use one explicit region lifecycle source of truth
+### 2. Keep initial loading and destruction lifecycles explicit
 
 `IMapRegion.State` is the only stored initial-load lifecycle state and uses
 exactly `Initializing`, `Ready`, and `Discarded`. A new region starts
@@ -35,6 +35,11 @@ exactly `Initializing`, `Ready`, and `Discarded`. A new region starts
 population; a fatal failure or cancellation marks that instance `Discarded`.
 `Ready` and `Discarded` are terminal for this lifecycle. A discarded instance
 is never reset or retried.
+
+Destruction is tracked separately with `MapRegionDestructionState` so initial
+loading semantics remain unchanged. A claimed region transitions from
+`Active` to `Destroying`; cleanup failures leave it in `Destroying` for
+reconciliation, and only complete cleanup transitions it to `Destroyed`.
 
 ### 3. Apply prepared map state before NPC registration
 
@@ -94,27 +99,30 @@ service also leaves initializing regions active until they publish readiness.
 The GameWorker filters its snapshot to ready regions before any major tick
 phase, and collision returns `FloorBlock` for every non-ready state.
 
-### 9. Centralize residency ownership
+### 9. Centralize residency ownership and destruction reconciliation
 
 `MapRegionService` owns active/idle residency transitions. A small
 per-dimension synchronization root covers only dictionary ownership changes,
 so active-to-idle transfer, idle-to-active resume, and exact idle destruction
-claims cannot expose a gap or create a second canonical instance. Region
-callbacks are not run while an asynchronous destruction operation is in
-progress; destruction occurs only after the service has removed the exact idle
-instance from canonical ownership. Existing concurrent dictionaries remain the
-storage mechanism, and exact instance removal remains compare-by-key-and-value
-cleanup for failed loads.
+claims cannot expose a gap or create a second canonical instance. A destruction
+claim moves the exact idle instance into a pending-destruction store before
+cleanup starts. That store remains the owner across failures and is retried by
+the background reconciler; successful cleanup removes only the exact pending
+instance. Existing concurrent dictionaries remain the storage mechanism, and
+exact instance removal remains compare-by-key-and-value cleanup for failed
+loads.
 
 Dimension removal uses the same synchronization root and removes only an exact
 current, empty `Dimension`. Region construction may occur outside the lock, but
 publication revalidates that the captured dimension is still current before
 inserting the region.
 
-Terminal `MapRegion` destruction attempts every NPC, ground item, and game
-object cleanup independently, marks the region destroyed after all attempts,
-and reports collected failures as one `AggregateException`. A claimed region is
-never reinserted into residency after destruction begins.
+`MapRegion` destruction serializes concurrent callers, attempts every NPC,
+ground item, and game object independently, preserves failures as one
+`AggregateException`, and retries only incomplete cleanup. It reports
+`Destroying` until all cleanup succeeds, then marks the region `Destroyed`.
+New mutations are rejected after destruction begins, and pending destruction
+counts prevent a dimension from being removed prematurely.
 
 ### 10. Preserve dynamic source dimensions
 

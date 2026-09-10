@@ -68,6 +68,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Add(IGameObject gameObject)
         {
+            EnsureAcceptsMutation();
             _parts
                 .GetOrAdd(gameObject.Location.GetRegionPartHash(), CreateRegionPart)
                 .Add(gameObject);
@@ -76,6 +77,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Remove(IGameObject gameObject)
         {
+            if (DestructionState != MapRegionDestructionState.Active)
+            {
+                return;
+            }
+
             var partHash = gameObject.Location.GetRegionPartHash();
             if (!_parts.TryGetValue(partHash, out var part))
             {

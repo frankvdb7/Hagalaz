@@ -196,7 +196,7 @@ public sealed class WorldSignInCommandConsumerTests
 
     private static WorldSignInCommandConsumer CreateConsumer(
         IBus publishEndpoint,
-        MapRegionLoadScheduler scheduler,
+        IMapRegionLoadScheduler scheduler,
         IGameSessionConnectionTerminator connectionTerminator) =>
         new(
             publishEndpoint,

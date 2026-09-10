@@ -66,7 +66,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <value>The bounds.</value>
         public IBounds Bounds { get; }
 
-        private bool _scriptCreated;
+        private ScriptLifecycleState _scriptLifecycleState;
+
+        private enum ScriptLifecycleState
+        {
+            NotStarted,
+            Initializing,
+            Initialized,
+            Destroyed
+        }
 
         /// <summary>
         /// Gets the path finder.
@@ -154,8 +162,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             // initialize the most important drawing logic first
             RenderInformation.OnRegistered();
             base.OnRegistered();
+            _scriptLifecycleState = ScriptLifecycleState.Initializing;
             Script.OnCreate();
-            _scriptCreated = true;
+            _scriptLifecycleState = ScriptLifecycleState.Initialized;
             if (Definition.WalksRandomly && Definition.BoundsType != BoundsType.Static)
             {
                 QueueTask(new NpcRandomWalkTask(this));
@@ -168,9 +177,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         protected override void OnDestroy()
         {
             EventManager.SendEvent(new CreatureDestroyedEvent(this));
-            if (_scriptCreated)
+            if (_scriptLifecycleState is ScriptLifecycleState.Initializing or ScriptLifecycleState.Initialized)
             {
-                Script.OnDestroy();
+                try
+                {
+                    Script.OnDestroy();
+                }
+                finally
+                {
+                    _scriptLifecycleState = ScriptLifecycleState.Destroyed;
+                }
             }
             UnregisterEventHandlers();
         }

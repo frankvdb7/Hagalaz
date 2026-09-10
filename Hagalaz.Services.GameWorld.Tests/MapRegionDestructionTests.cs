@@ -115,7 +115,7 @@ public sealed class MapRegionDestructionTests
     }
 
     [TestMethod]
-    public async Task DestroyAsync_AggregatesNpcItemAndObjectFailuresAndMarksRegionDestroyed()
+    public async Task DestroyAsync_AggregatesFailuresAndKeepsRegionPending()
     {
         var npcService = Substitute.For<INpcService>();
         var npc = CreateNpc(1);
@@ -134,7 +134,8 @@ public sealed class MapRegionDestructionTests
 
         var exception = await Assert.ThrowsExactlyAsync<AggregateException>(() => region.DestroyAsync());
 
-        Assert.IsTrue(region.IsDestroyed);
+        Assert.IsFalse(region.IsDestroyed);
+        Assert.AreEqual(MapRegionDestructionState.Destroying, region.DestructionState);
         var messages = exception.Flatten().InnerExceptions.Select(error => error.Message).ToArray();
         CollectionAssert.AreEquivalent(
             new[] { "npc-failure", "item-failure", "object-failure" },
@@ -142,18 +143,55 @@ public sealed class MapRegionDestructionTests
     }
 
     [TestMethod]
-    public async Task DestroyAsync_AfterFailureDoesNotRepeatCleanup()
+    public async Task DestroyAsync_AfterFailureCanRetryCleanup()
     {
         var npcService = Substitute.For<INpcService>();
         var npc = CreateNpc(1);
-        npcService.UnregisterAsync(npc).Returns(Task.FromException(new InvalidOperationException("npc")));
+        var attempts = 0;
+        npcService.UnregisterAsync(npc).Returns(_ =>
+        {
+            attempts++;
+            return attempts == 1
+                ? Task.FromException(new InvalidOperationException("npc"))
+                : Task.CompletedTask;
+        });
         var region = CreateRegion(npcService);
         region.Add(npc);
 
         await Assert.ThrowsExactlyAsync<AggregateException>(() => region.DestroyAsync());
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => region.DestroyAsync());
+        await region.DestroyAsync();
+
+        await npcService.Received(2).UnregisterAsync(npc);
+        Assert.IsTrue(region.IsDestroyed);
+    }
+
+    [TestMethod]
+    public async Task DestroyAsync_ConcurrentCallersDoNotDuplicateCleanup()
+    {
+        var npcService = Substitute.For<INpcService>();
+        var npc = CreateNpc(1);
+        var region = CreateRegion(npcService);
+        region.Add(npc);
+
+        var first = region.DestroyAsync();
+        var second = region.DestroyAsync();
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => Task.WhenAll(first, second));
 
         await npcService.Received(1).UnregisterAsync(npc);
+    }
+
+    [TestMethod]
+    public async Task DestroyAsync_RejectsNewNpcAfterDestructionStarts()
+    {
+        var npcService = Substitute.For<INpcService>();
+        var existing = CreateNpc(1);
+        var region = CreateRegion(npcService);
+        region.Add(existing);
+        npcService.UnregisterAsync(existing).Returns(Task.FromException(new InvalidOperationException("retry")));
+
+        await Assert.ThrowsExactlyAsync<AggregateException>(() => region.DestroyAsync());
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => region.Add(CreateNpc(2)));
     }
 
     private static MapRegion CreateRegion(INpcService npcService) => new(

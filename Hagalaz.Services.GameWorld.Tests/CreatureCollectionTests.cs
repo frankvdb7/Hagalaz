@@ -110,6 +110,20 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
+        public void Remove_WithReusedIndex_DoesNotRemoveReplacement()
+        {
+            var original = new CreatureMock();
+            var replacement = new CreatureMock();
+            var collection = new CreatureCollection<CreatureMock>(1) { original };
+            collection.Remove(original);
+            collection.Add(replacement);
+
+            Assert.IsFalse(collection.Remove(original));
+            Assert.AreEqual(1, collection.Count);
+            Assert.AreSame(replacement, collection[original.Index]);
+        }
+
+        [TestMethod]
         public void Remove_Add_Multiple_Creatures_Test()
         {
             var creature1 = new CreatureMock();

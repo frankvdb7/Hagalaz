@@ -10,6 +10,7 @@ using MassTransit;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Hagalaz.Services.GameWorld.Services;
+using Hagalaz.Game.Abstractions.Services;
 
 namespace Hagalaz.Services.GameWorld.Mediator.Consumers
 {
@@ -17,14 +18,14 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
     {
         private readonly IPublishEndpoint _publishEndpoint;
         private readonly IOptions<WorldOptions> _options;
-        private readonly MapRegionLoadScheduler _mapRegionLoadScheduler;
+        private readonly IMapRegionLoadScheduler _mapRegionLoadScheduler;
         private readonly IGameSessionConnectionTerminator _connectionTerminator;
         private readonly ILogger<WorldSignInCommandConsumer> _logger;
 
         public WorldSignInCommandConsumer(
             IBus publishEndpoint,
             IOptions<WorldOptions> options,
-            MapRegionLoadScheduler mapRegionLoadScheduler,
+            IMapRegionLoadScheduler mapRegionLoadScheduler,
             IGameSessionConnectionTerminator connectionTerminator,
             ILogger<WorldSignInCommandConsumer> logger)
         {

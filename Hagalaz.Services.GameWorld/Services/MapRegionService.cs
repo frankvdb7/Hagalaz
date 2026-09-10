@@ -260,8 +260,36 @@ namespace Hagalaz.Services.GameWorld.Services
 
             lock (mapDimension.ResidencySyncRoot)
             {
-                return mapDimension.IdleRegionStore.TryRemove(new KeyValuePair<int, IMapRegion>(id, expectedRegion));
+                if (mapDimension.PendingDestructionRegionStore.ContainsKey(id))
+                {
+                    return false;
+                }
+
+                if (!mapDimension.IdleRegionStore.TryRemove(new KeyValuePair<int, IMapRegion>(id, expectedRegion)))
+                {
+                    return false;
+                }
+
+                mapDimension.PendingDestructionRegionStore[id] = expectedRegion;
+                return true;
             }
+        }
+
+        public IEnumerable<IMapRegion> FindPendingDestructionRegions(int dimensionId)
+        {
+            var dimension = _dimensions[dimensionId];
+            return dimension is null ? [] : dimension.PendingDestructionRegionStore.Values.ToArray();
+        }
+
+        public bool TryCompleteMapRegionDestruction(IMapRegion expectedRegion)
+        {
+            ArgumentNullException.ThrowIfNull(expectedRegion);
+
+            var dimension = _dimensions[expectedRegion.BaseLocation.Dimension];
+            return dimension is not null
+                && expectedRegion.DestructionState == MapRegionDestructionState.Destroyed
+                && dimension.PendingDestructionRegionStore.TryRemove(
+                    new KeyValuePair<int, IMapRegion>(expectedRegion.Id, expectedRegion));
         }
 
         public bool IsCurrentMapRegion(int id, int dimension, IMapRegion expectedRegion)
@@ -375,7 +403,8 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 if (!ReferenceEquals(_dimensions[dimension.Id], dimension)
                     || dimension.ActiveRegions.Count != 0
-                    || dimension.IdleRegionStore.Count != 0)
+                    || dimension.IdleRegionStore.Count != 0
+                    || dimension.PendingDestructionRegionStore.Count != 0)
                 {
                     return false;
                 }

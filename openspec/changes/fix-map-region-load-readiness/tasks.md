@@ -46,12 +46,23 @@
       interfaces, reset methods, helpers, and same-instance rollback tests.
 - [x] 3.7 Make terminal region destruction best-effort across NPCs, ground
       items, and game objects, preserving all cleanup failures after attempts.
+- [x] 3.8 Retain claimed regions in pending-destruction ownership, retry failed
+      cleanup, serialize concurrent destruction, and reject stale mutations.
 
 ## 4. Direct NPC cleanup
 
 - [x] 4.1 Use direct indexed `NpcStore` lookup under the existing reader lock and
       remove the unused predicate lookup API.
 - [x] 4.2 Keep registration/cleanup aggregate exceptions flat and understandable.
+- [x] 4.3 Make creature removal exact-owner-safe when an index is reused.
+- [x] 4.4 Track NPC script initialization before `OnCreate` so registration
+      rollback invokes `OnDestroy` for partial initialization only.
+
+## 4A. API boundaries
+
+- [x] 4A.1 Expose dimension residency as read-only dictionaries.
+- [x] 4A.2 Depend on `IMapRegionLoadScheduler` at the world sign-in boundary
+      while preserving the shared scheduler implementation.
 
 ## 5. Verification
 

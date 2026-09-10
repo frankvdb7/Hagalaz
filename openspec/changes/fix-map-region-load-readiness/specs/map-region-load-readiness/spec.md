@@ -116,10 +116,12 @@ MUST NOT publish into a dimension that has been detached during construction.
 ### Requirement: Terminal destruction attempts all cleanup
 
 Once an idle region is successfully claimed for destruction, it MUST NOT return
-to active or idle residency. Terminal destruction MUST attempt cleanup for
-every owned NPC, ground item, and game object even when an individual cleanup
-fails. Cleanup failures MUST be preserved and reported after all attempts, and
-the terminal marker MUST be set so destruction cannot be repeated.
+to active or idle residency. The exact instance MUST remain in pending-
+destruction ownership until cleanup succeeds. Destruction MUST attempt cleanup
+for every owned NPC, ground item, and game object even when an individual
+cleanup fails. Cleanup failures MUST be preserved and reported after all
+attempts; a failed attempt MUST remain retryable and MUST NOT mark the region
+destroyed.
 
 #### Scenario: One NPC cleanup fails
 
@@ -131,7 +133,13 @@ the terminal marker MUST be set so destruction cannot be repeated.
 
 - **WHEN** NPC, ground-item, and game-object cleanup each fail
 - **THEN** destruction MUST report all failures in one aggregate exception
-- **AND** the region MUST be terminally destroyed
+- **AND** the region MUST remain in the destroying state for reconciliation
+
+#### Scenario: Cleanup succeeds after a failed attempt
+
+- **WHEN** a later retry completes all previously failed cleanup
+- **THEN** the region MUST transition to `Destroyed`
+- **AND** each already-successful cleanup MUST NOT be repeated
 
 ### Requirement: Region lifecycle has one explicit source of truth
 

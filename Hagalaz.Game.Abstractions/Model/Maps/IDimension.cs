@@ -18,13 +18,13 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// Gets the map regions currently active in this dimension for read/enumeration.
         /// Residency mutation is owned by <see cref="IMapRegionService"/>.
         /// </summary>
-        public IDictionary<int, IMapRegion> Regions { get; }
+        public IReadOnlyDictionary<int, IMapRegion> Regions { get; }
 
         /// <summary>
         /// Gets the map regions currently idle in this dimension for read/enumeration.
         /// Residency mutation is owned by <see cref="IMapRegionService"/>.
         /// </summary>
-        public IDictionary<int, IMapRegion> IdleRegions { get; }
+        public IReadOnlyDictionary<int, IMapRegion> IdleRegions { get; }
 
         /// <summary>
         /// Determines whether this dimension can be destroyed (e.g., when it is empty).

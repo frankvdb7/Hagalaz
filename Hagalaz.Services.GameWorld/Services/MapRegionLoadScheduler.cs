@@ -61,7 +61,7 @@ namespace Hagalaz.Services.GameWorld.Services
         /// Waits for one load attempt for each region that is not already ready.
         /// This is intentionally internal so script-facing map APIs remain synchronous.
         /// </summary>
-        internal async Task EnsureLoadedAsync(IEnumerable<IMapRegion> regions, CancellationToken cancellationToken = default)
+        public async Task EnsureLoadedAsync(IEnumerable<IMapRegion> regions, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(regions);
 
