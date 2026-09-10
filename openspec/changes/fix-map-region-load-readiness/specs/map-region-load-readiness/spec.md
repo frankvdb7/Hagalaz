@@ -54,6 +54,62 @@ successfully claim the exact idle instance before calling `DestroyAsync`.
 - **THEN** suspend, remove, and destroy claims for R1 MUST fail
 - **AND** R2 MUST remain current and unaffected
 
+### Requirement: Region identity preserves its dimension
+
+A region created for dimension D MUST have `BaseLocation.Dimension == D`.
+Residency, scheduler canonical checks, dynamic-region creation, and stale
+reference handling MUST use that requested dimension rather than inferring it
+from the region ID.
+
+#### Scenario: A non-global region is created
+
+- **WHEN** the service creates region R1 in dimension 1
+- **THEN** R1's base location dimension MUST be 1
+- **AND** suspend, resume, and current-instance checks MUST address dimension 1
+
+### Requirement: Dimension removal preserves exact ownership
+
+A dimension MAY be removed only when the exact expected dimension instance is
+still current and its active and idle stores are both empty under the same
+residency ownership boundary used for region publication. A stale dimension
+instance MUST NOT remove a newer replacement with the same ID. Region creation
+MUST NOT publish into a dimension that has been detached during construction.
+
+#### Scenario: Dimension removal races with region publication
+
+- **WHEN** a region is being constructed while its dimension is considered for
+  removal
+- **THEN** either publication wins and exact removal fails because the dimension
+  is no longer empty
+- **OR** removal wins and the region MUST NOT be published into the detached
+  dimension
+
+#### Scenario: A stale dimension cannot remove its replacement
+
+- **WHEN** old dimension D1 is replaced by a new dimension D2 with the same ID
+- **THEN** removal using stale D1 MUST fail
+- **AND** D2 MUST remain current
+
+### Requirement: Terminal destruction attempts all cleanup
+
+Once an idle region is successfully claimed for destruction, it MUST NOT return
+to active or idle residency. Terminal destruction MUST attempt cleanup for
+every owned NPC, ground item, and game object even when an individual cleanup
+fails. Cleanup failures MUST be preserved and reported after all attempts, and
+the terminal marker MUST be set so destruction cannot be repeated.
+
+#### Scenario: One NPC cleanup fails
+
+- **WHEN** one NPC unregister operation fails during destruction
+- **THEN** later NPCs MUST still be attempted
+- **AND** ground items and game objects MUST still be destroyed
+
+#### Scenario: Multiple cleanup operations fail
+
+- **WHEN** NPC, ground-item, and game-object cleanup each fail
+- **THEN** destruction MUST report all failures in one aggregate exception
+- **AND** the region MUST be terminally destroyed
+
 ### Requirement: Region lifecycle has one explicit source of truth
 
 Every map-region instance MUST expose exactly one initial-load lifecycle state:

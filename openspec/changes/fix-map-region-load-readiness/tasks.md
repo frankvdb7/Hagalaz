@@ -16,6 +16,8 @@
       concurrent dictionary so callers converge on one canonical instance.
 - [x] 1.9 Centralize active/idle suspension, resume, and exact idle-destruction
       claims in `MapRegionService` without adding lifecycle states.
+- [x] 1.10 Preserve requested dimension identity during region construction and
+      revalidate dimension ownership before publication.
 
 ## 2. Scheduler and ownership
 
@@ -23,6 +25,8 @@
       service instance before scheduling.
 - [x] 2.2 Reject discarded/stale instances and preserve in-flight coalescing.
 - [x] 2.3 Preserve exact-instance removal and verify old R1 cannot remove R2.
+- [x] 2.4 Remove dimensions only through an exact-current-and-empty operation
+      under the same residency synchronization boundary used by publication.
 
 ## 3. Failure and discard behavior
 
@@ -38,6 +42,8 @@
       not reset or reused.
 - [x] 3.6 Delete obsolete region and region-part unpublished-load rollback
       interfaces, reset methods, helpers, and same-instance rollback tests.
+- [x] 3.7 Make terminal region destruction best-effort across NPCs, ground
+      items, and game objects, preserving all cleanup failures after attempts.
 
 ## 4. Direct NPC cleanup
 
@@ -52,7 +58,8 @@
       suppression coverage; cover explicit viewport rebinding and dynamic
       packet selection independently of readiness. Cover concurrent resume,
       stale destruction claims, destruction-before-resume, suspend-vs-create,
-      and stale-instance operations.
+      stale-instance operations, non-zero dimensions, exact dimension removal,
+      and terminal cleanup aggregation.
 - [x] 5.2 Run focused map loader, map service, map provider, NPC, viewport,
       worker, and scheduler tests plus `git diff --check`.
 - [x] 5.3 Run strict OpenSpec validation and the affected project build.

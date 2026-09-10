@@ -101,6 +101,87 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
+    public void NonZeroDimensionRegion_PreservesDimensionAcrossResidencyOperations()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        Assert.IsTrue(service.TryCreateDimension(out var dimension));
+        Assert.AreEqual(1, dimension!.Id);
+
+        var region = service.GetOrCreateMapRegion(1, dimension.Id, false);
+
+        Assert.AreEqual(dimension.Id, region.BaseLocation.Dimension);
+        Assert.IsTrue(service.TrySuspendMapRegion(region));
+        Assert.AreSame(region, service.GetOrCreateMapRegion(region.Id, dimension.Id, true));
+        Assert.IsTrue(service.IsCurrentMapRegion(region.Id, dimension.Id, region));
+    }
+
+    [TestMethod]
+    public void CreateDynamicRegion_PreservesNonZeroDimensionForBothRegions()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        Assert.IsTrue(service.TryCreateDimension(out var dimension));
+        var source = Location.Create(64, 64, 0, dimension!.Id);
+        var destination = Location.Create(128, 64, 0, dimension.Id);
+
+        service.CreateDynamicRegion(source, destination);
+
+        Assert.AreEqual(dimension.Id, service.GetMapRegion(source.RegionId, dimension.Id, false, false)!.BaseLocation.Dimension);
+        var dynamicRegion = service.GetMapRegion(destination.RegionId, dimension.Id, false, false)!;
+        Assert.AreEqual(dimension.Id, dynamicRegion.BaseLocation.Dimension);
+        Assert.IsTrue(dynamicRegion.IsDynamic);
+    }
+
+    [TestMethod]
+    public async Task TryRemoveEmptyDimension_DoesNotDetachDimensionThatPublishesARegion()
+    {
+        using var provider = CreateProvider();
+        using var builder = new GatedLocationBuilder();
+        var service = CreateService(provider, builder);
+        Assert.IsTrue(service.TryCreateDimension(out var dimension));
+
+        var create = Task.Run(() => service.GetOrCreateMapRegion(1, dimension!.Id, false));
+        builder.Started.Wait();
+        builder.Release.Set();
+        var region = await create;
+
+        Assert.IsFalse(service.TryRemoveEmptyDimension(dimension));
+        Assert.AreSame(region, service.GetMapRegion(region.Id, dimension.Id, false, false));
+    }
+
+    [TestMethod]
+    public async Task TryRemoveEmptyDimension_WinsBeforeRegionPublicationWithoutOrphaningRegion()
+    {
+        using var provider = CreateProvider();
+        using var builder = new GatedLocationBuilder();
+        var service = CreateService(provider, builder);
+        Assert.IsTrue(service.TryCreateDimension(out var dimension));
+
+        var create = Task.Run(() => service.GetOrCreateMapRegion(1, dimension!.Id, false));
+        builder.Started.Wait();
+
+        Assert.IsTrue(service.TryRemoveEmptyDimension(dimension));
+        builder.Release.Set();
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => create);
+        Assert.IsFalse(service.FindAllDimensions().Any(found => found.Id == dimension.Id));
+    }
+
+    [TestMethod]
+    public void TryRemoveEmptyDimension_StaleDimensionCannotRemoveReplacement()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        Assert.IsTrue(service.TryCreateDimension(out var oldDimension));
+
+        Assert.IsTrue(service.TryRemoveEmptyDimension(oldDimension!));
+        Assert.IsTrue(service.TryCreateDimension(out var replacement));
+
+        Assert.IsFalse(service.TryRemoveEmptyDimension(oldDimension));
+        Assert.IsTrue(service.FindAllDimensions().Contains(replacement));
+    }
+
+    [TestMethod]
     public async Task GetOrCreateMapRegion_ConcurrentCreation_ReturnsOneCanonicalInstance()
     {
         const int callerCount = 16;
@@ -287,6 +368,25 @@ public sealed class MapRegionServiceTests
         {
             creationGate.SignalAndWait();
             return new LocationBuilder();
+        }
+    }
+
+    private sealed class GatedLocationBuilder : ILocationBuilder, IDisposable
+    {
+        public ManualResetEventSlim Started { get; } = new();
+        public ManualResetEventSlim Release { get; } = new();
+
+        public ILocationX Create()
+        {
+            Started.Set();
+            Release.Wait();
+            return new LocationBuilder();
+        }
+
+        public void Dispose()
+        {
+            Started.Dispose();
+            Release.Dispose();
         }
     }
 }

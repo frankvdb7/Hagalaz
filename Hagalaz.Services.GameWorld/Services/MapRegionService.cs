@@ -146,9 +146,14 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
             }
 
-            var newRegion = CreateMapRegion(id);
+            var newRegion = CreateMapRegion(id, dimension);
             lock (dim.ResidencySyncRoot)
             {
+                if (!ReferenceEquals(_dimensions[dimension], dim))
+                {
+                    throw new InvalidOperationException($"Dimension[{dimension}] was removed while region[{id}] was being created.");
+                }
+
                 if (dim.ActiveRegions.TryGetValue(id, out var activeRegion))
                 {
                     return activeRegion;
@@ -165,9 +170,9 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public IMapRegion GetOrCreateMapRegion(int id, int dimension, bool resume) => GetMapRegion(id, dimension, true, resume)!;
 
-        private IMapRegion CreateMapRegion(int id)
+        private IMapRegion CreateMapRegion(int id, int dimension)
         {
-            var baseLocation = _locationBuilder.Create().FromRegionId(id).Build();
+            var baseLocation = _locationBuilder.Create().FromRegionId(id).WithDimension(dimension).Build();
             return new Regions_MapRegion(
                 baseLocation,
                 GetXtea(id),
@@ -357,11 +362,26 @@ namespace Hagalaz.Services.GameWorld.Services
             .Where(dimension => dimension != null)
             .Cast<IDimension>();
 
-        public void RemoveDimension(IDimension dimension)
+        public bool TryRemoveEmptyDimension(IDimension expectedDimension)
         {
-            if (_dimensions[dimension.Id] == dimension)
+            ArgumentNullException.ThrowIfNull(expectedDimension);
+
+            if (expectedDimension is not Dimension dimension)
             {
+                return false;
+            }
+
+            lock (dimension.ResidencySyncRoot)
+            {
+                if (!ReferenceEquals(_dimensions[dimension.Id], dimension)
+                    || dimension.ActiveRegions.Count != 0
+                    || dimension.IdleRegionStore.Count != 0)
+                {
+                    return false;
+                }
+
                 _dimensions[dimension.Id] = null;
+                return true;
             }
         }
 

@@ -138,9 +138,9 @@ namespace Hagalaz.Game.Abstractions.Services
         IEnumerable<IDimension> FindAllDimensions();
 
         /// <summary>
-        /// Removes a dimension and all its associated regions from the world.
+        /// Removes the exact dimension only when it is current and empty.
         /// </summary>
-        /// <param name="dimension">The dimension to remove.</param>
-        void RemoveDimension(IDimension dimension);
+        /// <param name="expectedDimension">The exact dimension instance to remove.</param>
+        bool TryRemoveEmptyDimension(IDimension expectedDimension);
     }
 }

@@ -106,6 +106,16 @@ instance from canonical ownership. Existing concurrent dictionaries remain the
 storage mechanism, and exact instance removal remains compare-by-key-and-value
 cleanup for failed loads.
 
+Dimension removal uses the same synchronization root and removes only an exact
+current, empty `Dimension`. Region construction may occur outside the lock, but
+publication revalidates that the captured dimension is still current before
+inserting the region.
+
+Terminal `MapRegion` destruction attempts every NPC, ground item, and game
+object cleanup independently, marks the region destroyed after all attempts,
+and reports collected failures as one `AggregateException`. A claimed region is
+never reinserted into residency after destruction begins.
+
 ### 10. Keep NPC store lookup indexed
 
 `NpcStore.FindByIndexAsync` uses `CreatureCollection`'s indexer under a short

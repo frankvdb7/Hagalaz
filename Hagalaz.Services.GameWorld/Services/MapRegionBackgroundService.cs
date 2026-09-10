@@ -74,9 +74,9 @@ namespace Hagalaz.Services.GameWorld.Services
                     }
                 }
 
-                if (dimension.CanDestroy())
+                if (dimension.CanDestroy()
+                    && _regionService.TryRemoveEmptyDimension(dimension))
                 {
-                    _regionService.RemoveDimension(dimension);
                     _logger.LogDebug("Dimension[{id}] was destroyed.", dimension.Id);
                 }
             }

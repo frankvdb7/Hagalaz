@@ -276,22 +276,49 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 throw new InvalidOperationException($"Region {this} is already destroyed");
             }
 
+            var failures = new List<Exception>();
             foreach (var npc in FindAllNpcs())
             {
-                await _npcService.UnregisterAsync(npc);
+                try
+                {
+                    await _npcService.UnregisterAsync(npc);
+                }
+                catch (Exception ex)
+                {
+                    failures.Add(ex);
+                }
             }
 
             foreach (var item in FindAllGroundItems())
             {
-                item.Destroy();
+                try
+                {
+                    item.Destroy();
+                }
+                catch (Exception ex)
+                {
+                    failures.Add(ex);
+                }
             }
 
             foreach (var obj in FindAllGameObjects())
             {
-                obj.Destroy();
+                try
+                {
+                    obj.Destroy();
+                }
+                catch (Exception ex)
+                {
+                    failures.Add(ex);
+                }
             }
 
             IsDestroyed = true;
+
+            if (failures.Count > 0)
+            {
+                throw new AggregateException($"Region {this} cleanup failed after all resources were attempted.", failures);
+            }
         }
 
         public void QueueUpdate(IRegionPartUpdate update)
