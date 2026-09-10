@@ -14,6 +14,7 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Data;
+using Hagalaz.Services.GameWorld.Builders;
 using Hagalaz.Services.GameWorld.Profiles;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Extensions.Logging;
@@ -151,11 +152,10 @@ public sealed class MapRegionLoaderTests
     }
 
     [TestMethod]
-    public async Task LoadAsync_WhenOneNpcConstructionFails_LoadsTheOtherNpcs()
+    public async Task LoadAsync_WhenNpcConstructionFails_DiscardsRegionAndCleansUpRegisteredNpcs()
     {
         var region = CreateRegion();
         var npcA = CreateNpc(1);
-        var npcC = CreateNpc(3);
         var fixture = CreateLoader(
             npcSpawns: CreateNpcSpawns(1, 2, 3));
         var constructionFailure = new InvalidOperationException("NPC B could not be constructed");
@@ -170,34 +170,21 @@ public sealed class MapRegionLoaderTests
         optionalA.WithFaceDirection(Arg.Any<DirectionFlag>()).Returns(optionalA);
         optionalA.Build().Returns(npcA);
         idBuilders[1].WithId(2).Returns(_ => throw constructionFailure);
-        var locationC = Substitute.For<INpcLocation>();
-        var optionalC = Substitute.For<INpcOptional>();
-        idBuilders[2].WithId(3).Returns(locationC);
-        locationC.WithLocation(Arg.Any<ILocation>()).Returns(optionalC);
-        optionalC.WithMinimumBounds(Arg.Any<ILocation>()).Returns(optionalC);
-        optionalC.WithMaximumBounds(Arg.Any<ILocation>()).Returns(optionalC);
-        optionalC.WithFaceDirection(Arg.Any<DirectionFlag>()).Returns(optionalC);
-        optionalC.Build().Returns(npcC);
         fixture.NpcService.RegisterAsync(npcA).Returns(_ =>
         {
             region.Add(npcA);
             return Task.CompletedTask;
         });
-        fixture.NpcService.RegisterAsync(npcC).Returns(_ =>
-        {
-            region.Add(npcC);
-            return Task.CompletedTask;
-        });
 
-        await fixture.Loader.LoadAsync(region);
+        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => fixture.Loader.LoadAsync(region));
 
-        Assert.AreEqual(MapRegionState.Ready, region.State);
+        Assert.AreSame(constructionFailure, actual);
+        Assert.AreEqual(MapRegionState.Discarded, region.State);
         region.Received(1).Add(npcA);
-        region.Received(1).Add(npcC);
         await fixture.NpcService.Received(1).RegisterAsync(npcA);
-        await fixture.NpcService.DidNotReceive().RegisterAsync(Arg.Is<INpc>(npc => npc.Index == 2));
-        await fixture.NpcService.Received(1).RegisterAsync(npcC);
-        fixture.RegionService.DidNotReceive().TryRemoveMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IMapRegion>());
+        await fixture.NpcService.Received(1).UnregisterAsync(npcA);
+        idBuilders[2].DidNotReceive().WithId(3);
+        fixture.RegionService.Received(1).TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
     }
 
     [TestMethod]

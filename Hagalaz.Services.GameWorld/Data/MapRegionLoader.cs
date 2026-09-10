@@ -249,21 +249,7 @@ namespace Hagalaz.Services.GameWorld.Data
             foreach (var spawn in spawns)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                INpc npc;
-                try
-                {
-                    npc = BuildNpc(region, spawn);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception exception)
-                {
-                    _logger.LogError(exception, "Skipping NPC spawn {npcId} in region {regionId} because construction failed", spawn.NpcId, region.Id);
-                    continue;
-                }
-
+                var npc = BuildNpc(region, spawn);
                 await _npcService.RegisterAsync(npc);
                 registeredNpcs.Add(npc);
             }

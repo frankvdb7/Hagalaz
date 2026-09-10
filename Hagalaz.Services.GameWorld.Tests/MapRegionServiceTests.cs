@@ -83,6 +83,23 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
+    public void FailedRegionRemoval_AllowsLaterRequestToCreateFreshRegion()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var location = Location.Create(67, 69, 0, 0);
+        var failedRegion = service.GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
+
+        failedRegion.MarkDiscarded();
+        Assert.IsTrue(service.TryRemoveMapRegion(failedRegion.Id, location.Dimension, failedRegion));
+
+        var freshRegion = service.GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
+
+        Assert.AreNotSame(failedRegion, freshRegion);
+        Assert.AreEqual(MapRegionState.Initializing, freshRegion.State);
+    }
+
+    [TestMethod]
     public void NewRegion_StartsInitializing()
     {
         using var provider = CreateProvider();

@@ -47,6 +47,8 @@ namespace Hagalaz.Services.GameWorld.Tests
             var character = Substitute.For<ICharacter>();
             var region = Substitute.For<IMapRegion>();
             region.State.Returns(MapRegionState.Ready);
+            region.Id.Returns(1);
+            region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
 
             // Set up owner location
             var ownerLocation = Substitute.For<ILocation>();
@@ -64,6 +66,7 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>())
                 .Returns(new List<IMapRegion> { region });
+            _regionService.GetOrCreateMapRegion(1, 0, false).Returns(region);
 
             _viewport.RebuildView();
             _viewport.UpdateTick();
@@ -80,6 +83,8 @@ namespace Hagalaz.Services.GameWorld.Tests
             var char2 = Substitute.For<ICharacter>();
             var region = Substitute.For<IMapRegion>();
             region.State.Returns(MapRegionState.Ready);
+            region.Id.Returns(1);
+            region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
 
             var ownerLocation = Substitute.For<ILocation>();
             _owner.Location.Returns(ownerLocation);
@@ -96,6 +101,7 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>())
                 .Returns(new List<IMapRegion> { region });
+            _regionService.GetOrCreateMapRegion(1, 0, false).Returns(region);
 
             _viewport.RebuildView();
             _viewport.UpdateTick();
@@ -113,6 +119,8 @@ namespace Hagalaz.Services.GameWorld.Tests
             var character = Substitute.For<ICharacter>();
             var region = Substitute.For<IMapRegion>();
             region.State.Returns(MapRegionState.Ready);
+            region.Id.Returns(1);
+            region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
 
             var ownerLocation = Substitute.For<ILocation>();
             _owner.Location.Returns(ownerLocation);
@@ -127,6 +135,7 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>())
                 .Returns(new List<IMapRegion> { region });
+            _regionService.GetOrCreateMapRegion(1, 0, false).Returns(region);
 
             _viewport.RebuildView();
             _viewport.UpdateTick();
@@ -142,7 +151,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public void VisibleRegions_RebindsDiscardedRegionToTheCanonicalReplacement()
+        public void VisibleRegions_IsPassiveUntilExplicitRefresh()
         {
             var location = new Location(100, 100, 0, 0);
             var firstRegion = Substitute.For<IMapRegion>();
@@ -162,7 +171,12 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             var visibleRegions = _viewport.VisibleRegions;
 
-            Assert.AreSame(replacementRegion, visibleRegions.Single());
+            Assert.AreSame(firstRegion, visibleRegions.Single());
+            _regionService.DidNotReceive().GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>());
+
+            _viewport.RefreshVisibleRegions();
+
+            Assert.AreSame(replacementRegion, _viewport.VisibleRegions.Single());
             _viewport.UpdateTick();
             firstRegion.DidNotReceive().FindAllCharacters();
             firstRegion.DidNotReceive().FindAllNpcs();

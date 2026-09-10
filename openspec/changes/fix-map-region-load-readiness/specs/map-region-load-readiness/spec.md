@@ -152,20 +152,19 @@ decoder failures into missing data.
 - **WHEN** an existing archive fails to read or decode
 - **THEN** the failure MUST propagate as fatal map-load input failure
 
-### Requirement: NPC construction and registration failures have distinct semantics
+### Requirement: NPC construction and registration failures are fatal
 
-A non-cancellation failure constructing one configured NPC MAY be logged with
-region and NPC identity and skipped so valid NPC entries can continue. A
-failure from `INpcService.RegisterAsync` MUST be fatal to the region load; it
-MUST NOT be silently converted into a successfully loaded region. This
-exception boundary MUST NOT swallow cancellation or failures from database,
-cache, decoder, map apply, or scheduler infrastructure.
+Any non-cancellation failure constructing or registering a configured NPC MUST
+be fatal to the region load. The loader MUST NOT publish a partially populated
+region as ready. This exception boundary MUST NOT swallow cancellation or
+failures from database, cache, decoder, map apply, or scheduler infrastructure.
 
-#### Scenario: One NPC construction fails
+#### Scenario: NPC construction fails after an earlier NPC registered
 
-- **WHEN** NPC A registers, NPC B fails during construction, and NPC C is valid
-- **THEN** A and C MUST remain populated, B MUST be absent, and the region MUST
-  be eligible to publish readiness
+- **WHEN** NPC A registers and NPC B fails during construction
+- **THEN** the region load MUST fail and the region MUST become `Discarded`
+- **AND** NPC A MUST be cleaned up before the load attempt completes
+- **AND** a later configured NPC MUST NOT be constructed or registered
 
 #### Scenario: NPC registration infrastructure fails
 

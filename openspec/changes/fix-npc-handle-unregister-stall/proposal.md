@@ -6,15 +6,18 @@ The previous NPC death fix removed blocking waits from the standard death cleanu
 
 - Add synchronous NPC registration and unregistration paths for synchronous game-world callers while retaining the existing asynchronous service APIs.
 - Make the creature `OnRegistered` lifecycle callback synchronous so neither registration path needs a blocking async bridge.
-- Make handle-based NPC unregister complete through the synchronous store path.
+- Make handle-based NPC unregister complete through the synchronous service and
+  store path.
 - Preserve the existing NPC service as the owner of destruction and store removal.
-- Add a deterministic regression test proving a pending handle unregister does not block its caller or game tick.
+- Add deterministic regression coverage proving synchronous handle cleanup and
+  retaining asynchronous NPC service paths.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `npc-handle-lifecycle`: NPC handles must not synchronously block the game-loop thread during asynchronous unregister.
+- `npc-handle-lifecycle`: NPC handles complete unregister through the
+  synchronous game-world lifecycle path.
 
 ### Modified Capabilities
 

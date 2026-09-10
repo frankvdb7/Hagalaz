@@ -24,8 +24,8 @@
 
 - [x] 3.1 Propagate cache container/decode failures while preserving documented
       missing-archive semantics.
-- [x] 3.2 Register NPCs after map preparation, isolate only construction
-      failures, and propagate registration-service failures.
+- [x] 3.2 Register NPCs after map preparation and propagate construction and
+      registration-service failures as fatal load failures.
 - [x] 3.3 Unregister all NPCs successfully registered by a failed attempt and
       preserve cleanup failures.
 - [x] 3.4 Mark failed instances discarded, exact-remove them, and verify stale failures cannot
@@ -43,10 +43,11 @@
 
 ## 5. Verification
 
-- [x] 5.1 Retain deterministic scheduler coalescing and ready-region suppression
-      coverage.
-- [ ] 5.2 Run focused map loader, map service, map provider, NPC, viewport,
+- [x] 5.1 Retain deterministic scheduler coalescing and ready-region
+      suppression coverage; cover explicit viewport rebinding and dynamic
+      packet selection independently of readiness.
+- [x] 5.2 Run focused map loader, map service, map provider, NPC, viewport,
       worker, and scheduler tests plus `git diff --check`.
-- [ ] 5.3 Run strict OpenSpec validation and the affected project build.
+- [x] 5.3 Run strict OpenSpec validation and the affected project build.
 - [ ] 5.4 Rebuild/restart the affected service and manually verify static and
       custom-object clipping in the client.

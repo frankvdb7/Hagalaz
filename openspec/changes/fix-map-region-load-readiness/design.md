@@ -8,9 +8,9 @@ and must remove a failed published instance before completing its failed load.
 ## Goals and non-goals
 
 Goals are complete readiness publication, prepare-before-apply, accurate cache
-failure semantics, isolated NPC construction failure, fatal NPC registration
-failure, cleanup of external NPC ownership, explicit region lifecycle, stale
-reference rejection, and fresh-instance retry through the existing
+failure semantics, fatal NPC construction and registration failure, cleanup of
+external NPC ownership, explicit region lifecycle, stale reference rejection,
+and fresh-instance retry through the existing
 service/scheduler.
 
 Non-goals are a generic transaction abstraction, a second queue or worker,
@@ -51,14 +51,14 @@ behavior. It does not catch `ReadContainer` or decoder exceptions, so corrupt,
 encrypted-with-wrong-keys, truncated, or structurally invalid data aborts the
 load.
 
-### 5. Keep isolated NPC handling at the construction boundary
+### 5. Treat NPC construction and registration failures as fatal
 
-`INpcService.RegisterAsync` owns cleanup for its own failed registration. The
-loader catches non-cancellation exceptions from `BuildNpc`, logs the region and
-NPC identity, and continues. It does not catch failures from
+`NpcBuilder.Build()` resolves infrastructure and script dependencies, so an
+arbitrary construction exception is not classified as an isolated content
+error. The loader lets construction exceptions escape, just as it does for
 `INpcService.RegisterAsync`; the service remains responsible for cleaning up
 its own failed registration and the region load fails. Database, cache, map
-apply, and cancellation failures remain fatal.
+apply, and cancellation failures remain fatal as well.
 
 ### 6. Discard the instance and clean external ownership
 
@@ -81,16 +81,18 @@ completion occurs only after loader cleanup and exact removal have run. A
 normal later map request resolves through `MapRegionService` and receives a
 new instance.
 
-### 8. Keep stale consumers fail-closed
+### 8. Keep stale consumers fail-closed and refresh explicitly
 
-`Viewport` rebinds retained region references through `MapRegionService` when
-they are exposed or processed. Only ready regions contribute creatures,
-dynamic-map state, full region updates, or world ticks. Initializing canonical
-regions may still be submitted for loading; discarded or stale instances are
-not. The background lifecycle service also leaves initializing regions active
-until they publish readiness. The GameWorker filters its snapshot to ready
-regions before any major tick phase, and collision returns `FloorBlock` for
-every non-ready state.
+`Viewport.VisibleRegions` is a passive view of retained references.
+`RefreshVisibleRegions` explicitly rebinds those references through
+`MapRegionService` at a lifecycle boundary before they are consumed. Only
+ready regions contribute creatures, full region updates, or world ticks.
+Initializing canonical regions may still be submitted for loading; discarded
+or stale instances are not. Dynamic map packet selection uses region identity
+and configuration independently of readiness. The background lifecycle
+service also leaves initializing regions active until they publish readiness.
+The GameWorker filters its snapshot to ready regions before any major tick
+phase, and collision returns `FloorBlock` for every non-ready state.
 
 ### 9. Keep NPC store lookup indexed
 
@@ -106,7 +108,7 @@ boundary.
 create/publish R1
   -> query and decode into local data
   -> apply prepared map data
-  -> register valid NPCs
+  -> register configured NPCs
   -> R1.MarkReady() publishes readiness
 
 fatal failure
@@ -123,9 +125,8 @@ later request
 
 Use deterministic task gates for blocked decode/registration tests. Verify
 staged data is not applied after a decode failure, cache absence versus cache
-failure, valid NPC construction continuation, fatal registration failure,
-cancellation cleanup, exact replacement, discarded scheduling rejection,
-canonical identity, stale viewport rebinding, ready-only worker ticks,
-fail-closed collision, and existing scheduler coalescing. Run focused tests,
-strict OpenSpec validation, build/diff checks, and broader validation when
-resources permit.
+failure, fatal NPC construction and registration failure, cancellation cleanup,
+exact replacement, discarded scheduling rejection, canonical identity, stale
+viewport rebinding, ready-only worker ticks, fail-closed collision, and
+existing scheduler coalescing. Run focused tests, strict OpenSpec validation,
+build/diff checks, and broader validation when resources permit.

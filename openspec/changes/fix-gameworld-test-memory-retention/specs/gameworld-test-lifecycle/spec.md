@@ -54,3 +54,17 @@ Pathfinder tests MUST NOT use a call-recording substitute for high-frequency col
 
 - **WHEN** a pathfinder test performs a high-volume collision search
 - **THEN** its fixture either uses a non-recording collision provider or demonstrates that retained call history is not a material contributor to the observed memory growth
+
+### Requirement: Generated project output is excluded from MSBuild inputs
+
+Project-local generated `artifacts` output MUST be excluded from implicit
+MSBuild item evaluation so nested publish or plugin output cannot recursively
+become source input during GameWorld validation.
+
+#### Scenario: GameWorld artifacts contain nested build output
+
+- **WHEN** the GameWorld project is evaluated or compiled while its generated
+  `artifacts` directory contains nested output trees
+- **THEN** those files are absent from the implicit compile/evaluation inputs
+- **AND** the project can compile without input-graph memory growth caused by
+  recursively nested generated output

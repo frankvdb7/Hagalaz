@@ -47,6 +47,7 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
                 // The pre-registration rebuild is needed to discover all visible regions
                 // before OnRegistered sends the initial character map.
                 character.Viewport.RebuildView();
+                character.Viewport.RefreshVisibleRegions();
                 await _mapRegionLoadScheduler.EnsureLoadedAsync(character.Viewport.VisibleRegions, context.CancellationToken);
                 character.OnRegistered();
                 await Task.WhenAll(

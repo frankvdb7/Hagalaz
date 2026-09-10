@@ -14,9 +14,8 @@ corrupt map data into apparently empty map data.
   succeeded, then apply configured objects/items and register NPCs near the end.
 - Treat only the cache API's documented missing-file result (`-1`) as absent;
   propagate container, decryption, decompression, and decode failures.
-- Isolate a genuinely invalid NPC entry after its registration service has
-  cleaned up that entry, while propagating cancellation, registration, and
-  infrastructure failures from the rest of the load.
+- Treat arbitrary NPC construction failures as fatal, alongside source,
+  cache, map-apply, and registration failures; preserve cancellation.
 - Replace the independent loaded flag with the three-state `MapRegionState`
   lifecycle. On fatal failure, mark the exact region instance discarded,
   unregister NPCs successfully registered by this attempt, exact-remove it,
@@ -35,10 +34,9 @@ corrupt map data into apparently empty map data.
   the entire decode succeeds.
 - Unexpected cache read/decode failures remain fatal; only a genuinely absent
   named archive follows the existing empty-data semantics.
-- NPC registration occurs after fatal map preparation and apply work. One bad
-  NPC construction entry is logged and skipped while valid entries continue
-  loading; registration-service failures are fatal and cancellation is never
-  swallowed.
+- NPC registration occurs after fatal map preparation and apply work. Any NPC
+  construction or registration failure aborts the load, and cancellation is
+  never swallowed.
 - Every NPC successfully registered by a failed attempt is unregistered before
   the attempt completes, with cleanup failures preserved.
 - The failed region is removed only when the service still holds that exact
@@ -48,8 +46,9 @@ corrupt map data into apparently empty map data.
 - New regions begin `Initializing`, successful loading publishes `Ready` last,
   and failed loading publishes terminal `Discarded` state without resetting
   the instance.
-- Only ready regions participate in normal viewport, map-update, GameWorker,
-  or collision processing; stale references cannot schedule a replacement.
+- Only ready regions participate in normal creature, map-update, GameWorker,
+  or collision processing; dynamic map packet selection is independent of
+  readiness, and stale references cannot schedule a replacement.
 
 ## Stop Conditions
 

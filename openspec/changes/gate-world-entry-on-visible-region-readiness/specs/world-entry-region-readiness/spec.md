@@ -14,6 +14,8 @@ The system MUST rebuild the character's initial viewport and wait for every visi
 - **THEN** the system MUST request all regions in the initial viewport through the existing map-region scheduler
 - **AND** MUST wait until every requested region has completed clipping, static and custom object, ground-item, and NPC population
 - **AND** MUST then continue character registration and startup map delivery
+- **AND** retained region references MUST be refreshed to their canonical
+  instances before scheduling or waiting
 
 #### Scenario: Entry remains pending while a visible region loads
 

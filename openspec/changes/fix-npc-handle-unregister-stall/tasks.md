@@ -6,5 +6,6 @@
 
 ## 2. Regression coverage and validation
 
-- [x] 2.1 Add deterministic GameWorld tests proving synchronous handle cleanup and async registration remain available.
+- [x] 2.1 Add deterministic GameWorld tests proving synchronous handle cleanup,
+      retained async registration/unregistration, and synchronous store locking.
 - [x] 2.2 Run the focused GameWorld tests, validate the OpenSpec change strictly, inspect the diff, and restart the affected GameWorld resource for manual confirmation.

@@ -33,22 +33,25 @@ namespace Hagalaz.Services.GameWorld.Tests
             character.Viewport.Returns(viewport);
             mapSize.Size.Returns(104);
             mapSize.Type.Returns(0);
+            region.Id.Returns(location.RegionId);
+            region.BaseLocation.Returns(Location.Create(location.RegionX * 64, location.RegionY * 64, 0, 0));
             region.XteaKeys.Returns(new[] { 1, 2, 3, 4 });
             regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), true, true, mapSize)
                 .Returns(new[] { region });
+            regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension, false).Returns(region);
 
-            var mapUpdateService = new MapUpdateService(regionService, regionLoadScheduler);
+            var mapUpdateService = new MapUpdateService(regionLoadScheduler);
 
             mapUpdateService.UpdateMap(character, false, false);
 
             Received.InOrder(() =>
             {
                 session.SendMessage(Arg.Any<RaidoMessage>());
-                regionLoadScheduler.RequestLoad(region);
                 region.SendFullPartUpdates(character);
-        });
-        session.Received(1).SendMessage(Arg.Is<RaidoMessage>(message => message is DrawStandardMapMessage));
-    }
+            });
+            regionLoadScheduler.DidNotReceive().RequestLoad(region);
+            session.Received(1).SendMessage(Arg.Is<RaidoMessage>(message => message is DrawStandardMapMessage));
+        }
 
     [TestMethod]
     public void UpdateMap_ReusesViewportPreparedForWorldEntry()
@@ -69,18 +72,55 @@ namespace Hagalaz.Services.GameWorld.Tests
         character.Viewport.Returns(viewport);
         mapSize.Size.Returns(104);
         mapSize.Type.Returns(0);
+        region.Id.Returns(location.RegionId);
+        region.BaseLocation.Returns(Location.Create(location.RegionX * 64, location.RegionY * 64, 0, 0));
         region.XteaKeys.Returns(new[] { 1, 2, 3, 4 });
         regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), true, true, mapSize)
             .Returns(new[] { region });
+        regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension, false).Returns(region);
 
         viewport.RebuildView();
-        var mapUpdateService = new MapUpdateService(regionService, regionLoadScheduler);
+        var mapUpdateService = new MapUpdateService(regionLoadScheduler);
 
         mapUpdateService.UpdateMap(character, true, true);
 
         regionService.Received(1).GetMapRegionsWithinRange(Arg.Any<ILocation>(), true, true, mapSize);
-        regionLoadScheduler.Received(1).RequestLoad(region);
+        regionLoadScheduler.DidNotReceive().RequestLoad(region);
         region.Received(1).SendFullPartUpdates(character);
+    }
+
+    [TestMethod]
+    public void UpdateMap_RequestsInitializingRegionWithoutFullUpdates()
+    {
+        var character = Substitute.For<ICharacter>();
+        var session = Substitute.For<IGameSession>();
+        var location = new Location(100, 100, 0, 0);
+        var region = Substitute.For<IMapRegion>();
+        var regionService = Substitute.For<IMapRegionService>();
+        var regionLoadScheduler = Substitute.For<IMapRegionLoadScheduler>();
+        var mapSize = Substitute.For<IMapSize>();
+        var viewport = new Viewport(character, regionService, mapSize);
+
+        character.Location.Returns(location);
+        character.Index.Returns(1);
+        character.Session.Returns(session);
+        character.Viewport.Returns(viewport);
+        mapSize.Size.Returns(104);
+        mapSize.Type.Returns(0);
+        region.Id.Returns(location.RegionId);
+        region.BaseLocation.Returns(Location.Create(location.RegionX * 64, location.RegionY * 64, 0, 0));
+        region.State.Returns(MapRegionState.Initializing);
+        region.IsDynamic.Returns(true);
+        region.XteaKeys.Returns(new[] { 1, 2, 3, 4 });
+        regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), true, true, mapSize)
+            .Returns(new[] { region });
+        regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension, false).Returns(region);
+
+        new MapUpdateService(regionLoadScheduler).UpdateMap(character, false);
+
+        regionLoadScheduler.Received(1).RequestLoad(region);
+        region.DidNotReceive().SendFullPartUpdates(character);
+        session.Received(1).SendMessage(Arg.Is<RaidoMessage>(message => message is DrawDynamicMapMessage));
     }
 
     [TestMethod]
@@ -113,7 +153,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             .Returns(new[] { staleRegion });
         regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension, false).Returns(replacementRegion);
 
-        new MapUpdateService(regionService, regionLoadScheduler).UpdateMap(character, false);
+        new MapUpdateService(regionLoadScheduler).UpdateMap(character, false);
 
         regionLoadScheduler.Received(1).RequestLoad(replacementRegion);
         regionLoadScheduler.DidNotReceive().RequestLoad(staleRegion);

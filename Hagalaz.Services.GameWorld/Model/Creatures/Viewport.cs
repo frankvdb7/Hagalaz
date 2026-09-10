@@ -106,14 +106,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// Get's creature surrounding regions + center region.
         /// </summary>
         /// <returns>LinkedList{MapRegion}.</returns>
-        public IReadOnlyList<IMapRegion> VisibleRegions
-        {
-            get
-            {
-                RebindVisibleRegions();
-                return _visibleRegions;
-            }
-        }
+        public IReadOnlyList<IMapRegion> VisibleRegions => _visibleRegions;
 
         /// <summary>
         /// Get's previous map base X , can be -1 if previous
@@ -176,7 +169,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             _visibleCharacters.Clear();
             _visibleNpcs.Clear();
 
-            RebindVisibleRegions();
+            RefreshVisibleRegions();
             var ownerLocation = _owner.Location;
             foreach (var region in _visibleRegions)
             {
@@ -225,16 +218,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         }
 
         /// <summary>
-        /// Get's if one of the visible region's are dynamic.
+        /// Rebinds retained map-region references to the current canonical region instances.
         /// </summary>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
-        public bool NeedsDynamicDraw()
-        {
-            RebindVisibleRegions();
-            return _visibleRegions.Any(r => r.State == MapRegionState.Ready && r.IsDynamic);
-        }
-
-        private void RebindVisibleRegions()
+        public void RefreshVisibleRegions()
         {
             for (var index = 0; index < _visibleRegions.Count; index++)
             {
@@ -250,6 +236,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                     _visibleRegions[index] = current;
                 }
             }
+        }
+
+        /// <summary>
+        /// Get's if one of the visible region's are dynamic.
+        /// </summary>
+        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        public bool NeedsDynamicDraw()
+        {
+            return _visibleRegions.Any(r => r.IsDynamic);
         }
 
         /// <summary>

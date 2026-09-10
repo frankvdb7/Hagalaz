@@ -1,6 +1,6 @@
 ## Context
 
-The current worker loop waits with `Task.Delay(TickTimeSpan, stoppingToken)` and then executes the complete game tick. Most worker tests configure `TickTimeSpan` as zero and use blocking gates to stop the loop after a particular callback. This couples ordinary assertions to scheduler timing and makes failure cleanup depend on code after the gate being reached. Direct assembly execution shows the pathfinder and worker tests complete quickly; the risky ownership boundary is the hosted loop used by the worker fixtures.
+The current worker loop waits with `Task.Delay(TickTimeSpan, stoppingToken)` and then executes the complete game tick. Most worker tests configure `TickTimeSpan` as zero and use blocking gates to stop the loop after a particular callback. This couples ordinary assertions to scheduler timing and makes failure cleanup depend on code after the gate being reached. Independently, `Hagalaz.Services.GameWorld` has a generated `artifacts` directory under the project root. The SDK's implicit item globs do not honor `.gitignore`, so nested plugin/build output is recursively evaluated as project input and inflates `*.FileListAbsolute.txt` until the MSBuild compile process grows without bound.
 
 ## Goals / Non-Goals
 
@@ -11,6 +11,7 @@ The current worker loop waits with `Task.Delay(TickTimeSpan, stoppingToken)` and
 - Make ordinary tests call the internal tick operation directly; hosted lifecycle coverage must await shutdown on every path.
 - Preserve phase ordering, snapshot sharing, cancellation, exception logging, and overrun behavior.
 - Use a focused collision fake only if measured pathfinder retention proves NSubstitute call history is material.
+- Keep generated project-local output outside the implicit MSBuild item graph.
 
 **Non-Goals:**
 
@@ -30,11 +31,21 @@ The current worker loop waits with `Task.Delay(TickTimeSpan, stoppingToken)` and
 
 5. **Keep diagnostic recording bounded by behavior.** The worker logger records the bounded entries asserted by a test rather than serving as an unlimited history for a producer that may still be running.
 
+6. **Exclude generated `artifacts` output at the shared MSBuild boundary.**
+   `Directory.Build.props` appends each project's `artifacts/**` directory to
+   `DefaultItemExcludes`. This addresses the measured recursive input graph at
+   the owner that controls implicit project evaluation, without deleting user
+   output, disabling GameWorld tests, or changing build parallelism.
+
 ## Risks / Trade-offs
 
 - [Risk] A hosted lifecycle test can accidentally recreate a hot loop. → Keep ordinary behavior tests on the internal tick seam and use a long delay for the no-tick hosted cancellation test.
 - [Risk] Moving assertions to the internal tick seam could stop testing hosted shutdown. → Retain focused lifecycle tests that start the actual `BackgroundService` and assert its execution task is completed after cleanup.
 - [Risk] The `dotnet test` MSBuild driver may retain more evaluation memory than direct VSTest. → Report those as separate runner evidence and validate the actual testhost independently; do not claim a test-lifecycle fix solved build-driver memory without measurement.
+- [Risk] A project may intentionally compile a file from `artifacts`. → The
+  directory is generated build/publish output and is not a source input; the
+  exclusion is scoped to each project's own directory and leaves source and
+  explicit item includes unchanged.
 
 ## Migration Plan
 

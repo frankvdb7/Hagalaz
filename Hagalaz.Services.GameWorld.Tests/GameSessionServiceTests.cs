@@ -576,7 +576,7 @@ public sealed class GameSessionServiceTests
         Assert.IsTrue(await service.CommitWorldSession(winningWorldSession));
         Assert.IsFalse(await service.CommitWorldSession(staleWorldSession));
         Assert.AreSame(winningWorldSession, await service.FindByMasterId(42));
-        Assert.AreEqual(2, (await store.FindAll()).Count);
+        Assert.AreEqual(1, (await store.FindAll()).Count);
         Assert.AreEqual(1, (await store.FindSessionsPendingCleanup()).OfType<IGameWorldSession>().Count());
         await claims.Received(1).ReleaseAsync(42, "world-claim", CancellationToken.None);
     }
@@ -606,7 +606,7 @@ public sealed class GameSessionServiceTests
 
         Assert.IsFalse(await service.CommitWorldSession(session));
         Assert.AreEqual(1, (await store.FindSessionsPendingCleanup()).OfType<IGameWorldSession>().Count());
-        Assert.AreEqual(1, (await store.FindAll()).Count);
+        Assert.AreEqual(0, (await store.FindAll()).Count);
     }
 
     [TestMethod]
@@ -837,7 +837,7 @@ public sealed class GameSessionServiceTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => service.TryAddWorldSession(42, "world-connection"));
 
-        Assert.AreEqual(1, (await store.FindAll()).Count);
+        Assert.AreEqual(0, (await store.FindAll()).Count);
         Assert.IsNull(await store.FindWorldSessionByMasterId(42));
 
         var leaseService = GameSessionTestDependencies.CreateLeaseService(store, store, claims, terminator);
@@ -987,7 +987,7 @@ public sealed class GameSessionServiceTests
         var pendingCleanup = await store.FindSessionsPendingCleanup();
         Assert.AreEqual(1, pendingCleanup.Count);
         Assert.AreSame(failedWorldSession, pendingCleanup.Single());
-        Assert.AreEqual(1, (await store.FindAll()).Count);
+        Assert.AreEqual(0, (await store.FindAll()).Count);
 
         var leaseService = GameSessionTestDependencies.CreateLeaseService(store, store, claims, terminator);
         await leaseService.RenewSessionsAsync(CancellationToken.None);

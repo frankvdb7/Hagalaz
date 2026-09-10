@@ -1,19 +1,27 @@
 ## Purpose
 
-Ensures custom NPC cleanup can remove spawned NPCs without blocking the single game-loop thread that also processes player movement and world updates.
+Ensures custom NPC cleanup can remove spawned NPCs through the synchronous
+game-world lifecycle path without an async blocking bridge.
 
 ## ADDED Requirements
 
-### Requirement: Handle-based NPC unregister is non-blocking
+### Requirement: Handle-based NPC unregister is synchronous
 
-The NPC handle unregister operation SHALL return without waiting for the asynchronous NPC removal operation to finish.
+The NPC handle unregister operation SHALL invoke the synchronous NPC service
+and store path and SHALL return only after destruction and global-store removal
+have been attempted.
 
-#### Scenario: NPC cleanup is pending
+#### Scenario: NPC cleanup is requested by a synchronous caller
 
-- **WHEN** custom NPC cleanup requests unregister while the NPC service removal operation is still pending
-- **THEN** the handle call returns and the game loop remains available for subsequent ticks
+- **WHEN** custom NPC cleanup requests unregister from a synchronous game-world
+  callback
+- **THEN** the handle invokes synchronous destruction and store removal
+- **AND** it does not wait on an asynchronous operation or use a blocking async
+  bridge
 
-#### Scenario: NPC removal completes later
+#### Scenario: Asynchronous NPC cleanup remains available
 
-- **WHEN** the scheduled unregister operation completes asynchronously
-- **THEN** the existing NPC service performs destruction and store removal exactly as before
+- **WHEN** delayed death or failed-respawn cleanup uses the asynchronous NPC
+  service
+- **THEN** the existing asynchronous destruction and store removal path remains
+  available and unchanged
