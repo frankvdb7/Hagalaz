@@ -9,7 +9,10 @@ using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using Microsoft.Extensions.DependencyInjection;
@@ -216,6 +219,7 @@ namespace Hagalaz.Services.GameWorld.Services
         public IMapRegion AttachNpc(INpc npc)
         {
             ArgumentNullException.ThrowIfNull(npc);
+            var canSuspend = npc.CanSuspend();
             var location = npc.Location;
             var requestedRegion = GetOrCreateMapRegion(location.RegionId, location.Dimension);
 
@@ -223,7 +227,7 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 var dimension = _dimensions[location.Dimension] ?? throw new InvalidOperationException($"Dimension[{location.Dimension}] no longer exists.");
                 var region = ResolveActiveRegionForMutation(dimension, requestedRegion.Id);
-                region.Add(npc);
+                region.Add(npc, canSuspend);
                 return region;
             }
         }
@@ -239,6 +243,78 @@ namespace Hagalaz.Services.GameWorld.Services
                 {
                     expectedRegion.Remove(npc);
                 }
+            }
+        }
+
+        public void AddGroundItem(IGroundItem item)
+        {
+            ArgumentNullException.ThrowIfNull(item);
+            // Item lifecycle callbacks belong to the GameWorker boundary and
+            // must not run while the residency gate is held.
+            var region = GetOrCreateMapRegion(item.Location.RegionId, item.Location.Dimension);
+            region.Add(item);
+        }
+
+        public bool RemoveGroundItem(IGroundItem item)
+        {
+            ArgumentNullException.ThrowIfNull(item);
+            // Removal may destroy or schedule the item, so keep it outside
+            // the residency gate on the serialized GameWorker boundary.
+            var region = GetOrCreateMapRegion(item.Location.RegionId, item.Location.Dimension);
+            return region.Remove(item);
+        }
+
+        public void AddGameObject(IGameObject gameObject)
+        {
+            ArgumentNullException.ThrowIfNull(gameObject);
+            // Object lifecycle callbacks belong to the GameWorker boundary
+            // and must not run while the residency gate is held.
+            var region = GetOrCreateMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension);
+            region.Add(gameObject);
+        }
+
+        public void RemoveGameObject(IGameObject gameObject)
+        {
+            ArgumentNullException.ThrowIfNull(gameObject);
+            // Removal may invoke object lifecycle code; the GameWorker owns
+            // this callback boundary rather than the residency gate.
+            var region = GetOrCreateMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension);
+            region.Remove(gameObject);
+        }
+
+        public void FlagCollision(IGameObject gameObject)
+        {
+            ArgumentNullException.ThrowIfNull(gameObject);
+            var region = GetOrCreateMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension);
+
+            lock (_residencyGate)
+            {
+                var dimension = _dimensions[gameObject.Location.Dimension] ?? throw new InvalidOperationException($"Dimension[{gameObject.Location.Dimension}] no longer exists.");
+                ResolveActiveRegionForMutation(dimension, region.Id).FlagCollision(gameObject);
+            }
+        }
+
+        public void UnFlagCollision(IGameObject gameObject)
+        {
+            ArgumentNullException.ThrowIfNull(gameObject);
+            var region = GetOrCreateMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension);
+
+            lock (_residencyGate)
+            {
+                var dimension = _dimensions[gameObject.Location.Dimension] ?? throw new InvalidOperationException($"Dimension[{gameObject.Location.Dimension}] no longer exists.");
+                ResolveActiveRegionForMutation(dimension, region.Id).UnFlagCollision(gameObject);
+            }
+        }
+
+        public void QueueUpdate(IRegionPartUpdate update)
+        {
+            ArgumentNullException.ThrowIfNull(update);
+            var region = GetOrCreateMapRegion(update.Location.RegionId, update.Location.Dimension);
+
+            lock (_residencyGate)
+            {
+                var dimension = _dimensions[update.Location.Dimension] ?? throw new InvalidOperationException($"Dimension[{update.Location.Dimension}] no longer exists.");
+                ResolveActiveRegionForMutation(dimension, region.Id).QueueUpdate(update);
             }
         }
 
@@ -319,6 +395,15 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             ArgumentNullException.ThrowIfNull(expectedRegion);
 
+            // Script-backed eligibility is evaluated at the GameWorker
+            // boundary, before taking the residency gate. Membership changes
+            // are committed by the same owner and are checked structurally
+            // below before the active-to-idle transfer.
+            if (!expectedRegion.CanSuspend())
+            {
+                return false;
+            }
+
             lock (_residencyGate)
             {
                 var dimension = _dimensions[expectedRegion.BaseLocation.Dimension];
@@ -330,7 +415,8 @@ namespace Hagalaz.Services.GameWorld.Services
                 if (!dimension.ActiveRegions.TryGetValue(expectedRegion.Id, out var currentRegion)
                     || !ReferenceEquals(currentRegion, expectedRegion)
                     || dimension.IdleRegionStore.ContainsKey(expectedRegion.Id)
-                    || !expectedRegion.CanSuspend())
+                    || expectedRegion.FindAllCharacters().Any()
+                    || expectedRegion.HasNonSuspendableNpcs)
                 {
                     return false;
                 }
@@ -389,11 +475,24 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <returns></returns>
         public void CreateDynamicRegion(ILocation source, ILocation destination)
         {
-            var standardRegion = GetOrCreateMapRegion(source.RegionId, source.Dimension);
-            standardRegion.MakeStandard();
-            var dynamicRegion = GetOrCreateMapRegion(destination.RegionId, destination.Dimension);
-            dynamicRegion.MakeDynamic();
+            var requestedStandardRegion = GetOrCreateMapRegion(source.RegionId, source.Dimension);
+            var requestedDynamicRegion = GetOrCreateMapRegion(destination.RegionId, destination.Dimension);
+            IMapRegion standardRegion;
+            IMapRegion dynamicRegion;
 
+            lock (_residencyGate)
+            {
+                var sourceDimension = _dimensions[source.Dimension] ?? throw new InvalidOperationException($"Dimension[{source.Dimension}] no longer exists.");
+                var destinationDimension = _dimensions[destination.Dimension] ?? throw new InvalidOperationException($"Dimension[{destination.Dimension}] no longer exists.");
+                standardRegion = ResolveActiveRegionForMutation(sourceDimension, requestedStandardRegion.Id);
+                dynamicRegion = ResolveActiveRegionForMutation(destinationDimension, requestedDynamicRegion.Id);
+                standardRegion.MakeStandard();
+                dynamicRegion.MakeDynamic();
+            }
+
+            // Dynamic block population can invoke object scripts while loading
+            // copied objects. It runs on the serialized GameWorker boundary,
+            // after which housekeeping is allowed to inspect the region.
             for (var z = 0; z < 4; z++)
             {
                 for (var xIndex = 0; xIndex < 8; xIndex++)
@@ -423,7 +522,12 @@ namespace Hagalaz.Services.GameWorld.Services
         public void FlagCollision(ILocation location, CollisionFlag flag)
         {
             var region = GetOrCreateMapRegion(location.RegionId, location.Dimension);
-            region.FlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, flag);
+            lock (_residencyGate)
+            {
+                var dimension = _dimensions[location.Dimension] ?? throw new InvalidOperationException($"Dimension[{location.Dimension}] no longer exists.");
+                ResolveActiveRegionForMutation(dimension, region.Id)
+                    .FlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, flag);
+            }
         }
 
         /// <summary>
@@ -435,7 +539,12 @@ namespace Hagalaz.Services.GameWorld.Services
         public void UnFlagCollision(ILocation location, CollisionFlag flag)
         {
             var region = GetOrCreateMapRegion(location.RegionId, location.Dimension);
-            region.UnFlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, flag);
+            lock (_residencyGate)
+            {
+                var dimension = _dimensions[location.Dimension] ?? throw new InvalidOperationException($"Dimension[{location.Dimension}] no longer exists.");
+                ResolveActiveRegionForMutation(dimension, region.Id)
+                    .UnFlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, flag);
+            }
         }
 
         public void CreateDimension(int id)

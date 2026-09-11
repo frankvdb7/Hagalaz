@@ -154,8 +154,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     .WithLocation(Owner.Location)
                     .WithOwner(groundItemOwner)
                     .Build();
-                _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension)
-                    .Add(groundItem); // we spawn it with this method, as the container was normally stacked.
+                _mapRegionService.AddGroundItem(groundItem); // we spawn it with this method, as the container was normally stacked.
             }
 
             var bones = _groundItemBuilder.Create()
@@ -163,7 +162,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 .WithLocation(Owner.Location)
                 .WithOwner(groundItemOwner)
                 .Build();
-                _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension).Add(bones);
+                _mapRegionService.AddGroundItem(bones);
             _character.Inventory.AddRange(itemsOnDeath.keptItems);
             _character.Inventory.OnUpdate();
             _character.Equipment.OnUpdate();

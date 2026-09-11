@@ -147,12 +147,12 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
                     return;
                 }
 
-                region.Remove(logItem);
+                _mapRegionService.RemoveGroundItem(logItem);
                 var gameObj = _gameObjectBuilder.Create()
                     .WithId(log.FireObjectId)
                     .WithLocation(logItem.Location)
                     .Build();
-                region.Add(gameObj);
+                _mapRegionService.AddGameObject(gameObj);
                 character.SendChatMessage("The fire catches and the logs begin to burn.");
                 character.Statistics.AddExperience(StatisticsConstants.Firemaking, log.Experience);
 
@@ -166,12 +166,12 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
                 character.QueueTask(new RsTask(() => character.FaceLocation(gameObj), 1));
                 _taskService.Schedule(new RsTask(() =>
                     {
-                        region.Remove(gameObj);
+                        _mapRegionService.RemoveGameObject(gameObj);
                         var groundItem = _groundItemBuilder.Create()
                             .WithItem(itemBuilder =>  itemBuilder.Create().WithId(FiremakingConstants.Ashes))
                             .WithLocation(gameObj.Location)
                             .Build();
-                        region.Add(groundItem);
+                        _mapRegionService.AddGroundItem(groundItem);
                     },
                     log.Ticks));
             }

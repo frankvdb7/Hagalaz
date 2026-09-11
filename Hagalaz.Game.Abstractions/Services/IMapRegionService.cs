@@ -3,7 +3,10 @@ using System.Diagnostics.CodeAnalysis;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 
 namespace Hagalaz.Game.Abstractions.Services
 {
@@ -35,6 +38,20 @@ namespace Hagalaz.Game.Abstractions.Services
         IMapRegion AttachNpc(INpc npc);
 
         void DetachNpc(INpc npc, IMapRegion expectedRegion);
+
+        void AddGroundItem(IGroundItem item);
+
+        bool RemoveGroundItem(IGroundItem item);
+
+        void AddGameObject(IGameObject gameObject);
+
+        void RemoveGameObject(IGameObject gameObject);
+
+        void FlagCollision(IGameObject gameObject);
+
+        void UnFlagCollision(IGameObject gameObject);
+
+        void QueueUpdate(IRegionPartUpdate update);
 
         /// <summary>
         /// Removes a region only when the active region is the expected instance.

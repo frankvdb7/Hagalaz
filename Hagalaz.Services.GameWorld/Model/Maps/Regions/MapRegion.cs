@@ -28,6 +28,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     {
         private readonly ConcurrentStore<int, ICharacter> _characters = new();
         private readonly ConcurrentStore<int, INpc> _npcs = new();
+        private readonly HashSet<int> _nonSuspendableNpcIndexes = [];
         private readonly ConcurrentStore<int, IMapRegionPart> _parts = new();
         private readonly CollisionFlag[,,] _collision;
         private DateTime _idleTime = DateTime.MinValue;
@@ -43,6 +44,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private int _state = (int)MapRegionState.Initializing;
         public MapRegionState State => (MapRegionState)Volatile.Read(ref _state);
         public bool IsDestroyed { get; private set; }
+        public bool HasNonSuspendableNpcs => _nonSuspendableNpcIndexes.Count > 0;
         public int[] XteaKeys { get; }
 
         public MapRegion(
@@ -66,12 +68,20 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             _mapper = mapper;
         }
 
-        public void Add(INpc npc)
+        public void Add(INpc npc) => Add(npc, npc.CanSuspend());
+
+        public void Add(INpc npc, bool canSuspend)
         {
             EnsureAcceptsMutation();
-            if (!_npcs.TryAdd(npc.Index, npc))
+            var index = npc.Index;
+            if (!_npcs.TryAdd(index, npc))
             {
                 throw new InvalidOperationException($"Npc {npc} is already added to this region");
+            }
+
+            if (!canSuspend)
+            {
+                _nonSuspendableNpcIndexes.Add(index);
             }
         }
 
@@ -96,7 +106,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         {
             if (!IsDestroyed)
             {
-                _npcs.TryRemove(npc.Index, npc);
+                var index = npc.Index;
+                if (_npcs.TryRemove(index, npc))
+                {
+                    _nonSuspendableNpcIndexes.Remove(index);
+                }
             }
         }
 
@@ -207,7 +221,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public bool CanSuspend()
         {
-            if (AnyCreature(c => !c.CanSuspend()))
+            if (_characters.Any())
+            {
+                return false;
+            }
+
+            if (_npcs.Any(npc => !npc.CanSuspend()))
             {
                 return false;
             }

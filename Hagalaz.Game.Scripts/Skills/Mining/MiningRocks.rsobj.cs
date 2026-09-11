@@ -162,23 +162,17 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                             .WithRotation(rocks.Rotation)
                             .WithShape(rocks.ShapeType)
                             .Build();
-                        character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(rocks.Location.RegionId, rocks.Location.Dimension)
-                            .Add(exhaustedRock);
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>().AddGameObject(exhaustedRock);
                     }
                     else // delete the rocks
                     {
-                        character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(rocks.Location.RegionId, rocks.Location.Dimension)
-                            .Remove(rocks);
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>().RemoveGameObject(rocks);
                     }
 
                     var respawnTick = (int)(ore.RespawnTime * (1.0 + characterCount * -0.00025) * 100.0);
 
                     _taskService.Schedule(new RsTask(() =>
-                        character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(rocks.Location.RegionId, rocks.Location.Dimension)
-                            .Add(rocks), respawnTick));
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>().AddGameObject(rocks), respawnTick));
                     return true;
                 }
 

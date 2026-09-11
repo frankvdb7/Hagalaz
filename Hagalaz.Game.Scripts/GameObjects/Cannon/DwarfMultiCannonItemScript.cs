@@ -96,9 +96,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                 {
                     if (tick == 0)
                     {
-                        character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(character.Location.RegionId, character.Location.Dimension)
-                            .Add(cannon);
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>().AddGameObject(cannon);
 
                         character.SendChatMessage("You place the cannon base on the ground...");
                         character.Inventory.Remove(_itemBuilder.Create().WithId(CannonItemIds[0 + cannonId]).Build());

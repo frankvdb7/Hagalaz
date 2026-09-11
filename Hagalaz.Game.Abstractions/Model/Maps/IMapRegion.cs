@@ -49,6 +49,12 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         bool IsDestroyed { get; }
 
         /// <summary>
+        /// Gets a value indicating whether an NPC attached through the region
+        /// ownership boundary cannot be suspended.
+        /// </summary>
+        bool HasNonSuspendableNpcs { get; }
+
+        /// <summary>
         /// Checks if this region can be destroyed (e.g., when it is empty).
         /// </summary>
         /// <returns><c>true</c> if the region can be destroyed; otherwise, <c>false</c>.</returns>
@@ -124,6 +130,14 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// </summary>
         /// <param name="npc">The NPC to add.</param>
         void Add(INpc npc);
+
+        /// <summary>
+        /// Adds an NPC when its suspension eligibility has already been
+        /// evaluated outside the map-region residency gate.
+        /// </summary>
+        /// <param name="npc">The NPC to add.</param>
+        /// <param name="canSuspend">The eligibility observed by the owner.</param>
+        void Add(INpc npc, bool canSuspend);
 
         /// <summary>
         /// Adds a character to the region.

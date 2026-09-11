@@ -64,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Armadyl
                             .WithLocation(Location.Create(2872, 5274, 2, 0))
                             .WithGraphic(Graphic.Create(2103))
                             .Build();
-                        _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension).QueueUpdate(update);
+                        _mapRegionService.QueueUpdate(update);
                         clicker.FaceLocation(Owner.Location);
 
                         clicker.QueueTask(new RsTask(() =>

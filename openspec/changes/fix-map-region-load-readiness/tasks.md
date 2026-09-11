@@ -22,6 +22,10 @@
       keeping copied runtime objects in the destination dimension.
 - [x] 1.12 Serialize character and NPC membership mutations with active-region
       residency and recheck suspension eligibility at the ownership boundary.
+- [x] 1.13 Keep script-backed suspension checks outside the residency gate and
+      retain only structural eligibility facts for the final commit.
+- [x] 1.14 Route live non-creature mutations through explicit
+      `MapRegionService` operations while preserving loader-owned writes.
 
 ## 2. Scheduler and ownership
 
@@ -91,3 +95,5 @@
 - [x] 5.5 Add deterministic character/NPC attach-versus-suspend coverage,
       including stale suspension eligibility and existing-region load request
       behavior.
+- [x] 5.6 Add deterministic script lock-scope, idle-resume mutation, and
+      non-suspendable NPC attachment coverage.

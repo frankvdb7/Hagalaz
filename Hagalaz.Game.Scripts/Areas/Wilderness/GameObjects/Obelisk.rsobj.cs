@@ -104,9 +104,8 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
                     for (var y = 1; y < 4; y++)
                     {
                         var loc = center.Translate(x, y, 0);
-                        var locRegion = _regionService.GetOrCreateMapRegion(loc.RegionId, loc.Dimension);
                         var update = _regionUpdateBuilder.Create().WithLocation(loc).WithGraphic(Graphic.Create(661)).Build();
-                        locRegion.QueueUpdate(update);
+                        _regionService.QueueUpdate(update);
                     }
                 }
 

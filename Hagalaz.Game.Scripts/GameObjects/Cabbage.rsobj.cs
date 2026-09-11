@@ -44,9 +44,9 @@ namespace Hagalaz.Game.Scripts.GameObjects
                         if (clicker.Inventory.Add(_itemBuilder.Create().WithId(1965).Build()))
                         {
                             // delete the cabbage object.
-                            _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension).Remove(Owner);
+                            _mapRegionService.RemoveGameObject(Owner);
                             _rsTaskService.Schedule(new RsTask(() =>
-                                _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension).Add(Owner), 100));
+                                _mapRegionService.AddGameObject(Owner), 100));
                             clicker.SendChatMessage("You pulled the cabbage out of the ground.");
                         }
                         else

@@ -32,7 +32,12 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public IEnumerable<IGameObject> FindByLocation(ILocation location)
         {
-            var region = _regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension);
+            var region = _regionService.FindMapRegion(location.RegionId, location.Dimension);
+            if (region is null)
+            {
+                yield break;
+            }
+
             foreach (var gameObject in region.FindAllGameObjects().Where(gameObject => gameObject.Location.Equals(location)))
             {
                 yield return gameObject;
@@ -47,12 +52,11 @@ namespace Hagalaz.Services.GameWorld.Services
                 return;
             }
 
-            var region = _regionService.GetOrCreateMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension);
             if (go.Id != gameObjectUpdate.Id)
             {
                 go.Id = gameObjectUpdate.Id;
                 go.IsStatic = false;
-                region.QueueUpdate(new AddGameObjectUpdate(gameObject));
+                _regionService.QueueUpdate(new AddGameObjectUpdate(gameObject));
             }
 
             if (go.Rotation == gameObjectUpdate.Rotation)
@@ -60,17 +64,16 @@ namespace Hagalaz.Services.GameWorld.Services
                 return;
             }
 
-            region.UnFlagCollision(go);
+            _regionService.UnFlagCollision(go);
             go.Rotation = gameObjectUpdate.Rotation;
             go.IsStatic = false;
-            region.FlagCollision(go);
-            region.QueueUpdate(new AddGameObjectUpdate(gameObject));
+            _regionService.FlagCollision(go);
+            _regionService.QueueUpdate(new AddGameObjectUpdate(gameObject));
         }
 
         public void AnimateGameObject(IGameObject gameObject, IAnimation animation)
         {
-            var region = _regionService.GetOrCreateMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension);
-            region.QueueUpdate(new SetGameObjectAnimationUpdate(gameObject, animation));
+            _regionService.QueueUpdate(new SetGameObjectAnimationUpdate(gameObject, animation));
         }
 
         public async Task<GameObjectDefinition> FindGameObjectDefinitionById(int objectId, CancellationToken cancellationToken = default)

@@ -6,10 +6,12 @@ using Hagalaz.Game.Abstractions.Builders.Location;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Builders;
 using Hagalaz.Services.GameWorld.Logic.Pathfinding;
+using Hagalaz.Services.GameWorld.Model.Maps.GameObjects;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using Hagalaz.Services.GameWorld.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -304,6 +306,24 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
+    public void CollisionMutation_DoesNotMutateStaleRegionInstance()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var staleRegion = service.GetOrCreateMapRegion(1, 0);
+        Assert.IsTrue(service.TryRemoveMapRegion(staleRegion.Id, 0, staleRegion));
+
+        var currentRegion = service.GetOrCreateMapRegion(1, 0);
+        var location = Location.Create(1, 65, 0, 0);
+
+        service.FlagCollision(location, CollisionFlag.WallNorth);
+
+        Assert.AreSame(currentRegion, service.FindMapRegion(1, 0));
+        Assert.AreEqual(CollisionFlag.WallNorth, currentRegion.GetCollision(1, 1, 0));
+        Assert.AreEqual(CollisionFlag.Walkable, staleRegion.GetCollision(1, 1, 0));
+    }
+
+    [TestMethod]
     public async Task AttachCharacter_SerializesMembershipWithSuspension()
     {
         using var provider = CreateProvider();
@@ -397,6 +417,112 @@ public sealed class MapRegionServiceTests
         Assert.AreSame(region, attachedRegion);
         Assert.AreSame(region, service.FindMapRegion(region.Id, location.Dimension));
         Assert.IsTrue(region.FindAllNpcs().Contains(npc));
+    }
+
+    [TestMethod]
+    public void TrySuspendMapRegion_EvaluatesScriptEligibilityOutsideResidencyGate()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var location = Location.Create(64, 64, 0, 0);
+        var region = service.GetOrCreateMapRegion(location.RegionId, location.Dimension);
+        region.MarkReady();
+
+        var script = Substitute.For<IGameObjectScript>();
+        var definition = Substitute.For<IGameObjectDefinition>();
+        definition.SizeX.Returns(1);
+        definition.SizeY.Returns(1);
+        definition.ClipType.Returns(0);
+        definition.Gateway.Returns(false);
+        definition.Solid.Returns(false);
+        var gameObject = new GameObject(
+            1,
+            location,
+            0,
+            ShapeType.GroundDefault,
+            false,
+            definition,
+            script);
+        region.Add(gameObject);
+
+        var unrelatedRegionCreated = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        script.CanSuspend().Returns(_ =>
+        {
+            var unrelatedRegion = Task.Factory.StartNew(
+                () => service.GetOrCreateMapRegion(2, 0),
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
+            unrelatedRegion.GetAwaiter().GetResult();
+            unrelatedRegionCreated.SetResult();
+            return true;
+        });
+
+        Assert.IsTrue(service.TrySuspendMapRegion(region));
+        Assert.IsTrue(unrelatedRegionCreated.Task.IsCompletedSuccessfully);
+    }
+
+    [TestMethod]
+    public void TrySuspendMapRegion_RejectsNonSuspendableNpcAttachedAfterEligibilityWasObserved()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var location = Location.Create(64, 64, 0, 0);
+        var region = service.GetOrCreateMapRegion(location.RegionId, location.Dimension);
+        region.MarkReady();
+
+        var existingNpc = Substitute.For<INpc>();
+        existingNpc.Location.Returns(location);
+        existingNpc.Index.Returns(1);
+        existingNpc.CanSuspend().Returns(true);
+        service.AttachNpc(existingNpc);
+
+        var beginAttach = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attachCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var nonSuspendableNpc = Substitute.For<INpc>();
+        nonSuspendableNpc.Location.Returns(location);
+        nonSuspendableNpc.Index.Returns(2);
+        nonSuspendableNpc.CanSuspend().Returns(false);
+        var attachTask = Task.Factory.StartNew(
+            () =>
+            {
+                beginAttach.Task.GetAwaiter().GetResult();
+                service.AttachNpc(nonSuspendableNpc);
+                attachCompleted.SetResult();
+            },
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+
+        existingNpc.CanSuspend().Returns(_ =>
+        {
+            beginAttach.SetResult();
+            attachCompleted.Task.GetAwaiter().GetResult();
+            return true;
+        });
+
+        Assert.IsFalse(service.TrySuspendMapRegion(region));
+        attachTask.GetAwaiter().GetResult();
+        Assert.AreSame(region, service.FindMapRegion(region.Id, location.Dimension));
+        Assert.IsTrue(region.FindAllNpcs().Contains(nonSuspendableNpc));
+    }
+
+    [TestMethod]
+    public void CreateDynamicRegion_ResumesIdleDestinationBeforeMutation()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var source = Location.Create(64, 64, 0, 0);
+        var destination = Location.Create(128, 64, 0, 0);
+        var destinationRegion = service.GetOrCreateMapRegion(destination.RegionId, destination.Dimension);
+        destinationRegion.MarkReady();
+        Assert.IsTrue(service.TrySuspendMapRegion(destinationRegion));
+
+        service.CreateDynamicRegion(source, destination);
+
+        Assert.AreSame(destinationRegion, service.FindMapRegion(destination.RegionId, destination.Dimension));
+        Assert.IsFalse(service.FindIdleRegionsByDimension(destination.Dimension).Contains(destinationRegion));
+        Assert.IsTrue(destinationRegion.IsDynamic);
     }
 
     [TestMethod]

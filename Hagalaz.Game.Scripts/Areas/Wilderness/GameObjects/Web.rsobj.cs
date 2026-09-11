@@ -64,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
                     Instance = Owner,
                     Id = Owner.Id + 1
                 });
-                _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension).UnFlagCollision(Owner);
+                _mapRegionService.UnFlagCollision(Owner);
                 clicker.QueueTask(new RsTask(() =>
                     {
                         _gameObjectService.UpdateGameObject(new GameObjectUpdate
@@ -72,7 +72,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
                             Instance = Owner,
                             Id = Owner.Id - 1
                         });
-                        _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension).FlagCollision(Owner);
+                        _mapRegionService.FlagCollision(Owner);
                     },
                     100));
                 return;

@@ -28,7 +28,9 @@ allow two independently owned live canonical instances. A stale reference MUST
 not move, remove, or destroy a newer canonical instance. Idle destruction MUST
 successfully claim the exact idle instance before calling `DestroyAsync`.
 Obtaining canonical active residency and applying any mutation that relies on
-that active ownership MUST be serialized by the same owner boundary.
+that active ownership MUST be serialized by the same owner boundary. Live
+item/object callbacks MUST remain on the GameWorld worker boundary and MUST
+not execute while the residency gate is held.
 
 #### Scenario: A resumed region cannot be destroyed by stale cleanup
 
@@ -62,6 +64,24 @@ that active ownership MUST be serialized by the same owner boundary.
 - **GIVEN** suspension eligibility was observed for an empty active region
 - **WHEN** a non-suspendable creature becomes attached before the suspension claim
 - **THEN** the stale eligibility MUST NOT move that region to idle
+
+#### Scenario: Script eligibility does not hold the residency gate
+
+- **GIVEN** an active region whose suspension eligibility invokes an NPC or
+  game-object script
+- **WHEN** that script is evaluating eligibility
+- **THEN** unrelated dimension-residency operations MUST remain able to enter
+  the map-region service
+- **AND** the final active-instance and structural-membership commit MUST
+  still reject stale suspension eligibility
+
+#### Scenario: Live non-creature mutation resolves active ownership
+
+- **WHEN** a live collision, update, ground-item, game-object, or
+  dynamic-region operation targets an idle region
+- **THEN** the operation MUST resume or create the canonical active region
+  before applying its mutation
+- **AND** item/object script callbacks MUST execute outside the residency gate
 
 #### Scenario: A stale region reference targets a replacement
 

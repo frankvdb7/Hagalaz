@@ -153,13 +153,29 @@ returned by the attach operation for teardown; it does not retry or inspect
 residency itself.
 
 The background service only performs a ready-region eligibility snapshot before
-calling `TrySuspendMapRegion`. `TrySuspendMapRegion` rechecks the exact active
-instance and `CanSuspend()` under the same owner boundary before moving the
-region to idle. This prevents stale eligibility from suspending a region after
-a non-suspendable creature was attached. The guarded operation is limited to
-the existing synchronous membership and eligibility decision; it does not
-perform loading, destruction, publishing, or other asynchronous work while
-holding the gate.
+calling `TrySuspendMapRegion`. Script-backed eligibility is evaluated before
+the residency gate is entered, so NPC and game-object scripts cannot stall
+unrelated dimensions. Character membership and the suspension eligibility
+observed when an NPC is attached are retained as ordinary structural facts;
+the final active-instance, character-membership, and non-suspendable-NPC checks
+are made under the same owner boundary before moving the region to idle. This
+prevents stale eligibility from suspending a region after a non-suspendable
+creature was attached. The guarded operation is limited to deterministic
+membership and eligibility facts; it does not perform loading, destruction,
+publishing, script callbacks, or other asynchronous work while holding the
+gate.
+
+### 15. Keep live region mutations on the worker boundary
+
+`MapRegionService` exposes small domain operations for live ground-item,
+game-object, collision, and update mutations. Each operation resolves the
+canonical active region before applying its change. Collision and update
+queueing hold the residency gate only for the bounded structural write. Item
+and object insertion/removal may invoke item or object scripts, so those
+callbacks execute outside the gate on the existing serialized GameWorker
+execution boundary. Dynamic-region setup resolves both source and destination
+through the service; its block population remains worker-owned and does not
+hold the residency gate while loading copied objects.
 
 ### 10. Preserve dynamic source dimensions
 
