@@ -66,7 +66,7 @@ public sealed class WorldStatusServiceShutdownTests
             {
                 Assert.IsFalse(events.Contains("bus-stopped"));
                 events.Add("character-flush");
-                return Task.CompletedTask;
+                return Task.FromResult<CharacterPersistenceReceipt?>(null);
             });
 
         var busLifetime = new RecordingBusLifetime(events);

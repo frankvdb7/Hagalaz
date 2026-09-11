@@ -4,7 +4,7 @@
 
 ## Decisions
 
-1. Keep persistence before world-session removal. The existing pending-logout/dehydration flow relies on the registered character remaining available until the durable handoff has been queued.
+1. Keep persistence before world-session removal. The existing pending-logout/dehydration flow relies on the registered character remaining available until the exact final snapshot has been acknowledged by authoritative persistence. `PersistAsync` returns a small receipt containing the snapshot identity; logout waits for that receipt before releasing the session claim or detaching the character.
 2. Move token revocation after session removal and character-detach coordination. This makes the live-session owner authoritative for login admission and prevents an authorization failure from retaining a successfully persisted session.
 3. Catch non-cancellation revocation exceptions after cleanup and log them. The logout boundary has already released live ownership; a failed remote cleanup must not recreate the login lock. Cancellation remains observable to the caller.
 4. Resolve the authorization named by the logout request and verify its subject and application before revoking its tokens. An unknown or mismatched authorization is an idempotent no-op; it must never fall back to subject-wide or client-wide revocation. Revoke the authorization's tokens by authorization id and transition a still-valid authorization to revoked when required.
@@ -20,6 +20,11 @@
    failure, the exact authorization metadata remains attached for the normal
    disconnect/sign-out owner to retry. Sign-out uses the same helper with its
    non-cancelable cleanup token after live-session release.
+8. Keep persistence cleanup receipt-scoped. Acknowledgements match the pending
+   snapshot identity, and final `Forget` is allowed only for the receipt's
+   revision owner and exact acknowledged receipt. A replacement admission
+   rotates that owner before it can publish a new snapshot, so an old logout
+   cannot clear newer persistence bookkeeping keyed by the same master id.
 
 ## Invariants
 

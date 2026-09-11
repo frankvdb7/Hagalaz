@@ -18,13 +18,11 @@ public sealed class CharacterDehydrationWorkerServiceTests
 {
     [TestMethod]
     [Timeout(5000)]
-    public async Task FlushAsync_WhenPendingLogoutPersistenceSucceeds_RemovesCharacterAndPublishesWorldSignOut()
+    public async Task FlushAsync_WhenLogoutIsPending_SkipsBackgroundPersistenceAndDetach()
     {
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
-        character.IsDestroyed.Returns(false);
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
-        persistenceService.IsPersistenceAcknowledged(character).Returns(true);
         var characterService = new RecordingCharacterService();
         var mediator = Substitute.For<IGameMediator>();
         var characterLogoutService = Substitute.For<ICharacterLogoutService>();
@@ -44,22 +42,23 @@ public sealed class CharacterDehydrationWorkerServiceTests
 
         await worker.FlushAsync(force: false, CancellationToken.None);
 
-        await persistenceService.Received(1).PersistAsync(character, false, Arg.Any<CancellationToken>());
-        await characterLogoutService.Received(1).DetachAsync(character, Arg.Any<CancellationToken>());
+        await persistenceService.DidNotReceive().PersistAsync(character, false, Arg.Any<CancellationToken>());
+        await characterLogoutService.DidNotReceive().DetachAsync(character, Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task FlushAsync_WhenPendingLogoutPersistenceIsUnacknowledged_LeavesCharacterForRedrive()
+    public async Task FlushAsync_WhenLogoutIsNotPending_PersistsCharacter()
     {
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
-        persistenceService.IsPersistenceAcknowledged(character).Returns(false);
+        persistenceService.PersistAsync(character, false, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<CharacterPersistenceReceipt?>(null));
         var characterService = new RecordingCharacterService();
         var mediator = Substitute.For<IGameMediator>();
         var characterLogoutService = Substitute.For<ICharacterLogoutService>();
-        characterLogoutService.IsPendingLogout(character).Returns(true);
+        characterLogoutService.IsPendingLogout(character).Returns(false);
         var store = new SingleCharacterStore(character);
 
         using var provider = new ServiceCollection()
@@ -77,7 +76,6 @@ public sealed class CharacterDehydrationWorkerServiceTests
 
         await persistenceService.Received(1).PersistAsync(character, false, Arg.Any<CancellationToken>());
         Assert.IsNull(characterService.RemovedCharacter);
-        persistenceService.DidNotReceive().Forget(Arg.Any<uint>());
         character.DidNotReceive().Destroy();
         mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
     }
@@ -94,7 +92,7 @@ public sealed class CharacterDehydrationWorkerServiceTests
             .Returns(callInfo =>
             {
                 persistenceStarted.TrySetResult(true);
-                return Task.Delay(Timeout.InfiniteTimeSpan, callInfo.Arg<CancellationToken>());
+                return BlockPersistenceAsync(callInfo.Arg<CancellationToken>());
             });
         var store = new SingleCharacterStore(character);
 
@@ -130,6 +128,12 @@ public sealed class CharacterDehydrationWorkerServiceTests
         public ValueTask<bool> RemoveAsync(ICharacter character) => throw new System.NotImplementedException();
         public ValueTask<ICharacter?> FindAsync(System.Func<ICharacter, bool> predicate) => throw new System.NotImplementedException();
         public ValueTask<ICharacter?> FindByIdAsync(uint id) => throw new System.NotImplementedException();
+    }
+
+    private static async Task<CharacterPersistenceReceipt?> BlockPersistenceAsync(CancellationToken cancellationToken)
+    {
+        await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        return null;
     }
 
     private sealed class RecordingCharacterService : ICharacterService

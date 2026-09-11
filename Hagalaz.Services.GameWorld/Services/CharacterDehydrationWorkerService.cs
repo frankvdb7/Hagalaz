@@ -98,18 +98,6 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             var characters = new List<ICharacter>((await _characterStore.GetSnapshotAsync(cancellationToken)).Values);
 
-            await using (var pendingScope = _serviceProvider.CreateAsyncScope())
-            {
-                var pendingLogouts = pendingScope.ServiceProvider.GetRequiredService<ICharacterLogoutService>();
-                foreach (var pendingCharacter in pendingLogouts.GetPendingLogouts())
-                {
-                    if (!characters.Contains(pendingCharacter))
-                    {
-                        characters.Add(pendingCharacter);
-                    }
-                }
-            }
-
             var options = new ParallelOptions
             {
                 MaxDegreeOfParallelism = 8,
@@ -123,14 +111,12 @@ namespace Hagalaz.Services.GameWorld.Services
                 {
                     var persistenceService = scope.ServiceProvider.GetRequiredService<ICharacterPersistenceService>();
                     var logoutService = scope.ServiceProvider.GetRequiredService<ICharacterLogoutService>();
-                    var pendingLogout = logoutService.IsPendingLogout(character);
-                    await persistenceService.PersistAsync(character, force, token);
-
-                    if (pendingLogout && persistenceService.IsPersistenceAcknowledged(character))
+                    if (logoutService.IsPendingLogout(character))
                     {
-                        await scope.ServiceProvider.GetRequiredService<ICharacterLogoutService>()
-                            .DetachAsync(character, token);
+                        return;
                     }
+
+                    await persistenceService.PersistAsync(character, force, token);
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
                 {

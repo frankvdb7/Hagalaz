@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using Hagalaz.Characters.Messages;
 using Hagalaz.Services.GameWorld.Services;
 
 namespace Hagalaz.Services.GameWorld.Tests;
@@ -12,14 +13,14 @@ public sealed class CharacterPersistenceStateTests
     {
         var state = new CharacterPersistenceState();
         var correlationId = Guid.NewGuid();
-        state.MarkPending(42, correlationId, "fingerprint", 7);
+        state.MarkPending(42, "fingerprint", CreateReceipt(state, correlationId, 7));
 
         Assert.IsFalse(state.IsPersisted(42, "fingerprint"));
 
-        state.Acknowledge(42, correlationId, 6);
+        state.Acknowledge(42, correlationId, 6, CharacterPersistenceOutcome.Committed);
         Assert.IsFalse(state.IsPersisted(42, "fingerprint"));
 
-        state.Acknowledge(42, correlationId, 7);
+        state.Acknowledge(42, correlationId, 7, CharacterPersistenceOutcome.Committed);
         Assert.IsTrue(state.IsPersisted(42, "fingerprint"));
     }
 
@@ -28,14 +29,14 @@ public sealed class CharacterPersistenceStateTests
     {
         var state = new CharacterPersistenceState();
         var pendingCorrelationId = Guid.NewGuid();
-        state.MarkPending(42, pendingCorrelationId, "fingerprint", 7);
+        state.MarkPending(42, "fingerprint", CreateReceipt(state, pendingCorrelationId, 7));
 
-        state.Acknowledge(42, Guid.NewGuid(), 7);
+        state.Acknowledge(42, Guid.NewGuid(), 7, CharacterPersistenceOutcome.Committed);
 
         Assert.IsFalse(state.IsPersistenceAcknowledged(42));
         Assert.IsFalse(state.IsPersisted(42, "fingerprint"));
 
-        state.Acknowledge(42, pendingCorrelationId, 7);
+        state.Acknowledge(42, pendingCorrelationId, 7, CharacterPersistenceOutcome.Committed);
 
         Assert.IsTrue(state.IsPersistenceAcknowledged(42));
         Assert.IsTrue(state.IsPersisted(42, "fingerprint"));
@@ -69,8 +70,11 @@ public sealed class CharacterPersistenceStateTests
     {
         var state = new CharacterPersistenceState();
         state.InitializeRevision(42, 500);
+        var receipt = CreateReceipt(state, Guid.NewGuid(), 500);
+        state.MarkPending(42, "fingerprint", receipt);
+        state.Acknowledge(42, receipt.CorrelationId, receipt.SnapshotRevision, CharacterPersistenceOutcome.Committed);
 
-        state.Forget(42);
+        state.Forget(receipt);
 
         Assert.AreEqual(1L, state.NextRevision(42));
     }
@@ -127,14 +131,14 @@ public sealed class CharacterPersistenceStateTests
     {
         var state = new CharacterPersistenceState();
         var correlationId = Guid.NewGuid();
-        state.MarkPending(42, correlationId, "fingerprint", 7);
+        state.MarkPending(42, "fingerprint", CreateReceipt(state, correlationId, 7));
 
         Assert.IsFalse(state.IsPersistenceAcknowledged(42));
 
-        state.Acknowledge(42, correlationId, 6);
+        state.Acknowledge(42, correlationId, 6, CharacterPersistenceOutcome.Committed);
         Assert.IsFalse(state.IsPersistenceAcknowledged(42));
 
-        state.Acknowledge(42, correlationId, 7);
+        state.Acknowledge(42, correlationId, 7, CharacterPersistenceOutcome.Committed);
         Assert.IsTrue(state.IsPersistenceAcknowledged(42));
     }
 
@@ -168,4 +172,26 @@ public sealed class CharacterPersistenceStateTests
         secondHandle.Dispose();
         Assert.AreEqual(0, state.LockCount);
     }
+
+    [TestMethod]
+    public void Forget_DoesNotClearStateAfterARevisionOwnerChanges()
+    {
+        var state = new CharacterPersistenceState();
+        state.InitializeRevision(42, 7);
+        var oldReceipt = CreateReceipt(state, Guid.NewGuid(), 7);
+        state.MarkPending(42, "old", oldReceipt);
+        state.Acknowledge(42, oldReceipt.CorrelationId, oldReceipt.SnapshotRevision, CharacterPersistenceOutcome.Committed);
+
+        state.InitializeRevision(42, 7);
+        state.Forget(oldReceipt);
+
+        Assert.AreEqual(8L, state.NextRevision(42));
+        Assert.IsTrue(state.IsPersisted(42, "old"));
+    }
+
+    private static CharacterPersistenceReceipt CreateReceipt(
+        CharacterPersistenceState state,
+        Guid correlationId,
+        long snapshotRevision) =>
+        new(42, correlationId, snapshotRevision, state.GetRevisionOwner(42));
 }

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Characters.Messages;
@@ -15,8 +14,9 @@ namespace Hagalaz.Services.GameWorld.Services;
 public interface ICharacterLogoutService
 {
     void TrackPendingLogout(ICharacter character);
+    void SetPendingLogoutPersistence(ICharacter character, CharacterPersistenceReceipt receipt);
+    void CancelPendingLogout(ICharacter character);
     bool IsPendingLogout(ICharacter character);
-    IReadOnlyCollection<ICharacter> GetPendingLogouts();
     Task DetachAsync(ICharacter character, CancellationToken cancellationToken = default);
     Task<bool> CompleteAsync(uint masterId, CancellationToken cancellationToken = default);
     Task<bool> AcknowledgeAndCompleteAsync(
@@ -33,11 +33,17 @@ public sealed class CharacterLogoutState
 
     public void Track(ICharacter character) => _pending[character.MasterId] = new PendingLogout(character);
 
+    public void SetPersistenceReceipt(ICharacter character, CharacterPersistenceReceipt receipt)
+    {
+        if (_pending.TryGetValue(character.MasterId, out var pending) && ReferenceEquals(pending.Character, character))
+        {
+            pending.PersistenceReceipt = receipt;
+        }
+    }
+
     public bool IsPending(ICharacter character) =>
         _pending.TryGetValue(character.MasterId, out var pending) &&
         ReferenceEquals(pending.Character, character);
-
-    public IReadOnlyCollection<ICharacter> GetPending() => _pending.Values.Select(value => value.Character).ToArray();
 
     public bool TryMarkRemoved(ICharacter character)
     {
@@ -60,11 +66,20 @@ public sealed class CharacterLogoutState
     public void Remove(uint masterId, PendingLogout pending) =>
         ((ICollection<KeyValuePair<uint, PendingLogout>>)_pending).Remove(new KeyValuePair<uint, PendingLogout>(masterId, pending));
 
+    public void Remove(uint masterId, ICharacter character)
+    {
+        if (_pending.TryGetValue(masterId, out var pending) && ReferenceEquals(pending.Character, character))
+        {
+            Remove(masterId, pending);
+        }
+    }
+
     public sealed class PendingLogout
     {
         public PendingLogout(ICharacter character) => Character = character;
 
         public ICharacter Character { get; }
+        public CharacterPersistenceReceipt? PersistenceReceipt { get; set; }
         public int Removed;
         public int Completing;
     }
@@ -91,9 +106,12 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
 
     public void TrackPendingLogout(ICharacter character) => _logoutState.Track(character);
 
-    public bool IsPendingLogout(ICharacter character) => _logoutState.IsPending(character);
+    public void SetPendingLogoutPersistence(ICharacter character, CharacterPersistenceReceipt receipt) =>
+        _logoutState.SetPersistenceReceipt(character, receipt);
 
-    public IReadOnlyCollection<ICharacter> GetPendingLogouts() => _logoutState.GetPending();
+    public void CancelPendingLogout(ICharacter character) => _logoutState.Remove(character.MasterId, character);
+
+    public bool IsPendingLogout(ICharacter character) => _logoutState.IsPending(character);
 
     public async Task DetachAsync(ICharacter character, CancellationToken cancellationToken = default)
     {
@@ -125,9 +143,9 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
         CancellationToken cancellationToken = default,
         CharacterPersistenceOutcome? outcome = null)
     {
-        if (outcome is CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate)
+        if (outcome is { } acknowledgedOutcome)
         {
-            _persistenceState.Acknowledge(masterId, correlationId, snapshotRevision);
+            _persistenceState.Acknowledge(masterId, correlationId, snapshotRevision, acknowledgedOutcome);
         }
 
         return await CompleteAsync(masterId, cancellationToken);
@@ -137,8 +155,8 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!_persistenceState.IsPersistenceAcknowledged(masterId) ||
-            !_logoutState.TryGet(masterId, out var pending) ||
+        if (!_logoutState.TryGet(masterId, out var pending) ||
+            pending.PersistenceReceipt is not { IsAcknowledgedSuccessfully: true } receipt ||
             !_logoutState.IsRemoved(pending.Character))
         {
             return Task.FromResult(false);
@@ -160,7 +178,7 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
             }
 
             _mediator.Publish(new WorldSignOutCommand(masterId, sessionGeneration, connectionId));
-            _persistenceState.Forget(masterId);
+            _persistenceState.Forget(receipt);
             _logoutState.Remove(masterId, pending);
         }
         finally

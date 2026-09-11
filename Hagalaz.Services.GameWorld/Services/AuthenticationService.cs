@@ -456,12 +456,27 @@ namespace Hagalaz.Services.GameWorld.Services
                 var sessionRemoved = session == null;
                 try
                 {
-                    // Persist before removing the only registered copy. The EF bus outbox is
-                    // the durable handoff boundary; consumer acknowledgement is asynchronous
-                    // and is completed by the dehydration worker.
+                    // Keep the session and character ownership until the exact final snapshot
+                    // has been acknowledged by authoritative character persistence.
                     if (character != null)
                     {
-                        await _characterPersistenceService.PersistAsync(character, force: true, cancellationToken: cancellationToken);
+                        var receipt = await _characterPersistenceService.PersistAsync(
+                            character,
+                            force: true,
+                            cancellationToken: cancellationToken);
+                        if (receipt is null)
+                        {
+                            throw new InvalidOperationException("Forced character persistence did not produce a receipt.");
+                        }
+
+                        _characterLogoutService.SetPendingLogoutPersistence(character, receipt);
+                        var outcome = await _characterPersistenceService.WaitForAcknowledgementAsync(receipt, cancellationToken);
+                        if (outcome is not (CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate))
+                        {
+                            throw new InvalidOperationException(
+                                $"Final character persistence was not accepted for master id {character.MasterId}: {outcome}.");
+                        }
+
                         persistenceSucceeded = true;
                     }
 
@@ -475,6 +490,10 @@ namespace Hagalaz.Services.GameWorld.Services
                     if (character != null && persistenceSucceeded && sessionRemoved)
                     {
                         await _characterLogoutService.DetachAsync(character);
+                    }
+                    else if (character != null)
+                    {
+                        _characterLogoutService.CancelPendingLogout(character);
                     }
                 }
 

@@ -6,7 +6,23 @@ Ensures logout releases live game-session ownership promptly while preserving du
 
 ### Requirement: Logout releases live ownership independently of revocation latency
 
-The logout flow SHALL persist a world character before releasing its session, and SHALL release that session before waiting for token revocation to finish.
+The logout flow SHALL persist a world character and wait for the exact final
+persistence receipt to be acknowledged as committed or duplicate before
+releasing its session. It SHALL release that session before waiting for token
+revocation to finish.
+
+#### Scenario: Logout waits for authoritative persistence
+
+- **WHEN** final persistence has been queued but its acknowledgement has not yet arrived
+- **THEN** the old session remains the owner and the character remains registered
+- **AND** no replacement login can hydrate and claim that character in the meantime
+
+#### Scenario: Old logout cannot clear replacement persistence state
+
+- **WHEN** the old logout receipt is acknowledged and a replacement admission
+  has initialized a new persistence revision owner
+- **THEN** final cleanup for the old receipt does not clear the replacement
+  owner's revision or persisted-snapshot bookkeeping
 
 #### Scenario: Immediate login follows a persisted logout
 

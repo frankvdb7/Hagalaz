@@ -4,7 +4,10 @@ After a client disconnects, GameWorld currently waits for token revocation befor
 
 ## What Changes
 
-- Keep character persistence ahead of world-session release so an acknowledged logout cannot discard the last in-memory character state.
+- Keep character persistence ahead of world-session release, and keep the live
+  session and character owner until the exact final persistence receipt is
+  acknowledged, so an acknowledged logout cannot discard the last in-memory
+  character state or race a replacement hydration.
 - Release the game-session ownership before performing best-effort token revocation, so a completed session logout is not blocked by authorization latency or a duplicate revocation.
 - Make token revocation idempotent for tokens that are no longer valid, while retaining an error response for tokens that remain valid after a failed revoke attempt.
 - Scope logout revocation to the exact OpenIddict authorization created for that sign-in so a concurrent replacement login cannot have its fresh authorization revoked by the old logout.
@@ -23,12 +26,19 @@ After a client disconnects, GameWorld currently waits for token revocation befor
 ## Non-Goals
 
 - Do not add a second online-session registry, retry queue, or token cleanup worker.
-- Do not change token lifetime, reconnect validation, distributed claim leases, or character persistence acknowledgement semantics.
+- Do not change token lifetime, reconnect validation, distributed claim leases,
+  or the character persistence message contract beyond the receipt needed to
+  identify the exact logout snapshot.
 - Do not weaken the existing rule that a persistence failure retains the world session for recovery.
 
 ## Acceptance Criteria
 
-- A logout with a character persists it before releasing world ownership.
+- A logout with a character keeps world ownership until its exact final
+  persistence receipt is acknowledged as committed or duplicate, then
+  releases the session and detaches the character.
+- A replacement login cannot be hydrated from the old in-memory owner before
+  that receipt is acknowledged, and an old logout cannot clear the replacement
+  owner's persistence bookkeeping.
 - A token-revocation request carries the exact authorization owner and cannot revoke another authorization for the same subject or client.
 - A token-revocation request cannot prevent a successfully persisted logout from releasing its session or detaching its character.
 - A repeated revocation request does not return `ID2079` merely because the token was already revoked; a token that remains valid after a failed revoke still reports failure.

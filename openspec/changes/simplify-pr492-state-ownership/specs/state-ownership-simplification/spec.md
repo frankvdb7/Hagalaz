@@ -90,6 +90,18 @@ state.
 - **AND** persistence acknowledgement remains independent of logout workflow
   bookkeeping
 
+Persistence acknowledgements and final cleanup MUST be identified by the exact
+snapshot receipt. Logout cleanup MUST NOT clear revision or persisted-snapshot
+bookkeeping after a replacement admission has established a new revision owner
+for the same master id.
+
+#### Scenario: Stale logout cleanup cannot clear replacement state
+
+- **WHEN** an old logout receipt is finalized after a replacement revision
+  owner has been initialized
+- **THEN** the old receipt cleanup is ignored
+- **AND** the replacement owner's persistence bookkeeping remains available
+
 ### Requirement: MapRegion lifecycle state is visibility-only
 
 `MapRegion` MUST retain cross-thread visibility for ready/discarded state, but

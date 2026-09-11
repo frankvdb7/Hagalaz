@@ -41,7 +41,7 @@ public sealed class AuthenticationLogoutTests
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
         var persistenceFailure = new InvalidOperationException("Persistence is unavailable.");
         persistenceService.PersistAsync(character, true, Arg.Any<CancellationToken>())
-            .Returns(Task.FromException(persistenceFailure));
+            .Returns(Task.FromException<CharacterPersistenceReceipt?>(persistenceFailure));
         var gameSessionService = Substitute.For<IGameSessionService>();
         gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
         var characterLogoutService = Substitute.For<ICharacterLogoutService>();
@@ -64,7 +64,7 @@ public sealed class AuthenticationLogoutTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task SignOutAsync_WhenPersistenceAwaitsAcknowledgement_CompletesLogoutAndDefersCleanup()
+    public async Task SignOutAsync_WaitsForExactPersistenceAcknowledgementBeforeReleasingSession()
     {
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
@@ -72,7 +72,17 @@ public sealed class AuthenticationLogoutTests
         session.ConnectionId.Returns("connection");
         var characterService = Substitute.For<ICharacterService>();
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
-        persistenceService.IsPersistenceAcknowledged(character).Returns(false);
+        var receipt = CreateReceipt(character);
+        var persistenceStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var acknowledge = new TaskCompletionSource<CharacterPersistenceOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+        persistenceService.PersistAsync(character, true, Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                persistenceStarted.TrySetResult(true);
+                return Task.FromResult<CharacterPersistenceReceipt?>(receipt);
+            });
+        persistenceService.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
+            .Returns(acknowledge.Task);
         var mediator = Substitute.For<IGameMediator>();
         var characterLogoutService = Substitute.For<ICharacterLogoutService>();
         var gameSessionService = Substitute.For<IGameSessionService>();
@@ -85,13 +95,22 @@ public sealed class AuthenticationLogoutTests
             mediator: mediator,
             characterLogoutService: characterLogoutService);
 
-        await service.SignOutAsync();
+        var signOutTask = service.SignOutAsync();
+        await persistenceStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await Task.Yield();
 
         characterLogoutService.Received(1).TrackPendingLogout(character);
         await persistenceService.Received(1).PersistAsync(character, true, Arg.Any<CancellationToken>());
+        await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>());
+        Assert.IsFalse(signOutTask.IsCompleted);
+
+        acknowledge.TrySetResult(CharacterPersistenceOutcome.Committed);
+        await signOutTask;
+
+        characterLogoutService.Received(1).SetPendingLogoutPersistence(character, receipt);
         await gameSessionService.Received(1).RemoveSession(session);
         await characterLogoutService.Received(1).DetachAsync(character, Arg.Any<CancellationToken>());
-        persistenceService.DidNotReceive().Forget(Arg.Any<uint>());
+        persistenceService.DidNotReceive().Forget(Arg.Any<CharacterPersistenceReceipt>());
         mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
     }
 
@@ -105,11 +124,18 @@ public sealed class AuthenticationLogoutTests
         session.ConnectionId.Returns("connection");
         var characterService = Substitute.For<ICharacterService>();
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        var receipt = CreateReceipt(character);
         persistenceService.PersistAsync(character, true, Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
                 order.Add("persist");
-                return Task.CompletedTask;
+                return Task.FromResult<CharacterPersistenceReceipt?>(receipt);
+            });
+        persistenceService.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                order.Add("acknowledge");
+                return Task.FromResult(CharacterPersistenceOutcome.Committed);
             });
         var gameSessionService = Substitute.For<IGameSessionService>();
         gameSessionService.RemoveSession(session)
@@ -128,7 +154,7 @@ public sealed class AuthenticationLogoutTests
 
         await service.SignOutAsync();
 
-        CollectionAssert.AreEqual(new[] { "persist", "release" }, order);
+        CollectionAssert.AreEqual(new[] { "persist", "acknowledge", "release" }, order);
     }
 
     [TestMethod]
@@ -139,7 +165,7 @@ public sealed class AuthenticationLogoutTests
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
-        persistenceService.PersistAsync(character, true, Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        ConfigureSuccessfulPersistence(persistenceService, character);
         var releaseFailure = new InvalidOperationException("Redis is unavailable.");
         var gameSessionService = Substitute.For<IGameSessionService>();
         gameSessionService.RemoveSession(session).Returns(Task.FromException<bool>(releaseFailure));
@@ -165,7 +191,7 @@ public sealed class AuthenticationLogoutTests
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
-        persistenceService.PersistAsync(character, true, Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        ConfigureSuccessfulPersistence(persistenceService, character);
         var gameSessionService = Substitute.For<IGameSessionService>();
         gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
         var characterLogoutService = Substitute.For<ICharacterLogoutService>();
@@ -191,6 +217,7 @@ public sealed class AuthenticationLogoutTests
         session.ConnectionId.Returns("connection");
         var characterService = Substitute.For<ICharacterService>();
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        ConfigureSuccessfulPersistence(persistenceService, character);
         var revokeFailure = new InvalidOperationException("Token service is unavailable.");
         var revokeTokenRequestClient = Substitute.For<IRequestClient<RevokeTokenRequestMessage>>();
         revokeTokenRequestClient
@@ -238,6 +265,7 @@ public sealed class AuthenticationLogoutTests
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        ConfigureSuccessfulPersistence(persistenceService, character);
         var revokeStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var completeRevocation = new TaskCompletionSource<Response<RevokeTokenResponseMessage>>(TaskCreationOptions.RunContinuationsAsynchronously);
         var revokeResponse = Substitute.For<Response<RevokeTokenResponseMessage>>();
@@ -421,6 +449,20 @@ public sealed class AuthenticationLogoutTests
         await hub.OnDisconnectedAsync(null);
 
         character.DidNotReceive().Destroy();
+    }
+
+    private static CharacterPersistenceReceipt CreateReceipt(ICharacter character) =>
+        new(character.MasterId, Guid.NewGuid(), 7L, Guid.NewGuid());
+
+    private static void ConfigureSuccessfulPersistence(
+        ICharacterPersistenceService persistenceService,
+        ICharacter character)
+    {
+        var receipt = CreateReceipt(character);
+        persistenceService.PersistAsync(character, true, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<CharacterPersistenceReceipt?>(receipt));
+        persistenceService.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(CharacterPersistenceOutcome.Committed));
     }
 
     private static AuthenticationService CreateAuthenticationService(

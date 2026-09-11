@@ -28,8 +28,10 @@ public sealed class CharacterLogoutServiceTests
         var logoutState = new CharacterLogoutState();
         logoutState.Track(character);
         var correlationId = Guid.NewGuid();
-        state.MarkPending(42u, correlationId, "fingerprint", 7L);
-        state.Acknowledge(42u, correlationId, 7L);
+        var receipt = new CharacterPersistenceReceipt(42u, correlationId, 7L, state.GetRevisionOwner(42u));
+        state.MarkPending(42u, "fingerprint", receipt);
+        logoutState.SetPersistenceReceipt(character, receipt);
+        state.Acknowledge(42u, correlationId, 7L, CharacterPersistenceOutcome.Committed);
         var characterService = Substitute.For<ICharacterService>();
         var mediator = Substitute.For<IGameMediator>();
         var coordinator = new CharacterLogoutService(state, logoutState, characterService, mediator);
@@ -56,8 +58,10 @@ public sealed class CharacterLogoutServiceTests
         logoutState.Track(character);
         logoutState.TryMarkRemoved(character);
         var correlationId = Guid.NewGuid();
-        state.MarkPending(42u, correlationId, "fingerprint", 7L);
-        state.Acknowledge(42u, correlationId, 7L);
+        var receipt = new CharacterPersistenceReceipt(42u, correlationId, 7L, state.GetRevisionOwner(42u));
+        state.MarkPending(42u, "fingerprint", receipt);
+        logoutState.SetPersistenceReceipt(character, receipt);
+        state.Acknowledge(42u, correlationId, 7L, CharacterPersistenceOutcome.Committed);
         var characterService = Substitute.For<ICharacterService>();
         var mediator = Substitute.For<IGameMediator>();
         var coordinator = new CharacterLogoutService(state, logoutState, characterService, mediator);
@@ -90,8 +94,10 @@ public sealed class CharacterLogoutServiceTests
         logoutState.Track(character);
         logoutState.TryMarkRemoved(character);
         var correlationId = Guid.NewGuid();
-        state.MarkPending(42u, correlationId, "fingerprint", 7L);
-        state.Acknowledge(42u, correlationId, 7L);
+        var receipt = new CharacterPersistenceReceipt(42u, correlationId, 7L, state.GetRevisionOwner(42u));
+        state.MarkPending(42u, "fingerprint", receipt);
+        logoutState.SetPersistenceReceipt(character, receipt);
+        state.Acknowledge(42u, correlationId, 7L, CharacterPersistenceOutcome.Committed);
         var mediator = Substitute.For<IGameMediator>();
         var coordinator = new CharacterLogoutService(state, logoutState, Substitute.For<ICharacterService>(), mediator);
 
@@ -127,8 +133,10 @@ public sealed class CharacterLogoutServiceTests
         logoutState.Track(character);
         logoutState.TryMarkRemoved(character);
         var correlationId = Guid.NewGuid();
-        state.MarkPending(42u, correlationId, "fingerprint", 7L);
-        state.Acknowledge(42u, correlationId, 7L);
+        var receipt = new CharacterPersistenceReceipt(42u, correlationId, 7L, state.GetRevisionOwner(42u));
+        state.MarkPending(42u, "fingerprint", receipt);
+        logoutState.SetPersistenceReceipt(character, receipt);
+        state.Acknowledge(42u, correlationId, 7L, CharacterPersistenceOutcome.Committed);
         var coordinator = new CharacterLogoutService(state, logoutState, Substitute.For<ICharacterService>(), mediator);
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => coordinator.CompleteAsync(42u));
@@ -155,7 +163,9 @@ public sealed class CharacterLogoutServiceTests
         logoutState.Track(character);
         logoutState.TryMarkRemoved(character);
         var correlationId = Guid.NewGuid();
-        state.MarkPending(42u, correlationId, "fingerprint", 7L);
+        var receipt = new CharacterPersistenceReceipt(42u, correlationId, 7L, state.GetRevisionOwner(42u));
+        state.MarkPending(42u, "fingerprint", receipt);
+        logoutState.SetPersistenceReceipt(character, receipt);
         var characterService = Substitute.For<ICharacterService>();
         var mediator = Substitute.For<IGameMediator>();
         var coordinator = new CharacterLogoutService(state, logoutState, characterService, mediator);
@@ -187,7 +197,9 @@ public sealed class CharacterLogoutServiceTests
         logoutState.Track(character);
         logoutState.TryMarkRemoved(character);
         var correlationId = Guid.NewGuid();
-        state.MarkPending(42u, correlationId, "fingerprint", 7L);
+        var receipt = new CharacterPersistenceReceipt(42u, correlationId, 7L, state.GetRevisionOwner(42u));
+        state.MarkPending(42u, "fingerprint", receipt);
+        logoutState.SetPersistenceReceipt(character, receipt);
         var characterService = Substitute.For<ICharacterService>();
         var mediator = Substitute.For<IGameMediator>();
         var coordinator = new CharacterLogoutService(state, logoutState, characterService, mediator);
@@ -215,7 +227,9 @@ public sealed class CharacterLogoutServiceTests
         var logoutState = new CharacterLogoutState();
         logoutState.Track(character);
         logoutState.TryMarkRemoved(character);
-        state.MarkPending(42u, Guid.NewGuid(), "replacement", 101L);
+        var replacementReceipt = new CharacterPersistenceReceipt(42u, Guid.NewGuid(), 101L, state.GetRevisionOwner(42u));
+        state.MarkPending(42u, "replacement", replacementReceipt);
+        logoutState.SetPersistenceReceipt(character, replacementReceipt);
         var characterService = Substitute.For<ICharacterService>();
         var mediator = Substitute.For<IGameMediator>();
         var coordinator = new CharacterLogoutService(state, logoutState, characterService, mediator);
@@ -246,7 +260,9 @@ public sealed class CharacterLogoutServiceTests
         logoutState.Track(character);
         logoutState.TryMarkRemoved(character);
         var correlationId = Guid.NewGuid();
-        state.MarkPending(42u, correlationId, "fingerprint", 101L);
+        var receipt = new CharacterPersistenceReceipt(42u, correlationId, 101L, state.GetRevisionOwner(42u));
+        state.MarkPending(42u, "fingerprint", receipt);
+        logoutState.SetPersistenceReceipt(character, receipt);
         var characterService = Substitute.For<ICharacterService>();
         var mediator = Substitute.For<IGameMediator>();
         var coordinator = new CharacterLogoutService(state, logoutState, characterService, mediator);
