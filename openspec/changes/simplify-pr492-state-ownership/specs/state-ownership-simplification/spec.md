@@ -39,6 +39,14 @@ regions.
 - **THEN** region housekeeping does not suspend or destroy a region
 - **AND** housekeeping runs only after that worker phase completes
 
+#### Scenario: Detached region destruction does not block the tick
+
+- **WHEN** housekeeping removes an idle region from residency
+- **THEN** the exact region is queued for destruction after ownership is
+  released
+- **AND** the game tick does not await `DestroyAsync`
+- **AND** a hosted background worker performs the expensive destruction
+
 ### Requirement: Mutating region operations require canonical active ownership
 
 Every operation that changes a region MUST obtain canonical active ownership
@@ -126,6 +134,22 @@ allocation state.
 - **WHEN** an acknowledgement has the wrong correlation or snapshot revision
 - **THEN** the pending receipt remains unresolved and no persisted fingerprint
   is committed
+
+#### Scenario: Character persistence has one pending operation per master
+
+- **WHEN** a normal save is requested while an earlier snapshot for the same
+  master is still unacknowledged
+- **THEN** the normal save returns without dehydrating or publishing another
+  snapshot
+- **AND** the original receipt remains the only pending owner
+
+#### Scenario: Forced persistence waits and snapshots current state
+
+- **WHEN** a forced or final save is requested while an earlier snapshot for the
+  same master is still unacknowledged
+- **THEN** it waits for that exact receipt to resolve
+- **AND** it dehydrates the character again after the wait
+- **AND** it publishes the final snapshot with a new correlation and revision
 
 ### Requirement: MapRegion lifecycle state is visibility-only
 

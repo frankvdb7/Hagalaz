@@ -43,30 +43,49 @@ namespace Hagalaz.Services.GameWorld.Services
         public async Task<CharacterPersistenceReceipt?> PersistAsync(ICharacter character, bool force, CancellationToken cancellationToken = default)
         {
             using var characterLock = await _state.AcquireAsync(character.MasterId, cancellationToken);
-            var model = await _dehydrationService.DehydrateAsync(character);
-            var command = CreateCommand(_mapper, model, character.MasterId, 0);
-            var fingerprint = CharacterSnapshotFingerprint.Compute(command);
-
-            if (!force && _state.IsPersisted(character.MasterId, fingerprint))
+            while (true)
             {
-                return null;
+                if (_state.TryGetPending(character.MasterId, out var pending))
+                {
+                    if (!pending.IsCompleted)
+                    {
+                        if (!force)
+                        {
+                            return null;
+                        }
+
+                        await pending.WaitAsync(cancellationToken);
+                    }
+
+                    _state.RemovePending(character.MasterId, pending);
+                    continue;
+                }
+
+                var model = await _dehydrationService.DehydrateAsync(character);
+                var command = CreateCommand(_mapper, model, character.MasterId, 0);
+                var fingerprint = CharacterSnapshotFingerprint.Compute(command);
+
+                if (!force && _state.IsPersisted(character.MasterId, fingerprint))
+                {
+                    return null;
+                }
+
+                var snapshotRevision = _state.NextRevision(character.MasterId);
+                command = command with { SnapshotRevision = snapshotRevision };
+                var receipt = new CharacterPersistenceReceipt(
+                    character.MasterId,
+                    command.CorrelationId,
+                    snapshotRevision);
+
+                // Record the snapshot before publishing so a fast acknowledgement cannot arrive
+                // before the producer has state to match it. If publishing or the outbox commit
+                // fails, the pending snapshot remains the only owner until it is acknowledged.
+                _state.MarkPending(character.MasterId, fingerprint, receipt);
+                await _publishEndpoint.Publish(command, cancellationToken);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                _logger.LogDebug("Queued character {MasterId} snapshot revision {SnapshotRevision} in the EF bus outbox", character.MasterId, snapshotRevision);
+                return receipt;
             }
-
-            var snapshotRevision = _state.NextRevision(character.MasterId);
-            command = command with { SnapshotRevision = snapshotRevision };
-            var receipt = new CharacterPersistenceReceipt(
-                character.MasterId,
-                command.CorrelationId,
-                snapshotRevision);
-
-            // Record the snapshot before publishing so a fast acknowledgement cannot arrive
-            // before the producer has state to match it. If publishing or the outbox commit
-            // fails, the pending snapshot remains eligible for redrive.
-            _state.MarkPending(character.MasterId, fingerprint, receipt);
-            await _publishEndpoint.Publish(command, cancellationToken);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            _logger.LogDebug("Queued character {MasterId} snapshot revision {SnapshotRevision} in the EF bus outbox", character.MasterId, snapshotRevision);
-            return receipt;
         }
 
         public void InitializeRevision(uint masterId, long persistedRevision) => _state.InitializeRevision(masterId, persistedRevision);
@@ -190,7 +209,39 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             lock (_stateGate)
             {
+                if (_pendingSnapshots.ContainsKey(masterId))
+                {
+                    throw new InvalidOperationException($"Character '{masterId}' already has an unacknowledged persistence operation.");
+                }
+
                 _pendingSnapshots[masterId] = new PendingSnapshot(fingerprint, receipt);
+            }
+        }
+
+        public bool TryGetPending(uint masterId, out CharacterPersistenceReceipt receipt)
+        {
+            lock (_stateGate)
+            {
+                if (_pendingSnapshots.TryGetValue(masterId, out var pending))
+                {
+                    receipt = pending.Receipt;
+                    return true;
+                }
+
+                receipt = null!;
+                return false;
+            }
+        }
+
+        public void RemovePending(uint masterId, CharacterPersistenceReceipt receipt)
+        {
+            lock (_stateGate)
+            {
+                if (_pendingSnapshots.TryGetValue(masterId, out var pending) &&
+                    ReferenceEquals(pending.Receipt, receipt))
+                {
+                    _pendingSnapshots.Remove(masterId);
+                }
             }
         }
 

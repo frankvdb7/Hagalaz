@@ -11,8 +11,6 @@ namespace Hagalaz.Services.GameWorld.Profiles
             CreateMap<Hagalaz.Contacts.Messages.Model.ContactDto, ContactDto>();
 
             CreateMap<Hagalaz.Contacts.Messages.Model.ContactDto, Friend>()
-                .ForMember(dest => dest.SessionGeneration, opt => opt.Ignore())
-                .ForMember(dest => dest.SessionConnectionId, opt => opt.Ignore())
                 .ForMember(dest => dest.Availability, opt => opt.MapFrom(src => src.Settings!.Availability));
             CreateMap<Hagalaz.Contacts.Messages.Model.ContactDto, Ignore>();
         }

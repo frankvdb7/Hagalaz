@@ -6,5 +6,8 @@ namespace Hagalaz.Services.GameWorld.Features
     {
         public IContactList<Friend> Friends { get; }
         public IContactList<Ignore> Ignores { get; }
+
+        Friend? TryApplySignIn(uint masterId, long sessionGeneration, string connectionId);
+        Friend? TryApplySignOut(uint masterId, long sessionGeneration, string connectionId);
     }
 }

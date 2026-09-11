@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,7 +20,7 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class CharacterPersistenceServiceTests
 {
     [TestMethod]
-    public async Task PersistAsync_RedrivesUnacknowledgedSnapshotUntilAcknowledged()
+    public async Task PersistAsync_SkipsUnacknowledgedSnapshotAndPreservesFingerprintDeduplication()
     {
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         dehydrationService.DehydrateAsync(Arg.Any<Hagalaz.Game.Abstractions.Model.Creatures.Characters.ICharacter>())
@@ -49,18 +50,19 @@ public sealed class CharacterPersistenceServiceTests
 
         service.InitializeRevision(42, 100);
 
-        await service.PersistAsync(character, force: false);
-        await service.PersistAsync(character, force: false);
+        var firstReceipt = await service.PersistAsync(character, force: false);
+        var skippedReceipt = await service.PersistAsync(character, force: false);
 
-        Assert.HasCount(2, publishedCommands);
+        Assert.IsNotNull(firstReceipt);
+        Assert.IsNull(skippedReceipt);
+        Assert.HasCount(1, publishedCommands);
         Assert.AreEqual(42u, publishedCommands[0].MasterId);
         Assert.AreEqual(101L, publishedCommands[0].SnapshotRevision);
-        Assert.AreEqual(102L, publishedCommands[1].SnapshotRevision);
 
-        state.Acknowledge(42, publishedCommands[1].CorrelationId, publishedCommands[1].SnapshotRevision, CharacterPersistenceOutcome.Committed);
+        state.Acknowledge(42, publishedCommands[0].CorrelationId, publishedCommands[0].SnapshotRevision, CharacterPersistenceOutcome.Committed);
         await service.PersistAsync(character, force: false);
 
-        await publishEndpoint.Received(2).Publish(Arg.Any<PersistCharacterCommand>(), Arg.Any<CancellationToken>());
+        await publishEndpoint.Received(1).Publish(Arg.Any<PersistCharacterCommand>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -78,18 +80,113 @@ public sealed class CharacterPersistenceServiceTests
         var mapper = mapperProvider.GetRequiredService<AutoMapper.IMapper>();
         var character = Substitute.For<Hagalaz.Game.Abstractions.Model.Creatures.Characters.ICharacter>();
         character.MasterId.Returns(42u);
+        var state = new CharacterPersistenceState();
         var service = new CharacterPersistenceService(
             NullLogger<CharacterPersistenceService>.Instance,
             mapper,
             publishEndpoint,
             dbContext,
             dehydrationService,
-            new CharacterPersistenceState());
+            state);
 
-        await service.PersistAsync(character, force: true);
-        await service.PersistAsync(character, force: true);
+        var firstReceipt = await service.PersistAsync(character, force: true);
+        state.Acknowledge(42, firstReceipt!.CorrelationId, firstReceipt.SnapshotRevision, CharacterPersistenceOutcome.Committed);
+        var secondReceipt = await service.PersistAsync(character, force: true);
 
+        Assert.AreNotEqual(firstReceipt.SnapshotRevision, secondReceipt!.SnapshotRevision);
         await publishEndpoint.Received(2).Publish(Arg.Any<PersistCharacterCommand>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task PersistAsync_ForcedSaveWaitsForPendingAndUsesCurrentCharacterState()
+    {
+        await using var harness = new PersistenceHarness();
+        var firstReceipt = await harness.Service.PersistAsync(harness.Character, force: false);
+        var forcedSave = harness.Service.PersistAsync(harness.Character, force: true);
+
+        Assert.IsFalse(forcedSave.IsCompleted);
+        harness.CurrentModel = new CharacterModel
+        {
+            Details = new Hagalaz.Services.GameWorld.Logic.Characters.Model.HydratedDetailsDto
+            {
+                CoordX = 99,
+                CoordY = 2,
+                CoordZ = 3
+            }
+        };
+
+        harness.State.Acknowledge(
+            42,
+            firstReceipt!.CorrelationId,
+            firstReceipt.SnapshotRevision,
+            CharacterPersistenceOutcome.Committed);
+
+        var forcedReceipt = await forcedSave;
+
+        Assert.IsNotNull(forcedReceipt);
+        Assert.HasCount(2, harness.PublishedCommands);
+        Assert.AreEqual(99, harness.PublishedCommands[1].Details.CoordX);
+    }
+
+    [TestMethod]
+    public async Task PersistAsync_OlderAcknowledgementCannotCompleteNewerForcedReceipt()
+    {
+        await using var harness = new PersistenceHarness();
+        var firstReceipt = await harness.Service.PersistAsync(harness.Character, force: false);
+        var forcedSave = harness.Service.PersistAsync(harness.Character, force: true);
+
+        harness.State.Acknowledge(
+            42,
+            firstReceipt!.CorrelationId,
+            firstReceipt.SnapshotRevision,
+            CharacterPersistenceOutcome.Committed);
+        var forcedReceipt = await forcedSave;
+        var forcedCompletion = harness.Service.WaitForAcknowledgementAsync(forcedReceipt!);
+
+        harness.State.Acknowledge(
+            42,
+            firstReceipt.CorrelationId,
+            firstReceipt.SnapshotRevision,
+            CharacterPersistenceOutcome.Committed);
+
+        Assert.IsFalse(forcedCompletion.IsCompleted);
+
+        harness.State.Acknowledge(
+            42,
+            forcedReceipt!.CorrelationId,
+            forcedReceipt.SnapshotRevision,
+            CharacterPersistenceOutcome.Committed);
+        Assert.AreEqual(CharacterPersistenceOutcome.Committed, await forcedCompletion);
+    }
+
+    [TestMethod]
+    public async Task PersistAsync_ConcurrentPeriodicAttemptsCreateOnePendingSnapshot()
+    {
+        await using var harness = new PersistenceHarness();
+        var receipts = await Task.WhenAll(
+            Enumerable.Range(0, 2).Select(_ => harness.Service.PersistAsync(harness.Character, force: false)));
+
+        Assert.AreEqual(1, receipts.Count(receipt => receipt is not null));
+        Assert.HasCount(1, harness.PublishedCommands);
+    }
+
+    [TestMethod]
+    public async Task PersistAsync_CancellationWhileWaitingPreservesTheExistingOwner()
+    {
+        await using var harness = new PersistenceHarness();
+        var firstReceipt = await harness.Service.PersistAsync(harness.Character, force: false);
+        using var cancellation = new CancellationTokenSource();
+        var forcedSave = harness.Service.PersistAsync(harness.Character, force: true, cancellation.Token);
+        cancellation.Cancel();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => forcedSave);
+        Assert.IsNull(await harness.Service.PersistAsync(harness.Character, force: false));
+
+        harness.State.Acknowledge(
+            42,
+            firstReceipt!.CorrelationId,
+            firstReceipt.SnapshotRevision,
+            CharacterPersistenceOutcome.Committed);
     }
 
     [TestMethod]
@@ -111,5 +208,52 @@ public sealed class CharacterPersistenceServiceTests
             .UseMySQL("Server=localhost;Database=hagalaz;User=root;Password=;")
             .Options;
         return new HagalazDbContext(options);
+    }
+
+    private sealed class PersistenceHarness : IAsyncDisposable
+    {
+        private readonly HagalazDbContext _dbContext;
+        private readonly ServiceProvider _mapperProvider;
+
+        public PersistenceHarness()
+        {
+            Character = Substitute.For<Hagalaz.Game.Abstractions.Model.Creatures.Characters.ICharacter>();
+            Character.MasterId.Returns(42u);
+            State = new CharacterPersistenceState();
+            CurrentModel = new CharacterModel();
+            DehydrationService = Substitute.For<ICharacterDehydrationService>();
+            DehydrationService.DehydrateAsync(Character).Returns(_ => Task.FromResult(CurrentModel));
+            PublishEndpoint = Substitute.For<IPublishEndpoint>();
+            PublishEndpoint
+                .When(endpoint => endpoint.Publish(Arg.Any<PersistCharacterCommand>(), Arg.Any<CancellationToken>()))
+                .Do(callInfo => PublishedCommands.Add(callInfo.Arg<PersistCharacterCommand>()!));
+            _dbContext = CreateSharedDbContext();
+            _mapperProvider = new ServiceCollection()
+                .AddLogging()
+                .AddAutoMapper(configuration => configuration.AddProfile<CharacterProfile>())
+                .BuildServiceProvider();
+
+            Service = new CharacterPersistenceService(
+                NullLogger<CharacterPersistenceService>.Instance,
+                _mapperProvider.GetRequiredService<AutoMapper.IMapper>(),
+                PublishEndpoint,
+                _dbContext,
+                DehydrationService,
+                State);
+        }
+
+        public Hagalaz.Game.Abstractions.Model.Creatures.Characters.ICharacter Character { get; }
+        public CharacterPersistenceState State { get; }
+        public CharacterModel CurrentModel { get; set; }
+        public ICharacterDehydrationService DehydrationService { get; }
+        public IPublishEndpoint PublishEndpoint { get; }
+        public List<PersistCharacterCommand> PublishedCommands { get; } = [];
+        public CharacterPersistenceService Service { get; }
+
+        public async ValueTask DisposeAsync()
+        {
+            _mapperProvider.Dispose();
+            await _dbContext.DisposeAsync();
+        }
     }
 }

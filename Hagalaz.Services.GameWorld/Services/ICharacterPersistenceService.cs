@@ -21,6 +21,7 @@ namespace Hagalaz.Services.GameWorld.Services
         public uint MasterId { get; }
         public Guid CorrelationId { get; }
         public long SnapshotRevision { get; }
+        internal bool IsCompleted => _completion.Task.IsCompleted;
         internal bool TryAcknowledge(CharacterPersistenceOutcome outcome) => _completion.TrySetResult(outcome);
 
         internal Task<CharacterPersistenceOutcome> WaitAsync(CancellationToken cancellationToken) =>

@@ -79,7 +79,7 @@ public sealed class GameWorkerServiceTests
         var dimension = Substitute.For<IDimension>();
         dimension.Id.Returns(0);
         var regionService = Substitute.For<IMapRegionService>();
-        regionService.FindAllRegions().Returns(new[] { region });
+        regionService.FindReadyRegions().Returns(new[] { region });
         regionService.FindAllDimensions().Returns(new[] { dimension });
         regionService.FindRegionsByDimension(0).Returns(new[] { region });
         regionService.FindIdleRegionsByDimension(0).Returns([]);
@@ -255,7 +255,7 @@ public sealed class GameWorkerServiceTests
 
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => worker.ExecuteTickAsync(cancellation.Token));
 
-        regionService.DidNotReceive().FindAllRegions();
+        regionService.DidNotReceive().FindReadyRegions();
     }
 
     [TestMethod]
@@ -499,7 +499,7 @@ public sealed class GameWorkerServiceTests
         discardedRegion.State.Returns(MapRegionState.Discarded);
 
         var regionService = Substitute.For<IMapRegionService>();
-        regionService.FindAllRegions().Returns(new[] { initializingRegion, readyRegion, discardedRegion });
+        regionService.FindReadyRegions().Returns(new[] { readyRegion });
         using var worker = CreateWorker(regionService, TimeSpan.Zero).Worker;
 
         await worker.ExecuteTickAsync(CancellationToken.None);
@@ -534,7 +534,7 @@ public sealed class GameWorkerServiceTests
 
             Assert.AreEqual(0, logger.ErrorCount);
             Assert.IsTrue(worker.ExecuteTask?.IsCompleted ?? false);
-            regionService.DidNotReceive().FindAllRegions();
+            regionService.DidNotReceive().FindReadyRegions();
         }
         finally
         {
@@ -570,7 +570,7 @@ public sealed class GameWorkerServiceTests
             region.State.Returns(MapRegionState.Ready);
         }
 
-        regionService.FindAllRegions().Returns(regions);
+        regionService.FindReadyRegions().Returns(regions);
         regionService.FindAllDimensions().Returns([]);
         return CreateWorker(regionService, tickTimeSpan, characterStore, logger);
     }

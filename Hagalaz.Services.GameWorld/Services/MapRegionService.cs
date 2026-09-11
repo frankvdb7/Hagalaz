@@ -418,6 +418,25 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
+        public IReadOnlyList<IMapRegion> FindReadyRegions()
+        {
+            lock (_residencyGate)
+            {
+                var regions = new List<IMapRegion>();
+                foreach (var dimension in _dimensions)
+                {
+                    if (dimension is null)
+                    {
+                        continue;
+                    }
+
+                    regions.AddRange(dimension.ActiveRegions.Values.Where(region => region.State == MapRegionState.Ready));
+                }
+
+                return regions;
+            }
+        }
+
         public IReadOnlyList<IDimension> FindAllDimensions()
         {
             lock (_residencyGate)

@@ -347,6 +347,30 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
         harness.GetCharacterRequestClient
             .GetResponse<CharacterHydrated, CharacterNotFound>(Arg.Any<HydrateCharacter>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
             .ReturnsForAnyArgs(Task.FromResult(characterResponse));
+        var logoutReceipt = new CharacterPersistenceReceipt(47, Guid.NewGuid(), 1);
+        harness.CharacterLogoutService.TryBeginLogout(
+                Arg.Any<ICharacter>(),
+                out Arg.Any<bool>(),
+                out Arg.Any<CharacterPersistenceReceipt?>())
+            .Returns(callInfo =>
+            {
+                callInfo[1] = true;
+                callInfo[2] = null;
+                return true;
+            });
+        harness.CharacterLogoutService.SetPendingLogoutPersistence(
+                Arg.Any<ICharacter>(),
+                Arg.Any<CharacterPersistenceReceipt>())
+            .Returns(true);
+        harness.CharacterPersistenceService.PersistAsync(
+                Arg.Any<ICharacter>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<CharacterPersistenceReceipt?>(logoutReceipt));
+        harness.CharacterPersistenceService.WaitForAcknowledgementAsync(
+                logoutReceipt,
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(CharacterPersistenceOutcome.Committed));
         var revokeTokenResponse = CreateResponse(new RevokeTokenResponseMessage { Succeeded = true });
         harness.RevokeTokenRequestClient
             .GetResponse<RevokeTokenResponseMessage>(Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
@@ -466,8 +490,6 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
 
         public void PersistenceServiceSetup()
         {
-            CharacterPersistenceService.PersistAsync(Arg.Any<ICharacter>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult<CharacterPersistenceReceipt?>(null));
             CharacterLogoutService.DetachAsync(Arg.Any<ICharacter>(), Arg.Any<CancellationToken>())
                 .Returns(Task.CompletedTask);
         }

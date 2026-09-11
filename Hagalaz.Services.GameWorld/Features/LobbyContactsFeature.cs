@@ -5,8 +5,59 @@ namespace Hagalaz.Services.GameWorld.Features
 {
     public class LobbyContactsFeature : IContactsFeature
     {
-        public IContactList<Friend> Friends => new ContactList<Friend>();
+        private readonly IContactList<Friend> _friends = new ContactList<Friend>();
+        private readonly IContactList<Ignore> _ignores = new ContactList<Ignore>();
+        private readonly object _presenceGate = new();
+        private readonly System.Collections.Generic.Dictionary<uint, SessionIdentity> _presence = new();
 
-        public IContactList<Ignore> Ignores => new ContactList<Ignore>();
+        public IContactList<Friend> Friends => _friends;
+
+        public IContactList<Ignore> Ignores => _ignores;
+
+        public Friend? TryApplySignIn(uint masterId, long sessionGeneration, string connectionId)
+        {
+            lock (_presenceGate)
+            {
+                if (_presence.TryGetValue(masterId, out var current))
+                {
+                    if (sessionGeneration <= current.SessionGeneration)
+                    {
+                        return null;
+                    }
+                }
+
+                var friend = Friends.Get(masterId);
+                if (friend is null)
+                {
+                    return null;
+                }
+
+                _presence[masterId] = new SessionIdentity(sessionGeneration, connectionId);
+                return friend;
+            }
+        }
+
+        public Friend? TryApplySignOut(uint masterId, long sessionGeneration, string connectionId)
+        {
+            lock (_presenceGate)
+            {
+                if (_presence.TryGetValue(masterId, out var current) &&
+                    (current.SessionGeneration != sessionGeneration || current.ConnectionId != connectionId))
+                {
+                    return null;
+                }
+
+                var friend = Friends.Get(masterId);
+                if (friend is null)
+                {
+                    return null;
+                }
+
+                _presence.Remove(masterId);
+                return friend;
+            }
+        }
+
+        private readonly record struct SessionIdentity(long SessionGeneration, string ConnectionId);
     }
 }

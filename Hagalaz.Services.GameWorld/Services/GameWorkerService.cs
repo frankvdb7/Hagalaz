@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Maps;
@@ -119,9 +118,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private async Task RunMajorTickAsync(CancellationToken stoppingToken)
         {
             stoppingToken.ThrowIfCancellationRequested();
-            var regions = _regionService.FindAllRegions()
-                .Where(region => region.State == MapRegionState.Ready)
-                .ToArray();
+            var regions = _regionService.FindReadyRegions();
             var characters = await _characterStore.GetSnapshotAsync(stoppingToken);
 
             stoppingToken.ThrowIfCancellationRequested();
@@ -132,7 +129,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
             try
             {
-                var preparedRegions = new List<IMapRegion>(regions.Length);
+                var preparedRegions = new List<IMapRegion>(regions.Count);
                 foreach (var region in regions)
                 {
                     try

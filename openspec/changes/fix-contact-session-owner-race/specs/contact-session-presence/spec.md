@@ -176,3 +176,26 @@ Repeated sign-in for the current generation MUST NOT publish another sign-in.
 Session generation remains the Contacts causal ordering mechanism; the exact
 claim ID is the GameWorld ownership fact and is not used as a replacement for
 generation ordering.
+
+### Requirement: Contacts owns presence fencing at the feature boundary
+
+The connection's `IContactsFeature` MUST atomically validate session identity
+and update its contact collection under one owner-level synchronization boundary.
+`Friend` and `ContactList` MUST remain simple domain/collection objects and MUST
+NOT own presence locks or session metadata. Consumers MUST use the feature's
+atomic apply operations rather than performing a separate check and mutation.
+
+#### Scenario: Concurrent replacement preserves the newer owner
+
+- **GIVEN** a contact is owned by generation 10 on connection `old`
+- **WHEN** generation 11 on connection `new` signs in concurrently with the
+  sign-out for generation 10
+- **THEN** the feature retains generation 11 as the authoritative owner
+- **AND** the older sign-out cannot remove generation 11
+
+#### Scenario: Duplicate sign-in does not notify again
+
+- **GIVEN** generation 11 on connection `new` is already authoritative
+- **WHEN** the same generation and connection signs in again
+- **THEN** the feature leaves the owner unchanged
+- **AND** the consumer emits no additional sign-in notification

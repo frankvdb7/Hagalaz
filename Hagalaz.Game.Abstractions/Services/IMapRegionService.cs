@@ -134,6 +134,11 @@ namespace Hagalaz.Game.Abstractions.Services
         IReadOnlyList<IMapRegion> FindAllRegions();
 
         /// <summary>
+        /// Finds one snapshot of all active regions that are ready for the major game tick.
+        /// </summary>
+        IReadOnlyList<IMapRegion> FindReadyRegions();
+
+        /// <summary>
         /// Finds all active dimensions.
         /// </summary>
         /// <returns>An enumerable collection of all active dimensions.</returns>

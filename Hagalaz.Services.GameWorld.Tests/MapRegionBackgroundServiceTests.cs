@@ -35,4 +35,30 @@ public sealed class MapRegionBackgroundServiceTests
         await region.DidNotReceive().DestroyAsync();
     }
 
+    [TestMethod]
+    public async Task ProcessRegionsOnceAsync_QueuesExactDetachedRegionBeforeDestruction()
+    {
+        var region = Substitute.For<IMapRegion>();
+        const int regionId = 1;
+        region.Id.Returns(regionId);
+        region.CanDestroy().Returns(true);
+        var dimension = Substitute.For<IDimension>();
+        dimension.Id.Returns(1);
+        var regionService = Substitute.For<IMapRegionService>();
+        regionService.FindAllDimensions().Returns(new[] { dimension });
+        regionService.FindRegionsByDimension(1).Returns([]);
+        regionService.FindIdleRegionsByDimension(1).Returns(new[] { region });
+        regionService.TryRemoveIdleMapRegion(regionId, dimension.Id, region).Returns(true);
+
+        var service = new MapRegionBackgroundService(
+            regionService,
+            Substitute.For<ILogger<MapRegionBackgroundService>>());
+
+        await service.ProcessRegionsOnceAsync();
+
+        await region.DidNotReceive().DestroyAsync();
+        await service.DestroyDetachedRegionsAsync();
+        await region.Received(1).DestroyAsync();
+    }
+
 }

@@ -114,21 +114,17 @@ public sealed class GameSessionLeaseService : BackgroundService
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                if (await _claims.ReleaseAsync(
-                        pendingSession.MasterId,
-                        pendingSession.SessionClaimId,
-                        cancellationToken))
+                var released = await _claims.ReleaseAsync(
+                    pendingSession.MasterId,
+                    pendingSession.SessionClaimId,
+                    cancellationToken);
+                await _sessions.TryRemovePendingSessionCleanup(pendingSession);
+                if (released)
                 {
-                    await _sessions.TryRemovePendingSessionCleanup(pendingSession);
                     _logger.LogInformation(
                         "Released deferred world-session claim '{sessionClaimId}' for account '{masterId}'.",
                         pendingSession.SessionClaimId,
                         pendingSession.MasterId);
-                }
-                else
-                {
-                    // A false result proves that this exact owner no longer exists.
-                    await _sessions.TryRemovePendingSessionCleanup(pendingSession);
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
