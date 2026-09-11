@@ -1441,20 +1441,28 @@ public sealed class AuthenticationSignInTests
 
         revokeTokenRequestClient ??= Substitute.For<IRequestClient<RevokeTokenRequestMessage>>();
 
-        return new AuthenticationService(
-            NullLogger<AuthenticationService>.Instance,
+        var persistenceService = characterPersistenceService ?? Substitute.For<ICharacterPersistenceService>();
+        var worldSessionAdmissionService = new WorldSessionAdmissionService(
+            NullLogger<WorldSessionAdmissionService>.Instance,
             mapper,
             characterServiceSubstitute,
             characterFactorySubstitute,
             characterHydrationServiceSubstitute,
-            characterPersistenceService ?? Substitute.For<ICharacterPersistenceService>(),
+            persistenceService,
+            gameSessionService,
+            getCharacterRequestClient ?? hydrateRequestClient);
+
+        return new AuthenticationService(
+            NullLogger<AuthenticationService>.Instance,
+            characterServiceSubstitute,
+            persistenceService,
             Substitute.For<ICharacterLogoutService>(),
             gameSessionService,
+            worldSessionAdmissionService,
             signInUserRequestClient,
             validateAuthenticationRequestClient,
             userInfoRequestClient,
             revokeTokenRequestClient,
-            getCharacterRequestClient ?? hydrateRequestClient,
             claimsPrincipalFactory,
             contextAccessor ?? CreateContextAccessor(connectionId),
             Substitute.For<IGameMediator>(),

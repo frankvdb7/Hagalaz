@@ -35,13 +35,15 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly ILogger<MapRegionService> _logger;
         private readonly IMapper _mapper;
+        private readonly IMapRegionLoadRequestSink _loadRequestSink;
         public MapRegionService(
             IServiceProvider serviceProvider,
             ILocationBuilder locationBuilder,
             IGameObjectBuilder gameObjectBuilder,
             IGroundItemBuilder groundItemBuilder,
             ILogger<MapRegionService> logger,
-            IMapper mapper)
+            IMapper mapper,
+            IMapRegionLoadRequestSink loadRequestSink)
         {
             CreateDimension(0); // create global world dimension.
             _serviceScope = serviceProvider.CreateScope();
@@ -50,6 +52,7 @@ namespace Hagalaz.Services.GameWorld.Services
             _groundItemBuilder = groundItemBuilder;
             _logger = logger;
             _mapper = mapper;
+            _loadRequestSink = loadRequestSink;
         }
 
         /// <summary>
@@ -123,6 +126,8 @@ namespace Hagalaz.Services.GameWorld.Services
         public IMapRegion? GetMapRegion(int id, int dimension, bool create, bool resume)
         {
             var dim = _dimensions[dimension] ?? throw new Exception("'" + dimension + "' is not an existing dimension!");
+            IMapRegion result;
+            var created = false;
             lock (dim.ResidencySyncRoot)
             {
                 if (dim.ActiveRegions.TryGetValue(id, out var activeRegion))
@@ -164,8 +169,16 @@ namespace Hagalaz.Services.GameWorld.Services
                     return resume ? ResumeIdleRegion(dim, id, idleRegion) : idleRegion;
                 }
 
-                return dim.ActiveRegions.GetOrAdd(id, newRegion);
+                result = dim.ActiveRegions.GetOrAdd(id, newRegion);
+                created = ReferenceEquals(result, newRegion);
             }
+
+            if (created)
+            {
+                _loadRequestSink.RequestLoad(result);
+            }
+
+            return result;
         }
 
         public IMapRegion GetOrCreateMapRegion(int id, int dimension, bool resume) => GetMapRegion(id, dimension, true, resume)!;

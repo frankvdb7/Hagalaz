@@ -279,6 +279,40 @@ public sealed class NpcServiceRegistrationTests
         await store.Received(1).RemoveAsync(npc);
     }
 
+    [TestMethod]
+    public async Task UnregisterAsync_WhenDestroySucceedsAndRemovalFails_PropagatesRemovalFailure()
+    {
+        var store = Substitute.For<INpcStore>();
+        var npc = CreateNpc();
+        var removalFailure = new InvalidOperationException("npc removal failed");
+#pragma warning disable CA2012 // NSubstitute consumes the configured ValueTask.
+        store.RemoveAsync(npc).Returns(_ => ValueTask.FromException<bool>(removalFailure));
+#pragma warning restore CA2012
+        var service = CreateService(store);
+
+        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.UnregisterAsync(npc));
+
+        Assert.AreSame(removalFailure, actual);
+        npc.Received(1).Destroy();
+        await store.Received(1).RemoveAsync(npc);
+    }
+
+    [TestMethod]
+    public void Unregister_WhenDestroySucceedsAndRemovalFails_PropagatesRemovalFailure()
+    {
+        var store = Substitute.For<INpcStore>();
+        var npc = CreateNpc();
+        var removalFailure = new InvalidOperationException("npc removal failed");
+        store.When(value => value.Remove(npc)).Do(_ => throw removalFailure);
+        var service = CreateService(store);
+
+        var actual = Assert.ThrowsExactly<InvalidOperationException>(() => service.Unregister(npc));
+
+        Assert.AreSame(removalFailure, actual);
+        npc.Received(1).Destroy();
+        store.Received(1).Remove(npc);
+    }
+
     private static INpc CreateNpc()
     {
         var npc = Substitute.For<INpc>();

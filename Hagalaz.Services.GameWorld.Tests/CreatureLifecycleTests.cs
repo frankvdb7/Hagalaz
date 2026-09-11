@@ -50,6 +50,30 @@ public sealed class CreatureLifecycleTests
     }
 
     [TestMethod]
+    public void Destroy_DetachesFromRegionAndAreaBeforeDestroyCallback()
+    {
+        var (creature, mapRegionService, _, area) = CreateCreatureWithArea();
+        var region = Substitute.For<IMapRegion>();
+        mapRegionService.GetOrCreateMapRegion(creature.Location.RegionId, creature.Location.Dimension, true).Returns(region);
+        mapRegionService.GetMapRegion(creature.Location.RegionId, creature.Location.Dimension, false, false).Returns(region);
+
+        var areaExited = false;
+        area.When(value => value.OnCreatureExitArea(creature)).Do(_ =>
+        {
+            areaExited = true;
+            creature.MarkAreaExited();
+        });
+        creature.SetLocation(creature.Location, forceRegionUpdate: true, firstUpdate: true);
+
+        creature.Destroy();
+
+        Assert.IsTrue(creature.ObservedTerminalStateDuringDestroy);
+        Assert.IsTrue(creature.ObservedRegionDetachedDuringDestroy);
+        Assert.IsTrue(creature.ObservedAreaExitedDuringDestroy);
+        Assert.IsTrue(areaExited);
+    }
+
+    [TestMethod]
     public void Destroy_WhenOnDestroyFails_IsTerminalAndDisposesOwnedScope()
     {
         var (creature, _, scope) = CreateCreature(onDestroyFailure: true);
@@ -86,7 +110,7 @@ public sealed class CreatureLifecycleTests
 
         var secondFailure = await Task.Run(() => Assert.ThrowsExactly<InvalidOperationException>(creature.Destroy));
 
-        StringAssert.Contains(secondFailure.Message, "already being destroyed");
+        StringAssert.Contains(secondFailure.Message, "destroyed");
         Assert.AreEqual(1, creature.DestroyCalls);
         creature.ReleaseDestroy.TrySetResult();
         await first;
@@ -110,6 +134,22 @@ public sealed class CreatureLifecycleTests
         return (new TestCreature(scope, onDestroyFailure), mapRegionService, scope);
     }
 
+    private static (TestCreature Creature, IMapRegionService MapRegionService, IServiceScope Scope, IArea Area) CreateCreatureWithArea()
+    {
+        var serviceProvider = Substitute.For<IServiceProvider>();
+        var scope = Substitute.For<IServiceScope>();
+        var mapRegionService = Substitute.For<IMapRegionService>();
+        var area = Substitute.For<IArea>();
+        serviceProvider.GetService(typeof(ICreatureTaskService)).Returns(Substitute.For<ICreatureTaskService>());
+        serviceProvider.GetService(typeof(IMapRegionService)).Returns(mapRegionService);
+        serviceProvider.GetService(typeof(IAreaService)).Returns(Substitute.For<IAreaService>());
+        serviceProvider.GetRequiredService<IAreaService>().FindAreaByLocation(Arg.Any<ILocation>()).Returns(area);
+        serviceProvider.GetService(typeof(IScopedGameMediator)).Returns(Substitute.For<IScopedGameMediator>());
+        scope.ServiceProvider.Returns(serviceProvider);
+
+        return (new TestCreature(scope, false), mapRegionService, scope, area);
+    }
+
     private sealed class TestCreature : Creature
     {
         public bool FailOnDestroy { get; set; }
@@ -117,6 +157,13 @@ public sealed class CreatureLifecycleTests
         public int DestroyCalls { get; private set; }
         public TaskCompletionSource DestroyStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource ReleaseDestroy { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public bool ObservedTerminalStateDuringDestroy { get; private set; }
+        public bool ObservedRegionDetachedDuringDestroy { get; private set; }
+        public bool ObservedAreaExitedDuringDestroy { get; private set; }
+        private bool _regionDetached;
+        private bool _areaExited;
+
+        public void MarkAreaExited() => _areaExited = true;
 
         public TestCreature(IServiceScope scope, bool onDestroyFailure)
             : base(scope)
@@ -132,6 +179,9 @@ public sealed class CreatureLifecycleTests
         protected override void OnDestroy()
         {
             DestroyCalls++;
+            ObservedTerminalStateDuringDestroy = IsDestroyed;
+            ObservedRegionDetachedDuringDestroy = _regionDetached;
+            ObservedAreaExitedDuringDestroy = _areaExited;
             if (BlockOnDestroy)
             {
                 DestroyStarted.TrySetResult();
@@ -160,7 +210,10 @@ public sealed class CreatureLifecycleTests
         protected override void OnLocationChange(ILocation? oldLocation) { }
         protected override void OnRegionChange() { }
         protected override void AddToRegion(IMapRegion newRegion) { }
-        protected override void RemoveFromRegion(IMapRegion region) { }
+        protected override void RemoveFromRegion(IMapRegion region)
+        {
+            _regionDetached = true;
+        }
         protected override void CreatureFaced(ICreature? creature) { }
         protected override void TurnedTo(int x, int y) { }
         protected override void TextSpoken(string text) { }

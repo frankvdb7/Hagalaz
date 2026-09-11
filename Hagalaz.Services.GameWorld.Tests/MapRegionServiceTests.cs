@@ -32,6 +32,18 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
+    public void GetOrCreateMapRegion_RequestsInitialLoadForNewCanonicalRegion()
+    {
+        var loadRequests = Substitute.For<IMapRegionLoadRequestSink>();
+        using var provider = CreateProvider(loadRequests);
+        var service = CreateService(provider);
+
+        var region = service.GetOrCreateMapRegion(1, 0, false);
+
+        loadRequests.Received(1).RequestLoad(region);
+    }
+
+    [TestMethod]
     public void GetClippingFlag_ReturnsFloorBlockForDiscardedRegion()
     {
         using var provider = CreateProvider();
@@ -186,7 +198,8 @@ public sealed class MapRegionServiceTests
     public async Task GetOrCreateMapRegion_ConcurrentCreation_ReturnsOneCanonicalInstance()
     {
         const int callerCount = 16;
-        using var provider = CreateProvider();
+        var loadRequests = Substitute.For<IMapRegionLoadRequestSink>();
+        using var provider = CreateProvider(loadRequests);
         using var creationGate = new Barrier(callerCount);
         var service = CreateService(provider, new BlockingLocationBuilder(creationGate));
         var calls = Enumerable.Range(0, callerCount)
@@ -202,6 +215,20 @@ public sealed class MapRegionServiceTests
         Assert.IsTrue(regions.All(region => ReferenceEquals(regions[0], region)));
         Assert.AreSame(regions[0], service.GetMapRegion(1, 0, false, false));
         Assert.AreEqual(1, service.FindRegionsByDimension(0).Count());
+        loadRequests.Received(1).RequestLoad(regions[0]);
+    }
+
+    [TestMethod]
+    public void GetOrCreateMapRegion_ReadyCanonicalRegionDoesNotRequestAnotherLoad()
+    {
+        var loadRequests = Substitute.For<IMapRegionLoadRequestSink>();
+        using var provider = CreateProvider(loadRequests);
+        var service = CreateService(provider);
+        var region = service.GetOrCreateMapRegion(1, 0, false);
+        region.MarkReady();
+
+        Assert.AreSame(region, service.GetOrCreateMapRegion(1, 0, false));
+        loadRequests.Received(1).RequestLoad(region);
     }
 
     [TestMethod]
@@ -376,8 +403,9 @@ public sealed class MapRegionServiceTests
         Assert.IsFalse(service.IsCurrentMapRegion(currentRegion.Id, location.Dimension, otherRegion));
     }
 
-    private static ServiceProvider CreateProvider() => new ServiceCollection()
+    private static ServiceProvider CreateProvider(IMapRegionLoadRequestSink? loadRequests = null) => new ServiceCollection()
         .AddSingleton(Substitute.For<INpcService>())
+        .AddSingleton(loadRequests ?? Substitute.For<IMapRegionLoadRequestSink>())
         .BuildServiceProvider();
 
     private static MapRegionService CreateService(IServiceProvider provider) => CreateService(provider, new LocationBuilder());
@@ -388,7 +416,8 @@ public sealed class MapRegionServiceTests
         Substitute.For<IGameObjectBuilder>(),
         Substitute.For<IGroundItemBuilder>(),
         Substitute.For<ILogger<MapRegionService>>(),
-        Substitute.For<IMapper>());
+        Substitute.For<IMapper>(),
+        provider.GetRequiredService<IMapRegionLoadRequestSink>());
 
     private sealed class BlockingLocationBuilder(Barrier creationGate) : ILocationBuilder
     {

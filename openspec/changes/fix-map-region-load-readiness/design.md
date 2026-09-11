@@ -1,8 +1,9 @@
 ## Context
 
-`MapRegionService` publishes a newly created region in its active dictionary.
-`MapRegionLoadScheduler` owns asynchronous loading and coalesces requests by
-region instance. `MapRegionLoader` must therefore avoid exposing partial state
+`MapRegionService` publishes a newly created region in its active dictionary
+and submits one initial request through a small shared request sink.
+`MapRegionLoadScheduler` remains the only asynchronous loader and coalesces
+requests by region instance. `MapRegionLoader` must therefore avoid exposing partial state
 and must remove a failed published instance before completing its failed load.
 
 ## Goals and non-goals
@@ -13,7 +14,8 @@ external NPC ownership, explicit region lifecycle, stale reference rejection,
 and fresh-instance retry through the existing
 service/scheduler.
 
-Non-goals are a generic transaction abstraction, a second queue or worker,
+Non-goals are a generic transaction abstraction, a second queue or worker
+(the scheduler request channel is shared with the publication sink),
 automatic retries, dimension-aware pathfinding changes, cache-format changes,
 and unrelated GameWorld lifecycle changes.
 
@@ -117,10 +119,30 @@ current, empty `Dimension`. Region construction may occur outside the lock, but
 publication revalidates that the captured dimension is still current before
 inserting the region.
 
-`MapRegion` destruction serializes concurrent callers, attempts every NPC,
-ground item, and game object independently, preserves the first failure, and
-always marks the instance `Destroyed`. New mutations are rejected after
-destruction begins; no in-memory retry owner is introduced.
+`MapRegion` destruction uses one atomic claim protected by the mutation gate
+for transition and snapshotting. Later callers fail immediately. Cleanup runs
+outside the gate, attempts every NPC, ground item, and game object
+independently, preserves the first failure, and always marks the instance
+`Destroyed`. New mutations are rejected after destruction begins; no in-memory
+retry owner is introduced.
+
+### 12. Request initial loads at canonical publication
+
+Creating a new canonical region synchronously writes one request to the shared
+`MapRegionLoadRequestQueue` through `IMapRegionLoadRequestSink`. The scheduler
+consumes that same queue and retains ownership of state validation, in-flight
+deduplication, stale-instance rejection, and asynchronous loading. This keeps
+the service/scheduler dependency graph acyclic and does not make synchronous
+map APIs asynchronous.
+
+### 13. Keep scheduler loading serial for now
+
+The scheduler remains a single-reader execution boundary. The loader performs
+shared cache/archive reads and mutates canonical region state, while the
+current acceptance criteria require deduplication and deterministic shutdown,
+not a throughput target. Introducing bounded parallelism would require a
+separate measurement and concurrency contract, so it is deliberately left as
+a follow-up rather than adding speculative worker coordination here.
 
 ### 10. Preserve dynamic source dimensions
 

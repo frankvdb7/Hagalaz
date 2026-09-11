@@ -15,6 +15,12 @@ aborts the session, and rethrows the original exception. `ConnectionHub` and
 destruction, persistence, session release, detachment, and world-presence
 cleanup occur through one lifecycle path.
 
+The world-session admission transaction is owned by a focused
+`WorldSessionAdmissionService`. `AuthenticationService` remains responsible
+for authentication and token revocation, and delegates reservation,
+character initialization, commit, feature publication, and failed-admission
+compensation without exposing partial transaction state.
+
 ## Alternatives considered
 
 - Making `MapRegion.Add` idempotent would hide a lifecycle error and would not

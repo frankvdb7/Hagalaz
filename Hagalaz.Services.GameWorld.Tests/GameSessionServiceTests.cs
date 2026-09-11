@@ -131,34 +131,31 @@ public sealed class GameSessionServiceTests
 
         Assert.AreNotEqual(firstTask.Result.HasValue, secondTask.Result.HasValue);
         Assert.IsTrue(firstTask.Result.HasValue || secondTask.Result.HasValue);
-        var processingLease = firstTask.Result ?? secondTask.Result ??
+        var processingToken = firstTask.Result ?? secondTask.Result ??
             throw new InvalidOperationException("One coordinator must claim the pending abort reservation.");
-        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session, processingLease));
+        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session, processingToken));
         Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
     }
 
     [TestMethod]
-    public async Task GameSessionStore_ExpiredAbortProcessingLease_CanBeReclaimedWithoutStaleCompletion()
+    public async Task GameSessionStore_ReleasedAbortProcessing_CanBeReclaimedWithoutStaleCompletion()
     {
-        var timeProvider = new TestTimeProvider(DateTimeOffset.UtcNow);
-        var store = new GameSessionStore(timeProvider);
+        var store = new GameSessionStore();
         var session = CreateLobbySession(42, "expired-abort-connection");
 
         Assert.IsTrue(await store.TryAdd(session));
         Assert.IsTrue(await store.TryMoveToPendingAbort(session));
 
-        var firstLease = await store.TryBeginPendingSessionAbort(session);
-        Assert.IsTrue(firstLease.HasValue);
+        var firstToken = await store.TryBeginPendingSessionAbort(session);
+        Assert.IsTrue(firstToken.HasValue);
+        Assert.IsTrue(await store.TryReleasePendingSessionAbort(session, firstToken.Value));
 
-        timeProvider.Advance(GameSessionAbortOptions.ProcessingTimeout + TimeSpan.FromSeconds(1));
-
-        Assert.AreEqual(1, (await store.FindSessionsPendingAbort()).Count);
-        var secondLease = await store.TryBeginPendingSessionAbort(session);
-        Assert.IsTrue(secondLease.HasValue);
-        Assert.AreNotEqual(firstLease.Value.Token, secondLease.Value.Token);
-        Assert.IsFalse(await store.TryReleasePendingSessionAbort(session, firstLease.Value));
-        Assert.IsFalse(await store.TryCompletePendingSessionAbort(session, firstLease.Value));
-        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session, secondLease.Value));
+        var secondToken = await store.TryBeginPendingSessionAbort(session);
+        Assert.IsTrue(secondToken.HasValue);
+        Assert.AreNotEqual(firstToken.Value, secondToken.Value);
+        Assert.IsFalse(await store.TryReleasePendingSessionAbort(session, firstToken.Value));
+        Assert.IsFalse(await store.TryCompletePendingSessionAbort(session, firstToken.Value));
+        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session, secondToken.Value));
         Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
     }
 
@@ -1360,12 +1357,12 @@ public sealed class GameSessionServiceTests
         public ValueTask<bool> TryMoveToPendingAbort(IGameSession expectedSession) =>
             _store.TryMoveToPendingAbort(expectedSession);
 
-        public ValueTask<AbortProcessingLease?> TryBeginPendingSessionAbort(IGameSession expectedSession) =>
+        public ValueTask<long?> TryBeginPendingSessionAbort(IGameSession expectedSession) =>
             _store.TryBeginPendingSessionAbort(expectedSession);
 
         public ValueTask<bool> TryCompletePendingSessionAbort(
             IGameSession expectedSession,
-            AbortProcessingLease processingLease)
+            long processingToken)
         {
             if (_failCompletion)
             {
@@ -1373,30 +1370,19 @@ public sealed class GameSessionServiceTests
                 return new(false);
             }
 
-            return _store.TryCompletePendingSessionAbort(expectedSession, processingLease);
+            return _store.TryCompletePendingSessionAbort(expectedSession, processingToken);
         }
 
         public ValueTask<bool> TryReleasePendingSessionAbort(
             IGameSession expectedSession,
-            AbortProcessingLease processingLease)
+            long processingToken)
         {
             ReleaseCalls++;
-            return _store.TryReleasePendingSessionAbort(expectedSession, processingLease);
+            return _store.TryReleasePendingSessionAbort(expectedSession, processingToken);
         }
 
         public ValueTask<IReadOnlyList<IGameSession>> FindSessionsPendingAbort() =>
             _store.FindSessionsPendingAbort();
-    }
-
-    private sealed class TestTimeProvider : TimeProvider
-    {
-        private DateTimeOffset _utcNow;
-
-        public TestTimeProvider(DateTimeOffset utcNow) => _utcNow = utcNow;
-
-        public override DateTimeOffset GetUtcNow() => _utcNow;
-
-        public void Advance(TimeSpan duration) => _utcNow += duration;
     }
 
     private static IGameWorldSession CreateSession(uint masterId, string connectionId, string claimId)

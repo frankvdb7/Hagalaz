@@ -45,18 +45,15 @@ namespace Hagalaz.Services.GameWorld.Services
         private static readonly ImmutableArray<string> _worldClientScopes = [Constants.OAuth.WorldClientId];
 
         private readonly ILogger<AuthenticationService> _logger;
-        private readonly IMapper _mapper;
         private readonly ICharacterService _characterService;
-        private readonly ICharacterFactory _characterFactory;
-        private readonly ICharacterHydrationService _characterHydrationService;
         private readonly ICharacterPersistenceService _characterPersistenceService;
         private readonly ICharacterLogoutService _characterLogoutService;
         private readonly IGameSessionService _gameSessionService;
+        private readonly IWorldSessionAdmissionService _worldSessionAdmissionService;
         private readonly IRequestClient<SignInUserRequestMessage> _signInUserRequestClient;
         private readonly IRequestClient<ValidateExistingAuthenticationRequestMessage> _validateExistingAuthenticationRequestClient;
         private readonly IRequestClient<GetUserInfoRequestMessage> _getUserInfoRequestClient;
         private readonly IRequestClient<RevokeTokenRequestMessage> _revokeTokenRequestClient;
-        private readonly IRequestClient<HydrateCharacter> _getCharacterRequestClient;
         private readonly IClaimsPrincipalFactory _claimsPrincipalFactory;
         private readonly IRaidoCallerContextAccessor _contextAccessor;
         private readonly IGameMediator _mediator;
@@ -65,18 +62,15 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public AuthenticationService(
             ILogger<AuthenticationService> logger,
-            IMapper mapper,
             ICharacterService characterService,
-            ICharacterFactory characterFactory,
-            ICharacterHydrationService characterHydrator,
             ICharacterPersistenceService characterPersistenceService,
             ICharacterLogoutService characterLogoutService,
             IGameSessionService gameSessionService,
+            IWorldSessionAdmissionService worldSessionAdmissionService,
             IRequestClient<SignInUserRequestMessage> signInUserRequestClient,
             IRequestClient<ValidateExistingAuthenticationRequestMessage> validateExistingAuthenticationRequestClient,
             IRequestClient<GetUserInfoRequestMessage> getUserInfoRequestClient,
             IRequestClient<RevokeTokenRequestMessage> revokeTokenRequestClient,
-            IRequestClient<HydrateCharacter> getCharacterRequestClient,
             IClaimsPrincipalFactory claimsPrincipalFactory,
             IRaidoCallerContextAccessor contextAccessor,
             IGameMediator mediator,
@@ -86,18 +80,15 @@ namespace Hagalaz.Services.GameWorld.Services
             ResiliencePipeline authLogoutPipeline)
         {
             _logger = logger;
-            _mapper = mapper;
             _characterService = characterService;
-            _characterFactory = characterFactory;
-            _characterHydrationService = characterHydrator;
             _characterPersistenceService = characterPersistenceService;
             _characterLogoutService = characterLogoutService;
             _gameSessionService = gameSessionService;
+            _worldSessionAdmissionService = worldSessionAdmissionService;
             _signInUserRequestClient = signInUserRequestClient;
             _validateExistingAuthenticationRequestClient = validateExistingAuthenticationRequestClient;
             _getUserInfoRequestClient = getUserInfoRequestClient;
             _revokeTokenRequestClient = revokeTokenRequestClient;
-            _getCharacterRequestClient = getCharacterRequestClient;
             _claimsPrincipalFactory = claimsPrincipalFactory;
             _contextAccessor = contextAccessor;
             _mediator = mediator;
@@ -174,211 +165,25 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
                 var authentication = context.GetAuthentication();
 
-                (IGameSession? Session, bool Created) sessionRegistration;
                 try
                 {
-                    sessionRegistration = signInRequest.LobbySessionClaimId is null
-                        ? await _gameSessionService.TryAddWorldSession(masterId.Value, context.ConnectionId, cancellationToken)
-                        : await _gameSessionService.TryAddWorldSession(
-                            masterId.Value,
-                            context.ConnectionId,
-                            signInRequest.LobbySessionClaimId,
-                            cancellationToken);
+                    var admissionResult = await _worldSessionAdmissionService.AdmitAsync(
+                        signInRequest,
+                        context,
+                        masterId.Value,
+                        authentication.AuthenticationProperties,
+                        cancellationToken);
+                    if (!admissionResult.Succeeded)
+                    {
+                        await RevokeCurrentAuthenticationAsync("world sign-in initialization failed");
+                    }
+
+                    return admissionResult;
                 }
                 catch
                 {
-                    await RevokeCurrentAuthenticationAsync("world session registration failed");
+                    await RevokeCurrentAuthenticationAsync("world sign-in initialization failed");
                     throw;
-                }
-
-                if (!sessionRegistration.Created || sessionRegistration.Session == null)
-                {
-                    await RevokeCurrentAuthenticationAsync("world session ownership was already taken");
-                    return SignInResult.AlreadyLoggedOn;
-                }
-
-                var session = sessionRegistration.Session;
-                var signInSucceeded = false;
-                var characterRegistered = false;
-                var revisionInitialized = false;
-                ICharacter? registeredCharacter = null;
-                try
-                {
-                    CharacterModel characterModel;
-                    try
-                    {
-                        var response = await _getCharacterRequestClient.GetResponse<CharacterHydrated, CharacterNotFound>(new HydrateCharacter(masterId.Value),
-                            cancellationToken);
-                        if (response.Is<CharacterNotFound>(out var notFoundResult))
-                        {
-                            return SignInResult.Fail;
-                        }
-
-                        if (response.Is<CharacterHydrated>(out var hydrateCharacterResult))
-                        {
-                            characterModel = _mapper.Map<CharacterModel>(hydrateCharacterResult.Message);
-                            characterModel = characterModel with
-                            {
-                                Claims = _mapper.Map<HydratedClaims>(authentication.AuthenticationProperties)
-                            };
-                        }
-                        else
-                        {
-                            _logger.LogError("Failed to get valid hydrate character response '{type}'", response.Message.GetType());
-                            return SignInResult.Fail;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to get hydrate character response");
-                        return SignInResult.Fail;
-                    }
-
-                    var character = _characterFactory.Create(session, signInRequest.GameClient);
-                    registeredCharacter = character;
-                    if (!await _characterHydrationService.HydrateAsync(character, characterModel))
-                    {
-                        _logger.LogWarning("Unable to hydrate character '{character}'", character);
-                        return SignInResult.Fail;
-                    }
-
-                    _characterPersistenceService.InitializeRevision(masterId.Value, characterModel.SnapshotRevision);
-                    revisionInitialized = true;
-
-                    if (!await _characterService.AddAsync(character))
-                    {
-                        _logger.LogWarning("Unable to add character '{character}'", character);
-                        return SignInResult.Fail;
-                    }
-
-                    characterRegistered = true;
-                    if (!await _gameSessionService.CommitWorldSession(session, cancellationToken))
-                    {
-                        _logger.LogWarning("Unable to commit world session '{connectionId}' after character registration", session.ConnectionId);
-                        return SignInResult.Fail;
-                    }
-
-                    context.Features.Set<ICharacterFeature>(new CharacterFeature
-                    {
-                        Character = character
-                    });
-                    context.Features.Set<ISessionFeature>(new SessionFeature
-                    {
-                        Session = session
-                    });
-                    context.Features.Set<IContactsFeature>(new WorldContactsFeature(character));
-                    context.Features.Set<IUserProfileFeature>(new UserProfileFeature()); // TODO
-                    signInSucceeded = true;
-                    return result;
-                }
-                finally
-                {
-                    if (!signInSucceeded && sessionRegistration.Created)
-                    {
-                        if (registeredCharacter is not null)
-                        {
-                            if (characterRegistered)
-                            {
-                                try
-                                {
-                                    if (await _characterService.RemoveAsync(registeredCharacter))
-                                    {
-                                        try
-                                        {
-                                            _characterPersistenceService.Forget(masterId.Value);
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            _logger.LogError(ex, "Failed to forget character persistence state after world sign-in failed");
-                                        }
-
-                                        try
-                                        {
-                                            registeredCharacter.Destroy();
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            _logger.LogError(ex, "Failed to destroy character after world sign-in failed");
-                                        }
-                                    }
-                                    else
-                                    {
-                                        _logger.LogWarning("Character '{MasterId}' removal returned false after world sign-in failed; retaining persistence state for recovery", masterId);
-                                    }
-                                }
-                                catch (OperationCanceledException ex)
-                                {
-                                    _logger.LogError(ex, "Character removal was canceled after world sign-in failed");
-                                }
-                                catch (Exception ex) when (ex is not OperationCanceledException)
-                                {
-                                    _logger.LogError(ex, "Failed to remove character after world sign-in failed");
-                                }
-                            }
-                            else
-                            {
-                                try
-                                {
-                                    registeredCharacter.Destroy();
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(ex, "Failed to destroy unregistered character after world sign-in failed");
-                                }
-                            }
-                        }
-
-                        if (!characterRegistered && revisionInitialized)
-                        {
-                            try
-                            {
-                                if (await _characterService.FindByMasterId(masterId.Value) == null)
-                                {
-                                    _characterPersistenceService.Forget(masterId.Value);
-                                }
-                                else
-                                {
-                                    _logger.LogWarning("Character '{MasterId}' was already registered after world sign-in failed; retaining persistence state for the existing character", masterId);
-                                }
-                            }
-                            catch (OperationCanceledException ex)
-                            {
-                                _logger.LogError(ex, "Unable to determine character registration after world sign-in failed; retaining persistence state");
-                            }
-                            catch (Exception ex) when (ex is not OperationCanceledException)
-                            {
-                                _logger.LogError(ex, "Unable to determine character registration after world sign-in failed; retaining persistence state");
-                            }
-                        }
-
-                        try
-                        {
-                            // Cleanup must remain possible after request cancellation so an
-                            // acquired claim cannot remain until its lease expires.
-                            await _gameSessionService.RemoveSession(sessionRegistration.Session, CancellationToken.None);
-                        }
-                        catch (OperationCanceledException ex)
-                        {
-                            _logger.LogError(ex, "Game-session removal was canceled after world sign-in failed");
-                        }
-                        catch (Exception ex) when (ex is not OperationCanceledException)
-                        {
-                            _logger.LogError(ex, "Failed to remove game session '{connectionId}' after world sign-in failed", session.ConnectionId);
-                        }
-                        finally
-                        {
-                            try
-                            {
-                                await _gameSessionService.RemoveLocalSession(sessionRegistration.Session);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Failed to remove local game session '{connectionId}' after world sign-in failed", session.ConnectionId);
-                            }
-                        }
-
-                        await RevokeCurrentAuthenticationAsync("world sign-in initialization failed");
-                    }
                 }
             });
 

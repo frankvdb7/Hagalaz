@@ -29,6 +29,8 @@
 - [x] 2.3 Preserve exact-instance removal and verify old R1 cannot remove R2.
 - [x] 2.4 Remove dimensions only through an exact-current-and-empty operation
       under the same residency synchronization boundary used by publication.
+- [x] 2.5 Submit an initial load request when a new canonical region is
+      published through a shared sink consumed by the existing scheduler.
 
 ## 3. Failure and discard behavior
 
@@ -47,8 +49,8 @@
 - [x] 3.7 Make terminal region destruction best-effort across NPCs, ground
       items, and game objects, preserving the first cleanup failure after all
       attempts.
-- [x] 3.8 Remove pending-destruction residency and retry ownership; serialize
-      concurrent destruction and reject stale mutations.
+- [x] 3.8 Remove pending-destruction residency and retry ownership; use an
+      atomic one-time destruction claim and reject stale mutations.
 
 ## 4. Direct NPC cleanup
 

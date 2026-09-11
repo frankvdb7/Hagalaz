@@ -227,19 +227,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 throw new InvalidOperationException($"{this} is already being destroyed!");
             }
 
-            _updateState = CreatureUpdateState.Destroying;
+            // Publish terminal state before any structural or user callbacks run. This keeps
+            // cleanup callbacks from observing a half-alive creature and prevents re-entry.
+            IsDestroyed = true;
+            _updateState = CreatureUpdateState.Destroyed;
             Exception? failure = null;
             try
             {
-                try
-                {
-                    OnDestroy();
-                }
-                catch (Exception exception)
-                {
-                    failure = exception;
-                }
-
                 try
                 {
                     if (Location != null)
@@ -253,7 +247,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 }
                 catch (Exception exception)
                 {
-                    failure ??= exception;
+                    failure = exception;
                 }
 
                 try
@@ -262,6 +256,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                     {
                         Area.OnCreatureExitArea(this);
                     }
+                }
+                catch (Exception exception)
+                {
+                    failure ??= exception;
+                }
+
+                try
+                {
+                    OnDestroy();
                 }
                 catch (Exception exception)
                 {
@@ -279,8 +282,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                     failure ??= exception;
                 }
 
-                IsDestroyed = true;
-                _updateState = CreatureUpdateState.Destroyed;
             }
 
             if (failure is not null)

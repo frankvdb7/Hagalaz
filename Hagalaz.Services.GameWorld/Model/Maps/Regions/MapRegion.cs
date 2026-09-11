@@ -36,7 +36,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly IGameObjectBuilder _gameObjectBuilder;
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly IMapper _mapper;
-        private readonly SemaphoreSlim _destructionLock = new(1, 1);
         private readonly object _mutationGate = new();
         public int Id => BaseLocation.RegionId;
         public ILocation BaseLocation { get; }
@@ -311,8 +310,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public async Task DestroyAsync()
         {
-            await _destructionLock.WaitAsync().ConfigureAwait(false);
             Exception? failure = null;
+            var ownsDestructionClaim = false;
             try
             {
                 INpc[] npcs;
@@ -320,12 +319,15 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 IGameObject[] objects;
                 lock (_mutationGate)
                 {
-                    if (DestructionState == MapRegionDestructionState.Destroyed)
+                    if (Interlocked.CompareExchange(
+                            ref _destructionState,
+                            (int)MapRegionDestructionState.Destroying,
+                            (int)MapRegionDestructionState.Active) != (int)MapRegionDestructionState.Active)
                     {
-                        throw new InvalidOperationException($"Region {this} is already destroyed");
+                        throw new InvalidOperationException($"Region {this} is already being destroyed or destroyed.");
                     }
 
-                    Interlocked.Exchange(ref _destructionState, (int)MapRegionDestructionState.Destroying);
+                    ownsDestructionClaim = true;
                     npcs = _npcs.ToArray();
                     items = FindAllGroundItems().ToArray();
                     objects = FindAllGameObjects().ToArray();
@@ -381,8 +383,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
             finally
             {
-                Interlocked.Exchange(ref _destructionState, (int)MapRegionDestructionState.Destroyed);
-                _destructionLock.Release();
+                if (ownsDestructionClaim)
+                {
+                    Interlocked.Exchange(ref _destructionState, (int)MapRegionDestructionState.Destroyed);
+                }
             }
 
             if (failure is not null)

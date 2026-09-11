@@ -168,12 +168,27 @@ public sealed class MapRegionDestructionTests
         var npc = CreateNpc(1);
         var region = CreateRegion(npcService);
         region.Add(npc);
+        var cleanupStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCleanup = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        npcService.UnregisterAsync(npc).Returns(_ =>
+        {
+            cleanupStarted.TrySetResult();
+            return releaseCleanup.Task;
+        });
 
         var first = region.DestroyAsync();
+        await cleanupStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.AreEqual(MapRegionDestructionState.Destroying, region.DestructionState);
+
         var second = region.DestroyAsync();
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => Task.WhenAll(first, second));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => second);
+        Assert.AreEqual(MapRegionDestructionState.Destroying, region.DestructionState);
+
+        releaseCleanup.TrySetResult();
+        await first;
 
         await npcService.Received(1).UnregisterAsync(npc);
+        Assert.IsTrue(region.IsDestroyed);
     }
 
     [TestMethod]

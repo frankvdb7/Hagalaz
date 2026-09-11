@@ -157,59 +157,87 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public async Task UnregisterAsync(INpc npc)
         {
+            Exception? destroyFailure = null;
             try
             {
                 if (!npc.IsDestroyed)
                     npc.Destroy();
             }
-            finally
+            catch (Exception exception)
             {
-                await RemoveNpcAsync(npc);
+                destroyFailure = exception;
+            }
+
+            Exception? removalFailure = null;
+            try
+            {
+                if (!await _npcStore.RemoveAsync(npc))
+                {
+                    _logger.LogDebug("NPC '{npc}' was already absent from the global store during unregister.", npc);
+                }
+            }
+            catch (Exception exception)
+            {
+                removalFailure = exception;
+            }
+
+            if (destroyFailure is not null)
+            {
+                if (removalFailure is not null)
+                {
+                    _logger.LogError(removalFailure,
+                        "Failed to remove NPC '{npc}' from the global store after destruction failed.", npc);
+                }
+
+                ExceptionDispatchInfo.Capture(destroyFailure).Throw();
+            }
+
+            if (removalFailure is not null)
+            {
+                ExceptionDispatchInfo.Capture(removalFailure).Throw();
             }
         }
 
         public void Unregister(INpc npc)
         {
+            Exception? destroyFailure = null;
             try
             {
                 if (!npc.IsDestroyed)
                     npc.Destroy();
             }
-            finally
-            {
-                RemoveNpc(npc);
-            }
-        }
-
-        private async Task RemoveNpcAsync(INpc npc)
-        {
-            try
-            {
-                if (!await _npcStore.RemoveAsync(npc))
-                {
-                    _logger.LogWarning("Failed to remove npc '{npc}'", npc);
-                }
-
-            }
             catch (Exception exception)
             {
-                _logger.LogError(exception, "Failed to remove npc '{npc}'", npc);
+                destroyFailure = exception;
             }
-        }
 
-        private void RemoveNpc(INpc npc)
-        {
+            Exception? removalFailure = null;
             try
             {
                 if (!_npcStore.Remove(npc))
                 {
-                    _logger.LogWarning("Failed to remove npc '{npc}'", npc);
+                    _logger.LogDebug("NPC '{npc}' was already absent from the global store during unregister.", npc);
                 }
-
             }
             catch (Exception exception)
             {
-                _logger.LogError(exception, "Failed to remove npc '{npc}'", npc);
+                removalFailure = exception;
+            }
+
+            if (destroyFailure is not null)
+            {
+                if (removalFailure is not null)
+                {
+                    _logger.LogError(removalFailure,
+                        "Failed to remove NPC '{npc}' from the global store after destruction failed.", npc);
+                }
+
+                ExceptionDispatchInfo.Capture(destroyFailure).Throw();
+            }
+
+            if (removalFailure is not null)
+            {
+                ExceptionDispatchInfo.Capture(removalFailure).Throw();
             }
         }
 
