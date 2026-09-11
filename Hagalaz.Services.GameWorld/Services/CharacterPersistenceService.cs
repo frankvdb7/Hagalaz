@@ -123,9 +123,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
     public sealed class CharacterPersistenceState
     {
-        private readonly Dictionary<uint, string> _persistedFingerprints = new();
-        private readonly Dictionary<uint, PendingSnapshot> _pendingSnapshots = new();
-        private readonly Dictionary<uint, long> _nextRevisions = new();
+        private readonly Dictionary<uint, PersistenceEntry> _entries = new();
         private readonly object _stateGate = new();
         private readonly Dictionary<uint, LockEntry> _locks = new();
         private readonly object _lockRegistryGate = new();
@@ -171,7 +169,7 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             lock (_stateGate)
             {
-                return _persistedFingerprints.TryGetValue(masterId, out var persistedFingerprint) && persistedFingerprint == fingerprint;
+                return _entries.TryGetValue(masterId, out var entry) && entry.PersistedFingerprint == fingerprint;
             }
         }
 
@@ -180,14 +178,8 @@ namespace Hagalaz.Services.GameWorld.Services
             ArgumentOutOfRangeException.ThrowIfNegative(persistedRevision);
             lock (_stateGate)
             {
-                if (_nextRevisions.TryGetValue(masterId, out var currentRevision))
-                {
-                    _nextRevisions[masterId] = Math.Max(currentRevision, persistedRevision);
-                }
-                else
-                {
-                    _nextRevisions[masterId] = persistedRevision;
-                }
+                var entry = GetOrCreateEntry(masterId);
+                entry.Revision = Math.Max(entry.Revision, persistedRevision);
             }
         }
 
@@ -195,13 +187,8 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             lock (_stateGate)
             {
-                if (_nextRevisions.TryGetValue(masterId, out var currentRevision))
-                {
-                    return _nextRevisions[masterId] = checked(currentRevision + 1);
-                }
-
-                _nextRevisions[masterId] = 1L;
-                return 1L;
+                var entry = GetOrCreateEntry(masterId);
+                return entry.Revision = checked(entry.Revision + 1);
             }
         }
 
@@ -209,12 +196,13 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             lock (_stateGate)
             {
-                if (_pendingSnapshots.ContainsKey(masterId))
+                var entry = GetOrCreateEntry(masterId);
+                if (entry.Pending is not null)
                 {
                     throw new InvalidOperationException($"Character '{masterId}' already has an unacknowledged persistence operation.");
                 }
 
-                _pendingSnapshots[masterId] = new PendingSnapshot(fingerprint, receipt);
+                entry.Pending = new PendingSnapshot(fingerprint, receipt);
             }
         }
 
@@ -222,7 +210,7 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             lock (_stateGate)
             {
-                if (_pendingSnapshots.TryGetValue(masterId, out var pending))
+                if (_entries.TryGetValue(masterId, out var entry) && entry.Pending is { } pending)
                 {
                     receipt = pending.Receipt;
                     return true;
@@ -237,10 +225,11 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             lock (_stateGate)
             {
-                if (_pendingSnapshots.TryGetValue(masterId, out var pending) &&
+                if (_entries.TryGetValue(masterId, out var entry) &&
+                    entry.Pending is { } pending &&
                     ReferenceEquals(pending.Receipt, receipt))
                 {
-                    _pendingSnapshots.Remove(masterId);
+                    entry.Pending = null;
                 }
             }
         }
@@ -249,7 +238,8 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             lock (_stateGate)
             {
-                if (!_pendingSnapshots.TryGetValue(masterId, out var pending) ||
+                if (!_entries.TryGetValue(masterId, out var entry) ||
+                    entry.Pending is not { } pending ||
                     pending.Receipt.CorrelationId != correlationId ||
                     pending.Receipt.SnapshotRevision != snapshotRevision)
                 {
@@ -259,10 +249,28 @@ namespace Hagalaz.Services.GameWorld.Services
                 pending.Receipt.TryAcknowledge(outcome);
                 if (outcome is CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate)
                 {
-                    _pendingSnapshots.Remove(masterId);
-                    _persistedFingerprints[masterId] = pending.Fingerprint;
+                    entry.Pending = null;
+                    entry.PersistedFingerprint = pending.Fingerprint;
                 }
             }
+        }
+
+        private PersistenceEntry GetOrCreateEntry(uint masterId)
+        {
+            if (!_entries.TryGetValue(masterId, out var entry))
+            {
+                entry = new PersistenceEntry();
+                _entries.Add(masterId, entry);
+            }
+
+            return entry;
+        }
+
+        private sealed class PersistenceEntry
+        {
+            public long Revision { get; set; }
+            public string? PersistedFingerprint { get; set; }
+            public PendingSnapshot? Pending { get; set; }
         }
 
         private sealed record PendingSnapshot(string Fingerprint, CharacterPersistenceReceipt Receipt);

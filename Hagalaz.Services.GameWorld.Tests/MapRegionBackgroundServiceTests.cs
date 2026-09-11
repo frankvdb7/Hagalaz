@@ -36,12 +36,19 @@ public sealed class MapRegionBackgroundServiceTests
     }
 
     [TestMethod]
-    public async Task ProcessRegionsOnceAsync_QueuesExactDetachedRegionBeforeDestruction()
+    public async Task HostedWorker_DestroysExactDetachedRegionOutsideTheTick()
     {
         var region = Substitute.For<IMapRegion>();
         const int regionId = 1;
         region.Id.Returns(regionId);
         region.CanDestroy().Returns(true);
+        var destructionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var destructionRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        region.DestroyAsync().Returns(_ =>
+        {
+            destructionStarted.TrySetResult();
+            return destructionRelease.Task;
+        });
         var dimension = Substitute.For<IDimension>();
         dimension.Id.Returns(1);
         var regionService = Substitute.For<IMapRegionService>();
@@ -53,12 +60,24 @@ public sealed class MapRegionBackgroundServiceTests
         var service = new MapRegionBackgroundService(
             regionService,
             Substitute.For<ILogger<MapRegionBackgroundService>>());
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var tickHousekeeping = service.ProcessRegionsOnceAsync();
+            await tickHousekeeping;
 
-        await service.ProcessRegionsOnceAsync();
+            Assert.IsTrue(tickHousekeeping.IsCompleted);
+            regionService.Received(1).TryRemoveIdleMapRegion(regionId, dimension.Id, region);
+            Assert.IsFalse(destructionRelease.Task.IsCompleted);
 
-        await region.DidNotReceive().DestroyAsync();
-        await service.DestroyDetachedRegionsAsync();
-        await region.Received(1).DestroyAsync();
+            await destructionStarted.Task;
+            _ = region.Received(1).DestroyAsync();
+        }
+        finally
+        {
+            destructionRelease.TrySetResult();
+            await service.StopAsync(CancellationToken.None);
+        }
     }
 
 }

@@ -55,15 +55,6 @@ namespace Hagalaz.Services.GameWorld.Services
             _lastProcessedAt = now;
         }
 
-        internal async Task DestroyDetachedRegionsAsync(CancellationToken cancellationToken = default)
-        {
-            while (_detachedRegions.Reader.TryRead(out var region))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                await DestroyDetachedRegionAsync(region);
-            }
-        }
-
         internal Task ProcessRegionsOnceAsync()
         {
             foreach (var dimension in _regionService.FindAllDimensions())

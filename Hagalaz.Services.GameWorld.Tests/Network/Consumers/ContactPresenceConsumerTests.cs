@@ -172,6 +172,24 @@ public sealed class ContactPresenceConsumerTests
         Assert.IsNotNull(feature.TryApplySignOut(42, 11, "new"));
     }
 
+    [TestMethod]
+    public void LobbyContactsFeature_UsesTheSamePresenceFence()
+    {
+        var feature = new LobbyContactsFeature();
+        feature.Friends.Add(new Friend
+        {
+            MasterId = 42,
+            Rank = FriendsChatRank.Friend,
+            Availability = Availability.Everyone,
+            AreMutualFriends = true
+        });
+
+        Assert.IsNotNull(feature.TryApplySignIn(42, 10, "old"));
+        Assert.IsNotNull(feature.TryApplySignIn(42, 11, "new"));
+        Assert.IsNull(feature.TryApplySignOut(42, 10, "old"));
+        Assert.IsNotNull(feature.TryApplySignOut(42, 11, "new"));
+    }
+
     private static IGameConnection CreateConnection(IContactList<Friend> contacts)
     {
         var connection = Substitute.For<IGameConnection>();

@@ -5,8 +5,7 @@ namespace Hagalaz.Services.GameWorld.Features
     public class WorldContactsFeature : IContactsFeature
     {
         private readonly ICharacter _character;
-        private readonly object _presenceGate = new();
-        private readonly System.Collections.Generic.Dictionary<uint, SessionIdentity> _presence = new();
+        private readonly ContactPresenceState _presence = new();
 
         public WorldContactsFeature(ICharacter character) => _character = character;
 
@@ -16,48 +15,26 @@ namespace Hagalaz.Services.GameWorld.Features
 
         public Friend? TryApplySignIn(uint masterId, long sessionGeneration, string connectionId)
         {
-            lock (_presenceGate)
-            {
-                if (_presence.TryGetValue(masterId, out var current))
-                {
-                    if (sessionGeneration <= current.SessionGeneration)
-                    {
-                        return null;
-                    }
-                }
-
-                var friend = Friends.Get(masterId);
-                if (friend is null)
-                {
-                    return null;
-                }
-
-                _presence[masterId] = new SessionIdentity(sessionGeneration, connectionId);
-                return friend;
-            }
+            Friend? friend = null;
+            return _presence.TrySignIn(
+                masterId,
+                sessionGeneration,
+                connectionId,
+                () => (friend = Friends.Get(masterId)) is not null)
+                ? friend
+                : null;
         }
 
         public Friend? TryApplySignOut(uint masterId, long sessionGeneration, string connectionId)
         {
-            lock (_presenceGate)
-            {
-                if (_presence.TryGetValue(masterId, out var current) &&
-                    (current.SessionGeneration != sessionGeneration || current.ConnectionId != connectionId))
-                {
-                    return null;
-                }
-
-                var friend = Friends.Get(masterId);
-                if (friend is null)
-                {
-                    return null;
-                }
-
-                _presence.Remove(masterId);
-                return friend;
-            }
+            Friend? friend = null;
+            return _presence.TrySignOut(
+                masterId,
+                sessionGeneration,
+                connectionId,
+                () => (friend = Friends.Get(masterId)) is not null)
+                ? friend
+                : null;
         }
-
-        private readonly record struct SessionIdentity(long SessionGeneration, string ConnectionId);
     }
 }
