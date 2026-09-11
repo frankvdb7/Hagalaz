@@ -362,14 +362,18 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
-    public void DimensionResidencyViews_DoNotExposeMutableDictionaryImplementation()
+    public void DimensionResidencyViews_AreStableSnapshots()
     {
         using var provider = CreateProvider();
         var service = CreateService(provider);
         var dimension = service.FindAllDimensions().Single();
+        var region = service.GetOrCreateMapRegion(1, dimension.Id, false);
+        var snapshot = dimension.Regions;
 
-        Assert.IsFalse(dimension.Regions is ConcurrentDictionary<int, IMapRegion>);
-        Assert.IsFalse(dimension.IdleRegions is ConcurrentDictionary<int, IMapRegion>);
+        Assert.IsTrue(snapshot.ContainsKey(region.Id));
+        Assert.IsTrue(service.TryRemoveMapRegion(region.Id, dimension.Id, region));
+        Assert.IsTrue(snapshot.ContainsKey(region.Id));
+        Assert.IsFalse(dimension.Regions.ContainsKey(region.Id));
     }
 
     [TestMethod]

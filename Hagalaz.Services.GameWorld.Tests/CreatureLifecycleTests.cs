@@ -97,6 +97,36 @@ public sealed class CreatureLifecycleTests
         scope.Received(1).Dispose();
     }
 
+    [TestMethod]
+    public void MajorUpdateTick_WhenContentFails_DoesNotBlockTheNextTick()
+    {
+        var (creature, _, _) = CreateCreature();
+        creature.FailNextContentTick = true;
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => creature.MajorUpdateTick());
+
+        creature.MajorUpdateTick();
+
+        Assert.AreEqual(2, creature.ContentTickCalls);
+    }
+
+    [TestMethod]
+    public void DestroyedCreature_DoesNotRunLaterTickPhases()
+    {
+        var (creature, _, _) = CreateCreature();
+        creature.Destroy();
+
+        creature.MajorUpdateTick();
+        creature.MajorClientPrepareUpdateTick();
+        creature.MajorClientUpdateTick();
+        creature.MajorClientUpdateResetTick();
+
+        Assert.AreEqual(0, creature.ContentTickCalls);
+        Assert.AreEqual(0, creature.UpdatePrepareTickCalls);
+        Assert.AreEqual(0, creature.UpdateTickCalls);
+        Assert.AreEqual(0, creature.ResetTickCalls);
+    }
+
     private static (TestCreature Creature, IMapRegionService MapRegionService, IServiceScope Scope) CreateCreature(
         bool onDestroyFailure = false)
     {
@@ -132,6 +162,11 @@ public sealed class CreatureLifecycleTests
     {
         public bool FailOnDestroy { get; set; }
         public int DestroyCalls { get; private set; }
+        public int ContentTickCalls { get; private set; }
+        public int UpdatePrepareTickCalls { get; private set; }
+        public int UpdateTickCalls { get; private set; }
+        public int ResetTickCalls { get; private set; }
+        public bool FailNextContentTick { get; set; }
         public bool ObservedTerminalStateDuringDestroy { get; private set; }
         public bool ObservedRegionDetachedDuringDestroy { get; private set; }
         public bool ObservedAreaExitedDuringDestroy { get; private set; }
@@ -145,6 +180,8 @@ public sealed class CreatureLifecycleTests
         {
             FailOnDestroy = onDestroyFailure;
             Location = new Location(3200, 3200, 0, 0);
+            Combat = Substitute.For<ICreatureCombat>();
+            Movement = Substitute.For<IMovement>();
         }
 
         public override int Size => 1;
@@ -172,10 +209,18 @@ public sealed class CreatureLifecycleTests
         public override void Interrupt(object source) { }
         public override void MovementTypeChanged(MovementType newtype) { }
         public override void TemporaryMovementTypeEnabled(MovementType type) { }
-        protected override void ContentTick() { }
-        protected override void UpdatesPrepareTick() { }
-        protected override void UpdateTick() { }
-        protected override void ResetTick() { }
+        protected override void ContentTick()
+        {
+            ContentTickCalls++;
+            if (FailNextContentTick)
+            {
+                FailNextContentTick = false;
+                throw new InvalidOperationException("content tick failed");
+            }
+        }
+        protected override void UpdatesPrepareTick() => UpdatePrepareTickCalls++;
+        protected override void UpdateTick() => UpdateTickCalls++;
+        protected override void ResetTick() => ResetTickCalls++;
         protected override void OnLocationChange(ILocation? oldLocation) { }
         protected override void OnRegionChange() { }
         protected override void AddToRegion(IMapRegion newRegion) { }

@@ -40,61 +40,6 @@ public sealed class MapRegionDestructionTests
     }
 
     [TestMethod]
-    public async Task DestroyAsync_WhenNpcCleanupRemovesLaterNpc_StillAttemptsTheSnapshotEntry()
-    {
-        var npcService = Substitute.For<INpcService>();
-        var first = CreateNpc(1);
-        var second = CreateNpc(2);
-        var region = CreateRegion(npcService);
-        region.Add(first);
-        region.Add(second);
-        npcService.UnregisterAsync(first).Returns(_ =>
-        {
-            region.Remove(second);
-            return Task.CompletedTask;
-        });
-
-        await region.DestroyAsync();
-
-        await npcService.Received(1).UnregisterAsync(first);
-        await npcService.Received(1).UnregisterAsync(second);
-    }
-
-    [TestMethod]
-    public async Task DestroyAsync_WhenNpcCleanupRemovesItemsAndObjects_StillAttemptsTheirSnapshots()
-    {
-        var npcService = Substitute.For<INpcService>();
-        var npc = CreateNpc(1);
-        var item = Substitute.For<IGroundItem>();
-        item.Location.Returns(Location.Create(1, 1, 0, 0));
-        var gameObject = CreateGameObject(Location.Create(2, 2, 0, 0));
-        var itemDestroyed = false;
-        var gameObjectDestroyed = false;
-        item.IsDestroyed.Returns(_ => itemDestroyed);
-        item.When(itemToDestroy => itemToDestroy.Destroy()).Do(_ => itemDestroyed = true);
-        gameObject.IsDestroyed.Returns(_ => gameObjectDestroyed);
-        gameObject.When(objectToDestroy => objectToDestroy.Destroy()).Do(_ => gameObjectDestroyed = true);
-        var region = CreateRegion(npcService);
-        region.Add(npc);
-        region.Add(item);
-        region.Add(gameObject);
-        npcService.UnregisterAsync(npc).Returns(_ =>
-        {
-            region.Remove(item);
-            region.Remove(gameObject);
-            return Task.CompletedTask;
-        });
-
-        await region.DestroyAsync();
-
-        await npcService.Received(1).UnregisterAsync(npc);
-        item.Received(1).Destroy();
-        gameObject.Received(1).Destroy();
-        Assert.IsTrue(itemDestroyed);
-        Assert.IsTrue(gameObjectDestroyed);
-    }
-
-    [TestMethod]
     public async Task DestroyAsync_WhenNpcFails_StillDestroysItemsAndObjects()
     {
         var npcService = Substitute.For<INpcService>();

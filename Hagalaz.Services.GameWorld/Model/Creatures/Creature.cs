@@ -31,7 +31,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private readonly Queue<IGraphic> _queuedGraphics = new();
         private readonly CreatureStateCollection _stateCollection;
         private Dictionary<Type, List<EventHappened>> _registeredEventHandlers = new();
-        private CreatureUpdateState _updateState = CreatureUpdateState.Initializing;
         private readonly IServiceScope _serviceScope = default!;
         public bool IsDestroyed { get; private set; }
 
@@ -222,7 +221,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             // Publish terminal state before any structural or user callbacks run. This keeps
             // cleanup callbacks from observing a half-alive creature.
             IsDestroyed = true;
-            _updateState = CreatureUpdateState.Destroyed;
             Exception? failure = null;
             try
             {
@@ -289,7 +287,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         protected void OnInit()
         {
             OnSpawn();
-            _updateState = CreatureUpdateState.Idle;
         }
 
         /// <summary>
@@ -664,12 +661,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void MajorUpdateTick()
         {
-            if (_updateState != CreatureUpdateState.Idle)
+            if (IsDestroyed)
             {
                 return;
             }
-
-            _updateState = CreatureUpdateState.ServerUpdate;
 
             var faced = FacedCreature;
             if (faced != null && !Viewport.VisibleCreatures.Contains(faced))
@@ -686,12 +681,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void MajorClientPrepareUpdateTick()
         {
-            if (_updateState != CreatureUpdateState.ServerUpdate)
+            if (IsDestroyed)
             {
                 return;
             }
-
-            _updateState = CreatureUpdateState.ClientPrepareUpdate;
 
             UpdatesPrepareTick();
         }
@@ -701,12 +694,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void MajorClientUpdateTick()
         {
-            if (_updateState != CreatureUpdateState.ClientPrepareUpdate)
+            if (IsDestroyed)
             {
                 return;
             }
-
-            _updateState = CreatureUpdateState.ClientUpdate;
 
             UpdateTick();
         }
@@ -716,12 +707,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void MajorClientUpdateResetTick()
         {
-            if (_updateState != CreatureUpdateState.ClientUpdate)
+            if (IsDestroyed)
             {
                 return;
             }
-
-            _updateState = CreatureUpdateState.ClientUpdateReset;
 
             SpeakingText = null; // no longer speak same ;P
             RenderedNonstandardMovement = null; // no longer render same movement
@@ -732,18 +721,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             TurnedToY = -1;
             Movement.Reset();
             ResetTick();
-            _updateState = CreatureUpdateState.Idle;
-        }
-
-        protected bool TryBeginClientUpdate()
-        {
-            if (_updateState != CreatureUpdateState.ClientPrepareUpdate)
-            {
-                return false;
-            }
-
-            _updateState = CreatureUpdateState.ClientUpdate;
-            return true;
         }
 
         /// <summary>

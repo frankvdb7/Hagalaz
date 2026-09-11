@@ -14,18 +14,15 @@ namespace Hagalaz.Services.GameWorld.Services;
 /// </summary>
 public sealed class GameSessionAbortCoordinator
 {
-    private readonly IGameSessionStore _sessions;
     private readonly IGameSessionAbortState _abortSessions;
     private readonly IGameSessionConnectionTerminator _connectionTerminator;
     private readonly ILogger<GameSessionAbortCoordinator> _logger;
 
     public GameSessionAbortCoordinator(
-        IGameSessionStore sessions,
         IGameSessionAbortState abortSessions,
         IGameSessionConnectionTerminator connectionTerminator,
         ILogger<GameSessionAbortCoordinator> logger)
     {
-        _sessions = sessions;
         _abortSessions = abortSessions;
         _connectionTerminator = connectionTerminator;
         _logger = logger;
@@ -52,16 +49,6 @@ public sealed class GameSessionAbortCoordinator
     {
         if (!await _abortSessions.TryBeginPendingSessionAbort(session))
         {
-            return false;
-        }
-
-        var currentSession = await _sessions.TryGetValue(session.ConnectionId);
-        if (currentSession.Found && !ReferenceEquals(currentSession.Session, session))
-        {
-            await ReleaseProcessingMarkerAsync(session);
-            _logger.LogCritical(
-                "Cannot reconcile deferred abort for connection '{connectionId}' because a different session is active; retaining the abort record until the connection ID is available.",
-                session.ConnectionId);
             return false;
         }
 

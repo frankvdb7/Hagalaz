@@ -169,8 +169,16 @@ namespace Hagalaz.Services.GameWorld.Services
                     return resume ? ResumeIdleRegion(dim, id, idleRegion) : idleRegion;
                 }
 
-                result = dim.ActiveRegions.GetOrAdd(id, newRegion);
-                created = ReferenceEquals(result, newRegion);
+                if (dim.ActiveRegions.TryGetValue(id, out var currentRegion))
+                {
+                    result = currentRegion;
+                }
+                else
+                {
+                    dim.ActiveRegions.Add(id, newRegion);
+                    result = newRegion;
+                    created = true;
+                }
             }
 
             if (created)
@@ -198,7 +206,9 @@ namespace Hagalaz.Services.GameWorld.Services
 
         private IMapRegion ResumeIdleRegion(Dimension dimension, int id, IMapRegion idleRegion)
         {
-            if (!dimension.IdleRegionStore.TryRemove(new KeyValuePair<int, IMapRegion>(id, idleRegion)))
+            if (!dimension.IdleRegionStore.TryGetValue(id, out var currentIdleRegion)
+                || !ReferenceEquals(currentIdleRegion, idleRegion)
+                || !dimension.IdleRegionStore.Remove(id))
             {
                 if (dimension.ActiveRegions.TryGetValue(id, out var currentRegion))
                 {
@@ -250,7 +260,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     return false;
                 }
 
-                if (!dimension.ActiveRegions.TryRemove(new KeyValuePair<int, IMapRegion>(expectedRegion.Id, expectedRegion)))
+                if (!dimension.ActiveRegions.Remove(expectedRegion.Id))
                 {
                     return false;
                 }
@@ -273,7 +283,9 @@ namespace Hagalaz.Services.GameWorld.Services
 
             lock (mapDimension.ResidencySyncRoot)
             {
-                return mapDimension.IdleRegionStore.TryRemove(new KeyValuePair<int, IMapRegion>(id, expectedRegion));
+                return mapDimension.IdleRegionStore.TryGetValue(id, out var currentRegion)
+                    && ReferenceEquals(currentRegion, expectedRegion)
+                    && mapDimension.IdleRegionStore.Remove(id);
             }
         }
 
@@ -282,9 +294,16 @@ namespace Hagalaz.Services.GameWorld.Services
             ArgumentNullException.ThrowIfNull(expectedRegion);
 
             var mapDimension = _dimensions[dimension];
-            return mapDimension is not null
-                && mapDimension.ActiveRegions.TryGetValue(id, out var currentRegion)
-                && ReferenceEquals(currentRegion, expectedRegion);
+            if (mapDimension is null)
+            {
+                return false;
+            }
+
+            lock (mapDimension.ResidencySyncRoot)
+            {
+                return mapDimension.ActiveRegions.TryGetValue(id, out var currentRegion)
+                    && ReferenceEquals(currentRegion, expectedRegion);
+            }
         }
 
         /// <summary>

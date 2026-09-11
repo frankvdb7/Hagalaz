@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -36,11 +35,10 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 added = await _npcStore.AddAsync(npc);
             }
-            catch (Exception exception)
+            catch
             {
                 DestroyAfterFailedRegistration(npc);
-                ExceptionDispatchInfo.Capture(exception).Throw();
-                return;
+                throw;
             }
 
             if (!added)
@@ -55,11 +53,11 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 npc.OnRegistered();
             }
-            catch (Exception exception)
+            catch
             {
                 await RemoveAfterFailedRegistrationAsync(npc);
                 DestroyAfterFailedRegistration(npc);
-                ExceptionDispatchInfo.Capture(exception).Throw();
+                throw;
             }
         }
 
@@ -72,11 +70,10 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 added = _npcStore.Add(npc);
             }
-            catch (Exception exception)
+            catch
             {
                 DestroyAfterFailedRegistration(npc);
-                ExceptionDispatchInfo.Capture(exception).Throw();
-                return;
+                throw;
             }
 
             if (!added)
@@ -91,11 +88,11 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 npc.OnRegistered();
             }
-            catch (Exception exception)
+            catch
             {
                 RemoveAfterFailedRegistration(npc);
                 DestroyAfterFailedRegistration(npc);
-                ExceptionDispatchInfo.Capture(exception).Throw();
+                throw;
             }
         }
 

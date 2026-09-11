@@ -180,7 +180,6 @@ public sealed class GameSessionServiceTests
         var abortStore = new CompletionFailingAbortStore(store);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var coordinator = new GameSessionAbortCoordinator(
-            store,
             abortStore,
             terminator,
             NullLogger<GameSessionAbortCoordinator>.Instance);
@@ -1350,7 +1349,6 @@ public sealed class GameSessionServiceTests
         GameSessionStore store,
         IGameSessionConnectionTerminator terminator) =>
         new(
-            store,
             store,
             terminator,
             NullLogger<GameSessionAbortCoordinator>.Instance);

@@ -237,29 +237,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             return true;
         }
 
-        public bool RemoveDestroyed(IGroundItem item)
-        {
-            var localHash = item.Location.GetRegionLocalHash();
-            if (!_groundItems.TryGetValue(localHash, out var itemsOnLocation))
-            {
-                return false;
-            }
-
-            var removed = itemsOnLocation.Remove(item);
-            if (itemsOnLocation.Count == 0)
-            {
-                _groundItems.Remove(localHash);
-            }
-
-            return removed;
-        }
-
-        public bool RemoveDestroyed(IGameObject gameObject)
-        {
-            var localHash = gameObject.GetRegionLocalHash();
-            return _gameObjects.Remove(localHash, out var removed) && ReferenceEquals(removed, gameObject);
-        }
-
         /// <summary>
         /// Handles a ground item whose timer has run out by either respawning
         /// it, converting it to a public item, or removing it entirely.

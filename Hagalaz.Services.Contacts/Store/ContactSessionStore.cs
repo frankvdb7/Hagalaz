@@ -1,20 +1,20 @@
 using System.Collections;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using Hagalaz.Services.Contacts.Store.Model;
 
 namespace Hagalaz.Services.Contacts.Store
 {
     public sealed class ContactSessionStore : IEnumerable<ContactSessionContext>
     {
-        private readonly ConcurrentDictionary<uint, ContactSessionContext> _sessions = new();
+        private readonly Dictionary<uint, ContactSessionContext> _sessions = new();
         private readonly object _sessionGate = new();
 
         public bool TrySetNewerSession(ContactSessionContext session)
         {
             lock (_sessionGate)
             {
-                var existing = GetOrDefault(session.MasterId);
+                _sessions.TryGetValue(session.MasterId, out var existing);
                 if (existing != null && session.SessionGeneration <= existing.SessionGeneration)
                 {
                     return false;
@@ -36,18 +36,36 @@ namespace Hagalaz.Services.Contacts.Store
                     return false;
                 }
 
-                return _sessions.TryRemove(masterId, out _);
+                return _sessions.Remove(masterId);
             }
         }
 
         public bool TryRemoveExact(ContactSessionContext expectedSession) =>
             TryRemoveExact(expectedSession.MasterId, expectedSession.SessionGeneration, expectedSession.ConnectionId);
 
-        public bool TryGetValue(uint masterId, out ContactSessionContext session) => _sessions.TryGetValue(masterId, out session!);
+        public bool TryGetValue(uint masterId, out ContactSessionContext session)
+        {
+            lock (_sessionGate)
+            {
+                return _sessions.TryGetValue(masterId, out session!);
+            }
+        }
 
-        public ContactSessionContext? GetOrDefault(uint masterId) => _sessions.GetValueOrDefault(masterId);
+        public ContactSessionContext? GetOrDefault(uint masterId)
+        {
+            lock (_sessionGate)
+            {
+                return _sessions.GetValueOrDefault(masterId);
+            }
+        }
 
-        public IEnumerator<ContactSessionContext> GetEnumerator() => _sessions.Values.GetEnumerator();
+        public IEnumerator<ContactSessionContext> GetEnumerator()
+        {
+            lock (_sessionGate)
+            {
+                return _sessions.Values.ToArray().AsEnumerable().GetEnumerator();
+            }
+        }
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }

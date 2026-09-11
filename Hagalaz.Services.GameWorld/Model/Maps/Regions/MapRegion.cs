@@ -312,17 +312,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     failure ??= ex;
                 }
-                finally
-                {
-                    RemoveNpcAfterDestruction(npc);
-                }
             }
 
             foreach (var item in items)
             {
                 if (item.IsDestroyed)
                 {
-                    RemoveGroundItemAfterDestruction(item);
                     continue;
                 }
 
@@ -331,14 +326,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     item.Destroy();
                 }
                 catch (Exception ex) { failure ??= ex; }
-                finally { RemoveGroundItemAfterDestruction(item); }
             }
 
             foreach (var obj in objects)
             {
                 if (obj.IsDestroyed)
                 {
-                    RemoveGameObjectAfterDestruction(obj);
                     continue;
                 }
 
@@ -347,7 +340,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     obj.Destroy();
                 }
                 catch (Exception ex) { failure ??= ex; }
-                finally { RemoveGameObjectAfterDestruction(obj); }
             }
 
             if (failure is not null)
@@ -387,28 +379,5 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 HasDrawSource = true,
             };
 
-        private void RemoveNpcAfterDestruction(INpc npc)
-        {
-            _npcs.TryRemove(npc.Index, npc);
-        }
-
-        private void RemoveGroundItemAfterDestruction(IGroundItem item)
-        {
-            var partHash = item.Location.GetRegionPartHash();
-            if (_parts.TryGetValue(partHash, out var part) && part is MapRegionPart concretePart)
-            {
-                concretePart.RemoveDestroyed(item);
-            }
-        }
-
-        private void RemoveGameObjectAfterDestruction(IGameObject gameObject)
-        {
-            var partHash = gameObject.Location.GetRegionPartHash();
-            if (_parts.TryGetValue(partHash, out var part) && part is MapRegionPart concretePart)
-            {
-                concretePart.RemoveDestroyed(gameObject);
-                UnFlagCollision(gameObject);
-            }
-        }
     }
 }

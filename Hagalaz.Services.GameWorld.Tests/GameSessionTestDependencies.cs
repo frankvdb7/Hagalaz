@@ -17,7 +17,6 @@ internal static class GameSessionTestDependencies
         IGameSessionConnectionTerminator terminator)
     {
         var abortCoordinator = new GameSessionAbortCoordinator(
-            sessions,
             abortSessions,
             terminator,
             NullLogger<GameSessionAbortCoordinator>.Instance);
@@ -36,7 +35,6 @@ internal static class GameSessionTestDependencies
         IGameSessionConnectionTerminator terminator)
     {
         var abortCoordinator = new GameSessionAbortCoordinator(
-            sessions,
             abortSessions,
             terminator,
             NullLogger<GameSessionAbortCoordinator>.Instance);
