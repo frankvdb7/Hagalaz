@@ -173,6 +173,39 @@ public sealed class ContactPresenceConsumerTests
     }
 
     [TestMethod]
+    public void InitialSnapshotSeedsExactOwnerAndRejectsStaleAndDuplicateSignOut()
+    {
+        var contacts = new ContactList<Friend>();
+        var feature = CreateConnection(contacts).Features.Get<IContactsFeature>()!;
+
+        feature.ReplaceFriends(
+            [CreateFriend()],
+            [new ContactPresenceOwner(42, 11, "new")]);
+
+        Assert.IsNull(feature.TryApplySignOut(42, 10, "old"));
+        Assert.IsNotNull(feature.TryApplySignOut(42, 11, "new"));
+        Assert.IsNull(feature.TryApplySignOut(42, 11, "new"));
+    }
+
+    [TestMethod]
+    public void NewerSignInSupersedesSeededOwnerAndSnapshotReplacementPrunesIt()
+    {
+        var contacts = new ContactList<Friend>();
+        var feature = CreateConnection(contacts).Features.Get<IContactsFeature>()!;
+
+        feature.ReplaceFriends(
+            [CreateFriend()],
+            [new ContactPresenceOwner(42, 11, "old")]);
+
+        Assert.IsNotNull(feature.TryApplySignIn(42, 12, "new"));
+        Assert.IsNull(feature.TryApplySignOut(42, 11, "old"));
+
+        feature.ReplaceFriends([], []);
+
+        Assert.IsNull(feature.TryApplySignOut(42, 12, "new"));
+    }
+
+    [TestMethod]
     public void LobbyContactsFeature_UsesTheSamePresenceFence()
     {
         var feature = new LobbyContactsFeature();
@@ -202,6 +235,14 @@ public sealed class ContactPresenceConsumerTests
         connection.SendMessage(Arg.Any<RaidoMessage>()).Returns(Task.CompletedTask);
         return connection;
     }
+
+    private static Friend CreateFriend() => new()
+    {
+        MasterId = 42,
+        Rank = FriendsChatRank.Friend,
+        Availability = Availability.Everyone,
+        AreMutualFriends = true
+    };
 
     private static IMapper CreateMapper()
     {

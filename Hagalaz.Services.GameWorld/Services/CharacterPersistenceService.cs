@@ -78,11 +78,20 @@ namespace Hagalaz.Services.GameWorld.Services
                     snapshotRevision);
 
                 // Record the snapshot before publishing so a fast acknowledgement cannot arrive
-                // before the producer has state to match it. If publishing or the outbox commit
-                // fails, the pending snapshot remains the only owner until it is acknowledged.
+                // before the producer has state to match it.
                 _state.MarkPending(character.MasterId, fingerprint, receipt);
-                await _publishEndpoint.Publish(command, cancellationToken);
-                await _dbContext.SaveChangesAsync(cancellationToken);
+
+                try
+                {
+                    await _publishEndpoint.Publish(command, cancellationToken);
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                }
+                catch
+                {
+                    _state.RemovePending(character.MasterId, receipt);
+                    throw;
+                }
+
                 _logger.LogDebug("Queued character {MasterId} snapshot revision {SnapshotRevision} in the EF bus outbox", character.MasterId, snapshotRevision);
                 return receipt;
             }
@@ -151,17 +160,6 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 ReleaseReference(masterId, entry);
                 throw;
-            }
-        }
-
-        internal int LockCount
-        {
-            get
-            {
-                lock (_lockRegistryGate)
-                {
-                    return _locks.Count;
-                }
             }
         }
 
@@ -246,10 +244,14 @@ namespace Hagalaz.Services.GameWorld.Services
                     return;
                 }
 
-                pending.Receipt.TryAcknowledge(outcome);
+                if (!pending.Receipt.TryAcknowledge(outcome))
+                {
+                    return;
+                }
+
+                entry.Pending = null;
                 if (outcome is CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate)
                 {
-                    entry.Pending = null;
                     entry.PersistedFingerprint = pending.Fingerprint;
                 }
             }

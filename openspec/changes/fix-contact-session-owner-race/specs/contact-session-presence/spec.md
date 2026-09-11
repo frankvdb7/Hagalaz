@@ -161,6 +161,22 @@ record.
 - WHEN generation 2 on `world-b` signs out
 - THEN master 42 is removed
 
+#### Scenario: Initial contact snapshot seeds the exact online owner
+
+- **GIVEN** an initial friends snapshot represents master 42 online at
+  generation 11 on `world-b`
+- **WHEN** the snapshot is applied to a GameWorld contacts feature
+- **THEN** a delayed sign-out for generation 10 on `world-a` is ignored
+- **AND** the exact generation 11/`world-b` sign-out is accepted once
+- **AND** a duplicate exact sign-out is ignored
+
+#### Scenario: Contact snapshot replacement prunes obsolete owners
+
+- **GIVEN** an initial snapshot contains master 42 as an online friend
+- **WHEN** a replacement snapshot removes master 42 or represents it offline
+- **THEN** the local presence owner for master 42 is removed
+- **AND** a later sign-out for that old owner is ignored
+
 ### Requirement: Presence replacement does not duplicate notifications
 
 The Contacts service MUST publish one sign-in notification for a new owner and

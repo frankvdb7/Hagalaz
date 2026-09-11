@@ -68,6 +68,13 @@ it does not check a state through one API and mutate it through another.
     store-owned and retryable, Contacts retains generation checks, and
     `MapRegionPart._updatesLock` remains because it protects its own buffers.
 
+11. **Persistence submission owns local pending cleanup.** Persistence records
+    the exact receipt before publication, releases that receipt if publish or
+    outbox submission fails, and never rolls back the consumed revision. The
+    first terminal acknowledgement wins; a conflict clears pending ownership
+    without marking its fingerprint persisted, so retry uses a new receipt and
+    revision.
+
 ## Verification strategy
 
 - Test explicit active/idle lookup safety, concurrent dimension allocation,

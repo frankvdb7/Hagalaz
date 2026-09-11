@@ -8,6 +8,19 @@ namespace Hagalaz.Services.GameWorld.Features
         private readonly object _gate = new();
         private readonly Dictionary<uint, SessionIdentity> _owners = new();
 
+        public void ReplaceOwners(IEnumerable<ContactPresenceOwner> owners, Action replaceContacts)
+        {
+            lock (_gate)
+            {
+                replaceContacts();
+                _owners.Clear();
+                foreach (var owner in owners)
+                {
+                    _owners[owner.MasterId] = new SessionIdentity(owner.SessionGeneration, owner.ConnectionId);
+                }
+            }
+        }
+
         public bool TrySignIn(
             uint masterId,
             long sessionGeneration,
@@ -40,8 +53,9 @@ namespace Hagalaz.Services.GameWorld.Features
         {
             lock (_gate)
             {
-                if (_owners.TryGetValue(masterId, out var current) &&
-                    (current.SessionGeneration != sessionGeneration || current.ConnectionId != connectionId))
+                if (!_owners.TryGetValue(masterId, out var current) ||
+                    current.SessionGeneration != sessionGeneration ||
+                    current.ConnectionId != connectionId)
                 {
                     return false;
                 }

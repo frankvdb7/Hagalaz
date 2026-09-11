@@ -27,7 +27,7 @@ public sealed class CharacterPersistenceStateTests
     }
 
     [TestMethod]
-    public void Acknowledge_ConflictLeavesExactPendingSnapshotForRetry()
+    public void Acknowledge_ConflictIsTerminalAndDoesNotPersistFingerprint()
     {
         var state = new CharacterPersistenceState();
         var receipt = CreateReceipt(Guid.NewGuid(), 7);
@@ -37,7 +37,8 @@ public sealed class CharacterPersistenceStateTests
 
         Assert.IsFalse(state.IsPersisted(42, "fingerprint"));
         state.Acknowledge(42, receipt.CorrelationId, receipt.SnapshotRevision, CharacterPersistenceOutcome.Committed);
-        Assert.IsTrue(state.IsPersisted(42, "fingerprint"));
+        Assert.IsFalse(state.IsPersisted(42, "fingerprint"));
+        Assert.IsFalse(state.TryGetPending(42, out _));
     }
 
     [TestMethod]
@@ -51,6 +52,20 @@ public sealed class CharacterPersistenceStateTests
         state.Acknowledge(42, receipt.CorrelationId, receipt.SnapshotRevision, CharacterPersistenceOutcome.Duplicate);
 
         Assert.IsTrue(state.IsPersisted(42, "fingerprint"));
+    }
+
+    [TestMethod]
+    public void Acknowledge_CommittedThenConflictDoesNotUndoPersistedState()
+    {
+        var state = new CharacterPersistenceState();
+        var receipt = CreateReceipt(Guid.NewGuid(), 7);
+        state.MarkPending(42, "fingerprint", receipt);
+
+        state.Acknowledge(42, receipt.CorrelationId, receipt.SnapshotRevision, CharacterPersistenceOutcome.Committed);
+        state.Acknowledge(42, receipt.CorrelationId, receipt.SnapshotRevision, CharacterPersistenceOutcome.Conflict);
+
+        Assert.IsTrue(state.IsPersisted(42, "fingerprint"));
+        Assert.IsFalse(state.TryGetPending(42, out _));
     }
 
     [TestMethod]
@@ -87,7 +102,7 @@ public sealed class CharacterPersistenceStateTests
     }
 
     [TestMethod]
-    public async Task AcquireAsync_ForSameCharacter_RemainsSerializedAndRetiresLockEntry()
+    public async Task AcquireAsync_ForSameCharacter_RemainsSerializedAndCanBeReused()
     {
         var state = new CharacterPersistenceState();
         using var firstHandle = await state.AcquireAsync(42, CancellationToken.None);
@@ -95,10 +110,10 @@ public sealed class CharacterPersistenceStateTests
 
         Assert.IsFalse(secondHandleTask.IsCompleted);
         firstHandle.Dispose();
-        using var secondHandle = await secondHandleTask;
+        var secondHandle = await secondHandleTask;
         secondHandle.Dispose();
 
-        Assert.AreEqual(0, state.LockCount);
+        using var thirdHandle = await state.AcquireAsync(42, CancellationToken.None);
     }
 
     private static CharacterPersistenceReceipt CreateReceipt(Guid correlationId, long revision) =>

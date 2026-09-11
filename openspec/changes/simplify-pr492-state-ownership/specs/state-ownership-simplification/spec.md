@@ -151,6 +151,23 @@ allocation state.
 - **AND** it dehydrates the character again after the wait
 - **AND** it publishes the final snapshot with a new correlation and revision
 
+#### Scenario: Failed local submission releases the exact pending owner
+
+- **WHEN** publication or the EF outbox submission fails after the snapshot
+  receipt has been recorded
+- **THEN** the failed receipt no longer blocks persistence for that master
+- **AND** the consumed snapshot revision is not rolled back
+- **AND** a later attempt can publish a new snapshot with a greater revision
+
+#### Scenario: The first terminal acknowledgement wins
+
+- **WHEN** an exact pending receipt first receives a terminal `Conflict`
+- **THEN** the receipt remains `Conflict` when a contradictory acknowledgement
+  is delivered later
+- **AND** the conflict clears pending ownership without persisting its
+  fingerprint
+- **AND** a later persistence attempt uses a new receipt and revision
+
 ### Requirement: MapRegion lifecycle state is visibility-only
 
 `MapRegion` MUST retain cross-thread visibility for ready/discarded state, but

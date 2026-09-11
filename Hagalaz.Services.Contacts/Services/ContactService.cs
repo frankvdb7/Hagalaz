@@ -181,7 +181,12 @@ namespace Hagalaz.Services.Contacts.Services
                 // online contact
                 yield return contact with
                 {
-                    WorldId = contactSession.WorldId, WorldName = contactSession.WorldName, AreMutualFriends = mutualFriend != null, Settings = settings
+                    WorldId = contactSession.WorldId,
+                    WorldName = contactSession.WorldName,
+                    SessionGeneration = contactSession.SessionGeneration,
+                    SessionConnectionId = contactSession.ConnectionId,
+                    AreMutualFriends = mutualFriend != null,
+                    Settings = settings
                 };
             }
         }

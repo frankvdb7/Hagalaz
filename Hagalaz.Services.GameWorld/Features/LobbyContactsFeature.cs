@@ -1,4 +1,5 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using System.Collections.Generic;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 
 namespace Hagalaz.Services.GameWorld.Features
@@ -12,6 +13,9 @@ namespace Hagalaz.Services.GameWorld.Features
         public IContactList<Friend> Friends => _friends;
 
         public IContactList<Ignore> Ignores => _ignores;
+
+        public void ReplaceFriends(IEnumerable<Friend> friends, IEnumerable<ContactPresenceOwner> onlineOwners) =>
+            _presence.ReplaceOwners(onlineOwners, () => Friends.Set(friends));
 
         public Friend? TryApplySignIn(uint masterId, long sessionGeneration, string connectionId)
         {

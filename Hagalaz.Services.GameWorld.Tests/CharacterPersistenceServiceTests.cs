@@ -98,6 +98,25 @@ public sealed class CharacterPersistenceServiceTests
     }
 
     [TestMethod]
+    public async Task PersistAsync_AfterConflictCreatesNewReceiptAndRevision()
+    {
+        await using var harness = new PersistenceHarness();
+        var firstReceipt = await harness.Service.PersistAsync(harness.Character, force: false);
+
+        harness.State.Acknowledge(
+            42,
+            firstReceipt!.CorrelationId,
+            firstReceipt.SnapshotRevision,
+            CharacterPersistenceOutcome.Conflict);
+
+        var retry = await harness.Service.PersistAsync(harness.Character, force: false);
+
+        Assert.IsNotNull(retry);
+        Assert.AreNotEqual(firstReceipt.CorrelationId, retry.CorrelationId);
+        Assert.IsTrue(retry.SnapshotRevision > firstReceipt.SnapshotRevision);
+    }
+
+    [TestMethod]
     public async Task PersistAsync_ForcedSaveWaitsForPendingAndUsesCurrentCharacterState()
     {
         await using var harness = new PersistenceHarness();
@@ -190,6 +209,46 @@ public sealed class CharacterPersistenceServiceTests
     }
 
     [TestMethod]
+    public async Task PersistAsync_PublishFailure_ReleasesPendingOwnershipAndConsumesRevision()
+    {
+        await using var harness = new PersistenceHarness();
+        var publishFailure = new InvalidOperationException("publish failed");
+        harness.PublishException = publishFailure;
+
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => harness.Service.PersistAsync(harness.Character, force: false));
+
+        Assert.AreSame(publishFailure, exception);
+        harness.PublishException = null;
+
+        var retry = await harness.Service.PersistAsync(harness.Character, force: false);
+
+        Assert.IsNotNull(retry);
+        Assert.HasCount(2, harness.PublishedCommands);
+        Assert.IsTrue(harness.PublishedCommands[1].SnapshotRevision > harness.PublishedCommands[0].SnapshotRevision);
+    }
+
+    [TestMethod]
+    public async Task PersistAsync_SaveChangesFailure_ReleasesPendingOwnershipAndConsumesRevision()
+    {
+        await using var harness = new PersistenceHarness();
+        var saveFailure = new InvalidOperationException("outbox commit failed");
+        harness.SaveChangesException = saveFailure;
+
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => harness.Service.PersistAsync(harness.Character, force: false));
+
+        Assert.AreSame(saveFailure, exception);
+        harness.SaveChangesException = null;
+
+        var retry = await harness.Service.PersistAsync(harness.Character, force: false);
+
+        Assert.IsNotNull(retry);
+        Assert.HasCount(2, harness.PublishedCommands);
+        Assert.IsTrue(harness.PublishedCommands[1].SnapshotRevision > harness.PublishedCommands[0].SnapshotRevision);
+    }
+
+    [TestMethod]
     public void SharedDbContext_ContainsMassTransitInboxAndOutboxEntities()
     {
         using var context = CreateSharedDbContext();
@@ -226,8 +285,19 @@ public sealed class CharacterPersistenceServiceTests
             PublishEndpoint = Substitute.For<IPublishEndpoint>();
             PublishEndpoint
                 .When(endpoint => endpoint.Publish(Arg.Any<PersistCharacterCommand>(), Arg.Any<CancellationToken>()))
-                .Do(callInfo => PublishedCommands.Add(callInfo.Arg<PersistCharacterCommand>()!));
-            _dbContext = CreateSharedDbContext();
+                .Do(callInfo =>
+                {
+                    PublishedCommands.Add(callInfo.Arg<PersistCharacterCommand>()!);
+                    if (PublishException is not null)
+                    {
+                        throw PublishException;
+                    }
+                });
+            _dbContext = Substitute.For<HagalazDbContext>(CreateDbContextOptions());
+            _dbContext.SaveChangesAsync(Arg.Any<CancellationToken>())
+                .Returns(_ => SaveChangesException is null
+                    ? Task.FromResult(1)
+                    : Task.FromException<int>(SaveChangesException));
             _mapperProvider = new ServiceCollection()
                 .AddLogging()
                 .AddAutoMapper(configuration => configuration.AddProfile<CharacterProfile>())
@@ -249,6 +319,8 @@ public sealed class CharacterPersistenceServiceTests
         public IPublishEndpoint PublishEndpoint { get; }
         public List<PersistCharacterCommand> PublishedCommands { get; } = [];
         public CharacterPersistenceService Service { get; }
+        public Exception? PublishException { get; set; }
+        public Exception? SaveChangesException { get; set; }
 
         public async ValueTask DisposeAsync()
         {
@@ -256,4 +328,9 @@ public sealed class CharacterPersistenceServiceTests
             await _dbContext.DisposeAsync();
         }
     }
+
+    private static DbContextOptions<HagalazDbContext> CreateDbContextOptions() =>
+        new DbContextOptionsBuilder<HagalazDbContext>()
+            .UseMySQL("Server=localhost;Database=hagalaz;User=root;Password=;")
+            .Options;
 }

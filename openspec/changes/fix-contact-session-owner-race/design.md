@@ -34,6 +34,13 @@ missing, stale, or unrelated handoff ID cannot replace the current owner.
 Pending lobby-to-world promotions are excluded from world-claim renewal; the
 active lobby continues renewing its own claim until promotion completes.
 
+Initial contact snapshots carry the exact session generation and connection ID
+for online friends. Each `IContactsFeature` applies the full friends snapshot
+and rebuilds its local presence projection under the same feature-owned gate as
+incremental sign-in/sign-out transitions. Snapshot replacement therefore prunes
+owners for removed or offline contacts, and a sign-out is accepted only when an
+exact current local owner exists.
+
 When local lobby admission fails after its claim was acquired and exact release
 cannot be confirmed, the existing pending claim-reconciliation path retains the
 exact session record. A definitive release result of either true or false
