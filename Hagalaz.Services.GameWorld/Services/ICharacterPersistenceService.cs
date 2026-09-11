@@ -11,23 +11,16 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly TaskCompletionSource<CharacterPersistenceOutcome> _completion =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public CharacterPersistenceReceipt(uint masterId, Guid correlationId, long snapshotRevision, Guid ownerId)
+        public CharacterPersistenceReceipt(uint masterId, Guid correlationId, long snapshotRevision)
         {
             MasterId = masterId;
             CorrelationId = correlationId;
             SnapshotRevision = snapshotRevision;
-            OwnerId = ownerId;
         }
 
         public uint MasterId { get; }
         public Guid CorrelationId { get; }
         public long SnapshotRevision { get; }
-        public Guid OwnerId { get; }
-
-        internal bool IsAcknowledgedSuccessfully =>
-            _completion.Task.IsCompletedSuccessfully &&
-            _completion.Task.Result is CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate;
-
         internal bool TryAcknowledge(CharacterPersistenceOutcome outcome) => _completion.TrySetResult(outcome);
 
         internal Task<CharacterPersistenceOutcome> WaitAsync(CancellationToken cancellationToken) =>
@@ -38,8 +31,7 @@ namespace Hagalaz.Services.GameWorld.Services
     {
         Task<CharacterPersistenceReceipt?> PersistAsync(ICharacter character, bool force, CancellationToken cancellationToken = default);
         Task<CharacterPersistenceOutcome> WaitForAcknowledgementAsync(CharacterPersistenceReceipt receipt, CancellationToken cancellationToken = default);
+        void Acknowledge(uint masterId, Guid correlationId, long snapshotRevision, CharacterPersistenceOutcome outcome);
         void InitializeRevision(uint masterId, long persistedRevision);
-        bool IsPersistenceAcknowledged(ICharacter character);
-        void Forget(CharacterPersistenceReceipt receipt);
     }
 }

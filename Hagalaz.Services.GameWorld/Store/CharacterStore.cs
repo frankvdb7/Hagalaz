@@ -81,13 +81,20 @@ namespace Hagalaz.Services.GameWorld.Store
             }
         }
 
-        public async ValueTask<ICharacter?> FindAsync(Func<ICharacter, bool> predicate)
+        public async ValueTask<ICharacter?> FindByIdAsync(uint id)
         {
             using (await _lock.ReaderLockAsync())
             {
-                return _characters.FirstOrDefault(predicate);
+                return _characters.FirstOrDefault(character => character.MasterId == id);
             }
         }
-        public ValueTask<ICharacter?> FindByIdAsync(uint id) => FindAsync(character => character.MasterId == id);
+
+        public async ValueTask<ICharacter?> FindByIndexAsync(int index)
+        {
+            using (await _lock.ReaderLockAsync())
+            {
+                return _characters.FirstOrDefault(character => character.Index == index);
+            }
+        }
     }
 }

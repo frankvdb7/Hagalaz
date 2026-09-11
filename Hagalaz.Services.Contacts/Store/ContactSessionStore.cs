@@ -1,11 +1,9 @@
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using Hagalaz.Services.Contacts.Store.Model;
 
 namespace Hagalaz.Services.Contacts.Store
 {
-    public sealed class ContactSessionStore : IEnumerable<ContactSessionContext>
+    public sealed class ContactSessionStore
     {
         private readonly Dictionary<uint, ContactSessionContext> _sessions = new();
         private readonly object _sessionGate = new();
@@ -59,14 +57,26 @@ namespace Hagalaz.Services.Contacts.Store
             }
         }
 
-        public IEnumerator<ContactSessionContext> GetEnumerator()
+        public IReadOnlyList<ContactSessionContext> RemoveSessionsForWorld(int worldId)
         {
             lock (_sessionGate)
             {
-                return _sessions.Values.ToArray().AsEnumerable().GetEnumerator();
+                var removed = new List<ContactSessionContext>();
+                foreach (var session in _sessions.Values)
+                {
+                    if (session.WorldId == worldId)
+                    {
+                        removed.Add(session);
+                    }
+                }
+
+                foreach (var session in removed)
+                {
+                    _sessions.Remove(session.MasterId);
+                }
+
+                return removed;
             }
         }
-
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

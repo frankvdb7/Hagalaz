@@ -126,7 +126,7 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
                 return;
             }
 
-            var region = _mapRegionService.GetMapRegion(logItem.Location.RegionId, logItem.Location.Dimension, false, true);
+            var region = _mapRegionService.FindMapRegion(logItem.Location.RegionId, logItem.Location.Dimension);
             if (region == null || region.FindStandardGameObject(logItem.Location.RegionLocalX, logItem.Location.RegionLocalY, logItem.Location.Z) != null)
             {
                 character.SendChatMessage("You can't light a fire here.");

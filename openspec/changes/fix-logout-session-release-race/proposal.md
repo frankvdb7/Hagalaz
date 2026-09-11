@@ -37,8 +37,10 @@ After a client disconnects, GameWorld currently waits for token revocation befor
   persistence receipt is acknowledged as committed or duplicate, then
   releases the session and detaches the character.
 - A replacement login cannot be hydrated from the old in-memory owner before
-  that receipt is acknowledged, and an old logout cannot clear the replacement
-  owner's persistence bookkeeping.
+  that receipt is acknowledged. Exact correlation and revision matching keep
+  stale acknowledgements from completing a different pending snapshot, while
+  logout leaves persistence revision/fingerprint bookkeeping owned by
+  persistence.
 - A token-revocation request carries the exact authorization owner and cannot revoke another authorization for the same subject or client.
 - A token-revocation request cannot prevent a successfully persisted logout from releasing its session or detaching its character.
 - A repeated revocation request does not return `ID2079` merely because the token was already revoked; a token that remains valid after a failed revoke still reports failure.

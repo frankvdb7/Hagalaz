@@ -214,7 +214,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             PreviousBoundsMaximum = BoundsMaximum;
             BoundsMaximum = new Location(BaseAbsX + (MapSize.Size - 1), BaseAbsY + (MapSize.Size - 1), 3, ViewLocation.Dimension);
 
-            _visibleRegions.AddRange(_regionService.GetMapRegionsWithinRange(ViewLocation, true, true, MapSize));
+            _visibleRegions.AddRange(_regionService.GetMapRegionsWithinRange(ViewLocation, MapSize));
         }
 
         /// <summary>
@@ -230,7 +230,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                     continue;
                 }
 
-                var current = _regionService.GetOrCreateMapRegion(region.Id, region.BaseLocation.Dimension, false);
+                var current = _regionService.FindMapRegion(region.Id, region.BaseLocation.Dimension);
                 if (current is not null)
                 {
                     _visibleRegions[index] = current;

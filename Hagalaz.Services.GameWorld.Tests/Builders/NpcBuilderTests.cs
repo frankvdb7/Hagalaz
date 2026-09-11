@@ -104,8 +104,8 @@ public sealed class NpcBuilderTests
         var eventManager = Substitute.For<IEventManager>();
         var region = Substitute.For<IMapRegion>();
         var regionService = Substitute.For<IMapRegionService>();
-        regionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>(), true).Returns(region);
-        regionService.GetMapRegion(Arg.Any<int>(), Arg.Any<int>(), false, false).Returns(region);
+        regionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>()).Returns(region);
+        regionService.FindMapRegion(Arg.Any<int>(), Arg.Any<int>()).Returns(region);
         EventHappened eventHandle = _ => false;
         eventManager.Listen<CreatureDestroyedEvent>(Arg.Any<EventHappened<CreatureDestroyedEvent>>()).Returns(eventHandle);
         var builder = CreateBuilder(npcService, services =>

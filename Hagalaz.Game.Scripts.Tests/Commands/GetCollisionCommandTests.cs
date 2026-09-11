@@ -22,7 +22,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             mapRegionMock.GetCollision(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns((CollisionFlag)123);
 
             var mapRegionServiceMock = Substitute.For<IMapRegionService>();
-            mapRegionServiceMock.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>()).Returns(mapRegionMock);
+            mapRegionServiceMock.FindMapRegion(Arg.Any<int>(), Arg.Any<int>()).Returns(mapRegionMock);
 
             var serviceProviderMock = Substitute.For<IServiceProvider>();
             serviceProviderMock.GetService(typeof(IMapRegionService)).Returns(mapRegionServiceMock);

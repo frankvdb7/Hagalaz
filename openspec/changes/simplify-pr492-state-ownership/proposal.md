@@ -26,12 +26,14 @@ remaining shared relationships explicit at their application/service owner.
 - Move all dimension/residency synchronization to one `MapRegionService` gate
   and make dimension creation/removal share that ownership boundary.
 - Ensure every mutating region operation uses canonical active ownership;
-  retain `resume: false` only for read-only access.
+  expose explicit `GetOrCreateMapRegion` and `FindMapRegion` intents rather
+  than caller-controlled create/resume flags. Teardown and read-only paths
+  use exact lookup without resurrecting an idle region.
 - Remove hidden full snapshots from NPC enumeration, and replace character
   streaming enumeration with explicit snapshots where callers need a stable
   set.
 - Keep logout workflow state in `CharacterLogoutService`, leaving persistence
-  state responsible only for persistence.
+  acknowledgement and revision/fingerprint state responsible to persistence.
 - Remove unnecessary lifecycle arbitration from `MapRegion` while retaining
   cross-thread state visibility.
 - Make failed NPC registration preserve store ownership if exact compensation
@@ -43,9 +45,9 @@ remaining shared relationships explicit at their application/service owner.
 ## Non-goals
 
 - No new transaction, compensation framework, retry mechanism, state machine,
-  cache, keyed-lock framework, or generic synchronization abstraction. The
-  existing concurrent logout bookkeeping is only consolidated into the
-  logout owner’s single keyed record.
+  cache, keyed-lock framework, or generic synchronization abstraction. Logout
+  bookkeeping is consolidated into one ordinary dictionary behind the logout
+  owner’s gate.
 - No change to distributed claim IDs, generation fencing, pending claim or
   abort reconciliation, cancellation behavior, or exact-instance ownership.
 - No change to scheduler ownership, map-loader primary-failure behavior,
@@ -78,7 +80,8 @@ remaining shared relationships explicit at their application/service owner.
 - Store APIs do not hide full snapshots behind streaming enumeration, and no
   store reader lock is held across arbitrary caller iteration.
 - `CharacterPersistenceState` contains persistence state only; logout
-  orchestration owns pending logout workflow state.
+  orchestration owns pending logout workflow state and persistence owns
+  acknowledgement delivery.
 - Map-region lifecycle state remains visible across threads without a second
   loader arbitration mechanism.
 - Failed NPC registration cannot knowingly leave a destroyed NPC in its store.

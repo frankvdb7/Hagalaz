@@ -807,7 +807,6 @@ public sealed class AuthenticationSignInTests
         Assert.IsFalse(result.Succeeded);
         await gameSessionService.Received(1).RemoveSession(session);
         persistenceService.Received(1).InitializeRevision(42, 27);
-        persistenceService.DidNotReceive().Forget(Arg.Any<CharacterPersistenceReceipt>());
         character.Received(1).Destroy();
     }
 
@@ -834,7 +833,6 @@ public sealed class AuthenticationSignInTests
         Assert.IsFalse(result.Succeeded);
         Assert.AreEqual(0, characterService.FindByMasterIdCallCount);
         persistenceService.Received(1).InitializeRevision(42, 27);
-        persistenceService.DidNotReceive().Forget(Arg.Any<CharacterPersistenceReceipt>());
     }
 
     [TestMethod]
@@ -859,7 +857,6 @@ public sealed class AuthenticationSignInTests
         var result = await service.SignInWorldAsync(CreateSignInRequest());
 
         Assert.IsFalse(result.Succeeded);
-        persistenceService.DidNotReceive().Forget(Arg.Any<CharacterPersistenceReceipt>());
         character.DidNotReceive().Destroy();
     }
 
@@ -981,7 +978,6 @@ public sealed class AuthenticationSignInTests
         var result = await service.SignInWorldAsync(CreateSignInRequest());
 
         Assert.IsFalse(result.Succeeded);
-        persistenceService.DidNotReceive().Forget(Arg.Any<CharacterPersistenceReceipt>());
         character.Received(1).Destroy();
     }
 

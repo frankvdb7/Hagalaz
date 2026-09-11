@@ -17,7 +17,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public IEnumerable<IGroundItem> FindByLocation(ILocation location)
         {
-            var region = _regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension, true);
+            var region = _regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension);
             foreach (var groundItem in region.FindAllGroundItems().Where(item => item.Location.Equals(location)))
             {
                 yield return groundItem;
@@ -26,7 +26,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public IEnumerable<IGroundItem> FindAllGroundItems(ILocation location)
         {
-            var region = _regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension, true);
+            var region = _regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension);
             foreach (var groundItem in region.FindAllGroundItems())
             {
                 yield return groundItem;

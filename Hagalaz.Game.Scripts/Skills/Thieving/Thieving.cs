@@ -137,8 +137,8 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
             }
             // check if the object isn't empty.
             var regionService = clicker.ServiceProvider.GetRequiredService<IMapRegionService>();
-            var checkObj = regionService.GetOrCreateMapRegion(obj.Location.RegionId, obj.Location.Dimension, false)
-                .FindStandardGameObject(obj.Location.RegionLocalX, obj.Location.RegionLocalY, obj.Location.Z);
+            var region = regionService.FindMapRegion(obj.Location.RegionId, obj.Location.Dimension);
+            var checkObj = region?.FindStandardGameObject(obj.Location.RegionLocalX, obj.Location.RegionLocalY, obj.Location.Z);
             if (checkObj == null || checkObj.Id != obj.Id)
             {
                 return;

@@ -11,23 +11,20 @@ namespace Hagalaz.Game.Abstractions.Services
     public interface IMapRegionService
     {
         /// <summary>
-        /// Gets a map region by its ID and dimension.
+        /// Finds an existing map region without creating or resuming it.
         /// </summary>
         /// <param name="id">The ID of the region.</param>
         /// <param name="dimension">The dimension ID (0 for the global world).</param>
-        /// <param name="create">If set to <c>true</c>, creates the region if it does not exist.</param>
-        /// <param name="resume">If set to <c>true</c>, resumes the region if it is suspended.</param>
-        /// <returns>The <see cref="IMapRegion"/> if found or created; otherwise, <c>null</c>.</returns>
-        IMapRegion? GetMapRegion(int id, int dimension, bool create, bool resume);
+        /// <returns>The existing <see cref="IMapRegion"/>; otherwise, <c>null</c>.</returns>
+        IMapRegion? FindMapRegion(int id, int dimension);
 
         /// <summary>
         /// Gets an existing map region or creates a new one if it doesn't exist.
         /// </summary>
         /// <param name="id">The ID of the region.</param>
         /// <param name="dimension">The dimension ID (0 for the global world).</param>
-        /// <param name="resume">If set to <c>true</c>, resumes the region if it is suspended.</param>
         /// <returns>The existing or newly created <see cref="IMapRegion"/>.</returns>
-        public IMapRegion GetOrCreateMapRegion(int id, int dimension, bool resume);
+        IMapRegion GetOrCreateMapRegion(int id, int dimension);
 
         /// <summary>
         /// Removes a region only when the active region is the expected instance.
@@ -61,11 +58,9 @@ namespace Hagalaz.Game.Abstractions.Services
         /// Gets all map regions within a certain range of a location, typically for a character's viewport.
         /// </summary>
         /// <param name="location">The central location.</param>
-        /// <param name="create">If set to <c>true</c>, creates any regions within range that do not exist.</param>
-        /// <param name="resume">If set to <c>true</c>, resumes any regions within range that are suspended.</param>
         /// <param name="mapSize">The size of the area to get regions for.</param>
         /// <returns>An enumerable collection of map regions within the specified range.</returns>
-        IEnumerable<IMapRegion> GetMapRegionsWithinRange(ILocation location, bool create, bool resume, IMapSize mapSize);
+        IEnumerable<IMapRegion> GetMapRegionsWithinRange(ILocation location, IMapSize mapSize);
 
         /// <summary>
         /// Gets the XTEA keys for a given region, used for decrypting map data.

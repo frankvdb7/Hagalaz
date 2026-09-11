@@ -71,9 +71,9 @@ namespace Hagalaz.Services.GameWorld.Services
             var lumbyloc = Location.Create(3222, 3222, 0, 0);
             var coolCoords = Location.Create(5312, 4800, 0, 0);
             //Location.Create(1952, 5716, 0, 0); // stealing creation
-            var lumby = GetOrCreateMapRegion(lumbyloc.RegionId, 0, true);
+            var lumby = GetOrCreateMapRegion(lumbyloc.RegionId, 0);
             lumby.MakeDynamic();
-            var coolRegion = GetOrCreateMapRegion(coolCoords.RegionId, 0, true);
+            var coolRegion = GetOrCreateMapRegion(coolCoords.RegionId, 0);
             coolRegion.MakeStandard();
 
             for (var z = 0; z < 4; z++)
@@ -106,7 +106,11 @@ namespace Hagalaz.Services.GameWorld.Services
         public CollisionFlag GetClippingFlag(int absX, int absY, int z)
         {
             var regionId = absX >> 6 << 8 | absY >> 6;
-            var mapRegion = GetOrCreateMapRegion(regionId, 0, false);
+            var mapRegion = FindMapRegion(regionId, 0);
+            if (mapRegion is null)
+            {
+                return CollisionFlag.FloorBlock;
+            }
             if (mapRegion.State != MapRegionState.Ready)
             {
                 return CollisionFlag.FloorBlock;
@@ -116,15 +120,27 @@ namespace Hagalaz.Services.GameWorld.Services
         }
 
         /// <summary>
-        /// Get's a map region by its Id.
+        /// Finds a map region by its Id without creating or resuming it.
         /// </summary>
         /// <param name="id">Region Id.</param>
         /// <param name="dimension">Dimension Id, 0 for global world.</param>
-        /// <param name="create">Create region if not within the active regions.</param>
-        /// <param name="resume">Resume region if it's suspended.</param>
-        /// <returns>Returns the map region.</returns>
+        /// <returns>Returns the active or idle map region, or <c>null</c> when it is not known.</returns>
         /// <exception cref="Exception"></exception>
-        public IMapRegion? GetMapRegion(int id, int dimension, bool create, bool resume)
+        public IMapRegion? FindMapRegion(int id, int dimension)
+        {
+            lock (_residencyGate)
+            {
+                var dim = _dimensions[dimension] ?? throw new Exception("'" + dimension + "' is not an existing dimension!");
+                if (dim.ActiveRegions.TryGetValue(id, out var activeRegion))
+                {
+                    return activeRegion;
+                }
+
+                return dim.IdleRegionStore.TryGetValue(id, out var idleRegion) ? idleRegion : null;
+            }
+        }
+
+        public IMapRegion GetOrCreateMapRegion(int id, int dimension)
         {
             Dimension dim;
             lock (_residencyGate)
@@ -137,17 +153,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
                 if (dim.IdleRegionStore.TryGetValue(id, out var idleRegion))
                 {
-                    if (!resume)
-                    {
-                        return idleRegion;
-                    }
-
                     return ResumeIdleRegion(dim, id, idleRegion);
-                }
-
-                if (!create)
-                {
-                    return null;
                 }
             }
 
@@ -166,7 +172,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
                 if (dim.IdleRegionStore.TryGetValue(id, out var idleRegion))
                 {
-                    return resume ? ResumeIdleRegion(dim, id, idleRegion) : idleRegion;
+                    return ResumeIdleRegion(dim, id, idleRegion);
                 }
 
                 dim.ActiveRegions.Add(id, newRegion);
@@ -175,8 +181,6 @@ namespace Hagalaz.Services.GameWorld.Services
             _loadScheduler.RequestLoad(newRegion);
             return newRegion;
         }
-
-        public IMapRegion GetOrCreateMapRegion(int id, int dimension, bool resume) => GetMapRegion(id, dimension, true, resume)!;
 
         private IMapRegion CreateMapRegion(int id, int dimension)
         {
@@ -301,9 +305,9 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <returns></returns>
         public void CreateDynamicRegion(ILocation source, ILocation destination)
         {
-            var standardRegion = GetOrCreateMapRegion(source.RegionId, source.Dimension, true);
+            var standardRegion = GetOrCreateMapRegion(source.RegionId, source.Dimension);
             standardRegion.MakeStandard();
-            var dynamicRegion = GetOrCreateMapRegion(destination.RegionId, destination.Dimension, true);
+            var dynamicRegion = GetOrCreateMapRegion(destination.RegionId, destination.Dimension);
             dynamicRegion.MakeDynamic();
 
             for (var z = 0; z < 4; z++)
@@ -334,7 +338,7 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <param name="flag">The flag.</param>
         public void FlagCollision(ILocation location, CollisionFlag flag)
         {
-            var region = GetOrCreateMapRegion(location.RegionId, location.Dimension, true);
+            var region = GetOrCreateMapRegion(location.RegionId, location.Dimension);
             region.FlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, flag);
         }
 
@@ -346,7 +350,7 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <param name="flag">The flag.</param>
         public void UnFlagCollision(ILocation location, CollisionFlag flag)
         {
-            var region = GetOrCreateMapRegion(location.RegionId, location.Dimension, true);
+            var region = GetOrCreateMapRegion(location.RegionId, location.Dimension);
             region.UnFlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, flag);
         }
 
@@ -450,7 +454,7 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
-        public IEnumerable<IMapRegion> GetMapRegionsWithinRange(ILocation location, bool create, bool resume, IMapSize mapSize)
+        public IEnumerable<IMapRegion> GetMapRegionsWithinRange(ILocation location, IMapSize mapSize)
         {
             var boundsSize = mapSize.Size >> 4;
             var partX = location.RegionX * 8 + 4; // middle of region
@@ -461,11 +465,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 for (var regionY = (partY - boundsSize) / 8; regionY <= (partY + boundsSize) / 8; regionY++)
                 {
                     var regionID = regionY + (regionX << 8);
-                    var mr = GetMapRegion(regionID, location.Dimension, create, resume);
-                    if (mr != null)
-                    {
-                        yield return mr;
-                    }
+                    yield return GetOrCreateMapRegion(regionID, location.Dimension);
                 }
             }
         }

@@ -3,7 +3,8 @@
 - [x] 1.1 Keep the session claim and registered character until the exact final persistence receipt is acknowledged, then release the session and detach while preserving failure recovery for persistence and session removal.
 - [x] 1.2 Ensure non-cancellation revocation failures are logged without restoring the released session claim.
 - [x] 1.3 Return an exact persistence receipt for forced logout snapshots and match acknowledgements to that receipt.
-- [x] 1.4 Make final persistence cleanup receipt-scoped so a replacement revision owner cannot be cleared by an old logout.
+- [x] 1.4 Keep persistence acknowledgement in the persistence service and
+      prevent duplicate forced snapshots by reusing the exact logout receipt.
 
 ## 2. Idempotent revocation
 

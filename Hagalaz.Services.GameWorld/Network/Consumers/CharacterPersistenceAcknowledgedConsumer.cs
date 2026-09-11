@@ -7,16 +7,23 @@ namespace Hagalaz.Services.GameWorld.Network.Consumers;
 
 public sealed class CharacterPersistenceAcknowledgedConsumer : IConsumer<PersistCharacterAcknowledged>
 {
-    private readonly ICharacterLogoutService _characterLogoutService;
+    private readonly ICharacterPersistenceService _persistenceService;
 
-    public CharacterPersistenceAcknowledgedConsumer(ICharacterLogoutService characterLogoutService) =>
-        _characterLogoutService = characterLogoutService;
+    public CharacterPersistenceAcknowledgedConsumer(ICharacterPersistenceService persistenceService) =>
+        _persistenceService = persistenceService;
 
-    public Task Consume(ConsumeContext<PersistCharacterAcknowledged> context) =>
-        _characterLogoutService.AcknowledgeAndCompleteAsync(
+    public Task Consume(ConsumeContext<PersistCharacterAcknowledged> context)
+    {
+        if (context.Message.Outcome is not { } outcome)
+        {
+            return Task.CompletedTask;
+        }
+
+        _persistenceService.Acknowledge(
             context.Message.MasterId,
             context.Message.CorrelationId,
             context.Message.SnapshotRevision,
-            context.CancellationToken,
-            context.Message.Outcome);
+            outcome);
+        return Task.CompletedTask;
+    }
 }

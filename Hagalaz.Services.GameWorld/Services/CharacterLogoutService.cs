@@ -1,9 +1,7 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
@@ -13,64 +11,104 @@ namespace Hagalaz.Services.GameWorld.Services;
 
 public interface ICharacterLogoutService
 {
-    void TrackPendingLogout(ICharacter character);
-    void SetPendingLogoutPersistence(ICharacter character, CharacterPersistenceReceipt receipt);
+    bool TryBeginLogout(
+        ICharacter character,
+        out bool created,
+        out CharacterPersistenceReceipt? persistenceReceipt);
+
+    bool SetPendingLogoutPersistence(ICharacter character, CharacterPersistenceReceipt receipt);
     void CancelPendingLogout(ICharacter character);
     bool IsPendingLogout(ICharacter character);
     Task DetachAsync(ICharacter character, CancellationToken cancellationToken = default);
-    Task<bool> CompleteAsync(uint masterId, CancellationToken cancellationToken = default);
-    Task<bool> AcknowledgeAndCompleteAsync(
-        uint masterId,
-        Guid correlationId,
-        long snapshotRevision,
-        CancellationToken cancellationToken = default,
-        CharacterPersistenceOutcome? outcome = null);
 }
 
 public sealed class CharacterLogoutState
 {
-    private readonly ConcurrentDictionary<uint, PendingLogout> _pending = new();
+    private readonly object _gate = new();
+    private readonly Dictionary<uint, PendingLogout> _pending = new();
 
-    public void Track(ICharacter character) => _pending[character.MasterId] = new PendingLogout(character);
-
-    public void SetPersistenceReceipt(ICharacter character, CharacterPersistenceReceipt receipt)
+    public bool TryBeginLogout(
+        ICharacter character,
+        out bool created,
+        out CharacterPersistenceReceipt? persistenceReceipt)
     {
-        if (_pending.TryGetValue(character.MasterId, out var pending) && ReferenceEquals(pending.Character, character))
+        lock (_gate)
         {
-            pending.PersistenceReceipt = receipt;
+            if (!_pending.TryGetValue(character.MasterId, out var pending))
+            {
+                pending = new PendingLogout(character);
+                _pending.Add(character.MasterId, pending);
+                created = true;
+                persistenceReceipt = null;
+                return true;
+            }
+
+            created = false;
+            persistenceReceipt = ReferenceEquals(pending.Character, character)
+                ? pending.PersistenceReceipt
+                : null;
+            return ReferenceEquals(pending.Character, character);
         }
     }
 
-    public bool IsPending(ICharacter character) =>
-        _pending.TryGetValue(character.MasterId, out var pending) &&
-        ReferenceEquals(pending.Character, character);
-
-    public bool TryMarkRemoved(ICharacter character)
+    public bool SetPersistenceReceipt(ICharacter character, CharacterPersistenceReceipt receipt)
     {
-        return _pending.TryGetValue(character.MasterId, out var pending)
-            && ReferenceEquals(pending.Character, character)
-            && Interlocked.Exchange(ref pending.Removed, 1) == 0;
+        lock (_gate)
+        {
+            if (!_pending.TryGetValue(character.MasterId, out var pending) ||
+                !ReferenceEquals(pending.Character, character))
+            {
+                return false;
+            }
+
+            pending.PersistenceReceipt = receipt;
+            return true;
+        }
     }
 
-    public bool IsRemoved(ICharacter character) =>
-        _pending.TryGetValue(character.MasterId, out var pending)
-        && ReferenceEquals(pending.Character, character)
-        && Volatile.Read(ref pending.Removed) != 0;
-
-    public bool TryGet(uint masterId, out PendingLogout pending) => _pending.TryGetValue(masterId, out pending!);
-
-    public bool TryBeginCompletion(PendingLogout pending) => Interlocked.CompareExchange(ref pending.Completing, 1, 0) == 0;
-
-    public void EndCompletion(PendingLogout pending) => Volatile.Write(ref pending.Completing, 0);
-
-    public void Remove(uint masterId, PendingLogout pending) =>
-        ((ICollection<KeyValuePair<uint, PendingLogout>>)_pending).Remove(new KeyValuePair<uint, PendingLogout>(masterId, pending));
-
-    public void Remove(uint masterId, ICharacter character)
+    public bool IsPending(ICharacter character)
     {
-        if (_pending.TryGetValue(masterId, out var pending) && ReferenceEquals(pending.Character, character))
+        lock (_gate)
         {
-            Remove(masterId, pending);
+            return _pending.TryGetValue(character.MasterId, out var pending) &&
+                   ReferenceEquals(pending.Character, character);
+        }
+    }
+
+    public bool IsRemoved(ICharacter character)
+    {
+        lock (_gate)
+        {
+            return _pending.TryGetValue(character.MasterId, out var pending) &&
+                   ReferenceEquals(pending.Character, character) &&
+                   pending.CharacterRemoved;
+        }
+    }
+
+    public bool MarkRemoved(ICharacter character)
+    {
+        lock (_gate)
+        {
+            if (!_pending.TryGetValue(character.MasterId, out var pending) ||
+                !ReferenceEquals(pending.Character, character))
+            {
+                return false;
+            }
+
+            pending.CharacterRemoved = true;
+            return true;
+        }
+    }
+
+    public void Remove(ICharacter character)
+    {
+        lock (_gate)
+        {
+            if (_pending.TryGetValue(character.MasterId, out var pending) &&
+                ReferenceEquals(pending.Character, character))
+            {
+                _pending.Remove(character.MasterId);
+            }
         }
     }
 
@@ -80,36 +118,36 @@ public sealed class CharacterLogoutState
 
         public ICharacter Character { get; }
         public CharacterPersistenceReceipt? PersistenceReceipt { get; set; }
-        public int Removed;
-        public int Completing;
+        public bool CharacterRemoved { get; set; }
     }
 }
 
 public sealed class CharacterLogoutService : ICharacterLogoutService
 {
-    private readonly CharacterPersistenceState _persistenceState;
     private readonly CharacterLogoutState _logoutState;
     private readonly ICharacterService _characterService;
     private readonly IGameMediator _mediator;
 
     public CharacterLogoutService(
-        CharacterPersistenceState persistenceState,
         CharacterLogoutState logoutState,
         ICharacterService characterService,
         IGameMediator mediator)
     {
-        _persistenceState = persistenceState;
         _logoutState = logoutState;
         _characterService = characterService;
         _mediator = mediator;
     }
 
-    public void TrackPendingLogout(ICharacter character) => _logoutState.Track(character);
+    public bool TryBeginLogout(
+        ICharacter character,
+        out bool created,
+        out CharacterPersistenceReceipt? persistenceReceipt) =>
+        _logoutState.TryBeginLogout(character, out created, out persistenceReceipt);
 
-    public void SetPendingLogoutPersistence(ICharacter character, CharacterPersistenceReceipt receipt) =>
+    public bool SetPendingLogoutPersistence(ICharacter character, CharacterPersistenceReceipt receipt) =>
         _logoutState.SetPersistenceReceipt(character, receipt);
 
-    public void CancelPendingLogout(ICharacter character) => _logoutState.Remove(character.MasterId, character);
+    public void CancelPendingLogout(ICharacter character) => _logoutState.Remove(character);
 
     public bool IsPendingLogout(ICharacter character) => _logoutState.IsPending(character);
 
@@ -120,71 +158,28 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
             return;
         }
 
-        if (_logoutState.IsRemoved(character))
+        if (!_logoutState.IsRemoved(character))
         {
-            await CompleteAsync(character.MasterId, cancellationToken);
-            return;
-        }
-
-        var removed = await _characterService.RemoveAsync(character);
-        if (!removed)
-        {
-            throw new InvalidOperationException($"Failed to remove character '{character}' from the character store during sign out.");
-        }
-
-        _logoutState.TryMarkRemoved(character);
-        await CompleteAsync(character.MasterId, cancellationToken);
-    }
-
-    public async Task<bool> AcknowledgeAndCompleteAsync(
-        uint masterId,
-        Guid correlationId,
-        long snapshotRevision,
-        CancellationToken cancellationToken = default,
-        CharacterPersistenceOutcome? outcome = null)
-    {
-        if (outcome is { } acknowledgedOutcome)
-        {
-            _persistenceState.Acknowledge(masterId, correlationId, snapshotRevision, acknowledgedOutcome);
-        }
-
-        return await CompleteAsync(masterId, cancellationToken);
-    }
-
-    public Task<bool> CompleteAsync(uint masterId, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (!_logoutState.TryGet(masterId, out var pending) ||
-            pending.PersistenceReceipt is not { IsAcknowledgedSuccessfully: true } receipt ||
-            !_logoutState.IsRemoved(pending.Character))
-        {
-            return Task.FromResult(false);
-        }
-
-        if (!_logoutState.TryBeginCompletion(pending))
-        {
-            return Task.FromResult(false);
-        }
-
-        try
-        {
-            var character = pending.Character;
-            var connectionId = character.Session.ConnectionId;
-            var sessionGeneration = character.Session.SessionGeneration;
-            if (!character.IsDestroyed)
+            var removed = await _characterService.RemoveAsync(character);
+            if (!removed)
             {
-                character.Destroy();
+                throw new InvalidOperationException($"Failed to remove character '{character}' from the character store during sign out.");
             }
 
-            _mediator.Publish(new WorldSignOutCommand(masterId, sessionGeneration, connectionId));
-            _persistenceState.Forget(receipt);
-            _logoutState.Remove(masterId, pending);
+            _logoutState.MarkRemoved(character);
         }
-        finally
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!character.IsDestroyed)
         {
-            _logoutState.EndCompletion(pending);
+            character.Destroy();
         }
-        return Task.FromResult(true);
+
+        var session = character.Session;
+        _mediator.Publish(new WorldSignOutCommand(
+            character.MasterId,
+            session.SessionGeneration,
+            session.ConnectionId));
+        _logoutState.Remove(character);
     }
 }

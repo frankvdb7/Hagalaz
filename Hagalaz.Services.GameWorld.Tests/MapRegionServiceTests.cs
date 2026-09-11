@@ -25,7 +25,7 @@ public sealed class MapRegionServiceTests
         using var provider = CreateProvider();
         var service = CreateService(provider);
         var location = Location.Create(67, 69, 0, 0);
-        var region = service.GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
+        var region = service.GetOrCreateMapRegion(location.RegionId, location.Dimension);
 
         region.FlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, CollisionFlag.WallNorth);
 
@@ -39,7 +39,7 @@ public sealed class MapRegionServiceTests
         using var provider = CreateProvider(loadRequests);
         var service = CreateService(provider);
 
-        var region = service.GetOrCreateMapRegion(1, 0, false);
+        var region = service.GetOrCreateMapRegion(1, 0);
 
         loadRequests.Received(1).RequestLoad(region);
     }
@@ -50,7 +50,7 @@ public sealed class MapRegionServiceTests
         using var provider = CreateProvider();
         var service = CreateService(provider);
         var location = Location.Create(67, 69, 0, 0);
-        var region = service.GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
+        var region = service.GetOrCreateMapRegion(location.RegionId, location.Dimension);
         region.MarkDiscarded();
 
         Assert.AreEqual(CollisionFlag.FloorBlock, service.GetClippingFlag(location.X, location.Y, location.Z));
@@ -62,7 +62,7 @@ public sealed class MapRegionServiceTests
         using var provider = CreateProvider();
         var service = CreateService(provider);
         var location = Location.Create(67, 69, 0, 0);
-        var region = service.GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
+        var region = service.GetOrCreateMapRegion(location.RegionId, location.Dimension);
         region.FlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, CollisionFlag.WallNorth);
 
         region.MarkReady();
@@ -86,15 +86,15 @@ public sealed class MapRegionServiceTests
         using var provider = CreateProvider();
         var service = CreateService(provider);
         var location = Location.Create(67, 69, 0, 0);
-        var firstRegion = service.GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
+        var firstRegion = service.GetOrCreateMapRegion(location.RegionId, location.Dimension);
 
         Assert.IsTrue(service.TryRemoveMapRegion(firstRegion.Id, location.Dimension, firstRegion));
 
-        var replacementRegion = service.GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
+        var replacementRegion = service.GetOrCreateMapRegion(location.RegionId, location.Dimension);
         Assert.AreNotSame(firstRegion, replacementRegion);
         Assert.AreEqual(MapRegionState.Initializing, replacementRegion.State);
         Assert.IsFalse(service.TryRemoveMapRegion(firstRegion.Id, location.Dimension, firstRegion));
-        Assert.AreSame(replacementRegion, service.GetMapRegion(location.RegionId, location.Dimension, false, false));
+        Assert.AreSame(replacementRegion, service.FindMapRegion(location.RegionId, location.Dimension));
     }
 
     [TestMethod]
@@ -103,12 +103,12 @@ public sealed class MapRegionServiceTests
         using var provider = CreateProvider();
         var service = CreateService(provider);
         var location = Location.Create(67, 69, 0, 0);
-        var failedRegion = service.GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
+        var failedRegion = service.GetOrCreateMapRegion(location.RegionId, location.Dimension);
 
         failedRegion.MarkDiscarded();
         Assert.IsTrue(service.TryRemoveMapRegion(failedRegion.Id, location.Dimension, failedRegion));
 
-        var freshRegion = service.GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
+        var freshRegion = service.GetOrCreateMapRegion(location.RegionId, location.Dimension);
 
         Assert.AreNotSame(failedRegion, freshRegion);
         Assert.AreEqual(MapRegionState.Initializing, freshRegion.State);
@@ -122,11 +122,11 @@ public sealed class MapRegionServiceTests
         Assert.IsTrue(service.TryCreateDimension(out var dimension));
         Assert.AreEqual(1, dimension!.Id);
 
-        var region = service.GetOrCreateMapRegion(1, dimension.Id, false);
+        var region = service.GetOrCreateMapRegion(1, dimension.Id);
 
         Assert.AreEqual(dimension.Id, region.BaseLocation.Dimension);
         Assert.IsTrue(service.TrySuspendMapRegion(region));
-        Assert.AreSame(region, service.GetOrCreateMapRegion(region.Id, dimension.Id, true));
+        Assert.AreSame(region, service.GetOrCreateMapRegion(region.Id, dimension.Id));
         Assert.IsTrue(service.IsCurrentMapRegion(region.Id, dimension.Id, region));
     }
 
@@ -141,8 +141,8 @@ public sealed class MapRegionServiceTests
 
         service.CreateDynamicRegion(source, destination);
 
-        Assert.AreEqual(dimension.Id, service.GetMapRegion(source.RegionId, dimension.Id, false, false)!.BaseLocation.Dimension);
-        var dynamicRegion = service.GetMapRegion(destination.RegionId, dimension.Id, false, false)!;
+        Assert.AreEqual(dimension.Id, service.FindMapRegion(source.RegionId, dimension.Id)!.BaseLocation.Dimension);
+        var dynamicRegion = service.GetOrCreateMapRegion(destination.RegionId, dimension.Id)!;
         Assert.AreEqual(dimension.Id, dynamicRegion.BaseLocation.Dimension);
         Assert.IsTrue(dynamicRegion.IsDynamic);
     }
@@ -155,13 +155,13 @@ public sealed class MapRegionServiceTests
         var service = CreateService(provider, builder);
         Assert.IsTrue(service.TryCreateDimension(out var dimension));
 
-        var create = Task.Run(() => service.GetOrCreateMapRegion(1, dimension!.Id, false));
+        var create = Task.Run(() => service.GetOrCreateMapRegion(1, dimension!.Id));
         builder.Started.Wait();
         builder.Release.Set();
         var region = await create;
 
         Assert.IsFalse(service.TryRemoveEmptyDimension(dimension));
-        Assert.AreSame(region, service.GetMapRegion(region.Id, dimension.Id, false, false));
+        Assert.AreSame(region, service.FindMapRegion(region.Id, dimension.Id));
     }
 
     [TestMethod]
@@ -172,7 +172,7 @@ public sealed class MapRegionServiceTests
         var service = CreateService(provider, builder);
         Assert.IsTrue(service.TryCreateDimension(out var dimension));
 
-        var create = Task.Run(() => service.GetOrCreateMapRegion(1, dimension!.Id, false));
+        var create = Task.Run(() => service.GetOrCreateMapRegion(1, dimension!.Id));
         builder.Started.Wait();
 
         Assert.IsTrue(service.TryRemoveEmptyDimension(dimension));
@@ -205,7 +205,7 @@ public sealed class MapRegionServiceTests
         var service = CreateService(provider, new BlockingLocationBuilder(creationGate));
         var calls = Enumerable.Range(0, callerCount)
             .Select(_ => Task.Factory.StartNew(
-                () => service.GetOrCreateMapRegion(1, 0, false),
+                () => service.GetOrCreateMapRegion(1, 0),
                 CancellationToken.None,
                 TaskCreationOptions.LongRunning,
                 TaskScheduler.Default))
@@ -214,7 +214,7 @@ public sealed class MapRegionServiceTests
         var regions = await Task.WhenAll(calls);
 
         Assert.IsTrue(regions.All(region => ReferenceEquals(regions[0], region)));
-        Assert.AreSame(regions[0], service.GetMapRegion(1, 0, false, false));
+        Assert.AreSame(regions[0], service.FindMapRegion(1, 0));
         Assert.AreEqual(1, service.FindRegionsByDimension(0).Count());
         loadRequests.Received(1).RequestLoad(regions[0]);
     }
@@ -225,11 +225,24 @@ public sealed class MapRegionServiceTests
         var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
         using var provider = CreateProvider(loadRequests);
         var service = CreateService(provider);
-        var region = service.GetOrCreateMapRegion(1, 0, false);
+        var region = service.GetOrCreateMapRegion(1, 0);
         region.MarkReady();
 
-        Assert.AreSame(region, service.GetOrCreateMapRegion(1, 0, false));
+        Assert.AreSame(region, service.FindMapRegion(1, 0));
         loadRequests.Received(1).RequestLoad(region);
+    }
+
+    [TestMethod]
+    public void FindMapRegion_DoesNotResumeIdleRegion()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var region = service.GetOrCreateMapRegion(1, 0);
+        region.MarkReady();
+        Assert.IsTrue(service.TrySuspendMapRegion(region));
+
+        Assert.AreSame(region, service.FindMapRegion(1, 0));
+        Assert.IsTrue(service.FindIdleRegionsByDimension(0).Contains(region));
     }
 
     [TestMethod]
@@ -238,7 +251,7 @@ public sealed class MapRegionServiceTests
         const int callerCount = 16;
         using var provider = CreateProvider();
         var service = CreateService(provider);
-        var region = service.GetOrCreateMapRegion(1, 0, false);
+        var region = service.GetOrCreateMapRegion(1, 0);
         region.MarkReady();
         Assert.IsTrue(service.TrySuspendMapRegion(region));
         using var startGate = new Barrier(callerCount);
@@ -247,14 +260,14 @@ public sealed class MapRegionServiceTests
             .Select(_ => Task.Run(() =>
             {
                 startGate.SignalAndWait();
-                return service.GetOrCreateMapRegion(1, 0, true);
+                return service.GetOrCreateMapRegion(1, 0);
             }))
             .ToArray();
 
         var regions = await Task.WhenAll(calls);
 
         Assert.IsTrue(regions.All(resumed => ReferenceEquals(region, resumed)));
-        Assert.AreSame(region, service.GetMapRegion(1, 0, false, false));
+        Assert.AreSame(region, service.FindMapRegion(1, 0));
         Assert.IsFalse(service.FindIdleRegionsByDimension(0).Contains(region));
     }
 
@@ -278,12 +291,12 @@ public sealed class MapRegionServiceTests
     {
         using var provider = CreateProvider();
         var service = CreateService(provider);
-        var region = service.GetOrCreateMapRegion(1, 0, false);
+        var region = service.GetOrCreateMapRegion(1, 0);
         Assert.IsTrue(service.TrySuspendMapRegion(region));
 
         service.FlagCollision(Location.Create(1, 65, 0, 0), CollisionFlag.WallNorth);
 
-        Assert.AreSame(region, service.GetMapRegion(region.Id, 0, false, false));
+        Assert.AreSame(region, service.FindMapRegion(region.Id, 0));
         Assert.IsFalse(service.FindIdleRegionsByDimension(0).Contains(region));
         Assert.AreEqual(CollisionFlag.WallNorth, region.GetCollision(1, 1, 0));
     }
@@ -293,11 +306,11 @@ public sealed class MapRegionServiceTests
     {
         using var provider = CreateProvider();
         var service = CreateService(provider);
-        var region = service.GetOrCreateMapRegion(1, 0, false);
+        var region = service.GetOrCreateMapRegion(1, 0);
         region.MarkReady();
         Assert.IsTrue(service.TrySuspendMapRegion(region));
 
-        var resumed = service.GetOrCreateMapRegion(1, 0, true);
+        var resumed = service.GetOrCreateMapRegion(1, 0);
 
         Assert.AreSame(region, resumed);
         Assert.IsFalse(service.TryRemoveIdleMapRegion(region.Id, 0, region));
@@ -309,15 +322,15 @@ public sealed class MapRegionServiceTests
     {
         using var provider = CreateProvider();
         var service = CreateService(provider);
-        var region = service.GetOrCreateMapRegion(1, 0, false);
+        var region = service.GetOrCreateMapRegion(1, 0);
         region.MarkReady();
         Assert.IsTrue(service.TrySuspendMapRegion(region));
 
         Assert.IsTrue(service.TryRemoveIdleMapRegion(region.Id, 0, region));
-        var replacement = service.GetOrCreateMapRegion(region.Id, 0, true);
+        var replacement = service.GetOrCreateMapRegion(region.Id, 0);
 
         Assert.AreNotSame(region, replacement);
-        Assert.AreSame(replacement, service.GetMapRegion(region.Id, 0, false, false));
+        Assert.AreSame(replacement, service.FindMapRegion(region.Id, 0));
         Assert.IsFalse(service.FindIdleRegionsByDimension(0).Contains(region));
     }
 
@@ -327,7 +340,7 @@ public sealed class MapRegionServiceTests
         using var provider = CreateProvider();
         var service = CreateService(provider);
         Assert.IsTrue(service.TryCreateDimension(out var dimension));
-        var region = service.GetOrCreateMapRegion(1, dimension!.Id, false);
+        var region = service.GetOrCreateMapRegion(1, dimension!.Id);
         region.MarkReady();
         Assert.IsTrue(service.TrySuspendMapRegion(region));
 
@@ -342,7 +355,7 @@ public sealed class MapRegionServiceTests
     {
         using var provider = CreateProvider();
         var service = CreateService(provider);
-        var region = service.GetOrCreateMapRegion(1, 0, false);
+        var region = service.GetOrCreateMapRegion(1, 0);
         region.MarkReady();
         using var startGate = new Barrier(2);
 
@@ -354,7 +367,7 @@ public sealed class MapRegionServiceTests
         var resume = Task.Run(() =>
         {
             startGate.SignalAndWait();
-            return service.GetOrCreateMapRegion(region.Id, 0, true);
+            return service.GetOrCreateMapRegion(region.Id, 0);
         });
 
         await Task.WhenAll(suspend, resume);
@@ -371,14 +384,14 @@ public sealed class MapRegionServiceTests
     {
         using var provider = CreateProvider();
         var service = CreateService(provider);
-        var staleRegion = service.GetOrCreateMapRegion(1, 0, false);
+        var staleRegion = service.GetOrCreateMapRegion(1, 0);
         Assert.IsTrue(service.TryRemoveMapRegion(staleRegion.Id, 0, staleRegion));
-        var currentRegion = service.GetOrCreateMapRegion(1, 0, false);
+        var currentRegion = service.GetOrCreateMapRegion(1, 0);
 
         Assert.IsFalse(service.TrySuspendMapRegion(staleRegion));
         Assert.IsFalse(service.TryRemoveIdleMapRegion(staleRegion.Id, 0, staleRegion));
         Assert.IsFalse(service.TryRemoveMapRegion(staleRegion.Id, 0, staleRegion));
-        Assert.AreSame(currentRegion, service.GetMapRegion(1, 0, false, false));
+        Assert.AreSame(currentRegion, service.FindMapRegion(1, 0));
         Assert.IsFalse(currentRegion.IsDestroyed);
     }
 
@@ -388,7 +401,7 @@ public sealed class MapRegionServiceTests
         using var provider = CreateProvider();
         var service = CreateService(provider);
 
-        var region = service.GetOrCreateMapRegion(Location.Create(67, 69, 0, 0).RegionId, 0, false);
+        var region = service.GetOrCreateMapRegion(Location.Create(67, 69, 0, 0).RegionId, 0);
 
         Assert.AreEqual(MapRegionState.Initializing, region.State);
     }
@@ -399,7 +412,7 @@ public sealed class MapRegionServiceTests
         using var provider = CreateProvider();
         var service = CreateService(provider);
         var dimension = service.FindAllDimensions().Single();
-        var region = service.GetOrCreateMapRegion(1, dimension.Id, false);
+        var region = service.GetOrCreateMapRegion(1, dimension.Id);
         var snapshot = service.FindRegionsByDimension(dimension.Id);
 
         Assert.IsTrue(snapshot.Contains(region));
@@ -417,7 +430,7 @@ public sealed class MapRegionServiceTests
 
         Assert.IsFalse(service.TryRemoveEmptyDimension(new Dimension(dimension!.Id)));
 
-        var region = service.GetOrCreateMapRegion(1, dimension.Id, false);
+        var region = service.GetOrCreateMapRegion(1, dimension.Id);
         Assert.IsFalse(service.TryRemoveEmptyDimension(dimension));
         Assert.IsTrue(service.TryRemoveMapRegion(region.Id, dimension.Id, region));
         Assert.IsTrue(service.TryRemoveEmptyDimension(dimension));
@@ -429,8 +442,8 @@ public sealed class MapRegionServiceTests
     {
         using var provider = CreateProvider();
         var service = CreateService(provider);
-        var readyRegion = service.GetOrCreateMapRegion(1, 0, false);
-        var discardedRegion = service.GetOrCreateMapRegion(2, 0, false);
+        var readyRegion = service.GetOrCreateMapRegion(1, 0);
+        var discardedRegion = service.GetOrCreateMapRegion(2, 0);
 
         readyRegion.MarkReady();
         discardedRegion.MarkDiscarded();
@@ -448,8 +461,8 @@ public sealed class MapRegionServiceTests
         using var provider = CreateProvider();
         var service = CreateService(provider);
         var location = Location.Create(67, 69, 0, 0);
-        var currentRegion = service.GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
-        var otherRegion = service.GetOrCreateMapRegion(2, 0, false);
+        var currentRegion = service.GetOrCreateMapRegion(location.RegionId, location.Dimension);
+        var otherRegion = service.GetOrCreateMapRegion(2, 0);
 
         Assert.IsTrue(service.IsCurrentMapRegion(currentRegion.Id, location.Dimension, currentRegion));
         Assert.IsFalse(service.IsCurrentMapRegion(currentRegion.Id, location.Dimension, otherRegion));

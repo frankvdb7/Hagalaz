@@ -111,7 +111,7 @@ namespace Hagalaz.Services.GameWorld.Builders
 
         public void Send()
         {
-            var region = _regionService.GetOrCreateMapRegion(_fromLocation.RegionId, _fromLocation.Dimension, true);
+            var region = _regionService.GetOrCreateMapRegion(_fromLocation.RegionId, _fromLocation.Dimension);
             var projectile = Build();
             region.QueueUpdate(new DrawProjectileUpdate(projectile));
         }

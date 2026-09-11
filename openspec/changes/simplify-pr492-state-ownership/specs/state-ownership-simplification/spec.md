@@ -31,16 +31,22 @@ gate is held.
 ### Requirement: Mutating region operations require canonical active ownership
 
 Every operation that changes a region MUST obtain canonical active ownership
-through `MapRegionService`. `resume: false` MUST remain available only for
-read-only access and MUST NOT be used by a mutation path.
+through `MapRegionService.GetOrCreateMapRegion`. Read-only and teardown paths
+MUST use `FindMapRegion`, which MUST NOT create or resume an idle region.
 
 #### Scenario: Mutation resumes an idle region
 
-- **WHEN** a collision, object, item, dynamic-region, or teardown operation
+- **WHEN** a collision, object, item, or dynamic-region operation
   targets an idle region
 - **THEN** the service resumes or creates the canonical active region before
   the mutation is applied
 - **AND** the mutation is not applied to a detached instance
+
+#### Scenario: Teardown does not resurrect an idle region
+
+- **WHEN** creature teardown looks up its previous region
+- **THEN** it uses the exact existing-region lookup without resuming or
+  creating a region
 
 ### Requirement: World admission preserves monotonic revision state
 
@@ -77,30 +83,31 @@ be removed.
 
 ### Requirement: Logout workflow state belongs to logout orchestration
 
-Pending, removed, and completing logout state MUST be owned by
-`CharacterLogoutService` through one keyed workflow record. Persistence state
-MUST contain only persistence serialization, revision, and acknowledgement
-state.
+Pending and removed logout state MUST be owned by `CharacterLogoutService`
+through one ordinary dictionary behind one owner gate. Each record MUST retain
+the exact character instance, optional persistence receipt, and removal flag.
+Persistence state MUST contain only persistence serialization, revision, pending
+receipt matching, and acknowledgement state.
 
 #### Scenario: Logout completion reconciles one keyed record
 
-- **WHEN** logout is tracked, detached, and acknowledged
-- **THEN** the logout coordinator uses the exact character record for pending,
-  removal, and completion gates
-- **AND** persistence acknowledgement remains independent of logout workflow
-  bookkeeping
+- **WHEN** logout is requested for an exact character instance
+- **THEN** the logout owner claims that instance without silently replacing a
+  different instance with the same master id
+- **AND** a duplicate claim reuses the same persistence receipt instead of
+  submitting a second forced snapshot
 
-Persistence acknowledgements and final cleanup MUST be identified by the exact
-snapshot receipt. Logout cleanup MUST NOT clear revision or persisted-snapshot
-bookkeeping after a replacement admission has established a new revision owner
-for the same master id.
+Persistence acknowledgements MUST be delivered to persistence infrastructure
+and identified by the exact correlation and snapshot revision. Logout MUST
+wait for that receipt before releasing the session, then detach the exact
+character. Normal logout MUST NOT erase persisted fingerprints or revision
+allocation state.
 
-#### Scenario: Stale logout cleanup cannot clear replacement state
+#### Scenario: Stale acknowledgement cannot complete another snapshot
 
-- **WHEN** an old logout receipt is finalized after a replacement revision
-  owner has been initialized
-- **THEN** the old receipt cleanup is ignored
-- **AND** the replacement owner's persistence bookkeeping remains available
+- **WHEN** an acknowledgement has the wrong correlation or snapshot revision
+- **THEN** the pending receipt remains unresolved and no persisted fingerprint
+  is committed
 
 ### Requirement: MapRegion lifecycle state is visibility-only
 

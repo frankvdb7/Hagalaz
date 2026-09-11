@@ -17,12 +17,12 @@ revocation to finish.
 - **THEN** the old session remains the owner and the character remains registered
 - **AND** no replacement login can hydrate and claim that character in the meantime
 
-#### Scenario: Old logout cannot clear replacement persistence state
+#### Scenario: Duplicate logout reuses the pending receipt
 
-- **WHEN** the old logout receipt is acknowledged and a replacement admission
-  has initialized a new persistence revision owner
-- **THEN** final cleanup for the old receipt does not clear the replacement
-  owner's revision or persisted-snapshot bookkeeping
+- **WHEN** a second logout observes an exact character logout claim with an
+  existing persistence receipt
+- **THEN** it does not submit another forced snapshot
+- **AND** it waits for the existing receipt before releasing the session
 
 #### Scenario: Immediate login follows a persisted logout
 

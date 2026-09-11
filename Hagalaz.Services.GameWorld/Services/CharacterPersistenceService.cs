@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -58,8 +57,7 @@ namespace Hagalaz.Services.GameWorld.Services
             var receipt = new CharacterPersistenceReceipt(
                 character.MasterId,
                 command.CorrelationId,
-                snapshotRevision,
-                _state.GetRevisionOwner(character.MasterId));
+                snapshotRevision);
 
             // Record the snapshot before publishing so a fast acknowledgement cannot arrive
             // before the producer has state to match it. If publishing or the outbox commit
@@ -77,9 +75,12 @@ namespace Hagalaz.Services.GameWorld.Services
             CharacterPersistenceReceipt receipt,
             CancellationToken cancellationToken = default) => receipt.WaitAsync(cancellationToken);
 
-        public bool IsPersistenceAcknowledged(ICharacter character) => _state.IsPersistenceAcknowledged(character.MasterId);
-
-        public void Forget(CharacterPersistenceReceipt receipt) => _state.Forget(receipt);
+        public void Acknowledge(
+            uint masterId,
+            Guid correlationId,
+            long snapshotRevision,
+            CharacterPersistenceOutcome outcome) =>
+            _state.Acknowledge(masterId, correlationId, snapshotRevision, outcome);
 
         internal static PersistCharacterCommand CreateCommand(IMapper mapper, CharacterModel model, uint masterId, long snapshotRevision) =>
             new(
@@ -103,11 +104,9 @@ namespace Hagalaz.Services.GameWorld.Services
 
     public sealed class CharacterPersistenceState
     {
-        private readonly ConcurrentDictionary<uint, string> _persistedFingerprints = new();
-        private readonly ConcurrentDictionary<uint, PendingSnapshot> _pendingSnapshots = new();
-        private readonly ConcurrentDictionary<uint, long> _nextRevisions = new();
-        private readonly ConcurrentDictionary<uint, Guid> _revisionOwners = new();
-        private readonly ConcurrentDictionary<uint, CharacterPersistenceReceipt> _lastAcknowledgedReceipts = new();
+        private readonly Dictionary<uint, string> _persistedFingerprints = new();
+        private readonly Dictionary<uint, PendingSnapshot> _pendingSnapshots = new();
+        private readonly Dictionary<uint, long> _nextRevisions = new();
         private readonly object _stateGate = new();
         private readonly Dictionary<uint, LockEntry> _locks = new();
         private readonly object _lockRegistryGate = new();
@@ -149,25 +148,27 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
-        public bool IsPersisted(uint masterId, string fingerprint) =>
-            _persistedFingerprints.TryGetValue(masterId, out var persistedFingerprint) && persistedFingerprint == fingerprint;
+        public bool IsPersisted(uint masterId, string fingerprint)
+        {
+            lock (_stateGate)
+            {
+                return _persistedFingerprints.TryGetValue(masterId, out var persistedFingerprint) && persistedFingerprint == fingerprint;
+            }
+        }
 
         public void InitializeRevision(uint masterId, long persistedRevision)
         {
             ArgumentOutOfRangeException.ThrowIfNegative(persistedRevision);
             lock (_stateGate)
             {
-                _nextRevisions.AddOrUpdate(masterId, persistedRevision, (_, current) => Math.Max(current, persistedRevision));
-                _revisionOwners[masterId] = Guid.NewGuid();
-                _lastAcknowledgedReceipts.TryRemove(masterId, out _);
-            }
-        }
-
-        public Guid GetRevisionOwner(uint masterId)
-        {
-            lock (_stateGate)
-            {
-                return _revisionOwners.GetOrAdd(masterId, _ => Guid.NewGuid());
+                if (_nextRevisions.TryGetValue(masterId, out var currentRevision))
+                {
+                    _nextRevisions[masterId] = Math.Max(currentRevision, persistedRevision);
+                }
+                else
+                {
+                    _nextRevisions[masterId] = persistedRevision;
+                }
             }
         }
 
@@ -175,7 +176,13 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             lock (_stateGate)
             {
-                return _nextRevisions.AddOrUpdate(masterId, 1L, (_, current) => checked(current + 1));
+                if (_nextRevisions.TryGetValue(masterId, out var currentRevision))
+                {
+                    return _nextRevisions[masterId] = checked(currentRevision + 1);
+                }
+
+                _nextRevisions[masterId] = 1L;
+                return 1L;
             }
         }
 
@@ -201,34 +208,11 @@ namespace Hagalaz.Services.GameWorld.Services
                 pending.Receipt.TryAcknowledge(outcome);
                 if (outcome is CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate)
                 {
-                    var pendingPair = new KeyValuePair<uint, PendingSnapshot>(masterId, pending);
-                    if (((ICollection<KeyValuePair<uint, PendingSnapshot>>)_pendingSnapshots).Remove(pendingPair))
-                    {
-                        _persistedFingerprints[masterId] = pending.Fingerprint;
-                        _lastAcknowledgedReceipts[masterId] = pending.Receipt;
-                    }
+                    _pendingSnapshots.Remove(masterId);
+                    _persistedFingerprints[masterId] = pending.Fingerprint;
                 }
             }
         }
-
-        public void Forget(CharacterPersistenceReceipt receipt)
-        {
-            lock (_stateGate)
-            {
-                if (!_revisionOwners.TryGetValue(receipt.MasterId, out var currentOwner) || currentOwner != receipt.OwnerId ||
-                    !_lastAcknowledgedReceipts.TryGetValue(receipt.MasterId, out var acknowledged) || !ReferenceEquals(acknowledged, receipt))
-                {
-                    return;
-                }
-
-                _persistedFingerprints.TryRemove(receipt.MasterId, out _);
-                _lastAcknowledgedReceipts.TryRemove(receipt.MasterId, out _);
-                _nextRevisions.TryRemove(receipt.MasterId, out _);
-                _revisionOwners.TryRemove(receipt.MasterId, out _);
-            }
-        }
-
-        public bool IsPersistenceAcknowledged(uint masterId) => !_pendingSnapshots.ContainsKey(masterId);
 
         private sealed record PendingSnapshot(string Fingerprint, CharacterPersistenceReceipt Receipt);
 

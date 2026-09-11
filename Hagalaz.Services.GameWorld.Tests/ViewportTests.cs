@@ -64,9 +64,9 @@ namespace Hagalaz.Services.GameWorld.Tests
             region.FindAllCharacters().Returns(new List<ICharacter> { character });
             region.FindAllNpcs().Returns(new List<INpc>());
 
-            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>())
+            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<IMapSize>())
                 .Returns(new List<IMapRegion> { region });
-            _regionService.GetOrCreateMapRegion(1, 0, false).Returns(region);
+            _regionService.FindMapRegion(1, 0).Returns(region);
 
             _viewport.RebuildView();
             _viewport.UpdateTick();
@@ -99,9 +99,9 @@ namespace Hagalaz.Services.GameWorld.Tests
             region.FindAllCharacters().Returns(new List<ICharacter> { char1, char2 });
             region.FindAllNpcs().Returns(new List<INpc>());
 
-            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>())
+            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<IMapSize>())
                 .Returns(new List<IMapRegion> { region });
-            _regionService.GetOrCreateMapRegion(1, 0, false).Returns(region);
+            _regionService.FindMapRegion(1, 0).Returns(region);
 
             _viewport.RebuildView();
             _viewport.UpdateTick();
@@ -133,9 +133,9 @@ namespace Hagalaz.Services.GameWorld.Tests
             region.FindAllCharacters().Returns(new List<ICharacter> { character });
             region.FindAllNpcs().Returns(new List<INpc>());
 
-            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>())
+            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<IMapSize>())
                 .Returns(new List<IMapRegion> { region });
-            _regionService.GetOrCreateMapRegion(1, 0, false).Returns(region);
+            _regionService.FindMapRegion(1, 0).Returns(region);
 
             _viewport.RebuildView();
             _viewport.UpdateTick();
@@ -163,16 +163,16 @@ namespace Hagalaz.Services.GameWorld.Tests
             replacementRegion.BaseLocation.Returns(firstRegion.BaseLocation);
             replacementRegion.State.Returns(MapRegionState.Initializing);
             _owner.Location.Returns(location);
-            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), true, true, _mapSize)
+            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), _mapSize)
                 .Returns(new[] { firstRegion });
-            _regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension, false).Returns(replacementRegion);
+            _regionService.FindMapRegion(location.RegionId, location.Dimension).Returns(replacementRegion);
 
             _viewport.RebuildView();
 
             var visibleRegions = _viewport.VisibleRegions;
 
             Assert.AreSame(firstRegion, visibleRegions.Single());
-            _regionService.DidNotReceive().GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>());
+            _regionService.DidNotReceive().GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>());
 
             _viewport.RefreshVisibleRegions();
 

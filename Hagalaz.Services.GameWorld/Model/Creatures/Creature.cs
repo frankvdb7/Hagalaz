@@ -32,6 +32,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private readonly CreatureStateCollection _stateCollection;
         private Dictionary<Type, List<EventHappened>> _registeredEventHandlers = new();
         private readonly IServiceScope _serviceScope = default!;
+        private IMapRegion? _region;
         public bool IsDestroyed { get; private set; }
 
         /// <summary>
@@ -226,13 +227,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             {
                 try
                 {
-                    if (Location != null)
+                    if (_region is not null)
                     {
-                        var region = MapRegionService.GetMapRegion(Location.RegionId, Location.Dimension, false, true);
-                        if (region != null)
-                        {
-                            RemoveFromRegion(region);
-                        }
+                        RemoveFromRegion(_region);
+                        _region = null;
                     }
                 }
                 catch (Exception exception)
@@ -310,16 +308,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
             if (firstUpdate || forceRegionUpdate || LastLocation != null && (LastLocation.RegionId != Location.RegionId || LastLocation?.Dimension != Location.Dimension))
             {
-                if (LastLocation != null)
+                if (_region is not null)
                 {
-                    var lastRegion = MapRegionService.GetMapRegion(LastLocation.RegionId, LastLocation.Dimension, false, true);
-                    if (lastRegion != null)
-                    {
-                        RemoveFromRegion(lastRegion);
-                    }
+                    RemoveFromRegion(_region);
+                    _region = null;
                 }
-                var region = MapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, true);
+                var region = MapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension);
                 AddToRegion(region);
+                _region = region;
 
                 OnRegionChange();
             }

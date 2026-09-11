@@ -39,7 +39,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var serviceProviderMock = Substitute.For<IServiceProvider>();
             serviceProviderMock.GetService(typeof(IGameObjectBuilder)).Returns(gameObjectBuilderMock);
             serviceProviderMock.GetService(typeof(IMapRegionService)).Returns(mapRegionServiceMock);
-            mapRegionServiceMock.GetOrCreateMapRegion(location.RegionId, location.Dimension, false).Returns(regionMock);
+            mapRegionServiceMock.GetOrCreateMapRegion(location.RegionId, location.Dimension).Returns(regionMock);
 
             var characterMock = Substitute.For<ICharacter>();
             characterMock.ServiceProvider.Returns(serviceProviderMock);

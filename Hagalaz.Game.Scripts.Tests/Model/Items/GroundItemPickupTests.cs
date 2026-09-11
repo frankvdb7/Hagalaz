@@ -32,7 +32,7 @@ public sealed class GroundItemPickupTests
         character.Inventory.Returns(inventory);
         inventory.HasSpaceFor(item).Returns(true);
         inventory.Add(clone).Returns(true);
-        regionService.GetOrCreateMapRegion(groundItem.Location.RegionId, groundItem.Location.Dimension, false).Returns(region);
+        regionService.GetOrCreateMapRegion(groundItem.Location.RegionId, groundItem.Location.Dimension).Returns(region);
         region.Add(groundItem);
 
         var script = new DefaultItemScript();

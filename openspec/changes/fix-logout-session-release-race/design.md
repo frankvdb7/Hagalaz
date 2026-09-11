@@ -20,11 +20,12 @@
    failure, the exact authorization metadata remains attached for the normal
    disconnect/sign-out owner to retry. Sign-out uses the same helper with its
    non-cancelable cleanup token after live-session release.
-8. Keep persistence cleanup receipt-scoped. Acknowledgements match the pending
-   snapshot identity, and final `Forget` is allowed only for the receipt's
-   revision owner and exact acknowledged receipt. A replacement admission
-   rotates that owner before it can publish a new snapshot, so an old logout
-   cannot clear newer persistence bookkeeping keyed by the same master id.
+8. Keep persistence acknowledgement receipt-scoped. Acknowledgements match
+   the exact pending correlation and snapshot revision and are delivered by
+   the persistence consumer directly to persistence infrastructure. Logout
+   does not call a persistence cleanup method or erase revision/fingerprint
+   state; the persisted bookkeeping remains available until a later snapshot
+   or process restart.
 
 ## Invariants
 

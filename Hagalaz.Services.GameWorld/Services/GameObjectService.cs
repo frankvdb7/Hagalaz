@@ -32,7 +32,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public IEnumerable<IGameObject> FindByLocation(ILocation location)
         {
-            var region = _regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension, true);
+            var region = _regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension);
             foreach (var gameObject in region.FindAllGameObjects().Where(gameObject => gameObject.Location.Equals(location)))
             {
                 yield return gameObject;
@@ -47,7 +47,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 return;
             }
 
-            var region = _regionService.GetOrCreateMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension, true);
+            var region = _regionService.GetOrCreateMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension);
             if (go.Id != gameObjectUpdate.Id)
             {
                 go.Id = gameObjectUpdate.Id;
@@ -69,7 +69,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public void AnimateGameObject(IGameObject gameObject, IAnimation animation)
         {
-            var region = _regionService.GetOrCreateMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension, true);
+            var region = _regionService.GetOrCreateMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension);
             region.QueueUpdate(new SetGameObjectAnimationUpdate(gameObject, animation));
         }
 

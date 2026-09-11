@@ -57,7 +57,6 @@ public sealed class AuthenticationLogoutTests
             () => service.SignOutAsync());
 
         Assert.AreSame(persistenceFailure, exception);
-        characterLogoutService.Received(1).TrackPendingLogout(character);
         await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>());
         await characterService.DidNotReceive().RemoveAsync(character);
     }
@@ -99,7 +98,6 @@ public sealed class AuthenticationLogoutTests
         await persistenceStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
         await Task.Yield();
 
-        characterLogoutService.Received(1).TrackPendingLogout(character);
         await persistenceService.Received(1).PersistAsync(character, true, Arg.Any<CancellationToken>());
         await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>());
         Assert.IsFalse(signOutTask.IsCompleted);
@@ -110,7 +108,6 @@ public sealed class AuthenticationLogoutTests
         characterLogoutService.Received(1).SetPendingLogoutPersistence(character, receipt);
         await gameSessionService.Received(1).RemoveSession(session);
         await characterLogoutService.Received(1).DetachAsync(character, Arg.Any<CancellationToken>());
-        persistenceService.DidNotReceive().Forget(Arg.Any<CharacterPersistenceReceipt>());
         mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
     }
 
@@ -155,6 +152,57 @@ public sealed class AuthenticationLogoutTests
         await service.SignOutAsync();
 
         CollectionAssert.AreEqual(new[] { "persist", "acknowledge", "release" }, order);
+    }
+
+    [TestMethod]
+    public async Task SignOutAsync_WhenLogoutAlreadyHasReceipt_ReusesReceiptWithoutForcedRepersist()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        var session = Substitute.For<IGameSession>();
+        var receipt = CreateReceipt(character);
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        persistenceService.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(CharacterPersistenceOutcome.Duplicate));
+        var logoutService = Substitute.For<ICharacterLogoutService>();
+        logoutService.TryBeginLogout(
+                character,
+                out Arg.Any<bool>(),
+                out Arg.Any<CharacterPersistenceReceipt?>())
+            .Returns(callInfo =>
+            {
+                callInfo[1] = false;
+                callInfo[2] = receipt;
+                return true;
+            });
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
+        var service = CreateAuthenticationService(
+            Substitute.For<ICharacterService>(),
+            persistenceService,
+            gameSessionService,
+            CreateContextAccessor(character, session),
+            characterLogoutService: logoutService);
+
+        logoutService.TryBeginLogout(
+                character,
+                out Arg.Any<bool>(),
+                out Arg.Any<CharacterPersistenceReceipt?>())
+            .Returns(callInfo =>
+            {
+                callInfo[1] = false;
+                callInfo[2] = receipt;
+                return true;
+            });
+
+        await service.SignOutAsync();
+
+        await persistenceService.DidNotReceive().PersistAsync(
+            character,
+            true,
+            Arg.Any<CancellationToken>());
+        await persistenceService.Received(1).WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>());
+        await gameSessionService.Received(1).RemoveSession(session);
     }
 
     [TestMethod]
@@ -246,7 +294,6 @@ public sealed class AuthenticationLogoutTests
 
         await service.SignOutAsync();
 
-        characterLogoutService.Received(1).TrackPendingLogout(character);
         await persistenceService.Received(1).PersistAsync(character, true, Arg.Any<CancellationToken>());
         await gameSessionService.Received(1).RemoveSession(session);
         await characterService.DidNotReceive().RemoveAsync(character);
@@ -452,7 +499,7 @@ public sealed class AuthenticationLogoutTests
     }
 
     private static CharacterPersistenceReceipt CreateReceipt(ICharacter character) =>
-        new(character.MasterId, Guid.NewGuid(), 7L, Guid.NewGuid());
+        new(character.MasterId, Guid.NewGuid(), 7L);
 
     private static void ConfigureSuccessfulPersistence(
         ICharacterPersistenceService persistenceService,
@@ -472,12 +519,29 @@ public sealed class AuthenticationLogoutTests
         IRaidoCallerContextAccessor contextAccessor,
         IRequestClient<RevokeTokenRequestMessage>? revokeTokenRequestClient = null,
         IGameMediator? mediator = null,
-        ICharacterLogoutService? characterLogoutService = null) =>
-        new(
+        ICharacterLogoutService? characterLogoutService = null)
+    {
+        var logoutService = characterLogoutService ?? Substitute.For<ICharacterLogoutService>();
+        if (contextAccessor.Context.Features.Get<ICharacterFeature>()?.Character is { } character)
+        {
+            logoutService.TryBeginLogout(
+                    character,
+                    out Arg.Any<bool>(),
+                    out Arg.Any<CharacterPersistenceReceipt?>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = true;
+                    callInfo[2] = null;
+                    return true;
+                });
+            logoutService.SetPendingLogoutPersistence(character, Arg.Any<CharacterPersistenceReceipt>()).Returns(true);
+        }
+
+        return new(
             NullLogger<AuthenticationService>.Instance,
             characterService,
             persistenceService,
-            characterLogoutService ?? Substitute.For<ICharacterLogoutService>(),
+            logoutService,
             gameSessionService,
             new WorldSessionAdmissionService(
                 NullLogger<WorldSessionAdmissionService>.Instance,
@@ -497,6 +561,7 @@ public sealed class AuthenticationLogoutTests
             mediator ?? Substitute.For<IGameMediator>(),
             new ResiliencePipelineBuilder().Build(),
             new ResiliencePipelineBuilder().Build());
+    }
 
     private static IRaidoCallerContextAccessor CreateContextAccessor(
         ICharacter? character,

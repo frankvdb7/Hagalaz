@@ -27,7 +27,7 @@ namespace Hagalaz.Game.Scripts.Commands
                     .WithRotation(rotation)
                     .Build();
                 var regionService = args.Character.ServiceProvider.GetRequiredService<IMapRegionService>();
-                regionService.GetOrCreateMapRegion(args.Character.Location.RegionId, args.Character.Location.Dimension, false).Add(gameObject);
+                regionService.GetOrCreateMapRegion(args.Character.Location.RegionId, args.Character.Location.Dimension).Add(gameObject);
             }
             return Task.CompletedTask;
         }

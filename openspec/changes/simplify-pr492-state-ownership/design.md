@@ -23,10 +23,10 @@ it does not check a state through one API and mutate it through another.
    registered instance before releasing the session reservation; revision
    initialization is not rolled back.
 
-3. **Mutating region operations require active ownership.** `resume: false`
-   is retained only for read-only access. Collision, object, item, dynamic
-   region, and teardown paths use the service operation that resumes or
-   creates canonical active ownership before mutating a region.
+3. **Map-region callers state intent explicitly.** `GetOrCreateMapRegion`
+   returns canonical active ownership for mutations and general gameplay.
+   `FindMapRegion` performs an exact existing-region lookup without creating or
+   resuming an idle region; read-only and teardown paths use it.
 
 4. **Creature event cleanup is terminal.** `UnregisterEventHandlers` detaches
    its handler inventory before calling the event manager, attempts every
@@ -44,10 +44,13 @@ it does not check a state through one API and mutate it through another.
    `GetSnapshotAsync`; direct lookups hold a reader lock only for the lookup,
    never while yielding to caller code.
 
-7. **Logout workflow is separate from persistence.** A keyed
-   `CharacterLogoutState` owned by `CharacterLogoutService` tracks pending,
-   removed, and completing logout workflow state. `CharacterPersistenceState`
-   retains only persistence serialization, revision, and acknowledgement state.
+7. **Logout workflow is separate from persistence.** A
+   `CharacterLogoutState` owned by `CharacterLogoutService` stores plain
+   pending records in one dictionary behind one owner gate. Exact character
+   identity prevents silent takeover and duplicate forced snapshots.
+   `CharacterPersistenceState` retains persistence serialization, revision,
+   pending receipt matching, and acknowledgement state; the persistence
+   consumer acknowledges it directly and never completes logout.
 
 8. **Lifecycle visibility has one owner.** Map loading/scheduling owns the
    ready/discarded transitions; `MapRegion` performs visibility-only volatile
@@ -67,13 +70,15 @@ it does not check a state through one API and mutate it through another.
 
 ## Verification strategy
 
-- Test explicit active/idle snapshot safety, concurrent dimension allocation,
-  active ownership for mutation, and exact empty-dimension removal.
+- Test explicit active/idle lookup safety, concurrent dimension allocation,
+  active ownership for mutation, teardown non-resurrection, and exact
+  empty-dimension removal.
 - Test admission ordering, monotonic revision preservation, and the absence
   of persistence rollback on failed local registration.
 - Test terminal event-handler cleanup attempts all handlers after one fails.
-- Test logout state ownership, explicit character snapshots, NPC compensation,
-  and both NPC API families.
+- Test logout state ownership, duplicate and conflicting character claims,
+  exact persistence acknowledgement, explicit character lookups, NPC
+  compensation, and both NPC API families.
 - Run the cumulative GameWorld tests, integration tests, Contacts tests, Raido
   tests, solution build, locked restore, strict OpenSpec validation, and diff
   checks.

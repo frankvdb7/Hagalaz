@@ -126,8 +126,8 @@ public sealed class CharacterDehydrationWorkerServiceTests
         public ValueTask<int> CountAsync() => throw new System.NotImplementedException();
         public ValueTask<bool> AddAsync(ICharacter character) => throw new System.NotImplementedException();
         public ValueTask<bool> RemoveAsync(ICharacter character) => throw new System.NotImplementedException();
-        public ValueTask<ICharacter?> FindAsync(System.Func<ICharacter, bool> predicate) => throw new System.NotImplementedException();
         public ValueTask<ICharacter?> FindByIdAsync(uint id) => throw new System.NotImplementedException();
+        public ValueTask<ICharacter?> FindByIndexAsync(int index) => throw new System.NotImplementedException();
     }
 
     private static async Task<CharacterPersistenceReceipt?> BlockPersistenceAsync(CancellationToken cancellationToken)

@@ -13,9 +13,10 @@
 - [x] 2.2 Make dimension creation, removal, publication, suspension, resume,
       and enumeration use the same ownership gate without holding it during
       region construction or loading.
-- [x] 2.3 Audit `resume: false` callers and make every mutating path claim
-      canonical active ownership before mutation.
-- [x] 2.4 Remove duplicate `GetMapRegion` ownership checks and add deterministic
+- [x] 2.3 Audit create/resume callers and make every mutating path claim
+      canonical active ownership while read-only and teardown paths use exact
+      lookup.
+- [x] 2.4 Remove duplicate region intent checks and add deterministic
       race/identity tests for dimensions, regions, and idle destruction.
 
 ## 3. Store and workflow ownership
@@ -30,6 +31,13 @@
       only justified persistence serialization and acknowledgement state.
 - [x] 3.4 Remove the test-only dehydration request helper and adapt tests to
       the production contract.
+- [x] 3.5 Make `CharacterLogoutState` the single exact-character owner with
+      one gate-backed dictionary, and keep persistence acknowledgement in
+      persistence infrastructure.
+- [x] 3.6 Replace caller-controlled MapRegion create/resume flags with
+      explicit active-mutation and exact-lookup intents.
+- [x] 3.7 Replace ContactSessionStore enumeration and CharacterStore predicate
+      lookup with atomic world removal and direct identity/index lookups.
 
 ## 4. Lifecycle and NPC ownership
 
@@ -48,6 +56,9 @@
 - [x] 5.2 Add deterministic map-region ownership/mutation race tests.
 - [x] 5.3 Add store, logout, lifecycle, and NPC compensation tests that prove
       behavior rather than implementation primitives.
+- [x] 5.4 Add duplicate logout, conflicting character-instance, exact receipt,
+      contact removal, direct character lookup, and MapRegion non-resurrection
+      regression tests.
 
 ## 6. Validation and cleanup
 

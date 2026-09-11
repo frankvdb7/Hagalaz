@@ -49,9 +49,9 @@ namespace Hagalaz.Game.Scripts.GameObjects
                             if (0.40 >= RandomStatic.Generator.NextDouble())
                             {
                                 // delete the flax object.
-                                _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).Remove(Owner);
+                                _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension).Remove(Owner);
                                 _taskService.Schedule(new RsTask(() =>
-                                    _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).Add(Owner), 8));
+                                    _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension).Add(Owner), 8));
                             }
 
                             clicker.SendChatMessage("You picked up the flax from the ground.");

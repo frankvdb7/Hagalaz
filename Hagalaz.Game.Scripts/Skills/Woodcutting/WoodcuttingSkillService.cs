@@ -195,7 +195,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                     if (treeLeaves != null)
                     {
                         character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension, false)
+                            .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension)
                             .Remove(treeLeaves);
                     }
 
@@ -210,13 +210,13 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                             .WithShape(tree.ShapeType)
                             .Build();
                         character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension, false)
+                            .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension)
                             .Add(stumpObj);
                     }
                     else // delete the tree object.
                     {
                         character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension, false)
+                            .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension)
                             .Remove(tree);
                     }
 
@@ -225,12 +225,12 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                     _rsTaskService.Schedule(new RsTask(() =>
                         {
                             character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                                .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension, false)
+                                .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension)
                                 .Add(tree);
                             if (treeLeaves != null)
                             {
                                 character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                                    .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension, false)
+                                    .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension)
                                     .Add(treeLeaves);
                             }
                         },

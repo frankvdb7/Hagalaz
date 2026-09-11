@@ -163,13 +163,13 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                             .WithShape(rocks.ShapeType)
                             .Build();
                         character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(rocks.Location.RegionId, rocks.Location.Dimension, false)
+                            .GetOrCreateMapRegion(rocks.Location.RegionId, rocks.Location.Dimension)
                             .Add(exhaustedRock);
                     }
                     else // delete the rocks
                     {
                         character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(rocks.Location.RegionId, rocks.Location.Dimension, false)
+                            .GetOrCreateMapRegion(rocks.Location.RegionId, rocks.Location.Dimension)
                             .Remove(rocks);
                     }
 
@@ -177,7 +177,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
 
                     _taskService.Schedule(new RsTask(() =>
                         character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(rocks.Location.RegionId, rocks.Location.Dimension, false)
+                            .GetOrCreateMapRegion(rocks.Location.RegionId, rocks.Location.Dimension)
                             .Add(rocks), respawnTick));
                     return true;
                 }

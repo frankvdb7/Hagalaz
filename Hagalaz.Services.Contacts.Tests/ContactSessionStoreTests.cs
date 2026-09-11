@@ -47,20 +47,22 @@ public sealed class ContactSessionStoreTests
     }
 
     [TestMethod]
-    public void EnumerationReturnsASnapshot()
+    public void RemoveSessionsForWorld_RemovesMatchingSessionsAtomicallyAndReturnsExactEntries()
     {
         var store = new ContactSessionStore();
-        var first = CreateSession(1, "first");
+        var first = CreateSession(1, "first", 1, 42);
+        var otherWorld = CreateSession(1, "other-world", 2, 43);
         store.TrySetNewerSession(first);
-        var snapshot = store.ToArray();
+        store.TrySetNewerSession(otherWorld);
 
-        store.TrySetNewerSession(CreateSession(2, "second"));
+        var removed = store.RemoveSessionsForWorld(1);
 
-        Assert.AreEqual(1, snapshot.Length);
-        Assert.AreSame(first, snapshot[0]);
-        Assert.AreEqual(1, store.ToArray().Length);
+        Assert.HasCount(1, removed);
+        Assert.AreSame(first, removed[0]);
+        Assert.IsNull(store.GetOrDefault(first.MasterId));
+        Assert.AreSame(otherWorld, store.GetOrDefault(otherWorld.MasterId));
     }
 
-    private static ContactSessionContext CreateSession(long generation, string connectionId) =>
-        new(42, 1, "World", generation, connectionId);
+    private static ContactSessionContext CreateSession(long generation, string connectionId, int worldId = 1, uint masterId = 42) =>
+        new(masterId, worldId, "World", generation, connectionId);
 }

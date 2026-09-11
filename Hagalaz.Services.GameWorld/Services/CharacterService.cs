@@ -19,7 +19,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public async ValueTask<bool> RemoveAsync(ICharacter character) => await _characterStore.RemoveAsync(character);
         public async ValueTask<int> CountAsync() => await _characterStore.CountAsync();
-        public ValueTask<ICharacter?> FindByIndex(int index) => _characterStore.FindAsync(c => c.Index == index);
+        public ValueTask<ICharacter?> FindByIndex(int index) => _characterStore.FindByIndexAsync(index);
         public async ValueTask<ICharacter?> FindByMasterId(uint masterId)
         {
             var character = await _characterStore.FindByIdAsync(masterId);

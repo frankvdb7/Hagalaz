@@ -48,8 +48,10 @@ namespace Hagalaz.Game.Scripts.Commands
                     CommandFunc = async (character, arguments) =>
                     {
                         var regionService = character.ServiceProvider.GetRequiredService<IMapRegionService>();
-                        var region = regionService.GetOrCreateMapRegion(character.Location.RegionId, character.Location.Dimension, false);
-                        character.SendChatMessage("Current Region Id: " + region.Id, ChatMessageType.ConsoleText);
+                        var region = regionService.FindMapRegion(character.Location.RegionId, character.Location.Dimension);
+                        character.SendChatMessage(
+                            region is null ? "Current region is not loaded." : "Current Region Id: " + region.Id,
+                            ChatMessageType.ConsoleText);
                         return true;
                     },
                     Permission = Permission.SystemAdministrator

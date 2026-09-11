@@ -55,7 +55,7 @@ public sealed class NpcChildScopeTests
         npcService.RegisterAsync(Arg.Any<INpc>()).Returns(Task.CompletedTask);
         var eventManager = Substitute.For<IEventManager>();
         var mapRegionService = Substitute.For<IMapRegionService>();
-        mapRegionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>())
+        mapRegionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>())
             .Returns(Substitute.For<IMapRegion>());
         var summoner = Substitute.For<ICharacter>();
         summoner.EventManager.Returns(eventManager);

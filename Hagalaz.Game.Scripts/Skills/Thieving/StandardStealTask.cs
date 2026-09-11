@@ -74,8 +74,8 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
 
             // check if someone else has stole from this stall.
             var regionService = _performer.ServiceProvider.GetRequiredService<IMapRegionService>();
-            var objRegion = regionService.GetOrCreateMapRegion(_gameObject.Location.RegionId, _gameObject.Location.Dimension, false);
-            var obj = objRegion.FindStandardGameObject(_gameObject.Location.RegionLocalX, _gameObject.Location.RegionLocalY, _gameObject.Location.Z);
+            var objRegion = regionService.FindMapRegion(_gameObject.Location.RegionId, _gameObject.Location.Dimension);
+            var obj = objRegion?.FindStandardGameObject(_gameObject.Location.RegionLocalX, _gameObject.Location.RegionLocalY, _gameObject.Location.Z);
             if (obj == null || obj.IsDestroyed || obj.Id != _gameObject.Id)
             {
                 return;

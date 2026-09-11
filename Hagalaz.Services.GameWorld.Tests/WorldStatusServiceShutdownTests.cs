@@ -162,7 +162,7 @@ public sealed class WorldStatusServiceShutdownTests
         public ValueTask<int> CountAsync() => throw new NotSupportedException();
         public ValueTask<bool> AddAsync(ICharacter character) => throw new NotSupportedException();
         public ValueTask<bool> RemoveAsync(ICharacter character) => throw new NotSupportedException();
-        public ValueTask<ICharacter?> FindAsync(Func<ICharacter, bool> predicate) => throw new NotSupportedException();
         public ValueTask<ICharacter?> FindByIdAsync(uint id) => throw new NotSupportedException();
+        public ValueTask<ICharacter?> FindByIndexAsync(int index) => throw new NotSupportedException();
     }
 }

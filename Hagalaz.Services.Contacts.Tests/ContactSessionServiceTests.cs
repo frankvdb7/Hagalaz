@@ -59,33 +59,33 @@ public sealed class ContactSessionServiceTests
     {
         const int worldId = 1;
         const uint firstMasterId = 100;
-        const uint replacedMasterId = 200;
+        const uint secondMasterId = 200;
         var replacementMasterId = 0u;
 
         var firstSession = new ContactSessionContext(firstMasterId, worldId, "World 1", 1, "first");
-        var replacedSession = new ContactSessionContext(replacedMasterId, worldId, "World 1", 1, "replaced");
+        var replacedSession = new ContactSessionContext(secondMasterId, worldId, "World 1", 1, "replaced");
         var contactSessions = new ContactSessionStore();
         contactSessions.TrySetNewerSession(firstSession);
         contactSessions.TrySetNewerSession(replacedSession);
 
         var characterService = new Mock<ICharacterService>();
+        var replacementAdded = false;
         characterService
             .Setup(x => x.FindCharacterByIdAsync(It.IsAny<uint>()))
             .Returns((uint masterId) =>
             {
-                var candidateMasterId = masterId == firstMasterId ? replacedMasterId : firstMasterId;
-                if (contactSessions.TryGetValue(candidateMasterId, out var existingSession) &&
-                    contactSessions.TryRemoveExact(existingSession))
+                if (!replacementAdded)
                 {
-                    replacementMasterId = candidateMasterId;
+                    replacementAdded = true;
+                    replacementMasterId = masterId;
                     Assert.IsTrue(contactSessions.TrySetNewerSession(
-                        new ContactSessionContext(candidateMasterId, worldId, "World 1", 2, "replacement")));
+                        new ContactSessionContext(masterId, worldId, "World 1", 2, "replacement")));
                 }
 
                 return ValueTask.FromResult<CharacterDto?>(new CharacterDto
                 {
                     MasterId = masterId,
-                    DisplayName = masterId == firstMasterId ? "FirstUser" : "ReplacedUser"
+                    DisplayName = masterId == firstMasterId ? "FirstUser" : "OtherUser"
                 });
             });
 
@@ -112,7 +112,7 @@ public sealed class ContactSessionServiceTests
             x => x.Publish(
                 It.IsAny<ContactSignOutMessage>(),
                 It.IsAny<CancellationToken>()),
-            Times.Once);
+            Times.Exactly(2));
     }
 
     [TestMethod]
