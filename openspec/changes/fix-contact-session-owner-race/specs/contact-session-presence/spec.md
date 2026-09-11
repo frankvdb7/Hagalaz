@@ -200,6 +200,8 @@ and update its contact collection under one owner-level synchronization boundary
 `Friend` and `ContactList` MUST remain simple domain/collection objects and MUST
 NOT own presence locks or session metadata. Consumers MUST use the feature's
 atomic apply operations rather than performing a separate check and mutation.
+Every operation that changes friend membership MUST update or prune exact
+presence ownership under the same `IContactsFeature` owner boundary.
 
 #### Scenario: Concurrent replacement preserves the newer owner
 
@@ -215,3 +217,25 @@ atomic apply operations rather than performing a separate check and mutation.
 - **WHEN** the same generation and connection signs in again
 - **THEN** the feature leaves the owner unchanged
 - **AND** the consumer emits no additional sign-in notification
+
+#### Scenario: Live online friend addition seeds its exact owner
+
+- **GIVEN** friend 42 is online on generation 11 and connection `new`
+- **WHEN** the local feature adds friend 42 with that online session identity
+- **THEN** the feature MUST retain the friend and seed owner 11/`new`
+- **AND** a sign-out for an older session MUST be rejected
+
+#### Scenario: Friend removal prunes its exact owner
+
+- **GIVEN** friend 42 is owned by generation 11 on connection `new`
+- **WHEN** the local feature removes friend 42
+- **THEN** the friend MUST be removed
+- **AND** the owner for 42 MUST be removed
+- **AND** a later sign-out for 11/`new` MUST be rejected
+
+#### Scenario: Re-add fences a late old sign-out
+
+- **GIVEN** friend 42 is removed after generation 11 on connection `old`
+- **WHEN** friend 42 is re-added with generation 12 on connection `new`
+- **AND** the delayed sign-out for 11/`old` arrives
+- **THEN** generation 12 on `new` MUST remain the authoritative owner

@@ -21,13 +21,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Notifies character that it must add itself to given region.
         /// </summary>
         /// <param name="newRegion"></param>
-        protected override void AddToRegion(IMapRegion newRegion) => newRegion.Add(this);
+        protected override IMapRegion AddToRegion() => MapRegionService.AttachCharacter(this);
 
         /// <summary>
         /// Notifies character that it must remove itself from given region.
         /// </summary>
         /// <param name="region"></param>
-        protected override void RemoveFromRegion(IMapRegion region) => region.Remove(this);
+        protected override void RemoveFromRegion(IMapRegion region) => MapRegionService.DetachCharacter(this, region);
 
         /// <summary>
         /// Notifier for region relink.

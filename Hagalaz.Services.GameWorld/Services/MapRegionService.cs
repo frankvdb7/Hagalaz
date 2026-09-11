@@ -7,6 +7,8 @@ using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.Location;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
@@ -182,6 +184,87 @@ namespace Hagalaz.Services.GameWorld.Services
             return newRegion;
         }
 
+        public IMapRegion AttachCharacter(ICharacter character)
+        {
+            ArgumentNullException.ThrowIfNull(character);
+            var location = character.Location;
+            var requestedRegion = GetOrCreateMapRegion(location.RegionId, location.Dimension);
+
+            lock (_residencyGate)
+            {
+                var dimension = _dimensions[location.Dimension] ?? throw new InvalidOperationException($"Dimension[{location.Dimension}] no longer exists.");
+                var region = ResolveActiveRegionForMutation(dimension, requestedRegion.Id);
+                region.Add(character);
+                return region;
+            }
+        }
+
+        public void DetachCharacter(ICharacter character, IMapRegion expectedRegion)
+        {
+            ArgumentNullException.ThrowIfNull(character);
+            ArgumentNullException.ThrowIfNull(expectedRegion);
+
+            lock (_residencyGate)
+            {
+                if (IsCanonicalRegion(expectedRegion))
+                {
+                    expectedRegion.Remove(character);
+                }
+            }
+        }
+
+        public IMapRegion AttachNpc(INpc npc)
+        {
+            ArgumentNullException.ThrowIfNull(npc);
+            var location = npc.Location;
+            var requestedRegion = GetOrCreateMapRegion(location.RegionId, location.Dimension);
+
+            lock (_residencyGate)
+            {
+                var dimension = _dimensions[location.Dimension] ?? throw new InvalidOperationException($"Dimension[{location.Dimension}] no longer exists.");
+                var region = ResolveActiveRegionForMutation(dimension, requestedRegion.Id);
+                region.Add(npc);
+                return region;
+            }
+        }
+
+        public void DetachNpc(INpc npc, IMapRegion expectedRegion)
+        {
+            ArgumentNullException.ThrowIfNull(npc);
+            ArgumentNullException.ThrowIfNull(expectedRegion);
+
+            lock (_residencyGate)
+            {
+                if (IsCanonicalRegion(expectedRegion))
+                {
+                    expectedRegion.Remove(npc);
+                }
+            }
+        }
+
+        private IMapRegion ResolveActiveRegionForMutation(Dimension dimension, int id)
+        {
+            if (dimension.ActiveRegions.TryGetValue(id, out var activeRegion))
+            {
+                return activeRegion;
+            }
+
+            if (dimension.IdleRegionStore.TryGetValue(id, out var idleRegion))
+            {
+                return ResumeIdleRegion(dimension, id, idleRegion);
+            }
+
+            throw new InvalidOperationException($"Region[{id}] is no longer resident.");
+        }
+
+        private bool IsCanonicalRegion(IMapRegion expectedRegion)
+        {
+            var dimension = _dimensions[expectedRegion.BaseLocation.Dimension];
+            return dimension is not null
+                && ((dimension.ActiveRegions.TryGetValue(expectedRegion.Id, out var activeRegion) && ReferenceEquals(activeRegion, expectedRegion))
+                    || (dimension.IdleRegionStore.TryGetValue(expectedRegion.Id, out var idleRegion) && ReferenceEquals(idleRegion, expectedRegion)));
+        }
+
         private IMapRegion CreateMapRegion(int id, int dimension)
         {
             var baseLocation = _locationBuilder.Create().FromRegionId(id).WithDimension(dimension).Build();
@@ -246,7 +329,8 @@ namespace Hagalaz.Services.GameWorld.Services
 
                 if (!dimension.ActiveRegions.TryGetValue(expectedRegion.Id, out var currentRegion)
                     || !ReferenceEquals(currentRegion, expectedRegion)
-                    || dimension.IdleRegionStore.ContainsKey(expectedRegion.Id))
+                    || dimension.IdleRegionStore.ContainsKey(expectedRegion.Id)
+                    || !expectedRegion.CanSuspend())
                 {
                     return false;
                 }

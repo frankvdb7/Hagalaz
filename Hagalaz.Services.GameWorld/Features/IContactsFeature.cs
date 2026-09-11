@@ -11,6 +11,8 @@ namespace Hagalaz.Services.GameWorld.Features
         public IContactList<Ignore> Ignores { get; }
 
         void ReplaceFriends(IEnumerable<Friend> friends, IEnumerable<ContactPresenceOwner> onlineOwners);
+        Friend AddFriend(Friend friend, ContactPresenceOwner? onlineOwner);
+        bool RemoveFriend(uint masterId);
         Friend? TryApplySignIn(uint masterId, long sessionGeneration, string connectionId);
         Friend? TryApplySignOut(uint masterId, long sessionGeneration, string connectionId);
     }

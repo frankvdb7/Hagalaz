@@ -16,12 +16,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// Informs npc that it must add itself to given region.
         /// </summary>
         /// <param name="newRegion"></param>
-        protected override void AddToRegion(IMapRegion newRegion) => newRegion.Add(this);
+        protected override IMapRegion AddToRegion() => MapRegionService.AttachNpc(this);
 
         /// <summary>
         /// Informs npc that it must remove itself from given region.
         /// </summary>
         /// <param name="region"></param>
-        protected override void RemoveFromRegion(IMapRegion region) => region.Remove(this);
+        protected override void RemoveFromRegion(IMapRegion region) => MapRegionService.DetachNpc(this, region);
     }
 }

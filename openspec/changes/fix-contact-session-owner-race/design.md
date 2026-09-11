@@ -75,3 +75,11 @@ GameWorld passes the session generation and already available connection ID from
 No new owner lookup, retry mechanism, or generic ordering framework is
 introduced. The generated `Guid SessionId` in `ContactSessionContext` is removed
 because it was created too late to identify the upstream lifecycle.
+
+Live friend membership uses the same feature-owned presence gate as snapshot
+and sign-in/sign-out updates. `IContactsFeature.AddFriend` receives the exact
+session identity when the contacts service reports the friend online, while
+`RemoveFriend` removes both the friend and any owner entry. The contacts
+consumer projects world data and session generation/connection from one
+`ContactSessionContext`, so an online add cannot create a friend without its
+presence owner. The Hub no longer mutates `Friends` directly.

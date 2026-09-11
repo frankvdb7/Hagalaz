@@ -27,6 +27,8 @@ idle-to-destroy claim MUST use exact-instance ownership semantics and MUST NOT
 allow two independently owned live canonical instances. A stale reference MUST
 not move, remove, or destroy a newer canonical instance. Idle destruction MUST
 successfully claim the exact idle instance before calling `DestroyAsync`.
+Obtaining canonical active residency and applying any mutation that relies on
+that active ownership MUST be serialized by the same owner boundary.
 
 #### Scenario: A resumed region cannot be destroyed by stale cleanup
 
@@ -47,6 +49,19 @@ successfully claim the exact idle instance before calling `DestroyAsync`.
   caller requests the same region
 - **THEN** the callers MUST converge on one canonical R1
 - **AND** active R2 plus idle R1 MUST never be observable as two live owners
+
+#### Scenario: Async character attach races with suspension
+
+- **GIVEN** an empty active region R1
+- **WHEN** an asynchronous character attach races housekeeping suspension
+- **THEN** the character MUST be attached only to the canonical active region
+- **AND** R1 MUST NOT remain idle with that live character attached
+
+#### Scenario: Suspension rechecks eligibility after attachment
+
+- **GIVEN** suspension eligibility was observed for an empty active region
+- **WHEN** a non-suspendable creature becomes attached before the suspension claim
+- **THEN** the stale eligibility MUST NOT move that region to idle
 
 #### Scenario: A stale region reference targets a replacement
 

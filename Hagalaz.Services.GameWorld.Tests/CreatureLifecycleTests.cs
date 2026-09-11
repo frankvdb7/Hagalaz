@@ -35,13 +35,12 @@ public sealed class CreatureLifecycleTests
     {
         var (creature, mapRegionService, scope) = CreateCreature();
         var region = Substitute.For<IMapRegion>();
-        mapRegionService.GetOrCreateMapRegion(creature.Location.RegionId, creature.Location.Dimension).Returns(region);
-        mapRegionService.FindMapRegion(creature.Location.RegionId, creature.Location.Dimension).Returns(region);
+        creature.RegionToAttach = region;
 
         creature.SetLocation(creature.Location, forceRegionUpdate: true, firstUpdate: true);
         creature.Destroy();
 
-        mapRegionService.Received(1).GetOrCreateMapRegion(creature.Location.RegionId, creature.Location.Dimension);
+        mapRegionService.DidNotReceive().GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>());
         Assert.AreSame(region, creature.LastRemovedRegion);
         scope.Received(1).Dispose();
     }
@@ -169,6 +168,7 @@ public sealed class CreatureLifecycleTests
         public bool ObservedTerminalStateDuringDestroy { get; private set; }
         public bool ObservedRegionDetachedDuringDestroy { get; private set; }
         public bool ObservedAreaExitedDuringDestroy { get; private set; }
+        public IMapRegion? RegionToAttach { get; set; }
         private bool _regionDetached;
         private bool _areaExited;
 
@@ -222,7 +222,7 @@ public sealed class CreatureLifecycleTests
         protected override void ResetTick() => ResetTickCalls++;
         protected override void OnLocationChange(ILocation? oldLocation) { }
         protected override void OnRegionChange() { }
-        protected override void AddToRegion(IMapRegion newRegion) { }
+        protected override IMapRegion AddToRegion() => RegionToAttach ?? Substitute.For<IMapRegion>();
         protected override void RemoveFromRegion(IMapRegion region)
         {
             LastRemovedRegion = region;

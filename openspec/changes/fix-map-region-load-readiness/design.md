@@ -143,6 +143,24 @@ not a throughput target. Introducing bounded parallelism would require a
 separate measurement and concurrency contract, so it is deliberately left as
 a follow-up rather than adding speculative worker coordination here.
 
+### 14. Serialize active membership mutations with residency ownership
+
+`MapRegionService` owns the short active/idle residency boundary and the
+membership mutations that require active residency. Character and NPC attach
+and detach operations resolve the canonical region and mutate its in-memory
+membership while `_residencyGate` is held. `Creature` stores the exact region
+returned by the attach operation for teardown; it does not retry or inspect
+residency itself.
+
+The background service only performs a ready-region eligibility snapshot before
+calling `TrySuspendMapRegion`. `TrySuspendMapRegion` rechecks the exact active
+instance and `CanSuspend()` under the same owner boundary before moving the
+region to idle. This prevents stale eligibility from suspending a region after
+a non-suspendable creature was attached. The guarded operation is limited to
+the existing synchronous membership and eligibility decision; it does not
+perform loading, destruction, publishing, or other asynchronous work while
+holding the gate.
+
 ### 10. Preserve dynamic source dimensions
 
 Dynamic map parts retain the source/template dimension alongside their draw

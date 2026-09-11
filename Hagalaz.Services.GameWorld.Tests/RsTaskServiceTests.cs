@@ -99,7 +99,11 @@ namespace Hagalaz.Services.GameWorld.Tests
             taskService.Schedule(firstTask);
 
             var secondExecuted = 0;
-            var tickTask = Task.Run(taskService.Tick);
+            var tickTask = Task.Factory.StartNew(
+                taskService.Tick,
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
             try
             {
                 Assert.IsTrue(entered.Wait(TimeSpan.FromSeconds(5)));

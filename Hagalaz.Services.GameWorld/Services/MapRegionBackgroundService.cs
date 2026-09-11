@@ -60,7 +60,7 @@ namespace Hagalaz.Services.GameWorld.Services
             foreach (var dimension in _regionService.FindAllDimensions())
             {
                 foreach (var region in _regionService.FindRegionsByDimension(dimension.Id)
-                             .Where(region => region.State == MapRegionState.Ready && region.CanSuspend()))
+                             .Where(region => region.State == MapRegionState.Ready))
                 {
                     if (_regionService.TrySuspendMapRegion(region))
                     {

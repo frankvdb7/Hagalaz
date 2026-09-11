@@ -26,4 +26,7 @@
       exact-handoff tests, including failed-admission claim reconciliation and
       retained-cleanup protection during duplicate/local removal, stale lease
       abort reconciliation, and definitive false-release cleanup.
-- [ ] 3.3 Run focused tests, build checks, and strict OpenSpec validation.
+- [x] 3.3 Route live friend add/remove through `IContactsFeature`, propagate
+      exact online session identity from `ContactSessionContext`, and cover
+      add/remove/re-add fencing.
+- [x] 3.4 Run focused tests, build checks, and strict OpenSpec validation.

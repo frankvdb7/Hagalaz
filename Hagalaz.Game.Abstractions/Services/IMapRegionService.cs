@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
 
 namespace Hagalaz.Game.Abstractions.Services
@@ -25,6 +27,14 @@ namespace Hagalaz.Game.Abstractions.Services
         /// <param name="dimension">The dimension ID (0 for the global world).</param>
         /// <returns>The existing or newly created <see cref="IMapRegion"/>.</returns>
         IMapRegion GetOrCreateMapRegion(int id, int dimension);
+
+        IMapRegion AttachCharacter(ICharacter character);
+
+        void DetachCharacter(ICharacter character, IMapRegion expectedRegion);
+
+        IMapRegion AttachNpc(INpc npc);
+
+        void DetachNpc(INpc npc, IMapRegion expectedRegion);
 
         /// <summary>
         /// Removes a region only when the active region is the expected instance.

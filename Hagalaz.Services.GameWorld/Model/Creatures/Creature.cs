@@ -313,9 +313,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                     RemoveFromRegion(_region);
                     _region = null;
                 }
-                var region = MapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension);
-                AddToRegion(region);
-                _region = region;
+                _region = AddToRegion();
 
                 OnRegionChange();
             }
@@ -340,7 +338,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         ///     to new MapRegion.
         /// </summary>
         /// <param name="newRegion">The new region.</param>
-        protected abstract void AddToRegion(IMapRegion newRegion);
+        protected abstract IMapRegion AddToRegion();
 
         /// <summary>
         ///     Notifies creature that it must remove itself from

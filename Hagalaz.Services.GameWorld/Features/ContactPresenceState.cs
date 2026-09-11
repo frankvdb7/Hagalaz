@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 
 namespace Hagalaz.Services.GameWorld.Features
 {
@@ -8,11 +9,14 @@ namespace Hagalaz.Services.GameWorld.Features
         private readonly object _gate = new();
         private readonly Dictionary<uint, SessionIdentity> _owners = new();
 
-        public void ReplaceOwners(IEnumerable<ContactPresenceOwner> owners, Action replaceContacts)
+        public void ReplaceFriends(
+            IContactList<Friend> friends,
+            IEnumerable<Friend> replacement,
+            IEnumerable<ContactPresenceOwner> owners)
         {
             lock (_gate)
             {
-                replaceContacts();
+                friends.Set(replacement);
                 _owners.Clear();
                 foreach (var owner in owners)
                 {
@@ -21,35 +25,76 @@ namespace Hagalaz.Services.GameWorld.Features
             }
         }
 
-        public bool TrySignIn(
+        public Friend AddFriend(
+            IContactList<Friend> friends,
+            Friend friend,
+            ContactPresenceOwner? owner)
+        {
+            lock (_gate)
+            {
+                var masterId = unchecked((uint)friend.MasterId);
+                friends.Remove(masterId);
+                friends.Add(friend);
+
+                if (owner is { } presenceOwner)
+                {
+                    if (!_owners.TryGetValue(masterId, out var current)
+                        || presenceOwner.SessionGeneration >= current.SessionGeneration)
+                    {
+                        _owners[masterId] = new SessionIdentity(
+                            presenceOwner.SessionGeneration,
+                            presenceOwner.ConnectionId);
+                    }
+                }
+                else
+                {
+                    _owners.Remove(masterId);
+                }
+
+                return friend;
+            }
+        }
+
+        public bool RemoveFriend(IContactList<Friend> friends, uint masterId)
+        {
+            lock (_gate)
+            {
+                var removed = friends.Get(masterId) is not null;
+                friends.Remove(masterId);
+                return removed | _owners.Remove(masterId);
+            }
+        }
+
+        public Friend? TrySignIn(
             uint masterId,
             long sessionGeneration,
             string connectionId,
-            Func<bool> contactExists)
+            IContactList<Friend> friends)
         {
             lock (_gate)
             {
                 if (_owners.TryGetValue(masterId, out var current) &&
                     sessionGeneration <= current.SessionGeneration)
                 {
-                    return false;
+                    return null;
                 }
 
-                if (!contactExists())
+                var friend = friends.Get(masterId);
+                if (friend is null)
                 {
-                    return false;
+                    return null;
                 }
 
                 _owners[masterId] = new SessionIdentity(sessionGeneration, connectionId);
-                return true;
+                return friend;
             }
         }
 
-        public bool TrySignOut(
+        public Friend? TrySignOut(
             uint masterId,
             long sessionGeneration,
             string connectionId,
-            Func<bool> contactExists)
+            IContactList<Friend> friends)
         {
             lock (_gate)
             {
@@ -57,16 +102,17 @@ namespace Hagalaz.Services.GameWorld.Features
                     current.SessionGeneration != sessionGeneration ||
                     current.ConnectionId != connectionId)
                 {
-                    return false;
+                    return null;
                 }
 
-                if (!contactExists())
+                var friend = friends.Get(masterId);
+                if (friend is null)
                 {
-                    return false;
+                    return null;
                 }
 
                 _owners.Remove(masterId);
-                return true;
+                return friend;
             }
         }
 

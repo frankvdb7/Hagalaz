@@ -20,6 +20,8 @@
       revalidate dimension ownership before publication.
 - [x] 1.11 Preserve the source dimension in dynamic region-part mappings while
       keeping copied runtime objects in the destination dimension.
+- [x] 1.12 Serialize character and NPC membership mutations with active-region
+      residency and recheck suspension eligibility at the ownership boundary.
 
 ## 2. Scheduler and ownership
 
@@ -86,3 +88,6 @@
 - [ ] 5.4 Rebuild/restart the affected service and manually verify static and
       custom-object clipping in the client using the documented steps in the
       design artifact. Keep this unchecked until the graphical client is run.
+- [x] 5.5 Add deterministic character/NPC attach-versus-suspend coverage,
+      including stale suspension eligibility and existing-region load request
+      behavior.

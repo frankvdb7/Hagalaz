@@ -4,6 +4,8 @@ using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Location;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Builders;
@@ -299,6 +301,120 @@ public sealed class MapRegionServiceTests
         Assert.AreSame(region, service.FindMapRegion(region.Id, 0));
         Assert.IsFalse(service.FindIdleRegionsByDimension(0).Contains(region));
         Assert.AreEqual(CollisionFlag.WallNorth, region.GetCollision(1, 1, 0));
+    }
+
+    [TestMethod]
+    public async Task AttachCharacter_SerializesMembershipWithSuspension()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var location = Location.Create(64, 64, 0, 0);
+        var region = service.GetOrCreateMapRegion(location.RegionId, location.Dimension);
+        var addStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseAdd = new ManualResetEventSlim();
+        var character = Substitute.For<ICharacter>();
+        character.Location.Returns(location);
+        character.CanSuspend().Returns(false);
+        character.Index.Returns(_ =>
+        {
+            addStarted.TrySetResult();
+            releaseAdd.Wait();
+            return 1;
+        });
+
+        var attachTask = Task.Factory.StartNew(
+            () => service.AttachCharacter(character),
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+
+        await addStarted.Task;
+        var suspendTask = Task.Factory.StartNew(
+            () => service.TrySuspendMapRegion(region),
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+
+        try
+        {
+            Assert.IsFalse(suspendTask.IsCompleted);
+        }
+        finally
+        {
+            releaseAdd.Set();
+        }
+
+        var attachedRegion = await attachTask;
+        Assert.IsFalse(await suspendTask);
+        Assert.AreSame(region, attachedRegion);
+        Assert.AreSame(region, service.FindMapRegion(region.Id, location.Dimension));
+        Assert.IsTrue(region.FindAllCharacters().Contains(character));
+    }
+
+    [TestMethod]
+    public async Task AttachNpc_SerializesMembershipWithSuspension()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var location = Location.Create(128, 64, 0, 0);
+        var region = service.GetOrCreateMapRegion(location.RegionId, location.Dimension);
+        var addStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseAdd = new ManualResetEventSlim();
+        var npc = Substitute.For<INpc>();
+        npc.Location.Returns(location);
+        npc.CanSuspend().Returns(false);
+        npc.Index.Returns(_ =>
+        {
+            addStarted.TrySetResult();
+            releaseAdd.Wait();
+            return 1;
+        });
+
+        var attachTask = Task.Factory.StartNew(
+            () => service.AttachNpc(npc),
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+
+        await addStarted.Task;
+        var suspendTask = Task.Factory.StartNew(
+            () => service.TrySuspendMapRegion(region),
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+
+        try
+        {
+            Assert.IsFalse(suspendTask.IsCompleted);
+        }
+        finally
+        {
+            releaseAdd.Set();
+        }
+
+        var attachedRegion = await attachTask;
+        Assert.IsFalse(await suspendTask);
+        Assert.AreSame(region, attachedRegion);
+        Assert.AreSame(region, service.FindMapRegion(region.Id, location.Dimension));
+        Assert.IsTrue(region.FindAllNpcs().Contains(npc));
+    }
+
+    [TestMethod]
+    public void AttachCharacter_ToExistingRegionDoesNotRequestDuplicateLoad()
+    {
+        var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
+        using var provider = CreateProvider(loadRequests);
+        var service = CreateService(provider);
+        var location = Location.Create(64, 64, 0, 0);
+        var region = service.GetOrCreateMapRegion(location.RegionId, location.Dimension);
+        var character = Substitute.For<ICharacter>();
+        character.Location.Returns(location);
+        character.Index.Returns(1);
+
+        var attachedRegion = service.AttachCharacter(character);
+
+        Assert.AreSame(region, attachedRegion);
+        loadRequests.Received(1).RequestLoad(region);
     }
 
     [TestMethod]

@@ -14,6 +14,7 @@ using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Game.Messages.Protocol.Model;
 using Hagalaz.Game.Resources;
 using Hagalaz.Services.GameWorld.Extensions;
+using Hagalaz.Services.GameWorld.Features;
 
 namespace Hagalaz.Services.GameWorld.Hubs
 {
@@ -83,7 +84,11 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 });
                 var message = response.Message;
                 var friend = _mapper.Map<Friend>(message.Contact);
-                contacts.Friends.Add(friend);
+                var onlineOwner = message.Contact.SessionGeneration is { } sessionGeneration
+                    && message.Contact.SessionConnectionId is { } connectionId
+                    ? new ContactPresenceOwner(message.Contact.MasterId, sessionGeneration, connectionId)
+                    : null;
+                contacts.AddFriend(friend, onlineOwner);
 
                 var friendContact = _mapper.Map<ContactDto>(message.Contact);
                 var friendMessage = new FriendsListMessage
@@ -122,7 +127,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
                     MasterId = masterId.Value, ContactDisplayName = request.DisplayName, Ignore = false
                 });
                 var message = response.Message;
-                contacts.Friends.Remove(message.Contact.MasterId);
+                contacts.RemoveFriend(message.Contact.MasterId);
             }
             catch (NotFoundException)
             {

@@ -223,6 +223,42 @@ public sealed class ContactPresenceConsumerTests
         Assert.IsNotNull(feature.TryApplySignOut(42, 11, "new"));
     }
 
+    [TestMethod]
+    public void AddFriend_SeedsExactOnlineOwner()
+    {
+        var feature = new LobbyContactsFeature();
+
+        feature.AddFriend(CreateFriend(), new ContactPresenceOwner(42, 11, "new"));
+
+        Assert.IsNull(feature.TryApplySignOut(42, 10, "old"));
+        Assert.IsNotNull(feature.TryApplySignOut(42, 11, "new"));
+        Assert.IsNull(feature.TryApplySignOut(42, 11, "new"));
+    }
+
+    [TestMethod]
+    public void RemoveFriend_PrunesOwnerBeforeReAdd()
+    {
+        var feature = new LobbyContactsFeature();
+
+        feature.AddFriend(CreateFriend(), new ContactPresenceOwner(42, 11, "old"));
+        Assert.IsTrue(feature.RemoveFriend(42));
+        feature.AddFriend(CreateFriend(), new ContactPresenceOwner(42, 12, "new"));
+
+        Assert.IsNull(feature.TryApplySignOut(42, 11, "old"));
+        Assert.IsNotNull(feature.TryApplySignOut(42, 12, "new"));
+    }
+
+    [TestMethod]
+    public void AddFriend_OfflineFriendClearsPreviousOwner()
+    {
+        var feature = new LobbyContactsFeature();
+
+        feature.AddFriend(CreateFriend(), new ContactPresenceOwner(42, 11, "old"));
+        feature.AddFriend(CreateFriend(), null);
+
+        Assert.IsNull(feature.TryApplySignOut(42, 11, "old"));
+    }
+
     private static IGameConnection CreateConnection(IContactList<Friend> contacts)
     {
         var connection = Substitute.For<IGameConnection>();
