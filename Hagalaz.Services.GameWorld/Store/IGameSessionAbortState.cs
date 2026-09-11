@@ -13,11 +13,11 @@ public interface IGameSessionAbortState
 {
     ValueTask<bool> TryMoveToPendingAbort(IGameSession expectedSession);
 
-    ValueTask<long?> TryBeginPendingSessionAbort(IGameSession expectedSession);
+    ValueTask<bool> TryBeginPendingSessionAbort(IGameSession expectedSession);
 
-    ValueTask<bool> TryCompletePendingSessionAbort(IGameSession expectedSession, long processingToken);
+    ValueTask<bool> TryCompletePendingSessionAbort(IGameSession expectedSession);
 
-    ValueTask<bool> TryReleasePendingSessionAbort(IGameSession expectedSession, long processingToken);
+    ValueTask<bool> TryReleasePendingSessionAbort(IGameSession expectedSession);
 
     ValueTask<IReadOnlyList<IGameSession>> FindSessionsPendingAbort();
 }

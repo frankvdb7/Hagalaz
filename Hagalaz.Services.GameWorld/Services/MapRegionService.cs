@@ -35,7 +35,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly ILogger<MapRegionService> _logger;
         private readonly IMapper _mapper;
-        private readonly IMapRegionLoadRequestSink _loadRequestSink;
+        private readonly IMapRegionLoadScheduler _loadScheduler;
         public MapRegionService(
             IServiceProvider serviceProvider,
             ILocationBuilder locationBuilder,
@@ -43,7 +43,7 @@ namespace Hagalaz.Services.GameWorld.Services
             IGroundItemBuilder groundItemBuilder,
             ILogger<MapRegionService> logger,
             IMapper mapper,
-            IMapRegionLoadRequestSink loadRequestSink)
+            IMapRegionLoadScheduler loadScheduler)
         {
             CreateDimension(0); // create global world dimension.
             _serviceScope = serviceProvider.CreateScope();
@@ -52,7 +52,7 @@ namespace Hagalaz.Services.GameWorld.Services
             _groundItemBuilder = groundItemBuilder;
             _logger = logger;
             _mapper = mapper;
-            _loadRequestSink = loadRequestSink;
+            _loadScheduler = loadScheduler;
         }
 
         /// <summary>
@@ -175,7 +175,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
             if (created)
             {
-                _loadRequestSink.RequestLoad(result);
+                _loadScheduler.RequestLoad(result);
             }
 
             return result;

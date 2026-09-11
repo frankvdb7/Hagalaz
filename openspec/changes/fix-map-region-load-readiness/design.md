@@ -1,7 +1,7 @@
 ## Context
 
 `MapRegionService` publishes a newly created region in its active dictionary
-and submits one initial request through a small shared request sink.
+and submits one initial request to the load scheduler.
 `MapRegionLoadScheduler` remains the only asynchronous loader and coalesces
 requests by region instance. `MapRegionLoader` must therefore avoid exposing partial state
 and must remove a failed published instance before completing its failed load.
@@ -38,10 +38,10 @@ population; a fatal failure or cancellation marks that instance `Discarded`.
 `Ready` and `Discarded` are terminal for this lifecycle. A discarded instance
 is never reset or retried.
 
-Destruction is tracked separately with `MapRegionDestructionState` so initial
-loading semantics remain unchanged. A claimed region transitions from
-`Active` to `Destroying` and then to terminal `Destroyed` even when an
-individual cleanup operation fails.
+Destruction is a terminal fact on the region. `MapRegionService` removes an
+exact idle region from residency before cleanup, and `MapRegion.DestroyAsync`
+then performs sequential terminal cleanup without owning residency or a
+second destruction state machine.
 
 ### 3. Apply prepared map state before NPC registration
 
@@ -81,12 +81,11 @@ state is not reset or reused.
 ### 7. Preserve scheduler ownership, coalescing, and canonical identity
 
 The existing scheduler remains the only load worker and its in-flight map still
-coalesces duplicate requests for one active region instance. It schedules only
-an `Initializing` region that is still the exact current instance in
-`MapRegionService`; `Ready` is a no-op and `Discarded` is rejected. Failure
-completion occurs only after loader cleanup and exact removal have run. A
-normal later map request resolves through `MapRegionService` and receives a
-new instance.
+coalesces duplicate requests for one region instance. It owns its private
+channel and queue lifecycle and does not inspect map residency. `Ready` is a
+no-op and `Discarded` is rejected. `MapRegionLoader` remains authoritative for
+canonical-instance validation and failure cleanup. A normal later map request
+resolves through `MapRegionService` and receives a new instance.
 
 ### 8. Keep stale consumers fail-closed and refresh explicitly
 
@@ -119,21 +118,21 @@ current, empty `Dimension`. Region construction may occur outside the lock, but
 publication revalidates that the captured dimension is still current before
 inserting the region.
 
-`MapRegion` destruction uses one atomic claim protected by the mutation gate
-for transition and snapshotting. Later callers fail immediately. Cleanup runs
-outside the gate, attempts every NPC, ground item, and game object
-independently, preserves the first failure, and always marks the instance
-`Destroyed`. New mutations are rejected after destruction begins; no in-memory
-retry owner is introduced.
+`MapRegionService` removes an exact idle instance under its per-dimension
+residency synchronization root before calling destruction. `MapRegion`
+publishes its terminal destroyed fact and then performs cleanup sequentially;
+later calls fail immediately. Cleanup attempts every NPC, ground item, and
+game object independently, preserves the first failure, and does not own a
+residency retry path. Game-worker serialization is the mutation boundary for
+active regions, so the region does not add a second mutation lock.
 
 ### 12. Request initial loads at canonical publication
 
-Creating a new canonical region synchronously writes one request to the shared
-`MapRegionLoadRequestQueue` through `IMapRegionLoadRequestSink`. The scheduler
-consumes that same queue and retains ownership of state validation, in-flight
-deduplication, stale-instance rejection, and asynchronous loading. This keeps
-the service/scheduler dependency graph acyclic and does not make synchronous
-map APIs asynchronous.
+Creating a new canonical region synchronously calls the injected
+`IMapRegionLoadScheduler`. The scheduler owns its private request channel,
+in-flight deduplication, and shutdown. The loader retains canonical-instance
+validation, keeping synchronous map APIs synchronous without a request-sink
+bridge or scheduler residency dependency.
 
 ### 13. Keep scheduler loading serial for now
 

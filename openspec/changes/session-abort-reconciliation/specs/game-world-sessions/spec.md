@@ -7,15 +7,14 @@
 The system MUST use the existing game-session lease cycle as the single retry owner for deferred connection aborts and exact-owner claim cleanup.
 
 Each pending-abort reservation MAY be claimed by one processor through a
-non-expiring in-process processing marker. The marker MUST contain a unique
-ownership token. A failed processor MUST explicitly release the marker so the
-existing lease cycle can retry it. Completion or release MUST succeed only for
-the exact processing token that claimed the reservation; a stale processor
-MUST NOT clear or release a newer processor's reservation.
+non-expiring store-owned processing marker. A failed processor MUST explicitly
+release the marker so the existing lease cycle can retry it. Begin, completion,
+and release MUST verify the exact session instance, so a stale session MUST NOT
+change a reservation for another session using the same connection identifier.
 
-The external connection abort operation MUST be idempotent. The local
-processing token fences stale local state completion while a later processor
-is retrying a released reservation.
+The external connection abort operation MUST be idempotent. The exact-session
+check fences stale local state completion while a later processor is retrying
+a released reservation.
 
 #### Scenario: Aborting a lost connection fails temporarily
 
@@ -45,10 +44,10 @@ is retrying a released reservation.
 - THEN the local reservation remains available for lease reconciliation
 - AND no separate retry queue or retry worker is created
 
-#### Scenario: A stale abort processor cannot complete a newer reservation
+#### Scenario: A stale session cannot complete a newer reservation
 
 - GIVEN a pending abort processor releases its processing marker after failure
-- WHEN the lease cycle claims the reservation with a new processing token
+- WHEN the lease cycle claims the reservation for a different session instance
 - AND the previous processor later reports completion
 - THEN the stale completion is rejected
-- AND the newer reservation remains owned by the new processing token
+- AND the newer reservation remains owned by the new processing marker

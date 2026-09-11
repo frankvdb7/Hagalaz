@@ -107,42 +107,18 @@ namespace Hagalaz.Services.GameWorld.Data
             catch (Exception exception)
             {
                 region.MarkDiscarded();
-                var cleanupFailure = await UnregisterRegisteredNpcsAsync(registeredNpcs);
-                Exception? removalFailure = null;
+                await UnregisterRegisteredNpcsAsync(registeredNpcs, region);
                 try
                 {
                     _regionService.TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
                 }
                 catch (Exception removalException)
                 {
-                    removalFailure = removalException;
+                    _logger.LogError(removalException, "Region[{id}] could not be removed after load failure", region.Id);
                 }
 
                 _logger.LogError(exception, "Region[{id}] failed to load and was discarded", region.Id);
-                if (exception is OperationCanceledException)
-                {
-                    if (cleanupFailure is not null)
-                    {
-                        _logger.LogError(cleanupFailure, "Region[{id}] could not clean up registered NPCs after cancellation", region.Id);
-                    }
-
-                    if (removalFailure is not null)
-                    {
-                        _logger.LogError(removalFailure, "Region[{id}] could not be removed after cancellation", region.Id);
-                    }
-
-                    throw;
-                }
-
-                if (cleanupFailure is null && removalFailure is null)
-                {
-                    throw;
-                }
-
-                var failures = new List<Exception> { exception };
-                AddExceptions(failures, cleanupFailure);
-                AddExceptions(failures, removalFailure);
-                throw new AggregateException($"Region[{region.Id}] failed to load and cleanup also failed.", failures).Flatten();
+                throw;
             }
         }
 
@@ -271,9 +247,8 @@ namespace Hagalaz.Services.GameWorld.Data
                 .Build();
         }
 
-        private async Task<Exception?> UnregisterRegisteredNpcsAsync(IReadOnlyList<INpc> npcs)
+        private async Task UnregisterRegisteredNpcsAsync(IReadOnlyList<INpc> npcs, IMapRegion region)
         {
-            List<Exception>? failures = null;
             foreach (var npc in npcs)
             {
                 try
@@ -282,22 +257,8 @@ namespace Hagalaz.Services.GameWorld.Data
                 }
                 catch (Exception exception)
                 {
-                    (failures ??= []).Add(exception);
+                    _logger.LogError(exception, "Region[{id}] could not clean up NPC '{npc}' after load failure", region.Id, npc);
                 }
-            }
-
-            return failures is null ? null : new AggregateException("Failed to unregister NPCs from a discarded region.", failures).Flatten();
-        }
-
-        private static void AddExceptions(List<Exception> failures, Exception? exception)
-        {
-            if (exception is AggregateException aggregate)
-            {
-                failures.AddRange(aggregate.Flatten().InnerExceptions);
-            }
-            else if (exception is not null)
-            {
-                failures.Add(exception);
             }
         }
 

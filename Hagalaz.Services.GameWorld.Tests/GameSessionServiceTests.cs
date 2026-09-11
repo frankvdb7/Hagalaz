@@ -129,16 +129,14 @@ public sealed class GameSessionServiceTests
 
         await Task.WhenAll(firstTask, secondTask);
 
-        Assert.AreNotEqual(firstTask.Result.HasValue, secondTask.Result.HasValue);
-        Assert.IsTrue(firstTask.Result.HasValue || secondTask.Result.HasValue);
-        var processingToken = firstTask.Result ?? secondTask.Result ??
-            throw new InvalidOperationException("One coordinator must claim the pending abort reservation.");
-        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session, processingToken));
+        Assert.AreNotEqual(firstTask.Result, secondTask.Result);
+        Assert.IsTrue(firstTask.Result || secondTask.Result);
+        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session));
         Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
     }
 
     [TestMethod]
-    public async Task GameSessionStore_ReleasedAbortProcessing_CanBeReclaimedWithoutStaleCompletion()
+    public async Task GameSessionStore_ReleasedAbortProcessing_CanBeReclaimed()
     {
         var store = new GameSessionStore();
         var session = CreateLobbySession(42, "expired-abort-connection");
@@ -146,17 +144,29 @@ public sealed class GameSessionServiceTests
         Assert.IsTrue(await store.TryAdd(session));
         Assert.IsTrue(await store.TryMoveToPendingAbort(session));
 
-        var firstToken = await store.TryBeginPendingSessionAbort(session);
-        Assert.IsTrue(firstToken.HasValue);
-        Assert.IsTrue(await store.TryReleasePendingSessionAbort(session, firstToken.Value));
+        Assert.IsTrue(await store.TryBeginPendingSessionAbort(session));
+        Assert.IsTrue(await store.TryReleasePendingSessionAbort(session));
 
-        var secondToken = await store.TryBeginPendingSessionAbort(session);
-        Assert.IsTrue(secondToken.HasValue);
-        Assert.AreNotEqual(firstToken.Value, secondToken.Value);
-        Assert.IsFalse(await store.TryReleasePendingSessionAbort(session, firstToken.Value));
-        Assert.IsFalse(await store.TryCompletePendingSessionAbort(session, firstToken.Value));
-        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session, secondToken.Value));
+        Assert.IsTrue(await store.TryBeginPendingSessionAbort(session));
+        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session));
         Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
+    }
+
+    [TestMethod]
+    public async Task GameSessionStore_PendingAbortProcessingRequiresExactSessionIdentity()
+    {
+        var store = new GameSessionStore();
+        var session = CreateLobbySession(42, "exact-abort-connection");
+        var differentSession = CreateLobbySession(42, session.ConnectionId);
+
+        Assert.IsTrue(await store.TryAdd(session));
+        Assert.IsTrue(await store.TryMoveToPendingAbort(session));
+        Assert.IsFalse(await store.TryBeginPendingSessionAbort(differentSession));
+        Assert.IsFalse(await store.TryCompletePendingSessionAbort(differentSession));
+        Assert.IsFalse(await store.TryReleasePendingSessionAbort(differentSession));
+
+        Assert.IsTrue(await store.TryBeginPendingSessionAbort(session));
+        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session));
     }
 
     [TestMethod]
@@ -1357,12 +1367,10 @@ public sealed class GameSessionServiceTests
         public ValueTask<bool> TryMoveToPendingAbort(IGameSession expectedSession) =>
             _store.TryMoveToPendingAbort(expectedSession);
 
-        public ValueTask<long?> TryBeginPendingSessionAbort(IGameSession expectedSession) =>
+        public ValueTask<bool> TryBeginPendingSessionAbort(IGameSession expectedSession) =>
             _store.TryBeginPendingSessionAbort(expectedSession);
 
-        public ValueTask<bool> TryCompletePendingSessionAbort(
-            IGameSession expectedSession,
-            long processingToken)
+        public ValueTask<bool> TryCompletePendingSessionAbort(IGameSession expectedSession)
         {
             if (_failCompletion)
             {
@@ -1370,15 +1378,13 @@ public sealed class GameSessionServiceTests
                 return new(false);
             }
 
-            return _store.TryCompletePendingSessionAbort(expectedSession, processingToken);
+            return _store.TryCompletePendingSessionAbort(expectedSession);
         }
 
-        public ValueTask<bool> TryReleasePendingSessionAbort(
-            IGameSession expectedSession,
-            long processingToken)
+        public ValueTask<bool> TryReleasePendingSessionAbort(IGameSession expectedSession)
         {
             ReleaseCalls++;
-            return _store.TryReleasePendingSessionAbort(expectedSession, processingToken);
+            return _store.TryReleasePendingSessionAbort(expectedSession);
         }
 
         public ValueTask<IReadOnlyList<IGameSession>> FindSessionsPendingAbort() =>

@@ -17,8 +17,6 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
 {
     private readonly AsyncReaderWriterLock _lock = new();
     private readonly Dictionary<string, SessionSlot> _slots = new();
-    private long _nextAbortProcessingToken;
-
     public async ValueTask<bool> TryAdd(IGameSession session)
     {
         using (await _lock.WriterLockAsync())
@@ -284,34 +282,31 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
         }
     }
 
-    public async ValueTask<long?> TryBeginPendingSessionAbort(IGameSession expectedSession)
+    public async ValueTask<bool> TryBeginPendingSessionAbort(IGameSession expectedSession)
     {
         using (await _lock.WriterLockAsync())
         {
             if (!_slots.TryGetValue(expectedSession.ConnectionId, out var slot) ||
                 slot.PendingAbort is not { } pendingAbort ||
                 !ReferenceEquals(pendingAbort.Session, expectedSession) ||
-                pendingAbort.ProcessingToken is not null)
+                pendingAbort.IsProcessing)
             {
-                return null;
+                return false;
             }
 
-            var processingToken = ++_nextAbortProcessingToken;
-            pendingAbort.ProcessingToken = processingToken;
-            return processingToken;
+            pendingAbort.IsProcessing = true;
+            return true;
         }
     }
 
-    public async ValueTask<bool> TryCompletePendingSessionAbort(
-        IGameSession expectedSession,
-        long processingToken)
+    public async ValueTask<bool> TryCompletePendingSessionAbort(IGameSession expectedSession)
     {
         using (await _lock.WriterLockAsync())
         {
             if (!_slots.TryGetValue(expectedSession.ConnectionId, out var slot) ||
                 slot.PendingAbort is not { } pendingAbort ||
                 !ReferenceEquals(pendingAbort.Session, expectedSession) ||
-                pendingAbort.ProcessingToken != processingToken)
+                !pendingAbort.IsProcessing)
             {
                 return false;
             }
@@ -322,21 +317,19 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
         }
     }
 
-    public async ValueTask<bool> TryReleasePendingSessionAbort(
-        IGameSession expectedSession,
-        long processingToken)
+    public async ValueTask<bool> TryReleasePendingSessionAbort(IGameSession expectedSession)
     {
         using (await _lock.WriterLockAsync())
         {
             if (!_slots.TryGetValue(expectedSession.ConnectionId, out var slot) ||
                 slot.PendingAbort is not { } pendingAbort ||
                 !ReferenceEquals(pendingAbort.Session, expectedSession) ||
-                pendingAbort.ProcessingToken != processingToken)
+                !pendingAbort.IsProcessing)
             {
                 return false;
             }
 
-            pendingAbort.ProcessingToken = null;
+            pendingAbort.IsProcessing = false;
             return true;
         }
     }
@@ -347,7 +340,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
         {
             return _slots.Values
                 .Where(slot => slot.PendingAbort is { } pendingAbort &&
-                               pendingAbort.ProcessingToken is null)
+                               !pendingAbort.IsProcessing)
                 .Select(slot => slot.PendingAbort!.Session)
                 .ToArray();
         }
@@ -488,6 +481,6 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
         public PendingSessionAbort(IGameSession session) => Session = session;
 
         public IGameSession Session { get; }
-        public long? ProcessingToken { get; set; }
+        public bool IsProcessing { get; set; }
     }
 }

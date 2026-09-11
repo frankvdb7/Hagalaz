@@ -34,7 +34,7 @@ public sealed class MapRegionServiceTests
     [TestMethod]
     public void GetOrCreateMapRegion_RequestsInitialLoadForNewCanonicalRegion()
     {
-        var loadRequests = Substitute.For<IMapRegionLoadRequestSink>();
+        var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
         using var provider = CreateProvider(loadRequests);
         var service = CreateService(provider);
 
@@ -198,7 +198,7 @@ public sealed class MapRegionServiceTests
     public async Task GetOrCreateMapRegion_ConcurrentCreation_ReturnsOneCanonicalInstance()
     {
         const int callerCount = 16;
-        var loadRequests = Substitute.For<IMapRegionLoadRequestSink>();
+        var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
         using var provider = CreateProvider(loadRequests);
         using var creationGate = new Barrier(callerCount);
         var service = CreateService(provider, new BlockingLocationBuilder(creationGate));
@@ -221,7 +221,7 @@ public sealed class MapRegionServiceTests
     [TestMethod]
     public void GetOrCreateMapRegion_ReadyCanonicalRegionDoesNotRequestAnotherLoad()
     {
-        var loadRequests = Substitute.For<IMapRegionLoadRequestSink>();
+        var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
         using var provider = CreateProvider(loadRequests);
         var service = CreateService(provider);
         var region = service.GetOrCreateMapRegion(1, 0, false);
@@ -403,9 +403,9 @@ public sealed class MapRegionServiceTests
         Assert.IsFalse(service.IsCurrentMapRegion(currentRegion.Id, location.Dimension, otherRegion));
     }
 
-    private static ServiceProvider CreateProvider(IMapRegionLoadRequestSink? loadRequests = null) => new ServiceCollection()
+    private static ServiceProvider CreateProvider(IMapRegionLoadScheduler? loadRequests = null) => new ServiceCollection()
         .AddSingleton(Substitute.For<INpcService>())
-        .AddSingleton(loadRequests ?? Substitute.For<IMapRegionLoadRequestSink>())
+        .AddSingleton(loadRequests ?? Substitute.For<IMapRegionLoadScheduler>())
         .BuildServiceProvider();
 
     private static MapRegionService CreateService(IServiceProvider provider) => CreateService(provider, new LocationBuilder());
@@ -417,7 +417,7 @@ public sealed class MapRegionServiceTests
         Substitute.For<IGroundItemBuilder>(),
         Substitute.For<ILogger<MapRegionService>>(),
         Substitute.For<IMapper>(),
-        provider.GetRequiredService<IMapRegionLoadRequestSink>());
+        provider.GetRequiredService<IMapRegionLoadScheduler>());
 
     private sealed class BlockingLocationBuilder(Barrier creationGate) : ILocationBuilder
     {

@@ -162,36 +162,6 @@ public sealed class MapRegionDestructionTests
     }
 
     [TestMethod]
-    public async Task DestroyAsync_ConcurrentCallersDoNotDuplicateCleanup()
-    {
-        var npcService = Substitute.For<INpcService>();
-        var npc = CreateNpc(1);
-        var region = CreateRegion(npcService);
-        region.Add(npc);
-        var cleanupStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseCleanup = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        npcService.UnregisterAsync(npc).Returns(_ =>
-        {
-            cleanupStarted.TrySetResult();
-            return releaseCleanup.Task;
-        });
-
-        var first = region.DestroyAsync();
-        await cleanupStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        Assert.AreEqual(MapRegionDestructionState.Destroying, region.DestructionState);
-
-        var second = region.DestroyAsync();
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => second);
-        Assert.AreEqual(MapRegionDestructionState.Destroying, region.DestructionState);
-
-        releaseCleanup.TrySetResult();
-        await first;
-
-        await npcService.Received(1).UnregisterAsync(npc);
-        Assert.IsTrue(region.IsDestroyed);
-    }
-
-    [TestMethod]
     public async Task DestroyAsync_RejectsNewNpcAfterDestructionStarts()
     {
         var npcService = Substitute.For<INpcService>();
@@ -203,65 +173,6 @@ public sealed class MapRegionDestructionTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => region.DestroyAsync());
 
         Assert.ThrowsExactly<InvalidOperationException>(() => region.Add(CreateNpc(2)));
-    }
-
-    [TestMethod]
-    public async Task DestroyAsync_WaitsForAdmittedMutationBeforeTakingCleanupSnapshot()
-    {
-        var npcService = Substitute.For<INpcService>();
-        var admissionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseAdmission = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var existing = CreateNpc(1);
-        existing.Index.Returns(_ =>
-        {
-            admissionStarted.TrySetResult();
-            releaseAdmission.Task.GetAwaiter().GetResult();
-            return 1;
-        });
-        npcService.UnregisterAsync(existing).Returns(Task.CompletedTask);
-        var region = CreateRegion(npcService);
-
-        var addTask = Task.Run(() => region.Add(existing));
-        await admissionStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
-
-        var destroyTask = Task.Run(() => region.DestroyAsync());
-        Assert.IsFalse(destroyTask.IsCompleted);
-        Assert.AreEqual(MapRegionDestructionState.Active, region.DestructionState);
-
-        releaseAdmission.TrySetResult();
-        await addTask;
-        await destroyTask;
-
-        await npcService.Received(1).UnregisterAsync(existing);
-        Assert.IsTrue(region.IsDestroyed);
-        Assert.ThrowsExactly<InvalidOperationException>(() => region.Add(CreateNpc(2)));
-    }
-
-    [TestMethod]
-    public async Task DestroyAsync_ClosesGroundItemTickAdmissionBeforeCleanupRuns()
-    {
-        var destroyStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseDestroy = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var item = Substitute.For<IGroundItem>();
-        item.Location.Returns(Location.Create(1, 1, 0, 0));
-        item.IsDestroyed.Returns(false);
-        item.When(value => value.Destroy()).Do(_ =>
-        {
-            destroyStarted.TrySetResult();
-            releaseDestroy.Task.GetAwaiter().GetResult();
-        });
-        var region = CreateRegion(Substitute.For<INpcService>());
-        region.Add(item);
-
-        var destruction = Task.Run(() => region.DestroyAsync());
-        await destroyStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
-
-        Assert.ThrowsExactly<InvalidOperationException>(() => region.MajorClientPrepareUpdateTick());
-
-        releaseDestroy.TrySetResult();
-        await destruction;
-        Assert.IsTrue(region.IsDestroyed);
-        Assert.IsEmpty(region.FindAllGroundItems());
     }
 
     private static MapRegion CreateRegion(INpcService npcService) => new(

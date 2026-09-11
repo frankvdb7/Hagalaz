@@ -214,7 +214,7 @@ public sealed class MapRegionLoaderTests
     }
 
     [TestMethod]
-    public async Task LoadAsync_WhenCleanupOfRegisteredNpcsFails_ContinuesCleanupAndPreservesFailure()
+    public async Task LoadAsync_WhenCleanupOfRegisteredNpcsFails_ContinuesCleanupAndPreservesPrimaryFailure()
     {
         var fatalFailure = new InvalidOperationException("readiness publication failed");
         var region = CreateRegion(fatalFailure);
@@ -237,10 +237,9 @@ public sealed class MapRegionLoaderTests
         fixture.NpcService.UnregisterAsync(npcA).Returns(Task.FromException(cleanupFailure));
         fixture.NpcService.UnregisterAsync(npcB).Returns(Task.CompletedTask);
 
-        var actual = await Assert.ThrowsExactlyAsync<AggregateException>(() => fixture.Loader.LoadAsync(region));
+        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => fixture.Loader.LoadAsync(region));
 
-        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, fatalFailure)));
-        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, cleanupFailure)));
+        Assert.AreSame(fatalFailure, actual);
         await fixture.NpcService.Received(1).UnregisterAsync(npcA);
         await fixture.NpcService.Received(1).UnregisterAsync(npcB);
         fixture.RegionService.Received(1).TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);

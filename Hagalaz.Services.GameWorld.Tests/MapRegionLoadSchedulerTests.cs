@@ -37,7 +37,6 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
-                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
             var firstRegion = CreateRegion(1, loaded);
@@ -75,7 +74,6 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
-                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
             var region = Substitute.For<IMapRegion>();
@@ -97,32 +95,9 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
-                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
             var region = CreateRegion(1, MapRegionState.Discarded);
-
-            await scheduler.StartAsync(CancellationToken.None);
-            scheduler.RequestLoad(region);
-            await scheduler.StopAsync(CancellationToken.None);
-
-            await loader.DidNotReceive().LoadAsync(Arg.Any<IMapRegion>(), Arg.Any<CancellationToken>());
-        }
-
-        [TestMethod]
-        public async Task RequestLoad_NonCanonicalInitializingRegion_IsRejected()
-        {
-            var loader = Substitute.For<IMapRegionLoader>();
-            var regionService = Substitute.For<IMapRegionService>();
-            regionService.IsCurrentMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IMapRegion>()).Returns(false);
-            using var provider = new ServiceCollection()
-                .AddScoped(_ => loader)
-                .BuildServiceProvider();
-            using var scheduler = new MapRegionLoadScheduler(
-                regionService,
-                provider.GetRequiredService<IServiceScopeFactory>(),
-                Substitute.For<ILogger<MapRegionLoadScheduler>>());
-            var region = CreateRegion(1);
 
             await scheduler.StartAsync(CancellationToken.None);
             scheduler.RequestLoad(region);
@@ -141,7 +116,6 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
-                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
             var region = CreateRegion(1);
@@ -173,7 +147,6 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
-                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
             var region = CreateRegion(1);
@@ -208,7 +181,6 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
-                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
             var region = CreateRegion(1);
@@ -244,7 +216,6 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
-                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
             var region = CreateRegion(1);
@@ -283,7 +254,6 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
-                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
             var region = CreateRegion(1);
@@ -306,7 +276,6 @@ namespace Hagalaz.Services.GameWorld.Tests
         {
             using var provider = new ServiceCollection().BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
-                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
             var region = CreateRegion(1);
@@ -333,7 +302,6 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
-                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
             var region = CreateRegion(1);
@@ -367,7 +335,6 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
-                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
             var region = CreateRegion(1);
@@ -408,11 +375,5 @@ namespace Hagalaz.Services.GameWorld.Tests
             return region;
         }
 
-        private static IMapRegionService CreateRegionService()
-        {
-            var regionService = Substitute.For<IMapRegionService>();
-            regionService.IsCurrentMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IMapRegion>()).Returns(true);
-            return regionService;
-        }
     }
 }

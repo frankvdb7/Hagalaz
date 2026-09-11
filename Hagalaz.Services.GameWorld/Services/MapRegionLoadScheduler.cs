@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
@@ -19,30 +20,22 @@ namespace Hagalaz.Services.GameWorld.Services
     {
         private readonly object _stateLock = new();
         private readonly Dictionary<IMapRegion, TaskCompletionSource> _inFlight = new();
-        private readonly IMapRegionService _regionService;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<MapRegionLoadScheduler> _logger;
-        private readonly MapRegionLoadRequestQueue _requests;
+        private readonly Channel<IMapRegion> _requests = Channel.CreateUnbounded<IMapRegion>(new UnboundedChannelOptions
+        {
+            SingleReader = true,
+            SingleWriter = false,
+            AllowSynchronousContinuations = false
+        });
         private bool _stopping;
 
         public MapRegionLoadScheduler(
-            IMapRegionService regionService,
-            IServiceScopeFactory scopeFactory,
-            ILogger<MapRegionLoadScheduler> logger,
-            MapRegionLoadRequestQueue requests)
-        {
-            _regionService = regionService;
-            _scopeFactory = scopeFactory;
-            _logger = logger;
-            _requests = requests;
-        }
-
-        public MapRegionLoadScheduler(
-            IMapRegionService regionService,
             IServiceScopeFactory scopeFactory,
             ILogger<MapRegionLoadScheduler> logger)
-            : this(regionService, scopeFactory, logger, new MapRegionLoadRequestQueue())
         {
+            _scopeFactory = scopeFactory;
+            _logger = logger;
         }
 
         public void RequestLoad(IMapRegion region) => _ = GetOrRequestLoad(region, true);
@@ -64,11 +57,8 @@ namespace Hagalaz.Services.GameWorld.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await foreach (var region in _requests.ReadAllAsync(stoppingToken))
+            await foreach (var region in _requests.Reader.ReadAllAsync(stoppingToken))
             {
-                if (!TryClaimQueuedRegion(region))
-                    continue;
-
                 Exception? failure = null;
                 var canceled = false;
                 try
@@ -120,18 +110,12 @@ namespace Hagalaz.Services.GameWorld.Services
                         return null;
                     throw new InvalidOperationException($"Region {region.Id} is discarded and cannot be loaded.");
                 }
-                if (!IsCurrent(region))
-                {
-                    if (tolerateInvalidState)
-                        return null;
-                    throw new InvalidOperationException($"Region {region.Id} is no longer the current region instance.");
-                }
                 if (_inFlight.TryGetValue(region, out var completion))
                     return completion.Task;
 
                 completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 _inFlight.Add(region, completion);
-                if (_requests.TryRequestLoad(region))
+                if (_requests.Writer.TryWrite(region))
                     return completion.Task;
 
                 _inFlight.Remove(region);
@@ -139,23 +123,6 @@ namespace Hagalaz.Services.GameWorld.Services
                 throw new InvalidOperationException($"Unable to schedule loading for region {region.Id}.");
             }
         }
-
-        private bool TryClaimQueuedRegion(IMapRegion region)
-        {
-            lock (_stateLock)
-            {
-                if (_stopping || region.State is MapRegionState.Ready or MapRegionState.Discarded || !IsCurrent(region))
-                    return false;
-                if (_inFlight.ContainsKey(region))
-                    return true;
-
-                _inFlight.Add(region, new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
-                return true;
-            }
-        }
-
-        private bool IsCurrent(IMapRegion region) =>
-            _regionService.IsCurrentMapRegion(region.Id, region.BaseLocation.Dimension, region);
 
         private void Complete(IMapRegion region, bool cancellation, Exception? exception)
         {
@@ -182,7 +149,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 completions = _inFlight.Values.ToList();
             }
 
-            _requests.Complete();
+            _requests.Writer.TryComplete();
             foreach (var completion in completions)
                 completion.TrySetCanceled();
 

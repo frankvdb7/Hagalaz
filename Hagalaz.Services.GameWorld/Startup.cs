@@ -155,8 +155,6 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<IClientPermissionProvider, ClientPermissionProvider>();
             services.AddScoped<IClientProtocolResolver, ClientProtocolResolver>();
             services.AddSingleton<MapRegionLoadScheduler>();
-            services.AddSingleton<MapRegionLoadRequestQueue>();
-            services.AddSingleton<IMapRegionLoadRequestSink>(provider => provider.GetRequiredService<MapRegionLoadRequestQueue>());
             services.AddSingleton<IMapRegionLoadScheduler>(provider => provider.GetRequiredService<MapRegionLoadScheduler>());
             services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<MapRegionLoadScheduler>());
             services.AddHostedService<GameWorkerService>();

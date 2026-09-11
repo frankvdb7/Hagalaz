@@ -23,14 +23,16 @@
 
 ## 2. Scheduler and ownership
 
-- [x] 2.1 Require an `Initializing` region to remain the exact canonical
-      service instance before scheduling.
-- [x] 2.2 Reject discarded/stale instances and preserve in-flight coalescing.
+- [x] 2.1 Preserve in-flight coalescing while leaving canonical-instance
+      validation to `MapRegionLoader`.
+- [x] 2.2 Reject discarded regions at the scheduler boundary and let the
+      loader reject stale instances.
 - [x] 2.3 Preserve exact-instance removal and verify old R1 cannot remove R2.
 - [x] 2.4 Remove dimensions only through an exact-current-and-empty operation
       under the same residency synchronization boundary used by publication.
 - [x] 2.5 Submit an initial load request when a new canonical region is
-      published through a shared sink consumed by the existing scheduler.
+      published through `IMapRegionLoadScheduler`, whose private channel owns
+      request delivery and shutdown.
 
 ## 3. Failure and discard behavior
 
@@ -38,8 +40,8 @@
       missing-archive semantics.
 - [x] 3.2 Register NPCs after map preparation and propagate construction and
       registration-service failures as fatal load failures.
-- [x] 3.3 Unregister all NPCs successfully registered by a failed attempt and
-      preserve cleanup failures.
+- [x] 3.3 Unregister all NPCs successfully registered by a failed attempt,
+      log secondary cleanup failures, and preserve the primary failure.
 - [x] 3.4 Mark failed instances discarded, exact-remove them, and verify stale failures cannot
       remove a current replacement.
 - [x] 3.5 Verify later requests create a fresh instance and failed instances are
@@ -49,8 +51,9 @@
 - [x] 3.7 Make terminal region destruction best-effort across NPCs, ground
       items, and game objects, preserving the first cleanup failure after all
       attempts.
-- [x] 3.8 Remove pending-destruction residency and retry ownership; use an
-      atomic one-time destruction claim and reject stale mutations.
+- [x] 3.8 Remove pending-destruction residency and retry ownership; let
+      `MapRegionService` claim exact idle residency before sequential terminal
+      destruction, with game-worker serialization as the mutation boundary.
 
 ## 4. Direct NPC cleanup
 

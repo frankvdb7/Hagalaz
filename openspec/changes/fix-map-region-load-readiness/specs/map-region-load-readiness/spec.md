@@ -57,7 +57,7 @@ successfully claim the exact idle instance before calling `DestroyAsync`.
 ### Requirement: Region identity preserves its dimension
 
 A region created for dimension D MUST have `BaseLocation.Dimension == D`.
-Residency, scheduler canonical checks, dynamic-region creation, and stale
+Residency, loader canonical checks, dynamic-region creation, and stale
 reference handling MUST use that requested dimension rather than inferring it
 from the region ID.
 
@@ -131,7 +131,7 @@ be terminally destroyed even when cleanup is incomplete.
 
 - **WHEN** NPC, ground-item, and game-object cleanup each fail
 - **THEN** destruction MUST report the first failure
-- **AND** the region MUST transition to `Destroyed`
+- **AND** the region MUST publish its terminal `IsDestroyed` fact
 - **AND** every later cleanup operation MUST still be attempted
 
 #### Scenario: Cleanup fails after a region has been claimed
@@ -202,9 +202,10 @@ during decoding.
 
 An unexpected database, cache, decode, map-apply, cancellation, or shutdown
 failure MUST leave the region not ready. The loader MUST attempt to unregister
-every NPC successfully registered by that attempt, preserve cleanup failures,
-and exact-remove the failed region only if the active service entry is that
-same instance. The failed instance MUST NOT be reset or reused.
+every NPC successfully registered by that attempt, log cleanup failures as
+secondary diagnostics, and exact-remove the failed region only if the active
+service entry is that same instance. The original load failure MUST be
+re-thrown unchanged. The failed instance MUST NOT be reset or reused.
 
 #### Scenario: Required source preparation fails
 
@@ -233,9 +234,10 @@ same instance. The failed instance MUST NOT be reset or reused.
 
 ### Requirement: Failed instances cannot be scheduled or consumed
 
-The load scheduler MUST schedule an `Initializing` region only while that exact
-instance remains the canonical region for its ID and dimension. `Ready` regions
-are already loaded, and `Discarded` or stale instances MUST be rejected.
+The load scheduler MUST coalesce requests for each region instance and reject
+discarded instances. `Ready` regions are already loaded. `MapRegionLoader` MUST
+validate that an initializing instance remains canonical for its ID and
+dimension, rejecting stale instances before applying data.
 Viewport and map-update processing MUST resolve retained stale references to
 the canonical current instance where possible. Dynamic/standard map identity
 is selected from canonical region metadata independently of readiness. Only
@@ -252,7 +254,7 @@ world state.
 
 - **WHEN** R1 remains `Initializing` but the service currently owns R2 for the
   same region and dimension
-- **THEN** the scheduler MUST reject R1
+- **THEN** `MapRegionLoader` MUST reject R1 before applying region data
 
 #### Scenario: A viewport retains a failed region
 

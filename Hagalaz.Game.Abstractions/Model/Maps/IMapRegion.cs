@@ -43,9 +43,6 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// </summary>
         MapRegionState State { get; }
 
-        /// <summary>Gets the cleanup lifecycle state of this region instance.</summary>
-        MapRegionDestructionState DestructionState { get; }
-
         /// <summary>
         /// Gets a value indicating whether this region has been destroyed and is no longer active.
         /// </summary>

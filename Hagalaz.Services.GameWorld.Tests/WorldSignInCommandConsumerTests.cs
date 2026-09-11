@@ -207,16 +207,8 @@ public sealed class WorldSignInCommandConsumerTests
 
     private static MapRegionLoadScheduler CreateScheduler(ServiceProvider provider) =>
         new(
-            CreateRegionService(),
             provider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<MapRegionLoadScheduler>.Instance);
-
-    private static IMapRegionService CreateRegionService()
-    {
-        var regionService = Substitute.For<IMapRegionService>();
-        regionService.IsCurrentMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IMapRegion>()).Returns(true);
-        return regionService;
-    }
 
     private static ConsumeContext<WorldSignInCommand> CreateContext(WorldSignInCommand message)
     {

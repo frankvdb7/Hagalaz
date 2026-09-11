@@ -15,48 +15,38 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Add(IGroundItem item)
         {
-            lock (_mutationGate)
-            {
-                EnsureAcceptsMutation();
-                _parts.GetOrAdd(item.Location.GetRegionPartHash(), CreateRegionPart).Add(item);
-            }
+            EnsureAcceptsMutation();
+            _parts.GetOrAdd(item.Location.GetRegionPartHash(), CreateRegionPart).Add(item);
         }
 
         public bool Remove(IGroundItem item)
         {
-            lock (_mutationGate)
+            if (IsDestroyed)
             {
-                if (DestructionState != MapRegionDestructionState.Active)
-                {
-                    return false;
-                }
-
-                var partHash = item.Location.GetRegionPartHash();
-                if (!_parts.TryGetValue(partHash, out var part))
-                {
-                    return false;
-                }
-                return part.Remove(item);
+                return false;
             }
+            var partHash = item.Location.GetRegionPartHash();
+            if (!_parts.TryGetValue(partHash, out var part))
+            {
+                return false;
+            }
+            return part.Remove(item);
         }
 
         private void TickGroundItems()
         {
-            lock (_mutationGate)
+            EnsureAcceptsMutation();
+            foreach (var groundItem in FindAllGroundItems().ToArray())
             {
-                EnsureAcceptsMutation();
-                foreach (var groundItem in FindAllGroundItems().ToArray())
+                groundItem.TicksLeft--;
+
+                if (groundItem.TicksLeft > 0)
+                    continue;
+
+                var partHash = groundItem.Location.GetRegionPartHash();
+                if (_parts.TryGetValue(partHash, out var part))
                 {
-                    groundItem.TicksLeft--;
-
-                    if (groundItem.TicksLeft > 0)
-                        continue;
-
-                    var partHash = groundItem.Location.GetRegionPartHash();
-                    if (_parts.TryGetValue(partHash, out var part))
-                    {
-                        part.ProcessExpiredItem(groundItem);
-                    }
+                    part.ProcessExpiredItem(groundItem);
                 }
             }
         }

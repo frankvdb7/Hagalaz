@@ -13,8 +13,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using System;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Hagalaz.Services.GameWorld.Tests;
 
@@ -99,26 +97,6 @@ public sealed class CreatureLifecycleTests
         scope.Received(1).Dispose();
     }
 
-    [TestMethod]
-    public async Task Destroy_WhenConcurrentCallerArrives_IsOwnedByOneCaller()
-    {
-        var (creature, _, scope) = CreateCreature();
-        creature.BlockOnDestroy = true;
-
-        var first = Task.Run(creature.Destroy);
-        await creature.DestroyStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
-
-        var secondFailure = await Task.Run(() => Assert.ThrowsExactly<InvalidOperationException>(creature.Destroy));
-
-        StringAssert.Contains(secondFailure.Message, "destroyed");
-        Assert.AreEqual(1, creature.DestroyCalls);
-        creature.ReleaseDestroy.TrySetResult();
-        await first;
-
-        Assert.IsTrue(creature.IsDestroyed);
-        scope.Received(1).Dispose();
-    }
-
     private static (TestCreature Creature, IMapRegionService MapRegionService, IServiceScope Scope) CreateCreature(
         bool onDestroyFailure = false)
     {
@@ -153,10 +131,7 @@ public sealed class CreatureLifecycleTests
     private sealed class TestCreature : Creature
     {
         public bool FailOnDestroy { get; set; }
-        public bool BlockOnDestroy { get; set; }
         public int DestroyCalls { get; private set; }
-        public TaskCompletionSource DestroyStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public TaskCompletionSource ReleaseDestroy { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public bool ObservedTerminalStateDuringDestroy { get; private set; }
         public bool ObservedRegionDetachedDuringDestroy { get; private set; }
         public bool ObservedAreaExitedDuringDestroy { get; private set; }
@@ -182,12 +157,6 @@ public sealed class CreatureLifecycleTests
             ObservedTerminalStateDuringDestroy = IsDestroyed;
             ObservedRegionDetachedDuringDestroy = _regionDetached;
             ObservedAreaExitedDuringDestroy = _areaExited;
-            if (BlockOnDestroy)
-            {
-                DestroyStarted.TrySetResult();
-                ReleaseDestroy.Task.GetAwaiter().GetResult();
-            }
-
             if (FailOnDestroy)
             {
                 throw new InvalidOperationException("destroy failed");

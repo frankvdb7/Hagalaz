@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.ExceptionServices;
-using System.Threading;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
@@ -34,8 +33,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private Dictionary<Type, List<EventHappened>> _registeredEventHandlers = new();
         private CreatureUpdateState _updateState = CreatureUpdateState.Initializing;
         private readonly IServiceScope _serviceScope = default!;
-        private int _destructionInProgress;
-
         public bool IsDestroyed { get; private set; }
 
         /// <summary>
@@ -222,13 +219,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 throw new InvalidOperationException($"{this} already destroyed!");
             }
 
-            if (Interlocked.CompareExchange(ref _destructionInProgress, 1, 0) != 0)
-            {
-                throw new InvalidOperationException($"{this} is already being destroyed!");
-            }
-
             // Publish terminal state before any structural or user callbacks run. This keeps
-            // cleanup callbacks from observing a half-alive creature and prevents re-entry.
+            // cleanup callbacks from observing a half-alive creature.
             IsDestroyed = true;
             _updateState = CreatureUpdateState.Destroyed;
             Exception? failure = null;
