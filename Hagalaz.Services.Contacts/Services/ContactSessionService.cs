@@ -51,7 +51,7 @@ namespace Hagalaz.Services.Contacts.Services
                 PreviousDisplayName = character.PreviousDisplayName,
                 WorldId = worldId,
                 WorldName = worldName
-            }));
+            }, sessionGeneration, connectionId));
         }
 
         public async Task AddWorldSession(int worldId, uint masterId, long sessionGeneration, string connectionId)
@@ -80,7 +80,7 @@ namespace Hagalaz.Services.Contacts.Services
                 PreviousDisplayName = character.PreviousDisplayName,
                 WorldId = worldId,
                 WorldName = worldName
-            }));
+            }, sessionGeneration, connectionId));
         }
 
         public async Task RemoveSession(uint masterId, long sessionGeneration, string connectionId)
@@ -90,18 +90,18 @@ namespace Hagalaz.Services.Contacts.Services
                 return;
             }
 
-            await PublishSignOut(masterId);
+            await PublishSignOut(masterId, sessionGeneration, connectionId);
         }
 
         public async Task RemoveWorldSessions(int worldId)
         {
             foreach (var session in _contacts.RemoveSessionsForWorld(worldId))
             {
-                await PublishSignOut(session.MasterId);
+                await PublishSignOut(session.MasterId, session.SessionGeneration, session.ConnectionId);
             }
         }
 
-        private async Task PublishSignOut(uint masterId)
+        private async Task PublishSignOut(uint masterId, long sessionGeneration, string connectionId)
         {
             var character = await _characterService.FindCharacterByIdAsync(masterId);
             if (character == null)
@@ -113,7 +113,7 @@ namespace Hagalaz.Services.Contacts.Services
                 MasterId = masterId,
                 DisplayName = character.DisplayName,
                 PreviousDisplayName = character.PreviousDisplayName
-            }));
+            }, sessionGeneration, connectionId));
         }
     }
 }

@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Services.GameWorld.Services
@@ -14,10 +12,12 @@ namespace Hagalaz.Services.GameWorld.Services
     /// Services the map regions. This helps keep the server free of some
     /// space, by idling and killing regions that have been inactive.
     /// </summary>
-    public class MapRegionBackgroundService : BackgroundService
+    public class MapRegionBackgroundService
     {
+        private static readonly TimeSpan ProcessingInterval = TimeSpan.FromMinutes(5);
         private readonly IMapRegionService _regionService;
         private readonly ILogger<MapRegionBackgroundService> _logger;
+        private DateTime _lastProcessedAt = DateTime.MinValue;
 
         public MapRegionBackgroundService(IMapRegionService regionService, ILogger<MapRegionBackgroundService> logger)
         {
@@ -25,23 +25,16 @@ namespace Hagalaz.Services.GameWorld.Services
             _logger = logger;
         }
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        internal async Task ProcessRegionsIfDueAsync()
         {
-            while (!stoppingToken.IsCancellationRequested)
+            var now = DateTime.UtcNow;
+            if (now - _lastProcessedAt < ProcessingInterval)
             {
-                try
-                {
-                    await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
-                    await ProcessRegionsOnceAsync();
-                }
-                catch (TaskCanceledException)
-                {
-                }
-                catch(Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to service regions");
-                }
+                return;
             }
+
+            await ProcessRegionsOnceAsync();
+            _lastProcessedAt = now;
         }
 
         internal async Task ProcessRegionsOnceAsync()

@@ -64,6 +64,46 @@ public sealed class GameWorkerServiceTests
     }
 
     [TestMethod]
+    public async Task ExecuteTickAsync_PerformsRegionHousekeepingOnlyAfterTheTickBoundary()
+    {
+        var tickStarted = NewSignal();
+        using var releaseTick = new ManualResetEventSlim();
+        var region = Substitute.For<IMapRegion>();
+        region.State.Returns(MapRegionState.Ready);
+        region.CanSuspend().Returns(true);
+        region.When(item => item.MajorUpdateTick()).Do(_ =>
+        {
+            tickStarted.TrySetResult();
+            releaseTick.Wait();
+        });
+        var dimension = Substitute.For<IDimension>();
+        dimension.Id.Returns(0);
+        var regionService = Substitute.For<IMapRegionService>();
+        regionService.FindAllRegions().Returns(new[] { region });
+        regionService.FindAllDimensions().Returns(new[] { dimension });
+        regionService.FindRegionsByDimension(0).Returns(new[] { region });
+        regionService.FindIdleRegionsByDimension(0).Returns([]);
+
+        using var worker = CreateWorker(regionService, TimeSpan.Zero).Worker;
+        var tick = Task.Run(() => worker.ExecuteTickAsync(CancellationToken.None));
+        try
+        {
+            await tickStarted.Task;
+            regionService.DidNotReceive().TrySuspendMapRegion(region);
+
+            releaseTick.Set();
+            await tick;
+
+            regionService.Received(1).TrySuspendMapRegion(region);
+        }
+        finally
+        {
+            releaseTick.Set();
+            await tick;
+        }
+    }
+
+    [TestMethod]
     public async Task ExecuteTickAsync_AdjacentTicksPreservePhaseOrder()
     {
         var events = new List<string>();
@@ -531,6 +571,7 @@ public sealed class GameWorkerServiceTests
         }
 
         regionService.FindAllRegions().Returns(regions);
+        regionService.FindAllDimensions().Returns([]);
         return CreateWorker(regionService, tickTimeSpan, characterStore, logger);
     }
 
@@ -545,6 +586,7 @@ public sealed class GameWorkerServiceTests
         var worker = new GameWorkerService(
             scheduler,
             regionService,
+            new MapRegionBackgroundService(regionService, Substitute.For<ILogger<MapRegionBackgroundService>>()),
             characterStore,
             Options.Create(new GameServerOptions
             {

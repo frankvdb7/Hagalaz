@@ -34,6 +34,15 @@ namespace Hagalaz.Services.GameWorld.Network.Consumers
                 {
                     continue;
                 }
+                if (friend.SessionGeneration is { } currentGeneration &&
+                    (message.SessionGeneration < currentGeneration ||
+                     (message.SessionGeneration == currentGeneration && friend.SessionConnectionId != message.ConnectionId)))
+                {
+                    continue;
+                }
+
+                friend.SessionGeneration = message.SessionGeneration;
+                friend.SessionConnectionId = message.ConnectionId;
                 var friendUpdateMessage = new FriendsListMessage
                 {
                     Friends = new List<ContactDto>

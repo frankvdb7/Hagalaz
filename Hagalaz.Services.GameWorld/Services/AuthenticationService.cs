@@ -465,7 +465,8 @@ namespace Hagalaz.Services.GameWorld.Services
                         if (!created && receipt is null)
                         {
                             preservePendingLogout = true;
-                            return;
+                            throw new InvalidOperationException(
+                                $"Character '{character.MasterId}' logout is already in progress.");
                         }
 
                         if (receipt is null)

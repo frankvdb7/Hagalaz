@@ -18,6 +18,7 @@ namespace Hagalaz.Services.GameWorld.Services
     {
         private readonly IRsTaskService _rsTaskScheduler;
         private readonly IMapRegionService _regionService;
+        private readonly MapRegionBackgroundService _regionHousekeeping;
         private readonly ICharacterStore _characterStore;
         private readonly GameServerOptions _gameOptions;
         private readonly ILogger<GameWorkerService> _logger;
@@ -25,12 +26,14 @@ namespace Hagalaz.Services.GameWorld.Services
         public GameWorkerService(
             IRsTaskService rsTaskScheduler,
             IMapRegionService regionService,
+            MapRegionBackgroundService regionHousekeeping,
             ICharacterStore characterStore,
             IOptions<GameServerOptions> gameOptions,
             ILogger<GameWorkerService> logger)
         {
             _rsTaskScheduler = rsTaskScheduler;
             _regionService = regionService;
+            _regionHousekeeping = regionHousekeeping;
             _characterStore = characterStore;
             _gameOptions = gameOptions.Value;
             _logger = logger;
@@ -177,6 +180,8 @@ namespace Hagalaz.Services.GameWorld.Services
                     }
                 }
             }
+
+            await _regionHousekeeping.ProcessRegionsIfDueAsync();
 
         }
     }

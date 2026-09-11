@@ -265,7 +265,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<IMapRegionService, MapRegionService>();
             services.AddSingleton<IMapUpdateService, MapUpdateService>();
             services.AddScoped<IMapRegionLoader, MapRegionLoader>();
-            services.AddHostedService<MapRegionBackgroundService>();
+            services.AddSingleton<MapRegionBackgroundService>();
             services.AddSingleton<ILocationBuilder, LocationBuilder>();
             services.AddSingleton<IRegionUpdateBuilder, RegionUpdateBuilder>();
 

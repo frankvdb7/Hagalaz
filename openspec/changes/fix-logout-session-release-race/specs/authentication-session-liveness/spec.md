@@ -24,6 +24,13 @@ revocation to finish.
 - **THEN** it does not submit another forced snapshot
 - **AND** it waits for the existing receipt before releasing the session
 
+#### Scenario: Duplicate logout arrives before persistence receipt creation
+
+- **WHEN** a second logout observes the exact character already owned by an
+  in-progress logout without an available persistence receipt
+- **THEN** the second logout reports that logout is already in progress
+- **AND** it does not report successful completion or submit another snapshot
+
 #### Scenario: Immediate login follows a persisted logout
 
 - **WHEN** the disconnected session has been persisted and the client attempts to sign in while token revocation is still in progress

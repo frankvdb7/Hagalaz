@@ -20,6 +20,16 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
     public class Friend : Contact
     {
         /// <summary>
+        /// Gets or sets the generation of the session that last established this presence.
+        /// </summary>
+        public long? SessionGeneration { get; set; }
+
+        /// <summary>
+        /// Gets or sets the connection that owns the session that last established this presence.
+        /// </summary>
+        public string? SessionConnectionId { get; set; }
+
+        /// <summary>
         /// Gets or sets the rank of the friend within the player's friends chat.
         /// </summary>
         public required FriendsChatRank Rank { get; set; }

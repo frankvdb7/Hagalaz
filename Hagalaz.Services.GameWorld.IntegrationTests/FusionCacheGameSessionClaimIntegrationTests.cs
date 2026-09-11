@@ -467,7 +467,7 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
         public void PersistenceServiceSetup()
         {
             CharacterPersistenceService.PersistAsync(Arg.Any<ICharacter>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
-                .Returns(Task.CompletedTask);
+                .Returns(Task.FromResult<CharacterPersistenceReceipt?>(null));
             CharacterLogoutService.DetachAsync(Arg.Any<ICharacter>(), Arg.Any<CancellationToken>())
                 .Returns(Task.CompletedTask);
         }

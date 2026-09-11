@@ -128,6 +128,15 @@ record.
 - WHEN world generation 2 replaces it and generation 1 signs out
 - THEN generation 2 remains present
 
+#### Scenario: Delayed presence events are fenced by session identity
+
+- **GIVEN** a consumer has observed contact generation 11 on connection
+  `world-b`
+- **WHEN** a delayed sign-out for generation 10 on `world-a` is delivered
+- **THEN** generation 11 remains online
+- **AND** a sign-out with the same generation but a different connection is
+  ignored
+
 #### Scenario: delayed world sign-out after lobby replacement
 
 - GIVEN master 42 has world generation 1 on `world-a`

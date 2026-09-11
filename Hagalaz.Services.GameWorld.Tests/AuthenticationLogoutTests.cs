@@ -112,6 +112,74 @@ public sealed class AuthenticationLogoutTests
     }
 
     [TestMethod]
+    public async Task SignOutAsync_ConcurrentDuplicateFailsUntilTheOwnedLogoutCompletes()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        character.IsDestroyed.Returns(false);
+        var session = Substitute.For<IGameSession>();
+        character.Session.Returns(session);
+        var receipt = CreateReceipt(character);
+        var persistenceStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePersistence = new TaskCompletionSource<CharacterPersistenceReceipt?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var characterService = Substitute.For<ICharacterService>();
+#pragma warning disable CA2012 // NSubstitute consumes the configured ValueTask exactly once.
+        characterService.RemoveAsync(character).Returns(ValueTask.FromResult(true));
+#pragma warning restore CA2012
+        var logoutService = new CharacterLogoutService(
+            new CharacterLogoutState(),
+            characterService,
+            Substitute.For<IGameMediator>());
+
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        persistenceService.PersistAsync(character, true, Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                persistenceStarted.TrySetResult(true);
+                return releasePersistence.Task;
+            });
+        persistenceService.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(CharacterPersistenceOutcome.Committed));
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
+        var contextAccessor = CreateContextAccessor(character, session);
+        var firstService = CreateAuthenticationService(
+            characterService,
+            persistenceService,
+            gameSessionService,
+            contextAccessor,
+            null,
+            null,
+            logoutService,
+            false);
+        var secondService = CreateAuthenticationService(
+            characterService,
+            persistenceService,
+            gameSessionService,
+            contextAccessor,
+            null,
+            null,
+            logoutService,
+            false);
+
+        var firstSignOut = firstService.SignOutAsync();
+        await persistenceStarted.Task;
+
+        var secondException = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => secondService.SignOutAsync());
+
+        StringAssert.Contains(secondException.Message, "already in progress");
+        Assert.IsFalse(firstSignOut.IsCompleted);
+        await persistenceService.Received(1).PersistAsync(character, true, Arg.Any<CancellationToken>());
+
+        releasePersistence.TrySetResult(receipt);
+        await firstSignOut;
+        await gameSessionService.Received(1).RemoveSession(session);
+        await characterService.Received(1).RemoveAsync(character);
+        character.Received(1).Destroy();
+    }
+
+    [TestMethod]
     public async Task SignOutAsync_PersistsBeforeReleasingSession()
     {
         var order = new List<string>();
@@ -519,10 +587,11 @@ public sealed class AuthenticationLogoutTests
         IRaidoCallerContextAccessor contextAccessor,
         IRequestClient<RevokeTokenRequestMessage>? revokeTokenRequestClient = null,
         IGameMediator? mediator = null,
-        ICharacterLogoutService? characterLogoutService = null)
+        ICharacterLogoutService? characterLogoutService = null,
+        bool configureLogoutService = true)
     {
         var logoutService = characterLogoutService ?? Substitute.For<ICharacterLogoutService>();
-        if (contextAccessor.Context.Features.Get<ICharacterFeature>()?.Character is { } character)
+        if (configureLogoutService && contextAccessor.Context.Features.Get<ICharacterFeature>()?.Character is { } character)
         {
             logoutService.TryBeginLogout(
                     character,

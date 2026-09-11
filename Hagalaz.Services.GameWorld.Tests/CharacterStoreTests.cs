@@ -46,6 +46,7 @@ public sealed class CharacterStoreTests
         Assert.AreSame(second, await store.FindByIndexAsync(second.Index));
         Assert.IsNull(await store.FindByIdAsync(99));
         Assert.IsNull(await store.FindByIndexAsync(-1));
+        Assert.IsNull(await store.FindByIndexAsync(int.MaxValue));
     }
 
     private static CharacterStore CreateStore() => new(Options.Create(new GameServerOptions

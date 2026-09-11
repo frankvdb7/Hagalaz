@@ -29,6 +29,17 @@ namespace Hagalaz.Services.GameWorld.Network.Consumers
             var friendUpdateMessage = new FriendsListMessage { Friends = new List<ContactDto> { friend }, Notify = true };
             await foreach (var connection in _connectionService.FindAll().Where(c => c.Features.Get<IContactsFeature>()?.Friends?.Contains(message.Contact.MasterId) ?? false))
             {
+                var contactFeature = connection.Features.Get<IContactsFeature>();
+                var currentFriend = contactFeature?.Friends?.Get(message.Contact.MasterId);
+                if (currentFriend == null ||
+                    (currentFriend.SessionGeneration is { } currentGeneration &&
+                     (currentGeneration != message.SessionGeneration || currentFriend.SessionConnectionId != message.ConnectionId)))
+                {
+                    continue;
+                }
+
+                currentFriend.SessionGeneration = null;
+                currentFriend.SessionConnectionId = null;
                 await connection.SendMessage(friendUpdateMessage);
             }
         }

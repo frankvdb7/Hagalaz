@@ -93,7 +93,12 @@ namespace Hagalaz.Services.GameWorld.Store
         {
             using (await _lock.ReaderLockAsync())
             {
-                return _characters.FirstOrDefault(character => character.Index == index);
+                if (index < 1 || index > _characters.Capacity)
+                {
+                    return null;
+                }
+
+                return _characters[index];
             }
         }
     }

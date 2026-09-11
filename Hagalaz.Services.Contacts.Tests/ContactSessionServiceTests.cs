@@ -49,7 +49,10 @@ public sealed class ContactSessionServiceTests
         Assert.IsTrue(contactSessions.TrySetNewerSession(new ContactSessionContext(removedMasterId, worldId, "World 1", 1, "removed")));
         publishEndpoint.Verify(
             x => x.Publish(
-                It.Is<ContactSignOutMessage>(message => message.Contact.MasterId == removedMasterId),
+                It.Is<ContactSignOutMessage>(message =>
+                    message.Contact.MasterId == removedMasterId &&
+                    message.SessionGeneration == 1 &&
+                    message.ConnectionId == "removed"),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -193,7 +196,10 @@ public sealed class ContactSessionServiceTests
         Assert.IsFalse(contactSessions.TryGetValue(42, out _));
         publishEndpoint.Verify(
             x => x.Publish(
-                It.Is<ContactSignOutMessage>(message => message.Contact.MasterId == 42),
+                It.Is<ContactSignOutMessage>(message =>
+                    message.Contact.MasterId == 42 &&
+                    message.SessionGeneration == 2 &&
+                    message.ConnectionId == "world-b"),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }

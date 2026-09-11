@@ -14,6 +14,11 @@ active residency, idle residency, creation, suspension, resumption, removal,
 and enumeration. Region construction and loading MUST NOT occur while that
 gate is held.
 
+Active-region housekeeping MUST run at the GameWorld worker execution boundary,
+after the worker has completed the active-region tick. An independent cleanup
+loop MUST NOT change residency while the worker is selecting or ticking active
+regions.
+
 #### Scenario: Region enumeration returns an explicit snapshot
 
 - **WHEN** a worker asks for active or idle regions
@@ -27,6 +32,12 @@ gate is held.
 - **THEN** the service removes it only if it is still canonical and both
   active and idle residency stores are empty while gated
 - **AND** a stale instance or global dimension is rejected
+
+#### Scenario: Housekeeping follows the active gameplay phase
+
+- **WHEN** the game worker is selecting or ticking active regions
+- **THEN** region housekeeping does not suspend or destroy a region
+- **AND** housekeeping runs only after that worker phase completes
 
 ### Requirement: Mutating region operations require canonical active ownership
 
@@ -96,6 +107,13 @@ receipt matching, and acknowledgement state.
   different instance with the same master id
 - **AND** a duplicate claim reuses the same persistence receipt instead of
   submitting a second forced snapshot
+
+#### Scenario: Duplicate logout arrives before a receipt exists
+
+- **WHEN** a second logout observes the same exact character owned by a logout
+  that has not created its persistence receipt yet
+- **THEN** the second logout reports that logout is already in progress
+- **AND** it does not report successful completion or release the ownership
 
 Persistence acknowledgements MUST be delivered to persistence infrastructure
 and identified by the exact correlation and snapshot revision. Logout MUST
