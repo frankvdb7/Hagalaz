@@ -52,11 +52,11 @@ public sealed class DynamicRegionDimensionTests
         source.Add(sourceObject);
         source.FlagCollision(1, 1, 0, CollisionFlag.WallNorth);
 
-        regionService.GetOrCreateMapRegion(source.Id, 1, false).Returns(source);
+        regionService.GetOrCreateMapRegion(source.Id, 1, true).Returns(source);
 
         destination.WriteBlock(0, 0, 0, 0, 0, 0, 1);
 
-        regionService.Received(1).GetOrCreateMapRegion(source.Id, 1, false);
+        regionService.Received(1).GetOrCreateMapRegion(source.Id, 1, true);
         copiedObject = destination.FindGameObjects(1, 1, 0).Single();
         Assert.AreEqual(2, copiedObject.Location.Dimension);
         Assert.AreEqual(CollisionFlag.WallNorth, destination.GetCollision(1, 1, 0));

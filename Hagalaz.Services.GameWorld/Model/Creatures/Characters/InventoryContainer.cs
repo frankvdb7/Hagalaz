@@ -62,7 +62,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 .WithLocation(_owner.Location)
                 .WithOwner(_owner)
                 .Build();
-            _mapRegionService.GetOrCreateMapRegion(_owner.Location.RegionId, _owner.Location.Dimension, false)
+            _mapRegionService.GetOrCreateMapRegion(_owner.Location.RegionId, _owner.Location.Dimension, true)
                 .Add(groundItem); // we spawn it with this method, as the container was normally stacked.
             return true;
         }

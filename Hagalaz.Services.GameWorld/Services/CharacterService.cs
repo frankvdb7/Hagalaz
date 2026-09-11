@@ -29,12 +29,5 @@ namespace Hagalaz.Services.GameWorld.Services
             }
             return null;
         }
-        public async IAsyncEnumerable<ICharacter> FindAll()
-        {
-            await foreach (var character in _characterStore.FindAllAsync())
-            {
-                yield return character;
-            }
-        }
     }
 }

@@ -229,6 +229,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<ICharacterPersistenceService, CharacterPersistenceService>();
             services.AddScoped<ICharacterLogoutService, CharacterLogoutService>();
             services.AddSingleton<CharacterPersistenceState>();
+            services.AddSingleton<CharacterLogoutState>();
             services.AddScoped<ICharacterDehydrator, AppearanceDehydrator>();
             services.AddScoped<ICharacterDehydrator, DetailsDehydrator>();
             services.AddScoped<ICharacterDehydrator, StatisticsDehydrator>();

@@ -53,10 +53,18 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 npc.OnRegistered();
             }
-            catch
+            catch (Exception registrationFailure)
             {
-                await RemoveAfterFailedRegistrationAsync(npc);
-                DestroyAfterFailedRegistration(npc);
+                if (await RemoveAfterFailedRegistrationAsync(npc))
+                {
+                    DestroyAfterFailedRegistration(npc);
+                }
+                else
+                {
+                    _logger.LogError(registrationFailure,
+                        "NPC '{npc}' registration failed and global ownership could not be released; the NPC was not destroyed.",
+                        npc);
+                }
                 throw;
             }
         }
@@ -88,10 +96,18 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 npc.OnRegistered();
             }
-            catch
+            catch (Exception registrationFailure)
             {
-                RemoveAfterFailedRegistration(npc);
-                DestroyAfterFailedRegistration(npc);
+                if (RemoveAfterFailedRegistration(npc))
+                {
+                    DestroyAfterFailedRegistration(npc);
+                }
+                else
+                {
+                    _logger.LogError(registrationFailure,
+                        "NPC '{npc}' registration failed and global ownership could not be released; the NPC was not destroyed.",
+                        npc);
+                }
                 throw;
             }
         }
@@ -105,33 +121,41 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
-        private async Task RemoveAfterFailedRegistrationAsync(INpc npc)
+        private async Task<bool> RemoveAfterFailedRegistrationAsync(INpc npc)
         {
             try
             {
                 if (!await _npcStore.RemoveAsync(npc))
                 {
                     _logger.LogWarning("Failed to remove NPC '{npc}' from the global store during registration rollback.", npc);
+                    return false;
                 }
+
+                return true;
             }
             catch (Exception exception)
             {
                 _logger.LogError(exception, "Failed to remove NPC '{npc}' from the global store during registration rollback.", npc);
+                return false;
             }
         }
 
-        private void RemoveAfterFailedRegistration(INpc npc)
+        private bool RemoveAfterFailedRegistration(INpc npc)
         {
             try
             {
                 if (!_npcStore.Remove(npc))
                 {
                     _logger.LogWarning("Failed to remove NPC '{npc}' from the global store during registration rollback.", npc);
+                    return false;
                 }
+
+                return true;
             }
             catch (Exception exception)
             {
                 _logger.LogError(exception, "Failed to remove NPC '{npc}' from the global store during registration rollback.", npc);
+                return false;
             }
         }
 

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 
@@ -22,12 +21,6 @@ namespace Hagalaz.Game.Abstractions.Services
         /// <param name="index">The server index of the character to find.</param>
         /// <returns>A <see cref="ValueTask{TResult}"/> that represents the asynchronous operation. The task result contains the <see cref="ICharacter"/> if found; otherwise, <c>null</c>.</returns>
         public ValueTask<ICharacter?> FindByIndex(int index);
-
-        /// <summary>
-        /// Retrieves all characters currently in the game world.
-        /// </summary>
-        /// <returns>An <see cref="IAsyncEnumerable{T}"/> that contains all characters.</returns>
-        public IAsyncEnumerable<ICharacter> FindAll();
 
         /// <summary>
         /// Adds a character to the game world.

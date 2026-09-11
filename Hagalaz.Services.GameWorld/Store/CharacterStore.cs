@@ -36,17 +36,6 @@ namespace Hagalaz.Services.GameWorld.Store
         /// <returns>
         ///     The characters.
         /// </returns>
-        public async IAsyncEnumerable<ICharacter> FindAllAsync()
-        {
-            using (await _lock.ReaderLockAsync())
-            {
-                foreach (var character in _characters)
-                {
-                    yield return character;
-                }
-            }
-        }
-
         public async ValueTask<IReadOnlyDictionary<int, ICharacter>> GetSnapshotAsync(CancellationToken cancellationToken = default)
         {
             using (await _lock.ReaderLockAsync(cancellationToken))
@@ -92,7 +81,13 @@ namespace Hagalaz.Services.GameWorld.Store
             }
         }
 
-        public ValueTask<ICharacter?> FindAsync(Func<ICharacter, bool> predicate) => FindAllAsync().Where(predicate).FirstOrDefaultAsync();
+        public async ValueTask<ICharacter?> FindAsync(Func<ICharacter, bool> predicate)
+        {
+            using (await _lock.ReaderLockAsync())
+            {
+                return _characters.FirstOrDefault(predicate);
+            }
+        }
         public ValueTask<ICharacter?> FindByIdAsync(uint id) => FindAsync(character => character.MasterId == id);
     }
 }

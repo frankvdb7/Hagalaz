@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Nito.AsyncEx;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -12,20 +10,6 @@ namespace Hagalaz.Services.GameWorld.Store
     {
         private readonly ICreatureCollection<INpc> _npcs = new CreatureCollection<INpc>(short.MaxValue);
         private readonly AsyncReaderWriterLock _lock = new();
-
-        public async IAsyncEnumerable<INpc> FindAllAsync()
-        {
-            INpc[] snapshot;
-            using (await _lock.ReaderLockAsync())
-            {
-                snapshot = _npcs.ToArray();
-            }
-
-            foreach (var npc in snapshot)
-            {
-                yield return npc;
-            }
-        }
 
         public async ValueTask<bool> AddAsync(INpc npc)
         {

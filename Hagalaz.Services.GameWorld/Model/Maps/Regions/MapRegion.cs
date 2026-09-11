@@ -262,27 +262,27 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void MarkReady()
         {
-            if (Interlocked.CompareExchange(ref _state, (int)MapRegionState.Ready, (int)MapRegionState.Initializing) != (int)MapRegionState.Initializing)
+            if (State != MapRegionState.Initializing)
             {
                 throw new InvalidOperationException($"Region {this} cannot transition to ready from state {State}.");
             }
+
+            Volatile.Write(ref _state, (int)MapRegionState.Ready);
         }
 
         public void MarkDiscarded()
         {
-            var previousState = Interlocked.CompareExchange(
-                ref _state,
-                (int)MapRegionState.Discarded,
-                (int)MapRegionState.Initializing);
-            if (previousState == (int)MapRegionState.Discarded)
+            if (State == MapRegionState.Discarded)
             {
                 return;
             }
 
-            if (previousState != (int)MapRegionState.Initializing)
+            if (State != MapRegionState.Initializing)
             {
                 throw new InvalidOperationException($"Region {this} cannot transition to discarded from state {State}.");
             }
+
+            Volatile.Write(ref _state, (int)MapRegionState.Discarded);
         }
 
         public void Resume() => _idleTime = DateTime.MinValue;

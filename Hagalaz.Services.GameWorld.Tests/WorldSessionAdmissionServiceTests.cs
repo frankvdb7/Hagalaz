@@ -57,12 +57,12 @@ public sealed class WorldSessionAdmissionServiceTests
         await fixture.GameSessionService.Received(1).RemoveSession(fixture.Session, CancellationToken.None);
         await fixture.GameSessionService.Received(1).RemoveLocalSession(fixture.Session);
         await fixture.CharacterService.Received(1).RemoveAsync(fixture.Character);
-        fixture.PersistenceService.Received(1).Forget(42);
+        fixture.PersistenceService.Received(1).InitializeRevision(42, 7);
         Assert.IsNull(fixture.Context.Features.Get<ICharacterFeature>());
     }
 
     [TestMethod]
-    public async Task AdmitAsync_ClaimsCharacterOwnershipBeforeInitializingRevision()
+    public async Task AdmitAsync_InitializesRevisionBeforePublishingCharacterOwnership()
     {
         var fixture = CreateFixture(commitResult: true);
         var order = new List<string>();
@@ -86,7 +86,7 @@ public sealed class WorldSessionAdmissionServiceTests
             new AuthenticationProperties());
 
         Assert.IsTrue(result.Succeeded);
-        CollectionAssert.AreEqual(new[] { "add", "initialize" }, order);
+        CollectionAssert.AreEqual(new[] { "initialize", "add" }, order);
     }
 
     [TestMethod]
@@ -109,7 +109,7 @@ public sealed class WorldSessionAdmissionServiceTests
 
         Assert.AreSame(failure, exception);
         fixture.Character.Received(1).Destroy();
-        fixture.PersistenceService.DidNotReceive().InitializeRevision(Arg.Any<uint>(), Arg.Any<long>());
+        fixture.PersistenceService.Received(1).InitializeRevision(42, 7);
     }
 
     private static Fixture CreateFixture(bool commitResult)

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
@@ -9,12 +8,6 @@ namespace Hagalaz.Game.Abstractions.Store
     /// </summary>
     public interface INpcStore
     {
-        /// <summary>
-        /// Asynchronously retrieves all NPCs currently in the store.
-        /// </summary>
-        /// <returns>An <see cref="IAsyncEnumerable{T}"/> of <see cref="INpc"/> instances.</returns>
-        IAsyncEnumerable<INpc> FindAllAsync();
-
         /// <summary>
         /// Asynchronously gets the total number of NPCs in the store.
         /// </summary>

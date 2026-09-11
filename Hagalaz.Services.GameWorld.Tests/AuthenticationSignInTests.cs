@@ -806,7 +806,7 @@ public sealed class AuthenticationSignInTests
 
         Assert.IsFalse(result.Succeeded);
         await gameSessionService.Received(1).RemoveSession(session);
-        persistenceService.DidNotReceive().InitializeRevision(Arg.Any<uint>(), Arg.Any<long>());
+        persistenceService.Received(1).InitializeRevision(42, 27);
         persistenceService.DidNotReceive().Forget(Arg.Any<uint>());
         character.Received(1).Destroy();
     }
@@ -833,7 +833,7 @@ public sealed class AuthenticationSignInTests
 
         Assert.IsFalse(result.Succeeded);
         Assert.AreEqual(0, characterService.FindByMasterIdCallCount);
-        persistenceService.DidNotReceive().InitializeRevision(Arg.Any<uint>(), Arg.Any<long>());
+        persistenceService.Received(1).InitializeRevision(42, 27);
         persistenceService.DidNotReceive().Forget(Arg.Any<uint>());
     }
 
@@ -923,8 +923,6 @@ public sealed class AuthenticationSignInTests
             removeResult: true,
             onRemove: () => order.Add("remove-character"));
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
-        persistenceService.When(item => item.Forget(42u)).Do(_ => order.Add("forget-persistence"));
-
         var revokeStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var completeRevocation = new TaskCompletionSource<Response<RevokeTokenResponseMessage>>(TaskCreationOptions.RunContinuationsAsynchronously);
         var revokeResponse = CreateResponse(new RevokeTokenResponseMessage { Succeeded = true });
@@ -949,7 +947,7 @@ public sealed class AuthenticationSignInTests
         await revokeStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
 
         CollectionAssert.AreEqual(
-            new[] { "remove-character", "forget-persistence", "destroy", "remove-session", "remove-local-session", "revoke" },
+            new[] { "remove-character", "destroy", "remove-session", "remove-local-session", "revoke" },
             order);
         Assert.IsFalse(signInTask.IsCompleted);
 
@@ -961,7 +959,7 @@ public sealed class AuthenticationSignInTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task SignInWorldAsync_WhenWorldSessionCommitFailsAndCharacterRemovalSucceeds_ForgetsHydratedRevisionState()
+    public async Task SignInWorldAsync_WhenWorldSessionCommitFailsAndCharacterRemovalSucceeds_PreservesRevisionState()
     {
         var gameSessionService = Substitute.For<IGameSessionService>();
         var session = Substitute.For<IGameSession>();
@@ -983,7 +981,7 @@ public sealed class AuthenticationSignInTests
         var result = await service.SignInWorldAsync(CreateSignInRequest());
 
         Assert.IsFalse(result.Succeeded);
-        persistenceService.Received(1).Forget(42u);
+        persistenceService.DidNotReceive().Forget(Arg.Any<uint>());
         character.Received(1).Destroy();
     }
 
@@ -1337,7 +1335,7 @@ public sealed class AuthenticationSignInTests
         Assert.IsTrue(result.Succeeded);
         await characterHydrationService.Received(1).HydrateAsync(Arg.Any<ICharacter>(), Arg.Any<CharacterModel>());
         persistenceService.Received(1).InitializeRevision(42u, 27L);
-        CollectionAssert.AreEqual(new[] { "add", "initialize" }, registrationOrder);
+        CollectionAssert.AreEqual(new[] { "initialize", "add" }, registrationOrder);
         Assert.AreEqual(1, characterService.AddCallCount);
         await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>());
     }
@@ -1649,10 +1647,6 @@ public sealed class AuthenticationSignInTests
             return ValueTask.FromResult<ICharacter?>(_existingCharacter);
         }
 
-        public async IAsyncEnumerable<ICharacter> FindAll()
-        {
-            yield break;
-        }
     }
 
     private sealed class TrackingHydrationService : ICharacterHydrationService

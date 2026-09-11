@@ -12,12 +12,6 @@ namespace Hagalaz.Game.Abstractions.Store
     public interface ICharacterStore
     {
         /// <summary>
-        /// Asynchronously retrieves all characters currently in the store.
-        /// </summary>
-        /// <returns>An <see cref="IAsyncEnumerable{T}"/> of <see cref="ICharacter"/> instances.</returns>
-        IAsyncEnumerable<ICharacter> FindAllAsync();
-
-        /// <summary>
         /// Captures the characters currently in the store for one synchronous game tick.
         /// </summary>
         /// <param name="cancellationToken">Token used to cancel waiting for the store read lock.</param>

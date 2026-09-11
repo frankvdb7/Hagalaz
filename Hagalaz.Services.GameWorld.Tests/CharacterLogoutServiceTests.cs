@@ -25,17 +25,18 @@ public sealed class CharacterLogoutServiceTests
         session.SessionGeneration.Returns(7L);
         character.Session.Returns(session);
         var state = new CharacterPersistenceState();
-        state.TrackPendingLogout(character);
+        var logoutState = new CharacterLogoutState();
+        logoutState.Track(character);
         var correlationId = Guid.NewGuid();
         state.MarkPending(42u, correlationId, "fingerprint", 7L);
         state.Acknowledge(42u, correlationId, 7L);
         var characterService = Substitute.For<ICharacterService>();
         var mediator = Substitute.For<IGameMediator>();
-        var coordinator = new CharacterLogoutService(state, characterService, mediator);
+        var coordinator = new CharacterLogoutService(state, logoutState, characterService, mediator);
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => coordinator.DetachAsync(character));
 
-        Assert.IsTrue(state.IsPendingLogout(character));
+        Assert.IsTrue(logoutState.IsPending(character));
         character.DidNotReceive().Destroy();
         mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
     }
@@ -51,14 +52,15 @@ public sealed class CharacterLogoutServiceTests
         character.Session.Returns(session);
         character.IsDestroyed.Returns(false);
         var state = new CharacterPersistenceState();
-        state.TrackPendingLogout(character);
-        state.MarkPendingLogoutRemoved(character);
+        var logoutState = new CharacterLogoutState();
+        logoutState.Track(character);
+        logoutState.TryMarkRemoved(character);
         var correlationId = Guid.NewGuid();
         state.MarkPending(42u, correlationId, "fingerprint", 7L);
         state.Acknowledge(42u, correlationId, 7L);
         var characterService = Substitute.For<ICharacterService>();
         var mediator = Substitute.For<IGameMediator>();
-        var coordinator = new CharacterLogoutService(state, characterService, mediator);
+        var coordinator = new CharacterLogoutService(state, logoutState, characterService, mediator);
 
         Assert.IsTrue(await coordinator.CompleteAsync(42u));
         Assert.IsFalse(await coordinator.CompleteAsync(42u));
@@ -84,20 +86,21 @@ public sealed class CharacterLogoutServiceTests
                 throw new InvalidOperationException("destroy failed");
         });
         var state = new CharacterPersistenceState();
-        state.TrackPendingLogout(character);
-        state.MarkPendingLogoutRemoved(character);
+        var logoutState = new CharacterLogoutState();
+        logoutState.Track(character);
+        logoutState.TryMarkRemoved(character);
         var correlationId = Guid.NewGuid();
         state.MarkPending(42u, correlationId, "fingerprint", 7L);
         state.Acknowledge(42u, correlationId, 7L);
         var mediator = Substitute.For<IGameMediator>();
-        var coordinator = new CharacterLogoutService(state, Substitute.For<ICharacterService>(), mediator);
+        var coordinator = new CharacterLogoutService(state, logoutState, Substitute.For<ICharacterService>(), mediator);
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => coordinator.CompleteAsync(42u));
-        Assert.IsTrue(state.IsPendingLogout(character));
+        Assert.IsTrue(logoutState.IsPending(character));
         mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
 
         Assert.IsTrue(await coordinator.CompleteAsync(42u));
-        Assert.IsFalse(state.IsPendingLogout(character));
+        Assert.IsFalse(logoutState.IsPending(character));
         character.Received(2).Destroy();
         mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
     }
@@ -120,22 +123,23 @@ public sealed class CharacterLogoutServiceTests
                 throw new InvalidOperationException("publish failed");
         });
         var state = new CharacterPersistenceState();
-        state.TrackPendingLogout(character);
-        state.MarkPendingLogoutRemoved(character);
+        var logoutState = new CharacterLogoutState();
+        logoutState.Track(character);
+        logoutState.TryMarkRemoved(character);
         var correlationId = Guid.NewGuid();
         state.MarkPending(42u, correlationId, "fingerprint", 7L);
         state.Acknowledge(42u, correlationId, 7L);
-        var coordinator = new CharacterLogoutService(state, Substitute.For<ICharacterService>(), mediator);
+        var coordinator = new CharacterLogoutService(state, logoutState, Substitute.For<ICharacterService>(), mediator);
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => coordinator.CompleteAsync(42u));
-        Assert.IsTrue(state.IsPendingLogout(character));
+        Assert.IsTrue(logoutState.IsPending(character));
         character.DidNotReceive().Destroy();
 
         publishFailure = false;
         Assert.IsTrue(await coordinator.CompleteAsync(42u));
         character.DidNotReceive().Destroy();
         mediator.Received(2).Publish(Arg.Any<WorldSignOutCommand>());
-        Assert.IsFalse(state.IsPendingLogout(character));
+        Assert.IsFalse(logoutState.IsPending(character));
     }
 
     [TestMethod]
@@ -147,13 +151,14 @@ public sealed class CharacterLogoutServiceTests
         session.ConnectionId.Returns("connection");
         character.Session.Returns(session);
         var state = new CharacterPersistenceState();
-        state.TrackPendingLogout(character);
-        state.MarkPendingLogoutRemoved(character);
+        var logoutState = new CharacterLogoutState();
+        logoutState.Track(character);
+        logoutState.TryMarkRemoved(character);
         var correlationId = Guid.NewGuid();
         state.MarkPending(42u, correlationId, "fingerprint", 7L);
         var characterService = Substitute.For<ICharacterService>();
         var mediator = Substitute.For<IGameMediator>();
-        var coordinator = new CharacterLogoutService(state, characterService, mediator);
+        var coordinator = new CharacterLogoutService(state, logoutState, characterService, mediator);
 
         var completed = await coordinator.AcknowledgeAndCompleteAsync(
             42u,
@@ -163,7 +168,7 @@ public sealed class CharacterLogoutServiceTests
 
         Assert.IsFalse(completed);
         Assert.IsFalse(state.IsPersistenceAcknowledged(42u));
-        Assert.IsTrue(state.IsPendingLogout(character));
+        Assert.IsTrue(logoutState.IsPending(character));
         character.DidNotReceive().Destroy();
         mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
     }
@@ -178,13 +183,14 @@ public sealed class CharacterLogoutServiceTests
         character.Session.Returns(session);
         character.IsDestroyed.Returns(false);
         var state = new CharacterPersistenceState();
-        state.TrackPendingLogout(character);
-        state.MarkPendingLogoutRemoved(character);
+        var logoutState = new CharacterLogoutState();
+        logoutState.Track(character);
+        logoutState.TryMarkRemoved(character);
         var correlationId = Guid.NewGuid();
         state.MarkPending(42u, correlationId, "fingerprint", 7L);
         var characterService = Substitute.For<ICharacterService>();
         var mediator = Substitute.For<IGameMediator>();
-        var coordinator = new CharacterLogoutService(state, characterService, mediator);
+        var coordinator = new CharacterLogoutService(state, logoutState, characterService, mediator);
 
         var completed = await coordinator.AcknowledgeAndCompleteAsync(
             42u,
@@ -206,12 +212,13 @@ public sealed class CharacterLogoutServiceTests
         session.ConnectionId.Returns("connection");
         character.Session.Returns(session);
         var state = new CharacterPersistenceState();
-        state.TrackPendingLogout(character);
-        state.MarkPendingLogoutRemoved(character);
+        var logoutState = new CharacterLogoutState();
+        logoutState.Track(character);
+        logoutState.TryMarkRemoved(character);
         state.MarkPending(42u, Guid.NewGuid(), "replacement", 101L);
         var characterService = Substitute.For<ICharacterService>();
         var mediator = Substitute.For<IGameMediator>();
-        var coordinator = new CharacterLogoutService(state, characterService, mediator);
+        var coordinator = new CharacterLogoutService(state, logoutState, characterService, mediator);
 
         var completed = await coordinator.AcknowledgeAndCompleteAsync(
             42u,
@@ -221,7 +228,7 @@ public sealed class CharacterLogoutServiceTests
 
         Assert.IsFalse(completed);
         Assert.IsFalse(state.IsPersistenceAcknowledged(42u));
-        Assert.IsTrue(state.IsPendingLogout(character));
+        Assert.IsTrue(logoutState.IsPending(character));
         character.DidNotReceive().Destroy();
         mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
     }
@@ -235,13 +242,14 @@ public sealed class CharacterLogoutServiceTests
         session.ConnectionId.Returns("connection");
         character.Session.Returns(session);
         var state = new CharacterPersistenceState();
-        state.TrackPendingLogout(character);
-        state.MarkPendingLogoutRemoved(character);
+        var logoutState = new CharacterLogoutState();
+        logoutState.Track(character);
+        logoutState.TryMarkRemoved(character);
         var correlationId = Guid.NewGuid();
         state.MarkPending(42u, correlationId, "fingerprint", 101L);
         var characterService = Substitute.For<ICharacterService>();
         var mediator = Substitute.For<IGameMediator>();
-        var coordinator = new CharacterLogoutService(state, characterService, mediator);
+        var coordinator = new CharacterLogoutService(state, logoutState, characterService, mediator);
         var missingOutcome = new PersistCharacterAcknowledged(correlationId, 42u, 101L);
         var unknownOutcome = new PersistCharacterAcknowledged(
             correlationId,
@@ -263,7 +271,7 @@ public sealed class CharacterLogoutServiceTests
         Assert.IsFalse(missingCompleted);
         Assert.IsFalse(unknownCompleted);
         Assert.IsFalse(state.IsPersistenceAcknowledged(42u));
-        Assert.IsTrue(state.IsPendingLogout(character));
+        Assert.IsTrue(logoutState.IsPending(character));
         character.DidNotReceive().Destroy();
         mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
     }

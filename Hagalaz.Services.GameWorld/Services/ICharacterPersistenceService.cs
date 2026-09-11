@@ -1,6 +1,5 @@
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 
 namespace Hagalaz.Services.GameWorld.Services
@@ -9,11 +8,6 @@ namespace Hagalaz.Services.GameWorld.Services
     {
         Task PersistAsync(ICharacter character, bool force, CancellationToken cancellationToken = default);
         void InitializeRevision(uint masterId, long persistedRevision);
-        void TrackPendingLogout(ICharacter character);
-        bool IsPendingLogout(ICharacter character);
-        void MarkPendingLogoutRemoved(ICharacter character);
-        bool IsPendingLogoutRemoved(ICharacter character);
-        IReadOnlyCollection<ICharacter> GetPendingLogouts();
         bool IsPersistenceAcknowledged(ICharacter character);
         void Forget(uint masterId);
     }

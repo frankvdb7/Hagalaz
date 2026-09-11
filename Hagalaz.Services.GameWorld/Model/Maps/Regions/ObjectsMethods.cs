@@ -156,7 +156,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             var regionID = ((data.DrawRegionPartX / 8) << 8) | (data.DrawRegionPartY / 8);
-            var region = _regionService.GetOrCreateMapRegion(regionID, data.DrawRegionDimension, false);
+            var region = _regionService.GetOrCreateMapRegion(regionID, data.DrawRegionDimension, true);
             for (var localX = minX; localX <= maxX; localX++)
             {
                 for (var localY = minY; localY <= maxY; localY++)

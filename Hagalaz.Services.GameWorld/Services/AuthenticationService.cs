@@ -450,7 +450,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 var persistenceSucceeded = character == null;
                 if (character != null)
                 {
-                    _characterPersistenceService.TrackPendingLogout(character);
+                    _characterLogoutService.TrackPendingLogout(character);
                 }
 
                 var sessionRemoved = session == null;

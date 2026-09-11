@@ -61,7 +61,6 @@ public sealed class WorldStatusServiceShutdownTests
         var character = Substitute.For<ICharacter>();
         var characterStore = new SingleCharacterStore(character);
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
-        persistenceService.IsPendingLogout(character).Returns(false);
         persistenceService.PersistAsync(character, true, Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
@@ -92,6 +91,7 @@ public sealed class WorldStatusServiceShutdownTests
                 }));
                 collection.AddSingleton<ICharacterStore>(characterStore);
                 collection.AddScoped<ICharacterPersistenceService>(_ => persistenceService);
+                collection.AddScoped<ICharacterLogoutService>(_ => Substitute.For<ICharacterLogoutService>());
                 collection.AddSingleton(busLifetime);
                 collection.AddSingleton<IHostedService>(provider => provider.GetRequiredService<RecordingBusLifetime>());
                 collection.AddHostedService<WorldStatusService>();
@@ -155,12 +155,6 @@ public sealed class WorldStatusServiceShutdownTests
         private readonly ICharacter _character;
 
         public SingleCharacterStore(ICharacter character) => _character = character;
-
-        public async IAsyncEnumerable<ICharacter> FindAllAsync()
-        {
-            yield return _character;
-            await Task.CompletedTask;
-        }
 
         public ValueTask<IReadOnlyDictionary<int, ICharacter>> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
             new(new Dictionary<int, ICharacter> { [_character.Index] = _character });

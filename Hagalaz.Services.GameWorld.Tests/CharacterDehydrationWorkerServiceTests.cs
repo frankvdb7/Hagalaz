@@ -6,10 +6,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Messages.Mediator;
-using AutoMapper;
-using Hagalaz.Services.GameWorld.Profiles;
 using Hagalaz.Services.GameWorld.Services;
-using Hagalaz.Services.GameWorld.Services.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -27,11 +24,11 @@ public sealed class CharacterDehydrationWorkerServiceTests
         character.MasterId.Returns(42u);
         character.IsDestroyed.Returns(false);
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
-        persistenceService.IsPendingLogout(character).Returns(true);
         persistenceService.IsPersistenceAcknowledged(character).Returns(true);
         var characterService = new RecordingCharacterService();
         var mediator = Substitute.For<IGameMediator>();
         var characterLogoutService = Substitute.For<ICharacterLogoutService>();
+        characterLogoutService.IsPendingLogout(character).Returns(true);
         var store = new SingleCharacterStore(character);
 
         using var provider = new ServiceCollection()
@@ -58,16 +55,18 @@ public sealed class CharacterDehydrationWorkerServiceTests
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
-        persistenceService.IsPendingLogout(character).Returns(true);
         persistenceService.IsPersistenceAcknowledged(character).Returns(false);
         var characterService = new RecordingCharacterService();
         var mediator = Substitute.For<IGameMediator>();
+        var characterLogoutService = Substitute.For<ICharacterLogoutService>();
+        characterLogoutService.IsPendingLogout(character).Returns(true);
         var store = new SingleCharacterStore(character);
 
         using var provider = new ServiceCollection()
             .AddScoped(_ => persistenceService)
             .AddScoped<ICharacterService>(_ => characterService)
             .AddScoped(_ => mediator)
+            .AddScoped<ICharacterLogoutService>(_ => characterLogoutService)
             .BuildServiceProvider();
         var worker = new CharacterDehydrationWorkerService(
             NullLogger<CharacterDehydrationWorkerService>.Instance,
@@ -101,6 +100,7 @@ public sealed class CharacterDehydrationWorkerServiceTests
 
         using var provider = new ServiceCollection()
             .AddScoped(_ => persistenceService)
+            .AddScoped<ICharacterLogoutService>(_ => Substitute.For<ICharacterLogoutService>())
             .BuildServiceProvider();
         var worker = new CharacterDehydrationWorkerService(
             NullLogger<CharacterDehydrationWorkerService>.Instance,
@@ -116,36 +116,11 @@ public sealed class CharacterDehydrationWorkerServiceTests
         await persistenceService.Received(1).PersistAsync(character, true, Arg.Any<CancellationToken>());
     }
 
-    [TestMethod]
-    public void CreateRequest_GeneratesUniqueCorrelationIdsPerCharacter()
-    {
-        using var provider = new ServiceCollection()
-            .AddLogging()
-            .AddAutoMapper(x => x.AddProfile<CharacterProfile>())
-            .BuildServiceProvider();
-        var mapper = provider.GetRequiredService<IMapper>();
-
-        var first = CharacterDehydrationWorkerService.CreateRequest(mapper, new CharacterModel(), 1, 10);
-        var second = CharacterDehydrationWorkerService.CreateRequest(mapper, new CharacterModel(), 2, 11);
-
-        Assert.AreNotEqual(first.CorrelationId, second.CorrelationId);
-        Assert.AreEqual(1u, first.MasterId);
-        Assert.AreEqual(2u, second.MasterId);
-        Assert.AreEqual(10L, first.SnapshotRevision);
-        Assert.AreEqual(11L, second.SnapshotRevision);
-    }
-
     private sealed class SingleCharacterStore : ICharacterStore
     {
         private readonly ICharacter _character;
 
         public SingleCharacterStore(ICharacter character) => _character = character;
-
-        public async IAsyncEnumerable<ICharacter> FindAllAsync()
-        {
-            yield return _character;
-            await Task.CompletedTask;
-        }
 
         public ValueTask<IReadOnlyDictionary<int, ICharacter>> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
             new(new Dictionary<int, ICharacter> { [_character.Index] = _character });
@@ -169,7 +144,6 @@ public sealed class CharacterDehydrationWorkerServiceTests
 
         public ValueTask<ICharacter?> FindByMasterId(uint masterId) => throw new System.NotImplementedException();
         public ValueTask<ICharacter?> FindByIndex(int index) => throw new System.NotImplementedException();
-        public IAsyncEnumerable<ICharacter> FindAll() => throw new System.NotImplementedException();
         public ValueTask<bool> AddAsync(ICharacter character) => throw new System.NotImplementedException();
         public ValueTask<int> CountAsync() => throw new System.NotImplementedException();
     }

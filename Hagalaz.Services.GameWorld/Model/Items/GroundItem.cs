@@ -86,7 +86,7 @@ namespace Hagalaz.Services.GameWorld.Model.Items
         /// <returns></returns>
         public bool Despawn()
         {
-            var region = _mapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, false);
+            var region = _mapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, true);
             return region.Remove(this);
         }
 

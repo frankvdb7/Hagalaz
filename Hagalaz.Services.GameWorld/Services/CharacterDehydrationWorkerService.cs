@@ -3,7 +3,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using AutoMapper;
 using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -97,16 +96,12 @@ namespace Hagalaz.Services.GameWorld.Services
 
         internal async Task FlushAsync(bool force, CancellationToken cancellationToken)
         {
-            var characters = new List<ICharacter>();
-            await foreach (var character in _characterStore.FindAllAsync().WithCancellation(cancellationToken))
-            {
-                characters.Add(character);
-            }
+            var characters = new List<ICharacter>((await _characterStore.GetSnapshotAsync(cancellationToken)).Values);
 
             await using (var pendingScope = _serviceProvider.CreateAsyncScope())
             {
-                var pendingPersistence = pendingScope.ServiceProvider.GetRequiredService<ICharacterPersistenceService>();
-                foreach (var pendingCharacter in pendingPersistence.GetPendingLogouts() ?? Array.Empty<ICharacter>())
+                var pendingLogouts = pendingScope.ServiceProvider.GetRequiredService<ICharacterLogoutService>();
+                foreach (var pendingCharacter in pendingLogouts.GetPendingLogouts())
                 {
                     if (!characters.Contains(pendingCharacter))
                     {
@@ -127,7 +122,8 @@ namespace Hagalaz.Services.GameWorld.Services
                 try
                 {
                     var persistenceService = scope.ServiceProvider.GetRequiredService<ICharacterPersistenceService>();
-                    var pendingLogout = persistenceService.IsPendingLogout(character);
+                    var logoutService = scope.ServiceProvider.GetRequiredService<ICharacterLogoutService>();
+                    var pendingLogout = logoutService.IsPendingLogout(character);
                     await persistenceService.PersistAsync(character, force, token);
 
                     if (pendingLogout && persistenceService.IsPersistenceAcknowledged(character))
@@ -158,13 +154,5 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
-        // Kept as a compatibility helper for existing dehydration request tests.
-        internal static DehydrateCharacter CreateRequest(IMapper mapper, Services.Model.CharacterModel model, uint masterId, long snapshotRevision) =>
-            mapper.Map<DehydrateCharacter>(model) with
-            {
-                MasterId = masterId,
-                CorrelationId = Guid.NewGuid(),
-                SnapshotRevision = snapshotRevision
-            };
     }
 }

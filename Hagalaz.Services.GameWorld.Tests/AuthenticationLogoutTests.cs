@@ -44,18 +44,20 @@ public sealed class AuthenticationLogoutTests
             .Returns(Task.FromException(persistenceFailure));
         var gameSessionService = Substitute.For<IGameSessionService>();
         gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
+        var characterLogoutService = Substitute.For<ICharacterLogoutService>();
         var contextAccessor = CreateContextAccessor(character, session);
         var service = CreateAuthenticationService(
             characterService,
             persistenceService,
             gameSessionService,
-            contextAccessor);
+            contextAccessor,
+            characterLogoutService: characterLogoutService);
 
         var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => service.SignOutAsync());
 
         Assert.AreSame(persistenceFailure, exception);
-        persistenceService.Received(1).TrackPendingLogout(character);
+        characterLogoutService.Received(1).TrackPendingLogout(character);
         await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>());
         await characterService.DidNotReceive().RemoveAsync(character);
     }
@@ -85,7 +87,7 @@ public sealed class AuthenticationLogoutTests
 
         await service.SignOutAsync();
 
-        persistenceService.Received(1).TrackPendingLogout(character);
+        characterLogoutService.Received(1).TrackPendingLogout(character);
         await persistenceService.Received(1).PersistAsync(character, true, Arg.Any<CancellationToken>());
         await gameSessionService.Received(1).RemoveSession(session);
         await characterLogoutService.Received(1).DetachAsync(character, Arg.Any<CancellationToken>());
@@ -197,6 +199,7 @@ public sealed class AuthenticationLogoutTests
             .Returns(Task.FromException<Response<RevokeTokenResponseMessage>>(revokeFailure));
         var gameSessionService = Substitute.For<IGameSessionService>();
         gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
+        var characterLogoutService = Substitute.For<ICharacterLogoutService>();
         var contextAccessor = CreateContextAccessor(
             character,
             session,
@@ -212,11 +215,11 @@ public sealed class AuthenticationLogoutTests
             gameSessionService,
             contextAccessor,
             revokeTokenRequestClient,
-            characterLogoutService: Substitute.For<ICharacterLogoutService>());
+            characterLogoutService: characterLogoutService);
 
         await service.SignOutAsync();
 
-        persistenceService.Received(1).TrackPendingLogout(character);
+        characterLogoutService.Received(1).TrackPendingLogout(character);
         await persistenceService.Received(1).PersistAsync(character, true, Arg.Any<CancellationToken>());
         await gameSessionService.Received(1).RemoveSession(session);
         await characterService.DidNotReceive().RemoveAsync(character);

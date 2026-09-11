@@ -12,8 +12,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     {
         private readonly Dictionary<int, IMapRegion> _regions = new();
         private readonly Dictionary<int, IMapRegion> _idleRegions = new();
-        internal object ResidencySyncRoot { get; } = new();
-
         /// <summary>
         /// Contains dimension Id.
         /// </summary>

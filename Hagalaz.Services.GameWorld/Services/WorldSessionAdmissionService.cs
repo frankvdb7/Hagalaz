@@ -125,6 +125,16 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
 
             try
             {
+                _characterPersistenceService.InitializeRevision(masterId, characterModel.SnapshotRevision);
+            }
+            catch
+            {
+                DestroyUnregisteredCharacter(character);
+                throw;
+            }
+
+            try
+            {
                 if (!await _characterService.AddAsync(character))
                 {
                     _logger.LogWarning("Unable to add character '{character}'", character);
@@ -139,7 +149,6 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
             }
 
             registeredCharacter = character;
-            _characterPersistenceService.InitializeRevision(masterId, characterModel.SnapshotRevision);
 
             if (!await _gameSessionService.CommitWorldSession(session, cancellationToken))
             {
@@ -189,15 +198,6 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
             {
                 if (await _characterService.RemoveAsync(registeredCharacter))
                 {
-                    try
-                    {
-                        _characterPersistenceService.Forget(masterId);
-                    }
-                    catch (Exception exception)
-                    {
-                        _logger.LogError(exception, "Failed to forget character persistence state after world sign-in failed");
-                    }
-
                     try
                     {
                         registeredCharacter.Destroy();

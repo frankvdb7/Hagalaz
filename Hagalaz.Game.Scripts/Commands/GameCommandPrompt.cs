@@ -330,9 +330,9 @@ namespace Hagalaz.Game.Scripts.Commands
                     {
                         var name = string.Join(" ", arguments);
                         var repository = character.ServiceProvider.GetRequiredService<ICharacterStore>();
-                        var c = await repository.FindAllAsync()
+                        var c = (await repository.GetSnapshotAsync()).Values
                             .Where(ch => string.Compare(ch.DisplayName, name, StringComparison.OrdinalIgnoreCase) == 0)
-                            .SingleOrDefaultAsync();
+                            .SingleOrDefault();
                         if (c != null)
                         {
                             c.Movement.Teleport(Teleport.Create(character.Location.Clone()));
@@ -355,9 +355,9 @@ namespace Hagalaz.Game.Scripts.Commands
                         var name = string.Join(" ", arguments);
 
                         var repository = character.ServiceProvider.GetRequiredService<ICharacterStore>();
-                        var c = await repository.FindAllAsync()
+                        var c = (await repository.GetSnapshotAsync()).Values
                             .Where(ch => string.Compare(ch.DisplayName, name, StringComparison.OrdinalIgnoreCase) == 0)
-                            .FirstOrDefaultAsync();
+                            .FirstOrDefault();
                         if (c != null)
                         {
                             character.Movement.Teleport(Teleport.Create(c.Location.Clone()));

@@ -27,7 +27,7 @@ public sealed class CreatureLifecycleTests
         creature.Destroy();
 
         mapRegionService.DidNotReceive().GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>());
-        mapRegionService.Received(1).GetMapRegion(creature.Location.RegionId, creature.Location.Dimension, false, false);
+        mapRegionService.Received(1).GetMapRegion(creature.Location.RegionId, creature.Location.Dimension, false, true);
         scope.Received(1).Dispose();
     }
 
@@ -37,13 +37,13 @@ public sealed class CreatureLifecycleTests
         var (creature, mapRegionService, scope) = CreateCreature();
         var region = Substitute.For<IMapRegion>();
         mapRegionService.GetOrCreateMapRegion(creature.Location.RegionId, creature.Location.Dimension, true).Returns(region);
-        mapRegionService.GetMapRegion(creature.Location.RegionId, creature.Location.Dimension, false, false).Returns(region);
+        mapRegionService.GetMapRegion(creature.Location.RegionId, creature.Location.Dimension, false, true).Returns(region);
 
         creature.SetLocation(creature.Location, forceRegionUpdate: true, firstUpdate: true);
         creature.Destroy();
 
         mapRegionService.Received(1).GetOrCreateMapRegion(creature.Location.RegionId, creature.Location.Dimension, true);
-        mapRegionService.Received(1).GetMapRegion(creature.Location.RegionId, creature.Location.Dimension, false, false);
+        mapRegionService.Received(1).GetMapRegion(creature.Location.RegionId, creature.Location.Dimension, false, true);
         scope.Received(1).Dispose();
     }
 
@@ -53,7 +53,7 @@ public sealed class CreatureLifecycleTests
         var (creature, mapRegionService, _, area) = CreateCreatureWithArea();
         var region = Substitute.For<IMapRegion>();
         mapRegionService.GetOrCreateMapRegion(creature.Location.RegionId, creature.Location.Dimension, true).Returns(region);
-        mapRegionService.GetMapRegion(creature.Location.RegionId, creature.Location.Dimension, false, false).Returns(region);
+        mapRegionService.GetMapRegion(creature.Location.RegionId, creature.Location.Dimension, false, true).Returns(region);
 
         var areaExited = false;
         area.When(value => value.OnCreatureExitArea(creature)).Do(_ =>

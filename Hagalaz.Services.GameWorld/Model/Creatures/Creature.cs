@@ -228,7 +228,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 {
                     if (Location != null)
                     {
-                        var region = MapRegionService.GetMapRegion(Location.RegionId, Location.Dimension, false, false);
+                        var region = MapRegionService.GetMapRegion(Location.RegionId, Location.Dimension, false, true);
                         if (region != null)
                         {
                             RemoveFromRegion(region);
@@ -312,7 +312,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             {
                 if (LastLocation != null)
                 {
-                    var lastRegion = MapRegionService.GetMapRegion(LastLocation.RegionId, LastLocation.Dimension, false, false);
+                    var lastRegion = MapRegionService.GetMapRegion(LastLocation.RegionId, LastLocation.Dimension, false, true);
                     if (lastRegion != null)
                     {
                         RemoveFromRegion(lastRegion);

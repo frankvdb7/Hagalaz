@@ -7,48 +7,73 @@ it does not check a state through one API and mutate it through another.
 
 ## Decisions
 
-1. **MapRegionService owns residency reads and removal.** `Dimension` keeps
-   ordinary active and idle dictionaries plus its existing residency lock,
-   but exposes no live or implicitly-cloned dictionary properties. The service
-   copies values while holding each dimension lock and returns explicit
-   snapshots. `TryRemoveEmptyDimension` validates the global-dimension rule,
-   exact canonical instance, and both empty stores in the same critical
-   section. The background service uses service-owned snapshots.
+1. **MapRegionService owns all map residency.** `Dimension` is a data holder
+   with identity and active/idle collections; it owns no synchronization
+   primitive. `MapRegionService` uses one private gate for the dimension
+   registry and every active/idle transition. Region construction and loading
+   stay outside that gate. Enumeration returns explicit snapshots made under
+   the same gate, and empty-dimension removal validates global-dimension,
+   exact-instance, and emptiness invariants atomically.
 
-2. **Admission claims local character ownership first.** Hydration creates a
-   character, then `CharacterService.AddAsync` claims the exact local instance.
-   The existing `CharacterStore` implementation only performs its locked
-   duplicate check and collection insertion, so no persistence behavior occurs
-   before revision initialization. Persistence revision initialization follows
-   successful registration. Pre-registration failures destroy the unregistered
-   object directly; post-registration failures remove the exact instance,
-   forget owned persistence state, destroy it, and release the session.
+2. **Admission initializes revision before publication.** Hydration creates a
+   character, `InitializeRevision` monotonically seeds its persistence state,
+   and `CharacterService.AddAsync` then claims the exact local instance. A
+   failed registration destroys only the unregistered object and does not
+   forget the monotonic revision. Later failures remove and destroy the exact
+   registered instance before releasing the session reservation; revision
+   initialization is not rolled back.
 
-3. **Creature event cleanup is terminal.** `UnregisterEventHandlers` detaches
+3. **Mutating region operations require active ownership.** `resume: false`
+   is retained only for read-only access. Collision, object, item, dynamic
+   region, and teardown paths use the service operation that resumes or
+   creates canonical active ownership before mutating a region.
+
+4. **Creature event cleanup is terminal.** `UnregisterEventHandlers` detaches
    its handler inventory before calling the event manager, attempts every
    captured handler, and throws the first failure after the pass. A destroyed
    creature cannot resume cleanup or register new handlers.
 
-4. **Lease renewal follows store-owned state.** `GameSessionStore.FindAll`
+5. **Lease renewal follows store-owned state.** `GameSessionStore.FindAll`
    returns active and pending-world sessions, while moving a session into
    pending claim cleanup removes it from those stores. The lease service keeps
    the pending-cleanup list for reconciliation but does not build a redundant
-   membership set for the active loop. Successful renewal continues directly;
-   failed renewal falls through to the existing abort/reconcile path.
+   membership set for the active loop.
 
-5. **Cumulative PR ownership remains unchanged.** Creature destruction stays
-   terminal, MapRegion teardown releases external resources after exact
-   residency removal, map loading stays scheduler-owned, NpcStore exact
-   removal remains the NPC destruction claim, pending abort processing stays
-   store-owned and retryable, Contacts retains generation checks, and
-   `MapRegionPart._updatesLock` remains because it protects its own buffers.
+6. **Stores expose explicit collection boundaries.** NPC enumeration does not
+   create a hidden snapshot. Character callers that need a stable set request
+   `GetSnapshotAsync`; direct lookups hold a reader lock only for the lookup,
+   never while yielding to caller code.
+
+7. **Logout workflow is separate from persistence.** A keyed
+   `CharacterLogoutState` owned by `CharacterLogoutService` tracks pending,
+   removed, and completing logout workflow state. `CharacterPersistenceState`
+   retains only persistence serialization, revision, and acknowledgement state.
+
+8. **Lifecycle visibility has one owner.** Map loading/scheduling owns the
+   ready/discarded transitions; `MapRegion` performs visibility-only volatile
+   state writes and does not arbitrate lifecycle transitions with CAS.
+
+9. **NPC compensation preserves ownership.** If `OnRegistered` fails, exact
+   removal is attempted. Destruction happens only when removal succeeds; if
+   removal fails, the original registration exception is preserved and the
+   store-owned NPC is not destroyed. Both sync and async registration APIs and
+   the existing store lock remain.
+
+10. **Cumulative PR ownership remains unchanged.** Creature destruction stays
+    terminal, map teardown releases external resources after exact residency
+    removal, map loading stays scheduler-owned, pending abort processing stays
+    store-owned and retryable, Contacts retains generation checks, and
+    `MapRegionPart._updatesLock` remains because it protects its own buffers.
 
 ## Verification strategy
 
-- Test explicit active/idle snapshot safety and exact empty-dimension removal.
-- Test admission ordering and the absence of persistence probing on failed
-  local registration.
+- Test explicit active/idle snapshot safety, concurrent dimension allocation,
+  active ownership for mutation, and exact empty-dimension removal.
+- Test admission ordering, monotonic revision preservation, and the absence
+  of persistence rollback on failed local registration.
 - Test terminal event-handler cleanup attempts all handlers after one fails.
+- Test logout state ownership, explicit character snapshots, NPC compensation,
+  and both NPC API families.
 - Run the cumulative GameWorld tests, integration tests, Contacts tests, Raido
   tests, solution build, locked restore, strict OpenSpec validation, and diff
   checks.

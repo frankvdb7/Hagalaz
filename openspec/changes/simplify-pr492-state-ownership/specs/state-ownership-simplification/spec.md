@@ -6,87 +6,124 @@ cleanup, generation, retry, cancellation, and distributed ownership behavior.
 
 ## ADDED Requirements
 
-### Requirement: Map-region reads and removal are owner operations
+### Requirement: MapRegionService owns residency coordination
 
-`IDimension` MUST expose identity only. `MapRegionService` MUST provide safe,
-explicit snapshots for active and idle region enumeration, and
-`TryRemoveEmptyDimension` MUST enforce the global-dimension, exact-owner, and
-empty-residency invariants atomically under the dimension residency lock.
+`IDimension` MUST expose identity without owning a synchronization primitive.
+`MapRegionService` MUST use one service-owned gate for the dimension registry,
+active residency, idle residency, creation, suspension, resumption, removal,
+and enumeration. Region construction and loading MUST NOT occur while that
+gate is held.
 
-#### Scenario: Game tick receives one explicit active-region snapshot
+#### Scenario: Region enumeration returns an explicit snapshot
 
-- **WHEN** `GameWorkerService` asks for all active regions
-- **THEN** `MapRegionService` copies active values while holding each
-  dimension residency lock
-- **AND** no `IDimension` property performs hidden dictionary cloning
+- **WHEN** a worker asks for active or idle regions
+- **THEN** `MapRegionService` copies the values while holding its residency
+  gate
+- **AND** caller iteration does not hold the service gate
 
 #### Scenario: Empty dimension removal is atomic
 
 - **WHEN** an exact non-global dimension is requested for removal
-- **THEN** the service removes it only if active and idle residency are both
-  empty while locked
+- **THEN** the service removes it only if it is still canonical and both
+  active and idle residency stores are empty while gated
 - **AND** a stale instance or global dimension is rejected
 
-### Requirement: World admission orders ownership before persistence
+### Requirement: Mutating region operations require canonical active ownership
 
-`WorldSessionAdmissionService` MUST claim the exact local character through
-`AddAsync` before calling `InitializeRevision`.
+Every operation that changes a region MUST obtain canonical active ownership
+through `MapRegionService`. `resume: false` MUST remain available only for
+read-only access and MUST NOT be used by a mutation path.
 
-#### Scenario: Registration fails before persistence initialization
+#### Scenario: Mutation resumes an idle region
 
-- **WHEN** local character registration returns false
+- **WHEN** a collision, object, item, dynamic-region, or teardown operation
+  targets an idle region
+- **THEN** the service resumes or creates the canonical active region before
+  the mutation is applied
+- **AND** the mutation is not applied to a detached instance
+
+### Requirement: World admission preserves monotonic revision state
+
+`WorldSessionAdmissionService` MUST call `InitializeRevision` before
+`CharacterService.AddAsync`. Revision initialization MUST remain monotonic and
+MUST NOT be forgotten as rollback for a failed local registration.
+
+#### Scenario: Registration fails after revision initialization
+
+- **WHEN** local character registration returns false or throws
 - **THEN** the character is destroyed as unregistered
-- **AND** revision initialization, persistence forgetting, and `FindByMasterId`
-  probing are not performed
+- **AND** no `FindByMasterId` probe or persistence `Forget` operation occurs
 
-#### Scenario: A post-registration failure rolls back the owned instance
+#### Scenario: A post-registration failure removes only the claimed instance
 
 - **WHEN** a later admission step fails after `AddAsync` succeeds
-- **THEN** the exact character instance is removed
-- **AND** its admission-owned persistence state is forgotten and the character
-  is destroyed before the session reservation is released
+- **THEN** the exact character instance is removed and destroyed before the
+  session reservation is released
+- **AND** the monotonic revision state is not rolled back
 
-### Requirement: Creature event cleanup is terminal
+### Requirement: Store collection boundaries are explicit
 
-Creature destruction MUST detach its event-handler inventory before attempting
-cleanup, attempt every captured handler, preserve the first failure, and make
-future handler registration impossible.
+Store APIs MUST NOT hide full snapshots behind streaming enumeration or hold a
+reader lock across arbitrary caller iteration. Character callers that need a
+stable set MUST use an explicit snapshot operation; direct lookups MAY hold a
+reader lock only for the lookup itself. Unused NPC full-enumeration APIs MUST
+be removed.
 
-#### Scenario: One handler failure does not skip later handlers
+#### Scenario: Character broadcast uses one stable set
 
-- **WHEN** stopping one registered handler throws during destruction
-- **THEN** all remaining registered handlers are still attempted
-- **AND** the first failure is propagated after the cleanup pass
-- **AND** no handler inventory remains for retry
+- **WHEN** a service broadcasts to all characters
+- **THEN** it obtains an explicit character snapshot before iterating
+- **AND** store synchronization is released before caller code runs
 
-### Requirement: Lease renewal uses store-owned membership
+### Requirement: Logout workflow state belongs to logout orchestration
 
-`GameSessionLeaseService` MUST preserve pending claim cleanup, exact claim IDs,
-retry reconciliation, distributed fencing, pending abort processing, and
-cancellation while omitting membership checks that are impossible under
-`GameSessionStore` ownership.
+Pending, removed, and completing logout state MUST be owned by
+`CharacterLogoutService` through one keyed workflow record. Persistence state
+MUST contain only persistence serialization, revision, and acknowledgement
+state.
 
-#### Scenario: Pending cleanup is reconciled without active-loop filtering
+#### Scenario: Logout completion reconciles one keyed record
 
-- **WHEN** a session is moved to pending claim cleanup
-- **THEN** it is absent from `FindAll` and remains in the separate cleanup
-  reconciliation list
-- **AND** lease renewal does not build a redundant pending-session set
+- **WHEN** logout is tracked, detached, and acknowledged
+- **THEN** the logout coordinator uses the exact character record for pending,
+  removal, and completion gates
+- **AND** persistence acknowledgement remains independent of logout workflow
+  bookkeeping
 
-#### Scenario: Lost renewal uses the existing reconciliation owner
+### Requirement: MapRegion lifecycle state is visibility-only
 
-- **WHEN** renewal returns false or fails with a non-cancellation exception
-- **THEN** the lease service logs and invokes the existing abort/reconcile
-  coordinator directly
-- **AND** cancellation behavior remains unchanged
+`MapRegion` MUST retain cross-thread visibility for ready/discarded state, but
+MUST NOT perform a second CAS-based lifecycle arbitration when the loader and
+scheduler are the sole transition owner.
+
+#### Scenario: Loader-owned state remains visible to readers
+
+- **WHEN** the loader marks a region ready or discarded
+- **THEN** concurrent readers observe the published state
+- **AND** `MapRegion` does not compete with the loader by arbitrating a second
+  lifecycle transition
+
+### Requirement: NPC registration compensation preserves ownership
+
+When synchronous or asynchronous NPC registration fails in `OnRegistered`, the
+service MUST attempt exact store removal and MUST destroy the NPC only after
+successful removal. If exact removal fails, the original registration
+exception MUST be rethrown and the store-owned NPC MUST NOT be destroyed.
+
+#### Scenario: Failed compensation preserves store ownership
+
+- **WHEN** synchronous or asynchronous `OnRegistered` throws and exact store
+  removal also fails
+- **THEN** the original registration exception is rethrown
+- **AND** the NPC is not destroyed while the store may still own it
 
 ### Requirement: Cumulative lifecycle ownership remains simple
 
-Creature and MapRegion MUST retain semantic terminal state without competing
-caller locks, destruction state machines, or teardown-only internal mutation
-APIs. Map loading remains scheduler-owned, NPC removal remains the exact
-destruction claim, pending abort processing remains store-owned and retryable,
-and justified update-buffer synchronization remains unchanged.
+Creature destruction MUST remain terminal, map loading MUST remain
+scheduler-owned, pending abort processing MUST remain store-owned and
+retryable, NPC removal MUST remain the exact destruction claim, Contacts MUST
+retain generation checks, and justified update-buffer synchronization MUST
+remain unchanged.
 
 #### Scenario: Existing lifecycle ownership remains intact
 

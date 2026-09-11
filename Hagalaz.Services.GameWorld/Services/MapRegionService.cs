@@ -29,6 +29,7 @@ namespace Hagalaz.Services.GameWorld.Services
         public const int MaxDimensions = byte.MaxValue;
         private readonly Dictionary<int, int[]> _xteaKeys = new();
         private readonly Dimension?[] _dimensions = new Dimension?[MaxDimensions];
+        private readonly object _residencyGate = new();
         private readonly IServiceScope _serviceScope;
         private readonly ILocationBuilder _locationBuilder;
         private readonly IGameObjectBuilder _gameObjectBuilder;
@@ -125,11 +126,10 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <exception cref="Exception"></exception>
         public IMapRegion? GetMapRegion(int id, int dimension, bool create, bool resume)
         {
-            var dim = _dimensions[dimension] ?? throw new Exception("'" + dimension + "' is not an existing dimension!");
-            IMapRegion result;
-            var created = false;
-            lock (dim.ResidencySyncRoot)
+            Dimension dim;
+            lock (_residencyGate)
             {
+                dim = _dimensions[dimension] ?? throw new Exception("'" + dimension + "' is not an existing dimension!");
                 if (dim.ActiveRegions.TryGetValue(id, out var activeRegion))
                 {
                     return activeRegion;
@@ -152,7 +152,7 @@ namespace Hagalaz.Services.GameWorld.Services
             }
 
             var newRegion = CreateMapRegion(id, dimension);
-            lock (dim.ResidencySyncRoot)
+            lock (_residencyGate)
             {
                 if (!ReferenceEquals(_dimensions[dimension], dim))
                 {
@@ -169,24 +169,11 @@ namespace Hagalaz.Services.GameWorld.Services
                     return resume ? ResumeIdleRegion(dim, id, idleRegion) : idleRegion;
                 }
 
-                if (dim.ActiveRegions.TryGetValue(id, out var currentRegion))
-                {
-                    result = currentRegion;
-                }
-                else
-                {
-                    dim.ActiveRegions.Add(id, newRegion);
-                    result = newRegion;
-                    created = true;
-                }
+                dim.ActiveRegions.Add(id, newRegion);
             }
 
-            if (created)
-            {
-                _loadScheduler.RequestLoad(result);
-            }
-
-            return result;
+            _loadScheduler.RequestLoad(newRegion);
+            return newRegion;
         }
 
         public IMapRegion GetOrCreateMapRegion(int id, int dimension, bool resume) => GetMapRegion(id, dimension, true, resume)!;
@@ -228,14 +215,14 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             ArgumentNullException.ThrowIfNull(expectedRegion);
 
-            var mapDimension = _dimensions[dimension];
-            if (mapDimension is null)
+            lock (_residencyGate)
             {
-                return false;
-            }
+                var mapDimension = _dimensions[dimension];
+                if (mapDimension is null)
+                {
+                    return false;
+                }
 
-            lock (mapDimension.ResidencySyncRoot)
-            {
                 return ((ICollection<KeyValuePair<int, IMapRegion>>)mapDimension.ActiveRegions)
                     .Remove(new KeyValuePair<int, IMapRegion>(id, expectedRegion));
             }
@@ -245,14 +232,14 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             ArgumentNullException.ThrowIfNull(expectedRegion);
 
-            var dimension = _dimensions[expectedRegion.BaseLocation.Dimension];
-            if (dimension is null)
+            lock (_residencyGate)
             {
-                return false;
-            }
+                var dimension = _dimensions[expectedRegion.BaseLocation.Dimension];
+                if (dimension is null)
+                {
+                    return false;
+                }
 
-            lock (dimension.ResidencySyncRoot)
-            {
                 if (!dimension.ActiveRegions.TryGetValue(expectedRegion.Id, out var currentRegion)
                     || !ReferenceEquals(currentRegion, expectedRegion)
                     || dimension.IdleRegionStore.ContainsKey(expectedRegion.Id))
@@ -275,14 +262,14 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             ArgumentNullException.ThrowIfNull(expectedRegion);
 
-            var mapDimension = _dimensions[dimension];
-            if (mapDimension is null)
+            lock (_residencyGate)
             {
-                return false;
-            }
+                var mapDimension = _dimensions[dimension];
+                if (mapDimension is null)
+                {
+                    return false;
+                }
 
-            lock (mapDimension.ResidencySyncRoot)
-            {
                 return mapDimension.IdleRegionStore.TryGetValue(id, out var currentRegion)
                     && ReferenceEquals(currentRegion, expectedRegion)
                     && mapDimension.IdleRegionStore.Remove(id);
@@ -293,14 +280,14 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             ArgumentNullException.ThrowIfNull(expectedRegion);
 
-            var mapDimension = _dimensions[dimension];
-            if (mapDimension is null)
+            lock (_residencyGate)
             {
-                return false;
-            }
+                var mapDimension = _dimensions[dimension];
+                if (mapDimension is null)
+                {
+                    return false;
+                }
 
-            lock (mapDimension.ResidencySyncRoot)
-            {
                 return mapDimension.ActiveRegions.TryGetValue(id, out var currentRegion)
                     && ReferenceEquals(currentRegion, expectedRegion);
             }
@@ -314,9 +301,9 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <returns></returns>
         public void CreateDynamicRegion(ILocation source, ILocation destination)
         {
-            var standardRegion = GetOrCreateMapRegion(source.RegionId, source.Dimension, false);
+            var standardRegion = GetOrCreateMapRegion(source.RegionId, source.Dimension, true);
             standardRegion.MakeStandard();
-            var dynamicRegion = GetOrCreateMapRegion(destination.RegionId, destination.Dimension, false);
+            var dynamicRegion = GetOrCreateMapRegion(destination.RegionId, destination.Dimension, true);
             dynamicRegion.MakeDynamic();
 
             for (var z = 0; z < 4; z++)
@@ -347,7 +334,7 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <param name="flag">The flag.</param>
         public void FlagCollision(ILocation location, CollisionFlag flag)
         {
-            var region = GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
+            var region = GetOrCreateMapRegion(location.RegionId, location.Dimension, true);
             region.FlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, flag);
         }
 
@@ -359,84 +346,81 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <param name="flag">The flag.</param>
         public void UnFlagCollision(ILocation location, CollisionFlag flag)
         {
-            var region = GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
+            var region = GetOrCreateMapRegion(location.RegionId, location.Dimension, true);
             region.UnFlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, flag);
         }
 
         public void CreateDimension(int id)
         {
-            if (_dimensions[id] != null) throw new Exception("Dimension already exists!");
-            _dimensions[id] = new Dimension(id);
+            lock (_residencyGate)
+            {
+                if (_dimensions[id] != null) throw new Exception("Dimension already exists!");
+                _dimensions[id] = new Dimension(id);
+            }
         }
 
         public bool TryCreateDimension([NotNullWhen(true)] out IDimension? dimension)
         {
-            for (var i = 0; i < _dimensions.Length; i++)
+            lock (_residencyGate)
             {
-                if (_dimensions[i] != null)
+                for (var i = 0; i < _dimensions.Length; i++)
                 {
-                    continue;
+                    if (_dimensions[i] != null)
+                    {
+                        continue;
+                    }
+
+                    dimension = _dimensions[i] = new Dimension(i);
+                    return true;
                 }
 
-                dimension = _dimensions[i] = new Dimension(i);
-                return true;
+                dimension = default;
+                return false;
             }
-
-            dimension = default;
-            return false;
         }
 
         public IReadOnlyList<IMapRegion> FindRegionsByDimension(int dimensionId)
         {
-            var dimension = _dimensions[dimensionId];
-            if (dimension is null)
+            lock (_residencyGate)
             {
-                return [];
-            }
-
-            lock (dimension.ResidencySyncRoot)
-            {
-                return dimension.ActiveRegions.Values.ToArray();
+                var dimension = _dimensions[dimensionId];
+                return dimension is null ? [] : dimension.ActiveRegions.Values.ToArray();
             }
         }
 
         public IReadOnlyList<IMapRegion> FindIdleRegionsByDimension(int dimensionId)
         {
-            var dimension = _dimensions[dimensionId];
-            if (dimension is null)
+            lock (_residencyGate)
             {
-                return [];
-            }
-
-            lock (dimension.ResidencySyncRoot)
-            {
-                return dimension.IdleRegionStore.Values.ToArray();
+                var dimension = _dimensions[dimensionId];
+                return dimension is null ? [] : dimension.IdleRegionStore.Values.ToArray();
             }
         }
 
         public IReadOnlyList<IMapRegion> FindAllRegions()
         {
-            var regions = new List<IMapRegion>();
-            foreach (var dimension in _dimensions)
+            lock (_residencyGate)
             {
-                if (dimension is null)
+                var regions = new List<IMapRegion>();
+                foreach (var dimension in _dimensions)
                 {
-                    continue;
+                    if (dimension is not null)
+                    {
+                        regions.AddRange(dimension.ActiveRegions.Values);
+                    }
                 }
 
-                lock (dimension.ResidencySyncRoot)
-                {
-                    regions.AddRange(dimension.ActiveRegions.Values);
-                }
+                return regions;
             }
-
-            return regions;
         }
 
-        public IReadOnlyList<IDimension> FindAllDimensions() => _dimensions
-            .Where(dimension => dimension != null)
-            .Cast<IDimension>()
-            .ToArray();
+        public IReadOnlyList<IDimension> FindAllDimensions()
+        {
+            lock (_residencyGate)
+            {
+                return _dimensions.Where(dimension => dimension != null).Cast<IDimension>().ToArray();
+            }
+        }
 
         public bool TryRemoveEmptyDimension(IDimension expectedDimension)
         {
@@ -452,7 +436,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 return false;
             }
 
-            lock (dimension.ResidencySyncRoot)
+            lock (_residencyGate)
             {
                 if (!ReferenceEquals(_dimensions[dimension.Id], dimension)
                     || dimension.ActiveRegions.Count != 0

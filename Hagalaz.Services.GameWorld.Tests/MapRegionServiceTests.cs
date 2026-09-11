@@ -259,6 +259,36 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
+    public async Task TryCreateDimension_ConcurrentCallersAllocateUniqueDimensions()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        const int callerCount = 32;
+
+        var dimensions = await Task.WhenAll(Enumerable.Range(0, callerCount)
+            .Select(_ => Task.Run(() => service.TryCreateDimension(out var dimension) ? dimension : null)));
+
+        Assert.IsTrue(dimensions.All(dimension => dimension is not null));
+        Assert.AreEqual(callerCount, dimensions.Select(dimension => dimension!.Id).Distinct().Count());
+        Assert.AreEqual(callerCount + 1, service.FindAllDimensions().Count);
+    }
+
+    [TestMethod]
+    public void MutationThroughService_ResumesIdleRegionBeforeApplyingChange()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var region = service.GetOrCreateMapRegion(1, 0, false);
+        Assert.IsTrue(service.TrySuspendMapRegion(region));
+
+        service.FlagCollision(Location.Create(1, 65, 0, 0), CollisionFlag.WallNorth);
+
+        Assert.AreSame(region, service.GetMapRegion(region.Id, 0, false, false));
+        Assert.IsFalse(service.FindIdleRegionsByDimension(0).Contains(region));
+        Assert.AreEqual(CollisionFlag.WallNorth, region.GetCollision(1, 1, 0));
+    }
+
+    [TestMethod]
     public void TryRemoveIdleMapRegion_FailsAfterRegionResumes()
     {
         using var provider = CreateProvider();
