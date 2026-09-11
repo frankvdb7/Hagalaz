@@ -1,96 +1,96 @@
 ## Purpose
 
-Keeps lifecycle and shared-state coordination at the application owner that already sequences or claims it, while preserving externally observable cleanup, generation, and retry behavior.
+Keep lifecycle and shared-state coordination at the application owner that
+already sequences or claims it, while preserving externally observable
+cleanup, generation, retry, cancellation, and distributed ownership behavior.
 
 ## ADDED Requirements
 
-### Requirement: Game worker owns creature tick sequencing
+### Requirement: Map-region reads and removal are owner operations
 
-The game worker MUST invoke creature tick phases in its established global order, and a creature MUST NOT retain a second per-creature phase state machine for normal tick admission.
+`IDimension` MUST expose identity only. `MapRegionService` MUST provide safe,
+explicit snapshots for active and idle region enumeration, and
+`TryRemoveEmptyDimension` MUST enforce the global-dimension, exact-owner, and
+empty-residency invariants atomically under the dimension residency lock.
 
-#### Scenario: A failed creature tick does not wedge the next tick
+#### Scenario: Game tick receives one explicit active-region snapshot
 
-- **WHEN** a creature callback throws during one major update
-- **AND** the game worker invokes the next valid major update
-- **THEN** the creature may execute the next update normally
-- **AND** the failure is not represented as a permanently stranded intermediate phase
+- **WHEN** `GameWorkerService` asks for all active regions
+- **THEN** `MapRegionService` copies active values while holding each
+  dimension residency lock
+- **AND** no `IDimension` property performs hidden dictionary cloning
 
-#### Scenario: Destroyed creatures do no normal tick work
+#### Scenario: Empty dimension removal is atomic
 
-- **WHEN** a destroyed creature receives a later tick callback
-- **THEN** it performs no normal content, client update, or reset work
+- **WHEN** an exact non-global dimension is requested for removal
+- **THEN** the service removes it only if active and idle residency are both
+  empty while locked
+- **AND** a stale instance or global dimension is rejected
 
-### Requirement: Map-region residency has one synchronization model
+### Requirement: World admission orders ownership before persistence
 
-Map-region residency MUST preserve exact-instance transitions and canonical uniqueness while reads exposed for enumeration are safe snapshots rather than live mutable collection views.
+`WorldSessionAdmissionService` MUST claim the exact local character through
+`AddAsync` before calling `InitializeRevision`.
 
-#### Scenario: Concurrent creation has one canonical region
+#### Scenario: Registration fails before persistence initialization
 
-- **WHEN** concurrent callers request creation of the same region
-- **THEN** exactly one region instance is canonical
-- **AND** all callers observe that canonical instance
+- **WHEN** local character registration returns false
+- **THEN** the character is destroyed as unregistered
+- **AND** revision initialization, persistence forgetting, and `FindByMasterId`
+  probing are not performed
 
-#### Scenario: A residency snapshot is stable during later mutation
+#### Scenario: A post-registration failure rolls back the owned instance
 
-- **WHEN** a caller obtains an active or idle region enumeration snapshot
-- **AND** residency later changes
-- **THEN** enumeration of the earlier snapshot remains safe and represents the earlier view
+- **WHEN** a later admission step fails after `AddAsync` succeeds
+- **THEN** the exact character instance is removed
+- **AND** its admission-owned persistence state is forgotten and the character
+  is destroyed before the session reservation is released
 
-#### Scenario: Stale idle destruction cannot remove a replacement
+### Requirement: Creature event cleanup is terminal
 
-- **WHEN** an idle region is replaced or resumed before a stale destruction attempt
-- **THEN** the stale attempt does not remove the current exact instance
+Creature destruction MUST detach its event-handler inventory before attempting
+cleanup, attempt every captured handler, preserve the first failure, and make
+future handler registration impossible.
 
-### Requirement: Contact sessions preserve generation ownership
+#### Scenario: One handler failure does not skip later handlers
 
-The contact-session store MUST atomically accept only newer generations, remove only the exact generation and connection, and enumerate a safe snapshot.
+- **WHEN** stopping one registered handler throws during destruction
+- **THEN** all remaining registered handlers are still attempted
+- **AND** the first failure is propagated after the cleanup pass
+- **AND** no handler inventory remains for retry
 
-#### Scenario: An older generation cannot overwrite a newer session
+### Requirement: Lease renewal uses store-owned membership
 
-- **WHEN** an older or equal session generation is submitted after a newer session
-- **THEN** the newer session remains stored
+`GameSessionLeaseService` MUST preserve pending claim cleanup, exact claim IDs,
+retry reconciliation, distributed fencing, pending abort processing, and
+cancellation while omitting membership checks that are impossible under
+`GameSessionStore` ownership.
 
-#### Scenario: A stale generation cannot remove a newer session
+#### Scenario: Pending cleanup is reconciled without active-loop filtering
 
-- **WHEN** removal is requested with an older generation or different connection
-- **THEN** the current newer session remains stored
+- **WHEN** a session is moved to pending claim cleanup
+- **THEN** it is absent from `FindAll` and remains in the separate cleanup
+  reconciliation list
+- **AND** lease renewal does not build a redundant pending-session set
 
-### Requirement: Dead map-region teardown releases external resources only
+#### Scenario: Lost renewal uses the existing reconciliation owner
 
-After its exact residency owner removes a region, region teardown MUST mark the region terminal and release required external NPC, item, and object resources without invoking active-region collection mutation semantics or maintaining a second teardown-only collection API.
+- **WHEN** renewal returns false or fails with a non-cancellation exception
+- **THEN** the lease service logs and invokes the existing abort/reconcile
+  coordinator directly
+- **AND** cancellation behavior remains unchanged
 
-#### Scenario: External teardown hooks run after residency removal
+### Requirement: Cumulative lifecycle ownership remains simple
 
-- **WHEN** an exact idle region is removed from residency and destroyed
-- **THEN** registered NPCs are unregistered and item/object destruction hooks run
-- **AND** the region is terminal afterward
+Creature and MapRegion MUST retain semantic terminal state without competing
+caller locks, destruction state machines, or teardown-only internal mutation
+APIs. Map loading remains scheduler-owned, NPC removal remains the exact
+destruction claim, pending abort processing remains store-owned and retryable,
+and justified update-buffer synchronization remains unchanged.
 
-#### Scenario: Teardown failure does not reopen the region
+#### Scenario: Existing lifecycle ownership remains intact
 
-- **WHEN** an external teardown hook fails
-- **THEN** the region remains destroyed
-- **AND** a duplicate destruction attempt is rejected
-
-### Requirement: Pending abort ownership is enforced by the session store
-
-Pending abort reservation MUST prevent connection-ID reuse until completion, and the abort coordinator MUST rely on that store-owned invariant rather than performing a duplicate active-session verification.
-
-#### Scenario: A pending abort reserves its connection identifier
-
-- **WHEN** a pending abort exists for a session connection
-- **THEN** another session cannot claim that connection identifier until the pending abort completes
-
-#### Scenario: Abort processing remains retryable
-
-- **WHEN** abort processing fails and releases its processing marker
-- **THEN** the pending reservation remains available to the existing lease reconciliation owner
-
-### Requirement: Justified synchronization remains local
-
-The map-region scheduler state and `MapRegionPart` update buffers MUST retain their existing synchronization because those components own the shared mutable resources they protect.
-
-#### Scenario: Region updates remain safe across asynchronous producers and worker phases
-
-- **WHEN** a region update is queued while the worker prepares, sends, or resets updates
-- **THEN** pending and prepared update buffers retain their existing safe handoff behavior
-
+- **WHEN** the cumulative PR lifecycle paths run
+- **THEN** exact-instance removal, scheduler completion, primary loader failure,
+  NPC ownership, abort retry, Contacts generation, and update-buffer handoff
+  behavior remain unchanged

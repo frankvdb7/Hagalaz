@@ -136,6 +136,56 @@ public sealed class NpcBuilderTests
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(value => value is CreatureDestroyedEvent));
     }
 
+    [TestMethod]
+    public void Destroy_WhenEventCleanupFails_AttemptsAllHandlersAndDisablesFurtherRegistration()
+    {
+        var definition = new NpcDefinition(1)
+        {
+            BoundsType = BoundsType.Static,
+            DisplayName = "Test NPC",
+            WalksRandomly = false,
+        };
+        var npcService = Substitute.For<INpcService>();
+        npcService.FindNpcDefinitionById(definition.Id).Returns(definition);
+        var script = Substitute.For<INpcScript>();
+        var scriptActivator = Substitute.For<INpcScriptActivator>();
+        scriptActivator.Create(typeof(INpcScript), Arg.Any<INpc>()).Returns(script);
+        var eventManager = Substitute.For<IEventManager>();
+        EventHappened firstHandler = _ => false;
+        EventHappened secondHandler = _ => false;
+        eventManager.Listen<CreatureDestroyedEvent>(Arg.Any<EventHappened<CreatureDestroyedEvent>>())
+            .Returns(firstHandler, secondHandler);
+        var stopAttempts = 0;
+        eventManager
+            .When(value => value.StopListen(Arg.Any<Type>(), Arg.Any<EventHappened>()))
+            .Do(_ =>
+            {
+                if (++stopAttempts == 1)
+                {
+                    throw new InvalidOperationException("event cleanup failed");
+                }
+            });
+        var builder = CreateBuilder(npcService, services =>
+        {
+            services.AddSingleton(scriptActivator);
+            services.AddSingleton(eventManager);
+        });
+
+        var npc = builder.Create()
+            .WithId(definition.Id)
+            .WithLocation(new Location(3200, 3200, 0, 0))
+            .WithScript(typeof(INpcScript))
+            .Build();
+        npc.RegisterEventHandler<CreatureDestroyedEvent>(_ => false);
+        npc.RegisterEventHandler<CreatureDestroyedEvent>(_ => false);
+
+        var failure = Assert.ThrowsExactly<InvalidOperationException>(() => npc.Destroy());
+
+        StringAssert.Contains(failure.Message, "event cleanup failed");
+        Assert.AreEqual(2, stopAttempts);
+        Assert.ThrowsExactly<Exception>(() => npc.RegisterEventHandler<CreatureDestroyedEvent>(_ => false));
+    }
+
     private static NpcBuilder CreateBuilder(INpcService npcService, Action<IServiceCollection>? configure = null)
     {
         var services = new ServiceCollection()

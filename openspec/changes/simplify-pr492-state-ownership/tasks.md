@@ -1,22 +1,35 @@
-## 1. Planning and production simplification
+## 1. Planning and consolidation
 
-- [x] 1.1 Record the ownership boundaries and validate the change artifacts with strict OpenSpec validation.
-- [x] 1.2 Remove `CreatureUpdateState` and `TryBeginClientUpdate`, guard ticks with `IsDestroyed`, and update character rendering without changing worker phase order.
-- [x] 1.3 Replace Dimension concurrent residency collections with ordinary dictionaries and safe snapshots while preserving exact service transitions.
-- [x] 1.4 Replace ContactSessionStore's concurrent dictionary plus lock with one locked ordinary dictionary and snapshot enumeration.
-- [x] 1.5 Remove MapRegion teardown-only internal collection cleanup and `MapRegionPart.RemoveDestroyed` while preserving external cleanup and terminal behavior.
-- [x] 1.6 Remove the redundant `IGameSessionStore` lookup from GameSessionAbortCoordinator and simplify NpcService rethrows without changing exception behavior.
+- [x] 1.1 Read the cumulative PR ownership requirements and choose this change
+      as the single authoritative lifecycle/state simplification record.
+- [x] 1.2 Validate the updated proposal, design, delta specification, and task
+      list with strict OpenSpec validation.
 
-## 2. Regression coverage
+## 2. Production simplification
 
-- [x] 2.1 Add creature tick failure-recovery and destroyed-creature no-op tests.
-- [x] 2.2 Add residency snapshot and exact-instance regression tests.
-- [x] 2.3 Add ContactSessionStore generation, stale-removal, and snapshot tests.
-- [x] 2.4 Update MapRegion teardown tests to assert external ownership cleanup rather than dead-collection tidiness.
-- [x] 2.5 Preserve and verify session-abort retry/reservation and MapRegionPart update-buffer tests.
+- [x] 2.1 Replace `IDimension` dictionary properties and `CanDestroy` with
+      explicit `MapRegionService` snapshots and atomic empty-dimension removal.
+- [x] 2.2 Reorder world admission to claim local character ownership before
+      revision initialization and remove failed-registration persistence probes.
+- [x] 2.3 Make creature event-handler cleanup terminal while preserving first
+      failure and attempting all handlers.
+- [x] 2.4 Remove impossible pending-cleanup filtering, claim-loss state, and
+      lease forwarding ceremony without changing reconciliation behavior.
+- [x] 2.5 Preserve the previously implemented scheduler, loader, creature,
+      MapRegion, NPC, abort, Contacts, and update-buffer ownership boundaries.
 
-## 3. Validation
+## 3. Regression coverage
 
-- [x] 3.1 Run focused GameWorld and Contacts tests with the repository-compatible `dotnet test` commands.
-- [x] 3.2 Run the GameWorld integration tests where Docker infrastructure permits and report infrastructure failures separately.
-- [x] 3.3 Run the Raido tests, solution build, strict OpenSpec validation, and final diff checks.
+- [x] 3.1 Add explicit residency snapshot and atomic dimension-removal tests.
+- [x] 3.2 Add admission ordering and failed-registration persistence tests.
+- [x] 3.3 Add terminal event-cleanup failure/remainder tests.
+- [x] 3.4 Preserve cumulative lifecycle, lease, abort, and update-buffer tests.
+
+## 4. Validation and cleanup
+
+- [x] 4.1 Run focused and full GameWorld tests, Contacts tests, and integration
+      tests where Docker infrastructure permits.
+- [x] 4.2 Run Raido tests, locked restore, solution build, strict OpenSpec
+      validation, and final diff/symbol audits.
+- [x] 4.3 Remove the duplicate `simplify-pr492-lifecycle-ownership` change
+      artifacts after the consolidated record validates.

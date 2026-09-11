@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
@@ -21,12 +20,10 @@ public sealed class MapRegionBackgroundServiceTests
         region.CanDestroy().Returns(true);
         var dimension = Substitute.For<IDimension>();
         dimension.Id.Returns(0);
-        dimension.Regions.Returns(new Dictionary<int, IMapRegion>());
-        var idleRegions = new Dictionary<int, IMapRegion> { [regionId] = region };
-        dimension.IdleRegions.Returns(idleRegions);
-        dimension.CanDestroy().Returns(false);
         var regionService = Substitute.For<IMapRegionService>();
         regionService.FindAllDimensions().Returns(new[] { dimension });
+        regionService.FindRegionsByDimension(0).Returns([]);
+        regionService.FindIdleRegionsByDimension(0).Returns(new[] { region });
         regionService.TryRemoveIdleMapRegion(regionId, dimension.Id, region).Returns(false);
 
         var service = new MapRegionBackgroundService(

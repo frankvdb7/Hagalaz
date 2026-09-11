@@ -386,19 +386,68 @@ namespace Hagalaz.Services.GameWorld.Services
             return false;
         }
 
-        public IEnumerable<IMapRegion> FindRegionsByDimension(int dimensionId) =>
-            _dimensions[dimensionId] != null ? _dimensions[dimensionId]!.Regions.Values : [];
+        public IReadOnlyList<IMapRegion> FindRegionsByDimension(int dimensionId)
+        {
+            var dimension = _dimensions[dimensionId];
+            if (dimension is null)
+            {
+                return [];
+            }
 
-        public IEnumerable<IMapRegion> FindAllRegions() => FindAllDimensions().SelectMany(d => d.Regions.Values);
-        public IEnumerable<IDimension> FindAllDimensions() => _dimensions
+            lock (dimension.ResidencySyncRoot)
+            {
+                return dimension.ActiveRegions.Values.ToArray();
+            }
+        }
+
+        public IReadOnlyList<IMapRegion> FindIdleRegionsByDimension(int dimensionId)
+        {
+            var dimension = _dimensions[dimensionId];
+            if (dimension is null)
+            {
+                return [];
+            }
+
+            lock (dimension.ResidencySyncRoot)
+            {
+                return dimension.IdleRegionStore.Values.ToArray();
+            }
+        }
+
+        public IReadOnlyList<IMapRegion> FindAllRegions()
+        {
+            var regions = new List<IMapRegion>();
+            foreach (var dimension in _dimensions)
+            {
+                if (dimension is null)
+                {
+                    continue;
+                }
+
+                lock (dimension.ResidencySyncRoot)
+                {
+                    regions.AddRange(dimension.ActiveRegions.Values);
+                }
+            }
+
+            return regions;
+        }
+
+        public IReadOnlyList<IDimension> FindAllDimensions() => _dimensions
             .Where(dimension => dimension != null)
-            .Cast<IDimension>();
+            .Cast<IDimension>()
+            .ToArray();
 
         public bool TryRemoveEmptyDimension(IDimension expectedDimension)
         {
             ArgumentNullException.ThrowIfNull(expectedDimension);
 
             if (expectedDimension is not Dimension dimension)
+            {
+                return false;
+            }
+
+            if (dimension.Id == 0 || dimension.Id < 0 || dimension.Id >= _dimensions.Length)
             {
                 return false;
             }

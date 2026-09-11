@@ -20,7 +20,7 @@ using Features_AuthenticationProperties = Hagalaz.Services.GameWorld.Features.Au
 namespace Hagalaz.Services.GameWorld.Services;
 
 /// <summary>
-/// Owns the reserve, initialize, commit, and compensation transaction for world admission.
+/// Owns the reserve, initialize, commit, and compensation flow for world admission.
 /// </summary>
 public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
 {
@@ -75,8 +75,6 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
 
         var session = sessionRegistration.Session;
         var signInSucceeded = false;
-        var characterRegistered = false;
-        var revisionInitialized = false;
         ICharacter? registeredCharacter = null;
         try
         {
@@ -110,23 +108,39 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
             }
 
             var character = _characterFactory.Create(session, signInRequest.GameClient);
+            try
+            {
+                if (!await _characterHydrationService.HydrateAsync(character, characterModel))
+                {
+                    _logger.LogWarning("Unable to hydrate character '{character}'", character);
+                    DestroyUnregisteredCharacter(character);
+                    return SignInResult.Fail;
+                }
+            }
+            catch
+            {
+                DestroyUnregisteredCharacter(character);
+                throw;
+            }
+
+            try
+            {
+                if (!await _characterService.AddAsync(character))
+                {
+                    _logger.LogWarning("Unable to add character '{character}'", character);
+                    DestroyUnregisteredCharacter(character);
+                    return SignInResult.Fail;
+                }
+            }
+            catch
+            {
+                DestroyUnregisteredCharacter(character);
+                throw;
+            }
+
             registeredCharacter = character;
-            if (!await _characterHydrationService.HydrateAsync(character, characterModel))
-            {
-                _logger.LogWarning("Unable to hydrate character '{character}'", character);
-                return SignInResult.Fail;
-            }
-
             _characterPersistenceService.InitializeRevision(masterId, characterModel.SnapshotRevision);
-            revisionInitialized = true;
 
-            if (!await _characterService.AddAsync(character))
-            {
-                _logger.LogWarning("Unable to add character '{character}'", character);
-                return SignInResult.Fail;
-            }
-
-            characterRegistered = true;
             if (!await _gameSessionService.CommitWorldSession(session, cancellationToken))
             {
                 _logger.LogWarning("Unable to commit world session '{connectionId}' after character registration", session.ConnectionId);
@@ -147,93 +161,64 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
                 await RollbackAsync(
                     masterId,
                     sessionRegistration.Session,
-                    registeredCharacter,
-                    characterRegistered,
-                    revisionInitialized);
+                    registeredCharacter);
             }
+        }
+    }
+
+    private void DestroyUnregisteredCharacter(ICharacter character)
+    {
+        try
+        {
+            character.Destroy();
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to destroy unregistered character after world sign-in failed");
         }
     }
 
     private async Task RollbackAsync(
         uint masterId,
         IGameSession session,
-        ICharacter? registeredCharacter,
-        bool characterRegistered,
-        bool revisionInitialized)
+        ICharacter? registeredCharacter)
     {
         if (registeredCharacter is not null)
         {
-            if (characterRegistered)
-            {
-                try
-                {
-                    if (await _characterService.RemoveAsync(registeredCharacter))
-                    {
-                        try
-                        {
-                            _characterPersistenceService.Forget(masterId);
-                        }
-                        catch (Exception exception)
-                        {
-                            _logger.LogError(exception, "Failed to forget character persistence state after world sign-in failed");
-                        }
-
-                        try
-                        {
-                            registeredCharacter.Destroy();
-                        }
-                        catch (Exception exception)
-                        {
-                            _logger.LogError(exception, "Failed to destroy character after world sign-in failed");
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Character '{MasterId}' removal returned false after world sign-in failed; retaining persistence state for recovery", masterId);
-                    }
-                }
-                catch (OperationCanceledException exception)
-                {
-                    _logger.LogError(exception, "Character removal was canceled after world sign-in failed");
-                }
-                catch (Exception exception)
-                {
-                    _logger.LogError(exception, "Failed to remove character after world sign-in failed");
-                }
-            }
-            else
-            {
-                try
-                {
-                    registeredCharacter.Destroy();
-                }
-                catch (Exception exception)
-                {
-                    _logger.LogError(exception, "Failed to destroy unregistered character after world sign-in failed");
-                }
-            }
-        }
-
-        if (!characterRegistered && revisionInitialized)
-        {
             try
             {
-                if (await _characterService.FindByMasterId(masterId) is null)
+                if (await _characterService.RemoveAsync(registeredCharacter))
                 {
-                    _characterPersistenceService.Forget(masterId);
+                    try
+                    {
+                        _characterPersistenceService.Forget(masterId);
+                    }
+                    catch (Exception exception)
+                    {
+                        _logger.LogError(exception, "Failed to forget character persistence state after world sign-in failed");
+                    }
+
+                    try
+                    {
+                        registeredCharacter.Destroy();
+                    }
+                    catch (Exception exception)
+                    {
+                        _logger.LogError(exception, "Failed to destroy character after world sign-in failed");
+                    }
                 }
                 else
                 {
-                    _logger.LogWarning("Character '{MasterId}' was already registered after world sign-in failed; retaining persistence state for the existing character", masterId);
+                    _logger.LogWarning("Character '{MasterId}' removal returned false after world sign-in failed; retaining persistence state for recovery", masterId);
                 }
             }
             catch (OperationCanceledException exception)
             {
-                _logger.LogError(exception, "Unable to determine character registration after world sign-in failed; retaining persistence state");
+                _logger.LogError(exception, "Character removal was canceled after world sign-in failed");
             }
             catch (Exception exception)
             {
-                _logger.LogError(exception, "Unable to determine character registration after world sign-in failed; retaining persistence state");
+                _logger.LogError(exception, "Failed to remove character after world sign-in failed");
             }
         }
 

@@ -783,7 +783,7 @@ public sealed class AuthenticationSignInTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task SignInWorldAsync_WhenCharacterRegistrationFails_RemovesSession()
+    public async Task SignInWorldAsync_WhenCharacterRegistrationFails_DoesNotInitializePersistence()
     {
         var gameSessionService = Substitute.For<IGameSessionService>();
         var session = Substitute.For<IGameSession>();
@@ -806,13 +806,14 @@ public sealed class AuthenticationSignInTests
 
         Assert.IsFalse(result.Succeeded);
         await gameSessionService.Received(1).RemoveSession(session);
-        persistenceService.Received(1).Forget(42u);
+        persistenceService.DidNotReceive().InitializeRevision(Arg.Any<uint>(), Arg.Any<long>());
+        persistenceService.DidNotReceive().Forget(Arg.Any<uint>());
         character.Received(1).Destroy();
     }
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task SignInWorldAsync_WhenCharacterRegistrationFindsExistingMasterId_RetainsRevisionState()
+    public async Task SignInWorldAsync_WhenCharacterRegistrationFails_DoesNotProbeForAnotherCharacter()
     {
         var gameSessionService = Substitute.For<IGameSessionService>();
         var session = Substitute.For<IGameSession>();
@@ -820,8 +821,7 @@ public sealed class AuthenticationSignInTests
         gameSessionService.TryAddWorldSession(42, "connection").Returns(Task.FromResult<(IGameSession? Session, bool Created)>((session, Created: true)));
         gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
 
-        var existingCharacter = Substitute.For<ICharacter>();
-        var characterService = new TestCharacterService(addResult: false, existingCharacter: existingCharacter);
+        var characterService = new TestCharacterService(addResult: false);
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
         var service = CreateAuthenticationService(
             gameSessionService,
@@ -832,7 +832,8 @@ public sealed class AuthenticationSignInTests
         var result = await service.SignInWorldAsync(CreateSignInRequest());
 
         Assert.IsFalse(result.Succeeded);
-        Assert.AreEqual(1, characterService.FindByMasterIdCallCount);
+        Assert.AreEqual(0, characterService.FindByMasterIdCallCount);
+        persistenceService.DidNotReceive().InitializeRevision(Arg.Any<uint>(), Arg.Any<long>());
         persistenceService.DidNotReceive().Forget(Arg.Any<uint>());
     }
 
@@ -1309,7 +1310,7 @@ public sealed class AuthenticationSignInTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task SignInWorldAsync_WhenCharacterRegistrationSucceeds_InitializesRevisionBeforeExposingCharacter()
+    public async Task SignInWorldAsync_WhenCharacterRegistrationSucceeds_InitializesRevisionAfterLocalOwnership()
     {
         var gameSessionService = Substitute.For<IGameSessionService>();
         var session = Substitute.For<IGameSession>();
@@ -1336,7 +1337,7 @@ public sealed class AuthenticationSignInTests
         Assert.IsTrue(result.Succeeded);
         await characterHydrationService.Received(1).HydrateAsync(Arg.Any<ICharacter>(), Arg.Any<CharacterModel>());
         persistenceService.Received(1).InitializeRevision(42u, 27L);
-        CollectionAssert.AreEqual(new[] { "initialize", "add" }, registrationOrder);
+        CollectionAssert.AreEqual(new[] { "add", "initialize" }, registrationOrder);
         Assert.AreEqual(1, characterService.AddCallCount);
         await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>());
     }

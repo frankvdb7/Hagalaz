@@ -1,2 +1,5 @@
 schema: spec-driven
 created: 2026-09-11
+goal: Remove low-level lifecycle synchronization while preserving exact
+  ownership, terminal cleanup, and distributed session guarantees in one
+  authoritative PR #492 simplification record.

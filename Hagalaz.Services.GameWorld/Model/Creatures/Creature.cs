@@ -908,42 +908,33 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         protected void UnregisterEventHandlers()
         {
-            if (_registeredEventHandlers is null)
+            var handlers = _registeredEventHandlers;
+            _registeredEventHandlers = null!;
+            if (handlers is null)
             {
                 return;
             }
 
             var eventManager = ServiceProvider.GetRequiredService<IEventManager>();
-            var failures = new List<Exception>();
-            foreach (var (type, handlers) in _registeredEventHandlers.ToArray())
+            Exception? failure = null;
+            foreach (var (type, registeredHandlers) in handlers)
             {
-                foreach (var eventHappened in handlers.ToArray())
+                foreach (var eventHappened in registeredHandlers.ToArray())
                 {
                     try
                     {
                         eventManager.StopListen(type, eventHappened);
-                        handlers.Remove(eventHappened);
                     }
                     catch (Exception exception)
                     {
-                        failures.Add(exception);
+                        failure ??= exception;
                     }
                 }
-
-                if (handlers.Count == 0)
-                {
-                    _registeredEventHandlers.Remove(type);
-                }
             }
 
-            if (_registeredEventHandlers.Count == 0)
+            if (failure is not null)
             {
-                _registeredEventHandlers = null!;
-            }
-
-            if (failures.Count > 0)
-            {
-                throw failures[0];
+                throw failure;
             }
         }
 

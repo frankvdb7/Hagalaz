@@ -59,20 +59,15 @@ public sealed class GameSessionLeaseService : BackgroundService
     {
         var pendingCleanupSessions = await _sessions.FindSessionsPendingCleanup();
         var deferredAbortSessions = await _abortSessions.FindSessionsPendingAbort();
-        var pendingCleanupSet = pendingCleanupSessions.Count == 0
-            ? null
-            : new HashSet<IGameSession>(pendingCleanupSessions, ReferenceEqualityComparer.Instance);
         foreach (var session in await _sessions.FindAll())
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (pendingCleanupSet?.Contains(session) == true ||
-                session is IGameWorldSession worldSession &&
+            if (session is IGameWorldSession worldSession &&
                 await _sessions.FindPendingWorldSessionPreviousClaimId(worldSession) != null)
             {
                 continue;
             }
 
-            var claimWasLost = false;
             try
             {
                 if (await _claims.RenewAsync(session.MasterId, session.SessionClaimId, cancellationToken))
@@ -82,23 +77,16 @@ public sealed class GameSessionLeaseService : BackgroundService
 
                 _logger.LogWarning("Lost active game-session claim for account '{masterId}' and session '{sessionClaimId}'. Aborting the connection.",
                     session.MasterId, session.SessionClaimId);
-                claimWasLost = true;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "Failed to renew active game-session claim for account '{masterId}'. Aborting the connection.",
                     session.MasterId);
-                claimWasLost = true;
-            }
-
-            if (!claimWasLost)
-            {
-                continue;
             }
 
             try
             {
-                await AbortAndReconcileLostSession(session, cancellationToken);
+                await _abortCoordinator.ReserveAndAbortLostSessionAsync(session, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -177,10 +165,4 @@ public sealed class GameSessionLeaseService : BackgroundService
         }
     }
 
-    private async Task AbortAndReconcileLostSession(
-        IGameSession session,
-        CancellationToken cancellationToken)
-    {
-        await _abortCoordinator.ReserveAndAbortLostSessionAsync(session, cancellationToken);
-    }
 }

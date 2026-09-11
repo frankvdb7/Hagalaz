@@ -61,6 +61,57 @@ public sealed class WorldSessionAdmissionServiceTests
         Assert.IsNull(fixture.Context.Features.Get<ICharacterFeature>());
     }
 
+    [TestMethod]
+    public async Task AdmitAsync_ClaimsCharacterOwnershipBeforeInitializingRevision()
+    {
+        var fixture = CreateFixture(commitResult: true);
+        var order = new List<string>();
+#pragma warning disable CA2012
+        fixture.CharacterService
+            .AddAsync(fixture.Character)
+            .Returns(_ =>
+            {
+                order.Add("add");
+                return ValueTask.FromResult(true);
+            });
+#pragma warning restore CA2012
+        fixture.PersistenceService
+            .When(service => service.InitializeRevision(42, 7))
+            .Do(_ => order.Add("initialize"));
+
+        var result = await fixture.Service.AdmitAsync(
+            CreateSignInRequest(),
+            fixture.Context,
+            42,
+            new AuthenticationProperties());
+
+        Assert.IsTrue(result.Succeeded);
+        CollectionAssert.AreEqual(new[] { "add", "initialize" }, order);
+    }
+
+    [TestMethod]
+    public async Task AdmitAsync_WhenCharacterRegistrationThrows_DestroysUnregisteredCharacter()
+    {
+        var fixture = CreateFixture(commitResult: true);
+        var failure = new InvalidOperationException("character registration failed");
+#pragma warning disable CA2012
+        fixture.CharacterService
+            .AddAsync(fixture.Character)
+            .Returns(_ => ValueTask.FromException<bool>(failure));
+#pragma warning restore CA2012
+
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => fixture.Service.AdmitAsync(
+                CreateSignInRequest(),
+                fixture.Context,
+                42,
+                new AuthenticationProperties()).AsTask());
+
+        Assert.AreSame(failure, exception);
+        fixture.Character.Received(1).Destroy();
+        fixture.PersistenceService.DidNotReceive().InitializeRevision(Arg.Any<uint>(), Arg.Any<long>());
+    }
+
     private static Fixture CreateFixture(bool commitResult)
     {
         var mapper = Substitute.For<IMapper>();
@@ -74,7 +125,6 @@ public sealed class WorldSessionAdmissionServiceTests
 #pragma warning disable CA2012, CS8620
         characterService.AddAsync(character).Returns(ValueTask.FromResult(true));
         characterService.RemoveAsync(character).Returns(ValueTask.FromResult(true));
-        characterService.FindByMasterId(42).Returns(ValueTask.FromResult<ICharacter>(null!));
 #pragma warning restore CA2012, CS8620
         var hydration = Substitute.For<ICharacterHydrationService>();
         hydration.HydrateAsync(character, Arg.Any<CharacterModel>()).Returns(Task.FromResult(true));

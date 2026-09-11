@@ -8,6 +8,7 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Builders;
 using Hagalaz.Services.GameWorld.Logic.Pathfinding;
+using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using Hagalaz.Services.GameWorld.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -254,7 +255,7 @@ public sealed class MapRegionServiceTests
 
         Assert.IsTrue(regions.All(resumed => ReferenceEquals(region, resumed)));
         Assert.AreSame(region, service.GetMapRegion(1, 0, false, false));
-        Assert.IsFalse(service.FindAllDimensions().Single().IdleRegions.ContainsKey(region.Id));
+        Assert.IsFalse(service.FindIdleRegionsByDimension(0).Contains(region));
     }
 
     [TestMethod]
@@ -287,7 +288,7 @@ public sealed class MapRegionServiceTests
 
         Assert.AreNotSame(region, replacement);
         Assert.AreSame(replacement, service.GetMapRegion(region.Id, 0, false, false));
-        Assert.IsFalse(service.FindAllDimensions().Single().IdleRegions.ContainsKey(region.Id));
+        Assert.IsFalse(service.FindIdleRegionsByDimension(0).Contains(region));
     }
 
     [TestMethod]
@@ -301,7 +302,7 @@ public sealed class MapRegionServiceTests
         Assert.IsTrue(service.TrySuspendMapRegion(region));
 
         Assert.IsTrue(service.TryRemoveIdleMapRegion(region.Id, dimension.Id, region));
-        Assert.IsTrue(dimension.CanDestroy());
+        Assert.IsTrue(service.TryRemoveEmptyDimension(dimension));
 
         await region.DestroyAsync();
     }
@@ -327,8 +328,9 @@ public sealed class MapRegionServiceTests
         });
 
         await Task.WhenAll(suspend, resume);
-        var dimension = service.FindAllDimensions().Single();
-        var residentRegions = dimension.Regions.Values.Concat(dimension.IdleRegions.Values).ToArray();
+        var residentRegions = service.FindRegionsByDimension(0)
+            .Concat(service.FindIdleRegionsByDimension(0))
+            .ToArray();
 
         Assert.AreEqual(1, residentRegions.Distinct(ReferenceEqualityComparer.Instance).Count());
         Assert.AreSame(region, residentRegions.Single());
@@ -362,18 +364,34 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
-    public void DimensionResidencyViews_AreStableSnapshots()
+    public void DimensionResidencyReads_AreStableSnapshots()
     {
         using var provider = CreateProvider();
         var service = CreateService(provider);
         var dimension = service.FindAllDimensions().Single();
         var region = service.GetOrCreateMapRegion(1, dimension.Id, false);
-        var snapshot = dimension.Regions;
+        var snapshot = service.FindRegionsByDimension(dimension.Id);
 
-        Assert.IsTrue(snapshot.ContainsKey(region.Id));
+        Assert.IsTrue(snapshot.Contains(region));
         Assert.IsTrue(service.TryRemoveMapRegion(region.Id, dimension.Id, region));
-        Assert.IsTrue(snapshot.ContainsKey(region.Id));
-        Assert.IsFalse(dimension.Regions.ContainsKey(region.Id));
+        Assert.IsTrue(snapshot.Contains(region));
+        Assert.IsFalse(service.FindRegionsByDimension(dimension.Id).Contains(region));
+    }
+
+    [TestMethod]
+    public void TryRemoveEmptyDimension_EnforcesExactOwnerAndEmptyResidency()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        Assert.IsTrue(service.TryCreateDimension(out var dimension));
+
+        Assert.IsFalse(service.TryRemoveEmptyDimension(new Dimension(dimension!.Id)));
+
+        var region = service.GetOrCreateMapRegion(1, dimension.Id, false);
+        Assert.IsFalse(service.TryRemoveEmptyDimension(dimension));
+        Assert.IsTrue(service.TryRemoveMapRegion(region.Id, dimension.Id, region));
+        Assert.IsTrue(service.TryRemoveEmptyDimension(dimension));
+        Assert.IsFalse(service.FindAllDimensions().Any(item => item.Id == dimension.Id));
     }
 
     [TestMethod]

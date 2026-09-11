@@ -48,7 +48,7 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             foreach (var dimension in _regionService.FindAllDimensions())
             {
-                foreach (var region in dimension.Regions.Values
+                foreach (var region in _regionService.FindRegionsByDimension(dimension.Id)
                              .Where(region => region.State == MapRegionState.Ready && region.CanSuspend()))
                 {
                     if (_regionService.TrySuspendMapRegion(region))
@@ -57,7 +57,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     }
                 }
 
-                foreach (var region in dimension.IdleRegions.Values.Where(region => region.CanDestroy()))
+                foreach (var region in _regionService.FindIdleRegionsByDimension(dimension.Id).Where(region => region.CanDestroy()))
                 {
                     if (!_regionService.TryRemoveIdleMapRegion(region.Id, dimension.Id, region))
                     {
@@ -75,8 +75,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     }
                 }
 
-                if (dimension.CanDestroy()
-                    && _regionService.TryRemoveEmptyDimension(dimension))
+                if (_regionService.TryRemoveEmptyDimension(dimension))
                 {
                     _logger.LogDebug("Dimension[{id}] was destroyed.", dimension.Id);
                 }

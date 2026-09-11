@@ -1,39 +1,54 @@
-## Context
+## Ownership model
 
-See `proposal.md` for motivation. The current branch already assigns map-region residency transitions to `MapRegionService`, tick phase ordering to `GameWorkerService`, and pending-abort ownership to `GameSessionStore`, but several lower-level implementations still duplicate those responsibilities.
-
-## Goals / Non-Goals
-
-**Goals:**
-
-- Keep one authoritative owner for each lifecycle or shared-state transition.
-- Preserve exact-instance, generation, cancellation, and retry semantics.
-- Make failed callbacks recoverable on the next valid game tick.
-- Keep external enumeration safe without exposing live mutable dictionaries.
-
-**Non-Goals:**
-
-- No new lifecycle framework, state machine, lock registry, queue, worker, or retry mechanism.
-- No change to distributed session fencing, public sync/async gameplay APIs, scheduler ownership, or `MapRegionPart` update-buffer synchronization.
-- No consolidation of independent character persistence/logout records without evidence that they represent the same transition.
+Domain objects own semantic state. `GameWorkerService`, `MapRegionService`,
+stores, schedulers, and lease services own the transitions they already
+sequence or claim. A caller asks the owner to perform a compound operation;
+it does not check a state through one API and mutate it through another.
 
 ## Decisions
 
-1. **Remove creature phase state.** `GameWorkerService` already sequences major update, prepare, update, and reset. Creature methods will use `IsDestroyed` as the only lifecycle guard and otherwise execute their phase directly. Character rendering will no longer call `TryBeginClientUpdate`; the region/worker call path already admits it once per phase.
+1. **MapRegionService owns residency reads and removal.** `Dimension` keeps
+   ordinary active and idle dictionaries plus its existing residency lock,
+   but exposes no live or implicitly-cloned dictionary properties. The service
+   copies values while holding each dimension lock and returns explicit
+   snapshots. `TryRemoveEmptyDimension` validates the global-dimension rule,
+   exact canonical instance, and both empty stores in the same critical
+   section. The background service uses service-owned snapshots.
 
-2. **Use ordinary residency dictionaries under the existing residency owner lock.** `Dimension` will keep private ordinary dictionaries and use the same residency synchronization boundary for service mutations and snapshot creation. `MapRegionService` remains the only production owner of compound transitions. A fresh read-only dictionary snapshot prevents enumeration from racing with mutation.
+2. **Admission claims local character ownership first.** Hydration creates a
+   character, then `CharacterService.AddAsync` claims the exact local instance.
+   The existing `CharacterStore` implementation only performs its locked
+   duplicate check and collection insertion, so no persistence behavior occurs
+   before revision initialization. Persistence revision initialization follows
+   successful registration. Pre-registration failures destroy the unregistered
+   object directly; post-registration failures remove the exact instance,
+   forget owned persistence state, destroy it, and release the session.
 
-3. **Use one lock in `ContactSessionStore`.** Generation replacement, exact removal, lookup, and enumerator snapshots will all execute through the store lock. The store will not expose a live dictionary enumerator.
+3. **Creature event cleanup is terminal.** `UnregisterEventHandlers` detaches
+   its handler inventory before calling the event manager, attempts every
+   captured handler, and throws the first failure after the pass. A destroyed
+   creature cannot resume cleanup or register new handlers.
 
-4. **Do not tidy a dead region internally.** `MapRegion.DestroyAsync()` will snapshot externally owned NPCs/items/objects, mark the region terminal, run the required external cleanup, and leave dead internal collections untouched. Ordinary removal methods and `MapRegionPart.RemoveDestroyed` are active-region semantics and are therefore deleted from the teardown path.
+4. **Lease renewal follows store-owned state.** `GameSessionStore.FindAll`
+   returns active and pending-world sessions, while moving a session into
+   pending claim cleanup removes it from those stores. The lease service keeps
+   the pending-cleanup list for reconciliation but does not build a redundant
+   membership set for the active loop. Successful renewal continues directly;
+   failed renewal falls through to the existing abort/reconcile path.
 
-5. **Trust the pending-abort reservation.** `GameSessionStore` already reserves the connection slot while `PendingAbort` exists. Removing the coordinator's second lookup makes the store the single owner of replacement protection; the coordinator retains processing-marker release and completion handling.
+5. **Cumulative PR ownership remains unchanged.** Creature destruction stays
+   terminal, MapRegion teardown releases external resources after exact
+   residency removal, map loading stays scheduler-owned, NpcStore exact
+   removal remains the NPC destruction claim, pending abort processing stays
+   store-owned and retryable, Contacts retains generation checks, and
+   `MapRegionPart._updatesLock` remains because it protects its own buffers.
 
-6. **Use direct exception rethrow in NpcService.** Registration rollback catches retain their current cleanup and logging behavior but use `throw;` where no exception transformation is needed. Character persistence markers and `MapRegionPart._updatesLock` remain because they protect independent state owned by those components.
+## Verification strategy
 
-## Risks / Trade-offs
-
-- [Risk] A live snapshot can be briefly stale after a residency transition. → This is already the correct read contract for enumeration; exact mutations still run under the owner lock and canonical lookup remains current.
-- [Risk] Dead-region internal collections retain references until the region is collected. → The region is removed from residency before teardown and no longer serves active gameplay; avoiding active removal semantics prevents respawn, update, or collision side effects.
-- [Risk] Removing phase admission exposes callers that bypass the game worker. → Production tracing shows the worker/region path owns all phase calls; tests will cover failure recovery and preserve the worker ordering contract.
-
+- Test explicit active/idle snapshot safety and exact empty-dimension removal.
+- Test admission ordering and the absence of persistence probing on failed
+  local registration.
+- Test terminal event-handler cleanup attempts all handlers after one fails.
+- Run the cumulative GameWorld tests, integration tests, Contacts tests, Raido
+  tests, solution build, locked restore, strict OpenSpec validation, and diff
+  checks.

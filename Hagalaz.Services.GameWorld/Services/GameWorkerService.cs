@@ -118,7 +118,7 @@ namespace Hagalaz.Services.GameWorld.Services
             stoppingToken.ThrowIfCancellationRequested();
             var regions = _regionService.FindAllRegions()
                 .Where(region => region.State == MapRegionState.Ready)
-                .ToList();
+                .ToArray();
             var characters = await _characterStore.GetSnapshotAsync(stoppingToken);
 
             stoppingToken.ThrowIfCancellationRequested();
@@ -129,7 +129,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
             try
             {
-                var preparedRegions = new List<IMapRegion>(regions.Count);
+                var preparedRegions = new List<IMapRegion>(regions.Length);
                 foreach (var region in regions)
                 {
                     try

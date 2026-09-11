@@ -123,19 +123,26 @@ namespace Hagalaz.Game.Abstractions.Services
         /// </summary>
         /// <param name="dimensionId">The ID of the dimension.</param>
         /// <returns>An enumerable collection of map regions in the specified dimension.</returns>
-        IEnumerable<IMapRegion> FindRegionsByDimension(int dimensionId);
+        IReadOnlyList<IMapRegion> FindRegionsByDimension(int dimensionId);
+
+        /// <summary>
+        /// Finds a snapshot of all idle regions within a specific dimension.
+        /// </summary>
+        /// <param name="dimensionId">The ID of the dimension.</param>
+        /// <returns>A snapshot of idle regions in the specified dimension.</returns>
+        IReadOnlyList<IMapRegion> FindIdleRegionsByDimension(int dimensionId);
 
         /// <summary>
         /// Finds all active regions across all dimensions.
         /// </summary>
         /// <returns>An enumerable collection of all active map regions.</returns>
-        IEnumerable<IMapRegion> FindAllRegions();
+        IReadOnlyList<IMapRegion> FindAllRegions();
 
         /// <summary>
         /// Finds all active dimensions.
         /// </summary>
         /// <returns>An enumerable collection of all active dimensions.</returns>
-        IEnumerable<IDimension> FindAllDimensions();
+        IReadOnlyList<IDimension> FindAllDimensions();
 
         /// <summary>
         /// Removes the exact dimension only when it is current and empty.
