@@ -162,8 +162,9 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<IEventBus>(provider => provider.GetRequiredService<InMemoryEventBus>());
             services.AddSingleton<IEventManager>(provider => provider.GetRequiredService<InMemoryEventBus>());
             services.AddSingleton<ISystemUpdateService, SystemUpdateService>();
-            services.AddSingleton<IRsTaskService, RsTaskService>();
-            services.AddTransient<ICreatureTaskService, RsTaskService>();
+            services.AddSingleton<RsTaskService>();
+            services.AddSingleton<IRsTaskService>(provider => provider.GetRequiredService<RsTaskService>());
+            services.AddSingleton<ICreatureTaskService>(provider => provider.GetRequiredService<RsTaskService>());
             services.AddSingleton<IGameMessageService, GameMessageService>();
             services.AddSingleton<IHitSplatRenderTypeProvider, HitSplatRenderTypeProvider>();
             services.AddScoped<IRatesService, RatesService>();

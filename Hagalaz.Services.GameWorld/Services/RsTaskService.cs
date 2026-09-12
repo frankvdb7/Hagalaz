@@ -49,7 +49,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
                 _synchronizationContext.RunPending();
 
-                for (var i = _tasks.Count - 1; i >= 0; i--)
+                for (var i = 0; i < _tasks.Count;)
                 {
                     var task = _tasks[i];
                     if (task.IsCancelled || task.IsCompleted || task.IsFaulted)
@@ -75,6 +75,8 @@ namespace Hagalaz.Services.GameWorld.Services
                     {
                         _logger.LogError(ex, "Failed to tick task");
                     }
+
+                    i++;
                 }
             }
             finally

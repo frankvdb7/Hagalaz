@@ -40,6 +40,11 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
+                if (character.IsDestroyed)
+                {
+                    return;
+                }
+
                 if (character.Widgets.TryGetOpenWidget(message.InterfaceId, out var gameInterface))
                 {
                     gameInterface.OnComponentClick(message.ChildId, message.ClickType, message.ExtraData1, message.ExtraData2);
@@ -53,6 +58,11 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
+                if (character.IsDestroyed)
+                {
+                    return;
+                }
+
                 if (character.Widgets.TryGetOpenWidget(message.FromId, out var fromInterface)
                     && character.Widgets.TryGetOpenWidget(message.ToId, out var toInterface))
                 {
@@ -73,6 +83,11 @@ namespace Hagalaz.Services.GameWorld.Hubs
             }
             character.QueueTask(new RsTask(() =>
             {
+                if (character.IsDestroyed)
+                {
+                    return;
+                }
+
                 if (character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
                 {
                     @interface.OnComponentUsedOnCreature(message.ComponentId, target, message.ForceRun, message.ExtraData1, message.ExtraData2);
@@ -91,6 +106,11 @@ namespace Hagalaz.Services.GameWorld.Hubs
             }
             character.QueueTask(new RsTask(() =>
             {
+                if (character.IsDestroyed)
+                {
+                    return;
+                }
+
                 if (character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
                 {
                     @interface.OnComponentUsedOnCreature(message.ComponentId, target, message.ForceRun, message.ExtraData1, message.ExtraData2);
@@ -104,6 +124,11 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
+                if (character.IsDestroyed)
+                {
+                    return;
+                }
+
                 if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
                 {
                     return;
@@ -128,6 +153,11 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
+                if (character.IsDestroyed)
+                {
+                    return;
+                }
+
                 if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
                 {
                     return;
@@ -151,6 +181,11 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
+                if (character.IsDestroyed)
+                {
+                    return;
+                }
+
                 if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface)
                     || !character.Widgets.TryGetOpenWidget(message.OnInterfaceId, out var onInterface))
                 {
@@ -167,28 +202,52 @@ namespace Hagalaz.Services.GameWorld.Hubs
         public void OnComponentRemoved(InterfaceComponentRemovedMessage message)
         {
             var character = Context.GetCharacter();
-            character.QueueTask(new RsTask(character.InterruptInterfaces, 1));
+            character.QueueTask(new RsTask(() =>
+            {
+                if (!character.IsDestroyed)
+                {
+                    character.InterruptInterfaces();
+                }
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentTextInputMessage))]
         public void OnTextInput(InterfaceComponentTextInputMessage message) 
         {
             var character = Context.GetCharacter();
-            character.QueueTask(new RsTask(() => character.Widgets.StringInputHandler?.Invoke(message.Text), 1));
+            character.QueueTask(new RsTask(() =>
+            {
+                if (!character.IsDestroyed)
+                {
+                    character.Widgets.StringInputHandler?.Invoke(message.Text);
+                }
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentNumberInputMessage))]
         public void OnNumberInput(InterfaceComponentNumberInputMessage message)
         {
             var character = Context.GetCharacter();
-            character.QueueTask(new RsTask(() => character.Widgets.IntInputHandler?.Invoke(message.Value), 1));
+            character.QueueTask(new RsTask(() =>
+            {
+                if (!character.IsDestroyed)
+                {
+                    character.Widgets.IntInputHandler?.Invoke(message.Value);
+                }
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentColorInputMessage))]
         public void OnColorInput(InterfaceComponentColorInputMessage message)
         {
             var character = Context.GetCharacter();
-            character.QueueTask(new RsTask(() => character.EventManager.SendEvent(new ColorSelectedEvent(character, message.Value)), 1));
+            character.QueueTask(new RsTask(() =>
+            {
+                if (!character.IsDestroyed)
+                {
+                    character.EventManager.SendEvent(new ColorSelectedEvent(character, message.Value));
+                }
+            }, 1));
         }
     }
 }

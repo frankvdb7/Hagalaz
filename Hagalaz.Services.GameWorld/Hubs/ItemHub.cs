@@ -32,6 +32,11 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
+                if (character.IsDestroyed)
+                {
+                    return;
+                }
+
                 var location = Location.Create(message.AbsX, message.AbsY, character.Location.Z, character.Location.Dimension);
                 if (!character.Viewport.InBounds(location))
                 {

@@ -47,6 +47,11 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
+                if (character.IsDestroyed)
+                {
+                    return;
+                }
+
                 if (character.Viewport.VisibleCreatures.Contains(target))
                 {
                     character.OnCharacterClicked(message.ClickType, message.ForceRun, target);
@@ -58,26 +63,30 @@ namespace Hagalaz.Services.GameWorld.Hubs
         public void OnPublicChat(PublicChatMessage message)
         {
             var character = Context.GetCharacter();
-            if (!character.EventManager.SendEvent(new ChatAllowEvent(character, message.Text)))
+            character.QueueTask(new RsTask(() =>
             {
-                return;
-            }
-            switch (character.CurrentChatType)
-            {
-                // TODO - other chat types
-                case ClientChatType.Normal:
-                default:
-                    var publicChatMessage = new PublicChatMessage
-                    {
-                        CharacterIndex = character.Index,
-                        Permissions = character.Permissions,
-                        Text = message.Text,
-                        TextAnimation = message.TextAnimation,
-                        TextColor = message.TextColor
-                    };
-                    character.Viewport.VisibleCharacters.ForEach(c => c.Session.SendMessage(publicChatMessage));
-                    break;
-            }
+                if (character.IsDestroyed || !character.EventManager.SendEvent(new ChatAllowEvent(character, message.Text)))
+                {
+                    return;
+                }
+
+                switch (character.CurrentChatType)
+                {
+                    // TODO - other chat types
+                    case ClientChatType.Normal:
+                    default:
+                        var publicChatMessage = new PublicChatMessage
+                        {
+                            CharacterIndex = character.Index,
+                            Permissions = character.Permissions,
+                            Text = message.Text,
+                            TextAnimation = message.TextAnimation,
+                            TextColor = message.TextColor
+                        };
+                        character.Viewport.VisibleCharacters.ForEach(c => c.Session.SendMessage(publicChatMessage));
+                        break;
+                }
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(MovementMessage))]
@@ -89,15 +98,25 @@ namespace Hagalaz.Services.GameWorld.Hubs
             }
 
             var character = Context.GetCharacter();
-            var target = Location.Create(message.AbsX, message.AbsY, character.Location.Z, character.Location.Dimension);
-            var delta = Location.GetDelta(character.Location, target);
-            if (delta.X > 100 || delta.X < -100 || delta.Y > 100 || delta.Y < -100)
+            character.QueueTask(new RsTask(() =>
             {
-                return;
-            }
+                if (character.IsDestroyed)
+                {
+                    return;
+                }
 
-            if (character.EventManager.SendEvent(new WalkAllowEvent(character, target, message.ForceRun, false)))
-            {
+                var target = Location.Create(message.AbsX, message.AbsY, character.Location.Z, character.Location.Dimension);
+                var delta = Location.GetDelta(character.Location, target);
+                if (delta.X > 100 || delta.X < -100 || delta.Y > 100 || delta.Y < -100)
+                {
+                    return;
+                }
+
+                if (!character.EventManager.SendEvent(new WalkAllowEvent(character, target, message.ForceRun, false)))
+                {
+                    return;
+                }
+
                 character.Interrupt(this);
                 character.Movement.MovementType = message.ForceRun ? MovementType.Run : character.Movement.MovementType;
                 var task = new LocationReachTask(character,
@@ -110,7 +129,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
                         }
                     });
                 character.QueueTask(task);
-            }
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(MusicPlayedMessage))]

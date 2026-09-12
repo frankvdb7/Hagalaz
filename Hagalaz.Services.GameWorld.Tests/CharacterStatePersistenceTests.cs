@@ -204,6 +204,31 @@ public sealed class CharacterStatePersistenceTests
         commandPrompt.Received(1).ExecuteAsync("coords", character, Arg.Is<string[]>(args => args.Length == 0));
     }
 
+    [TestMethod]
+    public void ConsoleCommandEvent_DoesNotExecuteAfterCharacterIsDestroyed()
+    {
+        var stateService = new TestStateService();
+        var eventManager = new InMemoryEventBus();
+        var commandPrompt = Substitute.For<IGameCommandPrompt>();
+        var taskService = Substitute.For<ICreatureTaskService>();
+        ITaskItem? scheduledTask = null;
+
+        taskService.When(service => service.Schedule(Arg.Any<ITaskItem>()))
+            .Do(callInfo => scheduledTask = callInfo.Arg<ITaskItem>());
+        var character = CreateCharacter(stateService, out _, null, eventManager, commandPrompt, taskService);
+        typeof(Character)
+            .GetMethod("RegisterEventHandlers", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(character, null);
+
+        Assert.IsFalse(character.EventManager.SendEvent(new ConsoleCommandEvent(character, "coords")));
+        Assert.IsNotNull(scheduledTask);
+
+        character.Destroy();
+        scheduledTask.Tick();
+
+        commandPrompt.DidNotReceive().ExecuteAsync(Arg.Any<string>(), Arg.Any<ICharacter>(), Arg.Any<string[]>());
+    }
+
     private static Character CreateCharacter(
         TestStateService stateService,
         out IEquipmentScript equipmentScript,

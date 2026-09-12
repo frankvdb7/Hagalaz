@@ -28,6 +28,8 @@
       `MapRegionService` operations while preserving loader-owned writes.
 - [x] 1.15 Route hub/network script and command entrypoints through the
       existing character task queue before they can mutate live map state.
+- [x] 1.16 Share one `RsTaskService` instance between creature task scheduling
+      and the GameWorker tick boundary, and preserve FIFO task execution.
 
 ## 2. Scheduler and ownership
 

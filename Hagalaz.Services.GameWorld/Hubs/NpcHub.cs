@@ -37,6 +37,11 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
+                if (character.IsDestroyed)
+                {
+                    return;
+                }
+
                 if (character.Viewport.VisibleCreatures.Contains(npc))
                 {
                     npc.Script.OnCharacterClick(character, message.ClickType, message.ForceRun);
