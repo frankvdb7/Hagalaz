@@ -5,6 +5,7 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Game.Messages.Protocol;
@@ -44,11 +45,13 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 return;
             }
             var character = Context.GetCharacter();
-            if (!character.Viewport.VisibleCreatures.Contains(target))
+            character.QueueTask(new RsTask(() =>
             {
-                return;
-            }
-            character.OnCharacterClicked(message.ClickType, message.ForceRun, target);
+                if (character.Viewport.VisibleCreatures.Contains(target))
+                {
+                    character.OnCharacterClicked(message.ClickType, message.ForceRun, target);
+                }
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(PublicChatMessage))]

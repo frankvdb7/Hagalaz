@@ -26,6 +26,8 @@
       retain only structural eligibility facts for the final commit.
 - [x] 1.14 Route live non-creature mutations through explicit
       `MapRegionService` operations while preserving loader-owned writes.
+- [x] 1.15 Route hub/network script and command entrypoints through the
+      existing character task queue before they can mutate live map state.
 
 ## 2. Scheduler and ownership
 
@@ -97,3 +99,6 @@
       behavior.
 - [x] 5.6 Add deterministic script lock-scope, idle-resume mutation, and
       non-suspendable NPC attachment coverage.
+- [x] 5.7 Add deterministic command-to-game-loop coverage and retain the
+      active/idle, dynamic-region, script-callback, and NPC-attachment race
+      coverage at the service ownership boundary.

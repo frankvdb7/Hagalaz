@@ -61,44 +61,6 @@ namespace Hagalaz.Services.GameWorld.Services
             _loadScheduler = loadScheduler;
         }
 
-        /// <summary>
-        /// Does the test stuff.
-        /// </summary>
-        public void DoTestStuff()
-        {
-            // test code
-
-            if (!TryCreateDimension(out var dimension))
-            {
-                return;
-            }
-
-            var lumbyloc = Location.Create(3222, 3222, 0, 0);
-            var coolCoords = Location.Create(5312, 4800, 0, 0);
-            //Location.Create(1952, 5716, 0, 0); // stealing creation
-            var lumby = GetOrCreateMapRegion(lumbyloc.RegionId, 0);
-            lumby.MakeDynamic();
-            var coolRegion = GetOrCreateMapRegion(coolCoords.RegionId, 0);
-            coolRegion.MakeStandard();
-
-            for (var z = 0; z < 4; z++)
-            {
-                for (var xWrite = 0; xWrite < 8; xWrite++)
-                {
-                    for (var yWrite = 0; yWrite < 8; yWrite++)
-                    {
-                        var zombypart = coolRegion.GetRegionPartData(xWrite, yWrite, z);
-                        lumby.WriteBlock(xWrite, yWrite, z, zombypart.DrawRegionPartX, zombypart.DrawRegionPartY, zombypart.DrawRegionZ, zombypart.DrawRegionDimension);
-                    }
-                }
-            }
-
-            foreach (var character in lumby.FindAllCharacters())
-            {
-                character.UpdateMap(true);
-            }
-        }
-
         public bool IsAccessible(ILocation location) => ((int)GetClippingFlag(location.X, location.Y, location.Z) & 0x7fe40000) == 0;
 
         /// <summary>

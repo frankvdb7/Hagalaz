@@ -50,6 +50,9 @@ corrupt map data into apparently empty map data.
 - Only ready regions participate in normal creature, map-update, GameWorker,
   or collision processing; dynamic map packet selection is independent of
   readiness, and stale references cannot schedule a replacement.
+- Live command and network script entrypoints hand world mutations to the
+  existing serialized GameWorker execution boundary; `MapRegionService` keeps
+  residency ownership while arbitrary callbacks remain outside its gate.
 
 ## Stop Conditions
 

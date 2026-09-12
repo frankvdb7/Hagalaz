@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Services.GameWorld.Hubs.Filters;
 using Microsoft.AspNetCore.Authorization;
@@ -34,11 +35,13 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 return;
             }
             var character = Context.GetCharacter();
-            if (!character.Viewport.VisibleCreatures.Contains(npc))
+            character.QueueTask(new RsTask(() =>
             {
-                return;
-            }
-            npc.Script.OnCharacterClick(character, message.ClickType, message.ForceRun);
+                if (character.Viewport.VisibleCreatures.Contains(npc))
+                {
+                    npc.Script.OnCharacterClick(character, message.ClickType, message.ForceRun);
+                }
+            }, 1));
         }
 
     }

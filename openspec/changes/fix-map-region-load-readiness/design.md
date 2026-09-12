@@ -172,10 +172,13 @@ game-object, collision, and update mutations. Each operation resolves the
 canonical active region before applying its change. Collision and update
 queueing hold the residency gate only for the bounded structural write. Item
 and object insertion/removal may invoke item or object scripts, so those
-callbacks execute outside the gate on the existing serialized GameWorker
-execution boundary. Dynamic-region setup resolves both source and destination
-through the service; its block population remains worker-owned and does not
-hold the residency gate while loading copied objects.
+callbacks execute outside the gate. The service does not provide a second
+lock or queue; network and hub entrypoints hand live script/gameplay work to
+the existing character task queue, whose `RsTaskService` is processed by the
+serialized GameWorker boundary. Dynamic-region setup resolves both source and
+destination through the service; its block population remains on that same
+worker boundary and does not hold the residency gate while loading copied
+objects.
 
 ### 10. Preserve dynamic source dimensions
 
