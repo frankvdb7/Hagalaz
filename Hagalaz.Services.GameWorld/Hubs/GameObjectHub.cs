@@ -1,5 +1,6 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.DependencyInjection;
 using Raido.Common.Protocol;
 using Raido.Server;
 using Hagalaz.Services.GameWorld.Extensions;
@@ -16,12 +17,11 @@ namespace Hagalaz.Services.GameWorld.Hubs
     [CharacterFilter]
     public class GameObjectHub : RaidoHub
     {
-        private readonly IGameObjectService _gameObjectService;
         private readonly ILocationBuilder _locationBuilder;
 
         public GameObjectHub(IGameObjectService gameObjectService, ILocationBuilder locationBuilder)
         {
-            _gameObjectService = gameObjectService;
+            _ = gameObjectService;
             _locationBuilder = locationBuilder;
         }
 
@@ -51,7 +51,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
                     return;
                 }
 
-                var gameObject = _gameObjectService.FindByLocation(location).FirstOrDefault(obj => obj.Id == message.Id);
+                var gameObjectService = character.ServiceProvider.GetRequiredService<IGameObjectService>();
+                var gameObject = gameObjectService.FindByLocation(location).FirstOrDefault(obj => obj.Id == message.Id);
                 gameObject?.Script.OnCharacterClick(character, message.ClickType, message.ForceRun);
             }, 1));
         }

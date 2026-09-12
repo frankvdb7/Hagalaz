@@ -181,6 +181,13 @@ destination through the service; its block population remains on that same
 worker boundary and does not hold the residency gate while loading copied
 objects.
 
+Raido message scopes are request-lifetime only. Deferred gameplay tasks retain
+only packet input, valid domain references, and long-lived ownership references;
+scoped gameplay dependencies needed by deferred execution are resolved from
+the Character-owned service provider at GameWorker execution time. Character
+gameplay inputs whose relative order affects Character state remain serialized
+through the shared task scheduler.
+
 ### 10. Preserve dynamic source dimensions
 
 Dynamic map parts retain the source/template dimension alongside their draw

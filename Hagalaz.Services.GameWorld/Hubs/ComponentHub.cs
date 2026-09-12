@@ -9,6 +9,7 @@ using Hagalaz.Services.GameWorld.Hubs.Filters;
 using Microsoft.AspNetCore.Authorization;
 using Raido.Common.Protocol;
 using Raido.Server;
+using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Services.GameWorld.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Hubs
@@ -19,15 +20,12 @@ namespace Hagalaz.Services.GameWorld.Hubs
     {
         private readonly ICharacterService _characterService;
         private readonly INpcService _npcService;
-        private readonly IGroundItemService _groundItemService;
-        private readonly IGameObjectService _gameObjectService;
-
         public ComponentHub(ICharacterService characterService, INpcService npcService, IGroundItemService groundItemService, IGameObjectService gameObjectService)
         {
             _characterService = characterService;
             _npcService = npcService;
-            _groundItemService = groundItemService;
-            _gameObjectService = gameObjectService;
+            _ = groundItemService;
+            _ = gameObjectService;
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentClickMessage))]
@@ -138,7 +136,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 {
                     return;
                 }
-                var target = _groundItemService.FindByLocation(location).FirstOrDefault(i => i.ItemOnGround.Id == message.ItemId);
+                var groundItemService = character.ServiceProvider.GetRequiredService<IGroundItemService>();
+                var target = groundItemService.FindByLocation(location).FirstOrDefault(i => i.ItemOnGround.Id == message.ItemId);
                 if (target != null)
                 {
                     @interface.OnComponentUsedOnGroundItem(message.ComponentId, target, message.ForceRun, message.ExtraData1, message.ExtraData2);
@@ -167,7 +166,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 {
                     return;
                 }
-                var target = _gameObjectService.FindByLocation(location).FirstOrDefault(g => g.Id == message.GameObjectId);
+                var gameObjectService = character.ServiceProvider.GetRequiredService<IGameObjectService>();
+                var target = gameObjectService.FindByLocation(location).FirstOrDefault(g => g.Id == message.GameObjectId);
                 if (target != null)
                 {
                     @interface.OnComponentUsedOnGameObject(message.ComponentId, target, message.ForceRun, message.ExtraData1, message.ExtraData2);

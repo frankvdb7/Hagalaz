@@ -30,6 +30,9 @@
       existing character task queue before they can mutate live map state.
 - [x] 1.16 Share one `RsTaskService` instance between creature task scheduling
       and the GameWorker tick boundary, and preserve FIFO task execution.
+- [x] 1.17 Keep Raido message scopes request-scoped; resolve scoped gameplay
+      dependencies from the Character-owned provider inside deferred tasks and
+      serialize ordered Character input through the shared scheduler.
 
 ## 2. Scheduler and ownership
 

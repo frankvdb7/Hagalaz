@@ -136,14 +136,30 @@ namespace Hagalaz.Services.GameWorld.Hubs
         public void OnMusicPlayed(MusicPlayedMessage message)
         {
             var character = Context.GetCharacter();
-            character.Music.OnMusicPlayed(message.MusicId);
+            character.QueueTask(new RsTask(() =>
+            {
+                if (character.IsDestroyed)
+                {
+                    return;
+                }
+
+                character.Music.OnMusicPlayed(message.MusicId);
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(SetClientChatTypeMessage))]
         public void SetClientChatType(SetClientChatTypeMessage message)
         {
             var character = Context.GetCharacter();
-            character.CurrentChatType = message.Type;
+            character.QueueTask(new RsTask(() =>
+            {
+                if (character.IsDestroyed)
+                {
+                    return;
+                }
+
+                character.CurrentChatType = message.Type;
+            }, 1));
         }
     }
 }

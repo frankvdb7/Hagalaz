@@ -136,6 +136,129 @@ public sealed class CharacterHubTests
         eventManager.Received(1).SendEvent(Arg.Is<ChatAllowEvent>(value => value.Text == "hello"));
     }
 
+    [TestMethod]
+    public async Task OnMusicPlayed_QueuesMusicNotificationUntilTheGameTaskRuns()
+    {
+        using var provider = CreateProvider();
+        var character = CreateCharacter(out _, out var queuedTasks);
+        var music = Substitute.For<IMusic>();
+        character.Music.Returns(music);
+        var connection = CreateConnection(character);
+
+        await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(
+            connection,
+            new MusicPlayedMessage { MusicId = 42 });
+
+        music.DidNotReceive().OnMusicPlayed(Arg.Any<int>());
+
+        queuedTasks[0].Tick();
+
+        music.Received(1).OnMusicPlayed(42);
+    }
+
+    [TestMethod]
+    public async Task OnMusicPlayed_DoesNothingWhenCharacterIsDestroyedBeforeExecution()
+    {
+        using var provider = CreateProvider();
+        var character = CreateCharacter(out _, out var queuedTasks);
+        var music = Substitute.For<IMusic>();
+        character.Music.Returns(music);
+        var connection = CreateConnection(character);
+
+        await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(
+            connection,
+            new MusicPlayedMessage { MusicId = 42 });
+
+        character.IsDestroyed.Returns(true);
+        queuedTasks[0].Tick();
+
+        music.DidNotReceive().OnMusicPlayed(Arg.Any<int>());
+    }
+
+    [TestMethod]
+    public async Task PublicChatThenSetClientChatType_PreservesFifoOrdering()
+    {
+        using var provider = CreateProvider();
+        var character = CreateCharacter(out var eventManager, out var queuedTasks);
+        var currentType = ClientChatType.Normal;
+        character.CurrentChatType.Returns(_ => currentType);
+        character.WhenForAnyArgs(value => value.CurrentChatType = default)
+            .Do(callInfo => currentType = callInfo.Arg<ClientChatType>());
+        var observedTypes = new List<ClientChatType>();
+        eventManager.SendEvent(Arg.Any<IEvent>()).Returns(callInfo =>
+        {
+            if (callInfo.Arg<IEvent>() is ChatAllowEvent)
+            {
+                observedTypes.Add(character.CurrentChatType);
+            }
+
+            return true;
+        });
+        var connection = CreateConnection(character);
+
+        var dispatcher = provider.GetRequiredService<IRaidoDispatcher>();
+        await dispatcher.DispatchMessageAsync(connection, new PublicChatMessage
+        {
+            Text = "hello",
+            TextAnimation = 0,
+            TextColor = 0
+        });
+        await dispatcher.DispatchMessageAsync(connection, new SetClientChatTypeMessage { Type = ClientChatType.Friends });
+
+        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        foreach (var task in queuedTasks)
+        {
+            scheduler.Schedule(task);
+        }
+
+        scheduler.Tick();
+
+        Assert.AreEqual(ClientChatType.Normal, observedTypes.Single());
+        Assert.AreEqual(ClientChatType.Friends, currentType);
+    }
+
+    [TestMethod]
+    public async Task SetClientChatTypeThenPublicChat_PreservesFifoOrdering()
+    {
+        using var provider = CreateProvider();
+        var character = CreateCharacter(out var eventManager, out var queuedTasks);
+        var currentType = ClientChatType.Normal;
+        character.CurrentChatType.Returns(_ => currentType);
+        character.WhenForAnyArgs(value => value.CurrentChatType = default)
+            .Do(callInfo => currentType = callInfo.Arg<ClientChatType>());
+        var observedTypes = new List<ClientChatType>();
+        eventManager.SendEvent(Arg.Any<IEvent>()).Returns(callInfo =>
+        {
+            if (callInfo.Arg<IEvent>() is ChatAllowEvent)
+            {
+                observedTypes.Add(character.CurrentChatType);
+            }
+
+            return true;
+        });
+        var connection = CreateConnection(character);
+
+        var dispatcher = provider.GetRequiredService<IRaidoDispatcher>();
+        await dispatcher.DispatchMessageAsync(connection, new SetClientChatTypeMessage { Type = ClientChatType.Friends });
+        await dispatcher.DispatchMessageAsync(connection, new PublicChatMessage
+        {
+            Text = "hello",
+            TextAnimation = 0,
+            TextColor = 0
+        });
+
+        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        foreach (var task in queuedTasks)
+        {
+            scheduler.Schedule(task);
+        }
+
+        scheduler.Tick();
+
+        Assert.AreEqual(ClientChatType.Friends, observedTypes.Single());
+        Assert.AreEqual(ClientChatType.Friends, currentType);
+    }
+
     private ServiceProvider CreateProvider()
     {
         var services = new ServiceCollection();

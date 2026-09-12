@@ -221,8 +221,18 @@ namespace Hagalaz.Game.Scripts.Commands
                     {
                         var store = character.ServiceProvider.GetRequiredService<ICharacterStore>();
                         var players = await store.CountAsync();
+                        if (character.IsDestroyed)
+                        {
+                            return true;
+                        }
+
                         character.SendChatMessage($"There are {players} players currently on this world.");
                         var count = await store.CountAsync();
+                        if (character.IsDestroyed)
+                        {
+                            return true;
+                        }
+
                         character.SendChatMessage("There are " + count + " players currently on this lobby.");
                         return true;
                     },
@@ -335,8 +345,18 @@ namespace Hagalaz.Game.Scripts.Commands
                         var c = (await repository.GetSnapshotAsync()).Values
                             .Where(ch => string.Compare(ch.DisplayName, name, StringComparison.OrdinalIgnoreCase) == 0)
                             .SingleOrDefault();
+                        if (character.IsDestroyed)
+                        {
+                            return true;
+                        }
+
                         if (c != null)
                         {
+                            if (c.IsDestroyed)
+                            {
+                                return true;
+                            }
+
                             c.Movement.Teleport(Teleport.Create(character.Location.Clone()));
                             c.SendChatMessage("You've been teleported to " + character.DisplayName + ".");
                         }
@@ -360,8 +380,18 @@ namespace Hagalaz.Game.Scripts.Commands
                         var c = (await repository.GetSnapshotAsync()).Values
                             .Where(ch => string.Compare(ch.DisplayName, name, StringComparison.OrdinalIgnoreCase) == 0)
                             .FirstOrDefault();
+                        if (character.IsDestroyed)
+                        {
+                            return true;
+                        }
+
                         if (c != null)
                         {
+                            if (c.IsDestroyed)
+                            {
+                                return true;
+                            }
+
                             character.Movement.Teleport(Teleport.Create(c.Location.Clone()));
                             character.SendChatMessage("You teleported to " + c.DisplayName + ".");
                         }

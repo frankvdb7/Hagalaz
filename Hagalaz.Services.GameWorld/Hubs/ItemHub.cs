@@ -7,6 +7,7 @@ using Hagalaz.Services.GameWorld.Hubs.Filters;
 using Microsoft.AspNetCore.Authorization;
 using Raido.Common.Protocol;
 using Raido.Server;
+using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Services.GameWorld.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Hubs
@@ -15,11 +16,9 @@ namespace Hagalaz.Services.GameWorld.Hubs
     [CharacterFilter]
     public class ItemHub : RaidoHub
     {
-        private readonly IGroundItemService _groundItemService;
-
         public ItemHub(IGroundItemService groundItemService)
         {
-            _groundItemService = groundItemService;
+            _ = groundItemService;
         }
 
         [RaidoMessageHandler(typeof(GroundItemClickMessage))]
@@ -43,7 +42,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
                     return;
                 }
 
-                var groundItem = _groundItemService.FindByLocation(location).FirstOrDefault(item => item.ItemOnGround.Id == message.Id);
+                var groundItemService = character.ServiceProvider.GetRequiredService<IGroundItemService>();
+                var groundItem = groundItemService.FindByLocation(location).FirstOrDefault(item => item.ItemOnGround.Id == message.Id);
                 groundItem?.ItemOnGround.ItemScript.ItemClickedOnGround(message.ClickType, groundItem, message.ForceRun, character);
             }, 1));
         }
