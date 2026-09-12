@@ -117,7 +117,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
                     return;
                 }
 
-                character.Interrupt(this);
+                character.Interrupt(message);
                 character.Movement.MovementType = message.ForceRun ? MovementType.Run : character.Movement.MovementType;
                 var task = new LocationReachTask(character,
                     target,

@@ -41,11 +41,11 @@ namespace Hagalaz.Game.Scripts.Commands
             var itemPart = string.Join(" ", args.Arguments).ToLower();
             var itemRepository = args.Character.ServiceProvider.GetRequiredService<IItemService>();
 
-            var count = itemRepository.GetTotalItemCount();
-            var found = new int[8 * 35];
-            var foundCount = 0;
-            await Task.Run(() =>
+            var searchResult = await Task.Run(() =>
             {
+                var count = itemRepository.GetTotalItemCount();
+                var found = new int[8 * 35];
+                var foundCount = 0;
                 for (var i = 0; i < count; i++)
                 {
                     if (!itemRepository.FindItemDefinitionById(i).Name.Contains(itemPart, StringComparison.CurrentCultureIgnoreCase))
@@ -54,49 +54,60 @@ namespace Hagalaz.Game.Scripts.Commands
                     }
 
                     found[foundCount++] = i;
-                    if (foundCount < found.Length)
+                    if (foundCount == found.Length)
                     {
-                        continue;
+                        return (Found: found, Count: foundCount, TooMany: true);
                     }
-
-                    args.Character.SendChatMessage("Too much results, please enter more accurate name.");
-                    return;
                 }
 
-                var defaultScript = args.Character.ServiceProvider.GetRequiredService<DefaultWidgetScript>();
-                args.Character.Widgets.OpenWidget(645, 0, defaultScript, true);
-                var spawnBox = args.Character.Widgets.GetOpenWidget(645);
-                if (spawnBox == null)
-                {
-                    args.Character.SendChatMessage("Could not open spawn box.");
-                    return;
-                }
+                return (Found: found, Count: foundCount, TooMany: false);
+            });
 
-                // setupInterfaceItemsDisplayFromItemsArrayNonSplit(icomponent,itemsArrayIndex,numRows,numCollumns,dragOptions,dragTarget,option1,option2,option3,option4,option5,option6,option7,option8,option9) : 150
-                args.Character.Configurations.SendCs2Script(150,
-                [
-                    (645 << 16) | 16, 90, 8, 35, 0, -1, "Take", "Take-X", "", "", "", "", "", "", ""
-                ]);
-                spawnBox.SetOptions(16, 0, 8 * 35 - 1, 0x2 | 0x4); // allow 2 options
-                spawnBox.DrawString(15, "Spawn Box");
-                spawnBox.DrawString(17, "Found <col=FFFF>" + foundCount + "</col>" + " items for:<br><col=00FFFF>" + itemPart + "</col>");
-                //"Item results for:<br><col=FFFFFF>" + itemPart + "</col>");
-                spawnBox.SetVisible(19, false); // disable the collect sprite
-                if (foundCount <= 48)
-                {
-                    spawnBox.SetVisible(18, false); // disable scroll bar
-                }
+            if (args.Character.IsDestroyed)
+            {
+                return;
+            }
+
+            if (searchResult.TooMany)
+            {
+                args.Character.SendChatMessage("Too much results, please enter more accurate name.");
+                return;
+            }
+
+            var defaultScript = args.Character.ServiceProvider.GetRequiredService<DefaultWidgetScript>();
+            args.Character.Widgets.OpenWidget(645, 0, defaultScript, true);
+            var spawnBox = args.Character.Widgets.GetOpenWidget(645);
+            if (spawnBox == null)
+            {
+                args.Character.SendChatMessage("Could not open spawn box.");
+                return;
+            }
+
+            // setupInterfaceItemsDisplayFromItemsArrayNonSplit(icomponent,itemsArrayIndex,numRows,numCollumns,dragOptions,dragTarget,option1,option2,option3,option4,option5,option6,option7,option8,option9) : 150
+            args.Character.Configurations.SendCs2Script(150,
+            [
+                (645 << 16) | 16, 90, 8, 35, 0, -1, "Take", "Take-X", "", "", "", "", "", "", ""
+            ]);
+            spawnBox.SetOptions(16, 0, 8 * 35 - 1, 0x2 | 0x4); // allow 2 options
+            spawnBox.DrawString(15, "Spawn Box");
+            spawnBox.DrawString(17, "Found <col=FFFF>" + searchResult.Count + "</col>" + " items for:<br><col=00FFFF>" + itemPart + "</col>");
+            //"Item results for:<br><col=FFFFFF>" + itemPart + "</col>");
+            spawnBox.SetVisible(19, false); // disable the collect sprite
+            if (searchResult.Count <= 48)
+            {
+                spawnBox.SetVisible(18, false); // disable scroll bar
+            }
 
 
-                var container = new GenericContainer(StorageType.AlwaysStack, 8 * 35);
-                for (var i = 0; i < foundCount; i++)
-                {
-                    container.Add(_itemBuilder.Create().WithId(found[i]).Build());
-                }
+            var container = new GenericContainer(StorageType.AlwaysStack, 8 * 35);
+            for (var i = 0; i < searchResult.Count; i++)
+            {
+                container.Add(_itemBuilder.Create().WithId(searchResult.Found[i]).Build());
+            }
 
-                args.Character.Configurations.SendItems(90, false, container);
+            args.Character.Configurations.SendItems(90, false, container);
 
-                spawnBox.AttachClickHandler(16,
+            spawnBox.AttachClickHandler(16,
                     (componentID, clickType, itemID, slot) =>
                     {
                         if (clickType == ComponentClickType.LeftClick)
@@ -169,7 +180,6 @@ namespace Hagalaz.Game.Scripts.Commands
 
                         return false;
                     });
-            });
         }
     }
 }

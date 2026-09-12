@@ -61,6 +61,8 @@ public sealed class GameObjectHubLifetimeTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<ILocationBuilder, LocationBuilder>();
+        services.AddSingleton<ScopeProbe>();
+        services.AddScoped<ScopeProbeFilter>();
         services.AddScoped<IGameObjectService>(_ =>
         {
             var service = new TrackingGameObjectService(gameObject);
@@ -68,6 +70,7 @@ public sealed class GameObjectHubLifetimeTests
             return service;
         });
         services.AddRaidoServer().AddHub<GameObjectHub>();
+        services.Configure<RaidoHubOptions<GameObjectHub>>(options => options.AddFilter<GameObjectHub, ScopeProbeFilter>());
 
         using var provider = services.BuildServiceProvider();
         using var characterScope = provider.CreateScope();
@@ -86,14 +89,15 @@ public sealed class GameObjectHubLifetimeTests
                 ForceRun = false
             });
 
-        Assert.HasCount(1, serviceInstances);
-        Assert.IsTrue(serviceInstances[0].IsDisposed);
+        Assert.IsTrue(provider.GetRequiredService<ScopeProbe>().MessageScopeDisposed);
+        Assert.HasCount(0, serviceInstances);
         gameObjectScript.DidNotReceive().OnCharacterClick(Arg.Any<ICharacter>(), Arg.Any<GameObjectClickType>(), Arg.Any<bool>());
 
         scheduler.Tick();
 
-        Assert.HasCount(2, serviceInstances);
-        Assert.AreSame(characterScope.ServiceProvider.GetRequiredService<IGameObjectService>(), serviceInstances[1]);
+        Assert.HasCount(1, serviceInstances);
+        Assert.IsFalse(serviceInstances[0].IsDisposed);
+        Assert.AreSame(characterScope.ServiceProvider.GetRequiredService<IGameObjectService>(), serviceInstances[0]);
         gameObjectScript.Received(1).OnCharacterClick(character, GameObjectClickType.Option1Click, false);
     }
 
@@ -168,6 +172,21 @@ public sealed class GameObjectHubLifetimeTests
         public void AnimateGameObject(IGameObject gameObject, IAnimation animation) { }
 
         public void Dispose() => IsDisposed = true;
+    }
+
+    private sealed class ScopeProbe
+    {
+        public bool MessageScopeDisposed { get; set; }
+    }
+
+    private sealed class ScopeProbeFilter(ScopeProbe probe) : IRaidoHubFilter, IDisposable
+    {
+        public ValueTask<object?> InvokeMethodAsync(RaidoHubInvocationContext context, Func<RaidoHubInvocationContext, ValueTask<object?>> next)
+        {
+            return next(context);
+        }
+
+        public void Dispose() => probe.MessageScopeDisposed = true;
     }
 
     private sealed class ConnectionUserFeature : IConnectionUserFeature

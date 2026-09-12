@@ -19,9 +19,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
     {
         private readonly ILocationBuilder _locationBuilder;
 
-        public GameObjectHub(IGameObjectService gameObjectService, ILocationBuilder locationBuilder)
+        public GameObjectHub(ILocationBuilder locationBuilder)
         {
-            _ = gameObjectService;
             _locationBuilder = locationBuilder;
         }
 
@@ -33,6 +32,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 return;
             }
             var character = Context.GetCharacter();
+            var locationBuilder = _locationBuilder;
             character.QueueTask(new RsTask(() =>
             {
                 if (character.IsDestroyed)
@@ -40,7 +40,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
                     return;
                 }
 
-                var location = _locationBuilder.Create()
+                var location = locationBuilder.Create()
                     .WithX(message.AbsX)
                     .WithY(message.AbsY)
                     .WithZ(character.Location.Z)

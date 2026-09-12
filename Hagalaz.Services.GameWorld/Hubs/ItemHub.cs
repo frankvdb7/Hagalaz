@@ -16,11 +16,6 @@ namespace Hagalaz.Services.GameWorld.Hubs
     [CharacterFilter]
     public class ItemHub : RaidoHub
     {
-        public ItemHub(IGroundItemService groundItemService)
-        {
-            _ = groundItemService;
-        }
-
         [RaidoMessageHandler(typeof(GroundItemClickMessage))]
         public void OnGroundItemClick(GroundItemClickMessage message)
         {

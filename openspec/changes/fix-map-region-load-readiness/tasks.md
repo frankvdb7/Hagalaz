@@ -33,6 +33,8 @@
 - [x] 1.17 Keep Raido message scopes request-scoped; resolve scoped gameplay
       dependencies from the Character-owned provider inside deferred tasks and
       serialize ordered Character input through the shared scheduler.
+- [x] 1.18 Keep CPU-bound command work data-only; apply Character, widget, and
+      script effects on the serialized GameWorker continuation.
 
 ## 2. Scheduler and ownership
 

@@ -20,12 +20,10 @@ namespace Hagalaz.Services.GameWorld.Hubs
     {
         private readonly ICharacterService _characterService;
         private readonly INpcService _npcService;
-        public ComponentHub(ICharacterService characterService, INpcService npcService, IGroundItemService groundItemService, IGameObjectService gameObjectService)
+        public ComponentHub(ICharacterService characterService, INpcService npcService)
         {
             _characterService = characterService;
             _npcService = npcService;
-            _ = groundItemService;
-            _ = gameObjectService;
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentClickMessage))]

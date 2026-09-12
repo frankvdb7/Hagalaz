@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Model;
@@ -18,17 +19,30 @@ namespace Hagalaz.Game.Scripts.Commands
         {
             args.Handled = true;
             var name = string.Join(" ", args.Arguments).ToLower();
-            await Task.Run(() =>
+            var results = await Task.Run(() =>
             {
+                var matches = new List<string>();
                 for (var i = 0; i < _itemService.GetTotalItemCount(); i++)
                 {
                     var def = _itemService.FindItemDefinitionById(i);
                     if (def.Name.ToLower().Contains(name))
                     {
-                        args.Character.SendChatMessage(i + " - " + def.Name, ChatMessageType.ConsoleText);
+                        matches.Add(i + " - " + def.Name);
                     }
                 }
+
+                return matches;
             });
+
+            if (args.Character.IsDestroyed)
+            {
+                return;
+            }
+
+            foreach (var result in results)
+            {
+                args.Character.SendChatMessage(result, ChatMessageType.ConsoleText);
+            }
         }
     }
 }

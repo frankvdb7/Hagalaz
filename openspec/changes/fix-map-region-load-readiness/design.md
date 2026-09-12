@@ -188,6 +188,11 @@ the Character-owned service provider at GameWorker execution time. Character
 gameplay inputs whose relative order affects Character state remain serialized
 through the shared task scheduler.
 
+CPU-bound work may execute outside the game loop, but it returns data only.
+Character, script, widget, map, and other live gameplay mutation occurs through
+the serialized GameWorker owner. Deferred gameplay tasks do not retain
+request-lifetime Raido hubs or request-scoped dependencies.
+
 ### 10. Preserve dynamic source dimensions
 
 Dynamic map parts retain the source/template dimension alongside their draw
