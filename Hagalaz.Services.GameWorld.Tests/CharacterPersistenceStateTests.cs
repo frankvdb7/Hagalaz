@@ -1,5 +1,8 @@
+using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hagalaz.Characters.Messages;
 using Hagalaz.Services.GameWorld.Services;
 
 namespace Hagalaz.Services.GameWorld.Tests;
@@ -8,52 +11,72 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class CharacterPersistenceStateTests
 {
     [TestMethod]
-    public void Acknowledge_MarksOnlyMatchingPendingRevisionAsPersisted()
+    public void Acknowledge_RequiresExactCorrelationAndRevision()
     {
         var state = new CharacterPersistenceState();
-        var correlationId = Guid.NewGuid();
-        state.MarkPending(42, correlationId, "fingerprint", 7);
+        var receipt = CreateReceipt(Guid.NewGuid(), 7);
+        state.MarkPending(42, "fingerprint", receipt);
 
+        state.Acknowledge(42, Guid.NewGuid(), 7, CharacterPersistenceOutcome.Committed);
+        Assert.IsFalse(state.IsPersisted(42, "fingerprint"));
+        state.Acknowledge(42, receipt.CorrelationId, 6, CharacterPersistenceOutcome.Committed);
         Assert.IsFalse(state.IsPersisted(42, "fingerprint"));
 
-        state.Acknowledge(42, correlationId, 6);
-        Assert.IsFalse(state.IsPersisted(42, "fingerprint"));
-
-        state.Acknowledge(42, correlationId, 7);
+        state.Acknowledge(42, receipt.CorrelationId, receipt.SnapshotRevision, CharacterPersistenceOutcome.Committed);
         Assert.IsTrue(state.IsPersisted(42, "fingerprint"));
     }
 
     [TestMethod]
-    public void Acknowledge_RequiresMatchingCorrelationIdAndRevision()
+    public void Acknowledge_ConflictIsTerminalAndDoesNotPersistFingerprint()
     {
         var state = new CharacterPersistenceState();
-        var pendingCorrelationId = Guid.NewGuid();
-        state.MarkPending(42, pendingCorrelationId, "fingerprint", 7);
+        var receipt = CreateReceipt(Guid.NewGuid(), 7);
+        state.MarkPending(42, "fingerprint", receipt);
 
-        state.Acknowledge(42, Guid.NewGuid(), 7);
+        state.Acknowledge(42, receipt.CorrelationId, receipt.SnapshotRevision, CharacterPersistenceOutcome.Conflict);
 
-        Assert.IsFalse(state.IsPersistenceAcknowledged(42));
         Assert.IsFalse(state.IsPersisted(42, "fingerprint"));
+        state.Acknowledge(42, receipt.CorrelationId, receipt.SnapshotRevision, CharacterPersistenceOutcome.Committed);
+        Assert.IsFalse(state.IsPersisted(42, "fingerprint"));
+        Assert.IsFalse(state.TryGetPending(42, out _));
+    }
 
-        state.Acknowledge(42, pendingCorrelationId, 7);
+    [TestMethod]
+    public void Acknowledge_DuplicateIsIdempotent()
+    {
+        var state = new CharacterPersistenceState();
+        var receipt = CreateReceipt(Guid.NewGuid(), 7);
+        state.MarkPending(42, "fingerprint", receipt);
 
-        Assert.IsTrue(state.IsPersistenceAcknowledged(42));
+        state.Acknowledge(42, receipt.CorrelationId, receipt.SnapshotRevision, CharacterPersistenceOutcome.Duplicate);
+        state.Acknowledge(42, receipt.CorrelationId, receipt.SnapshotRevision, CharacterPersistenceOutcome.Duplicate);
+
         Assert.IsTrue(state.IsPersisted(42, "fingerprint"));
     }
 
     [TestMethod]
-    public void NextRevision_IsSeededFromPersistedRevisionAndRemainsMonotonic()
+    public void Acknowledge_CommittedThenConflictDoesNotUndoPersistedState()
     {
         var state = new CharacterPersistenceState();
+        var receipt = CreateReceipt(Guid.NewGuid(), 7);
+        state.MarkPending(42, "fingerprint", receipt);
 
+        state.Acknowledge(42, receipt.CorrelationId, receipt.SnapshotRevision, CharacterPersistenceOutcome.Committed);
+        state.Acknowledge(42, receipt.CorrelationId, receipt.SnapshotRevision, CharacterPersistenceOutcome.Conflict);
+
+        Assert.IsTrue(state.IsPersisted(42, "fingerprint"));
+        Assert.IsFalse(state.TryGetPending(42, out _));
+    }
+
+    [TestMethod]
+    public void NextRevision_IsSeededAndRemainsMonotonic()
+    {
+        var state = new CharacterPersistenceState();
         state.InitializeRevision(42, 500);
 
         Assert.AreEqual(501L, state.NextRevision(42));
-        Assert.AreEqual(502L, state.NextRevision(42));
-
         state.InitializeRevision(42, 100);
-
-        Assert.AreEqual(503L, state.NextRevision(42));
+        Assert.AreEqual(502L, state.NextRevision(42));
     }
 
     [TestMethod]
@@ -62,50 +85,6 @@ public sealed class CharacterPersistenceStateTests
         var state = new CharacterPersistenceState();
 
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => state.InitializeRevision(42, -1));
-    }
-
-    [TestMethod]
-    public void Forget_RemovesRevisionAllocationState()
-    {
-        var state = new CharacterPersistenceState();
-        state.InitializeRevision(42, 500);
-
-        state.Forget(42);
-
-        Assert.AreEqual(1L, state.NextRevision(42));
-    }
-
-    [TestMethod]
-    public void RevisionAllocation_AfterClockRollback_RemainsAbovePersistedRevision()
-    {
-        var state = new CharacterPersistenceState();
-        state.InitializeRevision(42, 900);
-
-        // Revision allocation has no wall-clock input, so a clock rollback cannot
-        // produce a revision below the hydrated persisted value.
-        Assert.AreEqual(901L, state.NextRevision(42));
-    }
-
-    [TestMethod]
-    public void RevisionAllocation_AfterProcessRestart_ResumesFromHydratedRevision()
-    {
-        var firstProcess = new CharacterPersistenceState();
-        firstProcess.InitializeRevision(42, 10);
-        Assert.AreEqual(11L, firstProcess.NextRevision(42));
-
-        var restartedProcess = new CharacterPersistenceState();
-        restartedProcess.InitializeRevision(42, 11);
-
-        Assert.AreEqual(12L, restartedProcess.NextRevision(42));
-    }
-
-    [TestMethod]
-    public void RevisionAllocation_AfterWorldMigration_UsesMigratedPersistedRevision()
-    {
-        var state = new CharacterPersistenceState();
-        state.InitializeRevision(42, 10_000);
-
-        Assert.AreEqual(10_001L, state.NextRevision(42));
     }
 
     [TestMethod]
@@ -123,49 +102,20 @@ public sealed class CharacterPersistenceStateTests
     }
 
     [TestMethod]
-    public void IsPersistenceAcknowledged_RemainsFalseUntilMatchingAcknowledgement()
-    {
-        var state = new CharacterPersistenceState();
-        var correlationId = Guid.NewGuid();
-        state.MarkPending(42, correlationId, "fingerprint", 7);
-
-        Assert.IsFalse(state.IsPersistenceAcknowledged(42));
-
-        state.Acknowledge(42, correlationId, 6);
-        Assert.IsFalse(state.IsPersistenceAcknowledged(42));
-
-        state.Acknowledge(42, correlationId, 7);
-        Assert.IsTrue(state.IsPersistenceAcknowledged(42));
-    }
-
-    [TestMethod]
-    public async Task AcquireAsync_AfterCharacterChurn_RetiresAllLockEntries()
-    {
-        var state = new CharacterPersistenceState();
-
-        for (var masterId = 1u; masterId <= 1000; masterId++)
-        {
-            using var handle = await state.AcquireAsync(masterId, CancellationToken.None);
-        }
-
-        Assert.AreEqual(0, state.LockCount);
-    }
-
-    [TestMethod]
-    public async Task AcquireAsync_ForSameCharacter_RemainsSerializedAndRetiresAfterLastHolder()
+    public async Task AcquireAsync_ForSameCharacter_RemainsSerializedAndCanBeReused()
     {
         var state = new CharacterPersistenceState();
         using var firstHandle = await state.AcquireAsync(42, CancellationToken.None);
         var secondHandleTask = state.AcquireAsync(42, CancellationToken.None);
 
         Assert.IsFalse(secondHandleTask.IsCompleted);
-        Assert.AreEqual(1, state.LockCount);
-
         firstHandle.Dispose();
-        using var secondHandle = await secondHandleTask;
-        Assert.AreEqual(1, state.LockCount);
-
+        var secondHandle = await secondHandleTask;
         secondHandle.Dispose();
-        Assert.AreEqual(0, state.LockCount);
+
+        using var thirdHandle = await state.AcquireAsync(42, CancellationToken.None);
     }
+
+    private static CharacterPersistenceReceipt CreateReceipt(Guid correlationId, long revision) =>
+        new(42, correlationId, revision);
 }

@@ -90,7 +90,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             if (_npc.Script.CanRespawn())
                 Owner.QueueTask(new RsTask(() => _npc.Script.Respawn(), delay + _npc.Definition.RespawnTime + 1));
             else
-                Owner.QueueTask(new RsTask(() => _npcService.UnregisterAsync(_npc).Wait(), delay + 1));
+                Owner.QueueTask(new RsTask(
+                    () => Owner.QueueTask(() => _npcService.UnregisterAsync(_npc)),
+                    delay + 1));
         }
 
         /// <summary>
@@ -236,7 +238,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <returns></returns>
         public override bool CanSetTarget(ICreature target)
         {
-            if (target.IsDestroyed || target.Combat.IsDead || IsDead) return false;
+            if (target.Combat.IsDead || IsDead) return false;
             return _npc.Script.CanSetTarget(target);
         }
 
@@ -245,7 +247,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         public override bool CanAttack(ICreature target)
         {
-            if (target.IsDestroyed || target.Combat.IsDead || IsDead) return false;
+            if (target.Combat.IsDead || IsDead) return false;
             return _npc.Script.CanAttack(target);
         }
 
@@ -254,7 +256,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         public override bool CanBeAttackedBy(ICreature attacker)
         {
-            if (attacker.IsDestroyed || attacker.Combat.IsDead || IsDead) return false;
+            if (attacker.Combat.IsDead || IsDead) return false;
             return _npc.Script.CanBeAttackedBy(attacker);
         }
 

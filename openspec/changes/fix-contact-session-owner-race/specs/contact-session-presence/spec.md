@@ -1,0 +1,241 @@
+## ADDED Requirements
+
+### Requirement: Contacts presence is owned by an exact game-session generation
+
+The GameWorld session owner MUST admit every lobby or world lifecycle through
+the existing distributed per-account session claim and assign it a
+monotonically increasing `SessionGeneration` for the account. A generation
+becomes authoritative only after that account-session lifecycle is successfully
+admitted. Contacts MUST associate every presence with that generation and retain
+its connection ID for exact sign-out validation.
+
+Separate GameWorld instances MUST NOT establish a newer authoritative lobby or
+world lifecycle while an older lifecycle still owns the account. After exact
+ownership release, a newer lifecycle MAY acquire the next generation and
+replace stale presence.
+
+The lobby handshake MUST carry the exact opaque lobby claim into a world
+handshake when world selection crosses GameWorld processes. A world lifecycle
+MUST replace a lobby claim only when the presented claim is the current exact
+owner. Missing, stale, or unrelated handoff identities MUST be rejected
+without changing the current owner.
+
+#### Scenario: active world blocks a lobby on another GameWorld instance
+
+- GIVEN master 42 owns world generation 10 on GameWorld A
+- WHEN GameWorld B attempts a lobby login
+- THEN GameWorld B does not establish generation 11 as an authoritative lobby
+  presence while generation 10 remains the active owner
+
+#### Scenario: lobby succeeds after the world releases ownership
+
+- GIVEN master 42 owns world generation 10 on GameWorld A
+- WHEN GameWorld A releases the exact world owner and GameWorld B logs in to the lobby
+- THEN GameWorld B is admitted with a generation greater than 10
+
+#### Scenario: concurrent lobby owners are rejected globally
+
+- GIVEN GameWorld A admits a lobby lifecycle for master 42
+- WHEN GameWorld B attempts a second lobby lifecycle for master 42
+- THEN GameWorld B is not admitted as an authoritative owner
+
+#### Scenario: world sign-in arrives before stale lobby sign-out
+
+- GIVEN master 42 has lobby generation 1 on `lobby-a`
+- WHEN world generation 2 on `world-b` signs in and generation 1 signs out
+- THEN master 42 remains present with generation 2 on `world-b`
+
+#### Scenario: stale lobby sign-out arrives before world sign-in
+
+- GIVEN master 42 has lobby generation 1 on `lobby-a`
+- WHEN generation 1 signs out and world generation 2 on `world-b` signs in
+- THEN master 42 is present with generation 2 on `world-b`
+
+#### Scenario: same-connection lobby-to-world promotion
+
+- GIVEN master 42 has lobby generation 1 on connection `shared`
+- WHEN world generation 2 signs in on the same connection
+- THEN master 42 is present as world generation 2
+
+#### Scenario: different-connection lobby-to-world promotion
+
+- GIVEN master 42 has an admitted lobby lifecycle on `lobby-a`
+- WHEN world initialization completes on `world-b`
+- THEN the exact lobby claim is transferred atomically to world generation 2 and
+  master 42 is present on `world-b`
+
+#### Scenario: cross-GameWorld promotion with the exact handoff claim
+
+- GIVEN GameWorld A owns lobby claim `L`
+- AND GameWorld B receives the same lobby lifecycle's exact handoff claim `L`
+- WHEN world initialization commits on GameWorld B
+- THEN GameWorld B atomically replaces `L` with world claim `W`
+- AND no other claim is replaced
+
+#### Scenario: stale cross-GameWorld handoff is rejected
+
+- GIVEN lobby claim `L` was current
+- AND the account is now owned by claim `W`
+- WHEN a world login presents stale handoff claim `L`
+- THEN world admission does not commit
+- AND claim `W` remains current
+
+#### Scenario: unrelated world login cannot steal a lobby claim
+
+- GIVEN lobby claim `L` is current
+- WHEN a world login presents no proof of `L`
+- THEN world admission is rejected
+- AND claim `L` remains current
+
+#### Scenario: failed lobby admission remains reconcilable
+
+- GIVEN a lobby claim is acquired
+- AND local lobby admission fails
+- AND exact claim release has an uncertain outcome
+- THEN the exact failed session remains represented for reconciliation
+- AND reconciliation removes only that exact owner after it is released or proven stale
+
+If exact release of a distributed claim has an uncertain outcome after a session
+has been admitted, the retained session MUST remain represented by a local
+reconciliation record until the claim is released or the claim store proves
+that the retained owner is no longer current. A definitive false release result
+proves that the exact old claim is absent or belongs to another owner and MUST
+allow the stale local lifecycle to be removed immediately without affecting the
+current owner. Ordinary local lifecycle removal, including duplicate disconnect
+cleanup and failed world-sign-in cleanup, MUST NOT discard an unresolved record.
+Abort reconciliation MUST NOT replace an unresolved record with a
+pending-abort-only record. Only exact reconciliation may remove an unresolved
+record.
+
+#### Scenario: retained claim cleanup survives local removal
+
+- GIVEN a lobby or world session has been retained after exact claim release failed
+- WHEN another local cleanup path removes that session before lease reconciliation
+- THEN the retained claim-cleanup record remains available
+- AND lease reconciliation later removes it only after exact release succeeds or proves the owner stale
+
+#### Scenario: stale lease renewal cannot replace deferred claim cleanup
+
+- GIVEN a lease cycle has snapshotted an active session before its exact claim release fails
+- WHEN the release failure retains that session for cleanup and the stale lease renewal also fails
+- THEN lost-session abort reconciliation does not replace the retained cleanup record
+- AND the exact cleanup obligation remains available for the next reconciliation
+- AND a later successful exact release removes the cleanup record
+
+#### Scenario: stale world sign-out arrives after a newer world owner
+
+- GIVEN master 42 has world generation 1 on `world-a`
+- WHEN world generation 2 replaces it and generation 1 signs out
+- THEN generation 2 remains present
+
+#### Scenario: Delayed presence events are fenced by session identity
+
+- **GIVEN** a consumer has observed contact generation 11 on connection
+  `world-b`
+- **WHEN** a delayed sign-out for generation 10 on `world-a` is delivered
+- **THEN** generation 11 remains online
+- **AND** a sign-out with the same generation but a different connection is
+  ignored
+
+#### Scenario: delayed world sign-out after lobby replacement
+
+- GIVEN master 42 has world generation 1 on `world-a`
+- WHEN lobby generation 2 on `lobby-b` replaces it before generation 1 signs out
+- THEN generation 2 remains present after the delayed sign-out
+
+#### Scenario: stale world sign-in
+
+- GIVEN master 42 has world generation 2 on `world-b`
+- WHEN world generation 1 on `world-a` signs in
+- THEN generation 2 remains present
+
+#### Scenario: stale lobby sign-in
+
+- GIVEN master 42 has world generation 2 on `world-b`
+- WHEN lobby generation 1 on `lobby-a` signs in
+- THEN generation 2 remains present
+
+#### Scenario: current owner signs out
+
+- GIVEN master 42 has world generation 2 on `world-b`
+- WHEN generation 2 on `world-b` signs out
+- THEN master 42 is removed
+
+#### Scenario: Initial contact snapshot seeds the exact online owner
+
+- **GIVEN** an initial friends snapshot represents master 42 online at
+  generation 11 on `world-b`
+- **WHEN** the snapshot is applied to a GameWorld contacts feature
+- **THEN** a delayed sign-out for generation 10 on `world-a` is ignored
+- **AND** the exact generation 11/`world-b` sign-out is accepted once
+- **AND** a duplicate exact sign-out is ignored
+
+#### Scenario: Contact snapshot replacement prunes obsolete owners
+
+- **GIVEN** an initial snapshot contains master 42 as an online friend
+- **WHEN** a replacement snapshot removes master 42 or represents it offline
+- **THEN** the local presence owner for master 42 is removed
+- **AND** a later sign-out for that old owner is ignored
+
+### Requirement: Presence replacement does not duplicate notifications
+
+The Contacts service MUST publish one sign-in notification for a new owner and
+MUST NOT publish an intermediate sign-out notification for a replacement.
+Repeated sign-in for the current generation MUST NOT publish another sign-in.
+
+#### Scenario: duplicate sign-in for the current owner
+
+- GIVEN master 42 already has world generation 2 on `world-b`
+- WHEN generation 2 signs in again
+- THEN Contacts publishes no additional sign-in or sign-out notification
+
+Session generation remains the Contacts causal ordering mechanism; the exact
+claim ID is the GameWorld ownership fact and is not used as a replacement for
+generation ordering.
+
+### Requirement: Contacts owns presence fencing at the feature boundary
+
+The connection's `IContactsFeature` MUST atomically validate session identity
+and update its contact collection under one owner-level synchronization boundary.
+`Friend` and `ContactList` MUST remain simple domain/collection objects and MUST
+NOT own presence locks or session metadata. Consumers MUST use the feature's
+atomic apply operations rather than performing a separate check and mutation.
+Every operation that changes friend membership MUST update or prune exact
+presence ownership under the same `IContactsFeature` owner boundary.
+
+#### Scenario: Concurrent replacement preserves the newer owner
+
+- **GIVEN** a contact is owned by generation 10 on connection `old`
+- **WHEN** generation 11 on connection `new` signs in concurrently with the
+  sign-out for generation 10
+- **THEN** the feature retains generation 11 as the authoritative owner
+- **AND** the older sign-out cannot remove generation 11
+
+#### Scenario: Duplicate sign-in does not notify again
+
+- **GIVEN** generation 11 on connection `new` is already authoritative
+- **WHEN** the same generation and connection signs in again
+- **THEN** the feature leaves the owner unchanged
+- **AND** the consumer emits no additional sign-in notification
+
+#### Scenario: Live online friend addition seeds its exact owner
+
+- **GIVEN** friend 42 is online on generation 11 and connection `new`
+- **WHEN** the local feature adds friend 42 with that online session identity
+- **THEN** the feature MUST retain the friend and seed owner 11/`new`
+- **AND** a sign-out for an older session MUST be rejected
+
+#### Scenario: Friend removal prunes its exact owner
+
+- **GIVEN** friend 42 is owned by generation 11 on connection `new`
+- **WHEN** the local feature removes friend 42
+- **THEN** the friend MUST be removed
+- **AND** the owner for 42 MUST be removed
+- **AND** a later sign-out for 11/`new` MUST be rejected
+
+#### Scenario: Re-add fences a late old sign-out
+
+- **GIVEN** friend 42 is removed after generation 11 on connection `old`
+- **WHEN** friend 42 is re-added with generation 12 on connection `new`
+- **AND** the delayed sign-out for 11/`old` arrives
+- **THEN** generation 12 on `new` MUST remain the authoritative owner

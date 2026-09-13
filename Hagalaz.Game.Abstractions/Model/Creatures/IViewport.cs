@@ -27,6 +27,10 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// </summary>
         IReadOnlyList<IMapRegion> VisibleRegions { get; }
         /// <summary>
+        /// Rebinds retained map-region references to the current canonical region instances.
+        /// </summary>
+        void RefreshVisibleRegions();
+        /// <summary>
         /// Gets the central location around which the viewport is built.
         /// </summary>
         ILocation ViewLocation { get; }

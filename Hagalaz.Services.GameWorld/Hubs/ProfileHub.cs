@@ -4,6 +4,7 @@ using Hagalaz.Game.Abstractions.Features.Chat;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Common.Events.Character;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Messages.Protocol;
 using Microsoft.AspNetCore.Authorization;
 using Raido.Common.Protocol;
@@ -35,10 +36,13 @@ namespace Hagalaz.Services.GameWorld.Hubs
         public void SetClientWindow(SetClientWindowMessage message)
         {
             var character = Context.GetCharacter();
-            character.GameClient.DisplayMode = message.Mode;
-            character.GameClient.ScreenSizeX = message.SizeX;
-            character.GameClient.ScreenSizeY = message.SizeY;
-            character.EventManager.SendEvent(new ScreenChangedEvent(character, message.Mode, message.SizeX, message.SizeY));
+            character.QueueTask(new RsTask(() =>
+            {
+                character.GameClient.DisplayMode = message.Mode;
+                character.GameClient.ScreenSizeX = message.SizeX;
+                character.GameClient.ScreenSizeY = message.SizeY;
+                character.EventManager.SendEvent(new ScreenChangedEvent(character, message.Mode, message.SizeX, message.SizeY));
+            }, 1));
         }
     }
 }

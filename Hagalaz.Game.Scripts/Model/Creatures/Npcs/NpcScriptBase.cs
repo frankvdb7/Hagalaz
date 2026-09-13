@@ -14,6 +14,7 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
+using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
@@ -55,7 +56,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             if (CanSpawn())
                 Owner.Respawn();
             else
-                _npcService.UnregisterAsync(Owner).Wait();
+                Owner.QueueTask(() => _npcService.UnregisterAsync(Owner));
         }
 
         /// <summary>

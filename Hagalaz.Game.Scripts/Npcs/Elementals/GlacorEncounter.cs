@@ -50,7 +50,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         {
             foreach (var glacyte in _glacytes)
             {
-                if (glacyte.Npc.IsDestroyed || glacyte.Npc.Combat.Target is not null)
+                if (glacyte.Npc.Combat.Target is not null)
                 {
                     continue;
                 }

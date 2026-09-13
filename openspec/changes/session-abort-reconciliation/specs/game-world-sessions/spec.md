@@ -6,9 +6,15 @@
 
 The system MUST use the existing game-session lease cycle as the single retry owner for deferred connection aborts and exact-owner claim cleanup.
 
-Each pending-abort reservation MAY be claimed by one processor through a five-minute local abort-processing lease. This timeout is independent of the distributed world-session claim lease. The processing lease MUST contain a unique ownership token and its start time. Completion or release MUST succeed only for the exact processing lease that claimed the reservation; a stale processor MUST NOT clear or release a newer processor's reservation.
+Each pending-abort reservation MAY be claimed by one processor through a
+non-expiring store-owned processing marker. A failed processor MUST explicitly
+release the marker so the existing lease cycle can retry it. Begin, completion,
+and release MUST verify the exact session instance, so a stale session MUST NOT
+change a reservation for another session using the same connection identifier.
 
-The external connection abort operation MUST be idempotent. An expired local processing lease fences stale local state completion, but the processor that exceeded its timeout may still invoke the external abort while a later processor is retrying it.
+The external connection abort operation MUST be idempotent. The exact-session
+check fences stale local state completion while a later processor is retrying
+a released reservation.
 
 #### Scenario: Aborting a lost connection fails temporarily
 
@@ -38,17 +44,10 @@ The external connection abort operation MUST be idempotent. An expired local pro
 - THEN the local reservation remains available for lease reconciliation
 - AND no separate retry queue or retry worker is created
 
-#### Scenario: An expired abort processor cannot complete a newer reservation
+#### Scenario: A stale session cannot complete a newer reservation
 
-- GIVEN a pending abort processor has exceeded the five-minute local processing lease
-- WHEN the lease cycle claims the reservation with a new processing token
-- AND the expired processor later reports completion
+- GIVEN a pending abort processor releases its processing marker after failure
+- WHEN the lease cycle claims the reservation for a different session instance
+- AND the previous processor later reports completion
 - THEN the stale completion is rejected
-- AND the newer reservation remains owned by the new processing token
-
-#### Scenario: External abort is safe across processing lease expiry
-
-- GIVEN an abort processor exceeds its local processing lease
-- WHEN both the expired processor and the replacement processor invoke the external abort
-- THEN the connection terminator treats repeated abort calls as idempotent
-- AND local completion is controlled only by the current processing token
+- AND the newer reservation remains owned by the new processing marker

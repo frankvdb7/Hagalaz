@@ -3,22 +3,22 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Model.Creatures.Npcs;
 using NSubstitute;
 
-namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Npcs
+namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Npcs;
+
+[TestClass]
+public sealed class NpcHandleTests
 {
-    [TestClass]
-    public class NpcHandleTests
+    [TestMethod]
+    public void Unregister_UsesSynchronousServiceOperation()
     {
-        [TestMethod]
-        public void Unregister_UsesInjectedNpcService()
-        {
-            var npc = Substitute.For<INpc>();
-            var npcService = Substitute.For<INpcService>();
-            npcService.UnregisterAsync(npc).Returns(Task.CompletedTask);
-            var handle = new NpcHandle(npc, npcService);
+        var npc = Substitute.For<INpc>();
+        var npcService = Substitute.For<INpcService>();
 
-            handle.Unregister();
+        var handle = new NpcHandle(npc, npcService);
 
-            npcService.Received(1).UnregisterAsync(npc);
-        }
+        handle.Unregister();
+
+        npcService.Received(1).Unregister(npc);
+        npcService.DidNotReceive().UnregisterAsync(npc);
     }
 }

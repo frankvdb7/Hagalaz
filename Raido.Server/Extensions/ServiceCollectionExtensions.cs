@@ -38,7 +38,7 @@ namespace Raido.Server.Extensions
             services.TryAddScoped(typeof(IRaidoHubActivator<>), typeof(DefaultRaidoHubActivator<>));
 
             services.TryAddTransient(typeof(IRaidoCodecFactory<>), typeof(DefaultRaidoCodecFactory<>));
-            services.TryAddSingleton(typeof(IRaidoCodec<>), typeof(DefaultRaidoCodec<>));
+            services.TryAddScoped(typeof(IRaidoCodec<>), typeof(DefaultRaidoCodec<>));
 
             services.TryAddSingleton(new RaidoServerActivitySource());
             services.TryAddSingleton<RaidoMetrics>();

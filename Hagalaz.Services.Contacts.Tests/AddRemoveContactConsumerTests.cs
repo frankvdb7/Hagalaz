@@ -20,7 +20,6 @@ namespace Hagalaz.Services.Contacts.Tests
         private Mock<ICharacterService> _characterServiceMock = null!;
         private Mock<IMapper> _mapperMock = null!;
         private ContactSessionStore _contactSessions = null!;
-        private WorldSessionStore _worldSessions = null!;
         private AddRemoveContactConsumer _consumer = null!;
 
         [TestInitialize]
@@ -30,8 +29,7 @@ namespace Hagalaz.Services.Contacts.Tests
             _characterServiceMock = new Mock<ICharacterService>();
             _mapperMock = new Mock<IMapper>();
             _contactSessions = new ContactSessionStore();
-            _worldSessions = new WorldSessionStore();
-            _consumer = new AddRemoveContactConsumer(_contactSessions, _worldSessions, _contactServiceMock.Object, _characterServiceMock.Object, _mapperMock.Object);
+            _consumer = new AddRemoveContactConsumer(_contactSessions, _contactServiceMock.Object, _characterServiceMock.Object, _mapperMock.Object);
         }
 
         [TestMethod]
@@ -51,26 +49,37 @@ namespace Hagalaz.Services.Contacts.Tests
             _characterServiceMock.Setup(x => x.FindCharacterByDisplayName(contactName)).ReturnsAsync(contactCharacter);
             _contactServiceMock.Setup(x => x.AddContactAsync(masterId, contactId, false)).ReturnsAsync(Hagalaz.Services.Common.Model.Result.Success);
 
-            _contactSessions.TryAdd(masterId, new ContactSessionContext(masterId, masterWorldId, "World 1"));
-            _contactSessions.TryAdd(contactId, new ContactSessionContext(contactId, contactWorldId, "World 2"));
-            _worldSessions.TryAdd(masterWorldId, new WorldSessionContext(masterWorldId, "World 1"));
-            _worldSessions.TryAdd(contactWorldId, new WorldSessionContext(contactWorldId, "World 2"));
+            _contactSessions.TrySetNewerSession(new ContactSessionContext(masterId, masterWorldId, "World 1", 1, "master"));
+            _contactSessions.TrySetNewerSession(new ContactSessionContext(contactId, contactWorldId, "World 2", 1, "contact"));
 
             _mapperMock.Setup(m => m.Map<MsgContactDto>(contactCharacter)).Returns(new MsgContactDto { MasterId = contactId, DisplayName = contactName });
             _mapperMock.Setup(m => m.Map<MsgContactDto>(masterCharacter)).Returns(new MsgContactDto { MasterId = masterId, DisplayName = "Master" });
 
             var contextMock = new Mock<ConsumeContext<AddContactRequest>>();
             contextMock.Setup(x => x.Message).Returns(new AddContactRequest { MasterId = masterId, ContactDisplayName = contactName, Ignore = false });
+            AddContactResponse? response = null;
+            contextMock
+                .Setup(x => x.RespondAsync(It.IsAny<AddContactResponse>()))
+                .Callback<AddContactResponse>(message => response = message)
+                .Returns(Task.CompletedTask);
 
             // Act
             await _consumer.Consume(contextMock.Object);
 
             // Assert
+            Assert.IsNotNull(response);
+            Assert.AreEqual(contactWorldId, response.Contact.WorldId);
+            Assert.AreEqual(1L, response.Contact.SessionGeneration);
+            Assert.AreEqual("contact", response.Contact.SessionConnectionId);
             contextMock.Verify(x => x.Publish(It.Is<ContactAddedMessage>(m =>
                 m.Master.MasterId == masterId &&
                 m.Master.WorldId == masterWorldId &&
+                m.Master.SessionGeneration == 1 &&
+                m.Master.SessionConnectionId == "master" &&
                 m.Contact.MasterId == contactId &&
-                m.Contact.WorldId == contactWorldId
+                m.Contact.WorldId == contactWorldId &&
+                m.Contact.SessionGeneration == 1 &&
+                m.Contact.SessionConnectionId == "contact"
             ), It.IsAny<CancellationToken>()), Times.Once);
         }
 

@@ -6,6 +6,7 @@ using Hagalaz.Game.Scripts.Commands;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Tasks;
 
 namespace Hagalaz.Game.Scripts.Tests.Commands
 {
@@ -23,6 +24,12 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             itemServiceMock.FindItemDefinitionById(0).Returns(itemDefinitionMock);
 
             var characterMock = Substitute.For<ICharacter>();
+            characterMock.QueueTask(Arg.Any<ITaskItem>()).Returns(callInfo =>
+            {
+                var task = callInfo.Arg<ITaskItem>();
+                task.Tick();
+                return new RsTaskHandle(task);
+            });
             var command = new SearchItemCommand(itemServiceMock);
             var args = new GameCommandArgs(characterMock, new[] { "test" });
 

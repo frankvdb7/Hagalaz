@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Channels;
+using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -12,10 +15,13 @@ namespace Hagalaz.Services.GameWorld.Services
     /// Services the map regions. This helps keep the server free of some
     /// space, by idling and killing regions that have been inactive.
     /// </summary>
-    public class MapRegionBackgroundService : BackgroundService
+    public sealed class MapRegionBackgroundService : BackgroundService
     {
+        private static readonly TimeSpan ProcessingInterval = TimeSpan.FromMinutes(5);
         private readonly IMapRegionService _regionService;
         private readonly ILogger<MapRegionBackgroundService> _logger;
+        private readonly Channel<IMapRegion> _detachedRegions = Channel.CreateUnbounded<IMapRegion>();
+        private DateTime _lastProcessedAt = DateTime.MinValue;
 
         public MapRegionBackgroundService(IMapRegionService regionService, ILogger<MapRegionBackgroundService> logger)
         {
@@ -25,44 +31,72 @@ namespace Hagalaz.Services.GameWorld.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            while (!stoppingToken.IsCancellationRequested)
+            try
             {
-                try
+                await foreach (var region in _detachedRegions.Reader.ReadAllAsync(stoppingToken))
                 {
-                    await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
-                    foreach (var dimension in _regionService.FindAllDimensions())
+                    await DestroyDetachedRegionAsync(region);
+                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+            }
+        }
+
+        internal async Task ProcessRegionsIfDueAsync()
+        {
+            var now = DateTime.UtcNow;
+            if (now - _lastProcessedAt < ProcessingInterval)
+            {
+                return;
+            }
+
+            await ProcessRegionsOnceAsync();
+            _lastProcessedAt = now;
+        }
+
+        internal Task ProcessRegionsOnceAsync()
+        {
+            foreach (var dimension in _regionService.FindAllDimensions())
+            {
+                foreach (var region in _regionService.FindRegionsByDimension(dimension.Id)
+                             .Where(region => region.State == MapRegionState.Ready))
+                {
+                    if (_regionService.TrySuspendMapRegion(region))
                     {
-                        var activeRegions = dimension.Regions.Values;
-                        foreach (var region in activeRegions.Where(region => region.CanSuspend()))
-                        {
-                            dimension.Regions.Remove(region.Id);
-                            region.Suspend();
-                            dimension.IdleRegions.Add(region.Id, region);
-                            _logger.LogDebug("Region[{id}] was suspended.", region.Id);
-                        }
+                        _logger.LogDebug("Region[{id}] was suspended.", region.Id);
+                    }
+                }
 
-                        var idleRegions = dimension.IdleRegions.Values;
-                        foreach (var region in idleRegions.Where(region => region.CanDestroy()))
-                        {
-                            await region.DestroyAsync();
-                            dimension.IdleRegions.Remove(region.Id);
-                            _logger.LogDebug("Region[{id}] was destroyed.", region.Id);
-                        }
+                foreach (var region in _regionService.FindIdleRegionsByDimension(dimension.Id).Where(region => region.CanDestroy()))
+                {
+                    if (!_regionService.TryRemoveIdleMapRegion(region.Id, dimension.Id, region))
+                    {
+                        continue;
+                    }
 
-                        if (dimension.CanDestroy())
-                        {
-                            _regionService.RemoveDimension(dimension);
-                            _logger.LogDebug("Dimension[{id}] was destroyed.", dimension.Id);
-                        }
-                    }                    
+                    _detachedRegions.Writer.TryWrite(region);
                 }
-                catch (TaskCanceledException)
+
+                if (_regionService.TryRemoveEmptyDimension(dimension))
                 {
+                    _logger.LogDebug("Dimension[{id}] was destroyed.", dimension.Id);
                 }
-                catch(Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to service regions");
-                }
+            }
+
+            return Task.CompletedTask;
+        }
+
+        private async Task DestroyDetachedRegionAsync(IMapRegion region)
+        {
+            try
+            {
+                await region.DestroyAsync();
+                _logger.LogDebug("Region[{id}] was destroyed.", region.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to destroy detached region[{id}]; its ownership was already released.", region.Id);
             }
         }
     }

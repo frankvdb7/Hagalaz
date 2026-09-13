@@ -62,7 +62,7 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
             }); // needed to open lobby frame
             await Task.WhenAll(_gameMediator.SendAsync(new SendWorldInfoCommand(session)),
                 _publishEndpoint.Publish(new GetContactsRequest(command.MasterId)),
-                _publishEndpoint.Publish(new LobbyUserSignInMessage(command.MasterId, options.Id)));
+                _publishEndpoint.Publish(new LobbyUserSignInMessage(command.MasterId, options.Id, session.SessionGeneration, session.ConnectionId)));
         }
     }
 }

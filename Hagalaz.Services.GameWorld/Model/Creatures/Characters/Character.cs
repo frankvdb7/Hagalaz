@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
+using System.Runtime.ExceptionServices;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Builders.Animation;
@@ -25,6 +25,8 @@ using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Configuration;
@@ -72,6 +74,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IGameMessageService _gameMessageService;
         private readonly IStateService _stateService;
         private readonly ICharacterScriptActivator _characterScriptActivator;
+        private readonly ICharacterStore _characterStore;
 
         /// <summary>
         /// The event manager
@@ -306,9 +309,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             ISlayerTaskCompletedDialogue slayerTaskCompletedDialogue,
             IFarmingService farmingService,
             IGameObjectService gameObjectService,
-            IWidgetScriptProvider widgetScriptProvider)
+            IWidgetScriptProvider widgetScriptProvider,
+            ICharacterStore characterStore)
             : base(serviceScope)
         {
+            _characterStore = characterStore;
             GameClient = gameClient;
             Session = session;
             _mapRegionService = mapRegionService;
@@ -385,24 +390,65 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public override bool CanSuspend() => false;
 
+        public override IRsTaskHandle QueueTask(ITaskItem task)
+        {
+            _characterStore.TryQueueTask(this, task);
+            return new RsTaskHandle(task);
+        }
+
+        public override IRsTaskHandle<TResult> QueueTask<TResult>(ITaskItem<TResult> task)
+        {
+            _characterStore.TryQueueTask(this, task);
+            return new RsTaskHandle<TResult>(task);
+        }
+
         /// <summary>
         /// Happens when character is destroyed.
         /// </summary>
         /// <returns></returns>
         protected override void OnDestroy()
         {
-            EventManager.SendEvent(new CreatureDestroyedEvent(this));
-            foreach (var characterScript in _scripts.Values)
+            Exception? failure = null;
+            try
             {
-                characterScript.OnDestroy();
+                EventManager.SendEvent(new CreatureDestroyedEvent(this));
             }
-            UnregisterEventHandlers();
+            catch (Exception exception)
+            {
+                failure = exception;
+            }
+
+            foreach (var script in _scripts.Values)
+            {
+                try
+                {
+                    script.OnDestroy();
+                }
+                catch (Exception exception)
+                {
+                    failure ??= exception;
+                }
+            }
+
+            try
+            {
+                UnregisterEventHandlers();
+            }
+            catch (Exception exception)
+            {
+                failure ??= exception;
+            }
+
+            if (failure is not null)
+            {
+                ExceptionDispatchInfo.Capture(failure).Throw();
+            }
         }
 
         /// <summary>
         /// Get's called when entity is registered to world.
         /// </summary>
-        public override Task OnRegistered()
+        public override void OnRegistered()
         {
             // initialize the most important drawing logic first
             RenderInformation.OnRegistered();
@@ -424,7 +470,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 AddState(new LodestoneEdgevilleState());
 
             OnInit();
-            return Task.CompletedTask;
         }
 
         /// <summary>

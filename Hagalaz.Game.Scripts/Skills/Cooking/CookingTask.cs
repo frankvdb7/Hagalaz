@@ -76,7 +76,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
         /// <returns></returns>
         private void PerformTickImpl()
         {
-            if (GameObject.IsDestroyed)
+            if (GameObject.IsDisabled)
             {
                 Cancel();
                 return;

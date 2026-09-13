@@ -1,0 +1,8 @@
+name: "Hagalaz CodeQL config"
+
+queries:
+  - uses: security-and-quality
+
+query-filters:
+  - exclude:
+      id: cs/catch-of-all-exceptions

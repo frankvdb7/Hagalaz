@@ -1,0 +1,4 @@
+- [x] 1. Add Development and production-safe issuer configuration.
+- [x] 2. Add focused issuer configuration regression tests.
+- [x] 3. Document the required deployment setting.
+- [x] 4. Run focused tests, build, strict OpenSpec validation, and retry the real client login.

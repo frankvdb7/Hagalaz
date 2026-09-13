@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Tasks;
 
 namespace Hagalaz.Game.Scripts.Tests.Commands
 {
@@ -37,6 +38,12 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
 
             var characterMock = Substitute.For<ICharacter>();
             characterMock.ServiceProvider.Returns(serviceProviderMock);
+            characterMock.QueueTask(Arg.Any<ITaskItem>()).Returns(callInfo =>
+            {
+                var task = callInfo.Arg<ITaskItem>();
+                task.Tick();
+                return new RsTaskHandle(task);
+            });
             characterMock.Configurations.Returns(configurationsMock);
             characterMock.Widgets.Returns(widgetContainerMock);
 

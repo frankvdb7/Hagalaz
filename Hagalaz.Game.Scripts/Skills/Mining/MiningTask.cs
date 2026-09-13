@@ -72,7 +72,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
             var randomValue = RandomStatic.Generator.NextDouble();
             if (randomValue <= _chance)
             {
-                if (_gameObject.IsDestroyed || _gameObject.IsDisabled)
+                if (_gameObject.IsDisabled)
                 {
                     Cancel();
                     return;

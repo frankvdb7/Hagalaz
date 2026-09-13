@@ -23,11 +23,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs
         /// </returns>
         public override bool IsAggressiveTowards(ICreature creature)
         {
-            if (creature.IsDestroyed)
-            {
-                return false;
-            }
-
             if (Owner.Area == creature.Area)
             {
                 return true;

@@ -3,14 +3,15 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using AutoMapper;
 using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
+using Hagalaz.Services.GameWorld.Services.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -23,13 +24,15 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly ILogger<CharacterDehydrationWorkerService> _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly ICharacterStore _characterStore;
+        private readonly IRsTaskService _taskScheduler;
         private readonly TimeSpan _shutdownTimeout;
 
         public CharacterDehydrationWorkerService(
             ILogger<CharacterDehydrationWorkerService> logger,
             IServiceProvider serviceProvider,
-            ICharacterStore characterStore)
-            : this(logger, serviceProvider, characterStore, DefaultShutdownTimeout)
+            ICharacterStore characterStore,
+            IRsTaskService taskScheduler)
+            : this(logger, serviceProvider, characterStore, taskScheduler, DefaultShutdownTimeout)
         {
         }
 
@@ -37,6 +40,7 @@ namespace Hagalaz.Services.GameWorld.Services
             ILogger<CharacterDehydrationWorkerService> logger,
             IServiceProvider serviceProvider,
             ICharacterStore characterStore,
+            IRsTaskService taskScheduler,
             TimeSpan shutdownTimeout)
         {
             if (shutdownTimeout <= TimeSpan.Zero)
@@ -47,6 +51,7 @@ namespace Hagalaz.Services.GameWorld.Services
             _logger = logger;
             _serviceProvider = serviceProvider;
             _characterStore = characterStore;
+            _taskScheduler = taskScheduler;
             _shutdownTimeout = shutdownTimeout;
         }
 
@@ -97,23 +102,8 @@ namespace Hagalaz.Services.GameWorld.Services
 
         internal async Task FlushAsync(bool force, CancellationToken cancellationToken)
         {
-            var characters = new List<ICharacter>();
-            await foreach (var character in _characterStore.FindAllAsync().WithCancellation(cancellationToken))
-            {
-                characters.Add(character);
-            }
-
-            await using (var pendingScope = _serviceProvider.CreateAsyncScope())
-            {
-                var pendingPersistence = pendingScope.ServiceProvider.GetRequiredService<ICharacterPersistenceService>();
-                foreach (var pendingCharacter in pendingPersistence.GetPendingLogouts() ?? Array.Empty<ICharacter>())
-                {
-                    if (!characters.Contains(pendingCharacter))
-                    {
-                        characters.Add(pendingCharacter);
-                    }
-                }
-            }
+            var characters = new List<ICharacter>((await _characterStore.GetSnapshotAsync(cancellationToken)).Values);
+            var snapshots = await CaptureSnapshotsAsync(characters, cancellationToken);
 
             var options = new ParallelOptions
             {
@@ -121,20 +111,19 @@ namespace Hagalaz.Services.GameWorld.Services
                 CancellationToken = cancellationToken
             };
             var failures = new ConcurrentBag<Exception>();
-            await Parallel.ForEachAsync(characters, options, async (character, token) =>
+            await Parallel.ForEachAsync(snapshots, options, async (entry, token) =>
             {
                 await using var scope = _serviceProvider.CreateAsyncScope();
                 try
                 {
                     var persistenceService = scope.ServiceProvider.GetRequiredService<ICharacterPersistenceService>();
-                    var pendingLogout = persistenceService.IsPendingLogout(character);
-                    await persistenceService.PersistAsync(character, force, token);
-
-                    if (pendingLogout && persistenceService.IsPersistenceAcknowledged(character))
+                    var logoutService = scope.ServiceProvider.GetRequiredService<ICharacterLogoutService>();
+                    if (logoutService.IsPendingLogout(entry.Key))
                     {
-                        await scope.ServiceProvider.GetRequiredService<ICharacterLogoutService>()
-                            .DetachAsync(character, token);
+                        return;
                     }
+
+                    await persistenceService.PersistAsync(entry.Key, entry.Value, force, token);
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
                 {
@@ -147,7 +136,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     {
                         _logger.LogError(exception,
                             "Failed to queue character {MasterId} in the EF bus outbox; it will be retried on the next flush",
-                            character.MasterId);
+                            entry.Key);
                     }
                 }
             });
@@ -158,13 +147,38 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
-        // Kept as a compatibility helper for existing dehydration request tests.
-        internal static DehydrateCharacter CreateRequest(IMapper mapper, Services.Model.CharacterModel model, uint masterId, long snapshotRevision) =>
-            mapper.Map<DehydrateCharacter>(model) with
+        private async Task<IReadOnlyDictionary<uint, CharacterModel>> CaptureSnapshotsAsync(
+            IReadOnlyList<ICharacter> characters,
+            CancellationToken cancellationToken)
+        {
+            var completion = new TaskCompletionSource<IReadOnlyDictionary<uint, CharacterModel>>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _taskScheduler.Schedule(new RsTask(() =>
             {
-                MasterId = masterId,
-                CorrelationId = Guid.NewGuid(),
-                SnapshotRevision = snapshotRevision
-            };
+                try
+                {
+                    using var scope = _serviceProvider.CreateScope();
+                    var dehydrationService = scope.ServiceProvider.GetRequiredService<ICharacterDehydrationService>();
+                    var snapshots = new Dictionary<uint, CharacterModel>();
+                    foreach (var character in characters)
+                    {
+                        if (_characterStore.IsCurrent(character))
+                        {
+                            snapshots[character.MasterId] = dehydrationService.Dehydrate(character);
+                        }
+                    }
+
+                    completion.TrySetResult(snapshots);
+                }
+                catch (Exception exception)
+                {
+                    completion.TrySetException(exception);
+                    throw;
+                }
+            }, 1));
+
+            return await completion.Task.WaitAsync(cancellationToken);
+        }
+
     }
 }

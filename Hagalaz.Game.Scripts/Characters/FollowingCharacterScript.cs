@@ -79,7 +79,7 @@ namespace Hagalaz.Game.Scripts.Characters
             {
                 return;
             }
-            if (_followTarget.IsDestroyed || !Character.Viewport.VisibleCreatures.Contains(_followTarget) || !Character.Location.WithinDistance(_followTarget.Location, CreatureConstants.VisibilityDistance))
+            if (!Character.Viewport.VisibleCreatures.Contains(_followTarget) || !Character.Location.WithinDistance(_followTarget.Location, CreatureConstants.VisibilityDistance))
             {
                 Character.ResetFacing();
                 _followTarget = null;

@@ -1,7 +1,12 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 
 namespace Hagalaz.Game.Abstractions.Services
 {
@@ -11,33 +16,78 @@ namespace Hagalaz.Game.Abstractions.Services
     public interface IMapRegionService
     {
         /// <summary>
-        /// Gets a map region by its ID and dimension.
+        /// Finds an existing map region without creating or resuming it.
         /// </summary>
         /// <param name="id">The ID of the region.</param>
         /// <param name="dimension">The dimension ID (0 for the global world).</param>
-        /// <param name="create">If set to <c>true</c>, creates the region if it does not exist.</param>
-        /// <param name="resume">If set to <c>true</c>, resumes the region if it is suspended.</param>
-        /// <returns>The <see cref="IMapRegion"/> if found or created; otherwise, <c>null</c>.</returns>
-        IMapRegion? GetMapRegion(int id, int dimension, bool create, bool resume);
+        /// <returns>The existing <see cref="IMapRegion"/>; otherwise, <c>null</c>.</returns>
+        IMapRegion? FindMapRegion(int id, int dimension);
 
         /// <summary>
         /// Gets an existing map region or creates a new one if it doesn't exist.
         /// </summary>
         /// <param name="id">The ID of the region.</param>
         /// <param name="dimension">The dimension ID (0 for the global world).</param>
-        /// <param name="resume">If set to <c>true</c>, resumes the region if it is suspended.</param>
         /// <returns>The existing or newly created <see cref="IMapRegion"/>.</returns>
-        public IMapRegion GetOrCreateMapRegion(int id, int dimension, bool resume);
+        IMapRegion GetOrCreateMapRegion(int id, int dimension);
+
+        IMapRegion AttachCharacter(ICharacter character);
+
+        void DetachCharacter(ICharacter character, IMapRegion expectedRegion);
+
+        IMapRegion AttachNpc(INpc npc);
+
+        void DetachNpc(INpc npc, IMapRegion expectedRegion);
+
+        void AddGroundItem(IGroundItem item);
+
+        bool RemoveGroundItem(IGroundItem item);
+
+        void AddGameObject(IGameObject gameObject);
+
+        void RemoveGameObject(IGameObject gameObject);
+
+        void FlagCollision(IGameObject gameObject);
+
+        void UnFlagCollision(IGameObject gameObject);
+
+        void QueueUpdate(IRegionPartUpdate update);
+
+        /// <summary>
+        /// Removes a region only when the active region is the expected instance.
+        /// </summary>
+        /// <param name="id">The ID of the region.</param>
+        /// <param name="dimension">The dimension containing the region.</param>
+        /// <param name="expectedRegion">The region instance that may be removed.</param>
+        /// <returns><c>true</c> when the expected instance was removed; otherwise, <c>false</c>.</returns>
+        bool TryRemoveMapRegion(int id, int dimension, IMapRegion expectedRegion);
+
+        /// <summary>
+        /// Moves the expected active region to idle ownership.
+        /// </summary>
+        bool TrySuspendMapRegion(IMapRegion expectedRegion);
+
+        /// <summary>
+        /// Removes an exact idle region before destruction.
+        /// </summary>
+        bool TryRemoveIdleMapRegion(int id, int dimension, IMapRegion expectedRegion);
+
+        /// <summary>
+        /// Checks whether the expected region instance is the current active region for its location.
+        /// </summary>
+        /// <param name="id">The region ID.</param>
+        /// <param name="dimension">The dimension containing the region.</param>
+        /// <param name="expectedRegion">The region instance to compare by reference.</param>
+        /// <returns><c>true</c> when the expected instance is current; otherwise, <c>false</c>.</returns>
+        bool IsCurrentMapRegion(int id, int dimension, IMapRegion expectedRegion);
 
         /// <summary>
         /// Gets all map regions within a certain range of a location, typically for a character's viewport.
         /// </summary>
         /// <param name="location">The central location.</param>
-        /// <param name="create">If set to <c>true</c>, creates any regions within range that do not exist.</param>
-        /// <param name="resume">If set to <c>true</c>, resumes any regions within range that are suspended.</param>
         /// <param name="mapSize">The size of the area to get regions for.</param>
         /// <returns>An enumerable collection of map regions within the specified range.</returns>
-        IEnumerable<IMapRegion> GetMapRegionsWithinRange(ILocation location, bool create, bool resume, IMapSize mapSize);
+        IEnumerable<IMapRegion> GetMapRegionsWithinRange(ILocation location, IMapSize mapSize);
 
         /// <summary>
         /// Gets the XTEA keys for a given region, used for decrypting map data.
@@ -95,24 +145,36 @@ namespace Hagalaz.Game.Abstractions.Services
         /// </summary>
         /// <param name="dimensionId">The ID of the dimension.</param>
         /// <returns>An enumerable collection of map regions in the specified dimension.</returns>
-        IEnumerable<IMapRegion> FindRegionsByDimension(int dimensionId);
+        IReadOnlyList<IMapRegion> FindRegionsByDimension(int dimensionId);
+
+        /// <summary>
+        /// Finds a snapshot of all idle regions within a specific dimension.
+        /// </summary>
+        /// <param name="dimensionId">The ID of the dimension.</param>
+        /// <returns>A snapshot of idle regions in the specified dimension.</returns>
+        IReadOnlyList<IMapRegion> FindIdleRegionsByDimension(int dimensionId);
 
         /// <summary>
         /// Finds all active regions across all dimensions.
         /// </summary>
         /// <returns>An enumerable collection of all active map regions.</returns>
-        IEnumerable<IMapRegion> FindAllRegions();
+        IReadOnlyList<IMapRegion> FindAllRegions();
+
+        /// <summary>
+        /// Finds one snapshot of all active regions that are ready for the major game tick.
+        /// </summary>
+        IReadOnlyList<IMapRegion> FindReadyRegions();
 
         /// <summary>
         /// Finds all active dimensions.
         /// </summary>
         /// <returns>An enumerable collection of all active dimensions.</returns>
-        IEnumerable<IDimension> FindAllDimensions();
+        IReadOnlyList<IDimension> FindAllDimensions();
 
         /// <summary>
-        /// Removes a dimension and all its associated regions from the world.
+        /// Removes the exact dimension only when it is current and empty.
         /// </summary>
-        /// <param name="dimension">The dimension to remove.</param>
-        void RemoveDimension(IDimension dimension);
+        /// <param name="expectedDimension">The exact dimension instance to remove.</param>
+        bool TryRemoveEmptyDimension(IDimension expectedDimension);
     }
 }

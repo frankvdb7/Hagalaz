@@ -48,8 +48,10 @@ namespace Hagalaz.Game.Scripts.Commands
                     CommandFunc = async (character, arguments) =>
                     {
                         var regionService = character.ServiceProvider.GetRequiredService<IMapRegionService>();
-                        var region = regionService.GetOrCreateMapRegion(character.Location.RegionId, character.Location.Dimension, false);
-                        character.SendChatMessage("Current Region Id: " + region.Id, ChatMessageType.ConsoleText);
+                        var region = regionService.FindMapRegion(character.Location.RegionId, character.Location.Dimension);
+                        character.SendChatMessage(
+                            region is null ? "Current region is not loaded." : "Current Region Id: " + region.Id,
+                            ChatMessageType.ConsoleText);
                         return true;
                     },
                     Permission = Permission.SystemAdministrator
@@ -74,9 +76,10 @@ namespace Hagalaz.Game.Scripts.Commands
                     CommandFunc = async (character, arguments) =>
                     {
                         await Task.CompletedTask;
+                        var store = character.ServiceProvider.GetRequiredService<ICharacterStore>();
                         var writer = new ServerTextWriter(text =>
                         {
-                            if (character == null || character.IsDestroyed)
+                            if (!store.IsCurrent(character))
                             {
                                 Console.Out.Close(); // close the text writer
                                 Console.SetOut(new StreamWriter(Console.OpenStandardOutput())); // reset the default
@@ -219,9 +222,12 @@ namespace Hagalaz.Game.Scripts.Commands
                     {
                         var store = character.ServiceProvider.GetRequiredService<ICharacterStore>();
                         var players = await store.CountAsync();
-                        character.SendChatMessage($"There are {players} players currently on this world.");
                         var count = await store.CountAsync();
-                        character.SendChatMessage("There are " + count + " players currently on this lobby.");
+                        character.QueueTask(new RsTask(() =>
+                        {
+                            character.SendChatMessage($"There are {players} players currently on this world.");
+                            character.SendChatMessage("There are " + count + " players currently on this lobby.");
+                        }, 1));
                         return true;
                     },
                     Permission = Permission.Standard
@@ -330,18 +336,26 @@ namespace Hagalaz.Game.Scripts.Commands
                     {
                         var name = string.Join(" ", arguments);
                         var repository = character.ServiceProvider.GetRequiredService<ICharacterStore>();
-                        var c = await repository.FindAllAsync()
+                        var c = (await repository.GetSnapshotAsync()).Values
                             .Where(ch => string.Compare(ch.DisplayName, name, StringComparison.OrdinalIgnoreCase) == 0)
-                            .SingleOrDefaultAsync();
-                        if (c != null)
+                            .SingleOrDefault();
+                        character.QueueTask(new RsTask(() =>
                         {
-                            c.Movement.Teleport(Teleport.Create(character.Location.Clone()));
-                            c.SendChatMessage("You've been teleported to " + character.DisplayName + ".");
-                        }
-                        else
-                        {
-                            character.SendChatMessage("Character \"" + name + "\" could not be found.");
-                        }
+                            if (c != null)
+                            {
+                                if (!repository.IsCurrent(c))
+                                {
+                                    return;
+                                }
+
+                                c.Movement.Teleport(Teleport.Create(character.Location.Clone()));
+                                c.SendChatMessage("You've been teleported to " + character.DisplayName + ".");
+                            }
+                            else
+                            {
+                                character.SendChatMessage("Character \"" + name + "\" could not be found.");
+                            }
+                        }, 1));
 
                         return true;
                     },
@@ -355,18 +369,26 @@ namespace Hagalaz.Game.Scripts.Commands
                         var name = string.Join(" ", arguments);
 
                         var repository = character.ServiceProvider.GetRequiredService<ICharacterStore>();
-                        var c = await repository.FindAllAsync()
+                        var c = (await repository.GetSnapshotAsync()).Values
                             .Where(ch => string.Compare(ch.DisplayName, name, StringComparison.OrdinalIgnoreCase) == 0)
-                            .FirstOrDefaultAsync();
-                        if (c != null)
+                            .FirstOrDefault();
+                        character.QueueTask(new RsTask(() =>
                         {
-                            character.Movement.Teleport(Teleport.Create(c.Location.Clone()));
-                            character.SendChatMessage("You teleported to " + c.DisplayName + ".");
-                        }
-                        else
-                        {
-                            character.SendChatMessage("Character \"" + name + "\" could not be found.");
-                        }
+                            if (c != null)
+                            {
+                                if (!repository.IsCurrent(c))
+                                {
+                                    return;
+                                }
+
+                                character.Movement.Teleport(Teleport.Create(c.Location.Clone()));
+                                character.SendChatMessage("You teleported to " + c.DisplayName + ".");
+                            }
+                            else
+                            {
+                                character.SendChatMessage("Character \"" + name + "\" could not be found.");
+                            }
+                        }, 1));
 
                         return true;
                     },

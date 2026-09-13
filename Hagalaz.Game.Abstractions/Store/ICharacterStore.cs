@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Tasks;
 
 namespace Hagalaz.Game.Abstractions.Store
 {
@@ -11,12 +12,6 @@ namespace Hagalaz.Game.Abstractions.Store
     /// </summary>
     public interface ICharacterStore
     {
-        /// <summary>
-        /// Asynchronously retrieves all characters currently in the store.
-        /// </summary>
-        /// <returns>An <see cref="IAsyncEnumerable{T}"/> of <see cref="ICharacter"/> instances.</returns>
-        IAsyncEnumerable<ICharacter> FindAllAsync();
-
         /// <summary>
         /// Captures the characters currently in the store for one synchronous game tick.
         /// </summary>
@@ -45,17 +40,36 @@ namespace Hagalaz.Game.Abstractions.Store
         ValueTask<bool> RemoveAsync(ICharacter character);
 
         /// <summary>
-        /// Asynchronously finds a character that matches the specified predicate.
-        /// </summary>
-        /// <param name="predicate">The condition to test each character against.</param>
-        /// <returns>A <see cref="ValueTask{TResult}"/> that resolves to the first matching <see cref="ICharacter"/>, or <c>null</c> if no character is found.</returns>
-        ValueTask<ICharacter?> FindAsync(Func<ICharacter, bool> predicate);
-
-        /// <summary>
         /// Asynchronously finds a character by their unique identifier.
         /// </summary>
         /// <param name="id">The unique identifier of the character.</param>
         /// <returns>A <see cref="ValueTask{TResult}"/> that resolves to the <see cref="ICharacter"/> if found; otherwise, <c>null</c>.</returns>
         ValueTask<ICharacter?> FindByIdAsync(uint id);
+
+        /// <summary>
+        /// Asynchronously finds a character by its store index.
+        /// </summary>
+        ValueTask<ICharacter?> FindByIndexAsync(int index);
+
+        /// <summary>
+        /// Finds the currently owned character synchronously from the GameWorker boundary.
+        /// </summary>
+        ICharacter? FindByMasterId(uint id);
+
+        /// <summary>
+        /// Returns whether the store still owns this exact character instance.
+        /// </summary>
+        bool IsCurrent(ICharacter character);
+
+        /// <summary>
+        /// Removes the exact character instance synchronously from the GameWorker boundary.
+        /// </summary>
+        bool Remove(ICharacter character);
+
+        /// <summary>
+        /// Admits and schedules work for an exact currently owned character.
+        /// </summary>
+        bool TryQueueTask(ICharacter character, ITaskItem task);
+
     }
 }

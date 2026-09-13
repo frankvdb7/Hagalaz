@@ -16,5 +16,11 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Messages
         public DisplayMode DisplayMode { get; init; }
         public int ClientSizeX { get; init; }
         public int ClientSizeY { get; init; }
+
+        /// <summary>
+        /// Gets the exact lobby claim presented when this world sign-in is the
+        /// successor of a lobby session on another GameWorld instance.
+        /// </summary>
+        public string? LobbySessionClaimId { get; init; }
     }
 }

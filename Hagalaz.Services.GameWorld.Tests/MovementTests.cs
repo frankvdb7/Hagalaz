@@ -307,7 +307,7 @@ public sealed class MovementTests
         protected override void ResetTick() { }
         protected override void OnLocationChange(ILocation? oldLocation) { }
         protected override void OnRegionChange() { }
-        protected override void AddToRegion(IMapRegion newRegion) { }
+        protected override IMapRegion AddToRegion() => Substitute.For<IMapRegion>();
         protected override void RemoveFromRegion(IMapRegion region) { }
         protected override void CreatureFaced(ICreature? creature) { }
         protected override void TurnedTo(int x, int y) { }

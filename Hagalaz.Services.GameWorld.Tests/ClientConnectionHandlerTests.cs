@@ -372,7 +372,8 @@ public sealed class ClientConnectionHandlerTests
         {
             AuthenticationProperties = new AuthenticationProperties
             {
-                Claims = new Dictionary<string, object> { [OpenIddictConstants.Claims.Subject] = "42" }
+                Claims = new Dictionary<string, object> { [OpenIddictConstants.Claims.Subject] = "42" },
+                AuthorizationId = "authorization-id"
             }
         });
 

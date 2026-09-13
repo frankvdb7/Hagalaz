@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Builders.Animation;
 using Hagalaz.Game.Abstractions.Builders.Audio;
@@ -26,13 +27,18 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
+using Hagalaz.Game.Common.Events.Character.Packet;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
+using Hagalaz.Services.GameWorld.Data;
 using Hagalaz.Services.GameWorld.Providers;
 using Hagalaz.Services.GameWorld.Logic.Hydrators;
 using Hagalaz.Services.GameWorld.Services.Model;
@@ -145,10 +151,75 @@ public sealed class CharacterStatePersistenceTests
         ((IHydratable<HydratedFamiliarDto>)familiarScript).Received(1).Hydrate(hydration);
     }
 
+    [TestMethod]
+    public void Destroy_WhenCharacterScriptFails_PublishesCleanupEvent()
+    {
+        var script = Substitute.For<IDefaultCharacterScript>();
+        var failure = new InvalidOperationException("script cleanup failed");
+        var attempts = 0;
+        script.When(value => value.OnDestroy()).Do(_ =>
+        {
+            if (++attempts == 1)
+                throw failure;
+        });
+        var character = CreateCharacter(new TestStateService(), out _, new[] { script });
+
+        var firstFailure = Assert.ThrowsExactly<InvalidOperationException>(() => character.Destroy());
+
+        Assert.AreSame(failure, firstFailure);
+        script.Received(1).OnDestroy();
+        character.EventManager.Received(1).SendEvent(Arg.Any<IEvent>());
+    }
+
+    [TestMethod]
+    public void ConsoleCommandEvent_QueuesCommandForGameLoopExecution()
+    {
+        var stateService = new TestStateService();
+        var eventManager = new InMemoryEventBus();
+        var commandPrompt = Substitute.For<IGameCommandPrompt>();
+        var taskService = Substitute.For<ICreatureTaskService>();
+        ITaskItem? scheduledTask = null;
+
+        taskService.When(service => service.Schedule(Arg.Any<ITaskItem>()))
+            .Do(callInfo => scheduledTask = callInfo.Arg<ITaskItem>());
+        commandPrompt.ExecuteAsync("coords", Arg.Any<ICharacter>(), Arg.Is<string[]>(args => args.Length == 0))
+            .Returns(new ValueTask<bool>(true));
+
+        var character = CreateCharacter(stateService, out _, null, eventManager, commandPrompt, taskService);
+        typeof(Character)
+            .GetMethod("RegisterEventHandlers", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(character, null);
+
+        Assert.IsFalse(character.EventManager.SendEvent(new ConsoleCommandEvent(character, "coords")));
+        commandPrompt.DidNotReceive().ExecuteAsync(Arg.Any<string>(), Arg.Any<ICharacter>(), Arg.Any<string[]>());
+
+        Assert.IsNotNull(scheduledTask);
+        scheduledTask.Tick();
+
+        commandPrompt.Received(1).ExecuteAsync("coords", character, Arg.Is<string[]>(args => args.Length == 0));
+    }
+
     private static Character CreateCharacter(
         TestStateService stateService,
         out IEquipmentScript equipmentScript,
         IEnumerable<IDefaultCharacterScript>? defaultScripts = null)
+    {
+        return CreateCharacter(
+            stateService,
+            out equipmentScript,
+            defaultScripts,
+            Substitute.For<IEventManager>(),
+            Substitute.For<IGameCommandPrompt>(),
+            Substitute.For<ICreatureTaskService>());
+    }
+
+    private static Character CreateCharacter(
+        TestStateService stateService,
+        out IEquipmentScript equipmentScript,
+        IEnumerable<IDefaultCharacterScript>? defaultScripts,
+        IEventManager eventManager,
+        IGameCommandPrompt gameCommandPrompt,
+        ICreatureTaskService taskService)
     {
         var serviceProvider = Substitute.For<IServiceProvider>();
         var serviceScope = Substitute.For<IServiceScope>();
@@ -172,10 +243,10 @@ public sealed class CharacterStatePersistenceTests
         var scripts = Substitute.For<IDefaultCharacterScriptProvider>();
         scripts.GetAllScripts().Returns(defaultScripts ?? Array.Empty<IDefaultCharacterScript>());
 
-        Register(serviceProvider, Substitute.For<ICreatureTaskService>());
+        Register(serviceProvider, taskService);
         Register(serviceProvider, Substitute.For<IScopedGameMediator>());
         Register(serviceProvider, Substitute.For<ICharacterContextProvider>());
-        Register(serviceProvider, Substitute.For<IEventManager>());
+        Register(serviceProvider, eventManager);
         Register(serviceProvider, Substitute.For<ISmartPathFinder>());
         Register(serviceProvider, Substitute.For<IProjectilePathFinder>());
         Register(serviceProvider, Substitute.For<IMapRegionService>());
@@ -192,13 +263,15 @@ public sealed class CharacterStatePersistenceTests
         Register(serviceProvider, scripts);
         Register(serviceProvider, itemBuilder);
         Register<IStateService>(serviceProvider, stateService);
+        var characterStore = Substitute.For<ICharacterStore>();
+        Register(serviceProvider, characterStore);
 
         var character = new Character(
             serviceScope,
             Substitute.For<IGameSession>(),
             Substitute.For<IGameClient>(),
             Substitute.For<ICharacterContextProvider>(),
-            Substitute.For<IEventManager>(),
+            eventManager,
             Substitute.For<IScopedGameMediator>(),
             Substitute.For<ISmartPathFinder>(),
             Substitute.For<IProjectilePathFinder>(),
@@ -210,7 +283,7 @@ public sealed class CharacterStatePersistenceTests
             Substitute.For<IMapRegionService>(),
             Substitute.For<IMapUpdateService>(),
             Substitute.For<IMusicService>(),
-            Substitute.For<IGameCommandPrompt>(),
+            gameCommandPrompt,
             Substitute.For<Microsoft.Extensions.Logging.ILogger<ICharacter>>(),
             Substitute.For<IAudioBuilder>(),
             Substitute.For<IGameMessageService>(),
@@ -234,7 +307,14 @@ public sealed class CharacterStatePersistenceTests
             Substitute.For<ISlayerTaskCompletedDialogue>(),
             Substitute.For<IFarmingService>(),
             Substitute.For<IGameObjectService>(),
-            Substitute.For<IWidgetScriptProvider>());
+            Substitute.For<IWidgetScriptProvider>(),
+            characterStore);
+        characterStore.TryQueueTask(Arg.Any<ICharacter>(), Arg.Any<ITaskItem>())
+            .Returns(callInfo =>
+            {
+                taskService.Schedule(callInfo.Arg<ITaskItem>());
+                return true;
+            });
         ((IHydratable<HydratedDetailsDto>)character).Hydrate(new HydratedDetailsDto
         {
             CoordX = 3200,

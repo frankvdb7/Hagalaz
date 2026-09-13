@@ -81,7 +81,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             _serviceProvider.GetService(typeof(IGameObjectService)).Returns(_gameObjectService);
             _serviceProvider.GetService(typeof(IGameObjectBuilder)).Returns(_gameObjectBuilder);
             _serviceProvider.GetService(typeof(IMapRegionService)).Returns(_mapRegionService);
-            _mapRegionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>(), false)
+            _mapRegionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>())
                 .Returns(Substitute.For<IMapRegion>());
 
             _gameObjectBuilder.Create().Returns(_gameObjectId);

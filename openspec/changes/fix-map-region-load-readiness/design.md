@@ -1,0 +1,262 @@
+## Context
+
+`MapRegionService` publishes a newly created region in its active dictionary
+and submits one initial request to the load scheduler.
+`MapRegionLoadScheduler` remains the only asynchronous loader and coalesces
+requests by region instance. `MapRegionLoader` must therefore avoid exposing partial state
+and must remove a failed published instance before completing its failed load.
+
+## Goals and non-goals
+
+Goals are complete readiness publication, prepare-before-apply, accurate cache
+failure semantics, fatal NPC construction and registration failure, cleanup of
+external NPC ownership, explicit region lifecycle, stale reference rejection,
+and fresh-instance retry through the existing
+service/scheduler.
+
+Non-goals are a generic transaction abstraction, a second queue or worker
+(the scheduler request channel is shared with the publication sink),
+automatic retries, dimension-aware pathfinding changes, cache-format changes,
+and unrelated GameWorld lifecycle changes.
+
+## Decisions
+
+### 1. Use local staging in `MapRegionLoader`
+
+The loader queries all configured spawn sources first. Static decode callbacks
+append prepared object instances and collision coordinates to local lists. The
+loader builds configured items and objects before applying any region state.
+These lists are private implementation details; no transaction or rollback
+abstraction is introduced.
+
+### 2. Keep initial loading and destruction lifecycles explicit
+
+`IMapRegion.State` is the only stored initial-load lifecycle state and uses
+exactly `Initializing`, `Ready`, and `Discarded`. A new region starts
+`Initializing`; only the loader can publish `Ready` after all required
+population; a fatal failure or cancellation marks that instance `Discarded`.
+`Ready` and `Discarded` are terminal for this lifecycle. A discarded instance
+is never reset or retried.
+
+Destruction is a terminal fact on the region. `MapRegionService` removes an
+exact idle region from residency before cleanup, and `MapRegion.DestroyAsync`
+then performs sequential terminal cleanup without owning residency or a
+second destruction state machine.
+
+### 3. Apply prepared map state before NPC registration
+
+After preparation succeeds, collision, static objects, configured objects, and
+ground items are applied. NPCs are then built and registered. This keeps global
+NPC ownership out of failures discovered during source preparation and map
+construction. `MapRegion.MarkReady()` remains the final commit/readiness signal.
+
+### 4. Treat cache absence differently from cache failure
+
+`ICacheAPI.GetFileId` returns `-1` when the named archive is absent. The map
+provider returns `null` only for that result, preserving existing empty-map
+behavior. It does not catch `ReadContainer` or decoder exceptions, so corrupt,
+encrypted-with-wrong-keys, truncated, or structurally invalid data aborts the
+load.
+
+### 5. Treat NPC construction and registration failures as fatal
+
+`NpcBuilder.Build()` resolves infrastructure and script dependencies, so an
+arbitrary construction exception is not classified as an isolated content
+error. The loader lets construction exceptions escape, just as it does for
+`INpcService.RegisterAsync`; the service remains responsible for cleaning up
+its own failed registration and the region load fails. Database, cache, map
+apply, and cancellation failures remain fatal as well.
+
+### 6. Discard the instance and clean external ownership
+
+The loader keeps a local list of NPCs whose registration completed successfully.
+If the attempt later fails, it marks the instance discarded before cleanup so
+stale references become inert immediately. It then tries to unregister every
+item in that list and preserves cleanup failures before calling the map
+service's compare-and-remove operation. The operation removes only the active
+dictionary entry whose value is the expected instance, so a late failure
+cannot remove a replacement. The failed region's partially applied local
+state is not reset or reused.
+
+### 7. Preserve scheduler ownership, coalescing, and canonical identity
+
+The existing scheduler remains the only load worker and its in-flight map still
+coalesces duplicate requests for one region instance. It owns its private
+channel and queue lifecycle and does not inspect map residency. `Ready` is a
+no-op and `Discarded` is rejected. `MapRegionLoader` remains authoritative for
+canonical-instance validation and failure cleanup. A normal later map request
+resolves through `MapRegionService` and receives a new instance.
+
+### 8. Keep stale consumers fail-closed and refresh explicitly
+
+`Viewport.VisibleRegions` is a passive view of retained references.
+`RefreshVisibleRegions` explicitly rebinds those references through
+`MapRegionService` at a lifecycle boundary before they are consumed. Only
+ready regions contribute creatures, full region updates, or world ticks.
+Initializing canonical regions may still be submitted for loading; discarded
+or stale instances are not. Dynamic map packet selection uses region identity
+and configuration independently of readiness. The background lifecycle
+service also leaves initializing regions active until they publish readiness.
+The GameWorker filters its snapshot to ready regions before any major tick
+phase, and collision returns `FloorBlock` for every non-ready state.
+
+### 9. Centralize residency ownership and terminal destruction
+
+`MapRegionService` owns active/idle residency transitions. A small
+per-dimension synchronization root covers only dictionary ownership changes,
+so active-to-idle transfer, idle-to-active resume, and exact idle destruction
+claims cannot expose a gap or create a second canonical instance. A destruction
+claim removes the exact idle instance before cleanup starts. Cleanup is terminal:
+the region is no longer canonical even when an individual cleanup operation
+fails, so the background service logs the failure and does not retain a retry
+collection. Existing concurrent dictionaries remain the storage mechanism, and
+exact instance removal remains compare-by-key-and-value cleanup for failed
+loads.
+
+Dimension removal uses the same synchronization root and removes only an exact
+current, empty `Dimension`. Region construction may occur outside the lock, but
+publication revalidates that the captured dimension is still current before
+inserting the region.
+
+`MapRegionService` removes an exact idle instance under its per-dimension
+residency synchronization root before calling destruction. `MapRegion`
+publishes its terminal destroyed fact and then performs cleanup sequentially;
+later calls fail immediately. Cleanup attempts every NPC, ground item, and
+game object independently, preserves the first failure, and does not own a
+residency retry path. Game-worker serialization is the mutation boundary for
+active regions, so the region does not add a second mutation lock.
+
+### 12. Request initial loads at canonical publication
+
+Creating a new canonical region synchronously calls the injected
+`IMapRegionLoadScheduler`. The scheduler owns its private request channel,
+in-flight deduplication, and shutdown. The loader retains canonical-instance
+validation, keeping synchronous map APIs synchronous without a request-sink
+bridge or scheduler residency dependency.
+
+### 13. Keep scheduler loading serial for now
+
+The scheduler remains a single-reader execution boundary. The loader performs
+shared cache/archive reads and mutates canonical region state, while the
+current acceptance criteria require deduplication and deterministic shutdown,
+not a throughput target. Introducing bounded parallelism would require a
+separate measurement and concurrency contract, so it is deliberately left as
+a follow-up rather than adding speculative worker coordination here.
+
+### 14. Serialize active membership mutations with residency ownership
+
+`MapRegionService` owns the short active/idle residency boundary and the
+membership mutations that require active residency. Character and NPC attach
+and detach operations resolve the canonical region and mutate its in-memory
+membership while `_residencyGate` is held. `Creature` stores the exact region
+returned by the attach operation for teardown; it does not retry or inspect
+residency itself.
+
+The background service only performs a ready-region eligibility snapshot before
+calling `TrySuspendMapRegion`. Script-backed eligibility is evaluated before
+the residency gate is entered, so NPC and game-object scripts cannot stall
+unrelated dimensions. Character membership and the suspension eligibility
+observed when an NPC is attached are retained as ordinary structural facts;
+the final active-instance, character-membership, and non-suspendable-NPC checks
+are made under the same owner boundary before moving the region to idle. This
+prevents stale eligibility from suspending a region after a non-suspendable
+creature was attached. The guarded operation is limited to deterministic
+membership and eligibility facts; it does not perform loading, destruction,
+publishing, script callbacks, or other asynchronous work while holding the
+gate.
+
+### 15. Keep live region mutations on the worker boundary
+
+`MapRegionService` exposes small domain operations for live ground-item,
+game-object, collision, and update mutations. Each operation resolves the
+canonical active region before applying its change. Collision and update
+queueing hold the residency gate only for the bounded structural write. Item
+and object insertion/removal may invoke item or object scripts, so those
+callbacks execute outside the gate. The service does not provide a second
+lock or queue; network and hub entrypoints hand live script/gameplay work to
+the existing character task queue, whose single `RsTaskService` instance is
+shared by creature scheduling and the serialized GameWorker boundary.
+Dynamic-region setup resolves both source and
+destination through the service; its block population remains on that same
+worker boundary and does not hold the residency gate while loading copied
+objects.
+
+Raido message scopes are request-lifetime only. Deferred gameplay tasks retain
+only packet input, valid domain references, and long-lived ownership references;
+scoped gameplay dependencies needed by deferred execution are resolved from
+the Character-owned service provider at GameWorker execution time. Character
+gameplay inputs whose relative order affects Character state remain serialized
+through the shared task scheduler.
+
+CPU-bound work may execute outside the game loop, but it returns data only.
+Character, script, widget, map, and other live gameplay mutation occurs through
+the serialized GameWorker owner. Deferred gameplay tasks do not retain
+request-lifetime Raido hubs or request-scoped dependencies.
+
+### 10. Preserve dynamic source dimensions
+
+Dynamic map parts retain the source/template dimension alongside their draw
+coordinates and an explicit mapped/unmapped flag. `LoadPartObjects` uses that
+stored dimension to resolve source objects and collision, while copied runtime
+objects continue to use the destination region's `BaseLocation.Dimension`.
+`Erase` clears the mapping flag; hash codes are not used as data-presence
+state. This keeps source/template ownership separate from destination/runtime
+ownership without introducing a generic template abstraction.
+
+### 11. Keep NPC store lookup indexed
+
+`NpcStore.FindByIndexAsync` uses `CreatureCollection`'s indexer under a short
+`AsyncReaderWriterLock` reader lock. The unused predicate API is removed. Sync
+writer/readers continue to use the lock's synchronous methods where applicable.
+Registration and cleanup preserve the primary operation failure while logging
+best-effort cleanup failures.
+
+## Failure flow
+
+```text
+create/publish R1
+  -> query and decode into local data
+  -> apply prepared map data
+  -> register configured NPCs
+  -> R1.MarkReady() publishes readiness
+
+fatal failure
+  -> mark R1 Discarded
+  -> unregister only NPCs registered by this attempt
+  -> exact-remove R1 if still current
+  -> propagate failure; R1 is discarded
+
+later request
+  -> MapRegionService creates R2
+```
+
+## Verification
+
+Use deterministic task gates for blocked decode/registration tests. Verify
+staged data is not applied after a decode failure, cache absence versus cache
+failure, fatal NPC construction and registration failure, cancellation cleanup,
+exact replacement, discarded scheduling rejection, canonical identity, stale
+viewport rebinding, ready-only worker ticks, fail-closed collision, and
+existing scheduler coalescing. Run focused tests, strict OpenSpec validation,
+build/diff checks, and broader validation when resources permit.
+
+Dimension-aware collision/pathfinding is tracked separately in
+https://github.com/frankvdb7/Hagalaz/issues/496 because the current coordinate
+only pathfinder APIs would otherwise require a broader API change. Manual
+client verification remains intentionally separate from automated tests.
+
+### Manual client verification for task 5.4
+
+1. Rebuild and restart `Hagalaz.Services.GameWorld` through the normal Aspire
+   AppHost flow, then restart the client.
+2. In a known static map area such as Lumbridge, walk against a solid wall and
+   around a building corner. The player must stop at static clipping boundaries;
+   no walking through walls or visible late collision changes should occur.
+3. Exercise a dynamic/custom-object region created by a script using a source
+   region in dimension 0 and a destination region in the custom dimension.
+   Walk against the copied object from each side. The copied object must block
+   movement in the destination world and must not appear to load or clip from
+   dimension 0.
+4. Treat missing objects, walking through either static or copied objects,
+   objects appearing after entry, or a client disconnect during region loading
+   as failures.

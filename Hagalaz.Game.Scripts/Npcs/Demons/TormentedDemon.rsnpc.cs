@@ -493,7 +493,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
         /// </summary>
         private void DisableShield()
         {
-            if (_weakener != null && !_weakener.IsDestroyed)
+            if (_weakener != null)
             {
                 _weakener.SendChatMessage("The demon is temporarily weakened by your weapon.");
             }
@@ -507,7 +507,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
         /// </summary>
         private void EnabledShield()
         {
-            if (_weakener != null && !_weakener.IsDestroyed)
+            if (_weakener != null)
             {
                 _weakener.SendChatMessage("The Tormented demon regains its strength against your weapon.");
             }

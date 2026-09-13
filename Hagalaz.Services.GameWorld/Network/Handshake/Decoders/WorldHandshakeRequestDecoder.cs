@@ -229,7 +229,10 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                         ClientId = Convert.ToHexString(userId),
                         DisplayMode = (DisplayMode)displayMode,
                         ClientSizeX = screenSizeX,
-                        ClientSizeY = screenSizeY
+                        ClientSizeY = screenSizeY,
+                        LobbySessionClaimId = loggedInFromLobby && !string.IsNullOrWhiteSpace(serverToken)
+                            ? serverToken
+                            : null
                     }
                     : new WorldSignInRequest
                     {
@@ -242,7 +245,10 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                         ClientId = Convert.ToHexString(userId),
                         DisplayMode = (DisplayMode)displayMode,
                         ClientSizeX = screenSizeX,
-                        ClientSizeY = screenSizeY
+                        ClientSizeY = screenSizeY,
+                        LobbySessionClaimId = loggedInFromLobby && !string.IsNullOrWhiteSpace(serverToken)
+                            ? serverToken
+                            : null
                     };
                 return true;
                 });

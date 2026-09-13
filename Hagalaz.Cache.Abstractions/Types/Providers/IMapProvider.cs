@@ -22,6 +22,7 @@ namespace Hagalaz.Cache.Abstractions.Types.Providers
     public interface IMapProvider : ITypeProvider<IMapType>
     {
         IMapType Get(int typeId, int[]? xteaKeys = null);
+        void DecodeRegion(int regionId, int[] xteaKeys, ObjectDecoded callback, ImpassibleTerrainDecoded groundCallback);
         void DecodePart(DecodePartRequest request);
     }
 }

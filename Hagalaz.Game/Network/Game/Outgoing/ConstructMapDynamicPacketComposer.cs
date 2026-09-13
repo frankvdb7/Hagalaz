@@ -45,7 +45,7 @@
 //             //         for (var regPartY = regionPartY - viewPortSize; regPartY <= regionPartY + viewPortSize; regPartY++)
 //             //         {
 //             //             int regionID = ((regPartX / 8) << 8) + regPartY / 8;
-//             //             var region = regionManager.GetOrCreateMapRegion(regionID, character.Location.Dimension, true);
+//             //             var region = regionManager.GetOrCreateMapRegion(regionID, character.Location.Dimension);
 //             //             var data = region.GetRegionPartData(regPartX, regPartY, z);
 //             //             int hash = data.GetHashCode();
 //             //             composer.AppendBits(1, hash != 0 ? 1 : 0);

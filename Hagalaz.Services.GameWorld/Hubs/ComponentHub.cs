@@ -2,12 +2,14 @@
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character.Packet;
 using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Services.GameWorld.Hubs.Filters;
 using Microsoft.AspNetCore.Authorization;
 using Raido.Common.Protocol;
 using Raido.Server;
+using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Services.GameWorld.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Hubs
@@ -18,15 +20,10 @@ namespace Hagalaz.Services.GameWorld.Hubs
     {
         private readonly ICharacterService _characterService;
         private readonly INpcService _npcService;
-        private readonly IGroundItemService _groundItemService;
-        private readonly IGameObjectService _gameObjectService;
-
-        public ComponentHub(ICharacterService characterService, INpcService npcService, IGroundItemService groundItemService, IGameObjectService gameObjectService)
+        public ComponentHub(ICharacterService characterService, INpcService npcService)
         {
             _characterService = characterService;
             _npcService = npcService;
-            _groundItemService = groundItemService;
-            _gameObjectService = gameObjectService;
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentClickMessage))]
@@ -37,75 +34,88 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 return;
             }
             var character = Context.GetCharacter();
-            if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var gameInterface))
+            character.QueueTask(new RsTask(() =>
             {
-                return;
-            }
-            gameInterface.OnComponentClick(message.ChildId, message.ClickType, message.ExtraData1, message.ExtraData2);
+                if (character.Widgets.TryGetOpenWidget(message.InterfaceId, out var gameInterface))
+                {
+                    gameInterface.OnComponentClick(message.ChildId, message.ClickType, message.ExtraData1, message.ExtraData2);
+                }
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentDragMessage))]
         public void OnComponentDrag(InterfaceComponentDragMessage message)
         {
             var character = Context.GetCharacter();
-            if (!character.Widgets.TryGetOpenWidget(message.FromId, out var fromInterface) || !character.Widgets.TryGetOpenWidget(message.ToId, out var toInterface))
+            character.QueueTask(new RsTask(() =>
             {
-                return;
-            }
-            fromInterface.OnComponentDrag(message.FromComponentId, message.FromExtraData1, message.FromExtraData2, toInterface, message.ToComponentId, message.ToExtraData1, message.ToExtraData2);
+                if (character.Widgets.TryGetOpenWidget(message.FromId, out var fromInterface)
+                    && character.Widgets.TryGetOpenWidget(message.ToId, out var toInterface))
+                {
+                    fromInterface.OnComponentDrag(message.FromComponentId, message.FromExtraData1, message.FromExtraData2,
+                        toInterface, message.ToComponentId, message.ToExtraData1, message.ToExtraData2);
+                }
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentUseOnCharacterMessage))]
         public async Task OnComponentUseOnCharacter(InterfaceComponentUseOnCharacterMessage message)
         {
             var character = Context.GetCharacter();
-            if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
-            {
-                return;
-            }
             var target = await _characterService.FindByIndex(message.Index);
             if (target == null)
             {
                 return;
             }
-            @interface.OnComponentUsedOnCreature(message.ComponentId, target, message.ForceRun, message.ExtraData1, message.ExtraData2);
+            character.QueueTask(new RsTask(() =>
+            {
+                if (character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
+                {
+                    @interface.OnComponentUsedOnCreature(message.ComponentId, target, message.ForceRun, message.ExtraData1, message.ExtraData2);
+                }
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentUseOnNpcMessage))]
         public async Task OnComponentUseOnNpc(InterfaceComponentUseOnNpcMessage message)
         {
             var character = Context.GetCharacter();
-            if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
-            {
-                return;
-            }
             var target = await _npcService.FindByIndexAsync(message.Index);
             if (target == null)
             {
                 return;
             }
-            @interface.OnComponentUsedOnCreature(message.ComponentId, target, message.ForceRun, message.ExtraData1, message.ExtraData2);
+            character.QueueTask(new RsTask(() =>
+            {
+                if (character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
+                {
+                    @interface.OnComponentUsedOnCreature(message.ComponentId, target, message.ForceRun, message.ExtraData1, message.ExtraData2);
+                }
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentUseOnGroundItemMessage))]
         public void OnComponentUseOnGroundItem(InterfaceComponentUseOnGroundItemMessage message)
         {
             var character = Context.GetCharacter();
-            if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
+            character.QueueTask(new RsTask(() =>
             {
-                return;
-            }
-            var location = new Location(message.AbsX, message.AbsY, character.Location.Z, character.Location.Dimension);
-            if (!character.Viewport.InBounds(location))
-            {
-                return;
-            }
-            var target = _groundItemService.FindByLocation(location).FirstOrDefault(i => i.ItemOnGround.Id == message.ItemId);
-            if (target == null)
-            {
-                return;
-            }
-            @interface.OnComponentUsedOnGroundItem(message.ComponentId, target, message.ForceRun, message.ExtraData1, message.ExtraData2);
+                if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
+                {
+                    return;
+                }
+                var location = new Location(message.AbsX, message.AbsY, character.Location.Z, character.Location.Dimension);
+                if (!character.Viewport.InBounds(location))
+                {
+                    return;
+                }
+                var groundItemService = character.ServiceProvider.GetRequiredService<IGroundItemService>();
+                var target = groundItemService.FindByLocation(location).FirstOrDefault(i => i.ItemOnGround.Id == message.ItemId);
+                if (target != null)
+                {
+                    @interface.OnComponentUsedOnGroundItem(message.ComponentId, target, message.ForceRun, message.ExtraData1, message.ExtraData2);
+                }
+            }, 1));
         }
 
 
@@ -113,63 +123,82 @@ namespace Hagalaz.Services.GameWorld.Hubs
         public void OnComponentUseOnGameObject(InterfaceComponentUseOnGameObjectMessage message)
         {
             var character = Context.GetCharacter();
-            if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
+            character.QueueTask(new RsTask(() =>
             {
-                return;
-            }
-            var location = new Location(message.AbsX, message.AbsY, character.Location.Z, character.Location.Dimension);
-            if (!character.Viewport.InBounds(location))
-            {
-                return;
-            }
-            var target = _gameObjectService.FindByLocation(location).FirstOrDefault(g => g.Id == message.GameObjectId);
-            if (target == null)
-            {
-                return;
-            }
-            @interface.OnComponentUsedOnGameObject(message.ComponentId, target, message.ForceRun, message.ExtraData1, message.ExtraData2);
+                if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
+                {
+                    return;
+                }
+                var location = new Location(message.AbsX, message.AbsY, character.Location.Z, character.Location.Dimension);
+                if (!character.Viewport.InBounds(location))
+                {
+                    return;
+                }
+                var gameObjectService = character.ServiceProvider.GetRequiredService<IGameObjectService>();
+                var target = gameObjectService.FindByLocation(location).FirstOrDefault(g => g.Id == message.GameObjectId);
+                if (target != null)
+                {
+                    @interface.OnComponentUsedOnGameObject(message.ComponentId, target, message.ForceRun, message.ExtraData1, message.ExtraData2);
+                }
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentUseOnComponentMessage))]
         public void OnComponentUseOnComponent(InterfaceComponentUseOnComponentMessage message)
         {
             var character = Context.GetCharacter();
-            if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface) || !character.Widgets.TryGetOpenWidget(message.OnInterfaceId, out var onInterface))
+            character.QueueTask(new RsTask(() =>
             {
-                return;
-            }
-            if (!@interface.OnComponentUsedOnComponent(message.ComponentId, message.ExtraData1, message.ExtraData2, message.OnExtraData1, message.OnExtraData2))
-            {
-                onInterface.OnComponentUsedOnComponent(message.OnComponentId, message.OnExtraData1, message.OnExtraData2, message.ExtraData1, message.ExtraData2);
-            }
+                if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface)
+                    || !character.Widgets.TryGetOpenWidget(message.OnInterfaceId, out var onInterface))
+                {
+                    return;
+                }
+                if (!@interface.OnComponentUsedOnComponent(message.ComponentId, message.ExtraData1, message.ExtraData2, message.OnExtraData1, message.OnExtraData2))
+                {
+                    onInterface.OnComponentUsedOnComponent(message.OnComponentId, message.OnExtraData1, message.OnExtraData2, message.ExtraData1, message.ExtraData2);
+                }
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentRemovedMessage))]
         public void OnComponentRemoved(InterfaceComponentRemovedMessage message)
         {
             var character = Context.GetCharacter();
-            character.InterruptInterfaces();
+            character.QueueTask(new RsTask(() =>
+            {
+                character.InterruptInterfaces();
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentTextInputMessage))]
         public void OnTextInput(InterfaceComponentTextInputMessage message) 
         {
             var character = Context.GetCharacter();
-            character.Widgets.StringInputHandler?.Invoke(message.Text);
+            character.QueueTask(new RsTask(() =>
+            {
+                character.Widgets.StringInputHandler?.Invoke(message.Text);
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentNumberInputMessage))]
         public void OnNumberInput(InterfaceComponentNumberInputMessage message)
         {
             var character = Context.GetCharacter();
-            character.Widgets.IntInputHandler?.Invoke(message.Value);
+            character.QueueTask(new RsTask(() =>
+            {
+                character.Widgets.IntInputHandler?.Invoke(message.Value);
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentColorInputMessage))]
         public void OnColorInput(InterfaceComponentColorInputMessage message)
         {
             var character = Context.GetCharacter();
-            character.EventManager.SendEvent(new ColorSelectedEvent(character, message.Value));
+            character.QueueTask(new RsTask(() =>
+            {
+                character.EventManager.SendEvent(new ColorSelectedEvent(character, message.Value));
+            }, 1));
         }
     }
 }

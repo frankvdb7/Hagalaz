@@ -154,8 +154,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     .WithLocation(Owner.Location)
                     .WithOwner(groundItemOwner)
                     .Build();
-                _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false)
-                    .Add(groundItem); // we spawn it with this method, as the container was normally stacked.
+                _mapRegionService.AddGroundItem(groundItem); // we spawn it with this method, as the container was normally stacked.
             }
 
             var bones = _groundItemBuilder.Create()
@@ -163,7 +162,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 .WithLocation(Owner.Location)
                 .WithOwner(groundItemOwner)
                 .Build();
-            _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).Add(bones);
+                _mapRegionService.AddGroundItem(bones);
             _character.Inventory.AddRange(itemsOnDeath.keptItems);
             _character.Inventory.OnUpdate();
             _character.Equipment.OnUpdate();
@@ -234,7 +233,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns><c>true</c> if this instance [can set target] the specified target; otherwise, <c>false</c>.</returns>
         public override bool CanSetTarget(ICreature target)
         {
-            if (target.IsDestroyed || target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
+            if (target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
             if (!target.Area.Script.CanBeAttacked(target, Owner)) return false;
             if (!Owner.Area.Script.CanAttack(Owner, target)) return false;
             if (!CanAttack(target)) return false;
@@ -259,7 +258,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns><c>true</c> if this instance can attack the specified target; otherwise, <c>false</c>.</returns>
         public override bool CanAttack(ICreature target)
         {
-            if (target.IsDestroyed || target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
+            if (target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
             if (!_character.EventManager.SendEvent(new AttackAllowEvent(_character, GetAttackStyle()))) return false;
             var scripts = _character.GetScripts();
             return scripts.All(script => script.CanAttack(target));
@@ -272,7 +271,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns><c>true</c> if this instance [can be attacked by] the specified attacker; otherwise, <c>false</c>.</returns>
         public override bool CanBeAttackedBy(ICreature attacker)
         {
-            if (attacker.IsDestroyed || attacker.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(attacker)) return false;
+            if (attacker.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(attacker)) return false;
             var scripts = _character.GetScripts();
             return scripts.All(script => script.CanBeAttackedBy(attacker));
         }

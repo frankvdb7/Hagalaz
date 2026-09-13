@@ -32,6 +32,11 @@ public sealed class RaidoHagalazUsageTests
         public byte Value { get; init; }
     }
 
+    private sealed class ScopedEncoderMessage : RaidoMessage
+    {
+        public byte Value { get; init; }
+    }
+
     private sealed class UsageProtocol : IRaidoProtocol
     {
         private readonly IRaidoCodec<UsageProtocol> _codec;
@@ -136,6 +141,23 @@ public sealed class RaidoHagalazUsageTests
         }
     }
 
+    private sealed class ScopedEncoderDependency
+    {
+    }
+
+    private sealed class ScopedEncoder : IRaidoMessageEncoder<ScopedEncoderMessage>
+    {
+        public ScopedEncoder(ScopedEncoderDependency dependency)
+        {
+        }
+
+        public void EncodeMessage(ScopedEncoderMessage message, IRaidoMessageBinaryWriter output)
+        {
+            output.SetOpcode(3);
+            output.WriteByte(message.Value);
+        }
+    }
+
     private interface IUsageService
     {
         byte Transform(byte value);
@@ -227,6 +249,31 @@ public sealed class RaidoHagalazUsageTests
         Assert.AreNotSame(firstProtocol, secondProtocol);
         ((UsageProtocol)firstProtocol).ConnectionState = 1;
         Assert.AreEqual(0, ((UsageProtocol)secondProtocol).ConnectionState);
+    }
+
+    [TestMethod]
+    public void ProtocolCodec_IsScopedAndResolvesScopedEncodersFromTheActiveScope()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddScoped<ScopedEncoderDependency>();
+        services.AddRaidoServer();
+        services.AddRaidoProtocol<UsageProtocol>(builder => builder
+            .AddEncoder<ScopedEncoder>());
+
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateScopes = true
+        });
+
+        Assert.ThrowsExactly<InvalidOperationException>(
+            () => provider.GetRequiredService<IRaidoCodec<UsageProtocol>>());
+
+        using var scope = provider.CreateScope();
+        var protocol = scope.ServiceProvider.GetRequiredService<UsageProtocol>();
+        var encoded = protocol.GetMessageBytes(new ScopedEncoderMessage { Value = 4 });
+
+        CollectionAssert.AreEqual(new byte[] { 3, 1, 4 }, encoded.ToArray());
     }
 
     [TestMethod]

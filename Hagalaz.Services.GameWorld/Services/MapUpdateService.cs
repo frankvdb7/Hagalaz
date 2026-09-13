@@ -1,5 +1,6 @@
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Messages.Protocol;
 
@@ -10,16 +11,21 @@ namespace Hagalaz.Services.GameWorld.Services
     /// </summary>
     public sealed class MapUpdateService : IMapUpdateService
     {
-        private readonly IMapRegionService _regionService;
         private readonly IMapRegionLoadScheduler _regionLoadScheduler;
 
-        public MapUpdateService(IMapRegionService regionService, IMapRegionLoadScheduler regionLoadScheduler) =>
-            (_regionService, _regionLoadScheduler) = (regionService, regionLoadScheduler);
+        public MapUpdateService(IMapRegionLoadScheduler regionLoadScheduler) =>
+            _regionLoadScheduler = regionLoadScheduler;
 
         public void UpdateMap(ICharacter character, bool forceUpdate, bool renderViewPort = false)
         {
             var viewport = character.Viewport;
-            viewport.RebuildView();
+            if (viewport.VisibleRegions.Count == 0 || viewport.ShouldRebuild())
+            {
+                viewport.RebuildView();
+            }
+
+            viewport.RefreshVisibleRegions();
+            var visibleRegions = viewport.VisibleRegions;
 
             if (viewport.NeedsDynamicDraw())
             {
@@ -36,14 +42,20 @@ namespace Hagalaz.Services.GameWorld.Services
                     CharacterLocation = character.Location,
                     RegionPartX = viewport.ViewLocation.RegionPartX,
                     RegionPartY = viewport.ViewLocation.RegionPartY,
-                    VisibleRegionXteaKeys = viewport.VisibleRegions.Select(region => region.XteaKeys).ToList()
+                    VisibleRegionXteaKeys = visibleRegions.Select(region => region.XteaKeys).ToList()
                 });
             }
 
-            foreach (var region in viewport.VisibleRegions)
+            foreach (var region in visibleRegions)
             {
-                _regionLoadScheduler.RequestLoad(region);
-                region.SendFullPartUpdates(character);
+                if (region.State == MapRegionState.Initializing)
+                {
+                    _regionLoadScheduler.RequestLoad(region);
+                }
+                else if (region.State == MapRegionState.Ready)
+                {
+                    region.SendFullPartUpdates(character);
+                }
             }
         }
     }

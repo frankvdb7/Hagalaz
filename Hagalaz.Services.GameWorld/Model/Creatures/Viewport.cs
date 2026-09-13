@@ -169,9 +169,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             _visibleCharacters.Clear();
             _visibleNpcs.Clear();
 
+            RefreshVisibleRegions();
             var ownerLocation = _owner.Location;
             foreach (var region in _visibleRegions)
             {
+                if (region.State != MapRegionState.Ready)
+                {
+                    continue;
+                }
+
                 ProcessVisibleCreatures(region.FindAllCharacters(), ownerLocation, c => c.Appearance.Visible, _visibleCharacters);
                 ProcessVisibleCreatures(region.FindAllNpcs(), ownerLocation, n => n.Appearance.Visible, _visibleNpcs);
             }
@@ -208,14 +214,38 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             PreviousBoundsMaximum = BoundsMaximum;
             BoundsMaximum = new Location(BaseAbsX + (MapSize.Size - 1), BaseAbsY + (MapSize.Size - 1), 3, ViewLocation.Dimension);
 
-            _visibleRegions.AddRange(_regionService.GetMapRegionsWithinRange(ViewLocation, true, true, MapSize));
+            _visibleRegions.AddRange(_regionService.GetMapRegionsWithinRange(ViewLocation, MapSize));
+        }
+
+        /// <summary>
+        /// Rebinds retained map-region references to the current canonical region instances.
+        /// </summary>
+        public void RefreshVisibleRegions()
+        {
+            for (var index = 0; index < _visibleRegions.Count; index++)
+            {
+                var region = _visibleRegions[index];
+                if (region.BaseLocation is null)
+                {
+                    continue;
+                }
+
+                var current = _regionService.FindMapRegion(region.Id, region.BaseLocation.Dimension);
+                if (current is not null)
+                {
+                    _visibleRegions[index] = current;
+                }
+            }
         }
 
         /// <summary>
         /// Get's if one of the visible region's are dynamic.
         /// </summary>
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
-        public bool NeedsDynamicDraw() => _visibleRegions.Any(r => r.IsDynamic);
+        public bool NeedsDynamicDraw()
+        {
+            return _visibleRegions.Any(r => r.IsDynamic);
+        }
 
         /// <summary>
         /// Get's if viewport is recommended to be updated.

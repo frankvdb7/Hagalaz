@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -287,6 +286,6 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// <summary>
         /// A callback method that is executed when the creature is successfully registered and added to the game world.
         /// </summary>
-        Task OnRegistered();
+        void OnRegistered();
     }
 }

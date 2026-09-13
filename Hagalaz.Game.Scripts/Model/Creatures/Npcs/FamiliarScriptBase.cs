@@ -243,11 +243,6 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             UnregisterSummonerHandlers();
             Summoner.DetachFamiliar(Familiar);
 
-            if (Summoner.IsDestroyed)
-            {
-                return;
-            }
-
             Summoner.SendChatMessage("Your familiar vanished.");
         }
 
@@ -599,12 +594,6 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         private void FollowTick()
         {
             if (Owner.Combat.IsDead) return;
-            if (Summoner.IsDestroyed)
-            {
-                _npcService.UnregisterAsync(Owner);
-                return;
-            }
-
             if (!Owner.Viewport.VisibleCreatures.Contains(Summoner))
             {
                 CallFamiliar();

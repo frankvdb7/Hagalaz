@@ -125,7 +125,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                 return;
             }
 
-            if (tree.IsDestroyed || tree.IsDisabled)
+            if (tree.IsDisabled)
             {
                 character.SendChatMessage(TreeAlreadyCut);
                 return;
@@ -194,9 +194,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                     // new trees have leaves, so remove the leaves if possible.
                     if (treeLeaves != null)
                     {
-                        character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension, false)
-                            .Remove(treeLeaves);
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>().RemoveGameObject(treeLeaves);
                     }
 
                     var goBuilder = _serviceProvider.GetRequiredService<IGameObjectBuilder>();
@@ -209,29 +207,21 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                             .WithRotation(tree.Rotation)
                             .WithShape(tree.ShapeType)
                             .Build();
-                        character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension, false)
-                            .Add(stumpObj);
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>().AddGameObject(stumpObj);
                     }
                     else // delete the tree object.
                     {
-                        character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension, false)
-                            .Remove(tree);
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>().RemoveGameObject(tree);
                     }
 
                     var respawnTick = (int)(logs.RespawnTime * (1.0 + characterCount * -0.00025) * 100.0);
                     // register a task that will respawn the tree once it has reached the respawn rate.
                     _rsTaskService.Schedule(new RsTask(() =>
                         {
-                            character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                                .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension, false)
-                                .Add(tree);
+                            character.ServiceProvider.GetRequiredService<IMapRegionService>().AddGameObject(tree);
                             if (treeLeaves != null)
                             {
-                                character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                                    .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension, false)
-                                    .Add(treeLeaves);
+                                character.ServiceProvider.GetRequiredService<IMapRegionService>().AddGameObject(treeLeaves);
                             }
                         },
                         respawnTick));

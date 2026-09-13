@@ -39,14 +39,15 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         bool IsDynamic { get; }
 
         /// <summary>
-        /// Gets a value indicating whether this region's data has been loaded into memory.
+        /// Gets the initial-load lifecycle state of this region instance.
         /// </summary>
-        bool IsLoaded { get; }
+        MapRegionState State { get; }
 
         /// <summary>
-        /// Gets a value indicating whether this region has been destroyed and is no longer active.
+        /// Gets a value indicating whether an NPC attached through the region
+        /// ownership boundary cannot be suspended.
         /// </summary>
-        bool IsDestroyed { get; }
+        bool HasNonSuspendableNpcs { get; }
 
         /// <summary>
         /// Checks if this region can be destroyed (e.g., when it is empty).
@@ -61,9 +62,14 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         bool CanSuspend();
 
         /// <summary>
-        /// Loads the region's data from the cache.
+        /// Publishes this region as ready after its initial data and population are complete.
         /// </summary>
-        void Load();
+        void MarkReady();
+
+        /// <summary>
+        /// Permanently discards this region after an initial-load failure or cancellation.
+        /// </summary>
+        void MarkDiscarded();
 
         /// <summary>
         /// Resumes processing for a suspended (idle) region.
@@ -119,6 +125,14 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// </summary>
         /// <param name="npc">The NPC to add.</param>
         void Add(INpc npc);
+
+        /// <summary>
+        /// Adds an NPC when its suspension eligibility has already been
+        /// evaluated outside the map-region residency gate.
+        /// </summary>
+        /// <param name="npc">The NPC to add.</param>
+        /// <param name="canSuspend">The eligibility observed by the owner.</param>
+        void Add(INpc npc, bool canSuspend);
 
         /// <summary>
         /// Adds a character to the region.
@@ -239,6 +253,18 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// <param name="drawPartY">The Y-coordinate of the drawing area.</param>
         /// <param name="drawPartZ">The plane of the drawing area.</param>
         void WriteBlock(int partX, int partY, int z, int drawPartX, int drawPartY, int drawPartZ);
+
+        /// <summary>
+        /// Writes a dynamic block while preserving the source part dimension.
+        /// </summary>
+        /// <param name="partX">The X-coordinate of the region part.</param>
+        /// <param name="partY">The Y-coordinate of the region part.</param>
+        /// <param name="z">The plane (height level).</param>
+        /// <param name="drawPartX">The X-coordinate of the drawing area.</param>
+        /// <param name="drawPartY">The Y-coordinate of the drawing area.</param>
+        /// <param name="drawPartZ">The plane of the drawing area.</param>
+        /// <param name="drawPartDimension">The dimension of the source drawing area.</param>
+        void WriteBlock(int partX, int partY, int z, int drawPartX, int drawPartY, int drawPartZ, int drawPartDimension);
 
         /// <summary>
         /// Queues an update for a part of this map region.

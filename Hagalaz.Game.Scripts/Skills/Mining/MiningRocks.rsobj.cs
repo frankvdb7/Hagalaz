@@ -103,7 +103,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
             ILootTable? lootTable,
             int characterCount)
         {
-            if (rocks.IsDestroyed || rocks.IsDisabled)
+            if (rocks.IsDisabled)
             {
                 character.SendChatMessage(MiningConstants.RockAlreadyMined);
                 return;
@@ -162,23 +162,17 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                             .WithRotation(rocks.Rotation)
                             .WithShape(rocks.ShapeType)
                             .Build();
-                        character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(rocks.Location.RegionId, rocks.Location.Dimension, false)
-                            .Add(exhaustedRock);
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>().AddGameObject(exhaustedRock);
                     }
                     else // delete the rocks
                     {
-                        character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(rocks.Location.RegionId, rocks.Location.Dimension, false)
-                            .Remove(rocks);
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>().RemoveGameObject(rocks);
                     }
 
                     var respawnTick = (int)(ore.RespawnTime * (1.0 + characterCount * -0.00025) * 100.0);
 
                     _taskService.Schedule(new RsTask(() =>
-                        character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(rocks.Location.RegionId, rocks.Location.Dimension, false)
-                            .Add(rocks), respawnTick));
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>().AddGameObject(rocks), respawnTick));
                     return true;
                 }
 

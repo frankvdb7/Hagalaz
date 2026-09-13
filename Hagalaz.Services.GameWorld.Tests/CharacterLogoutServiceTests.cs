@@ -1,12 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
-using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Mediator;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Messages.Mediator;
+using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld.Services;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Hagalaz.Services.GameWorld.Services.Model;
+using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests;
@@ -15,164 +18,119 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class CharacterLogoutServiceTests
 {
     [TestMethod]
-    public async Task DetachAsync_WhenRemovalFails_RetainsPendingLogout()
+    public void TryBeginLogout_ClaimsNewCharacterAndReturnsSameReceiptOnDuplicate()
     {
-        var character = Substitute.For<ICharacter>();
-        character.MasterId.Returns(42u);
-        var state = new CharacterPersistenceState();
-        state.TrackPendingLogout(character);
-        var correlationId = Guid.NewGuid();
-        state.MarkPending(42u, correlationId, "fingerprint", 7L);
-        state.Acknowledge(42u, correlationId, 7L);
-        var characterService = Substitute.For<ICharacterService>();
-        var mediator = Substitute.For<IGameMediator>();
-        var coordinator = new CharacterLogoutService(state, characterService, mediator);
+        var state = new CharacterLogoutState();
+        var character = CreateCharacter(42);
 
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => coordinator.DetachAsync(character));
+        Assert.IsTrue(state.TryBeginLogout(character, out var created, out var receipt));
+        Assert.IsTrue(created);
+        Assert.IsNull(receipt);
 
-        Assert.IsTrue(state.IsPendingLogout(character));
-        character.DidNotReceive().Destroy();
-        mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
+        var expectedReceipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 7);
+        Assert.IsTrue(state.SetPersistenceReceipt(character, expectedReceipt));
+        Assert.IsTrue(state.TryBeginLogout(character, out created, out receipt));
+        Assert.IsFalse(created);
+        Assert.AreSame(expectedReceipt, receipt);
     }
 
     [TestMethod]
-    public async Task CompleteAsync_IsIdempotentAndPublishesOnlyOnce()
+    public void TryBeginLogout_RejectsDifferentCharacterInstanceWithSameMasterId()
     {
-        var character = Substitute.For<ICharacter>();
-        character.MasterId.Returns(42u);
-        character.IsDestroyed.Returns(false);
-        var state = new CharacterPersistenceState();
-        state.TrackPendingLogout(character);
-        state.MarkPendingLogoutRemoved(character);
-        var correlationId = Guid.NewGuid();
-        state.MarkPending(42u, correlationId, "fingerprint", 7L);
-        state.Acknowledge(42u, correlationId, 7L);
-        var characterService = Substitute.For<ICharacterService>();
-        var mediator = Substitute.For<IGameMediator>();
-        var coordinator = new CharacterLogoutService(state, characterService, mediator);
+        var state = new CharacterLogoutState();
+        var first = CreateCharacter(42);
+        var second = CreateCharacter(42);
+        Assert.IsTrue(state.TryBeginLogout(first, out _, out _));
 
-        Assert.IsTrue(await coordinator.CompleteAsync(42u));
-        Assert.IsFalse(await coordinator.CompleteAsync(42u));
+        Assert.IsFalse(state.TryBeginLogout(second, out var created, out var receipt));
+        Assert.IsFalse(created);
+        Assert.IsNull(receipt);
+    }
 
+    [TestMethod]
+    public void TryAdmit_RejectsGameplayAfterLogoutClaim()
+    {
+        var state = new CharacterLogoutState();
+        var character = CreateCharacter(42);
+        state.TryBeginLogout(character, out _, out _);
+
+        Assert.IsFalse(state.TryAdmit(character, () => true));
+    }
+
+    [TestMethod]
+    public async Task DetachAsync_CapturesSnapshotRemovesExactOwnerAndDestroysOnce()
+    {
+        var character = CreateCharacter(42);
+        var order = new List<string>();
+        var state = new CharacterLogoutState();
+        state.TryBeginLogout(character, out _, out _);
+        var store = Substitute.For<ICharacterStore>();
+        store.IsCurrent(character).Returns(true);
+        store.Remove(character).Returns(true);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        var snapshot = new CharacterModel();
+        dehydrationService.Dehydrate(character).Returns(_ =>
+        {
+            order.Add("snapshot");
+            return snapshot;
+        });
+        store.Remove(character).Returns(_ =>
+        {
+            order.Add("remove");
+            return true;
+        });
+        character.When(value => value.Destroy()).Do(_ => order.Add("destroy"));
+        using var provider = new ServiceCollection()
+            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .BuildServiceProvider();
+        character.ServiceProvider.Returns(provider);
+        var service = new CharacterLogoutService(state, store, new InlineTaskScheduler(), Substitute.For<IGameMediator>());
+
+        var result = await service.DetachAsync(character);
+
+        Assert.AreSame(snapshot, result);
+        store.Received(1).Remove(character);
         character.Received(1).Destroy();
-        mediator.Received(1).Publish(Arg.Is<WorldSignOutCommand>(message => message != null && message.MasterId == 42u));
+        CollectionAssert.AreEqual(new[] { "snapshot", "remove", "destroy" }, order);
     }
 
     [TestMethod]
-    public async Task AcknowledgeAndCompleteAsync_ConflictRetainsPendingLogout()
+    public async Task DetachAsync_WhenOwnershipRemovalFails_RetainsClaimAndDoesNotDestroy()
     {
-        var character = Substitute.For<ICharacter>();
-        character.MasterId.Returns(42u);
-        var state = new CharacterPersistenceState();
-        state.TrackPendingLogout(character);
-        state.MarkPendingLogoutRemoved(character);
-        var correlationId = Guid.NewGuid();
-        state.MarkPending(42u, correlationId, "fingerprint", 7L);
-        var characterService = Substitute.For<ICharacterService>();
-        var mediator = Substitute.For<IGameMediator>();
-        var coordinator = new CharacterLogoutService(state, characterService, mediator);
+        var character = CreateCharacter(42);
+        var state = new CharacterLogoutState();
+        state.TryBeginLogout(character, out _, out _);
+        var store = Substitute.For<ICharacterStore>();
+        store.IsCurrent(character).Returns(true);
+        store.Remove(character).Returns(false);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
+        using var provider = new ServiceCollection()
+            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .BuildServiceProvider();
+        character.ServiceProvider.Returns(provider);
+        var service = new CharacterLogoutService(state, store, new InlineTaskScheduler(), Substitute.For<IGameMediator>());
 
-        var completed = await coordinator.AcknowledgeAndCompleteAsync(
-            42u,
-            correlationId,
-            7L,
-            outcome: CharacterPersistenceOutcome.Conflict);
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.DetachAsync(character));
 
-        Assert.IsFalse(completed);
-        Assert.IsFalse(state.IsPersistenceAcknowledged(42u));
-        Assert.IsTrue(state.IsPendingLogout(character));
+        Assert.IsTrue(state.IsPending(character));
         character.DidNotReceive().Destroy();
-        mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
     }
 
-    [TestMethod]
-    public async Task AcknowledgeAndCompleteAsync_DuplicateCompletesPendingLogout()
+    private static ICharacter CreateCharacter(uint masterId)
     {
         var character = Substitute.For<ICharacter>();
-        character.MasterId.Returns(42u);
-        character.IsDestroyed.Returns(false);
-        var state = new CharacterPersistenceState();
-        state.TrackPendingLogout(character);
-        state.MarkPendingLogoutRemoved(character);
-        var correlationId = Guid.NewGuid();
-        state.MarkPending(42u, correlationId, "fingerprint", 7L);
-        var characterService = Substitute.For<ICharacterService>();
-        var mediator = Substitute.For<IGameMediator>();
-        var coordinator = new CharacterLogoutService(state, characterService, mediator);
-
-        var completed = await coordinator.AcknowledgeAndCompleteAsync(
-            42u,
-            correlationId,
-            7L,
-            outcome: CharacterPersistenceOutcome.Duplicate);
-
-        Assert.IsTrue(completed);
-        character.Received(1).Destroy();
-        mediator.Received(1).Publish(Arg.Is<WorldSignOutCommand>(message => message != null && message.MasterId == 42u));
+        character.MasterId.Returns(masterId);
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        session.SessionGeneration.Returns(7L);
+        character.Session.Returns(session);
+        return character;
     }
 
-    [TestMethod]
-    public async Task AcknowledgeAndCompleteAsync_OldCorrelationDoesNotAcknowledgeReplacementSnapshot()
+    private sealed class InlineTaskScheduler : IRsTaskService
     {
-        var character = Substitute.For<ICharacter>();
-        character.MasterId.Returns(42u);
-        var state = new CharacterPersistenceState();
-        state.TrackPendingLogout(character);
-        state.MarkPendingLogoutRemoved(character);
-        state.MarkPending(42u, Guid.NewGuid(), "replacement", 101L);
-        var characterService = Substitute.For<ICharacterService>();
-        var mediator = Substitute.For<IGameMediator>();
-        var coordinator = new CharacterLogoutService(state, characterService, mediator);
-
-        var completed = await coordinator.AcknowledgeAndCompleteAsync(
-            42u,
-            Guid.NewGuid(),
-            101L,
-            outcome: CharacterPersistenceOutcome.Committed);
-
-        Assert.IsFalse(completed);
-        Assert.IsFalse(state.IsPersistenceAcknowledged(42u));
-        Assert.IsTrue(state.IsPendingLogout(character));
-        character.DidNotReceive().Destroy();
-        mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
-    }
-
-    [TestMethod]
-    public async Task AcknowledgeAndCompleteAsync_MissingOrUnknownOutcomeRetainsPendingLogout()
-    {
-        var character = Substitute.For<ICharacter>();
-        character.MasterId.Returns(42u);
-        var state = new CharacterPersistenceState();
-        state.TrackPendingLogout(character);
-        state.MarkPendingLogoutRemoved(character);
-        var correlationId = Guid.NewGuid();
-        state.MarkPending(42u, correlationId, "fingerprint", 101L);
-        var characterService = Substitute.For<ICharacterService>();
-        var mediator = Substitute.For<IGameMediator>();
-        var coordinator = new CharacterLogoutService(state, characterService, mediator);
-        var missingOutcome = new PersistCharacterAcknowledged(correlationId, 42u, 101L);
-        var unknownOutcome = new PersistCharacterAcknowledged(
-            correlationId,
-            42u,
-            101L,
-            (CharacterPersistenceOutcome)99);
-
-        var missingCompleted = await coordinator.AcknowledgeAndCompleteAsync(
-            missingOutcome.MasterId,
-            missingOutcome.CorrelationId,
-            missingOutcome.SnapshotRevision,
-            outcome: missingOutcome.Outcome);
-        var unknownCompleted = await coordinator.AcknowledgeAndCompleteAsync(
-            unknownOutcome.MasterId,
-            unknownOutcome.CorrelationId,
-            unknownOutcome.SnapshotRevision,
-            outcome: unknownOutcome.Outcome);
-
-        Assert.IsFalse(missingCompleted);
-        Assert.IsFalse(unknownCompleted);
-        Assert.IsFalse(state.IsPersistenceAcknowledged(42u));
-        Assert.IsTrue(state.IsPendingLogout(character));
-        character.DidNotReceive().Destroy();
-        mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
+        public void Schedule(ITaskItem action) => action.Tick();
+        public void Tick() { }
     }
 }

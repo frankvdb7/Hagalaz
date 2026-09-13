@@ -28,7 +28,7 @@ namespace Hagalaz.Services.GameWorld.Services.Model
             try
             {
                 var delayTimeSpan = executionTime - DateTime.Now;
-                await foreach (var character in _characterStore.FindAllAsync().WithCancellation(cancellationToken))
+                foreach (var character in (await _characterStore.GetSnapshotAsync(cancellationToken)).Values)
                 {
                     character.Session.SendMessage(new SetSystemUpdateTickMessage
                     {

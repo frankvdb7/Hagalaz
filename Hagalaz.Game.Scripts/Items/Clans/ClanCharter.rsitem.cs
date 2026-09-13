@@ -256,10 +256,6 @@ namespace Hagalaz.Game.Scripts.Items.Clans
                 var founders = new List<ICharacter>(_founders);
                 foreach (var character in founders)
                 {
-                    if (character.IsDestroyed)
-                    {
-                        RemoveFouder(character);
-                    }
                 }
             }
         }

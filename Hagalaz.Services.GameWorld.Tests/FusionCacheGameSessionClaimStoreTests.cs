@@ -12,6 +12,35 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class FusionCacheGameSessionClaimStoreTests
 {
     [TestMethod]
+    public async Task AllocateSessionGenerationAsync_UsesStableDistributedCounter()
+    {
+        var (store, cache, _) = CreateStore();
+        cache.TryGetAsync<long>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
+            .Returns(
+                new ValueTask<MaybeValue<long>>(MaybeValue<long>.None),
+                new ValueTask<MaybeValue<long>>(MaybeValue<long>.FromValue(7L)));
+        cache.SetAsync(
+                Arg.Any<string>(),
+                Arg.Any<long>(),
+                Arg.Any<FusionCacheEntryOptions>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new ValueTask());
+
+        Assert.AreEqual(1L, await store.AllocateSessionGenerationAsync(42));
+        Assert.AreEqual(8L, await store.AllocateSessionGenerationAsync(42));
+        await cache.Received(1).SetAsync(
+            "hagalaz:game-session-generation:42",
+            1L,
+            Arg.Any<FusionCacheEntryOptions>(),
+            Arg.Any<CancellationToken>());
+        await cache.Received(1).SetAsync(
+            "hagalaz:game-session-generation:42",
+            8L,
+            Arg.Any<FusionCacheEntryOptions>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public async Task TryClaimAsync_MissingClaimStoresValueWithLeaseAndSkipsMemoryCache()
     {
         var (store, cache, locker) = CreateStore();
@@ -63,6 +92,38 @@ public sealed class FusionCacheGameSessionClaimStoreTests
     }
 
     [TestMethod]
+    public async Task ExecuteIfOwnerAndReplaceAsync_TransfersExactOwnerAndRollsBackWhenActionFails()
+    {
+        var (store, cache, _) = CreateStore();
+        cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.FromValue("lobby-claim")));
+        cache.SetAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<FusionCacheEntryOptions>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new ValueTask());
+
+        var result = await store.ExecuteIfOwnerAndReplaceAsync(
+            42,
+            "lobby-claim",
+            "world-claim",
+            _ => Task.FromResult(false));
+
+        Assert.IsFalse(result);
+        await cache.Received(1).SetAsync(
+            "hagalaz:game-session:42",
+            "world-claim",
+            Arg.Any<FusionCacheEntryOptions>(),
+            Arg.Any<CancellationToken>());
+        await cache.Received(1).SetAsync(
+            "hagalaz:game-session:42",
+            "lobby-claim",
+            Arg.Any<FusionCacheEntryOptions>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public async Task ReleaseAsync_RemovesOnlyExactOwner()
     {
         var (store, cache, _) = CreateStore();
@@ -78,6 +139,20 @@ public sealed class FusionCacheGameSessionClaimStoreTests
         Assert.IsTrue(await store.ReleaseAsync(42, "owner"));
         await cache.Received(1).RemoveAsync(
             "hagalaz:game-session:42",
+            Arg.Any<FusionCacheEntryOptions>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ReleaseAsync_WhenClaimIsAbsent_ReturnsFalseWithoutRemovingAnything()
+    {
+        var (store, cache, _) = CreateStore();
+        cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.None));
+
+        Assert.IsFalse(await store.ReleaseAsync(42, "owner"));
+        await cache.DidNotReceive().RemoveAsync(
+            Arg.Any<string>(),
             Arg.Any<FusionCacheEntryOptions>(),
             Arg.Any<CancellationToken>());
     }

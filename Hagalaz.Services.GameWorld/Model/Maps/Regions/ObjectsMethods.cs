@@ -68,6 +68,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Add(IGameObject gameObject)
         {
+            EnsureAcceptsMutation();
             _parts
                 .GetOrAdd(gameObject.Location.GetRegionPartHash(), CreateRegionPart)
                 .Add(gameObject);
@@ -87,6 +88,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         }
 
         public void UnloadPartGameObjects(int partX, int partY, int partZ, int partRotation)
+        {
+            EnsureAcceptsMutation();
+            UnloadPartGameObjectsCore(partX, partY, partZ, partRotation);
+        }
+
+        private void UnloadPartGameObjectsCore(int partX, int partY, int partZ, int partRotation)
         {
             var minLocalX = (partX & 0x7) * 8;
             var maxLocalX = minLocalX + 7;
@@ -127,19 +134,25 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// <param name="partRotation">The rotation.</param>
         public void LoadPartObjects(int partX, int partY, int partZ, int partRotation)
         {
+            EnsureAcceptsMutation();
+            LoadPartObjectsCore(partX, partY, partZ, partRotation);
+        }
+
+        private void LoadPartObjectsCore(int partX, int partY, int partZ, int partRotation)
+        {
             var minX = (partX & 0x7) * 8;
             var maxX = minX + 7;
             var minY = (partY & 0x7) * 8;
             var maxY = minY + 7;
 
-            var data = GetRegionPartData(partX & 0x7, partY & 0x7, partZ);
-            if (data.GetHashCode() == 0)
+            var data = GetDynamicRegionPartData(partX, partY, partZ);
+            if (!data.HasDrawSource)
             {
                 return;
             }
 
             var regionID = ((data.DrawRegionPartX / 8) << 8) | (data.DrawRegionPartY / 8);
-            var region = _regionService.GetOrCreateMapRegion(regionID, BaseLocation.Dimension, false);
+            var region = _regionService.GetOrCreateMapRegion(regionID, data.DrawRegionDimension);
             for (var localX = minX; localX <= maxX; localX++)
             {
                 for (var localY = minY; localY <= maxY; localY++)
@@ -156,6 +169,18 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     SetCollision(rotatedLocalX, rotatedLocalY, partZ, region.GetCollision(localX, localY, partZ));
                 }
             }
+        }
+
+        private IMapRegionPart GetDynamicRegionPartData(int partX, int partY, int z)
+        {
+            EnsureAcceptsMutation();
+            var partHash = LocationHelper.GetRegionPartHash(partX, partY, z);
+            return _parts.GetOrAdd(partHash, hash =>
+            {
+                var part = CreateRegionPart(hash);
+                part.HasDrawSource = false;
+                return part;
+            });
         }
 
         public void AddPartObjects(IMapRegion region, int minLocalX, int minLocalY, int localX, int localY, int z, int partRotation)

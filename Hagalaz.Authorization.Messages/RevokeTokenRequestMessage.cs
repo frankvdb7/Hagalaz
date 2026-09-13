@@ -5,5 +5,6 @@ namespace Hagalaz.Authorization.Messages
     /// </summary>
     /// <param name="ClientId">The unique identifier of the client application.</param>
     /// <param name="Subject">The unique subject identifier of the user whose tokens should be revoked.</param>
-    public record RevokeTokenRequestMessage(string ClientId, string Subject);
+    /// <param name="AuthorizationId">The exact authorization whose tokens should be revoked.</param>
+    public record RevokeTokenRequestMessage(string ClientId, string Subject, string AuthorizationId);
 }

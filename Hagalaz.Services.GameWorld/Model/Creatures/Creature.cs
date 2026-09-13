@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
+using System.Runtime.ExceptionServices;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
@@ -31,11 +31,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private readonly Queue<IGraphic> _queuedGraphics = new();
         private readonly CreatureStateCollection _stateCollection;
         private Dictionary<Type, List<EventHappened>> _registeredEventHandlers = new();
-        private CreatureUpdateState _updateState = CreatureUpdateState.Initializing;
         private readonly IServiceScope _serviceScope = default!;
-
-        public bool IsDestroyed { get; private set; }
-
+        private IMapRegion? _region;
         /// <summary>
         ///     Gets or sets The unique client slot id given at creature entry.
         /// </summary>
@@ -215,21 +212,60 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void Destroy()
         {
-            if (IsDestroyed)
+            Exception? failure = null;
+            try
             {
-                throw new InvalidOperationException($"{this} already destroyed!");
+                try
+                {
+                    if (_region is not null)
+                    {
+                        RemoveFromRegion(_region);
+                        _region = null;
+                    }
+                }
+                catch (Exception exception)
+                {
+                    failure = exception;
+                }
+
+                try
+                {
+                    if (Area is not null)
+                    {
+                        Area.OnCreatureExitArea(this);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    failure ??= exception;
+                }
+
+                try
+                {
+                    OnDestroy();
+                }
+                catch (Exception exception)
+                {
+                    failure ??= exception;
+                }
             }
-            _updateState = CreatureUpdateState.Destroyed;
-            IsDestroyed = true;
-            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-            if (Location != null)
+            finally
             {
-                var region = MapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, false);
-                RemoveFromRegion(region);
+                try
+                {
+                    _serviceScope.Dispose();
+                }
+                catch (Exception exception)
+                {
+                    failure ??= exception;
+                }
+
             }
-            Area?.OnCreatureExitArea(this);
-            OnDestroy();
-            _serviceScope.Dispose();
+
+            if (failure is not null)
+            {
+                ExceptionDispatchInfo.Capture(failure).Throw();
+            }
         }
 
         /// <summary>
@@ -239,19 +275,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         protected void OnInit()
         {
             OnSpawn();
-            _updateState = CreatureUpdateState.Idle;
         }
 
         /// <summary>
         /// Get's called when entity is registered to world.
         /// </summary>
-        public virtual Task OnRegistered()
+        public virtual void OnRegistered()
         {
             Viewport.RebuildView();
             SetLocation(Location, true, true);
 
             OnInit();
-            return Task.CompletedTask;
         }
 
         public void SetLocation(ILocation location, bool forceRegionUpdate = false, bool firstUpdate = false)
@@ -264,13 +298,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
             if (firstUpdate || forceRegionUpdate || LastLocation != null && (LastLocation.RegionId != Location.RegionId || LastLocation?.Dimension != Location.Dimension))
             {
-                if (LastLocation != null)
+                if (_region is not null)
                 {
-                    var lastRegion = MapRegionService.GetOrCreateMapRegion(LastLocation.RegionId, LastLocation.Dimension, false);
-                    RemoveFromRegion(lastRegion);
+                    RemoveFromRegion(_region);
+                    _region = null;
                 }
-                var region = MapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, true);
-                AddToRegion(region);
+                _region = AddToRegion();
 
                 OnRegionChange();
             }
@@ -295,7 +328,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         ///     to new MapRegion.
         /// </summary>
         /// <param name="newRegion">The new region.</param>
-        protected abstract void AddToRegion(IMapRegion newRegion);
+        protected abstract IMapRegion AddToRegion();
 
         /// <summary>
         ///     Notifies creature that it must remove itself from
@@ -612,13 +645,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void MajorUpdateTick()
         {
-            if (_updateState != CreatureUpdateState.Idle)
-            {
-                return;
-            }
-
-            _updateState = CreatureUpdateState.ServerUpdate;
-
             var faced = FacedCreature;
             if (faced != null && !Viewport.VisibleCreatures.Contains(faced))
                 ResetFacing();
@@ -634,13 +660,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void MajorClientPrepareUpdateTick()
         {
-            if (_updateState != CreatureUpdateState.ServerUpdate)
-            {
-                return;
-            }
-
-            _updateState = CreatureUpdateState.ClientPrepareUpdate;
-
             UpdatesPrepareTick();
         }
 
@@ -649,13 +668,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void MajorClientUpdateTick()
         {
-            if (_updateState != CreatureUpdateState.ClientPrepareUpdate)
-            {
-                return;
-            }
-
-            _updateState = CreatureUpdateState.ClientUpdate;
-
             UpdateTick();
         }
 
@@ -664,13 +676,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void MajorClientUpdateResetTick()
         {
-            if (_updateState != CreatureUpdateState.ClientUpdate)
-            {
-                return;
-            }
-
-            _updateState = CreatureUpdateState.ClientUpdateReset;
-
             SpeakingText = null; // no longer speak same ;P
             RenderedNonstandardMovement = null; // no longer render same movement
             RenderedGlow = null; // no longer render same glow
@@ -680,31 +685,19 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             TurnedToY = -1;
             Movement.Reset();
             ResetTick();
-            _updateState = CreatureUpdateState.Idle;
-        }
-
-        protected bool TryBeginClientUpdate()
-        {
-            if (_updateState != CreatureUpdateState.ClientPrepareUpdate)
-            {
-                return false;
-            }
-
-            _updateState = CreatureUpdateState.ClientUpdate;
-            return true;
         }
 
         /// <summary>
         ///     Queue's task to be performed.
         /// </summary>
         /// <param name="task">The task.</param>
-        public IRsTaskHandle QueueTask(ITaskItem task)
+        public virtual IRsTaskHandle QueueTask(ITaskItem task)
         {
             _taskService.Schedule(task);
             return new RsTaskHandle(task);
         }
 
-        public IRsTaskHandle<TResult> QueueTask<TResult>(ITaskItem<TResult> task)
+        public virtual IRsTaskHandle<TResult> QueueTask<TResult>(ITaskItem<TResult> task)
         {
             _taskService.Schedule(task);
             return new RsTaskHandle<TResult>(task);
@@ -879,11 +872,34 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         protected void UnregisterEventHandlers()
         {
-            var eventManager = ServiceProvider.GetRequiredService<IEventManager>();
-            foreach (var type in _registeredEventHandlers.Keys)
-                _registeredEventHandlers[type]
-                    .ForEach(eventHappened => eventManager.StopListen(type, eventHappened));
+            var handlers = _registeredEventHandlers;
             _registeredEventHandlers = null!;
+            if (handlers is null)
+            {
+                return;
+            }
+
+            var eventManager = ServiceProvider.GetRequiredService<IEventManager>();
+            Exception? failure = null;
+            foreach (var (type, registeredHandlers) in handlers)
+            {
+                foreach (var eventHappened in registeredHandlers.ToArray())
+                {
+                    try
+                    {
+                        eventManager.StopListen(type, eventHappened);
+                    }
+                    catch (Exception exception)
+                    {
+                        failure ??= exception;
+                    }
+                }
+            }
+
+            if (failure is not null)
+            {
+                throw failure;
+            }
         }
 
         /// <summary>

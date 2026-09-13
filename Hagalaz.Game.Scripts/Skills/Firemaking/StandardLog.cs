@@ -126,7 +126,7 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
                 return;
             }
 
-            var region = _mapRegionService.GetMapRegion(logItem.Location.RegionId, logItem.Location.Dimension, false, true);
+            var region = _mapRegionService.FindMapRegion(logItem.Location.RegionId, logItem.Location.Dimension);
             if (region == null || region.FindStandardGameObject(logItem.Location.RegionLocalX, logItem.Location.RegionLocalY, logItem.Location.Z) != null)
             {
                 character.SendChatMessage("You can't light a fire here.");
@@ -147,12 +147,12 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
                     return;
                 }
 
-                region.Remove(logItem);
+                _mapRegionService.RemoveGroundItem(logItem);
                 var gameObj = _gameObjectBuilder.Create()
                     .WithId(log.FireObjectId)
                     .WithLocation(logItem.Location)
                     .Build();
-                region.Add(gameObj);
+                _mapRegionService.AddGameObject(gameObj);
                 character.SendChatMessage("The fire catches and the logs begin to burn.");
                 character.Statistics.AddExperience(StatisticsConstants.Firemaking, log.Experience);
 
@@ -166,12 +166,12 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
                 character.QueueTask(new RsTask(() => character.FaceLocation(gameObj), 1));
                 _taskService.Schedule(new RsTask(() =>
                     {
-                        region.Remove(gameObj);
+                        _mapRegionService.RemoveGameObject(gameObj);
                         var groundItem = _groundItemBuilder.Create()
                             .WithItem(itemBuilder =>  itemBuilder.Create().WithId(FiremakingConstants.Ashes))
                             .WithLocation(gameObj.Location)
                             .Build();
-                        region.Add(groundItem);
+                        _mapRegionService.AddGroundItem(groundItem);
                     },
                     log.Ticks));
             }

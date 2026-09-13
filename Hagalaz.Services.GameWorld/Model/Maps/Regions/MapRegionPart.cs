@@ -28,7 +28,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly Dictionary<int, List<IGroundItem>> _groundItems = new();
         private readonly Dictionary<int, IGameObject> _gameObjects = new();
         private readonly Dictionary<int, IGameObject> _disabledStaticGameObjects = new();
-        private readonly List<IRegionPartUpdate> _updates = [];
+        private List<IRegionPartUpdate> _pendingUpdates = [];
+        private List<IRegionPartUpdate> _preparedUpdates = [];
+        private readonly object _updatesLock = new();
 
         public MapRegionPart(IMapper mapper, IGroundItemBuilder groundItemBuilder)
         {
@@ -56,6 +58,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// as the Z of this data.
         /// </summary>
         public int DrawRegionZ { get; set; }
+
+        public int DrawRegionDimension { get; set; }
+
+        public bool HasDrawSource { get; set; }
 
         /// <summary>
         /// Contains rotation of this sector,
@@ -307,17 +313,18 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void SendUpdates(ICharacter character)
         {
-            if (_updates.Count <= 0)
+            List<IRegionPartUpdate> preparedUpdates;
+            lock (_updatesLock)
             {
-                return;
-            }
-            //var lastLocation = character.LastLocation;
-            //var fullUpdate = lastLocation == null || 
-            //    lastLocation.RegionPartX != DrawRegionPartX || 
-            //    lastLocation.RegionPartY != DrawRegionPartY ||
-            //    lastLocation.Z != DrawRegionZ;
+                if (_preparedUpdates.Count <= 0)
+                {
+                    return;
+                }
 
-            SendUpdates(character, _updates, false);
+                preparedUpdates = _preparedUpdates;
+            }
+
+            SendUpdates(character, preparedUpdates, false);
         }
 
         public void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)
@@ -346,21 +353,45 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void QueueUpdate(IRegionPartUpdate update)
         {
-            if (_updates.Any(u => u.Equals(update)))
-            {
-                return;
-            }
+            ArgumentNullException.ThrowIfNull(update);
 
-            _updates.Add(update);
+            lock (_updatesLock)
+            {
+                if (_pendingUpdates.Any(u => u.Equals(update)))
+                {
+                    return;
+                }
+
+                _pendingUpdates.Add(update);
+            }
         }
 
-        public void ClearUpdates() => _updates.Clear();
+        public void PrepareUpdatesForTick()
+        {
+            lock (_updatesLock)
+            {
+                var previousPrepared = _preparedUpdates;
+                _preparedUpdates = _pendingUpdates;
+                _pendingUpdates = previousPrepared;
+                _pendingUpdates.Clear();
+            }
+        }
+
+        public void CompleteUpdateTick()
+        {
+            lock (_updatesLock)
+            {
+                _preparedUpdates.Clear();
+            }
+        }
 
         public void Erase()
         {
             DrawRegionPartX = 0;
             DrawRegionPartY = 0;
             DrawRegionZ = 0;
+            DrawRegionDimension = 0;
+            HasDrawSource = false;
             Rotation = 0;
         }
 
