@@ -22,7 +22,7 @@ public sealed class CharacterPersistenceServiceTests
     [TestMethod]
     public async Task PersistAsync_SkipsUnacknowledgedSnapshotAndPreservesFingerprintDeduplication()
     {
-        var snapshot = new CharacterModel();
+        var snapshot = new CharacterModel { SnapshotRevision = 101 };
         var publishEndpoint = Substitute.For<IPublishEndpoint>();
         var publishedCommands = new System.Collections.Generic.List<PersistCharacterCommand>();
         publishEndpoint
@@ -63,7 +63,7 @@ public sealed class CharacterPersistenceServiceTests
     }
 
     [TestMethod]
-    public async Task PersistAsync_UsesNewRevisionWhenForced()
+    public async Task PersistAsync_UsesCaptureAssignedRevisionWhenForced()
     {
         var publishEndpoint = Substitute.For<IPublishEndpoint>();
         await using var dbContext = CreateSharedDbContext();
@@ -82,12 +82,48 @@ public sealed class CharacterPersistenceServiceTests
             dbContext,
             state);
 
-        var firstReceipt = await service.PersistAsync(42, new CharacterModel(), force: true);
+        var firstReceipt = await service.PersistAsync(42, new CharacterModel { SnapshotRevision = 1 }, force: true);
         state.Acknowledge(42, firstReceipt!.CorrelationId, firstReceipt.SnapshotRevision, CharacterPersistenceOutcome.Committed);
-        var secondReceipt = await service.PersistAsync(42, new CharacterModel(), force: true);
+        var secondReceipt = await service.PersistAsync(42, new CharacterModel { SnapshotRevision = 2 }, force: true);
 
-        Assert.AreNotEqual(firstReceipt.SnapshotRevision, secondReceipt!.SnapshotRevision);
+        Assert.AreEqual(1L, firstReceipt.SnapshotRevision);
+        Assert.AreEqual(2L, secondReceipt!.SnapshotRevision);
         await publishEndpoint.Received(2).Publish(Arg.Any<PersistCharacterCommand>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task PersistAsync_RejectsOlderCapturedSnapshotAfterNewerSnapshotAcknowledged()
+    {
+        await using var harness = new PersistenceHarness();
+        harness.State.InitializeRevision(42, 2);
+        var finalSnapshot = harness.CurrentModel with { SnapshotRevision = 2 };
+        var staleSnapshot = harness.CurrentModel with { SnapshotRevision = 1 };
+
+        var finalReceipt = await harness.Service.PersistAsync(42, finalSnapshot, force: true);
+        harness.State.Acknowledge(
+            42,
+            finalReceipt!.CorrelationId,
+            finalReceipt.SnapshotRevision,
+            CharacterPersistenceOutcome.Committed);
+
+        var staleReceipt = await harness.Service.PersistAsync(42, staleSnapshot, force: false);
+
+        Assert.IsNull(staleReceipt);
+        Assert.HasCount(1, harness.PublishedCommands);
+        Assert.AreEqual(3L, harness.State.NextRevision(42));
+    }
+
+    [TestMethod]
+    public async Task PersistAsync_ForcedOlderCapturedSnapshotFailsClearly()
+    {
+        await using var harness = new PersistenceHarness();
+        harness.State.InitializeRevision(42, 2);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            harness.Service.PersistAsync(42, harness.CurrentModel with { SnapshotRevision = 1 }, force: true));
+
+        Assert.HasCount(0, harness.PublishedCommands);
+        Assert.AreEqual(3L, harness.State.NextRevision(42));
     }
 
     [TestMethod]
@@ -106,7 +142,7 @@ public sealed class CharacterPersistenceServiceTests
 
         Assert.IsNotNull(retry);
         Assert.AreNotEqual(firstReceipt.CorrelationId, retry.CorrelationId);
-        Assert.IsTrue(retry.SnapshotRevision > firstReceipt.SnapshotRevision);
+        Assert.AreEqual(firstReceipt.SnapshotRevision, retry.SnapshotRevision);
     }
 
     [TestMethod]
@@ -116,6 +152,7 @@ public sealed class CharacterPersistenceServiceTests
         var firstReceipt = await harness.Service.PersistAsync(42, harness.CurrentModel, force: false);
         var forcedModel = new CharacterModel
         {
+            SnapshotRevision = 2,
             Details = new Hagalaz.Services.GameWorld.Logic.Characters.Model.HydratedDetailsDto
             {
                 CoordX = 99,
@@ -217,7 +254,7 @@ public sealed class CharacterPersistenceServiceTests
 
         Assert.IsNotNull(retry);
         Assert.HasCount(2, harness.PublishedCommands);
-        Assert.IsTrue(harness.PublishedCommands[1].SnapshotRevision > harness.PublishedCommands[0].SnapshotRevision);
+        Assert.AreEqual(harness.PublishedCommands[0].SnapshotRevision, harness.PublishedCommands[1].SnapshotRevision);
     }
 
     [TestMethod]
@@ -237,7 +274,7 @@ public sealed class CharacterPersistenceServiceTests
 
         Assert.IsNotNull(retry);
         Assert.HasCount(2, harness.PublishedCommands);
-        Assert.IsTrue(harness.PublishedCommands[1].SnapshotRevision > harness.PublishedCommands[0].SnapshotRevision);
+        Assert.AreEqual(harness.PublishedCommands[0].SnapshotRevision, harness.PublishedCommands[1].SnapshotRevision);
     }
 
     [TestMethod]
@@ -271,7 +308,7 @@ public sealed class CharacterPersistenceServiceTests
             Character = Substitute.For<Hagalaz.Game.Abstractions.Model.Creatures.Characters.ICharacter>();
             Character.MasterId.Returns(42u);
             State = new CharacterPersistenceState();
-            CurrentModel = new CharacterModel();
+        CurrentModel = new CharacterModel { SnapshotRevision = 1 };
             PublishEndpoint = Substitute.For<IPublishEndpoint>();
             PublishEndpoint
                 .When(endpoint => endpoint.Publish(Arg.Any<PersistCharacterCommand>(), Arg.Any<CancellationToken>()))

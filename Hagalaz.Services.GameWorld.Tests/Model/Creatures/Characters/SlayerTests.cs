@@ -1,3 +1,5 @@
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -25,7 +27,8 @@ public sealed class SlayerTests
         slayerService.FindSlayerTaskDefinition(Arg.Any<int>()).Returns(pendingLookup.Task);
         var killHandler = default(EventHappened<CreatureKillEvent>);
         character.RegisterEventHandler(Arg.Do<EventHappened<CreatureKillEvent>>(handler => killHandler = handler));
-        character.QueueTask(Arg.Any<Hagalaz.Game.Abstractions.Tasks.ITaskItem>()).Returns(Substitute.For<Hagalaz.Game.Abstractions.Tasks.IRsTaskHandle>());
+        character.QueueTask(Arg.Any<Func<CancellationToken, Task>>())
+            .Returns(Substitute.For<Hagalaz.Game.Abstractions.Tasks.IRsTaskHandle>());
 
         var slayer = new Slayer(
             character,
@@ -45,7 +48,7 @@ public sealed class SlayerTests
         {
             Assert.IsTrue(invocation.Wait(TimeSpan.FromSeconds(1)));
             Assert.IsFalse(pendingLookup.Task.IsCompleted);
-            character.Received(1).QueueTask(Arg.Any<Hagalaz.Game.Abstractions.Tasks.ITaskItem>());
+            character.Received(1).QueueTask(Arg.Any<Func<CancellationToken, Task>>());
         }
         finally
         {
@@ -69,7 +72,7 @@ public sealed class SlayerTests
         var killHandler = default(EventHappened<CreatureKillEvent>);
         character.RegisterEventHandler(Arg.Do<EventHappened<CreatureKillEvent>>(handler => killHandler = handler));
         Hagalaz.Game.Abstractions.Tasks.ITaskItem? queuedTask = null;
-        character.QueueTask(Arg.Do<Hagalaz.Game.Abstractions.Tasks.ITaskItem>(task => queuedTask = task))
+        character.QueueTask(Arg.Do<Func<CancellationToken, Task>>(operation => queuedTask = new Hagalaz.Game.Abstractions.Tasks.RsAsyncTask(operation)))
             .Returns(Substitute.For<Hagalaz.Game.Abstractions.Tasks.IRsTaskHandle>());
 
         var slayer = new Slayer(

@@ -56,7 +56,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             if (CanSpawn())
                 Owner.Respawn();
             else
-                Owner.QueueTask(() => _npcService.UnregisterAsync(Owner));
+                Owner.QueueTask(_ => _npcService.UnregisterAsync(Owner));
         }
 
         /// <summary>

@@ -58,6 +58,17 @@ receives only detached models.
   boundary, and `Creature.Destroy()` cancels it during terminal cleanup. Keep
   one shared `RsTaskService`; do not maintain a Creature-to-task registry or
   require lifecycle services to revoke tasks explicitly.
+- Defer lifetime-triggered task cleanup to the shared scheduler rather than
+  invoking arbitrary task cancellation callbacks on the destroying thread.
+  Keep token-aware asynchronous Creature operations supported without exposing
+  the private token or adding a second scheduler.
+- Capture periodic and final persistence revisions on the GameWorker before
+  detached models leave it, and reject older detached snapshots so publication
+  timing cannot reorder durable state. Roll back failed admission through the
+  exact CharacterStore removal on the GameWorker, destroying only after removal
+  succeeds.
+- Capture immutable command and region-change inputs before awaits and apply
+  their results only through the existing Creature queue boundary.
 - Treat Raido message dispatch and disconnect as independently overlapping
   scopes; use the shared creature task/logout boundary for input ordering,
   with CharacterStore as the membership source of truth.
@@ -114,6 +125,16 @@ receives only detached models.
   asynchronous gap between them, and persistence never reads a live Character
   after that transition. Successful removal calls `Character.Destroy()`, whose
   private task token cancels Creature-owned work.
+- Creature destruction does not synchronously execute arbitrary queued-task
+  cancellation cleanup; the shared scheduler observes the lifetime token on
+  its next tick and owns task cleanup. Cancellation-aware async operations still
+  receive the private Creature token.
+- Periodic and final detached snapshots carry their capture-assigned revision;
+  an older snapshot cannot overwrite a newer captured snapshot, including
+  when the older operation is forced.
+- Registered admission rollback schedules exact store removal and destroys the
+  character only when that removal succeeds. Region-change, `teletome`, and
+  `teleto` continuations do not reread mutable issuing/target state after await.
 - Periodic persistence captures detached models on the GameWorker and applies
     asynchronous command results only through `character.QueueTask(...)` and the
     exact-creature queue boundary.

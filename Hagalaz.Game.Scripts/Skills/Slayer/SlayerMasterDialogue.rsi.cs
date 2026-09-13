@@ -54,9 +54,10 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                     if (Owner.HasSlayerTask())
                     {
                         var task = Owner.Slayer;
-                        Owner.QueueTask(async () =>
+                        Owner.QueueTask(async cancellationToken =>
                         {
                             var slayerTask = await _slayerService.FindSlayerTaskDefinition(task.CurrentTaskId);
+                            cancellationToken.ThrowIfCancellationRequested();
                             StandardNpcDialogue(TalkingTo,
                                 DialogueAnimations.CalmTalk,
                                 "You are currently assigned to kill:",
@@ -74,9 +75,10 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                     if (Owner.HasSlayerTask())
                     {
                         var task = Owner.Slayer;
-                        Owner.QueueTask(async () =>
+                        Owner.QueueTask(async cancellationToken =>
                         {
                             var slayerTask = await _slayerService.FindSlayerTaskDefinition(task.CurrentTaskId);
+                            cancellationToken.ThrowIfCancellationRequested();
                             StandardNpcDialogue(TalkingTo,
                                 DialogueAnimations.CalmTalk,
                                 "You are currently assigned to kill:",
@@ -90,9 +92,10 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                         task.AssignNewTask(TalkingTo.Appearance.CompositeID);
                         if (Owner.HasSlayerTask())
                         {
-                            Owner.QueueTask(async () =>
+                            Owner.QueueTask(async cancellationToken =>
                             {
                                 var slayerTask = await _slayerService.FindSlayerTaskDefinition(task.CurrentTaskId);
+                                cancellationToken.ThrowIfCancellationRequested();
                                 StandardNpcDialogue(TalkingTo,
                                     DialogueAnimations.CalmTalk,
                                     "Your new task is to kill:",

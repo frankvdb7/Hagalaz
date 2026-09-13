@@ -8,6 +8,8 @@ using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld.Factories;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
@@ -56,7 +58,8 @@ public sealed class WorldSessionAdmissionServiceTests
         Assert.IsFalse(result.Succeeded);
         await fixture.GameSessionService.Received(1).RemoveSession(fixture.Session, CancellationToken.None);
         await fixture.GameSessionService.Received(1).RemoveLocalSession(fixture.Session);
-        await fixture.CharacterService.Received(1).RemoveAsync(fixture.Character);
+        fixture.CharacterStore.Received(1).Remove(fixture.Character);
+        fixture.Character.Received(1).Destroy();
         fixture.PersistenceService.Received(1).InitializeRevision(42, 7);
         Assert.IsNull(fixture.Context.Features.Get<ICharacterFeature>());
     }
@@ -112,7 +115,44 @@ public sealed class WorldSessionAdmissionServiceTests
         fixture.PersistenceService.Received(1).InitializeRevision(42, 7);
     }
 
-    private static Fixture CreateFixture(bool commitResult)
+    [TestMethod]
+    public async Task AdmitAsync_WhenCommitFails_DefersRegisteredCharacterCleanupToGameWorker()
+    {
+        var scheduler = new DeferredTaskScheduler();
+        var fixture = CreateFixture(commitResult: false, scheduler);
+        var admission = fixture.Service.AdmitAsync(
+            CreateSignInRequest(),
+            fixture.Context,
+            42,
+            new AuthenticationProperties()).AsTask();
+
+        await scheduler.Scheduled.Task;
+        fixture.Character.DidNotReceive().Destroy();
+
+        scheduler.Tick();
+        Assert.IsFalse((await admission).Succeeded);
+        fixture.CharacterStore.Received(1).Remove(fixture.Character);
+        fixture.Character.Received(1).Destroy();
+    }
+
+    [TestMethod]
+    public async Task AdmitAsync_WhenRollbackRemovalFails_DoesNotDestroyRegisteredCharacter()
+    {
+        var fixture = CreateFixture(commitResult: false);
+        fixture.CharacterStore.Remove(fixture.Character).Returns(false);
+
+        var result = await fixture.Service.AdmitAsync(
+            CreateSignInRequest(),
+            fixture.Context,
+            42,
+            new AuthenticationProperties());
+
+        Assert.IsFalse(result.Succeeded);
+        fixture.CharacterStore.Received(1).Remove(fixture.Character);
+        fixture.Character.DidNotReceive().Destroy();
+    }
+
+    private static Fixture CreateFixture(bool commitResult, IRsTaskService? scheduler = null)
     {
         var mapper = Substitute.For<IMapper>();
         mapper.Map<CharacterModel>(Arg.Any<CharacterHydrated>()).Returns(new CharacterModel { SnapshotRevision = 7 });
@@ -128,6 +168,8 @@ public sealed class WorldSessionAdmissionServiceTests
 #pragma warning restore CA2012, CS8620
         var hydration = Substitute.For<ICharacterHydrationService>();
         hydration.HydrateAsync(character, Arg.Any<CharacterModel>()).Returns(Task.FromResult(true));
+        var characterStore = Substitute.For<ICharacterStore>();
+        characterStore.Remove(character).Returns(true);
         var persistence = Substitute.For<ICharacterPersistenceService>();
         var sessionService = Substitute.For<IGameSessionService>();
         var session = Substitute.For<IGameWorldSession>();
@@ -168,12 +210,14 @@ public sealed class WorldSessionAdmissionServiceTests
             NullLogger<WorldSessionAdmissionService>.Instance,
             mapper,
             characterService,
+            characterStore,
             characterFactory,
             hydration,
             persistence,
             sessionService,
-            hydrateClient);
-        return new Fixture(service, context, sessionService, session, characterService, character, persistence);
+            hydrateClient,
+            scheduler ?? new InlineTaskScheduler());
+        return new Fixture(service, context, sessionService, session, characterService, character, persistence, characterStore);
     }
 
     private static SignInRequest CreateSignInRequest() => new()
@@ -203,5 +247,31 @@ public sealed class WorldSessionAdmissionServiceTests
         IGameSession Session,
         ICharacterService CharacterService,
         ICharacter Character,
-        ICharacterPersistenceService PersistenceService);
+        ICharacterPersistenceService PersistenceService,
+        ICharacterStore CharacterStore);
+
+    private sealed class InlineTaskScheduler : IRsTaskService
+    {
+        public void Schedule(ITaskItem action) => action.Tick();
+        public void Tick() { }
+    }
+
+    private sealed class DeferredTaskScheduler : IRsTaskService
+    {
+        public TaskCompletionSource<bool> Scheduled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private ITaskItem? _pending;
+
+        public void Schedule(ITaskItem action)
+        {
+            _pending = action;
+            Scheduled.TrySetResult(true);
+        }
+
+        public void Tick()
+        {
+            var pending = _pending ?? throw new InvalidOperationException("No task was scheduled.");
+            _pending = null;
+            pending.Tick();
+        }
+    }
 }

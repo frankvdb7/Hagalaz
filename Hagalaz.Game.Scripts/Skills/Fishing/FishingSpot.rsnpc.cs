@@ -37,7 +37,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         /// <param name="clickType">Type of the click that was performed.</param>
         public override void OnCharacterClickPerform(ICharacter clicker, NpcClickType clickType)
         {
-            clicker.QueueTask(() => StartFishingAsync(clicker, clickType));
+                clicker.QueueTask(_ => StartFishingAsync(clicker, clickType));
         }
 
         private async Task StartFishingAsync(ICharacter clicker, NpcClickType clickType)

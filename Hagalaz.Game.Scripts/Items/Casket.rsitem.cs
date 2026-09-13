@@ -33,8 +33,9 @@ namespace Hagalaz.Game.Scripts.Items
             if (clickType == ComponentClickType.LeftClick)
             {
                 character.SendChatMessage("You tried to open the casket...");
-                character.QueueTask(async () =>
+                character.QueueTask(async cancellationToken =>
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var slot = character.Inventory.GetInstanceSlot(item);
                     if (slot == -1)
                     {
@@ -43,6 +44,7 @@ namespace Hagalaz.Game.Scripts.Items
 
                     character.Inventory.Remove(item, slot);
                     var table = await _lootService.FindItemLootTable(1); // 1 == casket loot table
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (table == null)
                     {
                         return;

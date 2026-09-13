@@ -49,7 +49,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                clicker.QueueTask(() => StartMiningAsync(clicker, Owner));
+                clicker.QueueTask(_ => StartMiningAsync(clicker, Owner));
                 return;
             }
 

@@ -38,6 +38,7 @@ public sealed class CharacterDehydrationWorkerServiceTests
             .AddScoped(_ => dehydrationService)
             .AddScoped(_ => mediator)
             .AddScoped(_ => characterLogoutService)
+            .AddSingleton(new CharacterPersistenceState())
             .BuildServiceProvider();
         var scheduler = new ImmediateTaskScheduler();
         var worker = new CharacterDehydrationWorkerService(
@@ -73,6 +74,7 @@ public sealed class CharacterDehydrationWorkerServiceTests
             .AddScoped(_ => dehydrationService)
             .AddScoped(_ => mediator)
             .AddScoped<ICharacterLogoutService>(_ => characterLogoutService)
+            .AddSingleton(new CharacterPersistenceState())
             .BuildServiceProvider();
         var scheduler = new ImmediateTaskScheduler();
         var worker = new CharacterDehydrationWorkerService(
@@ -83,9 +85,52 @@ public sealed class CharacterDehydrationWorkerServiceTests
 
         await worker.FlushAsync(force: false, CancellationToken.None);
 
-        await persistenceService.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), false, Arg.Any<CancellationToken>());
+        await persistenceService.Received(1).PersistAsync(
+            42,
+            Arg.Is<CharacterModel>(model => model.SnapshotRevision == 1),
+            false,
+            Arg.Any<CancellationToken>());
         character.DidNotReceive().Destroy();
         mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
+    }
+
+    [TestMethod]
+    public async Task FlushAsync_CapturesStoreMembershipOnGameWorkerBeforeDehydrating()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        var characterLogoutService = Substitute.For<ICharacterLogoutService>();
+        characterLogoutService.IsPendingLogout(42u).Returns(false);
+        var store = new SingleCharacterStore(character);
+        var scheduler = new DeferredTaskScheduler();
+
+        using var provider = new ServiceCollection()
+            .AddScoped(_ => persistenceService)
+            .AddScoped(_ => dehydrationService)
+            .AddScoped<ICharacterLogoutService>(_ => characterLogoutService)
+            .AddSingleton(new CharacterPersistenceState())
+            .BuildServiceProvider();
+        var worker = new CharacterDehydrationWorkerService(
+            NullLogger<CharacterDehydrationWorkerService>.Instance,
+            provider,
+            store,
+            scheduler);
+
+        var flush = worker.FlushAsync(force: false, CancellationToken.None);
+        await scheduler.Scheduled.Task;
+        store.IncludeCharacter = false;
+        scheduler.Tick();
+
+        await flush;
+
+        dehydrationService.DidNotReceive().Dehydrate(character);
+        await persistenceService.DidNotReceive().PersistAsync(
+            42,
+            Arg.Any<CharacterModel>(),
+            false,
+            Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -110,6 +155,7 @@ public sealed class CharacterDehydrationWorkerServiceTests
             .AddScoped(_ => persistenceService)
             .AddScoped(_ => dehydrationService)
             .AddScoped<ICharacterLogoutService>(_ => Substitute.For<ICharacterLogoutService>())
+            .AddSingleton(new CharacterPersistenceState())
             .BuildServiceProvider();
         var worker = new CharacterDehydrationWorkerService(
             NullLogger<CharacterDehydrationWorkerService>.Instance,
@@ -130,10 +176,14 @@ public sealed class CharacterDehydrationWorkerServiceTests
     {
         private readonly ICharacter _character;
 
+        public bool IncludeCharacter { get; set; } = true;
+
         public SingleCharacterStore(ICharacter character) => _character = character;
 
         public ValueTask<IReadOnlyDictionary<int, ICharacter>> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
-            new(new Dictionary<int, ICharacter> { [_character.Index] = _character });
+            new(IncludeCharacter
+                ? new Dictionary<int, ICharacter> { [_character.Index] = _character }
+                : new Dictionary<int, ICharacter>());
 
         public ValueTask<int> CountAsync() => throw new System.NotImplementedException();
         public ValueTask<bool> AddAsync(ICharacter character) => throw new System.NotImplementedException();
@@ -142,6 +192,25 @@ public sealed class CharacterDehydrationWorkerServiceTests
         public ValueTask<ICharacter?> FindByIndexAsync(int index) => throw new System.NotImplementedException();
         public ICharacter? FindByMasterId(uint id) => id == _character.MasterId ? _character : null;
         public bool Remove(ICharacter character) => false;
+    }
+
+    private sealed class DeferredTaskScheduler : IRsTaskService
+    {
+        public TaskCompletionSource<bool> Scheduled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private ITaskItem? _pending;
+
+        public void Schedule(ITaskItem action)
+        {
+            _pending = action;
+            Scheduled.TrySetResult(true);
+        }
+
+        public void Tick()
+        {
+            var pending = _pending ?? throw new InvalidOperationException("No task was scheduled.");
+            _pending = null;
+            pending.Tick();
+        }
     }
 
     private static async Task<CharacterPersistenceReceipt?> BlockPersistenceAsync(CancellationToken cancellationToken)

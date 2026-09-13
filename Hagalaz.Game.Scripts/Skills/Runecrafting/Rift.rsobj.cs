@@ -28,7 +28,7 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                clicker.QueueTask(() => TeleportAltar(clicker));
+                clicker.QueueTask(_ => TeleportAltar(clicker));
                 return;
             }
 

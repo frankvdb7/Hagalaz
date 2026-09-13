@@ -91,7 +91,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
                 Owner.QueueTask(new RsTask(() => _npc.Script.Respawn(), delay + _npc.Definition.RespawnTime + 1));
             else
                 Owner.QueueTask(new RsTask(
-                    () => Owner.QueueTask(() => _npcService.UnregisterAsync(_npc)),
+                    () => Owner.QueueTask(_ => _npcService.UnregisterAsync(_npc)),
                     delay + 1));
         }
 
@@ -113,9 +113,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             }
 
             var kill = killer as ICharacter;
-            kill?.QueueTask(async () =>
+            kill?.QueueTask(async cancellationToken =>
             {
                 var table = await _lootService.FindNpcLootTable(_npc.Definition.LootTableId);
+                cancellationToken.ThrowIfCancellationRequested();
                 if (table == null)
                 {
                     return;

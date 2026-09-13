@@ -50,16 +50,6 @@ public sealed class CharacterLogoutServiceTests
     }
 
     [TestMethod]
-    public void TryAdmit_RejectsGameplayAfterLogoutClaim()
-    {
-        var state = new CharacterLogoutState();
-        var character = CreateCharacter(42);
-        state.TryBeginLogout(character, out _, out _);
-
-        Assert.IsFalse(state.TryAdmit(character, () => true));
-    }
-
-    [TestMethod]
     public async Task DetachAsync_CapturesSnapshotRemovesExactOwnerAndDestroysOnce()
     {
         var character = CreateCharacter(42);
@@ -89,11 +79,14 @@ public sealed class CharacterLogoutServiceTests
             state,
             store,
             new InlineTaskScheduler(),
-            Substitute.For<IGameMediator>());
+            Substitute.For<IGameMediator>(),
+            new CharacterPersistenceState());
 
         var result = await service.DetachAsync(character);
 
-        Assert.AreSame(snapshot, result);
+        Assert.AreNotSame(snapshot, result);
+        Assert.AreEqual(1L, result.SnapshotRevision);
+        Assert.AreEqual(0L, snapshot.SnapshotRevision);
         store.Received(1).Remove(character);
         character.Received(1).Destroy();
         CollectionAssert.AreEqual(new[] { "snapshot", "remove", "destroy" }, order);
@@ -134,12 +127,20 @@ public sealed class CharacterLogoutServiceTests
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
         character.When(value => value.Destroy()).Do(_ => order.Add("destroy"));
-        var logout = new CharacterLogoutService(state, store, scheduler, Substitute.For<IGameMediator>());
+        var logout = new CharacterLogoutService(
+            state,
+            store,
+            scheduler,
+            Substitute.For<IGameMediator>(),
+            new CharacterPersistenceState());
 
         var detachTask = logout.DetachAsync(character);
         scheduler.Tick();
 
-        Assert.AreSame(snapshot, await detachTask);
+        var result = await detachTask;
+        Assert.AreNotSame(snapshot, result);
+        Assert.AreEqual(1L, result.SnapshotRevision);
+        Assert.AreEqual(0L, snapshot.SnapshotRevision);
         CollectionAssert.AreEqual(new[] { "gameplay", "snapshot", "remove", "destroy" }, order);
     }
 
@@ -161,7 +162,8 @@ public sealed class CharacterLogoutServiceTests
             state,
             store,
             new InlineTaskScheduler(),
-            Substitute.For<IGameMediator>());
+            Substitute.For<IGameMediator>(),
+            new CharacterPersistenceState());
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.DetachAsync(character));
 

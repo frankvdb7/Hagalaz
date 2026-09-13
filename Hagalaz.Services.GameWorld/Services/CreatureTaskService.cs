@@ -14,12 +14,6 @@ public sealed class CreatureTaskService(IRsTaskService scheduler) : ICreatureTas
     {
         ArgumentNullException.ThrowIfNull(task);
 
-        if (cancellationToken.IsCancellationRequested)
-        {
-            task.Cancel();
-            return new RsTaskHandle(task);
-        }
-
         var wrappedTask = new CreatureTask(task, cancellationToken);
         scheduler.Schedule(wrappedTask);
         return new RsTaskHandle(wrappedTask);
@@ -29,12 +23,6 @@ public sealed class CreatureTaskService(IRsTaskService scheduler) : ICreatureTas
     {
         ArgumentNullException.ThrowIfNull(task);
 
-        if (cancellationToken.IsCancellationRequested)
-        {
-            task.Cancel();
-            return new RsTaskHandle<TResult>(task);
-        }
-
         var wrappedTask = new CreatureTask<TResult>(task, cancellationToken);
         scheduler.Schedule(wrappedTask);
         return new RsTaskHandle<TResult>(wrappedTask);
@@ -42,10 +30,7 @@ public sealed class CreatureTaskService(IRsTaskService scheduler) : ICreatureTas
 
     private sealed class CreatureTask(ITaskItem inner, CancellationToken cancellationToken) : ITaskItem, IDisposable
     {
-        private readonly CancellationTokenRegistration _cancellationRegistration =
-            cancellationToken.Register(static state => ((ITaskItem)state!).Cancel(), inner);
-
-        public bool IsCancelled => cancellationToken.IsCancellationRequested || inner.IsCancelled;
+        public bool IsCancelled => inner.IsCancelled;
 
         public bool IsCompleted => inner.IsCompleted;
 
@@ -66,7 +51,6 @@ public sealed class CreatureTaskService(IRsTaskService scheduler) : ICreatureTas
 
         public void Dispose()
         {
-            _cancellationRegistration.Dispose();
             if (inner is IDisposable disposable)
             {
                 disposable.Dispose();
@@ -76,10 +60,7 @@ public sealed class CreatureTaskService(IRsTaskService scheduler) : ICreatureTas
 
     private sealed class CreatureTask<TResult>(ITaskItem<TResult> inner, CancellationToken cancellationToken) : ITaskItem<TResult>, IDisposable
     {
-        private readonly CancellationTokenRegistration _cancellationRegistration =
-            cancellationToken.Register(static state => ((ITaskItem)state!).Cancel(), inner);
-
-        public bool IsCancelled => cancellationToken.IsCancellationRequested || inner.IsCancelled;
+        public bool IsCancelled => inner.IsCancelled;
 
         public bool IsCompleted => inner.IsCompleted;
 
@@ -102,7 +83,6 @@ public sealed class CreatureTaskService(IRsTaskService scheduler) : ICreatureTas
 
         public void Dispose()
         {
-            _cancellationRegistration.Dispose();
             if (inner is IDisposable disposable)
             {
                 disposable.Dispose();

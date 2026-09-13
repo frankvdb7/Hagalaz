@@ -328,6 +328,8 @@ namespace Hagalaz.Game.Scripts.Commands
                     CommandFunc = async (character, arguments) =>
                     {
                         var name = string.Join(" ", arguments);
+                        var destination = character.Location.Clone();
+                        var sourceDisplayName = character.DisplayName;
                         var repository = character.ServiceProvider.GetRequiredService<ICharacterStore>();
                         var c = (await repository.GetSnapshotAsync()).Values
                             .Where(ch => string.Compare(ch.DisplayName, name, StringComparison.OrdinalIgnoreCase) == 0)
@@ -341,8 +343,8 @@ namespace Hagalaz.Game.Scripts.Commands
                         {
                             c.QueueTask(new RsTask(() =>
                             {
-                                c.Movement.Teleport(Teleport.Create(character.Location.Clone()));
-                                c.SendChatMessage("You've been teleported to " + character.DisplayName + ".");
+                                c.Movement.Teleport(Teleport.Create(destination));
+                                c.SendChatMessage("You've been teleported to " + sourceDisplayName + ".");
                             }, 1));
                         }
 
@@ -356,17 +358,19 @@ namespace Hagalaz.Game.Scripts.Commands
                     CommandFunc = async (character, arguments) =>
                     {
                         var name = string.Join(" ", arguments);
-
                         var repository = character.ServiceProvider.GetRequiredService<ICharacterStore>();
+
                         var c = (await repository.GetSnapshotAsync()).Values
                             .Where(ch => string.Compare(ch.DisplayName, name, StringComparison.OrdinalIgnoreCase) == 0)
                             .FirstOrDefault();
+                        var destination = c?.Location.Clone();
+                        var targetDisplayName = c?.DisplayName;
                         character.QueueTask(new RsTask(() =>
                         {
-                            if (c != null)
+                            if (destination is not null && targetDisplayName is not null)
                             {
-                                character.Movement.Teleport(Teleport.Create(c.Location.Clone()));
-                                character.SendChatMessage("You teleported to " + c.DisplayName + ".");
+                                character.Movement.Teleport(Teleport.Create(destination));
+                                character.SendChatMessage("You teleported to " + targetDisplayName + ".");
                             }
                             else
                             {

@@ -6,6 +6,8 @@ using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld.Factories;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
@@ -27,30 +29,36 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
     private readonly ILogger<WorldSessionAdmissionService> _logger;
     private readonly IMapper _mapper;
     private readonly ICharacterService _characterService;
+    private readonly ICharacterStore _characterStore;
     private readonly ICharacterFactory _characterFactory;
     private readonly ICharacterHydrationService _characterHydrationService;
     private readonly ICharacterPersistenceService _characterPersistenceService;
     private readonly IGameSessionService _gameSessionService;
     private readonly IRequestClient<HydrateCharacter> _getCharacterRequestClient;
+    private readonly IRsTaskService _taskScheduler;
 
     public WorldSessionAdmissionService(
         ILogger<WorldSessionAdmissionService> logger,
         IMapper mapper,
         ICharacterService characterService,
+        ICharacterStore characterStore,
         ICharacterFactory characterFactory,
         ICharacterHydrationService characterHydrationService,
         ICharacterPersistenceService characterPersistenceService,
         IGameSessionService gameSessionService,
-        IRequestClient<HydrateCharacter> getCharacterRequestClient)
+        IRequestClient<HydrateCharacter> getCharacterRequestClient,
+        IRsTaskService taskScheduler)
     {
         _logger = logger;
         _mapper = mapper;
         _characterService = characterService;
+        _characterStore = characterStore;
         _characterFactory = characterFactory;
         _characterHydrationService = characterHydrationService;
         _characterPersistenceService = characterPersistenceService;
         _gameSessionService = gameSessionService;
         _getCharacterRequestClient = getCharacterRequestClient;
+        _taskScheduler = taskScheduler;
     }
 
     public async ValueTask<SignInResult> AdmitAsync(
@@ -194,31 +202,44 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
     {
         if (registeredCharacter is not null)
         {
+            var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             try
             {
-                if (await _characterService.RemoveAsync(registeredCharacter))
+                _taskScheduler.Schedule(new RsTask(() =>
                 {
                     try
                     {
-                        registeredCharacter.Destroy();
+                        if (_characterStore.Remove(registeredCharacter))
+                        {
+                            try
+                            {
+                                registeredCharacter.Destroy();
+                            }
+                            catch (Exception exception)
+                            {
+                                _logger.LogError(exception, "Failed to destroy character after world sign-in failed");
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Character '{MasterId}' removal returned false after world sign-in failed; retaining persistence state for recovery", masterId);
+                        }
                     }
                     catch (Exception exception)
                     {
-                        _logger.LogError(exception, "Failed to destroy character after world sign-in failed");
+                        _logger.LogError(exception, "Failed to remove character after world sign-in failed");
                     }
-                }
-                else
-                {
-                    _logger.LogWarning("Character '{MasterId}' removal returned false after world sign-in failed; retaining persistence state for recovery", masterId);
-                }
-            }
-            catch (OperationCanceledException exception)
-            {
-                _logger.LogError(exception, "Character removal was canceled after world sign-in failed");
+                    finally
+                    {
+                        completion.TrySetResult();
+                    }
+                }, 1));
+
+                await completion.Task;
             }
             catch (Exception exception)
             {
-                _logger.LogError(exception, "Failed to remove character after world sign-in failed");
+                _logger.LogError(exception, "Failed to schedule character rollback after world sign-in failed");
             }
         }
 

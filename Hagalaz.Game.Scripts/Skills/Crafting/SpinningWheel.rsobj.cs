@@ -25,7 +25,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         {
             if (clickType == GameObjectClickType.Option2Click)
             {
-                clicker.QueueTask(() => _craftingSkillService.TrySpin(clicker));
+                clicker.QueueTask(_ => _craftingSkillService.TrySpin(clicker));
             }
             else
             {

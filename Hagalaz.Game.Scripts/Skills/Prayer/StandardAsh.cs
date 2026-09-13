@@ -40,7 +40,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
         {
             if (clickType == ComponentClickType.LeftClick)
             {
-                character.QueueTask(() => Scatter(character, item));
+                character.QueueTask(_ => Scatter(character, item));
             }
             else
             {

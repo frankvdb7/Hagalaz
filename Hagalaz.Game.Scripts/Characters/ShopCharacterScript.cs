@@ -25,7 +25,7 @@ namespace Hagalaz.Game.Scripts.Characters
         protected override void Initialize() =>
             _event = Character.RegisterEventHandler<OpenShopEvent>(e =>
             {
-                Character.QueueTask(() => OpenShop(e.ShopId));
+                Character.QueueTask(_ => OpenShop(e.ShopId));
                 return true;
             });
 

@@ -31,9 +31,10 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
             AttachDialogueContinueClickHandler(0,
                 (extraData1, extraData2) =>
                 {
-                    Owner.QueueTask(async () =>
+                    Owner.QueueTask(async cancellationToken =>
                     {
                         var task = await _slayerService.FindSlayerTaskDefinition(Owner.Slayer.CurrentTaskId);
+                        cancellationToken.ThrowIfCancellationRequested();
                         if (task == null)
                         {
                             return;

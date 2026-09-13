@@ -62,7 +62,24 @@ namespace Hagalaz.Services.GameWorld.Services
                     continue;
                 }
 
-                var command = CreateCommand(_mapper, model, masterId, 0);
+                if (model.SnapshotRevision <= 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Character '{masterId}' persistence requires a snapshot revision reserved during capture.");
+                }
+
+                if (_state.IsRevisionSuperseded(masterId, model.SnapshotRevision))
+                {
+                    if (force)
+                    {
+                        throw new InvalidOperationException(
+                            $"Character '{masterId}' snapshot revision {model.SnapshotRevision} is older than a newer captured snapshot.");
+                    }
+
+                    return null;
+                }
+
+                var command = CreateCommand(_mapper, model, masterId, model.SnapshotRevision);
                 var fingerprint = CharacterSnapshotFingerprint.Compute(command);
 
                 if (!force && _state.IsPersisted(masterId, fingerprint))
@@ -70,12 +87,10 @@ namespace Hagalaz.Services.GameWorld.Services
                     return null;
                 }
 
-                var snapshotRevision = _state.NextRevision(masterId);
-                command = command with { SnapshotRevision = snapshotRevision };
                 var receipt = new CharacterPersistenceReceipt(
                     masterId,
                     command.CorrelationId,
-                    snapshotRevision);
+                    model.SnapshotRevision);
 
                 // Record the snapshot before publishing so a fast acknowledgement cannot arrive
                 // before the producer has state to match it.
@@ -92,7 +107,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     throw;
                 }
 
-                _logger.LogDebug("Queued character {MasterId} snapshot revision {SnapshotRevision} in the EF bus outbox", masterId, snapshotRevision);
+                _logger.LogDebug("Queued character {MasterId} snapshot revision {SnapshotRevision} in the EF bus outbox", masterId, model.SnapshotRevision);
                 return receipt;
             }
         }
@@ -187,6 +202,14 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 var entry = GetOrCreateEntry(masterId);
                 return entry.Revision = checked(entry.Revision + 1);
+            }
+        }
+
+        public bool IsRevisionSuperseded(uint masterId, long snapshotRevision)
+        {
+            lock (_stateGate)
+            {
+                return _entries.TryGetValue(masterId, out var entry) && entry.Revision > snapshotRevision;
             }
         }
 

@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -244,6 +246,12 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// <param name="task">The task to be queued.</param>
         /// <returns>A handle to the queued task.</returns>
         IRsTaskHandle QueueTask(ITaskItem task);
+        /// <summary>
+        /// Queues an asynchronous operation that receives cancellation for this creature's lifetime.
+        /// </summary>
+        /// <param name="operation">The asynchronous operation to queue.</param>
+        /// <returns>A handle to the queued task.</returns>
+        IRsTaskHandle QueueTask(Func<CancellationToken, Task> operation);
         /// <summary>
         /// Queues a background task with a return value to be executed in the context of this creature.
         /// </summary>

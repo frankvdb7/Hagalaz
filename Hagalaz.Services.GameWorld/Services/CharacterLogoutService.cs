@@ -92,19 +92,6 @@ public sealed class CharacterLogoutState
         }
     }
 
-    public bool TryAdmit(ICharacter character, Func<bool> admission)
-    {
-        lock (_gate)
-        {
-            if (_pending.ContainsKey(character.MasterId))
-            {
-                return false;
-            }
-
-            return admission();
-        }
-    }
-
     public bool TryGetSnapshot(ICharacter character, out CharacterModel snapshot)
     {
         lock (_gate)
@@ -215,17 +202,20 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
     private readonly ICharacterStore _characterStore;
     private readonly IRsTaskService _taskService;
     private readonly IGameMediator _mediator;
+    private readonly CharacterPersistenceState _persistenceState;
 
     public CharacterLogoutService(
         CharacterLogoutState logoutState,
         ICharacterStore characterStore,
         IRsTaskService taskService,
-        IGameMediator mediator)
+        IGameMediator mediator,
+        CharacterPersistenceState persistenceState)
     {
         _logoutState = logoutState;
         _characterStore = characterStore;
         _taskService = taskService;
         _mediator = mediator;
+        _persistenceState = persistenceState;
     }
 
     public bool TryBeginLogout(ICharacter character, out bool created, out CharacterPersistenceReceipt? persistenceReceipt) =>
@@ -262,7 +252,10 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
                 try
                 {
                     var dehydrationService = character.ServiceProvider.GetRequiredService<ICharacterDehydrationService>();
-                    var finalSnapshot = dehydrationService.Dehydrate(character);
+                    var finalSnapshot = dehydrationService.Dehydrate(character) with
+                    {
+                        SnapshotRevision = _persistenceState.NextRevision(character.MasterId)
+                    };
 
                     if (!_characterStore.Remove(character))
                     {

@@ -9,6 +9,8 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld.Factories;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
@@ -915,6 +917,8 @@ public sealed class AuthenticationSignInTests
 
         var character = Substitute.For<ICharacter>();
         character.When(item => item.Destroy()).Do(_ => order.Add("destroy"));
+        var characterStore = Substitute.For<ICharacterStore>();
+        characterStore.Remove(character).Returns(true);
         var characterService = new TestCharacterService(
             addResult: true,
             removeResult: true,
@@ -938,13 +942,14 @@ public sealed class AuthenticationSignInTests
             characterService,
             characterPersistenceService: persistenceService,
             revokeTokenRequestClient: revokeClient,
-            characterFactory: CreateCharacterFactory(character));
+            characterFactory: CreateCharacterFactory(character),
+            characterStore: characterStore);
 
         var signInTask = service.SignInWorldAsync(CreateSignInRequest()).AsTask();
         await revokeStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
 
         CollectionAssert.AreEqual(
-            new[] { "remove-character", "destroy", "remove-session", "remove-local-session", "revoke" },
+            new[] { "destroy", "remove-session", "remove-local-session", "revoke" },
             order);
         Assert.IsFalse(signInTask.IsCompleted);
 
@@ -967,13 +972,16 @@ public sealed class AuthenticationSignInTests
 
         var characterService = new TestCharacterService(addResult: true, removeResult: true);
         var character = Substitute.For<ICharacter>();
+        var characterStore = Substitute.For<ICharacterStore>();
+        characterStore.Remove(character).Returns(true);
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
         var service = CreateAuthenticationService(
             gameSessionService,
             characterService,
             characterPersistenceService: persistenceService,
             snapshotRevision: 27,
-            characterFactory: CreateCharacterFactory(character));
+            characterFactory: CreateCharacterFactory(character),
+            characterStore: characterStore);
 
         var result = await service.SignInWorldAsync(CreateSignInRequest());
 
@@ -1351,6 +1359,7 @@ public sealed class AuthenticationSignInTests
         IRequestClient<RevokeTokenRequestMessage>? revokeTokenRequestClient = null,
         IClaimsPrincipalFactory? claimsPrincipalFactory = null,
         ICharacterFactory? characterFactory = null,
+        ICharacterStore? characterStore = null,
         SignInUserResponseMessage? signInResponseMessage = null,
         IRequestClient<SignInUserRequestMessage>? signInUserRequestClient = null)
     {
@@ -1441,11 +1450,13 @@ public sealed class AuthenticationSignInTests
             NullLogger<WorldSessionAdmissionService>.Instance,
             mapper,
             characterServiceSubstitute,
+            characterStore ?? Substitute.For<ICharacterStore>(),
             characterFactorySubstitute,
             characterHydrationServiceSubstitute,
             persistenceService,
             gameSessionService,
-            getCharacterRequestClient ?? hydrateRequestClient);
+            getCharacterRequestClient ?? hydrateRequestClient,
+            new ImmediateTaskScheduler());
 
         return new AuthenticationService(
             NullLogger<AuthenticationService>.Instance,
@@ -1805,5 +1816,11 @@ public sealed class AuthenticationSignInTests
             .SetValue(boxedResponse, firstResponse);
         response = (Response<T1, T2>)boxedResponse;
         return response;
+    }
+
+    private sealed class ImmediateTaskScheduler : IRsTaskService
+    {
+        public void Schedule(ITaskItem action) => action.Tick();
+        public void Tick() { }
     }
 }

@@ -9,6 +9,8 @@ using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Factories;
@@ -614,11 +616,13 @@ public sealed class AuthenticationLogoutTests
                 NullLogger<WorldSessionAdmissionService>.Instance,
                 Substitute.For<AutoMapper.IMapper>(),
                 characterService,
+                Substitute.For<ICharacterStore>(),
                 Substitute.For<ICharacterFactory>(),
                 Substitute.For<ICharacterHydrationService>(),
                 persistenceService,
                 gameSessionService,
-                Substitute.For<IRequestClient<HydrateCharacter>>()),
+                Substitute.For<IRequestClient<HydrateCharacter>>(),
+                new ImmediateTaskScheduler()),
             Substitute.For<IRequestClient<SignInUserRequestMessage>>(),
             Substitute.For<IRequestClient<ValidateExistingAuthenticationRequestMessage>>(),
             Substitute.For<IRequestClient<GetUserInfoRequestMessage>>(),
@@ -722,4 +726,10 @@ public sealed class AuthenticationLogoutTests
         typeof(RaidoHub)
             .GetProperty(nameof(RaidoHub.Context), BindingFlags.Instance | BindingFlags.Public)!
             .SetValue(hub, context);
+
+    private sealed class ImmediateTaskScheduler : IRsTaskService
+    {
+        public void Schedule(ITaskItem action) => action.Tick();
+        public void Tick() { }
+    }
 }

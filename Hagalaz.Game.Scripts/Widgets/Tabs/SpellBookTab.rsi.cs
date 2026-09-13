@@ -611,7 +611,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                         return false;
                                     }
 
-                                    Owner.QueueTask(() => CastEnchant(Owner, item, definition));
+                                    Owner.QueueTask(_ => CastEnchant(Owner, item, definition));
                                     return true;
                                 });
                         }

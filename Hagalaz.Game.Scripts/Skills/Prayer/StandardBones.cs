@@ -39,7 +39,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
         {
             if (clickType == ComponentClickType.LeftClick)
             {
-                character.QueueTask(() => Bury(character, item));
+                character.QueueTask(_ => Bury(character, item));
             }
             else
             {

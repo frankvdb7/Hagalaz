@@ -89,7 +89,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return false; // allow other events to catch a creature killed event.
                 }
 
-                _owner.QueueTask(() => ProcessCreatureKillAsync(npc));
+                _owner.QueueTask(_ => ProcessCreatureKillAsync(npc));
 
                 return false; // allow other events to catch a creature killed event.
             }));
@@ -162,9 +162,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 _creatureKilledHandler = null;
             }
 
-            _owner.QueueTask(async () =>
+            _owner.QueueTask(async cancellationToken =>
             {
                 var table = await _slayerService.FindSlayerMasterTableByNpcId(slayerMasterId);
+                cancellationToken.ThrowIfCancellationRequested();
                 if (table == null)
                 {
                     return;

@@ -24,7 +24,7 @@ public sealed class CreatureTaskServiceTests
     }
 
     [TestMethod]
-    public void Queue_WithAlreadyCancelledToken_CancelsWithoutScheduling()
+    public void Queue_WithAlreadyCancelledToken_SchedulesCancellationCleanup()
     {
         var scheduler = new RecordingScheduler();
         var service = new CreatureTaskService(scheduler);
@@ -34,7 +34,8 @@ public sealed class CreatureTaskServiceTests
 
         service.Queue(task, cancellation.Token);
 
-        Assert.AreEqual(0, scheduler.ScheduleCalls);
+        Assert.AreEqual(1, scheduler.ScheduleCalls);
+        scheduler.Tick();
         Assert.AreEqual(1, task.CancelCalls);
     }
 
@@ -82,7 +83,7 @@ public sealed class CreatureTaskServiceTests
             receivedToken = token;
             operationStarted.SetResult(true);
             return operation.Task;
-        });
+        }, cancellation.Token);
 
         service.Queue(task, cancellation.Token);
         scheduler.Tick();
@@ -113,7 +114,14 @@ public sealed class CreatureTaskServiceTests
     private sealed class RecordingScheduler : IRsTaskService
     {
         public int ScheduleCalls { get; private set; }
-        public void Schedule(ITaskItem action) => ScheduleCalls++;
-        public void Tick() { }
+        private ITaskItem? _scheduled;
+
+        public void Schedule(ITaskItem action)
+        {
+            ScheduleCalls++;
+            _scheduled = action;
+        }
+
+        public void Tick() => (_scheduled ?? throw new InvalidOperationException("No task was scheduled.")).Tick();
     }
 }

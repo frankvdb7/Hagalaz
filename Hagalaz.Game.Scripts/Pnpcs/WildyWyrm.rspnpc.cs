@@ -113,10 +113,11 @@ namespace Hagalaz.Game.Scripts.Pnpcs
                 return;
             }
 
-            Owner.QueueTask(async () =>
+            Owner.QueueTask(async cancellationToken =>
             {
                 var lootService = Owner.ServiceProvider.GetRequiredService<ILootService>();
                 var table = await lootService.FindNpcLootTable(Definition.LootTableId);
+                cancellationToken.ThrowIfCancellationRequested();
                 if (table == null)
                 {
                     return;

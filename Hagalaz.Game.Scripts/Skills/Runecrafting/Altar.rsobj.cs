@@ -33,7 +33,7 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                clicker.QueueTask(() => CraftRunes(clicker));
+                clicker.QueueTask(_ => CraftRunes(clicker));
                 return;
             }
 

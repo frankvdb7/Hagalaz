@@ -27,7 +27,7 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                clicker.QueueTask(() => TeleportToRuin(clicker));
+                clicker.QueueTask(_ => TeleportToRuin(clicker));
                 return;
             }
 

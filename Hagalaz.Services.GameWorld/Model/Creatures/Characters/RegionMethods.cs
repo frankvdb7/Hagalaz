@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using System.Threading;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common;
@@ -34,14 +35,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         protected override void OnRegionChange()
         {
-            this.QueueTask(async () =>
+            var regionId = Location.RegionId;
+            var dimension = Location.Dimension;
+            this.QueueTask(async cancellationToken =>
             {
-                var region = _mapRegionService.FindMapRegion(Location.RegionId, Location.Dimension);
+                var region = _mapRegionService.FindMapRegion(regionId, dimension);
                 if (region is null)
                 {
                     return;
                 }
                 var musicIds = await _musicService.FindMusicIdsByRegionId(region.Id);
+                cancellationToken.ThrowIfCancellationRequested();
                 if (musicIds.Any(musicId => Music.UnlockMusic(musicId)))
                 {
                     Music.RefreshMusicList();

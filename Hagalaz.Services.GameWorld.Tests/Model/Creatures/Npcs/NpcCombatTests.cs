@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
@@ -38,6 +39,8 @@ public sealed class NpcCombatTests
         npc.Appearance.Returns(appearance);
         npc.When(item => item.QueueTask(Arg.Any<ITaskItem>()))
             .Do(callInfo => queuedTasks.Add(callInfo.Arg<ITaskItem>()!));
+        npc.When(item => item.QueueTask(Arg.Any<Func<CancellationToken, Task>>()))
+            .Do(callInfo => queuedTasks.Add(new RsAsyncTask(callInfo.Arg<Func<CancellationToken, Task>>()!)));
         npcService.UnregisterAsync(npc).Returns(_ =>
         {
             unregisterStarted.SetResult();

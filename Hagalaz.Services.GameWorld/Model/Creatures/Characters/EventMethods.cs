@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Features;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -29,7 +30,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             try
             {
                 var (command, arguments) = ParseCommandAndArguments(commandAndArgs);
-                QueueTask(new RsAsyncTask(() => ExecuteCommandAsync(command, arguments, commandAndArgs)));
+                QueueTask(cancellationToken => ExecuteCommandAsync(command, arguments, commandAndArgs, cancellationToken));
                 // The event was handled by handing the command to the game-loop owner.
                 return true;
             }
@@ -40,11 +41,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
         }
 
-        private async Task ExecuteCommandAsync(string command, string[] arguments, string commandAndArgs)
+        private async Task ExecuteCommandAsync(
+            string command,
+            string[] arguments,
+            string commandAndArgs,
+            CancellationToken cancellationToken)
         {
             try
             {
                 await _gameCommandPrompt.ExecuteAsync(command, this, arguments);
+                cancellationToken.ThrowIfCancellationRequested();
             }
             catch (Exception ex)
             {

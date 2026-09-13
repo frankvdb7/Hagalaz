@@ -44,7 +44,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
                 }
 
                 character.Interrupt(this);
-                character.QueueTask(() => EatFood(character, item));
+                character.QueueTask(_ => EatFood(character, item));
             }
         }
 

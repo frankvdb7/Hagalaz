@@ -71,7 +71,7 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
             character.Interrupt(this);
             if (clickType == GroundItemClickType.Option4Click)
             {
-                character.QueueTask(() => LightGroundLog(character, item));
+                character.QueueTask(_ => LightGroundLog(character, item));
             }
             else
             {
@@ -107,7 +107,7 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
                 return false;
             }
 
-            character.QueueTask(() => LightGroundLog(character, logs));
+            character.QueueTask(_ => LightGroundLog(character, logs));
             return true;
         }
 

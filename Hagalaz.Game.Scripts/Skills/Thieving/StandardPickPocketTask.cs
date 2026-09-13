@@ -176,9 +176,10 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
 
                 var lootGenerator = _npc.ServiceProvider.GetRequiredService<ILootGenerator>();
                 var lootService = _npc.ServiceProvider.GetRequiredService<ILootService>();
-                _npc.QueueTask(async () =>
+                _npc.QueueTask(async cancellationToken =>
                 {
                     var table = await lootService.FindNpcLootTable(_npc.Definition.PickPocketingLootTableId);
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (table != null)
                     {
                         _performer.Inventory.TryAddLoot(_performer,

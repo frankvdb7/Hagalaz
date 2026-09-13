@@ -299,7 +299,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             public void QueueHitBar(IHitBar hitBar) => throw new NotImplementedException();
             public void QueueHitSplat(IHitSplat splat) => throw new NotImplementedException();
             public IRsTaskHandle QueueTask(ITaskItem task) => throw new NotImplementedException();
-            public void QueueTask(Func<Task> task) => throw new NotImplementedException();
+            public IRsTaskHandle QueueTask(Func<CancellationToken, Task> operation) => throw new NotImplementedException();
             public EventHappened? RegisterEventHandler<TEventType>(EventHappened<TEventType> handler) where TEventType : ICreatureEvent => throw new NotImplementedException();
             public void ResetFacing() => throw new NotImplementedException();
             public void Respawn() => throw new NotImplementedException();

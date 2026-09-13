@@ -41,7 +41,7 @@ namespace Hagalaz.Game.Scripts.GameObjects
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                clicker.QueueTask(() => BeginTeleport(clicker));
+                clicker.QueueTask(_ => BeginTeleport(clicker));
                 return;
             }
 

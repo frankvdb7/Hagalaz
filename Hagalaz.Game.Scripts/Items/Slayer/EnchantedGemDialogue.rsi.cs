@@ -53,11 +53,13 @@ namespace Hagalaz.Game.Scripts.Items.Slayer
             AttachDialogueOptionClickHandler("How am I doing so far?",
                 (extraData1, extraData2) =>
                 {
-                    Owner.QueueTask(async () =>
+                    Owner.QueueTask(async cancellationToken =>
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         if (Owner.HasSlayerTask())
                         {
                             var slayerTask = await _slayerService.FindSlayerTaskDefinition(Owner.Slayer.CurrentTaskId);
+                            cancellationToken.ThrowIfCancellationRequested();
                             StandardNpcDialogue(npcDefinition,
                                     DialogueAnimations.CalmTalk,
                                     "You are currently assigned to kill:",

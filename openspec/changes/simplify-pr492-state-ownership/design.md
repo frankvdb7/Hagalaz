@@ -112,7 +112,33 @@ it does not check a state through one API and mutate it through another.
     disconnect callbacks may use independent scopes and overlap. CharacterStore
     membership plus the creature task/logout boundary claim the shared
     boundary, so admitted gameplay is queued before the terminal turn and
-    later input is rejected.
+   later input is rejected.
+
+18. **Creature lifetime cancellation is scheduler-owned.** Destroying a
+    Creature cancels its private token, but does not register a callback that
+    invokes an arbitrary task's `Cancel` method synchronously. The existing
+    Creature task wrapper remains scheduled until the shared `RsTaskService`
+    ticks it; that tick performs the task cancellation on the GameWorker and
+    the normal scheduler cleanup path removes and disposes it. Token-aware
+    asynchronous operations are constructed directly with the Creature token.
+
+19. **Persistence ordering is assigned at capture.** Periodic selection,
+    dehydration, and `CharacterPersistenceState.NextRevision` run in one
+    scheduled GameWorker operation. Final logout does the same synchronously
+    before exact removal and destruction. `CharacterPersistenceService` consumes
+    the model's revision and rejects older detached models rather than deriving
+    a revision from publication timing.
+
+20. **Admission compensation is store-owned.** After a character is registered,
+    rollback schedules one GameWorker task that performs exact synchronous
+    `ICharacterStore.Remove`; only a successful removal permits `Destroy`, with
+    no separate asynchronous remove/destroy gap.
+
+21. **Async callers capture before await.** Region-change music work captures
+    region identity and dimension first. `teletome` captures the issuing
+    character's destination and display name, while `teleto` captures the
+    target's location and display name after lookup. Later queued work uses only
+    those values and the intended target/issuer queue boundary.
 
 ## Verification strategy
 

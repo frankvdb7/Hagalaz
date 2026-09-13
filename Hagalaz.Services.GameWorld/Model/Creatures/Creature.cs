@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
@@ -704,6 +705,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         public virtual IRsTaskHandle QueueTask(ITaskItem task)
         {
             return _taskService.Queue(task, _taskCancellation.Token);
+        }
+
+        public virtual IRsTaskHandle QueueTask(Func<CancellationToken, Task> operation)
+        {
+            ArgumentNullException.ThrowIfNull(operation);
+            return QueueTask(new RsAsyncTask(operation, _taskCancellation.Token));
         }
 
         public virtual IRsTaskHandle<TResult> QueueTask<TResult>(ITaskItem<TResult> task)

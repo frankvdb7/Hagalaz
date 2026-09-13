@@ -62,6 +62,8 @@ public sealed class WorldStatusServiceShutdownTests
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
         var characterStore = new SingleCharacterStore(character);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
         persistenceService.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
             .Returns(callInfo =>
@@ -93,7 +95,8 @@ public sealed class WorldStatusServiceShutdownTests
                 }));
                 collection.AddSingleton<ICharacterStore>(characterStore);
                 collection.AddSingleton<IRsTaskService>(new InlineTaskScheduler());
-                collection.AddScoped<ICharacterDehydrationService>(_ => Substitute.For<ICharacterDehydrationService>());
+                collection.AddSingleton(new CharacterPersistenceState());
+                collection.AddScoped<ICharacterDehydrationService>(_ => dehydrationService);
                 collection.AddScoped<ICharacterPersistenceService>(_ => persistenceService);
                 collection.AddScoped<ICharacterLogoutService>(_ => Substitute.For<ICharacterLogoutService>());
                 collection.AddSingleton(busLifetime);

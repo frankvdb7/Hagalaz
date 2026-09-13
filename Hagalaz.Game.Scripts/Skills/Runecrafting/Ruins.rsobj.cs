@@ -24,7 +24,7 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
         /// <returns></returns>
         public override bool UseItemOnGameObject(IItem used, ICharacter character)
         {
-            character.QueueTask(() => TeleportCharacter(character));
+            character.QueueTask(_ => TeleportCharacter(character));
             return true;
         }
 

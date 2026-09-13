@@ -22,7 +22,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                clicker.QueueTask(() => _craftingSkillService.TryFormPottery(clicker));
+                clicker.QueueTask(_ => _craftingSkillService.TryFormPottery(clicker));
                 return;
             }
 

@@ -98,6 +98,24 @@ public sealed class CreatureLifecycleTests
     }
 
     [TestMethod]
+    public void Destroy_DefersTaskCancellationCleanupToTheScheduler()
+    {
+        var scheduler = new RsTaskService(Microsoft.Extensions.Logging.Abstractions.NullLogger<RsTaskService>.Instance);
+        var taskService = new CreatureTaskService(scheduler);
+        var (creature, _, _) = CreateCreature(taskService: taskService);
+        var task = new TrackingTask();
+
+        creature.QueueTask(task);
+        creature.Destroy();
+
+        Assert.AreEqual(0, task.CancelCalls);
+        scheduler.Tick();
+
+        Assert.AreEqual(1, task.CancelCalls);
+        Assert.AreEqual(0, task.TickCalls);
+    }
+
+    [TestMethod]
     public void Destroy_StopsLongLivedCreatureTask()
     {
         var scheduler = new RsTaskService(Microsoft.Extensions.Logging.Abstractions.NullLogger<RsTaskService>.Instance);
@@ -281,5 +299,22 @@ public sealed class CreatureLifecycleTests
         public override bool ShouldBeRenderedFor(INpc viewer) => false;
         protected override void NonstandardMovementRendered(IForceMovement movement) { }
         protected override void GlowRendered(IGlow glow) { }
+    }
+
+    private sealed class TrackingTask : ITaskItem
+    {
+        public int CancelCalls { get; private set; }
+        public int TickCalls { get; private set; }
+        public bool IsCancelled { get; private set; }
+        public bool IsCompleted => false;
+        public bool IsFaulted => false;
+
+        public void Tick() => TickCalls++;
+
+        public void Cancel()
+        {
+            CancelCalls++;
+            IsCancelled = true;
+        }
     }
 }

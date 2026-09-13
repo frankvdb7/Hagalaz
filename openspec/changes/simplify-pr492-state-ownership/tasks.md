@@ -44,6 +44,12 @@
       scheduler.
 - [x] 3.9 Remove domain-entity `IsDestroyed` flags and route async result
       application through exact owning boundaries.
+- [x] 3.10 Keep Creature lifetime cancellation inside the shared scheduler,
+      add token-aware Creature queueing, and remove unsafe async overload usage
+      from production callers.
+- [x] 3.11 Assign detached persistence revisions during GameWorker capture,
+      reject stale detached snapshots, and use exact store ownership for
+      registered-admission rollback.
 
 ## 4. Lifecycle and NPC ownership
 
@@ -71,6 +77,9 @@
       replacement-instance continuation regressions.
 - [x] 5.6 Restore removal-driven Clan Charter and Duel Arena behavior through
       existing creature-destroyed events rather than polling or lifecycle flags.
+- [x] 5.7 Add deterministic regressions for deferred task cancellation,
+      region-change cancellation, capture-assigned revision ordering, deferred
+      admission rollback, and immutable teleport command inputs.
 
 ## 6. Validation and cleanup
 

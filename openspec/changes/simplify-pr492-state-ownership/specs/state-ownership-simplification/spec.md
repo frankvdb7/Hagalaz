@@ -252,6 +252,73 @@ lifecycle validation themselves.
 - **THEN** the result is discarded
 - **AND** the replacement is not mutated by the stale continuation
 
+### Requirement: Creature lifetime cancellation remains scheduler-owned
+
+`Creature.Destroy()` MUST signal its private cancellation token without
+invoking arbitrary queued-task `Cancel` callbacks synchronously. The existing
+Creature task wrapper MUST remain under the shared `IRsTaskService` until a
+GameWorker tick observes lifetime cancellation, invokes the inner task's
+cooperative cancellation, and allows normal removal/disposal. A
+token-aware asynchronous Creature operation MUST receive the private token
+without exposing that token as public state.
+
+#### Scenario: Destroy defers task cleanup to the scheduler
+
+- **WHEN** a Creature is destroyed outside the GameWorker execution boundary
+- **THEN** a queued task's arbitrary `Cancel` implementation is not called on
+  the destroying thread
+- **AND** the next shared scheduler tick performs cancellation cleanup
+
+#### Scenario: Async Creature work receives lifetime cancellation
+
+- **WHEN** a token-aware operation is queued through a Creature and the
+  Creature is destroyed
+- **THEN** the operation receives a cancellation token linked to that lifetime
+- **AND** no public token property or second scheduler is required
+
+### Requirement: Detached persistence revisions preserve capture order
+
+Periodic and final detached `CharacterModel` values MUST receive their revision
+from `CharacterPersistenceState` at the GameWorker capture boundary.
+`CharacterPersistenceService` MUST use that assigned revision and MUST reject a
+detached snapshot older than a newer captured revision. Forced persistence MUST
+fail clearly for such a stale snapshot rather than overwrite newer state.
+
+#### Scenario: Older detached snapshot cannot publish after a newer capture
+
+- **WHEN** a newer captured revision has already been acknowledged
+- **AND** an older detached model is submitted afterward
+- **THEN** normal persistence skips it
+- **AND** forced persistence fails without publishing the older model
+
+### Requirement: Registered admission rollback uses exact store ownership
+
+After successful Character registration, admission compensation MUST schedule a
+single GameWorker task that performs synchronous exact `ICharacterStore.Remove`
+and MUST call `Destroy()` only when removal returns true. If removal returns
+false, the character remains store-owned and MUST NOT be destroyed.
+
+#### Scenario: Deferred rollback does not destroy before its worker turn
+
+- **WHEN** world admission fails after Character registration
+- **THEN** removal and destruction wait for the scheduled GameWorker task
+- **AND** destruction follows successful exact removal without an intervening
+  asynchronous gap
+
+### Requirement: Awaited command and region inputs are immutable
+
+Region-change and teleport command continuations MUST capture the immutable
+location, dimension, and display-name values they require before or immediately
+after their lookup await. They MUST NOT reread the mutable issuing or target
+Character for those values when the queued continuation later runs.
+
+#### Scenario: Teleport continuation uses captured values
+
+- **WHEN** a teleport lookup completes and the relevant Character changes before
+  the queued continuation runs
+- **THEN** the continuation uses the captured location and display name
+- **AND** it does not apply stale-state reads from the changed Character
+
 ### Requirement: MapRegion lifecycle state is visibility-only
 
 `MapRegion` MUST retain cross-thread visibility for ready/discarded state, but

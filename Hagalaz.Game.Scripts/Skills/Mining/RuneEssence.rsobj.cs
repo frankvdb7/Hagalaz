@@ -48,7 +48,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
             if (clickType == GameObjectClickType.Option1Click)
             {
                 const double mineChance = 0.75;
-                clicker.QueueTask(() => StartRuneEssenceMiningAsync(clicker, Owner, mineChance, _expAmount));
+                clicker.QueueTask(_ => StartRuneEssenceMiningAsync(clicker, Owner, mineChance, _expAmount));
             }
             else if (clickType == GameObjectClickType.Option6Click)
             {

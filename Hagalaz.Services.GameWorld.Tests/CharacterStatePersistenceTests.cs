@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Builders.Animation;
 using Hagalaz.Game.Abstractions.Builders.Audio;
@@ -200,6 +202,52 @@ public sealed class CharacterStatePersistenceTests
         commandPrompt.Received(1).ExecuteAsync("coords", character, Arg.Is<string[]>(args => args.Length == 0));
     }
 
+    [TestMethod]
+    public async Task OnRegionChange_DoesNotUpdateMusicAfterCharacterIsDestroyed()
+    {
+        var mapRegionService = Substitute.For<IMapRegionService>();
+        var region = Substitute.For<IMapRegion>();
+        region.Id.Returns(42);
+        mapRegionService.FindMapRegion(Arg.Any<int>(), Arg.Any<int>()).Returns(region);
+
+        var musicLookup = new TaskCompletionSource<IReadOnlyList<int>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var musicService = Substitute.For<IMusicService>();
+        musicService.FindMusicIdsByRegionId(42).Returns(musicLookup.Task);
+
+        var taskService = Substitute.For<ICreatureTaskService>();
+        ITaskItem? scheduledTask = null;
+        taskService.When(service => service.Queue(Arg.Any<ITaskItem>(), Arg.Any<CancellationToken>()))
+            .Do(callInfo => scheduledTask = callInfo.Arg<ITaskItem>());
+        taskService.Queue(Arg.Any<ITaskItem>(), Arg.Any<CancellationToken>())
+            .Returns(Substitute.For<IRsTaskHandle>());
+
+        var character = CreateCharacter(
+            new TestStateService(),
+            out _,
+            null,
+            Substitute.For<IEventManager>(),
+            Substitute.For<IGameCommandPrompt>(),
+            taskService,
+            mapRegionService,
+            musicService);
+
+        typeof(Character)
+            .GetMethod("OnRegionChange", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(character, null);
+
+        Assert.IsNotNull(scheduledTask);
+        scheduledTask.Tick();
+        character.Destroy();
+
+        musicLookup.SetResult([123]);
+        await Task.Yield();
+        scheduledTask.Tick();
+
+        var music = ((IDehydratable<HydratedMusicDto>)character.Music).Dehydrate();
+        Assert.IsFalse(music.UnlockedMusicIds.Contains(123));
+    }
+
     private static Character CreateCharacter(
         TestStateService stateService,
         out IEquipmentScript equipmentScript,
@@ -220,7 +268,9 @@ public sealed class CharacterStatePersistenceTests
         IEnumerable<IDefaultCharacterScript>? defaultScripts,
         IEventManager eventManager,
         IGameCommandPrompt gameCommandPrompt,
-        ICreatureTaskService taskService)
+        ICreatureTaskService taskService,
+        IMapRegionService? mapRegionService = null,
+        IMusicService? musicService = null)
     {
         var serviceProvider = Substitute.For<IServiceProvider>();
         var serviceScope = Substitute.For<IServiceScope>();
@@ -279,9 +329,9 @@ public sealed class CharacterStatePersistenceTests
             scripts,
             Substitute.For<ICharacterScriptActivator>(),
             stateService,
-            Substitute.For<IMapRegionService>(),
+            mapRegionService ?? Substitute.For<IMapRegionService>(),
             Substitute.For<IMapUpdateService>(),
-            Substitute.For<IMusicService>(),
+            musicService ?? Substitute.For<IMusicService>(),
             gameCommandPrompt,
             Substitute.For<Microsoft.Extensions.Logging.ILogger<ICharacter>>(),
             Substitute.For<IAudioBuilder>(),

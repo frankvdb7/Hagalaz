@@ -28,8 +28,9 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                 return;
             }
 
-            character.QueueTask(async () =>
+            character.QueueTask(async cancellationToken =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 character.Interrupt(this);
                 await _skillService.SummonFamiliar(character, item);
             });

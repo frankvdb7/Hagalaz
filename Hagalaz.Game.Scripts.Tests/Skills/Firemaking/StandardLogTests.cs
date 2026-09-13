@@ -94,7 +94,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
 
             // Assert
             Assert.IsTrue(result, $"Test case: {displayName}");
-            character.Received(1).QueueTask(Arg.Any<ITaskItem>());
+            character.Received(1).QueueTask(Arg.Any<Func<CancellationToken, Task>>());
         }
 
         [TestMethod]

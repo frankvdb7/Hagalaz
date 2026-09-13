@@ -51,7 +51,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
             if (clickType == NpcClickType.Option3Click)
             {
                 clicker.Interrupt(this);
-                clicker.QueueTask(() => Thieving.PickPocket(clicker, Owner, _definition));
+                clicker.QueueTask(_ => Thieving.PickPocket(clicker, Owner, _definition));
                 return;
             }
 

@@ -102,8 +102,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         internal async Task FlushAsync(bool force, CancellationToken cancellationToken)
         {
-            var characters = new List<ICharacter>((await _characterStore.GetSnapshotAsync(cancellationToken)).Values);
-            var snapshots = await CaptureSnapshotsAsync(characters, cancellationToken);
+            var snapshots = await CaptureSnapshotsAsync(cancellationToken);
 
             var options = new ParallelOptions
             {
@@ -147,22 +146,27 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
-        private async Task<IReadOnlyDictionary<uint, CharacterModel>> CaptureSnapshotsAsync(
-            IReadOnlyList<ICharacter> characters,
-            CancellationToken cancellationToken)
+        private async Task<IReadOnlyDictionary<uint, CharacterModel>> CaptureSnapshotsAsync(CancellationToken cancellationToken)
         {
             var completion = new TaskCompletionSource<IReadOnlyDictionary<uint, CharacterModel>>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
-            _taskScheduler.Schedule(new RsTask(() =>
+            _taskScheduler.Schedule(new RsAsyncTask(async token =>
             {
                 try
                 {
+                    var characters = await _characterStore.GetSnapshotAsync(token);
                     using var scope = _serviceProvider.CreateScope();
                     var dehydrationService = scope.ServiceProvider.GetRequiredService<ICharacterDehydrationService>();
+                    var persistenceState = scope.ServiceProvider.GetRequiredService<CharacterPersistenceState>();
                     var snapshots = new Dictionary<uint, CharacterModel>();
-                    foreach (var character in characters)
+                    foreach (var character in characters.Values)
                     {
-                        snapshots[character.MasterId] = dehydrationService.Dehydrate(character);
+                        token.ThrowIfCancellationRequested();
+                        var snapshot = dehydrationService.Dehydrate(character);
+                        snapshots[character.MasterId] = snapshot with
+                        {
+                            SnapshotRevision = persistenceState.NextRevision(character.MasterId)
+                        };
                     }
 
                     completion.TrySetResult(snapshots);
@@ -172,7 +176,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     completion.TrySetException(exception);
                     throw;
                 }
-            }, 1));
+            }, cancellationToken));
 
             return await completion.Task.WaitAsync(cancellationToken);
         }
