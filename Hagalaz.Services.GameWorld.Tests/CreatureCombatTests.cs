@@ -77,19 +77,6 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public void CanBeAttackedBy_AttackerIsDestroyed_ReturnsFalse()
-        {
-            // Arrange
-            _mockAttacker.IsDestroyed.Returns(true);
-
-            // Act
-            var result = _characterCombat.CanBeAttackedBy(_mockAttacker);
-
-            // Assert
-            Assert.IsFalse(result);
-        }
-
-        [TestMethod]
         public void CanBeAttackedBy_AttackerNotInViewport_ReturnsFalse()
         {
             // Arrange

@@ -115,10 +115,6 @@ namespace Hagalaz.Services.GameWorld.Services
         private static void EnsureCanRegister(INpc npc)
         {
             ArgumentNullException.ThrowIfNull(npc);
-            if (npc.IsDestroyed)
-            {
-                throw new InvalidOperationException($"Cannot register destroyed NPC '{npc}'.");
-            }
         }
 
         private async Task<bool> RemoveAfterFailedRegistrationAsync(INpc npc)
@@ -161,11 +157,6 @@ namespace Hagalaz.Services.GameWorld.Services
 
         private void DestroyAfterFailedRegistration(INpc npc)
         {
-            if (npc.IsDestroyed)
-            {
-                return;
-            }
-
             try
             {
                 npc.Destroy();
@@ -185,8 +176,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 return;
             }
 
-            if (!npc.IsDestroyed)
-                npc.Destroy();
+            npc.Destroy();
         }
 
         public void Unregister(INpc npc)
@@ -198,8 +188,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 return;
             }
 
-            if (!npc.IsDestroyed)
-                npc.Destroy();
+            npc.Destroy();
         }
 
         public INpcDefinition FindNpcDefinitionById(int npcID) => _npcDefinitionStore.GetOrAdd(npcID);

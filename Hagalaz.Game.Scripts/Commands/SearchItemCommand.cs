@@ -4,6 +4,7 @@ using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Tasks;
 
 namespace Hagalaz.Game.Scripts.Commands
 {
@@ -34,15 +35,13 @@ namespace Hagalaz.Game.Scripts.Commands
                 return matches;
             });
 
-            if (args.Character.IsDestroyed)
+            args.Character.QueueTask(new RsTask(() =>
             {
-                return;
-            }
-
-            foreach (var result in results)
-            {
-                args.Character.SendChatMessage(result, ChatMessageType.ConsoleText);
-            }
+                foreach (var result in results)
+                {
+                    args.Character.SendChatMessage(result, ChatMessageType.ConsoleText);
+                }
+            }, 1));
         }
     }
 }

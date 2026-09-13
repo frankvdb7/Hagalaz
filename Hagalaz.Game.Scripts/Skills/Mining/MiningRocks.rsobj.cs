@@ -103,7 +103,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
             ILootTable? lootTable,
             int characterCount)
         {
-            if (rocks.IsDestroyed || rocks.IsDisabled)
+            if (rocks.IsDisabled)
             {
                 character.SendChatMessage(MiningConstants.RockAlreadyMined);
                 return;

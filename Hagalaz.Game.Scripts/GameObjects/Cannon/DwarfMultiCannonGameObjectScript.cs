@@ -291,13 +291,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
             RsTickTask task = null!;
             _rsTaskService.Schedule(task = new RsTickTask(() =>
             {
-                if (Owner.IsDestroyed)
-                {
-                    task.Cancel();
-                    return;
-                }
-
-                if (_cannonOwner.IsDestroyed || !_cannonOwner.HasState<CannonPlacedState>())
+                if (!_cannonOwner.HasState<CannonPlacedState>())
                 {
                     _mapRegionService.RemoveGameObject(Owner);
                     task.Cancel();

@@ -33,6 +33,7 @@ using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Common.Events.Character.Packet;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
@@ -151,7 +152,7 @@ public sealed class CharacterStatePersistenceTests
     }
 
     [TestMethod]
-    public void Destroy_WhenCharacterScriptFails_IsTerminalAndPublishesEventOnce()
+    public void Destroy_WhenCharacterScriptFails_PublishesCleanupEvent()
     {
         var script = Substitute.For<IDefaultCharacterScript>();
         var failure = new InvalidOperationException("script cleanup failed");
@@ -166,12 +167,6 @@ public sealed class CharacterStatePersistenceTests
         var firstFailure = Assert.ThrowsExactly<InvalidOperationException>(() => character.Destroy());
 
         Assert.AreSame(failure, firstFailure);
-        Assert.IsTrue(character.IsDestroyed);
-        script.Received(1).OnDestroy();
-
-        Assert.ThrowsExactly<InvalidOperationException>(() => character.Destroy());
-
-        Assert.IsTrue(character.IsDestroyed);
         script.Received(1).OnDestroy();
         character.EventManager.Received(1).SendEvent(Arg.Any<IEvent>());
     }
@@ -202,31 +197,6 @@ public sealed class CharacterStatePersistenceTests
         scheduledTask.Tick();
 
         commandPrompt.Received(1).ExecuteAsync("coords", character, Arg.Is<string[]>(args => args.Length == 0));
-    }
-
-    [TestMethod]
-    public void ConsoleCommandEvent_DoesNotExecuteAfterCharacterIsDestroyed()
-    {
-        var stateService = new TestStateService();
-        var eventManager = new InMemoryEventBus();
-        var commandPrompt = Substitute.For<IGameCommandPrompt>();
-        var taskService = Substitute.For<ICreatureTaskService>();
-        ITaskItem? scheduledTask = null;
-
-        taskService.When(service => service.Schedule(Arg.Any<ITaskItem>()))
-            .Do(callInfo => scheduledTask = callInfo.Arg<ITaskItem>());
-        var character = CreateCharacter(stateService, out _, null, eventManager, commandPrompt, taskService);
-        typeof(Character)
-            .GetMethod("RegisterEventHandlers", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(character, null);
-
-        Assert.IsFalse(character.EventManager.SendEvent(new ConsoleCommandEvent(character, "coords")));
-        Assert.IsNotNull(scheduledTask);
-
-        character.Destroy();
-        scheduledTask.Tick();
-
-        commandPrompt.DidNotReceive().ExecuteAsync(Arg.Any<string>(), Arg.Any<ICharacter>(), Arg.Any<string[]>());
     }
 
     private static Character CreateCharacter(
@@ -293,6 +263,8 @@ public sealed class CharacterStatePersistenceTests
         Register(serviceProvider, scripts);
         Register(serviceProvider, itemBuilder);
         Register<IStateService>(serviceProvider, stateService);
+        var characterStore = Substitute.For<ICharacterStore>();
+        Register(serviceProvider, characterStore);
 
         var character = new Character(
             serviceScope,
@@ -335,7 +307,14 @@ public sealed class CharacterStatePersistenceTests
             Substitute.For<ISlayerTaskCompletedDialogue>(),
             Substitute.For<IFarmingService>(),
             Substitute.For<IGameObjectService>(),
-            Substitute.For<IWidgetScriptProvider>());
+            Substitute.For<IWidgetScriptProvider>(),
+            characterStore);
+        characterStore.TryQueueTask(Arg.Any<ICharacter>(), Arg.Any<ITaskItem>())
+            .Returns(callInfo =>
+            {
+                taskService.Schedule(callInfo.Arg<ITaskItem>());
+                return true;
+            });
         ((IHydratable<HydratedDetailsDto>)character).Hydrate(new HydratedDetailsDto
         {
             CoordX = 3200,

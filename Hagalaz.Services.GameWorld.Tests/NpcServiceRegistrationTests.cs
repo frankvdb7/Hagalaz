@@ -233,20 +233,6 @@ public sealed class NpcServiceRegistrationTests
     }
 
     [TestMethod]
-    public async Task RegisterAsync_WhenNpcIsDestroyed_RejectsRegistration()
-    {
-        var store = new NpcStore();
-        var npc = CreateNpc();
-        npc.IsDestroyed.Returns(true);
-        var service = CreateService(store);
-
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.RegisterAsync(npc));
-
-        npc.DidNotReceive().OnRegistered();
-        Assert.AreEqual(0, await store.CountAsync());
-    }
-
-    [TestMethod]
     public async Task UnregisterAsync_WhenDestroyThrows_StillRemovesTheGlobalEntry()
     {
         var store = new NpcStore();
@@ -275,21 +261,6 @@ public sealed class NpcServiceRegistrationTests
 
         Assert.AreEqual(0, await store.CountAsync());
         npc.Received(1).Destroy();
-    }
-
-    [TestMethod]
-    public async Task UnregisterAsync_WhenNpcIsAlreadyDestroyed_StillRemovesTheGlobalEntry()
-    {
-        var store = new NpcStore();
-        var npc = CreateNpc();
-        npc.IsDestroyed.Returns(true);
-        await store.AddAsync(npc);
-        var service = CreateService(store);
-
-        await service.UnregisterAsync(npc);
-
-        Assert.AreEqual(0, await store.CountAsync());
-        npc.DidNotReceive().Destroy();
     }
 
     [TestMethod]
@@ -347,7 +318,6 @@ public sealed class NpcServiceRegistrationTests
     private static INpc CreateNpc()
     {
         var npc = Substitute.For<INpc>();
-        npc.IsDestroyed.Returns(false);
         return npc;
     }
 

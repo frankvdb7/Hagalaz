@@ -9,6 +9,9 @@ some compensation paths can destroy objects that a store still owns.
 
 This final pass keeps the existing ownership improvements and makes the
 remaining shared relationships explicit at their application/service owner.
+It also removes caller-visible destruction flags from domain entities: live
+Character state is owned and serialized by the GameWorker, while persistence
+receives only detached models.
 
 ## What Changes
 
@@ -34,11 +37,24 @@ remaining shared relationships explicit at their application/service owner.
   set.
 - Keep logout workflow state in `CharacterLogoutService`, leaving persistence
   acknowledgement and revision/fingerprint state responsible to persistence.
-- Remove unnecessary lifecycle arbitration from `MapRegion` while retaining
-  cross-thread state visibility.
+- Remove destruction arbitration from `MapRegion`; retain only its existing
+  loader-owned ready/discarded visibility state.
 - Make failed NPC registration preserve store ownership if exact compensation
   cannot remove the NPC, and remove production helpers that exist only for
   tests.
+- Remove `IsDestroyed` from Creature, Character, NPC, MapRegion, GameObject,
+  and GroundItem. Replace caller-level lifecycle checks with the owning store,
+  region service, or region-part collection.
+- Make final logout capture a detached `CharacterModel`, revoke exact store
+  ownership, remove region membership, and perform Character cleanup in one
+  synchronous GameWorker-owned turn. Retain the snapshot in the existing
+  logout record for persistence retry.
+- Make Character dehydration synchronous and keep persistence publication
+  asynchronous over detached snapshots. Route periodic capture through the
+  existing GameWorker scheduler, and reject async command results for stale
+  Character instances.
+- Treat Raido message dispatch and disconnect as independently overlapping
+  scopes; use the CharacterStore/logout admission boundary for input ordering.
 - Merge the earlier lifecycle-ownership requirements into this record and
   remove the duplicate lifecycle-ownership change directory.
 
@@ -84,6 +100,14 @@ remaining shared relationships explicit at their application/service owner.
   acknowledgement delivery.
 - Map-region lifecycle state remains visible across threads without a second
   loader arbitration mechanism.
+- Domain entities expose no `IsDestroyed` lifecycle flag used by callers to
+  coordinate terminal cleanup; exact store, residency, or region-part
+  ownership determines whether work may act on an entity.
+- Final logout snapshot capture and exact Character ownership revocation have
+  no asynchronous gap between them, and persistence never reads a live
+  Character after that transition.
+- Periodic persistence captures detached models on the GameWorker and applies
+  asynchronous command results only to the exact still-owned Character.
 - Failed NPC registration cannot knowingly leave a destroyed NPC in its store.
 - The PR has one authoritative OpenSpec change record for these lifecycle and
   state-ownership simplifications.

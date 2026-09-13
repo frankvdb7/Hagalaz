@@ -6,6 +6,7 @@ using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Messages;
 using Hagalaz.Services.GameWorld.Services;
@@ -59,9 +60,10 @@ public sealed class WorldStatusServiceShutdownTests
             });
 
         var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
         var characterStore = new SingleCharacterStore(character);
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
-        persistenceService.PersistAsync(character, true, Arg.Any<CancellationToken>())
+        persistenceService.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
                 Assert.IsFalse(events.Contains("bus-stopped"));
@@ -90,6 +92,8 @@ public sealed class WorldStatusServiceShutdownTests
                     RegistrationRetryDelay = TimeSpan.FromSeconds(1)
                 }));
                 collection.AddSingleton<ICharacterStore>(characterStore);
+                collection.AddSingleton<IRsTaskService>(new InlineTaskScheduler());
+                collection.AddScoped<ICharacterDehydrationService>(_ => Substitute.For<ICharacterDehydrationService>());
                 collection.AddScoped<ICharacterPersistenceService>(_ => persistenceService);
                 collection.AddScoped<ICharacterLogoutService>(_ => Substitute.For<ICharacterLogoutService>());
                 collection.AddSingleton(busLifetime);
@@ -164,5 +168,15 @@ public sealed class WorldStatusServiceShutdownTests
         public ValueTask<bool> RemoveAsync(ICharacter character) => throw new NotSupportedException();
         public ValueTask<ICharacter?> FindByIdAsync(uint id) => throw new NotSupportedException();
         public ValueTask<ICharacter?> FindByIndexAsync(int index) => throw new NotSupportedException();
+        public ICharacter? FindByMasterId(uint id) => id == _character.MasterId ? _character : null;
+        public bool IsCurrent(ICharacter character) => ReferenceEquals(_character, character);
+        public bool Remove(ICharacter character) => false;
+        public bool TryQueueTask(ICharacter character, Hagalaz.Game.Abstractions.Tasks.ITaskItem task) => false;
+    }
+
+    private sealed class InlineTaskScheduler : IRsTaskService
+    {
+        public void Schedule(ITaskItem action) => action.Tick();
+        public void Tick() { }
     }
 }

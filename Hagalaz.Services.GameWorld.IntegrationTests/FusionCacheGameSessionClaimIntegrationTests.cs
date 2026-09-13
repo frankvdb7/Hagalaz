@@ -363,7 +363,8 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
                 Arg.Any<CharacterPersistenceReceipt>())
             .Returns(true);
         harness.CharacterPersistenceService.PersistAsync(
-                Arg.Any<ICharacter>(),
+                Arg.Any<uint>(),
+                Arg.Any<CharacterModel>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<CharacterPersistenceReceipt?>(logoutReceipt));
@@ -491,7 +492,7 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
         public void PersistenceServiceSetup()
         {
             CharacterLogoutService.DetachAsync(Arg.Any<ICharacter>(), Arg.Any<CancellationToken>())
-                .Returns(Task.CompletedTask);
+                .Returns(Task.FromResult(new CharacterModel()));
         }
     }
 

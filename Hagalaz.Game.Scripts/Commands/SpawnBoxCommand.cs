@@ -6,6 +6,7 @@ using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Items;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
@@ -63,25 +64,22 @@ namespace Hagalaz.Game.Scripts.Commands
                 return (Found: found, Count: foundCount, TooMany: false);
             });
 
-            if (args.Character.IsDestroyed)
+            args.Character.QueueTask(new RsTask(() =>
             {
-                return;
-            }
+                if (searchResult.TooMany)
+                {
+                    args.Character.SendChatMessage("Too much results, please enter more accurate name.");
+                    return;
+                }
 
-            if (searchResult.TooMany)
-            {
-                args.Character.SendChatMessage("Too much results, please enter more accurate name.");
-                return;
-            }
-
-            var defaultScript = args.Character.ServiceProvider.GetRequiredService<DefaultWidgetScript>();
-            args.Character.Widgets.OpenWidget(645, 0, defaultScript, true);
-            var spawnBox = args.Character.Widgets.GetOpenWidget(645);
-            if (spawnBox == null)
-            {
-                args.Character.SendChatMessage("Could not open spawn box.");
-                return;
-            }
+                var defaultScript = args.Character.ServiceProvider.GetRequiredService<DefaultWidgetScript>();
+                args.Character.Widgets.OpenWidget(645, 0, defaultScript, true);
+                var spawnBox = args.Character.Widgets.GetOpenWidget(645);
+                if (spawnBox == null)
+                {
+                    args.Character.SendChatMessage("Could not open spawn box.");
+                    return;
+                }
 
             // setupInterfaceItemsDisplayFromItemsArrayNonSplit(icomponent,itemsArrayIndex,numRows,numCollumns,dragOptions,dragTarget,option1,option2,option3,option4,option5,option6,option7,option8,option9) : 150
             args.Character.Configurations.SendCs2Script(150,
@@ -107,7 +105,7 @@ namespace Hagalaz.Game.Scripts.Commands
 
             args.Character.Configurations.SendItems(90, false, container);
 
-            spawnBox.AttachClickHandler(16,
+                spawnBox.AttachClickHandler(16,
                     (componentID, clickType, itemID, slot) =>
                     {
                         if (clickType == ComponentClickType.LeftClick)
@@ -180,6 +178,7 @@ namespace Hagalaz.Game.Scripts.Commands
 
                         return false;
                     });
+            }, 1));
         }
     }
 }

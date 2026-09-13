@@ -209,7 +209,6 @@ namespace Hagalaz.Services.GameWorld.Tests
             var result = region.Remove(staleItem);
 
             Assert.IsFalse(result);
-            Assert.IsFalse(staleItem.IsDestroyed);
             Assert.HasCount(1, region.FindAllGroundItems());
             Assert.AreSame(activeItem, region.FindAllGroundItems().Single());
         }

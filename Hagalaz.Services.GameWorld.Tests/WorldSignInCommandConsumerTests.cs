@@ -169,7 +169,6 @@ public sealed class WorldSignInCommandConsumerTests
         character.MasterId.Returns(42u);
         character.Session.Returns(session);
         character.Viewport.Returns(viewport);
-        character.IsDestroyed.Returns(false);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var publishEndpoint = Substitute.For<IBus>();
         using var schedulerProvider = new ServiceCollection()

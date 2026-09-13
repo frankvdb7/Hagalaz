@@ -67,16 +67,11 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
         public virtual void OnPerform()
         {
             _performer.RemoveState<ThievingStallState>(); //always remove the state, otherwise the character can not steal again.
-            if (_gameObject.IsDestroyed)
-            {
-                return;
-            }
-
             // check if someone else has stole from this stall.
             var regionService = _performer.ServiceProvider.GetRequiredService<IMapRegionService>();
             var objRegion = regionService.FindMapRegion(_gameObject.Location.RegionId, _gameObject.Location.Dimension);
             var obj = objRegion?.FindStandardGameObject(_gameObject.Location.RegionLocalX, _gameObject.Location.RegionLocalY, _gameObject.Location.Z);
-            if (obj == null || obj.IsDestroyed || obj.Id != _gameObject.Id)
+            if (obj == null || !ReferenceEquals(obj, _gameObject))
             {
                 return;
             }

@@ -238,7 +238,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <returns></returns>
         public override bool CanSetTarget(ICreature target)
         {
-            if (target.IsDestroyed || target.Combat.IsDead || IsDead) return false;
+            if (target.Combat.IsDead || IsDead) return false;
             return _npc.Script.CanSetTarget(target);
         }
 
@@ -247,7 +247,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         public override bool CanAttack(ICreature target)
         {
-            if (target.IsDestroyed || target.Combat.IsDead || IsDead) return false;
+            if (target.Combat.IsDead || IsDead) return false;
             return _npc.Script.CanAttack(target);
         }
 
@@ -256,7 +256,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         public override bool CanBeAttackedBy(ICreature attacker)
         {
-            if (attacker.IsDestroyed || attacker.Combat.IsDead || IsDead) return false;
+            if (attacker.Combat.IsDead || IsDead) return false;
             return _npc.Script.CanBeAttackedBy(attacker);
         }
 

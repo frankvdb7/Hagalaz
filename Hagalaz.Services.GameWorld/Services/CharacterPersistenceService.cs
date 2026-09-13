@@ -21,7 +21,6 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly IMapper _mapper;
         private readonly IPublishEndpoint _publishEndpoint;
         private readonly HagalazDbContext _dbContext;
-        private readonly ICharacterDehydrationService _dehydrationService;
         private readonly CharacterPersistenceState _state;
 
         public CharacterPersistenceService(
@@ -29,23 +28,25 @@ namespace Hagalaz.Services.GameWorld.Services
             IMapper mapper,
             IPublishEndpoint publishEndpoint,
             HagalazDbContext dbContext,
-            ICharacterDehydrationService dehydrationService,
             CharacterPersistenceState state)
         {
             _logger = logger;
             _mapper = mapper;
             _publishEndpoint = publishEndpoint;
             _dbContext = dbContext;
-            _dehydrationService = dehydrationService;
             _state = state;
         }
 
-        public async Task<CharacterPersistenceReceipt?> PersistAsync(ICharacter character, bool force, CancellationToken cancellationToken = default)
+        public async Task<CharacterPersistenceReceipt?> PersistAsync(
+            uint masterId,
+            CharacterModel model,
+            bool force,
+            CancellationToken cancellationToken = default)
         {
-            using var characterLock = await _state.AcquireAsync(character.MasterId, cancellationToken);
+            using var characterLock = await _state.AcquireAsync(masterId, cancellationToken);
             while (true)
             {
-                if (_state.TryGetPending(character.MasterId, out var pending))
+                if (_state.TryGetPending(masterId, out var pending))
                 {
                     if (!pending.IsCompleted)
                     {
@@ -57,29 +58,28 @@ namespace Hagalaz.Services.GameWorld.Services
                         await pending.WaitAsync(cancellationToken);
                     }
 
-                    _state.RemovePending(character.MasterId, pending);
+                    _state.RemovePending(masterId, pending);
                     continue;
                 }
 
-                var model = await _dehydrationService.DehydrateAsync(character);
-                var command = CreateCommand(_mapper, model, character.MasterId, 0);
+                var command = CreateCommand(_mapper, model, masterId, 0);
                 var fingerprint = CharacterSnapshotFingerprint.Compute(command);
 
-                if (!force && _state.IsPersisted(character.MasterId, fingerprint))
+                if (!force && _state.IsPersisted(masterId, fingerprint))
                 {
                     return null;
                 }
 
-                var snapshotRevision = _state.NextRevision(character.MasterId);
+                var snapshotRevision = _state.NextRevision(masterId);
                 command = command with { SnapshotRevision = snapshotRevision };
                 var receipt = new CharacterPersistenceReceipt(
-                    character.MasterId,
+                    masterId,
                     command.CorrelationId,
                     snapshotRevision);
 
                 // Record the snapshot before publishing so a fast acknowledgement cannot arrive
                 // before the producer has state to match it.
-                _state.MarkPending(character.MasterId, fingerprint, receipt);
+                _state.MarkPending(masterId, fingerprint, receipt);
 
                 try
                 {
@@ -88,11 +88,11 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
                 catch
                 {
-                    _state.RemovePending(character.MasterId, receipt);
+                    _state.RemovePending(masterId, receipt);
                     throw;
                 }
 
-                _logger.LogDebug("Queued character {MasterId} snapshot revision {SnapshotRevision} in the EF bus outbox", character.MasterId, snapshotRevision);
+                _logger.LogDebug("Queued character {MasterId} snapshot revision {SnapshotRevision} in the EF bus outbox", masterId, snapshotRevision);
                 return receipt;
             }
         }

@@ -139,7 +139,6 @@ public sealed class GameObjectHubLifetimeTests
         var character = Substitute.For<ICharacter>();
         var location = Location.Create(3200, 3200, 1, 7);
         var viewport = Substitute.For<IViewport>();
-        character.IsDestroyed.Returns(false);
         character.Location.Returns(location);
         character.ServiceProvider.Returns(serviceProvider);
         character.Viewport.Returns(viewport);

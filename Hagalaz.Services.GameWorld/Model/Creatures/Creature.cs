@@ -33,8 +33,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private Dictionary<Type, List<EventHappened>> _registeredEventHandlers = new();
         private readonly IServiceScope _serviceScope = default!;
         private IMapRegion? _region;
-        public bool IsDestroyed { get; private set; }
-
         /// <summary>
         ///     Gets or sets The unique client slot id given at creature entry.
         /// </summary>
@@ -214,14 +212,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void Destroy()
         {
-            if (IsDestroyed)
-            {
-                throw new InvalidOperationException($"{this} already destroyed!");
-            }
-
-            // Publish terminal state before any structural or user callbacks run. This keeps
-            // cleanup callbacks from observing a half-alive creature.
-            IsDestroyed = true;
             Exception? failure = null;
             try
             {
@@ -655,11 +645,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void MajorUpdateTick()
         {
-            if (IsDestroyed)
-            {
-                return;
-            }
-
             var faced = FacedCreature;
             if (faced != null && !Viewport.VisibleCreatures.Contains(faced))
                 ResetFacing();
@@ -675,11 +660,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void MajorClientPrepareUpdateTick()
         {
-            if (IsDestroyed)
-            {
-                return;
-            }
-
             UpdatesPrepareTick();
         }
 
@@ -688,11 +668,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void MajorClientUpdateTick()
         {
-            if (IsDestroyed)
-            {
-                return;
-            }
-
             UpdateTick();
         }
 
@@ -701,11 +676,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void MajorClientUpdateResetTick()
         {
-            if (IsDestroyed)
-            {
-                return;
-            }
-
             SpeakingText = null; // no longer speak same ;P
             RenderedNonstandardMovement = null; // no longer render same movement
             RenderedGlow = null; // no longer render same glow
@@ -721,13 +691,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         ///     Queue's task to be performed.
         /// </summary>
         /// <param name="task">The task.</param>
-        public IRsTaskHandle QueueTask(ITaskItem task)
+        public virtual IRsTaskHandle QueueTask(ITaskItem task)
         {
             _taskService.Schedule(task);
             return new RsTaskHandle(task);
         }
 
-        public IRsTaskHandle<TResult> QueueTask<TResult>(ITaskItem<TResult> task)
+        public virtual IRsTaskHandle<TResult> QueueTask<TResult>(ITaskItem<TResult> task)
         {
             _taskService.Schedule(task);
             return new RsTaskHandle<TResult>(task);

@@ -284,7 +284,6 @@ public sealed class MapRegionLoaderTests
     {
         var npc = Substitute.For<INpc>();
         npc.Index.Returns(index);
-        npc.IsDestroyed.Returns(false);
         return npc;
     }
 

@@ -409,7 +409,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         /// <param name="obj">The object.</param>
         public void LootChest(IGameObject obj)
         {
-            if (obj.IsDestroyed || Character.Combat.IsInCombat() || !Character.HasState<BarrowsOpenedChestState>())
+            if (obj.IsDisabled || Character.Combat.IsInCombat() || !Character.HasState<BarrowsOpenedChestState>())
             {
                 return;
             }

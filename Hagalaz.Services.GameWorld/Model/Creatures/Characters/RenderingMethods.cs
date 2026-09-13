@@ -123,11 +123,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void MajorClientUpdateTick(IReadOnlyDictionary<int, ICharacter> characters)
         {
-            if (IsDestroyed)
-            {
-                return;
-            }
-
             UpdateTick();
             RenderInformation.Update(characters);
         }

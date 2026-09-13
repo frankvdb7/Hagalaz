@@ -22,9 +22,7 @@ public sealed class CharacterPersistenceServiceTests
     [TestMethod]
     public async Task PersistAsync_SkipsUnacknowledgedSnapshotAndPreservesFingerprintDeduplication()
     {
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        dehydrationService.DehydrateAsync(Arg.Any<Hagalaz.Game.Abstractions.Model.Creatures.Characters.ICharacter>())
-            .Returns(Task.FromResult(new CharacterModel()));
+        var snapshot = new CharacterModel();
         var publishEndpoint = Substitute.For<IPublishEndpoint>();
         var publishedCommands = new System.Collections.Generic.List<PersistCharacterCommand>();
         publishEndpoint
@@ -45,13 +43,12 @@ public sealed class CharacterPersistenceServiceTests
             mapper,
             publishEndpoint,
             dbContext,
-            dehydrationService,
             state);
 
         service.InitializeRevision(42, 100);
 
-        var firstReceipt = await service.PersistAsync(character, force: false);
-        var skippedReceipt = await service.PersistAsync(character, force: false);
+        var firstReceipt = await service.PersistAsync(42, snapshot, force: false);
+        var skippedReceipt = await service.PersistAsync(42, snapshot, force: false);
 
         Assert.IsNotNull(firstReceipt);
         Assert.IsNull(skippedReceipt);
@@ -60,7 +57,7 @@ public sealed class CharacterPersistenceServiceTests
         Assert.AreEqual(101L, publishedCommands[0].SnapshotRevision);
 
         state.Acknowledge(42, publishedCommands[0].CorrelationId, publishedCommands[0].SnapshotRevision, CharacterPersistenceOutcome.Committed);
-        await service.PersistAsync(character, force: false);
+        await service.PersistAsync(42, snapshot, force: false);
 
         await publishEndpoint.Received(1).Publish(Arg.Any<PersistCharacterCommand>(), Arg.Any<CancellationToken>());
     }
@@ -68,9 +65,6 @@ public sealed class CharacterPersistenceServiceTests
     [TestMethod]
     public async Task PersistAsync_UsesNewRevisionWhenForced()
     {
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        dehydrationService.DehydrateAsync(Arg.Any<Hagalaz.Game.Abstractions.Model.Creatures.Characters.ICharacter>())
-            .Returns(Task.FromResult(new CharacterModel()));
         var publishEndpoint = Substitute.For<IPublishEndpoint>();
         await using var dbContext = CreateSharedDbContext();
         using var mapperProvider = new ServiceCollection()
@@ -86,12 +80,11 @@ public sealed class CharacterPersistenceServiceTests
             mapper,
             publishEndpoint,
             dbContext,
-            dehydrationService,
             state);
 
-        var firstReceipt = await service.PersistAsync(character, force: true);
+        var firstReceipt = await service.PersistAsync(42, new CharacterModel(), force: true);
         state.Acknowledge(42, firstReceipt!.CorrelationId, firstReceipt.SnapshotRevision, CharacterPersistenceOutcome.Committed);
-        var secondReceipt = await service.PersistAsync(character, force: true);
+        var secondReceipt = await service.PersistAsync(42, new CharacterModel(), force: true);
 
         Assert.AreNotEqual(firstReceipt.SnapshotRevision, secondReceipt!.SnapshotRevision);
         await publishEndpoint.Received(2).Publish(Arg.Any<PersistCharacterCommand>(), Arg.Any<CancellationToken>());
@@ -101,7 +94,7 @@ public sealed class CharacterPersistenceServiceTests
     public async Task PersistAsync_AfterConflictCreatesNewReceiptAndRevision()
     {
         await using var harness = new PersistenceHarness();
-        var firstReceipt = await harness.Service.PersistAsync(harness.Character, force: false);
+        var firstReceipt = await harness.Service.PersistAsync(42, harness.CurrentModel, force: false);
 
         harness.State.Acknowledge(
             42,
@@ -109,7 +102,7 @@ public sealed class CharacterPersistenceServiceTests
             firstReceipt.SnapshotRevision,
             CharacterPersistenceOutcome.Conflict);
 
-        var retry = await harness.Service.PersistAsync(harness.Character, force: false);
+        var retry = await harness.Service.PersistAsync(42, harness.CurrentModel, force: false);
 
         Assert.IsNotNull(retry);
         Assert.AreNotEqual(firstReceipt.CorrelationId, retry.CorrelationId);
@@ -120,11 +113,8 @@ public sealed class CharacterPersistenceServiceTests
     public async Task PersistAsync_ForcedSaveWaitsForPendingAndUsesCurrentCharacterState()
     {
         await using var harness = new PersistenceHarness();
-        var firstReceipt = await harness.Service.PersistAsync(harness.Character, force: false);
-        var forcedSave = harness.Service.PersistAsync(harness.Character, force: true);
-
-        Assert.IsFalse(forcedSave.IsCompleted);
-        harness.CurrentModel = new CharacterModel
+        var firstReceipt = await harness.Service.PersistAsync(42, harness.CurrentModel, force: false);
+        var forcedModel = new CharacterModel
         {
             Details = new Hagalaz.Services.GameWorld.Logic.Characters.Model.HydratedDetailsDto
             {
@@ -133,7 +123,9 @@ public sealed class CharacterPersistenceServiceTests
                 CoordZ = 3
             }
         };
+        var forcedSave = harness.Service.PersistAsync(42, forcedModel, force: true);
 
+        Assert.IsFalse(forcedSave.IsCompleted);
         harness.State.Acknowledge(
             42,
             firstReceipt!.CorrelationId,
@@ -151,8 +143,8 @@ public sealed class CharacterPersistenceServiceTests
     public async Task PersistAsync_OlderAcknowledgementCannotCompleteNewerForcedReceipt()
     {
         await using var harness = new PersistenceHarness();
-        var firstReceipt = await harness.Service.PersistAsync(harness.Character, force: false);
-        var forcedSave = harness.Service.PersistAsync(harness.Character, force: true);
+        var firstReceipt = await harness.Service.PersistAsync(42, harness.CurrentModel, force: false);
+        var forcedSave = harness.Service.PersistAsync(42, harness.CurrentModel, force: true);
 
         harness.State.Acknowledge(
             42,
@@ -183,7 +175,7 @@ public sealed class CharacterPersistenceServiceTests
     {
         await using var harness = new PersistenceHarness();
         var receipts = await Task.WhenAll(
-            Enumerable.Range(0, 2).Select(_ => harness.Service.PersistAsync(harness.Character, force: false)));
+            Enumerable.Range(0, 2).Select(_ => harness.Service.PersistAsync(42, harness.CurrentModel, force: false)));
 
         Assert.AreEqual(1, receipts.Count(receipt => receipt is not null));
         Assert.HasCount(1, harness.PublishedCommands);
@@ -193,13 +185,13 @@ public sealed class CharacterPersistenceServiceTests
     public async Task PersistAsync_CancellationWhileWaitingPreservesTheExistingOwner()
     {
         await using var harness = new PersistenceHarness();
-        var firstReceipt = await harness.Service.PersistAsync(harness.Character, force: false);
+        var firstReceipt = await harness.Service.PersistAsync(42, harness.CurrentModel, force: false);
         using var cancellation = new CancellationTokenSource();
-        var forcedSave = harness.Service.PersistAsync(harness.Character, force: true, cancellation.Token);
+        var forcedSave = harness.Service.PersistAsync(42, harness.CurrentModel, force: true, cancellation.Token);
         cancellation.Cancel();
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => forcedSave);
-        Assert.IsNull(await harness.Service.PersistAsync(harness.Character, force: false));
+        Assert.IsNull(await harness.Service.PersistAsync(42, harness.CurrentModel, force: false));
 
         harness.State.Acknowledge(
             42,
@@ -216,12 +208,12 @@ public sealed class CharacterPersistenceServiceTests
         harness.PublishException = publishFailure;
 
         var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => harness.Service.PersistAsync(harness.Character, force: false));
+            () => harness.Service.PersistAsync(42, harness.CurrentModel, force: false));
 
         Assert.AreSame(publishFailure, exception);
         harness.PublishException = null;
 
-        var retry = await harness.Service.PersistAsync(harness.Character, force: false);
+        var retry = await harness.Service.PersistAsync(42, harness.CurrentModel, force: false);
 
         Assert.IsNotNull(retry);
         Assert.HasCount(2, harness.PublishedCommands);
@@ -236,12 +228,12 @@ public sealed class CharacterPersistenceServiceTests
         harness.SaveChangesException = saveFailure;
 
         var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => harness.Service.PersistAsync(harness.Character, force: false));
+            () => harness.Service.PersistAsync(42, harness.CurrentModel, force: false));
 
         Assert.AreSame(saveFailure, exception);
         harness.SaveChangesException = null;
 
-        var retry = await harness.Service.PersistAsync(harness.Character, force: false);
+        var retry = await harness.Service.PersistAsync(42, harness.CurrentModel, force: false);
 
         Assert.IsNotNull(retry);
         Assert.HasCount(2, harness.PublishedCommands);
@@ -280,8 +272,6 @@ public sealed class CharacterPersistenceServiceTests
             Character.MasterId.Returns(42u);
             State = new CharacterPersistenceState();
             CurrentModel = new CharacterModel();
-            DehydrationService = Substitute.For<ICharacterDehydrationService>();
-            DehydrationService.DehydrateAsync(Character).Returns(_ => Task.FromResult(CurrentModel));
             PublishEndpoint = Substitute.For<IPublishEndpoint>();
             PublishEndpoint
                 .When(endpoint => endpoint.Publish(Arg.Any<PersistCharacterCommand>(), Arg.Any<CancellationToken>()))
@@ -308,14 +298,12 @@ public sealed class CharacterPersistenceServiceTests
                 _mapperProvider.GetRequiredService<AutoMapper.IMapper>(),
                 PublishEndpoint,
                 _dbContext,
-                DehydrationService,
                 State);
         }
 
         public Hagalaz.Game.Abstractions.Model.Creatures.Characters.ICharacter Character { get; }
         public CharacterPersistenceState State { get; }
         public CharacterModel CurrentModel { get; set; }
-        public ICharacterDehydrationService DehydrationService { get; }
         public IPublishEndpoint PublishEndpoint { get; }
         public List<PersistCharacterCommand> PublishedCommands { get; } = [];
         public CharacterPersistenceService Service { get; }

@@ -42,11 +42,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private async Task ExecuteCommandAsync(string command, string[] arguments, string commandAndArgs)
         {
-            if (IsDestroyed)
-            {
-                return;
-            }
-
             try
             {
                 await _gameCommandPrompt.ExecuteAsync(command, this, arguments);

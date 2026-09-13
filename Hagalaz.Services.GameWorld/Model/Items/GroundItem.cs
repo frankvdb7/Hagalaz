@@ -18,8 +18,6 @@ namespace Hagalaz.Services.GameWorld.Model.Items
         public bool IsPublic => Owner == null;
         public int Size => 0;
         public string Name => ItemOnGround.Name;
-        public bool IsDestroyed { get; private set; }
-
         public GroundItem(
             IItem itemOnGround,
             ILocation location,
@@ -51,11 +49,6 @@ namespace Hagalaz.Services.GameWorld.Model.Items
         /// </summary>
         public void Destroy()
         {
-            if (IsDestroyed)
-            {
-                throw new InvalidOperationException($"{this} is already destroyed!");
-            }
-            IsDestroyed = true;
         }
 
         /// <summary>

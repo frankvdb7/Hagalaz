@@ -21,10 +21,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public bool Remove(IGroundItem item)
         {
-            if (IsDestroyed)
-            {
-                return false;
-            }
             var partHash = item.Location.GetRegionPartHash();
             if (!_parts.TryGetValue(partHash, out var part))
             {

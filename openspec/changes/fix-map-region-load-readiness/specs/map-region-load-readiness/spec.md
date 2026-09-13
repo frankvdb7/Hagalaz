@@ -37,7 +37,7 @@ not execute while the residency gate is held.
 - **WHEN** background cleanup observes idle R1 as destroyable
 - **AND** another caller resumes R1 before cleanup claims it
 - **THEN** the exact destruction claim MUST fail
-- **AND** R1 MUST remain the active, non-destroyed region
+- **AND** R1 MUST remain the active canonical region
 
 #### Scenario: Destruction claims an idle region before resume
 
@@ -151,10 +151,10 @@ MUST NOT publish into a dimension that has been detached during construction.
 ### Requirement: Terminal destruction attempts all cleanup
 
 Once an idle region is successfully claimed for destruction, it MUST NOT return
-to active or idle residency. Destruction MUST attempt cleanup for every owned
-NPC, ground item, and game object even when an individual cleanup fails. The
-first cleanup failure MUST be reported after all attempts, and the region MUST
-be terminally destroyed even when cleanup is incomplete.
+to active or idle residency. Detached cleanup MUST attempt cleanup for every
+owned NPC, ground item, and game object even when an individual cleanup fails.
+The first cleanup failure MUST be reported after all attempts, while the region
+remains detached and non-canonical even when cleanup is incomplete.
 
 #### Scenario: One NPC cleanup fails
 
@@ -166,13 +166,12 @@ be terminally destroyed even when cleanup is incomplete.
 
 - **WHEN** NPC, ground-item, and game-object cleanup each fail
 - **THEN** destruction MUST report the first failure
-- **AND** the region MUST publish its terminal `IsDestroyed` fact
 - **AND** every later cleanup operation MUST still be attempted
 
 #### Scenario: Cleanup fails after a region has been claimed
 
 - **WHEN** cleanup fails after an exact idle region has been removed from residency
-- **THEN** the region MUST remain terminal and non-canonical
+- **THEN** the region MUST remain detached and non-canonical
 - **AND** the background service MUST log the failure without retaining the region for retry
 
 ### Requirement: Region lifecycle has one explicit source of truth

@@ -233,7 +233,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns><c>true</c> if this instance [can set target] the specified target; otherwise, <c>false</c>.</returns>
         public override bool CanSetTarget(ICreature target)
         {
-            if (target.IsDestroyed || target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
+            if (target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
             if (!target.Area.Script.CanBeAttacked(target, Owner)) return false;
             if (!Owner.Area.Script.CanAttack(Owner, target)) return false;
             if (!CanAttack(target)) return false;
@@ -258,7 +258,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns><c>true</c> if this instance can attack the specified target; otherwise, <c>false</c>.</returns>
         public override bool CanAttack(ICreature target)
         {
-            if (target.IsDestroyed || target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
+            if (target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
             if (!_character.EventManager.SendEvent(new AttackAllowEvent(_character, GetAttackStyle()))) return false;
             var scripts = _character.GetScripts();
             return scripts.All(script => script.CanAttack(target));
@@ -271,7 +271,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns><c>true</c> if this instance [can be attacked by] the specified attacker; otherwise, <c>false</c>.</returns>
         public override bool CanBeAttackedBy(ICreature attacker)
         {
-            if (attacker.IsDestroyed || attacker.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(attacker)) return false;
+            if (attacker.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(attacker)) return false;
             var scripts = _character.GetScripts();
             return scripts.All(script => script.CanBeAttackedBy(attacker));
         }

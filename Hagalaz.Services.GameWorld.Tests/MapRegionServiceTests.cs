@@ -556,7 +556,6 @@ public sealed class MapRegionServiceTests
 
         Assert.AreSame(region, resumed);
         Assert.IsFalse(service.TryRemoveIdleMapRegion(region.Id, 0, region));
-        Assert.IsFalse(region.IsDestroyed);
     }
 
     [TestMethod]
@@ -634,7 +633,6 @@ public sealed class MapRegionServiceTests
         Assert.IsFalse(service.TryRemoveIdleMapRegion(staleRegion.Id, 0, staleRegion));
         Assert.IsFalse(service.TryRemoveMapRegion(staleRegion.Id, 0, staleRegion));
         Assert.AreSame(currentRegion, service.FindMapRegion(1, 0));
-        Assert.IsFalse(currentRegion.IsDestroyed);
     }
 
     [TestMethod]

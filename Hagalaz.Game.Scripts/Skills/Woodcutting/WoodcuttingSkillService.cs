@@ -125,7 +125,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                 return;
             }
 
-            if (tree.IsDestroyed || tree.IsDisabled)
+            if (tree.IsDisabled)
             {
                 character.SendChatMessage(TreeAlreadyCut);
                 return;

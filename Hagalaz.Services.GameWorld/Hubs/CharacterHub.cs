@@ -47,11 +47,6 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
-                if (character.IsDestroyed)
-                {
-                    return;
-                }
-
                 if (character.Viewport.VisibleCreatures.Contains(target))
                 {
                     character.OnCharacterClicked(message.ClickType, message.ForceRun, target);
@@ -65,7 +60,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
-                if (character.IsDestroyed || !character.EventManager.SendEvent(new ChatAllowEvent(character, message.Text)))
+                if (!character.EventManager.SendEvent(new ChatAllowEvent(character, message.Text)))
                 {
                     return;
                 }
@@ -100,11 +95,6 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
-                if (character.IsDestroyed)
-                {
-                    return;
-                }
-
                 var target = Location.Create(message.AbsX, message.AbsY, character.Location.Z, character.Location.Dimension);
                 var delta = Location.GetDelta(character.Location, target);
                 if (delta.X > 100 || delta.X < -100 || delta.Y > 100 || delta.Y < -100)
@@ -138,11 +128,6 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
-                if (character.IsDestroyed)
-                {
-                    return;
-                }
-
                 character.Music.OnMusicPlayed(message.MusicId);
             }, 1));
         }
@@ -153,11 +138,6 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
-                if (character.IsDestroyed)
-                {
-                    return;
-                }
-
                 character.CurrentChatType = message.Type;
             }, 1));
         }

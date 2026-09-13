@@ -63,35 +63,18 @@ public sealed class CreatureLifecycleTests
 
         creature.Destroy();
 
-        Assert.IsTrue(creature.ObservedTerminalStateDuringDestroy);
         Assert.IsTrue(creature.ObservedRegionDetachedDuringDestroy);
         Assert.IsTrue(creature.ObservedAreaExitedDuringDestroy);
         Assert.IsTrue(areaExited);
     }
 
     [TestMethod]
-    public void Destroy_WhenOnDestroyFails_IsTerminalAndDisposesOwnedScope()
+    public void Destroy_WhenOnDestroyFails_DisposesOwnedScope()
     {
         var (creature, _, scope) = CreateCreature(onDestroyFailure: true);
 
         Assert.ThrowsExactly<InvalidOperationException>(() => creature.Destroy());
 
-        Assert.IsTrue(creature.IsDestroyed);
-        scope.Received(1).Dispose();
-    }
-
-    [TestMethod]
-    public void Destroy_WhenCalledAgainAfterFailure_RejectsTheDuplicateCall()
-    {
-        var (creature, _, scope) = CreateCreature(onDestroyFailure: true);
-
-        Assert.ThrowsExactly<InvalidOperationException>(() => creature.Destroy());
-        creature.FailOnDestroy = false;
-
-        var secondFailure = Assert.ThrowsExactly<InvalidOperationException>(() => creature.Destroy());
-
-        StringAssert.Contains(secondFailure.Message, "already destroyed");
-        Assert.IsTrue(creature.IsDestroyed);
         scope.Received(1).Dispose();
     }
 
@@ -108,22 +91,6 @@ public sealed class CreatureLifecycleTests
         Assert.AreEqual(2, creature.ContentTickCalls);
     }
 
-    [TestMethod]
-    public void DestroyedCreature_DoesNotRunLaterTickPhases()
-    {
-        var (creature, _, _) = CreateCreature();
-        creature.Destroy();
-
-        creature.MajorUpdateTick();
-        creature.MajorClientPrepareUpdateTick();
-        creature.MajorClientUpdateTick();
-        creature.MajorClientUpdateResetTick();
-
-        Assert.AreEqual(0, creature.ContentTickCalls);
-        Assert.AreEqual(0, creature.UpdatePrepareTickCalls);
-        Assert.AreEqual(0, creature.UpdateTickCalls);
-        Assert.AreEqual(0, creature.ResetTickCalls);
-    }
 
     private static (TestCreature Creature, IMapRegionService MapRegionService, IServiceScope Scope) CreateCreature(
         bool onDestroyFailure = false)
@@ -165,7 +132,6 @@ public sealed class CreatureLifecycleTests
         public int UpdateTickCalls { get; private set; }
         public int ResetTickCalls { get; private set; }
         public bool FailNextContentTick { get; set; }
-        public bool ObservedTerminalStateDuringDestroy { get; private set; }
         public bool ObservedRegionDetachedDuringDestroy { get; private set; }
         public bool ObservedAreaExitedDuringDestroy { get; private set; }
         public IMapRegion? RegionToAttach { get; set; }
@@ -190,7 +156,6 @@ public sealed class CreatureLifecycleTests
         protected override void OnDestroy()
         {
             DestroyCalls++;
-            ObservedTerminalStateDuringDestroy = IsDestroyed;
             ObservedRegionDetachedDuringDestroy = _regionDetached;
             ObservedAreaExitedDuringDestroy = _areaExited;
             if (FailOnDestroy)

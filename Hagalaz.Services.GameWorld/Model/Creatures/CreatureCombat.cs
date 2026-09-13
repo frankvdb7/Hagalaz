@@ -559,12 +559,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             if (Target != null && !CanSetTarget(Target)) CancelTarget();
 
             DelayTick++;
-            if (LastAttacked != null && LastAttacked.IsDestroyed)
-            {
-                OnLastAttackedFade();
-                LastAttacked = null;
-            }
-            else if (LastAttacked != null)
+            if (LastAttacked != null)
             {
                 var attackers = LastAttacked.Combat.RecentAttackers;
                 var foundSelf = attackers.Any(attacker => attacker.Attacker == Owner);
@@ -590,12 +585,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             var ks = new List<ICreatureAttackerInfo>(_attackers);
             foreach (var attacker in ks)
             {
-                if (attacker.Attacker.IsDestroyed)
-                {
-                    _attackers.Remove(attacker);
-                    continue;
-                }
-
                 if (Owner is ICharacter)
                     if (++attacker.LastAttackTick >= 500) // 5 minutes, then the attacker that dealt damage will be removed.
                         _attackers.Remove(attacker);

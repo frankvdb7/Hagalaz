@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Services.GameWorld.Services.Model;
 
 namespace Hagalaz.Services.GameWorld.Services
 {
@@ -30,7 +31,11 @@ namespace Hagalaz.Services.GameWorld.Services
 
     public interface ICharacterPersistenceService
     {
-        Task<CharacterPersistenceReceipt?> PersistAsync(ICharacter character, bool force, CancellationToken cancellationToken = default);
+        Task<CharacterPersistenceReceipt?> PersistAsync(
+            uint masterId,
+            CharacterModel snapshot,
+            bool force,
+            CancellationToken cancellationToken = default);
         Task<CharacterPersistenceOutcome> WaitForAcknowledgementAsync(CharacterPersistenceReceipt receipt, CancellationToken cancellationToken = default);
         void Acknowledge(uint masterId, Guid correlationId, long snapshotRevision, CharacterPersistenceOutcome outcome);
         void InitializeRevision(uint masterId, long persistedRevision);

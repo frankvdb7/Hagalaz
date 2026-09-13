@@ -94,22 +94,15 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             victor.Respawn();
             loser.Respawn();
-            if (loser.IsDestroyed)
-            {
-                loser.Movement.Teleport(Teleport.Create(loser.Area.Script.GetRespawnLocation(loser)));
-            }
 
             var victorDuelEndScreen = victor.ServiceProvider.GetRequiredService<DuelEndScreenScript>();
             victorDuelEndScreen.Opponent = loser;
             victorDuelEndScreen.Victorious = true;
             victor.Widgets.OpenWidget(1365, 0, victorDuelEndScreen, false);
-            if (!loser.IsDestroyed)
-            {
-                var loserDuelEndScreen = loser.ServiceProvider.GetRequiredService<DuelEndScreenScript>();
-                loserDuelEndScreen.Opponent = victor;
-                loserDuelEndScreen.Victorious = false;
-                loser.Widgets.OpenWidget(1365, 0, loserDuelEndScreen, false);
-            }
+            var loserDuelEndScreen = loser.ServiceProvider.GetRequiredService<DuelEndScreenScript>();
+            loserDuelEndScreen.Opponent = victor;
+            loserDuelEndScreen.Victorious = false;
+            loser.Widgets.OpenWidget(1365, 0, loserDuelEndScreen, false);
 
             if (IsStaking)
             {
@@ -282,15 +275,6 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         {
             if (DuelSession)
             {
-                if (Target.IsDestroyed)
-                {
-                    StartVictoryStage(Character, Target);
-                }
-
-                if (Character.IsDestroyed)
-                {
-                    StartVictoryStage(Target, Character);
-                }
             }
         }
     }

@@ -77,10 +77,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Remove(IGameObject gameObject)
         {
-            if (IsDestroyed)
-            {
-                return;
-            }
             var partHash = gameObject.Location.GetRegionPartHash();
             if (!_parts.TryGetValue(partHash, out var part))
             {

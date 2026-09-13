@@ -449,36 +449,34 @@ namespace Hagalaz.Services.GameWorld.Services
                 var session = context.GetSession();
                 var persistenceSucceeded = character == null;
                 var sessionRemoved = session == null;
-                var preservePendingLogout = false;
                 try
                 {
                     if (character != null)
                     {
-                        if (!_characterLogoutService.TryBeginLogout(character, out var created, out var receipt))
+                        if (!_characterLogoutService.TryBeginLogout(character, out _, out var receipt))
                         {
                             throw new InvalidOperationException(
                                 $"Character '{character.MasterId}' is already owned by a different logout operation.");
                         }
 
-                        // A concurrent sign-out for the same character must not submit a
-                        // second final snapshot while the first call is creating its receipt.
-                        if (!created && receipt is null)
-                        {
-                            preservePendingLogout = true;
-                            throw new InvalidOperationException(
-                                $"Character '{character.MasterId}' logout is already in progress.");
-                        }
-
-                        if (receipt is null)
+                        var finalSnapshot = await _characterLogoutService.DetachAsync(character, cancellationToken);
+                        if (receipt is null && !_characterLogoutService.TryGetPendingPersistence(character, out receipt))
                         {
                             receipt = await _characterPersistenceService.PersistAsync(
-                                character,
+                                masterId ?? character.MasterId,
+                                finalSnapshot,
                                 force: true,
                                 cancellationToken: cancellationToken);
                             if (receipt is null || !_characterLogoutService.SetPendingLogoutPersistence(character, receipt))
                             {
                                 throw new InvalidOperationException("Forced character persistence did not produce an owned receipt.");
                             }
+                        }
+
+                        if (receipt is null)
+                        {
+                            throw new InvalidOperationException(
+                                $"Final character persistence did not return a receipt for master id {character.MasterId}.");
                         }
 
                         var outcome = await _characterPersistenceService.WaitForAcknowledgementAsync(receipt, cancellationToken);
@@ -498,13 +496,9 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
                 finally
                 {
-                    if (character != null && persistenceSucceeded && sessionRemoved)
+                    if (character != null && persistenceSucceeded && sessionRemoved && masterId is not null)
                     {
-                        await _characterLogoutService.DetachAsync(character);
-                    }
-                    else if (character != null && !persistenceSucceeded && !preservePendingLogout)
-                    {
-                        _characterLogoutService.CancelPendingLogout(character);
+                        _characterLogoutService.CompleteLogout(masterId.Value);
                     }
                 }
 

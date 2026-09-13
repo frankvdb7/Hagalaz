@@ -5,6 +5,7 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Commands;
 using Hagalaz.Services.GameWorld.Services;
@@ -25,9 +26,12 @@ public sealed class CommandGameLoopOwnershipTests
         var gameObjectService = Substitute.For<IGameObjectService>();
         gameObjectService.GetObjectsCount().Returns(1);
         gameObjectService.FindGameObjectDefinitionById(0).Returns(definitionReady.Task);
-        var character = CreateCharacter();
+        var character = CreateCharacter(out var characterStore);
+        characterStore.IsCurrent(character).Returns(true);
         var command = new SearchObjectCommand(gameObjectService);
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
+        ConfigureCharacterQueue(character, characterStore, scheduler, queuedContinuation);
         var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
 
         scheduler.Schedule(task);
@@ -37,6 +41,8 @@ public sealed class CommandGameLoopOwnershipTests
         definitionReady.SetResult(definition);
         character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
 
+        scheduler.Tick();
+        await queuedContinuation.Task;
         scheduler.Tick();
 
         character.Received(1).SendChatMessage("0 - Test Object", ChatMessageType.ConsoleText);
@@ -44,7 +50,7 @@ public sealed class CommandGameLoopOwnershipTests
     }
 
     [TestMethod]
-    public async Task SearchObjectCommand_DoesNotMutateDestroyedCharacterAfterLookup()
+    public async Task SearchObjectCommand_DoesNotMutateCharacterAfterOwnershipIsRevoked()
     {
         var definitionReady = new TaskCompletionSource<IGameObjectDefinition>(TaskCreationOptions.RunContinuationsAsynchronously);
         var definition = Substitute.For<IGameObjectDefinition>();
@@ -52,20 +58,23 @@ public sealed class CommandGameLoopOwnershipTests
         var gameObjectService = Substitute.For<IGameObjectService>();
         gameObjectService.GetObjectsCount().Returns(1);
         gameObjectService.FindGameObjectDefinitionById(0).Returns(definitionReady.Task);
-        var character = CreateCharacter();
-        var destroyed = false;
-        character.IsDestroyed.Returns(_ => destroyed);
+        var character = CreateCharacter(out var characterStore);
+        characterStore.IsCurrent(character).Returns(true);
         var command = new SearchObjectCommand(gameObjectService);
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
+        ConfigureCharacterQueue(character, characterStore, scheduler, queuedContinuation);
         var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
 
         scheduler.Schedule(task);
         scheduler.Tick();
 
-        destroyed = true;
+        characterStore.IsCurrent(character).Returns(false);
         definitionReady.SetResult(definition);
         character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
 
+        scheduler.Tick();
+        await queuedContinuation.Task;
         scheduler.Tick();
 
         character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
@@ -99,15 +108,17 @@ public sealed class CommandGameLoopOwnershipTests
         var configurations = Substitute.For<IConfigurations>();
         var serviceProvider = Substitute.For<IServiceProvider>();
         serviceProvider.GetService(typeof(IItemService)).Returns(itemService);
-        var character = CreateCharacter();
+        var character = CreateCharacter(out var characterStore);
+        characterStore.IsCurrent(character).Returns(true);
+        serviceProvider.GetService(typeof(ICharacterStore)).Returns(characterStore);
         character.Area.Returns(area);
         character.Widgets.Returns(widgets);
         character.Configurations.Returns(configurations);
         character.ServiceProvider.Returns(serviceProvider);
-        var destroyed = false;
-        character.IsDestroyed.Returns(_ => destroyed);
         var command = new SpawnBoxCommand(Substitute.For<Hagalaz.Game.Abstractions.Builders.Item.IItemBuilder>());
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
+        ConfigureCharacterQueue(character, characterStore, scheduler, queuedContinuation);
         var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
 
         scheduler.Schedule(task);
@@ -118,8 +129,10 @@ public sealed class CommandGameLoopOwnershipTests
         widgets.DidNotReceiveWithAnyArgs().OpenWidget(default, default, default!, default);
         releaseSearch.SetResult(true);
         await searchCompleted.Task;
-        destroyed = true;
+        characterStore.IsCurrent(character).Returns(false);
 
+        scheduler.Tick();
+        await queuedContinuation.Task;
         scheduler.Tick();
         scheduler.Tick();
 
@@ -129,10 +142,37 @@ public sealed class CommandGameLoopOwnershipTests
         configurations.DidNotReceiveWithAnyArgs().SendItems(default, default, default!);
     }
 
-    private static ICharacter CreateCharacter()
+    private static ICharacter CreateCharacter(out ICharacterStore characterStore)
     {
+        characterStore = Substitute.For<ICharacterStore>();
         var character = Substitute.For<ICharacter>();
-        character.IsDestroyed.Returns(false);
+        var serviceProvider = Substitute.For<IServiceProvider>();
+        serviceProvider.GetService(typeof(ICharacterStore)).Returns(characterStore);
+        character.ServiceProvider.Returns(serviceProvider);
         return character;
+    }
+
+    private static void ConfigureCharacterQueue(
+        ICharacter character,
+        ICharacterStore characterStore,
+        IRsTaskService scheduler,
+        TaskCompletionSource<ITaskItem>? queuedTask = null)
+    {
+        character.QueueTask(Arg.Any<ITaskItem>()).Returns(callInfo =>
+        {
+            var task = callInfo.Arg<ITaskItem>();
+            if (characterStore.IsCurrent(character))
+            {
+                scheduler.Schedule(task);
+            }
+            else
+            {
+                task.Cancel();
+            }
+
+            queuedTask?.TrySetResult(task);
+
+            return new RsTaskHandle(task);
+        });
     }
 }

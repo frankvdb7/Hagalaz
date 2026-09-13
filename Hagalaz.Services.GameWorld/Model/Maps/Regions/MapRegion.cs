@@ -43,7 +43,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         public bool IsDynamic { get; private set; }
         private int _state = (int)MapRegionState.Initializing;
         public MapRegionState State => (MapRegionState)Volatile.Read(ref _state);
-        public bool IsDestroyed { get; private set; }
         public bool HasNonSuspendableNpcs => _nonSuspendableNpcIndexes.Count > 0;
         public int[] XteaKeys { get; }
 
@@ -96,21 +95,15 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Remove(ICharacter character)
         {
-            if (!IsDestroyed)
-            {
-                _characters.TryRemove(character.Index);
-            }
+            _characters.TryRemove(character.Index);
         }
 
         public void Remove(INpc npc)
         {
-            if (!IsDestroyed)
+            var index = npc.Index;
+            if (_npcs.TryRemove(index, npc))
             {
-                var index = npc.Index;
-                if (_npcs.TryRemove(index, npc))
-                {
-                    _nonSuspendableNpcIndexes.Remove(index);
-                }
+                _nonSuspendableNpcIndexes.Remove(index);
             }
         }
 
@@ -246,11 +239,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public bool CanDestroy()
         {
-            if (IsDestroyed)
-            {
-                return false;
-            }
-
             if (IsDynamic)
             {
                 return false;
@@ -310,12 +298,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public async Task DestroyAsync()
         {
-            if (IsDestroyed)
-            {
-                throw new InvalidOperationException($"Region {this} is already destroyed.");
-            }
-
-            IsDestroyed = true;
             Exception? failure = null;
             var npcs = _npcs.ToArray();
             var items = FindAllGroundItems().ToArray();
@@ -335,11 +317,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             foreach (var item in items)
             {
-                if (item.IsDestroyed)
-                {
-                    continue;
-                }
-
                 try
                 {
                     item.Destroy();
@@ -349,11 +326,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             foreach (var obj in objects)
             {
-                if (obj.IsDestroyed)
-                {
-                    continue;
-                }
-
                 try
                 {
                     obj.Destroy();
@@ -369,9 +341,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         private void EnsureAcceptsMutation()
         {
-            if (IsDestroyed)
+            if (State == MapRegionState.Discarded)
             {
-                throw new InvalidOperationException($"Region {this} no longer accepts mutations because it is destroyed.");
+                throw new InvalidOperationException($"Region {this} no longer accepts mutations because it was discarded.");
             }
         }
 

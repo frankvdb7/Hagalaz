@@ -53,8 +53,8 @@ it does not check a state through one API and mutate it through another.
    consumer acknowledges it directly and never completes logout.
 
 8. **Lifecycle visibility has one owner.** Map loading/scheduling owns the
-   ready/discarded transitions; `MapRegion` performs visibility-only volatile
-   state writes and does not arbitrate lifecycle transitions with CAS.
+   ready/discarded transitions; `MapRegion` exposes only that existing
+   visibility state and does not maintain a separate destruction flag.
 
 9. **NPC compensation preserves ownership.** If `OnRegistered` fails, exact
    removal is attempted. Destruction happens only when removal succeeds; if
@@ -75,6 +75,40 @@ it does not check a state through one API and mutate it through another.
     without marking its fingerprint persisted, so retry uses a new receipt and
     revision.
 
+12. **Entity lifecycle is an ownership decision, not entity state.** Creature,
+    Character, NPC, MapRegion, GameObject, and GroundItem do not expose an
+    `IsDestroyed` flag for callers. The owning store, residency service, or
+    region-part collection establishes exact ownership before terminal
+    cleanup; cleanup methods do not arbitrate a second lifecycle state.
+
+13. **GameWorker owns the live Character boundary.** Character task admission
+    is accepted only for the exact current store instance and is rejected once
+    logout has claimed that master ID. Final logout schedules one GameWorker
+    turn that synchronously dehydrates, removes exact ownership, and destroys
+    the Character without an await between snapshot capture and revocation.
+
+14. **Persistence consumes detached models.** `CharacterDehydrationService`
+    synchronously creates the existing detached `CharacterModel`. Both final
+    logout and periodic persistence use that service through the GameWorker;
+    `CharacterPersistenceService` only publishes/awaits detached models and
+    never reads a live Character.
+
+15. **Logout retains the handoff data.** The existing gate-backed pending
+    logout record retains the exact Character during terminal preparation, the
+    captured snapshot after removal, and the persistence receipt after
+    submission. Retries use those data fields and do not resurrect or reread
+    the Character.
+
+16. **Async results revalidate exact ownership.** Commands capture immutable
+    inputs before asynchronous work and apply results only when the original
+    Character is still the exact CharacterStore owner. A replacement with the
+    same master ID cannot receive a stale result.
+
+17. **Connection lifetime does not define input ordering.** Raido message and
+    disconnect callbacks may use independent scopes and overlap. CharacterStore
+    admission and CharacterLogoutState claim the shared boundary, so admitted
+    gameplay is queued before the terminal turn and later input is rejected.
+
 ## Verification strategy
 
 - Test explicit active/idle lookup safety, concurrent dimension allocation,
@@ -86,6 +120,10 @@ it does not check a state through one API and mutate it through another.
 - Test logout state ownership, duplicate and conflicting character claims,
   exact persistence acknowledgement, explicit character lookups, NPC
   compensation, and both NPC API families.
+- Test GameWorker ordering for gameplay before final snapshot, rejection after
+  exact ownership revocation, detached persistence retry, periodic snapshot
+  capture, replacement-instance result rejection, and overlapping connection
+  admission without relying on a creature lifecycle flag.
 - Run the cumulative GameWorld tests, integration tests, Contacts tests, Raido
   tests, solution build, locked restore, strict OpenSpec validation, and diff
   checks.

@@ -104,7 +104,9 @@ be removed.
 
 Pending and removed logout state MUST be owned by `CharacterLogoutService`
 through one ordinary dictionary behind one owner gate. Each record MUST retain
-the exact character instance, optional persistence receipt, and removal flag.
+the exact character instance, optional detached snapshot, and optional
+persistence receipt. No Creature, Character, or NPC lifecycle flag MAY be used
+by callers to coordinate this transition.
 Persistence state MUST contain only persistence serialization, revision, pending
 receipt matching, and acknowledgement state.
 
@@ -125,9 +127,10 @@ receipt matching, and acknowledgement state.
 
 Persistence acknowledgements MUST be delivered to persistence infrastructure
 and identified by the exact correlation and snapshot revision. Logout MUST
-wait for that receipt before releasing the session, then detach the exact
-character. Normal logout MUST NOT erase persisted fingerprints or revision
-allocation state.
+capture the final snapshot and revoke exact world ownership in one synchronous
+GameWorker-owned turn before submitting that detached snapshot, then wait for
+that receipt before releasing the session. Normal logout MUST NOT erase
+persisted fingerprints or revision allocation state.
 
 #### Scenario: Stale acknowledgement cannot complete another snapshot
 
@@ -168,11 +171,83 @@ allocation state.
   fingerprint
 - **AND** a later persistence attempt uses a new receipt and revision
 
+### Requirement: Live Character ownership belongs to the GameWorker
+
+Live Character state MUST be mutated only by work admitted to the serialized
+GameWorker boundary. `CharacterStore` MUST admit work only for the exact
+currently registered Character, and the logout ownership claim MUST prevent
+new work from being admitted for that master ID. Creature, Character, and NPC
+MUST NOT expose a lifecycle flag for callers to use as a validity protocol.
+
+#### Scenario: Gameplay already admitted runs before terminal logout
+
+- **WHEN** gameplay is admitted before logout claims the exact Character
+- **THEN** the gameplay task runs before the queued terminal transition
+- **AND** its effects are present in the final detached snapshot
+
+#### Scenario: Stale gameplay is rejected after ownership revocation
+
+- **WHEN** terminal logout has removed the exact Character from the
+  authoritative store
+- **THEN** later work for that Character is rejected by the owner
+- **AND** a replacement Character with the same master ID cannot receive it
+
+### Requirement: Final logout is one GameWorker-owned handoff
+
+Final logout MUST synchronously capture a detached `CharacterModel`, revoke
+exact active Character ownership, remove required world/region membership, and
+perform terminal Character cleanup in one GameWorker-owned operation. No await
+or externally scheduled asynchronous gap MAY occur between final snapshot
+capture and ownership revocation. After revocation, logout persistence MUST
+use only the retained snapshot, master/session data, and persistence receipt;
+it MUST NOT read the Character or its service scope again.
+
+#### Scenario: Persistence cannot race a later live mutation
+
+- **WHEN** final snapshot capture completes and persistence then blocks
+- **THEN** exact Character ownership has already been revoked
+- **AND** later gameplay cannot mutate the captured snapshot or stale Character
+
+#### Scenario: Failed persistence retries from the retained snapshot
+
+- **WHEN** durable persistence fails after terminal Character cleanup
+- **THEN** a retry reuses the pending logout snapshot or receipt state
+- **AND** it does not resurrect, re-add, or reread the Character
+
+### Requirement: Periodic persistence snapshots on the GameWorker
+
+Periodic persistence MUST request detached snapshots through the existing
+GameWorker scheduler before starting asynchronous persistence publication. Its
+background persistence loop MUST NOT dehydrate or otherwise read live
+Character state directly.
+
+#### Scenario: Background flush persists detached models
+
+- **WHEN** periodic flushing begins
+- **THEN** the GameWorker performs the dehydration read for each still-owned
+  Character
+- **AND** the background persistence phase receives `CharacterModel` values
+  only
+
+### Requirement: Async results require exact active ownership
+
+Asynchronous command work MUST capture immutable inputs before its await and
+MUST apply Character-side results only when the original exact Character is
+still the authoritative CharacterStore owner. A result for a stale instance
+MUST be dropped, including when a replacement has the same master ID.
+
+#### Scenario: Replacement does not receive a stale continuation
+
+- **WHEN** an async command completes after the original Character was
+  removed and a replacement was registered
+- **THEN** the result is discarded
+- **AND** the replacement is not mutated by the stale continuation
+
 ### Requirement: MapRegion lifecycle state is visibility-only
 
 `MapRegion` MUST retain cross-thread visibility for ready/discarded state, but
-MUST NOT perform a second CAS-based lifecycle arbitration when the loader and
-scheduler are the sole transition owner.
+MUST NOT expose a separate destruction flag or perform lifecycle arbitration
+when the loader, scheduler, and `MapRegionService` are the transition owners.
 
 #### Scenario: Loader-owned state remains visible to readers
 
@@ -180,6 +255,29 @@ scheduler are the sole transition owner.
 - **THEN** concurrent readers observe the published state
 - **AND** `MapRegion` does not compete with the loader by arbitrating a second
   lifecycle transition
+
+### Requirement: Domain entity removal belongs to the owning collection
+
+Creature, Character, NPC, MapRegion, GameObject, and GroundItem MUST NOT expose
+an `IsDestroyed` flag as a caller-visible validity protocol. `CharacterStore`
+MUST own Character admission, `MapRegionService` MUST own region residency,
+and `MapRegionPart` MUST own GameObject and GroundItem membership. Callers MUST
+establish exact ownership at the owning boundary before invoking terminal
+cleanup.
+
+#### Scenario: Removed object state is represented by collection ownership
+
+- **WHEN** a GameObject or GroundItem is removed from its owning region part
+- **THEN** the owner no longer returns that exact instance from its collection
+- **AND** callers do not consult an entity-level `IsDestroyed` flag
+
+#### Scenario: Detached region state is represented by residency ownership
+
+- **WHEN** `MapRegionService` removes an exact region from active or idle
+  residency
+- **THEN** stale region references cannot remove or replace a newer canonical
+  region
+- **AND** the detached region does not require an entity-level destruction flag
 
 ### Requirement: NPC registration compensation preserves ownership
 

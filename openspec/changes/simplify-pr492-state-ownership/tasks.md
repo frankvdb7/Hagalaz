@@ -38,11 +38,16 @@
       explicit active-mutation and exact-lookup intents.
 - [x] 3.7 Replace ContactSessionStore enumeration and CharacterStore predicate
       lookup with atomic world removal and direct identity/index lookups.
+- [x] 3.8 Make CharacterLogoutState the admission boundary for Character task
+      scheduling and retain detached final snapshots for retry.
+- [x] 3.9 Remove domain-entity `IsDestroyed` flags and route async result
+      application through exact owning boundaries.
 
 ## 4. Lifecycle and NPC ownership
 
-- [x] 4.1 Simplify `MapRegion` ready/discarded transitions to visibility-only
-      state writes when the scheduler/loader is the sole lifecycle owner.
+- [x] 4.1 Keep `MapRegion` ready/discarded transitions visibility-only and
+      remove its separate destruction flag when the scheduler/loader and
+      `MapRegionService` own lifecycle transitions.
 - [x] 4.2 Make sync and async NPC registration compensation retain store
       ownership when exact removal fails; preserve the original registration
       exception.
@@ -59,6 +64,9 @@
 - [x] 5.4 Add duplicate logout, conflicting character-instance, exact receipt,
       contact removal, direct character lookup, and MapRegion non-resurrection
       regression tests.
+- [x] 5.5 Add deterministic terminal ordering, stale task admission,
+      detached snapshot persistence, periodic GameWorker capture, and
+      replacement-instance continuation regressions.
 
 ## 6. Validation and cleanup
 
@@ -70,3 +78,5 @@
       audits.
 - [x] 6.3 Preserve the single authoritative change record and remove obsolete
       mechanism-specific spec text.
+- [x] 6.4 Validate that domain entities contain no `IsDestroyed` lifecycle
+      flag and that persistence call sites accept detached models only.

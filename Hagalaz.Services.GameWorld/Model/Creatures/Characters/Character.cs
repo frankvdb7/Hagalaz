@@ -25,6 +25,8 @@ using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Configuration;
@@ -72,6 +74,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IGameMessageService _gameMessageService;
         private readonly IStateService _stateService;
         private readonly ICharacterScriptActivator _characterScriptActivator;
+        private readonly ICharacterStore _characterStore;
 
         /// <summary>
         /// The event manager
@@ -306,9 +309,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             ISlayerTaskCompletedDialogue slayerTaskCompletedDialogue,
             IFarmingService farmingService,
             IGameObjectService gameObjectService,
-            IWidgetScriptProvider widgetScriptProvider)
+            IWidgetScriptProvider widgetScriptProvider,
+            ICharacterStore characterStore)
             : base(serviceScope)
         {
+            _characterStore = characterStore;
             GameClient = gameClient;
             Session = session;
             _mapRegionService = mapRegionService;
@@ -384,6 +389,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <returns></returns>
         public override bool CanSuspend() => false;
+
+        public override IRsTaskHandle QueueTask(ITaskItem task)
+        {
+            _characterStore.TryQueueTask(this, task);
+            return new RsTaskHandle(task);
+        }
+
+        public override IRsTaskHandle<TResult> QueueTask<TResult>(ITaskItem<TResult> task)
+        {
+            _characterStore.TryQueueTask(this, task);
+            return new RsTaskHandle<TResult>(task);
+        }
 
         /// <summary>
         /// Happens when character is destroyed.

@@ -12,7 +12,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands;
 public sealed class GameCommandPromptTests
 {
     [TestMethod]
-    public async Task PlayersCommand_DoesNotMessageDestroyedCharacterAfterStoreAwait()
+    public async Task PlayersCommand_DoesNotMessageCharacterAfterOwnershipIsRevoked()
     {
         var countRead = new TaskCompletionSource<int>();
         var characterStore = new GatedCharacterStore(countRead);
@@ -25,16 +25,15 @@ public sealed class GameCommandPromptTests
             .BuildServiceProvider();
         var prompt = new GameCommandPrompt(commandServices, NullLogger<GameCommandPrompt>.Instance);
         var character = Substitute.For<ICharacter>();
-        var destroyed = false;
-        character.IsDestroyed.Returns(_ => destroyed);
         character.Permissions.Returns(Permission.Standard);
         character.ServiceProvider.Returns(characterServices);
+        characterStore.SetCurrent(character);
         var task = prompt.ExecuteAsync("players", character, []).AsTask();
 
         Assert.IsFalse(task.IsCompleted);
         character.DidNotReceive().SendChatMessage(Arg.Any<string>());
 
-        destroyed = true;
+        characterStore.Revoke(character);
         countRead.SetResult(3);
         Assert.IsTrue(await task);
 
@@ -55,5 +54,12 @@ public sealed class GameCommandPromptTests
         public ValueTask<ICharacter?> FindByIdAsync(uint id) => throw new NotSupportedException();
 
         public ValueTask<ICharacter?> FindByIndexAsync(int index) => throw new NotSupportedException();
+        private ICharacter? _current;
+        public ICharacter? FindByMasterId(uint id) => _current;
+        public bool IsCurrent(ICharacter character) => ReferenceEquals(_current, character);
+        public bool Remove(ICharacter character) => false;
+        public bool TryQueueTask(ICharacter character, Hagalaz.Game.Abstractions.Tasks.ITaskItem task) => false;
+        public void SetCurrent(ICharacter character) => _current = character;
+        public void Revoke(ICharacter character) { if (ReferenceEquals(_current, character)) _current = null; }
     }
 }

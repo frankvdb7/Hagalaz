@@ -44,11 +44,6 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         MapRegionState State { get; }
 
         /// <summary>
-        /// Gets a value indicating whether this region has been destroyed and is no longer active.
-        /// </summary>
-        bool IsDestroyed { get; }
-
-        /// <summary>
         /// Gets a value indicating whether an NPC attached through the region
         /// ownership boundary cannot be suspended.
         /// </summary>

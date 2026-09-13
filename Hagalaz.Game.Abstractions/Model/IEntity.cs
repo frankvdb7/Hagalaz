@@ -12,11 +12,6 @@ namespace Hagalaz.Game.Abstractions.Model
         ILocation Location { get; }
 
         /// <summary>
-        /// Gets a value indicating whether the entity has been destroyed and removed from the game.
-        /// </summary>
-        bool IsDestroyed { get; }
-
-        /// <summary>
         /// Gets the size of the entity in game tiles (e.g., a value of 1 means a 1x1 tile footprint).
         /// </summary>
         int Size { get; }

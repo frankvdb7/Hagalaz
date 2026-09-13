@@ -99,25 +99,6 @@ public sealed class CharacterHubTests
     }
 
     [TestMethod]
-    public async Task OnMovement_DoesNothingWhenCharacterIsDestroyedBeforeExecution()
-    {
-        using var provider = CreateProvider();
-        var character = CreateCharacter(out var eventManager, out var queuedTasks);
-        var connection = CreateConnection(character);
-
-        await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(
-            connection,
-            new MovementMessage { AbsX = 3201, AbsY = 3202, ForceRun = false });
-
-        character.IsDestroyed.Returns(true);
-        queuedTasks[0].Tick();
-
-        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
-        character.DidNotReceive().Interrupt(Arg.Any<object>());
-        Assert.HasCount(1, queuedTasks);
-    }
-
-    [TestMethod]
     public async Task OnPublicChat_QueuesChatDecisionUntilTheGameTaskRuns()
     {
         using var provider = CreateProvider();
@@ -154,25 +135,6 @@ public sealed class CharacterHubTests
         queuedTasks[0].Tick();
 
         music.Received(1).OnMusicPlayed(42);
-    }
-
-    [TestMethod]
-    public async Task OnMusicPlayed_DoesNothingWhenCharacterIsDestroyedBeforeExecution()
-    {
-        using var provider = CreateProvider();
-        var character = CreateCharacter(out _, out var queuedTasks);
-        var music = Substitute.For<IMusic>();
-        character.Music.Returns(music);
-        var connection = CreateConnection(character);
-
-        await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(
-            connection,
-            new MusicPlayedMessage { MusicId = 42 });
-
-        character.IsDestroyed.Returns(true);
-        queuedTasks[0].Tick();
-
-        music.DidNotReceive().OnMusicPlayed(Arg.Any<int>());
     }
 
     [TestMethod]
@@ -316,7 +278,6 @@ public sealed class CharacterHubTests
         var pathFinderProvider = Substitute.For<IPathFinderProvider>();
         pathFinderProvider.Smart.Returns(Substitute.For<ISmartPathFinder>());
 
-        character.IsDestroyed.Returns(false);
         character.Location.Returns(location);
         character.Movement.Returns(movement);
         character.Viewport.Returns(viewport);

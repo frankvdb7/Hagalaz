@@ -80,44 +80,6 @@ public sealed class MapRegionDestructionTests
         var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => region.DestroyAsync());
 
         Assert.AreEqual("npc-failure", exception.Message);
-        Assert.IsTrue(region.IsDestroyed);
-    }
-
-    [TestMethod]
-    public async Task DestroyAsync_AfterFailureCannotRetryCleanup()
-    {
-        var npcService = Substitute.For<INpcService>();
-        var npc = CreateNpc(1);
-        var attempts = 0;
-        npcService.UnregisterAsync(npc).Returns(_ =>
-        {
-            attempts++;
-            return attempts == 1
-                ? Task.FromException(new InvalidOperationException("npc"))
-                : Task.CompletedTask;
-        });
-        var region = CreateRegion(npcService);
-        region.Add(npc);
-
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => region.DestroyAsync());
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => region.DestroyAsync());
-
-        await npcService.Received(1).UnregisterAsync(npc);
-        Assert.IsTrue(region.IsDestroyed);
-    }
-
-    [TestMethod]
-    public async Task DestroyAsync_RejectsNewNpcAfterDestructionStarts()
-    {
-        var npcService = Substitute.For<INpcService>();
-        var existing = CreateNpc(1);
-        var region = CreateRegion(npcService);
-        region.Add(existing);
-        npcService.UnregisterAsync(existing).Returns(Task.FromException(new InvalidOperationException("retry")));
-
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => region.DestroyAsync());
-
-        Assert.ThrowsExactly<InvalidOperationException>(() => region.Add(CreateNpc(2)));
     }
 
     private static MapRegion CreateRegion(INpcService npcService) => new(

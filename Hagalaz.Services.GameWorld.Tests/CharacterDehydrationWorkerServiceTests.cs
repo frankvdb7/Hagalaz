@@ -5,8 +5,10 @@ using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Services;
+using Hagalaz.Services.GameWorld.Services.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -23,26 +25,30 @@ public sealed class CharacterDehydrationWorkerServiceTests
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
-        var characterService = new RecordingCharacterService();
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
         var mediator = Substitute.For<IGameMediator>();
         var characterLogoutService = Substitute.For<ICharacterLogoutService>();
         characterLogoutService.IsPendingLogout(character).Returns(true);
+        characterLogoutService.IsPendingLogout(42u).Returns(true);
         var store = new SingleCharacterStore(character);
 
         using var provider = new ServiceCollection()
             .AddScoped(_ => persistenceService)
-            .AddScoped<ICharacterService>(_ => characterService)
+            .AddScoped(_ => dehydrationService)
             .AddScoped(_ => mediator)
             .AddScoped(_ => characterLogoutService)
             .BuildServiceProvider();
+        var scheduler = new ImmediateTaskScheduler();
         var worker = new CharacterDehydrationWorkerService(
             NullLogger<CharacterDehydrationWorkerService>.Instance,
             provider,
-            store);
+            store,
+            scheduler);
 
         await worker.FlushAsync(force: false, CancellationToken.None);
 
-        await persistenceService.DidNotReceive().PersistAsync(character, false, Arg.Any<CancellationToken>());
+        await persistenceService.DidNotReceive().PersistAsync(42, Arg.Any<CharacterModel>(), false, Arg.Any<CancellationToken>());
         await characterLogoutService.DidNotReceive().DetachAsync(character, Arg.Any<CancellationToken>());
     }
 
@@ -53,9 +59,10 @@ public sealed class CharacterDehydrationWorkerServiceTests
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
-        persistenceService.PersistAsync(character, false, Arg.Any<CancellationToken>())
+        persistenceService.PersistAsync(42, Arg.Any<CharacterModel>(), false, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<CharacterPersistenceReceipt?>(null));
-        var characterService = new RecordingCharacterService();
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
         var mediator = Substitute.For<IGameMediator>();
         var characterLogoutService = Substitute.For<ICharacterLogoutService>();
         characterLogoutService.IsPendingLogout(character).Returns(false);
@@ -63,19 +70,20 @@ public sealed class CharacterDehydrationWorkerServiceTests
 
         using var provider = new ServiceCollection()
             .AddScoped(_ => persistenceService)
-            .AddScoped<ICharacterService>(_ => characterService)
+            .AddScoped(_ => dehydrationService)
             .AddScoped(_ => mediator)
             .AddScoped<ICharacterLogoutService>(_ => characterLogoutService)
             .BuildServiceProvider();
+        var scheduler = new ImmediateTaskScheduler();
         var worker = new CharacterDehydrationWorkerService(
             NullLogger<CharacterDehydrationWorkerService>.Instance,
             provider,
-            store);
+            store,
+            scheduler);
 
         await worker.FlushAsync(force: false, CancellationToken.None);
 
-        await persistenceService.Received(1).PersistAsync(character, false, Arg.Any<CancellationToken>());
-        Assert.IsNull(characterService.RemovedCharacter);
+        await persistenceService.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), false, Arg.Any<CancellationToken>());
         character.DidNotReceive().Destroy();
         mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
     }
@@ -88,22 +96,26 @@ public sealed class CharacterDehydrationWorkerServiceTests
         character.MasterId.Returns(42u);
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
         var persistenceStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        persistenceService.PersistAsync(character, true, Arg.Any<CancellationToken>())
+        persistenceService.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
                 persistenceStarted.TrySetResult(true);
                 return BlockPersistenceAsync(callInfo.Arg<CancellationToken>());
             });
         var store = new SingleCharacterStore(character);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
 
         using var provider = new ServiceCollection()
             .AddScoped(_ => persistenceService)
+            .AddScoped(_ => dehydrationService)
             .AddScoped<ICharacterLogoutService>(_ => Substitute.For<ICharacterLogoutService>())
             .BuildServiceProvider();
         var worker = new CharacterDehydrationWorkerService(
             NullLogger<CharacterDehydrationWorkerService>.Instance,
             provider,
             store,
+            new ImmediateTaskScheduler(),
             TimeSpan.FromSeconds(5));
 
         var stopTask = worker.StopAsync(CancellationToken.None);
@@ -111,7 +123,7 @@ public sealed class CharacterDehydrationWorkerServiceTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => stopTask);
 
-        await persistenceService.Received(1).PersistAsync(character, true, Arg.Any<CancellationToken>());
+        await persistenceService.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
     }
 
     private sealed class SingleCharacterStore : ICharacterStore
@@ -128,6 +140,10 @@ public sealed class CharacterDehydrationWorkerServiceTests
         public ValueTask<bool> RemoveAsync(ICharacter character) => throw new System.NotImplementedException();
         public ValueTask<ICharacter?> FindByIdAsync(uint id) => throw new System.NotImplementedException();
         public ValueTask<ICharacter?> FindByIndexAsync(int index) => throw new System.NotImplementedException();
+        public ICharacter? FindByMasterId(uint id) => id == _character.MasterId ? _character : null;
+        public bool IsCurrent(ICharacter character) => ReferenceEquals(_character, character);
+        public bool Remove(ICharacter character) => false;
+        public bool TryQueueTask(ICharacter character, ITaskItem task) => false;
     }
 
     private static async Task<CharacterPersistenceReceipt?> BlockPersistenceAsync(CancellationToken cancellationToken)
@@ -136,19 +152,9 @@ public sealed class CharacterDehydrationWorkerServiceTests
         return null;
     }
 
-    private sealed class RecordingCharacterService : ICharacterService
+    private sealed class ImmediateTaskScheduler : IRsTaskService
     {
-        public ICharacter? RemovedCharacter { get; private set; }
-
-        public ValueTask<bool> RemoveAsync(ICharacter character)
-        {
-            RemovedCharacter = character;
-            return new ValueTask<bool>(true);
-        }
-
-        public ValueTask<ICharacter?> FindByMasterId(uint masterId) => throw new System.NotImplementedException();
-        public ValueTask<ICharacter?> FindByIndex(int index) => throw new System.NotImplementedException();
-        public ValueTask<bool> AddAsync(ICharacter character) => throw new System.NotImplementedException();
-        public ValueTask<int> CountAsync() => throw new System.NotImplementedException();
+        public void Schedule(ITaskItem action) => action.Tick();
+        public void Tick() { }
     }
 }

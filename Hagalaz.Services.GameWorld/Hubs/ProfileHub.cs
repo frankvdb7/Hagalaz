@@ -38,11 +38,6 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
-                if (character.IsDestroyed)
-                {
-                    return;
-                }
-
                 character.GameClient.DisplayMode = message.Mode;
                 character.GameClient.ScreenSizeX = message.SizeX;
                 character.GameClient.ScreenSizeY = message.SizeY;
