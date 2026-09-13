@@ -113,9 +113,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             }
 
             var kill = killer as ICharacter;
+            var lootTableId = _npc.Definition.LootTableId;
+            var lootLocation = Owner.Location;
             kill?.QueueTask(async cancellationToken =>
             {
-                var table = await _lootService.FindNpcLootTable(_npc.Definition.LootTableId);
+                var table = await _lootService.FindNpcLootTable(lootTableId);
                 cancellationToken.ThrowIfCancellationRequested();
                 if (table == null)
                 {
@@ -126,7 +128,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
                 {
                     _groundItemBuilder.Create()
                         .WithItem(builder => builder.Create().WithId(loot.Item.Id).WithCount(loot.Count))
-                        .WithLocation(Owner.Location)
+                        .WithLocation(lootLocation)
                         .WithOwner(kill)
                         .Spawn();
                 }

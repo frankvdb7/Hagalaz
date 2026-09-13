@@ -92,7 +92,7 @@ public sealed class SlayerTests
         {
             queuedTask!.Tick();
             Assert.IsFalse(pendingMasterLookup.Task.IsCompleted);
-            Assert.AreEqual(0, slayer.CurrentKillCount);
+            Assert.AreEqual(1, slayer.CurrentKillCount);
         }
         finally
         {

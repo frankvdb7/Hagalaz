@@ -453,14 +453,14 @@ namespace Hagalaz.Services.GameWorld.Services
                 {
                     if (character != null)
                     {
-                        if (!_characterLogoutService.TryBeginLogout(character, out _, out var receipt))
+                        if (!_characterLogoutService.TryBeginLogout(character, out var created, out var receipt))
                         {
                             throw new InvalidOperationException(
-                                $"Character '{character.MasterId}' is already owned by a different logout operation.");
+                                $"Character '{character.MasterId}' already has a logout operation in progress.");
                         }
 
                         var finalSnapshot = await _characterLogoutService.DetachAsync(character, cancellationToken);
-                        if (receipt is null && !_characterLogoutService.TryGetPendingPersistence(character, out receipt))
+                        if (created)
                         {
                             receipt = await _characterPersistenceService.PersistAsync(
                                 masterId ?? character.MasterId,
@@ -472,37 +472,23 @@ namespace Hagalaz.Services.GameWorld.Services
                                 throw new InvalidOperationException("Forced character persistence did not produce an owned receipt.");
                             }
                         }
-
-                        while (true)
+                        else if (!_characterLogoutService.TryGetPendingPersistence(character, out receipt))
                         {
-                            if (receipt is null)
-                            {
-                                throw new InvalidOperationException(
-                                    $"Final character persistence did not return a receipt for master id {character.MasterId}.");
-                            }
+                            throw new InvalidOperationException(
+                                $"Final character persistence receipt was not available for master id {character.MasterId}.");
+                        }
 
-                            var outcome = await _characterPersistenceService.WaitForAcknowledgementAsync(receipt, cancellationToken);
-                            if (outcome is CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate)
-                            {
-                                break;
-                            }
+                        if (receipt is null)
+                        {
+                            throw new InvalidOperationException(
+                                $"Final character persistence did not return a receipt for master id {character.MasterId}.");
+                        }
 
-                            if (outcome is not CharacterPersistenceOutcome.Conflict ||
-                                !_characterLogoutService.TryPreparePersistenceRetry(character, out finalSnapshot))
-                            {
-                                throw new InvalidOperationException(
-                                    $"Final character persistence was not accepted for master id {character.MasterId}: {outcome}.");
-                            }
-
-                            receipt = await _characterPersistenceService.PersistAsync(
-                                masterId ?? character.MasterId,
-                                finalSnapshot,
-                                force: true,
-                                cancellationToken: cancellationToken);
-                            if (receipt is null || !_characterLogoutService.SetPendingLogoutPersistence(character, receipt))
-                            {
-                                throw new InvalidOperationException("Forced character persistence retry did not produce an owned receipt.");
-                            }
+                        var outcome = await _characterPersistenceService.WaitForAcknowledgementAsync(receipt, cancellationToken);
+                        if (outcome is not (CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate))
+                        {
+                            throw new InvalidOperationException(
+                                $"Final character persistence was not accepted for master id {character.MasterId}: {outcome}.");
                         }
 
                         persistenceSucceeded = true;

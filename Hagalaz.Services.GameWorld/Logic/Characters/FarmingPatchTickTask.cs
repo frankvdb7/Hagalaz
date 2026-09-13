@@ -238,9 +238,10 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
         /// </summary>
         public void Refresh()
         {
+            var objectId = PatchDefinition.ObjectID;
             _owner.QueueTask(async cancellationToken =>
             {
-                var objDefinition = await _gameObjectService.FindGameObjectDefinitionById(PatchDefinition.ObjectID);
+                var objDefinition = await _gameObjectService.FindGameObjectDefinitionById(objectId);
                 cancellationToken.ThrowIfCancellationRequested();
                 _owner.Configurations.SendBitConfiguration(objDefinition.VarpBitFileId,
                     HasCondition(PatchCondition.Planted) ? GetVarpBitValue() : CurrentCycle);

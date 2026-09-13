@@ -48,7 +48,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
             if (clickType == GameObjectClickType.Option1Click || clickType == GameObjectClickType.Option2Click)
             {
                 clicker.Interrupt(this);
-                clicker.QueueTask(_ => Thieving.Steal(clicker, Owner, this));
+                clicker.QueueTask(cancellationToken => Thieving.Steal(clicker, Owner, this, cancellationToken));
                 return;
             }
 

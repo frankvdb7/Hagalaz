@@ -33,9 +33,10 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                 {
                     Owner.QueueTask(async cancellationToken =>
                     {
-                        var task = await _slayerService.FindSlayerTaskDefinition(Owner.Slayer.CurrentTaskId);
+                        var taskId = Owner.Slayer.CurrentTaskId;
+                        var task = await _slayerService.FindSlayerTaskDefinition(taskId);
                         cancellationToken.ThrowIfCancellationRequested();
-                        if (task == null)
+                        if (task == null || Owner.Slayer.CurrentTaskId != taskId)
                         {
                             return;
                         }

@@ -69,7 +69,10 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                 .FirstOrDefault();
         }
 
-        public async Task StartCuttingAsync(ICharacter character, IGameObject tree)
+        public async Task StartCuttingAsync(
+            ICharacter character,
+            IGameObject tree,
+            System.Threading.CancellationToken cancellationToken = default)
         {
             var interrupted = false;
             var interruptEvent = character.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
@@ -97,6 +100,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                 var lootService = _serviceProvider.GetRequiredService<ILootService>();
                 var lootTable = await lootService.FindGameObjectLootTable(tree.Definition.LootTableId);
                 var characterCount = await _characterStore.CountAsync();
+                cancellationToken.ThrowIfCancellationRequested();
 
                 if (!interrupted)
                 {

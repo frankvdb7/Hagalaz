@@ -49,14 +49,17 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                clicker.QueueTask(_ => StartMiningAsync(clicker, Owner));
+                clicker.QueueTask(cancellationToken => StartMiningAsync(clicker, Owner, cancellationToken));
                 return;
             }
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
 
-        private async Task StartMiningAsync(ICharacter character, IGameObject rocks)
+        private async Task StartMiningAsync(
+            ICharacter character,
+            IGameObject rocks,
+            System.Threading.CancellationToken cancellationToken)
         {
             var interrupted = false;
             var interruptEvent = character.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
@@ -82,6 +85,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                 var pickaxes = await _miningService.FindAllPickaxes();
                 var lootTable = await _miningService.FindRockLootById(rocks.Id);
                 var characterCount = await _characterStore.CountAsync();
+                cancellationToken.ThrowIfCancellationRequested();
 
                 if (!interrupted)
                 {

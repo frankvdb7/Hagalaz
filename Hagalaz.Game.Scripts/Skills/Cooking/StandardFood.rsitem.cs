@@ -44,7 +44,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
                 }
 
                 character.Interrupt(this);
-                character.QueueTask(_ => EatFood(character, item));
+                character.QueueTask(cancellationToken => EatFood(character, item, cancellationToken));
             }
         }
 
@@ -53,9 +53,10 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
         /// </summary>
         /// <param name="character">The character.</param>
         /// <param name="item">The item.</param>
-        public async Task EatFood(ICharacter character, IItem item)
+        public async Task EatFood(ICharacter character, IItem item, System.Threading.CancellationToken cancellationToken = default)
         {
             var definition = await _cookingService.FindFoodById(item.Id);
+            cancellationToken.ThrowIfCancellationRequested();
             if (definition == null)
             {
                 return;

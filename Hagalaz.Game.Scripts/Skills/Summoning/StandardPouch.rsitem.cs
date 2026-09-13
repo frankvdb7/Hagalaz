@@ -32,7 +32,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 character.Interrupt(this);
-                await _skillService.SummonFamiliar(character, item);
+                await _skillService.SummonFamiliar(character, item, cancellationToken);
             });
         }
     }

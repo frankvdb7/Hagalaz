@@ -48,7 +48,7 @@ receives only detached models.
 - Make final logout capture a detached `CharacterModel`, revoke exact store
   ownership, remove region membership, and perform Character cleanup in one
   synchronous GameWorker-owned turn. Retain the snapshot in the existing
-  logout record for persistence retry.
+  logout record for transport/outbox retry of the same detached snapshot.
 - Make Character dehydration synchronous and keep persistence publication
     asynchronous over detached snapshots. Route periodic capture through the
     existing GameWorker scheduler, and reject async command results for stale
@@ -68,8 +68,9 @@ receives only detached models.
   exact CharacterStore removal on the GameWorker, destroying only after removal
   succeeds.
 - When final logout persistence receives `Conflict`, retain the detached
-  handoff, allocate its next revision, and republish it with a new receipt
-  without rereading or resurrecting the Character.
+  handoff without allocating a new revision, republishing, rereading, or
+  resurrecting the Character; only an explicit later persistence attempt may
+  submit a new snapshot.
 - Capture immutable command and region-change inputs before awaits and apply
   their results only through the existing Creature queue boundary.
 - Treat Raido message dispatch and disconnect as independently overlapping
@@ -142,6 +143,9 @@ receives only detached models.
     asynchronous command results only through `character.QueueTask(...)` and the
     exact-creature queue boundary.
 - Creature-owned queued work uses a private Creature cancellation token;
+- Async gameplay operations await external data before changing Character or
+  NPC state, then revalidate cancellation and current ownership and complete
+  their related mutation synchronously.
   destroying a Creature cancels pending and long-lived work, while failed exact
   owner removal leaves the Creature usable because `Destroy()` is not called.
 - Failed NPC registration cannot knowingly leave a destroyed NPC in its store.

@@ -297,6 +297,38 @@ public sealed class CharacterUpdateRequestConsumerTests
     }
 
     [TestMethod]
+    public async Task Consume_LowerSnapshotRevision_ReportsConflictWithoutMutation()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        await SeedCharacterAsync(databaseName, snapshotRevision: 20);
+
+        await using var provider = new ServiceCollection()
+            .AddScoped(_ => CreateContext(databaseName))
+            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
+            .AddAutoMapper(_ => { }, typeof(Program))
+            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetTestHarness();
+        await harness.Start();
+        var request = CreateRequest() with
+        {
+            SnapshotRevision = 10,
+            Details = new DetailsDto(9999, 9998, 1)
+        };
+        var response = await harness.GetRequestClient<UpdateCharacterRequest>()
+            .GetResponse<UpdateCharacterResponse>(request);
+
+        Assert.AreEqual(CharacterPersistenceOutcome.Conflict, response.Message.Outcome);
+        await harness.Stop();
+
+        await using var verificationContext = CreateContext(databaseName);
+        var character = await verificationContext.Characters.SingleAsync(x => x.Id == request.MasterId);
+        Assert.AreEqual(20L, character.SnapshotRevision);
+        Assert.AreNotEqual(request.Details.CoordX, character.CoordX);
+    }
+
+    [TestMethod]
     public async Task Consume_ExistingCharacter_PersistsSnapshotBeforeResponding()
     {
         var databaseName = Guid.NewGuid().ToString();

@@ -36,16 +36,15 @@ namespace Hagalaz.Game.Scripts.Items
                 character.QueueTask(async cancellationToken =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    var slot = character.Inventory.GetInstanceSlot(item);
-                    if (slot == -1)
+                    var table = await _lootService.FindItemLootTable(1); // 1 == casket loot table
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (table == null)
                     {
                         return;
                     }
 
-                    character.Inventory.Remove(item, slot);
-                    var table = await _lootService.FindItemLootTable(1); // 1 == casket loot table
-                    cancellationToken.ThrowIfCancellationRequested();
-                    if (table == null)
+                    var slot = character.Inventory.GetInstanceSlot(item);
+                    if (slot == -1 || character.Inventory.Remove(item, slot) <= 0)
                     {
                         return;
                     }

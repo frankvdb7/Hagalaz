@@ -66,10 +66,11 @@ namespace Hagalaz.Game.Scripts.Items.Rings
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     var slayer = character.Slayer;
+                    var taskId = slayer.CurrentTaskId;
                     var service = character.ServiceProvider.GetRequiredService<ISlayerService>();
-                    var task = await service.FindSlayerTaskDefinition(slayer.CurrentTaskId);
+                    var task = await service.FindSlayerTaskDefinition(taskId);
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (task == null)
+                    if (task == null || slayer.CurrentTaskId != taskId)
                     {
                         character.SendChatMessage("There is no task assigned to you yet.");
                         return;

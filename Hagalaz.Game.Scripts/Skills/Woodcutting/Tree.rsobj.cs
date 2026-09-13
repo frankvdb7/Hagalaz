@@ -23,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                clicker.QueueTask(_ => _woodcuttingSkillService.StartCuttingAsync(clicker, Owner));
+                clicker.QueueTask(cancellationToken => _woodcuttingSkillService.StartCuttingAsync(clicker, Owner, cancellationToken));
                 return;
             }
 

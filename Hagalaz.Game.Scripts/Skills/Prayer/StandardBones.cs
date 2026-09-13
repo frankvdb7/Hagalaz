@@ -39,7 +39,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
         {
             if (clickType == ComponentClickType.LeftClick)
             {
-                character.QueueTask(_ => Bury(character, item));
+                character.QueueTask(cancellationToken => Bury(character, item, cancellationToken));
             }
             else
             {
@@ -52,15 +52,15 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
         /// </summary>
         /// <param name="character">The character.</param>
         /// <param name="item">The item.</param>
-        private async Task Bury(ICharacter character, IItem item)
+        private async Task Bury(ICharacter character, IItem item, System.Threading.CancellationToken cancellationToken)
         {
             if (character.HasState<BuryingBonesState>())
             {
                 return;
             }
 
-            character.Interrupt(this);
             var definition = await _prayerService.FindById(item.Id);
+            cancellationToken.ThrowIfCancellationRequested();
             if (definition == null)
             {
                 return;
@@ -72,6 +72,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
                 return;
             }
 
+            character.Interrupt(this);
             character.SendChatMessage("You dig a hole in the ground.");
             character.QueueAnimation(Animation.Create(827));
             character.AddState(new BuryingBonesState { TicksLeft = 2, OnRemovedCallback = () => OnRemovedCallBack(character, item, definition, slot) });

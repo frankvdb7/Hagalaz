@@ -54,10 +54,16 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                     if (Owner.HasSlayerTask())
                     {
                         var task = Owner.Slayer;
+                        var taskId = task.CurrentTaskId;
                         Owner.QueueTask(async cancellationToken =>
                         {
-                            var slayerTask = await _slayerService.FindSlayerTaskDefinition(task.CurrentTaskId);
+                            var slayerTask = await _slayerService.FindSlayerTaskDefinition(taskId);
                             cancellationToken.ThrowIfCancellationRequested();
+                            if (slayerTask == null || task.CurrentTaskId != taskId)
+                            {
+                                return;
+                            }
+
                             StandardNpcDialogue(TalkingTo,
                                 DialogueAnimations.CalmTalk,
                                 "You are currently assigned to kill:",
@@ -75,10 +81,16 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                     if (Owner.HasSlayerTask())
                     {
                         var task = Owner.Slayer;
+                        var taskId = task.CurrentTaskId;
                         Owner.QueueTask(async cancellationToken =>
                         {
-                            var slayerTask = await _slayerService.FindSlayerTaskDefinition(task.CurrentTaskId);
+                            var slayerTask = await _slayerService.FindSlayerTaskDefinition(taskId);
                             cancellationToken.ThrowIfCancellationRequested();
+                            if (slayerTask == null || task.CurrentTaskId != taskId)
+                            {
+                                return;
+                            }
+
                             StandardNpcDialogue(TalkingTo,
                                 DialogueAnimations.CalmTalk,
                                 "You are currently assigned to kill:",
@@ -94,8 +106,14 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                         {
                             Owner.QueueTask(async cancellationToken =>
                             {
-                                var slayerTask = await _slayerService.FindSlayerTaskDefinition(task.CurrentTaskId);
+                                var taskId = task.CurrentTaskId;
+                                var slayerTask = await _slayerService.FindSlayerTaskDefinition(taskId);
                                 cancellationToken.ThrowIfCancellationRequested();
+                                if (slayerTask == null || task.CurrentTaskId != taskId)
+                                {
+                                    return;
+                                }
+
                                 StandardNpcDialogue(TalkingTo,
                                     DialogueAnimations.CalmTalk,
                                     "Your new task is to kill:",

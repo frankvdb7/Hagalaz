@@ -113,10 +113,12 @@ namespace Hagalaz.Game.Scripts.Pnpcs
                 return;
             }
 
+            var lootTableId = Definition.LootTableId;
+            var lootLocation = Owner.Location;
             Owner.QueueTask(async cancellationToken =>
             {
                 var lootService = Owner.ServiceProvider.GetRequiredService<ILootService>();
-                var table = await lootService.FindNpcLootTable(Definition.LootTableId);
+                var table = await lootService.FindNpcLootTable(lootTableId);
                 cancellationToken.ThrowIfCancellationRequested();
                 if (table == null)
                 {
@@ -129,7 +131,7 @@ namespace Hagalaz.Game.Scripts.Pnpcs
                 {
                     groundItemBuilder.Create()
                         .WithItem(itemBuilder => itemBuilder.Create().WithId(loot.Item.Id).WithCount(loot.Count))
-                        .WithLocation(Owner.Location)
+                        .WithLocation(lootLocation)
                         .WithOwner(kill)
                         .Spawn();
                 }

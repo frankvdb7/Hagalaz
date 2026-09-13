@@ -71,7 +71,7 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
             character.Interrupt(this);
             if (clickType == GroundItemClickType.Option4Click)
             {
-                character.QueueTask(_ => LightGroundLog(character, item));
+                character.QueueTask(cancellationToken => LightGroundLog(character, item, cancellationToken));
             }
             else
             {
@@ -107,13 +107,17 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
                 return false;
             }
 
-            character.QueueTask(_ => LightGroundLog(character, logs));
+            character.QueueTask(cancellationToken => LightGroundLog(character, logs, cancellationToken));
             return true;
         }
 
-        public async Task LightGroundLog(ICharacter character, IGroundItem logItem)
+        public async Task LightGroundLog(
+            ICharacter character,
+            IGroundItem logItem,
+            System.Threading.CancellationToken cancellationToken = default)
         {
             var log = await _firemakingService.FindByLogId(logItem.ItemOnGround.Id);
+            cancellationToken.ThrowIfCancellationRequested();
             if (log == null)
             {
                 character.SendChatMessage("You can't light this log.");

@@ -168,18 +168,16 @@ persisted fingerprints or revision allocation state.
 - **WHEN** an exact pending receipt first receives a terminal `Conflict`
 - **THEN** the receipt remains `Conflict` when a contradictory acknowledgement
   is delivered later
-- **AND** the conflict clears pending ownership without persisting its
-  fingerprint
-- **AND** a normal later persistence attempt may use a new receipt for its
-  supplied detached revision
+- **AND** the detached snapshot and logout ownership remain available for
+  reconciliation without allocating or publishing a new revision
 
-#### Scenario: Final logout retries a persistence conflict from retained data
+#### Scenario: Final logout retains a persistence conflict without retry
 
 - **WHEN** final logout receives `Conflict` for its exact persistence receipt
 - **THEN** the logout owner keeps the detached snapshot and terminal Character
   handoff
-- **AND** it assigns that retained snapshot a new revision and publishes it
-  with a new correlation
+- **AND** it does not assign a new revision, publish another receipt, or
+  release session ownership
 - **AND** it does not reread, rehydrate, or re-add the Character
 
 ### Requirement: Live Character ownership belongs to the GameWorker
@@ -225,9 +223,9 @@ again.
 - **THEN** exact Character ownership has already been removed and destroyed
 - **AND** later gameplay cannot mutate the captured snapshot or stale Character
 
-#### Scenario: Failed persistence retries from the retained snapshot
+#### Scenario: Failed transport or outbox publication retries from the retained snapshot
 
-- **WHEN** durable persistence fails after terminal Character cleanup
+- **WHEN** transport or outbox publication fails after terminal Character cleanup
 - **THEN** a retry reuses the pending logout snapshot or receipt state
 - **AND** it does not resurrect, re-add, or reread the Character
 
@@ -261,6 +259,42 @@ lifecycle validation themselves.
   removed and a replacement was registered
 - **THEN** the result is discarded
 - **AND** the replacement is not mutated by the stale continuation
+
+### Requirement: Async gameplay completes mutations after its final await
+
+Creature gameplay operations MAY await external data, but MUST NOT split one
+logical Character or NPC mutation across that await. They MUST capture stable
+lookup inputs before awaiting, pass the Creature-owned cancellation token to
+nested asynchronous services when supported, and after the final await MUST
+check cancellation and revalidate the current Character/NPC state before
+completing the related mutation synchronously.
+
+#### Scenario: Casket lookup is cancelled before consumption
+
+- **WHEN** a casket loot lookup is blocked and the Character is logged out or
+  destroyed before it completes
+- **THEN** the exact casket remains in its inventory
+- **AND** no loot is generated or granted
+
+#### Scenario: Casket lookup completes normally
+
+- **WHEN** a casket loot lookup completes and its Character is still current
+- **THEN** the exact casket is consumed
+- **AND** generated loot is granted in the same synchronous continuation
+
+#### Scenario: Nested summoning lookup is cancelled before spawning
+
+- **WHEN** a familiar definition lookup is blocked and the Character is
+  destroyed before it completes
+- **THEN** no familiar is spawned or attached
+- **AND** the pouch remains, summoning statistics are unchanged, and no XP is
+  granted
+
+#### Scenario: Slayer completion lookup is cancelled before reward mutation
+
+- **WHEN** the final Slayer reward lookup is blocked
+- **THEN** the kill count and reward state remain unchanged until the lookup
+  completes successfully
 
 ### Requirement: Creature lifetime cancellation remains scheduler-owned
 

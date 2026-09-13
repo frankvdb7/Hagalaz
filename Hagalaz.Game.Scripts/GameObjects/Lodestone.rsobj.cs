@@ -41,23 +41,25 @@ namespace Hagalaz.Game.Scripts.GameObjects
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                clicker.QueueTask(_ => BeginTeleport(clicker));
+                clicker.QueueTask(cancellationToken => BeginTeleport(clicker, cancellationToken));
                 return;
             }
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
 
-        private async Task BeginTeleport(ICharacter character)
+        private async Task BeginTeleport(ICharacter character, System.Threading.CancellationToken cancellationToken)
         {
-            // StateType state = (StateType)((int)(this.owner.Id - 69828 + 117));
-            var lodeStone = await _lodestoneService.FindByGameObjectId(Owner.Id);
+            var gameObjectId = Owner.Id;
+            var location = Owner.Location;
+            var lodeStone = await _lodestoneService.FindByGameObjectId(gameObjectId);
+            cancellationToken.ThrowIfCancellationRequested();
             if (lodeStone == null)
             {
                 return;
             }
             character.AddState(new TeleportingState { TicksLeft = 1 });
-            var update = _regionUpdateBuilder.Create().WithLocation(Owner.Location).WithGraphic(Graphic.Create(3019)).Build();
+            var update = _regionUpdateBuilder.Create().WithLocation(location).WithGraphic(Graphic.Create(3019)).Build();
             _mapRegionService.QueueUpdate(update);
             // TODO - Show cutscene
         }

@@ -58,8 +58,14 @@ namespace Hagalaz.Game.Scripts.Items.Slayer
                         cancellationToken.ThrowIfCancellationRequested();
                         if (Owner.HasSlayerTask())
                         {
-                            var slayerTask = await _slayerService.FindSlayerTaskDefinition(Owner.Slayer.CurrentTaskId);
+                            var taskId = Owner.Slayer.CurrentTaskId;
+                            var slayerTask = await _slayerService.FindSlayerTaskDefinition(taskId);
                             cancellationToken.ThrowIfCancellationRequested();
+                            if (slayerTask == null || Owner.Slayer.CurrentTaskId != taskId)
+                            {
+                                return;
+                            }
+
                             StandardNpcDialogue(npcDefinition,
                                     DialogueAnimations.CalmTalk,
                                     "You are currently assigned to kill:",

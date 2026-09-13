@@ -20,7 +20,7 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class CharacterLogoutServiceTests
 {
     [TestMethod]
-    public void TryBeginLogout_ClaimsNewCharacterAndReturnsSameReceiptOnDuplicate()
+    public void TryBeginLogout_RejectsDuplicateUntilTheOwnedReceiptExists()
     {
         var state = new CharacterLogoutState();
         var character = CreateCharacter(42);
@@ -29,10 +29,18 @@ public sealed class CharacterLogoutServiceTests
         Assert.IsTrue(created);
         Assert.IsNull(receipt);
 
+        Assert.IsFalse(state.TryBeginLogout(character, out created, out receipt));
+        Assert.IsFalse(created);
+        Assert.IsNull(receipt);
+        Assert.IsFalse(state.TryGetPersistenceReceipt(character, out receipt));
+        Assert.IsNull(receipt);
+
         var expectedReceipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 7);
         Assert.IsTrue(state.SetPersistenceReceipt(character, expectedReceipt));
         Assert.IsTrue(state.TryBeginLogout(character, out created, out receipt));
         Assert.IsFalse(created);
+        Assert.AreSame(expectedReceipt, receipt);
+        Assert.IsTrue(state.TryGetPersistenceReceipt(character, out receipt));
         Assert.AreSame(expectedReceipt, receipt);
     }
 
@@ -47,41 +55,6 @@ public sealed class CharacterLogoutServiceTests
         Assert.IsFalse(state.TryBeginLogout(second, out var created, out var receipt));
         Assert.IsFalse(created);
         Assert.IsNull(receipt);
-    }
-
-    [TestMethod]
-    public async Task TryPreparePersistenceRetry_ReplacesDetachedSnapshotWithNextRevision()
-    {
-        var character = CreateCharacter(42);
-        var state = new CharacterLogoutState();
-        Assert.IsTrue(state.TryBeginLogout(character, out _, out _));
-        var store = Substitute.For<ICharacterStore>();
-        store.Remove(character).Returns(true);
-        var snapshot = new CharacterModel { SnapshotRevision = 1 };
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        dehydrationService.Dehydrate(character).Returns(snapshot);
-        using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
-            .BuildServiceProvider();
-        character.ServiceProvider.Returns(provider);
-        var persistenceState = new CharacterPersistenceState();
-        var service = new CharacterLogoutService(
-            state,
-            store,
-            new InlineTaskScheduler(),
-            Substitute.For<IGameMediator>(),
-            persistenceState);
-
-        await service.DetachAsync(character);
-        var firstReceipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 1);
-        Assert.IsTrue(service.SetPendingLogoutPersistence(character, firstReceipt));
-
-        Assert.IsTrue(service.TryPreparePersistenceRetry(character, out var retrySnapshot));
-
-        Assert.AreEqual(2L, retrySnapshot.SnapshotRevision);
-        Assert.AreEqual(2L, state.TryGetSnapshot(character, out var retainedSnapshot) ? retainedSnapshot.SnapshotRevision : 0);
-        Assert.IsTrue(service.TryGetPendingPersistence(character, out var retryReceipt));
-        Assert.IsNull(retryReceipt);
     }
 
     [TestMethod]

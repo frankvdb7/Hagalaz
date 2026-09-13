@@ -84,7 +84,10 @@
       admission rollback, and immutable teleport command inputs.
 - [x] 5.8 Add regressions for scheduler cleanup when inner cancellation is
       ignored, command lifetime cancellation propagation, and final logout
-      conflict retry with a new revision and receipt.
+      conflict retention without retry or revision bump.
+- [x] 5.9 Audit migrated asynchronous Creature gameplay paths and add
+      deterministic casket, summoning, Slayer, and persistence ownership
+      regressions using semantic TaskCompletionSource gates.
 
 ## 6. Validation and cleanup
 
@@ -98,5 +101,6 @@
       mechanism-specific spec text.
 - [x] 6.4 Validate that domain entities contain no `IsDestroyed` lifecycle
       flag and that persistence call sites accept detached models only.
-- [x] 6.5 Validate conflict retry, rollback session retention, and scheduler
-      terminal cleanup in the cumulative test and static-audit pass.
+- [x] 6.5 Validate conflict retention without retry, rollback session
+      retention, async gameplay cancellation, and scheduler terminal cleanup
+      in the cumulative test and static-audit pass.

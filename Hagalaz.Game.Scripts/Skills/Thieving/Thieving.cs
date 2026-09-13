@@ -129,7 +129,11 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
         /// <param name="clicker">The clicker.</param>
         /// <param name="obj">The obj.</param>
         /// <param name="stall">The stall.</param>
-        public static async Task Steal(ICharacter clicker, IGameObject obj, Stall stall)
+        public static async Task Steal(
+            ICharacter clicker,
+            IGameObject obj,
+            Stall stall,
+            System.Threading.CancellationToken cancellationToken = default)
         {
             if (clicker.HasState<ThievingStallState>())
             {
@@ -144,8 +148,10 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
                 return;
             }
 
+            var lootTableId = obj.Definition.LootTableId;
             var lootService = clicker.ServiceProvider.GetRequiredService<ILootService>();
-            var lootTable = await lootService.FindGameObjectLootTable(obj.Definition.LootTableId);
+            var lootTable = await lootService.FindGameObjectLootTable(lootTableId);
+            cancellationToken.ThrowIfCancellationRequested();
             if (lootTable == null)
             {
                 return;
@@ -174,15 +180,21 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
         /// <param name="clicker">The clicker.</param>
         /// <param name="npc">The NPC.</param>
         /// <param name="definition">The definition.</param>
-        public static async Task PickPocket(ICharacter clicker, INpc npc, PickPocketDefinition definition)
+        public static async Task PickPocket(
+            ICharacter clicker,
+            INpc npc,
+            PickPocketDefinition definition,
+            System.Threading.CancellationToken cancellationToken = default)
         {
             if (clicker.HasState<ThievingNpcState>())
             {
                 return;
             }
 
+            var lootTableId = npc.Definition.PickPocketingLootTableId;
             var lootService = clicker.ServiceProvider.GetRequiredService<ILootService>();
-            var lootTable = await lootService.FindGameObjectLootTable(npc.Definition.PickPocketingLootTableId);
+            var lootTable = await lootService.FindGameObjectLootTable(lootTableId);
+            cancellationToken.ThrowIfCancellationRequested();
             if (lootTable == null)
             {
                 return;

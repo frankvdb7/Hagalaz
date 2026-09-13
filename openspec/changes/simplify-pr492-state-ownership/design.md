@@ -71,10 +71,11 @@ it does not check a state through one API and mutate it through another.
 11. **Persistence submission owns local pending cleanup.** Persistence records
     the exact receipt before publication, releases that receipt if publish or
     outbox submission fails, and never rolls back the consumed revision. The
-    first terminal acknowledgement wins; a conflict clears pending ownership
-    without marking its fingerprint persisted. Normal persistence retries its
-    supplied detached revision, while final logout explicitly replaces the
-    retained detached snapshot with the next revision before republishing it.
+    first terminal acknowledgement wins; a conflict clears the persistence
+    submission entry without marking its fingerprint persisted. Transport or
+    outbox submission failures may retry the same detached revision. Final
+    logout retains its detached snapshot and logout ownership on `Conflict`
+    without replacing the snapshot, allocating a revision, or republishing.
 
 12. **Entity lifecycle is an ownership decision, not entity state.** Creature,
     Character, NPC, MapRegion, GameObject, and GroundItem do not expose an
@@ -100,8 +101,9 @@ it does not check a state through one API and mutate it through another.
 15. **Logout retains the handoff data.** The existing gate-backed pending
     logout record retains the exact Character during terminal preparation, the
     captured snapshot after removal, and the persistence receipt after
-    submission. Retries use those data fields and do not resurrect or reread
-    the Character.
+    submission. Transport or outbox retries may reuse those data fields and
+    revision; a persistence `Conflict` is terminal for that logout attempt and
+    does not allocate a new revision or republish automatically.
 
 16. **Async results use the creature queue boundary.** Commands capture
     immutable inputs before their asynchronous work and submit Character-
@@ -141,11 +143,18 @@ it does not check a state through one API and mutate it through another.
     target's location and display name after lookup. Later queued work uses only
     those values and the intended target/issuer queue boundary.
 
-22. **Final logout owns conflict retry.** A `Conflict` acknowledgement for a
-    final logout receipt causes `CharacterLogoutService` to replace the
-    retained detached snapshot with the next allocator revision and clear the
-    old receipt. `AuthenticationService` republishes that detached model and
-    waits for its new receipt; it never rereads or resurrects the Character.
+22. **Final logout does not retry conflicts.** A `Conflict` acknowledgement for
+    a final logout receipt leaves the detached snapshot, terminal handoff, and
+    logout ownership retained for reconciliation. `AuthenticationService` does
+    not allocate a new revision, republish, reread, or resurrect the Character;
+    only an explicit later persistence attempt may submit a new snapshot.
+
+23. **Async gameplay completes after its final await.** Casket and summoning
+    operations perform external lookups before consuming inventory, spawning a
+    familiar, or changing statistics. After the final await they check
+    cancellation and current ownership, then complete the related gameplay
+    mutation without another await. Nested async services receive the
+    Creature-owned cancellation token.
 
 ## Verification strategy
 
@@ -159,7 +168,7 @@ it does not check a state through one API and mutate it through another.
   exact persistence acknowledgement, explicit character lookups, NPC
   compensation, and both NPC API families.
 - Test GameWorker ordering for gameplay before final snapshot, cancellation
-  after exact Creature destruction, detached persistence retry, periodic snapshot
+  after exact Creature destruction, detached transport/outbox retry, periodic snapshot
   capture, replacement-instance result rejection, and overlapping connection
   admission without relying on a creature lifecycle flag.
 - Run the cumulative GameWorld tests, integration tests, Contacts tests, Raido
