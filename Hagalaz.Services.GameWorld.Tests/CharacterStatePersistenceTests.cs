@@ -203,6 +203,26 @@ public sealed class CharacterStatePersistenceTests
     }
 
     [TestMethod]
+    public async Task ExecuteCommandAsync_RethrowsLifetimeCancellation()
+    {
+        var commandPrompt = Substitute.For<IGameCommandPrompt>();
+        commandPrompt.ExecuteAsync("coords", Arg.Any<ICharacter>(), Arg.Any<string[]>()
+            ).Returns(new ValueTask<bool>(true));
+        var character = CreateCharacter(
+            new TestStateService(),
+            out _,
+            null,
+            Substitute.For<IEventManager>(),
+            commandPrompt,
+            Substitute.For<ICreatureTaskService>());
+        var method = typeof(Character).GetMethod("ExecuteCommandAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        var task = (Task)method.Invoke(character, ["coords", Array.Empty<string>(), "coords", new CancellationToken(true)])!;
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => task);
+    }
+
+    [TestMethod]
     public async Task OnRegionChange_DoesNotUpdateMusicAfterCharacterIsDestroyed()
     {
         var mapRegionService = Substitute.For<IMapRegionService>();

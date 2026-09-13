@@ -150,6 +150,8 @@ public sealed class WorldSessionAdmissionServiceTests
         Assert.IsFalse(result.Succeeded);
         fixture.CharacterStore.Received(1).Remove(fixture.Character);
         fixture.Character.DidNotReceive().Destroy();
+        await fixture.GameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>(), Arg.Any<CancellationToken>());
+        await fixture.GameSessionService.DidNotReceive().RemoveLocalSession(Arg.Any<IGameSession>());
     }
 
     private static Fixture CreateFixture(bool commitResult, IRsTaskService? scheduler = null)

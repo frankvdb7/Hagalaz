@@ -22,7 +22,7 @@ public interface ICharacterLogoutService
 
     bool SetPendingLogoutPersistence(ICharacter character, CharacterPersistenceReceipt receipt);
     bool TryGetPendingPersistence(ICharacter character, out CharacterPersistenceReceipt? persistenceReceipt);
-    void CancelPendingLogout(ICharacter character);
+    bool TryPreparePersistenceRetry(ICharacter character, out CharacterModel snapshot);
     bool IsPendingLogout(ICharacter character);
     bool IsPendingLogout(uint masterId);
     Task<CharacterModel> DetachAsync(ICharacter character, CancellationToken cancellationToken = default);
@@ -119,6 +119,22 @@ public sealed class CharacterLogoutState
             }
 
             pending.Snapshot = snapshot;
+            return true;
+        }
+    }
+
+    public bool TryReplacePersistenceSnapshot(ICharacter character, CharacterModel snapshot)
+    {
+        lock (_gate)
+        {
+            if (!_pending.TryGetValue(character.MasterId, out var pending) ||
+                !ReferenceEquals(pending.Character, character) || pending.Snapshot is null)
+            {
+                return false;
+            }
+
+            pending.Snapshot = snapshot;
+            pending.PersistenceReceipt = null;
             return true;
         }
     }
@@ -227,7 +243,27 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
     public bool TryGetPendingPersistence(ICharacter character, out CharacterPersistenceReceipt? persistenceReceipt) =>
         _logoutState.TryGetPersistenceReceipt(character, out persistenceReceipt);
 
-    public void CancelPendingLogout(ICharacter character) => _logoutState.Remove(character);
+    public bool TryPreparePersistenceRetry(ICharacter character, out CharacterModel snapshot)
+    {
+        if (!_logoutState.TryGetSnapshot(character, out var currentSnapshot))
+        {
+            snapshot = null!;
+            return false;
+        }
+
+        var retrySnapshot = currentSnapshot with
+        {
+            SnapshotRevision = _persistenceState.NextRevision(character.MasterId)
+        };
+        if (!_logoutState.TryReplacePersistenceSnapshot(character, retrySnapshot))
+        {
+            snapshot = null!;
+            return false;
+        }
+
+        snapshot = retrySnapshot;
+        return true;
+    }
 
     public bool IsPendingLogout(ICharacter character) => _logoutState.IsPending(character);
 

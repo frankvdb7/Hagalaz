@@ -52,6 +52,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 await _gameCommandPrompt.ExecuteAsync(command, this, arguments);
                 cancellationToken.ThrowIfCancellationRequested();
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error while handling character command: {Command}", commandAndArgs);

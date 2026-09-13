@@ -274,6 +274,71 @@ public sealed class AuthenticationLogoutTests
     }
 
     [TestMethod]
+    public async Task SignOutAsync_WhenPersistenceConflicts_RetriesRetainedSnapshotWithNewRevisionAndReceipt()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        var session = Substitute.For<IGameSession>();
+        var firstReceipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 7);
+        var retryReceipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 8);
+        var retainedSnapshot = new CharacterModel { SnapshotRevision = 7 };
+        var retrySnapshot = retainedSnapshot with { SnapshotRevision = 8 };
+        var publishedSnapshots = new List<CharacterModel>();
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        persistenceService.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                publishedSnapshots.Add(callInfo.Arg<CharacterModel>());
+                return Task.FromResult<CharacterPersistenceReceipt?>(publishedSnapshots.Count == 1 ? firstReceipt : retryReceipt);
+            });
+        persistenceService.WaitForAcknowledgementAsync(Arg.Any<CharacterPersistenceReceipt>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo => Task.FromResult(
+                callInfo.Arg<CharacterPersistenceReceipt>() == firstReceipt
+                    ? CharacterPersistenceOutcome.Conflict
+                    : CharacterPersistenceOutcome.Committed));
+        var logoutService = Substitute.For<ICharacterLogoutService>();
+        logoutService.TryBeginLogout(
+                character,
+                out Arg.Any<bool>(),
+                out Arg.Any<CharacterPersistenceReceipt?>())
+            .Returns(callInfo =>
+            {
+                callInfo[1] = true;
+                callInfo[2] = null;
+                return true;
+            });
+        logoutService.DetachAsync(character, Arg.Any<CancellationToken>()).Returns(Task.FromResult(retainedSnapshot));
+        logoutService.SetPendingLogoutPersistence(character, Arg.Any<CharacterPersistenceReceipt>()).Returns(true);
+        logoutService.TryPreparePersistenceRetry(character, out Arg.Any<CharacterModel>())
+            .Returns(callInfo =>
+            {
+                callInfo[1] = retrySnapshot;
+                return true;
+            });
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
+        var service = CreateAuthenticationService(
+            Substitute.For<ICharacterService>(),
+            persistenceService,
+            gameSessionService,
+            CreateContextAccessor(character, session),
+            characterLogoutService: logoutService,
+            configureLogoutService: false);
+
+        await service.SignOutAsync();
+
+        Assert.HasCount(2, publishedSnapshots);
+        Assert.AreEqual(7L, publishedSnapshots[0].SnapshotRevision);
+        Assert.AreEqual(8L, publishedSnapshots[1].SnapshotRevision);
+        Assert.AreNotEqual(firstReceipt.CorrelationId, retryReceipt.CorrelationId);
+        await persistenceService.Received(1).WaitForAcknowledgementAsync(firstReceipt, Arg.Any<CancellationToken>());
+        await persistenceService.Received(1).WaitForAcknowledgementAsync(retryReceipt, Arg.Any<CancellationToken>());
+        logoutService.Received(1).TryPreparePersistenceRetry(character, out Arg.Any<CharacterModel>());
+        logoutService.Received(2).SetPendingLogoutPersistence(character, Arg.Any<CharacterPersistenceReceipt>());
+        await gameSessionService.Received(1).RemoveSession(session);
+    }
+
+    [TestMethod]
     public async Task SignOutAsync_WhenSessionReleaseFails_KeepsPendingLogoutForRetry()
     {
         var character = Substitute.For<ICharacter>();
@@ -709,7 +774,11 @@ public sealed class AuthenticationLogoutTests
             return false;
         }
 
-        public void CancelPendingLogout(ICharacter character) { }
+        public bool TryPreparePersistenceRetry(ICharacter character, out CharacterModel snapshot)
+        {
+            snapshot = new CharacterModel();
+            return false;
+        }
         public bool IsPendingLogout(ICharacter character) => _claimed;
         public bool IsPendingLogout(uint masterId) => _claimed;
 

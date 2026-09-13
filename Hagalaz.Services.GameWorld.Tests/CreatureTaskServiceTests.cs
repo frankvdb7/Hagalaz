@@ -56,6 +56,50 @@ public sealed class CreatureTaskServiceTests
     }
 
     [TestMethod]
+    public void QueuedTask_WithIgnoringCancellation_IsRemovedAndDisposedByScheduler()
+    {
+        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var service = new CreatureTaskService(scheduler);
+        using var cancellation = new CancellationTokenSource();
+        var task = new IgnoringCancellationTask();
+
+        service.Queue(task, cancellation.Token);
+        scheduler.Tick();
+        cancellation.Cancel();
+
+        scheduler.Tick();
+
+        Assert.AreEqual(1, task.CancelCalls);
+        Assert.IsFalse(task.IsDisposed);
+        Assert.HasCount(1, scheduler.Tasks);
+
+        scheduler.Tick();
+
+        Assert.IsTrue(task.IsDisposed);
+        Assert.IsEmpty(scheduler.Tasks);
+    }
+
+    [TestMethod]
+    public void QueuedRsAsyncTask_IsRemovedWhenOperationIgnoresCancellationAndCompletes()
+    {
+        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var service = new CreatureTaskService(scheduler);
+        using var cancellation = new CancellationTokenSource();
+        var operation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var task = new RsAsyncTask(_ => operation.Task);
+
+        service.Queue(task, cancellation.Token);
+        scheduler.Tick();
+        cancellation.Cancel();
+        scheduler.Tick();
+
+        operation.SetResult(true);
+        scheduler.Tick();
+
+        Assert.IsEmpty(scheduler.Tasks);
+    }
+
+    [TestMethod]
     public void Queue_GenericTaskPreservesResultHandling()
     {
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
@@ -109,6 +153,21 @@ public sealed class CreatureTaskServiceTests
             CancelCalls++;
             IsCancelled = true;
         }
+    }
+
+    private sealed class IgnoringCancellationTask : ITaskItem, IDisposable
+    {
+        public int CancelCalls { get; private set; }
+        public bool IsCancelled => false;
+        public bool IsCompleted => false;
+        public bool IsFaulted => false;
+        public bool IsDisposed { get; private set; }
+
+        public void Tick() { }
+
+        public void Cancel() => CancelCalls++;
+
+        public void Dispose() => IsDisposed = true;
     }
 
     private sealed class RecordingScheduler : IRsTaskService

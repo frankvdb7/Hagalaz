@@ -147,13 +147,13 @@ persisted fingerprints or revision allocation state.
   snapshot
 - **AND** the original receipt remains the only pending owner
 
-#### Scenario: Forced persistence waits and snapshots current state
+#### Scenario: Forced persistence waits for the exact pending snapshot
 
 - **WHEN** a forced or final save is requested while an earlier snapshot for the
   same master is still unacknowledged
 - **THEN** it waits for that exact receipt to resolve
-- **AND** it dehydrates the character again after the wait
-- **AND** it publishes the final snapshot with a new correlation and revision
+- **AND** it publishes the supplied detached snapshot without rereading the
+  live Character
 
 #### Scenario: Failed local submission releases the exact pending owner
 
@@ -170,7 +170,17 @@ persisted fingerprints or revision allocation state.
   is delivered later
 - **AND** the conflict clears pending ownership without persisting its
   fingerprint
-- **AND** a later persistence attempt uses a new receipt and revision
+- **AND** a normal later persistence attempt may use a new receipt for its
+  supplied detached revision
+
+#### Scenario: Final logout retries a persistence conflict from retained data
+
+- **WHEN** final logout receives `Conflict` for its exact persistence receipt
+- **THEN** the logout owner keeps the detached snapshot and terminal Character
+  handoff
+- **AND** it assigns that retained snapshot a new revision and publishes it
+  with a new correlation
+- **AND** it does not reread, rehydrate, or re-add the Character
 
 ### Requirement: Live Character ownership belongs to the GameWorker
 

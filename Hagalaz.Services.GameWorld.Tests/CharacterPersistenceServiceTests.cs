@@ -127,7 +127,7 @@ public sealed class CharacterPersistenceServiceTests
     }
 
     [TestMethod]
-    public async Task PersistAsync_AfterConflictCreatesNewReceiptAndRevision()
+    public async Task PersistAsync_AfterConflictUsesNewCapturedRevisionAndReceipt()
     {
         await using var harness = new PersistenceHarness();
         var firstReceipt = await harness.Service.PersistAsync(42, harness.CurrentModel, force: false);
@@ -138,15 +138,18 @@ public sealed class CharacterPersistenceServiceTests
             firstReceipt.SnapshotRevision,
             CharacterPersistenceOutcome.Conflict);
 
-        var retry = await harness.Service.PersistAsync(42, harness.CurrentModel, force: false);
+        var retry = await harness.Service.PersistAsync(
+            42,
+            harness.CurrentModel with { SnapshotRevision = firstReceipt.SnapshotRevision + 1 },
+            force: false);
 
         Assert.IsNotNull(retry);
         Assert.AreNotEqual(firstReceipt.CorrelationId, retry.CorrelationId);
-        Assert.AreEqual(firstReceipt.SnapshotRevision, retry.SnapshotRevision);
+        Assert.AreEqual(firstReceipt.SnapshotRevision + 1, retry.SnapshotRevision);
     }
 
     [TestMethod]
-    public async Task PersistAsync_ForcedSaveWaitsForPendingAndUsesCurrentCharacterState()
+    public async Task PersistAsync_ForcedSaveWaitsForPendingAndUsesSuppliedDetachedSnapshot()
     {
         await using var harness = new PersistenceHarness();
         var firstReceipt = await harness.Service.PersistAsync(42, harness.CurrentModel, force: false);

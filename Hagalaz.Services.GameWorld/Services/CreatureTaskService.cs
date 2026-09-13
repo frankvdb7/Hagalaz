@@ -30,7 +30,9 @@ public sealed class CreatureTaskService(IRsTaskService scheduler) : ICreatureTas
 
     private sealed class CreatureTask(ITaskItem inner, CancellationToken cancellationToken) : ITaskItem, IDisposable
     {
-        public bool IsCancelled => inner.IsCancelled;
+        private bool _lifetimeCancellationHandled;
+
+        public bool IsCancelled => _lifetimeCancellationHandled || inner.IsCancelled;
 
         public bool IsCompleted => inner.IsCompleted;
 
@@ -40,7 +42,12 @@ public sealed class CreatureTaskService(IRsTaskService scheduler) : ICreatureTas
         {
             if (cancellationToken.IsCancellationRequested)
             {
-                inner.Cancel();
+                if (!_lifetimeCancellationHandled)
+                {
+                    _lifetimeCancellationHandled = true;
+                    inner.Cancel();
+                }
+
                 return;
             }
 
@@ -60,7 +67,9 @@ public sealed class CreatureTaskService(IRsTaskService scheduler) : ICreatureTas
 
     private sealed class CreatureTask<TResult>(ITaskItem<TResult> inner, CancellationToken cancellationToken) : ITaskItem<TResult>, IDisposable
     {
-        public bool IsCancelled => inner.IsCancelled;
+        private bool _lifetimeCancellationHandled;
+
+        public bool IsCancelled => _lifetimeCancellationHandled || inner.IsCancelled;
 
         public bool IsCompleted => inner.IsCompleted;
 
@@ -70,7 +79,12 @@ public sealed class CreatureTaskService(IRsTaskService scheduler) : ICreatureTas
         {
             if (cancellationToken.IsCancellationRequested)
             {
-                inner.Cancel();
+                if (!_lifetimeCancellationHandled)
+                {
+                    _lifetimeCancellationHandled = true;
+                    inner.Cancel();
+                }
+
                 return;
             }
 

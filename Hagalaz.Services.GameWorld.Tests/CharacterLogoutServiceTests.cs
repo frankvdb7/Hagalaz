@@ -50,6 +50,41 @@ public sealed class CharacterLogoutServiceTests
     }
 
     [TestMethod]
+    public async Task TryPreparePersistenceRetry_ReplacesDetachedSnapshotWithNextRevision()
+    {
+        var character = CreateCharacter(42);
+        var state = new CharacterLogoutState();
+        Assert.IsTrue(state.TryBeginLogout(character, out _, out _));
+        var store = Substitute.For<ICharacterStore>();
+        store.Remove(character).Returns(true);
+        var snapshot = new CharacterModel { SnapshotRevision = 1 };
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(snapshot);
+        using var provider = new ServiceCollection()
+            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .BuildServiceProvider();
+        character.ServiceProvider.Returns(provider);
+        var persistenceState = new CharacterPersistenceState();
+        var service = new CharacterLogoutService(
+            state,
+            store,
+            new InlineTaskScheduler(),
+            Substitute.For<IGameMediator>(),
+            persistenceState);
+
+        await service.DetachAsync(character);
+        var firstReceipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 1);
+        Assert.IsTrue(service.SetPendingLogoutPersistence(character, firstReceipt));
+
+        Assert.IsTrue(service.TryPreparePersistenceRetry(character, out var retrySnapshot));
+
+        Assert.AreEqual(2L, retrySnapshot.SnapshotRevision);
+        Assert.AreEqual(2L, state.TryGetSnapshot(character, out var retainedSnapshot) ? retainedSnapshot.SnapshotRevision : 0);
+        Assert.IsTrue(service.TryGetPendingPersistence(character, out var retryReceipt));
+        Assert.IsNull(retryReceipt);
+    }
+
+    [TestMethod]
     public async Task DetachAsync_CapturesSnapshotRemovesExactOwnerAndDestroysOnce()
     {
         var character = CreateCharacter(42);

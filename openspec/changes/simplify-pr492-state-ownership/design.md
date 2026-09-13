@@ -72,8 +72,9 @@ it does not check a state through one API and mutate it through another.
     the exact receipt before publication, releases that receipt if publish or
     outbox submission fails, and never rolls back the consumed revision. The
     first terminal acknowledgement wins; a conflict clears pending ownership
-    without marking its fingerprint persisted, so retry uses a new receipt and
-    revision.
+    without marking its fingerprint persisted. Normal persistence retries its
+    supplied detached revision, while final logout explicitly replaces the
+    retained detached snapshot with the next revision before republishing it.
 
 12. **Entity lifecycle is an ownership decision, not entity state.** Creature,
     Character, NPC, MapRegion, GameObject, and GroundItem do not expose an
@@ -139,6 +140,12 @@ it does not check a state through one API and mutate it through another.
     character's destination and display name, while `teleto` captures the
     target's location and display name after lookup. Later queued work uses only
     those values and the intended target/issuer queue boundary.
+
+22. **Final logout owns conflict retry.** A `Conflict` acknowledgement for a
+    final logout receipt causes `CharacterLogoutService` to replace the
+    retained detached snapshot with the next allocator revision and clear the
+    old receipt. `AuthenticationService` republishes that detached model and
+    waits for its new receipt; it never rereads or resurrects the Character.
 
 ## Verification strategy
 

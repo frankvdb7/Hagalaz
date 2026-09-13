@@ -67,6 +67,9 @@ receives only detached models.
   timing cannot reorder durable state. Roll back failed admission through the
   exact CharacterStore removal on the GameWorker, destroying only after removal
   succeeds.
+- When final logout persistence receives `Conflict`, retain the detached
+  handoff, allocate its next revision, and republish it with a new receipt
+  without rereading or resurrecting the Character.
 - Capture immutable command and region-change inputs before awaits and apply
   their results only through the existing Creature queue boundary.
 - Treat Raido message dispatch and disconnect as independently overlapping

@@ -50,6 +50,8 @@
 - [x] 3.11 Assign detached persistence revisions during GameWorker capture,
       reject stale detached snapshots, and use exact store ownership for
       registered-admission rollback.
+- [x] 3.12 Make final logout replace its retained detached snapshot with a new
+      revision after a persistence conflict, without rereading the Character.
 
 ## 4. Lifecycle and NPC ownership
 
@@ -80,6 +82,9 @@
 - [x] 5.7 Add deterministic regressions for deferred task cancellation,
       region-change cancellation, capture-assigned revision ordering, deferred
       admission rollback, and immutable teleport command inputs.
+- [x] 5.8 Add regressions for scheduler cleanup when inner cancellation is
+      ignored, command lifetime cancellation propagation, and final logout
+      conflict retry with a new revision and receipt.
 
 ## 6. Validation and cleanup
 
@@ -93,3 +98,5 @@
       mechanism-specific spec text.
 - [x] 6.4 Validate that domain entities contain no `IsDestroyed` lifecycle
       flag and that persistence call sites accept detached models only.
+- [x] 6.5 Validate conflict retry, rollback session retention, and scheduler
+      terminal cleanup in the cumulative test and static-audit pass.

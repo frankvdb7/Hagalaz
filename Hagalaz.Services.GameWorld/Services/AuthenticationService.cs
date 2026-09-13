@@ -473,17 +473,36 @@ namespace Hagalaz.Services.GameWorld.Services
                             }
                         }
 
-                        if (receipt is null)
+                        while (true)
                         {
-                            throw new InvalidOperationException(
-                                $"Final character persistence did not return a receipt for master id {character.MasterId}.");
-                        }
+                            if (receipt is null)
+                            {
+                                throw new InvalidOperationException(
+                                    $"Final character persistence did not return a receipt for master id {character.MasterId}.");
+                            }
 
-                        var outcome = await _characterPersistenceService.WaitForAcknowledgementAsync(receipt, cancellationToken);
-                        if (outcome is not (CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate))
-                        {
-                            throw new InvalidOperationException(
-                                $"Final character persistence was not accepted for master id {character.MasterId}: {outcome}.");
+                            var outcome = await _characterPersistenceService.WaitForAcknowledgementAsync(receipt, cancellationToken);
+                            if (outcome is CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate)
+                            {
+                                break;
+                            }
+
+                            if (outcome is not CharacterPersistenceOutcome.Conflict ||
+                                !_characterLogoutService.TryPreparePersistenceRetry(character, out finalSnapshot))
+                            {
+                                throw new InvalidOperationException(
+                                    $"Final character persistence was not accepted for master id {character.MasterId}: {outcome}.");
+                            }
+
+                            receipt = await _characterPersistenceService.PersistAsync(
+                                masterId ?? character.MasterId,
+                                finalSnapshot,
+                                force: true,
+                                cancellationToken: cancellationToken);
+                            if (receipt is null || !_characterLogoutService.SetPendingLogoutPersistence(character, receipt))
+                            {
+                                throw new InvalidOperationException("Forced character persistence retry did not produce an owned receipt.");
+                            }
                         }
 
                         persistenceSucceeded = true;

@@ -195,21 +195,24 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         }
     }
 
-    private async Task RollbackAsync(
+    private async Task<bool> RollbackAsync(
         uint masterId,
         IGameSession session,
         ICharacter? registeredCharacter)
     {
+        var characterRollbackSucceeded = true;
         if (registeredCharacter is not null)
         {
-            var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             try
             {
                 _taskScheduler.Schedule(new RsTask(() =>
                 {
+                    var removed = false;
                     try
                     {
-                        if (_characterStore.Remove(registeredCharacter))
+                        removed = _characterStore.Remove(registeredCharacter);
+                        if (removed)
                         {
                             try
                             {
@@ -231,16 +234,25 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
                     }
                     finally
                     {
-                        completion.TrySetResult();
+                        completion.TrySetResult(removed);
                     }
                 }, 1));
 
-                await completion.Task;
+                characterRollbackSucceeded = await completion.Task;
             }
             catch (Exception exception)
             {
                 _logger.LogError(exception, "Failed to schedule character rollback after world sign-in failed");
+                characterRollbackSucceeded = false;
             }
+        }
+
+        if (!characterRollbackSucceeded)
+        {
+            _logger.LogError(
+                "Retaining game session '{connectionId}' because character rollback did not remove the exact store owner",
+                session.ConnectionId);
+            return false;
         }
 
         try
@@ -266,5 +278,7 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
                 _logger.LogError(exception, "Failed to remove local game session '{connectionId}' after world sign-in failed", session.ConnectionId);
             }
         }
+
+        return true;
     }
 }

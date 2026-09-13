@@ -888,7 +888,8 @@ public sealed class AuthenticationSignInTests
 
         Assert.IsFalse(result.Succeeded);
         character.DidNotReceive().Destroy();
-        await gameSessionService.Received(1).RemoveSession(session);
+        await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>(), Arg.Any<CancellationToken>());
+        await gameSessionService.DidNotReceive().RemoveLocalSession(Arg.Any<IGameSession>());
     }
 
     [TestMethod]
