@@ -213,20 +213,17 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
 {
     private readonly CharacterLogoutState _logoutState;
     private readonly ICharacterStore _characterStore;
-    private readonly ICreatureTaskService _creatureTaskService;
     private readonly IRsTaskService _taskService;
     private readonly IGameMediator _mediator;
 
     public CharacterLogoutService(
         CharacterLogoutState logoutState,
         ICharacterStore characterStore,
-        ICreatureTaskService creatureTaskService,
         IRsTaskService taskService,
         IGameMediator mediator)
     {
         _logoutState = logoutState;
         _characterStore = characterStore;
-        _creatureTaskService = creatureTaskService;
         _taskService = taskService;
         _mediator = mediator;
     }
@@ -264,7 +261,6 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
             {
                 try
                 {
-                    _creatureTaskService.Revoke(character);
                     var dehydrationService = character.ServiceProvider.GetRequiredService<ICharacterDehydrationService>();
                     var finalSnapshot = dehydrationService.Dehydrate(character);
 

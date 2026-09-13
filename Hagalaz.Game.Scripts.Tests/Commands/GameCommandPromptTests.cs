@@ -15,18 +15,20 @@ namespace Hagalaz.Game.Scripts.Tests.Commands;
 public sealed class GameCommandPromptTests
 {
     [TestMethod]
-    public async Task PlayersCommand_DoesNotMessageCharacterAfterOwnershipIsRevoked()
+    public async Task PlayersCommand_DoesNotMessageCharacterAfterCharacterIsDestroyed()
     {
         var countRead = new TaskCompletionSource<int>();
         var characterStore = new GatedCharacterStore(countRead);
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
         var creatureTaskService = new CreatureTaskService(scheduler);
+        using var taskCancellation = new CancellationTokenSource();
         var character = Substitute.For<ICharacter>();
         character.QueueTask(Arg.Any<ITaskItem>()).Returns(callInfo =>
         {
             var queuedTask = callInfo.Arg<ITaskItem>();
-            return creatureTaskService.Queue(character, queuedTask);
+            return creatureTaskService.Queue(queuedTask, taskCancellation.Token);
         });
+        character.When(value => value.Destroy()).Do(_ => taskCancellation.Cancel());
 
         using var characterServices = new ServiceCollection()
             .AddSingleton<ICharacterStore>(characterStore)
@@ -42,7 +44,7 @@ public sealed class GameCommandPromptTests
         Assert.IsFalse(task.IsCompleted);
         character.DidNotReceive().SendChatMessage(Arg.Any<string>());
 
-        creatureTaskService.Revoke(character);
+        character.Destroy();
         countRead.SetResult(3);
         Assert.IsTrue(await task);
         scheduler.Tick();

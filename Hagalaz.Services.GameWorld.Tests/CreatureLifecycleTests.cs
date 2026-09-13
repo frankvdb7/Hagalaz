@@ -8,11 +8,15 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
+using Hagalaz.Game.Extensions;
 using Hagalaz.Services.GameWorld.Model.Creatures;
+using Hagalaz.Services.GameWorld.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Hagalaz.Services.GameWorld.Tests;
 
@@ -79,6 +83,79 @@ public sealed class CreatureLifecycleTests
     }
 
     [TestMethod]
+    public void Destroy_CancelsPendingCreatureTask()
+    {
+        var scheduler = new RsTaskService(Microsoft.Extensions.Logging.Abstractions.NullLogger<RsTaskService>.Instance);
+        var taskService = new CreatureTaskService(scheduler);
+        var (creature, _, _) = CreateCreature(taskService: taskService);
+        var executed = false;
+
+        creature.QueueTask(new RsTask(() => executed = true, 2));
+        creature.Destroy();
+        scheduler.Tick();
+
+        Assert.IsFalse(executed);
+    }
+
+    [TestMethod]
+    public void Destroy_StopsLongLivedCreatureTask()
+    {
+        var scheduler = new RsTaskService(Microsoft.Extensions.Logging.Abstractions.NullLogger<RsTaskService>.Instance);
+        var taskService = new CreatureTaskService(scheduler);
+        var (creature, _, _) = CreateCreature(taskService: taskService);
+        var ticks = 0;
+
+        creature.QueueTask(new RsTickTask(() => ticks++));
+        scheduler.Tick();
+        creature.Destroy();
+        scheduler.Tick();
+        scheduler.Tick();
+
+        Assert.AreEqual(1, ticks);
+    }
+
+    [TestMethod]
+    public void QueueTask_AfterDestroy_IsCancelledWithoutExecuting()
+    {
+        var scheduler = new RsTaskService(Microsoft.Extensions.Logging.Abstractions.NullLogger<RsTaskService>.Instance);
+        var taskService = new CreatureTaskService(scheduler);
+        var (creature, _, _) = CreateCreature(taskService: taskService);
+        var executed = false;
+
+        creature.Destroy();
+        creature.QueueTask(new RsTask(() => executed = true, 1));
+        scheduler.Tick();
+
+        Assert.IsFalse(executed);
+    }
+
+    [TestMethod]
+    public async Task Destroy_PropagatesCancellationToAsyncCreatureTask()
+    {
+        var scheduler = new RsTaskService(Microsoft.Extensions.Logging.Abstractions.NullLogger<RsTaskService>.Instance);
+        var taskService = new CreatureTaskService(scheduler);
+        var (creature, _, _) = CreateCreature(taskService: taskService);
+        var operationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var operation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var receivedToken = CancellationToken.None;
+
+        creature.QueueTask(token =>
+        {
+            receivedToken = token;
+            operationStarted.SetResult(true);
+            return operation.Task;
+        });
+        scheduler.Tick();
+        await operationStarted.Task;
+
+        creature.Destroy();
+
+        Assert.IsTrue(receivedToken.IsCancellationRequested);
+        operation.SetResult(true);
+        scheduler.Tick();
+    }
+
+    [TestMethod]
     public void MajorUpdateTick_WhenContentFails_DoesNotBlockTheNextTick()
     {
         var (creature, _, _) = CreateCreature();
@@ -93,12 +170,13 @@ public sealed class CreatureLifecycleTests
 
 
     private static (TestCreature Creature, IMapRegionService MapRegionService, IServiceScope Scope) CreateCreature(
-        bool onDestroyFailure = false)
+        bool onDestroyFailure = false,
+        ICreatureTaskService? taskService = null)
     {
         var serviceProvider = Substitute.For<IServiceProvider>();
         var scope = Substitute.For<IServiceScope>();
         var mapRegionService = Substitute.For<IMapRegionService>();
-        serviceProvider.GetService(typeof(ICreatureTaskService)).Returns(Substitute.For<ICreatureTaskService>());
+        serviceProvider.GetService(typeof(ICreatureTaskService)).Returns(taskService ?? Substitute.For<ICreatureTaskService>());
         serviceProvider.GetService(typeof(IMapRegionService)).Returns(mapRegionService);
         serviceProvider.GetService(typeof(IAreaService)).Returns(Substitute.For<IAreaService>());
         serviceProvider.GetService(typeof(IScopedGameMediator)).Returns(Substitute.For<IScopedGameMediator>());

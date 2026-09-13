@@ -1444,7 +1444,6 @@ public sealed class AuthenticationSignInTests
             characterFactorySubstitute,
             characterHydrationServiceSubstitute,
             persistenceService,
-            Substitute.For<ICreatureTaskService>(),
             gameSessionService,
             getCharacterRequestClient ?? hydrateRequestClient);
 

@@ -83,6 +83,6 @@ namespace Hagalaz.Game.Extensions
         /// <param name="task">The synchronous action to be executed.</param>
         /// <param name="executeDelay">The delay in game ticks before the task is executed.</param>
         /// <returns>A handle to the queued task, which can be used to monitor or cancel it.</returns>
-        public static IRsTaskHandle QueueTask(this ICreature creature, Action task, int executeDelay) => creature.QueueTask(new RsTask(task, executeDelay));
+        public static IRsTaskHandle QueueTask(this ICreature creature, Action task, int executeDelay = 1) => creature.QueueTask(new RsTask(task, executeDelay));
     }
 }

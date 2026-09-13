@@ -1,5 +1,4 @@
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld;
 using Hagalaz.Services.GameWorld.Services;
@@ -33,8 +32,7 @@ public sealed class TaskSchedulingTopologyTests
         Assert.AreSame(creatureScheduler, provider.GetRequiredService<ICreatureTaskService>());
 
         var executed = false;
-        var creature = Substitute.For<ICreature>();
-        creatureScheduler.Queue(creature, new RsTask(() => executed = true, executeDelay: 1));
+        creatureScheduler.Queue(new RsTask(() => executed = true, executeDelay: 1), CancellationToken.None);
         workerScheduler.Tick();
 
         Assert.IsTrue(executed);

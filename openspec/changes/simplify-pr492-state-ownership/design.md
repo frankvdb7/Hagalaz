@@ -81,14 +81,14 @@ it does not check a state through one API and mutate it through another.
     region-part collection establishes exact ownership before terminal
     cleanup; cleanup methods do not arbitrate a second lifecycle state.
 
-13. **GameWorker owns the live Character boundary.** `CreatureTaskService`
-    owns the exact creature-to-task relationship and wraps tasks before
-    delegating them to the one shared generic scheduler. It rejects work after
-    exact creature revocation and removes tracking when a task terminates;
-    neither the store nor the entity participates in task admission. Final
-    logout schedules one GameWorker turn that synchronously revokes unfinished
-    work, dehydrates, removes exact ownership, and destroys the Character
-    without an await between snapshot capture and revocation.
+13. **Creature owns cancellation for its queued work.** Each concrete
+    `Creature` privately owns one task `CancellationTokenSource`. Its
+    `QueueTask` methods supply that token to `ICreatureTaskService`, which wraps
+    tasks for cancellation-aware scheduling and delegates execution to the one
+    shared generic scheduler. `Creature.Destroy()` cancels the token as part of
+    deterministic terminal cleanup; no task registry or lifecycle flag is
+    needed. Exact owner removal remains the lifecycle transition, and failed
+    removal does not call `Destroy()` or cancel the Creature's task authority.
 
 14. **Persistence consumes detached models.** `CharacterDehydrationService`
     synchronously creates the existing detached `CharacterModel`. Both final
@@ -104,9 +104,9 @@ it does not check a state through one API and mutate it through another.
 
 16. **Async results use the creature queue boundary.** Commands capture
     immutable inputs before their asynchronous work and submit Character-
-    targeted continuations through `character.QueueTask(...)`. The creature
-    task owner accepts or revokes the exact instance; a replacement with the
-    same master ID cannot inherit a stale task.
+    targeted continuations through `character.QueueTask(...)`. A destroyed
+    Creature's cancelled token causes queued continuations to be dropped; a
+    replacement with the same master ID cannot inherit a stale task.
 
 17. **Connection lifetime does not define input ordering.** Raido message and
     disconnect callbacks may use independent scopes and overlap. CharacterStore
@@ -125,8 +125,8 @@ it does not check a state through one API and mutate it through another.
 - Test logout state ownership, duplicate and conflicting character claims,
   exact persistence acknowledgement, explicit character lookups, NPC
   compensation, and both NPC API families.
-- Test GameWorker ordering for gameplay before final snapshot, rejection after
-  exact ownership revocation, detached persistence retry, periodic snapshot
+- Test GameWorker ordering for gameplay before final snapshot, cancellation
+  after exact Creature destruction, detached persistence retry, periodic snapshot
   capture, replacement-instance result rejection, and overlapping connection
   admission without relying on a creature lifecycle flag.
 - Run the cumulative GameWorld tests, integration tests, Contacts tests, Raido

@@ -30,7 +30,6 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
     private readonly ICharacterFactory _characterFactory;
     private readonly ICharacterHydrationService _characterHydrationService;
     private readonly ICharacterPersistenceService _characterPersistenceService;
-    private readonly ICreatureTaskService _creatureTaskService;
     private readonly IGameSessionService _gameSessionService;
     private readonly IRequestClient<HydrateCharacter> _getCharacterRequestClient;
 
@@ -41,7 +40,6 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         ICharacterFactory characterFactory,
         ICharacterHydrationService characterHydrationService,
         ICharacterPersistenceService characterPersistenceService,
-        ICreatureTaskService creatureTaskService,
         IGameSessionService gameSessionService,
         IRequestClient<HydrateCharacter> getCharacterRequestClient)
     {
@@ -51,7 +49,6 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         _characterFactory = characterFactory;
         _characterHydrationService = characterHydrationService;
         _characterPersistenceService = characterPersistenceService;
-        _creatureTaskService = creatureTaskService;
         _gameSessionService = gameSessionService;
         _getCharacterRequestClient = getCharacterRequestClient;
     }
@@ -199,7 +196,6 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         {
             try
             {
-                _creatureTaskService.Revoke(registeredCharacter);
                 if (await _characterService.RemoveAsync(registeredCharacter))
                 {
                     try

@@ -38,9 +38,10 @@
       explicit active-mutation and exact-lookup intents.
 - [x] 3.7 Replace ContactSessionStore enumeration and CharacterStore predicate
       lookup with atomic world removal and direct identity/index lookups.
-- [x] 3.8 Add one singleton `ICreatureTaskService` boundary that tracks exact
-      creature tasks over the shared generic scheduler, revokes them during
-      lifecycle removal, and retains detached final snapshots for retry.
+- [x] 3.8 Make each Creature own a private task cancellation token, pass it to
+      the singleton `ICreatureTaskService` cancellation-aware scheduling
+      boundary, and cancel it from `Creature.Destroy()` over the shared generic
+      scheduler.
 - [x] 3.9 Remove domain-entity `IsDestroyed` flags and route async result
       application through exact owning boundaries.
 
@@ -65,9 +66,9 @@
 - [x] 5.4 Add duplicate logout, conflicting character-instance, exact receipt,
       contact removal, direct character lookup, and MapRegion non-resurrection
       regression tests.
-- [x] 5.5 Add deterministic terminal ordering, stale task admission and
-      post-revocation task lifetime, detached snapshot persistence, periodic
-      GameWorker capture, and replacement-instance continuation regressions.
+- [x] 5.5 Add deterministic terminal ordering, Creature task cancellation,
+      detached snapshot persistence, periodic GameWorker capture, and
+      replacement-instance continuation regressions.
 - [x] 5.6 Restore removal-driven Clan Charter and Duel Arena behavior through
       existing creature-destroyed events rather than polling or lifecycle flags.
 

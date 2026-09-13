@@ -127,9 +127,10 @@ receipt matching, and acknowledgement state.
 
 Persistence acknowledgements MUST be delivered to persistence infrastructure
 and identified by the exact correlation and snapshot revision. Logout MUST
-capture the final snapshot and revoke exact world ownership in one synchronous
+capture the final snapshot and remove exact world ownership in one synchronous
 GameWorker-owned turn before submitting that detached snapshot, then wait for
-that receipt before releasing the session. Normal logout MUST NOT erase
+that receipt before releasing the session. Successful removal MUST call
+`Character.Destroy()`, which cancels Creature-owned work. Normal logout MUST NOT erase
 persisted fingerprints or revision allocation state.
 
 #### Scenario: Stale acknowledgement cannot complete another snapshot
@@ -174,15 +175,12 @@ persisted fingerprints or revision allocation state.
 ### Requirement: Live Character ownership belongs to the GameWorker
 
 Live Character state MUST be mutated only by work admitted to the serialized
-GameWorker boundary. `ICreatureTaskService` MUST own exact creature task
-admission, tracking, and revocation while delegating execution to the one
-shared generic scheduler. The logout ownership claim MUST revoke the exact
-Character before final snapshot capture.
-Previously admitted Character-targeted tasks MUST either complete before the
-final snapshot or be explicitly revoked before snapshot capture, and MUST stop
-before invoking their inner task after exact ownership is revoked. Creature,
-Character, and NPC MUST NOT expose a lifecycle flag for callers to use as a
-validity protocol.
+GameWorker boundary. Each concrete Creature MUST privately own cancellation for
+work queued through it. `Creature.QueueTask` MUST supply its cancellation token
+to `ICreatureTaskService`, which MUST only provide cancellation-aware wrapping
+over the one shared generic scheduler. `Creature.Destroy()` MUST cancel that
+token during terminal cleanup. Creature, Character, and NPC MUST NOT expose a
+lifecycle flag or cancellation token for callers to use as a validity protocol.
 
 #### Scenario: Gameplay already admitted runs before terminal logout
 
@@ -190,27 +188,31 @@ validity protocol.
 - **THEN** the gameplay task runs before the queued terminal transition
 - **AND** its effects are present in the final detached snapshot
 
-#### Scenario: Stale gameplay is rejected after ownership revocation
+#### Scenario: Stale gameplay is rejected after Creature destruction
 
-- **WHEN** terminal logout has removed the exact Character from the
-  authoritative store
-- **THEN** later work for that Character is rejected by the owner
-- **AND** a replacement Character with the same master ID cannot receive it
+- **WHEN** terminal ownership removal succeeds and `Character.Destroy()` is
+  called
+- **THEN** later work queued for that Character is cancelled by its private
+  token
+- **AND** a replacement Character with the same master ID has an independent
+  token and cannot receive it
 
 ### Requirement: Final logout is one GameWorker-owned handoff
 
-Final logout MUST synchronously capture a detached `CharacterModel`, revoke
+Final logout MUST synchronously capture a detached `CharacterModel`, remove
 exact active Character ownership, remove required world/region membership, and
-perform terminal Character cleanup in one GameWorker-owned operation. No await
-or externally scheduled asynchronous gap MAY occur between final snapshot
-capture and ownership revocation. After revocation, logout persistence MUST
-use only the retained snapshot, master/session data, and persistence receipt;
-it MUST NOT read the Character or its service scope again.
+perform terminal Character cleanup in one GameWorker-owned operation. Successful
+terminal removal MUST be followed by `Character.Destroy()`, which cancels
+Creature-owned work. No await or externally scheduled asynchronous gap MAY
+occur between final snapshot capture and ownership removal. After removal,
+logout persistence MUST use only the retained snapshot, master/session data,
+and persistence receipt; it MUST NOT read the Character or its service scope
+again.
 
 #### Scenario: Persistence cannot race a later live mutation
 
 - **WHEN** final snapshot capture completes and persistence then blocks
-- **THEN** exact Character ownership has already been revoked
+- **THEN** exact Character ownership has already been removed and destroyed
 - **AND** later gameplay cannot mutate the captured snapshot or stale Character
 
 #### Scenario: Failed persistence retries from the retained snapshot
@@ -237,11 +239,11 @@ Character state directly.
 ### Requirement: Async results use the creature queue boundary
 
 Asynchronous command work MUST capture immutable inputs before its await and
-MUST submit Character-side results through `character.QueueTask(...)`. The
-creature task owner MUST apply them only while the original exact Character is
-not revoked. A result for a stale instance MUST be dropped, including when a
-replacement has the same master ID. Commands, scripts, hubs, and widgets MUST
-NOT implement this lifecycle validation themselves.
+MUST submit Character-side results through `character.QueueTask(...)`. A
+destroyed Character's cancelled task token MUST prevent a stale continuation
+from invoking its inner gameplay task, including when a replacement has the
+same master ID. Commands, scripts, hubs, and widgets MUST NOT implement this
+lifecycle validation themselves.
 
 #### Scenario: Replacement does not receive a stale continuation
 

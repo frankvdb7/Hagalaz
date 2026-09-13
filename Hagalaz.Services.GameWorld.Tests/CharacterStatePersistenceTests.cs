@@ -181,7 +181,7 @@ public sealed class CharacterStatePersistenceTests
         var taskService = Substitute.For<ICreatureTaskService>();
         ITaskItem? scheduledTask = null;
 
-        taskService.When(service => service.Queue(Arg.Any<ICreature>(), Arg.Any<ITaskItem>()))
+        taskService.When(service => service.Queue(Arg.Any<ITaskItem>(), Arg.Any<CancellationToken>()))
             .Do(callInfo => scheduledTask = callInfo.Arg<ITaskItem>());
         commandPrompt.ExecuteAsync("coords", Arg.Any<ICharacter>(), Arg.Is<string[]>(args => args.Length == 0))
             .Returns(new ValueTask<bool>(true));

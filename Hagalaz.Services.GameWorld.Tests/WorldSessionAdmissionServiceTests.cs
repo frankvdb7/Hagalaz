@@ -171,7 +171,6 @@ public sealed class WorldSessionAdmissionServiceTests
             characterFactory,
             hydration,
             persistence,
-            Substitute.For<ICreatureTaskService>(),
             sessionService,
             hydrateClient);
         return new Fixture(service, context, sessionService, session, characterService, character, persistence);

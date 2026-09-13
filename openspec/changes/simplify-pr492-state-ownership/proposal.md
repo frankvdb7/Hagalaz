@@ -50,9 +50,14 @@ receives only detached models.
   synchronous GameWorker-owned turn. Retain the snapshot in the existing
   logout record for persistence retry.
 - Make Character dehydration synchronous and keep persistence publication
-  asynchronous over detached snapshots. Route periodic capture through the
-  existing GameWorker scheduler, and reject async command results for stale
-  Character instances.
+    asynchronous over detached snapshots. Route periodic capture through the
+    existing GameWorker scheduler, and reject async command results for stale
+    Character instances.
+- Make each Creature privately own cancellation for work queued through it.
+  `Creature.QueueTask` supplies that token to the existing Creature scheduling
+  boundary, and `Creature.Destroy()` cancels it during terminal cleanup. Keep
+  one shared `RsTaskService`; do not maintain a Creature-to-task registry or
+  require lifecycle services to revoke tasks explicitly.
 - Treat Raido message dispatch and disconnect as independently overlapping
   scopes; use the shared creature task/logout boundary for input ordering,
   with CharacterStore as the membership source of truth.
@@ -71,7 +76,8 @@ receives only detached models.
   NpcService sync/async APIs, `MapRegionPart` update-buffer synchronization,
   distributed session fencing/reconciliation, or independent character
   persistence serialization.
-- No unrelated production refactoring or public script API changes.
+- No unrelated production refactoring or public script API changes beyond the
+  requested ergonomic `QueueTask` overloads.
 
 ## Acceptance Criteria
 
@@ -104,12 +110,16 @@ receives only detached models.
 - Domain entities expose no `IsDestroyed` lifecycle flag used by callers to
   coordinate terminal cleanup; exact store, residency, or region-part
   ownership determines whether work may act on an entity.
-- Final logout snapshot capture and exact Character ownership revocation have
-  no asynchronous gap between them, and persistence never reads a live
-  Character after that transition.
+- Final logout snapshot capture and exact Character ownership removal have no
+  asynchronous gap between them, and persistence never reads a live Character
+  after that transition. Successful removal calls `Character.Destroy()`, whose
+  private task token cancels Creature-owned work.
 - Periodic persistence captures detached models on the GameWorker and applies
-  asynchronous command results only through `character.QueueTask(...)` and the
-  exact-creature queue boundary.
+    asynchronous command results only through `character.QueueTask(...)` and the
+    exact-creature queue boundary.
+- Creature-owned queued work uses a private Creature cancellation token;
+  destroying a Creature cancels pending and long-lived work, while failed exact
+  owner removal leaves the Creature usable because `Destroy()` is not called.
 - Failed NPC registration cannot knowingly leave a destroyed NPC in its store.
 - The PR has one authoritative OpenSpec change record for these lifecycle and
   state-ownership simplifications.

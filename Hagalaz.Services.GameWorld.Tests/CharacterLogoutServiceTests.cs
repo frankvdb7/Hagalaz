@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
@@ -87,7 +88,6 @@ public sealed class CharacterLogoutServiceTests
         var service = new CharacterLogoutService(
             state,
             store,
-            Substitute.For<ICreatureTaskService>(),
             new InlineTaskScheduler(),
             Substitute.For<IGameMediator>());
 
@@ -114,11 +114,11 @@ public sealed class CharacterLogoutServiceTests
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
         var creatureTaskService = new CreatureTaskService(scheduler);
         var gameplayApplied = false;
-        creatureTaskService.Queue(character, new RsTask(() =>
+        creatureTaskService.Queue(new RsTask(() =>
         {
             gameplayApplied = true;
             order.Add("gameplay");
-        }, 1));
+        }, 1), CancellationToken.None);
         Assert.IsTrue(state.TryBeginLogout(character, out _, out _));
 
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
@@ -134,45 +134,13 @@ public sealed class CharacterLogoutServiceTests
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
         character.When(value => value.Destroy()).Do(_ => order.Add("destroy"));
-        var logout = new CharacterLogoutService(state, store, creatureTaskService, scheduler, Substitute.For<IGameMediator>());
+        var logout = new CharacterLogoutService(state, store, scheduler, Substitute.For<IGameMediator>());
 
         var detachTask = logout.DetachAsync(character);
         scheduler.Tick();
 
         Assert.AreSame(snapshot, await detachTask);
         CollectionAssert.AreEqual(new[] { "gameplay", "snapshot", "remove", "destroy" }, order);
-    }
-
-    [TestMethod]
-    public async Task DetachAsync_CancelsAdmittedWorkThatHasNotRunBeforeSnapshot()
-    {
-        var character = CreateCharacter(42);
-        var state = new CharacterLogoutState();
-        var store = Substitute.For<ICharacterStore>();
-        store.Remove(character).Returns(true);
-        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
-        var creatureTaskService = new CreatureTaskService(scheduler);
-        var gameplay = new RsTask(() => Assert.Fail("Canceled gameplay must not run."), 2);
-        creatureTaskService.Queue(character, gameplay);
-        Assert.IsTrue(state.TryBeginLogout(character, out _, out _));
-
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        dehydrationService.Dehydrate(character).Returns(_ =>
-        {
-            Assert.IsTrue(gameplay.IsCancelled);
-            return new CharacterModel();
-        });
-        using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
-            .BuildServiceProvider();
-        character.ServiceProvider.Returns(provider);
-        var logout = new CharacterLogoutService(state, store, creatureTaskService, scheduler, Substitute.For<IGameMediator>());
-
-        var detachTask = logout.DetachAsync(character);
-        scheduler.Tick();
-
-        await detachTask;
-        Assert.IsTrue(gameplay.IsCancelled);
     }
 
     [TestMethod]
@@ -192,7 +160,6 @@ public sealed class CharacterLogoutServiceTests
         var service = new CharacterLogoutService(
             state,
             store,
-            Substitute.For<ICreatureTaskService>(),
             new InlineTaskScheduler(),
             Substitute.For<IGameMediator>());
 

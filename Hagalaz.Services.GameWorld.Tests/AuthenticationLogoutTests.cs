@@ -617,7 +617,6 @@ public sealed class AuthenticationLogoutTests
                 Substitute.For<ICharacterFactory>(),
                 Substitute.For<ICharacterHydrationService>(),
                 persistenceService,
-                Substitute.For<ICreatureTaskService>(),
                 gameSessionService,
                 Substitute.For<IRequestClient<HydrateCharacter>>()),
             Substitute.For<IRequestClient<SignInUserRequestMessage>>(),

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.ExceptionServices;
+using System.Threading;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
@@ -25,6 +26,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
     public abstract class Creature : ICreature
     {
         private readonly ICreatureTaskService _taskService = default!;
+        private readonly CancellationTokenSource _taskCancellation = new();
         private readonly List<IHitSplat> _renderedHitSplats = new(sbyte.MaxValue);
         private readonly List<IHitBar> _renderedHitBars = new(sbyte.MaxValue);
         private readonly Queue<IAnimation> _queuedAnimations = new();
@@ -217,6 +219,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             {
                 try
                 {
+                    _taskCancellation.Cancel();
+                }
+                catch (Exception exception)
+                {
+                    failure ??= exception;
+                }
+
+                try
+                {
                     if (_region is not null)
                     {
                         RemoveFromRegion(_region);
@@ -225,7 +236,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 }
                 catch (Exception exception)
                 {
-                    failure = exception;
+                    failure ??= exception;
                 }
 
                 try
@@ -692,12 +703,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <param name="task">The task.</param>
         public virtual IRsTaskHandle QueueTask(ITaskItem task)
         {
-            return _taskService.Queue(this, task);
+            return _taskService.Queue(task, _taskCancellation.Token);
         }
 
         public virtual IRsTaskHandle<TResult> QueueTask<TResult>(ITaskItem<TResult> task)
         {
-            return _taskService.Queue(this, task);
+            return _taskService.Queue(task, _taskCancellation.Token);
         }
 
         /// <summary>

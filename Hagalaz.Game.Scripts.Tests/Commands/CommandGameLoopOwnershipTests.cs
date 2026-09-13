@@ -31,7 +31,7 @@ public sealed class CommandGameLoopOwnershipTests
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
         var creatureTaskService = new CreatureTaskService(scheduler);
         var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
-        ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
+        using var taskCancellation = ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
         var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
 
         scheduler.Schedule(task);
@@ -50,7 +50,7 @@ public sealed class CommandGameLoopOwnershipTests
     }
 
     [TestMethod]
-    public async Task SearchObjectCommand_DoesNotMutateCharacterAfterOwnershipIsRevoked()
+    public async Task SearchObjectCommand_DoesNotMutateCharacterAfterCharacterIsDestroyed()
     {
         var definitionReady = new TaskCompletionSource<IGameObjectDefinition>(TaskCreationOptions.RunContinuationsAsynchronously);
         var definition = Substitute.For<IGameObjectDefinition>();
@@ -63,13 +63,13 @@ public sealed class CommandGameLoopOwnershipTests
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
         var creatureTaskService = new CreatureTaskService(scheduler);
         var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
-        ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
+        using var taskCancellation = ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
         var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
 
         scheduler.Schedule(task);
         scheduler.Tick();
 
-        creatureTaskService.Revoke(character);
+        character.Destroy();
         definitionReady.SetResult(definition);
         character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
 
@@ -118,7 +118,7 @@ public sealed class CommandGameLoopOwnershipTests
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
         var creatureTaskService = new CreatureTaskService(scheduler);
         var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
-        ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
+        using var taskCancellation = ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
         var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
 
         scheduler.Schedule(task);
@@ -129,7 +129,7 @@ public sealed class CommandGameLoopOwnershipTests
         widgets.DidNotReceiveWithAnyArgs().OpenWidget(default, default, default!, default);
         releaseSearch.SetResult(true);
         await searchCompleted.Task;
-        creatureTaskService.Revoke(character);
+        character.Destroy();
 
         scheduler.Tick();
         await queuedContinuation.Task;
@@ -152,16 +152,19 @@ public sealed class CommandGameLoopOwnershipTests
         return character;
     }
 
-    private static void ConfigureCharacterQueue(
+    private static CancellationTokenSource ConfigureCharacterQueue(
         ICharacter character,
         ICreatureTaskService creatureTaskService,
         TaskCompletionSource<ITaskItem>? queuedTask = null)
     {
+        var taskCancellation = new CancellationTokenSource();
         character.QueueTask(Arg.Any<ITaskItem>()).Returns(callInfo =>
         {
             var task = callInfo.Arg<ITaskItem>();
             queuedTask?.TrySetResult(task);
-            return creatureTaskService.Queue(character, task);
+            return creatureTaskService.Queue(task, taskCancellation.Token);
         });
+        character.When(value => value.Destroy()).Do(_ => taskCancellation.Cancel());
+        return taskCancellation;
     }
 }

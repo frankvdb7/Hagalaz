@@ -133,36 +133,6 @@ public sealed class NpcServiceRegistrationTests
     }
 
     [TestMethod]
-    public void Unregister_RevokesNpcTasksBeforeRemovingIt()
-    {
-        var store = new NpcStore();
-        var npc = CreateNpc();
-        store.Add(npc);
-        var taskService = Substitute.For<ICreatureTaskService>();
-        var service = CreateService(store, taskService);
-
-        service.Unregister(npc);
-
-        taskService.Received(1).Revoke(npc);
-        npc.Received(1).Destroy();
-    }
-
-    [TestMethod]
-    public async Task UnregisterAsync_RevokesNpcTasksBeforeRemovingIt()
-    {
-        var store = new NpcStore();
-        var npc = CreateNpc();
-        await store.AddAsync(npc);
-        var taskService = Substitute.For<ICreatureTaskService>();
-        var service = CreateService(store, taskService);
-
-        await service.UnregisterAsync(npc);
-
-        taskService.Received(1).Revoke(npc);
-        npc.Received(1).Destroy();
-    }
-
-    [TestMethod]
     public async Task Unregister_WhenDestroyFails_StillRemovesTheNpcAndPropagatesTheFailure()
     {
         var store = new NpcStore();
@@ -352,7 +322,7 @@ public sealed class NpcServiceRegistrationTests
         return npc;
     }
 
-    private static NpcService CreateService(INpcStore store, ICreatureTaskService? taskService = null)
+    private static NpcService CreateService(INpcStore store)
     {
         var definitionStore = new NpcDefinitionStore(
             Substitute.For<IServiceProvider>(),
@@ -363,7 +333,6 @@ public sealed class NpcServiceRegistrationTests
             store,
             definitionStore,
             Substitute.For<ITypeProvider<INpcDefinition>>(),
-            NullLogger<NpcService>.Instance,
-            taskService ?? Substitute.For<ICreatureTaskService>());
+            NullLogger<NpcService>.Instance);
     }
 }

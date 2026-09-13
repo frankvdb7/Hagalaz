@@ -1,17 +1,15 @@
-using Hagalaz.Game.Abstractions.Model.Creatures;
+using System.Threading;
 using Hagalaz.Game.Abstractions.Tasks;
 
 namespace Hagalaz.Game.Abstractions.Services
 {
     /// <summary>
-    /// Defines the creature-owned boundary for scheduling and revoking tasks.
+    /// Defines the creature-owned boundary for scheduling cancellation-aware tasks.
     /// </summary>
     public interface ICreatureTaskService
     {
-        IRsTaskHandle Queue(ICreature creature, ITaskItem task);
+        IRsTaskHandle Queue(ITaskItem task, CancellationToken cancellationToken);
 
-        IRsTaskHandle<TResult> Queue<TResult>(ICreature creature, ITaskItem<TResult> task);
-
-        void Revoke(ICreature creature);
+        IRsTaskHandle<TResult> Queue<TResult>(ITaskItem<TResult> task, CancellationToken cancellationToken);
     }
 }

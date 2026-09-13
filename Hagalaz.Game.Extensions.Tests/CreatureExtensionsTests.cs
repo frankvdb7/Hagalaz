@@ -125,7 +125,7 @@ namespace Hagalaz.Game.Extensions.Tests
         }
 
         [TestMethod]
-        public void QueueTask_WithCancellationAwareAsyncOperation_QueuesRsAsyncTask()
+    public void QueueTask_WithCancellationAwareAsyncOperation_QueuesRsAsyncTask()
         {
             var creature = Substitute.For<ICreature>();
             ITaskItem? queuedTask = null;
@@ -137,10 +137,30 @@ namespace Hagalaz.Game.Extensions.Tests
             creature.QueueTask(_ => Task.CompletedTask);
 
             Assert.IsNotNull(queuedTask);
-            Assert.IsInstanceOfType(queuedTask, typeof(RsAsyncTask));
-        }
+        Assert.IsInstanceOfType(queuedTask, typeof(RsAsyncTask));
+    }
 
-        [TestMethod]
+    [TestMethod]
+    public void QueueTask_WithAction_UsesOneShotGameTickSemantics()
+    {
+        var creature = Substitute.For<ICreature>();
+        ITaskItem? queuedTask = null;
+        creature.When(x => x.QueueTask(Arg.Any<ITaskItem>())).Do(callInfo =>
+        {
+            queuedTask = callInfo.Arg<ITaskItem>();
+        });
+        var executions = 0;
+
+        creature.QueueTask(() => executions++);
+
+        Assert.IsNotNull(queuedTask);
+        queuedTask!.Tick();
+        queuedTask.Tick();
+
+        Assert.AreEqual(1, executions);
+    }
+
+    [TestMethod]
         public void QueueTask_WithExternalCancellation_PreventsOperationFromStarting()
         {
             var creature = Substitute.For<ICreature>();
