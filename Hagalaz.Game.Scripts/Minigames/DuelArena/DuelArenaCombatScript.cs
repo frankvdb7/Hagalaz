@@ -3,8 +3,10 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common;
+using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;
@@ -17,6 +19,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     public class DuelArenaCombatScript : CharacterScriptBase
     {
         private readonly IHintIconBuilder _hintIconBuilder;
+        private EventHappened? _targetDestroyedHandler;
+        private EventHappened? _characterDestroyedHandler;
 
         public DuelArenaCombatScript(ICharacterContextAccessor contextAccessor, ICharacter target, DuelRules rules, DuelContainer? selfContainer, DuelContainer? targetContainer, IHintIconBuilder hintIconBuilder)
             : base(contextAccessor)
@@ -67,13 +71,31 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// </summary>
         public DuelRules Rules { get; }
 
-        protected override void Initialize()
-        {
-        }
+        protected override void Initialize() { }
 
         public override void OnRegistered()
         {
             DuelSession = true;
+            _characterDestroyedHandler = Character.RegisterEventHandler<CreatureDestroyedEvent>(_ =>
+            {
+                if (Target is { } target)
+                {
+                    UnregisterParticipantDestroyedHandlers();
+                    StartVictoryStage(target, Character, true);
+                }
+
+                return false;
+            });
+            _targetDestroyedHandler = Target!.RegisterEventHandler<CreatureDestroyedEvent>(_ =>
+            {
+                if (Target is { } target)
+                {
+                    UnregisterParticipantDestroyedHandlers();
+                    StartVictoryStage(Character, target, true);
+                }
+
+                return false;
+            });
             MyHintIcon = _hintIconBuilder.Create().AtEntity(Target!).Build();
             Character.TryRegisterHintIcon(MyHintIcon);
             Character.QueueTask(new DuelStartTask(Character));
@@ -86,6 +108,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// <param name="victor">The victor.</param>
         /// <param name="loser">The loser.</param>
         public void StartVictoryStage(ICharacter victor, ICharacter loser)
+            => StartVictoryStage(victor, loser, false);
+
+        private void StartVictoryStage(ICharacter victor, ICharacter loser, bool loserDestroyed)
         {
             if (!DuelSession)
             {
@@ -94,15 +119,22 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             victor.Respawn();
             loser.Respawn();
+            if (loserDestroyed)
+            {
+                loser.Movement.Teleport(Teleport.Create(loser.Area.Script.GetRespawnLocation(loser)));
+            }
 
             var victorDuelEndScreen = victor.ServiceProvider.GetRequiredService<DuelEndScreenScript>();
             victorDuelEndScreen.Opponent = loser;
             victorDuelEndScreen.Victorious = true;
             victor.Widgets.OpenWidget(1365, 0, victorDuelEndScreen, false);
-            var loserDuelEndScreen = loser.ServiceProvider.GetRequiredService<DuelEndScreenScript>();
-            loserDuelEndScreen.Opponent = victor;
-            loserDuelEndScreen.Victorious = false;
-            loser.Widgets.OpenWidget(1365, 0, loserDuelEndScreen, false);
+            if (!loserDestroyed)
+            {
+                var loserDuelEndScreen = loser.ServiceProvider.GetRequiredService<DuelEndScreenScript>();
+                loserDuelEndScreen.Opponent = victor;
+                loserDuelEndScreen.Victorious = false;
+                loser.Widgets.OpenWidget(1365, 0, loserDuelEndScreen, false);
+            }
 
             if (IsStaking)
             {
@@ -265,17 +297,27 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         ///     Called when this script is removed from the character.
         ///     By default this method does nothing.
         /// </summary>
-        public override void OnRemove() => CancelDuelSession();
-
-        /// <summary>
-        ///     Tick's character.
-        ///     By default, this method does nothing.
-        /// </summary>
-        public override void Tick()
+        public override void OnRemove()
         {
-            if (DuelSession)
+            UnregisterParticipantDestroyedHandlers();
+
+            CancelDuelSession();
+        }
+
+        private void UnregisterParticipantDestroyedHandlers()
+        {
+            if (_targetDestroyedHandler is not null && Target is not null)
             {
+                Target.UnregisterEventHandler<CreatureDestroyedEvent>(_targetDestroyedHandler);
+                _targetDestroyedHandler = null;
+            }
+
+            if (_characterDestroyedHandler is not null)
+            {
+                Character.UnregisterEventHandler<CreatureDestroyedEvent>(_characterDestroyedHandler);
+                _characterDestroyedHandler = null;
             }
         }
+
     }
 }

@@ -38,7 +38,9 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
 
             var characterMock = Substitute.For<ICharacter>();
             characterMock.ServiceProvider.Returns(serviceProviderMock);
-            characterMock.QueueTask(Arg.Any<ITaskItem>()).Returns(callInfo =>
+            var execution = Substitute.For<ICharacterExecutionService>();
+            serviceProviderMock.GetService(typeof(ICharacterExecutionService)).Returns(execution);
+            execution.Queue(Arg.Any<ICharacter>(), Arg.Any<ITaskItem>()).Returns(callInfo =>
             {
                 var task = callInfo.Arg<ITaskItem>();
                 task.Tick();

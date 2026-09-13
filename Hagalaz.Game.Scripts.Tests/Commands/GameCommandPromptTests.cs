@@ -1,6 +1,8 @@
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Commands;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -16,9 +18,17 @@ public sealed class GameCommandPromptTests
     {
         var countRead = new TaskCompletionSource<int>();
         var characterStore = new GatedCharacterStore(countRead);
+        var execution = Substitute.For<ICharacterExecutionService>();
+        execution.Queue(Arg.Any<ICharacter>(), Arg.Any<ITaskItem>()).Returns(callInfo =>
+        {
+            var queuedTask = callInfo.Arg<ITaskItem>();
+            queuedTask.Cancel();
+            return new RsTaskHandle(queuedTask);
+        });
 
         using var characterServices = new ServiceCollection()
             .AddSingleton<ICharacterStore>(characterStore)
+            .AddSingleton<ICharacterExecutionService>(execution)
             .BuildServiceProvider();
         using var commandServices = new ServiceCollection()
             .AddSingleton<IEnumerable<IGameCommand>>(Array.Empty<IGameCommand>())
@@ -58,7 +68,6 @@ public sealed class GameCommandPromptTests
         public ICharacter? FindByMasterId(uint id) => _current;
         public bool IsCurrent(ICharacter character) => ReferenceEquals(_current, character);
         public bool Remove(ICharacter character) => false;
-        public bool TryQueueTask(ICharacter character, Hagalaz.Game.Abstractions.Tasks.ITaskItem task) => false;
         public void SetCurrent(ICharacter character) => _current = character;
         public void Revoke(ICharacter character) { if (ReferenceEquals(_current, character)) _current = null; }
     }

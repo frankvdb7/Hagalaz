@@ -5,6 +5,7 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Commands
 {
@@ -38,7 +39,8 @@ namespace Hagalaz.Game.Scripts.Commands
                 return matches;
             });
 
-            args.Character.QueueTask(new RsTask(() =>
+            var execution = args.Character.ServiceProvider.GetRequiredService<ICharacterExecutionService>();
+            execution.Queue(args.Character, new RsTask(() =>
             {
                 foreach (var result in results)
                 {

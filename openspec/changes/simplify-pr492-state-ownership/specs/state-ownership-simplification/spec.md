@@ -174,10 +174,14 @@ persisted fingerprints or revision allocation state.
 ### Requirement: Live Character ownership belongs to the GameWorker
 
 Live Character state MUST be mutated only by work admitted to the serialized
-GameWorker boundary. `CharacterStore` MUST admit work only for the exact
-currently registered Character, and the logout ownership claim MUST prevent
-new work from being admitted for that master ID. Creature, Character, and NPC
-MUST NOT expose a lifecycle flag for callers to use as a validity protocol.
+GameWorker boundary. The GameWorld Character execution boundary MUST consult
+`CharacterStore` for the exact currently registered Character, and the logout
+ownership claim MUST prevent new work from being admitted for that master ID.
+Previously admitted Character-targeted tasks MUST either complete before the
+final snapshot or be explicitly revoked before snapshot capture, and MUST stop
+before invoking their inner task after exact ownership is revoked. Creature,
+Character, and NPC MUST NOT expose a lifecycle flag for callers to use as a
+validity protocol.
 
 #### Scenario: Gameplay already admitted runs before terminal logout
 
@@ -229,12 +233,15 @@ Character state directly.
 - **AND** the background persistence phase receives `CharacterModel` values
   only
 
-### Requirement: Async results require exact active ownership
+### Requirement: Async results use the Character execution boundary
 
 Asynchronous command work MUST capture immutable inputs before its await and
-MUST apply Character-side results only when the original exact Character is
-still the authoritative CharacterStore owner. A result for a stale instance
-MUST be dropped, including when a replacement has the same master ID.
+MUST submit Character-side results to the GameWorld Character execution
+boundary. That boundary MUST apply them only when the original exact Character
+is still the authoritative CharacterStore owner and is not pending logout. A
+result for a stale instance MUST be dropped, including when a replacement has
+the same master ID. Commands, scripts, hubs, and widgets MUST NOT implement
+this lifecycle validation themselves.
 
 #### Scenario: Replacement does not receive a stale continuation
 
@@ -259,9 +266,10 @@ when the loader, scheduler, and `MapRegionService` are the transition owners.
 ### Requirement: Domain entity removal belongs to the owning collection
 
 Creature, Character, NPC, MapRegion, GameObject, and GroundItem MUST NOT expose
-an `IsDestroyed` flag as a caller-visible validity protocol. `CharacterStore`
-MUST own Character admission, `MapRegionService` MUST own region residency,
-and `MapRegionPart` MUST own GameObject and GroundItem membership. Callers MUST
+an `IsDestroyed` flag as a caller-visible validity protocol. The Character
+execution boundary MUST own Character admission while `CharacterStore` owns
+exact Character membership, `MapRegionService` MUST own region residency, and
+`MapRegionPart` MUST own GameObject and GroundItem membership. Callers MUST
 establish exact ownership at the owning boundary before invoking terminal
 cleanup.
 

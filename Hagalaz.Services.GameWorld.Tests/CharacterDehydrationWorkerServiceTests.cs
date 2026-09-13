@@ -143,7 +143,6 @@ public sealed class CharacterDehydrationWorkerServiceTests
         public ICharacter? FindByMasterId(uint id) => id == _character.MasterId ? _character : null;
         public bool IsCurrent(ICharacter character) => ReferenceEquals(_character, character);
         public bool Remove(ICharacter character) => false;
-        public bool TryQueueTask(ICharacter character, ITaskItem task) => false;
     }
 
     private static async Task<CharacterPersistenceReceipt?> BlockPersistenceAsync(CancellationToken cancellationToken)

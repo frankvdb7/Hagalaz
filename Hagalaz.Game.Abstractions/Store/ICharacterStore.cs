@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Tasks;
 
 namespace Hagalaz.Game.Abstractions.Store
 {
@@ -65,11 +64,6 @@ namespace Hagalaz.Game.Abstractions.Store
         /// Removes the exact character instance synchronously from the GameWorker boundary.
         /// </summary>
         bool Remove(ICharacter character);
-
-        /// <summary>
-        /// Admits and schedules work for an exact currently owned character.
-        /// </summary>
-        bool TryQueueTask(ICharacter character, ITaskItem task);
 
     }
 }

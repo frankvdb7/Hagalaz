@@ -38,8 +38,10 @@
       explicit active-mutation and exact-lookup intents.
 - [x] 3.7 Replace ContactSessionStore enumeration and CharacterStore predicate
       lookup with atomic world removal and direct identity/index lookups.
-- [x] 3.8 Make CharacterLogoutState the admission boundary for Character task
-      scheduling and retain detached final snapshots for retry.
+- [x] 3.8 Add one GameWorld Character execution boundary that uses
+      CharacterStore membership and CharacterLogoutState for admission,
+      retains detached final snapshots for retry, and keeps the generic
+      scheduler Character-agnostic.
 - [x] 3.9 Remove domain-entity `IsDestroyed` flags and route async result
       application through exact owning boundaries.
 
@@ -64,9 +66,11 @@
 - [x] 5.4 Add duplicate logout, conflicting character-instance, exact receipt,
       contact removal, direct character lookup, and MapRegion non-resurrection
       regression tests.
-- [x] 5.5 Add deterministic terminal ordering, stale task admission,
-      detached snapshot persistence, periodic GameWorker capture, and
-      replacement-instance continuation regressions.
+- [x] 5.5 Add deterministic terminal ordering, stale task admission and
+      post-revocation task lifetime, detached snapshot persistence, periodic
+      GameWorker capture, and replacement-instance continuation regressions.
+- [x] 5.6 Restore removal-driven Clan Charter and Duel Arena behavior through
+      existing creature-destroyed events rather than polling or lifecycle flags.
 
 ## 6. Validation and cleanup
 

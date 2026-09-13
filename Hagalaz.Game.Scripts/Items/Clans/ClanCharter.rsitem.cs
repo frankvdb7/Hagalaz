@@ -6,6 +6,7 @@ using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
+using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Dialogues.Generic;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;
@@ -206,6 +207,18 @@ namespace Hagalaz.Game.Scripts.Items.Clans
 
                     return true;
                 }));
+
+                EventHappened destroyEvent = null!;
+                destroyEvent = character.RegisterEventHandler<CreatureDestroyedEvent>(_ =>
+                {
+                    if (_founders.Contains(character))
+                    {
+                        RemoveFouder(character);
+                    }
+
+                    character.UnregisterEventHandler<CreatureDestroyedEvent>(destroyEvent);
+                    return false;
+                });
             }
 
             /// <summary>
@@ -248,16 +261,6 @@ namespace Hagalaz.Game.Scripts.Items.Clans
                 }
             }
 
-            /// <summary>
-            ///     Ticks this instance.
-            /// </summary>
-            public override void Tick()
-            {
-                var founders = new List<ICharacter>(_founders);
-                foreach (var character in founders)
-                {
-                }
-            }
         }
 
         /// <summary>

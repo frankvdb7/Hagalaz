@@ -171,7 +171,6 @@ public sealed class WorldStatusServiceShutdownTests
         public ICharacter? FindByMasterId(uint id) => id == _character.MasterId ? _character : null;
         public bool IsCurrent(ICharacter character) => ReferenceEquals(_character, character);
         public bool Remove(ICharacter character) => false;
-        public bool TryQueueTask(ICharacter character, Hagalaz.Game.Abstractions.Tasks.ITaskItem task) => false;
     }
 
     private sealed class InlineTaskScheduler : IRsTaskService

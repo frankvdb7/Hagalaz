@@ -158,7 +158,9 @@ public sealed class CommandGameLoopOwnershipTests
         IRsTaskService scheduler,
         TaskCompletionSource<ITaskItem>? queuedTask = null)
     {
-        character.QueueTask(Arg.Any<ITaskItem>()).Returns(callInfo =>
+        var execution = Substitute.For<ICharacterExecutionService>();
+        character.ServiceProvider.GetService(typeof(ICharacterExecutionService)).Returns(execution);
+        execution.Queue(Arg.Any<ICharacter>(), Arg.Any<ITaskItem>()).Returns(callInfo =>
         {
             var task = callInfo.Arg<ITaskItem>();
             if (characterStore.IsCurrent(character))

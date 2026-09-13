@@ -7,11 +7,8 @@ using System.Linq;
 using System.Threading;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld.Configuration.Model;
-using Hagalaz.Services.GameWorld.Services;
 
 namespace Hagalaz.Services.GameWorld.Store
 {
@@ -22,22 +19,15 @@ namespace Hagalaz.Services.GameWorld.Store
         /// </summary>
         private readonly ICreatureCollection<ICharacter> _characters;
         private readonly AsyncReaderWriterLock _lock = new();
-        private readonly IRsTaskService _taskService;
-        private readonly CharacterLogoutState _logoutState;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CharacterStore" /> class.
         /// </summary>
         /// <param name="options">The options.</param>
-        public CharacterStore(
-            IOptions<GameServerOptions> options,
-            IRsTaskService taskService,
-            CharacterLogoutState logoutState)
+        public CharacterStore(IOptions<GameServerOptions> options)
         {
             var limitsMaxConcurrentConnections = options.Value.Limits.MaxConcurrentConnections ?? throw new ArgumentNullException(nameof(options));
             _characters = new CreatureCollection<ICharacter>((int)limitsMaxConcurrentConnections);
-            _taskService = taskService;
-            _logoutState = logoutState;
         }
 
         /// <summary>
@@ -122,31 +112,6 @@ namespace Hagalaz.Services.GameWorld.Store
                 var index = character.Index;
                 return index >= 1 && index <= _characters.Capacity && ReferenceEquals(_characters[index], character);
             }
-        }
-
-        public bool TryQueueTask(ICharacter character, ITaskItem task)
-        {
-            var admitted = _logoutState.TryAdmit(character, () =>
-            {
-                using (_lock.ReaderLock())
-                {
-                    var index = character.Index;
-                    if (index < 1 || index > _characters.Capacity || !ReferenceEquals(_characters[index], character))
-                    {
-                        task.Cancel();
-                        return false;
-                    }
-
-                    _taskService.Schedule(task);
-                    return true;
-                }
-            });
-            if (!admitted)
-            {
-                task.Cancel();
-            }
-
-            return admitted;
         }
 
         public async ValueTask<ICharacter?> FindByIndexAsync(int index)

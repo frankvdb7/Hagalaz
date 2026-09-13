@@ -54,7 +54,8 @@ receives only detached models.
   existing GameWorker scheduler, and reject async command results for stale
   Character instances.
 - Treat Raido message dispatch and disconnect as independently overlapping
-  scopes; use the CharacterStore/logout admission boundary for input ordering.
+  scopes; use the GameWorld Character execution/logout boundary for input
+  ordering, with CharacterStore as the membership source of truth.
 - Merge the earlier lifecycle-ownership requirements into this record and
   remove the duplicate lifecycle-ownership change directory.
 
@@ -66,7 +67,7 @@ receives only detached models.
   owner’s gate.
 - No change to distributed claim IDs, generation fencing, pending claim or
   abort reconciliation, cancellation behavior, or exact-instance ownership.
-- No change to scheduler ownership, map-loader primary-failure behavior,
+- No change to generic scheduler behavior, map-loader primary-failure behavior,
   NpcService sync/async APIs, `MapRegionPart` update-buffer synchronization,
   distributed session fencing/reconciliation, or independent character
   persistence serialization.
@@ -107,7 +108,8 @@ receives only detached models.
   no asynchronous gap between them, and persistence never reads a live
   Character after that transition.
 - Periodic persistence captures detached models on the GameWorker and applies
-  asynchronous command results only to the exact still-owned Character.
+  asynchronous command results only through the Character execution boundary
+  to the exact still-owned Character.
 - Failed NPC registration cannot knowingly leave a destroyed NPC in its store.
 - The PR has one authoritative OpenSpec change record for these lifecycle and
   state-ownership simplifications.

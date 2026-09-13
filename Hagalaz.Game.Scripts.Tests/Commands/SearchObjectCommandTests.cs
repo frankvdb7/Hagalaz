@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Tests.Commands
 {
@@ -24,7 +25,11 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             gameObjectServiceMock.FindGameObjectDefinitionById(0).Returns(gameObjectDefinitionMock);
 
             var characterMock = Substitute.For<ICharacter>();
-            characterMock.QueueTask(Arg.Any<ITaskItem>()).Returns(callInfo =>
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            var execution = Substitute.For<ICharacterExecutionService>();
+            serviceProvider.GetService(typeof(ICharacterExecutionService)).Returns(execution);
+            characterMock.ServiceProvider.Returns(serviceProvider);
+            execution.Queue(Arg.Any<ICharacter>(), Arg.Any<ITaskItem>()).Returns(callInfo =>
             {
                 var task = callInfo.Arg<ITaskItem>();
                 task.Tick();

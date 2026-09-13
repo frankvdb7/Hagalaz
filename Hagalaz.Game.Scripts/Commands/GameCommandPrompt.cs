@@ -76,17 +76,11 @@ namespace Hagalaz.Game.Scripts.Commands
                     CommandFunc = async (character, arguments) =>
                     {
                         await Task.CompletedTask;
-                        var store = character.ServiceProvider.GetRequiredService<ICharacterStore>();
+                        var execution = character.ServiceProvider.GetRequiredService<ICharacterExecutionService>();
                         var writer = new ServerTextWriter(text =>
                         {
-                            if (!store.IsCurrent(character))
-                            {
-                                Console.Out.Close(); // close the text writer
-                                Console.SetOut(new StreamWriter(Console.OpenStandardOutput())); // reset the default
-                                return;
-                            }
-
-                            character.SendChatMessage(text, ChatMessageType.ConsoleText);
+                            execution.Queue(character, new RsTask(
+                                () => character.SendChatMessage(text, ChatMessageType.ConsoleText), 1));
                         });
                         Console.SetOut(writer);
                         return true;
@@ -223,7 +217,8 @@ namespace Hagalaz.Game.Scripts.Commands
                         var store = character.ServiceProvider.GetRequiredService<ICharacterStore>();
                         var players = await store.CountAsync();
                         var count = await store.CountAsync();
-                        character.QueueTask(new RsTask(() =>
+                        var execution = character.ServiceProvider.GetRequiredService<ICharacterExecutionService>();
+                        execution.Queue(character, new RsTask(() =>
                         {
                             character.SendChatMessage($"There are {players} players currently on this world.");
                             character.SendChatMessage("There are " + count + " players currently on this lobby.");
@@ -339,23 +334,20 @@ namespace Hagalaz.Game.Scripts.Commands
                         var c = (await repository.GetSnapshotAsync()).Values
                             .Where(ch => string.Compare(ch.DisplayName, name, StringComparison.OrdinalIgnoreCase) == 0)
                             .SingleOrDefault();
-                        character.QueueTask(new RsTask(() =>
+                        var execution = character.ServiceProvider.GetRequiredService<ICharacterExecutionService>();
+                        if (c is null)
                         {
-                            if (c != null)
+                            execution.Queue(character, new RsTask(
+                                () => character.SendChatMessage("Character \"" + name + "\" could not be found."), 1));
+                        }
+                        else
+                        {
+                            execution.Queue(c, new RsTask(() =>
                             {
-                                if (!repository.IsCurrent(c))
-                                {
-                                    return;
-                                }
-
                                 c.Movement.Teleport(Teleport.Create(character.Location.Clone()));
                                 c.SendChatMessage("You've been teleported to " + character.DisplayName + ".");
-                            }
-                            else
-                            {
-                                character.SendChatMessage("Character \"" + name + "\" could not be found.");
-                            }
-                        }, 1));
+                            }, 1));
+                        }
 
                         return true;
                     },
@@ -372,15 +364,11 @@ namespace Hagalaz.Game.Scripts.Commands
                         var c = (await repository.GetSnapshotAsync()).Values
                             .Where(ch => string.Compare(ch.DisplayName, name, StringComparison.OrdinalIgnoreCase) == 0)
                             .FirstOrDefault();
-                        character.QueueTask(new RsTask(() =>
+                        var execution = character.ServiceProvider.GetRequiredService<ICharacterExecutionService>();
+                        execution.Queue(character, new RsTask(() =>
                         {
                             if (c != null)
                             {
-                                if (!repository.IsCurrent(c))
-                                {
-                                    return;
-                                }
-
                                 character.Movement.Teleport(Teleport.Create(c.Location.Clone()));
                                 character.SendChatMessage("You teleported to " + c.DisplayName + ".");
                             }

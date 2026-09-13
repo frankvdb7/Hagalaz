@@ -12,7 +12,7 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class TaskSchedulingTopologyTests
 {
     [TestMethod]
-    public void Startup_UsesOneSchedulerForCreatureQueueAndGameWorkerTick()
+    public void Startup_UsesSeparateSchedulersForCreatureAndGameWorkerWork()
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -28,12 +28,14 @@ public sealed class TaskSchedulingTopologyTests
         var workerScheduler = provider.GetRequiredService<IRsTaskService>();
         var creatureScheduler = provider.GetRequiredService<ICreatureTaskService>();
 
-        Assert.IsTrue(ReferenceEquals(workerScheduler, creatureScheduler));
+        Assert.IsFalse(ReferenceEquals(workerScheduler, creatureScheduler));
 
         var executed = false;
         creatureScheduler.Schedule(new RsTask(() => executed = true, executeDelay: 1));
         workerScheduler.Tick();
 
+        Assert.IsFalse(executed);
+        creatureScheduler.Tick();
         Assert.IsTrue(executed);
     }
 }

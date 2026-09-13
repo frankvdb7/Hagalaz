@@ -263,8 +263,6 @@ public sealed class CharacterStatePersistenceTests
         Register(serviceProvider, scripts);
         Register(serviceProvider, itemBuilder);
         Register<IStateService>(serviceProvider, stateService);
-        var characterStore = Substitute.For<ICharacterStore>();
-        Register(serviceProvider, characterStore);
 
         var character = new Character(
             serviceScope,
@@ -307,14 +305,7 @@ public sealed class CharacterStatePersistenceTests
             Substitute.For<ISlayerTaskCompletedDialogue>(),
             Substitute.For<IFarmingService>(),
             Substitute.For<IGameObjectService>(),
-            Substitute.For<IWidgetScriptProvider>(),
-            characterStore);
-        characterStore.TryQueueTask(Arg.Any<ICharacter>(), Arg.Any<ITaskItem>())
-            .Returns(callInfo =>
-            {
-                taskService.Schedule(callInfo.Arg<ITaskItem>());
-                return true;
-            });
+            Substitute.For<IWidgetScriptProvider>());
         ((IHydratable<HydratedDetailsDto>)character).Hydrate(new HydratedDetailsDto
         {
             CoordX = 3200,
