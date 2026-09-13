@@ -81,16 +81,14 @@ it does not check a state through one API and mutate it through another.
     region-part collection establishes exact ownership before terminal
     cleanup; cleanup methods do not arbitrate a second lifecycle state.
 
-13. **GameWorker owns the live Character boundary.** The application-level
-    Character execution service admits work only for the exact current store
-    instance and rejects it once logout has claimed that master ID. Admitted
-    tasks are wrapped and tracked at that boundary so terminal logout can
-    revoke unfinished work before snapshot capture; later ticks also stop when
-    exact ownership is revoked. The generic scheduler remains
-    Character-agnostic. Final logout schedules one GameWorker turn that
-    synchronously revokes unfinished work, dehydrates, removes exact
-    ownership, and destroys the Character without an await between snapshot
-    capture and revocation.
+13. **GameWorker owns the live Character boundary.** `CreatureTaskService`
+    owns the exact creature-to-task relationship and wraps tasks before
+    delegating them to the one shared generic scheduler. It rejects work after
+    exact creature revocation and removes tracking when a task terminates;
+    neither the store nor the entity participates in task admission. Final
+    logout schedules one GameWorker turn that synchronously revokes unfinished
+    work, dehydrates, removes exact ownership, and destroys the Character
+    without an await between snapshot capture and revocation.
 
 14. **Persistence consumes detached models.** `CharacterDehydrationService`
     synchronously creates the existing detached `CharacterModel`. Both final
@@ -104,15 +102,15 @@ it does not check a state through one API and mutate it through another.
     submission. Retries use those data fields and do not resurrect or reread
     the Character.
 
-16. **Async results use application admission.** Commands capture immutable
-    inputs before their asynchronous work and submit Character-targeted
-    continuations to the Character execution service. That boundary checks the
-    authoritative CharacterStore owner and logout state; a replacement with
-    the same master ID cannot receive a stale result.
+16. **Async results use the creature queue boundary.** Commands capture
+    immutable inputs before their asynchronous work and submit Character-
+    targeted continuations through `character.QueueTask(...)`. The creature
+    task owner accepts or revokes the exact instance; a replacement with the
+    same master ID cannot inherit a stale task.
 
 17. **Connection lifetime does not define input ordering.** Raido message and
     disconnect callbacks may use independent scopes and overlap. CharacterStore
-    membership plus the Character execution/logout boundary claim the shared
+    membership plus the creature task/logout boundary claim the shared
     boundary, so admitted gameplay is queued before the terminal turn and
     later input is rejected.
 

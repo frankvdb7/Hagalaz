@@ -174,9 +174,10 @@ persisted fingerprints or revision allocation state.
 ### Requirement: Live Character ownership belongs to the GameWorker
 
 Live Character state MUST be mutated only by work admitted to the serialized
-GameWorker boundary. The GameWorld Character execution boundary MUST consult
-`CharacterStore` for the exact currently registered Character, and the logout
-ownership claim MUST prevent new work from being admitted for that master ID.
+GameWorker boundary. `ICreatureTaskService` MUST own exact creature task
+admission, tracking, and revocation while delegating execution to the one
+shared generic scheduler. The logout ownership claim MUST revoke the exact
+Character before final snapshot capture.
 Previously admitted Character-targeted tasks MUST either complete before the
 final snapshot or be explicitly revoked before snapshot capture, and MUST stop
 before invoking their inner task after exact ownership is revoked. Creature,
@@ -233,15 +234,14 @@ Character state directly.
 - **AND** the background persistence phase receives `CharacterModel` values
   only
 
-### Requirement: Async results use the Character execution boundary
+### Requirement: Async results use the creature queue boundary
 
 Asynchronous command work MUST capture immutable inputs before its await and
-MUST submit Character-side results to the GameWorld Character execution
-boundary. That boundary MUST apply them only when the original exact Character
-is still the authoritative CharacterStore owner and is not pending logout. A
-result for a stale instance MUST be dropped, including when a replacement has
-the same master ID. Commands, scripts, hubs, and widgets MUST NOT implement
-this lifecycle validation themselves.
+MUST submit Character-side results through `character.QueueTask(...)`. The
+creature task owner MUST apply them only while the original exact Character is
+not revoked. A result for a stale instance MUST be dropped, including when a
+replacement has the same master ID. Commands, scripts, hubs, and widgets MUST
+NOT implement this lifecycle validation themselves.
 
 #### Scenario: Replacement does not receive a stale continuation
 

@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Store;
@@ -128,6 +129,36 @@ public sealed class NpcServiceRegistrationTests
         service.Unregister(npc);
 
         Assert.AreEqual(0, await store.CountAsync());
+        npc.Received(1).Destroy();
+    }
+
+    [TestMethod]
+    public void Unregister_RevokesNpcTasksBeforeRemovingIt()
+    {
+        var store = new NpcStore();
+        var npc = CreateNpc();
+        store.Add(npc);
+        var taskService = Substitute.For<ICreatureTaskService>();
+        var service = CreateService(store, taskService);
+
+        service.Unregister(npc);
+
+        taskService.Received(1).Revoke(npc);
+        npc.Received(1).Destroy();
+    }
+
+    [TestMethod]
+    public async Task UnregisterAsync_RevokesNpcTasksBeforeRemovingIt()
+    {
+        var store = new NpcStore();
+        var npc = CreateNpc();
+        await store.AddAsync(npc);
+        var taskService = Substitute.For<ICreatureTaskService>();
+        var service = CreateService(store, taskService);
+
+        await service.UnregisterAsync(npc);
+
+        taskService.Received(1).Revoke(npc);
         npc.Received(1).Destroy();
     }
 
@@ -321,7 +352,7 @@ public sealed class NpcServiceRegistrationTests
         return npc;
     }
 
-    private static NpcService CreateService(INpcStore store)
+    private static NpcService CreateService(INpcStore store, ICreatureTaskService? taskService = null)
     {
         var definitionStore = new NpcDefinitionStore(
             Substitute.For<IServiceProvider>(),
@@ -332,6 +363,7 @@ public sealed class NpcServiceRegistrationTests
             store,
             definitionStore,
             Substitute.For<ITypeProvider<INpcDefinition>>(),
-            NullLogger<NpcService>.Instance);
+            NullLogger<NpcService>.Instance,
+            taskService ?? Substitute.For<ICreatureTaskService>());
     }
 }

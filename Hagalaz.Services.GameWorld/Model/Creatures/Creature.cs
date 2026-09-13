@@ -650,7 +650,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 ResetFacing();
             ContentTick();
             Combat.Tick();
-            TaskTick();
             ProcessStates();
             Movement.Tick();
         }
@@ -693,20 +692,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <param name="task">The task.</param>
         public virtual IRsTaskHandle QueueTask(ITaskItem task)
         {
-            _taskService.Schedule(task);
-            return new RsTaskHandle(task);
+            return _taskService.Queue(this, task);
         }
 
         public virtual IRsTaskHandle<TResult> QueueTask<TResult>(ITaskItem<TResult> task)
         {
-            _taskService.Schedule(task);
-            return new RsTaskHandle<TResult>(task);
+            return _taskService.Queue(this, task);
         }
-
-        /// <summary>
-        ///     Process queued actions.
-        /// </summary>
-        private void TaskTick() => _taskService.Tick();
 
         /// <summary>
         ///     Process creature states.

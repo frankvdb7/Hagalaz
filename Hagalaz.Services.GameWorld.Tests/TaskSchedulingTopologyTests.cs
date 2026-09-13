@@ -1,10 +1,12 @@
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld;
 using Hagalaz.Services.GameWorld.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests;
 
@@ -12,7 +14,7 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class TaskSchedulingTopologyTests
 {
     [TestMethod]
-    public void Startup_UsesSeparateSchedulersForCreatureAndGameWorkerWork()
+    public void Startup_UsesOneSharedSchedulerForCreatureAndGameWorkerWork()
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -28,14 +30,13 @@ public sealed class TaskSchedulingTopologyTests
         var workerScheduler = provider.GetRequiredService<IRsTaskService>();
         var creatureScheduler = provider.GetRequiredService<ICreatureTaskService>();
 
-        Assert.IsFalse(ReferenceEquals(workerScheduler, creatureScheduler));
+        Assert.AreSame(creatureScheduler, provider.GetRequiredService<ICreatureTaskService>());
 
         var executed = false;
-        creatureScheduler.Schedule(new RsTask(() => executed = true, executeDelay: 1));
+        var creature = Substitute.For<ICreature>();
+        creatureScheduler.Queue(creature, new RsTask(() => executed = true, executeDelay: 1));
         workerScheduler.Tick();
 
-        Assert.IsFalse(executed);
-        creatureScheduler.Tick();
         Assert.IsTrue(executed);
     }
 }

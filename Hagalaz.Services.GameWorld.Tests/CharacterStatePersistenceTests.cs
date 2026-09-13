@@ -24,6 +24,7 @@ using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
@@ -180,7 +181,7 @@ public sealed class CharacterStatePersistenceTests
         var taskService = Substitute.For<ICreatureTaskService>();
         ITaskItem? scheduledTask = null;
 
-        taskService.When(service => service.Schedule(Arg.Any<ITaskItem>()))
+        taskService.When(service => service.Queue(Arg.Any<ICreature>(), Arg.Any<ITaskItem>()))
             .Do(callInfo => scheduledTask = callInfo.Arg<ITaskItem>());
         commandPrompt.ExecuteAsync("coords", Arg.Any<ICharacter>(), Arg.Is<string[]>(args => args.Length == 0))
             .Returns(new ValueTask<bool>(true));

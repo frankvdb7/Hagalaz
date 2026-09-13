@@ -141,7 +141,6 @@ public sealed class CharacterDehydrationWorkerServiceTests
         public ValueTask<ICharacter?> FindByIdAsync(uint id) => throw new System.NotImplementedException();
         public ValueTask<ICharacter?> FindByIndexAsync(int index) => throw new System.NotImplementedException();
         public ICharacter? FindByMasterId(uint id) => id == _character.MasterId ? _character : null;
-        public bool IsCurrent(ICharacter character) => ReferenceEquals(_character, character);
         public bool Remove(ICharacter character) => false;
     }
 

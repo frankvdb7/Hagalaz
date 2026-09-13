@@ -11,7 +11,7 @@ namespace Hagalaz.Services.GameWorld.Services
     /// <summary>
     /// 
     /// </summary>
-    public class RsTaskService : IRsTaskService, ICreatureTaskService
+    public class RsTaskService : IRsTaskService
     {
         private readonly ILogger<RsTaskService> _logger;
         private readonly GameLoopSynchronizationContext _synchronizationContext = new();

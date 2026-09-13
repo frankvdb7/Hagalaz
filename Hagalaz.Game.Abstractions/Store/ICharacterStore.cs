@@ -56,11 +56,6 @@ namespace Hagalaz.Game.Abstractions.Store
         ICharacter? FindByMasterId(uint id);
 
         /// <summary>
-        /// Returns whether the store still owns this exact character instance.
-        /// </summary>
-        bool IsCurrent(ICharacter character);
-
-        /// <summary>
         /// Removes the exact character instance synchronously from the GameWorker boundary.
         /// </summary>
         bool Remove(ICharacter character);

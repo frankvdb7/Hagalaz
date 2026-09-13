@@ -27,11 +27,11 @@ public sealed class CommandGameLoopOwnershipTests
         gameObjectService.GetObjectsCount().Returns(1);
         gameObjectService.FindGameObjectDefinitionById(0).Returns(definitionReady.Task);
         var character = CreateCharacter(out var characterStore);
-        characterStore.IsCurrent(character).Returns(true);
         var command = new SearchObjectCommand(gameObjectService);
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var creatureTaskService = new CreatureTaskService(scheduler);
         var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
-        ConfigureCharacterQueue(character, characterStore, scheduler, queuedContinuation);
+        ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
         var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
 
         scheduler.Schedule(task);
@@ -59,17 +59,17 @@ public sealed class CommandGameLoopOwnershipTests
         gameObjectService.GetObjectsCount().Returns(1);
         gameObjectService.FindGameObjectDefinitionById(0).Returns(definitionReady.Task);
         var character = CreateCharacter(out var characterStore);
-        characterStore.IsCurrent(character).Returns(true);
         var command = new SearchObjectCommand(gameObjectService);
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var creatureTaskService = new CreatureTaskService(scheduler);
         var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
-        ConfigureCharacterQueue(character, characterStore, scheduler, queuedContinuation);
+        ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
         var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
 
         scheduler.Schedule(task);
         scheduler.Tick();
 
-        characterStore.IsCurrent(character).Returns(false);
+        creatureTaskService.Revoke(character);
         definitionReady.SetResult(definition);
         character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
 
@@ -109,7 +109,6 @@ public sealed class CommandGameLoopOwnershipTests
         var serviceProvider = Substitute.For<IServiceProvider>();
         serviceProvider.GetService(typeof(IItemService)).Returns(itemService);
         var character = CreateCharacter(out var characterStore);
-        characterStore.IsCurrent(character).Returns(true);
         serviceProvider.GetService(typeof(ICharacterStore)).Returns(characterStore);
         character.Area.Returns(area);
         character.Widgets.Returns(widgets);
@@ -117,8 +116,9 @@ public sealed class CommandGameLoopOwnershipTests
         character.ServiceProvider.Returns(serviceProvider);
         var command = new SpawnBoxCommand(Substitute.For<Hagalaz.Game.Abstractions.Builders.Item.IItemBuilder>());
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var creatureTaskService = new CreatureTaskService(scheduler);
         var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
-        ConfigureCharacterQueue(character, characterStore, scheduler, queuedContinuation);
+        ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
         var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
 
         scheduler.Schedule(task);
@@ -129,7 +129,7 @@ public sealed class CommandGameLoopOwnershipTests
         widgets.DidNotReceiveWithAnyArgs().OpenWidget(default, default, default!, default);
         releaseSearch.SetResult(true);
         await searchCompleted.Task;
-        characterStore.IsCurrent(character).Returns(false);
+        creatureTaskService.Revoke(character);
 
         scheduler.Tick();
         await queuedContinuation.Task;
@@ -154,27 +154,14 @@ public sealed class CommandGameLoopOwnershipTests
 
     private static void ConfigureCharacterQueue(
         ICharacter character,
-        ICharacterStore characterStore,
-        IRsTaskService scheduler,
+        ICreatureTaskService creatureTaskService,
         TaskCompletionSource<ITaskItem>? queuedTask = null)
     {
-        var execution = Substitute.For<ICharacterExecutionService>();
-        character.ServiceProvider.GetService(typeof(ICharacterExecutionService)).Returns(execution);
-        execution.Queue(Arg.Any<ICharacter>(), Arg.Any<ITaskItem>()).Returns(callInfo =>
+        character.QueueTask(Arg.Any<ITaskItem>()).Returns(callInfo =>
         {
             var task = callInfo.Arg<ITaskItem>();
-            if (characterStore.IsCurrent(character))
-            {
-                scheduler.Schedule(task);
-            }
-            else
-            {
-                task.Cancel();
-            }
-
             queuedTask?.TrySetResult(task);
-
-            return new RsTaskHandle(task);
+            return creatureTaskService.Queue(character, task);
         });
     }
 }

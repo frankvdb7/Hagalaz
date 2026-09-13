@@ -1,5 +1,7 @@
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Scripts.Minigames.DuelArena;
+using Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces;
 using NSubstitute;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
@@ -69,6 +71,44 @@ namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena
             target.Received(1).RegisterEventHandler<CreatureDestroyedEvent>(Arg.Any<EventHappened<CreatureDestroyedEvent>>());
             character.Received(1).UnregisterEventHandler<CreatureDestroyedEvent>(destroyHandler);
             target.Received(1).UnregisterEventHandler<CreatureDestroyedEvent>(destroyHandler);
+        }
+
+        [TestMethod]
+        public void DestroyedParticipant_OnlyRespawnsTheSurvivor()
+        {
+            var character = Substitute.For<ICharacter>();
+            var target = Substitute.For<ICharacter>();
+            var rules = new DuelRules(_ => { });
+            var hintIconBuilder = Substitute.For<IHintIconBuilder>();
+            var hintIconType = Substitute.For<IHintIconType>();
+            var hintIconTarget = Substitute.For<IHintIconEntityOptional>();
+            hintIconBuilder.Create().Returns(hintIconType);
+            hintIconType.AtEntity(target).Returns(hintIconTarget);
+            hintIconTarget.Build().Returns(Substitute.For<IHintIcon>());
+
+            EventHappened<CreatureDestroyedEvent>? targetDestroyed = null;
+            var destroyHandler = (EventHappened)(_ => false);
+            character.RegisterEventHandler<CreatureDestroyedEvent>(Arg.Any<EventHappened<CreatureDestroyedEvent>>()).Returns(destroyHandler);
+            target.RegisterEventHandler<CreatureDestroyedEvent>(Arg.Do<EventHappened<CreatureDestroyedEvent>>(handler => targetDestroyed = handler)).Returns(destroyHandler);
+
+            var context = Substitute.For<ICharacterContext>();
+            context.Character.Returns(character);
+            var contextAccessor = Substitute.For<ICharacterContextAccessor>();
+            contextAccessor.Context.Returns(context);
+            var endScreen = new DuelEndScreenScript(contextAccessor);
+            var provider = Substitute.For<IServiceProvider>();
+            provider.GetService(typeof(DuelEndScreenScript)).Returns(endScreen);
+            character.ServiceProvider.Returns(provider);
+
+            var script = new DuelArenaCombatScript(contextAccessor, target, rules, null, null, hintIconBuilder);
+            script.OnRegistered();
+
+            Assert.IsNotNull(targetDestroyed);
+            targetDestroyed!(new CreatureDestroyedEvent(character));
+
+            character.Received(1).Respawn();
+            target.DidNotReceive().Respawn();
+            target.DidNotReceive().Movement.Teleport(Arg.Any<ITeleport>());
         }
     }
 }

@@ -7,7 +7,6 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Tasks;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Tests.Commands
 {
@@ -25,11 +24,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             npcServiceMock.FindNpcDefinitionById(0).Returns(npcDefinitionMock);
 
             var characterMock = Substitute.For<ICharacter>();
-            var serviceProvider = Substitute.For<IServiceProvider>();
-            var execution = Substitute.For<ICharacterExecutionService>();
-            serviceProvider.GetService(typeof(ICharacterExecutionService)).Returns(execution);
-            characterMock.ServiceProvider.Returns(serviceProvider);
-            execution.Queue(Arg.Any<ICharacter>(), Arg.Any<ITaskItem>()).Returns(callInfo =>
+            characterMock.QueueTask(Arg.Any<ITaskItem>()).Returns(callInfo =>
             {
                 var task = callInfo.Arg<ITaskItem>();
                 task.Tick();

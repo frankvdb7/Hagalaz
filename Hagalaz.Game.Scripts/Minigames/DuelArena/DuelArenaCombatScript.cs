@@ -118,10 +118,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             }
 
             victor.Respawn();
-            loser.Respawn();
-            if (loserDestroyed)
+            if (!loserDestroyed)
             {
-                loser.Movement.Teleport(Teleport.Create(loser.Area.Script.GetRespawnLocation(loser)));
+                loser.Respawn();
             }
 
             var victorDuelEndScreen = victor.ServiceProvider.GetRequiredService<DuelEndScreenScript>();
@@ -139,7 +138,6 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             if (IsStaking)
             {
                 var victoryInterface = victor.Widgets.GetOpenWidget(1365);
-                var loseInterface = loser.Widgets.GetOpenWidget(1365);
                 if (victoryInterface != null)
                 {
                     //victoryInterface.SetOptions(14, 0, 27, (0x2 | 0x400)); // allow clicking of 2 right click options + auto examine option ( last ))
@@ -148,12 +146,16 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     victor.Configurations.SendItems(136, false, victor == Character ? TargetContainer : SelfContainer);
                 }
 
-                if (loseInterface != null)
+                if (!loserDestroyed)
                 {
-                    // loseInterface.SetOptions(14, 0, 27, (0x2 | 0x400)); // allow clicking of 2 right click options + auto examine option ( last ))
-                    //loser.Configurations.SendCS2Script(158, new object[] { (1365 << 16 | 14), 130, 3, 3, 1, -1, "Value", "", "", "", "" });
+                    var loseInterface = loser.Widgets.GetOpenWidget(1365);
+                    if (loseInterface != null)
+                    {
+                        // loseInterface.SetOptions(14, 0, 27, (0x2 | 0x400)); // allow clicking of 2 right click options + auto examine option ( last ))
+                        //loser.Configurations.SendCS2Script(158, new object[] { (1365 << 16 | 14), 130, 3, 3, 1, -1, "Value", "", "", "", "" });
 
-                    loser.Configurations.SendItems(136, false, victor == Character ? TargetContainer : SelfContainer);
+                        loser.Configurations.SendItems(136, false, victor == Character ? TargetContainer : SelfContainer);
+                    }
                 }
 
                 var removedCoins = 0;

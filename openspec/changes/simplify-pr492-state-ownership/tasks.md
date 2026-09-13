@@ -38,10 +38,9 @@
       explicit active-mutation and exact-lookup intents.
 - [x] 3.7 Replace ContactSessionStore enumeration and CharacterStore predicate
       lookup with atomic world removal and direct identity/index lookups.
-- [x] 3.8 Add one GameWorld Character execution boundary that uses
-      CharacterStore membership and CharacterLogoutState for admission,
-      retains detached final snapshots for retry, and keeps the generic
-      scheduler Character-agnostic.
+- [x] 3.8 Add one singleton `ICreatureTaskService` boundary that tracks exact
+      creature tasks over the shared generic scheduler, revokes them during
+      lifecycle removal, and retains detached final snapshots for retry.
 - [x] 3.9 Remove domain-entity `IsDestroyed` flags and route async result
       application through exact owning boundaries.
 

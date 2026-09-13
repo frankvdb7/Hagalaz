@@ -76,10 +76,9 @@ namespace Hagalaz.Game.Scripts.Commands
                     CommandFunc = async (character, arguments) =>
                     {
                         await Task.CompletedTask;
-                        var execution = character.ServiceProvider.GetRequiredService<ICharacterExecutionService>();
                         var writer = new ServerTextWriter(text =>
                         {
-                            execution.Queue(character, new RsTask(
+                            character.QueueTask(new RsTask(
                                 () => character.SendChatMessage(text, ChatMessageType.ConsoleText), 1));
                         });
                         Console.SetOut(writer);
@@ -217,8 +216,7 @@ namespace Hagalaz.Game.Scripts.Commands
                         var store = character.ServiceProvider.GetRequiredService<ICharacterStore>();
                         var players = await store.CountAsync();
                         var count = await store.CountAsync();
-                        var execution = character.ServiceProvider.GetRequiredService<ICharacterExecutionService>();
-                        execution.Queue(character, new RsTask(() =>
+                        character.QueueTask(new RsTask(() =>
                         {
                             character.SendChatMessage($"There are {players} players currently on this world.");
                             character.SendChatMessage("There are " + count + " players currently on this lobby.");
@@ -334,15 +332,14 @@ namespace Hagalaz.Game.Scripts.Commands
                         var c = (await repository.GetSnapshotAsync()).Values
                             .Where(ch => string.Compare(ch.DisplayName, name, StringComparison.OrdinalIgnoreCase) == 0)
                             .SingleOrDefault();
-                        var execution = character.ServiceProvider.GetRequiredService<ICharacterExecutionService>();
                         if (c is null)
                         {
-                            execution.Queue(character, new RsTask(
+                            character.QueueTask(new RsTask(
                                 () => character.SendChatMessage("Character \"" + name + "\" could not be found."), 1));
                         }
                         else
                         {
-                            execution.Queue(c, new RsTask(() =>
+                            c.QueueTask(new RsTask(() =>
                             {
                                 c.Movement.Teleport(Teleport.Create(character.Location.Clone()));
                                 c.SendChatMessage("You've been teleported to " + character.DisplayName + ".");
@@ -364,8 +361,7 @@ namespace Hagalaz.Game.Scripts.Commands
                         var c = (await repository.GetSnapshotAsync()).Values
                             .Where(ch => string.Compare(ch.DisplayName, name, StringComparison.OrdinalIgnoreCase) == 0)
                             .FirstOrDefault();
-                        var execution = character.ServiceProvider.GetRequiredService<ICharacterExecutionService>();
-                        execution.Queue(character, new RsTask(() =>
+                        character.QueueTask(new RsTask(() =>
                         {
                             if (c != null)
                             {

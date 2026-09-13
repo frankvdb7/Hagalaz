@@ -105,15 +105,6 @@ namespace Hagalaz.Services.GameWorld.Store
             }
         }
 
-        public bool IsCurrent(ICharacter character)
-        {
-            using (_lock.ReaderLock())
-            {
-                var index = character.Index;
-                return index >= 1 && index <= _characters.Capacity && ReferenceEquals(_characters[index], character);
-            }
-        }
-
         public async ValueTask<ICharacter?> FindByIndexAsync(int index)
         {
             using (await _lock.ReaderLockAsync())

@@ -66,7 +66,6 @@ public sealed class CharacterLogoutServiceTests
         var state = new CharacterLogoutState();
         state.TryBeginLogout(character, out _, out _);
         var store = Substitute.For<ICharacterStore>();
-        store.IsCurrent(character).Returns(true);
         store.Remove(character).Returns(true);
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         var snapshot = new CharacterModel();
@@ -88,7 +87,7 @@ public sealed class CharacterLogoutServiceTests
         var service = new CharacterLogoutService(
             state,
             store,
-            Substitute.For<ICharacterExecutionService>(),
+            Substitute.For<ICreatureTaskService>(),
             new InlineTaskScheduler(),
             Substitute.For<IGameMediator>());
 
@@ -107,16 +106,15 @@ public sealed class CharacterLogoutServiceTests
         var order = new List<string>();
         var state = new CharacterLogoutState();
         var store = Substitute.For<ICharacterStore>();
-        store.IsCurrent(character).Returns(true);
         store.Remove(character).Returns(_ =>
         {
             order.Add("remove");
             return true;
         });
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
-        var execution = new CharacterExecutionService(store, state, scheduler);
+        var creatureTaskService = new CreatureTaskService(scheduler);
         var gameplayApplied = false;
-        execution.Queue(character, new RsTask(() =>
+        creatureTaskService.Queue(character, new RsTask(() =>
         {
             gameplayApplied = true;
             order.Add("gameplay");
@@ -136,7 +134,7 @@ public sealed class CharacterLogoutServiceTests
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
         character.When(value => value.Destroy()).Do(_ => order.Add("destroy"));
-        var logout = new CharacterLogoutService(state, store, execution, scheduler, Substitute.For<IGameMediator>());
+        var logout = new CharacterLogoutService(state, store, creatureTaskService, scheduler, Substitute.For<IGameMediator>());
 
         var detachTask = logout.DetachAsync(character);
         scheduler.Tick();
@@ -151,12 +149,11 @@ public sealed class CharacterLogoutServiceTests
         var character = CreateCharacter(42);
         var state = new CharacterLogoutState();
         var store = Substitute.For<ICharacterStore>();
-        store.IsCurrent(character).Returns(true);
         store.Remove(character).Returns(true);
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
-        var execution = new CharacterExecutionService(store, state, scheduler);
+        var creatureTaskService = new CreatureTaskService(scheduler);
         var gameplay = new RsTask(() => Assert.Fail("Canceled gameplay must not run."), 2);
-        execution.Queue(character, gameplay);
+        creatureTaskService.Queue(character, gameplay);
         Assert.IsTrue(state.TryBeginLogout(character, out _, out _));
 
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
@@ -169,7 +166,7 @@ public sealed class CharacterLogoutServiceTests
             .AddSingleton<ICharacterDehydrationService>(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
-        var logout = new CharacterLogoutService(state, store, execution, scheduler, Substitute.For<IGameMediator>());
+        var logout = new CharacterLogoutService(state, store, creatureTaskService, scheduler, Substitute.For<IGameMediator>());
 
         var detachTask = logout.DetachAsync(character);
         scheduler.Tick();
@@ -185,7 +182,6 @@ public sealed class CharacterLogoutServiceTests
         var state = new CharacterLogoutState();
         state.TryBeginLogout(character, out _, out _);
         var store = Substitute.For<ICharacterStore>();
-        store.IsCurrent(character).Returns(true);
         store.Remove(character).Returns(false);
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         dehydrationService.Dehydrate(character).Returns(new CharacterModel());
@@ -196,7 +192,7 @@ public sealed class CharacterLogoutServiceTests
         var service = new CharacterLogoutService(
             state,
             store,
-            Substitute.For<ICharacterExecutionService>(),
+            Substitute.For<ICreatureTaskService>(),
             new InlineTaskScheduler(),
             Substitute.For<IGameMediator>());
 

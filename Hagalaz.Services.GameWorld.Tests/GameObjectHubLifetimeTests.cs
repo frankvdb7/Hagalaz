@@ -134,7 +134,7 @@ public sealed class GameObjectHubLifetimeTests
         return connection;
     }
 
-    private static ICharacter CreateCharacter(IServiceProvider serviceProvider, ICreatureTaskService scheduler)
+    private static ICharacter CreateCharacter(IServiceProvider serviceProvider, IRsTaskService scheduler)
     {
         var character = Substitute.For<ICharacter>();
         var location = Location.Create(3200, 3200, 1, 7);

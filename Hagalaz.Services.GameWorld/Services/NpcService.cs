@@ -15,13 +15,20 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly NpcDefinitionStore _npcDefinitionStore;
         private readonly ITypeProvider<INpcDefinition> _typeProvider;
         private readonly ILogger<NpcService> _logger;
+        private readonly ICreatureTaskService _creatureTaskService;
 
-        public NpcService(INpcStore npcStore, NpcDefinitionStore npcDefinitionStore, ITypeProvider<INpcDefinition> typeProvider, ILogger<NpcService> logger)
+        public NpcService(
+            INpcStore npcStore,
+            NpcDefinitionStore npcDefinitionStore,
+            ITypeProvider<INpcDefinition> typeProvider,
+            ILogger<NpcService> logger,
+            ICreatureTaskService creatureTaskService)
         {
             _npcStore = npcStore;
             _npcDefinitionStore = npcDefinitionStore;
             _typeProvider = typeProvider;
             _logger = logger;
+            _creatureTaskService = creatureTaskService;
         }
 
         public ValueTask<INpc?> FindByIndexAsync(int index) => _npcStore.FindByIndexAsync(index);
@@ -121,6 +128,7 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             try
             {
+                _creatureTaskService.Revoke(npc);
                 if (!await _npcStore.RemoveAsync(npc))
                 {
                     _logger.LogWarning("Failed to remove NPC '{npc}' from the global store during registration rollback.", npc);
@@ -140,6 +148,7 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             try
             {
+                _creatureTaskService.Revoke(npc);
                 if (!_npcStore.Remove(npc))
                 {
                     _logger.LogWarning("Failed to remove NPC '{npc}' from the global store during registration rollback.", npc);
@@ -170,6 +179,7 @@ namespace Hagalaz.Services.GameWorld.Services
         public async Task UnregisterAsync(INpc npc)
         {
             ArgumentNullException.ThrowIfNull(npc);
+            _creatureTaskService.Revoke(npc);
             if (!await _npcStore.RemoveAsync(npc))
             {
                 _logger.LogDebug("NPC '{npc}' was already absent from the global store during unregister.", npc);
@@ -182,6 +192,7 @@ namespace Hagalaz.Services.GameWorld.Services
         public void Unregister(INpc npc)
         {
             ArgumentNullException.ThrowIfNull(npc);
+            _creatureTaskService.Revoke(npc);
             if (!_npcStore.Remove(npc))
             {
                 _logger.LogDebug("NPC '{npc}' was already absent from the global store during unregister.", npc);

@@ -64,8 +64,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 return (Found: found, Count: foundCount, TooMany: false);
             });
 
-            var execution = args.Character.ServiceProvider.GetRequiredService<ICharacterExecutionService>();
-            execution.Queue(args.Character, new RsTask(() =>
+            args.Character.QueueTask(new RsTask(() =>
             {
                 if (searchResult.TooMany)
                 {

@@ -162,10 +162,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     var snapshots = new Dictionary<uint, CharacterModel>();
                     foreach (var character in characters)
                     {
-                        if (_characterStore.IsCurrent(character))
-                        {
-                            snapshots[character.MasterId] = dehydrationService.Dehydrate(character);
-                        }
+                        snapshots[character.MasterId] = dehydrationService.Dehydrate(character);
                     }
 
                     completion.TrySetResult(snapshots);

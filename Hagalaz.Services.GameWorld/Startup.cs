@@ -164,7 +164,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<ISystemUpdateService, SystemUpdateService>();
             services.AddSingleton<RsTaskService>();
             services.AddSingleton<IRsTaskService>(provider => provider.GetRequiredService<RsTaskService>());
-            services.AddTransient<ICreatureTaskService, RsTaskService>();
+            services.AddSingleton<ICreatureTaskService, CreatureTaskService>();
             services.AddSingleton<IGameMessageService, GameMessageService>();
             services.AddSingleton<IHitSplatRenderTypeProvider, HitSplatRenderTypeProvider>();
             services.AddScoped<IRatesService, RatesService>();
@@ -188,7 +188,6 @@ namespace Hagalaz.Services.GameWorld
             // character
             services.AddScoped<ICharacterFactory, CharacterFactory>();
             services.AddScoped<ICharacterService, CharacterService>();
-            services.AddSingleton<ICharacterExecutionService, CharacterExecutionService>();
             services.AddScoped<ICharacterCreateInfoRepository, CharacterCreateInfoRepository>();
             services.AddSingleton<ICharacterStore, CharacterStore>();
             services.AddScoped<ICharacterRenderMasksWriter, CharacterRenderMasksWriter>();
