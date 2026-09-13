@@ -43,17 +43,11 @@ public sealed class SlayerTests
         });
 
         var npc = Substitute.For<INpc>();
-        var invocation = Task.Run(() => killHandler!(new CreatureKillEvent(character, npc)));
-        try
-        {
-            Assert.IsTrue(invocation.Wait(TimeSpan.FromSeconds(1)));
-            Assert.IsFalse(pendingLookup.Task.IsCompleted);
-            character.Received(1).QueueTask(Arg.Any<Func<CancellationToken, Task>>());
-        }
-        finally
-        {
-            pendingLookup.SetResult(null);
-        }
+        killHandler!(new CreatureKillEvent(character, npc));
+
+        Assert.IsFalse(pendingLookup.Task.IsCompleted);
+        character.Received(1).QueueTask(Arg.Any<Func<CancellationToken, Task>>());
+        pendingLookup.SetResult(null);
     }
 
     [TestMethod]

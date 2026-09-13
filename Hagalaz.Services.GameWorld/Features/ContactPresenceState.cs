@@ -61,7 +61,8 @@ namespace Hagalaz.Services.GameWorld.Features
             {
                 var removed = friends.Get(masterId) is not null;
                 friends.Remove(masterId);
-                return removed | _owners.Remove(masterId);
+                var ownerRemoved = _owners.Remove(masterId);
+                return removed || ownerRemoved;
             }
         }
 
