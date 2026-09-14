@@ -19,7 +19,6 @@ namespace Hagalaz.Services.GameWorld.Tests
     {
         private static MapRegion CreateRegion(int publicTicks = 100)
         {
-            var npcService = Substitute.For<INpcService>();
             var regionService = Substitute.For<IMapRegionService>();
             var gameObjectBuilder = Substitute.For<IGameObjectBuilder>();
             var groundItemBuilder = new SimpleGroundItemBuilder(publicTicks, regionService);
@@ -28,7 +27,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             return new MapRegion(
                 location,
                 new int[4],
-                npcService,
+                Substitute.For<INpcService>(),
                 regionService,
                 gameObjectBuilder,
                 groundItemBuilder,

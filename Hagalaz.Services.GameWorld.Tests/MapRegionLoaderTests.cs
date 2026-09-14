@@ -307,7 +307,7 @@ public sealed class MapRegionLoaderTests
         Assert.AreSame(fatalFailure, actual);
         gameObject.Received(1).Destroy();
         item.Received(1).Destroy();
-        region.DidNotReceive().DestroyAsync();
+        region.DidNotReceive().Destroy();
         fixture.RegionService.Received(1).TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
     }
 

@@ -26,7 +26,8 @@ For each `(dimension, regionId)`, active and idle residency MUST be owned by
 idle-to-destroy claim MUST use exact-instance ownership semantics and MUST NOT
 allow two independently owned live canonical instances. A stale reference MUST
 not move, remove, or destroy a newer canonical instance. Idle destruction MUST
-successfully claim the exact idle instance before calling `DestroyAsync`.
+successfully claim the exact idle instance before handing it to the background
+destruction worker.
 Obtaining canonical active residency and applying any mutation that relies on
 that active ownership MUST be serialized by the same owner boundary. Live
 item/object callbacks MUST remain on the GameWorld worker boundary and MUST
@@ -151,14 +152,16 @@ MUST NOT publish into a dimension that has been detached during construction.
 ### Requirement: Terminal destruction attempts all cleanup
 
 Once an idle region is successfully claimed for destruction, it MUST NOT return
-to active or idle residency. Detached cleanup MUST attempt cleanup for every
-owned NPC, ground item, and game object even when an individual cleanup fails.
-The first cleanup failure MUST be reported after all attempts, while the region
-remains detached and non-canonical even when cleanup is incomplete.
+to active or idle residency. The background owner MUST invoke synchronous
+`MapRegion.Destroy` for the exact detached region. `MapRegion.Destroy` MUST
+unregister every owned NPC through `INpcService` and destroy its ground items
+and game objects, even when an individual cleanup fails. The first cleanup
+failure MUST be reported after all attempts, while the region remains detached
+and non-canonical even when cleanup is incomplete.
 
 #### Scenario: One NPC cleanup fails
 
-- **WHEN** one NPC unregister operation fails during destruction
+- **WHEN** one NPC unregister operation fails during `MapRegion.Destroy`
 - **THEN** later NPCs MUST still be attempted
 - **AND** ground items and game objects MUST still be destroyed
 

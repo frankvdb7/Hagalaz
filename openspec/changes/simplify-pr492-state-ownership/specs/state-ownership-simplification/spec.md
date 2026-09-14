@@ -44,7 +44,7 @@ regions.
 - **WHEN** housekeeping removes an idle region from residency
 - **THEN** the exact region is queued for destruction after ownership is
   released
-- **AND** the game tick does not await `DestroyAsync`
+- **AND** the game tick does not await detached cleanup
 - **AND** a hosted background worker performs the expensive destruction
 
 ### Requirement: Mutating region operations require canonical active ownership

@@ -36,7 +36,7 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 await foreach (var region in _detachedRegions.Reader.ReadAllAsync(stoppingToken))
                 {
-                    await DestroyDetachedRegionAsync(region);
+                    DestroyDetachedRegion(region);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -104,11 +104,11 @@ namespace Hagalaz.Services.GameWorld.Services
             return Task.CompletedTask;
         }
 
-        private async Task DestroyDetachedRegionAsync(IMapRegion region)
+        private void DestroyDetachedRegion(IMapRegion region)
         {
             try
             {
-                await region.DestroyAsync();
+                region.Destroy();
                 _logger.LogDebug("Region[{id}] was destroyed.", region.Id);
             }
             catch (Exception ex)

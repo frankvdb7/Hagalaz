@@ -13,6 +13,5 @@ namespace Hagalaz.Services.GameWorld.Services
         public Task<(IGameSession? Session, bool Created)> TryAddWorldSession(uint masterId, string connectionId, string? lobbySessionClaimId, System.Threading.CancellationToken cancellationToken = default);
         public Task<bool> CommitWorldSession(IGameSession expectedSession, System.Threading.CancellationToken cancellationToken = default);
         public Task<bool> RemoveSession(IGameSession expectedSession, System.Threading.CancellationToken cancellationToken = default);
-        public Task<bool> RemoveLocalSession(IGameSession expectedSession);
     }
 }

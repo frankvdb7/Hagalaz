@@ -303,12 +303,6 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
-        public async Task<bool> RemoveLocalSession(IGameSession expectedSession)
-        {
-            var removedSession = await _sessions.TryRemove(expectedSession);
-            return removedSession.Removed;
-        }
-
         public async Task<IGameSession?> FindByMasterId(uint masterId) => await _sessions.FindByMasterId(masterId);
 
         public async Task<IGameWorldSession?> FindWorldSessionByMasterId(uint masterId) =>

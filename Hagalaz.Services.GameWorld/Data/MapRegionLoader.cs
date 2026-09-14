@@ -119,14 +119,7 @@ namespace Hagalaz.Services.GameWorld.Data
                     region.MarkDiscarded();
                 }
 
-                try
-                {
-                    _regionService.TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
-                }
-                catch (Exception removalException)
-                {
-                    _logger.LogError(removalException, "Region[{id}] could not be removed after load failure", region.Id);
-                }
+                _regionService.TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
 
                 await UnregisterRegisteredNpcsAsync(registeredNpcs, region);
                 RollbackPreparedResources(region, createdGroundItems, createdGameObjects);
@@ -293,14 +286,7 @@ namespace Hagalaz.Services.GameWorld.Data
         {
             foreach (var item in groundItems)
             {
-                try
-                {
-                    item.Destroy();
-                }
-                catch (Exception exception)
-                {
-                    _logger.LogError(exception, "Region[{id}] could not clean up ground item after load failure", region.Id);
-                }
+                item.Destroy();
             }
 
             foreach (var gameObject in gameObjects)

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
+using System.Runtime.ExceptionServices;
 using AutoMapper;
 using Hagalaz.Collections;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
@@ -295,7 +295,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Suspend() => _idleTime = DateTime.Now;
 
-        public async Task DestroyAsync()
+        public void Destroy()
         {
             Exception? failure = null;
             var npcs = _npcs.ToArray();
@@ -306,7 +306,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 try
                 {
-                    await _npcService.UnregisterAsync(npc).ConfigureAwait(false);
+                    _npcService.Unregister(npc);
                 }
                 catch (Exception ex)
                 {
@@ -316,11 +316,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             foreach (var item in items)
             {
-                try
-                {
-                    item.Destroy();
-                }
-                catch (Exception ex) { failure ??= ex; }
+                item.Destroy();
             }
 
             foreach (var obj in objects)
@@ -334,7 +330,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             if (failure is not null)
             {
-                throw failure;
+                ExceptionDispatchInfo.Capture(failure).Throw();
             }
         }
 

@@ -576,7 +576,7 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
-    public async Task TryRemoveIdleMapRegion_ReleasesExactOwnerAfterRemoval()
+    public void TryRemoveIdleMapRegion_ReleasesExactOwnerAfterRemoval()
     {
         using var provider = CreateProvider();
         var service = CreateService(provider);
@@ -588,7 +588,7 @@ public sealed class MapRegionServiceTests
         Assert.IsTrue(service.TryRemoveIdleMapRegion(region.Id, dimension.Id, region));
         Assert.IsTrue(service.TryRemoveEmptyDimension(dimension));
 
-        await region.DestroyAsync();
+        region.Destroy();
     }
 
     [TestMethod]

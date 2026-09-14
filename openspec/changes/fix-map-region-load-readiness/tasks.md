@@ -63,9 +63,9 @@
       not reset or reused.
 - [x] 3.6 Delete obsolete region and region-part unpublished-load rollback
       interfaces, reset methods, helpers, and same-instance rollback tests.
-- [x] 3.7 Make terminal region destruction best-effort across NPCs, ground
-      items, and game objects, preserving the first cleanup failure after all
-      attempts.
+- [x] 3.7 Keep NPC, ground-item, and game-object teardown in synchronous
+      `MapRegion.Destroy`, using `INpcService.Unregister` for owned NPCs and
+      preserving the first cleanup failure after all safe attempts.
 - [x] 3.8 Make detached-region destruction one best-effort attempt after exact
       detach and log failures without retaining a second retry mechanism.
 - [x] 3.9 Keep normal resource collection ownership unchanged; do not add
@@ -115,8 +115,10 @@
 - [x] 5.9 Add deterministic loader rollback coverage for applied objects/items,
       separate NPC compensation, primary exception preservation, and replacement
       isolation.
-- [x] 5.10 Add deterministic detached-region best-effort cleanup coverage and
-      verify failed cleanup does not create a second scheduled attempt.
+- [x] 5.10 Add deterministic detached-region best-effort cleanup coverage,
+      including async NPC unregistration followed by synchronous region-local
+      destruction, and verify failed cleanup does not create a second scheduled
+      attempt.
 - [x] 5.11 Add deterministic claim-transfer failure and exact pending-claim
       reconciliation coverage without a custom uncertainty result.
 - [x] 5.12 Add deterministic logout acknowledgement/cancellation-boundary

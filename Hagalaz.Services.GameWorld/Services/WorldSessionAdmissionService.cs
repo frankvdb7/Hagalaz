@@ -88,32 +88,23 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         try
         {
             CharacterModel characterModel;
-            try
+            var response = await _getCharacterRequestClient.GetResponse<CharacterHydrated, CharacterNotFound>(
+                new HydrateCharacter(masterId), cancellationToken);
+            if (response.Is<CharacterNotFound>(out _))
             {
-                var response = await _getCharacterRequestClient.GetResponse<CharacterHydrated, CharacterNotFound>(
-                    new HydrateCharacter(masterId), cancellationToken);
-                if (response.Is<CharacterNotFound>(out _))
-                {
-                    return SignInResult.Fail;
-                }
-
-                if (response.Is<CharacterHydrated>(out var hydrated))
-                {
-                    characterModel = _mapper.Map<CharacterModel>(hydrated.Message) with
-                    {
-                        Claims = _mapper.Map<HydratedClaims>(authenticationProperties)
-                    };
-                }
-                else
-                {
-                    _logger.LogError("Failed to get valid hydrate character response '{type}'", response.Message.GetType());
-                    return SignInResult.Fail;
-                }
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, "Failed to get hydrate character response");
                 return SignInResult.Fail;
+            }
+
+            if (response.Is<CharacterHydrated>(out var hydrated))
+            {
+                characterModel = _mapper.Map<CharacterModel>(hydrated.Message) with
+                {
+                    Claims = _mapper.Map<HydratedClaims>(authenticationProperties)
+                };
+            }
+            else
+            {
+                throw new InvalidOperationException("Hydrate character request returned an unexpected response type.");
             }
 
             character = _characterFactory.Create(session, signInRequest.GameClient);
@@ -171,7 +162,7 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         }
     }
 
-    private async Task<bool> RollbackAsync(
+    private async Task RollbackAsync(
         uint masterId,
         IGameSession session,
         ICharacter? character,
@@ -211,7 +202,7 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
                 _logger.LogError(
                     "Retaining game session '{connectionId}' because character rollback did not remove the exact store owner",
                     session.ConnectionId);
-                return false;
+                return;
             }
         }
 
@@ -223,11 +214,5 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         {
             _logger.LogError(exception, "Failed to remove game session '{connectionId}' after world sign-in failed", session.ConnectionId);
         }
-        finally
-        {
-            await _gameSessionService.RemoveLocalSession(session);
-        }
-
-        return true;
     }
 }

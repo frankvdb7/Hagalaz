@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -82,9 +81,9 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         void Suspend();
 
         /// <summary>
-        /// Asynchronously destroys the region, removing it from the game world.
+        /// Destroys the region-local resources after the region has been removed from the game world.
         /// </summary>
-        Task DestroyAsync();
+        void Destroy();
 
         /// <summary>
         /// Finds all characters currently in this region.

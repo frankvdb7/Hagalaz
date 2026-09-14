@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
@@ -13,7 +14,6 @@ using Hagalaz.Services.GameWorld.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
-using System.Collections.Generic;
 
 namespace Hagalaz.Services.GameWorld.Tests;
 
@@ -35,30 +35,22 @@ public sealed class MapRegionBackgroundServiceTests
         regionService.FindRegionsByDimension(0).Returns([]);
         regionService.FindIdleRegionsByDimension(0).Returns(new[] { region });
         regionService.TryRemoveIdleMapRegion(regionId, dimension.Id, region).Returns(false);
-
-        var service = new MapRegionBackgroundService(
-            regionService,
-            Substitute.For<ILogger<MapRegionBackgroundService>>());
+        var service = CreateService(regionService);
 
         await service.ProcessRegionsOnceAsync(new Dictionary<int, ICharacter>());
 
-        await region.DidNotReceive().DestroyAsync();
+        region.DidNotReceive().Destroy();
     }
 
     [TestMethod]
-    public async Task HostedWorker_DestroysExactDetachedRegionOutsideTheTick()
+    public async Task HostedWorker_InvokesDestroyForExactDetachedRegion()
     {
         var region = Substitute.For<IMapRegion>();
         const int regionId = 1;
         region.Id.Returns(regionId);
         region.CanDestroy().Returns(true);
         var destructionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var destructionRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        region.DestroyAsync().Returns(_ =>
-        {
-            destructionStarted.TrySetResult();
-            return destructionRelease.Task;
-        });
+        region.When(value => value.Destroy()).Do(_ => destructionStarted.TrySetResult());
         var dimension = Substitute.For<IDimension>();
         dimension.Id.Returns(1);
         var regionService = Substitute.For<IMapRegionService>();
@@ -66,26 +58,19 @@ public sealed class MapRegionBackgroundServiceTests
         regionService.FindRegionsByDimension(1).Returns([]);
         regionService.FindIdleRegionsByDimension(1).Returns(new[] { region });
         regionService.TryRemoveIdleMapRegion(regionId, dimension.Id, region).Returns(true);
+        var service = CreateService(regionService);
 
-        var service = new MapRegionBackgroundService(
-            regionService,
-            Substitute.For<ILogger<MapRegionBackgroundService>>());
         await service.StartAsync(CancellationToken.None);
         try
         {
-            var tickHousekeeping = service.ProcessRegionsOnceAsync(new Dictionary<int, ICharacter>());
-            await tickHousekeeping;
-
-            Assert.IsTrue(tickHousekeeping.IsCompleted);
-            regionService.Received(1).TryRemoveIdleMapRegion(regionId, dimension.Id, region);
-            Assert.IsFalse(destructionRelease.Task.IsCompleted);
-
+            await service.ProcessRegionsOnceAsync(new Dictionary<int, ICharacter>());
             await destructionStarted.Task;
-            _ = region.Received(1).DestroyAsync();
+
+            region.Received(1).Destroy();
+            region.DidNotReceive().FindAllNpcs();
         }
         finally
         {
-            destructionRelease.TrySetResult();
             await service.StopAsync(CancellationToken.None);
         }
     }
@@ -105,10 +90,7 @@ public sealed class MapRegionBackgroundServiceTests
         regionService.FindAllDimensions().Returns(new[] { dimension });
         regionService.FindRegionsByDimension(0).Returns(new[] { region });
         regionService.FindIdleRegionsByDimension(0).Returns([]);
-
-        var service = new MapRegionBackgroundService(
-            regionService,
-            Substitute.For<ILogger<MapRegionBackgroundService>>());
+        var service = CreateService(regionService);
 
         await service.ProcessRegionsOnceAsync(new Dictionary<int, ICharacter> { [42] = character });
 
@@ -119,9 +101,8 @@ public sealed class MapRegionBackgroundServiceTests
     public async Task ProcessRegionsOnceAsync_AfterVisibleRefresh_LeavesCanonicalRegionActiveForCollisionAndUpdates()
     {
         var loadScheduler = Substitute.For<IMapRegionLoadScheduler>();
-        using var provider = new ServiceCollection()
-            .AddSingleton(Substitute.For<INpcService>())
-            .BuildServiceProvider();
+        var npcService = Substitute.For<INpcService>();
+        using var provider = CreateServiceProvider(npcService);
         var regionService = new MapRegionService(
             provider,
             new LocationBuilder(),
@@ -155,13 +136,18 @@ public sealed class MapRegionBackgroundServiceTests
             CollisionFlag.WallNorth,
             regionService.GetClippingFlag(location.X, location.Y, location.Z));
 
-        var backgroundService = new MapRegionBackgroundService(
-            regionService,
-            Substitute.For<ILogger<MapRegionBackgroundService>>());
+        var backgroundService = CreateService(regionService);
         await backgroundService.ProcessRegionsOnceAsync(new Dictionary<int, ICharacter> { [character.Index] = character });
 
         Assert.AreSame(region, regionService.FindMapRegion(location.RegionId, location.Dimension));
         Assert.IsEmpty(regionService.FindIdleRegionsByDimension(location.Dimension));
     }
 
+    private static MapRegionBackgroundService CreateService(IMapRegionService regionService) => new(
+        regionService,
+        Substitute.For<ILogger<MapRegionBackgroundService>>());
+
+    private static ServiceProvider CreateServiceProvider(INpcService npcService) => new ServiceCollection()
+        .AddSingleton(npcService)
+        .BuildServiceProvider();
 }

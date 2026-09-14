@@ -45,6 +45,65 @@ public sealed class WorldSessionAdmissionServiceTests
     }
 
     [TestMethod]
+    public async Task AdmitAsync_WhenHydrationRequestFails_PropagatesFailureAndRollsBackSession()
+    {
+        var fixture = CreateFixture(commitResult: true);
+        var failure = new InvalidOperationException("hydrate request failed");
+        fixture.HydrateClient.GetResponse<CharacterHydrated, CharacterNotFound>(
+                Arg.Any<HydrateCharacter>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .Returns(Task.FromException<Response<CharacterHydrated, CharacterNotFound>>(failure));
+
+        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => fixture.Service.AdmitAsync(
+            CreateSignInRequest(),
+            fixture.Context,
+            42,
+            new AuthenticationProperties()).AsTask());
+
+        Assert.AreSame(failure, actual);
+        await fixture.GameSessionService.Received(1).RemoveSession(fixture.Session, CancellationToken.None);
+    }
+
+    [TestMethod]
+    public async Task AdmitAsync_WhenHydrationRequestIsCanceled_PropagatesCancellationAndRollsBackSession()
+    {
+        var fixture = CreateFixture(commitResult: true);
+        using var cancellation = new CancellationTokenSource();
+        var failure = new OperationCanceledException(cancellation.Token);
+        fixture.HydrateClient.GetResponse<CharacterHydrated, CharacterNotFound>(
+                Arg.Any<HydrateCharacter>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .Returns(Task.FromException<Response<CharacterHydrated, CharacterNotFound>>(failure));
+
+        var actual = await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => fixture.Service.AdmitAsync(
+            CreateSignInRequest(),
+            fixture.Context,
+            42,
+            new AuthenticationProperties(),
+            cancellation.Token).AsTask());
+
+        Assert.AreSame(failure, actual);
+        await fixture.GameSessionService.Received(1).RemoveSession(fixture.Session, CancellationToken.None);
+    }
+
+    [TestMethod]
+    public async Task AdmitAsync_WhenCharacterIsNotFound_ReturnsFailureAndRollsBackSession()
+    {
+        var fixture = CreateFixture(commitResult: true);
+        var notFoundResponse = CreateSecondResponse<CharacterHydrated, CharacterNotFound>(new CharacterNotFound(System.Guid.NewGuid(), 42));
+        fixture.HydrateClient.GetResponse<CharacterHydrated, CharacterNotFound>(
+                Arg.Any<HydrateCharacter>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .Returns(Task.FromResult(notFoundResponse));
+
+        var result = await fixture.Service.AdmitAsync(
+            CreateSignInRequest(),
+            fixture.Context,
+            42,
+            new AuthenticationProperties());
+
+        Assert.IsFalse(result.Succeeded);
+        await fixture.GameSessionService.Received(1).RemoveSession(fixture.Session, CancellationToken.None);
+    }
+
+    [TestMethod]
     public async Task AdmitAsync_WhenCommitFails_RollsBackCharacterAndSessionReservation()
     {
         var fixture = CreateFixture(commitResult: false);
@@ -57,7 +116,6 @@ public sealed class WorldSessionAdmissionServiceTests
 
         Assert.IsFalse(result.Succeeded);
         await fixture.GameSessionService.Received(1).RemoveSession(fixture.Session, CancellationToken.None);
-        await fixture.GameSessionService.Received(1).RemoveLocalSession(fixture.Session);
         fixture.CharacterStore.Received(1).Remove(fixture.Character);
         fixture.Character.Received(1).Destroy();
         fixture.PersistenceService.Received(1).InitializeRevision(42, 7);
@@ -162,7 +220,6 @@ public sealed class WorldSessionAdmissionServiceTests
             .Returns(Task.FromResult<(IGameSession?, bool)>((session, true)));
         sessionService.CommitWorldSession(session, Arg.Any<CancellationToken>()).Returns(Task.FromResult(commitResult));
         sessionService.RemoveSession(session, Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
-        sessionService.RemoveLocalSession(session).Returns(Task.FromResult(true));
 
         var response = CreateResponse<CharacterHydrated, CharacterNotFound>(new CharacterHydrated
         {
@@ -200,7 +257,7 @@ public sealed class WorldSessionAdmissionServiceTests
             sessionService,
             hydrateClient,
             scheduler ?? new InlineTaskScheduler());
-        return new Fixture(service, context, sessionService, session, characterService, character, persistence, characterStore);
+        return new Fixture(service, context, sessionService, session, characterService, character, persistence, characterStore, hydrateClient);
     }
 
     private static SignInRequest CreateSignInRequest() => new()
@@ -223,6 +280,21 @@ public sealed class WorldSessionAdmissionServiceTests
         return response;
     }
 
+    private static Response<T1, T2> CreateSecondResponse<T1, T2>(T2 message)
+        where T1 : class
+        where T2 : class
+    {
+        var secondResponse = Substitute.For<Response<T2>>();
+        secondResponse.Message.Returns(message);
+        ((Response)secondResponse).Message.Returns(message);
+        var constructor = typeof(Response<T1, T2>)
+            .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .Single();
+        var response = (Response<T1, T2>)constructor.Invoke([new TaskCompletionSource<Response<T1>>().Task, Task.FromResult(secondResponse)]);
+        typeof(Response<T1, T2>).GetField("_response", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(response, secondResponse);
+        return response;
+    }
+
     private sealed record Fixture(
         WorldSessionAdmissionService Service,
         RaidoCallerContext Context,
@@ -231,7 +303,8 @@ public sealed class WorldSessionAdmissionServiceTests
         ICharacterService CharacterService,
         ICharacter Character,
         ICharacterPersistenceService PersistenceService,
-        ICharacterStore CharacterStore);
+        ICharacterStore CharacterStore,
+        IRequestClient<HydrateCharacter> HydrateClient);
 
     private sealed class InlineTaskScheduler : IRsTaskService
     {

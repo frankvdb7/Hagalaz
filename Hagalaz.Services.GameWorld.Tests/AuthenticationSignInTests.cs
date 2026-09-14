@@ -889,12 +889,11 @@ public sealed class AuthenticationSignInTests
         Assert.IsFalse(result.Succeeded);
         character.DidNotReceive().Destroy();
         await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>(), Arg.Any<CancellationToken>());
-        await gameSessionService.DidNotReceive().RemoveLocalSession(Arg.Any<IGameSession>());
     }
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task SignInWorldAsync_WhenInitializationFails_ReleasesLocalOwnershipBeforeRemoteRevocation()
+    public async Task SignInWorldAsync_WhenInitializationFails_ReleasesSessionBeforeRemoteRevocation()
     {
         var order = new List<string>();
         var gameSessionService = Substitute.For<IGameSessionService>();
@@ -909,13 +908,6 @@ public sealed class AuthenticationSignInTests
                 order.Add("remove-session");
                 return Task.FromResult(true);
             });
-        gameSessionService.RemoveLocalSession(session)
-            .Returns(_ =>
-            {
-                order.Add("remove-local-session");
-                return Task.FromResult(true);
-            });
-
         var character = Substitute.For<ICharacter>();
         character.When(item => item.Destroy()).Do(_ => order.Add("destroy"));
         var characterStore = Substitute.For<ICharacterStore>();
@@ -950,7 +942,7 @@ public sealed class AuthenticationSignInTests
         await revokeStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
 
         CollectionAssert.AreEqual(
-            new[] { "destroy", "remove-session", "remove-local-session", "revoke" },
+            new[] { "destroy", "remove-session", "revoke" },
             order);
         Assert.IsFalse(signInTask.IsCompleted);
 
@@ -1022,32 +1014,6 @@ public sealed class AuthenticationSignInTests
 
         Assert.IsTrue(laterResult.Succeeded);
         Assert.AreEqual(2, claims.TryClaimCount);
-    }
-
-    [TestMethod]
-    [Timeout(5000)]
-    public async Task SignInWorldAsync_WhenClaimReleaseThrows_RemovesLocalSession()
-    {
-        var gameSessionService = Substitute.For<IGameSessionService>();
-        var session = CreateSession("connection", "claim");
-        gameSessionService.TryAddWorldSession(42, "connection")
-            .Returns(Task.FromResult<(IGameSession? Session, bool Created)>((session, Created: true)));
-        var releaseFailure = new InvalidOperationException("Redis is unavailable.");
-        gameSessionService.RemoveSession(session).Returns(Task.FromException<bool>(releaseFailure));
-        gameSessionService.RemoveLocalSession(session).Returns(Task.FromResult(true));
-        var hydrationService = Substitute.For<ICharacterHydrationService>();
-        hydrationService.HydrateAsync(Arg.Any<ICharacter>(), Arg.Any<CharacterModel>())
-            .Returns(Task.FromResult(false));
-
-        var service = CreateAuthenticationService(
-            gameSessionService,
-            characterHydrationService: hydrationService);
-
-        var result = await service.SignInWorldAsync(CreateSignInRequest());
-
-        Assert.IsFalse(result.Succeeded);
-        await gameSessionService.Received(1).RemoveSession(session);
-        await gameSessionService.Received(1).RemoveLocalSession(session);
     }
 
     [TestMethod]

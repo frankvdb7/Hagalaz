@@ -15,77 +15,83 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class MapRegionDestructionTests
 {
     [TestMethod]
-    public async Task DestroyAsync_WhenOneNpcFails_StillAttemptsLaterNpcs()
+    public void Destroy_WhenOneGameObjectFails_StillAttemptsLaterObjects()
     {
-        var npcService = Substitute.For<INpcService>();
-        var first = CreateNpc(1);
-        var second = CreateNpc(2);
-        var third = CreateNpc(3);
-        var region = CreateRegion(npcService);
+        var first = CreateGameObject(Location.Create(1, 1, 0, 0));
+        var second = CreateGameObject(Location.Create(2, 2, 0, 0));
+        var failure = new InvalidOperationException("object-a");
+        first.When(value => value.Destroy()).Do(_ => throw failure);
+        var region = CreateRegion();
         region.Add(first);
         region.Add(second);
-        region.Add(third);
-        npcService.UnregisterAsync(first)
-            .Returns(_ =>
-            {
-                region.Remove(first);
-                return Task.FromException(new InvalidOperationException("npc-a"));
-            });
 
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => region.DestroyAsync());
+        var actual = Assert.ThrowsExactly<InvalidOperationException>(() => region.Destroy());
 
-        await npcService.Received(1).UnregisterAsync(first);
-        await npcService.Received(1).UnregisterAsync(second);
-        await npcService.Received(1).UnregisterAsync(third);
+        Assert.AreSame(failure, actual);
+        first.Received(1).Destroy();
+        second.Received(1).Destroy();
     }
 
     [TestMethod]
-    public async Task DestroyAsync_WhenNpcFails_StillDestroysItemsAndObjects()
+    public void Destroy_CleansGroundItemsAndGameObjects()
     {
-        var npcService = Substitute.For<INpcService>();
-        var npc = CreateNpc(1);
-        npcService.UnregisterAsync(npc).Returns(Task.FromException(new InvalidOperationException("npc")));
-        var region = CreateRegion(npcService);
-        region.Add(npc);
         var item = Substitute.For<IGroundItem>();
         item.Location.Returns(Location.Create(1, 1, 0, 0));
-        region.Add(item);
         var gameObject = CreateGameObject(Location.Create(2, 2, 0, 0));
+        var region = CreateRegion();
+        region.Add(item);
         region.Add(gameObject);
 
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => region.DestroyAsync());
+        region.Destroy();
 
         item.Received(1).Destroy();
         gameObject.Received(1).Destroy();
     }
 
     [TestMethod]
-    public async Task DestroyAsync_PreservesPrimaryFailureAfterAllCleanup()
+    public void Destroy_UnregistersOwnedNpcsThroughTheRegionNpcService()
     {
+        var npc = Substitute.For<INpc>();
+        npc.Index.Returns(1);
         var npcService = Substitute.For<INpcService>();
-        var npc = CreateNpc(1);
-        npcService.UnregisterAsync(npc).Returns(Task.FromException(new InvalidOperationException("npc-failure")));
         var region = CreateRegion(npcService);
         region.Add(npc);
-        var item = Substitute.For<IGroundItem>();
-        item.Location.Returns(Location.Create(1, 1, 0, 0));
-        item.When(itemToDestroy => itemToDestroy.Destroy())
-            .Do(_ => throw new InvalidOperationException("item-failure"));
-        region.Add(item);
-        var gameObject = CreateGameObject(Location.Create(2, 2, 0, 0));
-        gameObject.When(objectToDestroy => objectToDestroy.Destroy())
-            .Do(_ => throw new InvalidOperationException("object-failure"));
-        region.Add(gameObject);
 
-        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => region.DestroyAsync());
+        region.Destroy();
 
-        Assert.AreEqual("npc-failure", exception.Message);
+        npcService.Received(1).Unregister(npc);
     }
 
-    private static MapRegion CreateRegion(INpcService npcService) => new(
+    [TestMethod]
+    public void Destroy_WhenNpcUnregisterFails_StillAttemptsLaterNpcsAndResources()
+    {
+        var first = CreateNpc(1);
+        var second = CreateNpc(2);
+        var failure = new InvalidOperationException("npc-a");
+        var npcService = Substitute.For<INpcService>();
+        npcService.When(value => value.Unregister(first)).Do(_ => throw failure);
+        var item = Substitute.For<IGroundItem>();
+        item.Location.Returns(Location.Create(1, 1, 0, 0));
+        var gameObject = CreateGameObject(Location.Create(2, 2, 0, 0));
+        var region = CreateRegion(npcService);
+        region.Add(first);
+        region.Add(second);
+        region.Add(item);
+        region.Add(gameObject);
+
+        var actual = Assert.ThrowsExactly<InvalidOperationException>(() => region.Destroy());
+
+        Assert.AreSame(failure, actual);
+        npcService.Received(1).Unregister(first);
+        npcService.Received(1).Unregister(second);
+        item.Received(1).Destroy();
+        gameObject.Received(1).Destroy();
+    }
+
+    private static MapRegion CreateRegion(INpcService? npcService = null) => new(
         Location.Create(0, 0, 0, 0),
         [0, 0, 0, 0],
-        npcService,
+        npcService ?? Substitute.For<INpcService>(),
         Substitute.For<IMapRegionService>(),
         Substitute.For<IGameObjectBuilder>(),
         Substitute.For<IGroundItemBuilder>(),

@@ -38,9 +38,11 @@ population; a fatal failure or cancellation marks that instance `Discarded`.
 is never reset or retried.
 
 Detachment is terminal with respect to residency. `MapRegionService` removes
-an exact idle region from residency before cleanup, and
-`MapRegion.DestroyAsync` then performs sequential cleanup without owning
-residency or a second destruction state machine.
+an exact idle region from residency before cleanup, and the existing
+background destruction worker invokes synchronous `MapRegion.Destroy` on that
+exact detached instance. `MapRegion.Destroy` owns teardown of the region's NPCs,
+ground items, and game objects. Neither owner changes residency or adds a
+second destruction state machine.
 
 ### 3. Apply prepared map state before NPC registration
 
@@ -123,13 +125,15 @@ publication revalidates that the captured dimension is still current before
 inserting the region.
 
 `MapRegionService` removes an exact idle instance under its per-dimension
-residency synchronization root before calling destruction. `MapRegion` then
-performs cleanup sequentially; the detached instance is never returned to
-residency and no later retry is scheduled. Cleanup attempts every NPC, ground
-item, and game object independently, preserves the first failure, and does not
-own a residency retry path. Game-worker serialization is the mutation
-boundary for active regions, so the region does not add a second mutation
-lock.
+residency synchronization root before calling destruction. The existing
+background worker then invokes `MapRegion.Destroy` on that exact instance;
+`MapRegion.Destroy` synchronously unregisters its NPCs through `INpcService`
+and destroys its ground items and game objects. The detached instance is never
+returned to residency and no later retry is scheduled. Cleanup attempts
+independent resources where callbacks can fail, preserves the first failure,
+and does not own a residency retry path.
+Game-worker serialization is the mutation boundary for active regions, so the
+region does not add a second mutation lock.
 
 ### 12. Request initial loads at canonical publication
 
