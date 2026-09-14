@@ -222,6 +222,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void RefreshVisibleRegions()
         {
+            var refreshedRegions = new List<IMapRegion>(_visibleRegions.Count);
             for (var index = 0; index < _visibleRegions.Count; index++)
             {
                 var region = _visibleRegions[index];
@@ -230,12 +231,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                     continue;
                 }
 
-                var current = _regionService.FindMapRegion(region.Id, region.BaseLocation.Dimension);
-                if (current is not null)
-                {
-                    _visibleRegions[index] = current;
-                }
+                refreshedRegions.Add(_regionService.GetOrCreateMapRegion(region.Id, region.BaseLocation.Dimension));
             }
+
+            _visibleRegions.Clear();
+            _visibleRegions.AddRange(refreshedRegions);
         }
 
         /// <summary>

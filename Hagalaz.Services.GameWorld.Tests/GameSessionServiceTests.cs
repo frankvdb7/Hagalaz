@@ -952,6 +952,41 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
+    public async Task CommitWorldSession_WhenClaimTransferIsUncertain_RetainsWorldSessionForExactCleanup()
+    {
+        var claims = Substitute.For<IGameSessionClaimStore>();
+        var factory = Substitute.For<IGameSessionFactory>();
+        var terminator = Substitute.For<IGameSessionConnectionTerminator>();
+        var lobbySession = CreateLobbySession(42, "lobby-connection");
+        var worldSession = CreateSession(42, "world-connection", "world-claim");
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
+        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(worldSession);
+        var store = new GameSessionStore();
+        var service = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
+        var uncertainty = new GameSessionClaimTransferUncertainException(
+            42,
+            lobbySession.SessionClaimId,
+            worldSession.SessionClaimId,
+            new InvalidOperationException("world commit failed"));
+        claims.TryClaimAsync(42, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+        claims.ExecuteIfOwnerAndReplaceAsync(
+                42,
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<Func<CancellationToken, Task<bool>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<bool>(uncertainty));
+
+        await service.AddSession(42, "lobby-connection");
+        var registration = await service.TryAddWorldSession(42, "world-connection");
+
+        await Assert.ThrowsExactlyAsync<GameSessionClaimTransferUncertainException>(
+            () => service.CommitWorldSession(registration.Session!));
+
+        Assert.Contains(worldSession, (await store.FindSessionsPendingCleanup()).OfType<IGameWorldSession>());
+    }
+
+    [TestMethod]
     public async Task TryAddWorldSession_WhenClaimAcquisitionThrowsAndReleaseReturnsFalse_RemovesReservationForLaterLogin()
     {
         var store = new GameSessionStore();

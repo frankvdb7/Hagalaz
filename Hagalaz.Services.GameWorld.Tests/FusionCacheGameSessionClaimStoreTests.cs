@@ -124,6 +124,41 @@ public sealed class FusionCacheGameSessionClaimStoreTests
     }
 
     [TestMethod]
+    public async Task ExecuteIfOwnerAndReplaceAsync_WhenRestorationFailsReportsReplacementClaimUncertainty()
+    {
+        var (store, cache, _) = CreateStore();
+        cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.FromValue("lobby-claim")));
+        var setCalls = 0;
+        var localFailure = new InvalidOperationException("local commit failed");
+        var restorationFailure = new InvalidOperationException("restoration failed");
+        cache.SetAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<FusionCacheEntryOptions>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                setCalls++;
+                return setCalls == 1
+                    ? new ValueTask()
+                    : new ValueTask(Task.FromException(restorationFailure));
+            });
+
+        var exception = await Assert.ThrowsExactlyAsync<GameSessionClaimTransferUncertainException>(() =>
+            store.ExecuteIfOwnerAndReplaceAsync(
+                42,
+                "lobby-claim",
+                "world-claim",
+                _ => Task.FromException<bool>(localFailure)));
+
+        Assert.AreEqual(42u, exception.MasterId);
+        Assert.AreEqual("world-claim", exception.ReplacementClaimId);
+        Assert.AreSame(localFailure, exception.InnerException);
+        Assert.AreSame(restorationFailure, exception.RestorationException);
+    }
+
+    [TestMethod]
     public async Task ReleaseAsync_RemovesOnlyExactOwner()
     {
         var (store, cache, _) = CreateStore();

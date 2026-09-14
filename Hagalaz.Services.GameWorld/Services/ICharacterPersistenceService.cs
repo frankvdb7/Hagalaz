@@ -7,6 +7,19 @@ using Hagalaz.Services.GameWorld.Services.Model;
 
 namespace Hagalaz.Services.GameWorld.Services
 {
+    internal sealed class CharacterPersistenceSubmissionIndeterminateException : Exception
+    {
+        public CharacterPersistenceSubmissionIndeterminateException(
+            CharacterPersistenceReceipt receipt,
+            Exception innerException)
+            : base("Character persistence submission acceptance is indeterminate.", innerException)
+        {
+            Receipt = receipt;
+        }
+
+        public CharacterPersistenceReceipt Receipt { get; }
+    }
+
     public sealed class CharacterPersistenceReceipt
     {
         private readonly TaskCompletionSource<CharacterPersistenceOutcome> _completion =

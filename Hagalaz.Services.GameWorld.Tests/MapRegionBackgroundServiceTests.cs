@@ -1,9 +1,11 @@
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Services;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using System.Collections.Generic;
 
 namespace Hagalaz.Services.GameWorld.Tests;
 
@@ -30,7 +32,7 @@ public sealed class MapRegionBackgroundServiceTests
             regionService,
             Substitute.For<ILogger<MapRegionBackgroundService>>());
 
-        await service.ProcessRegionsOnceAsync();
+        await service.ProcessRegionsOnceAsync(new Dictionary<int, ICharacter>());
 
         await region.DidNotReceive().DestroyAsync();
     }
@@ -63,7 +65,7 @@ public sealed class MapRegionBackgroundServiceTests
         await service.StartAsync(CancellationToken.None);
         try
         {
-            var tickHousekeeping = service.ProcessRegionsOnceAsync();
+            var tickHousekeeping = service.ProcessRegionsOnceAsync(new Dictionary<int, ICharacter>());
             await tickHousekeeping;
 
             Assert.IsTrue(tickHousekeeping.IsCompleted);
@@ -76,6 +78,86 @@ public sealed class MapRegionBackgroundServiceTests
         finally
         {
             destructionRelease.TrySetResult();
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [TestMethod]
+    public async Task ProcessRegionsOnceAsync_DoesNotSuspendVisibleCanonicalRegion()
+    {
+        var region = Substitute.For<IMapRegion>();
+        region.Id.Returns(1);
+        region.State.Returns(MapRegionState.Ready);
+        region.CanSuspend().Returns(true);
+        var character = Substitute.For<ICharacter>();
+        character.Viewport.VisibleRegions.Returns(new[] { region });
+        var dimension = Substitute.For<IDimension>();
+        dimension.Id.Returns(0);
+        var regionService = Substitute.For<IMapRegionService>();
+        regionService.FindAllDimensions().Returns(new[] { dimension });
+        regionService.FindRegionsByDimension(0).Returns(new[] { region });
+        regionService.FindIdleRegionsByDimension(0).Returns([]);
+
+        var service = new MapRegionBackgroundService(
+            regionService,
+            Substitute.For<ILogger<MapRegionBackgroundService>>());
+
+        await service.ProcessRegionsOnceAsync(new Dictionary<int, ICharacter> { [42] = character });
+
+        regionService.DidNotReceive().TrySuspendMapRegion(region);
+    }
+
+    [TestMethod]
+    public async Task FailedDetachedRegion_IsRetriedOnNextHousekeepingCycleUsingSameInstance()
+    {
+        var region = Substitute.For<IMapRegion>();
+        region.Id.Returns(1);
+        region.CanDestroy().Returns(true);
+        var firstAttempt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondAttempt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attempts = 0;
+        var detached = false;
+        region.DestroyAsync().Returns(_ =>
+        {
+            attempts++;
+            if (attempts == 1)
+            {
+                firstAttempt.TrySetResult();
+                return Task.FromException(new InvalidOperationException("cleanup failed"));
+            }
+
+            secondAttempt.TrySetResult();
+            return Task.CompletedTask;
+        });
+        var dimension = Substitute.For<IDimension>();
+        dimension.Id.Returns(0);
+        var regionService = Substitute.For<IMapRegionService>();
+        regionService.FindAllDimensions().Returns(new[] { dimension });
+        regionService.FindRegionsByDimension(0).Returns([]);
+        regionService.FindIdleRegionsByDimension(0).Returns(_ => detached ? [] : new[] { region });
+        regionService.TryRemoveIdleMapRegion(1, 0, region).Returns(_ =>
+        {
+            detached = true;
+            return true;
+        });
+
+        var service = new MapRegionBackgroundService(
+            regionService,
+            Substitute.For<ILogger<MapRegionBackgroundService>>());
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            await service.ProcessRegionsOnceAsync(new Dictionary<int, ICharacter>());
+            await firstAttempt.Task;
+            await Task.Yield();
+
+            await service.ProcessRegionsOnceAsync(new Dictionary<int, ICharacter>());
+            await secondAttempt.Task;
+
+            await region.Received(2).DestroyAsync();
+        }
+        finally
+        {
             await service.StopAsync(CancellationToken.None);
         }
     }

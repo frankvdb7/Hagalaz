@@ -60,7 +60,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         {
             EnsureAcceptsMutation();
             var partHash = LocationHelper.GetRegionPartHash(partX, partY, z);
-            return _parts.GetOrAdd(partHash, CreateRegionPart);
+            return GetOrCreateRegionPart(partHash);
         }
 
         /// <summary>
@@ -76,7 +76,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var partX = LocalPartXToPartX(localPartX);
             var partY = LocalPartYToPartY(localPartY);
             var partHash = LocationHelper.GetRegionPartHash(partX, partY, z);
-            return _parts.GetOrAdd(partHash, CreateRegionPart);
+            return GetOrCreateRegionPart(partHash);
         }
 
         /// <summary>
@@ -102,7 +102,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var partX = LocalPartXToPartX(localPartX);
             var partY = LocalPartYToPartY(localPartY);
             var partHash = LocationHelper.GetRegionPartHash(partX, partY, z);
-            var part = _parts.GetOrAdd(partHash, CreateRegionPart);
+            var part = GetOrCreateRegionPart(partHash);
             part.DrawRegionPartX = drawPartX;
             part.DrawRegionPartY = drawPartY;
             part.DrawRegionZ = drawPartZ;
@@ -124,7 +124,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var partX = LocalPartXToPartX(localPartX);
             var partY = LocalPartXToPartX(localPartY);
             var partHash = LocationHelper.GetRegionPartHash(partX, partY, z);
-            var part = _parts.GetOrAdd(partHash, CreateRegionPart);
+            var part = GetOrCreateRegionPart(partHash);
             if (part.Rotation != rotation)
             {
                 UnloadPartGameObjects(partX, partY, z, part.Rotation);
@@ -145,7 +145,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var partX = LocalPartXToPartX(localPartX);
             var partY = LocalPartXToPartX(localPartY);
             var partHash = LocationHelper.GetRegionPartHash(partX, partY, z);
-            var part = _parts.GetOrAdd(partHash, CreateRegionPart);
+            var part = GetOrCreateRegionPart(partHash);
             UnloadPartGameObjects(partX, partY, z, part.Rotation);
             part.Erase();
         }

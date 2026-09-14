@@ -29,7 +29,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly ConcurrentStore<int, ICharacter> _characters = new();
         private readonly ConcurrentStore<int, INpc> _npcs = new();
         private readonly HashSet<int> _nonSuspendableNpcIndexes = [];
-        private readonly ConcurrentStore<int, IMapRegionPart> _parts = new();
+        private readonly ConcurrentStore<int, MapRegionPart> _parts = new();
         private readonly CollisionFlag[,,] _collision;
         private DateTime _idleTime = DateTime.MinValue;
         private readonly INpcService _npcService;
@@ -320,6 +320,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 try
                 {
                     item.Destroy();
+                    RemoveDestroyed(item);
                 }
                 catch (Exception ex) { failure ??= ex; }
             }
@@ -329,6 +330,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 try
                 {
                     obj.Destroy();
+                    RemoveDestroyed(obj);
                 }
                 catch (Exception ex) { failure ??= ex; }
             }
@@ -351,7 +353,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         {
             EnsureAcceptsMutation();
             var partHash = update.Location.GetRegionPartHash();
-            _parts.GetOrAdd(partHash, CreateRegionPart).QueueUpdate(update);
+            GetOrCreateRegionPart(partHash).QueueUpdate(update);
         }
 
         public IMapRegionPart CreateRegionPart(int partHash)
@@ -360,7 +362,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             return CreateRegionPartCore(partHash);
         }
 
-        private IMapRegionPart CreateRegionPartCore(int partHash) =>
+        private MapRegionPart GetOrCreateRegionPart(int partHash) => _parts.GetOrAdd(partHash, CreateRegionPartCore);
+
+        private MapRegionPart CreateRegionPartCore(int partHash) =>
             new MapRegionPart(_mapper, _groundItemBuilder)
             {
                 DrawRegionPartX = partHash & 0x3ff,
@@ -369,6 +373,24 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 DrawRegionDimension = BaseLocation.Dimension,
                 HasDrawSource = true,
             };
+
+        internal void RemoveDestroyed(IGameObject gameObject)
+        {
+            var partHash = gameObject.Location.GetRegionPartHash();
+            if (_parts.TryGetValue(partHash, out var part))
+            {
+                part.RemoveDestroyed(gameObject);
+            }
+        }
+
+        internal void RemoveDestroyed(IGroundItem item)
+        {
+            var partHash = item.Location.GetRegionPartHash();
+            if (_parts.TryGetValue(partHash, out var part))
+            {
+                part.RemoveDestroyed(item);
+            }
+        }
 
     }
 }

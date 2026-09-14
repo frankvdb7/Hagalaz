@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Channels;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Microsoft.Extensions.Hosting;
@@ -21,6 +22,8 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly IMapRegionService _regionService;
         private readonly ILogger<MapRegionBackgroundService> _logger;
         private readonly Channel<IMapRegion> _detachedRegions = Channel.CreateUnbounded<IMapRegion>();
+        private readonly object _retryGate = new();
+        private readonly HashSet<IMapRegion> _failedDetachedRegions = new(ReferenceEqualityComparer.Instance);
         private DateTime _lastProcessedAt = DateTime.MinValue;
 
         public MapRegionBackgroundService(IMapRegionService regionService, ILogger<MapRegionBackgroundService> logger)
@@ -43,7 +46,7 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
-        internal async Task ProcessRegionsIfDueAsync()
+        internal async Task ProcessRegionsIfDueAsync(IReadOnlyDictionary<int, ICharacter> characters)
         {
             var now = DateTime.UtcNow;
             if (now - _lastProcessedAt < ProcessingInterval)
@@ -51,17 +54,30 @@ namespace Hagalaz.Services.GameWorld.Services
                 return;
             }
 
-            await ProcessRegionsOnceAsync();
+            await ProcessRegionsOnceAsync(characters);
             _lastProcessedAt = now;
         }
 
-        internal Task ProcessRegionsOnceAsync()
+        internal Task ProcessRegionsOnceAsync(IReadOnlyDictionary<int, ICharacter> characters)
         {
+            var visibleRegions = new HashSet<IMapRegion>(ReferenceEqualityComparer.Instance);
+            foreach (var character in characters.Values)
+            {
+                visibleRegions.UnionWith(character.Viewport.VisibleRegions);
+            }
+
+            QueueFailedRetries(visibleRegions);
+
             foreach (var dimension in _regionService.FindAllDimensions())
             {
                 foreach (var region in _regionService.FindRegionsByDimension(dimension.Id)
                              .Where(region => region.State == MapRegionState.Ready))
                 {
+                    if (visibleRegions.Contains(region))
+                    {
+                        continue;
+                    }
+
                     if (_regionService.TrySuspendMapRegion(region))
                     {
                         _logger.LogDebug("Region[{id}] was suspended.", region.Id);
@@ -70,6 +86,11 @@ namespace Hagalaz.Services.GameWorld.Services
 
                 foreach (var region in _regionService.FindIdleRegionsByDimension(dimension.Id).Where(region => region.CanDestroy()))
                 {
+                    if (visibleRegions.Contains(region))
+                    {
+                        continue;
+                    }
+
                     if (!_regionService.TryRemoveIdleMapRegion(region.Id, dimension.Id, region))
                     {
                         continue;
@@ -87,6 +108,25 @@ namespace Hagalaz.Services.GameWorld.Services
             return Task.CompletedTask;
         }
 
+        private void QueueFailedRetries(HashSet<IMapRegion> visibleRegions)
+        {
+            lock (_retryGate)
+            {
+                foreach (var region in _failedDetachedRegions.ToArray())
+                {
+                    if (visibleRegions.Contains(region))
+                    {
+                        continue;
+                    }
+
+                    if (_detachedRegions.Writer.TryWrite(region))
+                    {
+                        _failedDetachedRegions.Remove(region);
+                    }
+                }
+            }
+        }
+
         private async Task DestroyDetachedRegionAsync(IMapRegion region)
         {
             try
@@ -96,7 +136,12 @@ namespace Hagalaz.Services.GameWorld.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to destroy detached region[{id}]; its ownership was already released.", region.Id);
+                lock (_retryGate)
+                {
+                    _failedDetachedRegions.Add(region);
+                }
+
+                _logger.LogError(ex, "Failed to destroy detached region[{id}]; it will be retried during the next housekeeping cycle.", region.Id);
             }
         }
     }

@@ -116,7 +116,7 @@ public sealed class AuthenticationLogoutTests
     }
 
     [TestMethod]
-    public async Task SignOutAsync_ConcurrentDuplicateFailsUntilTheOwnedLogoutCompletes()
+    public async Task SignOutAsync_ConcurrentDuplicateSharesSubmissionOwnership()
     {
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
@@ -165,17 +165,16 @@ public sealed class AuthenticationLogoutTests
         var firstSignOut = firstService.SignOutAsync();
         await persistenceStarted.Task;
 
-        var secondException = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => secondService.SignOutAsync());
-
-        StringAssert.Contains(secondException.Message, "logout operation in progress");
+        var secondSignOut = secondService.SignOutAsync();
         Assert.IsFalse(firstSignOut.IsCompleted);
+        Assert.IsFalse(secondSignOut.IsCompleted);
         await persistenceService.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
 
         releasePersistence.TrySetResult(receipt);
         await firstSignOut;
-        await gameSessionService.Received(1).RemoveSession(session);
-        Assert.AreEqual(1, logoutService.DetachCalls);
+        await secondSignOut;
+        await gameSessionService.Received(2).RemoveSession(session);
+        Assert.AreEqual(2, logoutService.DetachCalls);
     }
 
     [TestMethod]
@@ -238,7 +237,7 @@ public sealed class AuthenticationLogoutTests
     }
 
     [TestMethod]
-    public async Task SignOutAsync_WithRealLogoutOwner_RejectsDuplicateBeforeReceiptWithoutSecondPersistence()
+    public async Task SignOutAsync_WithRealLogoutOwner_AllowsDuplicateToJoinBeforeReceipt()
     {
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
@@ -285,15 +284,17 @@ public sealed class AuthenticationLogoutTests
         var firstSignOut = firstService.SignOutAsync();
         await persistenceStarted.Task;
 
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => secondService.SignOutAsync());
+        var secondSignOut = secondService.SignOutAsync();
+        Assert.IsFalse(secondSignOut.IsCompleted);
         await persistenceService.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
         await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>());
         Assert.IsTrue(state.IsPending(42));
 
         releasePersistence.TrySetResult(receipt);
         await firstSignOut;
+        await secondSignOut;
 
-        await gameSessionService.Received(1).RemoveSession(session);
+        await gameSessionService.Received(2).RemoveSession(session);
         character.Received(1).Destroy();
         Assert.IsFalse(state.IsPending(42));
     }
@@ -427,6 +428,23 @@ public sealed class AuthenticationLogoutTests
             });
         logoutService.DetachAsync(character, Arg.Any<CancellationToken>()).Returns(Task.FromResult(retainedSnapshot));
         logoutService.SetPendingLogoutPersistence(character, Arg.Any<CharacterPersistenceReceipt>()).Returns(true);
+        var submission = new TaskCompletionSource<CharacterPersistenceReceipt>(TaskCreationOptions.RunContinuationsAsynchronously);
+        logoutService.TryBeginPersistenceSubmission(
+                character,
+                out Arg.Any<Task<CharacterPersistenceReceipt>>(),
+                out Arg.Any<bool>())
+            .Returns(callInfo =>
+            {
+                callInfo[1] = submission.Task;
+                callInfo[2] = true;
+                return true;
+            });
+        logoutService.SetPendingLogoutPersistence(character, Arg.Any<CharacterPersistenceReceipt>())
+            .Returns(callInfo =>
+            {
+                submission.TrySetResult(callInfo.Arg<CharacterPersistenceReceipt>());
+                return true;
+            });
         var gameSessionService = Substitute.For<IGameSessionService>();
         gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
         var service = CreateAuthenticationService(
@@ -798,6 +816,25 @@ public sealed class AuthenticationLogoutTests
                     return true;
                 });
             logoutService.SetPendingLogoutPersistence(character, Arg.Any<CharacterPersistenceReceipt>()).Returns(true);
+            var submission = new TaskCompletionSource<CharacterPersistenceReceipt>(TaskCreationOptions.RunContinuationsAsynchronously);
+            logoutService.TryBeginPersistenceSubmission(
+                    character,
+                    out Arg.Any<Task<CharacterPersistenceReceipt>>(),
+                    out Arg.Any<bool>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = submission.Task;
+                    callInfo[2] = true;
+                    return true;
+                });
+            logoutService.SetPendingLogoutPersistence(character, Arg.Any<CharacterPersistenceReceipt>())
+                .Returns(callInfo =>
+                {
+                    submission.TrySetResult(callInfo.Arg<CharacterPersistenceReceipt>());
+                    return true;
+                });
+            logoutService.FailPersistenceSubmission(character, Arg.Any<Exception>())
+                .Returns(callInfo => submission.TrySetException(callInfo.Arg<Exception>()));
             logoutService.DetachAsync(character, Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new CharacterModel()));
         }
@@ -894,10 +931,29 @@ public sealed class AuthenticationLogoutTests
             created = !_claimed;
             persistenceReceipt = null;
             _claimed = true;
-            return created;
+            return true;
         }
 
-        public bool SetPendingLogoutPersistence(ICharacter character, CharacterPersistenceReceipt receipt) => true;
+        public bool SetPendingLogoutPersistence(ICharacter character, CharacterPersistenceReceipt receipt) =>
+            _submission?.TrySetResult(receipt) == true;
+
+        private TaskCompletionSource<CharacterPersistenceReceipt>? _submission;
+        private bool _submissionStarted;
+
+        public bool TryBeginPersistenceSubmission(
+            ICharacter character,
+            out Task<CharacterPersistenceReceipt> completion,
+            out bool shouldSubmit)
+        {
+            _submission ??= new TaskCompletionSource<CharacterPersistenceReceipt>(TaskCreationOptions.RunContinuationsAsynchronously);
+            completion = _submission.Task;
+            shouldSubmit = !_submissionStarted;
+            _submissionStarted = true;
+            return true;
+        }
+
+        public bool FailPersistenceSubmission(ICharacter character, Exception exception) =>
+            _submission?.TrySetException(exception) == true;
 
         public bool TryGetPendingPersistence(ICharacter character, out CharacterPersistenceReceipt? persistenceReceipt)
         {
@@ -914,7 +970,7 @@ public sealed class AuthenticationLogoutTests
             return Task.FromResult(new CharacterModel());
         }
 
-        public void CompleteLogout(uint masterId) { }
+        public void CompleteLogout(ICharacter character) { }
     }
 
     private static void SetContext(RaidoHub hub, RaidoCallerContext context) =>

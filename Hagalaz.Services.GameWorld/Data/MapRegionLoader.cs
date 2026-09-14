@@ -16,6 +16,7 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -83,6 +84,7 @@ namespace Hagalaz.Services.GameWorld.Data
 
             var watch = Stopwatch.StartNew();
             var registeredNpcs = new List<INpc>();
+            PreparedRegion? prepared = null;
 
             try
             {
@@ -92,7 +94,7 @@ namespace Hagalaz.Services.GameWorld.Data
                     .WithZ(region.Size.Z)
                     .ToRegionCoordinates(region.Size.X - 1, region.Size.Y - 1, region.Size.X, region.Size.Y)
                     .Build();
-                var prepared = await PrepareAsync(region, min, max, cancellationToken);
+                prepared = await PrepareAsync(region, min, max, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
 
                 ApplyPreparedRegion(region, prepared);
@@ -106,8 +108,11 @@ namespace Hagalaz.Services.GameWorld.Data
             }
             catch (Exception exception)
             {
-                region.MarkDiscarded();
-                await UnregisterRegisteredNpcsAsync(registeredNpcs, region);
+                if (region.State == MapRegionState.Initializing)
+                {
+                    region.MarkDiscarded();
+                }
+
                 try
                 {
                     _regionService.TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
@@ -115,6 +120,12 @@ namespace Hagalaz.Services.GameWorld.Data
                 catch (Exception removalException)
                 {
                     _logger.LogError(removalException, "Region[{id}] could not be removed after load failure", region.Id);
+                }
+
+                await UnregisterRegisteredNpcsAsync(registeredNpcs, region);
+                if (prepared is not null)
+                {
+                    RollbackPreparedResources(region, prepared);
                 }
 
                 _logger.LogError(exception, "Region[{id}] failed to load and was discarded", region.Id);
@@ -258,6 +269,41 @@ namespace Hagalaz.Services.GameWorld.Data
                 catch (Exception exception)
                 {
                     _logger.LogError(exception, "Region[{id}] could not clean up NPC '{npc}' after load failure", region.Id, npc);
+                }
+            }
+        }
+
+        private void RollbackPreparedResources(IMapRegion region, PreparedRegion prepared)
+        {
+            foreach (var item in prepared.GroundItems)
+            {
+                try
+                {
+                    item.Destroy();
+                    if (region is MapRegion concreteRegion)
+                    {
+                        concreteRegion.RemoveDestroyed(item);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogError(exception, "Region[{id}] could not clean up ground item after load failure", region.Id);
+                }
+            }
+
+            foreach (var gameObject in prepared.StaticObjects.Concat(prepared.NonStaticObjects))
+            {
+                try
+                {
+                    gameObject.Destroy();
+                    if (region is MapRegion concreteRegion)
+                    {
+                        concreteRegion.RemoveDestroyed(gameObject);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogError(exception, "Region[{id}] could not clean up game object after load failure", region.Id);
                 }
             }
         }

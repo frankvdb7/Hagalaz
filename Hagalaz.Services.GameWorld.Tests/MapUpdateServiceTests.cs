@@ -38,7 +38,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             region.XteaKeys.Returns(new[] { 1, 2, 3, 4 });
             regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), mapSize)
                 .Returns(new[] { region });
-            regionService.FindMapRegion(location.RegionId, location.Dimension).Returns(region);
+            regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension).Returns(region);
 
             var mapUpdateService = new MapUpdateService(regionLoadScheduler);
 
@@ -77,7 +77,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         region.XteaKeys.Returns(new[] { 1, 2, 3, 4 });
         regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), mapSize)
             .Returns(new[] { region });
-        regionService.FindMapRegion(location.RegionId, location.Dimension).Returns(region);
+        regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension).Returns(region);
 
         viewport.RebuildView();
         var mapUpdateService = new MapUpdateService(regionLoadScheduler);
@@ -114,7 +114,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         region.XteaKeys.Returns(new[] { 1, 2, 3, 4 });
         regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), mapSize)
             .Returns(new[] { region });
-        regionService.FindMapRegion(location.RegionId, location.Dimension).Returns(region);
+        regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension).Returns(region);
 
         new MapUpdateService(regionLoadScheduler).UpdateMap(character, false);
 
@@ -151,7 +151,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         replacementRegion.XteaKeys.Returns(new[] { 1, 2, 3, 4 });
         regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), mapSize)
             .Returns(new[] { staleRegion });
-        regionService.FindMapRegion(location.RegionId, location.Dimension).Returns(replacementRegion);
+        regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension).Returns(replacementRegion);
 
         new MapUpdateService(regionLoadScheduler).UpdateMap(character, false);
 

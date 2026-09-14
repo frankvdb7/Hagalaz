@@ -20,7 +20,7 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class CharacterLogoutServiceTests
 {
     [TestMethod]
-    public void TryBeginLogout_RejectsDuplicateUntilTheOwnedReceiptExists()
+    public void TryBeginLogout_AllowsSameCharacterToJoinBeforeReceiptExists()
     {
         var state = new CharacterLogoutState();
         var character = CreateCharacter(42);
@@ -29,7 +29,7 @@ public sealed class CharacterLogoutServiceTests
         Assert.IsTrue(created);
         Assert.IsNull(receipt);
 
-        Assert.IsFalse(state.TryBeginLogout(character, out created, out receipt));
+        Assert.IsTrue(state.TryBeginLogout(character, out created, out receipt));
         Assert.IsFalse(created);
         Assert.IsNull(receipt);
         Assert.IsFalse(state.TryGetPersistenceReceipt(character, out receipt));
@@ -55,6 +55,35 @@ public sealed class CharacterLogoutServiceTests
         Assert.IsFalse(state.TryBeginLogout(second, out var created, out var receipt));
         Assert.IsFalse(created);
         Assert.IsNull(receipt);
+    }
+
+    [TestMethod]
+    public async Task PersistenceSubmissionOwnership_IsRetainedWhenFirstWaiterIsCancelled()
+    {
+        var state = new CharacterLogoutState();
+        var character = CreateCharacter(42);
+        Assert.IsTrue(state.TryBeginLogout(character, out _, out _));
+
+        Assert.IsTrue(state.TryBeginPersistenceSubmission(
+            character,
+            out var firstSubmission,
+            out var firstShouldSubmit));
+        Assert.IsTrue(firstShouldSubmit);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => firstSubmission.WaitAsync(cancellation.Token));
+
+        Assert.IsTrue(state.TryBeginPersistenceSubmission(
+            character,
+            out var secondSubmission,
+            out var secondShouldSubmit));
+        Assert.IsFalse(secondShouldSubmit);
+        Assert.AreSame(firstSubmission, secondSubmission);
+
+        var receipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 7);
+        Assert.IsTrue(state.SetPersistenceReceipt(character, receipt));
+        Assert.AreSame(receipt, await secondSubmission);
     }
 
     [TestMethod]

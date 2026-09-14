@@ -460,22 +460,26 @@ namespace Hagalaz.Services.GameWorld.Services
                         }
 
                         var finalSnapshot = await _characterLogoutService.DetachAsync(character, cancellationToken);
-                        if (created)
+                        if (created || !_characterLogoutService.TryGetPendingPersistence(character, out receipt))
                         {
-                            receipt = await _characterPersistenceService.PersistAsync(
-                                masterId ?? character.MasterId,
-                                finalSnapshot,
-                                force: true,
-                                cancellationToken: cancellationToken);
-                            if (receipt is null || !_characterLogoutService.SetPendingLogoutPersistence(character, receipt))
+                            if (!_characterLogoutService.TryBeginPersistenceSubmission(
+                                    character,
+                                    out var submission,
+                                    out var shouldSubmit))
                             {
-                                throw new InvalidOperationException("Forced character persistence did not produce an owned receipt.");
+                                throw new InvalidOperationException(
+                                    $"Character '{character.MasterId}' is no longer pending logout.");
                             }
-                        }
-                        else if (!_characterLogoutService.TryGetPendingPersistence(character, out receipt))
-                        {
-                            throw new InvalidOperationException(
-                                $"Final character persistence receipt was not available for master id {character.MasterId}.");
+
+                            if (shouldSubmit)
+                            {
+                                _ = SubmitFinalPersistenceAsync(
+                                    character,
+                                    masterId ?? character.MasterId,
+                                    finalSnapshot);
+                            }
+
+                            receipt = await submission.WaitAsync(cancellationToken);
                         }
 
                         if (receipt is null)
@@ -503,7 +507,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 {
                     if (character != null && persistenceSucceeded && sessionRemoved && masterId is not null)
                     {
-                        _characterLogoutService.CompleteLogout(masterId.Value);
+                        _characterLogoutService.CompleteLogout(character);
                     }
                 }
 
@@ -517,5 +521,35 @@ namespace Hagalaz.Services.GameWorld.Services
                 // unavailable. A later logout/reconnect cleanup can revoke the token again.
                 await RevokeCurrentAuthenticationAsync("sign-out");
             });
+
+        private async Task SubmitFinalPersistenceAsync(
+            ICharacter character,
+            uint masterId,
+            CharacterModel snapshot)
+        {
+            try
+            {
+                var receipt = await _characterPersistenceService.PersistAsync(
+                    masterId,
+                    snapshot,
+                    force: true,
+                    cancellationToken: CancellationToken.None);
+                if (receipt is null || !_characterLogoutService.SetPendingLogoutPersistence(character, receipt))
+                {
+                    throw new InvalidOperationException("Forced character persistence did not produce an owned receipt.");
+                }
+            }
+            catch (CharacterPersistenceSubmissionIndeterminateException exception)
+            {
+                if (!_characterLogoutService.SetPendingLogoutPersistence(character, exception.Receipt))
+                {
+                    _characterLogoutService.FailPersistenceSubmission(character, exception);
+                }
+            }
+            catch (Exception exception)
+            {
+                _characterLogoutService.FailPersistenceSubmission(character, exception);
+            }
+        }
     }
 }

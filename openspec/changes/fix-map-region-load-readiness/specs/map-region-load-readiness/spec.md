@@ -172,7 +172,17 @@ remains detached and non-canonical even when cleanup is incomplete.
 
 - **WHEN** cleanup fails after an exact idle region has been removed from residency
 - **THEN** the region MUST remain detached and non-canonical
-- **AND** the background service MUST log the failure without retaining the region for retry
+- **AND** the background service MUST retain that exact region instance for the
+  next existing housekeeping cycle
+- **AND** successful resources MUST NOT be terminally cleaned again on retry
+
+#### Scenario: A visible region is restored before housekeeping
+
+- **GIVEN** a player viewport requires region B and retains an older B instance
+- **WHEN** the viewport refresh resolves B through active map-region lookup
+- **THEN** the viewport MUST retain the canonical active B instance
+- **AND** housekeeping MUST NOT suspend, detach, or destroy that exact active B
+- **AND** collision and map updates MUST use the canonical B instance
 
 ### Requirement: Region lifecycle has one explicit source of truth
 
@@ -237,9 +247,15 @@ during decoding.
 An unexpected database, cache, decode, map-apply, cancellation, or shutdown
 failure MUST leave the region not ready. The loader MUST attempt to unregister
 every NPC successfully registered by that attempt, log cleanup failures as
-secondary diagnostics, and exact-remove the failed region only if the active
-service entry is that same instance. The original load failure MUST be
-re-thrown unchanged. The failed instance MUST NOT be reset or reused.
+secondary diagnostics, roll back exact objects and ground items applied by the
+attempt, and exact-remove the failed region only if the active service entry is
+that same instance. The original load failure MUST be re-thrown unchanged. The
+failed instance MUST NOT be reset or reused.
+
+The preparation accumulator retains rollback responsibility until readiness is
+successfully published. The region may reference those resources after apply;
+this is not a runtime ownership transfer. After successful publication the
+accumulator is disarmed and normal region lifecycle owns terminal cleanup.
 
 #### Scenario: Required source preparation fails
 
@@ -265,6 +281,14 @@ re-thrown unchanged. The failed instance MUST NOT be reset or reused.
 - **WHEN** a later request asks for the same region after R1 failed
 - **THEN** the service MUST create or return a fresh instance R2
 - **AND** R2 MUST NOT be the failed R1 instance
+
+#### Scenario: Applied resources are rolled back without region destruction
+
+- **WHEN** loading fails after objects or ground items have been applied
+- **THEN** the loader MUST compensate those exact resources through its
+  preparation rollback responsibility
+- **AND** it MUST NOT invoke region-wide terminal destruction
+- **AND** registered NPC compensation MUST remain a separate operation
 
 ### Requirement: Failed instances cannot be scheduled or consumed
 

@@ -178,7 +178,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
             }
 
-            await _regionHousekeeping.ProcessRegionsIfDueAsync();
+            await _regionHousekeeping.ProcessRegionsIfDueAsync(characters);
 
         }
     }

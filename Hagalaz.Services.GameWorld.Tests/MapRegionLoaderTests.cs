@@ -245,6 +245,45 @@ public sealed class MapRegionLoaderTests
         fixture.RegionService.Received(1).TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
     }
 
+    [TestMethod]
+    public async Task LoadAsync_WhenReadinessPublicationFails_RollsBackAppliedObjectsAndItemsWithoutRegionDestruction()
+    {
+        var fatalFailure = new InvalidOperationException("readiness publication failed");
+        var region = CreateRegion(fatalFailure);
+        var gameObject = Substitute.For<IGameObject>();
+        gameObject.IsStatic.Returns(true);
+        var gameObjectBuilder = ConfigureStaticGameObjectBuilder(gameObject);
+        var mapProvider = Substitute.For<IMapProvider>();
+        mapProvider.When(provider => provider.DecodeRegion(
+                Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<ObjectDecoded>(), Arg.Any<ImpassibleTerrainDecoded>()))
+            .Do(callInfo => callInfo.Arg<ObjectDecoded>()(100, 0, 0, 3, 3, 0));
+        var item = Substitute.For<Hagalaz.Game.Abstractions.Model.Items.IGroundItem>();
+        item.Location.Returns(Location.Create(65, 65, 0, 0));
+        var groundItemBuilder = Substitute.For<IGroundItemBuilder>();
+        var onGround = Substitute.For<IGroundItemOnGround>();
+        var itemLocation = Substitute.For<IGroundItemLocation>();
+        var itemOptional = Substitute.For<IGroundItemOptional>();
+        groundItemBuilder.Create().Returns(onGround);
+        onGround.WithItem(Arg.Any<Func<Hagalaz.Game.Abstractions.Builders.Item.IItemBuilder, Hagalaz.Game.Abstractions.Builders.Item.IItemBuild>>())
+            .Returns(itemLocation);
+        itemLocation.WithLocation(Arg.Any<ILocation>()).Returns(itemOptional);
+        itemOptional.WithRespawnTicks(Arg.Any<int>()).Returns(itemOptional);
+        itemOptional.Build().Returns(item);
+        var fixture = CreateLoader(
+            mapProvider: mapProvider,
+            gameObjectBuilder: gameObjectBuilder,
+            groundItemBuilder: groundItemBuilder,
+            itemSpawns: [new ItemSpawn { ItemId = 995, Count = 1, CoordX = 65, CoordY = 65 }]);
+
+        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => fixture.Loader.LoadAsync(region));
+
+        Assert.AreSame(fatalFailure, actual);
+        gameObject.Received(1).Destroy();
+        item.Received(1).Destroy();
+        region.DidNotReceive().DestroyAsync();
+        fixture.RegionService.Received(1).TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
+    }
+
     private static IMapRegion CreateRegion(Exception? loadFailure = null)
     {
         var state = MapRegionState.Initializing;
@@ -325,7 +364,9 @@ public sealed class MapRegionLoaderTests
         IMapProvider? mapProvider = null,
         IEnumerable<NpcSpawn>? npcSpawns = null,
         Exception? itemSourceFailure = null,
-        IGameObjectBuilder? gameObjectBuilder = null)
+        IGameObjectBuilder? gameObjectBuilder = null,
+        IGroundItemBuilder? groundItemBuilder = null,
+        IEnumerable<ItemSpawn>? itemSpawns = null)
     {
         var mapperConfiguration = new MapperConfiguration(
             configuration =>
@@ -342,7 +383,7 @@ public sealed class MapRegionLoaderTests
         if (itemSourceFailure is null)
         {
             itemRepository.FindByBounds(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
-                .Returns(new TestAsyncEnumerable<ItemSpawn>([]));
+                .Returns(new TestAsyncEnumerable<ItemSpawn>(itemSpawns ?? []));
         }
         else
         {
@@ -365,7 +406,7 @@ public sealed class MapRegionLoaderTests
             objectRepository,
             mapProvider ?? Substitute.For<IMapProvider>(),
             new LocationBuilder(),
-            Substitute.For<IGroundItemBuilder>(),
+            groundItemBuilder ?? Substitute.For<IGroundItemBuilder>(),
             gameObjectBuilder ?? Substitute.For<IGameObjectBuilder>(),
             npcBuilder,
             mapperConfiguration.CreateMapper(),

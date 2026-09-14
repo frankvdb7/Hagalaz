@@ -69,14 +69,17 @@ apply, and cancellation failures remain fatal as well.
 
 ### 6. Discard the instance and clean external ownership
 
-The loader keeps a local list of NPCs whose registration completed successfully.
-If the attempt later fails, it marks the instance discarded before cleanup so
-stale references become inert immediately. It then tries to unregister every
-item in that list and preserves cleanup failures before calling the map
-service's compare-and-remove operation. The operation removes only the active
-dictionary entry whose value is the expected instance, so a late failure
-cannot remove a replacement. The failed region's partially applied local
-state is not reset or reused.
+The loader keeps a local list of NPCs whose registration completed successfully
+and a preparation accumulator containing the exact objects and ground items
+constructed by the attempt. After apply, the region may reference those
+resources, but the accumulator retains rollback responsibility until readiness
+is published. If the attempt later fails, the loader marks the instance
+discarded, exact-removes it from canonical residency, compensates registered
+NPCs through the existing unregister path, and rolls back the exact applied
+objects and items without invoking region-wide destruction. Cleanup failures
+are secondary diagnostics and the original load failure remains primary. After
+successful publication the accumulator is disarmed and normal region lifecycle
+owns terminal cleanup. A replacement region is never touched.
 
 ### 7. Preserve scheduler ownership, coalescing, and canonical identity
 
@@ -106,12 +109,15 @@ phase, and collision returns `FloorBlock` for every non-ready state.
 per-dimension synchronization root covers only dictionary ownership changes,
 so active-to-idle transfer, idle-to-active resume, and exact idle destruction
 claims cannot expose a gap or create a second canonical instance. A destruction
-claim removes the exact idle instance before cleanup starts. Cleanup is terminal:
-the region is no longer canonical even when an individual cleanup operation
-fails, so the background service logs the failure and does not retain a retry
-collection. Existing concurrent dictionaries remain the storage mechanism, and
-exact instance removal remains compare-by-key-and-value cleanup for failed
-loads.
+claim removes the exact idle instance before cleanup starts. Cleanup is
+terminal with respect to residency: the region is no longer canonical even
+when an individual cleanup operation fails. The existing background destruction
+worker retains the exact detached instance for the next housekeeping cycle and
+does not create an immediate retry loop, timer, or second hosted service.
+Successful resource cleanup removes the exact resource from its owning
+collection so retries only encounter incomplete cleanup. Existing concurrent
+dictionaries remain the storage mechanism, and exact instance removal remains
+compare-by-key-and-value cleanup for failed loads.
 
 Dimension removal uses the same synchronization root and removes only an exact
 current, empty `Dimension`. Region construction may occur outside the lock, but

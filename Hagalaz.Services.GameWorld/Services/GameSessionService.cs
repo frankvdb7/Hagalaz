@@ -157,18 +157,31 @@ namespace Hagalaz.Services.GameWorld.Services
                 replacedSession = result.ReplacedSession;
                 return result.Committed;
             });
-            var committed = previousClaimId != null
-                ? await _claims.ExecuteIfOwnerAndReplaceAsync(
-                    expectedSession.MasterId,
-                    previousClaimId,
-                    worldSession.SessionClaimId,
-                    commit,
-                    cancellationToken)
-                : await _claims.ExecuteIfOwnerAsync(
-                    expectedSession.MasterId,
-                    worldSession.SessionClaimId,
-                    commit,
-                    cancellationToken);
+            bool committed;
+            try
+            {
+                committed = previousClaimId != null
+                    ? await _claims.ExecuteIfOwnerAndReplaceAsync(
+                        expectedSession.MasterId,
+                        previousClaimId,
+                        worldSession.SessionClaimId,
+                        commit,
+                        cancellationToken)
+                    : await _claims.ExecuteIfOwnerAsync(
+                        expectedSession.MasterId,
+                        worldSession.SessionClaimId,
+                        commit,
+                        cancellationToken);
+            }
+            catch (GameSessionClaimTransferUncertainException)
+            {
+                if (previousClaimId != null)
+                {
+                    await RetainSessionForCleanupAsync(worldSession, "after uncertain claim transfer");
+                }
+
+                throw;
+            }
             if (!committed)
             {
                 if (previousClaimId != null)

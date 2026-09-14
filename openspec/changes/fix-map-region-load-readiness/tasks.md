@@ -66,9 +66,11 @@
 - [x] 3.7 Make terminal region destruction best-effort across NPCs, ground
       items, and game objects, preserving the first cleanup failure after all
       attempts.
-- [x] 3.8 Remove pending-destruction residency and retry ownership; let
-      `MapRegionService` claim exact idle residency before sequential terminal
-      destruction, with game-worker serialization as the mutation boundary.
+- [x] 3.8 Retain failed detached region instances in the existing background
+      housekeeping flow and retry the exact instance on the next cadence,
+      without adding a second scheduler.
+- [x] 3.9 Remove successfully terminally cleaned ground items and game objects
+      from their owning collections without adding per-resource lifecycle state.
 
 ## 4. Direct NPC cleanup
 
@@ -109,3 +111,14 @@
 - [x] 5.7 Add deterministic command-to-game-loop coverage and retain the
       active/idle, dynamic-region, script-callback, and NPC-attachment race
       coverage at the service ownership boundary.
+- [x] 5.8 Add end-to-end visible-region refresh/housekeeping coverage proving
+      canonical identity, clipping, and map-update behavior.
+- [x] 5.9 Add deterministic loader rollback coverage for applied objects/items,
+      separate NPC compensation, primary exception preservation, and replacement
+      isolation.
+- [x] 5.10 Add deterministic detached-region retry and per-resource retry-safety
+      coverage.
+- [x] 5.11 Add deterministic claim-transfer uncertainty and exact pending-claim
+      reconciliation coverage.
+- [x] 5.12 Add deterministic logout cancellation-boundary coverage, including
+      cancellation after persistence-submission ownership and exact receipt reuse.

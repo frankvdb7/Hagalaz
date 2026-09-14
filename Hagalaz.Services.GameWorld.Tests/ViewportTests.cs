@@ -66,7 +66,7 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<IMapSize>())
                 .Returns(new List<IMapRegion> { region });
-            _regionService.FindMapRegion(1, 0).Returns(region);
+            _regionService.GetOrCreateMapRegion(1, 0).Returns(region);
 
             _viewport.RebuildView();
             _viewport.UpdateTick();
@@ -101,7 +101,7 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<IMapSize>())
                 .Returns(new List<IMapRegion> { region });
-            _regionService.FindMapRegion(1, 0).Returns(region);
+            _regionService.GetOrCreateMapRegion(1, 0).Returns(region);
 
             _viewport.RebuildView();
             _viewport.UpdateTick();
@@ -135,7 +135,7 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<IMapSize>())
                 .Returns(new List<IMapRegion> { region });
-            _regionService.FindMapRegion(1, 0).Returns(region);
+            _regionService.GetOrCreateMapRegion(1, 0).Returns(region);
 
             _viewport.RebuildView();
             _viewport.UpdateTick();
@@ -165,7 +165,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             _owner.Location.Returns(location);
             _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), _mapSize)
                 .Returns(new[] { firstRegion });
-            _regionService.FindMapRegion(location.RegionId, location.Dimension).Returns(replacementRegion);
+            _regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension).Returns(replacementRegion);
 
             _viewport.RebuildView();
 

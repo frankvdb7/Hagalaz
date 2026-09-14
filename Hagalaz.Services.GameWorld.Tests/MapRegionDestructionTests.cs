@@ -82,6 +82,39 @@ public sealed class MapRegionDestructionTests
         Assert.AreEqual("npc-failure", exception.Message);
     }
 
+    [TestMethod]
+    public async Task DestroyAsync_RemovesSuccessfullyDestroyedItemsAndObjectsFromCollections()
+    {
+        var region = CreateRegion(Substitute.For<INpcService>());
+        var item = Substitute.For<IGroundItem>();
+        item.Location.Returns(Location.Create(1, 1, 0, 0));
+        var gameObject = CreateGameObject(Location.Create(2, 2, 0, 0));
+        region.Add(item);
+        region.Add(gameObject);
+
+        await region.DestroyAsync();
+
+        Assert.IsEmpty(region.FindAllGroundItems());
+        Assert.IsEmpty(region.FindAllGameObjects());
+        await region.DestroyAsync();
+        item.Received(1).Destroy();
+        gameObject.Received(1).Destroy();
+    }
+
+    [TestMethod]
+    public async Task DestroyAsync_WhenNpcCleanupFails_RetainsNpcForRetry()
+    {
+        var npcService = Substitute.For<INpcService>();
+        var npc = CreateNpc(1);
+        npcService.UnregisterAsync(npc).Returns(Task.FromException(new InvalidOperationException("npc")));
+        var region = CreateRegion(npcService);
+        region.Add(npc);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => region.DestroyAsync());
+
+        Assert.Contains(npc, region.FindAllNpcs());
+    }
+
     private static MapRegion CreateRegion(INpcService npcService) => new(
         Location.Create(0, 0, 0, 0),
         [0, 0, 0, 0],
