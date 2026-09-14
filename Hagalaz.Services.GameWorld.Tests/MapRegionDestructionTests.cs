@@ -25,9 +25,10 @@ public sealed class MapRegionDestructionTests
         region.Add(first);
         region.Add(second);
 
-        var actual = Assert.ThrowsExactly<InvalidOperationException>(() => region.Destroy());
+        var actual = Assert.ThrowsExactly<AggregateException>(() => region.Destroy());
 
-        Assert.AreSame(failure, actual);
+        Assert.AreEqual(1, actual.InnerExceptions.Count);
+        Assert.AreSame(failure, actual.InnerExceptions[0]);
         first.Received(1).Destroy();
         second.Received(1).Destroy();
     }
@@ -67,21 +68,27 @@ public sealed class MapRegionDestructionTests
     {
         var first = CreateNpc(1);
         var second = CreateNpc(2);
-        var failure = new InvalidOperationException("npc-a");
+        var firstFailure = new InvalidOperationException("npc-a");
+        var secondFailure = new InvalidOperationException("npc-b");
+        var objectFailure = new InvalidOperationException("object-a");
         var npcService = Substitute.For<INpcService>();
-        npcService.When(value => value.Unregister(first)).Do(_ => throw failure);
+        npcService.When(value => value.Unregister(first)).Do(_ => throw firstFailure);
+        npcService.When(value => value.Unregister(second)).Do(_ => throw secondFailure);
         var item = Substitute.For<IGroundItem>();
         item.Location.Returns(Location.Create(1, 1, 0, 0));
         var gameObject = CreateGameObject(Location.Create(2, 2, 0, 0));
+        gameObject.When(value => value.Destroy()).Do(_ => throw objectFailure);
         var region = CreateRegion(npcService);
         region.Add(first);
         region.Add(second);
         region.Add(item);
         region.Add(gameObject);
 
-        var actual = Assert.ThrowsExactly<InvalidOperationException>(() => region.Destroy());
+        var actual = Assert.ThrowsExactly<AggregateException>(() => region.Destroy());
 
-        Assert.AreSame(failure, actual);
+        CollectionAssert.AreEquivalent(
+            new[] { firstFailure, secondFailure, objectFailure },
+            actual.InnerExceptions);
         npcService.Received(1).Unregister(first);
         npcService.Received(1).Unregister(second);
         item.Received(1).Destroy();

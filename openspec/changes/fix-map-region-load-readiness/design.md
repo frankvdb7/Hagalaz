@@ -130,8 +130,9 @@ background worker then invokes `MapRegion.Destroy` on that exact instance;
 `MapRegion.Destroy` synchronously unregisters its NPCs through `INpcService`
 and destroys its ground items and game objects. The detached instance is never
 returned to residency and no later retry is scheduled. Cleanup attempts
-independent resources where callbacks can fail, preserves the first failure,
-and does not own a residency retry path.
+independent resources where callbacks can fail, collects all cleanup failures,
+and reports them in one `AggregateException` after the pass. It does not own a
+residency retry path.
 Game-worker serialization is the mutation boundary for active regions, so the
 region does not add a second mutation lock.
 

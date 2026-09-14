@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Data;
@@ -215,7 +214,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void Destroy()
         {
-            Exception? failure = null;
+            List<Exception>? exceptions = null;
             try
             {
                 try
@@ -224,7 +223,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 }
                 catch (Exception exception)
                 {
-                    failure ??= exception;
+                    (exceptions ??= []).Add(exception);
                 }
 
                 if (_region is not null)
@@ -242,7 +241,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 }
                 catch (Exception exception)
                 {
-                    failure ??= exception;
+                    (exceptions ??= []).Add(exception);
                 }
 
                 try
@@ -251,7 +250,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 }
                 catch (Exception exception)
                 {
-                    failure ??= exception;
+                    (exceptions ??= []).Add(exception);
                 }
             }
             finally
@@ -262,14 +261,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 }
                 catch (Exception exception)
                 {
-                    failure ??= exception;
+                    (exceptions ??= []).Add(exception);
                 }
 
             }
 
-            if (failure is not null)
+            if (exceptions is { Count: > 0 })
             {
-                ExceptionDispatchInfo.Capture(failure).Throw();
+                throw new AggregateException("One or more creature cleanup operations failed.", exceptions).Flatten();
             }
         }
 

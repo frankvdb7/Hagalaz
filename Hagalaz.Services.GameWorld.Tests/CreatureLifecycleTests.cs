@@ -77,8 +77,10 @@ public sealed class CreatureLifecycleTests
     {
         var (creature, _, scope) = CreateCreature(onDestroyFailure: true);
 
-        Assert.ThrowsExactly<InvalidOperationException>(() => creature.Destroy());
+        var actual = Assert.ThrowsExactly<AggregateException>(() => creature.Destroy());
 
+        Assert.AreEqual(1, actual.InnerExceptions.Count);
+        Assert.AreEqual("destroy failed", actual.InnerExceptions[0].Message);
         scope.Received(1).Dispose();
     }
 

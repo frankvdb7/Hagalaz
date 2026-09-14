@@ -65,7 +65,8 @@
       interfaces, reset methods, helpers, and same-instance rollback tests.
 - [x] 3.7 Keep NPC, ground-item, and game-object teardown in synchronous
       `MapRegion.Destroy`, using `INpcService.Unregister` for owned NPCs and
-      preserving the first cleanup failure after all safe attempts.
+      collecting cleanup failures and reporting them in one `AggregateException`
+      after all safe attempts.
 - [x] 3.8 Make detached-region destruction one best-effort attempt after exact
       detach and log failures without retaining a second retry mechanism.
 - [x] 3.9 Keep normal resource collection ownership unchanged; do not add

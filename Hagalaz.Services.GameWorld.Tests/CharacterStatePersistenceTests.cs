@@ -167,9 +167,10 @@ public sealed class CharacterStatePersistenceTests
         });
         var character = CreateCharacter(new TestStateService(), out _, new[] { script });
 
-        var firstFailure = Assert.ThrowsExactly<InvalidOperationException>(() => character.Destroy());
+        var actual = Assert.ThrowsExactly<AggregateException>(() => character.Destroy());
 
-        Assert.AreSame(failure, firstFailure);
+        Assert.AreEqual(1, actual.InnerExceptions.Count);
+        Assert.AreSame(failure, actual.InnerExceptions[0]);
         script.Received(1).OnDestroy();
         character.EventManager.Received(1).SendEvent(Arg.Any<IEvent>());
     }

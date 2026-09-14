@@ -28,10 +28,11 @@ it does not check a state through one API and mutate it through another.
    `FindMapRegion` performs an exact existing-region lookup without creating or
    resuming an idle region; read-only and teardown paths use it.
 
-4. **Creature event cleanup is terminal.** `UnregisterEventHandlers` detaches
-   its handler inventory before calling the event manager, attempts every
-   captured handler, and throws the first failure after the pass. A destroyed
-   creature cannot resume cleanup or register new handlers.
+4. **Creature cleanup is terminal.** `UnregisterEventHandlers` detaches its
+   handler inventory before calling the event manager. Creature, Character, and
+   NPC destruction continues across independent cleanup failures and reports
+   them in one `AggregateException`. A destroyed creature cannot resume cleanup
+   or register new handlers.
 
 5. **Lease renewal follows store-owned state.** `GameSessionStore.FindAll`
    returns active and pending-world sessions, while moving a session into

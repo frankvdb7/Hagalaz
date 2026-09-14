@@ -167,8 +167,9 @@ and non-canonical even when cleanup is incomplete.
 
 #### Scenario: Multiple cleanup operations fail
 
-- **WHEN** NPC, ground-item, and game-object cleanup each fail
-- **THEN** destruction MUST report the first failure
+- **WHEN** multiple independent NPC or game-object cleanup operations fail
+- **THEN** destruction MUST report all cleanup failures in one
+  `AggregateException`
 - **AND** every later cleanup operation MUST still be attempted
 
 #### Scenario: Cleanup fails after a region has been claimed

@@ -22,8 +22,9 @@ receives only detached models.
   local character, so admission cannot publish a character before its
   revision baseline exists and failed registration never rolls that baseline
   back.
-- Make creature event-handler cleanup one terminal attempt that tries every
-  handler, preserves the first failure, and discards dead-creature bookkeeping.
+- Make creature destruction cleanup one terminal attempt that continues across
+  independent failures, reports them in one `AggregateException`, and discards
+  dead-creature bookkeeping.
 - Remove impossible pending-cleanup filtering, claim-loss flags, and a
   forwarding method from `GameSessionLeaseService`.
 - Move all dimension/residency synchronization to one `MapRegionService` gate
@@ -107,8 +108,9 @@ receives only detached models.
   `FindByMasterId` or `Forget`. Later failure removes the exact registered
   character, destroys it, and releases the session reservation without
   rolling back the monotonic revision state.
-- Creature event cleanup attempts every handler, preserves the first failure,
-  and leaves no retry inventory or registration capability on the dead object.
+- Creature destruction cleanup attempts every independent cleanup operation,
+  reports all failures in one `AggregateException`, and leaves no retry
+  inventory or registration capability on the dead object.
 - Lease renewal keeps pending claim cleanup, exact claim IDs, retry
   reconciliation, fencing, pending abort processing, and cancellation while
   removing only impossible branches and forwarding ceremony.

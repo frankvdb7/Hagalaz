@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using System.Runtime.ExceptionServices;
 using AutoMapper;
 using Hagalaz.Collections;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
@@ -297,7 +296,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Destroy()
         {
-            Exception? failure = null;
+            List<Exception>? exceptions = null;
             var npcs = _npcs.ToArray();
             var items = FindAllGroundItems().ToArray();
             var objects = FindAllGameObjects().ToArray();
@@ -310,7 +309,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 }
                 catch (Exception ex)
                 {
-                    failure ??= ex;
+                    (exceptions ??= []).Add(ex);
                 }
             }
 
@@ -325,12 +324,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     obj.Destroy();
                 }
-                catch (Exception ex) { failure ??= ex; }
+                catch (Exception ex) { (exceptions ??= []).Add(ex); }
             }
 
-            if (failure is not null)
+            if (exceptions is { Count: > 0 })
             {
-                ExceptionDispatchInfo.Capture(failure).Throw();
+                throw new AggregateException("One or more map region resources failed to be destroyed.", exceptions).Flatten();
             }
         }
 

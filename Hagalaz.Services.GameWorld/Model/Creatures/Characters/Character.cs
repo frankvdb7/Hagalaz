@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.ExceptionServices;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Builders.Animation;
@@ -391,14 +390,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         protected override void OnDestroy()
         {
-            Exception? failure = null;
+            List<Exception>? exceptions = null;
             try
             {
                 EventManager.SendEvent(new CreatureDestroyedEvent(this));
             }
             catch (Exception exception)
             {
-                failure = exception;
+                (exceptions ??= []).Add(exception);
             }
 
             foreach (var script in _scripts.Values)
@@ -409,15 +408,22 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
                 catch (Exception exception)
                 {
-                    failure ??= exception;
+                    (exceptions ??= []).Add(exception);
                 }
             }
 
-            UnregisterEventHandlers();
-
-            if (failure is not null)
+            try
             {
-                ExceptionDispatchInfo.Capture(failure).Throw();
+                UnregisterEventHandlers();
+            }
+            catch (Exception exception)
+            {
+                (exceptions ??= []).Add(exception);
+            }
+
+            if (exceptions is { Count: > 0 })
+            {
+                throw new AggregateException("One or more character cleanup operations failed.", exceptions).Flatten();
             }
         }
 

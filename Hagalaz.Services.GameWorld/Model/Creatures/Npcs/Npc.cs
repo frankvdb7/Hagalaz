@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System;
 using System.Collections.Generic;
-using System.Runtime.ExceptionServices;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Factories;
@@ -169,14 +168,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         protected override void OnDestroy()
         {
-            Exception? failure = null;
+            List<Exception>? exceptions = null;
             try
             {
                 EventManager.SendEvent(new CreatureDestroyedEvent(this));
             }
             catch (Exception exception)
             {
-                failure = exception;
+                (exceptions ??= []).Add(exception);
             }
 
             if (_scriptCreateStarted)
@@ -187,15 +186,22 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
                 }
                 catch (Exception exception)
                 {
-                    failure ??= exception;
+                    (exceptions ??= []).Add(exception);
                 }
             }
 
-            UnregisterEventHandlers();
-
-            if (failure is not null)
+            try
             {
-                ExceptionDispatchInfo.Capture(failure).Throw();
+                UnregisterEventHandlers();
+            }
+            catch (Exception exception)
+            {
+                (exceptions ??= []).Add(exception);
+            }
+
+            if (exceptions is { Count: > 0 })
+            {
+                throw new AggregateException("One or more NPC cleanup operations failed.", exceptions).Flatten();
             }
         }
 
