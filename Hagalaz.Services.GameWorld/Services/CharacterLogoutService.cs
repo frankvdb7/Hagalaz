@@ -15,18 +15,10 @@ namespace Hagalaz.Services.GameWorld.Services;
 
 public interface ICharacterLogoutService
 {
-    bool TryBeginLogout(
-        ICharacter character,
-        out bool created,
-        out CharacterPersistenceReceipt? persistenceReceipt);
+    bool TryBeginLogout(ICharacter character, out CharacterPersistenceReceipt? persistenceReceipt);
 
     bool SetPendingLogoutPersistence(ICharacter character, CharacterPersistenceReceipt receipt);
     bool TryGetPendingPersistence(ICharacter character, out CharacterPersistenceReceipt? persistenceReceipt);
-    bool TryBeginPersistenceSubmission(
-        ICharacter character,
-        out Task<CharacterPersistenceReceipt> completion,
-        out bool shouldSubmit);
-    bool FailPersistenceSubmission(ICharacter character, Exception exception);
     bool IsPendingLogout(ICharacter character);
     bool IsPendingLogout(uint masterId);
     Task<CharacterModel> DetachAsync(ICharacter character, CancellationToken cancellationToken = default);
@@ -38,7 +30,7 @@ public sealed class CharacterLogoutState
     private readonly object _gate = new();
     private readonly Dictionary<uint, PendingLogout> _pending = new();
 
-    public bool TryBeginLogout(ICharacter character, out bool created, out CharacterPersistenceReceipt? persistenceReceipt)
+    public bool TryBeginLogout(ICharacter character, out CharacterPersistenceReceipt? persistenceReceipt)
     {
         lock (_gate)
         {
@@ -46,12 +38,10 @@ public sealed class CharacterLogoutState
             {
                 pending = new PendingLogout(character);
                 _pending.Add(character.MasterId, pending);
-                created = true;
                 persistenceReceipt = null;
                 return true;
             }
 
-            created = false;
             if (!ReferenceEquals(pending.Character, character))
             {
                 persistenceReceipt = null;
@@ -72,63 +62,8 @@ public sealed class CharacterLogoutState
                 return false;
             }
 
-            pending.PersistenceReceipt = receipt;
-            pending.PersistenceSubmission?.TrySetResult(receipt);
+            pending.PersistenceReceipt ??= receipt;
             return true;
-        }
-    }
-
-    public bool TryBeginPersistenceSubmission(
-        ICharacter character,
-        out Task<CharacterPersistenceReceipt> completion,
-        out bool shouldSubmit)
-    {
-        lock (_gate)
-        {
-            if (!_pending.TryGetValue(character.MasterId, out var pending) ||
-                !ReferenceEquals(pending.Character, character))
-            {
-                completion = null!;
-                shouldSubmit = false;
-                return false;
-            }
-
-            if (pending.PersistenceReceipt is { } receipt)
-            {
-                completion = Task.FromResult(receipt);
-                shouldSubmit = false;
-                return true;
-            }
-
-            if (pending.PersistenceSubmission is { } existing)
-            {
-                completion = existing.Task;
-                shouldSubmit = false;
-                return true;
-            }
-
-            var submission = new TaskCompletionSource<CharacterPersistenceReceipt>(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            pending.PersistenceSubmission = submission;
-            completion = submission.Task;
-            shouldSubmit = true;
-            return true;
-        }
-    }
-
-    public bool FailPersistenceSubmission(ICharacter character, Exception exception)
-    {
-        lock (_gate)
-        {
-            if (!_pending.TryGetValue(character.MasterId, out var pending) ||
-                !ReferenceEquals(pending.Character, character) ||
-                pending.PersistenceSubmission is not { } submission)
-            {
-                return false;
-            }
-
-            pending.PersistenceSubmission = null;
-            return submission.TrySetException(exception);
         }
     }
 
@@ -261,7 +196,6 @@ public sealed class CharacterLogoutState
         public string ConnectionId { get; }
         public CharacterModel? Snapshot { get; set; }
         public CharacterPersistenceReceipt? PersistenceReceipt { get; set; }
-        public TaskCompletionSource<CharacterPersistenceReceipt>? PersistenceSubmission { get; set; }
         public TaskCompletionSource<CharacterModel>? TerminalTransition { get; set; }
     }
 }
@@ -288,23 +222,14 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
         _persistenceState = persistenceState;
     }
 
-    public bool TryBeginLogout(ICharacter character, out bool created, out CharacterPersistenceReceipt? persistenceReceipt) =>
-        _logoutState.TryBeginLogout(character, out created, out persistenceReceipt);
+    public bool TryBeginLogout(ICharacter character, out CharacterPersistenceReceipt? persistenceReceipt) =>
+        _logoutState.TryBeginLogout(character, out persistenceReceipt);
 
     public bool SetPendingLogoutPersistence(ICharacter character, CharacterPersistenceReceipt receipt) =>
         _logoutState.SetPersistenceReceipt(character, receipt);
 
     public bool TryGetPendingPersistence(ICharacter character, out CharacterPersistenceReceipt? persistenceReceipt) =>
         _logoutState.TryGetPersistenceReceipt(character, out persistenceReceipt);
-
-    public bool TryBeginPersistenceSubmission(
-        ICharacter character,
-        out Task<CharacterPersistenceReceipt> completion,
-        out bool shouldSubmit) =>
-        _logoutState.TryBeginPersistenceSubmission(character, out completion, out shouldSubmit);
-
-    public bool FailPersistenceSubmission(ICharacter character, Exception exception) =>
-        _logoutState.FailPersistenceSubmission(character, exception);
 
     public bool IsPendingLogout(ICharacter character) => _logoutState.IsPending(character);
 

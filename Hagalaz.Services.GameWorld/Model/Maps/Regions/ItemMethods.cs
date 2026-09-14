@@ -16,7 +16,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         public void Add(IGroundItem item)
         {
             EnsureAcceptsMutation();
-            GetOrCreateRegionPart(item.Location.GetRegionPartHash()).Add(item);
+            _parts.GetOrAdd(item.Location.GetRegionPartHash(), CreateRegionPart).Add(item);
         }
 
         public bool Remove(IGroundItem item)

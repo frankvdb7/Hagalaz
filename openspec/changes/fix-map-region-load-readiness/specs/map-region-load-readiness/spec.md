@@ -172,9 +172,9 @@ remains detached and non-canonical even when cleanup is incomplete.
 
 - **WHEN** cleanup fails after an exact idle region has been removed from residency
 - **THEN** the region MUST remain detached and non-canonical
-- **AND** the background service MUST retain that exact region instance for the
-  next existing housekeeping cycle
-- **AND** successful resources MUST NOT be terminally cleaned again on retry
+- **AND** the background service MUST log the cleanup failure
+- **AND** the background service MUST NOT schedule a second cleanup attempt for
+  that detached instance
 
 #### Scenario: A visible region is restored before housekeeping
 
@@ -262,6 +262,14 @@ accumulator is disarmed and normal region lifecycle owns terminal cleanup.
 - **WHEN** a required source query or map cache read/decode fails
 - **THEN** no partially prepared source result is applied to the region
 - **AND** the failed region instance MUST be removed/discarded
+
+#### Scenario: Resource construction fails after an earlier resource was built
+
+- **WHEN** one resource is constructed successfully and a later resource
+  construction fails before preparation completes
+- **THEN** the loader MUST clean the earlier exact resource
+- **AND** the failed region instance MUST be removed/discarded
+- **AND** no replacement region MUST be touched
 
 #### Scenario: Cancellation follows successful NPC registration
 

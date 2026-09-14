@@ -227,17 +227,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                     failure ??= exception;
                 }
 
-                try
+                if (_region is not null)
                 {
-                    if (_region is not null)
-                    {
-                        RemoveFromRegion(_region);
-                        _region = null;
-                    }
-                }
-                catch (Exception exception)
-                {
-                    failure ??= exception;
+                    RemoveFromRegion(_region);
+                    _region = null;
                 }
 
                 try
@@ -890,25 +883,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             }
 
             var eventManager = ServiceProvider.GetRequiredService<IEventManager>();
-            Exception? failure = null;
             foreach (var (type, registeredHandlers) in handlers)
             {
                 foreach (var eventHappened in registeredHandlers.ToArray())
                 {
-                    try
-                    {
-                        eventManager.StopListen(type, eventHappened);
-                    }
-                    catch (Exception exception)
-                    {
-                        failure ??= exception;
-                    }
+                    eventManager.StopListen(type, eventHappened);
                 }
-            }
-
-            if (failure is not null)
-            {
-                throw failure;
             }
         }
 

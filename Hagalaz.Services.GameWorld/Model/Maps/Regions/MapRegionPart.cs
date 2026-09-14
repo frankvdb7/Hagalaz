@@ -182,20 +182,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             QueueUpdate(new RemoveGameObjectUpdate(gameObject));
         }
 
-        internal bool RemoveDestroyed(IGameObject gameObject)
-        {
-            var localHash = gameObject.GetRegionLocalHash();
-            if (!_gameObjects.TryGetValue(localHash, out var gameObjectOnLocation) ||
-                !ReferenceEquals(gameObjectOnLocation, gameObject))
-            {
-                return false;
-            }
-
-            _gameObjects.Remove(localHash);
-            _disabledStaticGameObjects.Remove(localHash);
-            return true;
-        }
-
         public bool Remove(IGroundItem item)
         {
             var localHash = item.Location.GetRegionLocalHash();
@@ -244,29 +230,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             if (itemsOnLocation.Count <= 0)
-            {
-                _groundItems.Remove(localHash);
-            }
-
-            return true;
-        }
-
-        internal bool RemoveDestroyed(IGroundItem item)
-        {
-            var localHash = item.Location.GetRegionLocalHash();
-            if (!_groundItems.TryGetValue(localHash, out var itemsOnLocation))
-            {
-                return false;
-            }
-
-            var itemIndex = itemsOnLocation.FindIndex(existingItem => ReferenceEquals(existingItem, item));
-            if (itemIndex < 0)
-            {
-                return false;
-            }
-
-            itemsOnLocation.RemoveAt(itemIndex);
-            if (itemsOnLocation.Count == 0)
             {
                 _groundItems.Remove(localHash);
             }

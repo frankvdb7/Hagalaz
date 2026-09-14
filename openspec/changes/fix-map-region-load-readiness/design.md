@@ -11,8 +11,7 @@ and must remove a failed published instance before completing its failed load.
 Goals are complete readiness publication, prepare-before-apply, accurate cache
 failure semantics, fatal NPC construction and registration failure, cleanup of
 external NPC ownership, explicit region lifecycle, stale reference rejection,
-and fresh-instance retry through the existing
-service/scheduler.
+and fresh-instance recovery through the existing service/scheduler.
 
 Non-goals are a generic transaction abstraction, a second queue or worker
 (the scheduler request channel is shared with the publication sink),
@@ -38,10 +37,10 @@ population; a fatal failure or cancellation marks that instance `Discarded`.
 `Ready` and `Discarded` are terminal for this lifecycle. A discarded instance
 is never reset or retried.
 
-Destruction is a terminal fact on the region. `MapRegionService` removes an
-exact idle region from residency before cleanup, and `MapRegion.DestroyAsync`
-then performs sequential terminal cleanup without owning residency or a
-second destruction state machine.
+Detachment is terminal with respect to residency. `MapRegionService` removes
+an exact idle region from residency before cleanup, and
+`MapRegion.DestroyAsync` then performs sequential cleanup without owning
+residency or a second destruction state machine.
 
 ### 3. Apply prepared map state before NPC registration
 
@@ -112,10 +111,9 @@ claims cannot expose a gap or create a second canonical instance. A destruction
 claim removes the exact idle instance before cleanup starts. Cleanup is
 terminal with respect to residency: the region is no longer canonical even
 when an individual cleanup operation fails. The existing background destruction
-worker retains the exact detached instance for the next housekeeping cycle and
-does not create an immediate retry loop, timer, or second hosted service.
-Successful resource cleanup removes the exact resource from its owning
-collection so retries only encounter incomplete cleanup. Existing concurrent
+worker makes one best-effort cleanup attempt for the exact detached instance and
+logs a failure; it does not retain detached work for another cleanup scheduler,
+create a retry loop, or add per-resource retry bookkeeping. Existing concurrent
 dictionaries remain the storage mechanism, and exact instance removal remains
 compare-by-key-and-value cleanup for failed loads.
 
@@ -125,12 +123,13 @@ publication revalidates that the captured dimension is still current before
 inserting the region.
 
 `MapRegionService` removes an exact idle instance under its per-dimension
-residency synchronization root before calling destruction. `MapRegion`
-publishes its terminal destroyed fact and then performs cleanup sequentially;
-later calls fail immediately. Cleanup attempts every NPC, ground item, and
-game object independently, preserves the first failure, and does not own a
-residency retry path. Game-worker serialization is the mutation boundary for
-active regions, so the region does not add a second mutation lock.
+residency synchronization root before calling destruction. `MapRegion` then
+performs cleanup sequentially; the detached instance is never returned to
+residency and no later retry is scheduled. Cleanup attempts every NPC, ground
+item, and game object independently, preserves the first failure, and does not
+own a residency retry path. Game-worker serialization is the mutation
+boundary for active regions, so the region does not add a second mutation
+lock.
 
 ### 12. Request initial loads at canonical publication
 

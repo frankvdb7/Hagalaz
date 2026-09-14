@@ -261,22 +261,24 @@ public sealed class CharacterPersistenceServiceTests
     }
 
     [TestMethod]
-    public async Task PersistAsync_SaveChangesFailure_RetainsPendingReceiptForIndeterminatePublication()
+    public async Task PersistAsync_SaveChangesFailure_ReleasesPendingReceiptForIdempotentRetry()
     {
         await using var harness = new PersistenceHarness();
-        var saveFailure = new InvalidOperationException("outbox commit failed");
+        var saveFailure = new InvalidOperationException("outbox save failed");
         harness.SaveChangesException = saveFailure;
 
-        var exception = await Assert.ThrowsExactlyAsync<CharacterPersistenceSubmissionIndeterminateException>(
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => harness.Service.PersistAsync(42, harness.CurrentModel, force: false));
 
-        Assert.AreSame(saveFailure, exception.InnerException);
-        Assert.IsTrue(harness.State.TryGetPending(42, out var pending));
-        Assert.AreSame(exception.Receipt, pending);
+        Assert.AreSame(saveFailure, exception);
+        Assert.IsFalse(harness.State.TryGetPending(42, out _));
         harness.SaveChangesException = null;
 
-        Assert.IsNull(await harness.Service.PersistAsync(42, harness.CurrentModel, force: false));
-        Assert.HasCount(1, harness.PublishedCommands);
+        var retry = await harness.Service.PersistAsync(42, harness.CurrentModel, force: false);
+
+        Assert.IsNotNull(retry);
+        Assert.HasCount(2, harness.PublishedCommands);
+        Assert.AreEqual(harness.PublishedCommands[0].SnapshotRevision, harness.PublishedCommands[1].SnapshotRevision);
     }
 
     [TestMethod]

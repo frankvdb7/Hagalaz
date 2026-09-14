@@ -350,12 +350,10 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
         var logoutReceipt = new CharacterPersistenceReceipt(47, Guid.NewGuid(), 1);
         harness.CharacterLogoutService.TryBeginLogout(
                 Arg.Any<ICharacter>(),
-                out Arg.Any<bool>(),
                 out Arg.Any<CharacterPersistenceReceipt?>())
             .Returns(callInfo =>
             {
-                callInfo[1] = true;
-                callInfo[2] = null;
+                callInfo[1] = null;
                 return true;
             });
         harness.CharacterLogoutService.SetPendingLogoutPersistence(

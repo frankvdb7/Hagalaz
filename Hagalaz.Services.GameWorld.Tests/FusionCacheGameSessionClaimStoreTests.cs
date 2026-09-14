@@ -124,13 +124,12 @@ public sealed class FusionCacheGameSessionClaimStoreTests
     }
 
     [TestMethod]
-    public async Task ExecuteIfOwnerAndReplaceAsync_WhenRestorationFailsReportsReplacementClaimUncertainty()
+    public async Task ExecuteIfOwnerAndReplaceAsync_WhenRestorationFailsPropagatesRestorationFailure()
     {
         var (store, cache, _) = CreateStore();
         cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
             .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.FromValue("lobby-claim")));
         var setCalls = 0;
-        var localFailure = new InvalidOperationException("local commit failed");
         var restorationFailure = new InvalidOperationException("restoration failed");
         cache.SetAsync(
                 Arg.Any<string>(),
@@ -145,17 +144,24 @@ public sealed class FusionCacheGameSessionClaimStoreTests
                     : new ValueTask(Task.FromException(restorationFailure));
             });
 
-        var exception = await Assert.ThrowsExactlyAsync<GameSessionClaimTransferUncertainException>(() =>
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             store.ExecuteIfOwnerAndReplaceAsync(
                 42,
                 "lobby-claim",
                 "world-claim",
-                _ => Task.FromException<bool>(localFailure)));
+                _ => Task.FromResult(false)));
 
-        Assert.AreEqual(42u, exception.MasterId);
-        Assert.AreEqual("world-claim", exception.ReplacementClaimId);
-        Assert.AreSame(localFailure, exception.InnerException);
-        Assert.AreSame(restorationFailure, exception.RestorationException);
+        Assert.AreSame(restorationFailure, exception);
+        await cache.Received(1).SetAsync(
+            "hagalaz:game-session:42",
+            "world-claim",
+            Arg.Any<FusionCacheEntryOptions>(),
+            Arg.Any<CancellationToken>());
+        await cache.Received(1).SetAsync(
+            "hagalaz:game-session:42",
+            "lobby-claim",
+            Arg.Any<FusionCacheEntryOptions>(),
+            CancellationToken.None);
     }
 
     [TestMethod]

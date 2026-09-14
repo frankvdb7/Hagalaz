@@ -69,7 +69,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         public void Add(IGameObject gameObject)
         {
             EnsureAcceptsMutation();
-            GetOrCreateRegionPart(gameObject.Location.GetRegionPartHash()).Add(gameObject);
+            _parts.GetOrAdd(gameObject.Location.GetRegionPartHash(), CreateRegionPart).Add(gameObject);
             FlagCollision(gameObject);
         }
 
@@ -175,7 +175,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var partHash = LocationHelper.GetRegionPartHash(partX, partY, z);
             return _parts.GetOrAdd(partHash, hash =>
             {
-                var part = CreateRegionPartCore(hash);
+                var part = CreateRegionPart(hash);
                 part.HasDrawSource = false;
                 return part;
             });

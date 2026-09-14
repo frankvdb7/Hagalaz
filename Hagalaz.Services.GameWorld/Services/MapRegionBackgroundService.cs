@@ -22,8 +22,6 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly IMapRegionService _regionService;
         private readonly ILogger<MapRegionBackgroundService> _logger;
         private readonly Channel<IMapRegion> _detachedRegions = Channel.CreateUnbounded<IMapRegion>();
-        private readonly object _retryGate = new();
-        private readonly HashSet<IMapRegion> _failedDetachedRegions = new(ReferenceEqualityComparer.Instance);
         private DateTime _lastProcessedAt = DateTime.MinValue;
 
         public MapRegionBackgroundService(IMapRegionService regionService, ILogger<MapRegionBackgroundService> logger)
@@ -66,8 +64,6 @@ namespace Hagalaz.Services.GameWorld.Services
                 visibleRegions.UnionWith(character.Viewport.VisibleRegions);
             }
 
-            QueueFailedRetries(visibleRegions);
-
             foreach (var dimension in _regionService.FindAllDimensions())
             {
                 foreach (var region in _regionService.FindRegionsByDimension(dimension.Id)
@@ -108,25 +104,6 @@ namespace Hagalaz.Services.GameWorld.Services
             return Task.CompletedTask;
         }
 
-        private void QueueFailedRetries(HashSet<IMapRegion> visibleRegions)
-        {
-            lock (_retryGate)
-            {
-                foreach (var region in _failedDetachedRegions.ToArray())
-                {
-                    if (visibleRegions.Contains(region))
-                    {
-                        continue;
-                    }
-
-                    if (_detachedRegions.Writer.TryWrite(region))
-                    {
-                        _failedDetachedRegions.Remove(region);
-                    }
-                }
-            }
-        }
-
         private async Task DestroyDetachedRegionAsync(IMapRegion region)
         {
             try
@@ -136,12 +113,7 @@ namespace Hagalaz.Services.GameWorld.Services
             }
             catch (Exception ex)
             {
-                lock (_retryGate)
-                {
-                    _failedDetachedRegions.Add(region);
-                }
-
-                _logger.LogError(ex, "Failed to destroy detached region[{id}]; it will be retried during the next housekeeping cycle.", region.Id);
+                _logger.LogError(ex, "Failed to destroy detached region[{id}].", region.Id);
             }
         }
     }

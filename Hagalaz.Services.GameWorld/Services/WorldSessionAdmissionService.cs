@@ -83,7 +83,8 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
 
         var session = sessionRegistration.Session;
         var signInSucceeded = false;
-        ICharacter? registeredCharacter = null;
+        ICharacter? character = null;
+        var characterRegistered = false;
         try
         {
             CharacterModel characterModel;
@@ -115,48 +116,22 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
                 return SignInResult.Fail;
             }
 
-            var character = _characterFactory.Create(session, signInRequest.GameClient);
-            try
+            character = _characterFactory.Create(session, signInRequest.GameClient);
+            if (!await _characterHydrationService.HydrateAsync(character, characterModel))
             {
-                if (!await _characterHydrationService.HydrateAsync(character, characterModel))
-                {
-                    _logger.LogWarning("Unable to hydrate character '{character}'", character);
-                    DestroyUnregisteredCharacter(character);
-                    return SignInResult.Fail;
-                }
-            }
-            catch
-            {
-                DestroyUnregisteredCharacter(character);
-                throw;
+                _logger.LogWarning("Unable to hydrate character '{character}'", character);
+                return SignInResult.Fail;
             }
 
-            try
+            _characterPersistenceService.InitializeRevision(masterId, characterModel.SnapshotRevision);
+
+            if (!await _characterService.AddAsync(character))
             {
-                _characterPersistenceService.InitializeRevision(masterId, characterModel.SnapshotRevision);
-            }
-            catch
-            {
-                DestroyUnregisteredCharacter(character);
-                throw;
+                _logger.LogWarning("Unable to add character '{character}'", character);
+                return SignInResult.Fail;
             }
 
-            try
-            {
-                if (!await _characterService.AddAsync(character))
-                {
-                    _logger.LogWarning("Unable to add character '{character}'", character);
-                    DestroyUnregisteredCharacter(character);
-                    return SignInResult.Fail;
-                }
-            }
-            catch
-            {
-                DestroyUnregisteredCharacter(character);
-                throw;
-            }
-
-            registeredCharacter = character;
+            characterRegistered = true;
 
             if (!await _gameSessionService.CommitWorldSession(session, cancellationToken))
             {
@@ -178,7 +153,8 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
                 await RollbackAsync(
                     masterId,
                     sessionRegistration.Session,
-                    registeredCharacter);
+                    character,
+                    characterRegistered);
             }
         }
     }
@@ -198,70 +174,50 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
     private async Task<bool> RollbackAsync(
         uint masterId,
         IGameSession session,
-        ICharacter? registeredCharacter)
+        ICharacter? character,
+        bool characterRegistered)
     {
-        var characterRollbackSucceeded = true;
-        if (registeredCharacter is not null)
+        if (character is not null && !characterRegistered)
         {
-            var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            try
-            {
-                _taskScheduler.Schedule(new RsTask(() =>
-                {
-                    var removed = false;
-                    try
-                    {
-                        removed = _characterStore.Remove(registeredCharacter);
-                        if (removed)
-                        {
-                            try
-                            {
-                                registeredCharacter.Destroy();
-                            }
-                            catch (Exception exception)
-                            {
-                                _logger.LogError(exception, "Failed to destroy character after world sign-in failed");
-                            }
-                        }
-                        else
-                        {
-                            _logger.LogWarning("Character '{MasterId}' removal returned false after world sign-in failed; retaining persistence state for recovery", masterId);
-                        }
-                    }
-                    catch (Exception exception)
-                    {
-                        _logger.LogError(exception, "Failed to remove character after world sign-in failed");
-                    }
-                    finally
-                    {
-                        completion.TrySetResult(removed);
-                    }
-                }, 1));
-
-                characterRollbackSucceeded = await completion.Task;
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, "Failed to schedule character rollback after world sign-in failed");
-                characterRollbackSucceeded = false;
-            }
+            DestroyUnregisteredCharacter(character);
         }
 
-        if (!characterRollbackSucceeded)
+        if (character is not null && characterRegistered)
         {
-            _logger.LogError(
-                "Retaining game session '{connectionId}' because character rollback did not remove the exact store owner",
-                session.ConnectionId);
-            return false;
+            var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _taskScheduler.Schedule(new RsTask(() =>
+            {
+                var removed = false;
+                try
+                {
+                    removed = _characterStore.Remove(character);
+                    if (removed)
+                    {
+                        DestroyUnregisteredCharacter(character);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Character '{MasterId}' removal returned false after world sign-in failed; retaining persistence state for recovery", masterId);
+                    }
+                }
+                finally
+                {
+                    completion.TrySetResult(removed);
+                }
+            }, 1));
+
+            if (!await completion.Task)
+            {
+                _logger.LogError(
+                    "Retaining game session '{connectionId}' because character rollback did not remove the exact store owner",
+                    session.ConnectionId);
+                return false;
+            }
         }
 
         try
         {
             await _gameSessionService.RemoveSession(session, CancellationToken.None);
-        }
-        catch (OperationCanceledException exception)
-        {
-            _logger.LogError(exception, "Game-session removal was canceled after world sign-in failed");
         }
         catch (Exception exception)
         {
@@ -269,14 +225,7 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         }
         finally
         {
-            try
-            {
-                await _gameSessionService.RemoveLocalSession(session);
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, "Failed to remove local game session '{connectionId}' after world sign-in failed", session.ConnectionId);
-            }
+            await _gameSessionService.RemoveLocalSession(session);
         }
 
         return true;

@@ -85,6 +85,33 @@ public sealed class MapRegionLoaderTests
     }
 
     [TestMethod]
+    public async Task LoadAsync_WhenObjectConstructionFails_CleansPreviouslyCreatedObjectAndDiscardsRegion()
+    {
+        var region = CreateRegion();
+        var firstObject = Substitute.For<IGameObject>();
+        var constructionFailure = new InvalidOperationException("second object could not be constructed");
+        var gameObjectBuilder = ConfigureStaticGameObjectBuilderWithFailure(firstObject, constructionFailure);
+        var mapProvider = Substitute.For<IMapProvider>();
+        mapProvider.When(provider => provider.DecodeRegion(
+                Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<ObjectDecoded>(), Arg.Any<ImpassibleTerrainDecoded>()))
+            .Do(callInfo =>
+            {
+                callInfo.Arg<ObjectDecoded>()(100, 0, 0, 3, 3, 0);
+                callInfo.Arg<ObjectDecoded>()(101, 0, 0, 4, 4, 0);
+            });
+        var fixture = CreateLoader(mapProvider: mapProvider, gameObjectBuilder: gameObjectBuilder);
+
+        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => fixture.Loader.LoadAsync(region));
+
+        Assert.AreSame(constructionFailure, actual);
+        Assert.AreEqual(MapRegionState.Discarded, region.State);
+        firstObject.Received(1).Destroy();
+        region.DidNotReceive().Add(firstObject);
+        region.DidNotReceive().FlagCollision(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CollisionFlag>());
+        fixture.RegionService.Received(1).TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
+    }
+
+    [TestMethod]
     public async Task LoadAsync_WhenSourceQueryFails_DiscardsRegionWithoutMutatingIt()
     {
         var region = CreateRegion();
@@ -339,6 +366,26 @@ public sealed class MapRegionLoaderTests
         optional.WithShape(Arg.Any<ShapeType>()).Returns(optional);
         optional.AsStatic().Returns(optional);
         optional.Build().Returns(gameObject);
+        return builder;
+    }
+
+    private static IGameObjectBuilder ConfigureStaticGameObjectBuilderWithFailure(
+        IGameObject firstObject,
+        Exception secondBuildFailure)
+    {
+        var builder = Substitute.For<IGameObjectBuilder>();
+        var firstId = Substitute.For<IGameObjectId>();
+        var secondId = Substitute.For<IGameObjectId>();
+        var location = Substitute.For<IGameObjectLocation>();
+        var optional = Substitute.For<IGameObjectOptional>();
+        builder.Create().Returns(firstId, secondId);
+        firstId.WithId(Arg.Any<int>()).Returns(location);
+        location.WithLocation(Arg.Any<ILocation>()).Returns(optional);
+        optional.WithRotation(Arg.Any<int>()).Returns(optional);
+        optional.WithShape(Arg.Any<ShapeType>()).Returns(optional);
+        optional.AsStatic().Returns(optional);
+        optional.Build().Returns(firstObject);
+        secondId.WithId(Arg.Any<int>()).Returns(_ => throw secondBuildFailure);
         return builder;
     }
 

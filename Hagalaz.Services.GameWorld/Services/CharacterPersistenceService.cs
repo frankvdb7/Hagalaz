@@ -99,18 +99,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 try
                 {
                     await _publishEndpoint.Publish(command, cancellationToken);
-                    try
-                    {
-                        await _dbContext.SaveChangesAsync(cancellationToken);
-                    }
-                    catch (Exception exception)
-                    {
-                        throw new CharacterPersistenceSubmissionIndeterminateException(receipt, exception);
-                    }
-                }
-                catch (CharacterPersistenceSubmissionIndeterminateException)
-                {
-                    throw;
+                    await _dbContext.SaveChangesAsync(cancellationToken);
                 }
                 catch
                 {

@@ -413,14 +413,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
             }
 
-            try
-            {
-                UnregisterEventHandlers();
-            }
-            catch (Exception exception)
-            {
-                failure ??= exception;
-            }
+            UnregisterEventHandlers();
 
             if (failure is not null)
             {

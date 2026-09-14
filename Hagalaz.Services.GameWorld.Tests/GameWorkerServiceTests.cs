@@ -434,7 +434,7 @@ public sealed class GameWorkerServiceTests
     }
 
     [TestMethod]
-    public async Task ExecuteTickAsync_ContinuesClientUpdatesAfterOneRegionFailsAndCompletesEveryPreparedRegion()
+    public async Task ExecuteTickAsync_WhenClientUpdateFails_ResetsEveryRegionAndPropagates()
     {
         var logger = new TestLogger<GameWorkerService>();
         var failingRegion = Substitute.For<IMapRegion>();
@@ -452,16 +452,18 @@ public sealed class GameWorkerServiceTests
             .Do(_ => Interlocked.Increment(ref healthyResets));
 
         using var worker = CreateWorker(new[] { failingRegion, healthyRegion }, TimeSpan.Zero, logger: logger).Worker;
-        await worker.ExecuteTickAsync(CancellationToken.None);
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => worker.ExecuteTickAsync(CancellationToken.None));
 
-        Assert.AreEqual(1, Volatile.Read(ref healthyUpdates));
+        StringAssert.Contains(exception.Message, "region update failed");
+        Assert.AreEqual(0, Volatile.Read(ref healthyUpdates));
         Assert.AreEqual(1, Volatile.Read(ref failingResets));
         Assert.AreEqual(1, Volatile.Read(ref healthyResets));
-        Assert.AreEqual(1, logger.ErrorCount);
+        Assert.AreEqual(0, logger.ErrorCount);
     }
 
     [TestMethod]
-    public async Task ExecuteTickAsync_DoesNotUpdateRegionWhosePreparePhaseFails()
+    public async Task ExecuteTickAsync_WhenClientPrepareFails_ResetsEveryRegionAndPropagates()
     {
         var logger = new TestLogger<GameWorkerService>();
         var unpreparedRegion = Substitute.For<IMapRegion>();
@@ -479,13 +481,15 @@ public sealed class GameWorkerServiceTests
             .Do(_ => Interlocked.Increment(ref preparedResets));
 
         using var worker = CreateWorker(new[] { unpreparedRegion, preparedRegion }, TimeSpan.Zero, logger: logger).Worker;
-        await worker.ExecuteTickAsync(CancellationToken.None);
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => worker.ExecuteTickAsync(CancellationToken.None));
 
+        StringAssert.Contains(exception.Message, "region prepare failed");
         unpreparedRegion.DidNotReceive().MajorClientUpdateTick(Arg.Any<IReadOnlyDictionary<int, ICharacter>>());
-        Assert.AreEqual(1, Volatile.Read(ref preparedUpdates));
+        Assert.AreEqual(0, Volatile.Read(ref preparedUpdates));
         Assert.AreEqual(1, Volatile.Read(ref unpreparedResets));
         Assert.AreEqual(1, Volatile.Read(ref preparedResets));
-        Assert.AreEqual(1, logger.ErrorCount);
+        Assert.AreEqual(0, logger.ErrorCount);
     }
 
     [TestMethod]

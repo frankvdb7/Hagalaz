@@ -124,7 +124,7 @@ namespace Hagalaz.Services.GameWorld.Tests
     }
 
     [TestMethod]
-    public void UpdateMap_RebindsStaleRegionAndOnlySchedulesTheReplacement()
+    public void UpdateMap_RebindsStaleReadyRegionAndUpdatesTheReplacement()
     {
         var character = Substitute.For<ICharacter>();
         var session = Substitute.For<IGameSession>();
@@ -147,7 +147,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         staleRegion.State.Returns(MapRegionState.Discarded);
         replacementRegion.Id.Returns(location.RegionId);
         replacementRegion.BaseLocation.Returns(staleRegion.BaseLocation);
-        replacementRegion.State.Returns(MapRegionState.Initializing);
+        replacementRegion.State.Returns(MapRegionState.Ready);
         replacementRegion.XteaKeys.Returns(new[] { 1, 2, 3, 4 });
         regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), mapSize)
             .Returns(new[] { staleRegion });
@@ -155,10 +155,10 @@ namespace Hagalaz.Services.GameWorld.Tests
 
         new MapUpdateService(regionLoadScheduler).UpdateMap(character, false);
 
-        regionLoadScheduler.Received(1).RequestLoad(replacementRegion);
+        regionLoadScheduler.DidNotReceive().RequestLoad(Arg.Any<IMapRegion>());
         regionLoadScheduler.DidNotReceive().RequestLoad(staleRegion);
         staleRegion.DidNotReceive().SendFullPartUpdates(character);
-        replacementRegion.DidNotReceive().SendFullPartUpdates(character);
+        replacementRegion.Received(1).SendFullPartUpdates(character);
     }
 }
 }

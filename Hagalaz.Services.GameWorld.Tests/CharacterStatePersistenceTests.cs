@@ -223,7 +223,7 @@ public sealed class CharacterStatePersistenceTests
     }
 
     [TestMethod]
-    public async Task OnRegionChange_DoesNotUpdateMusicAfterCharacterIsDestroyed()
+    public async Task OnRegionChange_DoesNotUpdateMusicAfterCharacterTeardown()
     {
         var mapRegionService = Substitute.For<IMapRegionService>();
         var region = Substitute.For<IMapRegion>();

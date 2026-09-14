@@ -25,20 +25,17 @@ public sealed class CharacterLogoutServiceTests
         var state = new CharacterLogoutState();
         var character = CreateCharacter(42);
 
-        Assert.IsTrue(state.TryBeginLogout(character, out var created, out var receipt));
-        Assert.IsTrue(created);
+        Assert.IsTrue(state.TryBeginLogout(character, out var receipt));
         Assert.IsNull(receipt);
 
-        Assert.IsTrue(state.TryBeginLogout(character, out created, out receipt));
-        Assert.IsFalse(created);
+        Assert.IsTrue(state.TryBeginLogout(character, out receipt));
         Assert.IsNull(receipt);
         Assert.IsFalse(state.TryGetPersistenceReceipt(character, out receipt));
         Assert.IsNull(receipt);
 
         var expectedReceipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 7);
         Assert.IsTrue(state.SetPersistenceReceipt(character, expectedReceipt));
-        Assert.IsTrue(state.TryBeginLogout(character, out created, out receipt));
-        Assert.IsFalse(created);
+        Assert.IsTrue(state.TryBeginLogout(character, out receipt));
         Assert.AreSame(expectedReceipt, receipt);
         Assert.IsTrue(state.TryGetPersistenceReceipt(character, out receipt));
         Assert.AreSame(expectedReceipt, receipt);
@@ -50,40 +47,10 @@ public sealed class CharacterLogoutServiceTests
         var state = new CharacterLogoutState();
         var first = CreateCharacter(42);
         var second = CreateCharacter(42);
-        Assert.IsTrue(state.TryBeginLogout(first, out _, out _));
+        Assert.IsTrue(state.TryBeginLogout(first, out _));
 
-        Assert.IsFalse(state.TryBeginLogout(second, out var created, out var receipt));
-        Assert.IsFalse(created);
+        Assert.IsFalse(state.TryBeginLogout(second, out var receipt));
         Assert.IsNull(receipt);
-    }
-
-    [TestMethod]
-    public async Task PersistenceSubmissionOwnership_IsRetainedWhenFirstWaiterIsCancelled()
-    {
-        var state = new CharacterLogoutState();
-        var character = CreateCharacter(42);
-        Assert.IsTrue(state.TryBeginLogout(character, out _, out _));
-
-        Assert.IsTrue(state.TryBeginPersistenceSubmission(
-            character,
-            out var firstSubmission,
-            out var firstShouldSubmit));
-        Assert.IsTrue(firstShouldSubmit);
-        using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
-        await Assert.ThrowsAsync<OperationCanceledException>(
-            () => firstSubmission.WaitAsync(cancellation.Token));
-
-        Assert.IsTrue(state.TryBeginPersistenceSubmission(
-            character,
-            out var secondSubmission,
-            out var secondShouldSubmit));
-        Assert.IsFalse(secondShouldSubmit);
-        Assert.AreSame(firstSubmission, secondSubmission);
-
-        var receipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 7);
-        Assert.IsTrue(state.SetPersistenceReceipt(character, receipt));
-        Assert.AreSame(receipt, await secondSubmission);
     }
 
     [TestMethod]
@@ -92,7 +59,7 @@ public sealed class CharacterLogoutServiceTests
         var character = CreateCharacter(42);
         var order = new List<string>();
         var state = new CharacterLogoutState();
-        state.TryBeginLogout(character, out _, out _);
+        state.TryBeginLogout(character, out _);
         var store = Substitute.For<ICharacterStore>();
         store.Remove(character).Returns(true);
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
@@ -149,7 +116,7 @@ public sealed class CharacterLogoutServiceTests
             gameplayApplied = true;
             order.Add("gameplay");
         }, 1), CancellationToken.None);
-        Assert.IsTrue(state.TryBeginLogout(character, out _, out _));
+        Assert.IsTrue(state.TryBeginLogout(character, out _));
 
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         var snapshot = new CharacterModel();
@@ -186,7 +153,7 @@ public sealed class CharacterLogoutServiceTests
     {
         var character = CreateCharacter(42);
         var state = new CharacterLogoutState();
-        state.TryBeginLogout(character, out _, out _);
+        state.TryBeginLogout(character, out _);
         var store = Substitute.For<ICharacterStore>();
         store.Remove(character).Returns(false);
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();

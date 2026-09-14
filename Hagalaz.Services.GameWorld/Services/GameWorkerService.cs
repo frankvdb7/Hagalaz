@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -129,52 +128,21 @@ namespace Hagalaz.Services.GameWorld.Services
 
             try
             {
-                var preparedRegions = new List<IMapRegion>(regions.Count);
                 foreach (var region in regions)
                 {
-                    try
-                    {
-                        region.MajorClientPrepareUpdateTick();
-                        preparedRegions.Add(region);
-                    }
-                    catch (OperationCanceledException ex) when (ex.CancellationToken == stoppingToken)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error preparing client updates for region {RegionId}; continuing with other regions.", region.Id);
-                    }
+                    region.MajorClientPrepareUpdateTick();
                 }
 
-                foreach (var region in preparedRegions)
+                foreach (var region in regions)
                 {
-                    try
-                    {
-                        region.MajorClientUpdateTick(characters);
-                    }
-                    catch (OperationCanceledException ex) when (ex.CancellationToken == stoppingToken)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error sending client updates for region {RegionId}; continuing with other regions.", region.Id);
-                    }
+                    region.MajorClientUpdateTick(characters);
                 }
             }
             finally
             {
                 foreach (var region in regions)
                 {
-                    try
-                    {
-                        region.MajorClientUpdateResetTick();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error completing client updates for region {RegionId}.", region.Id);
-                    }
+                    region.MajorClientUpdateResetTick();
                 }
             }
 

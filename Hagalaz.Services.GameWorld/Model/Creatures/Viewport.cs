@@ -222,20 +222,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void RefreshVisibleRegions()
         {
-            var refreshedRegions = new List<IMapRegion>(_visibleRegions.Count);
             for (var index = 0; index < _visibleRegions.Count; index++)
             {
                 var region = _visibleRegions[index];
-                if (region.BaseLocation is null)
-                {
-                    continue;
-                }
-
-                refreshedRegions.Add(_regionService.GetOrCreateMapRegion(region.Id, region.BaseLocation.Dimension));
+                _visibleRegions[index] = _regionService.GetOrCreateMapRegion(region.Id, region.BaseLocation.Dimension);
             }
-
-            _visibleRegions.Clear();
-            _visibleRegions.AddRange(refreshedRegions);
         }
 
         /// <summary>

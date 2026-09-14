@@ -135,25 +135,6 @@ public sealed class WorldSessionAdmissionServiceTests
         fixture.Character.Received(1).Destroy();
     }
 
-    [TestMethod]
-    public async Task AdmitAsync_WhenRollbackRemovalFails_DoesNotDestroyRegisteredCharacter()
-    {
-        var fixture = CreateFixture(commitResult: false);
-        fixture.CharacterStore.Remove(fixture.Character).Returns(false);
-
-        var result = await fixture.Service.AdmitAsync(
-            CreateSignInRequest(),
-            fixture.Context,
-            42,
-            new AuthenticationProperties());
-
-        Assert.IsFalse(result.Succeeded);
-        fixture.CharacterStore.Received(1).Remove(fixture.Character);
-        fixture.Character.DidNotReceive().Destroy();
-        await fixture.GameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>(), Arg.Any<CancellationToken>());
-        await fixture.GameSessionService.DidNotReceive().RemoveLocalSession(Arg.Any<IGameSession>());
-    }
-
     private static Fixture CreateFixture(bool commitResult, IRsTaskService? scheduler = null)
     {
         var mapper = Substitute.For<IMapper>();

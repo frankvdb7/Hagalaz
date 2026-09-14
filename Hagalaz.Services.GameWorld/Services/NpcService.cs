@@ -31,18 +31,8 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public async Task RegisterAsync(INpc npc)
         {
-            EnsureCanRegister(npc);
-
-            bool added;
-            try
-            {
-                added = await _npcStore.AddAsync(npc);
-            }
-            catch
-            {
-                DestroyAfterFailedRegistration(npc);
-                throw;
-            }
+            ArgumentNullException.ThrowIfNull(npc);
+            var added = await _npcStore.AddAsync(npc);
 
             if (!added)
             {
@@ -58,7 +48,7 @@ namespace Hagalaz.Services.GameWorld.Services
             }
             catch (Exception registrationFailure)
             {
-                if (await RemoveAfterFailedRegistrationAsync(npc))
+                if (await _npcStore.RemoveAsync(npc))
                 {
                     DestroyAfterFailedRegistration(npc);
                 }
@@ -74,18 +64,8 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public void Register(INpc npc)
         {
-            EnsureCanRegister(npc);
-
-            bool added;
-            try
-            {
-                added = _npcStore.Add(npc);
-            }
-            catch
-            {
-                DestroyAfterFailedRegistration(npc);
-                throw;
-            }
+            ArgumentNullException.ThrowIfNull(npc);
+            var added = _npcStore.Add(npc);
 
             if (!added)
             {
@@ -101,7 +81,7 @@ namespace Hagalaz.Services.GameWorld.Services
             }
             catch (Exception registrationFailure)
             {
-                if (RemoveAfterFailedRegistration(npc))
+                if (_npcStore.Remove(npc))
                 {
                     DestroyAfterFailedRegistration(npc);
                 }
@@ -112,49 +92,6 @@ namespace Hagalaz.Services.GameWorld.Services
                         npc);
                 }
                 throw;
-            }
-        }
-
-        private static void EnsureCanRegister(INpc npc)
-        {
-            ArgumentNullException.ThrowIfNull(npc);
-        }
-
-        private async Task<bool> RemoveAfterFailedRegistrationAsync(INpc npc)
-        {
-            try
-            {
-                if (!await _npcStore.RemoveAsync(npc))
-                {
-                    _logger.LogWarning("Failed to remove NPC '{npc}' from the global store during registration rollback.", npc);
-                    return false;
-                }
-
-                return true;
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, "Failed to remove NPC '{npc}' from the global store during registration rollback.", npc);
-                return false;
-            }
-        }
-
-        private bool RemoveAfterFailedRegistration(INpc npc)
-        {
-            try
-            {
-                if (!_npcStore.Remove(npc))
-                {
-                    _logger.LogWarning("Failed to remove NPC '{npc}' from the global store during registration rollback.", npc);
-                    return false;
-                }
-
-                return true;
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, "Failed to remove NPC '{npc}' from the global store during registration rollback.", npc);
-                return false;
             }
         }
 

@@ -16,7 +16,6 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -84,7 +83,8 @@ namespace Hagalaz.Services.GameWorld.Data
 
             var watch = Stopwatch.StartNew();
             var registeredNpcs = new List<INpc>();
-            PreparedRegion? prepared = null;
+            var createdGroundItems = new List<IGroundItem>();
+            var createdGameObjects = new List<IGameObject>();
 
             try
             {
@@ -94,10 +94,16 @@ namespace Hagalaz.Services.GameWorld.Data
                     .WithZ(region.Size.Z)
                     .ToRegionCoordinates(region.Size.X - 1, region.Size.Y - 1, region.Size.X, region.Size.Y)
                     .Build();
-                prepared = await PrepareAsync(region, min, max, cancellationToken);
+                var prepared = await PrepareAsync(
+                    region,
+                    min,
+                    max,
+                    createdGroundItems,
+                    createdGameObjects,
+                    cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
 
-                ApplyPreparedRegion(region, prepared);
+                ApplyPreparedRegion(region, prepared, createdGroundItems, createdGameObjects);
                 cancellationToken.ThrowIfCancellationRequested();
 
                 await RegisterNpcsAsync(region, prepared.NpcSpawns, registeredNpcs, cancellationToken);
@@ -123,17 +129,20 @@ namespace Hagalaz.Services.GameWorld.Data
                 }
 
                 await UnregisterRegisteredNpcsAsync(registeredNpcs, region);
-                if (prepared is not null)
-                {
-                    RollbackPreparedResources(region, prepared);
-                }
+                RollbackPreparedResources(region, createdGroundItems, createdGameObjects);
 
                 _logger.LogError(exception, "Region[{id}] failed to load and was discarded", region.Id);
                 throw;
             }
         }
 
-        private async Task<PreparedRegion> PrepareAsync(IMapRegion region, ILocation min, ILocation max, CancellationToken cancellationToken)
+        private async Task<PreparedRegion> PrepareAsync(
+            IMapRegion region,
+            ILocation min,
+            ILocation max,
+            List<IGroundItem> createdGroundItems,
+            List<IGameObject> createdGameObjects,
+            CancellationToken cancellationToken)
         {
             var npcSpawns = await _mapper.ProjectTo<NpcSpawnDto>(_npcSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)).ToArrayAsync(cancellationToken);
             var itemSpawns = await _mapper.ProjectTo<GroundItemSpawnDto>(_itemSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)).ToArrayAsync(cancellationToken);
@@ -167,14 +176,14 @@ namespace Hagalaz.Services.GameWorld.Data
                 });
 
             cancellationToken.ThrowIfCancellationRequested();
-            var staticObjects = staticObjectSpawns.Select(spawn =>
+            foreach (var spawn in staticObjectSpawns)
             {
                 var location = _locationBuilder.Create()
                     .FromLocation(region.BaseLocation)
                     .WithZ(spawn.Z)
                     .ToRegionCoordinates(spawn.LocalX, spawn.LocalY, region.Size.X, region.Size.Y)
                     .Build();
-                return _gameObjectBuilder
+                var gameObject = _gameObjectBuilder
                     .Create()
                     .WithId(spawn.Id)
                     .WithLocation(location)
@@ -182,50 +191,54 @@ namespace Hagalaz.Services.GameWorld.Data
                     .WithShape((ShapeType)spawn.ShapeType)
                     .AsStatic()
                     .Build();
-            }).ToArray();
-            var groundItems = itemSpawns.Select(spawn =>
+                createdGameObjects.Add(gameObject);
+            }
+
+            foreach (var spawn in itemSpawns)
             {
                 var location = spawn.Location.Copy(region.BaseLocation.Dimension);
-                return _groundItemBuilder
+                var groundItem = _groundItemBuilder
                     .Create()
                     .WithItem(builder => builder.Create().WithId(spawn.ItemID).WithCount(spawn.ItemCount))
                     .WithLocation(location)
                     .WithRespawnTicks(spawn.RespawnTicks)
                     .Build();
-            }).ToArray();
-            var nonStaticObjects = objectSpawns.Select(spawn =>
+                createdGroundItems.Add(groundItem);
+            }
+
+            foreach (var spawn in objectSpawns)
             {
                 var location = new Location(spawn.CoordX, spawn.CoordY, spawn.CoordZ, region.BaseLocation.Dimension);
-                return _gameObjectBuilder
+                var gameObject = _gameObjectBuilder
                     .Create()
                     .WithId((int)spawn.GameobjectId)
                     .WithLocation(location)
                     .WithRotation(spawn.Face)
                     .WithShape((ShapeType)spawn.Type)
                     .Build();
-            }).ToArray();
+                createdGameObjects.Add(gameObject);
+            }
 
-            return new PreparedRegion(npcSpawns, groundItems, staticObjects, nonStaticObjects, collisionTiles);
+            return new PreparedRegion(npcSpawns, collisionTiles);
         }
 
-        private static void ApplyPreparedRegion(IMapRegion region, PreparedRegion prepared)
+        private static void ApplyPreparedRegion(
+            IMapRegion region,
+            PreparedRegion prepared,
+            IReadOnlyList<IGroundItem> groundItems,
+            IReadOnlyList<IGameObject> gameObjects)
         {
             foreach (var tile in prepared.CollisionTiles)
             {
                 region.FlagCollision(tile.LocalX, tile.LocalY, tile.Z, CollisionFlag.FloorBlock);
             }
 
-            foreach (var gameObject in prepared.StaticObjects)
+            foreach (var gameObject in gameObjects)
             {
                 region.Add(gameObject);
             }
 
-            foreach (var gameObject in prepared.NonStaticObjects)
-            {
-                region.Add(gameObject);
-            }
-
-            foreach (var groundItem in prepared.GroundItems)
+            foreach (var groundItem in groundItems)
             {
                 region.Add(groundItem);
             }
@@ -273,17 +286,16 @@ namespace Hagalaz.Services.GameWorld.Data
             }
         }
 
-        private void RollbackPreparedResources(IMapRegion region, PreparedRegion prepared)
+        private void RollbackPreparedResources(
+            IMapRegion region,
+            IReadOnlyList<IGroundItem> groundItems,
+            IReadOnlyList<IGameObject> gameObjects)
         {
-            foreach (var item in prepared.GroundItems)
+            foreach (var item in groundItems)
             {
                 try
                 {
                     item.Destroy();
-                    if (region is MapRegion concreteRegion)
-                    {
-                        concreteRegion.RemoveDestroyed(item);
-                    }
                 }
                 catch (Exception exception)
                 {
@@ -291,15 +303,11 @@ namespace Hagalaz.Services.GameWorld.Data
                 }
             }
 
-            foreach (var gameObject in prepared.StaticObjects.Concat(prepared.NonStaticObjects))
+            foreach (var gameObject in gameObjects)
             {
                 try
                 {
                     gameObject.Destroy();
-                    if (region is MapRegion concreteRegion)
-                    {
-                        concreteRegion.RemoveDestroyed(gameObject);
-                    }
                 }
                 catch (Exception exception)
                 {
@@ -310,9 +318,6 @@ namespace Hagalaz.Services.GameWorld.Data
 
         private sealed record PreparedRegion(
             NpcSpawnDto[] NpcSpawns,
-            IGroundItem[] GroundItems,
-            IGameObject[] StaticObjects,
-            IGameObject[] NonStaticObjects,
             List<CollisionTile> CollisionTiles);
 
         private readonly record struct StaticObjectSpawn(int Id, int ShapeType, int Rotation, int LocalX, int LocalY, int Z);

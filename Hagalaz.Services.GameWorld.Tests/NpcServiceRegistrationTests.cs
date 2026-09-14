@@ -79,46 +79,6 @@ public sealed class NpcServiceRegistrationTests
     }
 
     [TestMethod]
-    public void Register_WhenStoreOwnershipCannotBeReleased_PreservesRegistrationFailureWithoutDestroyingNpc()
-    {
-        var store = Substitute.For<INpcStore>();
-        var npc = CreateNpc();
-        var registrationFailure = new InvalidOperationException("npc initialization failed");
-        var removalFailure = new ApplicationException("npc removal failed");
-        store.Add(npc).Returns(true);
-        store.When(value => value.Remove(npc)).Do(_ => throw removalFailure);
-        npc.When(value => value.OnRegistered()).Do(_ => throw registrationFailure);
-        var service = CreateService(store);
-
-        var actual = Assert.ThrowsExactly<InvalidOperationException>(() => service.Register(npc));
-
-        Assert.AreSame(registrationFailure, actual);
-        store.Received(1).Remove(npc);
-        npc.DidNotReceive().Destroy();
-    }
-
-    [TestMethod]
-    public async Task RegisterAsync_WhenStoreOwnershipCannotBeReleased_PreservesRegistrationFailureWithoutDestroyingNpc()
-    {
-        var store = Substitute.For<INpcStore>();
-        var npc = CreateNpc();
-        var registrationFailure = new InvalidOperationException("npc initialization failed");
-        var removalFailure = new ApplicationException("npc removal failed");
-#pragma warning disable CA2012 // NSubstitute consumes the configured ValueTask.
-        store.AddAsync(npc).Returns(ValueTask.FromResult(true));
-        store.RemoveAsync(npc).Returns(ValueTask.FromException<bool>(removalFailure));
-#pragma warning restore CA2012
-        npc.When(value => value.OnRegistered()).Do(_ => throw registrationFailure);
-        var service = CreateService(store);
-
-        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.RegisterAsync(npc));
-
-        Assert.AreSame(registrationFailure, actual);
-        await store.Received(1).RemoveAsync(npc);
-        npc.DidNotReceive().Destroy();
-    }
-
-    [TestMethod]
     public async Task Unregister_WhenCalledSynchronously_RemovesTheNpc()
     {
         var store = new NpcStore();

@@ -829,38 +829,6 @@ public sealed class GameSessionServiceTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task TryAddWorldSession_WhenClaimCleanupFails_RetainsForLeaseReconciliation()
-    {
-        var store = new GameSessionStore();
-        var claims = Substitute.For<IGameSessionClaimStore>();
-        claims.TryClaimAsync(42, "world-claim", Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<bool>(new InvalidOperationException("Claim store unavailable.")));
-        var releaseAttempts = 0;
-        claims.ReleaseAsync(42, "world-claim", Arg.Any<CancellationToken>())
-            .Returns(_ => Interlocked.Increment(ref releaseAttempts) == 1
-                ? Task.FromException<bool>(new InvalidOperationException("Claim store unavailable."))
-                : Task.FromResult(true));
-        var factory = Substitute.For<IGameSessionFactory>();
-        var worldSession = CreateSession(42, "world-connection", "world-claim");
-        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(worldSession);
-        var terminator = Substitute.For<IGameSessionConnectionTerminator>();
-        var service = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
-
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => service.TryAddWorldSession(42, "world-connection"));
-
-        Assert.AreEqual(0, (await store.FindAll()).Count);
-        Assert.IsNull(await store.FindWorldSessionByMasterId(42));
-
-        var leaseService = GameSessionTestDependencies.CreateLeaseService(store, store, claims, terminator);
-        await leaseService.RenewSessionsAsync(CancellationToken.None);
-
-        Assert.AreEqual(2, releaseAttempts);
-        Assert.AreEqual(0, (await store.FindAll()).Count);
-    }
-
-    [TestMethod]
-    [Timeout(5000)]
     public async Task LeaseService_RenewsActiveSessionBeforeBlockedDeferredCleanup()
     {
         var store = new GameSessionStore();
@@ -927,7 +895,7 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
-    public async Task TryAddWorldSession_WhenClaimPersistsBeforeAcquisitionThrows_ReleasesClaimForLaterLogin()
+    public async Task TryAddWorldSession_WhenClaimAcquisitionIsUncertain_RetainsExactClaimForReconciliation()
     {
         var claims = new PersistThenThrowGameSessionClaimStore();
         var factory = Substitute.For<IGameSessionFactory>();
@@ -941,8 +909,18 @@ public sealed class GameSessionServiceTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => service.TryAddWorldSession(42, "failed-world-connection"));
 
+        Assert.AreEqual(0, claims.ReleaseCalls);
+        Assert.AreEqual(failedWorldSession.SessionClaimId, claims.CurrentClaim);
+        var pendingCleanup = await store.FindSessionsPendingCleanup();
+        Assert.AreEqual(1, pendingCleanup.Count);
+        Assert.AreSame(failedWorldSession, pendingCleanup.Single());
+
+        var leaseService = GameSessionTestDependencies.CreateLeaseService(store, store, claims, terminator);
+        await leaseService.RenewSessionsAsync(CancellationToken.None);
+
         Assert.AreEqual(1, claims.ReleaseCalls);
         Assert.IsNull(claims.CurrentClaim);
+        Assert.AreEqual(0, (await store.FindSessionsPendingCleanup()).Count);
 
         var laterRegistration = await service.TryAddWorldSession(42, "later-world-connection");
 
@@ -952,7 +930,7 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
-    public async Task CommitWorldSession_WhenClaimTransferIsUncertain_RetainsWorldSessionForExactCleanup()
+    public async Task CommitWorldSession_WhenClaimTransferThrows_RetainsWorldSessionForExactCleanup()
     {
         var claims = Substitute.For<IGameSessionClaimStore>();
         var factory = Substitute.For<IGameSessionFactory>();
@@ -963,11 +941,7 @@ public sealed class GameSessionServiceTests
         factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(worldSession);
         var store = new GameSessionStore();
         var service = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
-        var uncertainty = new GameSessionClaimTransferUncertainException(
-            42,
-            lobbySession.SessionClaimId,
-            worldSession.SessionClaimId,
-            new InvalidOperationException("world commit failed"));
+        var claimFailure = new InvalidOperationException("world commit failed");
         claims.TryClaimAsync(42, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
         claims.ExecuteIfOwnerAndReplaceAsync(
                 42,
@@ -975,27 +949,26 @@ public sealed class GameSessionServiceTests
                 Arg.Any<string>(),
                 Arg.Any<Func<CancellationToken, Task<bool>>>(),
                 Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<bool>(uncertainty));
+            .Returns(Task.FromException<bool>(claimFailure));
 
         await service.AddSession(42, "lobby-connection");
         var registration = await service.TryAddWorldSession(42, "world-connection");
 
-        await Assert.ThrowsExactlyAsync<GameSessionClaimTransferUncertainException>(
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => service.CommitWorldSession(registration.Session!));
 
+        Assert.AreSame(claimFailure, exception);
         Assert.Contains(worldSession, (await store.FindSessionsPendingCleanup()).OfType<IGameWorldSession>());
     }
 
     [TestMethod]
-    public async Task TryAddWorldSession_WhenClaimAcquisitionThrowsAndReleaseReturnsFalse_RemovesReservationForLaterLogin()
+    public async Task TryAddWorldSession_WhenClaimAcquisitionThrows_RetainsReservationForReconciliation()
     {
         var store = new GameSessionStore();
         var claims = Substitute.For<IGameSessionClaimStore>();
         var factory = Substitute.For<IGameSessionFactory>();
         var failedWorldSession = CreateSession(42, "failed-world-connection", "failed-claim");
-        var laterWorldSession = CreateSession(42, "later-world-connection", "later-claim");
         factory.CreateWorld(42, "failed-world-connection", Arg.Any<long>()).Returns(failedWorldSession);
-        factory.CreateWorld(42, "later-world-connection", Arg.Any<long>()).Returns(laterWorldSession);
         claims.AllocateSessionGenerationAsync(42, Arg.Any<CancellationToken>()).Returns(Task.FromResult(1L));
         claims.TryClaimAsync(42, Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(
@@ -1008,44 +981,18 @@ public sealed class GameSessionServiceTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => service.TryAddWorldSession(42, "failed-world-connection"));
 
-        Assert.AreEqual(0, (await store.FindSessionsPendingCleanup()).Count);
-        Assert.AreEqual(0, (await store.FindAll()).Count);
-        var laterRegistration = await service.TryAddWorldSession(42, "later-world-connection");
-
-        Assert.IsTrue(laterRegistration.Created);
-        Assert.AreSame(laterWorldSession, laterRegistration.Session);
-    }
-
-    [TestMethod]
-    public async Task TryAddWorldSession_WhenClaimReleaseFails_RetainsExactOwnerCleanup()
-    {
-        var store = new GameSessionStore();
-        var claims = new PersistThenThrowReleaseGameSessionClaimStore();
-        var factory = Substitute.For<IGameSessionFactory>();
-        var terminator = Substitute.For<IGameSessionConnectionTerminator>();
-        var failedWorldSession = CreateSession(42, "failed-world-connection", "failed-claim");
-        factory.CreateWorld(42, "failed-world-connection", Arg.Any<long>()).Returns(failedWorldSession);
-        var service = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
-
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => service.TryAddWorldSession(42, "failed-world-connection"));
-
-        Assert.AreEqual(1, claims.ReleaseCalls);
         var pendingCleanup = await store.FindSessionsPendingCleanup();
         Assert.AreEqual(1, pendingCleanup.Count);
         Assert.AreSame(failedWorldSession, pendingCleanup.Single());
         Assert.AreEqual(0, (await store.FindAll()).Count);
-
-        var leaseService = GameSessionTestDependencies.CreateLeaseService(store, store, claims, terminator);
-        await leaseService.RenewSessionsAsync(CancellationToken.None);
-
-        Assert.AreEqual(2, claims.ReleaseCalls);
-        Assert.IsNull(claims.CurrentClaim);
-        Assert.AreEqual(0, (await store.FindSessionsPendingCleanup()).Count);
+        await claims.DidNotReceive().ReleaseAsync(
+            42,
+            failedWorldSession.SessionClaimId,
+            Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
-    public async Task TryAddWorldSession_WhenCancellationOccursAfterClaimPersistence_ReleasesClaimForLaterLogin()
+    public async Task TryAddWorldSession_WhenClaimAcquisitionIsCancelled_RetainsExactClaimForReconciliation()
     {
         using var cancellationSource = new CancellationTokenSource();
         var claims = new CancelAfterPersistGameSessionClaimStore(cancellationSource);
@@ -1059,6 +1006,19 @@ public sealed class GameSessionServiceTests
             store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(
             () => service.TryAddWorldSession(42, "failed-world-connection", cancellationSource.Token));
+
+        Assert.AreEqual(0, claims.ReleaseCalls);
+        Assert.AreEqual(failedWorldSession.SessionClaimId, claims.CurrentClaim);
+        var pendingCleanup = await store.FindSessionsPendingCleanup();
+        Assert.AreEqual(1, pendingCleanup.Count);
+        Assert.AreSame(failedWorldSession, pendingCleanup.Single());
+
+        var leaseService = GameSessionTestDependencies.CreateLeaseService(
+            store,
+            store,
+            claims,
+            Substitute.For<IGameSessionConnectionTerminator>());
+        await leaseService.RenewSessionsAsync(CancellationToken.None);
 
         Assert.AreEqual(1, claims.ReleaseCalls);
         Assert.IsNull(claims.CurrentClaim);
@@ -1731,56 +1691,6 @@ public sealed class GameSessionServiceTests
         {
             ReleaseCalls++;
             if (cancellationToken.IsCancellationRequested || CurrentClaim != claimId)
-            {
-                return Task.FromResult(false);
-            }
-
-            CurrentClaim = null;
-            return Task.FromResult(true);
-        }
-
-        public Task<bool> RenewAsync(uint masterId, string claimId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(CurrentClaim == claimId);
-
-        public async Task<bool> ExecuteIfOwnerAsync(
-            uint masterId,
-            string claimId,
-            Func<CancellationToken, Task<bool>> action,
-            CancellationToken cancellationToken = default)
-        {
-            if (CurrentClaim != claimId)
-            {
-                return false;
-            }
-
-            return await action(cancellationToken);
-        }
-    }
-
-    private sealed class PersistThenThrowReleaseGameSessionClaimStore : IGameSessionClaimStore
-    {
-        public Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
-
-        public Task<bool> ExecuteIfOwnerAndReplaceAsync(uint masterId, string ownerClaimId, string replacementClaimId, Func<CancellationToken, Task<bool>> action, CancellationToken cancellationToken = default) => action(cancellationToken);
-
-        public string? CurrentClaim { get; private set; }
-        public int ReleaseCalls { get; private set; }
-
-        public Task<bool> TryClaimAsync(uint masterId, string claimId, CancellationToken cancellationToken = default)
-        {
-            CurrentClaim = claimId;
-            return Task.FromException<bool>(new InvalidOperationException("Claim acquisition failed after persistence."));
-        }
-
-        public Task<bool> ReleaseAsync(uint masterId, string claimId, CancellationToken cancellationToken = default)
-        {
-            ReleaseCalls++;
-            if (ReleaseCalls == 1)
-            {
-                return Task.FromException<bool>(new InvalidOperationException("Claim release unavailable."));
-            }
-
-            if (CurrentClaim != claimId)
             {
                 return Task.FromResult(false);
             }

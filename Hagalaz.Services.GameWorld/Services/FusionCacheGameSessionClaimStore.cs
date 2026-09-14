@@ -80,62 +80,14 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
                 return false;
             }
 
-            try
+            await _cache.SetAsync(GetKey(masterId), replacementClaimId, EntryOptions, token);
+            var succeeded = await action(token);
+            if (!succeeded)
             {
-                await _cache.SetAsync(GetKey(masterId), replacementClaimId, EntryOptions, token);
-            }
-            catch (Exception replacementException)
-            {
-                throw new GameSessionClaimTransferUncertainException(
-                    masterId,
-                    ownerClaimId,
-                    replacementClaimId,
-                    replacementException);
+                await _cache.SetAsync(GetKey(masterId), ownerClaimId, EntryOptions, CancellationToken.None);
             }
 
-            try
-            {
-                var succeeded = await action(token);
-                if (!succeeded)
-                {
-                    try
-                    {
-                        await _cache.SetAsync(GetKey(masterId), ownerClaimId, EntryOptions, CancellationToken.None);
-                    }
-                    catch (Exception restorationException)
-                    {
-                        throw new GameSessionClaimTransferUncertainException(
-                            masterId,
-                            ownerClaimId,
-                            replacementClaimId,
-                            restorationException);
-                    }
-                }
-
-                return succeeded;
-            }
-            catch (GameSessionClaimTransferUncertainException)
-            {
-                throw;
-            }
-            catch (Exception actionException)
-            {
-                try
-                {
-                    await _cache.SetAsync(GetKey(masterId), ownerClaimId, EntryOptions, CancellationToken.None);
-                }
-                catch (Exception restorationException)
-                {
-                    throw new GameSessionClaimTransferUncertainException(
-                        masterId,
-                        ownerClaimId,
-                        replacementClaimId,
-                        actionException,
-                        restorationException);
-                }
-
-                throw;
-            }
+            return succeeded;
         }, cancellationToken);
 
     public Task<bool> ReleaseAsync(uint masterId, string claimId, CancellationToken cancellationToken = default) =>
@@ -225,28 +177,4 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
     private static string GetKey(uint masterId) => $"{KeyPrefix}{masterId}";
 
     private static string GetGenerationKey(uint masterId) => $"{GenerationKeyPrefix}{masterId}";
-}
-
-internal sealed class GameSessionClaimTransferUncertainException : InvalidOperationException
-{
-    public GameSessionClaimTransferUncertainException(
-        uint masterId,
-        string ownerClaimId,
-        string replacementClaimId,
-        Exception originalException,
-        Exception? restorationException = null)
-        : base(
-            $"Claim transfer for account '{masterId}' may have left replacement claim '{replacementClaimId}' authoritative.",
-            originalException)
-    {
-        MasterId = masterId;
-        OwnerClaimId = ownerClaimId;
-        ReplacementClaimId = replacementClaimId;
-        RestorationException = restorationException;
-    }
-
-    public uint MasterId { get; }
-    public string OwnerClaimId { get; }
-    public string ReplacementClaimId { get; }
-    public Exception? RestorationException { get; }
 }
