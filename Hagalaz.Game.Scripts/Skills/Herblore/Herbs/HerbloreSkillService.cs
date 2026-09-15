@@ -31,10 +31,14 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
         /// </summary>
         /// <param name="character"></param>
         /// <param name="item"></param>
-        public async Task TryCleanHerb(ICharacter character, IItem item)
+        public async Task TryCleanHerb(
+            ICharacter character,
+            IItem item,
+            System.Threading.CancellationToken cancellationToken = default)
         {
             var service = character.ServiceProvider.GetRequiredService<IHerbloreService>();
             var herb = await service.FindGrimyHerbById(item.Id);
+            cancellationToken.ThrowIfCancellationRequested();
             if (herb == null)
             {
                 return;

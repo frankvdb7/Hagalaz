@@ -90,7 +90,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             if (_npc.Script.CanRespawn())
                 Owner.QueueTask(new RsTask(() => _npc.Script.Respawn(), delay + _npc.Definition.RespawnTime + 1));
             else
-                Owner.QueueTask(new RsTask(() => _npcService.UnregisterAsync(_npc).Wait(), delay + 1));
+                Owner.QueueTask(new RsTask(
+                    () => Owner.QueueTask(_ => _npcService.UnregisterAsync(_npc)),
+                    delay + 1));
         }
 
         /// <summary>
@@ -111,9 +113,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             }
 
             var kill = killer as ICharacter;
-            kill?.QueueTask(async () =>
+            var lootTableId = _npc.Definition.LootTableId;
+            var lootLocation = Owner.Location;
+            kill?.QueueTask(async cancellationToken =>
             {
-                var table = await _lootService.FindNpcLootTable(_npc.Definition.LootTableId);
+                var table = await _lootService.FindNpcLootTable(lootTableId);
+                cancellationToken.ThrowIfCancellationRequested();
                 if (table == null)
                 {
                     return;
@@ -123,7 +128,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
                 {
                     _groundItemBuilder.Create()
                         .WithItem(builder => builder.Create().WithId(loot.Item.Id).WithCount(loot.Count))
-                        .WithLocation(Owner.Location)
+                        .WithLocation(lootLocation)
                         .WithOwner(kill)
                         .Spawn();
                 }
@@ -236,7 +241,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <returns></returns>
         public override bool CanSetTarget(ICreature target)
         {
-            if (target.IsDestroyed || target.Combat.IsDead || IsDead) return false;
+            if (target.Combat.IsDead || IsDead) return false;
             return _npc.Script.CanSetTarget(target);
         }
 
@@ -245,7 +250,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         public override bool CanAttack(ICreature target)
         {
-            if (target.IsDestroyed || target.Combat.IsDead || IsDead) return false;
+            if (target.Combat.IsDead || IsDead) return false;
             return _npc.Script.CanAttack(target);
         }
 
@@ -254,7 +259,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         public override bool CanBeAttackedBy(ICreature attacker)
         {
-            if (attacker.IsDestroyed || attacker.Combat.IsDead || IsDead) return false;
+            if (attacker.Combat.IsDead || IsDead) return false;
             return _npc.Script.CanBeAttackedBy(attacker);
         }
 

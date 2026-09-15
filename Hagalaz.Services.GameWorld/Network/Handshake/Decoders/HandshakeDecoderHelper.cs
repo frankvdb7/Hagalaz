@@ -138,13 +138,14 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
             ArgumentNullException.ThrowIfNull(parser);
             ArgumentNullException.ThrowIfNull(bufferPool);
 
-            var xteaBlockSize = reader.Remaining;
-            if (xteaBlockSize <= 0 || xteaBlockSize > int.MaxValue || xteaBlockSize % 8 != 0)
+            const int xteaBlockSize = 8;
+            var payloadSize = reader.Remaining;
+            if (payloadSize < xteaBlockSize || payloadSize > int.MaxValue)
             {
                 return false;
             }
 
-            var length = (int)xteaBlockSize;
+            var length = (int)payloadSize;
             var xteaData = bufferPool.Rent(length);
             try
             {

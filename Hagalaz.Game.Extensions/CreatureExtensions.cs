@@ -1,6 +1,4 @@
 using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Tasks;
@@ -57,32 +55,12 @@ namespace Hagalaz.Game.Extensions
         }
 
         /// <summary>
-        /// Queues an asynchronous task to be executed by the creature's task scheduler.
-        /// </summary>
-        /// <param name="creature">The creature that will execute the task.</param>
-        /// <param name="task">The asynchronous action to be executed.</param>
-        /// <param name="cancellationToken">An optional externally owned cancellation token.</param>
-        /// <returns>A handle to the queued task, which can be used to monitor or cancel it.</returns>
-        public static IRsTaskHandle QueueTask(this ICreature creature, Func<Task> task, CancellationToken cancellationToken = default) =>
-            creature.QueueTask(new RsAsyncTask(task, cancellationToken));
-
-        /// <summary>
-        /// Queues an asynchronous task that receives a cooperative cancellation token.
-        /// </summary>
-        /// <param name="creature">The creature that will execute the task.</param>
-        /// <param name="task">The asynchronous operation to be executed.</param>
-        /// <param name="cancellationToken">An optional externally owned cancellation token.</param>
-        /// <returns>A handle to the queued task, which can be used to monitor or cancel it.</returns>
-        public static IRsTaskHandle QueueTask(this ICreature creature, Func<CancellationToken, Task> task, CancellationToken cancellationToken = default) =>
-            creature.QueueTask(new RsAsyncTask(task, cancellationToken));
-
-        /// <summary>
         /// Queues a synchronous task to be executed by the creature's task scheduler after a specified delay.
         /// </summary>
         /// <param name="creature">The creature that will execute the task.</param>
         /// <param name="task">The synchronous action to be executed.</param>
         /// <param name="executeDelay">The delay in game ticks before the task is executed.</param>
         /// <returns>A handle to the queued task, which can be used to monitor or cancel it.</returns>
-        public static IRsTaskHandle QueueTask(this ICreature creature, Action task, int executeDelay) => creature.QueueTask(new RsTask(task, executeDelay));
+        public static IRsTaskHandle QueueTask(this ICreature creature, Action task, int executeDelay = 1) => creature.QueueTask(new RsTask(task, executeDelay));
     }
 }

@@ -1,10 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
-using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
@@ -24,11 +24,11 @@ namespace Hagalaz.Services.GameWorld.Data
     public class MapRegionLoader : IMapRegionLoader
     {
         private readonly INpcService _npcService;
+        private readonly IMapRegionService _regionService;
         private readonly INpcSpawnRepository _npcSpawnRepository;
         private readonly IGroundItemSpawnRepository _itemSpawnRepository;
         private readonly IGameObjectSpawnRepository _objectSpawnRepository;
         private readonly IMapProvider _mapProvider;
-        private readonly ITypeProvider<IObjectType> _objectTypeProvider;
         private readonly ILocationBuilder _locationBuilder;
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly IGameObjectBuilder _gameObjectBuilder;
@@ -38,11 +38,11 @@ namespace Hagalaz.Services.GameWorld.Data
 
         public MapRegionLoader(
             INpcService npcService,
+            IMapRegionService regionService,
             INpcSpawnRepository npcSpawnRepository,
             IGroundItemSpawnRepository itemSpawnRepository,
             IGameObjectSpawnRepository objectSpawnRepository,
             IMapProvider mapProvider,
-            ITypeProvider<IObjectType> objectTypeProvider,
             ILocationBuilder locationBuilder,
             IGroundItemBuilder groundItemBuilder,
             IGameObjectBuilder gameObjectBuilder,
@@ -51,11 +51,11 @@ namespace Hagalaz.Services.GameWorld.Data
             ILogger<MapRegionLoader> logger)
         {
             _npcService = npcService;
+            _regionService = regionService;
             _npcSpawnRepository = npcSpawnRepository;
             _itemSpawnRepository = itemSpawnRepository;
             _objectSpawnRepository = objectSpawnRepository;
             _mapProvider = mapProvider;
-            _objectTypeProvider = objectTypeProvider;
             _locationBuilder = locationBuilder;
             _groundItemBuilder = groundItemBuilder;
             _gameObjectBuilder = gameObjectBuilder;
@@ -66,64 +66,128 @@ namespace Hagalaz.Services.GameWorld.Data
 
         public async Task LoadAsync(IMapRegion region, CancellationToken cancellationToken = default)
         {
-            if (region.IsLoaded)
+            if (region.State == MapRegionState.Ready)
             {
                 return;
             }
 
+            if (region.State == MapRegionState.Discarded)
+            {
+                throw new InvalidOperationException($"Region[{region.Id}] is discarded and cannot be loaded.");
+            }
+
+            if (!_regionService.IsCurrentMapRegion(region.Id, region.BaseLocation.Dimension, region))
+            {
+                throw new InvalidOperationException($"Region[{region.Id}] is no longer the current region instance.");
+            }
+
             var watch = Stopwatch.StartNew();
-            var min = _locationBuilder.Create().FromLocation(region.BaseLocation).WithZ(0).ToRegionCoordinates(0, 0, region.Size.X, region.Size.Y).Build();
-            var max = _locationBuilder.Create()
-                .FromLocation(region.BaseLocation)
-                .WithZ(region.Size.Z)
-                .ToRegionCoordinates(region.Size.X - 1, region.Size.Y - 1, region.Size.X, region.Size.Y)
-                .Build();
+            var registeredNpcs = new List<INpc>();
+            var createdGroundItems = new List<IGroundItem>();
+            var createdGameObjects = new List<IGameObject>();
+
             try
             {
-                region.Load();
-                await LoadAllNpcsAsync(region, min, max);
-                await LoadAllGroundItemsAsync(region, min, max);
-                await LoadAllStaticGameObjectsAsync(region);
-                await LoadAllNonStaticGameObjectsAsync(region, min, max);
+                var min = _locationBuilder.Create().FromLocation(region.BaseLocation).WithZ(0).ToRegionCoordinates(0, 0, region.Size.X, region.Size.Y).Build();
+                var max = _locationBuilder.Create()
+                    .FromLocation(region.BaseLocation)
+                    .WithZ(region.Size.Z)
+                    .ToRegionCoordinates(region.Size.X - 1, region.Size.Y - 1, region.Size.X, region.Size.Y)
+                    .Build();
+                var prepared = await PrepareAsync(
+                    region,
+                    min,
+                    max,
+                    createdGroundItems,
+                    createdGameObjects,
+                    cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                ApplyPreparedRegion(region, prepared, createdGroundItems, createdGameObjects);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await RegisterNpcsAsync(region, prepared.NpcSpawns, registeredNpcs, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                region.MarkReady();
 
                 _logger.LogDebug("Region[{id}] was loaded in {ms} ms", region.Id, watch.ElapsedMilliseconds);
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
-                _logger.LogError(ex, "Region[{id}] failed to load", region.Id);
+                if (region.State == MapRegionState.Initializing)
+                {
+                    region.MarkDiscarded();
+                }
+
+                _regionService.TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
+
+                await UnregisterRegisteredNpcsAsync(registeredNpcs, region);
+                RollbackPreparedResources(region, createdGroundItems, createdGameObjects);
+
+                _logger.LogError(exception, "Region[{id}] failed to load and was discarded", region.Id);
+                throw;
             }
         }
 
-        private async Task LoadAllNpcsAsync(IMapRegion region, ILocation min, ILocation max)
+        private async Task<PreparedRegion> PrepareAsync(
+            IMapRegion region,
+            ILocation min,
+            ILocation max,
+            List<IGroundItem> createdGroundItems,
+            List<IGameObject> createdGameObjects,
+            CancellationToken cancellationToken)
         {
-            var spawnsInRegion = await _mapper.ProjectTo<NpcSpawnDto>(_npcSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)).ToArrayAsync();
-            var npcsInRegion = spawnsInRegion.Select(spawn =>
+            var npcSpawns = await _mapper.ProjectTo<NpcSpawnDto>(_npcSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)).ToArrayAsync(cancellationToken);
+            var itemSpawns = await _mapper.ProjectTo<GroundItemSpawnDto>(_itemSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)).ToArrayAsync(cancellationToken);
+            var objectSpawns = await _objectSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)
+                .Select(spawn => new
+                {
+                    spawn.GameobjectId,
+                    spawn.CoordX,
+                    spawn.CoordY,
+                    spawn.CoordZ,
+                    spawn.Face,
+                    spawn.Type
+                })
+                .ToArrayAsync(cancellationToken);
+
+            var staticObjectSpawns = new List<StaticObjectSpawn>();
+            var collisionTiles = new List<CollisionTile>();
+            cancellationToken.ThrowIfCancellationRequested();
+            _mapProvider.DecodeRegion(
+                region.Id,
+                region.XteaKeys,
+                (objectId, shapeType, rotation, localX, localY, z) =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    staticObjectSpawns.Add(new StaticObjectSpawn(objectId, shapeType, rotation, localX, localY, z));
+                },
+                (localX, localY, z) =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    collisionTiles.Add(new CollisionTile(localX, localY, z));
+                });
+
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (var spawn in staticObjectSpawns)
             {
-                var location = spawn.Location.Copy(region.BaseLocation.Dimension);
-                var minBounds = spawn.MinimumBounds.Copy(region.BaseLocation.Dimension);
-                var maxBounds = spawn.MaximumBounds.Copy(region.BaseLocation.Dimension);
-                var faceDirection = spawn.SpawnDirection.HasValue ? DirectionHelper.GetNpcFaceDirection(spawn.SpawnDirection.Value) : DirectionFlag.None;
-                var npc = _npcBuilder
-                    .Create()
-                    .WithId(spawn.NpcId)
-                    .WithLocation(location)
-                    .WithMinimumBounds(minBounds)
-                    .WithMaximumBounds(maxBounds)
-                    .WithFaceDirection(faceDirection)
+                var location = _locationBuilder.Create()
+                    .FromLocation(region.BaseLocation)
+                    .WithZ(spawn.Z)
+                    .ToRegionCoordinates(spawn.LocalX, spawn.LocalY, region.Size.X, region.Size.Y)
                     .Build();
-                return npc;
-            });
-
-            foreach (var npc in npcsInRegion)
-            {
-                await _npcService.RegisterAsync(npc);
+                var gameObject = _gameObjectBuilder
+                    .Create()
+                    .WithId(spawn.Id)
+                    .WithLocation(location)
+                    .WithRotation(spawn.Rotation)
+                    .WithShape((ShapeType)spawn.ShapeType)
+                    .AsStatic()
+                    .Build();
+                createdGameObjects.Add(gameObject);
             }
-        }
 
-        private async Task LoadAllGroundItemsAsync(IMapRegion region, ILocation min, ILocation max)
-        {
-            var spawnsInRegion = await _mapper.ProjectTo<GroundItemSpawnDto>(_itemSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)).ToArrayAsync();
-            var itemsInRegion = spawnsInRegion.Select(spawn =>
+            foreach (var spawn in itemSpawns)
             {
                 var location = spawn.Location.Copy(region.BaseLocation.Dimension);
                 var groundItem = _groundItemBuilder
@@ -132,72 +196,117 @@ namespace Hagalaz.Services.GameWorld.Data
                     .WithLocation(location)
                     .WithRespawnTicks(spawn.RespawnTicks)
                     .Build();
-                return groundItem;
-            });
+                createdGroundItems.Add(groundItem);
+            }
 
-            foreach (var groundItem in itemsInRegion)
+            foreach (var spawn in objectSpawns)
+            {
+                var location = new Location(spawn.CoordX, spawn.CoordY, spawn.CoordZ, region.BaseLocation.Dimension);
+                var gameObject = _gameObjectBuilder
+                    .Create()
+                    .WithId((int)spawn.GameobjectId)
+                    .WithLocation(location)
+                    .WithRotation(spawn.Face)
+                    .WithShape((ShapeType)spawn.Type)
+                    .Build();
+                createdGameObjects.Add(gameObject);
+            }
+
+            return new PreparedRegion(npcSpawns, collisionTiles);
+        }
+
+        private static void ApplyPreparedRegion(
+            IMapRegion region,
+            PreparedRegion prepared,
+            IReadOnlyList<IGroundItem> groundItems,
+            IReadOnlyList<IGameObject> gameObjects)
+        {
+            foreach (var tile in prepared.CollisionTiles)
+            {
+                region.FlagCollision(tile.LocalX, tile.LocalY, tile.Z, CollisionFlag.FloorBlock);
+            }
+
+            foreach (var gameObject in gameObjects)
+            {
+                region.Add(gameObject);
+            }
+
+            foreach (var groundItem in groundItems)
             {
                 region.Add(groundItem);
             }
         }
 
-        private async Task LoadAllNonStaticGameObjectsAsync(IMapRegion region, ILocation min, ILocation max)
+        private async Task RegisterNpcsAsync(IMapRegion region, IReadOnlyList<NpcSpawnDto> spawns, List<INpc> registeredNpcs, CancellationToken cancellationToken)
         {
-            var spawnsInRegion = await _mapper.ProjectTo<GameObjectSpawnDto>(_objectSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)).ToArrayAsync();
-            var objectsInRegion = spawnsInRegion.Select(spawn =>
+            foreach (var spawn in spawns)
             {
-                var location = spawn.Location.Copy(region.BaseLocation.Dimension);
-                var gameObject = _gameObjectBuilder
-                    .Create()
-                    .WithId(spawn.ObjectId)
-                    .WithLocation(location)
-                    .WithRotation(spawn.Rotation)
-                    .WithShape(spawn.ShapeType)
-                    .Build();
-                return gameObject;
-            });
-
-            foreach (var gameObject in objectsInRegion)
-            {
-                region.Add(gameObject);
+                cancellationToken.ThrowIfCancellationRequested();
+                var npc = BuildNpc(region, spawn);
+                await _npcService.RegisterAsync(npc);
+                registeredNpcs.Add(npc);
             }
         }
 
-        private async Task LoadAllStaticGameObjectsAsync(IMapRegion region)
+        private INpc BuildNpc(IMapRegion region, NpcSpawnDto spawn)
         {
-            await Task.CompletedTask;
-            var request = new DecodePartRequest
-            {
-                RegionID = region.Id,
-                XteaKeys = region.XteaKeys,
-                MinX = 0,
-                MinY = 0,
-                MaxX = region.Size.X - 1,
-                MaxY = region.Size.Y - 1,
-                PartZ = 0,
-                PartRotation = 0,
-                PartRotationCallback = (objectId, objectRotation, xIndex, yIndex, partRotation, calculateRotationY) =>
-                    MapRotationHelper.CalculateObjectPartRotation(_objectTypeProvider, objectId, objectRotation, xIndex, yIndex, partRotation, calculateRotationY),
-                Callback = (objectId, shapeType, rotation, localX, localY, z) =>
-                {
-                    var location = _locationBuilder.Create()
-                        .FromLocation(region.BaseLocation)
-                        .WithZ(z)
-                        .ToRegionCoordinates(localX, localY, region.Size.X, region.Size.Y)
-                        .Build();
-                    var gameObject = _gameObjectBuilder
-                        .Create()
-                        .WithId(objectId)
-                        .WithLocation(location)
-                        .WithRotation(rotation)
-                        .WithShape((ShapeType)shapeType)
-                        .AsStatic()
-                        .Build();
-                    region.Add(gameObject);
-                },
-                GroundCallback = (localX, localY, z) => region.FlagCollision(localX, localY, z, CollisionFlag.FloorBlock)
-            };
-            _mapProvider.DecodePart(request);
+            var location = spawn.Location.Copy(region.BaseLocation.Dimension);
+            var minBounds = spawn.MinimumBounds.Copy(region.BaseLocation.Dimension);
+            var maxBounds = spawn.MaximumBounds.Copy(region.BaseLocation.Dimension);
+            var faceDirection = spawn.SpawnDirection.HasValue ? DirectionHelper.GetNpcFaceDirection(spawn.SpawnDirection.Value) : DirectionFlag.None;
+            return _npcBuilder
+                .Create()
+                .WithId(spawn.NpcId)
+                .WithLocation(location)
+                .WithMinimumBounds(minBounds)
+                .WithMaximumBounds(maxBounds)
+                .WithFaceDirection(faceDirection)
+                .Build();
         }
+
+        private async Task UnregisterRegisteredNpcsAsync(IReadOnlyList<INpc> npcs, IMapRegion region)
+        {
+            foreach (var npc in npcs)
+            {
+                try
+                {
+                    await _npcService.UnregisterAsync(npc);
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogError(exception, "Region[{id}] could not clean up NPC '{npc}' after load failure", region.Id, npc);
+                }
+            }
+        }
+
+        private void RollbackPreparedResources(
+            IMapRegion region,
+            IReadOnlyList<IGroundItem> groundItems,
+            IReadOnlyList<IGameObject> gameObjects)
+        {
+            foreach (var item in groundItems)
+            {
+                item.Destroy();
+            }
+
+            foreach (var gameObject in gameObjects)
+            {
+                try
+                {
+                    gameObject.Destroy();
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogError(exception, "Region[{id}] could not clean up game object after load failure", region.Id);
+                }
+            }
+        }
+
+        private sealed record PreparedRegion(
+            NpcSpawnDto[] NpcSpawns,
+            List<CollisionTile> CollisionTiles);
+
+        private readonly record struct StaticObjectSpawn(int Id, int ShapeType, int Rotation, int LocalX, int LocalY, int Z);
+        private readonly record struct CollisionTile(int LocalX, int LocalY, int Z);
     }
 }

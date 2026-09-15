@@ -2,9 +2,9 @@
 {
     public interface IContactSessionService
     {
-        public Task AddLobbySession(int worldId, uint masterId);
-        public Task AddWorldSession(int worldId, uint masterId);
-        public Task RemoveSession(uint masterId);
+        public Task AddLobbySession(int worldId, uint masterId, long sessionGeneration, string connectionId);
+        public Task AddWorldSession(int worldId, uint masterId, long sessionGeneration, string connectionId);
+        public Task RemoveSession(uint masterId, long sessionGeneration, string connectionId);
         public Task RemoveWorldSessions(int worldId);
     }
 }

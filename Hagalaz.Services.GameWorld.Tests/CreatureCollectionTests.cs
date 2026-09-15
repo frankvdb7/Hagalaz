@@ -110,6 +110,63 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
+        public void Remove_WithReusedIndex_DoesNotRemoveReplacement()
+        {
+            var original = new CreatureMock();
+            var replacement = new CreatureMock();
+            var collection = new CreatureCollection<CreatureMock>(1) { original };
+            collection.Remove(original);
+            collection.Add(replacement);
+
+            Assert.IsFalse(collection.Remove(original));
+            Assert.AreEqual(1, collection.Count);
+            Assert.AreSame(replacement, collection[original.Index]);
+        }
+
+        [TestMethod]
+        public void Handle_DoesNotResolveAfterSlotReuse()
+        {
+            var original = new CreatureMock();
+            var replacement = new CreatureMock();
+            var collection = new CreatureCollection<CreatureMock>(1);
+            collection.Add(original);
+
+            Assert.IsTrue(collection.TryGetHandle(original, out var originalHandle));
+            Assert.IsTrue(collection.Remove(original));
+            Assert.IsNull(collection.Resolve(originalHandle));
+
+            Assert.IsTrue(collection.Add(replacement));
+            Assert.IsTrue(collection.TryGetHandle(replacement, out var replacementHandle));
+            Assert.AreNotEqual(originalHandle.Generation, replacementHandle.Generation);
+            Assert.IsNull(collection.Resolve(originalHandle));
+            Assert.AreSame(replacement, collection.Resolve(replacementHandle));
+        }
+
+        [TestMethod]
+        public void Handle_RequiresExactCurrentCreature()
+        {
+            var current = new CreatureMock();
+            var other = new CreatureMock();
+            var collection = new CreatureCollection<CreatureMock>(2);
+            collection.Add(current);
+
+            Assert.IsFalse(collection.TryGetHandle(other, out _));
+            Assert.IsTrue(collection.TryGetHandle(current, out var handle));
+            Assert.AreSame(current, collection.Resolve(handle));
+        }
+
+        [TestMethod]
+        public void Handle_IsTypedToTheOwningCollection()
+        {
+            var creature = new CreatureMock();
+            var collection = new CreatureCollection<CreatureMock>(1);
+            collection.Add(creature);
+
+            Assert.IsTrue(collection.TryGetHandle(creature, out var handle));
+            Assert.AreEqual(typeof(CreatureHandle<CreatureMock>), handle.GetType());
+        }
+
+        [TestMethod]
         public void Remove_Add_Multiple_Creatures_Test()
         {
             var creature1 = new CreatureMock();
@@ -245,8 +302,6 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             public ILocation Location => throw new NotImplementedException();
 
-            public bool IsDestroyed => throw new NotImplementedException();
-
             public int Size => throw new NotImplementedException();
 
             public string Name => throw new NotImplementedException();
@@ -277,7 +332,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             public void MajorUpdateTick() => throw new NotImplementedException();
             public void OnDeath() => throw new NotImplementedException();
             public void OnKilledBy(ICreature killer) => throw new NotImplementedException();
-            public Task OnRegistered() => throw new NotImplementedException();
+            public void OnRegistered() => throw new NotImplementedException();
             public void OnSpawn() => throw new NotImplementedException();
             public void OnTargetKilled(ICreature target) => throw new NotImplementedException();
             public bool Poison(short amount) => throw new NotImplementedException();
@@ -287,7 +342,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             public void QueueHitBar(IHitBar hitBar) => throw new NotImplementedException();
             public void QueueHitSplat(IHitSplat splat) => throw new NotImplementedException();
             public IRsTaskHandle QueueTask(ITaskItem task) => throw new NotImplementedException();
-            public void QueueTask(Func<Task> task) => throw new NotImplementedException();
+            public IRsTaskHandle QueueTask(Func<CancellationToken, Task> operation) => throw new NotImplementedException();
             public EventHappened? RegisterEventHandler<TEventType>(EventHappened<TEventType> handler) where TEventType : ICreatureEvent => throw new NotImplementedException();
             public void ResetFacing() => throw new NotImplementedException();
             public void Respawn() => throw new NotImplementedException();

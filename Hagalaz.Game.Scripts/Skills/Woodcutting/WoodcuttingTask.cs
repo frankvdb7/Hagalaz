@@ -85,7 +85,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
             var randomValue = RandomStatic.Generator.NextDouble();
             if (randomValue <= _chance)
             {
-                if (_gameObject.IsDestroyed || _gameObject.IsDisabled)
+                if (_gameObject.IsDisabled)
                 {
                     Cancel();
                     return;

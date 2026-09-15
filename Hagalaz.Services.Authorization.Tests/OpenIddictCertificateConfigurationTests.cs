@@ -6,13 +6,214 @@ using System.Security.Cryptography.X509Certificates;
 using Hagalaz.Services.Authorization.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using OpenIddictServerOptions = OpenIddict.Server.OpenIddictServerOptions;
 
 namespace Hagalaz.Services.Authorization.Tests
 {
     [TestClass]
     public class OpenIddictCertificateConfigurationTests
     {
+        [TestMethod]
+        public void ConfigureIssuer_UsesConfiguredIssuer()
+        {
+            var services = new ServiceCollection();
+            services.AddOptions();
+            var options = new OpenIddictServerBuilder(services);
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["OpenIddict:Issuer"] = "https://auth.example.test/"
+                })
+                .Build();
+
+            OpenIddictServerConfiguration.ConfigureIssuer(options, configuration, isDevelopment: false);
+
+            var serverOptions = services.BuildServiceProvider()
+                .GetRequiredService<IOptions<OpenIddictServerOptions>>().Value;
+            Assert.AreEqual(new Uri("https://auth.example.test/"), serverOptions.Issuer);
+        }
+
+        [TestMethod]
+        public void ConfigureIssuer_Development_UsesHttpsPortFallback()
+        {
+            var services = new ServiceCollection();
+            services.AddOptions();
+            var options = new OpenIddictServerBuilder(services);
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ASPNETCORE_HTTPS_PORT"] = "7006"
+                })
+                .Build();
+
+            OpenIddictServerConfiguration.ConfigureIssuer(options, configuration, isDevelopment: true);
+
+            var serverOptions = services.BuildServiceProvider()
+                .GetRequiredService<IOptions<OpenIddictServerOptions>>().Value;
+            Assert.AreEqual(new Uri("https://localhost:7006/"), serverOptions.Issuer);
+        }
+
+        [TestMethod]
+        public void ConfigureIssuer_Development_PrefersHttpsPortOverHttpPort()
+        {
+            var services = new ServiceCollection();
+            services.AddOptions();
+            var options = new OpenIddictServerBuilder(services);
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ASPNETCORE_HTTPS_PORT"] = "7006",
+                    ["ASPNETCORE_HTTP_PORT"] = "5009"
+                })
+                .Build();
+
+            OpenIddictServerConfiguration.ConfigureIssuer(options, configuration, isDevelopment: true);
+
+            var serverOptions = services.BuildServiceProvider()
+                .GetRequiredService<IOptions<OpenIddictServerOptions>>().Value;
+            Assert.AreEqual(new Uri("https://localhost:7006/"), serverOptions.Issuer);
+        }
+
+        [TestMethod]
+        public void ConfigureIssuer_Development_UsesHttpPortFallback()
+        {
+            var services = new ServiceCollection();
+            services.AddOptions();
+            var options = new OpenIddictServerBuilder(services);
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ASPNETCORE_HTTP_PORT"] = "5009"
+                })
+                .Build();
+
+            OpenIddictServerConfiguration.ConfigureIssuer(options, configuration, isDevelopment: true);
+
+            var serverOptions = services.BuildServiceProvider()
+                .GetRequiredService<IOptions<OpenIddictServerOptions>>().Value;
+            Assert.AreEqual(new Uri("http://localhost:5009/"), serverOptions.Issuer);
+        }
+
+        [TestMethod]
+        public void ConfigureIssuer_Development_ThrowsWhenNoLaunchProfilePortExists()
+        {
+            var services = new ServiceCollection();
+            var options = new OpenIddictServerBuilder(services);
+            var configuration = new ConfigurationBuilder().Build();
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                OpenIddictServerConfiguration.ConfigureIssuer(options, configuration, isDevelopment: true));
+
+            StringAssert.Contains(exception.Message, "OpenIddict:Issuer");
+        }
+
+        [TestMethod]
+        public void ConfigureIssuer_Production_PreservesConfiguredHttpsPath()
+        {
+            var services = new ServiceCollection();
+            services.AddOptions();
+            var options = new OpenIddictServerBuilder(services);
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["OpenIddict:Issuer"] = "https://auth.example.test/identity/"
+                })
+                .Build();
+
+            OpenIddictServerConfiguration.ConfigureIssuer(options, configuration, isDevelopment: false);
+
+            var serverOptions = services.BuildServiceProvider()
+                .GetRequiredService<IOptions<OpenIddictServerOptions>>().Value;
+            Assert.AreEqual(new Uri("https://auth.example.test/identity/"), serverOptions.Issuer);
+        }
+
+        [TestMethod]
+        public void ConfigureIssuer_RejectsRelativeIssuer()
+        {
+            var services = new ServiceCollection();
+            var options = new OpenIddictServerBuilder(services);
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["OpenIddict:Issuer"] = "auth.example.test"
+                })
+                .Build();
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                OpenIddictServerConfiguration.ConfigureIssuer(options, configuration, isDevelopment: false));
+
+            StringAssert.Contains(exception.Message, "OpenIddict:Issuer");
+        }
+
+        [TestMethod]
+        public void ConfigureIssuer_RejectsQueryInIssuer()
+        {
+            var services = new ServiceCollection();
+            var options = new OpenIddictServerBuilder(services);
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["OpenIddict:Issuer"] = "https://auth.example.test/?tenant=one"
+                })
+                .Build();
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                OpenIddictServerConfiguration.ConfigureIssuer(options, configuration, isDevelopment: false));
+
+            StringAssert.Contains(exception.Message, "query or fragment");
+        }
+
+        [TestMethod]
+        public void ConfigureIssuer_RejectsFragmentInIssuer()
+        {
+            var services = new ServiceCollection();
+            var options = new OpenIddictServerBuilder(services);
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["OpenIddict:Issuer"] = "https://auth.example.test/#issuer"
+                })
+                .Build();
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                OpenIddictServerConfiguration.ConfigureIssuer(options, configuration, isDevelopment: false));
+
+            StringAssert.Contains(exception.Message, "query or fragment");
+        }
+
+        [TestMethod]
+        public void ConfigureIssuer_Production_ThrowsWhenIssuerIsMissing()
+        {
+            var services = new ServiceCollection();
+            var options = new OpenIddictServerBuilder(services);
+            var configuration = new ConfigurationBuilder().Build();
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                OpenIddictServerConfiguration.ConfigureIssuer(options, configuration, isDevelopment: false));
+
+            StringAssert.Contains(exception.Message, "OpenIddict:Issuer");
+        }
+
+        [TestMethod]
+        public void ConfigureIssuer_Production_RejectsNonHttpsIssuer()
+        {
+            var services = new ServiceCollection();
+            var options = new OpenIddictServerBuilder(services);
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["OpenIddict:Issuer"] = "http://auth.example.test/"
+                })
+                .Build();
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                OpenIddictServerConfiguration.ConfigureIssuer(options, configuration, isDevelopment: false));
+
+            StringAssert.Contains(exception.Message, "HTTPS");
+        }
+
         [TestMethod]
         public void ConfigureCredentials_OutsideDevelopment_ThrowsWhenSigningCertificateIsMissing()
         {

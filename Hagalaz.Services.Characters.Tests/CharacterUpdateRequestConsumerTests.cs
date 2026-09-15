@@ -297,6 +297,38 @@ public sealed class CharacterUpdateRequestConsumerTests
     }
 
     [TestMethod]
+    public async Task Consume_LowerSnapshotRevision_ReportsConflictWithoutMutation()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        await SeedCharacterAsync(databaseName, snapshotRevision: 20);
+
+        await using var provider = new ServiceCollection()
+            .AddScoped(_ => CreateContext(databaseName))
+            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
+            .AddAutoMapper(_ => { }, typeof(Program))
+            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetTestHarness();
+        await harness.Start();
+        var request = CreateRequest() with
+        {
+            SnapshotRevision = 10,
+            Details = new DetailsDto(9999, 9998, 1)
+        };
+        var response = await harness.GetRequestClient<UpdateCharacterRequest>()
+            .GetResponse<UpdateCharacterResponse>(request);
+
+        Assert.AreEqual(CharacterPersistenceOutcome.Conflict, response.Message.Outcome);
+        await harness.Stop();
+
+        await using var verificationContext = CreateContext(databaseName);
+        var character = await verificationContext.Characters.SingleAsync(x => x.Id == request.MasterId);
+        Assert.AreEqual(20L, character.SnapshotRevision);
+        Assert.AreNotEqual(request.Details.CoordX, character.CoordX);
+    }
+
+    [TestMethod]
     public async Task Consume_ExistingCharacter_PersistsSnapshotBeforeResponding()
     {
         var databaseName = Guid.NewGuid().ToString();
@@ -331,7 +363,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         Assert.AreEqual(request.Statistics.AttackExp, statistics.AttackExp);
         Assert.AreEqual(request.ItemCollection.Bank[0].ItemId, items.ItemId);
         Assert.AreEqual((sbyte)0, items.ContainerType);
-        Assert.AreEqual(request.State.StatesEx[0].Id.ToString(), state.StateId);
+        Assert.AreEqual(request.State.StatesEx[0].Id, state.StateId);
         Assert.AreEqual(request.Profile.JsonData, (await verificationContext.CharacterProfiles.SingleAsync(x => x.MasterId == request.MasterId)).Data);
         Assert.AreEqual(request.Music.UnlockedMusicIds[0].ToString(), (await verificationContext.CharactersMusics.SingleAsync(x => x.MasterId == request.MasterId)).UnlockedMusic.Split(',')[0]);
     }
@@ -367,7 +399,7 @@ public sealed class CharacterUpdateRequestConsumerTests
             Farming = new FarmingDto { Patches = [new FarmingDto.PatchDto { Id = 999, SeedId = 999 }] },
             Notes = new NotesDto { Notes = [new NotesDto.NoteDto { Id = 999, Text = "stale" }] },
             ItemAppearanceCollection = new ItemAppearanceCollectionDto { Appearances = [new ItemAppearanceDto { Id = 999 }] },
-            State = new StateDto { StatesEx = [new StateDto.StateExDto { Id = 999, TicksLeft = 999 }] }
+            State = new StateDto { StatesEx = [new StateDto.StateExDto { Id = "999", TicksLeft = 999 }] }
         };
         var response = await client.GetResponse<UpdateCharacterResponse>(staleRequest);
 
@@ -389,7 +421,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         Assert.AreEqual((uint)currentRequest.Farming.Patches[0].Id, farmingPatch.PatchId);
         Assert.AreEqual(currentRequest.Notes.Notes[0].Id, note.NoteId);
         Assert.AreEqual(currentRequest.ItemAppearanceCollection.Appearances[0].Id, itemAppearance.ItemId);
-        Assert.AreEqual(currentRequest.State.StatesEx[0].Id.ToString(), state.StateId);
+        Assert.AreEqual(currentRequest.State.StatesEx[0].Id, state.StateId);
     }
 
     [TestMethod]
@@ -591,7 +623,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         new NotesDto { Notes = [new NotesDto.NoteDto { Id = 32, Color = 33, Text = "note" }] },
         new ProfileDto { JsonData = "{\"changed\":true}" },
         new ItemAppearanceCollectionDto { Appearances = [new ItemAppearanceDto { Id = 40, MaleModels = [1, 2, 3], FemaleModels = [4, 5, 6], ModelColors = [7, 8], TextureColors = [9, 10] }] },
-        new StateDto { StatesEx = [new StateDto.StateExDto { Id = 50, TicksLeft = 51 }] },
+        new StateDto { StatesEx = [new StateDto.StateExDto { Id = "50", TicksLeft = 51 }] },
         2);
 
     private static PersistCharacterCommand CreateCommand()

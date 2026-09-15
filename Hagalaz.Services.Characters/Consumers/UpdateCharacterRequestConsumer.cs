@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -68,21 +67,9 @@ namespace Hagalaz.Services.Characters.Consumers
                 _metrics.RecordApplied();
                 await context.RespondAsync(new UpdateCharacterResponse(message.CorrelationId, message.MasterId, CharacterPersistenceOutcome.Committed));
             }
-            catch (DbUpdateConcurrencyException)
-            {
-                // SaveChanges leaves the attempted snapshot and its child graph
-                // tracked after a conflict. Clear it before MassTransit retries;
-                // otherwise the retry can reuse the poisoned in-memory revision.
-                _unitOfWork.Reset();
-                _metrics.RecordFailure();
-                throw;
-            }
             catch
             {
-                // Any failed persistence attempt can leave the EF graph dirty,
-                // not only optimistic-concurrency failures. Clear it before the
-                // endpoint retry so stale in-memory state cannot acknowledge a
-                // command that was never committed.
+                // Every failed persistence attempt must reset the scoped unit of work before retry.
                 _unitOfWork.Reset();
                 _metrics.RecordFailure();
                 throw;
@@ -126,20 +113,9 @@ namespace Hagalaz.Services.Characters.Consumers
                 await _unitOfWork.CommitAsync();
                 _metrics.RecordApplied();
             }
-            catch (DbUpdateConcurrencyException)
-            {
-                // SaveChanges leaves the attempted snapshot and its child graph
-                // tracked after a conflict. Clear it before MassTransit retries;
-                // otherwise the retry can reuse the poisoned in-memory revision.
-                _unitOfWork.Reset();
-                _metrics.RecordFailure();
-                throw;
-            }
             catch
             {
-                // SaveChanges failures can leave attempted revisions and outbox
-                // entries tracked. A retry must query a clean unit of work so it
-                // cannot acknowledge rolled-back state as stale.
+                // Every failed persistence attempt must reset the scoped unit of work before retry.
                 _unitOfWork.Reset();
                 _metrics.RecordFailure();
                 throw;
@@ -396,7 +372,7 @@ namespace Hagalaz.Services.Characters.Consumers
         private async Task ReplaceStatesAsync(ICharacterPersistenceMessage message)
         {
             var existing = await _unitOfWork.CharacterStateRepository.FindAll().Where(s => s.MasterId == message.MasterId).ToListAsync();
-            var incoming = message.State.StatesEx.ToDictionary(state => state.Id.ToString(CultureInfo.InvariantCulture));
+            var incoming = message.State.StatesEx.ToDictionary(state => state.Id);
             foreach (var state in existing)
             {
                 if (!incoming.TryGetValue(state.StateId, out var stateDto))

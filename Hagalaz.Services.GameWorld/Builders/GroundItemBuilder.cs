@@ -110,8 +110,7 @@ namespace Hagalaz.Services.GameWorld.Builders
         {
             var groundItem = Build();
             var mapRegionService = _serviceProvider.GetRequiredService<IMapRegionService>();
-            var mapRegion = mapRegionService.GetOrCreateMapRegion(groundItem.Location.RegionId, groundItem.Location.Dimension, true);
-            mapRegion.Add(groundItem);
+            mapRegionService.AddGroundItem(groundItem);
             return groundItem;
         }
     }

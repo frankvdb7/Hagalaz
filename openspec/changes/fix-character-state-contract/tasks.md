@@ -1,0 +1,4 @@
+- [ ] 1. Align the Characters state message and service model identifiers with the persisted string type.
+- [ ] 2. Update snapshot mapping and lookup to preserve string identifiers.
+- [ ] 3. Add a queryable projection regression test and update affected fixtures.
+- [ ] 4. Run focused and surrounding Characters/GameWorld tests, build, strict OpenSpec validation, and repeat the real client world-entry action.

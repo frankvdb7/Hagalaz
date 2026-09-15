@@ -1,4 +1,7 @@
 using Hagalaz.Game.Abstractions.Model.Maps;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Hagalaz.Game.Abstractions.Services
 {
@@ -12,5 +15,7 @@ namespace Hagalaz.Game.Abstractions.Services
         /// </summary>
         /// <param name="region">The region to load.</param>
         void RequestLoad(IMapRegion region);
+
+        Task EnsureLoadedAsync(IEnumerable<IMapRegion> regions, CancellationToken cancellationToken = default);
     }
 }

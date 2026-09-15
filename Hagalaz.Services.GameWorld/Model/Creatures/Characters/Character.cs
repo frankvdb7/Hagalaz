@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Builders.Animation;
@@ -391,18 +390,40 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         protected override void OnDestroy()
         {
-            EventManager.SendEvent(new CreatureDestroyedEvent(this));
-            foreach (var characterScript in _scripts.Values)
+            List<Exception>? exceptions = null;
+            try
             {
-                characterScript.OnDestroy();
+                EventManager.SendEvent(new CreatureDestroyedEvent(this));
             }
+            catch (Exception exception)
+            {
+                (exceptions ??= []).Add(exception);
+            }
+
+            foreach (var script in _scripts.Values)
+            {
+                try
+                {
+                    script.OnDestroy();
+                }
+                catch (Exception exception)
+                {
+                    (exceptions ??= []).Add(exception);
+                }
+            }
+
             UnregisterEventHandlers();
+
+            if (exceptions is { Count: > 0 })
+            {
+                throw new AggregateException("One or more character cleanup operations failed.", exceptions).Flatten();
+            }
         }
 
         /// <summary>
         /// Get's called when entity is registered to world.
         /// </summary>
-        public override Task OnRegistered()
+        public override void OnRegistered()
         {
             // initialize the most important drawing logic first
             RenderInformation.OnRegistered();
@@ -424,7 +445,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 AddState(new LodestoneEdgevilleState());
 
             OnInit();
-            return Task.CompletedTask;
         }
 
         /// <summary>

@@ -30,11 +30,6 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces
         public override void OnOpen()
         {
             Owner.Configurations.SendGlobalCs2String(359, Victorious ? "You were victorious!" : "You were defeated"); // title
-            if (Opponent.IsDestroyed)
-            {
-                Owner.Configurations.SendGlobalCs2String(377, "(Gone offline)"); // name
-            }
-
             InterfaceInstance.DrawString(11, Opponent.Statistics.FullCombatLevel.ToString());
             InterfaceInstance.DrawString(13, Victorious ? "The spoils:" : "You lost:");
             InterfaceInstance.AttachClickHandler(15, (componentID, clickType, itemID, itemSlot) =>
@@ -44,16 +39,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces
                     return false;
                 }
 
-                if (Opponent.IsDestroyed)
-                {
-                    InterfaceInstance.Close();
-                }
-                else
-                {
-                    Owner.ForceRunMovementType(Owner.Profile.GetValue<bool>(ProfileConstants.RunSettingsToggled));
-                    Owner.FaceLocation(Opponent);
-                    Owner.Combat.SetTarget(Opponent);
-                }
+                Owner.ForceRunMovementType(Owner.Profile.GetValue<bool>(ProfileConstants.RunSettingsToggled));
+                Owner.FaceLocation(Opponent);
+                Owner.Combat.SetTarget(Opponent);
 
                 return true;
             });

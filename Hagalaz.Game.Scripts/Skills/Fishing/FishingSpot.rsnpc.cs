@@ -37,10 +37,13 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         /// <param name="clickType">Type of the click that was performed.</param>
         public override void OnCharacterClickPerform(ICharacter clicker, NpcClickType clickType)
         {
-            clicker.QueueTask(() => StartFishingAsync(clicker, clickType));
+                clicker.QueueTask(cancellationToken => StartFishingAsync(clicker, clickType, cancellationToken));
         }
 
-        private async Task StartFishingAsync(ICharacter clicker, NpcClickType clickType)
+        private async Task StartFishingAsync(
+            ICharacter clicker,
+            NpcClickType clickType,
+            System.Threading.CancellationToken cancellationToken)
         {
             var interrupted = false;
             var interruptEvent = clicker.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
@@ -53,6 +56,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
             {
                 var spot = await _fishingService.FindSpotByNpcIdClickType(Owner.Appearance.CompositeID, clickType);
                 var characterCount = spot is null ? 0 : await _characterStore.CountAsync();
+                cancellationToken.ThrowIfCancellationRequested();
 
                 if (interrupted)
                 {

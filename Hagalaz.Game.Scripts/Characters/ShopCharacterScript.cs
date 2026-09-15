@@ -25,13 +25,14 @@ namespace Hagalaz.Game.Scripts.Characters
         protected override void Initialize() =>
             _event = Character.RegisterEventHandler<OpenShopEvent>(e =>
             {
-                Character.QueueTask(() => OpenShop(e.ShopId));
+                Character.QueueTask(cancellationToken => OpenShop(e.ShopId, cancellationToken));
                 return true;
             });
 
-        private async Task OpenShop(int shopId)
+        private async Task OpenShop(int shopId, System.Threading.CancellationToken cancellationToken)
         {
             var shop = await _shopService.GetShopByIdAsync(shopId);
+            cancellationToken.ThrowIfCancellationRequested();
             Character.CurrentShop = shop;
             var shopScreen = Character.ServiceProvider.GetRequiredService<ShopScreenScript>();
             Character.Widgets.OpenWidget(1265, 0, shopScreen, true);

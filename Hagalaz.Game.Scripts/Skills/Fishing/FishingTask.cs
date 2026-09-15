@@ -69,7 +69,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         private void PerformTickImpl()
         {
             // check if fishing spot has exhausted.
-            if (_fishingSpot.IsDestroyed || !_performer.Viewport.VisibleCreatures.Contains(_fishingSpot))
+            if (!_performer.Viewport.VisibleCreatures.Contains(_fishingSpot))
             {
                 Cancel();
                 return;

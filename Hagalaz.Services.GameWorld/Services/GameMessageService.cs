@@ -89,7 +89,7 @@ namespace Hagalaz.Services.GameWorld.Services
         public async Task MessageAsync(string message, GameMessageType type, string? announcerDisplayName = null)
         {
             var text = FormatMessage(message, type);
-            await foreach (var character in _characterStore.FindAllAsync())
+            foreach (var character in (await _characterStore.GetSnapshotAsync()).Values)
             {
                 switch (type)
                 {

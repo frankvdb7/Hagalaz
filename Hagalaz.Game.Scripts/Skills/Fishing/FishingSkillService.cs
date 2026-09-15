@@ -40,7 +40,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         /// <returns></returns>
         public bool TryFish(ICharacter character, INpc fishingSpot, IFishingSpotTable? table, int characterCount)
         {
-            if (table == null || fishingSpot.IsDestroyed || !fishingSpot.Appearance.Visible)
+            if (table == null || !fishingSpot.Appearance.Visible)
             {
                 return false;
             }

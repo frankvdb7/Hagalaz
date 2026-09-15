@@ -14,9 +14,7 @@ namespace Hagalaz.Game.Scripts.GameObjects
         /// <summary>
         ///     Happens when object is spawned.
         /// </summary>
-        public override void OnSpawn() => _mapRegionService
-            .GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false)
-            .Remove(Owner);
+        public override void OnSpawn() => _mapRegionService.RemoveGameObject(Owner);
 
         /// <summary>
         ///     Get's called when owner is found.

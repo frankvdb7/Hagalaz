@@ -472,7 +472,8 @@ public sealed class WorldReconnectConnectionHandlerTests
         {
             AuthenticationProperties = new AuthenticationProperties
             {
-                Claims = new Dictionary<string, object> { [OpenIddictConstants.Claims.Subject] = "42" }
+                Claims = new Dictionary<string, object> { [OpenIddictConstants.Claims.Subject] = "42" },
+                AuthorizationId = "authorization-id"
             }
         });
 
@@ -808,7 +809,8 @@ public sealed class WorldReconnectConnectionHandlerTests
                 Claims = new Dictionary<string, object>
                 {
                     [OpenIddictConstants.Claims.Subject] = "42"
-                }
+                },
+                AuthorizationId = "authorization-id"
             }
         });
 

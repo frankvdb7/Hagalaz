@@ -1,4 +1,5 @@
 using Hagalaz.Cache.Abstractions.Model;
+using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Xunit;
@@ -43,21 +44,9 @@ namespace Hagalaz.Cache.Tests
             // File 2 data
             stream.Write(new byte[] { 4, 5, 6, 7 });
 
-            // Chunk sizes (delta-encoded)
-            // File 1, chunk 1 size
-            var chunkSize1 = System.BitConverter.GetBytes(3);
-            if (System.BitConverter.IsLittleEndian)
-            {
-                System.Array.Reverse(chunkSize1);
-            }
-            stream.Write(chunkSize1);
-            // File 2, chunk 1 size
-            var chunkSize2 = System.BitConverter.GetBytes(4);
-            if (System.BitConverter.IsLittleEndian)
-            {
-                System.Array.Reverse(chunkSize2);
-            }
-            stream.Write(chunkSize2);
+            // Chunk sizes are delta-encoded. The cumulative sizes are 3 and 4.
+            stream.WriteInt(3);
+            stream.WriteInt(1);
 
             // Number of chunks
             stream.WriteByte(1);
@@ -86,6 +75,63 @@ namespace Hagalaz.Cache.Tests
             var entry2Data = new byte[entry2.Length];
             entry2.Read(entry2Data, 0, entry2Data.Length);
             Assert.Equal(new byte[] { 4, 5, 6, 7 }, entry2Data);
+        }
+
+        [Fact]
+        public void Decode_NegativeFooterDelta_UsesCumulativeChunkLengths()
+        {
+            var decoder = new ArchiveDecoder();
+            using var stream = new MemoryStream();
+            stream.Write(new byte[] { 1, 2, 3, 4, 5, 6, 7 });
+            stream.Write(new byte[] { 8, 9, 10 });
+            stream.WriteInt(7);
+            stream.WriteInt(-4);
+            stream.WriteByte(1);
+            stream.Position = 0;
+
+            using var archive = decoder.Decode(new Container(CompressionType.None, stream, -1), 2);
+
+            Assert.Equal(new byte[] { 1, 2, 3, 4, 5, 6, 7 }, archive.GetEntry(0).ToArray());
+            Assert.Equal(new byte[] { 8, 9, 10 }, archive.GetEntry(1).ToArray());
+        }
+
+        [Fact]
+        public void Decode_MultipleChunks_ReassemblesEachEntryInChunkOrder()
+        {
+            var decoder = new ArchiveDecoder();
+            using var stream = new MemoryStream();
+            stream.Write(new byte[] { 1, 2 });
+            stream.Write(new byte[] { 3, 4, 5 });
+            stream.Write(new byte[] { 6 });
+            stream.Write(new byte[] { 7, 8, 9, 10 });
+            stream.WriteInt(2);
+            stream.WriteInt(1);
+            stream.WriteInt(1);
+            stream.WriteInt(3);
+            stream.WriteByte(2);
+            stream.Position = 0;
+
+            using var archive = decoder.Decode(new Container(CompressionType.None, stream, -1), 2);
+
+            Assert.Equal(new byte[] { 1, 2, 6 }, archive.GetEntry(0).ToArray());
+            Assert.Equal(new byte[] { 3, 4, 5, 7, 8, 9, 10 }, archive.GetEntry(1).ToArray());
+        }
+
+        [Fact]
+        public void Decode_NegativeCumulativeChunkSize_ThrowsInvalidDataException()
+        {
+            var decoder = new ArchiveDecoder();
+            using var stream = new MemoryStream();
+            stream.Write(new byte[] { 1, 2 });
+            stream.WriteInt(2);
+            stream.WriteInt(-3);
+            stream.WriteByte(1);
+            stream.Position = 0;
+
+            var exception = Assert.Throws<InvalidDataException>(() =>
+                decoder.Decode(new Container(CompressionType.None, stream, -1), 2));
+
+            Assert.Contains("negative chunk size", exception.Message);
         }
     }
 }

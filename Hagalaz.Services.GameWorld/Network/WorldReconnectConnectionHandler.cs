@@ -263,7 +263,8 @@ internal sealed class WorldReconnectConnectionHandler
             ReferenceEquals(targetCharacter.Session, session) &&
             targetAuthentication?.TryGetClaim<string>(OpenIddictConstants.Claims.Subject, out var subject) == true &&
             uint.TryParse(subject, out var authenticatedMasterId) &&
-            authenticatedMasterId == masterId;
+            authenticatedMasterId == masterId &&
+            !string.IsNullOrWhiteSpace(targetAuthentication.AuthorizationId);
     }
 
     private static class Log

@@ -164,5 +164,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// Resets the creature's combat delay, allowing it to attack again immediately if a target is present.
         /// </summary>
         void ResetCombatDelay();
+
+        void OnDestroy();
     }
 }

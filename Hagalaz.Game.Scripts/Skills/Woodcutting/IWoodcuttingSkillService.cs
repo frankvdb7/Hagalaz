@@ -6,6 +6,9 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
 {
     public interface IWoodcuttingSkillService
     {
-        Task StartCuttingAsync(ICharacter character, IGameObject tree);
+        Task StartCuttingAsync(
+            ICharacter character,
+            IGameObject tree,
+            System.Threading.CancellationToken cancellationToken = default);
     }
 }

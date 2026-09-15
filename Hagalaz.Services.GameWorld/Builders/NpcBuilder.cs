@@ -92,7 +92,7 @@ namespace Hagalaz.Services.GameWorld.Builders
         {
             var npc = Build();
             var npcService = _serviceProvider.GetRequiredService<INpcService>();
-            npcService.RegisterAsync(npc).GetAwaiter().GetResult();
+            npcService.Register(npc);
             return new NpcHandle(npc, npcService);
         }
 

@@ -85,7 +85,7 @@ namespace Hagalaz.Game.Common.Tasks
         /// <returns></returns>
         private void PerformTickImpl()
         {
-            if (_reacher.Movement.Locked || _target.IsDestroyed || !_reacher.Viewport.VisibleCreatures.Contains(_target))
+            if (_reacher.Movement.Locked || !_reacher.Viewport.VisibleCreatures.Contains(_target))
             {
                 if (TickCount >= 1 && _reacher.FacedCreature == _target)
                     _reacher.ResetFacing();

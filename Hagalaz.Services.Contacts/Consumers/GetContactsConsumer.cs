@@ -31,6 +31,8 @@ namespace Hagalaz.Services.Contacts.Consumers
                     Rank = c.Rank,
                     WorldId = c.WorldId,
                     WorldName = c.WorldName,
+                    SessionGeneration = c.SessionGeneration,
+                    SessionConnectionId = c.SessionConnectionId,
                     AreMutualFriends = c.AreMutualFriends,
                     Settings = new ContactSettingsDto(c.Settings?.Availability.Off == true ? ContactAvailability.Off :
                                 c.Settings?.Availability.Friends == true ? ContactAvailability.Friends : ContactAvailability.Everyone)

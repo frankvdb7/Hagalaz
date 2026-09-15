@@ -43,9 +43,11 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
 
         private EventHappened? _summoningAllowHandler;
         private EventHappened? _summonerDiedHandler;
+        private EventHappened? _summonerDestroyedHandler;
         private EventHappened? _familiarDismissHandler;
         private EventHappened? _setCombatTargetHandler;
         private bool _isDetached;
+        private bool _summonerDestroyed;
         private HydratedFamiliar? _restoredState;
 
         /// <summary>
@@ -104,6 +106,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             Definition = definition;
             SpecialMovePoints = 60;
             _isDetached = false;
+            _summonerDestroyed = false;
 
             try
             {
@@ -126,6 +129,13 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                 {
                     Owner.OnDeath();
                     UnregisterHandler<CreatureDiedEvent>(ref _summonerDiedHandler);
+                    return false;
+                }));
+
+                _summonerDestroyedHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureDestroyedEvent>((e) =>
+                {
+                    _summonerDestroyed = true;
+                    _npcService.Unregister(Owner);
                     return false;
                 }));
 
@@ -152,6 +162,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                 Definition = default!;
                 SpecialMovePoints = 0;
                 UsingSpecialMove = false;
+                _summonerDestroyed = false;
                 throw;
             }
         }
@@ -243,18 +254,17 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             UnregisterSummonerHandlers();
             Summoner.DetachFamiliar(Familiar);
 
-            if (Summoner.IsDestroyed)
+            if (!_summonerDestroyed)
             {
-                return;
+                Summoner.SendChatMessage("Your familiar vanished.");
             }
-
-            Summoner.SendChatMessage("Your familiar vanished.");
         }
 
         private void UnregisterSummonerHandlers()
         {
             UnregisterHandler<SummoningAllowEvent>(ref _summoningAllowHandler);
             UnregisterHandler<CreatureDiedEvent>(ref _summonerDiedHandler);
+            UnregisterHandler<CreatureDestroyedEvent>(ref _summonerDestroyedHandler);
             UnregisterHandler<FamiliarDismissEvent>(ref _familiarDismissHandler);
             UnregisterHandler<CreatureSetCombatTargetEvent>(ref _setCombatTargetHandler);
         }
@@ -599,12 +609,6 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         private void FollowTick()
         {
             if (Owner.Combat.IsDead) return;
-            if (Summoner.IsDestroyed)
-            {
-                _npcService.UnregisterAsync(Owner);
-                return;
-            }
-
             if (!Owner.Viewport.VisibleCreatures.Contains(Summoner))
             {
                 CallFamiliar();

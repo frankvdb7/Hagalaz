@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Contacts.Messages;
@@ -30,13 +31,23 @@ namespace Hagalaz.Services.GameWorld.Network.Consumers
             {
                 return;
             }
+
             var friendsList = _mapper.Map<IEnumerable<Friend>>(message.Friends);
             var ignoreList = _mapper.Map<IEnumerable<Ignore>>(message.Ignores);
             var friendContacts = _mapper.Map<List<ContactDto>>(message.Friends);
             var ignoreContacts = _mapper.Map<List<ContactDto>>(message.Ignores);
 
             var contactFeature = connection.Features.Get<IContactsFeature>();
-            contactFeature?.Friends?.Set(friendsList);
+            contactFeature?.ReplaceFriends(
+                friendsList,
+                message.Friends
+                    .Where(contact => contact.WorldId is not null &&
+                                      contact.SessionGeneration is not null &&
+                                      contact.SessionConnectionId is not null)
+                    .Select(contact => new ContactPresenceOwner(
+                        contact.MasterId,
+                        contact.SessionGeneration!.Value,
+                        contact.SessionConnectionId!)));
             contactFeature?.Ignores?.Set(ignoreList);
 
             await Task.WhenAll(

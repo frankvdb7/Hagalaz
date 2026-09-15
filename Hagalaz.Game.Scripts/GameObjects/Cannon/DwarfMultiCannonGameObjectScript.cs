@@ -291,15 +291,9 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
             RsTickTask task = null!;
             _rsTaskService.Schedule(task = new RsTickTask(() =>
             {
-                if (Owner.IsDestroyed)
+                if (!_cannonOwner.HasState<CannonPlacedState>())
                 {
-                    task.Cancel();
-                    return;
-                }
-
-                if (_cannonOwner.IsDestroyed || !_cannonOwner.HasState<CannonPlacedState>())
-                {
-                    _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).Remove(Owner);
+                    _mapRegionService.RemoveGameObject(Owner);
                     task.Cancel();
                     return;
                 }
@@ -363,7 +357,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
 
                     character.Inventory.Add(cannonBalls);
 
-                    _mapRegionService.GetOrCreateMapRegion(character.Location.RegionId, character.Location.Dimension, false).Remove(cannon);
+                    _mapRegionService.RemoveGameObject(cannon);
 
                     character.RemoveState<CannonPlacedState>();
 

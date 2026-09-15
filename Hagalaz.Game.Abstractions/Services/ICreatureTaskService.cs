@@ -1,11 +1,15 @@
+using System.Threading;
 using Hagalaz.Game.Abstractions.Tasks;
 
 namespace Hagalaz.Game.Abstractions.Services
 {
     /// <summary>
-    /// Defines the contract for a service that schedules and executes tasks related to creatures.
+    /// Defines the creature-owned boundary for scheduling cancellation-aware tasks.
     /// </summary>
-    public interface ICreatureTaskService : IScheduler<ITaskItem>
+    public interface ICreatureTaskService
     {
+        IRsTaskHandle Queue(ITaskItem task, CancellationToken cancellationToken);
+
+        IRsTaskHandle<TResult> Queue<TResult>(ITaskItem<TResult> task, CancellationToken cancellationToken);
     }
 }

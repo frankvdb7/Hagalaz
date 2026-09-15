@@ -11,6 +11,31 @@ namespace Hagalaz.Services.GameWorld.Tests
     [TestClass]
     public class RsTaskServiceTests
     {
+        private sealed class MultiTickTask : ITaskItem
+        {
+            private readonly int _ticksToComplete;
+            private readonly Action<int> _onTick;
+
+            public MultiTickTask(int ticksToComplete, Action<int> onTick)
+            {
+                _ticksToComplete = ticksToComplete;
+                _onTick = onTick;
+            }
+
+            public bool IsCancelled { get; private set; }
+            public bool IsCompleted { get; private set; }
+            public bool IsFaulted => false;
+            public int TickCount { get; private set; }
+
+            public void Tick()
+            {
+                _onTick(++TickCount);
+                IsCompleted = TickCount >= _ticksToComplete;
+            }
+
+            public void Cancel() => IsCancelled = true;
+        }
+
         private sealed class DisposableTask : ITaskItem, IDisposable
         {
             public bool IsCancelled { get; set; }
@@ -85,6 +110,35 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
+        public void Tick_PreservesSchedulingOrderForTasksQueuedInTheSameTick()
+        {
+            var taskService = new RsTaskService(new NullLogger<RsTaskService>());
+            var executionOrder = new List<int>();
+
+            taskService.Schedule(new RsTask(() => executionOrder.Add(1), executeDelay: 1));
+            taskService.Schedule(new RsTask(() => executionOrder.Add(2), executeDelay: 1));
+
+            taskService.Tick();
+
+            CollectionAssert.AreEqual(new[] { 1, 2 }, executionOrder);
+        }
+
+        [TestMethod]
+        public void Tick_PreservesOrderWhenAPriorTaskRemainsScheduledAcrossTicks()
+        {
+            var taskService = new RsTaskService(new NullLogger<RsTaskService>());
+            var executionOrder = new List<string>();
+
+            taskService.Schedule(new MultiTickTask(2, tick => executionOrder.Add($"A{tick}")));
+            taskService.Schedule(new RsTask(() => executionOrder.Add("B1"), executeDelay: 1));
+
+            taskService.Tick();
+            taskService.Tick();
+
+            CollectionAssert.AreEqual(new[] { "A1", "B1", "A2" }, executionOrder);
+        }
+
+        [TestMethod]
         public async Task Schedule_FromAnotherThread_IsProcessedOnNextTick()
         {
             var logger = new NullLogger<RsTaskService>();
@@ -99,7 +153,11 @@ namespace Hagalaz.Services.GameWorld.Tests
             taskService.Schedule(firstTask);
 
             var secondExecuted = 0;
-            var tickTask = Task.Run(taskService.Tick);
+            var tickTask = Task.Factory.StartNew(
+                taskService.Tick,
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
             try
             {
                 Assert.IsTrue(entered.Wait(TimeSpan.FromSeconds(5)));
@@ -121,7 +179,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         public async Task Tick_ResumesAsyncTaskOnTheGameLoop()
         {
             var taskService = new RsTaskService(new NullLogger<RsTaskService>());
-            var operation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var operation = new TaskCompletionSource<bool>();
             var resumed = false;
             var resumedThreadId = 0;
             var task = new RsAsyncTask(async () =>
@@ -137,8 +195,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsFalse(resumed);
             Assert.IsFalse(task.IsCompleted);
 
-            operation.SetResult(true);
-            await Task.Delay(10);
+            await Task.Run(() => operation.SetResult(true));
 
             Assert.IsFalse(resumed);
             var continuationTickThreadId = Environment.CurrentManagedThreadId;
@@ -172,7 +229,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         public async Task Tick_TaskScheduledByAsyncContinuation_WaitsUntilNextTick()
         {
             var taskService = new RsTaskService(new NullLogger<RsTaskService>());
-            var operation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var operation = new TaskCompletionSource<bool>();
             var executed = 0;
             var asyncTask = new RsAsyncTask(async () =>
             {
@@ -183,8 +240,7 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             taskService.Tick();
 
-            operation.SetResult(true);
-            await Task.Delay(10);
+            await Task.Run(() => operation.SetResult(true));
 
             taskService.Tick();
 

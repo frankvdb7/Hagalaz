@@ -100,8 +100,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.GameObjects
             }
         }
 
-        public bool IsDestroyed { get; private set; }
-
         /// <summary>
         /// Construct's new game object.
         /// </summary>
@@ -161,12 +159,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.GameObjects
         /// </summary>
         public void Destroy()
         {
-            if (IsDestroyed)
-            {
-                throw new InvalidOperationException($"{this} is already destroyed!");
-            }
-
-            IsDestroyed = true;
             Script.OnDestroy();
         }
 
