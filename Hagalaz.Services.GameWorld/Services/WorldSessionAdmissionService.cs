@@ -206,13 +206,6 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
             }
         }
 
-        try
-        {
-            await _gameSessionService.RemoveSession(session, CancellationToken.None);
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(exception, "Failed to remove game session '{connectionId}' after world sign-in failed", session.ConnectionId);
-        }
+        await _gameSessionService.RemoveSession(session, CancellationToken.None);
     }
 }

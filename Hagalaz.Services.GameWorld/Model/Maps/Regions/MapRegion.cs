@@ -324,7 +324,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     obj.Destroy();
                 }
-                catch (Exception ex) { (exceptions ??= []).Add(ex); }
+                catch (Exception ex)
+                {
+                    (exceptions ??= []).Add(ex);
+                }
             }
 
             if (exceptions is { Count: > 0 })

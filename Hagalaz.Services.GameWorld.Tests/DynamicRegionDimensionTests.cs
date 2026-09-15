@@ -69,7 +69,7 @@ public sealed class DynamicRegionDimensionTests
         Assert.IsFalse(destination.FindGameObjects(9, 9, 0).Any());
     }
 
-private static MapRegion CreateRegion(ILocation location, IMapRegionService regionService, IGameObjectBuilder? gameObjectBuilder = null) => new(
+    private static MapRegion CreateRegion(ILocation location, IMapRegionService regionService, IGameObjectBuilder? gameObjectBuilder = null) => new(
         location,
         [0, 0, 0, 0],
         Substitute.For<INpcService>(),

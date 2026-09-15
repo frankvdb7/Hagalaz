@@ -190,14 +190,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
                 }
             }
 
-            try
-            {
-                UnregisterEventHandlers();
-            }
-            catch (Exception exception)
-            {
-                (exceptions ??= []).Add(exception);
-            }
+            UnregisterEventHandlers();
 
             if (exceptions is { Count: > 0 })
             {

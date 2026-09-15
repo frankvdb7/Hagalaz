@@ -68,19 +68,33 @@ public sealed class WorldSessionAdmissionServiceTests
     {
         var fixture = CreateFixture(commitResult: true);
         using var cancellation = new CancellationTokenSource();
-        var failure = new OperationCanceledException(cancellation.Token);
+        var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var response = new TaskCompletionSource<Response<CharacterHydrated, CharacterNotFound>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         fixture.HydrateClient.GetResponse<CharacterHydrated, CharacterNotFound>(
                 Arg.Any<HydrateCharacter>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
-            .Returns(Task.FromException<Response<CharacterHydrated, CharacterNotFound>>(failure));
+            .Returns(callInfo =>
+            {
+                var requestToken = callInfo.Arg<CancellationToken>();
+                requestStarted.TrySetResult();
+                requestToken.Register(() => response.TrySetCanceled(requestToken));
+                return response.Task;
+            });
 
-        var actual = await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => fixture.Service.AdmitAsync(
+        var admission = fixture.Service.AdmitAsync(
             CreateSignInRequest(),
             fixture.Context,
             42,
             new AuthenticationProperties(),
-            cancellation.Token).AsTask());
+            cancellation.Token).AsTask();
 
-        Assert.AreSame(failure, actual);
+        await requestStarted.Task;
+        cancellation.Cancel();
+
+        var actual = await Assert.ThrowsAsync<OperationCanceledException>(() => admission);
+
+        Assert.IsTrue(cancellation.IsCancellationRequested);
+        Assert.AreEqual(cancellation.Token, actual.CancellationToken);
         await fixture.GameSessionService.Received(1).RemoveSession(fixture.Session, CancellationToken.None);
     }
 

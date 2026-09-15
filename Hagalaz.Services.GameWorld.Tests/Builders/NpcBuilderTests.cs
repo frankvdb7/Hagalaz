@@ -79,7 +79,7 @@ public sealed class NpcBuilderTests
     }
 
     [TestMethod]
-    public void Destroy_WhenScriptCleanupFails_RetriesScriptAndUnregistersIndependentHandlers()
+    public void Destroy_WhenScriptCleanupFails_StillUnregistersEventHandler()
     {
         var definition = new NpcDefinition(1)
         {
