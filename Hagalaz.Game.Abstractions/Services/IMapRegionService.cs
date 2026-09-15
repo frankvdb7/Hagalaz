@@ -7,6 +7,7 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.Updates;
+using Hagalaz.Game.Abstractions.Tasks;
 
 namespace Hagalaz.Game.Abstractions.Services
 {
@@ -138,7 +139,7 @@ namespace Hagalaz.Game.Abstractions.Services
         /// </summary>
         /// <param name="source">The source location to copy from.</param>
         /// <param name="destination">The destination location to copy to.</param>
-        void CreateDynamicRegion(ILocation source, ILocation destination);
+        IRsTaskHandle CreateDynamicRegion(ILocation source, ILocation destination);
 
         /// <summary>
         /// Finds all active regions within a specific dimension.

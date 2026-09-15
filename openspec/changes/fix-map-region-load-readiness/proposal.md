@@ -53,6 +53,12 @@ corrupt map data into apparently empty map data.
 - Live command and network script entrypoints hand world mutations to the
   existing serialized GameWorker execution boundary; `MapRegionService` keeps
   residency ownership while arbitrary callbacks remain outside its gate.
+- Dynamic destinations are published as `Initializing` dynamic regions without
+  a normal loader request; the existing GameWorker task waits for an exact,
+  ready source before copying blocks and publishing destination readiness.
+- A later map packet may expose an initializing visible neighbor, but its
+  completion is delivered through the character task boundary after canonical
+  and visibility revalidation.
 
 ## Stop Conditions
 
@@ -62,6 +68,8 @@ corrupt map data into apparently empty map data.
   client protocol behavior, or unrelated reconnect/session architecture.
 - Do not broaden isolated-content exception handling to cache, database,
   collision-apply, or scheduler infrastructure failures.
+- Do not introduce a second dynamic loader, readiness poller, or per-region
+  completion registry.
 
 ## Capabilities
 

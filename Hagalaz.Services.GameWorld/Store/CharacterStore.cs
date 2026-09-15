@@ -89,6 +89,22 @@ namespace Hagalaz.Services.GameWorld.Store
             }
         }
 
+        public bool TryGetHandle(ICharacter character, out CreatureHandle<ICharacter> handle)
+        {
+            using (_lock.ReaderLock())
+            {
+                return _characters.TryGetHandle(character, out handle);
+            }
+        }
+
+        public ICharacter? Resolve(CreatureHandle<ICharacter> handle)
+        {
+            using (_lock.ReaderLock())
+            {
+                return _characters.Resolve(handle);
+            }
+        }
+
         public async ValueTask<ICharacter?> FindByIdAsync(uint id)
         {
             using (await _lock.ReaderLockAsync())

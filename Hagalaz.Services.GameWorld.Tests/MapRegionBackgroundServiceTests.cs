@@ -8,6 +8,7 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld.Builders;
 using Hagalaz.Services.GameWorld.Model.Creatures;
 using Hagalaz.Services.GameWorld.Services;
@@ -110,7 +111,8 @@ public sealed class MapRegionBackgroundServiceTests
             Substitute.For<IGroundItemBuilder>(),
             Substitute.For<ILogger<MapRegionService>>(),
             Substitute.For<IMapper>(),
-            loadScheduler);
+            loadScheduler,
+            Substitute.For<IRsTaskService>());
         var location = Location.Create(64, 64, 0, 0);
         var region = regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension);
         region.MarkReady();
@@ -149,5 +151,6 @@ public sealed class MapRegionBackgroundServiceTests
 
     private static ServiceProvider CreateServiceProvider(INpcService npcService) => new ServiceCollection()
         .AddSingleton(npcService)
+        .AddSingleton<IRsTaskService>(Substitute.For<IRsTaskService>())
         .BuildServiceProvider();
 }

@@ -191,6 +191,35 @@ destination through the service; its block population remains on that same
 worker boundary and does not hold the residency gate while loading copied
 objects.
 
+### 16. Separate normal and dynamic region publication
+
+Normal region creation publishes an `Initializing` canonical instance and
+submits it to `MapRegionLoadScheduler`, which owns all normal loader work.
+Dynamic creation uses a private `MapRegionService` publication path for the
+destination: it creates or resumes the exact canonical instance, marks it
+dynamic while it is still `Initializing`, and does not submit it to the
+normal loader. The dynamic task first awaits the source through
+`EnsureLoadedAsync`, then revalidates that the exact source is still the
+canonical active `Ready` instance and that the exact destination is still
+canonical before copying blocks. Destination `Ready` is committed only after
+the GameWorker-owned copy completes. Cancellation schedules exact destination
+discard/removal on the same GameWorker scheduler and never removes a
+replacement.
+
+### 17. Complete late visible-region state on the character task boundary
+
+`MapUpdateService.UpdateMap` remains synchronous for the immediate map packet.
+It sends full part state immediately for ready visible regions and coalesces
+one character-owned continuation for the initializing visible regions in that
+map update. The continuation uses the existing load scheduler, then resumes
+through the character/GameWorker task boundary. Before sending, it verifies
+the character is still the exact current store entry, the viewport is still
+valid, and each region is still the current canonical ready region and remains
+visible. A replaced original instance is never sent, and a logged-out or
+moved character receives no late update. The service-local pending table is a
+small deduplication mechanism for this concrete repeated-update case; it is
+not a persistent readiness registry or a second scheduler.
+
 Raido message scopes are request-lifetime only. Deferred gameplay tasks retain
 only packet input, valid domain references, and long-lived ownership references;
 scoped gameplay dependencies needed by deferred execution are resolved from

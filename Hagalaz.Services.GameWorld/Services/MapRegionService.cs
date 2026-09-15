@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.Location;
@@ -14,6 +15,7 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -42,6 +44,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly ILogger<MapRegionService> _logger;
         private readonly IMapper _mapper;
         private readonly IMapRegionLoadScheduler _loadScheduler;
+        private readonly IRsTaskService _taskScheduler;
         public MapRegionService(
             IServiceProvider serviceProvider,
             ILocationBuilder locationBuilder,
@@ -49,7 +52,8 @@ namespace Hagalaz.Services.GameWorld.Services
             IGroundItemBuilder groundItemBuilder,
             ILogger<MapRegionService> logger,
             IMapper mapper,
-            IMapRegionLoadScheduler loadScheduler)
+            IMapRegionLoadScheduler loadScheduler,
+            IRsTaskService taskScheduler)
         {
             CreateDimension(0); // create global world dimension.
             _serviceScope = serviceProvider.CreateScope();
@@ -59,6 +63,7 @@ namespace Hagalaz.Services.GameWorld.Services
             _logger = logger;
             _mapper = mapper;
             _loadScheduler = loadScheduler;
+            _taskScheduler = taskScheduler;
         }
 
         public bool IsAccessible(ILocation location) => ((int)GetClippingFlag(location.X, location.Y, location.Z) & 0x7fe40000) == 0;
@@ -435,38 +440,127 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <param name="source">The source.</param>
         /// <param name="destination">The destination.</param>
         /// <returns></returns>
-        public void CreateDynamicRegion(ILocation source, ILocation destination)
+        public IRsTaskHandle CreateDynamicRegion(ILocation source, ILocation destination)
         {
-            var requestedStandardRegion = GetOrCreateMapRegion(source.RegionId, source.Dimension);
-            var requestedDynamicRegion = GetOrCreateMapRegion(destination.RegionId, destination.Dimension);
-            IMapRegion standardRegion;
-            IMapRegion dynamicRegion;
-
-            lock (_residencyGate)
+            var task = new RsAsyncTask(async cancellationToken =>
             {
-                var sourceDimension = _dimensions[source.Dimension] ?? throw new InvalidOperationException($"Dimension[{source.Dimension}] no longer exists.");
-                var destinationDimension = _dimensions[destination.Dimension] ?? throw new InvalidOperationException($"Dimension[{destination.Dimension}] no longer exists.");
-                standardRegion = ResolveActiveRegionForMutation(sourceDimension, requestedStandardRegion.Id);
-                dynamicRegion = ResolveActiveRegionForMutation(destinationDimension, requestedDynamicRegion.Id);
-                standardRegion.MakeStandard();
-                dynamicRegion.MakeDynamic();
-            }
+                var standardRegion = GetOrCreateMapRegion(source.RegionId, source.Dimension);
+                var dynamicRegion = GetOrCreateDynamicRegion(destination.RegionId, destination.Dimension);
+                using var cancellationRegistration = cancellationToken.Register(() =>
+                    _taskScheduler.Schedule(new RsTask(
+                        () => DiscardDynamicRegion(destination, dynamicRegion),
+                        1)));
 
-            // Dynamic block population can invoke object scripts while loading
-            // copied objects. It runs on the serialized GameWorker boundary,
-            // after which housekeeping is allowed to inspect the region.
-            for (var z = 0; z < 4; z++)
-            {
-                for (var xIndex = 0; xIndex < 8; xIndex++)
+                var populationSucceeded = false;
+                try
                 {
-                    for (var yIndex = 0; yIndex < 8; yIndex++)
+                    await _loadScheduler.EnsureLoadedAsync([standardRegion], cancellationToken);
+                    if (!IsCurrentMapRegion(source.RegionId, source.Dimension, standardRegion)
+                        || standardRegion.State != MapRegionState.Ready)
                     {
-                        var part = standardRegion.GetRegionPartData(xIndex, yIndex, z);
-                        dynamicRegion.WriteBlock(xIndex, yIndex, z, part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.DrawRegionDimension);
+                        throw new InvalidOperationException($"Source region {standardRegion.Id} was replaced or is not ready.");
+                    }
+
+                    lock (_residencyGate)
+                    {
+                        var sourceDimension = _dimensions[source.Dimension] ?? throw new InvalidOperationException($"Dimension[{source.Dimension}] no longer exists.");
+                        var destinationDimension = _dimensions[destination.Dimension] ?? throw new InvalidOperationException($"Dimension[{destination.Dimension}] no longer exists.");
+                        var currentSource = GetActiveRegion(sourceDimension, standardRegion.Id);
+                        var currentDestination = GetActiveRegion(destinationDimension, dynamicRegion.Id);
+                        if (!ReferenceEquals(currentSource, standardRegion)
+                            || currentSource.State != MapRegionState.Ready)
+                        {
+                            throw new InvalidOperationException($"Source region {source.RegionId} is no longer ready and canonical.");
+                        }
+                        if (!ReferenceEquals(currentDestination, dynamicRegion))
+                        {
+                            throw new InvalidOperationException($"Destination region {dynamicRegion.Id} was replaced before dynamic population.");
+                        }
+
+                        standardRegion = currentSource;
+                        dynamicRegion = currentDestination;
+                        standardRegion.MakeStandard();
+                        dynamicRegion.MakeDynamic();
+                    }
+
+                    // Dynamic block population can invoke object scripts while loading
+                    // copied objects. This operation is a game task, so it remains on
+                    // the serialized GameWorker boundary.
+                    for (var z = 0; z < 4; z++)
+                    {
+                        for (var xIndex = 0; xIndex < 8; xIndex++)
+                        {
+                            for (var yIndex = 0; yIndex < 8; yIndex++)
+                            {
+                                var part = standardRegion.GetRegionPartData(xIndex, yIndex, z);
+                                dynamicRegion.WriteBlock(xIndex, yIndex, z, part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.DrawRegionDimension);
+                            }
+                        }
+                    }
+
+                    if (dynamicRegion.State == MapRegionState.Initializing)
+                    {
+                        dynamicRegion.MarkReady();
+                    }
+
+                    populationSucceeded = true;
+                }
+                finally
+                {
+                    if (!populationSucceeded)
+                    {
+                        DiscardDynamicRegion(destination, dynamicRegion);
                     }
                 }
+            });
+            _taskScheduler.Schedule(task);
+            return new RsTaskHandle(task);
+        }
+
+        private void DiscardDynamicRegion(ILocation destination, IMapRegion dynamicRegion)
+        {
+            if (dynamicRegion.State == MapRegionState.Initializing)
+            {
+                dynamicRegion.MarkDiscarded();
+            }
+
+            TryRemoveMapRegion(destination.RegionId, destination.Dimension, dynamicRegion);
+        }
+
+        private IMapRegion GetOrCreateDynamicRegion(int id, int dimension)
+        {
+            lock (_residencyGate)
+            {
+                var mapDimension = _dimensions[dimension] ?? throw new InvalidOperationException($"Dimension[{dimension}] no longer exists.");
+                if (mapDimension.ActiveRegions.TryGetValue(id, out var activeRegion))
+                {
+                    if (activeRegion.State == MapRegionState.Initializing && !activeRegion.IsDynamic)
+                    {
+                        throw new InvalidOperationException($"Region {id} is already being loaded as a normal region.");
+                    }
+
+                    activeRegion.MakeDynamic();
+                    return activeRegion;
+                }
+
+                if (mapDimension.IdleRegionStore.TryGetValue(id, out var idleRegion))
+                {
+                    var resumedRegion = ResumeIdleRegion(mapDimension, id, idleRegion);
+                    resumedRegion.MakeDynamic();
+                    return resumedRegion;
+                }
+
+                var dynamicRegion = CreateMapRegion(id, dimension);
+                dynamicRegion.MakeDynamic();
+                mapDimension.ActiveRegions.Add(id, dynamicRegion);
+                return dynamicRegion;
             }
         }
+
+        private static IMapRegion GetActiveRegion(Dimension dimension, int id) =>
+            dimension.ActiveRegions.TryGetValue(id, out var region)
+                ? region
+                : throw new InvalidOperationException($"Region {id} is no longer active.");
 
         /// <summary>
         /// Get's xtea of given region.

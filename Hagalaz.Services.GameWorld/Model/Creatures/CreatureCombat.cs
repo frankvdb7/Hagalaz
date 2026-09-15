@@ -8,6 +8,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Resources;
@@ -32,10 +33,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         private readonly List<ICreatureAttackerInfo> _recentAttackers = [];
 
-        /// <summary>
-        ///     The killers.
-        /// </summary>
-        private readonly List<ICreatureAttackerInfo> _attackers = [];
+        private readonly List<DamageContribution<ICharacter>> _characterDamageContributions = [];
+        private readonly List<DamageContribution<INpc>> _npcDamageContributions = [];
+
+        private sealed class DamageContribution<TCreature>(CreatureHandle<TCreature> attacker)
+            where TCreature : class, ICreature
+        {
+            public CreatureHandle<TCreature> Attacker { get; } = attacker;
+            public int TotalDamage { get; set; }
+            public int LastAttackTick { get; set; }
+        }
 
         /// <summary>
         /// The projectile path finder
@@ -270,7 +277,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         ///     Gets the last attack tick.
         /// </summary>
         /// <returns></returns>
-        public int GetLastAttackerTick() => _attackers.Select(attacker => attacker.LastAttackTick).Prepend(-1).Max();
+        public int GetLastAttackerTick() => _characterDamageContributions
+            .Select(attacker => attacker.LastAttackTick)
+            .Concat(_npcDamageContributions.Select(attacker => attacker.LastAttackTick))
+            .Prepend(-1)
+            .Max();
 
         /// <summary>
         ///     Perform's incomming attack on this character.
@@ -358,23 +369,24 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         protected void AddAttacker(ICreature attacker)
         {
             var attackerRef = _recentAttackers.FirstOrDefault(att => att.Attacker == attacker);
-            if (attackerRef != null)
+            if (attackerRef == null)
+            {
+                attackerRef = new CreatureAttackerInfo(attacker, 0);
+                _recentAttackers.Add(attackerRef);
+            }
+            else
             {
                 attackerRef.LastAttackTick = 0;
-                return;
             }
 
-            var attack = new CreatureAttackerInfo(attacker, 0);
-            _recentAttackers.Add(attack);
-
-            for (var index = 0; index < _attackers.Count; index++)
-                if (_attackers[index].Attacker == attacker)
-                {
-                    _attackers[index] = attack;
-                    return;
-                }
-
-            _attackers.Add(attack);
+            if (attacker is ICharacter character)
+            {
+                AddCharacterDamageContribution(character);
+            }
+            else if (attacker is INpc npc)
+            {
+                AddNpcDamageContribution(npc);
+            }
         }
 
         /// <summary>
@@ -383,22 +395,46 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <returns>Creature.</returns>
         public ICreature? GetKiller()
         {
+            var provider = Owner.ServiceProvider;
+            if (provider is null)
+            {
+                return null;
+            }
+
+            var characterStore = provider.GetService<ICharacterStore>();
+            var npcStore = provider.GetService<INpcStore>();
             ICreature? killer = null;
             var damage = -1;
-            foreach (var att in _attackers.Where(att => att.TotalDamage > damage))
+
+            if (characterStore is not null)
             {
-                killer = att.Attacker;
-                damage = att.TotalDamage;
+                foreach (var contribution in _characterDamageContributions)
+                {
+                    var character = characterStore.Resolve(contribution.Attacker);
+                    if (character is not null && contribution.TotalDamage > damage)
+                    {
+                        killer = character;
+                        damage = contribution.TotalDamage;
+                    }
+                }
             }
 
-            if (killer is not INpc npc)
+            if (npcStore is not null)
             {
-                return killer;
+                foreach (var contribution in _npcDamageContributions)
+                {
+                    var npc = npcStore.Resolve(contribution.Attacker);
+                    if (npc is not null && contribution.TotalDamage > damage)
+                    {
+                        killer = npc;
+                        damage = contribution.TotalDamage;
+                    }
+                }
             }
 
-            if (npc.TryGetScript<IFamiliarScript>(out var script))
+            if (killer is INpc familiar && familiar.TryGetScript<IFamiliarScript>(out var script))
             {
-                killer = script.Summoner;
+                return script.Summoner;
             }
 
             return killer;
@@ -420,6 +456,71 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             if (refAttack != null)
             {
                 refAttack.TotalDamage += damage;
+            }
+
+            if (attacker is ICharacter character)
+            {
+                var store = Owner.ServiceProvider?.GetService<ICharacterStore>();
+                if (store is not null && store.TryGetHandle(character, out var handle))
+                {
+                    var contribution = _characterDamageContributions.FirstOrDefault(info => info.Attacker == handle);
+                    if (contribution is not null)
+                    {
+                        contribution.TotalDamage += damage;
+                        contribution.LastAttackTick = 0;
+                    }
+                }
+            }
+            else if (attacker is INpc npc)
+            {
+                var store = Owner.ServiceProvider?.GetService<INpcStore>();
+                if (store is not null && store.TryGetHandle(npc, out var handle))
+                {
+                    var contribution = _npcDamageContributions.FirstOrDefault(info => info.Attacker == handle);
+                    if (contribution is not null)
+                    {
+                        contribution.TotalDamage += damage;
+                        contribution.LastAttackTick = 0;
+                    }
+                }
+            }
+        }
+
+        private void AddCharacterDamageContribution(ICharacter character)
+        {
+            var store = Owner.ServiceProvider?.GetService<ICharacterStore>();
+            if (store is null || !store.TryGetHandle(character, out var handle))
+            {
+                return;
+            }
+
+            var contribution = _characterDamageContributions.FirstOrDefault(info => info.Attacker == handle);
+            if (contribution is null)
+            {
+                _characterDamageContributions.Add(new DamageContribution<ICharacter>(handle));
+            }
+            else
+            {
+                contribution.LastAttackTick = 0;
+            }
+        }
+
+        private void AddNpcDamageContribution(INpc npc)
+        {
+            var store = Owner.ServiceProvider?.GetService<INpcStore>();
+            if (store is null || !store.TryGetHandle(npc, out var handle))
+            {
+                return;
+            }
+
+            var contribution = _npcDamageContributions.FirstOrDefault(info => info.Attacker == handle);
+            if (contribution is null)
+            {
+                _npcDamageContributions.Add(new DamageContribution<INpc>(handle));
+            }
+            else
+            {
+                contribution.LastAttackTick = 0;
             }
         }
 
@@ -582,13 +683,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                     if (info.LastAttackTick > _combatOptions.Value.NpcAttackTickDelay) _recentAttackers.Remove(info);
                 }
 
-            var ks = new List<ICreatureAttackerInfo>(_attackers);
-            foreach (var attacker in ks)
-            {
-                if (Owner is ICharacter)
-                    if (++attacker.LastAttackTick >= 500) // 5 minutes, then the attacker that dealt damage will be removed.
-                        _attackers.Remove(attacker);
-            }
+            var characterContributions = new List<DamageContribution<ICharacter>>(_characterDamageContributions);
+            foreach (var attacker in characterContributions)
+                if (++attacker.LastAttackTick >= 500) // 5 minutes, then the attacker that dealt damage will be removed.
+                    _characterDamageContributions.Remove(attacker);
+
+            var npcContributions = new List<DamageContribution<INpc>>(_npcDamageContributions);
+            foreach (var attacker in npcContributions)
+                if (++attacker.LastAttackTick >= 500)
+                    _npcDamageContributions.Remove(attacker);
         }
 
         /// <summary>
@@ -597,7 +700,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         protected void ResetAttackers()
         {
             _recentAttackers.Clear();
-            _attackers.Clear();
+            _characterDamageContributions.Clear();
+            _npcDamageContributions.Clear();
+        }
+
+        public void OnDestroy()
+        {
+            Target = null;
+            LastAttacked = null;
+            _recentAttackers.Clear();
+            _characterDamageContributions.Clear();
+            _npcDamageContributions.Clear();
         }
 
         /// <summary>

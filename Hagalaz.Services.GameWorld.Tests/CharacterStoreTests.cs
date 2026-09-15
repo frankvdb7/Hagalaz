@@ -1,5 +1,6 @@
 using Hagalaz.Services.GameWorld.Configuration.Model;
 using Hagalaz.Services.GameWorld.Store;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -49,6 +50,33 @@ public sealed class CharacterStoreTests
         Assert.IsNull(await store.FindByIdAsync(99));
         Assert.IsNull(await store.FindByIndexAsync(-1));
         Assert.IsNull(await store.FindByIndexAsync(int.MaxValue));
+    }
+
+    [TestMethod]
+    public async Task CreatureHandle_ResolvesOnlyTheRegisteredCharacterGeneration()
+    {
+        var store = CreateStore();
+        var original = Substitute.For<ICharacter>();
+        var replacement = Substitute.For<ICharacter>();
+        original.MasterId.Returns(42u);
+        replacement.MasterId.Returns(43u);
+
+        Assert.IsTrue(await store.AddAsync(original));
+        Assert.IsTrue(store.TryGetHandle(original, out var originalHandle));
+        Assert.AreSame(original, store.Resolve(originalHandle));
+
+        Assert.IsTrue(store.Remove(original));
+        Assert.IsNull(store.Resolve(originalHandle));
+        Assert.IsTrue(await store.AddAsync(replacement));
+        Assert.AreEqual(original.Index, replacement.Index);
+        Assert.AreNotEqual(originalHandle.Generation, GetHandle(store, replacement).Generation);
+        Assert.IsNull(store.Resolve(originalHandle));
+    }
+
+    private static CreatureHandle<ICharacter> GetHandle(CharacterStore store, ICharacter character)
+    {
+        Assert.IsTrue(store.TryGetHandle(character, out var handle));
+        return handle;
     }
 
     private static CharacterStore CreateStore() => new(Options.Create(new GameServerOptions

@@ -252,6 +252,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 {
                     (exceptions ??= []).Add(exception);
                 }
+
+                Combat.OnDestroy();
             }
             finally
             {

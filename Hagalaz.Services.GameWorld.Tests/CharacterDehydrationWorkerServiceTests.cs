@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Mediator;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
@@ -192,6 +193,8 @@ public sealed class CharacterDehydrationWorkerServiceTests
         public ValueTask<ICharacter?> FindByIndexAsync(int index) => throw new System.NotImplementedException();
         public ICharacter? FindByMasterId(uint id) => id == _character.MasterId ? _character : null;
         public bool Remove(ICharacter character) => false;
+        public bool TryGetHandle(ICharacter character, out CreatureHandle<ICharacter> handle) { handle = default; return false; }
+        public ICharacter? Resolve(CreatureHandle<ICharacter> handle) => null;
     }
 
     private sealed class DeferredTaskScheduler : IRsTaskService

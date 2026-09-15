@@ -395,3 +395,68 @@ and MUST coalesce duplicate requests for one active region instance.
 
 - **WHEN** a region's complete population has committed readiness
 - **THEN** the scheduler MUST NOT invoke the loader again
+
+### Requirement: Dynamic destinations have a separate readiness path
+
+Normal region loading MUST remain owned by `MapRegionLoadScheduler` and
+`MapRegionLoader`. A dynamic destination MUST be published as an exact
+canonical `Initializing` dynamic region without being submitted to the normal
+loader. The source MUST be awaited through the existing load scheduler and
+MUST be revalidated as the exact canonical active `Ready` instance before any
+block data is consumed. Dynamic block population MUST run through the
+serialized GameWorker boundary, and the destination MUST publish `Ready` only
+after the copy completes successfully.
+
+#### Scenario: A fresh dynamic destination is created
+
+- **WHEN** dynamic creation requests a destination with no existing region
+- **THEN** the service MUST publish one dynamic `Initializing` destination
+- **AND** it MUST NOT request normal loading for that destination
+- **AND** the destination MUST remain not-ready until GameWorker copy completes
+
+#### Scenario: Dynamic creation waits for its source
+
+- **WHEN** the source is still `Initializing`
+- **THEN** dynamic creation MUST await the existing scheduler
+- **AND** it MUST NOT consume source block data before the exact source is
+  canonical and `Ready`
+
+#### Scenario: Dynamic population is canceled or fails
+
+- **WHEN** dynamic population is canceled or fails before readiness
+- **THEN** the exact destination MUST be discarded and exact-removed on the
+  GameWorker boundary
+- **AND** a newer replacement destination MUST remain untouched
+- **AND** the destination MUST NOT publish `Ready`
+
+### Requirement: Late visible regions receive complete state
+
+`UpdateMap` MAY send the map packet while a visible neighboring region is
+`Initializing`, but it MUST arrange one completion operation for the
+initializing regions encountered by that update. After the existing scheduler
+reports readiness, the completion MUST resume through the character's
+serialized GameWorker task boundary and revalidate the exact current
+character, canonical region instance, readiness, and current viewport
+visibility before sending full server-owned part state. It MUST not create a
+missing region solely for completion and MUST not send a stale replaced
+instance.
+
+#### Scenario: A visible neighbor becomes ready after the map packet
+
+- **GIVEN** a character is resident in region A and views initializing region B
+- **WHEN** B becomes ready after `UpdateMap` sent the map packet
+- **THEN** the character MUST receive B's full part state through the
+  GameWorker continuation
+- **AND** B's state MUST not be lost merely because the character resides in A
+
+#### Scenario: A pending visible region is replaced
+
+- **WHEN** awaited region R1 is discarded and canonical region R2 replaces it
+- **THEN** the completion MUST not send R1
+- **AND** it MUST send R2 only when R2 is current, ready, and still visible
+
+#### Scenario: The character leaves before completion
+
+- **WHEN** the character moves outside the captured viewport or is no longer
+  the exact current store entry before readiness completion
+- **THEN** no late full part update MUST be sent

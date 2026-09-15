@@ -35,6 +35,12 @@
       serialize ordered Character input through the shared scheduler.
 - [x] 1.18 Keep CPU-bound command work data-only; apply Character, widget, and
       script effects on the serialized GameWorker continuation.
+- [x] 1.19 Keep normal region publication on the existing loader while
+      publishing dynamic destinations separately as `Initializing` regions
+      that become ready only after GameWorker-owned copying.
+- [x] 1.20 Deliver late full state for initializing visible regions through
+      one character task continuation with canonical, visibility, and lifetime
+      revalidation.
 
 ## 2. Scheduler and ownership
 
@@ -125,3 +131,7 @@
 - [x] 5.12 Add deterministic logout acknowledgement/cancellation-boundary
       coverage and verify final persistence uses the exact snapshot/revision
       idempotency path without submission ownership machinery.
+- [x] 5.13 Add deterministic dynamic source-wait, destination-loader
+      exclusion, cancellation, stale-replacement, and readiness coverage.
+- [x] 5.14 Add deterministic late visible-region delivery coverage for duplicate
+      map updates, movement/logout, and canonical replacement.
