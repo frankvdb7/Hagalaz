@@ -31,6 +31,10 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// </summary>
         void RefreshVisibleRegions();
         /// <summary>
+        /// Starts a new client map synchronization epoch and sends state for the visible ready regions.
+        /// </summary>
+        void BeginMapRegionSynchronization();
+        /// <summary>
         /// Gets the central location around which the viewport is built.
         /// </summary>
         ILocation ViewLocation { get; }

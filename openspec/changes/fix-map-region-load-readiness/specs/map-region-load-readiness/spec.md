@@ -431,44 +431,62 @@ after the copy completes successfully.
 
 ### Requirement: Late visible regions receive complete state
 
-`UpdateMap` MAY send the map packet while a visible neighboring region is
-`Initializing`, but it MUST maintain one character-owned pending completion
-operation that can absorb newly visible exact region instances from later map
-updates. After the existing scheduler reports readiness, the completion MUST
-resume through the character's serialized GameWorker task boundary and
-revalidate the exact current character, canonical region instance, readiness,
-and current viewport visibility before sending full server-owned part state. It
-MUST not create a missing region solely for completion and MUST not send a
-stale replaced instance.
+`MapUpdateService.UpdateMap` MUST remain synchronous and MUST only rebuild or
+refresh the viewport, send the map packet, and begin a new viewport-owned map
+region synchronization epoch. It MUST NOT initiate or await region loading,
+queue a character task for region readiness, or retain character state for that
+purpose. A character `Viewport` MUST observe its canonical visible regions on
+the existing serialized GameWorker tick and send full server-owned part state
+once for each exact `Ready` region instance in the current map epoch. It MUST
+not send initializing or discarded instances and MUST not couple one region's
+readiness to another region's completion.
 
 #### Scenario: A visible neighbor becomes ready after the map packet
 
 - **GIVEN** a character is resident in region A and views initializing region B
 - **WHEN** B becomes ready after `UpdateMap` sent the map packet
-- **THEN** the character MUST receive B's full part state through the
-  GameWorker continuation
+- **THEN** the character MUST receive B's full part state on the next
+  serialized viewport tick
 - **AND** B's state MUST not be lost merely because the character resides in A
 
 #### Scenario: A pending visible region is replaced
 
-- **WHEN** awaited region R1 is discarded and canonical region R2 replaces it
-- **THEN** the completion MUST not send R1
+- **WHEN** visible region R1 is discarded and canonical region R2 replaces it
+- **THEN** the next viewport tick MUST not send R1
 - **AND** it MUST send R2 only when R2 is current, ready, and still visible
 
 #### Scenario: The character leaves before completion
 
-- **WHEN** the character moves outside the captured viewport or is no longer
-  the exact current store entry before readiness completion
-- **THEN** no late full part update MUST be sent
+- **WHEN** R1 becomes ready after the character no longer sees R1
+- **THEN** no full part update for R1 MUST be sent
 
-#### Scenario: A later map update adds another initializing region
+#### Scenario: A later viewport tick observes readiness
 
-- **GIVEN** a character has pending readiness work for visible R1
-- **WHEN** the character rebuilds its viewport before R1 completes and a new
-  visible R2 is `Initializing`
-- **THEN** R2 MUST be added to the existing character-owned pending completion
-  operation
-- **AND** completion of R1 while it is no longer visible MUST send no state for
-  R1
-- **AND** completion of R2 while it remains visible MUST send R2's full part
-  state exactly once
+- **GIVEN** the map synchronization epoch begins while visible R1 is
+  `Initializing`
+- **WHEN** the existing viewport tick observes canonical R1 as `Ready`
+- **THEN** the viewport MUST send R1's full part state on that tick
+- **AND** no separate readiness task or completion callback MUST be required
+
+#### Scenario: A slow region does not block a ready region
+
+- **GIVEN** visible R1 remains `Initializing`
+- **AND** a later viewport rebuild makes visible R2 `Ready`
+- **WHEN** the existing viewport tick runs
+- **THEN** R2 MUST receive full part state immediately
+- **AND** R1 MUST not prevent R2 from being synchronized
+
+#### Scenario: A failed region does not block a ready region
+
+- **GIVEN** visible R1 is `Discarded`
+- **AND** another visible region R2 is `Ready`
+- **WHEN** the existing viewport tick runs
+- **THEN** R2 MUST receive full part state
+- **AND** no stale R1 state MUST be sent
+
+#### Scenario: A new map packet starts a new synchronization epoch
+
+- **GIVEN** Ready R1 was synchronized for the previous client map
+- **WHEN** `UpdateMap` sends a new map packet
+- **THEN** the viewport MUST reset its delivered-region tracking
+- **AND** R1 MUST receive full part state once for the new map

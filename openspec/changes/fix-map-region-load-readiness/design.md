@@ -97,10 +97,11 @@ resolves through `MapRegionService` and receives a new instance.
 `RefreshVisibleRegions` explicitly rebinds those references through
 `MapRegionService` at a lifecycle boundary before they are consumed. Only
 ready regions contribute creatures, full region updates, or world ticks.
-Initializing canonical regions may still be submitted for loading; discarded
-or stale instances are not. Dynamic map packet selection uses region identity
-and configuration independently of readiness. The background lifecycle
-service also leaves initializing regions active until they publish readiness.
+Initializing canonical regions are populated by the world-owned load paths;
+`MapUpdateService` never submits them. Discarded or stale instances are not
+consumed. Dynamic map packet selection uses region identity and configuration
+independently of readiness. The background lifecycle service also leaves
+initializing regions active until they publish readiness.
 The GameWorker filters its snapshot to ready regions before any major tick
 phase, and collision returns `FloorBlock` for every non-ready state.
 
@@ -206,21 +207,21 @@ the GameWorker-owned copy completes. Cancellation schedules exact destination
 discard/removal on the same GameWorker scheduler and never removes a
 replacement.
 
-### 17. Complete late visible-region state on the character task boundary
+### 17. Synchronize late visible-region state from the viewport tick
 
-`MapUpdateService.UpdateMap` remains synchronous for the immediate map packet.
-It sends full part state immediately for ready visible regions and maintains
-one character-owned continuation for exact initializing region instances. A
-later map update adds newly visible initializing instances to that same pending
-state while the existing continuation is awaiting the load scheduler. The
-continuation resumes through the character/GameWorker task boundary. Before
-sending, it verifies the character is still the exact current store entry, the
-viewport is still valid, and each region is still the current canonical ready
-region and remains visible. A replaced original instance is never sent, and a
-logged-out or moved character receives no late update. The service-local
-pending table is a small exact-instance deduplication mechanism for this
-concrete repeated-update case; it is not a persistent readiness registry or a
-second scheduler.
+`MapUpdateService.UpdateMap` remains synchronous and has no region-loading or
+character-retention dependency. It refreshes the viewport, sends the map
+packet, and begins a new viewport-owned synchronization epoch. For a character,
+the viewport clears its small delivered-region dictionary and immediately sends
+full state for currently visible `Ready` regions. On every existing serialized
+GameWorker viewport tick, `RefreshVisibleRegions` rebinds retained references
+through `MapRegionService`, then the viewport sends full state for each visible
+`Ready` exact instance not already recorded for the current epoch. The
+dictionary key is region ID plus dimension and its value is the exact region
+instance, so a canonical replacement is synchronized even when its logical
+identity is unchanged. Initializing or discarded regions are skipped; one slow
+or failed region cannot block another ready region. No readiness task, callback,
+notifier, polling loop, or second scheduler is introduced.
 
 Raido message scopes are request-lifetime only. Deferred gameplay tasks retain
 only packet input, valid domain references, and long-lived ownership references;

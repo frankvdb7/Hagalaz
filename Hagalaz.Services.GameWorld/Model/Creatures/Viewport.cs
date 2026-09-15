@@ -20,6 +20,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private readonly ListHashSet<ICreature> _visibleCreatures = new(255);
         private readonly ListHashSet<ICharacter> _visibleCharacters = new(255);
         private readonly ListHashSet<INpc> _visibleNpcs = new(255);
+        private readonly Dictionary<(int RegionId, int Dimension), IMapRegion> _synchronizedRegions = [];
 
         /// <summary>
         /// Contains size for both X and Y in tiles of this viewport.
@@ -170,6 +171,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             _visibleNpcs.Clear();
 
             RefreshVisibleRegions();
+            SynchronizeReadyRegions();
             var ownerLocation = _owner.Location;
             foreach (var region in _visibleRegions)
             {
@@ -226,6 +228,41 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             {
                 var region = _visibleRegions[index];
                 _visibleRegions[index] = _regionService.GetOrCreateMapRegion(region.Id, region.BaseLocation.Dimension);
+            }
+        }
+
+        /// <summary>
+        /// Starts a new client map synchronization epoch and sends state for the visible ready regions.
+        /// </summary>
+        public void BeginMapRegionSynchronization()
+        {
+            _synchronizedRegions.Clear();
+            SynchronizeReadyRegions();
+        }
+
+        private void SynchronizeReadyRegions()
+        {
+            if (_owner is not ICharacter character)
+            {
+                return;
+            }
+
+            foreach (var region in _visibleRegions)
+            {
+                if (region.State != MapRegionState.Ready)
+                {
+                    continue;
+                }
+
+                var identity = (region.Id, region.BaseLocation.Dimension);
+                if (_synchronizedRegions.TryGetValue(identity, out var synchronizedRegion)
+                    && ReferenceEquals(synchronizedRegion, region))
+                {
+                    continue;
+                }
+
+                region.SendFullPartUpdates(character);
+                _synchronizedRegions[identity] = region;
             }
         }
 

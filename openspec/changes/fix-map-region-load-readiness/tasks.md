@@ -38,10 +38,9 @@
 - [x] 1.19 Keep normal region publication on the existing loader while
       publishing dynamic destinations separately as `Initializing` regions
       that become ready only after GameWorker-owned copying.
-- [x] 1.20 Deliver late full state for initializing visible regions through
-      one character task continuation with canonical, visibility, and lifetime
-      revalidation, including exact initializing regions added by later map
-      updates.
+- [x] 1.20 Deliver late full state for initializing visible regions from the
+      existing serialized Viewport tick using exact-instance tracking and
+      canonical refresh, without a character readiness task.
 
 ## 2. Scheduler and ownership
 
@@ -134,6 +133,6 @@
       idempotency path without submission ownership machinery.
 - [x] 5.13 Add deterministic dynamic source-wait, destination-loader
       exclusion, cancellation, stale-replacement, and readiness coverage.
-- [x] 5.14 Add deterministic late visible-region delivery coverage for duplicate
-      map updates, movement/logout, canonical replacement, and a later viewport
-      rebuild that adds a second initializing region while the first is pending.
+- [x] 5.14 Add deterministic late visible-region delivery coverage for
+      initializing-to-ready state, repeated ticks, new map synchronization
+      epochs, exact replacement, independent regions, and discarded regions.

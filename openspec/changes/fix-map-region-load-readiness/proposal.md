@@ -56,9 +56,10 @@ corrupt map data into apparently empty map data.
 - Dynamic destinations are published as `Initializing` dynamic regions without
   a normal loader request; the existing GameWorker task waits for an exact,
   ready source before copying blocks and publishing destination readiness.
-- A later map packet may expose an initializing visible neighbor, but its
-  completion is delivered through the character task boundary after canonical
-  and visibility revalidation.
+- A later map packet may expose an initializing visible neighbor. The map
+  update begins a viewport-owned synchronization epoch, and the existing
+  serialized viewport tick delivers full state when each canonical visible
+  region becomes ready.
 
 ## Stop Conditions
 
