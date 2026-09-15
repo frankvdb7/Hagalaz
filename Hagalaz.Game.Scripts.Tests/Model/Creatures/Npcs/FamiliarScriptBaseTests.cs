@@ -53,6 +53,8 @@ public sealed class FamiliarScriptBaseTests
             .Returns(Substitute.For<EventHappened>());
         summoner.RegisterEventHandler(Arg.Any<EventHappened<FamiliarDismissEvent>>())
             .Returns(Substitute.For<EventHappened>());
+        summoner.RegisterEventHandler(Arg.Any<EventHappened<CreatureDestroyedEvent>>())
+            .Returns(Substitute.For<EventHappened>());
         summoner.RegisterEventHandler(Arg.Any<EventHappened<CreatureSetCombatTargetEvent>>())
             .Returns(Substitute.For<EventHappened>());
 
@@ -62,6 +64,7 @@ public sealed class FamiliarScriptBaseTests
         Assert.AreSame(expectedException, actualException);
         summoner.Received(1).UnregisterEventHandler<SummoningAllowEvent>(Arg.Any<EventHappened>());
         summoner.Received(1).UnregisterEventHandler<CreatureDiedEvent>(Arg.Any<EventHappened>());
+        summoner.Received(1).UnregisterEventHandler<CreatureDestroyedEvent>(Arg.Any<EventHappened>());
         summoner.Received(1).UnregisterEventHandler<FamiliarDismissEvent>(Arg.Any<EventHappened>());
         summoner.Received(1).UnregisterEventHandler<CreatureSetCombatTargetEvent>(Arg.Any<EventHappened>());
         Assert.IsNull(script.Summoner);
@@ -108,6 +111,42 @@ public sealed class FamiliarScriptBaseTests
         script.OnDestroy();
 
         summoner.Received(1).DetachFamiliar(script.Familiar);
+        summoner.Received(1).SendChatMessage("Your familiar vanished.");
+    }
+
+    [TestMethod]
+    public void AttachToSummoner_RegistersSummonerDestroyedHandler()
+    {
+        var summoner = Substitute.For<ICharacter>();
+        var script = CreateScript(Substitute.For<INpc>());
+
+        script.AttachToSummoner(summoner, new SummoningDto { NpcId = 6815 });
+
+        summoner.Received(1).RegisterEventHandler<CreatureDestroyedEvent>(Arg.Any<EventHappened<CreatureDestroyedEvent>>());
+    }
+
+    [TestMethod]
+    public void SummonerDestroyed_UnregistersExactFamiliarWithoutVanishMessage()
+    {
+        var summoner = Substitute.For<ICharacter>();
+        var familiar = Substitute.For<INpc>();
+        var npcService = Substitute.For<INpcService>();
+        var script = CreateScript(familiar, npcService);
+        EventHappened<CreatureDestroyedEvent>? destroyedHandler = null;
+
+        summoner.RegisterEventHandler(
+                Arg.Do<EventHappened<CreatureDestroyedEvent>>(handler => destroyedHandler = handler))
+            .Returns(Substitute.For<EventHappened>());
+        npcService.When(service => service.Unregister(familiar))
+            .Do(_ => script.OnDestroy());
+
+        script.AttachToSummoner(summoner, new SummoningDto { NpcId = 6815 });
+
+        destroyedHandler!(new CreatureDestroyedEvent(summoner));
+
+        npcService.Received(1).Unregister(familiar);
+        summoner.DidNotReceive().SendChatMessage("Your familiar vanished.");
+        summoner.Received(1).DetachFamiliar(familiar);
     }
 
     [TestMethod]
@@ -166,6 +205,8 @@ public sealed class FamiliarScriptBaseTests
             .Returns(Substitute.For<EventHappened>());
         summoner.RegisterEventHandler(Arg.Any<EventHappened<FamiliarDismissEvent>>())
             .Returns(Substitute.For<EventHappened>());
+        summoner.RegisterEventHandler(Arg.Any<EventHappened<CreatureDestroyedEvent>>())
+            .Returns(Substitute.For<EventHappened>());
         summoner.RegisterEventHandler(Arg.Any<EventHappened<CreatureSetCombatTargetEvent>>())
             .Returns(Substitute.For<EventHappened>());
 
@@ -174,6 +215,7 @@ public sealed class FamiliarScriptBaseTests
 
         summoner.Received(1).UnregisterEventHandler<SummoningAllowEvent>(Arg.Any<EventHappened>());
         summoner.Received(1).UnregisterEventHandler<CreatureDiedEvent>(Arg.Any<EventHappened>());
+        summoner.Received(1).UnregisterEventHandler<CreatureDestroyedEvent>(Arg.Any<EventHappened>());
         summoner.Received(1).UnregisterEventHandler<FamiliarDismissEvent>(Arg.Any<EventHappened>());
         summoner.Received(1).UnregisterEventHandler<CreatureSetCombatTargetEvent>(Arg.Any<EventHappened>());
     }
