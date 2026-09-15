@@ -676,11 +676,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             foreach (var info in att)
                 if (info.Attacker is ICharacter)
                 {
-                    if (info.LastAttackTick > _combatOptions.Value.CharacterAttackTickDelay) _recentAttackers.Remove(info);
+                    if (info.LastAttackTick > _combatOptions.Value.CharacterAttackTickDelay)
+                        _recentAttackers.Remove(info);
+                    else
+                        info.LastAttackTick++;
                 }
                 else if (info.Attacker is INpc)
                 {
-                    if (info.LastAttackTick > _combatOptions.Value.NpcAttackTickDelay) _recentAttackers.Remove(info);
+                    if (info.LastAttackTick > _combatOptions.Value.NpcAttackTickDelay)
+                        _recentAttackers.Remove(info);
+                    else
+                        info.LastAttackTick++;
                 }
 
             var characterContributions = new List<DamageContribution<ICharacter>>(_characterDamageContributions);

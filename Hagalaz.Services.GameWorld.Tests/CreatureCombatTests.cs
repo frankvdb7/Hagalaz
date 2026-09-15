@@ -11,6 +11,7 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Services.GameWorld.Configuration.Model;
+using Hagalaz.Services.GameWorld.Model.Creatures;
 using Hagalaz.Services.GameWorld.Store;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -52,7 +53,11 @@ namespace Hagalaz.Services.GameWorld.Tests
                 Substitute.For<IHitSplatBuilder>(),
                 Substitute.For<IProjectilePathFinder>(),
                 Substitute.For<ISmartPathFinder>(),
-                Options.Create(new CombatOptions()));
+                Options.Create(new CombatOptions
+                {
+                    CharacterAttackTickDelay = 1,
+                    NpcAttackTickDelay = 1
+                }));
         }
 
         [TestMethod]
@@ -162,6 +167,101 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             // Assert
             Assert.IsFalse(result);
+        }
+
+        [TestMethod]
+        public void RecentCharacterAttacker_AgesAndExpiresUsingCharacterTimeout()
+        {
+            var attacker = Substitute.For<ICharacter>();
+            _characterCombat.AddAttackerPublic(attacker);
+
+            var attackerInfo = _characterCombat.RecentAttackers.Single();
+            _characterCombat.Tick();
+            Assert.AreEqual(1, attackerInfo.LastAttackTick);
+            Assert.AreEqual(1, _characterCombat.RecentAttackersCount);
+
+            _characterCombat.Tick();
+            Assert.AreEqual(2, attackerInfo.LastAttackTick);
+            Assert.AreEqual(1, _characterCombat.RecentAttackersCount);
+
+            _characterCombat.Tick();
+            Assert.AreEqual(0, _characterCombat.RecentAttackersCount);
+        }
+
+        [TestMethod]
+        public void RecentNpcAttacker_AgesAndExpiresUsingNpcTimeout()
+        {
+            var attacker = Substitute.For<INpc>();
+            _characterCombat.AddAttackerPublic(attacker);
+
+            var attackerInfo = _characterCombat.RecentAttackers.Single();
+            _characterCombat.Tick();
+            Assert.AreEqual(1, attackerInfo.LastAttackTick);
+            Assert.AreEqual(1, _characterCombat.RecentAttackersCount);
+
+            _characterCombat.Tick();
+            Assert.AreEqual(2, attackerInfo.LastAttackTick);
+            Assert.AreEqual(1, _characterCombat.RecentAttackersCount);
+
+            _characterCombat.Tick();
+            Assert.AreEqual(0, _characterCombat.RecentAttackersCount);
+        }
+
+        [TestMethod]
+        public void AddAttacker_ResetsRecentRelationshipAge()
+        {
+            var attacker = Substitute.For<ICharacter>();
+            _characterCombat.AddAttackerPublic(attacker);
+            _characterCombat.Tick();
+            Assert.AreEqual(1, _characterCombat.RecentAttackers.Single().LastAttackTick);
+
+            _characterCombat.AddAttackerPublic(attacker);
+
+            Assert.AreEqual(0, _characterCombat.RecentAttackers.Single().LastAttackTick);
+            _characterCombat.Tick();
+            Assert.AreEqual(1, _characterCombat.RecentAttackersCount);
+        }
+
+        [TestMethod]
+        public async Task RecentAttackerExpiry_DoesNotRemoveHistoricalDamageContribution()
+        {
+            var store = CreateCharacterStore();
+            using var provider = new ServiceCollection()
+                .AddSingleton<ICharacterStore>(store)
+                .BuildServiceProvider();
+            _mockOwner.ServiceProvider.Returns(provider);
+
+            var attacker = Substitute.For<ICharacter>();
+            Assert.IsTrue(await store.AddAsync(attacker));
+            _characterCombat.AddAttackerPublic(attacker);
+            _characterCombat.AddDamageToAttackerPublic(attacker, 10);
+
+            _characterCombat.Tick();
+            _characterCombat.Tick();
+            _characterCombat.Tick();
+
+            Assert.IsFalse(_characterCombat.IsInCombat());
+            Assert.AreSame(attacker, _characterCombat.GetKiller());
+        }
+
+        [TestMethod]
+        public void RecentAttackerExpiry_DoesNotResolveStores()
+        {
+            var characterStore = Substitute.For<ICharacterStore>();
+            using var provider = new ServiceCollection()
+                .AddSingleton(characterStore)
+                .BuildServiceProvider();
+            _mockOwner.ServiceProvider.Returns(provider);
+
+            var attacker = Substitute.For<ICharacter>();
+            _characterCombat.AddAttackerPublic(attacker);
+            characterStore.ClearReceivedCalls();
+
+            _characterCombat.Tick();
+            _characterCombat.Tick();
+            _characterCombat.Tick();
+
+            characterStore.DidNotReceive().Resolve(Arg.Any<CreatureHandle<ICharacter>>());
         }
 
         [TestMethod]
@@ -333,6 +433,25 @@ namespace Hagalaz.Services.GameWorld.Tests
             _mockAttackerCombat.RecentAttackers.Returns(Array.Empty<ICreatureAttackerInfo>());
             _characterCombat.SetLastAttackedForTest(_mockAttacker);
 
+            _characterCombat.Tick();
+
+            Assert.IsNull(_characterCombat.LastAttacked);
+        }
+
+        [TestMethod]
+        public void LastAttacked_FadesAfterReciprocalRecentAttackerExpires()
+        {
+            var reciprocalAttackers = new List<ICreatureAttackerInfo>
+            {
+                new CreatureAttackerInfo(_mockOwner, 0)
+            };
+            _mockAttackerCombat.RecentAttackers.Returns(_ => reciprocalAttackers);
+            _characterCombat.SetLastAttackedForTest(_mockAttacker);
+
+            _characterCombat.Tick();
+            Assert.AreSame(_mockAttacker, _characterCombat.LastAttacked);
+
+            reciprocalAttackers.Clear();
             _characterCombat.Tick();
 
             Assert.IsNull(_characterCombat.LastAttacked);

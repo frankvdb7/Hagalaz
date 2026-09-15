@@ -40,7 +40,8 @@
       that become ready only after GameWorker-owned copying.
 - [x] 1.20 Deliver late full state for initializing visible regions through
       one character task continuation with canonical, visibility, and lifetime
-      revalidation.
+      revalidation, including exact initializing regions added by later map
+      updates.
 
 ## 2. Scheduler and ownership
 
@@ -134,4 +135,5 @@
 - [x] 5.13 Add deterministic dynamic source-wait, destination-loader
       exclusion, cancellation, stale-replacement, and readiness coverage.
 - [x] 5.14 Add deterministic late visible-region delivery coverage for duplicate
-      map updates, movement/logout, and canonical replacement.
+      map updates, movement/logout, canonical replacement, and a later viewport
+      rebuild that adds a second initializing region while the first is pending.

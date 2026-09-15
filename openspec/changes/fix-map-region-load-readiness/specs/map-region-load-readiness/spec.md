@@ -432,14 +432,14 @@ after the copy completes successfully.
 ### Requirement: Late visible regions receive complete state
 
 `UpdateMap` MAY send the map packet while a visible neighboring region is
-`Initializing`, but it MUST arrange one completion operation for the
-initializing regions encountered by that update. After the existing scheduler
-reports readiness, the completion MUST resume through the character's
-serialized GameWorker task boundary and revalidate the exact current
-character, canonical region instance, readiness, and current viewport
-visibility before sending full server-owned part state. It MUST not create a
-missing region solely for completion and MUST not send a stale replaced
-instance.
+`Initializing`, but it MUST maintain one character-owned pending completion
+operation that can absorb newly visible exact region instances from later map
+updates. After the existing scheduler reports readiness, the completion MUST
+resume through the character's serialized GameWorker task boundary and
+revalidate the exact current character, canonical region instance, readiness,
+and current viewport visibility before sending full server-owned part state. It
+MUST not create a missing region solely for completion and MUST not send a
+stale replaced instance.
 
 #### Scenario: A visible neighbor becomes ready after the map packet
 
@@ -460,3 +460,15 @@ instance.
 - **WHEN** the character moves outside the captured viewport or is no longer
   the exact current store entry before readiness completion
 - **THEN** no late full part update MUST be sent
+
+#### Scenario: A later map update adds another initializing region
+
+- **GIVEN** a character has pending readiness work for visible R1
+- **WHEN** the character rebuilds its viewport before R1 completes and a new
+  visible R2 is `Initializing`
+- **THEN** R2 MUST be added to the existing character-owned pending completion
+  operation
+- **AND** completion of R1 while it is no longer visible MUST send no state for
+  R1
+- **AND** completion of R2 while it remains visible MUST send R2's full part
+  state exactly once

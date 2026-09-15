@@ -21,10 +21,11 @@ namespace Hagalaz.Services.GameWorld.Services
         // boundary, so this service-local table can remain a plain collection.
         private readonly Dictionary<ICharacter, PendingRegionUpdate> _pendingRegionUpdates = [];
 
-        private sealed class PendingRegionUpdate(IReadOnlyList<IMapRegion> initializingRegions)
+        private sealed class PendingRegionUpdate
         {
-            public IReadOnlyList<IMapRegion> InitializingRegions { get; } = initializingRegions;
-            public HashSet<IMapRegion> SentRegions { get; } = [];
+            public HashSet<IMapRegion> InitializingRegions { get; } = new(ReferenceEqualityComparer.Instance);
+            public HashSet<IMapRegion> SentRegions { get; } = new(ReferenceEqualityComparer.Instance);
+            public bool IsScheduled { get; set; }
         }
 
         public MapUpdateService(
@@ -67,7 +68,6 @@ namespace Hagalaz.Services.GameWorld.Services
                 });
             }
 
-            var initializingRegions = visibleRegions.Where(region => region.State == MapRegionState.Initializing).ToArray();
             _pendingRegionUpdates.TryGetValue(character, out var pendingUpdate);
 
             foreach (var region in visibleRegions)
@@ -75,45 +75,72 @@ namespace Hagalaz.Services.GameWorld.Services
                 if (region.State == MapRegionState.Initializing)
                 {
                     _regionLoadScheduler.RequestLoad(region);
+                    pendingUpdate ??= AddPendingRegionUpdate(character);
+                    pendingUpdate.InitializingRegions.Add(region);
                 }
                 else if (region.State == MapRegionState.Ready)
                 {
                     region.SendFullPartUpdates(character);
-                    pendingUpdate?.SentRegions.Add(region);
+                    if (pendingUpdate is not null)
+                    {
+                        pendingUpdate.InitializingRegions.Remove(region);
+                        pendingUpdate.SentRegions.Add(region);
+                    }
                 }
             }
 
-            if (initializingRegions.Length == 0 || pendingUpdate is not null)
+            if (pendingUpdate is null || pendingUpdate.InitializingRegions.Count == 0)
             {
                 return;
             }
 
-            var nextPendingUpdate = new PendingRegionUpdate(initializingRegions);
-            _pendingRegionUpdates.Add(character, nextPendingUpdate);
+            if (pendingUpdate.IsScheduled)
+            {
+                return;
+            }
+
+            pendingUpdate.IsScheduled = true;
             character.QueueTask(async cancellationToken =>
             {
                 try
                 {
-                    await _regionLoadScheduler.EnsureLoadedAsync(initializingRegions, cancellationToken);
-                    if (!ReferenceEquals(_characterStore.FindByMasterId(character.MasterId), character)
-                        || character.Viewport.ShouldRebuild())
+                    while (pendingUpdate.InitializingRegions.Count > 0)
                     {
-                        return;
-                    }
-
-                    foreach (var requestedRegion in initializingRegions)
-                    {
-                        var currentRegion = _regionService.FindMapRegion(requestedRegion.Id, requestedRegion.BaseLocation.Dimension);
-                        if (currentRegion is null || currentRegion.State != MapRegionState.Ready
-                            || !character.Viewport.VisibleRegions.Any(region =>
-                                region.Id == currentRegion.Id && region.BaseLocation.Dimension == currentRegion.BaseLocation.Dimension)
-                            || nextPendingUpdate.SentRegions.Contains(currentRegion))
+                        var requestedRegions = pendingUpdate.InitializingRegions.ToArray();
+                        await _regionLoadScheduler.EnsureLoadedAsync(requestedRegions, cancellationToken);
+                        if (!ReferenceEquals(_characterStore.FindByMasterId(character.MasterId), character)
+                            || character.Viewport.ShouldRebuild())
                         {
-                            continue;
+                            return;
                         }
 
-                        currentRegion.SendFullPartUpdates(character);
-                        nextPendingUpdate.SentRegions.Add(currentRegion);
+                        foreach (var requestedRegion in requestedRegions)
+                        {
+                            pendingUpdate.InitializingRegions.Remove(requestedRegion);
+                            var currentRegion = _regionService.FindMapRegion(requestedRegion.Id, requestedRegion.BaseLocation.Dimension);
+                            if (currentRegion is null || !character.Viewport.VisibleRegions.Any(region =>
+                                    region.Id == currentRegion.Id
+                                    && region.BaseLocation.Dimension == currentRegion.BaseLocation.Dimension))
+                            {
+                                continue;
+                            }
+
+                            if (currentRegion.State == MapRegionState.Initializing)
+                            {
+                                pendingUpdate.InitializingRegions.Add(currentRegion);
+                                _regionLoadScheduler.RequestLoad(currentRegion);
+                                continue;
+                            }
+
+                            if (currentRegion.State != MapRegionState.Ready
+                                || pendingUpdate.SentRegions.Contains(currentRegion))
+                            {
+                                continue;
+                            }
+
+                            currentRegion.SendFullPartUpdates(character);
+                            pendingUpdate.SentRegions.Add(currentRegion);
+                        }
                     }
                 }
                 finally
@@ -121,6 +148,13 @@ namespace Hagalaz.Services.GameWorld.Services
                     _pendingRegionUpdates.Remove(character);
                 }
             });
+        }
+
+        private PendingRegionUpdate AddPendingRegionUpdate(ICharacter character)
+        {
+            var pendingUpdate = new PendingRegionUpdate();
+            _pendingRegionUpdates.Add(character, pendingUpdate);
+            return pendingUpdate;
         }
     }
 }

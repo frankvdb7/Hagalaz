@@ -188,6 +188,88 @@ namespace Hagalaz.Services.GameWorld.Tests
     }
 
     [TestMethod]
+    public void UpdateMap_WhenVisibleInitializingSetChanges_DeliversOnlyTheCurrentRegion()
+    {
+        var character = Substitute.For<ICharacter>();
+        var session = Substitute.For<IGameSession>();
+        var characterStore = Substitute.For<ICharacterStore>();
+        var regionService = Substitute.For<IMapRegionService>();
+        var regionLoadScheduler = Substitute.For<IMapRegionLoadScheduler>();
+        var mapSize = Substitute.For<IMapSize>();
+        var initialLocation = Location.Create(100, 100, 0, 0);
+        var movedLocation = Location.Create(1000, 1000, 0, 0);
+        var initialReadyRegion = CreateRegion(initialLocation, MapRegionState.Ready);
+        var firstPendingRegion = CreateRegion(
+            Location.Create(initialLocation.RegionX * 64 + 64, initialLocation.RegionY * 64, 0, 0),
+            MapRegionState.Initializing);
+        var movedReadyRegion = CreateRegion(movedLocation, MapRegionState.Ready);
+        var secondPendingRegion = CreateRegion(
+            Location.Create(movedLocation.RegionX * 64 + 64, movedLocation.RegionY * 64, 0, 0),
+            MapRegionState.Initializing);
+        var visibleRegions = new IMapRegion[] { initialReadyRegion, firstPendingRegion };
+        var firstLoadGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondLoadGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var viewport = new Viewport(character, regionService, mapSize);
+
+        character.Location.Returns(_ => visibleRegions[0] == initialReadyRegion ? initialLocation : movedLocation);
+        character.Index.Returns(1);
+        character.MasterId.Returns(42u);
+        character.Session.Returns(session);
+        character.Viewport.Returns(viewport);
+        characterStore.FindByMasterId(42u).Returns(character);
+        mapSize.Size.Returns(104);
+        mapSize.Type.Returns(0);
+        regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), mapSize)
+            .Returns(_ => visibleRegions);
+        regionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>())
+            .Returns(callInfo => ResolveRegion(
+                callInfo[0] is int id ? id : throw new InvalidOperationException(),
+                initialReadyRegion,
+                firstPendingRegion,
+                movedReadyRegion,
+                secondPendingRegion));
+        regionService.FindMapRegion(Arg.Any<int>(), Arg.Any<int>())
+            .Returns(callInfo => ResolveRegion(
+                callInfo[0] is int id ? id : throw new InvalidOperationException(),
+                initialReadyRegion,
+                firstPendingRegion,
+                movedReadyRegion,
+                secondPendingRegion));
+        regionLoadScheduler.EnsureLoadedAsync(Arg.Any<IEnumerable<IMapRegion>>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var requested = callInfo.Arg<IEnumerable<IMapRegion>>()!.ToArray();
+                return requested.Contains(firstPendingRegion)
+                    ? firstLoadGate.Task
+                    : secondLoadGate.Task;
+            });
+        character.When(value => value.QueueTask(Arg.Any<Func<CancellationToken, Task>>()))
+            .Do(callInfo => scheduler.Schedule(new RsAsyncTask(callInfo.Arg<Func<CancellationToken, Task>>()!)));
+
+        var service = new MapUpdateService(regionLoadScheduler, regionService, characterStore);
+
+        service.UpdateMap(character, false);
+        scheduler.Tick();
+
+        visibleRegions = [movedReadyRegion, secondPendingRegion];
+        service.UpdateMap(character, false);
+
+        firstPendingRegion.State.Returns(MapRegionState.Ready);
+        firstLoadGate.SetResult();
+        scheduler.Tick();
+
+        secondPendingRegion.State.Returns(MapRegionState.Ready);
+        secondLoadGate.SetResult();
+        scheduler.Tick();
+
+        firstPendingRegion.DidNotReceive().SendFullPartUpdates(character);
+        secondPendingRegion.Received(1).SendFullPartUpdates(character);
+        regionLoadScheduler.Received(1).RequestLoad(firstPendingRegion);
+        regionLoadScheduler.Received(1).RequestLoad(secondPendingRegion);
+    }
+
+    [TestMethod]
     public void UpdateMap_DoesNotSendLateStateAfterCharacterMoves()
     {
         var scenario = CreatePendingMapUpdateScenario();
@@ -304,6 +386,31 @@ namespace Hagalaz.Services.GameWorld.Tests
             value => canonicalPendingRegion = value,
             value => currentLocation = value);
     }
+
+    private static IMapRegion CreateRegion(ILocation location, MapRegionState state)
+    {
+        var region = Substitute.For<IMapRegion>();
+        region.Id.Returns(location.RegionId);
+        region.BaseLocation.Returns(Location.Create(location.RegionX * 64, location.RegionY * 64, 0, location.Dimension));
+        region.State.Returns(state);
+        region.XteaKeys.Returns(new[] { 1, 2, 3, 4 });
+        return region;
+    }
+
+    private static IMapRegion? ResolveRegion(
+        int id,
+        IMapRegion initialReadyRegion,
+        IMapRegion firstPendingRegion,
+        IMapRegion movedReadyRegion,
+        IMapRegion secondPendingRegion) =>
+        id switch
+        {
+            _ when id == initialReadyRegion.Id => initialReadyRegion,
+            _ when id == firstPendingRegion.Id => firstPendingRegion,
+            _ when id == movedReadyRegion.Id => movedReadyRegion,
+            _ when id == secondPendingRegion.Id => secondPendingRegion,
+            _ => null
+        };
 
     private sealed record PendingMapUpdateScenario(
         MapUpdateService Service,
