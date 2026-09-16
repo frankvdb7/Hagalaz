@@ -37,17 +37,12 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 return;
             }
-            if (!_npcStore.TryGetHandle(npc, out var npcHandle))
-            {
-                return;
-            }
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
-                var currentNpc = _npcStore.Resolve(npcHandle);
-                if (currentNpc is not null && character.Viewport.VisibleCreatures.Contains(currentNpc))
+                if (_npcStore.Contains(npc) && character.Viewport.VisibleCreatures.Contains(npc))
                 {
-                    currentNpc.Script.OnCharacterClick(character, message.ClickType, message.ForceRun);
+                    npc.Script.OnCharacterClick(character, message.ClickType, message.ForceRun);
                 }
             }, 1));
         }

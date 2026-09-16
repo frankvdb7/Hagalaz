@@ -161,6 +161,7 @@ public sealed class GameCommandPromptTests
         public ValueTask<ICharacter?> FindByIndexAsync(int index) => throw new NotSupportedException();
         public ICharacter? FindByMasterId(uint id) => null;
         public bool Remove(ICharacter character) => false;
+        public bool Contains(ICharacter character) => false;
         public bool TryGetHandle(ICharacter character, out CreatureHandle<ICharacter> handle)
         {
             handle = default;

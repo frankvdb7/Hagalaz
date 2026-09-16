@@ -438,7 +438,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var target = Substitute.For<ICharacter>();
             target.MasterId.Returns(14u);
             Assert.IsTrue(await store.AddAsync(target));
-            Assert.IsTrue(_characterCombat.SetTargetReferenceForTest(target));
+            _characterCombat.SetTargetForTest(target);
 
             Assert.IsTrue(store.Remove(target));
 
@@ -455,7 +455,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             _mockOwner.ServiceProvider.Returns(provider);
             var target = Substitute.For<INpc>();
             Assert.IsTrue(await store.AddAsync(target));
-            Assert.IsTrue(_characterCombat.SetTargetReferenceForTest(target));
+            _characterCombat.SetTargetForTest(target);
 
             Assert.IsTrue(store.Remove(target));
 
@@ -475,7 +475,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             target.MasterId.Returns(15u);
             replacement.MasterId.Returns(16u);
             Assert.IsTrue(await store.AddAsync(target));
-            Assert.IsTrue(_characterCombat.SetTargetReferenceForTest(target));
+            _characterCombat.SetTargetForTest(target);
 
             Assert.IsTrue(store.Remove(target));
             Assert.IsTrue(await store.AddAsync(replacement));
@@ -496,7 +496,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var target = Substitute.For<INpc>();
             var replacement = Substitute.For<INpc>();
             Assert.IsTrue(await store.AddAsync(target));
-            Assert.IsTrue(_characterCombat.SetTargetReferenceForTest(target));
+            _characterCombat.SetTargetForTest(target);
 
             Assert.IsTrue(store.Remove(target));
             Assert.IsTrue(await store.AddAsync(replacement));
@@ -625,11 +625,6 @@ namespace Hagalaz.Services.GameWorld.Tests
         public void SetTargetForTest(ICreature? target)
         {
             Target = target;
-        }
-
-        public bool SetTargetReferenceForTest(ICreature target)
-        {
-            return TrySetTargetReference(target);
         }
 
         public void AddAttackerPublic(ICreature attacker)

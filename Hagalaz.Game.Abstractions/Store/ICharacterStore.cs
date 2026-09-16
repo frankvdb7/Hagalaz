@@ -61,6 +61,11 @@ namespace Hagalaz.Game.Abstractions.Store
         /// </summary>
         bool Remove(ICharacter character);
 
+        /// <summary>
+        /// Determines whether the exact character instance is currently stored at its index.
+        /// </summary>
+        bool Contains(ICharacter character);
+
         bool TryGetHandle(ICharacter character, out CreatureHandle<ICharacter> handle);
 
         ICharacter? Resolve(CreatureHandle<ICharacter> handle);

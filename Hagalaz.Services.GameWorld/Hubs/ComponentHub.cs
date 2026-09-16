@@ -76,10 +76,6 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 return;
             }
-            if (!_characterStore.TryGetHandle(target, out var targetHandle))
-            {
-                return;
-            }
             character.QueueTask(new RsTask(() =>
             {
                 if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
@@ -87,10 +83,9 @@ namespace Hagalaz.Services.GameWorld.Hubs
                     return;
                 }
 
-                var currentTarget = _characterStore.Resolve(targetHandle);
-                if (currentTarget is not null)
+                if (_characterStore.Contains(target))
                 {
-                    @interface.OnComponentUsedOnCreature(message.ComponentId, currentTarget, message.ForceRun, message.ExtraData1, message.ExtraData2);
+                    @interface.OnComponentUsedOnCreature(message.ComponentId, target, message.ForceRun, message.ExtraData1, message.ExtraData2);
                 }
             }, 1));
         }
@@ -104,10 +99,6 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 return;
             }
-            if (!_npcStore.TryGetHandle(target, out var targetHandle))
-            {
-                return;
-            }
             character.QueueTask(new RsTask(() =>
             {
                 if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
@@ -115,10 +106,9 @@ namespace Hagalaz.Services.GameWorld.Hubs
                     return;
                 }
 
-                var currentTarget = _npcStore.Resolve(targetHandle);
-                if (currentTarget is not null)
+                if (_npcStore.Contains(target))
                 {
-                    @interface.OnComponentUsedOnCreature(message.ComponentId, currentTarget, message.ForceRun, message.ExtraData1, message.ExtraData2);
+                    @interface.OnComponentUsedOnCreature(message.ComponentId, target, message.ForceRun, message.ExtraData1, message.ExtraData2);
                 }
             }, 1));
         }

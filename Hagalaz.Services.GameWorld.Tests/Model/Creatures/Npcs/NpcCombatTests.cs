@@ -117,7 +117,7 @@ public sealed class NpcCombatTests
         Assert.IsTrue(await store.AddAsync(target));
 
         var combat = new TestableNpcCombat(owner);
-        Assert.IsTrue(combat.SetTargetReferenceForTest(target));
+        combat.SetTargetForTest(target);
         Assert.IsTrue(store.Remove(target));
 
         Assert.IsFalse(combat.CanSetTarget(target));
@@ -139,6 +139,6 @@ public sealed class NpcCombatTests
         {
         }
 
-        public bool SetTargetReferenceForTest(ICreature target) => TrySetTargetReference(target);
+        public void SetTargetForTest(ICreature target) => Target = target;
     }
 }

@@ -34,6 +34,14 @@ namespace Hagalaz.Services.GameWorld.Store
 
         public int Count => _size;
 
+        public bool Contains(TCreature creature)
+        {
+            var index = creature.Index;
+            return index >= _startIndex
+                && (uint)index < (uint)_creatures.Length
+                && ReferenceEquals(_creatures[index], creature);
+        }
+
         public CreatureCollection(int capacity)
         {
             if (capacity <= 0)

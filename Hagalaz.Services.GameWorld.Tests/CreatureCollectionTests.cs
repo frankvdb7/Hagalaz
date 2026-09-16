@@ -124,6 +124,23 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
+        public void Contains_RequiresExactCurrentCreature()
+        {
+            var original = new CreatureMock();
+            var replacement = new CreatureMock();
+            var collection = new CreatureCollection<CreatureMock>(1) { original };
+
+            Assert.IsTrue(collection.Contains(original));
+
+            collection.Remove(original);
+
+            Assert.IsFalse(collection.Contains(original));
+            collection.Add(replacement);
+            Assert.IsFalse(collection.Contains(original));
+            Assert.IsTrue(collection.Contains(replacement));
+        }
+
+        [TestMethod]
         public void Handle_DoesNotResolveAfterSlotReuse()
         {
             var original = new CreatureMock();

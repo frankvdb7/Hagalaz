@@ -89,6 +89,14 @@ namespace Hagalaz.Services.GameWorld.Store
             }
         }
 
+        public bool Contains(ICharacter character)
+        {
+            using (_lock.ReaderLock())
+            {
+                return _characters.Contains(character);
+            }
+        }
+
         public bool TryGetHandle(ICharacter character, out CreatureHandle<ICharacter> handle)
         {
             using (_lock.ReaderLock())

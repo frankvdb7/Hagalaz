@@ -15,6 +15,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
@@ -23,6 +24,7 @@ using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Utilities;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -218,7 +220,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </returns>
         public override bool SetTarget(ICreature target)
         {
-            if (!CanSetTarget(target) || !TrySetTargetReference(target)) return false;
+            if (!CanSetTarget(target)) return false;
+            Target = target;
             CheckSkullConditions(target);
             Owner.FaceCreature(target);
             _character.EventManager.SendEvent(new CreatureSetCombatTargetEvent(Owner, target));
@@ -232,7 +235,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns><c>true</c> if this instance [can set target] the specified target; otherwise, <c>false</c>.</returns>
         public override bool CanSetTarget(ICreature target)
         {
-            if (!IsTargetOwned(target)) return false;
+            if (target is ICharacter character)
+            {
+                var characterStore = Owner.ServiceProvider?.GetService<ICharacterStore>();
+                if (characterStore is null || !characterStore.Contains(character)) return false;
+            }
+            else if (target is INpc npc)
+            {
+                var npcStore = Owner.ServiceProvider?.GetService<INpcStore>();
+                if (npcStore is null || !npcStore.Contains(npc)) return false;
+            }
+            else
+            {
+                return false;
+            }
+
             if (target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
             if (!target.Area.Script.CanBeAttacked(target, Owner)) return false;
             if (!Owner.Area.Script.CanAttack(Owner, target)) return false;
@@ -247,7 +264,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public override void CancelTarget()
         {
             _character.Magic.SelectedSpell = null;
-            ClearTargetReference();
+            Target = null;
             Owner.ResetFacing();
         }
 

@@ -174,6 +174,7 @@ public sealed class WorldStatusServiceShutdownTests
         public ValueTask<ICharacter?> FindByIndexAsync(int index) => throw new NotSupportedException();
         public ICharacter? FindByMasterId(uint id) => id == _character.MasterId ? _character : null;
         public bool Remove(ICharacter character) => false;
+        public bool Contains(ICharacter character) => ReferenceEquals(_character, character);
         public bool TryGetHandle(ICharacter character, out CreatureHandle<ICharacter> handle) { handle = default; return false; }
         public ICharacter? Resolve(CreatureHandle<ICharacter> handle) => null;
     }

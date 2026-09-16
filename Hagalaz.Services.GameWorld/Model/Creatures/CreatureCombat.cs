@@ -36,9 +36,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private readonly List<DamageContribution<ICharacter>> _characterDamageContributions = [];
         private readonly List<DamageContribution<INpc>> _npcDamageContributions = [];
 
-        private CreatureHandle<ICharacter>? _characterTargetHandle;
-        private CreatureHandle<INpc>? _npcTargetHandle;
-
         private sealed class DamageContribution<TCreature>(CreatureHandle<TCreature> attacker)
             where TCreature : class, ICreature
         {
@@ -527,87 +524,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             }
         }
 
-        protected bool IsTargetOwned(ICreature target)
-        {
-            if (target is ICharacter character)
-            {
-                var store = Owner.ServiceProvider?.GetService<ICharacterStore>();
-                if (store is null)
-                {
-                    return false;
-                }
-
-                if (ReferenceEquals(Target, target))
-                {
-                    return _characterTargetHandle is { } handle
-                        && ReferenceEquals(store.Resolve(handle), target);
-                }
-
-                return store.TryGetHandle(character, out var candidateHandle)
-                    && ReferenceEquals(store.Resolve(candidateHandle), target);
-            }
-
-            if (target is INpc npc)
-            {
-                var store = Owner.ServiceProvider?.GetService<INpcStore>();
-                if (store is null)
-                {
-                    return false;
-                }
-
-                if (ReferenceEquals(Target, target))
-                {
-                    return _npcTargetHandle is { } handle
-                        && ReferenceEquals(store.Resolve(handle), target);
-                }
-
-                return store.TryGetHandle(npc, out var candidateHandle)
-                    && ReferenceEquals(store.Resolve(candidateHandle), target);
-            }
-
-            return false;
-        }
-
-        protected bool TrySetTargetReference(ICreature target)
-        {
-            if (target is ICharacter character)
-            {
-                var store = Owner.ServiceProvider?.GetService<ICharacterStore>();
-                if (store is null || !store.TryGetHandle(character, out var handle))
-                {
-                    return false;
-                }
-
-                _characterTargetHandle = handle;
-                _npcTargetHandle = null;
-            }
-            else if (target is INpc npc)
-            {
-                var store = Owner.ServiceProvider?.GetService<INpcStore>();
-                if (store is null || !store.TryGetHandle(npc, out var handle))
-                {
-                    return false;
-                }
-
-                _characterTargetHandle = null;
-                _npcTargetHandle = handle;
-            }
-            else
-            {
-                return false;
-            }
-
-            Target = target;
-            return true;
-        }
-
-        protected void ClearTargetReference()
-        {
-            Target = null;
-            _characterTargetHandle = null;
-            _npcTargetHandle = null;
-        }
-
         /// <summary>
         ///     Reaches the target.
         /// </summary>
@@ -796,7 +712,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
         public void OnDestroy()
         {
-            ClearTargetReference();
+            Target = null;
             LastAttacked = null;
             _recentAttackers.Clear();
             _characterDamageContributions.Clear();

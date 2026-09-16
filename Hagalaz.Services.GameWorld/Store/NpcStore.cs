@@ -43,6 +43,14 @@ namespace Hagalaz.Services.GameWorld.Store
             }
         }
 
+        public bool Contains(INpc npc)
+        {
+            using (_lock.ReaderLock())
+            {
+                return _npcs.Contains(npc);
+            }
+        }
+
         public bool TryGetHandle(INpc npc, out CreatureHandle<INpc> handle)
         {
             using (_lock.ReaderLock())

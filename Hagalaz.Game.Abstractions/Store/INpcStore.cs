@@ -43,6 +43,11 @@ namespace Hagalaz.Game.Abstractions.Store
         /// <returns><c>true</c> if the NPC was removed successfully; otherwise, <c>false</c>.</returns>
         bool Remove(INpc npc);
 
+        /// <summary>
+        /// Determines whether the exact NPC instance is currently stored at its index.
+        /// </summary>
+        bool Contains(INpc npc);
+
         bool TryGetHandle(INpc npc, out CreatureHandle<INpc> handle);
 
         INpc? Resolve(CreatureHandle<INpc> handle);

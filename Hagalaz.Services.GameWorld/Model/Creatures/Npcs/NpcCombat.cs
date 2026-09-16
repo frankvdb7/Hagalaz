@@ -8,12 +8,14 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
@@ -226,7 +228,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </returns>
         public override bool SetTarget(ICreature target)
         {
-            if (!CanSetTarget(target) || !TrySetTargetReference(target)) return false;
+            if (!CanSetTarget(target)) return false;
+            Target = target;
             Owner.FaceCreature(target);
             _npc.Script.OnSetTarget(target);
             ((Npc)Owner).EventManager.SendEvent(new CreatureSetCombatTargetEvent(Owner, target));
@@ -240,7 +243,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <returns></returns>
         public override bool CanSetTarget(ICreature target)
         {
-            if (!IsTargetOwned(target)) return false;
+            if (target is ICharacter character)
+            {
+                var characterStore = Owner.ServiceProvider?.GetService<ICharacterStore>();
+                if (characterStore is null || !characterStore.Contains(character)) return false;
+            }
+            else if (target is INpc npc)
+            {
+                var npcStore = Owner.ServiceProvider?.GetService<INpcStore>();
+                if (npcStore is null || !npcStore.Contains(npc)) return false;
+            }
+            else
+            {
+                return false;
+            }
+
             if (target.Combat.IsDead || IsDead) return false;
             return _npc.Script.CanSetTarget(target);
         }
@@ -268,7 +285,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         public override void CancelTarget()
         {
-            ClearTargetReference();
+            Target = null;
             Owner.ResetFacing();
             _npc.Script.OnCancelTarget();
         }
