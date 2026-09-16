@@ -225,6 +225,8 @@ namespace Hagalaz.Services.GameWorld.Tests
 
         private class CreatureMock : ICreature
         {
+            public EntityHandle Handle => default;
+
             public int Index { get; set; }
 
             public string DisplayName => throw new NotImplementedException();

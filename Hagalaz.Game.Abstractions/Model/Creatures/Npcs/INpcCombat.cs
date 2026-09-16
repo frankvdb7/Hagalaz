@@ -49,7 +49,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
         /// </summary>
         /// <param name="target">The potential target.</param>
         /// <returns><c>true</c> if the target can be set; otherwise, <c>false</c>.</returns>
-        bool CanSetTarget(ICreature target);
+        bool CanSetTarget(EntityHandle target);
 
         /// <summary>
         /// Gets the NPC's current attack bonus type (e.g., Stab, Slash, Magic).
@@ -214,7 +214,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
         /// </summary>
         /// <param name="target">The creature to target.</param>
         /// <returns><c>true</c> if the target was set successfully; otherwise, <c>false</c>.</returns>
-        bool SetTarget(ICreature target);
+        bool SetTarget(EntityHandle target);
 
         /// <summary>
         /// Executes an attack using the provided parameters.

@@ -232,7 +232,7 @@ public sealed class CharacterHubTests
         var characterService = provider.GetRequiredService<ICharacterService>();
         var characterStore = provider.GetRequiredService<ICharacterStore>();
         var entityStore = provider.GetRequiredService<IEntityStore>();
-        var target = Substitute.For<ICharacter>();
+        var target = EntityTestFactory.Create<ICharacter>();
         target.MasterId.Returns(1u);
         Assert.IsTrue(await characterStore.AddAsync(target));
         entityStore.Add(target);
@@ -259,7 +259,7 @@ public sealed class CharacterHubTests
         var characterService = provider.GetRequiredService<ICharacterService>();
         var characterStore = provider.GetRequiredService<ICharacterStore>();
         var entityStore = provider.GetRequiredService<IEntityStore>();
-        var target = Substitute.For<ICharacter>();
+        var target = EntityTestFactory.Create<ICharacter>();
         target.MasterId.Returns(1u);
         Assert.IsTrue(await characterStore.AddAsync(target));
         entityStore.Add(target);
@@ -289,7 +289,7 @@ public sealed class CharacterHubTests
         var characterService = provider.GetRequiredService<ICharacterService>();
         var characterStore = provider.GetRequiredService<ICharacterStore>();
         var entityStore = provider.GetRequiredService<IEntityStore>();
-        var target = Substitute.For<ICharacter>();
+        var target = EntityTestFactory.Create<ICharacter>();
         target.MasterId.Returns(1u);
         Assert.IsTrue(await characterStore.AddAsync(target));
         entityStore.Add(target);
@@ -306,7 +306,7 @@ public sealed class CharacterHubTests
 
         Assert.IsTrue(characterStore.Remove(target));
         Assert.IsTrue(entityStore.Remove(target));
-        var replacement = Substitute.For<ICharacter>();
+        var replacement = EntityTestFactory.Create<ICharacter>();
         replacement.MasterId.Returns(2u);
         Assert.IsTrue(await characterStore.AddAsync(replacement));
         entityStore.Add(replacement);
@@ -379,7 +379,7 @@ public sealed class CharacterHubTests
         eventManager.SendEvent(Arg.Any<IEvent>()).Returns(true);
         var tasks = new List<ITaskItem>();
         queuedTasks = tasks;
-        var character = Substitute.For<ICharacter>();
+        var character = EntityTestFactory.Create<ICharacter>();
         var location = Location.Create(3200, 3200, 1, 7);
         var movement = Substitute.For<IMovement>();
         var viewport = Substitute.For<IViewport>();

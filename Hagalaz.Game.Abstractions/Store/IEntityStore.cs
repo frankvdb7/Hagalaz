@@ -11,7 +11,5 @@ public interface IEntityStore
 
     bool Remove(IEntity entity);
 
-    bool TryGetHandle(IEntity entity, out EntityHandle handle);
-
     bool TryResolve(EntityHandle handle, out IEntity? entity);
 }

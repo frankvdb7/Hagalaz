@@ -305,7 +305,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                     }
                 }
 
-                if (character != null) Owner.Combat.SetTarget(character);
+                if (character != null) Owner.Combat.SetTarget(character.Handle);
             }
         }
 
@@ -415,7 +415,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             {
                 clicker.Movement.MovementType = clicker.Movement.MovementType == MovementType.Run || forceRun ? MovementType.Run : MovementType.Walk;
                 clicker.FaceLocation(Owner);
-                clicker.Combat.SetTarget(Owner);
+                clicker.Combat.SetTarget(Owner.Handle);
             }
             else if (clickType == NpcClickType.Option6Click)
             {

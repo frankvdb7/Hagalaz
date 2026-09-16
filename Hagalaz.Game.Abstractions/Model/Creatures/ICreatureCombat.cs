@@ -36,9 +36,9 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// <summary>
         /// Sets the creature's combat target and initiates an attack.
         /// </summary>
-        /// <param name="target">The creature to be attacked.</param>
+        /// <param name="target">The identity of the creature to be attacked.</param>
         /// <returns><c>true</c> if the target was successfully set; otherwise, <c>false</c>.</returns>
-        bool SetTarget(ICreature target);
+        bool SetTarget(EntityHandle target);
         /// <summary>
         /// Cancels the creature's current combat target and stops its attack.
         /// </summary>
@@ -75,9 +75,9 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// <summary>
         /// Determines if this creature can set a specific creature as its combat target.
         /// </summary>
-        /// <param name="target">The potential target creature.</param>
+        /// <param name="target">The identity of the potential target creature.</param>
         /// <returns><c>true</c> if the target can be set; otherwise, <c>false</c>.</returns>
-        bool CanSetTarget(ICreature target);
+        bool CanSetTarget(EntityHandle target);
         /// <summary>
         /// Determines if this creature's loot can be claimed by a specific killer.
         /// </summary>

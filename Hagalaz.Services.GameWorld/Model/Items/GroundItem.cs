@@ -3,11 +3,22 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Services.GameWorld.Store;
 
 namespace Hagalaz.Services.GameWorld.Model.Items
 {
-    public class GroundItem : IGroundItem
+    public class GroundItem : IGroundItem, IEntityIdentity
     {
+        private EntityHandle _handle;
+
+        public EntityHandle Handle => _handle;
+
+        EntityHandle IEntityIdentity.Handle
+        {
+            get => _handle;
+            set => _handle = value;
+        }
+
         public IItem ItemOnGround { get; }
         public ILocation Location { get; }
         private readonly IMapRegionService _mapRegionService;

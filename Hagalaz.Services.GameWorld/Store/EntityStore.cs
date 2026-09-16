@@ -11,32 +11,35 @@ public sealed class EntityStore : IEntityStore
     private readonly List<IEntity?> _entities = [null];
     private readonly List<uint> _generations = [0];
     private readonly Stack<int> _freeSlots = [];
-    private readonly Dictionary<IEntity, EntityHandle> _handles = new(ReferenceEqualityComparer.Instance);
 
     public EntityHandle Add(IEntity entity)
     {
         ArgumentNullException.ThrowIfNull(entity);
 
+        if (entity is not IEntityIdentity identity)
+        {
+            throw new InvalidOperationException($"Entity type '{entity.GetType()}' does not support store identity assignment.");
+        }
+
         lock (_gate)
         {
-            if (_handles.TryGetValue(entity, out var existing))
+            if (entity.Handle != default
+                && TryResolve(entity.Handle, out var current)
+                && ReferenceEquals(current, entity))
             {
-                return existing;
+                return entity.Handle;
             }
 
             var slot = _freeSlots.Count > 0 ? _freeSlots.Pop() : _entities.Count;
             if (slot == _entities.Count)
             {
-                _entities.Add(entity);
+                _entities.Add(null);
                 _generations.Add(1);
-            }
-            else
-            {
-                _entities[slot] = entity;
             }
 
             var handle = new EntityHandle(slot, _generations[slot]);
-            _handles.Add(entity, handle);
+            identity.Handle = handle;
+            _entities[slot] = entity;
             return handle;
         }
     }
@@ -47,9 +50,11 @@ public sealed class EntityStore : IEntityStore
 
         lock (_gate)
         {
-            if (!_handles.Remove(entity, out var handle)
-                || handle.Slot <= 0
+            var handle = entity.Handle;
+            if (handle.Slot <= 0
                 || handle.Slot >= _entities.Count
+                || handle.Generation == 0
+                || _generations[handle.Slot] != handle.Generation
                 || !ReferenceEquals(_entities[handle.Slot], entity))
             {
                 return false;
@@ -59,16 +64,6 @@ public sealed class EntityStore : IEntityStore
             _generations[handle.Slot] = NextGeneration(_generations[handle.Slot]);
             _freeSlots.Push(handle.Slot);
             return true;
-        }
-    }
-
-    public bool TryGetHandle(IEntity entity, out EntityHandle handle)
-    {
-        ArgumentNullException.ThrowIfNull(entity);
-
-        lock (_gate)
-        {
-            return _handles.TryGetValue(entity, out handle);
         }
     }
 

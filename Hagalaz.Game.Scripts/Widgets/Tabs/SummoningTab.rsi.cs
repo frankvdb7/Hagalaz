@@ -159,7 +159,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 }
 
-                Owner.FamiliarScript.Familiar.QueueTask(new RsTask(() => Owner.FamiliarScript.Familiar.Combat.SetTarget(creature), 1));
+                Owner.FamiliarScript.Familiar.QueueTask(new RsTask(() => Owner.FamiliarScript.Familiar.Combat.SetTarget(creature.Handle), 1));
                 return true;
             });
 

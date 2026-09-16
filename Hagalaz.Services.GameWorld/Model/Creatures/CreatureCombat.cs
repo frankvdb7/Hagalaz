@@ -78,16 +78,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <value>The target.</value>
         public ICreature? Target => ResolveTarget();
 
-        protected void SetTargetReference(ICreature? target)
-        {
-            if (target is null || _entityService is null || !_entityService.TryGetHandle(target, out var handle))
-            {
-                _targetHandle = default;
-                return;
-            }
-
-            _targetHandle = handle;
-        }
+        protected void SetTargetHandle(EntityHandle targetHandle) => _targetHandle = targetHandle;
 
         private ICreature? ResolveTarget()
         {
@@ -96,24 +87,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
         protected ICreature? ResolveCreature(EntityHandle handle)
         {
-            if (_entityService is null)
-            {
-                return null;
-            }
-
-            if (_entityService.TryResolve<ICharacter>(handle, out var character))
-            {
-                return character;
-            }
-
-            return _entityService.TryResolve<INpc>(handle, out var npc) ? npc : null;
+            return _entityService is not null && _entityService.TryResolve<ICreature>(handle, out var creature)
+                ? creature
+                : null;
         }
 
-        protected bool TryGetEntityHandle(IEntity entity, out EntityHandle handle)
-        {
-            handle = default;
-            return _entityService is not null && _entityService.TryGetHandle(entity, out handle);
-        }
+        protected abstract bool CanSetResolvedTarget(ICreature target);
 
         /// <summary>
         ///     Contains last target or null.
@@ -218,14 +197,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         /// <param name="target">Creature which should be attacked.</param>
         /// <returns>If creature target was set sucessfully.</returns>
-        public abstract bool SetTarget(ICreature target);
+        public abstract bool SetTarget(EntityHandle target);
 
         /// <summary>
         ///     Determines whether this instance [can set target] the specified target.
         /// </summary>
         /// <param name="target">The target.</param>
         /// <returns><c>true</c> if this instance [can set target] the specified target; otherwise, <c>false</c>.</returns>
-        public abstract bool CanSetTarget(ICreature target);
+        public abstract bool CanSetTarget(EntityHandle target);
 
         /// <summary>
         ///     Get's called after attack was performed to specific target.
@@ -366,8 +345,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         public virtual IRsTaskHandle<AttackResult> PerformAttack(AttackParams attackParams)
         {
             var targetOwner = attackParams.Target;
-            var targetHandle = default(EntityHandle);
-            TryGetEntityHandle(targetOwner, out targetHandle);
+            var targetHandle = targetOwner.Handle;
             var damageType = attackParams.DamageType;
             var maxDamage = attackParams.MaxDamage;
             var requestedDamage = attackParams.Damage;
@@ -451,16 +429,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             {
                 foreach (var contribution in _damageContributions)
                 {
-                    if (_entityService.TryResolve<ICharacter>(contribution.Attacker, out var character)
+                    if (_entityService.TryResolve<ICreature>(contribution.Attacker, out var attacker)
                         && contribution.TotalDamage > damage)
                     {
-                        killer = character;
-                        damage = contribution.TotalDamage;
-                    }
-                    else if (_entityService.TryResolve<INpc>(contribution.Attacker, out var npc)
-                        && contribution.TotalDamage > damage)
-                    {
-                        killer = npc;
+                        killer = attacker;
                         damage = contribution.TotalDamage;
                     }
                 }
@@ -492,24 +464,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 refAttack.TotalDamage += damage;
             }
 
-            if (_entityService is not null && _entityService.TryGetHandle(attacker, out var handle))
+            var contribution = _damageContributions.FirstOrDefault(info => info.Attacker == attacker.Handle);
+            if (contribution is not null)
             {
-                var contribution = _damageContributions.FirstOrDefault(info => info.Attacker == handle);
-                if (contribution is not null)
-                {
-                    contribution.TotalDamage += damage;
-                    contribution.LastAttackTick = 0;
-                }
+                contribution.TotalDamage += damage;
+                contribution.LastAttackTick = 0;
             }
         }
 
         private void AddDamageContribution(ICreature attacker)
         {
-            if (_entityService is null || !_entityService.TryGetHandle(attacker, out var handle))
-            {
-                return;
-            }
-
+            var handle = attacker.Handle;
             var contribution = _damageContributions.FirstOrDefault(info => info.Attacker == handle);
             if (contribution is null)
             {
@@ -654,7 +619,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         private void ConditionsTick()
         {
-            if (Target != null && !CanSetTarget(Target)) CancelTarget();
+            var target = Target;
+            if (target is not null && !CanSetResolvedTarget(target)) CancelTarget();
 
             DelayTick++;
             if (LastAttacked != null)
@@ -703,7 +669,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
         public void OnDestroy()
         {
-            SetTargetReference(null);
+            _targetHandle = default;
             LastAttacked = null;
             _recentAttackers.Clear();
             _damageContributions.Clear();

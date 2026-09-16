@@ -41,7 +41,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces
 
                 Owner.ForceRunMovementType(Owner.Profile.GetValue<bool>(ProfileConstants.RunSettingsToggled));
                 Owner.FaceLocation(Opponent);
-                Owner.Combat.SetTarget(Opponent);
+                Owner.Combat.SetTarget(Opponent.Handle);
 
                 return true;
             });

@@ -55,7 +55,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                     continue;
                 }
 
-                glacyte.Npc.QueueTask(new RsTask(() => glacyte.Npc.Combat.SetTarget(target), 1));
+                glacyte.Npc.QueueTask(new RsTask(() => glacyte.Npc.Combat.SetTarget(target.Handle), 1));
             }
         }
 
@@ -81,7 +81,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
             var glacyte = handle.Npc;
             if (_glacor.Combat.Target is { } target)
             {
-                glacyte.QueueTask(new RsTask(() => glacyte.Combat.SetTarget(target), 1));
+                glacyte.QueueTask(new RsTask(() => glacyte.Combat.SetTarget(target.Handle), 1));
             }
 
             var tracked = new TrackedGlacyte(handle, glacyte);
@@ -89,7 +89,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
             {
                 if (_glacor.Combat.Target is null)
                 {
-                    _glacor.QueueTask(new RsTask(() => _glacor.Combat.SetTarget(e.CombatTarget), 1));
+                    _glacor.QueueTask(new RsTask(() => _glacor.Combat.SetTarget(e.CombatTarget.Handle), 1));
                 }
 
                 return false;

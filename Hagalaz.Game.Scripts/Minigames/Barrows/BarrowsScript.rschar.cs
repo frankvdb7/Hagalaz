@@ -91,7 +91,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                 .Spawn();
             var npc = handle.Npc;
             npc.Speak("You dare to disturb my rest?!");
-            npc.QueueTask(new RsTask(() => npc.Combat.SetTarget(character), 1));
+            npc.QueueTask(new RsTask(() => npc.Combat.SetTarget(character.Handle), 1));
 
             var icon = _hintIconBuilder.Create().AtEntity(npc).Build();
             if (character.TryRegisterHintIcon(icon))

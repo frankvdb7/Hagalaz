@@ -48,7 +48,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
 
             if (Owner.Combat.Target == null)
             {
-                Owner.Combat.SetTarget(CharacterTarget);
+                Owner.Combat.SetTarget(CharacterTarget.Handle);
             }
         }
 

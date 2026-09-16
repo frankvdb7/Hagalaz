@@ -1116,7 +1116,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             Owner.Magic.SelectedSpell = spell;
             Owner.ForceRunMovementType(forceRun);
             Owner.FaceLocation(target);
-            Owner.Combat.SetTarget(target);
+            Owner.Combat.SetTarget(target.Handle);
         }
 
         /// <summary>

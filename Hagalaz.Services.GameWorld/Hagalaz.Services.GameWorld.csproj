@@ -57,6 +57,7 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Hagalaz.Services.GameWorld.Tests" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
   <Target Name="PublishPlugins" BeforeTargets="Build">
     <ItemGroup>

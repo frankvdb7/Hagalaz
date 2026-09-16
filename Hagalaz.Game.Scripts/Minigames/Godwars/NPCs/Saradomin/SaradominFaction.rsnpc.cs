@@ -59,10 +59,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
                 return;
             }
 
-            var c = creatures.FirstOrDefault(c => IsAggressiveTowards(c) && Owner.Combat.CanSetTarget(c));
+            var c = creatures.FirstOrDefault(c => IsAggressiveTowards(c) && Owner.Combat.CanSetTarget(c.Handle));
             if (c != null)
             {
-                Owner.Combat.SetTarget(c);
+                Owner.Combat.SetTarget(c.Handle);
             }
         }
 

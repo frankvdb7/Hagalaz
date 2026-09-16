@@ -117,7 +117,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
 
             if (CanRetaliateTo(attacker))
             {
-                Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(attacker), 1));
+                Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(attacker.Handle), 1));
             }
 
             return false;
@@ -177,7 +177,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                     continue;
                 }
 
-                if (Owner.Combat.SetTarget(creature))
+                if (Owner.Combat.SetTarget(creature.Handle))
                 {
                     return;
                 }

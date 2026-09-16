@@ -57,7 +57,7 @@ public sealed class CreatureInteractionHubTests
         using var provider = CreateProvider(out _, out var npcService);
         var npcStore = provider.GetRequiredService<INpcStore>();
         var entityStore = provider.GetRequiredService<IEntityStore>();
-        var npc = Substitute.For<INpc>();
+        var npc = EntityTestFactory.Create<INpc>();
         var script = Substitute.For<INpcScript>();
         npc.Script.Returns(script);
         Assert.IsTrue(npcStore.Add(npc));
@@ -85,7 +85,7 @@ public sealed class CreatureInteractionHubTests
         using var provider = CreateProvider(out _, out var npcService);
         var npcStore = provider.GetRequiredService<INpcStore>();
         var entityStore = provider.GetRequiredService<IEntityStore>();
-        var npc = Substitute.For<INpc>();
+        var npc = EntityTestFactory.Create<INpc>();
         var npcScript = Substitute.For<INpcScript>();
         npc.Script.Returns(npcScript);
         Assert.IsTrue(npcStore.Add(npc));
@@ -103,7 +103,7 @@ public sealed class CreatureInteractionHubTests
 
         Assert.IsTrue(npcStore.Remove(npc));
         Assert.IsTrue(entityStore.Remove(npc));
-        var replacement = Substitute.For<INpc>();
+        var replacement = EntityTestFactory.Create<INpc>();
         var replacementScript = Substitute.For<INpcScript>();
         replacement.Script.Returns(replacementScript);
         Assert.IsTrue(npcStore.Add(replacement));
@@ -122,7 +122,7 @@ public sealed class CreatureInteractionHubTests
         using var provider = CreateProvider(out var characterService, out _);
         var characterStore = provider.GetRequiredService<ICharacterStore>();
         var entityStore = provider.GetRequiredService<IEntityStore>();
-        var target = Substitute.For<ICharacter>();
+        var target = EntityTestFactory.Create<ICharacter>();
         target.MasterId.Returns(1u);
         Assert.IsTrue(await characterStore.AddAsync(target));
         entityStore.Add(target);
@@ -144,7 +144,7 @@ public sealed class CreatureInteractionHubTests
         using var provider = CreateProvider(out var characterService, out _);
         var characterStore = provider.GetRequiredService<ICharacterStore>();
         var entityStore = provider.GetRequiredService<IEntityStore>();
-        var target = Substitute.For<ICharacter>();
+        var target = EntityTestFactory.Create<ICharacter>();
         target.MasterId.Returns(1u);
         Assert.IsTrue(await characterStore.AddAsync(target));
         entityStore.Add(target);
@@ -157,7 +157,7 @@ public sealed class CreatureInteractionHubTests
 
         Assert.IsTrue(characterStore.Remove(target));
         Assert.IsTrue(entityStore.Remove(target));
-        var replacement = Substitute.For<ICharacter>();
+        var replacement = EntityTestFactory.Create<ICharacter>();
         replacement.MasterId.Returns(2u);
         Assert.IsTrue(await characterStore.AddAsync(replacement));
         entityStore.Add(replacement);
@@ -175,7 +175,7 @@ public sealed class CreatureInteractionHubTests
         using var provider = CreateProvider(out _, out var npcService);
         var npcStore = provider.GetRequiredService<INpcStore>();
         var entityStore = provider.GetRequiredService<IEntityStore>();
-        var target = Substitute.For<INpc>();
+        var target = EntityTestFactory.Create<INpc>();
         Assert.IsTrue(npcStore.Add(target));
         entityStore.Add(target);
         npcService.FindByIndexAsync(target.Index).Returns(new ValueTask<INpc?>(target));
@@ -187,7 +187,7 @@ public sealed class CreatureInteractionHubTests
 
         Assert.IsTrue(npcStore.Remove(target));
         Assert.IsTrue(entityStore.Remove(target));
-        var replacement = Substitute.For<INpc>();
+        var replacement = EntityTestFactory.Create<INpc>();
         Assert.IsTrue(npcStore.Add(replacement));
         entityStore.Add(replacement);
         Assert.AreEqual(target.Index, replacement.Index);
@@ -300,7 +300,7 @@ public sealed class CreatureInteractionHubTests
     {
         var tasks = new List<ITaskItem>();
         queuedTasks = tasks;
-        var character = Substitute.For<ICharacter>();
+        var character = EntityTestFactory.Create<ICharacter>();
         var viewport = Substitute.For<IViewport>();
         character.Viewport.Returns(viewport);
         viewport.VisibleCreatures.Returns(visibleCreatures ?? []);

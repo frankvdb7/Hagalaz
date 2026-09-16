@@ -1,14 +1,25 @@
 ﻿using System;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Services.GameWorld.Store;
 
 namespace Hagalaz.Services.GameWorld.Model.Maps.GameObjects
 {
     /// <summary>
     /// Class which represents game object.
     /// </summary>
-    public class GameObject : IGameObject
+    public class GameObject : IGameObject, IEntityIdentity
     {
+        private EntityHandle _handle;
+
+        public EntityHandle Handle => _handle;
+
+        EntityHandle IEntityIdentity.Handle
+        {
+            get => _handle;
+            set => _handle = value;
+        }
+
         /// <summary>
         /// Contains Id of this object.
         /// </summary>

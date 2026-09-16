@@ -101,7 +101,7 @@ public sealed class CreatureReachTaskOwnershipTests
     public async Task Tick_WhenNpcTargetWasRemoved_FailsWithoutPathfinding()
     {
         var store = new NpcStore();
-        var target = Substitute.For<INpc>();
+        var target = EntityTestFactory.Create<INpc>();
         Assert.IsTrue(await store.AddAsync(target));
 
         var pathFinder = Substitute.For<ISmartPathFinder>();
@@ -126,8 +126,8 @@ public sealed class CreatureReachTaskOwnershipTests
     public async Task Tick_WhenNpcSlotWasReused_DoesNotReachReplacement()
     {
         var store = new NpcStore();
-        var target = Substitute.For<INpc>();
-        var replacement = Substitute.For<INpc>();
+        var target = EntityTestFactory.Create<INpc>();
+        var replacement = EntityTestFactory.Create<INpc>();
         Assert.IsTrue(await store.AddAsync(target));
 
         var pathFinder = Substitute.For<ISmartPathFinder>();
@@ -153,7 +153,7 @@ public sealed class CreatureReachTaskOwnershipTests
 
     private static ICharacter CreateCharacter(uint masterId)
     {
-        var character = Substitute.For<ICharacter>();
+        var character = EntityTestFactory.Create<ICharacter>();
         character.MasterId.Returns(masterId);
         character.Size.Returns(1);
         character.Location.Returns(Location.Create(3200, 3200));

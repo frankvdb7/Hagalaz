@@ -175,12 +175,12 @@ public sealed class NpcServiceRegistrationTests
         var service = CreateService(store, entityStore);
 
         await service.RegisterAsync(npc);
-        Assert.IsTrue(entityStore.TryGetHandle(npc, out var handle));
+        var handle = npc.Handle;
         Assert.IsTrue(entityStore.TryResolve(handle, out var resolved));
         Assert.AreSame(npc, resolved);
 
         await service.UnregisterAsync(npc);
-        Assert.IsFalse(entityStore.TryGetHandle(npc, out _));
+        Assert.AreEqual(handle, npc.Handle);
         Assert.IsFalse(entityStore.TryResolve(handle, out _));
     }
 
@@ -296,7 +296,7 @@ public sealed class NpcServiceRegistrationTests
 
     private static INpc CreateNpc()
     {
-        var npc = Substitute.For<INpc>();
+        var npc = EntityTestFactory.Create<INpc>();
         return npc;
     }
 

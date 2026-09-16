@@ -14,13 +14,12 @@ public sealed class EntityStoreTests
     public void AddAndResolve_UsesExactEntityReference()
     {
         var store = new EntityStore();
-        var entity = Substitute.For<ICharacter>();
+        var entity = EntityTestFactory.Create<ICharacter>();
 
         var handle = store.Add(entity);
 
         Assert.AreNotEqual(default, handle);
-        Assert.IsTrue(store.TryGetHandle(entity, out var currentHandle));
-        Assert.AreEqual(handle, currentHandle);
+        Assert.AreEqual(handle, entity.Handle);
         Assert.IsTrue(store.TryResolve(handle, out var resolved));
         Assert.AreSame(entity, resolved);
     }
@@ -29,8 +28,8 @@ public sealed class EntityStoreTests
     public void Remove_InvalidatesHandleAndSlotReuseAdvancesGeneration()
     {
         var store = new EntityStore();
-        var original = Substitute.For<ICharacter>();
-        var replacement = Substitute.For<INpc>();
+        var original = EntityTestFactory.Create<ICharacter>();
+        var replacement = EntityTestFactory.Create<INpc>();
 
         var originalHandle = store.Add(original);
         Assert.IsTrue(store.Remove(original));
@@ -50,7 +49,7 @@ public sealed class EntityStoreTests
     {
         var store = new EntityStore();
         var service = new EntityService(store);
-        var npc = Substitute.For<INpc>();
+        var npc = EntityTestFactory.Create<INpc>();
         var handle = store.Add(npc);
 
         Assert.IsFalse(service.TryResolve<ICharacter>(handle, out _));
@@ -62,8 +61,8 @@ public sealed class EntityStoreTests
     public void CharacterAndNpcWithSameProtocolIndexHaveIndependentHandles()
     {
         var store = new EntityStore();
-        var character = Substitute.For<ICharacter>();
-        var npc = Substitute.For<INpc>();
+        var character = EntityTestFactory.Create<ICharacter>();
+        var npc = EntityTestFactory.Create<INpc>();
         character.Index.Returns(1);
         npc.Index.Returns(1);
 

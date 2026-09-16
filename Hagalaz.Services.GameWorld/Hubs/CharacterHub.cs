@@ -49,10 +49,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 return;
             }
-            if (!_entityService.TryGetHandle(target, out var targetHandle))
-            {
-                return;
-            }
+            var targetHandle = target.Handle;
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {

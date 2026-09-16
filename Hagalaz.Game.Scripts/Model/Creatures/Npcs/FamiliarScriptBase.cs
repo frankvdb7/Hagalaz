@@ -148,7 +148,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
 
                 _setCombatTargetHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureSetCombatTargetEvent>((e) =>
                 {
-                    Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(e.CombatTarget), 1));
+                    Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(e.CombatTarget.Handle), 1));
                     return false;
                 }));
 

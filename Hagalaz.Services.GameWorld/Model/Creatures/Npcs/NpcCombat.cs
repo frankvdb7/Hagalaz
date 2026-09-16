@@ -1,4 +1,5 @@
 ﻿using System;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Logic.Loot;
@@ -225,10 +226,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <returns>
         /// If creature target was set sucessfully.
         /// </returns>
-        public override bool SetTarget(ICreature target)
+        public override bool SetTarget(EntityHandle targetHandle)
         {
-            if (!CanSetTarget(target)) return false;
-            SetTargetReference(target);
+            var target = ResolveCreature(targetHandle);
+            if (target is null || !CanSetResolvedTarget(target)) return false;
+            SetTargetHandle(targetHandle);
             Owner.FaceCreature(target);
             _npc.Script.OnSetTarget(target);
             ((Npc)Owner).EventManager.SendEvent(new CreatureSetCombatTargetEvent(Owner, target));
@@ -240,15 +242,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         /// <param name="target">The target.</param>
         /// <returns></returns>
-        public override bool CanSetTarget(ICreature target)
+        public override bool CanSetTarget(EntityHandle targetHandle)
+        {
+            var target = ResolveCreature(targetHandle);
+            return target is not null && CanSetResolvedTarget(target);
+        }
+
+        protected override bool CanSetResolvedTarget(ICreature target)
         {
             if (target is not ICharacter and not INpc)
             {
                 return false;
             }
-
-            var entityService = Owner.ServiceProvider?.GetService<IEntityService>();
-            if (entityService is null || !entityService.TryGetHandle(target, out _)) return false;
 
             if (target.Combat.IsDead || IsDead) return false;
             return _npc.Script.CanSetTarget(target);
@@ -277,7 +282,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         public override void CancelTarget()
         {
-            SetTargetReference(null);
+            SetTargetHandle(default);
             Owner.ResetFacing();
             _npc.Script.OnCancelTarget();
         }
@@ -677,15 +682,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
                 AddDamageToAttacker(attacker, damage);
             }
 
-            if (_npc.Script.CanRetaliateTo(attacker) && TryGetEntityHandle(attacker, out var attackerHandle))
+            var attackerHandle = attacker.Handle;
+            if (_npc.Script.CanRetaliateTo(attacker) && attackerHandle != default)
             {
                 Owner.QueueTask(new RsTask(() =>
                 {
-                    var currentAttacker = ResolveCreature(attackerHandle);
-                    if (currentAttacker is not null)
-                    {
-                        Owner.Combat.SetTarget(currentAttacker);
-                    }
+                    Owner.Combat.SetTarget(attackerHandle);
                 }, 1));
             }
             return damage;

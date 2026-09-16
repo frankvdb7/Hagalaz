@@ -37,10 +37,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 return;
             }
-            if (!_entityService.TryGetHandle(npc, out var npcHandle))
-            {
-                return;
-            }
+            var npcHandle = npc.Handle;
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {

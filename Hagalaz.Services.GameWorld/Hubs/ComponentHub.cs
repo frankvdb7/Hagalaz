@@ -74,10 +74,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 return;
             }
-            if (!_entityService.TryGetHandle(target, out var targetHandle))
-            {
-                return;
-            }
+            var targetHandle = target.Handle;
             character.QueueTask(new RsTask(() =>
             {
                 if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
@@ -101,10 +98,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 return;
             }
-            if (!_entityService.TryGetHandle(target, out var targetHandle))
-            {
-                return;
-            }
+            var targetHandle = target.Handle;
             character.QueueTask(new RsTask(() =>
             {
                 if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))

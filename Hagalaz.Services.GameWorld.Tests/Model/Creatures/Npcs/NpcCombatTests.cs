@@ -115,7 +115,7 @@ public sealed class NpcCombatTests
             .BuildServiceProvider();
         var owner = Substitute.For<INpc>();
         owner.ServiceProvider.Returns(provider);
-        var target = Substitute.For<ICharacter>();
+        var target = EntityTestFactory.Create<ICharacter>();
         target.MasterId.Returns(17u);
         Assert.IsTrue(await store.AddAsync(target));
         entityStore.Add(target);
@@ -124,7 +124,7 @@ public sealed class NpcCombatTests
         combat.SetTargetForTest(target);
         Assert.IsTrue(entityStore.Remove(target));
 
-        Assert.IsFalse(combat.CanSetTarget(target));
+        Assert.IsFalse(combat.CanSetTarget(target.Handle));
     }
 
     private sealed class TestableNpcCombat : NpcCombat
@@ -143,6 +143,6 @@ public sealed class NpcCombatTests
         {
         }
 
-        public void SetTargetForTest(ICreature target) => SetTargetReference(target);
+        public void SetTargetForTest(ICreature target) => SetTargetHandle(target.Handle);
     }
 }

@@ -14,17 +14,17 @@ public sealed class CharacterServiceRegistrationTests
     public async Task AddAndRemoveAsync_UpdatesCharacterAndEntityStoresTogether()
     {
         var entityStore = new EntityStore();
-        var character = Substitute.For<ICharacter>();
+        var character = EntityTestFactory.Create<ICharacter>();
         character.MasterId.Returns(42u);
         var service = new CharacterService(CreateCharacterStore(), entityStore);
 
         Assert.IsTrue(await service.AddAsync(character));
-        Assert.IsTrue(entityStore.TryGetHandle(character, out var handle));
+        var handle = character.Handle;
         Assert.IsTrue(entityStore.TryResolve(handle, out var resolved));
         Assert.AreSame(character, resolved);
 
         Assert.IsTrue(await service.RemoveAsync(character));
-        Assert.IsFalse(entityStore.TryGetHandle(character, out _));
+        Assert.AreEqual(handle, character.Handle);
         Assert.IsFalse(entityStore.TryResolve(handle, out _));
     }
 
@@ -32,12 +32,12 @@ public sealed class CharacterServiceRegistrationTests
     public async Task Remove_UpdatesCharacterAndEntityStoresTogether()
     {
         var entityStore = new EntityStore();
-        var character = Substitute.For<ICharacter>();
+        var character = EntityTestFactory.Create<ICharacter>();
         character.MasterId.Returns(42u);
         var service = new CharacterService(CreateCharacterStore(), entityStore);
 
         Assert.IsTrue(await service.AddAsync(character));
-        Assert.IsTrue(entityStore.TryGetHandle(character, out var handle));
+        var handle = character.Handle;
 
         Assert.IsTrue(service.Remove(character));
         Assert.IsFalse(entityStore.TryResolve(handle, out _));

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Builders.Animation;
 using Hagalaz.Game.Abstractions.Builders.Graphic;
@@ -217,10 +218,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns>
         /// If creature target was set sucessfully.
         /// </returns>
-        public override bool SetTarget(ICreature target)
+        public override bool SetTarget(EntityHandle targetHandle)
         {
-            if (!CanSetTarget(target)) return false;
-            SetTargetReference(target);
+            var target = ResolveCreature(targetHandle);
+            if (target is null || !CanSetResolvedTarget(target)) return false;
+            SetTargetHandle(targetHandle);
             CheckSkullConditions(target);
             Owner.FaceCreature(target);
             _character.EventManager.SendEvent(new CreatureSetCombatTargetEvent(Owner, target));
@@ -232,15 +234,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <param name="target">The target.</param>
         /// <returns><c>true</c> if this instance [can set target] the specified target; otherwise, <c>false</c>.</returns>
-        public override bool CanSetTarget(ICreature target)
+        public override bool CanSetTarget(EntityHandle targetHandle)
+        {
+            var target = ResolveCreature(targetHandle);
+            return target is not null && CanSetResolvedTarget(target);
+        }
+
+        protected override bool CanSetResolvedTarget(ICreature target)
         {
             if (target is not ICharacter and not INpc)
             {
                 return false;
             }
-
-            var entityService = Owner.ServiceProvider?.GetService<IEntityService>();
-            if (entityService is null || !entityService.TryGetHandle(target, out _)) return false;
 
             if (target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
             if (!target.Area.Script.CanBeAttacked(target, Owner)) return false;
@@ -256,7 +261,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public override void CancelTarget()
         {
             _character.Magic.SelectedSpell = null;
-            SetTargetReference(null);
+            SetTargetHandle(default);
             Owner.ResetFacing();
         }
 
@@ -305,7 +310,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return;
             }
 
-            if (!TryGetEntityHandle(target, out var targetHandle))
+            var targetHandle = target.Handle;
+            if (targetHandle == default)
             {
                 return;
             }
@@ -569,15 +575,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (owner.Profile.GetValue<bool>(ProfileConstants.CombatSettingsAutoRetaliate))
             {
-                if (TryGetEntityHandle(attacker, out var attackerHandle))
+                var attackerHandle = attacker.Handle;
+                if (attackerHandle != default)
                 {
                     Owner.QueueTask(new RsTask(() =>
                     {
-                        var currentAttacker = ResolveCreature(attackerHandle);
-                        if (currentAttacker is not null)
-                        {
-                            owner.Combat.SetTarget(currentAttacker);
-                        }
+                        owner.Combat.SetTarget(attackerHandle);
                     }, 1));
                 }
             }

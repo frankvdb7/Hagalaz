@@ -2,8 +2,6 @@ using System;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
@@ -64,10 +62,7 @@ namespace Hagalaz.Game.Common.Tasks
         {
             _reacher = reacher;
             _entityService = _reacher.ServiceProvider?.GetService<IEntityService>();
-            if (_entityService is not null)
-            {
-                _entityService.TryGetHandle(target, out _targetHandle);
-            }
+            _targetHandle = target.Handle;
             _finishCallback = callback;
             TickActionMethod = PerformTickImpl;
             _interruptEvent = _reacher.RegisterEventHandler<CreatureInterruptedEvent>(e =>
@@ -140,12 +135,7 @@ namespace Hagalaz.Game.Common.Tasks
                 return null;
             }
 
-            if (_entityService.TryResolve<ICharacter>(_targetHandle, out var character))
-            {
-                return character;
-            }
-
-            return _entityService.TryResolve<INpc>(_targetHandle, out var npc) ? npc : null;
+            return _entityService.TryResolve<ICreature>(_targetHandle, out var creature) ? creature : null;
         }
 
         /// <summary>

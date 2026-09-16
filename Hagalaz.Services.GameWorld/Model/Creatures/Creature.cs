@@ -20,11 +20,13 @@ using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Hagalaz.Services.GameWorld.Store;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures
 {
-    public abstract class Creature : ICreature
+    public abstract class Creature : ICreature, IEntityIdentity
     {
+        private EntityHandle _handle;
         private readonly ICreatureTaskService _taskService = default!;
         private readonly CancellationTokenSource _taskCancellation = new();
         private readonly List<IHitSplat> _renderedHitSplats = new(sbyte.MaxValue);
@@ -40,6 +42,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         /// <value>The index.</value>
         public int Index { get; set; }
+
+        public EntityHandle Handle => _handle;
+
+        EntityHandle IEntityIdentity.Handle
+        {
+            get => _handle;
+            set => _handle = value;
+        }
 
         /// <summary>
         ///     Gets the name of the creature.
