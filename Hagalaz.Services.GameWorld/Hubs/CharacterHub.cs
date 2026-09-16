@@ -5,7 +5,6 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
@@ -26,16 +25,16 @@ namespace Hagalaz.Services.GameWorld.Hubs
     {
         private readonly ICharacterService _characterService;
         private readonly IAuthenticationService _authenticationService;
-        private readonly ICharacterStore _characterStore;
+        private readonly IEntityService _entityService;
 
         public CharacterHub(
             ICharacterService characterService,
             IAuthenticationService authenticationService,
-            ICharacterStore characterStore)
+            IEntityService entityService)
         {
             _characterService = characterService;
             _authenticationService = authenticationService;
-            _characterStore = characterStore;
+            _entityService = entityService;
         }
 
         [RaidoMessageHandler(typeof(CharacterClickMessage))]
@@ -50,12 +49,17 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 return;
             }
+            if (!_entityService.TryGetHandle(target, out var targetHandle))
+            {
+                return;
+            }
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
-                if (_characterStore.Contains(target) && character.Viewport.VisibleCreatures.Contains(target))
+                if (_entityService.TryResolve<ICharacter>(targetHandle, out var currentTarget)
+                    && character.Viewport.VisibleCreatures.Contains(currentTarget))
                 {
-                    character.OnCharacterClicked(message.ClickType, message.ForceRun, target);
+                    character.OnCharacterClicked(message.ClickType, message.ForceRun, currentTarget!);
                 }
             }, 1));
         }

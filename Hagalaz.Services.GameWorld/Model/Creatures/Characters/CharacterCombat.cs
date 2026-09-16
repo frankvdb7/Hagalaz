@@ -15,7 +15,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
@@ -221,7 +220,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public override bool SetTarget(ICreature target)
         {
             if (!CanSetTarget(target)) return false;
-            Target = target;
+            SetTargetReference(target);
             CheckSkullConditions(target);
             Owner.FaceCreature(target);
             _character.EventManager.SendEvent(new CreatureSetCombatTargetEvent(Owner, target));
@@ -235,20 +234,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns><c>true</c> if this instance [can set target] the specified target; otherwise, <c>false</c>.</returns>
         public override bool CanSetTarget(ICreature target)
         {
-            if (target is ICharacter character)
-            {
-                var characterStore = Owner.ServiceProvider?.GetService<ICharacterStore>();
-                if (characterStore is null || !characterStore.Contains(character)) return false;
-            }
-            else if (target is INpc npc)
-            {
-                var npcStore = Owner.ServiceProvider?.GetService<INpcStore>();
-                if (npcStore is null || !npcStore.Contains(npc)) return false;
-            }
-            else
+            if (target is not ICharacter and not INpc)
             {
                 return false;
             }
+
+            var entityService = Owner.ServiceProvider?.GetService<IEntityService>();
+            if (entityService is null || !entityService.TryGetHandle(target, out _)) return false;
 
             if (target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
             if (!target.Area.Script.CanBeAttacked(target, Owner)) return false;
@@ -264,7 +256,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public override void CancelTarget()
         {
             _character.Magic.SelectedSpell = null;
-            Target = null;
+            SetTargetReference(null);
             Owner.ResetFacing();
         }
 
@@ -313,6 +305,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return;
             }
 
+            if (!TryGetEntityHandle(target, out var targetHandle))
+            {
+                return;
+            }
+
             var deltaX = Owner.Location.X - target.Location.X;
             var deltaY = Owner.Location.Y - target.Location.Y;
             if (deltaX < 0) deltaX = -deltaX;
@@ -339,16 +336,22 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             Owner.QueueTask(new RsTask(() =>
                 {
-                    deltaX = Owner.Location.X - target.Location.X;
-                    deltaY = Owner.Location.Y - target.Location.Y;
+                    var currentTarget = ResolveCreature(targetHandle);
+                    if (currentTarget is null)
+                    {
+                        return;
+                    }
+
+                    deltaX = Owner.Location.X - currentTarget.Location.X;
+                    deltaY = Owner.Location.Y - currentTarget.Location.Y;
                     if (deltaX < 0) deltaX = -deltaX;
                     if (deltaY < 0) deltaY = -deltaY;
                     duration = Math.Max(30, deltaX * 15 + deltaY * 15);
 
-                    target.QueueGraphic(_graphicBuilder.Create().WithId(2264).Build());
+                    currentTarget.QueueGraphic(_graphicBuilder.Create().WithId(2264).Build());
                     _projectileBuilder.Create()
                         .WithGraphicId(2263)
-                        .FromCreature(target)
+                        .FromCreature(currentTarget)
                         .ToCreature(Owner)
                         .WithDuration(duration)
                         .WithSlope(20)
@@ -566,7 +569,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (owner.Profile.GetValue<bool>(ProfileConstants.CombatSettingsAutoRetaliate))
             {
-                Owner.QueueTask(new RsTask(() => owner.Combat.SetTarget(attacker), 1));
+                if (TryGetEntityHandle(attacker, out var attackerHandle))
+                {
+                    Owner.QueueTask(new RsTask(() =>
+                    {
+                        var currentAttacker = ResolveCreature(attackerHandle);
+                        if (currentAttacker is not null)
+                        {
+                            owner.Combat.SetTarget(currentAttacker);
+                        }
+                    }, 1));
+                }
             }
 
             return damage;
@@ -576,11 +589,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             var handle = base.PerformAttack(attackParams);
             PerformSoulSplit(attackParams.Target, attackParams.Damage);
+            var damageType = attackParams.DamageType;
             handle.RegisterResultHandler(result =>
             {
                 if (result.DamageLifePoints.Succeeded)
                 {
-                    AddExperience(attackParams.DamageType, result.DamageLifePoints.Count);
+                    AddExperience(damageType, result.DamageLifePoints.Count);
                 }
             });
             return handle;

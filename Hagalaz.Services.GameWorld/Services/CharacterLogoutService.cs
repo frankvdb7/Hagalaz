@@ -203,20 +203,20 @@ public sealed class CharacterLogoutState
 public sealed class CharacterLogoutService : ICharacterLogoutService
 {
     private readonly CharacterLogoutState _logoutState;
-    private readonly ICharacterStore _characterStore;
+    private readonly ICharacterService _characterService;
     private readonly IRsTaskService _taskService;
     private readonly IGameMediator _mediator;
     private readonly CharacterPersistenceState _persistenceState;
 
     public CharacterLogoutService(
         CharacterLogoutState logoutState,
-        ICharacterStore characterStore,
+        ICharacterService characterService,
         IRsTaskService taskService,
         IGameMediator mediator,
         CharacterPersistenceState persistenceState)
     {
         _logoutState = logoutState;
-        _characterStore = characterStore;
+        _characterService = characterService;
         _taskService = taskService;
         _mediator = mediator;
         _persistenceState = persistenceState;
@@ -259,7 +259,7 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
                         SnapshotRevision = _persistenceState.NextRevision(character.MasterId)
                     };
 
-                    if (!_characterStore.Remove(character))
+                    if (!_characterService.Remove(character))
                     {
                         throw new InvalidOperationException(
                             $"Character '{character.MasterId}' was no longer owned by the character store during logout.");

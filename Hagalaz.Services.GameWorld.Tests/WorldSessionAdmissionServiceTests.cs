@@ -130,7 +130,7 @@ public sealed class WorldSessionAdmissionServiceTests
 
         Assert.IsFalse(result.Succeeded);
         await fixture.GameSessionService.Received(1).RemoveSession(fixture.Session, CancellationToken.None);
-        fixture.CharacterStore.Received(1).Remove(fixture.Character);
+        fixture.CharacterService.Received(1).Remove(fixture.Character);
         fixture.Character.Received(1).Destroy();
         fixture.PersistenceService.Received(1).InitializeRevision(42, 7);
         Assert.IsNull(fixture.Context.Features.Get<ICharacterFeature>());
@@ -203,7 +203,7 @@ public sealed class WorldSessionAdmissionServiceTests
 
         scheduler.Tick();
         Assert.IsFalse((await admission).Succeeded);
-        fixture.CharacterStore.Received(1).Remove(fixture.Character);
+        fixture.CharacterService.Received(1).Remove(fixture.Character);
         fixture.Character.Received(1).Destroy();
     }
 
@@ -221,6 +221,7 @@ public sealed class WorldSessionAdmissionServiceTests
         characterService.AddAsync(character).Returns(ValueTask.FromResult(true));
         characterService.RemoveAsync(character).Returns(ValueTask.FromResult(true));
 #pragma warning restore CA2012, CS8620
+        characterService.Remove(character).Returns(true);
         var hydration = Substitute.For<ICharacterHydrationService>();
         hydration.HydrateAsync(character, Arg.Any<CharacterModel>()).Returns(Task.FromResult(true));
         var characterStore = Substitute.For<ICharacterStore>();
@@ -264,7 +265,6 @@ public sealed class WorldSessionAdmissionServiceTests
             NullLogger<WorldSessionAdmissionService>.Instance,
             mapper,
             characterService,
-            characterStore,
             characterFactory,
             hydration,
             persistence,

@@ -1,5 +1,4 @@
 using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Abstractions.Store
@@ -42,15 +41,6 @@ namespace Hagalaz.Game.Abstractions.Store
         /// <param name="npc">The NPC to remove.</param>
         /// <returns><c>true</c> if the NPC was removed successfully; otherwise, <c>false</c>.</returns>
         bool Remove(INpc npc);
-
-        /// <summary>
-        /// Determines whether the exact NPC instance is currently stored at its index.
-        /// </summary>
-        bool Contains(INpc npc);
-
-        bool TryGetHandle(INpc npc, out CreatureHandle<INpc> handle);
-
-        INpc? Resolve(CreatureHandle<INpc> handle);
 
         /// <summary>
         /// Asynchronously finds an NPC by its server-side index.

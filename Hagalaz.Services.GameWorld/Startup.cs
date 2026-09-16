@@ -190,6 +190,8 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<ICharacterService, CharacterService>();
             services.AddScoped<ICharacterCreateInfoRepository, CharacterCreateInfoRepository>();
             services.AddSingleton<ICharacterStore, CharacterStore>();
+            services.AddSingleton<IEntityStore, EntityStore>();
+            services.AddSingleton<IEntityService, EntityService>();
             services.AddScoped<ICharacterRenderMasksWriter, CharacterRenderMasksWriter>();
             services.AddScoped<IDefaultCharacterScriptProvider, DefaultCharacterScriptProvider>();
             services.AddScoped<ICharacterScriptActivator, CharacterScriptActivator>();

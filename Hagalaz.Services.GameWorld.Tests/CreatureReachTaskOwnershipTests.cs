@@ -4,9 +4,11 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Services.GameWorld.Configuration.Model;
+using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Store;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -26,6 +28,8 @@ public sealed class CreatureReachTaskOwnershipTests
 
         var pathFinder = Substitute.For<ISmartPathFinder>();
         using var provider = CreateProvider(pathFinder, characterStore: store);
+        var entityStore = provider.GetRequiredService<IEntityStore>();
+        entityStore.Add(target);
         var (reacher, visibleCreatures) = CreateReacher(provider);
         visibleCreatures.Add(target);
         var result = false;
@@ -48,12 +52,15 @@ public sealed class CreatureReachTaskOwnershipTests
 
         var pathFinder = Substitute.For<ISmartPathFinder>();
         using var provider = CreateProvider(pathFinder, characterStore: store);
+        var entityStore = provider.GetRequiredService<IEntityStore>();
+        entityStore.Add(target);
         var (reacher, visibleCreatures) = CreateReacher(provider);
         visibleCreatures.Add(target);
         var result = true;
         var task = new CreatureReachTask(reacher, target, value => result = value);
 
         Assert.IsTrue(store.Remove(target));
+        Assert.IsTrue(entityStore.Remove(target));
         task.Tick();
 
         Assert.IsFalse(result);
@@ -71,13 +78,17 @@ public sealed class CreatureReachTaskOwnershipTests
 
         var pathFinder = Substitute.For<ISmartPathFinder>();
         using var provider = CreateProvider(pathFinder, characterStore: store);
+        var entityStore = provider.GetRequiredService<IEntityStore>();
+        entityStore.Add(target);
         var (reacher, visibleCreatures) = CreateReacher(provider);
         visibleCreatures.Add(replacement);
         var result = true;
         var task = new CreatureReachTask(reacher, target, value => result = value);
 
         Assert.IsTrue(store.Remove(target));
+        Assert.IsTrue(entityStore.Remove(target));
         Assert.IsTrue(await store.AddAsync(replacement));
+        entityStore.Add(replacement);
         Assert.AreEqual(target.Index, replacement.Index);
         task.Tick();
 
@@ -95,12 +106,15 @@ public sealed class CreatureReachTaskOwnershipTests
 
         var pathFinder = Substitute.For<ISmartPathFinder>();
         using var provider = CreateProvider(pathFinder, npcStore: store);
+        var entityStore = provider.GetRequiredService<IEntityStore>();
+        entityStore.Add(target);
         var (reacher, visibleCreatures) = CreateReacher(provider);
         visibleCreatures.Add(target);
         var result = true;
         var task = new CreatureReachTask(reacher, target, value => result = value);
 
         Assert.IsTrue(store.Remove(target));
+        Assert.IsTrue(entityStore.Remove(target));
         task.Tick();
 
         Assert.IsFalse(result);
@@ -118,13 +132,17 @@ public sealed class CreatureReachTaskOwnershipTests
 
         var pathFinder = Substitute.For<ISmartPathFinder>();
         using var provider = CreateProvider(pathFinder, npcStore: store);
+        var entityStore = provider.GetRequiredService<IEntityStore>();
+        entityStore.Add(target);
         var (reacher, visibleCreatures) = CreateReacher(provider);
         visibleCreatures.Add(replacement);
         var result = true;
         var task = new CreatureReachTask(reacher, target, value => result = value);
 
         Assert.IsTrue(store.Remove(target));
+        Assert.IsTrue(entityStore.Remove(target));
         Assert.IsTrue(await store.AddAsync(replacement));
+        entityStore.Add(replacement);
         Assert.AreEqual(target.Index, replacement.Index);
         task.Tick();
 
@@ -159,6 +177,9 @@ public sealed class CreatureReachTaskOwnershipTests
         pathFinderProvider.Smart.Returns(pathFinder);
         var services = new ServiceCollection()
             .AddSingleton<IPathFinderProvider>(pathFinderProvider);
+        var entityStore = new EntityStore();
+        services.AddSingleton<IEntityStore>(entityStore);
+        services.AddSingleton<IEntityService>(new EntityService(entityStore));
         if (characterStore is not null)
         {
             services.AddSingleton(characterStore);

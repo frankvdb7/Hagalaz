@@ -3,6 +3,7 @@ using Hagalaz.Game.Abstractions.Builders.Graphic;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -12,6 +13,7 @@ using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Services.GameWorld.Configuration.Model;
 using Hagalaz.Services.GameWorld.Model.Creatures;
+using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Store;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -29,6 +31,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         private IViewport _mockViewport = null!;
         private TestableCharacterCombat _characterCombat = null!;
         private List<ICreature> _visibleCreatures = null!;
+        private EntityStore _entityStore = null!;
 
         [TestInitialize]
         public void TestInitialize()
@@ -38,26 +41,17 @@ namespace Hagalaz.Services.GameWorld.Tests
             _mockAttackerCombat = Substitute.For<ICreatureCombat>();
             _mockViewport = Substitute.For<IViewport>();
             _visibleCreatures = new List<ICreature>();
+            _entityStore = new EntityStore();
 
             _mockAttacker.Combat.Returns(_mockAttackerCombat);
             _mockOwner.Viewport.Returns(_mockViewport);
+            _mockOwner.ServiceProvider.Returns(new ServiceCollection()
+                .AddSingleton<IEntityStore>(_entityStore)
+                .AddSingleton<IEntityService>(new EntityService(_entityStore))
+                .BuildServiceProvider());
             _mockViewport.VisibleCreatures.Returns(_visibleCreatures);
 
-            _characterCombat = new TestableCharacterCombat(
-                _mockOwner,
-                Substitute.For<IAnimationBuilder>(),
-                Substitute.For<IGraphicBuilder>(),
-                Substitute.For<IProjectileBuilder>(),
-                Substitute.For<IMapRegionService>(),
-                Substitute.For<IGroundItemBuilder>(),
-                Substitute.For<IHitSplatBuilder>(),
-                Substitute.For<IProjectilePathFinder>(),
-                Substitute.For<ISmartPathFinder>(),
-                Options.Create(new CombatOptions
-                {
-                    CharacterAttackTickDelay = 1,
-                    NpcAttackTickDelay = 1
-                }));
+            _characterCombat = CreateCombat();
         }
 
         [TestMethod]
@@ -132,7 +126,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         public void IsInCombat_HasTarget_ReturnsTrue()
         {
             // Arrange
-            var mockTarget = Substitute.For<ICreature>();
+            var mockTarget = Substitute.For<ICharacter>();
             _characterCombat.SetTargetForTest(mockTarget);
 
             // Act
@@ -229,10 +223,11 @@ namespace Hagalaz.Services.GameWorld.Tests
             using var provider = new ServiceCollection()
                 .AddSingleton<ICharacterStore>(store)
                 .BuildServiceProvider();
-            _mockOwner.ServiceProvider.Returns(provider);
+
 
             var attacker = Substitute.For<ICharacter>();
             Assert.IsTrue(await store.AddAsync(attacker));
+            _entityStore.Add(attacker);
             _characterCombat.AddAttackerPublic(attacker);
             _characterCombat.AddDamageToAttackerPublic(attacker, 10);
 
@@ -245,31 +240,40 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public void RecentAttackerExpiry_DoesNotResolveStores()
+        public void RecentAttackerExpiry_DoesNotResolveHistoricalDamageDuringTick()
         {
-            var characterStore = Substitute.For<ICharacterStore>();
+            var entityService = Substitute.For<IEntityService>();
             using var provider = new ServiceCollection()
-                .AddSingleton(characterStore)
+                .AddSingleton(entityService)
                 .BuildServiceProvider();
             _mockOwner.ServiceProvider.Returns(provider);
+            _characterCombat = CreateCombat();
 
             var attacker = Substitute.For<ICharacter>();
+            var handle = new EntityHandle(1, 1);
+            entityService.TryGetHandle(attacker, out Arg.Any<EntityHandle>()).Returns(callInfo =>
+            {
+                callInfo[1] = handle;
+                return true;
+            });
             _characterCombat.AddAttackerPublic(attacker);
-            characterStore.ClearReceivedCalls();
-
+            _characterCombat.AddDamageToAttackerPublic(attacker, 10);
             _characterCombat.Tick();
             _characterCombat.Tick();
             _characterCombat.Tick();
 
-            characterStore.DidNotReceive().Resolve(Arg.Any<CreatureHandle<ICharacter>>());
+            entityService.DidNotReceive().TryResolve<ICharacter>(handle, out Arg.Any<ICharacter>());
         }
 
         [TestMethod]
         public async Task GetKiller_SkipsStaleHighestDamageAndDoesNotAttributeReplacementByIndex()
         {
             var store = CreateCharacterStore();
+            var entityStore = _entityStore;
             using var provider = new ServiceCollection()
                 .AddSingleton<ICharacterStore>(store)
+                .AddSingleton<IEntityStore>(entityStore)
+                .AddSingleton<IEntityService>(new EntityService(entityStore))
                 .BuildServiceProvider();
             _mockOwner.ServiceProvider.Returns(provider);
 
@@ -281,6 +285,8 @@ namespace Hagalaz.Services.GameWorld.Tests
             replacement.MasterId.Returns(12u);
             Assert.IsTrue(await store.AddAsync(staleAttacker));
             Assert.IsTrue(await store.AddAsync(currentAttacker));
+            entityStore.Add(staleAttacker);
+            entityStore.Add(currentAttacker);
 
             _characterCombat.AddAttackerPublic(staleAttacker);
             _characterCombat.AddDamageToAttackerPublic(staleAttacker, 100);
@@ -288,7 +294,9 @@ namespace Hagalaz.Services.GameWorld.Tests
             _characterCombat.AddDamageToAttackerPublic(currentAttacker, 10);
 
             Assert.IsTrue(store.Remove(staleAttacker));
+            Assert.IsTrue(entityStore.Remove(staleAttacker));
             Assert.IsTrue(await store.AddAsync(replacement));
+            entityStore.Add(replacement);
             Assert.AreEqual(staleAttacker.Index, replacement.Index);
 
             Assert.AreSame(currentAttacker, _characterCombat.GetKiller());
@@ -298,8 +306,11 @@ namespace Hagalaz.Services.GameWorld.Tests
         public async Task GetKiller_PreservesFamiliarAttributionForCurrentNpcHandle()
         {
             var store = new NpcStore();
+            var entityStore = _entityStore;
             using var provider = new ServiceCollection()
                 .AddSingleton<INpcStore>(store)
+                .AddSingleton<IEntityStore>(entityStore)
+                .AddSingleton<IEntityService>(new EntityService(entityStore))
                 .BuildServiceProvider();
             _mockOwner.ServiceProvider.Returns(provider);
 
@@ -314,6 +325,7 @@ namespace Hagalaz.Services.GameWorld.Tests
                     return true;
                 });
             Assert.IsTrue(await store.AddAsync(familiar));
+            entityStore.Add(familiar);
 
             _characterCombat.AddAttackerPublic(familiar);
             _characterCombat.AddDamageToAttackerPublic(familiar, 25);
@@ -325,13 +337,17 @@ namespace Hagalaz.Services.GameWorld.Tests
         public async Task GetKiller_ResolvesCurrentNpcDamageContribution()
         {
             var store = new NpcStore();
+            var entityStore = _entityStore;
             using var provider = new ServiceCollection()
                 .AddSingleton<INpcStore>(store)
+                .AddSingleton<IEntityStore>(entityStore)
+                .AddSingleton<IEntityService>(new EntityService(entityStore))
                 .BuildServiceProvider();
             _mockOwner.ServiceProvider.Returns(provider);
 
             var npc = Substitute.For<INpc>();
             Assert.IsTrue(await store.AddAsync(npc));
+            entityStore.Add(npc);
 
             _characterCombat.AddAttackerPublic(npc);
             _characterCombat.AddDamageToAttackerPublic(npc, 25);
@@ -343,8 +359,11 @@ namespace Hagalaz.Services.GameWorld.Tests
         public async Task GetKiller_SkipsStaleHighestNpcDamageAndUsesNextValidContribution()
         {
             var store = new NpcStore();
+            var entityStore = _entityStore;
             using var provider = new ServiceCollection()
                 .AddSingleton<INpcStore>(store)
+                .AddSingleton<IEntityStore>(entityStore)
+                .AddSingleton<IEntityService>(new EntityService(entityStore))
                 .BuildServiceProvider();
             _mockOwner.ServiceProvider.Returns(provider);
 
@@ -353,6 +372,8 @@ namespace Hagalaz.Services.GameWorld.Tests
             var replacementNpc = Substitute.For<INpc>();
             Assert.IsTrue(await store.AddAsync(staleNpc));
             Assert.IsTrue(await store.AddAsync(currentNpc));
+            entityStore.Add(staleNpc);
+            entityStore.Add(currentNpc);
 
             _characterCombat.AddAttackerPublic(staleNpc);
             _characterCombat.AddDamageToAttackerPublic(staleNpc, 100);
@@ -360,7 +381,9 @@ namespace Hagalaz.Services.GameWorld.Tests
             _characterCombat.AddDamageToAttackerPublic(currentNpc, 10);
 
             Assert.IsTrue(store.Remove(staleNpc));
+            Assert.IsTrue(entityStore.Remove(staleNpc));
             Assert.IsTrue(await store.AddAsync(replacementNpc));
+            entityStore.Add(replacementNpc);
             Assert.AreEqual(staleNpc.Index, replacementNpc.Index);
 
             Assert.AreSame(currentNpc, _characterCombat.GetKiller());
@@ -370,20 +393,26 @@ namespace Hagalaz.Services.GameWorld.Tests
         public async Task GetKiller_SkipsStaleFamiliarHandleAndDoesNotAttributeReplacementNpc()
         {
             var store = new NpcStore();
+            var entityStore = _entityStore;
             using var provider = new ServiceCollection()
                 .AddSingleton<INpcStore>(store)
+                .AddSingleton<IEntityStore>(entityStore)
+                .AddSingleton<IEntityService>(new EntityService(entityStore))
                 .BuildServiceProvider();
             _mockOwner.ServiceProvider.Returns(provider);
 
             var familiar = Substitute.For<INpc>();
             var replacement = Substitute.For<INpc>();
             Assert.IsTrue(await store.AddAsync(familiar));
+            entityStore.Add(familiar);
 
             _characterCombat.AddAttackerPublic(familiar);
             _characterCombat.AddDamageToAttackerPublic(familiar, 25);
 
             Assert.IsTrue(store.Remove(familiar));
+            Assert.IsTrue(entityStore.Remove(familiar));
             Assert.IsTrue(await store.AddAsync(replacement));
+            entityStore.Add(replacement);
             Assert.AreEqual(familiar.Index, replacement.Index);
 
             Assert.IsNull(_characterCombat.GetKiller());
@@ -393,13 +422,17 @@ namespace Hagalaz.Services.GameWorld.Tests
         public async Task DamageHistory_ExpiresAfterFiveMinutesWithoutResolvingEveryTick()
         {
             var store = CreateCharacterStore();
+            var entityStore = _entityStore;
             using var provider = new ServiceCollection()
                 .AddSingleton<ICharacterStore>(store)
+                .AddSingleton<IEntityStore>(entityStore)
+                .AddSingleton<IEntityService>(new EntityService(entityStore))
                 .BuildServiceProvider();
             _mockOwner.ServiceProvider.Returns(provider);
             var attacker = Substitute.For<ICharacter>();
             attacker.MasterId.Returns(13u);
             Assert.IsTrue(await store.AddAsync(attacker));
+            entityStore.Add(attacker);
 
             _characterCombat.AddAttackerPublic(attacker);
             _characterCombat.AddDamageToAttackerPublic(attacker, 10);
@@ -431,16 +464,21 @@ namespace Hagalaz.Services.GameWorld.Tests
         public async Task CanSetTarget_WhenCharacterTargetWasRemoved_ReturnsFalse()
         {
             var store = CreateCharacterStore();
+            var entityStore = _entityStore;
             using var provider = new ServiceCollection()
                 .AddSingleton<ICharacterStore>(store)
+                .AddSingleton<IEntityStore>(entityStore)
+                .AddSingleton<IEntityService>(new EntityService(entityStore))
                 .BuildServiceProvider();
             _mockOwner.ServiceProvider.Returns(provider);
             var target = Substitute.For<ICharacter>();
             target.MasterId.Returns(14u);
             Assert.IsTrue(await store.AddAsync(target));
+            entityStore.Add(target);
             _characterCombat.SetTargetForTest(target);
 
             Assert.IsTrue(store.Remove(target));
+            Assert.IsTrue(entityStore.Remove(target));
 
             Assert.IsFalse(_characterCombat.CanSetTarget(target));
         }
@@ -449,15 +487,20 @@ namespace Hagalaz.Services.GameWorld.Tests
         public async Task CanSetTarget_WhenNpcTargetWasRemoved_ReturnsFalse()
         {
             var store = new NpcStore();
+            var entityStore = _entityStore;
             using var provider = new ServiceCollection()
                 .AddSingleton<INpcStore>(store)
+                .AddSingleton<IEntityStore>(entityStore)
+                .AddSingleton<IEntityService>(new EntityService(entityStore))
                 .BuildServiceProvider();
             _mockOwner.ServiceProvider.Returns(provider);
             var target = Substitute.For<INpc>();
             Assert.IsTrue(await store.AddAsync(target));
+            entityStore.Add(target);
             _characterCombat.SetTargetForTest(target);
 
             Assert.IsTrue(store.Remove(target));
+            Assert.IsTrue(entityStore.Remove(target));
 
             Assert.IsFalse(_characterCombat.CanSetTarget(target));
         }
@@ -466,8 +509,11 @@ namespace Hagalaz.Services.GameWorld.Tests
         public async Task CanSetTarget_WhenCharacterSlotIsReused_DoesNotAcceptOriginalTarget()
         {
             var store = CreateCharacterStore();
+            var entityStore = _entityStore;
             using var provider = new ServiceCollection()
                 .AddSingleton<ICharacterStore>(store)
+                .AddSingleton<IEntityStore>(entityStore)
+                .AddSingleton<IEntityService>(new EntityService(entityStore))
                 .BuildServiceProvider();
             _mockOwner.ServiceProvider.Returns(provider);
             var target = Substitute.For<ICharacter>();
@@ -475,35 +521,44 @@ namespace Hagalaz.Services.GameWorld.Tests
             target.MasterId.Returns(15u);
             replacement.MasterId.Returns(16u);
             Assert.IsTrue(await store.AddAsync(target));
+            entityStore.Add(target);
             _characterCombat.SetTargetForTest(target);
 
             Assert.IsTrue(store.Remove(target));
+            Assert.IsTrue(entityStore.Remove(target));
             Assert.IsTrue(await store.AddAsync(replacement));
+            entityStore.Add(replacement);
             Assert.AreEqual(target.Index, replacement.Index);
 
             Assert.IsFalse(_characterCombat.CanSetTarget(target));
-            Assert.AreSame(target, _characterCombat.Target);
+            Assert.IsNull(_characterCombat.Target);
         }
 
         [TestMethod]
         public async Task CanSetTarget_WhenNpcSlotIsReused_DoesNotAcceptOriginalTarget()
         {
             var store = new NpcStore();
+            var entityStore = _entityStore;
             using var provider = new ServiceCollection()
                 .AddSingleton<INpcStore>(store)
+                .AddSingleton<IEntityStore>(entityStore)
+                .AddSingleton<IEntityService>(new EntityService(entityStore))
                 .BuildServiceProvider();
             _mockOwner.ServiceProvider.Returns(provider);
             var target = Substitute.For<INpc>();
             var replacement = Substitute.For<INpc>();
             Assert.IsTrue(await store.AddAsync(target));
+            entityStore.Add(target);
             _characterCombat.SetTargetForTest(target);
 
             Assert.IsTrue(store.Remove(target));
+            Assert.IsTrue(entityStore.Remove(target));
             Assert.IsTrue(await store.AddAsync(replacement));
+            entityStore.Add(replacement);
             Assert.AreEqual(target.Index, replacement.Index);
 
             Assert.IsFalse(_characterCombat.CanSetTarget(target));
-            Assert.AreSame(target, _characterCombat.Target);
+            Assert.IsNull(_characterCombat.Target);
         }
 
         [TestMethod]
@@ -540,13 +595,17 @@ namespace Hagalaz.Services.GameWorld.Tests
         public async Task GetKiller_DoesNotRequireAttackerToRemainVisible()
         {
             var store = CreateCharacterStore();
+            var entityStore = _entityStore;
             using var provider = new ServiceCollection()
                 .AddSingleton<ICharacterStore>(store)
+                .AddSingleton<IEntityStore>(entityStore)
+                .AddSingleton<IEntityService>(new EntityService(entityStore))
                 .BuildServiceProvider();
             _mockOwner.ServiceProvider.Returns(provider);
 
             var attacker = Substitute.For<ICharacter>();
             Assert.IsTrue(await store.AddAsync(attacker));
+            entityStore.Add(attacker);
             _characterCombat.AddAttackerPublic(attacker);
             _characterCombat.AddDamageToAttackerPublic(attacker, 10);
             _visibleCreatures.Clear();
@@ -555,13 +614,16 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public async Task DamageHistory_StoresTypedHandlesInsteadOfCreatureReferences()
+        public async Task DamageHistory_StoresTypeAgnosticHandlesInsteadOfCreatureReferences()
         {
             var characterStore = CreateCharacterStore();
             var npcStore = new NpcStore();
+            var entityStore = _entityStore;
             using var provider = new ServiceCollection()
                 .AddSingleton<ICharacterStore>(characterStore)
                 .AddSingleton<INpcStore>(npcStore)
+                .AddSingleton<IEntityStore>(entityStore)
+                .AddSingleton<IEntityService>(new EntityService(entityStore))
                 .BuildServiceProvider();
             _mockOwner.ServiceProvider.Returns(provider);
 
@@ -569,6 +631,8 @@ namespace Hagalaz.Services.GameWorld.Tests
             var npc = Substitute.For<INpc>();
             Assert.IsTrue(await characterStore.AddAsync(character));
             Assert.IsTrue(await npcStore.AddAsync(npc));
+            entityStore.Add(character);
+            entityStore.Add(npc);
 
             _characterCombat.AddAttackerPublic(character);
             _characterCombat.AddDamageToAttackerPublic(character, 10);
@@ -584,8 +648,7 @@ namespace Hagalaz.Services.GameWorld.Tests
                 {
                     var attackerField = entry.GetType().GetField("<Attacker>k__BackingField", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
                     Assert.IsNotNull(attackerField);
-                    Assert.IsTrue(attackerField!.FieldType.IsGenericType);
-                    Assert.AreEqual(typeof(CreatureHandle<>), attackerField.FieldType.GetGenericTypeDefinition());
+                    Assert.AreEqual(typeof(EntityHandle), attackerField!.FieldType);
                     Assert.IsFalse(typeof(ICreature).IsAssignableFrom(attackerField.FieldType));
                 }
             }
@@ -597,6 +660,22 @@ namespace Hagalaz.Services.GameWorld.Tests
             ClientRevisionPatch = 0,
             AuthenticationToken = "test"
         }));
+
+        private TestableCharacterCombat CreateCombat() => new(
+            _mockOwner,
+            Substitute.For<IAnimationBuilder>(),
+            Substitute.For<IGraphicBuilder>(),
+            Substitute.For<IProjectileBuilder>(),
+            Substitute.For<IMapRegionService>(),
+            Substitute.For<IGroundItemBuilder>(),
+            Substitute.For<IHitSplatBuilder>(),
+            Substitute.For<IProjectilePathFinder>(),
+            Substitute.For<ISmartPathFinder>(),
+            Options.Create(new CombatOptions
+            {
+                CharacterAttackTickDelay = 1,
+                NpcAttackTickDelay = 1
+            }));
     }
 
     public class TestableCharacterCombat : CharacterCombat
@@ -624,11 +703,17 @@ namespace Hagalaz.Services.GameWorld.Tests
 
         public void SetTargetForTest(ICreature? target)
         {
-            Target = target;
+            if (target is not null)
+            {
+                Owner.ServiceProvider.GetService<IEntityStore>()?.Add(target);
+            }
+
+            SetTargetReference(target);
         }
 
         public void AddAttackerPublic(ICreature attacker)
         {
+            Owner.ServiceProvider.GetService<IEntityStore>()?.Add(attacker);
             AddAttacker(attacker);
         }
 

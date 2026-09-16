@@ -12,16 +12,19 @@ namespace Hagalaz.Services.GameWorld.Services
     public class NpcService : INpcService
     {
         private readonly INpcStore _npcStore;
+        private readonly IEntityStore _entityStore;
         private readonly NpcDefinitionStore _npcDefinitionStore;
         private readonly ITypeProvider<INpcDefinition> _typeProvider;
         private readonly ILogger<NpcService> _logger;
         public NpcService(
             INpcStore npcStore,
+            IEntityStore entityStore,
             NpcDefinitionStore npcDefinitionStore,
             ITypeProvider<INpcDefinition> typeProvider,
             ILogger<NpcService> logger)
         {
             _npcStore = npcStore;
+            _entityStore = entityStore;
             _npcDefinitionStore = npcDefinitionStore;
             _typeProvider = typeProvider;
             _logger = logger;
@@ -44,12 +47,14 @@ namespace Hagalaz.Services.GameWorld.Services
 
             try
             {
+                _entityStore.Add(npc);
                 npc.OnRegistered();
             }
             catch (Exception registrationFailure)
             {
                 if (await _npcStore.RemoveAsync(npc))
                 {
+                    RemoveIdentity(npc, registrationFailure);
                     DestroyAfterFailedRegistration(npc);
                 }
                 else
@@ -77,12 +82,14 @@ namespace Hagalaz.Services.GameWorld.Services
 
             try
             {
+                _entityStore.Add(npc);
                 npc.OnRegistered();
             }
             catch (Exception registrationFailure)
             {
                 if (_npcStore.Remove(npc))
                 {
+                    RemoveIdentity(npc, registrationFailure);
                     DestroyAfterFailedRegistration(npc);
                 }
                 else
@@ -116,6 +123,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 return;
             }
 
+            RemoveIdentity(npc, null);
             npc.Destroy();
         }
 
@@ -128,7 +136,19 @@ namespace Hagalaz.Services.GameWorld.Services
                 return;
             }
 
+            RemoveIdentity(npc, null);
             npc.Destroy();
+        }
+
+        private void RemoveIdentity(INpc npc, Exception? relatedFailure)
+        {
+            if (_entityStore.Remove(npc))
+            {
+                return;
+            }
+
+            _logger.LogError(relatedFailure,
+                "NPC '{npc}' was removed from the global store but had no matching entity identity.", npc);
         }
 
         public INpcDefinition FindNpcDefinitionById(int npcID) => _npcDefinitionStore.GetOrAdd(npcID);

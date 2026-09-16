@@ -124,66 +124,6 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public void Contains_RequiresExactCurrentCreature()
-        {
-            var original = new CreatureMock();
-            var replacement = new CreatureMock();
-            var collection = new CreatureCollection<CreatureMock>(1) { original };
-
-            Assert.IsTrue(collection.Contains(original));
-
-            collection.Remove(original);
-
-            Assert.IsFalse(collection.Contains(original));
-            collection.Add(replacement);
-            Assert.IsFalse(collection.Contains(original));
-            Assert.IsTrue(collection.Contains(replacement));
-        }
-
-        [TestMethod]
-        public void Handle_DoesNotResolveAfterSlotReuse()
-        {
-            var original = new CreatureMock();
-            var replacement = new CreatureMock();
-            var collection = new CreatureCollection<CreatureMock>(1);
-            collection.Add(original);
-
-            Assert.IsTrue(collection.TryGetHandle(original, out var originalHandle));
-            Assert.IsTrue(collection.Remove(original));
-            Assert.IsNull(collection.Resolve(originalHandle));
-
-            Assert.IsTrue(collection.Add(replacement));
-            Assert.IsTrue(collection.TryGetHandle(replacement, out var replacementHandle));
-            Assert.AreNotEqual(originalHandle.Generation, replacementHandle.Generation);
-            Assert.IsNull(collection.Resolve(originalHandle));
-            Assert.AreSame(replacement, collection.Resolve(replacementHandle));
-        }
-
-        [TestMethod]
-        public void Handle_RequiresExactCurrentCreature()
-        {
-            var current = new CreatureMock();
-            var other = new CreatureMock();
-            var collection = new CreatureCollection<CreatureMock>(2);
-            collection.Add(current);
-
-            Assert.IsFalse(collection.TryGetHandle(other, out _));
-            Assert.IsTrue(collection.TryGetHandle(current, out var handle));
-            Assert.AreSame(current, collection.Resolve(handle));
-        }
-
-        [TestMethod]
-        public void Handle_IsTypedToTheOwningCollection()
-        {
-            var creature = new CreatureMock();
-            var collection = new CreatureCollection<CreatureMock>(1);
-            collection.Add(creature);
-
-            Assert.IsTrue(collection.TryGetHandle(creature, out var handle));
-            Assert.AreEqual(typeof(CreatureHandle<CreatureMock>), handle.GetType());
-        }
-
-        [TestMethod]
         public void Remove_Add_Multiple_Creatures_Test()
         {
             var creature1 = new CreatureMock();

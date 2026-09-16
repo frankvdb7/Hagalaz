@@ -167,6 +167,24 @@ public sealed class NpcServiceRegistrationTests
     }
 
     [TestMethod]
+    public async Task RegisterAndUnregisterAsync_UpdatesNpcAndEntityStoresTogether()
+    {
+        var store = new NpcStore();
+        var entityStore = new EntityStore();
+        var npc = CreateNpc();
+        var service = CreateService(store, entityStore);
+
+        await service.RegisterAsync(npc);
+        Assert.IsTrue(entityStore.TryGetHandle(npc, out var handle));
+        Assert.IsTrue(entityStore.TryResolve(handle, out var resolved));
+        Assert.AreSame(npc, resolved);
+
+        await service.UnregisterAsync(npc);
+        Assert.IsFalse(entityStore.TryGetHandle(npc, out _));
+        Assert.IsFalse(entityStore.TryResolve(handle, out _));
+    }
+
+    [TestMethod]
     public async Task RegisterAsync_WhenFirstAttemptFails_AllowsASecondAttemptWithoutDuplicateOwnership()
     {
         var store = new NpcStore();
@@ -283,6 +301,9 @@ public sealed class NpcServiceRegistrationTests
     }
 
     private static NpcService CreateService(INpcStore store)
+        => CreateService(store, new EntityStore());
+
+    private static NpcService CreateService(INpcStore store, IEntityStore entityStore)
     {
         var definitionStore = new NpcDefinitionStore(
             Substitute.For<IServiceProvider>(),
@@ -291,6 +312,7 @@ public sealed class NpcServiceRegistrationTests
             NullLogger<NpcDefinitionStore>.Instance);
         return new NpcService(
             store,
+            entityStore,
             definitionStore,
             Substitute.For<ITypeProvider<INpcDefinition>>(),
             NullLogger<NpcService>.Instance);

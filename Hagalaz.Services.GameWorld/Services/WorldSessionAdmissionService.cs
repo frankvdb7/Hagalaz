@@ -29,7 +29,6 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
     private readonly ILogger<WorldSessionAdmissionService> _logger;
     private readonly IMapper _mapper;
     private readonly ICharacterService _characterService;
-    private readonly ICharacterStore _characterStore;
     private readonly ICharacterFactory _characterFactory;
     private readonly ICharacterHydrationService _characterHydrationService;
     private readonly ICharacterPersistenceService _characterPersistenceService;
@@ -41,7 +40,6 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         ILogger<WorldSessionAdmissionService> logger,
         IMapper mapper,
         ICharacterService characterService,
-        ICharacterStore characterStore,
         ICharacterFactory characterFactory,
         ICharacterHydrationService characterHydrationService,
         ICharacterPersistenceService characterPersistenceService,
@@ -52,7 +50,6 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         _logger = logger;
         _mapper = mapper;
         _characterService = characterService;
-        _characterStore = characterStore;
         _characterFactory = characterFactory;
         _characterHydrationService = characterHydrationService;
         _characterPersistenceService = characterPersistenceService;
@@ -181,7 +178,7 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
                 var removed = false;
                 try
                 {
-                    removed = _characterStore.Remove(character);
+                    removed = _characterService.Remove(character);
                     if (removed)
                     {
                         DestroyUnregisteredCharacter(character);
@@ -190,6 +187,13 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
                     {
                         _logger.LogWarning("Character '{MasterId}' removal returned false after world sign-in failed; retaining persistence state for recovery", masterId);
                     }
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogError(
+                        exception,
+                        "Character '{MasterId}' removal failed after world sign-in failed; retaining persistence state for recovery",
+                        masterId);
                 }
                 finally
                 {

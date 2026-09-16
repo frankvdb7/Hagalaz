@@ -8,7 +8,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
-using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Resources;
@@ -33,13 +33,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         private readonly List<ICreatureAttackerInfo> _recentAttackers = [];
 
-        private readonly List<DamageContribution<ICharacter>> _characterDamageContributions = [];
-        private readonly List<DamageContribution<INpc>> _npcDamageContributions = [];
+        private readonly List<DamageContribution> _damageContributions = [];
+        private readonly IEntityService? _entityService;
+        private EntityHandle _targetHandle;
 
-        private sealed class DamageContribution<TCreature>(CreatureHandle<TCreature> attacker)
-            where TCreature : class, ICreature
+        private sealed class DamageContribution(EntityHandle attacker)
         {
-            public CreatureHandle<TCreature> Attacker { get; } = attacker;
+            public EntityHandle Attacker { get; } = attacker;
             public int TotalDamage { get; set; }
             public int LastAttackTick { get; set; }
         }
@@ -76,7 +76,44 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         ///     Contains target character or null.
         /// </summary>
         /// <value>The target.</value>
-        public ICreature? Target { get; protected set; }
+        public ICreature? Target => ResolveTarget();
+
+        protected void SetTargetReference(ICreature? target)
+        {
+            if (target is null || _entityService is null || !_entityService.TryGetHandle(target, out var handle))
+            {
+                _targetHandle = default;
+                return;
+            }
+
+            _targetHandle = handle;
+        }
+
+        private ICreature? ResolveTarget()
+        {
+            return ResolveCreature(_targetHandle);
+        }
+
+        protected ICreature? ResolveCreature(EntityHandle handle)
+        {
+            if (_entityService is null)
+            {
+                return null;
+            }
+
+            if (_entityService.TryResolve<ICharacter>(handle, out var character))
+            {
+                return character;
+            }
+
+            return _entityService.TryResolve<INpc>(handle, out var npc) ? npc : null;
+        }
+
+        protected bool TryGetEntityHandle(IEntity entity, out EntityHandle handle)
+        {
+            handle = default;
+            return _entityService is not null && _entityService.TryGetHandle(entity, out handle);
+        }
 
         /// <summary>
         ///     Contains last target or null.
@@ -119,6 +156,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             IHitSplatBuilder hitSplatBuilder)
         {
             Owner = owner;
+            _entityService = owner.ServiceProvider?.GetService<IEntityService>();
             DelayTick = 17;
 
             HitSplatBuilder = hitSplatBuilder;
@@ -277,9 +315,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         ///     Gets the last attack tick.
         /// </summary>
         /// <returns></returns>
-        public int GetLastAttackerTick() => _characterDamageContributions
+        public int GetLastAttackerTick() => _damageContributions
             .Select(attacker => attacker.LastAttackTick)
-            .Concat(_npcDamageContributions.Select(attacker => attacker.LastAttackTick))
             .Prepend(-1)
             .Max();
 
@@ -328,23 +365,39 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
         public virtual IRsTaskHandle<AttackResult> PerformAttack(AttackParams attackParams)
         {
-            var distance = Owner.Location.GetDistance(attackParams.Target.Location);
+            var targetOwner = attackParams.Target;
+            var targetHandle = default(EntityHandle);
+            TryGetEntityHandle(targetOwner, out targetHandle);
+            var damageType = attackParams.DamageType;
+            var maxDamage = attackParams.MaxDamage;
+            var requestedDamage = attackParams.Damage;
+            var distance = Owner.Location.GetDistance(targetOwner.Location);
             var delay = attackParams.Delay + (int)Math.Round(Math.Max(0, distance - 1) * 2);
 
-            var incomingDamage = attackParams.Target.Combat.IncomingAttack(Owner, attackParams.DamageType, attackParams.Damage, delay);
-            return attackParams.Target.QueueTask(new RsTask<AttackResult>(() =>
+            var incomingDamage = targetOwner.Combat.IncomingAttack(Owner, damageType, requestedDamage, delay);
+            return targetOwner.QueueTask(new RsTask<AttackResult>(() =>
             {
+                var target = ResolveCreature(targetHandle);
+                if (target is null)
+                {
+                    return new AttackResult
+                    {
+                        Damage = (false, incomingDamage),
+                        DamageLifePoints = (false, 0)
+                    };
+                }
+
                 var soak = -1;
-                var damage = attackParams.Target.Combat.Attack(Owner, attackParams.DamageType, incomingDamage, ref soak);
+                var damage = target.Combat.Attack(Owner, damageType, incomingDamage, ref soak);
                 var splat = HitSplatBuilder.Create()
                     .AddSprite(builder =>
                     {
                         builder
                             .WithDamage(damage)
-                            .WithDamageType(attackParams.DamageType);
-                        if (attackParams.MaxDamage is not null)
+                            .WithDamageType(damageType);
+                        if (maxDamage is not null)
                         {
-                            builder.WithMaxDamage(attackParams.MaxDamage.Value);
+                            builder.WithMaxDamage(maxDamage.Value);
                         }
                     })
                     .AddSprite(builder => builder
@@ -352,7 +405,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                         .WithSplatType(HitSplatType.HitDefendedDamage))
                     .FromSender(Owner)
                     .Build();
-                attackParams.Target.QueueHitSplat(splat);
+                target.QueueHitSplat(splat);
 
                 return new AttackResult
                 {
@@ -379,13 +432,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 attackerRef.LastAttackTick = 0;
             }
 
-            if (attacker is ICharacter character)
+            if (attacker is ICharacter or INpc)
             {
-                AddCharacterDamageContribution(character);
-            }
-            else if (attacker is INpc npc)
-            {
-                AddNpcDamageContribution(npc);
+                AddDamageContribution(attacker);
             }
         }
 
@@ -395,36 +444,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <returns>Creature.</returns>
         public ICreature? GetKiller()
         {
-            var provider = Owner.ServiceProvider;
-            if (provider is null)
-            {
-                return null;
-            }
-
-            var characterStore = provider.GetService<ICharacterStore>();
-            var npcStore = provider.GetService<INpcStore>();
             ICreature? killer = null;
             var damage = -1;
 
-            if (characterStore is not null)
+            if (_entityService is not null)
             {
-                foreach (var contribution in _characterDamageContributions)
+                foreach (var contribution in _damageContributions)
                 {
-                    var character = characterStore.Resolve(contribution.Attacker);
-                    if (character is not null && contribution.TotalDamage > damage)
+                    if (_entityService.TryResolve<ICharacter>(contribution.Attacker, out var character)
+                        && contribution.TotalDamage > damage)
                     {
                         killer = character;
                         damage = contribution.TotalDamage;
                     }
-                }
-            }
-
-            if (npcStore is not null)
-            {
-                foreach (var contribution in _npcDamageContributions)
-                {
-                    var npc = npcStore.Resolve(contribution.Attacker);
-                    if (npc is not null && contribution.TotalDamage > damage)
+                    else if (_entityService.TryResolve<INpc>(contribution.Attacker, out var npc)
+                        && contribution.TotalDamage > damage)
                     {
                         killer = npc;
                         damage = contribution.TotalDamage;
@@ -458,65 +492,28 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 refAttack.TotalDamage += damage;
             }
 
-            if (attacker is ICharacter character)
+            if (_entityService is not null && _entityService.TryGetHandle(attacker, out var handle))
             {
-                var store = Owner.ServiceProvider?.GetService<ICharacterStore>();
-                if (store is not null && store.TryGetHandle(character, out var handle))
+                var contribution = _damageContributions.FirstOrDefault(info => info.Attacker == handle);
+                if (contribution is not null)
                 {
-                    var contribution = _characterDamageContributions.FirstOrDefault(info => info.Attacker == handle);
-                    if (contribution is not null)
-                    {
-                        contribution.TotalDamage += damage;
-                        contribution.LastAttackTick = 0;
-                    }
-                }
-            }
-            else if (attacker is INpc npc)
-            {
-                var store = Owner.ServiceProvider?.GetService<INpcStore>();
-                if (store is not null && store.TryGetHandle(npc, out var handle))
-                {
-                    var contribution = _npcDamageContributions.FirstOrDefault(info => info.Attacker == handle);
-                    if (contribution is not null)
-                    {
-                        contribution.TotalDamage += damage;
-                        contribution.LastAttackTick = 0;
-                    }
+                    contribution.TotalDamage += damage;
+                    contribution.LastAttackTick = 0;
                 }
             }
         }
 
-        private void AddCharacterDamageContribution(ICharacter character)
+        private void AddDamageContribution(ICreature attacker)
         {
-            var store = Owner.ServiceProvider?.GetService<ICharacterStore>();
-            if (store is null || !store.TryGetHandle(character, out var handle))
+            if (_entityService is null || !_entityService.TryGetHandle(attacker, out var handle))
             {
                 return;
             }
 
-            var contribution = _characterDamageContributions.FirstOrDefault(info => info.Attacker == handle);
+            var contribution = _damageContributions.FirstOrDefault(info => info.Attacker == handle);
             if (contribution is null)
             {
-                _characterDamageContributions.Add(new DamageContribution<ICharacter>(handle));
-            }
-            else
-            {
-                contribution.LastAttackTick = 0;
-            }
-        }
-
-        private void AddNpcDamageContribution(INpc npc)
-        {
-            var store = Owner.ServiceProvider?.GetService<INpcStore>();
-            if (store is null || !store.TryGetHandle(npc, out var handle))
-            {
-                return;
-            }
-
-            var contribution = _npcDamageContributions.FirstOrDefault(info => info.Attacker == handle);
-            if (contribution is null)
-            {
-                _npcDamageContributions.Add(new DamageContribution<INpc>(handle));
+                _damageContributions.Add(new DamageContribution(handle));
             }
             else
             {
@@ -689,15 +686,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                         info.LastAttackTick++;
                 }
 
-            var characterContributions = new List<DamageContribution<ICharacter>>(_characterDamageContributions);
-            foreach (var attacker in characterContributions)
+            var contributions = new List<DamageContribution>(_damageContributions);
+            foreach (var attacker in contributions)
                 if (++attacker.LastAttackTick >= 500) // 5 minutes, then the attacker that dealt damage will be removed.
-                    _characterDamageContributions.Remove(attacker);
-
-            var npcContributions = new List<DamageContribution<INpc>>(_npcDamageContributions);
-            foreach (var attacker in npcContributions)
-                if (++attacker.LastAttackTick >= 500)
-                    _npcDamageContributions.Remove(attacker);
+                    _damageContributions.Remove(attacker);
         }
 
         /// <summary>
@@ -706,17 +698,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         protected void ResetAttackers()
         {
             _recentAttackers.Clear();
-            _characterDamageContributions.Clear();
-            _npcDamageContributions.Clear();
+            _damageContributions.Clear();
         }
 
         public void OnDestroy()
         {
-            Target = null;
+            SetTargetReference(null);
             LastAttacked = null;
             _recentAttackers.Clear();
-            _characterDamageContributions.Clear();
-            _npcDamageContributions.Clear();
+            _damageContributions.Clear();
         }
 
         /// <summary>

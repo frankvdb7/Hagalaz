@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -17,7 +19,7 @@ namespace Hagalaz.Game.Common.Tests
     public class CreatureReachTaskTests
     {
         private ICreature _reacher = null!;
-        private ICreature _target = null!;
+        private ICharacter _target = null!;
         private ISmartPathFinder _pathFinder = null!;
         private IServiceProvider _serviceProvider = null!;
 
@@ -25,13 +27,26 @@ namespace Hagalaz.Game.Common.Tests
         public void Setup()
         {
             _reacher = Substitute.For<ICreature>();
-            _target = Substitute.For<ICreature>();
+            _target = Substitute.For<ICharacter>();
             _pathFinder = Substitute.For<ISmartPathFinder>();
             _serviceProvider = Substitute.For<IServiceProvider>();
 
             var pathFinderProvider = Substitute.For<IPathFinderProvider>();
             pathFinderProvider.Smart.Returns(_pathFinder);
+            var entityService = Substitute.For<IEntityService>();
+            var handle = new EntityHandle(1, 1);
+            entityService.TryGetHandle(_target, out Arg.Any<EntityHandle>()).Returns(callInfo =>
+            {
+                callInfo[1] = handle;
+                return true;
+            });
+            entityService.TryResolve<ICharacter>(handle, out Arg.Any<ICharacter>()).Returns(callInfo =>
+            {
+                callInfo[1] = _target;
+                return true;
+            });
             _serviceProvider.GetService(typeof(IPathFinderProvider)).Returns(pathFinderProvider);
+            _serviceProvider.GetService(typeof(IEntityService)).Returns(entityService);
             _reacher.ServiceProvider.Returns(_serviceProvider);
             _reacher.Viewport.VisibleCreatures.Returns(new List<ICreature> { _target });
         }

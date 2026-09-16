@@ -942,7 +942,7 @@ public sealed class AuthenticationSignInTests
         await revokeStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
 
         CollectionAssert.AreEqual(
-            new[] { "destroy", "remove-session", "revoke" },
+            new[] { "remove-character", "destroy", "remove-session", "revoke" },
             order);
         Assert.IsFalse(signInTask.IsCompleted);
 
@@ -1417,7 +1417,6 @@ public sealed class AuthenticationSignInTests
             NullLogger<WorldSessionAdmissionService>.Instance,
             mapper,
             characterServiceSubstitute,
-            characterStore ?? Substitute.For<ICharacterStore>(),
             characterFactorySubstitute,
             characterHydrationServiceSubstitute,
             persistenceService,
@@ -1607,6 +1606,17 @@ public sealed class AuthenticationSignInTests
             }
 
             return ValueTask.FromResult(_removeResult);
+        }
+
+        public bool Remove(ICharacter character)
+        {
+            _onRemove?.Invoke();
+            if (_removeFailure is not null)
+            {
+                throw _removeFailure;
+            }
+
+            return _removeResult;
         }
 
         public ValueTask<int> CountAsync() => ValueTask.FromResult(0);

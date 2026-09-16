@@ -1,12 +1,13 @@
 using System;
 using System.Linq;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -33,7 +34,8 @@ namespace Hagalaz.Game.Common.Tasks
         /// <summary>
         /// Contains target creature.
         /// </summary>
-        private readonly ICreature _target;
+        private readonly EntityHandle _targetHandle;
+        private readonly IEntityService? _entityService;
 
         /// <summary>
         /// Contains finish callback.
@@ -61,7 +63,11 @@ namespace Hagalaz.Game.Common.Tasks
             : base(conditions)
         {
             _reacher = reacher;
-            _target = target;
+            _entityService = _reacher.ServiceProvider?.GetService<IEntityService>();
+            if (_entityService is not null)
+            {
+                _entityService.TryGetHandle(target, out _targetHandle);
+            }
             _finishCallback = callback;
             TickActionMethod = PerformTickImpl;
             _interruptEvent = _reacher.RegisterEventHandler<CreatureInterruptedEvent>(e =>
@@ -71,7 +77,7 @@ namespace Hagalaz.Game.Common.Tasks
                     return false;
                 }
 
-                if (TickCount >= 1 && _reacher.FacedCreature == _target)
+                if (TickCount >= 1 && _reacher.FacedCreature == ResolveTarget())
                 {
                     _reacher.ResetFacing();
                 }
@@ -88,11 +94,12 @@ namespace Hagalaz.Game.Common.Tasks
         /// <returns></returns>
         private void PerformTickImpl()
         {
-            if (!IsTargetContained()
+            var target = ResolveTarget();
+            if (target is null
                 || _reacher.Movement.Locked
-                || !_reacher.Viewport.VisibleCreatures.Contains(_target))
+                || !_reacher.Viewport.VisibleCreatures.Contains(target))
             {
-                if (TickCount >= 1 && _reacher.FacedCreature == _target)
+                if (TickCount >= 1 && _reacher.FacedCreature == target)
                     _reacher.ResetFacing();
                 _finishCallback.Invoke(false);
                 Cancel();
@@ -101,13 +108,13 @@ namespace Hagalaz.Game.Common.Tasks
 
             if (TickCount == 1)
             {
-                _reacher.FaceCreature(_target);
+                _reacher.FaceCreature(target);
             }
 
-            var path = _pathFinder.Find(_reacher, _target, true);
+            var path = _pathFinder.Find(_reacher, target, true);
             if (!path.Successful && !path.MovedNear || path.MovedNearDestination)
             {
-                _reacher.FaceLocation(_target.Location, _target.Size, _target.Size);
+                _reacher.FaceLocation(target.Location, target.Size, target.Size);
                 _reacher.ResetFacing();
                 _finishCallback(false);
                 Cancel();
@@ -116,7 +123,7 @@ namespace Hagalaz.Game.Common.Tasks
 
             if (path.ReachedDestination)
             {
-                _reacher.FaceLocation(_target.Location, _target.Size, _target.Size);
+                _reacher.FaceLocation(target.Location, target.Size, target.Size);
                 _reacher.ResetFacing();
                 _finishCallback(true);
                 Cancel();
@@ -126,21 +133,19 @@ namespace Hagalaz.Game.Common.Tasks
             _reacher.Movement.AddToQueue(path);
         }
 
-        private bool IsTargetContained()
+        private ICreature? ResolveTarget()
         {
-            if (_target is ICharacter character)
+            if (_entityService is null)
             {
-                var characterStore = _reacher.ServiceProvider?.GetService<ICharacterStore>();
-                return characterStore?.Contains(character) == true;
+                return null;
             }
 
-            if (_target is INpc npc)
+            if (_entityService.TryResolve<ICharacter>(_targetHandle, out var character))
             {
-                var npcStore = _reacher.ServiceProvider?.GetService<INpcStore>();
-                return npcStore?.Contains(npc) == true;
+                return character;
             }
 
-            return true;
+            return _entityService.TryResolve<INpc>(_targetHandle, out var npc) ? npc : null;
         }
 
         /// <summary>

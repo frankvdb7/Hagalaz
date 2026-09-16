@@ -134,13 +134,13 @@ public sealed class AuthenticationLogoutTests
         var characterServices = CreateServiceProvider(dehydrationService);
         character.ServiceProvider.Returns(characterServices);
 
-        var store = Substitute.For<ICharacterStore>();
-        store.Remove(character).Returns(true);
+        var characterService = Substitute.For<ICharacterService>();
+        characterService.Remove(character).Returns(true);
         var state = new CharacterLogoutState();
         var mediator = Substitute.For<IGameMediator>();
         var logoutService = new CharacterLogoutService(
             state,
-            store,
+            characterService,
             new ImmediateTaskScheduler(),
             mediator,
             new CharacterPersistenceState());
@@ -164,7 +164,7 @@ public sealed class AuthenticationLogoutTests
         await service.SignOutAsync();
 
         dehydrationService.Received(1).Dehydrate(character);
-        store.Received(1).Remove(character);
+        characterService.Received(1).Remove(character);
         character.Received(1).Destroy();
         await persistenceService.Received(1).PersistAsync(
             42,
@@ -667,7 +667,6 @@ public sealed class AuthenticationLogoutTests
                 NullLogger<WorldSessionAdmissionService>.Instance,
                 Substitute.For<AutoMapper.IMapper>(),
                 characterService,
-                Substitute.For<ICharacterStore>(),
                 Substitute.For<ICharacterFactory>(),
                 Substitute.For<ICharacterHydrationService>(),
                 persistenceService,

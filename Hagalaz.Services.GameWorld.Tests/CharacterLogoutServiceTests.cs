@@ -60,8 +60,8 @@ public sealed class CharacterLogoutServiceTests
         var order = new List<string>();
         var state = new CharacterLogoutState();
         state.TryBeginLogout(character, out _);
-        var store = Substitute.For<ICharacterStore>();
-        store.Remove(character).Returns(true);
+        var characterService = Substitute.For<ICharacterService>();
+        characterService.Remove(character).Returns(true);
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         var snapshot = new CharacterModel();
         dehydrationService.Dehydrate(character).Returns(_ =>
@@ -69,7 +69,7 @@ public sealed class CharacterLogoutServiceTests
             order.Add("snapshot");
             return snapshot;
         });
-        store.Remove(character).Returns(_ =>
+        characterService.Remove(character).Returns(_ =>
         {
             order.Add("remove");
             return true;
@@ -81,7 +81,7 @@ public sealed class CharacterLogoutServiceTests
         character.ServiceProvider.Returns(provider);
         var service = new CharacterLogoutService(
             state,
-            store,
+            characterService,
             new InlineTaskScheduler(),
             Substitute.For<IGameMediator>(),
             new CharacterPersistenceState());
@@ -91,7 +91,7 @@ public sealed class CharacterLogoutServiceTests
         Assert.AreNotSame(snapshot, result);
         Assert.AreEqual(1L, result.SnapshotRevision);
         Assert.AreEqual(0L, snapshot.SnapshotRevision);
-        store.Received(1).Remove(character);
+        characterService.Received(1).Remove(character);
         character.Received(1).Destroy();
         CollectionAssert.AreEqual(new[] { "snapshot", "remove", "destroy" }, order);
     }
@@ -102,8 +102,8 @@ public sealed class CharacterLogoutServiceTests
         var character = CreateCharacter(42);
         var order = new List<string>();
         var state = new CharacterLogoutState();
-        var store = Substitute.For<ICharacterStore>();
-        store.Remove(character).Returns(_ =>
+        var characterService = Substitute.For<ICharacterService>();
+        characterService.Remove(character).Returns(_ =>
         {
             order.Add("remove");
             return true;
@@ -133,7 +133,7 @@ public sealed class CharacterLogoutServiceTests
         character.When(value => value.Destroy()).Do(_ => order.Add("destroy"));
         var logout = new CharacterLogoutService(
             state,
-            store,
+            characterService,
             scheduler,
             Substitute.For<IGameMediator>(),
             new CharacterPersistenceState());
@@ -154,8 +154,8 @@ public sealed class CharacterLogoutServiceTests
         var character = CreateCharacter(42);
         var state = new CharacterLogoutState();
         state.TryBeginLogout(character, out _);
-        var store = Substitute.For<ICharacterStore>();
-        store.Remove(character).Returns(false);
+        var characterService = Substitute.For<ICharacterService>();
+        characterService.Remove(character).Returns(false);
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         dehydrationService.Dehydrate(character).Returns(new CharacterModel());
         using var provider = new ServiceCollection()
@@ -164,7 +164,7 @@ public sealed class CharacterLogoutServiceTests
         character.ServiceProvider.Returns(provider);
         var service = new CharacterLogoutService(
             state,
-            store,
+            characterService,
             new InlineTaskScheduler(),
             Substitute.For<IGameMediator>(),
             new CharacterPersistenceState());

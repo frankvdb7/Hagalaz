@@ -27,17 +27,6 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         int Count { get; }
 
         /// <summary>
-        /// Determines whether the exact creature instance currently occupies its indexed slot.
-        /// </summary>
-        /// <param name="creature">The creature to find.</param>
-        /// <returns><c>true</c> when the exact instance is currently stored; otherwise, <c>false</c>.</returns>
-        bool Contains(TCreature creature);
-
-        bool TryGetHandle(TCreature creature, out CreatureHandle<TCreature> handle);
-
-        TCreature? Resolve(CreatureHandle<TCreature> handle);
-
-        /// <summary>
         /// Adds a creature to the collection.
         /// </summary>
         /// <param name="creature">The creature to add.</param>

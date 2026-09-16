@@ -11,7 +11,6 @@ namespace Hagalaz.Services.GameWorld.Store
         private const int _startIndex = 1;
 
         private readonly TCreature?[] _creatures;
-        private readonly uint[] _generations;
         private int _size;
         private int _version;
         private int _capacity;
@@ -34,14 +33,6 @@ namespace Hagalaz.Services.GameWorld.Store
 
         public int Count => _size;
 
-        public bool Contains(TCreature creature)
-        {
-            var index = creature.Index;
-            return index >= _startIndex
-                && (uint)index < (uint)_creatures.Length
-                && ReferenceEquals(_creatures[index], creature);
-        }
-
         public CreatureCollection(int capacity)
         {
             if (capacity <= 0)
@@ -50,7 +41,6 @@ namespace Hagalaz.Services.GameWorld.Store
             }
             _capacity = capacity;
             _creatures = new TCreature[_startIndex + capacity];
-            _generations = new uint[_creatures.Length];
             _indexSet = new IndexSet(_startIndex, capacity);
         }
 
@@ -68,10 +58,6 @@ namespace Hagalaz.Services.GameWorld.Store
             }
 
             creature.Index = index;
-            if (_generations[index] == 0)
-            {
-                _generations[index] = 1;
-            }
             _creatures[index] = creature;
             _size++;
             _version++;
@@ -101,34 +87,10 @@ namespace Hagalaz.Services.GameWorld.Store
             {
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
-            _generations[index] = _generations[index] == uint.MaxValue ? 1 : _generations[index] + 1;
             _indexSet.Return(index);
             _creatures[index] = null;
             _size--;
             _version++;
-        }
-
-        public bool TryGetHandle(TCreature creature, out CreatureHandle<TCreature> handle)
-        {
-            var index = creature.Index;
-            if (index < _startIndex || (uint)index >= (uint)_creatures.Length || !ReferenceEquals(_creatures[index], creature))
-            {
-                handle = default;
-                return false;
-            }
-
-            handle = new CreatureHandle<TCreature>(index, _generations[index]);
-            return true;
-        }
-
-        public TCreature? Resolve(CreatureHandle<TCreature> handle)
-        {
-            if (handle.Index < _startIndex || (uint)handle.Index >= (uint)_creatures.Length)
-            {
-                return null;
-            }
-
-            return _generations[handle.Index] == handle.Generation ? _creatures[handle.Index] : null;
         }
 
         public IEnumerator<TCreature> GetEnumerator() => new Enumerator(this);

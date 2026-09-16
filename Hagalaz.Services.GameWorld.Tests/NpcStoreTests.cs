@@ -33,27 +33,4 @@ public sealed class NpcStoreTests
         Assert.IsNull(actual);
     }
 
-    [TestMethod]
-    public async Task CreatureHandle_DoesNotResolveAfterNpcSlotReuse()
-    {
-        var store = new NpcStore();
-        var original = Substitute.For<INpc>();
-        var replacement = Substitute.For<INpc>();
-
-        Assert.IsTrue(await store.AddAsync(original));
-        Assert.IsTrue(store.TryGetHandle(original, out var originalHandle));
-        Assert.IsTrue(store.Remove(original));
-        Assert.IsTrue(await store.AddAsync(replacement));
-
-        Assert.AreEqual(original.Index, replacement.Index);
-        Assert.AreNotEqual(originalHandle.Generation, GetHandle(store, replacement).Generation);
-        Assert.IsNull(store.Resolve(originalHandle));
-        Assert.AreSame(replacement, store.Resolve(GetHandle(store, replacement)));
-    }
-
-    private static CreatureHandle<INpc> GetHandle(NpcStore store, INpc npc)
-    {
-        Assert.IsTrue(store.TryGetHandle(npc, out var handle));
-        return handle;
-    }
 }

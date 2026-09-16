@@ -12,6 +12,7 @@ using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Services.GameWorld.Configuration.Model;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Hubs;
+using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Store;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
@@ -55,10 +56,12 @@ public sealed class CreatureInteractionHubTests
     {
         using var provider = CreateProvider(out _, out var npcService);
         var npcStore = provider.GetRequiredService<INpcStore>();
+        var entityStore = provider.GetRequiredService<IEntityStore>();
         var npc = Substitute.For<INpc>();
         var script = Substitute.For<INpcScript>();
         npc.Script.Returns(script);
         Assert.IsTrue(npcStore.Add(npc));
+        entityStore.Add(npc);
         npcService.FindByIndexAsync(npc.Index).Returns(new ValueTask<INpc?>(npc));
 
         var character = CreateCharacter(out var queuedTasks, new List<ICreature> { npc });
@@ -81,10 +84,12 @@ public sealed class CreatureInteractionHubTests
     {
         using var provider = CreateProvider(out _, out var npcService);
         var npcStore = provider.GetRequiredService<INpcStore>();
+        var entityStore = provider.GetRequiredService<IEntityStore>();
         var npc = Substitute.For<INpc>();
         var npcScript = Substitute.For<INpcScript>();
         npc.Script.Returns(npcScript);
         Assert.IsTrue(npcStore.Add(npc));
+        entityStore.Add(npc);
         npcService.FindByIndexAsync(npc.Index).Returns(new ValueTask<INpc?>(npc));
 
         var character = CreateCharacter(out var queuedTasks, new List<ICreature> { npc });
@@ -97,10 +102,12 @@ public sealed class CreatureInteractionHubTests
         });
 
         Assert.IsTrue(npcStore.Remove(npc));
+        Assert.IsTrue(entityStore.Remove(npc));
         var replacement = Substitute.For<INpc>();
         var replacementScript = Substitute.For<INpcScript>();
         replacement.Script.Returns(replacementScript);
         Assert.IsTrue(npcStore.Add(replacement));
+        entityStore.Add(replacement);
         Assert.AreEqual(npc.Index, replacement.Index);
 
         queuedTasks[0].Tick();
@@ -114,9 +121,11 @@ public sealed class CreatureInteractionHubTests
     {
         using var provider = CreateProvider(out var characterService, out _);
         var characterStore = provider.GetRequiredService<ICharacterStore>();
+        var entityStore = provider.GetRequiredService<IEntityStore>();
         var target = Substitute.For<ICharacter>();
         target.MasterId.Returns(1u);
         Assert.IsTrue(await characterStore.AddAsync(target));
+        entityStore.Add(target);
         characterService.FindByIndex(target.Index).Returns(new ValueTask<ICharacter?>(target));
 
         var widget = CreateOpenWidget(out var widgets);
@@ -134,9 +143,11 @@ public sealed class CreatureInteractionHubTests
     {
         using var provider = CreateProvider(out var characterService, out _);
         var characterStore = provider.GetRequiredService<ICharacterStore>();
+        var entityStore = provider.GetRequiredService<IEntityStore>();
         var target = Substitute.For<ICharacter>();
         target.MasterId.Returns(1u);
         Assert.IsTrue(await characterStore.AddAsync(target));
+        entityStore.Add(target);
         characterService.FindByIndex(target.Index).Returns(new ValueTask<ICharacter?>(target));
 
         var widget = CreateOpenWidget(out var widgets);
@@ -145,9 +156,11 @@ public sealed class CreatureInteractionHubTests
         await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(connection, CreateCharacterUseMessage(target.Index));
 
         Assert.IsTrue(characterStore.Remove(target));
+        Assert.IsTrue(entityStore.Remove(target));
         var replacement = Substitute.For<ICharacter>();
         replacement.MasterId.Returns(2u);
         Assert.IsTrue(await characterStore.AddAsync(replacement));
+        entityStore.Add(replacement);
         Assert.AreEqual(target.Index, replacement.Index);
 
         queuedTasks[0].Tick();
@@ -161,8 +174,10 @@ public sealed class CreatureInteractionHubTests
     {
         using var provider = CreateProvider(out _, out var npcService);
         var npcStore = provider.GetRequiredService<INpcStore>();
+        var entityStore = provider.GetRequiredService<IEntityStore>();
         var target = Substitute.For<INpc>();
         Assert.IsTrue(npcStore.Add(target));
+        entityStore.Add(target);
         npcService.FindByIndexAsync(target.Index).Returns(new ValueTask<INpc?>(target));
 
         var widget = CreateOpenWidget(out var widgets);
@@ -171,8 +186,10 @@ public sealed class CreatureInteractionHubTests
         await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(connection, CreateNpcUseMessage(target.Index));
 
         Assert.IsTrue(npcStore.Remove(target));
+        Assert.IsTrue(entityStore.Remove(target));
         var replacement = Substitute.For<INpc>();
         Assert.IsTrue(npcStore.Add(replacement));
+        entityStore.Add(replacement);
         Assert.AreEqual(target.Index, replacement.Index);
 
         queuedTasks[0].Tick();
@@ -228,6 +245,9 @@ public sealed class CreatureInteractionHubTests
         services.AddSingleton<INpcService>(npcServiceSubstitute);
         services.AddSingleton<ICharacterStore>(CreateCharacterStore());
         services.AddSingleton<INpcStore, NpcStore>();
+        var entityStore = new EntityStore();
+        services.AddSingleton<IEntityStore>(entityStore);
+        services.AddSingleton<IEntityService>(new EntityService(entityStore));
         services.AddRaidoServer().AddHub<NpcHub>().AddHub<ComponentHub>();
         return services.BuildServiceProvider();
     }

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 
 namespace Hagalaz.Game.Abstractions.Store
@@ -60,15 +59,6 @@ namespace Hagalaz.Game.Abstractions.Store
         /// Removes the exact character instance synchronously from the GameWorker boundary.
         /// </summary>
         bool Remove(ICharacter character);
-
-        /// <summary>
-        /// Determines whether the exact character instance is currently stored at its index.
-        /// </summary>
-        bool Contains(ICharacter character);
-
-        bool TryGetHandle(ICharacter character, out CreatureHandle<ICharacter> handle);
-
-        ICharacter? Resolve(CreatureHandle<ICharacter> handle);
 
     }
 }

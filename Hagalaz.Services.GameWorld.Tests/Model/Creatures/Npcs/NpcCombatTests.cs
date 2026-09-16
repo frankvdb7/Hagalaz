@@ -16,6 +16,7 @@ using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Services.GameWorld.Configuration.Model;
 using Hagalaz.Services.GameWorld.Model.Creatures.Npcs;
+using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Store;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -107,18 +108,21 @@ public sealed class NpcCombatTests
             ClientRevisionPatch = 0,
             AuthenticationToken = "test"
         }));
+        var entityStore = new EntityStore();
+        var entityService = new EntityService(entityStore);
         using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterStore>(store)
+            .AddSingleton<IEntityService>(entityService)
             .BuildServiceProvider();
         var owner = Substitute.For<INpc>();
         owner.ServiceProvider.Returns(provider);
         var target = Substitute.For<ICharacter>();
         target.MasterId.Returns(17u);
         Assert.IsTrue(await store.AddAsync(target));
+        entityStore.Add(target);
 
         var combat = new TestableNpcCombat(owner);
         combat.SetTargetForTest(target);
-        Assert.IsTrue(store.Remove(target));
+        Assert.IsTrue(entityStore.Remove(target));
 
         Assert.IsFalse(combat.CanSetTarget(target));
     }
@@ -139,6 +143,6 @@ public sealed class NpcCombatTests
         {
         }
 
-        public void SetTargetForTest(ICreature target) => Target = target;
+        public void SetTargetForTest(ICreature target) => SetTargetReference(target);
     }
 }

@@ -231,9 +231,11 @@ public sealed class CharacterHubTests
         using var provider = CreateProvider();
         var characterService = provider.GetRequiredService<ICharacterService>();
         var characterStore = provider.GetRequiredService<ICharacterStore>();
+        var entityStore = provider.GetRequiredService<IEntityStore>();
         var target = Substitute.For<ICharacter>();
         target.MasterId.Returns(1u);
         Assert.IsTrue(await characterStore.AddAsync(target));
+        entityStore.Add(target);
         characterService.FindByIndex(target.Index)
             .Returns(new ValueTask<ICharacter?>(target));
 
@@ -256,9 +258,11 @@ public sealed class CharacterHubTests
         using var provider = CreateProvider();
         var characterService = provider.GetRequiredService<ICharacterService>();
         var characterStore = provider.GetRequiredService<ICharacterStore>();
+        var entityStore = provider.GetRequiredService<IEntityStore>();
         var target = Substitute.For<ICharacter>();
         target.MasterId.Returns(1u);
         Assert.IsTrue(await characterStore.AddAsync(target));
+        entityStore.Add(target);
         characterService.FindByIndex(target.Index)
             .Returns(new ValueTask<ICharacter?>(target));
 
@@ -271,6 +275,7 @@ public sealed class CharacterHubTests
             new CharacterClickMessage { Index = target.Index, ClickType = CharacterClickType.Option1Click, ForceRun = false });
 
         Assert.IsTrue(characterStore.Remove(target));
+        Assert.IsTrue(entityStore.Remove(target));
         queuedTasks[0].Tick();
 
         character.DidNotReceive().OnCharacterClicked(
@@ -283,9 +288,11 @@ public sealed class CharacterHubTests
         using var provider = CreateProvider();
         var characterService = provider.GetRequiredService<ICharacterService>();
         var characterStore = provider.GetRequiredService<ICharacterStore>();
+        var entityStore = provider.GetRequiredService<IEntityStore>();
         var target = Substitute.For<ICharacter>();
         target.MasterId.Returns(1u);
         Assert.IsTrue(await characterStore.AddAsync(target));
+        entityStore.Add(target);
         characterService.FindByIndex(target.Index)
             .Returns(new ValueTask<ICharacter?>(target));
 
@@ -298,9 +305,11 @@ public sealed class CharacterHubTests
             new CharacterClickMessage { Index = target.Index, ClickType = CharacterClickType.Option1Click, ForceRun = false });
 
         Assert.IsTrue(characterStore.Remove(target));
+        Assert.IsTrue(entityStore.Remove(target));
         var replacement = Substitute.For<ICharacter>();
         replacement.MasterId.Returns(2u);
         Assert.IsTrue(await characterStore.AddAsync(replacement));
+        entityStore.Add(replacement);
         Assert.AreEqual(target.Index, replacement.Index);
 
         queuedTasks[0].Tick();
@@ -316,6 +325,9 @@ public sealed class CharacterHubTests
         services.AddSingleton(Substitute.For<ICharacterService>());
         services.AddSingleton(Substitute.For<IAuthenticationService>());
         services.AddSingleton<ICharacterStore>(CreateCharacterStore());
+        var entityStore = new EntityStore();
+        services.AddSingleton<IEntityStore>(entityStore);
+        services.AddSingleton<IEntityService>(new EntityService(entityStore));
         services.AddRaidoServer().AddHub<CharacterHub>();
         return services.BuildServiceProvider();
     }

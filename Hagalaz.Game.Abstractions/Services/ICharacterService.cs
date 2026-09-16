@@ -37,6 +37,11 @@ namespace Hagalaz.Game.Abstractions.Services
         public ValueTask<bool> RemoveAsync(ICharacter character);
 
         /// <summary>
+        /// Removes a character synchronously from the game-worker lifecycle boundary.
+        /// </summary>
+        bool Remove(ICharacter character);
+
+        /// <summary>
         /// Gets the total number of characters currently in the game world.
         /// </summary>
         /// <returns>A <see cref="ValueTask{TResult}"/> that represents the asynchronous operation. The task result contains the total number of characters.</returns>
