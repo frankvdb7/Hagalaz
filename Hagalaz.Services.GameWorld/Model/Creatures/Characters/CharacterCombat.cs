@@ -218,9 +218,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </returns>
         public override bool SetTarget(ICreature target)
         {
-            if (!CanSetTarget(target)) return false;
+            if (!CanSetTarget(target) || !TrySetTargetReference(target)) return false;
             CheckSkullConditions(target);
-            Target = target;
             Owner.FaceCreature(target);
             _character.EventManager.SendEvent(new CreatureSetCombatTargetEvent(Owner, target));
             return true;
@@ -233,6 +232,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns><c>true</c> if this instance [can set target] the specified target; otherwise, <c>false</c>.</returns>
         public override bool CanSetTarget(ICreature target)
         {
+            if (!IsTargetOwned(target)) return false;
             if (target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
             if (!target.Area.Script.CanBeAttacked(target, Owner)) return false;
             if (!Owner.Area.Script.CanAttack(Owner, target)) return false;
@@ -247,7 +247,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public override void CancelTarget()
         {
             _character.Magic.SelectedSpell = null;
-            Target = null;
+            ClearTargetReference();
             Owner.ResetFacing();
         }
 

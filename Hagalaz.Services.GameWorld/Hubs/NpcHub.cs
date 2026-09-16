@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Services.GameWorld.Hubs.Filters;
@@ -16,10 +17,12 @@ namespace Hagalaz.Services.GameWorld.Hubs
     public class NpcHub : RaidoHub
     {
         private readonly INpcService _npcService;
+        private readonly INpcStore _npcStore;
 
-        public NpcHub(INpcService npcService)
+        public NpcHub(INpcService npcService, INpcStore npcStore)
         {
             _npcService = npcService;
+            _npcStore = npcStore;
         }
 
         [RaidoMessageHandler(typeof(NpcClickMessage))]
@@ -34,12 +37,17 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 return;
             }
+            if (!_npcStore.TryGetHandle(npc, out var npcHandle))
+            {
+                return;
+            }
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
-                if (character.Viewport.VisibleCreatures.Contains(npc))
+                var currentNpc = _npcStore.Resolve(npcHandle);
+                if (currentNpc is not null && character.Viewport.VisibleCreatures.Contains(currentNpc))
                 {
-                    npc.Script.OnCharacterClick(character, message.ClickType, message.ForceRun);
+                    currentNpc.Script.OnCharacterClick(character, message.ClickType, message.ForceRun);
                 }
             }, 1));
         }

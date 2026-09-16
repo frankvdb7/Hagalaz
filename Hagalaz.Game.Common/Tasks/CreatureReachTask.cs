@@ -1,9 +1,12 @@
 using System;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Common.Events;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -31,6 +34,9 @@ namespace Hagalaz.Game.Common.Tasks
         /// Contains target creature.
         /// </summary>
         private readonly ICreature _target;
+
+        private readonly CreatureHandle<ICharacter>? _characterTargetHandle;
+        private readonly CreatureHandle<INpc>? _npcTargetHandle;
 
         /// <summary>
         /// Contains finish callback.
@@ -60,6 +66,22 @@ namespace Hagalaz.Game.Common.Tasks
             _reacher = reacher;
             _target = target;
             _finishCallback = callback;
+            if (target is ICharacter character)
+            {
+                var characterStore = reacher.ServiceProvider?.GetService<ICharacterStore>();
+                if (characterStore is not null && characterStore.TryGetHandle(character, out var handle))
+                {
+                    _characterTargetHandle = handle;
+                }
+            }
+            else if (target is INpc npc)
+            {
+                var npcStore = reacher.ServiceProvider?.GetService<INpcStore>();
+                if (npcStore is not null && npcStore.TryGetHandle(npc, out var handle))
+                {
+                    _npcTargetHandle = handle;
+                }
+            }
             TickActionMethod = PerformTickImpl;
             _interruptEvent = _reacher.RegisterEventHandler<CreatureInterruptedEvent>(e =>
             {
@@ -76,7 +98,7 @@ namespace Hagalaz.Game.Common.Tasks
                 Cancel();
                 return false;
             });
-            _pathFinder = reacher.ServiceProvider.GetRequiredService<IPathFinderProvider>().Smart;
+            _pathFinder = reacher.ServiceProvider!.GetRequiredService<IPathFinderProvider>().Smart;
         }
 
         /// <summary>
@@ -85,7 +107,9 @@ namespace Hagalaz.Game.Common.Tasks
         /// <returns></returns>
         private void PerformTickImpl()
         {
-            if (_reacher.Movement.Locked || !_reacher.Viewport.VisibleCreatures.Contains(_target))
+            if (!TryResolveTarget(out var target)
+                || _reacher.Movement.Locked
+                || !_reacher.Viewport.VisibleCreatures.Contains(target))
             {
                 if (TickCount >= 1 && _reacher.FacedCreature == _target)
                     _reacher.ResetFacing();
@@ -96,13 +120,13 @@ namespace Hagalaz.Game.Common.Tasks
 
             if (TickCount == 1)
             {
-                _reacher.FaceCreature(_target);
+                _reacher.FaceCreature(target);
             }
 
-            var path = _pathFinder.Find(_reacher, _target, true);
+            var path = _pathFinder.Find(_reacher, target, true);
             if (!path.Successful && !path.MovedNear || path.MovedNearDestination)
             {
-                _reacher.FaceLocation(_target.Location, _target.Size, _target.Size);
+                _reacher.FaceLocation(target.Location, target.Size, target.Size);
                 _reacher.ResetFacing();
                 _finishCallback(false);
                 Cancel();
@@ -111,7 +135,7 @@ namespace Hagalaz.Game.Common.Tasks
 
             if (path.ReachedDestination)
             {
-                _reacher.FaceLocation(_target.Location, _target.Size, _target.Size);
+                _reacher.FaceLocation(target.Location, target.Size, target.Size);
                 _reacher.ResetFacing();
                 _finishCallback(true);
                 Cancel();
@@ -119,6 +143,30 @@ namespace Hagalaz.Game.Common.Tasks
             }
 
             _reacher.Movement.AddToQueue(path);
+        }
+
+        private bool TryResolveTarget(out ICreature target)
+        {
+            if (_target is ICharacter)
+            {
+                var characterStore = _reacher.ServiceProvider?.GetService<ICharacterStore>();
+                target = _characterTargetHandle is { } handle
+                    ? characterStore?.Resolve(handle)!
+                    : null!;
+                return target is not null;
+            }
+
+            if (_target is INpc)
+            {
+                var npcStore = _reacher.ServiceProvider?.GetService<INpcStore>();
+                target = _npcTargetHandle is { } handle
+                    ? npcStore?.Resolve(handle)!
+                    : null!;
+                return target is not null;
+            }
+
+            target = _target;
+            return true;
         }
 
         /// <summary>

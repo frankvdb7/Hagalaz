@@ -8,17 +8,21 @@ using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Hubs;
+using Hagalaz.Services.GameWorld.Configuration.Model;
 using Hagalaz.Services.GameWorld.Services;
+using Hagalaz.Services.GameWorld.Store;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using Raido.Common.Protocol;
 using Raido.Server;
@@ -221,15 +225,108 @@ public sealed class CharacterHubTests
         Assert.AreEqual(ClientChatType.Friends, currentType);
     }
 
+    [TestMethod]
+    public async Task OnCharacterClick_WhenTargetRemainsOwnedAndVisible_InvokesClickOnCurrentTarget()
+    {
+        using var provider = CreateProvider();
+        var characterService = provider.GetRequiredService<ICharacterService>();
+        var characterStore = provider.GetRequiredService<ICharacterStore>();
+        var target = Substitute.For<ICharacter>();
+        target.MasterId.Returns(1u);
+        Assert.IsTrue(await characterStore.AddAsync(target));
+        characterService.FindByIndex(target.Index)
+            .Returns(new ValueTask<ICharacter?>(target));
+
+        var character = CreateCharacter(out _, out var queuedTasks);
+        character.Viewport.VisibleCreatures.Returns(new List<ICreature> { target });
+        var connection = CreateConnection(character);
+
+        await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(
+            connection,
+            new CharacterClickMessage { Index = target.Index, ClickType = CharacterClickType.Option1Click, ForceRun = false });
+
+        queuedTasks[0].Tick();
+
+        character.Received(1).OnCharacterClicked(CharacterClickType.Option1Click, false, target);
+    }
+
+    [TestMethod]
+    public async Task OnCharacterClick_WhenTargetIsRemovedBeforeQueuedTask_DropsClick()
+    {
+        using var provider = CreateProvider();
+        var characterService = provider.GetRequiredService<ICharacterService>();
+        var characterStore = provider.GetRequiredService<ICharacterStore>();
+        var target = Substitute.For<ICharacter>();
+        target.MasterId.Returns(1u);
+        Assert.IsTrue(await characterStore.AddAsync(target));
+        characterService.FindByIndex(target.Index)
+            .Returns(new ValueTask<ICharacter?>(target));
+
+        var character = CreateCharacter(out _, out var queuedTasks);
+        character.Viewport.VisibleCreatures.Returns(new List<ICreature> { target });
+        var connection = CreateConnection(character);
+
+        await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(
+            connection,
+            new CharacterClickMessage { Index = target.Index, ClickType = CharacterClickType.Option1Click, ForceRun = false });
+
+        Assert.IsTrue(characterStore.Remove(target));
+        queuedTasks[0].Tick();
+
+        character.DidNotReceive().OnCharacterClicked(
+            Arg.Any<CharacterClickType>(), Arg.Any<bool>(), Arg.Any<ICharacter>());
+    }
+
+    [TestMethod]
+    public async Task OnCharacterClick_WhenTargetSlotIsReused_DoesNotRedirectClickToReplacement()
+    {
+        using var provider = CreateProvider();
+        var characterService = provider.GetRequiredService<ICharacterService>();
+        var characterStore = provider.GetRequiredService<ICharacterStore>();
+        var target = Substitute.For<ICharacter>();
+        target.MasterId.Returns(1u);
+        Assert.IsTrue(await characterStore.AddAsync(target));
+        characterService.FindByIndex(target.Index)
+            .Returns(new ValueTask<ICharacter?>(target));
+
+        var character = CreateCharacter(out _, out var queuedTasks);
+        character.Viewport.VisibleCreatures.Returns(new List<ICreature> { target });
+        var connection = CreateConnection(character);
+
+        await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(
+            connection,
+            new CharacterClickMessage { Index = target.Index, ClickType = CharacterClickType.Option1Click, ForceRun = false });
+
+        Assert.IsTrue(characterStore.Remove(target));
+        var replacement = Substitute.For<ICharacter>();
+        replacement.MasterId.Returns(2u);
+        Assert.IsTrue(await characterStore.AddAsync(replacement));
+        Assert.AreEqual(target.Index, replacement.Index);
+
+        queuedTasks[0].Tick();
+
+        character.DidNotReceive().OnCharacterClicked(
+            Arg.Any<CharacterClickType>(), Arg.Any<bool>(), Arg.Any<ICharacter>());
+    }
+
     private ServiceProvider CreateProvider()
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(Substitute.For<ICharacterService>());
         services.AddSingleton(Substitute.For<IAuthenticationService>());
+        services.AddSingleton<ICharacterStore>(CreateCharacterStore());
         services.AddRaidoServer().AddHub<CharacterHub>();
         return services.BuildServiceProvider();
     }
+
+    private static CharacterStore CreateCharacterStore() => new(Options.Create(new GameServerOptions
+    {
+        ClientRevision = 1,
+        ClientRevisionPatch = 0,
+        AuthenticationToken = "test",
+        Limits = { MaxConcurrentConnections = 10 }
+    }));
 
     private RaidoHubConnectionContext CreateConnection(ICharacter character)
     {

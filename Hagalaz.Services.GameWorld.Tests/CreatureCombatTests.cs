@@ -428,6 +428,85 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
+        public async Task CanSetTarget_WhenCharacterTargetWasRemoved_ReturnsFalse()
+        {
+            var store = CreateCharacterStore();
+            using var provider = new ServiceCollection()
+                .AddSingleton<ICharacterStore>(store)
+                .BuildServiceProvider();
+            _mockOwner.ServiceProvider.Returns(provider);
+            var target = Substitute.For<ICharacter>();
+            target.MasterId.Returns(14u);
+            Assert.IsTrue(await store.AddAsync(target));
+            Assert.IsTrue(_characterCombat.SetTargetReferenceForTest(target));
+
+            Assert.IsTrue(store.Remove(target));
+
+            Assert.IsFalse(_characterCombat.CanSetTarget(target));
+        }
+
+        [TestMethod]
+        public async Task CanSetTarget_WhenNpcTargetWasRemoved_ReturnsFalse()
+        {
+            var store = new NpcStore();
+            using var provider = new ServiceCollection()
+                .AddSingleton<INpcStore>(store)
+                .BuildServiceProvider();
+            _mockOwner.ServiceProvider.Returns(provider);
+            var target = Substitute.For<INpc>();
+            Assert.IsTrue(await store.AddAsync(target));
+            Assert.IsTrue(_characterCombat.SetTargetReferenceForTest(target));
+
+            Assert.IsTrue(store.Remove(target));
+
+            Assert.IsFalse(_characterCombat.CanSetTarget(target));
+        }
+
+        [TestMethod]
+        public async Task CanSetTarget_WhenCharacterSlotIsReused_DoesNotAcceptOriginalTarget()
+        {
+            var store = CreateCharacterStore();
+            using var provider = new ServiceCollection()
+                .AddSingleton<ICharacterStore>(store)
+                .BuildServiceProvider();
+            _mockOwner.ServiceProvider.Returns(provider);
+            var target = Substitute.For<ICharacter>();
+            var replacement = Substitute.For<ICharacter>();
+            target.MasterId.Returns(15u);
+            replacement.MasterId.Returns(16u);
+            Assert.IsTrue(await store.AddAsync(target));
+            Assert.IsTrue(_characterCombat.SetTargetReferenceForTest(target));
+
+            Assert.IsTrue(store.Remove(target));
+            Assert.IsTrue(await store.AddAsync(replacement));
+            Assert.AreEqual(target.Index, replacement.Index);
+
+            Assert.IsFalse(_characterCombat.CanSetTarget(target));
+            Assert.AreSame(target, _characterCombat.Target);
+        }
+
+        [TestMethod]
+        public async Task CanSetTarget_WhenNpcSlotIsReused_DoesNotAcceptOriginalTarget()
+        {
+            var store = new NpcStore();
+            using var provider = new ServiceCollection()
+                .AddSingleton<INpcStore>(store)
+                .BuildServiceProvider();
+            _mockOwner.ServiceProvider.Returns(provider);
+            var target = Substitute.For<INpc>();
+            var replacement = Substitute.For<INpc>();
+            Assert.IsTrue(await store.AddAsync(target));
+            Assert.IsTrue(_characterCombat.SetTargetReferenceForTest(target));
+
+            Assert.IsTrue(store.Remove(target));
+            Assert.IsTrue(await store.AddAsync(replacement));
+            Assert.AreEqual(target.Index, replacement.Index);
+
+            Assert.IsFalse(_characterCombat.CanSetTarget(target));
+            Assert.AreSame(target, _characterCombat.Target);
+        }
+
+        [TestMethod]
         public void Tick_ClearsLastAttackedWhenPeerNoLongerListsOwner()
         {
             _mockAttackerCombat.RecentAttackers.Returns(Array.Empty<ICreatureAttackerInfo>());
@@ -546,6 +625,11 @@ namespace Hagalaz.Services.GameWorld.Tests
         public void SetTargetForTest(ICreature? target)
         {
             Target = target;
+        }
+
+        public bool SetTargetReferenceForTest(ICreature target)
+        {
+            return TrySetTargetReference(target);
         }
 
         public void AddAttackerPublic(ICreature attacker)

@@ -126,9 +126,7 @@ namespace Hagalaz.Services.Authorization.Consumers
                     Scope = response.Scope,
                     Subject = subject,
                     AuthorizationId = authorizationId,
-                    ExpireDate = response.ExpiresIn.HasValue ?
-                                DateTimeOffset.FromUnixTimeMilliseconds(response.ExpiresIn.Value) :
-                                DateTimeOffset.UtcNow.Add(TimeSpan.FromHours(1)),
+                    ExpireDate = GetExpireDate(response),
                     TokenType = response.TokenType
                 });
                 authorizationCommitted = true;
@@ -140,6 +138,14 @@ namespace Hagalaz.Services.Authorization.Consumers
                     await CleanupAuthorizationAsync(authorization, authorizationId);
                 }
             }
+        }
+
+        private static DateTimeOffset GetExpireDate(OpenIddictResponse response)
+        {
+            var now = DateTimeOffset.UtcNow;
+            return response.ExpiresIn.HasValue
+                ? now.AddSeconds(response.ExpiresIn.Value)
+                : now.AddHours(1);
         }
 
         private async Task CleanupAuthorizationAsync(

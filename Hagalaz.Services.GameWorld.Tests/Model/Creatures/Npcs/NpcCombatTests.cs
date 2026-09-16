@@ -5,13 +5,19 @@ using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Logic.Loot;
+using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Extensions;
+using Hagalaz.Services.GameWorld.Configuration.Model;
 using Hagalaz.Services.GameWorld.Model.Creatures.Npcs;
+using Hagalaz.Services.GameWorld.Store;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 
@@ -90,5 +96,49 @@ public sealed class NpcCombatTests
 
         Assert.IsTrue(asynchronousRemoval.IsCompleted);
         await npcService.Received(1).UnregisterAsync(npc);
+    }
+
+    [TestMethod]
+    public async Task CanSetTarget_WhenCharacterTargetWasRemoved_ReturnsFalse()
+    {
+        var store = new CharacterStore(Options.Create(new GameServerOptions
+        {
+            ClientRevision = 1,
+            ClientRevisionPatch = 0,
+            AuthenticationToken = "test"
+        }));
+        using var provider = new ServiceCollection()
+            .AddSingleton<ICharacterStore>(store)
+            .BuildServiceProvider();
+        var owner = Substitute.For<INpc>();
+        owner.ServiceProvider.Returns(provider);
+        var target = Substitute.For<ICharacter>();
+        target.MasterId.Returns(17u);
+        Assert.IsTrue(await store.AddAsync(target));
+
+        var combat = new TestableNpcCombat(owner);
+        Assert.IsTrue(combat.SetTargetReferenceForTest(target));
+        Assert.IsTrue(store.Remove(target));
+
+        Assert.IsFalse(combat.CanSetTarget(target));
+    }
+
+    private sealed class TestableNpcCombat : NpcCombat
+    {
+        public TestableNpcCombat(INpc owner)
+            : base(
+                owner,
+                Substitute.For<INpcService>(),
+                Substitute.For<ILootService>(),
+                Substitute.For<ILootGenerator>(),
+                Substitute.For<IGroundItemBuilder>(),
+                Substitute.For<IProjectilePathFinder>(),
+                Substitute.For<ISmartPathFinder>(),
+                Options.Create(new CombatOptions()),
+                Substitute.For<IHitSplatBuilder>())
+        {
+        }
+
+        public bool SetTargetReferenceForTest(ICreature target) => TrySetTargetReference(target);
     }
 }

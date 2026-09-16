@@ -64,6 +64,7 @@ public sealed class SignInUserRequestConsumerTests
         var applicationManager = CreateApplicationManager();
         var authorizationManager = CreateAuthorizationManager();
         var context = CreateContext();
+        var before = DateTimeOffset.UtcNow;
 
         var consumer = new SignInUserRequestConsumer(
             mediator.Object,
@@ -74,17 +75,48 @@ public sealed class SignInUserRequestConsumerTests
             NullLogger<SignInUserRequestConsumer>.Instance);
 
         await consumer.Consume(context.Context.Object);
+        var after = DateTimeOffset.UtcNow;
 
         Assert.IsNotNull(context.Response);
         Assert.IsTrue(context.Response!.Succeeded);
         Assert.AreEqual("authorization-id", context.Response.AuthorizationId);
         Assert.AreEqual("42", context.Response.Subject);
+        Assert.IsGreaterThanOrEqualTo(before.AddHours(1), context.Response.ExpireDate!.Value);
+        Assert.IsLessThanOrEqualTo(after.AddHours(1), context.Response.ExpireDate.Value);
         openIddict.Verify(service => service.DispatchAsync(It.Is<ProcessSignInContext>(value =>
             value.Principal!.GetAuthorizationId() == "authorization-id")), Times.Once);
         authorizationManager.Verify(manager => manager.CreateAsync(
             It.Is<ClaimsPrincipal>(principal => principal.FindFirst(OpenIddictConstants.Claims.Subject)!.Value == "42"),
             "42", "application-id", OpenIddictConstants.AuthorizationTypes.AdHoc,
             It.IsAny<ImmutableArray<string>>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [TestMethod]
+    public async Task Consume_WhenExpiresInIsProvided_TreatsItAsSecondsFromSignIn()
+    {
+        var passwordGrant = CreateSuccessfulPasswordGrant();
+        var mediator = new Mock<IMediator>();
+        mediator.Setup(value => value.CreateRequestClient<PasswordGrantCommand>(default)).Returns(passwordGrant.Object);
+        var openIddict = CreateSuccessfulOpenIddictService(3600);
+        var applicationManager = CreateApplicationManager();
+        var authorizationManager = CreateAuthorizationManager();
+        var context = CreateContext();
+        var consumer = new SignInUserRequestConsumer(
+            mediator.Object,
+            openIddict.Object,
+            applicationManager.Object,
+            authorizationManager.Object,
+            CreateTokenManager().Object,
+            NullLogger<SignInUserRequestConsumer>.Instance);
+        var before = DateTimeOffset.UtcNow;
+
+        await consumer.Consume(context.Context.Object);
+
+        var after = DateTimeOffset.UtcNow;
+        Assert.IsNotNull(context.Response);
+        Assert.IsTrue(context.Response!.Succeeded);
+        Assert.IsGreaterThanOrEqualTo(before.AddSeconds(3600), context.Response.ExpireDate!.Value);
+        Assert.IsLessThanOrEqualTo(after.AddSeconds(3600), context.Response.ExpireDate.Value);
     }
 
     [TestMethod]
@@ -197,7 +229,7 @@ public sealed class SignInUserRequestConsumerTests
         return passwordGrant;
     }
 
-    private static Mock<IOpenIddictService> CreateSuccessfulOpenIddictService()
+    private static Mock<IOpenIddictService> CreateSuccessfulOpenIddictService(long? expiresIn = null)
     {
         var openIddict = new Mock<IOpenIddictService>();
         openIddict
@@ -211,6 +243,7 @@ public sealed class SignInUserRequestConsumerTests
                 context.Response.AccessToken = "new-access-token";
                 context.Response.Scope = "openid";
                 context.Response.TokenType = "Bearer";
+                context.Response.ExpiresIn = expiresIn;
             });
         return openIddict;
     }

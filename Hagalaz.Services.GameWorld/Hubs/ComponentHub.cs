@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character.Packet;
 using Hagalaz.Game.Messages.Protocol;
@@ -20,10 +21,18 @@ namespace Hagalaz.Services.GameWorld.Hubs
     {
         private readonly ICharacterService _characterService;
         private readonly INpcService _npcService;
-        public ComponentHub(ICharacterService characterService, INpcService npcService)
+        private readonly ICharacterStore _characterStore;
+        private readonly INpcStore _npcStore;
+        public ComponentHub(
+            ICharacterService characterService,
+            INpcService npcService,
+            ICharacterStore characterStore,
+            INpcStore npcStore)
         {
             _characterService = characterService;
             _npcService = npcService;
+            _characterStore = characterStore;
+            _npcStore = npcStore;
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentClickMessage))]
@@ -67,11 +76,21 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 return;
             }
+            if (!_characterStore.TryGetHandle(target, out var targetHandle))
+            {
+                return;
+            }
             character.QueueTask(new RsTask(() =>
             {
-                if (character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
+                if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
                 {
-                    @interface.OnComponentUsedOnCreature(message.ComponentId, target, message.ForceRun, message.ExtraData1, message.ExtraData2);
+                    return;
+                }
+
+                var currentTarget = _characterStore.Resolve(targetHandle);
+                if (currentTarget is not null)
+                {
+                    @interface.OnComponentUsedOnCreature(message.ComponentId, currentTarget, message.ForceRun, message.ExtraData1, message.ExtraData2);
                 }
             }, 1));
         }
@@ -85,11 +104,21 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 return;
             }
+            if (!_npcStore.TryGetHandle(target, out var targetHandle))
+            {
+                return;
+            }
             character.QueueTask(new RsTask(() =>
             {
-                if (character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
+                if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
                 {
-                    @interface.OnComponentUsedOnCreature(message.ComponentId, target, message.ForceRun, message.ExtraData1, message.ExtraData2);
+                    return;
+                }
+
+                var currentTarget = _npcStore.Resolve(targetHandle);
+                if (currentTarget is not null)
+                {
+                    @interface.OnComponentUsedOnCreature(message.ComponentId, currentTarget, message.ForceRun, message.ExtraData1, message.ExtraData2);
                 }
             }, 1));
         }

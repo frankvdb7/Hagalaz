@@ -226,8 +226,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </returns>
         public override bool SetTarget(ICreature target)
         {
-            if (!CanSetTarget(target)) return false;
-            Target = target;
+            if (!CanSetTarget(target) || !TrySetTargetReference(target)) return false;
             Owner.FaceCreature(target);
             _npc.Script.OnSetTarget(target);
             ((Npc)Owner).EventManager.SendEvent(new CreatureSetCombatTargetEvent(Owner, target));
@@ -241,6 +240,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <returns></returns>
         public override bool CanSetTarget(ICreature target)
         {
+            if (!IsTargetOwned(target)) return false;
             if (target.Combat.IsDead || IsDead) return false;
             return _npc.Script.CanSetTarget(target);
         }
@@ -268,7 +268,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         public override void CancelTarget()
         {
-            Target = null;
+            ClearTargetReference();
             Owner.ResetFacing();
             _npc.Script.OnCancelTarget();
         }
