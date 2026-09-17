@@ -1,12 +1,15 @@
 ﻿using System;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Skills.Fishing
 {
@@ -17,10 +20,16 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         /// <summary>
         ///     Construct's new firemaking task.
         /// </summary>
-        public FishingTask(ICharacter performer, Func<bool> finishCallback, double chance, INpc fishingSpot, int animId)
+        public FishingTask(
+            ICharacter performer,
+            Func<INpc, bool> finishCallback,
+            double chance,
+            EntityHandle<ICreature> fishingSpotHandle,
+            int animId)
         {
             _performer = performer;
             _finishCallback = finishCallback;
+            _entityService = performer.ServiceProvider.GetRequiredService<IEntityService>();
             TickActionMethod = PerformTickImpl;
             _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
             {
@@ -28,7 +37,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
                 return false;
             });
             _chance = chance;
-            _fishingSpot = fishingSpot;
+            _fishingSpotHandle = fishingSpotHandle;
             _animId = animId;
         }
 
@@ -40,12 +49,17 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         /// <summary>
         ///     Contains finish callback.
         /// </summary>
-        private readonly Func<bool> _finishCallback;
+        private readonly Func<INpc, bool> _finishCallback;
 
         /// <summary>
         ///     Contains performer.
         /// </summary>
         private readonly ICharacter _performer;
+
+        /// <summary>
+        /// Resolves live world entities.
+        /// </summary>
+        private readonly IEntityService _entityService;
 
         /// <summary>
         ///     The chance of getting log from the tree.
@@ -55,7 +69,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         /// <summary>
         ///     The fishing spot.
         /// </summary>
-        private readonly INpc _fishingSpot;
+        private readonly EntityHandle<ICreature> _fishingSpotHandle;
 
         /// <summary>
         ///     The fishing animation id.
@@ -68,15 +82,22 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         /// <returns></returns>
         private void PerformTickImpl()
         {
+            if (!_entityService.TryResolve(_fishingSpotHandle, out var creature)
+                || creature is not INpc fishingSpot)
+            {
+                Cancel();
+                return;
+            }
+
             // check if fishing spot has exhausted.
-            if (!_performer.Viewport.VisibleCreatures.Contains(_fishingSpot))
+            if (!_performer.Viewport.VisibleCreatures.Contains(fishingSpot))
             {
                 Cancel();
                 return;
             }
 
             // check if fishing spot has moved.
-            if (_fishingSpot.Movement.Moved || _fishingSpot.Movement.Moving)
+            if (fishingSpot.Movement.Moved || fishingSpot.Movement.Moving)
             {
                 Cancel();
                 return;
@@ -86,7 +107,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
             if (randomValue <= _chance)
             {
                 // Invoke callback. If the callback returns true, that means the task is finished.
-                if (_finishCallback())
+                if (_finishCallback(fishingSpot))
                 {
                     Cancel();
                     return;

@@ -157,6 +157,16 @@ namespace Hagalaz.Game.Scripts.Tests.Skills
             // Arrange
             var performer = Substitute.For<ICharacter>();
             var fishingSpot = Substitute.For<INpc>();
+            var entityService = Substitute.For<IEntityService>();
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            var fishingSpotHandle = new EntityHandle<ICreature>(9, 1);
+            serviceProvider.GetService(typeof(IEntityService)).Returns(entityService);
+            performer.ServiceProvider.Returns(serviceProvider);
+            entityService.TryResolve<ICreature>(fishingSpotHandle, out Arg.Any<ICreature>()).Returns(callInfo =>
+            {
+                callInfo[1] = fishingSpot;
+                return true;
+            });
             var viewport = Substitute.For<IViewport>();
             var movement = Substitute.For<IMovement>();
             performer.Viewport.Returns(viewport);
@@ -166,8 +176,9 @@ namespace Hagalaz.Game.Scripts.Tests.Skills
             var callbackCalls = 0;
             var callbackActive = false;
             var callbacksOverlapped = false;
-            bool FinishReward()
+            bool FinishReward(INpc target)
             {
+                Assert.AreSame(fishingSpot, target);
                 if (callbackActive)
                 {
                     callbacksOverlapped = true;
@@ -179,7 +190,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills
                 return false;
             }
 
-            var task = new FishingTask(performer, FinishReward, chance: 1.0, fishingSpot, animId: 1);
+            var task = new FishingTask(performer, FinishReward, chance: 1.0, fishingSpotHandle, animId: 1);
 
             // Act
             task.Tick();
