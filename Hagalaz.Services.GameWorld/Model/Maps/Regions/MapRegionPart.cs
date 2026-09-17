@@ -93,20 +93,24 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 throw new InvalidOperationException($"GameObject {gameObject} is already added to this region!");
             }
 
-            _disabledStaticGameObjects.TryGetValue(localHash, out var disabledStaticGameObject);
-            var needsAddUpdate = gameObjectOnLocation != null || disabledStaticGameObject != null;
+            var needsAddUpdate = gameObjectOnLocation != null;
             if (gameObjectOnLocation != null)
             {
-                RemovePermanently(gameObjectOnLocation);
+                Remove(gameObjectOnLocation);
             }
 
-            if (disabledStaticGameObject != null)
+            IGameObject? disabledStaticGameObject = null;
+            if (gameObject.IsStatic)
             {
-                _disabledStaticGameObjects.Remove(localHash);
-                if (!ReferenceEquals(disabledStaticGameObject, gameObject))
+                _disabledStaticGameObjects.Remove(localHash, out disabledStaticGameObject);
+                if (disabledStaticGameObject is not null)
                 {
-                    RemoveDisabledStaticGameObject(disabledStaticGameObject);
-                    disabledStaticGameObject = null;
+                    needsAddUpdate = true;
+                    if (!ReferenceEquals(disabledStaticGameObject, gameObject))
+                    {
+                        RemoveDisabledStaticGameObject(disabledStaticGameObject);
+                        disabledStaticGameObject = null;
+                    }
                 }
             }
 
@@ -423,14 +427,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public override int GetHashCode() =>
             ((Rotation & 0x3) << 1) | ((DrawRegionZ & 0x3) << 24) | ((DrawRegionPartX & 0x3ff) << 14) | ((DrawRegionPartY & 0x7ff) << 3);
-
-        private void RemovePermanently(IGameObject gameObject)
-        {
-            var localHash = gameObject.GetRegionLocalHash();
-            _gameObjects.Remove(localHash);
-            DestroyAndUnregister(gameObject);
-            QueueUpdate(new RemoveGameObjectUpdate(gameObject));
-        }
 
         private void RemoveDisabledStaticGameObject(IGameObject gameObject)
         {

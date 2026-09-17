@@ -89,6 +89,53 @@ public sealed class MapRegionEntityIdentityTests
     }
 
     [TestMethod]
+    public void StaticGameObject_ReplacedByDynamicAndRestored_PreservesStaticIdentity()
+    {
+        var fixture = CreateFixture();
+        var location = Location.Create(64, 65, 0, 0);
+        var staticGameObject = CreateGameObject(location, isStatic: true);
+        fixture.Service.AddGameObject(staticGameObject);
+        var staticHandle = staticGameObject.Handle;
+
+        var dynamicGameObject = CreateGameObject(location, isStatic: false);
+        fixture.Service.AddGameObject(dynamicGameObject);
+
+        Assert.IsTrue(staticGameObject.IsDisabled);
+        Assert.AreEqual(staticHandle, staticGameObject.Handle);
+        AssertEntityResolves(fixture.Store, staticGameObject);
+        Assert.AreNotEqual(staticHandle, dynamicGameObject.Handle);
+        AssertEntityResolves(fixture.Store, dynamicGameObject);
+
+        fixture.Service.RemoveGameObject(dynamicGameObject);
+        fixture.Service.AddGameObject(staticGameObject);
+
+        Assert.IsFalse(staticGameObject.IsDisabled);
+        Assert.AreEqual(staticHandle, staticGameObject.Handle);
+        AssertEntityResolves(fixture.Store, staticGameObject);
+
+        var region = fixture.Service.FindMapRegion(location.RegionId, location.Dimension)!;
+        region.Destroy();
+
+        Assert.IsFalse(fixture.Store.TryResolve(staticHandle, out _));
+    }
+
+    [TestMethod]
+    public void StaticGameObject_ReplacedByDifferentStatic_InvalidatesOriginalIdentity()
+    {
+        var fixture = CreateFixture();
+        var location = Location.Create(64, 65, 0, 0);
+        var original = CreateGameObject(location, isStatic: true);
+        fixture.Service.AddGameObject(original);
+        var originalHandle = original.Handle;
+
+        var replacement = CreateGameObject(location, isStatic: true);
+        fixture.Service.AddGameObject(replacement);
+
+        Assert.IsFalse(fixture.Store.TryResolve(originalHandle, out _));
+        AssertEntityResolves(fixture.Store, replacement);
+    }
+
+    [TestMethod]
     public void Destroy_UnregistersDisabledStaticGameObject()
     {
         var fixture = CreateFixture();
