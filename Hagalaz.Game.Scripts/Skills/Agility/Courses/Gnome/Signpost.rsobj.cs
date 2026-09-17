@@ -3,12 +3,14 @@ using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.GameObjects;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
 {
@@ -40,9 +42,14 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                 }
 
                 clicker.ForceRunMovementType(forceRun);
-                var task = new GameObjectReachTask(clicker, Owner, success =>
+                var targetHandle = Owner.Handle;
+                var entityService = clicker.ServiceProvider.GetRequiredService<IEntityService>();
+                var task = new GameObjectReachTask(clicker, targetHandle, success =>
                 {
-                    if (success || Owner.Location.WithinDistance(clicker.Location, 1))
+                    if (entityService.TryResolve<IGameObject>(targetHandle, out var target)
+                        && target is not null
+                        && !target.IsDisabled
+                        && (success || target.Location.WithinDistance(clicker.Location, 1)))
                     {
                         //clicker.TurnTo(-1, -1); // reset turn to
                         OnCharacterClickPerform(clicker, clickType);
