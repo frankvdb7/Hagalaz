@@ -155,7 +155,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     Character.Interrupt(this);
                     Character.ForceRunMovementType(forceRun);
                     Character.QueueTask(new CreatureReachTask(Character,
-                        target,
+                        target.Handle,
                         success =>
                         {
                             Character.Interrupt(this);

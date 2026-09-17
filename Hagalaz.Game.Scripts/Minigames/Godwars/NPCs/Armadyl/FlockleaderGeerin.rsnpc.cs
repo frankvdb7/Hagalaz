@@ -86,7 +86,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                 MaxDamage = combat.GetRangeMaxHit(target),
                 Delay = delay,
                 DamageType = DamageType.StandardRange,
-                Target = target
+                Target = target.Handle
             });
         }
 
@@ -116,7 +116,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
 
             if (CanRetaliateTo(attacker))
             {
-                Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(attacker.Handle), 1));
+                var attackerHandle = attacker.Handle;
+                Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(attackerHandle), 1));
             }
 
             return false;

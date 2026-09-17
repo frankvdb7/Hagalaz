@@ -57,7 +57,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
                 MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
                 DamageType = DamageType.StandardRange,
                 Delay = delay,
-                Target = target
+                Target = target.Handle
             });
         }
 

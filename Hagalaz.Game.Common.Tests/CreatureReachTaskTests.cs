@@ -53,7 +53,7 @@ namespace Hagalaz.Game.Common.Tests
             // Arrange
             var callbackCalled = false;
             var success = false;
-            var task = new CreatureReachTask(_reacher, _target, (result) =>
+            var task = new CreatureReachTask(_reacher, _target.Handle, (result) =>
             {
                 callbackCalled = true;
                 success = result;
@@ -75,7 +75,7 @@ namespace Hagalaz.Game.Common.Tests
         public void PerformTickImpl_WhenTargetNotReached_AddsPathToMovementQueue()
         {
             // Arrange
-            var task = new CreatureReachTask(_reacher, _target, (result) => { });
+            var task = new CreatureReachTask(_reacher, _target.Handle, (result) => { });
             var path = Substitute.For<IPath>();
             path.Successful.Returns(true);
             path.MovedNear.Returns(false);
@@ -95,7 +95,7 @@ namespace Hagalaz.Game.Common.Tests
             // Arrange
             var callbackCalled = false;
             var success = true;
-            var task = new CreatureReachTask(_reacher, _target, (result) =>
+            var task = new CreatureReachTask(_reacher, _target.Handle, (result) =>
             {
                 callbackCalled = true;
                 success = result;
@@ -119,7 +119,7 @@ namespace Hagalaz.Game.Common.Tests
             EventHappened<CreatureInterruptedEvent> handler = null;
             _reacher.RegisterEventHandler(Arg.Do<EventHappened<CreatureInterruptedEvent>>(h => handler = h));
 
-            var task = new CreatureReachTask(_reacher, _target, (result) => { });
+            var task = new CreatureReachTask(_reacher, _target.Handle, (result) => { });
 
             // Act
             handler.Invoke(new CreatureInterruptedEvent(_reacher, new object()));

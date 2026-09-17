@@ -72,7 +72,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
             var damage = combat.GetRangedDamage(victim, false);
             attacker.Combat.PerformAttack(new AttackParams
             {
-                Target = victim,
+                Target = victim.Handle,
                 DamageType = DamageType.FullRange,
                 Damage = damage,
                 MaxDamage = maxDamage,

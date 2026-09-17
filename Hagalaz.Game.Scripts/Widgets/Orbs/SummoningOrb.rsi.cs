@@ -353,7 +353,8 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
                     return false;
                 }
 
-                Owner.FamiliarScript.Familiar.QueueTask(new RsTask(() => Owner.FamiliarScript.Familiar.Combat.SetTarget(creature.Handle), 1));
+                var creatureHandle = creature.Handle;
+                Owner.FamiliarScript.Familiar.QueueTask(new RsTask(() => Owner.FamiliarScript.Familiar.Combat.SetTarget(creatureHandle), 1));
                 return true;
             });
 
@@ -370,7 +371,8 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
                     return false;
                 }
 
-                Owner.FamiliarScript.Familiar.QueueTask(new RsTask(() => Owner.FamiliarScript.Familiar.Combat.SetTarget(creature.Handle), 1));
+                var creatureHandle = creature.Handle;
+                Owner.FamiliarScript.Familiar.QueueTask(new RsTask(() => Owner.FamiliarScript.Familiar.Combat.SetTarget(creatureHandle), 1));
                 return true;
             });
 

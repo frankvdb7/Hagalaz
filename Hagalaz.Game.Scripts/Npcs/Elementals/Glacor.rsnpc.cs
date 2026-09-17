@@ -134,7 +134,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                     Damage = character.Statistics.LifePoints / 3,
                     MaxDamage = character.Statistics.LifePoints / 3,
                     DamageType = DamageType.Standard,
-                    Target = character
+                    Target = character.Handle
                 });
             }
 
@@ -408,7 +408,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                             MaxDamage = combat.GetRangeMaxHit(target),
                             DamageType = DamageType.FullRange,
                             Delay = duration,
-                            Target = target
+                            Target = target.Handle
                         });
                         break;
                     }
@@ -450,7 +450,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                             MaxDamage = combat.GetMagicMaxHit(target, 300),
                             DamageType = DamageType.FullMagic,
                             Delay = duration,
-                            Target = target
+                            Target = target.Handle
                         });
 
                         handle.RegisterResultHandler(result =>
@@ -514,7 +514,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                                         Damage = character.Statistics.LifePoints / 2,
                                         MaxDamage = character.Statistics.LifePoints / 2,
                                         DamageType = DamageType.Standard,
-                                        Target = character
+                                        Target = character.Handle
                                     });
                                 }
                             },

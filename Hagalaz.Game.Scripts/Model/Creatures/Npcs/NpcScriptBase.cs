@@ -326,7 +326,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             RenderAttack();
             Owner.Combat.PerformAttack(new AttackParams
             {
-                Target = target,
+                Target = target.Handle,
                 DamageType = DamageType.StandardMelee,
                 Damage = ((INpcCombat)Owner.Combat).GetMeleeDamage(target),
                 MaxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target)
@@ -428,7 +428,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                 if (clicker.EventManager.SendEvent(new WalkAllowEvent(clicker, Owner.Location, forceRun, false)))
                 {
                     clicker.Movement.MovementType = clicker.Movement.MovementType == MovementType.Run || forceRun ? MovementType.Run : MovementType.Walk;
-                    clicker.QueueTask(new CreatureReachTask(clicker, Owner, (success) => OnCharacterClickReached(clicker, clickType, success)));
+                    clicker.QueueTask(new CreatureReachTask(clicker, Owner.Handle, (success) => OnCharacterClickReached(clicker, clickType, success)));
                 }
             }
         }

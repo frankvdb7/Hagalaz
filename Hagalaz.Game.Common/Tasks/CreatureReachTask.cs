@@ -33,7 +33,7 @@ namespace Hagalaz.Game.Common.Tasks
         /// Contains target creature.
         /// </summary>
         private readonly EntityHandle _targetHandle;
-        private readonly IEntityService? _entityService;
+        private readonly IEntityService _entityService;
 
         /// <summary>
         /// Contains finish callback.
@@ -54,15 +54,15 @@ namespace Hagalaz.Game.Common.Tasks
         /// Constructs new creature reach task.
         /// </summary>
         /// <param name="reacher">The reacher.</param>
-        /// <param name="target">The target.</param>
+        /// <param name="target">The target handle.</param>
         /// <param name="callback">The callback.</param>
         /// <param name="conditions">The conditions.</param>
-        public CreatureReachTask(ICreature reacher, ICreature target, Action<bool> callback, params Type[] conditions)
+        public CreatureReachTask(ICreature reacher, EntityHandle target, Action<bool> callback, params Type[] conditions)
             : base(conditions)
         {
             _reacher = reacher;
-            _entityService = _reacher.ServiceProvider?.GetService<IEntityService>();
-            _targetHandle = target.Handle;
+            _entityService = _reacher.ServiceProvider.GetRequiredService<IEntityService>();
+            _targetHandle = target;
             _finishCallback = callback;
             TickActionMethod = PerformTickImpl;
             _interruptEvent = _reacher.RegisterEventHandler<CreatureInterruptedEvent>(e =>
@@ -130,11 +130,6 @@ namespace Hagalaz.Game.Common.Tasks
 
         private ICreature? ResolveTarget()
         {
-            if (_entityService is null)
-            {
-                return null;
-            }
-
             return _entityService.TryResolve<ICreature>(_targetHandle, out var creature) ? creature : null;
         }
 

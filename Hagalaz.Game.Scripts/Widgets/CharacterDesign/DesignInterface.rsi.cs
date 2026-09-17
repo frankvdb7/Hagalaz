@@ -1053,7 +1053,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterDesign
             }
 
             var task = new CreatureReachTask(Owner,
-                sss,
+                sss.Handle,
                 success =>
                 {
                     if (success)

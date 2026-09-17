@@ -73,7 +73,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Throwing
                 Damage = damage,
                 MaxDamage = maxDamage,
                 Delay = delay + 41,
-                Target = victim,
+                Target = victim.Handle,
                 DamageType = DamageType.FullRange,
             });
         }

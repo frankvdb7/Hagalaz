@@ -255,7 +255,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
                             MaxDamage = combat.GetRangeMaxHit(target),
                             Delay = delay,
                             DamageType = DamageType.StandardRange,
-                            Target = target
+                            Target = target.Handle
                         });
                         break;
                     }
@@ -294,7 +294,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
                             MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 300),
                             Delay = delay,
                             DamageType = DamageType.StandardMagic,
-                            Target = target
+                            Target = target.Handle
                         });
                         break;
                     }

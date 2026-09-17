@@ -135,7 +135,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
         {
             guard.Speak("Hey! Get your hands off there!");
             var task = new CreatureReachTask(guard,
-                _performer,
+                _performer.Handle,
                 success =>
                 {
                     if (!success)

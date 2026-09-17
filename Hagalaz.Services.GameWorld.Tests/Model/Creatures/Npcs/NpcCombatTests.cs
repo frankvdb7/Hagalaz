@@ -56,6 +56,7 @@ public sealed class NpcCombatTests
 
         var combat = new NpcCombat(
             npc,
+            Substitute.For<IEntityService>(),
             npcService,
             Substitute.For<ILootService>(),
             Substitute.For<ILootGenerator>(),
@@ -132,6 +133,7 @@ public sealed class NpcCombatTests
         public TestableNpcCombat(INpc owner)
             : base(
                 owner,
+                owner.ServiceProvider.GetRequiredService<IEntityService>(),
                 Substitute.For<INpcService>(),
                 Substitute.For<ILootService>(),
                 Substitute.For<ILootGenerator>(),

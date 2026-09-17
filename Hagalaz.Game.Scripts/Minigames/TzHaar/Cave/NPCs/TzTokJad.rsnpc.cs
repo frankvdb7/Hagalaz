@@ -99,7 +99,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
                         {
                             Damage = ((INpcCombat)Owner.Combat).GetMeleeDamage(target),
                             DamageType = DamageType.StandardMelee,
-                            Target = target,
+                            Target = target.Handle,
                             MaxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target)
                         });
                         break;
@@ -134,7 +134,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
                             MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
                             DamageType = DamageType.StandardRange,
                             Delay = delay,
-                            Target = target
+                            Target = target.Handle
                         });
 
                         handle.RegisterResultHandler(_ => { target.QueueGraphic(Graphic.Create(3000)); });
@@ -172,7 +172,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
                         {
                             Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 500),
                             DamageType = DamageType.StandardMagic,
-                            Target = target,
+                            Target = target.Handle,
                             Delay = delay,
                             MaxDamage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 500)
                         });

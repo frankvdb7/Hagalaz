@@ -78,7 +78,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                     {
                         Damage = ((INpcCombat)Owner.Combat).GetRangeDamage(target),
                         MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
-                        Target = target,
+                        Target = target.Handle,
                         DamageType = DamageType.StandardRange,
                         Delay = delay
                     });
@@ -118,7 +118,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                     {
                         Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxDamage),
                         MaxDamage = maxDamage,
-                        Target = target,
+                        Target = target.Handle,
                         DamageType = DamageType.StandardMagic,
                         Delay = delay
                     });
@@ -142,7 +142,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                         {
                             Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit),
                             MaxDamage = maxHit,
-                            Target = target,
+                            Target = target.Handle,
                             DamageType = DamageType.DragonFire,
                             Delay = 2
                         })
@@ -157,7 +157,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                     {
                         Damage = ((INpcCombat)Owner.Combat).GetMeleeDamage(target),
                         MaxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target),
-                        Target = target,
+                        Target = target.Handle,
                         DamageType = DamageType.StandardMelee,
                         Delay = 0
                     });

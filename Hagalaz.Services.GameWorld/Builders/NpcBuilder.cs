@@ -76,6 +76,7 @@ namespace Hagalaz.Services.GameWorld.Builders
                     _serviceProvider.GetRequiredService<IProjectilePathFinder>(),
                     _serviceProvider.GetRequiredService<IOptions<CombatOptions>>(),
                     _serviceProvider.GetRequiredService<IHitSplatBuilder>(),
+                    _serviceProvider.GetRequiredService<IEntityService>(),
                     npcService,
                     _serviceProvider.GetRequiredService<ILootService>(),
                     _serviceProvider.GetRequiredService<ILootGenerator>(),

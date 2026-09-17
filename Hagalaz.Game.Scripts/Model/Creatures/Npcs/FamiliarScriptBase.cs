@@ -148,7 +148,8 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
 
                 _setCombatTargetHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureSetCombatTargetEvent>((e) =>
                 {
-                    Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(e.CombatTarget.Handle), 1));
+                    var targetHandle = e.CombatTarget.Handle;
+                    Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(targetHandle), 1));
                     return false;
                 }));
 
@@ -181,7 +182,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             RenderAttack();
             Owner.Combat.PerformAttack(new AttackParams
             {
-                Target = target,
+                Target = target.Handle,
                 DamageType = DamageType.FullSummoning,
                 Damage = ((INpcCombat)Owner.Combat).GetMeleeDamage(target),
                 MaxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target),

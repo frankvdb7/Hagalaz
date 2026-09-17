@@ -97,7 +97,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                     Damage = character.Statistics.LifePoints / 3,
                     MaxDamage = character.Statistics.LifePoints / 3,
                     DamageType = DamageType.Standard,
-                    Target = character
+                    Target = character.Handle
                 });
             }
 

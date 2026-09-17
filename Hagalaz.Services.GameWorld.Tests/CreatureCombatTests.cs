@@ -4,12 +4,14 @@ using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Services.GameWorld.Configuration.Model;
 using Hagalaz.Services.GameWorld.Model.Creatures;
@@ -650,6 +652,68 @@ namespace Hagalaz.Services.GameWorld.Tests
             }
         }
 
+        [TestMethod]
+        public void PerformAttack_WhenTargetHandleIsStale_DoesNotInvokeIncomingAttack()
+        {
+            var target = EntityTestFactory.Create<ICharacter>();
+            var targetCombat = Substitute.For<ICreatureCombat>();
+            target.Combat.Returns(targetCombat);
+            _entityStore.Add(target);
+            var targetHandle = target.Handle;
+            Assert.IsTrue(_entityStore.Remove(target));
+
+            _mockOwner.QueueTask(Arg.Any<ITaskItem<AttackResult>>())
+                .Returns(Substitute.For<IRsTaskHandle<AttackResult>>());
+
+            _characterCombat.PerformAttack(new AttackParams
+            {
+                Target = targetHandle,
+                DamageType = DamageType.StandardMelee,
+                Damage = 1
+            });
+
+            targetCombat.DidNotReceiveWithAnyArgs().IncomingAttack(default!, default, default, default);
+        }
+
+        [TestMethod]
+        public void PerformAttack_WhenTargetIsRemovedBeforeDelayedExecution_DoesNotAttackReplacement()
+        {
+            var target = EntityTestFactory.Create<ICharacter>();
+            var targetCombat = Substitute.For<ICreatureCombat>();
+            target.Combat.Returns(targetCombat);
+            target.Location.Returns(Location.Create(3200, 3200));
+            targetCombat.IncomingAttack(Arg.Any<ICreature>(), Arg.Any<DamageType>(), Arg.Any<int>(), Arg.Any<int>())
+                .Returns(0);
+
+            var replacement = EntityTestFactory.Create<ICharacter>();
+            var replacementCombat = Substitute.For<ICreatureCombat>();
+            replacement.Combat.Returns(replacementCombat);
+
+            _entityStore.Add(target);
+            var targetHandle = target.Handle;
+            ITaskItem<AttackResult>? delayedTask = null;
+            target.QueueTask(Arg.Do<ITaskItem<AttackResult>>(task => delayedTask = task))
+                .Returns(callInfo => new RsTaskHandle<AttackResult>(callInfo.Arg<ITaskItem<AttackResult>>()!));
+
+            _characterCombat.PerformAttack(new AttackParams
+            {
+                Target = targetHandle,
+                DamageType = DamageType.StandardMelee,
+                Damage = 0
+            });
+
+            Assert.IsNotNull(delayedTask);
+            Assert.IsTrue(_entityStore.Remove(target));
+            _entityStore.Add(replacement);
+            Assert.AreEqual(target.Index, replacement.Index);
+
+            delayedTask!.Tick();
+
+            var soak = 0;
+            targetCombat.DidNotReceiveWithAnyArgs().Attack(default!, default, default, ref soak);
+            replacementCombat.DidNotReceiveWithAnyArgs().Attack(default!, default, default, ref soak);
+        }
+
         private static CharacterStore CreateCharacterStore() => new(Options.Create(new GameServerOptions
         {
             ClientRevision = 1,
@@ -659,6 +723,7 @@ namespace Hagalaz.Services.GameWorld.Tests
 
         private TestableCharacterCombat CreateCombat() => new(
             _mockOwner,
+            _mockOwner.ServiceProvider.GetRequiredService<IEntityService>(),
             Substitute.For<IAnimationBuilder>(),
             Substitute.For<IGraphicBuilder>(),
             Substitute.For<IProjectileBuilder>(),
@@ -678,6 +743,7 @@ namespace Hagalaz.Services.GameWorld.Tests
     {
         public TestableCharacterCombat(
             ICharacter owner,
+            IEntityService entityService,
             IAnimationBuilder animationBuilder,
             IGraphicBuilder graphicBuilder,
             IProjectileBuilder projectileBuilder,
@@ -687,7 +753,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             IProjectilePathFinder projectilePathFinder,
             ISmartPathFinder smartPathFinder,
             IOptions<CombatOptions> combatOptions)
-            : base(owner, animationBuilder, graphicBuilder, projectileBuilder, mapRegionService, groundItemBuilder,
+            : base(owner, entityService, animationBuilder, graphicBuilder, projectileBuilder, mapRegionService, groundItemBuilder,
                 hitSplatBuilder, projectilePathFinder, smartPathFinder, combatOptions)
         {
         }

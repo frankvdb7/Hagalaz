@@ -33,7 +33,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
                 Damage = damage,
                 MaxDamage = maxDamage,
                 DamageType = DamageType.FullMelee,
-                Target = victim
+                Target = victim.Handle
             });
 
             handle.RegisterResultHandler(result =>

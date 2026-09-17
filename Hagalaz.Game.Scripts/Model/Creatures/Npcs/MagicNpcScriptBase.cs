@@ -64,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             {
                 Damage = damage,
                 MaxDamage = maxDamage,
-                Target = target,
+                Target = target.Handle,
                 DamageType = DamageType.StandardMagic,
                 Delay = delay,
             });

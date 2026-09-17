@@ -190,7 +190,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     Character.Interrupt(this);
                     Character.ForceRunMovementType(forceRun);
                     var task = new CreatureReachTask(Character,
-                        target,
+                        target.Handle,
                         success =>
                         {
                             Character.Interrupt(this);

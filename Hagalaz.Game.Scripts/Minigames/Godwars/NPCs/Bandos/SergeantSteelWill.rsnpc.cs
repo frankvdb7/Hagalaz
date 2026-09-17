@@ -61,7 +61,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
                 MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 164),
                 Delay = delay,
                 DamageType = DamageType.StandardMagic,
-                Target = target,
+                Target = target.Handle,
             });
         }
 

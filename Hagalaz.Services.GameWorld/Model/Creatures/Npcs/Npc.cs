@@ -98,6 +98,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             IProjectilePathFinder projectilePathFinder,
             IOptions<CombatOptions> combatOptions,
             IHitSplatBuilder hitSplatBuilder,
+            IEntityService entityService,
             INpcService npcService,
             ILootService lootService,
             ILootGenerator lootGenerator,
@@ -117,7 +118,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             Bounds = new Bounds(definition.BoundsType, defaultLocation.Clone(), minimumLocation, maximumLocation);
             Statistics = new NpcStatistics(this, eventManager, hitSplatBuilder);
             Appearance = new NpcAppearance(this, npcService);
-            Combat = new NpcCombat(this, npcService, lootService, lootGenerator, groundItemBuilder, projectilePathFinder,
+            Combat = new NpcCombat(this, entityService, npcService, lootService, lootGenerator, groundItemBuilder, projectilePathFinder,
                 smartPathFinder, combatOptions, hitSplatBuilder);
             SpawnFaceDirection = spawnFaceDirection is DirectionFlag.None or null
                 ? DirectionHelper.GetNpcFaceDirection(definition.SpawnFaceDirection)

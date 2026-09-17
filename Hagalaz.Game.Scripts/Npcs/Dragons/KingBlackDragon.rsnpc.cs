@@ -85,7 +85,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                             Damage = mDamage,
                             MaxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target),
                             DamageType = DamageType.StandardMelee,
-                            Target = target,
+                            Target = target.Handle,
                         });
                         break;
                     }
@@ -125,7 +125,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                             Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit),
                             MaxDamage = maxHit,
                             DamageType = DamageType.DragonFire,
-                            Target = target,
+                            Target = target.Handle,
                             Delay = duration
                         });
                         result.RegisterResultHandler(attackResult =>
@@ -174,7 +174,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                             Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit),
                             MaxDamage = maxHit,
                             DamageType = DamageType.DragonFire,
-                            Target = target,
+                            Target = target.Handle,
                             Delay = duration
                         });
 
@@ -224,7 +224,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                             Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit),
                             MaxDamage = maxHit,
                             DamageType = DamageType.DragonFire,
-                            Target = target,
+                            Target = target.Handle,
                             Delay = duration
                         });
 
@@ -277,7 +277,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                             Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit),
                             MaxDamage = maxHit,
                             DamageType = DamageType.DragonFire,
-                            Target = target,
+                            Target = target.Handle,
                             Delay = duration
                         });
 

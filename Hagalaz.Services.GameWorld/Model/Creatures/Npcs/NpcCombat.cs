@@ -46,6 +46,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <param name="owner"></param>
         public NpcCombat(
             INpc owner,
+            IEntityService entityService,
             INpcService npcService,
             ILootService lootService,
             ILootGenerator lootGenerator,
@@ -54,7 +55,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             ISmartPathFinder smartPathFinder,
             IOptions<CombatOptions> combatOptions,
             IHitSplatBuilder hitSplatBuilder)
-            : base(owner, projectilePathFinder, smartPathFinder, combatOptions, hitSplatBuilder)
+            : base(owner, entityService, projectilePathFinder, smartPathFinder, combatOptions, hitSplatBuilder)
         {
             _npc = owner;
             _npcService = npcService;

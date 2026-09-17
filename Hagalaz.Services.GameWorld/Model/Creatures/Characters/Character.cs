@@ -278,6 +278,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             IDefaultCharacterScriptProvider defaultCharacterScriptProvider,
             ICharacterScriptActivator characterScriptActivator,
             IStateService stateService,
+            IEntityService entityService,
             IMapRegionService mapRegionService,
             IMapUpdateService mapUpdateService,
             IMusicService musicService,
@@ -339,7 +340,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             Statistics = new CharacterStatistics(this, combatOptions, skillOptions, hitSplatBuilder);
             Appearance = new CharacterAppearance(this, npcService, bodyDataRepository, characterNpcScriptProvider, characterNpcScriptActivator, itemPartFactory);
             Prayers = new Prayers(this, animationBuilder, graphicBuilder);
-            Combat = new CharacterCombat(this, animationBuilder, graphicBuilder, projectileBuilder, mapRegionService, groundItemBuilder, hitSplatBuilder,
+            Combat = new CharacterCombat(this, entityService, animationBuilder, graphicBuilder, projectileBuilder, mapRegionService, groundItemBuilder, hitSplatBuilder,
                 projectilePathFinder, pathFinder, combatOptions);
             Quests = new Quests(this);
             Farming = new Farming(this, farmingService, gameObjectService);

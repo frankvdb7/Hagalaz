@@ -97,7 +97,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
             {
                 Damage = ((INpcCombat)Owner.Combat).GetRangeDamage(target),
                 DamageType = DamageType.StandardRange, 
-                Target = target,
+                Target = target.Handle,
                 MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
                 Delay = delay
             });

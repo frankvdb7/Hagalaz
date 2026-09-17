@@ -142,6 +142,7 @@ public sealed class NpcBuilderTests
             .AddSingleton(Substitute.For<IMapRegionService>())
             .AddSingleton(Substitute.For<IAreaService>())
             .AddSingleton(Substitute.For<IProjectilePathFinder>())
+            .AddSingleton(Substitute.For<IEntityService>())
             .AddSingleton<IOptions<CombatOptions>>(Options.Create(new CombatOptions()))
             .AddSingleton(Substitute.For<IHitSplatBuilder>())
             .AddSingleton(npcService)

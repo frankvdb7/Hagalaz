@@ -314,6 +314,7 @@ public sealed class CharacterStatePersistenceTests
 
         var scripts = Substitute.For<IDefaultCharacterScriptProvider>();
         scripts.GetAllScripts().Returns(defaultScripts ?? Array.Empty<IDefaultCharacterScript>());
+        var entityService = Substitute.For<IEntityService>();
 
         Register(serviceProvider, taskService);
         Register(serviceProvider, Substitute.For<IScopedGameMediator>());
@@ -335,6 +336,7 @@ public sealed class CharacterStatePersistenceTests
         Register(serviceProvider, scripts);
         Register(serviceProvider, itemBuilder);
         Register<IStateService>(serviceProvider, stateService);
+        Register(serviceProvider, entityService);
 
         var character = new Character(
             serviceScope,
@@ -350,6 +352,7 @@ public sealed class CharacterStatePersistenceTests
             scripts,
             Substitute.For<ICharacterScriptActivator>(),
             stateService,
+            entityService,
             mapRegionService ?? Substitute.For<IMapRegionService>(),
             Substitute.For<IMapUpdateService>(),
             musicService ?? Substitute.For<IMusicService>(),

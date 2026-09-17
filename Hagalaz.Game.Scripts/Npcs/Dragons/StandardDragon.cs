@@ -55,7 +55,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                     Damage = damage,
                     MaxDamage = maxHit,
                     DamageType = DamageType.DragonFire,
-                    Target = target,
+                    Target = target.Handle,
                     Delay = 2
                 });
 

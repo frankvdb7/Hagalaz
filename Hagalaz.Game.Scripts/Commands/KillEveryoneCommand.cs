@@ -22,7 +22,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 {
                     args.Character.Combat.PerformAttack(new AttackParams()
                     {
-                        Damage = 1337, MaxDamage = 1337, DamageType = DamageType.StandardMagic, Target = npc
+                        Damage = 1337, MaxDamage = 1337, DamageType = DamageType.StandardMagic, Target = npc.Handle
                     });
                 });
             return Task.CompletedTask;

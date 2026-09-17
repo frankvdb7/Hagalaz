@@ -58,7 +58,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
                 MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
                 DamageType = DamageType.StandardRange,
                 Delay = delay,
-                Target = target
+                Target = target.Handle
             });
         }
 

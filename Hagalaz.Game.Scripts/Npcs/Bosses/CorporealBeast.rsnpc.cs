@@ -94,7 +94,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                         var maxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target);
                         Owner.Combat.PerformAttack(new AttackParams
                         {
-                            Target = target, Damage = damage, DamageType = DamageType.StandardMelee, MaxDamage = maxDamage
+                            Target = target.Handle, Damage = damage, DamageType = DamageType.StandardMelee, MaxDamage = maxDamage
                         });
                         break;
                     }
@@ -105,7 +105,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                         var maxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target);
                         Owner.Combat.PerformAttack(new AttackParams
                         {
-                            Target = target, Damage = damage, DamageType = DamageType.StandardMelee, MaxDamage = maxDamage
+                            Target = target.Handle, Damage = damage, DamageType = DamageType.StandardMelee, MaxDamage = maxDamage
                         });
                         break;
                     }
@@ -137,7 +137,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                             var maxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(c);
                             Owner.Combat.PerformAttack(new AttackParams
                             {
-                                Target = c,
+                                Target = c.Handle,
                                 Damage = damage,
                                 DamageType = DamageType.StandardMelee,
                                 MaxDamage = maxDamage,
@@ -186,7 +186,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                             var maxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(c, 650);
                             Owner.Combat.PerformAttack(new AttackParams
                             {
-                                Target = c,
+                                Target = c.Handle,
                                 Damage = damage,
                                 DamageType = DamageType.StandardMagic,
                                 MaxDamage = maxDamage,
@@ -237,7 +237,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                             var maxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(c, 600);
                             Owner.Combat.PerformAttack(new AttackParams
                             {
-                                Target = c,
+                                Target = c.Handle,
                                 Damage = damage,
                                 DamageType = DamageType.StandardMagic,
                                 MaxDamage = maxDamage,
@@ -284,7 +284,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                         // the normal hit
                         Owner.Combat.PerformAttack(new AttackParams
                         {
-                            Target = target, Damage = damage, DamageType = DamageType.StandardMagic, MaxDamage = maxDamage
+                            Target = target.Handle, Damage = damage, DamageType = DamageType.StandardMagic, MaxDamage = maxDamage
                         });
 
                         Owner.QueueTask(new RsTask(() =>
@@ -376,7 +376,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                                         var maxDamage2 = ((INpcCombat)Owner.Combat).GetMagicMaxHit(character, 550);
                                         Owner.Combat.PerformAttack(new AttackParams
                                         {
-                                            Target = character,
+                                            Target = character.Handle,
                                             Damage = damage2,
                                             DamageType = DamageType.StandardMagic,
                                             MaxDamage = maxDamage2,

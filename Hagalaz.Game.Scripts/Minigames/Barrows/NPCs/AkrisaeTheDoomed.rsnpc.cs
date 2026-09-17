@@ -26,7 +26,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
             var maxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 170);
             var handle = Owner.Combat.PerformAttack(new AttackParams
             {
-                Target = target,
+                Target = target.Handle,
                 DamageType = DamageType.StandardMagic,
                 Damage = damage,
                 MaxDamage = maxDamage

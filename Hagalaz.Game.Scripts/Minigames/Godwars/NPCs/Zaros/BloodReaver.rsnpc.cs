@@ -56,7 +56,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zaros
                 MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 146),
                 DamageType = DamageType.StandardMagic,
                 Delay = 30,
-                Target = target
+                Target = target.Handle
             });
 
             target.QueueGraphic(Graphic.Create(375, 30));

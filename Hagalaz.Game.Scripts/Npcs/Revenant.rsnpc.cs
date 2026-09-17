@@ -83,7 +83,7 @@ namespace Hagalaz.Game.Scripts.Npcs
                         var maxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target);
                         Owner.Combat.PerformAttack(new AttackParams()
                         {
-                            Target = target, Damage = damage, MaxDamage = maxDamage, DamageType = DamageType.StandardMelee,
+                            Target = target.Handle, Damage = damage, MaxDamage = maxDamage, DamageType = DamageType.StandardMelee,
                         });
 
                         if (RandomStatic.Generator.NextDouble() >= 0.90)
@@ -130,7 +130,7 @@ namespace Hagalaz.Game.Scripts.Npcs
                             MaxDamage = combat.GetRangeMaxHit(target),
                             Delay = delay,
                             DamageType = DamageType.StandardRange,
-                            Target = target,
+                            Target = target.Handle,
                         });
                         break;
                     }
@@ -171,7 +171,7 @@ namespace Hagalaz.Game.Scripts.Npcs
                             MaxDamage = combat.GetMagicMaxHit(target, 164),
                             Delay = delay,
                             DamageType = DamageType.StandardMagic,
-                            Target = target,
+                            Target = target.Handle,
                         });
                         break;
                     }

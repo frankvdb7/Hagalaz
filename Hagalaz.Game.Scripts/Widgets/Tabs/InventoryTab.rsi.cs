@@ -218,7 +218,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 }
 
                 Owner.ForceRunMovementType(forceRun);
-                var task = new CreatureReachTask(Owner, usedOn, success =>
+                var task = new CreatureReachTask(Owner, usedOn.Handle, success =>
                 {
                     if (success)
                     {

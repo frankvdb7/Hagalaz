@@ -25,7 +25,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
             {
                 Damage = combat.GetMeleeDamage(target),
                 DamageType = DamageType.StandardMelee,
-                Target = target,
+                Target = target.Handle,
                 MaxDamage = combat.GetMeleeMaxHit(target)
             });
 

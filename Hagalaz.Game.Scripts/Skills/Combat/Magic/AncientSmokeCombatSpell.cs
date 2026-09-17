@@ -207,7 +207,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
 
                 var handle = caster.Combat.PerformAttack(new AttackParams()
                 {
-                    Target = c,
+                    Target = c.Handle,
                     Damage = damage,
                     MaxDamage = maxDamage,
                     Delay = delay,

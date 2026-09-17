@@ -67,7 +67,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                 MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 146),
                 DamageType = DamageType.StandardMagic,
                 Delay = delay,
-                Target = target
+                Target = target.Handle
             });
         }
     }

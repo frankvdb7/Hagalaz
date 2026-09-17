@@ -13,7 +13,6 @@ using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Utilities;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures
@@ -34,7 +33,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private readonly List<ICreatureAttackerInfo> _recentAttackers = [];
 
         private readonly List<DamageContribution> _damageContributions = [];
-        private readonly IEntityService? _entityService;
+        private readonly IEntityService _entityService;
         private EntityHandle _targetHandle;
 
         private sealed class DamageContribution(EntityHandle attacker)
@@ -87,7 +86,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
         protected ICreature? ResolveCreature(EntityHandle handle)
         {
-            return _entityService is not null && _entityService.TryResolve<ICreature>(handle, out var creature)
+            return _entityService.TryResolve<ICreature>(handle, out var creature)
                 ? creature
                 : null;
         }
@@ -113,29 +112,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </value>
         public IEnumerable<ICreatureAttackerInfo> RecentAttackers => _recentAttackers.AsEnumerable();
 
-        /// <summary>
-        ///     Construct's new combat class.
-        /// </summary>
-        /// <param name="owner">Owner of this class.</param>
-        protected CreatureCombat(ICreature owner)
-            : this(
-                owner,
-                owner.ServiceProvider.GetRequiredService<IProjectilePathFinder>(),
-                owner.ServiceProvider.GetRequiredService<ISmartPathFinder>(),
-                owner.ServiceProvider.GetRequiredService<IOptions<CombatOptions>>(),
-                owner.ServiceProvider.GetRequiredService<IHitSplatBuilder>())
-        {
-        }
-
         protected CreatureCombat(
             ICreature owner,
+            IEntityService entityService,
             IProjectilePathFinder projectilePathFinder,
             ISmartPathFinder smartPathFinder,
             IOptions<CombatOptions> combatOptions,
             IHitSplatBuilder hitSplatBuilder)
         {
             Owner = owner;
-            _entityService = owner.ServiceProvider?.GetService<IEntityService>();
+            _entityService = entityService;
             DelayTick = 17;
 
             HitSplatBuilder = hitSplatBuilder;
@@ -344,8 +330,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
         public virtual IRsTaskHandle<AttackResult> PerformAttack(AttackParams attackParams)
         {
-            var targetOwner = attackParams.Target;
-            var targetHandle = targetOwner.Handle;
+            var targetHandle = attackParams.Target;
+            if (!_entityService.TryResolve<ICreature>(targetHandle, out var targetOwner))
+            {
+                return Owner.QueueTask(new RsTask<AttackResult>(() => new AttackResult
+                {
+                    Damage = (false, 0),
+                    DamageLifePoints = (false, 0)
+                }, 0));
+            }
+
             var damageType = attackParams.DamageType;
             var maxDamage = attackParams.MaxDamage;
             var requestedDamage = attackParams.Damage;
@@ -425,16 +419,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             ICreature? killer = null;
             var damage = -1;
 
-            if (_entityService is not null)
+            foreach (var contribution in _damageContributions)
             {
-                foreach (var contribution in _damageContributions)
+                if (_entityService.TryResolve<ICreature>(contribution.Attacker, out var attacker)
+                    && contribution.TotalDamage > damage)
                 {
-                    if (_entityService.TryResolve<ICreature>(contribution.Attacker, out var attacker)
-                        && contribution.TotalDamage > damage)
-                    {
-                        killer = attacker;
-                        damage = contribution.TotalDamage;
-                    }
+                    killer = attacker;
+                    damage = contribution.TotalDamage;
                 }
             }
 

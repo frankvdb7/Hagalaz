@@ -53,6 +53,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="owner">The owner.</param>
         public CharacterCombat(
             ICharacter owner,
+            IEntityService entityService,
             IAnimationBuilder animationBuilder,
             IGraphicBuilder graphicBuilder,
             IProjectileBuilder projectileBuilder,
@@ -62,7 +63,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             IProjectilePathFinder projectilePathFinder,
             ISmartPathFinder smartPathFinder,
             IOptions<CombatOptions> combatOptions)
-            : base(owner, projectilePathFinder, smartPathFinder, combatOptions, hitSplatBuilder)
+            : base(owner, entityService, projectilePathFinder, smartPathFinder, combatOptions, hitSplatBuilder)
         {
             _character = owner;
             _animationBuilder = animationBuilder;
@@ -441,7 +442,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
                 Owner.Combat.PerformAttack(new AttackParams()
                 {
-                    Target = attacker, DamageType = DamageType.Reflected, Damage = damage, Delay = delay
+                    Target = attacker.Handle, DamageType = DamageType.Reflected, Damage = damage, Delay = delay
                 });
             }
 
@@ -591,7 +592,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public override IRsTaskHandle<AttackResult> PerformAttack(AttackParams attackParams)
         {
             var handle = base.PerformAttack(attackParams);
-            PerformSoulSplit(attackParams.Target, attackParams.Damage);
+            var target = ResolveCreature(attackParams.Target);
+            if (target is not null)
+            {
+                PerformSoulSplit(target, attackParams.Damage);
+            }
+
             var damageType = attackParams.DamageType;
             handle.RegisterResultHandler(result =>
             {
@@ -682,7 +688,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     Owner.QueueAnimation(_animationBuilder.Create().WithId(GetAttackStyle() == AttackStyle.MeleeAggressive ? 423 : 422).Build());
                     PerformAttack(new AttackParams()
                     {
-                        Target = Target, Damage = GetMeleeDamage(Target, false), DamageType = DamageType.FullMelee, MaxDamage = GetMeleeMaxHit(Target, false)
+                        Target = Target.Handle, Damage = GetMeleeDamage(Target, false), DamageType = DamageType.FullMelee, MaxDamage = GetMeleeMaxHit(Target, false)
                     });
                 }
 

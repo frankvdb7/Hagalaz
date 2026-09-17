@@ -35,7 +35,7 @@ public sealed class CreatureReachTaskOwnershipTests
         var result = false;
         var reachedPath = CreateReachedPath();
         pathFinder.Find(reacher, target, true).Returns(reachedPath);
-        var task = new CreatureReachTask(reacher, target, value => result = value);
+        var task = new CreatureReachTask(reacher, target.Handle, value => result = value);
 
         task.Tick();
 
@@ -57,7 +57,7 @@ public sealed class CreatureReachTaskOwnershipTests
         var (reacher, visibleCreatures) = CreateReacher(provider);
         visibleCreatures.Add(target);
         var result = true;
-        var task = new CreatureReachTask(reacher, target, value => result = value);
+        var task = new CreatureReachTask(reacher, target.Handle, value => result = value);
 
         Assert.IsTrue(store.Remove(target));
         Assert.IsTrue(entityStore.Remove(target));
@@ -83,7 +83,7 @@ public sealed class CreatureReachTaskOwnershipTests
         var (reacher, visibleCreatures) = CreateReacher(provider);
         visibleCreatures.Add(replacement);
         var result = true;
-        var task = new CreatureReachTask(reacher, target, value => result = value);
+        var task = new CreatureReachTask(reacher, target.Handle, value => result = value);
 
         Assert.IsTrue(store.Remove(target));
         Assert.IsTrue(entityStore.Remove(target));
@@ -111,7 +111,7 @@ public sealed class CreatureReachTaskOwnershipTests
         var (reacher, visibleCreatures) = CreateReacher(provider);
         visibleCreatures.Add(target);
         var result = true;
-        var task = new CreatureReachTask(reacher, target, value => result = value);
+        var task = new CreatureReachTask(reacher, target.Handle, value => result = value);
 
         Assert.IsTrue(store.Remove(target));
         Assert.IsTrue(entityStore.Remove(target));
@@ -137,7 +137,7 @@ public sealed class CreatureReachTaskOwnershipTests
         var (reacher, visibleCreatures) = CreateReacher(provider);
         visibleCreatures.Add(replacement);
         var result = true;
-        var task = new CreatureReachTask(reacher, target, value => result = value);
+        var task = new CreatureReachTask(reacher, target.Handle, value => result = value);
 
         Assert.IsTrue(store.Remove(target));
         Assert.IsTrue(entityStore.Remove(target));

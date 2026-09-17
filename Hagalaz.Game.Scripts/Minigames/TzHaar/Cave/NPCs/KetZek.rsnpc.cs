@@ -96,7 +96,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
             
             Owner.Combat.PerformAttack(new AttackParams()
             {
-                Target = target,
+                Target = target.Handle,
                 DamageType = DamageType.StandardMagic,
                 Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 490),
                 MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 490),
