@@ -49,7 +49,8 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                clicker.QueueTask(cancellationToken => StartMiningAsync(clicker, Owner, cancellationToken));
+                var rocksHandle = Owner.Handle;
+                clicker.QueueTask(cancellationToken => StartMiningAsync(clicker, rocksHandle, cancellationToken));
                 return;
             }
 
@@ -58,9 +59,16 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
 
         private async Task StartMiningAsync(
             ICharacter character,
-            IGameObject rocks,
+            EntityHandle<IGameObject> rocksHandle,
             System.Threading.CancellationToken cancellationToken)
         {
+            var entityService = character.ServiceProvider.GetRequiredService<IEntityService>();
+            if (!entityService.TryResolve(rocksHandle, out var rocks) || rocks is null || rocks.IsDisabled)
+            {
+                return;
+            }
+
+            var rocksId = rocks.Id;
             var interrupted = false;
             var interruptEvent = character.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
@@ -70,26 +78,29 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
 
             try
             {
-                var rock = await _miningService.FindRockById(rocks.Id);
+                var rock = await _miningService.FindRockById(rocksId);
                 if (rock is null)
                 {
                     return;
                 }
 
-                var ore = await _miningService.FindOreByRockId(rocks.Id);
+                var ore = await _miningService.FindOreByRockId(rocksId);
                 if (ore is null)
                 {
                     return;
                 }
 
                 var pickaxes = await _miningService.FindAllPickaxes();
-                var lootTable = await _miningService.FindRockLootById(rocks.Id);
+                var lootTable = await _miningService.FindRockLootById(rocksId);
                 var characterCount = await _characterStore.CountAsync();
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (!interrupted)
+                if (!interrupted
+                    && entityService.TryResolve(rocksHandle, out var currentRocks)
+                    && currentRocks is not null
+                    && !currentRocks.IsDisabled)
                 {
-                    StartMining(character, rocks, ore, rock, pickaxes, lootTable, characterCount);
+                    StartMining(character, rocksHandle, ore, rock, pickaxes, lootTable, characterCount);
                 }
             }
             finally
@@ -100,16 +111,21 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
 
         private void StartMining(
             ICharacter character,
-            IGameObject rocks,
+            EntityHandle<IGameObject> rocksHandle,
             OreDto ore,
             RockDto rock,
             IReadOnlyList<PickaxeDto> pickaxes,
             ILootTable? lootTable,
             int characterCount)
         {
-            if (rocks.IsDisabled)
+            var entityService = character.ServiceProvider.GetRequiredService<IEntityService>();
+            if (!entityService.TryResolve(rocksHandle, out var rocks) || rocks is null || rocks.IsDisabled)
             {
-                character.SendChatMessage(MiningConstants.RockAlreadyMined);
+                if (rocks?.IsDisabled == true)
+                {
+                    character.SendChatMessage(MiningConstants.RockAlreadyMined);
+                }
+
                 return;
             }
 
@@ -144,7 +160,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                 harvestChance += miningBasedChance;
             }
 
-            bool Callback()
+            bool Callback(IGameObject target)
             {
                 character.Inventory.TryAddLoot(character, lootTable, out _);
                 character.SendChatMessage(MiningConstants.OreReceived);
@@ -162,21 +178,29 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                     {
                         var exhaustedRock = goBuilder.Create()
                             .WithId(rock.ExhaustRockId)
-                            .WithLocation(rocks.Location)
-                            .WithRotation(rocks.Rotation)
-                            .WithShape(rocks.ShapeType)
+                            .WithLocation(target.Location)
+                            .WithRotation(target.Rotation)
+                            .WithShape(target.ShapeType)
                             .Build();
                         character.ServiceProvider.GetRequiredService<IMapRegionService>().AddGameObject(exhaustedRock);
                     }
                     else // delete the rocks
                     {
-                        character.ServiceProvider.GetRequiredService<IMapRegionService>().RemoveGameObject(rocks);
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>().RemoveGameObject(target);
                     }
 
                     var respawnTick = (int)(ore.RespawnTime * (1.0 + characterCount * -0.00025) * 100.0);
+                    var targetHandle = target.Handle;
 
                     _taskService.Schedule(new RsTask(() =>
-                        character.ServiceProvider.GetRequiredService<IMapRegionService>().AddGameObject(rocks), respawnTick));
+                    {
+                        if (entityService.TryResolve(targetHandle, out var respawnTarget)
+                            && respawnTarget is not null
+                            && respawnTarget.IsDisabled)
+                        {
+                            character.ServiceProvider.GetRequiredService<IMapRegionService>().AddGameObject(respawnTarget);
+                        }
+                    }, respawnTick));
                     return true;
                 }
 
@@ -192,7 +216,14 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
             }
 
             // queue the mining task.
-            character.QueueTask(new MiningTask(character, Callback, harvestChance, pickaxeData, rocks));
+            if (!entityService.TryResolve(rocksHandle, out var currentRocksBeforeQueue)
+                || currentRocksBeforeQueue is null
+                || currentRocksBeforeQueue.IsDisabled)
+            {
+                return;
+            }
+
+            character.QueueTask(new MiningTask(character, Callback, harvestChance, pickaxeData, rocksHandle));
             character.QueueAnimation(Animation.Create(pickaxeData.AnimationId));
             character.SendChatMessage(MiningConstants.SwingPickaxe);
         }

@@ -47,6 +47,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
         private IGameObjectLocation _gameObjectLocation = null!;
         private IGameObjectOptional _gameObjectOptional = null!;
         private IMapRegionService _mapRegionService = null!;
+        private IEntityService _entityService = null!;
 
 
         [TestInitialize]
@@ -66,6 +67,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             _gameObjectLocation = Substitute.For<IGameObjectLocation>();
             _gameObjectOptional = Substitute.For<IGameObjectOptional>();
             _mapRegionService = Substitute.For<IMapRegionService>();
+            _entityService = Substitute.For<IEntityService>();
 
             var scopeFactory = Substitute.For<IServiceScopeFactory>();
             var scope = Substitute.For<IServiceScope>();
@@ -81,6 +83,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             _serviceProvider.GetService(typeof(IGameObjectService)).Returns(_gameObjectService);
             _serviceProvider.GetService(typeof(IGameObjectBuilder)).Returns(_gameObjectBuilder);
             _serviceProvider.GetService(typeof(IMapRegionService)).Returns(_mapRegionService);
+            _serviceProvider.GetService(typeof(IEntityService)).Returns(_entityService);
             _mapRegionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>())
                 .Returns(Substitute.For<IMapRegion>());
 
@@ -114,6 +117,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             character.Equipment.GetById(hatchet.ItemId).Returns(Substitute.For<IItem>());
 
             var tree = Substitute.For<IGameObject>();
+            ConfigureTarget(character, tree, new EntityHandle<IGameObject>(1, 1));
             tree.Id.Returns(1);
             var gameObjectDefinition = Substitute.For<IGameObjectDefinition>();
             tree.Definition.Returns(gameObjectDefinition);
@@ -124,7 +128,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             _woodcuttingService.FindTreeById(tree.Id).Returns(Task.FromResult<TreeDto?>(treeDto));
 
             // Act
-            await _woodcuttingSkillService.StartCuttingAsync(character, tree);
+            await _woodcuttingSkillService.StartCuttingAsync(character, tree.Handle);
 
             // Assert
             character.Received().SendChatMessage(GameStrings.InventoryFull, Arg.Any<ChatMessageType>(), null);
@@ -136,6 +140,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
         {
             var character = Substitute.For<ICharacter>();
             var tree = Substitute.For<IGameObject>();
+            ConfigureTarget(character, tree, new EntityHandle<IGameObject>(2, 1));
             tree.Id.Returns(1);
             var logsCompletion = new TaskCompletionSource<LogDto?>(TaskCreationOptions.RunContinuationsAsynchronously);
             _woodcuttingService.FindLogByTreeId(tree.Id).Returns(logsCompletion.Task);
@@ -145,7 +150,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
                     Arg.Do<EventHappened<CreatureInterruptedEvent>>(handler => interruptHandler = handler))
                 .Returns(Substitute.For<EventHappened>());
 
-            var startup = _woodcuttingSkillService.StartCuttingAsync(character, tree);
+            var startup = _woodcuttingSkillService.StartCuttingAsync(character, tree.Handle);
             Assert.IsNotNull(interruptHandler);
             interruptHandler!(new CreatureInterruptedEvent(character, new object()));
             logsCompletion.SetResult(new LogDto
@@ -161,6 +166,52 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             await startup;
             character.DidNotReceive().QueueTask(Arg.Any<WoodcuttingTask>());
             character.Received().UnregisterEventHandler<CreatureInterruptedEvent>(Arg.Any<EventHappened>());
+        }
+
+        [TestMethod]
+        public async Task StartCuttingAsync_WhenTreeIsReplacedDuringSetup_DoesNotQueueCuttingTask()
+        {
+            var character = Substitute.For<ICharacter>();
+            var tree = Substitute.For<IGameObject>();
+            ConfigureTarget(character, tree, new EntityHandle<IGameObject>(4, 1));
+            tree.Id.Returns(1);
+            var definition = Substitute.For<IGameObjectDefinition>();
+            tree.Definition.Returns(definition);
+
+            var logsCompletion = new TaskCompletionSource<LogDto?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _woodcuttingService.FindLogByTreeId(tree.Id).Returns(logsCompletion.Task);
+            _woodcuttingService.FindTreeById(tree.Id).Returns(Task.FromResult<TreeDto?>(new TreeDto { Id = 1, StumpId = 0 }));
+            _woodcuttingService.FindAllHatchets().Returns(Task.FromResult<IReadOnlyList<HatchetDto>>([]));
+            _lootService.FindGameObjectLootTable(Arg.Any<int>()).Returns(Task.FromResult<ILootTable?>(null));
+
+            var targetIsLive = true;
+            _entityService.TryResolve<IGameObject>(tree.Handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
+            {
+                if (!targetIsLive)
+                {
+                    callInfo[1] = null;
+                    return false;
+                }
+
+                callInfo[1] = tree;
+                return true;
+            });
+
+            var startup = _woodcuttingSkillService.StartCuttingAsync(character, tree.Handle);
+            targetIsLive = false;
+            logsCompletion.SetResult(new LogDto
+            {
+                ItemID = 2,
+                RequiredLevel = 1,
+                RespawnTime = 1,
+                FallChance = 0.1,
+                BaseHarvestChance = 0.1,
+                WoodcuttingExperience = 10,
+            });
+
+            await startup;
+
+            character.DidNotReceive().QueueTask(Arg.Any<WoodcuttingTask>());
         }
 
         [TestMethod]
@@ -186,6 +237,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             character.Equipment.GetById(hatchet.ItemId).Returns(Substitute.For<IItem>());
 
             var tree = Substitute.For<IGameObject>();
+            ConfigureTarget(character, tree, new EntityHandle<IGameObject>(3, 1));
             tree.Id.Returns(1);
             var log = new LogDto { ItemID = 2, RequiredLevel = 1, RespawnTime = 1, FallChance = 1.0, BaseHarvestChance = 1.0, WoodcuttingExperience = 10 };
             _woodcuttingService.FindLogByTreeId(tree.Id).Returns(Task.FromResult<LogDto?>(log));
@@ -206,7 +258,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             });
 
             // Act
-            await _woodcuttingSkillService.StartCuttingAsync(character, tree);
+            await _woodcuttingSkillService.StartCuttingAsync(character, tree.Handle);
 
             Assert.IsNotNull(woodcuttingTask);
             await _lootService.Received(1).FindGameObjectLootTable(gameObjectDefinition.LootTableId);
@@ -214,7 +266,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
 
             // Invoke the callback directly
             _characterStore.ClearReceivedCalls();
-            woodcuttingTask._finishCallback();
+            woodcuttingTask._finishCallback(tree);
 
             await _lootService.Received(1).FindGameObjectLootTable(gameObjectDefinition.LootTableId);
             await _characterStore.DidNotReceive().CountAsync();
@@ -222,6 +274,83 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             // Assert
             character.DidNotReceive().SendChatMessage(WoodcuttingSkillService.LogsReceived, Arg.Any<ChatMessageType>(), null);
             character.Statistics.DidNotReceive().AddExperience(StatisticsConstants.Woodcutting, Arg.Any<double>());
+        }
+
+        [TestMethod]
+        public async Task Cut_WhenTargetBecomesStaleBeforeRespawn_DoesNotReaddIt()
+        {
+            var character = Substitute.For<ICharacter>();
+            character.ServiceProvider.Returns(_serviceProvider);
+            character.Statistics.GetSkillLevel(Arg.Any<int>()).Returns(99);
+
+            var inventory = Substitute.For<IInventoryContainer>();
+            inventory.FreeSlots.Returns(1);
+            character.Inventory.Returns(inventory);
+            _lootGenerator.GenerateLoot<ILootItem>(Arg.Any<CharacterLootParams>()).Returns([]);
+
+            var hatchet = new HatchetDto
+            {
+                ItemId = 1,
+                RequiredLevel = 1,
+                Type = HatchetType.Bronze,
+                ChopAnimationId = 1,
+                CanoeAnimationId = 1,
+                BaseHarvestChance = 0.1,
+            };
+            _woodcuttingService.FindAllHatchets().Returns(Task.FromResult<IReadOnlyList<HatchetDto>>([hatchet]));
+            character.Equipment.GetById(hatchet.ItemId).Returns(Substitute.For<IItem>());
+
+            var tree = Substitute.For<IGameObject>();
+            ConfigureTarget(character, tree, new EntityHandle<IGameObject>(5, 1));
+            tree.Id.Returns(1);
+            tree.Location.Returns(Substitute.For<ILocation>());
+            tree.Rotation.Returns(0);
+            tree.ShapeType.Returns(ShapeType.GroundDefault);
+            var definition = Substitute.For<IGameObjectDefinition>();
+            definition.LootTableId.Returns(1);
+            tree.Definition.Returns(definition);
+
+            var log = new LogDto
+            {
+                ItemID = 2,
+                RequiredLevel = 1,
+                RespawnTime = 0,
+                FallChance = 1.0,
+                BaseHarvestChance = 1.0,
+                WoodcuttingExperience = 10,
+            };
+            _woodcuttingService.FindLogByTreeId(tree.Id).Returns(Task.FromResult<LogDto?>(log));
+            _woodcuttingService.FindTreeById(tree.Id).Returns(Task.FromResult<TreeDto?>(new TreeDto { Id = 1, StumpId = 0 }));
+            var lootTable = Substitute.For<ILootTable>();
+            _lootService.FindGameObjectLootTable(definition.LootTableId).Returns(Task.FromResult<ILootTable?>(lootTable));
+            _characterStore.CountAsync().Returns(ValueTask.FromResult(0));
+
+            ITaskItem? scheduled = null;
+            _rsTaskService.Schedule(Arg.Do<ITaskItem>(task => scheduled = task));
+            WoodcuttingTask? woodcuttingTask = null;
+            character.When(x => x.QueueTask(Arg.Any<WoodcuttingTask>())).Do(callInfo => woodcuttingTask = callInfo.Arg<WoodcuttingTask>());
+
+            await _woodcuttingSkillService.StartCuttingAsync(character, tree.Handle);
+            Assert.IsNotNull(woodcuttingTask);
+
+            woodcuttingTask!._finishCallback(tree);
+            Assert.IsNotNull(scheduled);
+
+            _entityService.TryResolve<IGameObject>(tree.Handle, out Arg.Any<IGameObject>()).Returns(false);
+            scheduled!.Tick();
+
+            _mapRegionService.DidNotReceive().AddGameObject(Arg.Any<IGameObject>());
+        }
+
+        private void ConfigureTarget(ICharacter character, IGameObject target, EntityHandle<IGameObject> handle)
+        {
+            character.ServiceProvider.Returns(_serviceProvider);
+            target.Handle.Returns(handle);
+            _entityService.TryResolve<IGameObject>(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
+            {
+                callInfo[1] = target;
+                return true;
+            });
         }
     }
 }

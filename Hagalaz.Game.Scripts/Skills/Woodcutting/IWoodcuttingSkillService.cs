@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 
@@ -8,7 +9,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
     {
         Task StartCuttingAsync(
             ICharacter character,
-            IGameObject tree,
+            EntityHandle<IGameObject> treeHandle,
             System.Threading.CancellationToken cancellationToken = default);
     }
 }

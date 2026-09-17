@@ -11,6 +11,7 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 using Hagalaz.Game.Scripts.Skills.Runecrafting;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Skills.Mining
 {
@@ -48,7 +49,8 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
             if (clickType == GameObjectClickType.Option1Click)
             {
                 const double mineChance = 0.75;
-                clicker.QueueTask(cancellationToken => StartRuneEssenceMiningAsync(clicker, Owner, mineChance, _expAmount, cancellationToken));
+                var rocksHandle = Owner.Handle;
+                clicker.QueueTask(cancellationToken => StartRuneEssenceMiningAsync(clicker, rocksHandle, mineChance, _expAmount, cancellationToken));
             }
             else if (clickType == GameObjectClickType.Option6Click)
             {
@@ -58,22 +60,27 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
 
         private async Task StartRuneEssenceMiningAsync(
             ICharacter character,
-            IGameObject rocks,
+            EntityHandle<IGameObject> rocksHandle,
             double mineChance,
             double expReceived,
             System.Threading.CancellationToken cancellationToken)
         {
             var pickaxes = await _miningService.FindAllPickaxes();
             cancellationToken.ThrowIfCancellationRequested();
-            BeginRuneEssenceMining(character, rocks, pickaxes, mineChance, expReceived);
+            var entityService = character.ServiceProvider.GetRequiredService<IEntityService>();
+            if (entityService.TryResolve(rocksHandle, out var rocks) && rocks is not null && !rocks.IsDisabled)
+            {
+                BeginRuneEssenceMining(character, rocksHandle, pickaxes, mineChance, expReceived, entityService);
+            }
         }
 
         private void BeginRuneEssenceMining(
             ICharacter character,
-            IGameObject rocks,
+            EntityHandle<IGameObject> rocksHandle,
             IReadOnlyList<PickaxeDto> pickaxes,
             double mineChance,
-            double expReceived)
+            double expReceived,
+            IEntityService entityService)
         {
             var ore = _itemBuilder.Create()
                 .WithId(character.Statistics.GetSkillLevel(StatisticsConstants.Mining) >= 30
@@ -96,7 +103,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                 return;
             }
 
-            bool Callback()
+            bool Callback(IGameObject target)
             {
                 if (!character.Inventory.Add(ore))
                 {
@@ -118,7 +125,14 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
             }
 
             // queue the mining task.
-            character.QueueTask(new MiningTask(character, Callback, mineChance, pickaxeData, rocks));
+            if (!entityService.TryResolve(rocksHandle, out var currentRocksBeforeQueue)
+                || currentRocksBeforeQueue is null
+                || currentRocksBeforeQueue.IsDisabled)
+            {
+                return;
+            }
+
+            character.QueueTask(new MiningTask(character, Callback, mineChance, pickaxeData, rocksHandle));
             character.QueueAnimation(Animation.Create(pickaxeData.AnimationId));
             character.SendChatMessage(MiningConstants.SwingPickaxe);
         }
