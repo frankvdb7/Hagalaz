@@ -1,11 +1,13 @@
-using Hagalaz.Game.Abstractions.Model;
-
 namespace Hagalaz.Services.GameWorld.Store;
 
 /// <summary>
 /// Allows the entity store to assign an identity without exposing mutation to gameplay code.
 /// </summary>
-internal interface IEntityIdentity : IEntity
+internal interface IEntityIdentity
 {
-    new EntityHandle Handle { get; set; }
+    int HandleSlot { get; }
+
+    uint HandleGeneration { get; }
+
+    void SetHandle(int slot, uint generation);
 }

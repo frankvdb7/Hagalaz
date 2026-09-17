@@ -16,7 +16,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// <summary>
         /// Specifies the identity of the target of an attack operation.
         /// </summary>
-        public required EntityHandle Target { get; init; }
+        public required EntityHandle<ICreature> Target { get; init; }
         /// <summary>
         /// Indicates the type of damage associated with an attack. This property defines the category
         /// of the inflicted damage, which determines how the attack is processed and mitigated

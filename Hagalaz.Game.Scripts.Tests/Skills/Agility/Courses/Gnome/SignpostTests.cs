@@ -19,7 +19,7 @@ public sealed class SignpostTests
     public void OnCharacterClick_DisabledTargetDoesNotUseNearbyFallback()
     {
         var target = Substitute.For<IGameObject>();
-        var targetHandle = new EntityHandle(31, 8);
+        var targetHandle = new EntityHandle<IGameObject>(31, 8);
         target.Handle.Returns(targetHandle);
         target.IsDisabled.Returns(true);
         target.Location.Returns(new Location(2480, 3418, 0, 0));

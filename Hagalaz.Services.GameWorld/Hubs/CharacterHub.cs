@@ -53,10 +53,11 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
-                if (_entityService.TryResolve<ICharacter>(targetHandle, out var currentTarget)
-                    && character.Viewport.VisibleCreatures.Contains(currentTarget))
+                if (_entityService.TryResolve<ICreature>(targetHandle, out var currentTarget)
+                    && currentTarget is ICharacter currentCharacter
+                    && character.Viewport.VisibleCreatures.Contains(currentCharacter))
                 {
-                    character.OnCharacterClicked(message.ClickType, message.ForceRun, currentTarget!);
+                    character.OnCharacterClicked(message.ClickType, message.ForceRun, currentCharacter);
                 }
             }, 1));
         }

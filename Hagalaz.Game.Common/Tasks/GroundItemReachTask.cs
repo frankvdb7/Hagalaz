@@ -32,7 +32,7 @@ namespace Hagalaz.Game.Common.Tasks
         /// <summary>
         /// Contains target ground item handle.
         /// </summary>
-        private readonly EntityHandle _targetHandle;
+        private readonly EntityHandle<IGroundItem> _targetHandle;
         private readonly IEntityService _entityService;
 
         /// <summary>
@@ -57,7 +57,7 @@ namespace Hagalaz.Game.Common.Tasks
         /// <param name="target">The target handle.</param>
         /// <param name="callback">The callback.</param>
         /// <param name="conditions">The conditions.</param>
-        public GroundItemReachTask(ICreature reacher, EntityHandle target, Action<bool> callback, params Type[] conditions)
+        public GroundItemReachTask(ICreature reacher, EntityHandle<IGroundItem> target, Action<bool> callback, params Type[] conditions)
             : base(conditions)
         {
             _reacher = reacher;

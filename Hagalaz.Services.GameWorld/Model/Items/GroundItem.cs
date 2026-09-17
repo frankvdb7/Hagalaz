@@ -9,15 +9,13 @@ namespace Hagalaz.Services.GameWorld.Model.Items
 {
     public class GroundItem : IGroundItem, IEntityIdentity
     {
-        private EntityHandle _handle;
+        private EntityHandle<IGroundItem> _handle;
 
-        public EntityHandle Handle => _handle;
+        public EntityHandle<IGroundItem> Handle => _handle;
 
-        EntityHandle IEntityIdentity.Handle
-        {
-            get => _handle;
-            set => _handle = value;
-        }
+        int IEntityIdentity.HandleSlot => _handle.Slot;
+        uint IEntityIdentity.HandleGeneration => _handle.Generation;
+        void IEntityIdentity.SetHandle(int slot, uint generation) => _handle = new EntityHandle<IGroundItem>(slot, generation);
 
         public IItem ItemOnGround { get; }
         public ILocation Location { get; }

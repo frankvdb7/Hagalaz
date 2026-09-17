@@ -167,7 +167,7 @@ namespace Hagalaz.Game.Scripts.Model.GameObjects
             }
         }
 
-        private bool IsActiveTarget(ICharacter clicker, EntityHandle targetHandle) =>
+        private bool IsActiveTarget(ICharacter clicker, EntityHandle<IGameObject> targetHandle) =>
             clicker.ServiceProvider.GetRequiredService<IEntityService>().TryResolve<IGameObject>(targetHandle, out var target)
             && target is not null
             && !target.IsDisabled

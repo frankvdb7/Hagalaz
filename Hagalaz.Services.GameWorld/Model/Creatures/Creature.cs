@@ -26,7 +26,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 {
     public abstract class Creature : ICreature, IEntityIdentity
     {
-        private EntityHandle _handle;
+        private EntityHandle<ICreature> _handle;
         private readonly ICreatureTaskService _taskService = default!;
         private readonly CancellationTokenSource _taskCancellation = new();
         private readonly List<IHitSplat> _renderedHitSplats = new(sbyte.MaxValue);
@@ -43,13 +43,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <value>The index.</value>
         public int Index { get; set; }
 
-        public EntityHandle Handle => _handle;
+        public EntityHandle<ICreature> Handle => _handle;
 
-        EntityHandle IEntityIdentity.Handle
-        {
-            get => _handle;
-            set => _handle = value;
-        }
+        int IEntityIdentity.HandleSlot => _handle.Slot;
+        uint IEntityIdentity.HandleGeneration => _handle.Generation;
+        void IEntityIdentity.SetHandle(int slot, uint generation) => _handle = new EntityHandle<ICreature>(slot, generation);
 
         /// <summary>
         ///     Gets the name of the creature.

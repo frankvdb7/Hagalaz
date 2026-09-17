@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services;
@@ -82,9 +83,10 @@ namespace Hagalaz.Services.GameWorld.Hubs
                     return;
                 }
 
-                if (_entityService.TryResolve<ICharacter>(targetHandle, out var currentTarget))
+                if (_entityService.TryResolve<ICreature>(targetHandle, out var currentTarget)
+                    && currentTarget is not null)
                 {
-                    @interface.OnComponentUsedOnCreature(message.ComponentId, currentTarget!, message.ForceRun, message.ExtraData1, message.ExtraData2);
+                    @interface.OnComponentUsedOnCreature(message.ComponentId, currentTarget, message.ForceRun, message.ExtraData1, message.ExtraData2);
                 }
             }, 1));
         }
@@ -106,9 +108,10 @@ namespace Hagalaz.Services.GameWorld.Hubs
                     return;
                 }
 
-                if (_entityService.TryResolve<INpc>(targetHandle, out var currentTarget))
+                if (_entityService.TryResolve<ICreature>(targetHandle, out var currentTarget)
+                    && currentTarget is not null)
                 {
-                    @interface.OnComponentUsedOnCreature(message.ComponentId, currentTarget!, message.ForceRun, message.ExtraData1, message.ExtraData2);
+                    @interface.OnComponentUsedOnCreature(message.ComponentId, currentTarget, message.ForceRun, message.ExtraData1, message.ExtraData2);
                 }
             }, 1));
         }

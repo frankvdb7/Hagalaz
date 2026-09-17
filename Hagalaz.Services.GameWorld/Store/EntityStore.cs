@@ -12,7 +12,8 @@ public sealed class EntityStore : IEntityStore
     private readonly List<uint> _generations = [0];
     private readonly Stack<int> _freeSlots = [];
 
-    public EntityHandle Add(IEntity entity)
+    public EntityHandle<TEntity> Add<TEntity>(IEntity<TEntity> entity)
+        where TEntity : class, IEntity
     {
         ArgumentNullException.ThrowIfNull(entity);
 
@@ -23,11 +24,12 @@ public sealed class EntityStore : IEntityStore
 
         lock (_gate)
         {
-            if (entity.Handle != default
-                && TryResolve(entity.Handle, out var current)
+            if (identity.HandleSlot > 0
+                && identity.HandleGeneration != 0
+                && TryResolve(identity.HandleSlot, identity.HandleGeneration, out var current)
                 && ReferenceEquals(current, entity))
             {
-                return entity.Handle;
+                return new EntityHandle<TEntity>(identity.HandleSlot, identity.HandleGeneration);
             }
 
             var slot = _freeSlots.Count > 0 ? _freeSlots.Pop() : _entities.Count;
@@ -37,52 +39,66 @@ public sealed class EntityStore : IEntityStore
                 _generations.Add(1);
             }
 
-            var handle = new EntityHandle(slot, _generations[slot]);
-            identity.Handle = handle;
+            var generation = _generations[slot];
+            identity.SetHandle(slot, generation);
             _entities[slot] = entity;
-            return handle;
+            return new EntityHandle<TEntity>(slot, generation);
         }
     }
 
-    public bool Remove(IEntity entity)
+    public bool Remove<TEntity>(IEntity<TEntity> entity)
+        where TEntity : class, IEntity
     {
         ArgumentNullException.ThrowIfNull(entity);
 
         lock (_gate)
         {
-            var handle = entity.Handle;
-            if (handle.Slot <= 0
-                || handle.Slot >= _entities.Count
-                || handle.Generation == 0
-                || _generations[handle.Slot] != handle.Generation
-                || !ReferenceEquals(_entities[handle.Slot], entity))
+            if (entity is not IEntityIdentity identity
+                || identity.HandleSlot <= 0
+                || identity.HandleSlot >= _entities.Count
+                || identity.HandleGeneration == 0
+                || _generations[identity.HandleSlot] != identity.HandleGeneration
+                || !ReferenceEquals(_entities[identity.HandleSlot], entity))
             {
                 return false;
             }
 
-            _entities[handle.Slot] = null;
-            _generations[handle.Slot] = NextGeneration(_generations[handle.Slot]);
-            _freeSlots.Push(handle.Slot);
+            _entities[identity.HandleSlot] = null;
+            _generations[identity.HandleSlot] = NextGeneration(_generations[identity.HandleSlot]);
+            _freeSlots.Push(identity.HandleSlot);
             return true;
         }
     }
 
-    public bool TryResolve(EntityHandle handle, out IEntity? entity)
+    public bool TryResolve<TEntity>(EntityHandle<TEntity> handle, out TEntity? entity)
+        where TEntity : class, IEntity
     {
         lock (_gate)
         {
-            if (handle.Slot <= 0
-                || handle.Slot >= _entities.Count
-                || handle.Generation == 0
-                || _generations[handle.Slot] != handle.Generation)
+            if (!TryResolve(handle.Slot, handle.Generation, out var resolved))
             {
                 entity = null;
                 return false;
             }
 
-            entity = _entities[handle.Slot];
-            return entity is not null;
+            entity = (TEntity)resolved!;
+            return true;
         }
+    }
+
+    private bool TryResolve(int slot, uint generation, out IEntity? entity)
+    {
+        if (slot <= 0
+            || slot >= _entities.Count
+            || generation == 0
+            || _generations[slot] != generation)
+        {
+            entity = null;
+            return false;
+        }
+
+        entity = _entities[slot];
+        return entity is not null;
     }
 
     private static uint NextGeneration(uint generation) =>

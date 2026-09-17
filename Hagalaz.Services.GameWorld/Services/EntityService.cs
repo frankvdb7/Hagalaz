@@ -6,15 +6,6 @@ namespace Hagalaz.Services.GameWorld.Services;
 
 public sealed class EntityService(IEntityStore entityStore) : IEntityService
 {
-    public bool TryResolve<T>(EntityHandle handle, out T? entity) where T : class, IEntity
-    {
-        if (entityStore.TryResolve(handle, out var resolved) && resolved is T typed)
-        {
-            entity = typed;
-            return true;
-        }
-
-        entity = null;
-        return false;
-    }
+    public bool TryResolve<TEntity>(EntityHandle<TEntity> handle, out TEntity? entity)
+        where TEntity : class, IEntity => entityStore.TryResolve(handle, out entity);
 }

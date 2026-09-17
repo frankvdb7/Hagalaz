@@ -18,7 +18,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
     /// <summary>
     ///     Represents a single creature inside the game world, such as a player or an NPC.
     /// </summary>
-    public interface ICreature : IEntity
+    public interface ICreature : IEntity<ICreature>
     {
         /// <summary>
         /// Gets or sets the unique server-side index of the creature.

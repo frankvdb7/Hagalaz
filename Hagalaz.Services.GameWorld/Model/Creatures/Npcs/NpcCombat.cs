@@ -227,7 +227,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <returns>
         /// If creature target was set sucessfully.
         /// </returns>
-        public override bool SetTarget(EntityHandle targetHandle)
+        public override bool SetTarget(EntityHandle<ICreature> targetHandle)
         {
             var target = ResolveCreature(targetHandle);
             if (target is null || !CanSetResolvedTarget(target)) return false;
@@ -243,7 +243,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         /// <param name="target">The target.</param>
         /// <returns></returns>
-        public override bool CanSetTarget(EntityHandle targetHandle)
+        public override bool CanSetTarget(EntityHandle<ICreature> targetHandle)
         {
             var target = ResolveCreature(targetHandle);
             return target is not null && CanSetResolvedTarget(target);

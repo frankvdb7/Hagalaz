@@ -34,7 +34,7 @@ namespace Hagalaz.Game.Common.Tests
             var pathFinderProvider = Substitute.For<IPathFinderProvider>();
             pathFinderProvider.Smart.Returns(_pathFinder);
             var entityService = Substitute.For<IEntityService>();
-            var handle = new EntityHandle(1, 1);
+            var handle = new EntityHandle<ICreature>(1, 1);
             _target.Handle.Returns(handle);
             entityService.TryResolve<ICreature>(handle, out Arg.Any<ICreature>()).Returns(callInfo =>
             {

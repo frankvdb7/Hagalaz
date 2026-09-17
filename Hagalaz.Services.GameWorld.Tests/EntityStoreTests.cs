@@ -45,15 +45,14 @@ public sealed class EntityStoreTests
     }
 
     [TestMethod]
-    public void EntityService_RejectsWrongResolvedType()
+    public void EntityService_ResolvesTheHandleCategory()
     {
         var store = new EntityStore();
         var service = new EntityService(store);
         var npc = EntityTestFactory.Create<INpc>();
         var handle = store.Add(npc);
 
-        Assert.IsFalse(service.TryResolve<ICharacter>(handle, out _));
-        Assert.IsTrue(service.TryResolve<INpc>(handle, out var resolved));
+        Assert.IsTrue(service.TryResolve(handle, out var resolved));
         Assert.AreSame(npc, resolved);
     }
 

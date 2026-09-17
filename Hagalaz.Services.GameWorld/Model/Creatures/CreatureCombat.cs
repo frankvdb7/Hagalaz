@@ -34,11 +34,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
         private readonly List<DamageContribution> _damageContributions = [];
         private readonly IEntityService _entityService;
-        private EntityHandle _targetHandle;
+        private EntityHandle<ICreature> _targetHandle;
 
-        private sealed class DamageContribution(EntityHandle attacker)
+        private sealed class DamageContribution(EntityHandle<ICreature> attacker)
         {
-            public EntityHandle Attacker { get; } = attacker;
+            public EntityHandle<ICreature> Attacker { get; } = attacker;
             public int TotalDamage { get; set; }
             public int LastAttackTick { get; set; }
         }
@@ -77,14 +77,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <value>The target.</value>
         public ICreature? Target => ResolveTarget();
 
-        protected void SetTargetHandle(EntityHandle targetHandle) => _targetHandle = targetHandle;
+        protected void SetTargetHandle(EntityHandle<ICreature> targetHandle) => _targetHandle = targetHandle;
 
         private ICreature? ResolveTarget()
         {
             return ResolveCreature(_targetHandle);
         }
 
-        protected ICreature? ResolveCreature(EntityHandle handle)
+        protected ICreature? ResolveCreature(EntityHandle<ICreature> handle)
         {
             return _entityService.TryResolve<ICreature>(handle, out var creature)
                 ? creature
@@ -183,14 +183,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         /// <param name="target">Creature which should be attacked.</param>
         /// <returns>If creature target was set sucessfully.</returns>
-        public abstract bool SetTarget(EntityHandle target);
+        public abstract bool SetTarget(EntityHandle<ICreature> target);
 
         /// <summary>
         ///     Determines whether this instance [can set target] the specified target.
         /// </summary>
         /// <param name="target">The target.</param>
         /// <returns><c>true</c> if this instance [can set target] the specified target; otherwise, <c>false</c>.</returns>
-        public abstract bool CanSetTarget(EntityHandle target);
+        public abstract bool CanSetTarget(EntityHandle<ICreature> target);
 
         /// <summary>
         ///     Get's called after attack was performed to specific target.

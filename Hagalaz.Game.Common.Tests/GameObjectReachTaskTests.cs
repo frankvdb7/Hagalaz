@@ -18,7 +18,7 @@ public sealed class GameObjectReachTaskTests
     public void GameObjectReachTask_TargetRemovedBeforeTick_Fails()
     {
         var (reacher, entityService, pathFinder) = CreateFixture();
-        var target = CreateTarget(new EntityHandle(12, 4));
+        var target = CreateTarget(new EntityHandle<IGameObject>(12, 4));
         var isRegistered = true;
         entityService.TryResolve<IGameObject>(target.Handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
         {
@@ -46,7 +46,7 @@ public sealed class GameObjectReachTaskTests
     public void GameObjectReachTask_DisabledStaticTarget_Fails()
     {
         var (reacher, entityService, pathFinder) = CreateFixture();
-        var target = CreateTarget(new EntityHandle(13, 5));
+        var target = CreateTarget(new EntityHandle<IGameObject>(13, 5));
         target.IsDisabled.Returns(true);
         entityService.TryResolve<IGameObject>(target.Handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
         {
@@ -70,8 +70,8 @@ public sealed class GameObjectReachTaskTests
     public void GameObjectReachTask_StaleHandleDoesNotRetargetReplacement()
     {
         var (reacher, entityService, pathFinder) = CreateFixture();
-        var target = CreateTarget(new EntityHandle(14, 6));
-        var replacement = CreateTarget(new EntityHandle(target.Handle.Slot, target.Handle.Generation + 1));
+        var target = CreateTarget(new EntityHandle<IGameObject>(14, 6));
+        var replacement = CreateTarget(new EntityHandle<IGameObject>(target.Handle.Slot, target.Handle.Generation + 1));
         var isRegistered = true;
         entityService.TryResolve<IGameObject>(target.Handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
         {
@@ -112,7 +112,7 @@ public sealed class GameObjectReachTaskTests
         return (reacher, entityService, pathFinder);
     }
 
-    private static IGameObject CreateTarget(EntityHandle handle)
+    private static IGameObject CreateTarget(EntityHandle<IGameObject> handle)
     {
         var target = Substitute.For<IGameObject>();
         target.Handle.Returns(handle);

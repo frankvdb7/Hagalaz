@@ -7,11 +7,6 @@ namespace Hagalaz.Game.Abstractions.Model
     public interface IEntity : IRuneObject
     {
         /// <summary>
-        /// Gets the identity assigned to this entity by the entity store.
-        /// </summary>
-        EntityHandle Handle { get; }
-
-        /// <summary>
         /// Gets the current location of the entity in the game world.
         /// </summary>
         ILocation Location { get; }
@@ -42,5 +37,18 @@ namespace Hagalaz.Game.Abstractions.Model
         /// A callback method that is executed when the entity is first spawned into the game world.
         /// </summary>
         void OnSpawn();
+    }
+
+    /// <summary>
+    /// Defines the identity contract for an entity category.
+    /// </summary>
+    /// <typeparam name="TEntity">The logical entity category represented by the handle.</typeparam>
+    public interface IEntity<TEntity> : IEntity
+        where TEntity : class, IEntity
+    {
+        /// <summary>
+        /// Gets the identity assigned to this entity by the entity store.
+        /// </summary>
+        EntityHandle<TEntity> Handle { get; }
     }
 }

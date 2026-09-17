@@ -1,4 +1,5 @@
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Services.GameWorld.Store;
 using NSubstitute;
 
@@ -10,7 +11,20 @@ internal static class EntityTestFactory
     {
         var entity = Substitute.For<T, IEntityIdentity>();
         var identity = (IEntityIdentity)entity;
-        entity.Handle.Returns(_ => identity.Handle);
+        var slot = 0;
+        var generation = 0u;
+        var handle = default(EntityHandle<ICreature>);
+        var creature = (IEntity<ICreature>)entity;
+        creature.Handle.Returns(_ => handle);
+        identity.HandleSlot.Returns(_ => slot);
+        identity.HandleGeneration.Returns(_ => generation);
+        identity.When(value => value.SetHandle(Arg.Any<int>(), Arg.Any<uint>()))
+            .Do(callInfo =>
+            {
+                slot = callInfo.Arg<int>();
+                generation = callInfo.Arg<uint>();
+                handle = new EntityHandle<ICreature>(slot, generation);
+            });
         return entity;
     }
 }

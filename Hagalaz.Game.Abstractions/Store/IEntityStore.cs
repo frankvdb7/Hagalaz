@@ -7,9 +7,12 @@ namespace Hagalaz.Game.Abstractions.Store;
 /// </summary>
 public interface IEntityStore
 {
-    EntityHandle Add(IEntity entity);
+    EntityHandle<TEntity> Add<TEntity>(IEntity<TEntity> entity)
+        where TEntity : class, IEntity;
 
-    bool Remove(IEntity entity);
+    bool Remove<TEntity>(IEntity<TEntity> entity)
+        where TEntity : class, IEntity;
 
-    bool TryResolve(EntityHandle handle, out IEntity? entity);
+    bool TryResolve<TEntity>(EntityHandle<TEntity> handle, out TEntity? entity)
+        where TEntity : class, IEntity;
 }

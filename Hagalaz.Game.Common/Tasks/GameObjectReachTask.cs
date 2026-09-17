@@ -31,7 +31,7 @@ namespace Hagalaz.Game.Common.Tasks
         /// <summary>
         /// Contains target game object handle.
         /// </summary>
-        private readonly EntityHandle _targetHandle;
+        private readonly EntityHandle<IGameObject> _targetHandle;
         private readonly IEntityService _entityService;
         /// <summary>
         /// Contains finish callback.
@@ -53,7 +53,7 @@ namespace Hagalaz.Game.Common.Tasks
         /// <param name="target">The target handle.</param>
         /// <param name="callback">The callback.</param>
         /// <param name="conditions">The conditions.</param>
-        public GameObjectReachTask(ICreature reacher, EntityHandle target, Action<bool> callback, params Type[] conditions)
+        public GameObjectReachTask(ICreature reacher, EntityHandle<IGameObject> target, Action<bool> callback, params Type[] conditions)
             : base(conditions)
         {
             _reacher = reacher;

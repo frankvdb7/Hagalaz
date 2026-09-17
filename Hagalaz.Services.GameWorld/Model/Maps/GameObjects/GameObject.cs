@@ -10,15 +10,13 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.GameObjects
     /// </summary>
     public class GameObject : IGameObject, IEntityIdentity
     {
-        private EntityHandle _handle;
+        private EntityHandle<IGameObject> _handle;
 
-        public EntityHandle Handle => _handle;
+        public EntityHandle<IGameObject> Handle => _handle;
 
-        EntityHandle IEntityIdentity.Handle
-        {
-            get => _handle;
-            set => _handle = value;
-        }
+        int IEntityIdentity.HandleSlot => _handle.Slot;
+        uint IEntityIdentity.HandleGeneration => _handle.Generation;
+        void IEntityIdentity.SetHandle(int slot, uint generation) => _handle = new EntityHandle<IGameObject>(slot, generation);
 
         /// <summary>
         /// Contains Id of this object.

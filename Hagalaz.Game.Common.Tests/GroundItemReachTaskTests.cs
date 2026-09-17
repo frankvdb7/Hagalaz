@@ -18,7 +18,7 @@ public sealed class GroundItemReachTaskTests
     public void GroundItemReachTask_TargetRemovedBeforeTick_Fails()
     {
         var (reacher, entityService, pathFinder) = CreateFixture();
-        var target = CreateTarget(new EntityHandle(22, 4));
+        var target = CreateTarget(new EntityHandle<IGroundItem>(22, 4));
         var isRegistered = true;
         entityService.TryResolve<IGroundItem>(target.Handle, out Arg.Any<IGroundItem>()).Returns(callInfo =>
         {
@@ -46,8 +46,8 @@ public sealed class GroundItemReachTaskTests
     public void GroundItemReachTask_StaleHandleDoesNotRetargetReplacement()
     {
         var (reacher, entityService, pathFinder) = CreateFixture();
-        var target = CreateTarget(new EntityHandle(23, 7));
-        var replacement = CreateTarget(new EntityHandle(target.Handle.Slot, target.Handle.Generation + 1));
+        var target = CreateTarget(new EntityHandle<IGroundItem>(23, 7));
+        var replacement = CreateTarget(new EntityHandle<IGroundItem>(target.Handle.Slot, target.Handle.Generation + 1));
         var isRegistered = true;
         entityService.TryResolve<IGroundItem>(target.Handle, out Arg.Any<IGroundItem>()).Returns(callInfo =>
         {
@@ -88,7 +88,7 @@ public sealed class GroundItemReachTaskTests
         return (reacher, entityService, pathFinder);
     }
 
-    private static IGroundItem CreateTarget(EntityHandle handle)
+    private static IGroundItem CreateTarget(EntityHandle<IGroundItem> handle)
     {
         var target = Substitute.For<IGroundItem>();
         target.Handle.Returns(handle);

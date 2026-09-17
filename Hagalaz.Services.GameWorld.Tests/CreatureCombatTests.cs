@@ -252,7 +252,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             _characterCombat = CreateCombat();
 
             var attacker = EntityTestFactory.Create<ICharacter>();
-            var handle = new EntityHandle(1, 1);
+            var handle = new EntityHandle<ICreature>(1, 1);
             attacker.Handle.Returns(handle);
             _characterCombat.AddAttackerPublic(attacker);
             _characterCombat.AddDamageToAttackerPublic(attacker, 10);
@@ -646,7 +646,7 @@ namespace Hagalaz.Services.GameWorld.Tests
                 {
                     var attackerField = entry.GetType().GetField("<Attacker>k__BackingField", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
                     Assert.IsNotNull(attackerField);
-                    Assert.AreEqual(typeof(EntityHandle), attackerField!.FieldType);
+                    Assert.AreEqual(typeof(EntityHandle<ICreature>), attackerField!.FieldType);
                     Assert.IsFalse(typeof(ICreature).IsAssignableFrom(attackerField.FieldType));
                 }
             }

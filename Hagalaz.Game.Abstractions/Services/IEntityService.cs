@@ -7,5 +7,6 @@ namespace Hagalaz.Game.Abstractions.Services;
 /// </summary>
 public interface IEntityService
 {
-    bool TryResolve<T>(EntityHandle handle, out T? entity) where T : class, IEntity;
+    bool TryResolve<TEntity>(EntityHandle<TEntity> handle, out TEntity? entity)
+        where TEntity : class, IEntity;
 }

@@ -457,11 +457,12 @@ public sealed class MapRegionLoaderTests
             Substitute.For<IGameObjectScript>());
     }
 
-    private static void AssertEntityResolves(IEntityStore store, IEntity expected)
+    private static void AssertEntityResolves<TEntity>(IEntityStore store, IEntity<TEntity> expected)
+        where TEntity : class, IEntity
     {
         Assert.AreNotEqual(default, expected.Handle);
         Assert.IsTrue(store.TryResolve(expected.Handle, out var actual));
-        Assert.AreSame(expected, actual);
+        Assert.AreSame(expected, (IEntity<TEntity>?)actual);
     }
 
     private static IGameObjectBuilder ConfigureStaticGameObjectBuilderWithFailure(
