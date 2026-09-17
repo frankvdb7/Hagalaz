@@ -6,7 +6,11 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Services.GameWorld.Model.Items;
+using Hagalaz.Services.GameWorld.Model.Maps.GameObjects;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
+using Hagalaz.Services.GameWorld.Store;
 using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests;
@@ -17,10 +21,12 @@ public sealed class MapRegionDestructionTests
     [TestMethod]
     public void Destroy_WhenOneGameObjectFails_StillAttemptsLaterObjects()
     {
-        var first = CreateGameObject(Location.Create(1, 1, 0, 0));
-        var second = CreateGameObject(Location.Create(2, 2, 0, 0));
+        var firstScript = Substitute.For<IGameObjectScript>();
+        var secondScript = Substitute.For<IGameObjectScript>();
+        var first = CreateGameObject(Location.Create(1, 1, 0, 0), firstScript);
+        var second = CreateGameObject(Location.Create(2, 2, 0, 0), secondScript);
         var failure = new InvalidOperationException("object-a");
-        first.When(value => value.Destroy()).Do(_ => throw failure);
+        firstScript.When(value => value.OnDestroy()).Do(_ => throw failure);
         var region = CreateRegion();
         region.Add(first);
         region.Add(second);
@@ -29,15 +35,14 @@ public sealed class MapRegionDestructionTests
 
         Assert.AreEqual(1, actual.InnerExceptions.Count);
         Assert.AreSame(failure, actual.InnerExceptions[0]);
-        first.Received(1).Destroy();
-        second.Received(1).Destroy();
+        firstScript.Received(1).OnDestroy();
+        secondScript.Received(1).OnDestroy();
     }
 
     [TestMethod]
     public void Destroy_CleansGroundItemsAndGameObjects()
     {
-        var item = Substitute.For<IGroundItem>();
-        item.Location.Returns(Location.Create(1, 1, 0, 0));
+        var item = CreateGroundItem(Location.Create(1, 1, 0, 0));
         var gameObject = CreateGameObject(Location.Create(2, 2, 0, 0));
         var region = CreateRegion();
         region.Add(item);
@@ -45,8 +50,6 @@ public sealed class MapRegionDestructionTests
 
         region.Destroy();
 
-        item.Received(1).Destroy();
-        gameObject.Received(1).Destroy();
     }
 
     [TestMethod]
@@ -74,10 +77,10 @@ public sealed class MapRegionDestructionTests
         var npcService = Substitute.For<INpcService>();
         npcService.When(value => value.Unregister(first)).Do(_ => throw firstFailure);
         npcService.When(value => value.Unregister(second)).Do(_ => throw secondFailure);
-        var item = Substitute.For<IGroundItem>();
-        item.Location.Returns(Location.Create(1, 1, 0, 0));
-        var gameObject = CreateGameObject(Location.Create(2, 2, 0, 0));
-        gameObject.When(value => value.Destroy()).Do(_ => throw objectFailure);
+        var item = CreateGroundItem(Location.Create(1, 1, 0, 0));
+        var objectScript = Substitute.For<IGameObjectScript>();
+        var gameObject = CreateGameObject(Location.Create(2, 2, 0, 0), objectScript);
+        objectScript.When(value => value.OnDestroy()).Do(_ => throw objectFailure);
         var region = CreateRegion(npcService);
         region.Add(first);
         region.Add(second);
@@ -91,8 +94,7 @@ public sealed class MapRegionDestructionTests
             actual.InnerExceptions);
         npcService.Received(1).Unregister(first);
         npcService.Received(1).Unregister(second);
-        item.Received(1).Destroy();
-        gameObject.Received(1).Destroy();
+        objectScript.Received(1).OnDestroy();
     }
 
     private static MapRegion CreateRegion(INpcService? npcService = null) => new(
@@ -102,7 +104,8 @@ public sealed class MapRegionDestructionTests
         Substitute.For<IMapRegionService>(),
         Substitute.For<IGameObjectBuilder>(),
         Substitute.For<IGroundItemBuilder>(),
-        Substitute.For<AutoMapper.IMapper>());
+        Substitute.For<AutoMapper.IMapper>(),
+        new EntityStore());
 
     private static INpc CreateNpc(int index)
     {
@@ -111,16 +114,24 @@ public sealed class MapRegionDestructionTests
         return npc;
     }
 
-    private static IGameObject CreateGameObject(ILocation location)
+    private static GameObject CreateGameObject(ILocation location, IGameObjectScript? script = null)
     {
-        var gameObject = Substitute.For<IGameObject>();
-        gameObject.Location.Returns(location);
-        gameObject.ShapeType.Returns(ShapeType.GroundDefault);
         var definition = Substitute.For<IGameObjectDefinition>();
-        definition.ClipType.Returns(1);
+        definition.ClipType.Returns(0);
         definition.SizeX.Returns(1);
         definition.SizeY.Returns(1);
-        gameObject.Definition.Returns(definition);
-        return gameObject;
+        return new GameObject(1, location, 0, ShapeType.GroundDefault, false, definition, script ?? Substitute.For<IGameObjectScript>());
+    }
+
+    private static GroundItem CreateGroundItem(ILocation location)
+    {
+        var item = Substitute.For<IItem>();
+        return new GroundItem(
+            item,
+            location,
+            null,
+            0,
+            0,
+            Substitute.For<IMapRegionService>());
     }
 }

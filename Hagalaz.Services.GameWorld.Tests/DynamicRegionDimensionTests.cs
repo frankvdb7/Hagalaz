@@ -5,7 +5,9 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Services.GameWorld.Model.Maps.GameObjects;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
+using Hagalaz.Services.GameWorld.Store;
 using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests;
@@ -22,7 +24,7 @@ public sealed class DynamicRegionDimensionTests
         var objectIdBuilder = Substitute.For<IGameObjectId>();
         var objectLocationBuilder = Substitute.For<IGameObjectLocation>();
         var objectOptionalBuilder = Substitute.For<IGameObjectOptional>();
-        var copiedObject = Substitute.For<IGameObject>();
+        GameObject? copiedObject = null;
         ILocation? copiedLocation = null;
         gameObjectBuilder.Create().Returns(objectIdBuilder);
         objectIdBuilder.WithId(42).Returns(objectLocationBuilder);
@@ -31,24 +33,12 @@ public sealed class DynamicRegionDimensionTests
             .Do(call => copiedLocation = call.Arg<ILocation>());
         objectOptionalBuilder.WithRotation(Arg.Any<int>()).Returns(objectOptionalBuilder);
         objectOptionalBuilder.WithShape(Arg.Any<ShapeType>()).Returns(objectOptionalBuilder);
-        objectOptionalBuilder.Build().Returns(copiedObject);
-        copiedObject.Location.Returns(_ => copiedLocation!);
-        copiedObject.IsStatic.Returns(false);
-        copiedObject.ShapeType.Returns(ShapeType.GroundDefault);
-        copiedObject.SizeX.Returns(1);
-        copiedObject.SizeY.Returns(1);
+        objectOptionalBuilder.Build().Returns(_ => copiedObject = CreateGameObject(copiedLocation!, false));
         var destination = CreateRegion(Location.Create(128, 64, 0, 2), regionService, gameObjectBuilder);
         source.MakeStandard();
         destination.MakeDynamic();
 
-        var sourceObject = Substitute.For<IGameObject>();
-        sourceObject.Id.Returns(42);
-        sourceObject.Location.Returns(Location.Create(1, 1, 0, 1));
-        sourceObject.IsStatic.Returns(false);
-        sourceObject.ShapeType.Returns(ShapeType.GroundDefault);
-        sourceObject.Rotation.Returns(0);
-        sourceObject.SizeX.Returns(1);
-        sourceObject.SizeY.Returns(1);
+        var sourceObject = CreateGameObject(Location.Create(1, 1, 0, 1), false);
         source.Add(sourceObject);
         source.FlagCollision(1, 1, 0, CollisionFlag.WallNorth);
 
@@ -57,7 +47,8 @@ public sealed class DynamicRegionDimensionTests
         destination.WriteBlock(0, 0, 0, 0, 0, 0, 1);
 
         regionService.Received(1).GetOrCreateMapRegion(source.Id, 1);
-        copiedObject = destination.FindGameObjects(1, 1, 0).Single();
+        copiedObject = destination.FindGameObjects(1, 1, 0).Single() as GameObject;
+        Assert.IsNotNull(copiedObject);
         Assert.AreEqual(2, copiedObject.Location.Dimension);
         Assert.AreEqual(CollisionFlag.WallNorth, destination.GetCollision(1, 1, 0));
         Assert.AreEqual(2, destination.BaseLocation.Dimension);
@@ -76,5 +67,21 @@ public sealed class DynamicRegionDimensionTests
         regionService,
         gameObjectBuilder ?? Substitute.For<IGameObjectBuilder>(),
         Substitute.For<IGroundItemBuilder>(),
-        Substitute.For<IMapper>());
+        Substitute.For<IMapper>(),
+        new EntityStore());
+
+    private static GameObject CreateGameObject(ILocation location, bool isStatic)
+    {
+        var definition = Substitute.For<IGameObjectDefinition>();
+        definition.SizeX.Returns(1);
+        definition.SizeY.Returns(1);
+        return new GameObject(
+            42,
+            location,
+            0,
+            ShapeType.GroundDefault,
+            isStatic,
+            definition,
+            Substitute.For<IGameObjectScript>());
+    }
 }

@@ -7,9 +7,11 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Scripts.Model.Items;
 using Hagalaz.Services.GameWorld.Model.Items;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
+using Hagalaz.Services.GameWorld.Store;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 
@@ -75,6 +77,7 @@ public sealed class GroundItemPickupTests
             regionService,
             Substitute.For<IGameObjectBuilder>(),
             Substitute.For<IGroundItemBuilder>(),
-            mapper);
+            mapper,
+            new EntityStore());
     }
 }

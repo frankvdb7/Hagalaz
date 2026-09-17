@@ -9,6 +9,7 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.Updates;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Messages.Protocol.Map;
 using Hagalaz.Game.Utilities;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions.Updates;
@@ -25,6 +26,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     {
         private readonly IMapper _mapper;
         private readonly IGroundItemBuilder _groundItemBuilder;
+        private readonly IEntityStore _entityStore;
         private readonly Dictionary<int, List<IGroundItem>> _groundItems = new();
         private readonly Dictionary<int, IGameObject> _gameObjects = new();
         private readonly Dictionary<int, IGameObject> _disabledStaticGameObjects = new();
@@ -32,10 +34,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private List<IRegionPartUpdate> _preparedUpdates = [];
         private readonly object _updatesLock = new();
 
-        public MapRegionPart(IMapper mapper, IGroundItemBuilder groundItemBuilder)
+        public MapRegionPart(IMapper mapper, IGroundItemBuilder groundItemBuilder, IEntityStore entityStore)
         {
             _mapper = mapper;
             _groundItemBuilder = groundItemBuilder;
+            _entityStore = entityStore;
         }
 
         /// <summary>
@@ -71,6 +74,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public IEnumerable<IGameObject> FindAllGameObjects() => _gameObjects.Values;
 
+        public IEnumerable<IGameObject> FindAllDisabledStaticGameObjects() => _disabledStaticGameObjects.Values;
+
         public IGameObject? FindGameObject(LayerType layer, int localX, int localY, int z)
         {
             var localHash = GameObjectHelper.GetRegionLocalHash(localX, localY, z, (int)layer);
@@ -88,26 +93,36 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 throw new InvalidOperationException($"GameObject {gameObject} is already added to this region!");
             }
 
+            _disabledStaticGameObjects.TryGetValue(localHash, out var disabledStaticGameObject);
+            var needsAddUpdate = gameObjectOnLocation != null || disabledStaticGameObject != null;
             if (gameObjectOnLocation != null)
             {
-                Remove(gameObjectOnLocation);
-                _gameObjects[localHash] = gameObject;
-            }
-            else
-            {
-                _gameObjects.Add(localHash, gameObject);
+                RemovePermanently(gameObjectOnLocation);
             }
 
-            IGameObject? disabledStaticGameObject = null;
+            if (disabledStaticGameObject != null)
+            {
+                _disabledStaticGameObjects.Remove(localHash);
+                if (!ReferenceEquals(disabledStaticGameObject, gameObject))
+                {
+                    RemoveDisabledStaticGameObject(disabledStaticGameObject);
+                    disabledStaticGameObject = null;
+                }
+            }
+
+            if (disabledStaticGameObject is null)
+            {
+                _entityStore.Add(gameObject);
+            }
+
+            _gameObjects[localHash] = gameObject;
             if (gameObject.IsStatic)
             {
-                _disabledStaticGameObjects.Remove(localHash, out disabledStaticGameObject);
                 gameObject.Enable();
             }
-
             gameObject.OnSpawn();
 
-            if (!gameObject.IsStatic || disabledStaticGameObject != null)
+            if (!gameObject.IsStatic || needsAddUpdate)
             {
                 QueueUpdate(new AddGameObjectUpdate(gameObject));
             }
@@ -150,6 +165,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 }
             }
 
+            _entityStore.Add(item);
             item.OnSpawn();
             itemsOnLocation.Add(item);
             QueueUpdate(new AddGroundItemUpdate(item));
@@ -176,7 +192,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
             else
             {
-                gameObject.Destroy();
+                DestroyAndUnregister(gameObject);
             }
 
             QueueUpdate(new RemoveGameObjectUpdate(gameObject));
@@ -206,7 +222,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             if (item.CanRespawn() && !item.IsRespawning)
             {
-                item.Destroy();
+                DestroyAndUnregister(item);
 
                 var respawnBuilder = _groundItemBuilder
                     .Create()
@@ -222,11 +238,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 }
 
                 var respawnItem = respawnBuilder.Build();
+                _entityStore.Add(respawnItem);
                 itemsOnLocation.Add(respawnItem);
             }
             else
             {
-                item.Destroy();
+                DestroyAndUnregister(item);
             }
 
             if (itemsOnLocation.Count <= 0)
@@ -250,8 +267,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 return;
             }
 
-            // Always remove the expired item first
-            itemsOnLocation.Remove(item);
+            // Always remove the expired item first, but only for the exact
+            // instance still owned by this location.
+            if (!itemsOnLocation.Remove(item))
+            {
+                return;
+            }
+
+            _entityStore.Remove(item);
 
             if (!item.IsRespawning && item.CanRespawn())
             {
@@ -264,6 +287,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     .WithTicks(item.RespawnTicks)
                     .AsRespawning()
                     .Build();
+                _entityStore.Add(respawnItem);
                 itemsOnLocation.Add(respawnItem);
                 return;
             }
@@ -279,6 +303,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     .WithTicks(item.RespawnTicks)
                     // Do NOT call AsRespawning here!
                     .Build();
+                _entityStore.Add(normalItem);
                 itemsOnLocation.Add(normalItem);
                 return;
             }
@@ -293,6 +318,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     .WithLocation(item.Location.Clone())
                     .WithRespawnTicks(0)
                     .Build();
+                _entityStore.Add(publicGroundItem);
                 itemsOnLocation.Add(publicGroundItem);
             }
 
@@ -397,5 +423,42 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public override int GetHashCode() =>
             ((Rotation & 0x3) << 1) | ((DrawRegionZ & 0x3) << 24) | ((DrawRegionPartX & 0x3ff) << 14) | ((DrawRegionPartY & 0x7ff) << 3);
+
+        private void RemovePermanently(IGameObject gameObject)
+        {
+            var localHash = gameObject.GetRegionLocalHash();
+            _gameObjects.Remove(localHash);
+            DestroyAndUnregister(gameObject);
+            QueueUpdate(new RemoveGameObjectUpdate(gameObject));
+        }
+
+        private void RemoveDisabledStaticGameObject(IGameObject gameObject)
+        {
+            DestroyAndUnregister(gameObject);
+        }
+
+        private void DestroyAndUnregister(IGameObject gameObject)
+        {
+            try
+            {
+                gameObject.Destroy();
+            }
+            finally
+            {
+                _entityStore.Remove(gameObject);
+            }
+        }
+
+        private void DestroyAndUnregister(IGroundItem item)
+        {
+            try
+            {
+                item.Destroy();
+            }
+            finally
+            {
+                _entityStore.Remove(item);
+            }
+        }
     }
 }

@@ -12,6 +12,7 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
+using Hagalaz.Services.GameWorld.Store;
 using NSubstitute;
 using Raido.Common.Protocol;
 
@@ -32,7 +33,8 @@ public sealed class MapRegionClientUpdateTests
             Substitute.For<IMapRegionService>(),
             Substitute.For<IGameObjectBuilder>(),
             Substitute.For<IGroundItemBuilder>(),
-            mapper);
+            mapper,
+            new EntityStore());
         var failingCharacter = CreateCharacter(1);
         var healthyCharacter = CreateCharacter(2);
         failingCharacter.Session.When(session => session.SendMessage(Arg.Any<RaidoMessage>()))
@@ -62,7 +64,8 @@ public sealed class MapRegionClientUpdateTests
             Substitute.For<IMapRegionService>(),
             Substitute.For<IGameObjectBuilder>(),
             Substitute.For<IGroundItemBuilder>(),
-            mapper);
+            mapper,
+            new EntityStore());
         var character = CreateCharacter(1);
         character.Session.When(session => session.SendMessage(Arg.Any<RaidoMessage>()))
             .Do(_ => throw new InvalidOperationException("programming failure"));
@@ -89,7 +92,8 @@ public sealed class MapRegionClientUpdateTests
             Substitute.For<IMapRegionService>(),
             Substitute.For<IGameObjectBuilder>(),
             Substitute.For<IGroundItemBuilder>(),
-            mapper);
+            mapper,
+            new EntityStore());
         var npc = Substitute.For<INpc>();
         npc.Index.Returns(1);
         npc.When(value => value.MajorClientUpdateTick())

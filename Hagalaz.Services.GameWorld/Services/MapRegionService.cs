@@ -16,6 +16,7 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -45,6 +46,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly IMapper _mapper;
         private readonly IMapRegionLoadScheduler _loadScheduler;
         private readonly IRsTaskService _taskScheduler;
+        private readonly IEntityStore _entityStore;
         public MapRegionService(
             IServiceProvider serviceProvider,
             ILocationBuilder locationBuilder,
@@ -53,7 +55,8 @@ namespace Hagalaz.Services.GameWorld.Services
             ILogger<MapRegionService> logger,
             IMapper mapper,
             IMapRegionLoadScheduler loadScheduler,
-            IRsTaskService taskScheduler)
+            IRsTaskService taskScheduler,
+            IEntityStore entityStore)
         {
             CreateDimension(0); // create global world dimension.
             _serviceScope = serviceProvider.CreateScope();
@@ -64,6 +67,7 @@ namespace Hagalaz.Services.GameWorld.Services
             _mapper = mapper;
             _loadScheduler = loadScheduler;
             _taskScheduler = taskScheduler;
+            _entityStore = entityStore;
         }
 
         public bool IsAccessible(ILocation location) => ((int)GetClippingFlag(location.X, location.Y, location.Z) & 0x7fe40000) == 0;
@@ -318,7 +322,8 @@ namespace Hagalaz.Services.GameWorld.Services
                 this,
                 _gameObjectBuilder,
                 _groundItemBuilder,
-                _mapper);
+                _mapper,
+                _entityStore);
         }
 
         private IMapRegion ResumeIdleRegion(Dimension dimension, int id, IMapRegion idleRegion)

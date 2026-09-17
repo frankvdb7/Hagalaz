@@ -16,6 +16,7 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -35,6 +36,7 @@ namespace Hagalaz.Services.GameWorld.Data
         private readonly INpcBuilder _npcBuilder;
         private readonly IMapper _mapper;
         private readonly ILogger<MapRegionLoader> _logger;
+        private readonly IEntityStore _entityStore;
 
         public MapRegionLoader(
             INpcService npcService,
@@ -48,7 +50,8 @@ namespace Hagalaz.Services.GameWorld.Data
             IGameObjectBuilder gameObjectBuilder,
             INpcBuilder npcBuilder,
             IMapper mapper,
-            ILogger<MapRegionLoader> logger)
+            ILogger<MapRegionLoader> logger,
+            IEntityStore entityStore)
         {
             _npcService = npcService;
             _regionService = regionService;
@@ -62,6 +65,7 @@ namespace Hagalaz.Services.GameWorld.Data
             _npcBuilder = npcBuilder;
             _mapper = mapper;
             _logger = logger;
+            _entityStore = entityStore;
         }
 
         public async Task LoadAsync(IMapRegion region, CancellationToken cancellationToken = default)
@@ -286,7 +290,18 @@ namespace Hagalaz.Services.GameWorld.Data
         {
             foreach (var item in groundItems)
             {
-                item.Destroy();
+                try
+                {
+                    item.Destroy();
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogError(exception, "Region[{id}] could not clean up ground item after load failure", region.Id);
+                }
+                finally
+                {
+                    _entityStore.Remove(item);
+                }
             }
 
             foreach (var gameObject in gameObjects)
@@ -298,6 +313,10 @@ namespace Hagalaz.Services.GameWorld.Data
                 catch (Exception exception)
                 {
                     _logger.LogError(exception, "Region[{id}] could not clean up game object after load failure", region.Id);
+                }
+                finally
+                {
+                    _entityStore.Remove(gameObject);
                 }
             }
         }

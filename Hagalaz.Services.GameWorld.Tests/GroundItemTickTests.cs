@@ -9,6 +9,7 @@ using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Services.GameWorld.Model.Items;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
+using Hagalaz.Services.GameWorld.Store;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 
@@ -31,7 +32,8 @@ namespace Hagalaz.Services.GameWorld.Tests
                 regionService,
                 gameObjectBuilder,
                 groundItemBuilder,
-                mapper);
+                mapper,
+                new EntityStore());
         }
 
         private static IGroundItem CreateItem(int respawnTicks, int ticksLeft)

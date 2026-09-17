@@ -58,6 +58,13 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         IEnumerable<IGameObject> FindAllGameObjects();
 
         /// <summary>
+        /// Finds static game objects that are disabled but remain owned by this
+        /// region so they can be re-enabled without losing their identity.
+        /// </summary>
+        /// <returns>The disabled static game objects in this part.</returns>
+        IEnumerable<IGameObject> FindAllDisabledStaticGameObjects();
+
+        /// <summary>
         /// Finds all ground items in this region part.
         /// </summary>
         /// <returns>An enumerable collection of ground items.</returns>

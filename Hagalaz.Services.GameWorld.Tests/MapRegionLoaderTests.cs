@@ -11,11 +11,17 @@ using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Services.GameWorld.Data;
 using Hagalaz.Services.GameWorld.Builders;
 using Hagalaz.Services.GameWorld.Profiles;
+using Hagalaz.Services.GameWorld.Model.Items;
+using Hagalaz.Services.GameWorld.Model.Maps.GameObjects;
+using Hagalaz.Services.GameWorld.Model.Maps.Regions;
+using Hagalaz.Services.GameWorld.Store;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -311,6 +317,55 @@ public sealed class MapRegionLoaderTests
         fixture.RegionService.Received(1).TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
     }
 
+    [TestMethod]
+    public async Task LoadAsync_RegistersLoadedGroundItemsAndGameObjectsWithTheEntityStore()
+    {
+        var store = new EntityStore();
+        var regionService = Substitute.For<IMapRegionService>();
+        var region = new MapRegion(
+            Location.Create(64, 64, 0, 0),
+            new int[4],
+            Substitute.For<INpcService>(),
+            regionService,
+            Substitute.For<IGameObjectBuilder>(),
+            Substitute.For<IGroundItemBuilder>(),
+            Substitute.For<IMapper>(),
+            store);
+        var location = Location.Create(65, 65, 0, 0);
+        var item = new GroundItem(
+            Substitute.For<IItem>(),
+            location,
+            null,
+            0,
+            0,
+            regionService);
+        var gameObject = CreateConcreteGameObject(Location.Create(67, 67, 0, 0));
+        var mapProvider = Substitute.For<IMapProvider>();
+        mapProvider.When(provider => provider.DecodeRegion(
+                Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<ObjectDecoded>(), Arg.Any<ImpassibleTerrainDecoded>()))
+            .Do(callInfo => callInfo.Arg<ObjectDecoded>()(100, 0, 0, 3, 3, 0));
+        var fixture = CreateLoader(
+            mapProvider: mapProvider,
+            gameObjectBuilder: ConfigureStaticGameObjectBuilder(gameObject),
+            groundItemBuilder: ConfigureGroundItemBuilder(item),
+            itemSpawns: [new ItemSpawn { ItemId = 995, Count = 1, CoordX = (short)location.X, CoordY = (short)location.Y }],
+            entityStore: store,
+            regionService: regionService);
+        regionService.IsCurrentMapRegion(region.Id, region.BaseLocation.Dimension, region).Returns(true);
+
+        await fixture.Loader.LoadAsync(region);
+
+        AssertEntityResolves(store, item);
+        AssertEntityResolves(store, gameObject);
+
+        var itemHandle = item.Handle;
+        var gameObjectHandle = gameObject.Handle;
+        region.Destroy();
+
+        Assert.IsFalse(store.TryResolve(itemHandle, out _));
+        Assert.IsFalse(store.TryResolve(gameObjectHandle, out _));
+    }
+
     private static IMapRegion CreateRegion(Exception? loadFailure = null)
     {
         var state = MapRegionState.Initializing;
@@ -369,6 +424,46 @@ public sealed class MapRegionLoaderTests
         return builder;
     }
 
+    private static IGroundItemBuilder ConfigureGroundItemBuilder(IGroundItem item)
+    {
+        var builder = Substitute.For<IGroundItemBuilder>();
+        var onGround = Substitute.For<IGroundItemOnGround>();
+        var location = Substitute.For<IGroundItemLocation>();
+        var optional = Substitute.For<IGroundItemOptional>();
+        builder.Create().Returns(onGround);
+        onGround.WithItem(Arg.Any<Func<Hagalaz.Game.Abstractions.Builders.Item.IItemBuilder, Hagalaz.Game.Abstractions.Builders.Item.IItemBuild>>())
+            .Returns(location);
+        location.WithLocation(Arg.Any<ILocation>()).Returns(optional);
+        optional.WithRespawnTicks(Arg.Any<int>()).Returns(optional);
+        optional.Build().Returns(item);
+        return builder;
+    }
+
+    private static GameObject CreateConcreteGameObject(ILocation location)
+    {
+        var definition = Substitute.For<IGameObjectDefinition>();
+        definition.ClipType.Returns(0);
+        definition.Gateway.Returns(false);
+        definition.Solid.Returns(false);
+        definition.SizeX.Returns(1);
+        definition.SizeY.Returns(1);
+        return new GameObject(
+            100,
+            location,
+            0,
+            ShapeType.GroundDefault,
+            true,
+            definition,
+            Substitute.For<IGameObjectScript>());
+    }
+
+    private static void AssertEntityResolves(IEntityStore store, IEntity expected)
+    {
+        Assert.AreNotEqual(default, expected.Handle);
+        Assert.IsTrue(store.TryResolve(expected.Handle, out var actual));
+        Assert.AreSame(expected, actual);
+    }
+
     private static IGameObjectBuilder ConfigureStaticGameObjectBuilderWithFailure(
         IGameObject firstObject,
         Exception secondBuildFailure)
@@ -413,7 +508,9 @@ public sealed class MapRegionLoaderTests
         Exception? itemSourceFailure = null,
         IGameObjectBuilder? gameObjectBuilder = null,
         IGroundItemBuilder? groundItemBuilder = null,
-        IEnumerable<ItemSpawn>? itemSpawns = null)
+        IEnumerable<ItemSpawn>? itemSpawns = null,
+        IEntityStore? entityStore = null,
+        IMapRegionService? regionService = null)
     {
         var mapperConfiguration = new MapperConfiguration(
             configuration =>
@@ -441,7 +538,7 @@ public sealed class MapRegionLoaderTests
         var objectRepository = Substitute.For<IGameObjectSpawnRepository>();
         objectRepository.FindByBounds(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
             .Returns(new TestAsyncEnumerable<GameobjectSpawn>([]));
-        var regionService = Substitute.For<IMapRegionService>();
+        regionService ??= Substitute.For<IMapRegionService>();
         regionService.IsCurrentMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IMapRegion>()).Returns(true);
         var npcService = Substitute.For<INpcService>();
         var npcBuilder = Substitute.For<INpcBuilder>();
@@ -457,7 +554,8 @@ public sealed class MapRegionLoaderTests
             gameObjectBuilder ?? Substitute.For<IGameObjectBuilder>(),
             npcBuilder,
             mapperConfiguration.CreateMapper(),
-            Substitute.For<ILogger<MapRegionLoader>>());
+            Substitute.For<ILogger<MapRegionLoader>>(),
+            entityStore ?? new EntityStore());
         return new LoaderFixture(loader, regionService, npcService, npcBuilder);
     }
 

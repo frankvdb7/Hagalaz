@@ -14,6 +14,7 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Extensions;
 using Microsoft.AspNetCore.Connections;
 
@@ -35,6 +36,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly IGameObjectBuilder _gameObjectBuilder;
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly IMapper _mapper;
+        private readonly IEntityStore _entityStore;
         public int Id => BaseLocation.RegionId;
         public ILocation BaseLocation { get; }
         public IVector3 Size { get; }
@@ -51,7 +53,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             IMapRegionService regionService,
             IGameObjectBuilder gameObjectBuilder,
             IGroundItemBuilder groundItemBuilder,
-            IMapper mapper)
+            IMapper mapper,
+            IEntityStore entityStore)
         {
             BaseLocation = baseLocation;
             Size = Location.Create(64, 64, 4);
@@ -63,6 +66,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             _gameObjectBuilder = gameObjectBuilder;
             _groundItemBuilder = groundItemBuilder;
             _mapper = mapper;
+            _entityStore = entityStore;
         }
 
         public void Add(INpc npc) => Add(npc, npc.CanSuspend());
@@ -300,6 +304,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var npcs = _npcs.ToArray();
             var items = FindAllGroundItems().ToArray();
             var objects = FindAllGameObjects().ToArray();
+            var disabledStaticObjects = _parts.SelectMany(part => part.FindAllDisabledStaticGameObjects()).ToArray();
 
             foreach (var npc in npcs)
             {
@@ -315,10 +320,21 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             foreach (var item in items)
             {
-                item.Destroy();
+                try
+                {
+                    item.Destroy();
+                }
+                catch (Exception ex)
+                {
+                    (exceptions ??= []).Add(ex);
+                }
+                finally
+                {
+                    _entityStore.Remove(item);
+                }
             }
 
-            foreach (var obj in objects)
+            foreach (var obj in objects.Concat(disabledStaticObjects))
             {
                 try
                 {
@@ -327,6 +343,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 catch (Exception ex)
                 {
                     (exceptions ??= []).Add(ex);
+                }
+                finally
+                {
+                    _entityStore.Remove(obj);
                 }
             }
 
@@ -358,7 +378,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         }
 
         private MapRegionPart CreateRegionPartCore(int partHash) =>
-            new MapRegionPart(_mapper, _groundItemBuilder)
+            new MapRegionPart(_mapper, _groundItemBuilder, _entityStore)
             {
                 DrawRegionPartX = partHash & 0x3ff,
                 DrawRegionPartY = (partHash >> 10) & 0x7ff,

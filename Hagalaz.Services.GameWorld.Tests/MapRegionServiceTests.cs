@@ -9,12 +9,14 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld.Builders;
 using Hagalaz.Services.GameWorld.Logic.Pathfinding;
 using Hagalaz.Services.GameWorld.Model.Maps.GameObjects;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using Hagalaz.Services.GameWorld.Services;
+using Hagalaz.Services.GameWorld.Store;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -816,6 +818,7 @@ public sealed class MapRegionServiceTests
 
     private static ServiceProvider CreateProvider(IMapRegionLoadScheduler? loadRequests = null) => new ServiceCollection()
         .AddSingleton(Substitute.For<INpcService>())
+        .AddSingleton<IEntityStore, EntityStore>()
         .AddSingleton(loadRequests ?? Substitute.For<IMapRegionLoadScheduler>())
         .AddSingleton<IRsTaskService>(_ => new RsTaskService(Substitute.For<ILogger<RsTaskService>>()))
         .BuildServiceProvider();
@@ -830,7 +833,8 @@ public sealed class MapRegionServiceTests
         Substitute.For<ILogger<MapRegionService>>(),
         Substitute.For<IMapper>(),
         provider.GetRequiredService<IMapRegionLoadScheduler>(),
-        provider.GetRequiredService<IRsTaskService>());
+        provider.GetRequiredService<IRsTaskService>(),
+        provider.GetRequiredService<IEntityStore>());
 
     private sealed class BlockingLocationBuilder(Barrier creationGate) : ILocationBuilder
     {

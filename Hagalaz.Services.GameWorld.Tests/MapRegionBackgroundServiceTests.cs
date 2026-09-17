@@ -8,10 +8,12 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld.Builders;
 using Hagalaz.Services.GameWorld.Model.Creatures;
 using Hagalaz.Services.GameWorld.Services;
+using Hagalaz.Services.GameWorld.Store;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -112,7 +114,8 @@ public sealed class MapRegionBackgroundServiceTests
             Substitute.For<ILogger<MapRegionService>>(),
             Substitute.For<IMapper>(),
             loadScheduler,
-            Substitute.For<IRsTaskService>());
+            Substitute.For<IRsTaskService>(),
+            provider.GetRequiredService<IEntityStore>());
         var location = Location.Create(64, 64, 0, 0);
         var region = regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension);
         region.MarkReady();
@@ -151,6 +154,7 @@ public sealed class MapRegionBackgroundServiceTests
 
     private static ServiceProvider CreateServiceProvider(INpcService npcService) => new ServiceCollection()
         .AddSingleton(npcService)
+        .AddSingleton<IEntityStore, EntityStore>()
         .AddSingleton<IRsTaskService>(Substitute.For<IRsTaskService>())
         .BuildServiceProvider();
 }

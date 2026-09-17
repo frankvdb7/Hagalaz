@@ -8,6 +8,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
+using Hagalaz.Services.GameWorld.Store;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using Raido.Common.Protocol;
@@ -183,7 +184,7 @@ public sealed class MapRegionPartTests
     {
         mapper = Substitute.For<IMapper>();
         mapper.Map<RaidoMessage>(Arg.Any<object>()).Returns(Substitute.For<RaidoMessage>());
-        return new MapRegionPart(mapper, Substitute.For<Hagalaz.Game.Abstractions.Builders.GroundItem.IGroundItemBuilder>());
+        return new MapRegionPart(mapper, Substitute.For<Hagalaz.Game.Abstractions.Builders.GroundItem.IGroundItemBuilder>(), new EntityStore());
     }
 
     private static ICharacter CreateCharacter()
