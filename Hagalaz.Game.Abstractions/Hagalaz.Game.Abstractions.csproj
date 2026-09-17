@@ -15,7 +15,6 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Hagalaz.Game.Abstractions.Tests" />
     <InternalsVisibleTo Include="Hagalaz.Game.Common.Tests" />
-    <InternalsVisibleTo Include="Hagalaz.Game.Scripts" />
     <InternalsVisibleTo Include="Hagalaz.Game.Scripts.Tests" />
     <InternalsVisibleTo Include="Hagalaz.Services.GameWorld" />
     <InternalsVisibleTo Include="Hagalaz.Services.GameWorld.Tests" />
