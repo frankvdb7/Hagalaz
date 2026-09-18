@@ -7,7 +7,7 @@ namespace Hagalaz.Services.GameWorld.Features
     internal sealed class ContactPresenceState
     {
         private readonly object _gate = new();
-        private readonly Dictionary<uint, SessionIdentity> _owners = new();
+        private readonly Dictionary<uint, PresenceEntry> _entries = new();
 
         public void ReplaceFriends(
             IContactList<Friend> friends,
@@ -17,10 +17,26 @@ namespace Hagalaz.Services.GameWorld.Features
             lock (_gate)
             {
                 friends.Set(replacement);
-                _owners.Clear();
+
+                var seededOwners = new HashSet<uint>();
                 foreach (var owner in owners)
                 {
-                    _owners[owner.MasterId] = new SessionIdentity(owner.SessionGeneration, owner.ConnectionId);
+                    seededOwners.Add(owner.MasterId);
+                    var entry = GetOrCreateEntry(owner.MasterId);
+                    if (!entry.HasGeneration || owner.SessionGeneration > entry.LatestSessionGeneration)
+                    {
+                        entry.LatestSessionGeneration = owner.SessionGeneration;
+                        entry.HasGeneration = true;
+                        entry.CurrentOwner = new SessionIdentity(owner.SessionGeneration, owner.ConnectionId);
+                    }
+                }
+
+                foreach (var entry in _entries)
+                {
+                    if (!seededOwners.Contains(entry.Key))
+                    {
+                        entry.Value.CurrentOwner = null;
+                    }
                 }
             }
         }
@@ -38,17 +54,19 @@ namespace Hagalaz.Services.GameWorld.Features
 
                 if (owner is { } presenceOwner)
                 {
-                    if (!_owners.TryGetValue(masterId, out var current)
-                        || presenceOwner.SessionGeneration >= current.SessionGeneration)
+                    var entry = GetOrCreateEntry(masterId);
+                    if (!entry.HasGeneration || presenceOwner.SessionGeneration > entry.LatestSessionGeneration)
                     {
-                        _owners[masterId] = new SessionIdentity(
+                        entry.LatestSessionGeneration = presenceOwner.SessionGeneration;
+                        entry.HasGeneration = true;
+                        entry.CurrentOwner = new SessionIdentity(
                             presenceOwner.SessionGeneration,
                             presenceOwner.ConnectionId);
                     }
                 }
-                else
+                else if (_entries.TryGetValue(masterId, out var entry))
                 {
-                    _owners.Remove(masterId);
+                    entry.CurrentOwner = null;
                 }
 
                 return friend;
@@ -61,7 +79,7 @@ namespace Hagalaz.Services.GameWorld.Features
             {
                 var removed = friends.Get(masterId) is not null;
                 friends.Remove(masterId);
-                var ownerRemoved = _owners.Remove(masterId);
+                var ownerRemoved = _entries.Remove(masterId);
                 return removed || ownerRemoved;
             }
         }
@@ -74,8 +92,9 @@ namespace Hagalaz.Services.GameWorld.Features
         {
             lock (_gate)
             {
-                if (_owners.TryGetValue(masterId, out var current) &&
-                    sessionGeneration <= current.SessionGeneration)
+                if (_entries.TryGetValue(masterId, out var existingEntry) &&
+                    existingEntry.HasGeneration &&
+                    sessionGeneration <= existingEntry.LatestSessionGeneration)
                 {
                     return null;
                 }
@@ -86,7 +105,10 @@ namespace Hagalaz.Services.GameWorld.Features
                     return null;
                 }
 
-                _owners[masterId] = new SessionIdentity(sessionGeneration, connectionId);
+                var entry = existingEntry ?? GetOrCreateEntry(masterId);
+                entry.LatestSessionGeneration = sessionGeneration;
+                entry.HasGeneration = true;
+                entry.CurrentOwner = new SessionIdentity(sessionGeneration, connectionId);
                 return friend;
             }
         }
@@ -99,9 +121,26 @@ namespace Hagalaz.Services.GameWorld.Features
         {
             lock (_gate)
             {
-                if (!_owners.TryGetValue(masterId, out var current) ||
-                    current.SessionGeneration != sessionGeneration ||
-                    current.ConnectionId != connectionId)
+                var entry = GetOrCreateEntry(masterId);
+                if (entry.HasGeneration && sessionGeneration < entry.LatestSessionGeneration)
+                {
+                    return null;
+                }
+
+                if (entry.CurrentOwner is { } current &&
+                    (sessionGeneration < current.SessionGeneration ||
+                     (sessionGeneration == current.SessionGeneration && current.ConnectionId != connectionId)))
+                {
+                    return null;
+                }
+
+                if (!entry.HasGeneration || sessionGeneration > entry.LatestSessionGeneration)
+                {
+                    entry.LatestSessionGeneration = sessionGeneration;
+                    entry.HasGeneration = true;
+                }
+
+                if (entry.CurrentOwner is null)
                 {
                     return null;
                 }
@@ -109,12 +148,34 @@ namespace Hagalaz.Services.GameWorld.Features
                 var friend = friends.Get(masterId);
                 if (friend is null)
                 {
+                    entry.CurrentOwner = null;
                     return null;
                 }
 
-                _owners.Remove(masterId);
+                entry.CurrentOwner = null;
                 return friend;
             }
+        }
+
+        private PresenceEntry GetOrCreateEntry(uint masterId)
+        {
+            if (_entries.TryGetValue(masterId, out var entry))
+            {
+                return entry;
+            }
+
+            entry = new PresenceEntry();
+            _entries[masterId] = entry;
+            return entry;
+        }
+
+        private sealed class PresenceEntry
+        {
+            public bool HasGeneration { get; set; }
+
+            public long LatestSessionGeneration { get; set; }
+
+            public SessionIdentity? CurrentOwner { get; set; }
         }
 
         private readonly record struct SessionIdentity(long SessionGeneration, string ConnectionId);

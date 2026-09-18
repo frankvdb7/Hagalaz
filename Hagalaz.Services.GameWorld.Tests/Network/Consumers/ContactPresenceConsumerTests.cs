@@ -95,8 +95,31 @@ public sealed class ContactPresenceConsumerTests
         var consumer = new ContactSignOutConsumer(connectionService, CreateMapper());
 
         await consumer.Consume(CreateContext(new ContactSignOutMessage(CreateContact(), 10, "current")));
+        await consumer.Consume(CreateContext(new ContactSignOutMessage(CreateContact(), 10, "current")));
 
         await connection.Received(1).SendMessage(Arg.Any<FriendsListMessage>());
+    }
+
+    [TestMethod]
+    public async Task SignOutBeforeSignIn_RejectsTheSameGenerationButAcceptsANewerGeneration()
+    {
+        var contacts = new ContactList<Friend>();
+        contacts.Add(CreateFriend());
+        var connection = CreateConnection(contacts);
+        var connectionService = Substitute.For<IGameConnectionService>();
+        connectionService.FindAll().Returns(One(connection));
+        var mapper = CreateMapper();
+        var signOutConsumer = new ContactSignOutConsumer(connectionService, mapper);
+        var signInConsumer = new ContactSignInConsumer(connectionService, mapper);
+
+        await signOutConsumer.Consume(CreateContext(new ContactSignOutMessage(CreateContact(), 10, "old")));
+        connection.ClearReceivedCalls();
+
+        await signInConsumer.Consume(CreateContext(new ContactSignInMessage(CreateContact(), 10, "old")));
+        await connection.DidNotReceive().SendMessage(Arg.Any<RaidoMessage>());
+
+        await signInConsumer.Consume(CreateContext(new ContactSignInMessage(CreateContact(), 11, "new")));
+        await connection.Received(1).SendMessage(Arg.Is<FriendsListMessage>(message => message.Notify));
     }
 
     [TestMethod]
@@ -203,6 +226,34 @@ public sealed class ContactPresenceConsumerTests
         feature.ReplaceFriends([], []);
 
         Assert.IsNull(feature.TryApplySignOut(42, 12, "new"));
+    }
+
+    [TestMethod]
+    public void SnapshotReplacementRetainsAnOfflineGenerationFence()
+    {
+        var feature = new LobbyContactsFeature();
+        feature.Friends.Add(CreateFriend());
+
+        Assert.IsNull(feature.TryApplySignOut(42, 10, "old"));
+
+        feature.ReplaceFriends(
+            [CreateFriend()],
+            [new ContactPresenceOwner(42, 10, "old")]);
+
+        Assert.IsNull(feature.TryApplySignIn(42, 10, "old"));
+        Assert.IsNotNull(feature.TryApplySignIn(42, 11, "new"));
+    }
+
+    [TestMethod]
+    public void NewerSignOutTakesAnOlderOwnerOffline()
+    {
+        var feature = new LobbyContactsFeature();
+        feature.Friends.Add(CreateFriend());
+
+        Assert.IsNotNull(feature.TryApplySignIn(42, 10, "old"));
+        Assert.IsNotNull(feature.TryApplySignOut(42, 11, "new"));
+        Assert.IsNull(feature.TryApplySignOut(42, 10, "old"));
+        Assert.IsNull(feature.TryApplySignIn(42, 11, "new"));
     }
 
     [TestMethod]
