@@ -17,6 +17,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
 {
     private readonly AsyncReaderWriterLock _lock = new();
     private readonly Dictionary<string, SessionSlot> _slots = new();
+    private readonly Dictionary<string, List<IGameSession>> _completedAborts = new();
     public async ValueTask<bool> TryAdd(IGameSession session)
     {
         using (await _lock.WriterLockAsync())
@@ -311,8 +312,37 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
                 return false;
             }
 
+            var completedAborts = _completedAborts.TryGetValue(expectedSession.ConnectionId, out var existing)
+                ? existing
+                : _completedAborts[expectedSession.ConnectionId] = [];
+            completedAborts.Add(expectedSession);
             slot.PendingAbort = null;
             RemoveSlotIfEmpty(expectedSession.ConnectionId, slot);
+            return true;
+        }
+    }
+
+    public async ValueTask<bool> TryAcknowledgeCompletedSessionAbort(IGameSession expectedSession)
+    {
+        using (await _lock.WriterLockAsync())
+        {
+            if (!_completedAborts.TryGetValue(expectedSession.ConnectionId, out var completedAborts))
+            {
+                return false;
+            }
+
+            var index = completedAborts.FindIndex(session => ReferenceEquals(session, expectedSession));
+            if (index < 0)
+            {
+                return false;
+            }
+
+            completedAborts.RemoveAt(index);
+            if (completedAborts.Count == 0)
+            {
+                _completedAborts.Remove(expectedSession.ConnectionId);
+            }
+
             return true;
         }
     }

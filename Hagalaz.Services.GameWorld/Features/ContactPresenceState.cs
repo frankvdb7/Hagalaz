@@ -12,7 +12,8 @@ namespace Hagalaz.Services.GameWorld.Features
         public void ReplaceFriends(
             IContactList<Friend> friends,
             IEnumerable<Friend> replacement,
-            IEnumerable<ContactPresenceOwner> owners)
+            IEnumerable<ContactPresenceOwner> owners,
+            long snapshotVersion)
         {
             lock (_gate)
             {
@@ -28,14 +29,21 @@ namespace Hagalaz.Services.GameWorld.Features
                         entry.LatestSessionGeneration = owner.SessionGeneration;
                         entry.HasGeneration = true;
                         entry.CurrentOwner = new SessionIdentity(owner.SessionGeneration, owner.ConnectionId);
+                        entry.LatestObservationVersion = Math.Max(
+                            entry.LatestObservationVersion,
+                            owner.ObservationVersion > 0 ? owner.ObservationVersion : snapshotVersion);
                     }
                 }
 
                 foreach (var entry in _entries)
                 {
-                    if (!seededOwners.Contains(entry.Key))
+                    if (!seededOwners.Contains(entry.Key) &&
+                        snapshotVersion >= entry.Value.LatestObservationVersion)
                     {
                         entry.Value.CurrentOwner = null;
+                        entry.Value.LatestObservationVersion = Math.Max(
+                            entry.Value.LatestObservationVersion,
+                            snapshotVersion);
                     }
                 }
             }
@@ -62,6 +70,9 @@ namespace Hagalaz.Services.GameWorld.Features
                         entry.CurrentOwner = new SessionIdentity(
                             presenceOwner.SessionGeneration,
                             presenceOwner.ConnectionId);
+                        entry.LatestObservationVersion = Math.Max(
+                            entry.LatestObservationVersion,
+                            presenceOwner.ObservationVersion);
                     }
                 }
                 else if (_entries.TryGetValue(masterId, out var entry))
@@ -88,7 +99,8 @@ namespace Hagalaz.Services.GameWorld.Features
             uint masterId,
             long sessionGeneration,
             string connectionId,
-            IContactList<Friend> friends)
+            IContactList<Friend> friends,
+            long observationVersion)
         {
             lock (_gate)
             {
@@ -109,6 +121,7 @@ namespace Hagalaz.Services.GameWorld.Features
                 entry.LatestSessionGeneration = sessionGeneration;
                 entry.HasGeneration = true;
                 entry.CurrentOwner = new SessionIdentity(sessionGeneration, connectionId);
+                entry.LatestObservationVersion = NextObservationVersion(entry, observationVersion);
                 return friend;
             }
         }
@@ -117,7 +130,8 @@ namespace Hagalaz.Services.GameWorld.Features
             uint masterId,
             long sessionGeneration,
             string connectionId,
-            IContactList<Friend> friends)
+            IContactList<Friend> friends,
+            long observationVersion)
         {
             lock (_gate)
             {
@@ -139,6 +153,10 @@ namespace Hagalaz.Services.GameWorld.Features
                     entry.LatestSessionGeneration = sessionGeneration;
                     entry.HasGeneration = true;
                 }
+
+                entry.LatestObservationVersion = Math.Max(
+                    entry.LatestObservationVersion,
+                    NextObservationVersion(entry, observationVersion));
 
                 if (entry.CurrentOwner is null)
                 {
@@ -176,7 +194,12 @@ namespace Hagalaz.Services.GameWorld.Features
             public long LatestSessionGeneration { get; set; }
 
             public SessionIdentity? CurrentOwner { get; set; }
+
+            public long LatestObservationVersion { get; set; }
         }
+
+        private static long NextObservationVersion(PresenceEntry entry, long observationVersion) =>
+            observationVersion > 0 ? observationVersion : checked(entry.LatestObservationVersion + 1);
 
         private readonly record struct SessionIdentity(long SessionGeneration, string ConnectionId);
     }

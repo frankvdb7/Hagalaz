@@ -89,6 +89,9 @@ public sealed class GameSessionAbortCoordinator
         }
     }
 
+    internal ValueTask<bool> TryAcknowledgeCompletedSessionAbort(IGameSession session) =>
+        _abortSessions.TryAcknowledgeCompletedSessionAbort(session);
+
     private async Task ReleaseProcessingMarkerAsync(IGameSession session)
     {
         try

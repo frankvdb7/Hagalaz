@@ -102,6 +102,12 @@ namespace Hagalaz.Services.GameWorld.Services
 
         internal async Task FlushAsync(bool force, CancellationToken cancellationToken)
         {
+            await using (var recoveryScope = _serviceProvider.CreateAsyncScope())
+            {
+                var logoutService = recoveryScope.ServiceProvider.GetRequiredService<ICharacterLogoutService>();
+                await logoutService.RecoverPendingLogoutsAsync(cancellationToken);
+            }
+
             var snapshots = await CaptureSnapshotsAsync(cancellationToken);
 
             var options = new ParallelOptions

@@ -22,7 +22,20 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly IMapRegionService _regionService;
         private readonly ILogger<MapRegionBackgroundService> _logger;
         private readonly Channel<IMapRegion> _detachedRegions = Channel.CreateUnbounded<IMapRegion>();
+        private readonly object _retryGate = new();
+        private readonly HashSet<IMapRegion> _retryingDetachedRegions = new(ReferenceEqualityComparer.Instance);
         private DateTime _lastProcessedAt = DateTime.MinValue;
+
+        internal int PendingDetachedRegionCount
+        {
+            get
+            {
+                lock (_retryGate)
+                {
+                    return _retryingDetachedRegions.Count;
+                }
+            }
+        }
 
         public MapRegionBackgroundService(IMapRegionService regionService, ILogger<MapRegionBackgroundService> logger)
         {
@@ -58,6 +71,8 @@ namespace Hagalaz.Services.GameWorld.Services
 
         internal Task ProcessRegionsOnceAsync(IReadOnlyDictionary<int, ICharacter> characters)
         {
+            ScheduleDetachedRetries();
+
             var visibleRegions = new HashSet<IMapRegion>(ReferenceEqualityComparer.Instance);
             foreach (var character in characters.Values)
             {
@@ -92,7 +107,7 @@ namespace Hagalaz.Services.GameWorld.Services
                         continue;
                     }
 
-                    _detachedRegions.Writer.TryWrite(region);
+                    EnqueueDetachedRegion(region);
                 }
 
                 if (_regionService.TryRemoveEmptyDimension(dimension))
@@ -113,7 +128,36 @@ namespace Hagalaz.Services.GameWorld.Services
             }
             catch (Exception ex)
             {
+                lock (_retryGate)
+                {
+                    _retryingDetachedRegions.Add(region);
+                }
                 _logger.LogError(ex, "Failed to destroy detached region[{id}].", region.Id);
+            }
+        }
+
+        private void EnqueueDetachedRegion(IMapRegion region)
+        {
+            if (!_detachedRegions.Writer.TryWrite(region))
+            {
+                lock (_retryGate)
+                {
+                    _retryingDetachedRegions.Add(region);
+                }
+            }
+        }
+
+        private void ScheduleDetachedRetries()
+        {
+            lock (_retryGate)
+            {
+                foreach (var region in _retryingDetachedRegions.ToArray())
+                {
+                    if (_detachedRegions.Writer.TryWrite(region))
+                    {
+                        _retryingDetachedRegions.Remove(region);
+                    }
+                }
             }
         }
     }

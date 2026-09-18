@@ -449,6 +449,8 @@ namespace Hagalaz.Services.GameWorld.Services
                 var session = context.GetSession();
                 var persistenceSucceeded = character == null;
                 var sessionRemoved = session == null;
+                var characterDetached = character == null;
+                var sessionCleanupAttempted = false;
                 try
                 {
                     if (character != null)
@@ -460,6 +462,7 @@ namespace Hagalaz.Services.GameWorld.Services
                         }
 
                         var finalSnapshot = await _characterLogoutService.DetachAsync(character, cancellationToken);
+                        characterDetached = true;
                         if (receipt is null && !_characterLogoutService.TryGetPendingPersistence(character, out receipt))
                         {
                             receipt = await _characterPersistenceService.PersistAsync(
@@ -492,11 +495,23 @@ namespace Hagalaz.Services.GameWorld.Services
 
                     if (session != null && persistenceSucceeded)
                     {
+                        sessionCleanupAttempted = true;
                         sessionRemoved = await _gameSessionService.RemoveSession(session);
                     }
                 }
                 finally
                 {
+                    if (session != null && characterDetached && !sessionRemoved && !sessionCleanupAttempted)
+                    {
+                        sessionCleanupAttempted = true;
+                        sessionRemoved = await _gameSessionService.RemoveSession(session, CancellationToken.None);
+                    }
+
+                    if (character != null && sessionRemoved)
+                    {
+                        _characterLogoutService.MarkSessionRemoved(character);
+                    }
+
                     if (character != null && persistenceSucceeded && sessionRemoved && masterId is not null)
                     {
                         _characterLogoutService.CompleteLogout(character);

@@ -53,7 +53,7 @@ namespace Hagalaz.Services.Contacts.Services
                 worldInstanceId,
                 worldGeneration
             );
-            if (!_contacts.TrySetNewerSession(session))
+            if (!_contacts.TrySetNewerSession(session, out var acceptedSession))
             {
                 return;
             }
@@ -70,7 +70,7 @@ namespace Hagalaz.Services.Contacts.Services
                 PreviousDisplayName = character.PreviousDisplayName,
                 WorldId = worldId,
                 WorldName = worldName
-            }, sessionGeneration, connectionId));
+            }, acceptedSession.SessionGeneration, acceptedSession.ConnectionId, acceptedSession.PresenceVersion));
         }
 
         public async Task AddWorldSession(
@@ -102,7 +102,7 @@ namespace Hagalaz.Services.Contacts.Services
                 worldInstanceId,
                 worldGeneration
             );
-            if (!_contacts.TrySetNewerSession(session))
+            if (!_contacts.TrySetNewerSession(session, out var acceptedSession))
             {
                 return;
             }
@@ -119,28 +119,28 @@ namespace Hagalaz.Services.Contacts.Services
                 PreviousDisplayName = character.PreviousDisplayName,
                 WorldId = worldId,
                 WorldName = worldName
-            }, sessionGeneration, connectionId));
+            }, acceptedSession.SessionGeneration, acceptedSession.ConnectionId, acceptedSession.PresenceVersion));
         }
 
         public async Task RemoveSession(uint masterId, long sessionGeneration, string connectionId)
         {
-            if (!_contacts.TryRemoveExact(masterId, sessionGeneration, connectionId))
+            if (!_contacts.TryRemoveExact(masterId, sessionGeneration, connectionId, out var presenceVersion))
             {
                 return;
             }
 
-            await PublishSignOut(masterId, sessionGeneration, connectionId);
+                await PublishSignOut(masterId, sessionGeneration, connectionId, presenceVersion);
         }
 
         public async Task RemoveWorldSessions(int worldId, string worldInstanceId, long worldGeneration)
         {
             foreach (var session in _contacts.RemoveSessionsForWorld(worldId, worldInstanceId, worldGeneration))
             {
-                await PublishSignOut(session.MasterId, session.SessionGeneration, session.ConnectionId);
+                await PublishSignOut(session.MasterId, session.SessionGeneration, session.ConnectionId, session.PresenceVersion);
             }
         }
 
-        private async Task PublishSignOut(uint masterId, long sessionGeneration, string connectionId)
+        private async Task PublishSignOut(uint masterId, long sessionGeneration, string connectionId, long presenceVersion)
         {
             var character = await _characterService.FindCharacterByIdAsync(masterId);
             if (character == null)
@@ -152,7 +152,7 @@ namespace Hagalaz.Services.Contacts.Services
                 MasterId = masterId,
                 DisplayName = character.DisplayName,
                 PreviousDisplayName = character.PreviousDisplayName
-            }, sessionGeneration, connectionId));
+            }, sessionGeneration, connectionId, presenceVersion));
         }
     }
 }

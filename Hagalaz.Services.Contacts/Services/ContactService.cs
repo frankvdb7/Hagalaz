@@ -138,6 +138,7 @@ namespace Hagalaz.Services.Contacts.Services
         public async ValueTask<ContactSettingsDto?> FindContactSettingsAsync(uint masterId) =>
             await _mapper.ProjectTo<ContactSettingsDto>(_unitOfWork.CharacterProfilesRepository.FindById(masterId)).AsNoTracking().FirstOrDefaultAsync();
 
+
         private async IAsyncEnumerable<ContactDto> MapContactsAsync(IQueryable<CharactersContact> contacts, uint masterId)
         {
             foreach (var contact in await _mapper.ProjectTo<ContactDto>(contacts).ToListAsync())
@@ -185,6 +186,7 @@ namespace Hagalaz.Services.Contacts.Services
                     WorldName = contactSession.WorldName,
                     SessionGeneration = contactSession.SessionGeneration,
                     SessionConnectionId = contactSession.ConnectionId,
+                    PresenceVersion = contactSession.PresenceVersion,
                     AreMutualFriends = mutualFriend != null,
                     Settings = settings
                 };

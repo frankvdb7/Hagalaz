@@ -1335,6 +1335,9 @@ public sealed class GameSessionServiceTests
             return _store.TryCompletePendingSessionAbort(expectedSession);
         }
 
+        public ValueTask<bool> TryAcknowledgeCompletedSessionAbort(IGameSession expectedSession) =>
+            _store.TryAcknowledgeCompletedSessionAbort(expectedSession);
+
         public ValueTask<bool> TryReleasePendingSessionAbort(IGameSession expectedSession)
         {
             ReleaseCalls++;

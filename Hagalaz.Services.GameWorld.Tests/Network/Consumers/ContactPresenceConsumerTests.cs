@@ -223,9 +223,35 @@ public sealed class ContactPresenceConsumerTests
         Assert.IsNotNull(feature.TryApplySignIn(42, 12, "new"));
         Assert.IsNull(feature.TryApplySignOut(42, 11, "old"));
 
-        feature.ReplaceFriends([], []);
+        feature.ReplaceFriends([], [], 2);
 
         Assert.IsNull(feature.TryApplySignOut(42, 12, "new"));
+    }
+
+    [TestMethod]
+    public void OlderOfflineSnapshotDoesNotClearNewerLiveSignIn()
+    {
+        var feature = new LobbyContactsFeature();
+        feature.Friends.Add(CreateFriend());
+
+        Assert.IsNotNull(feature.TryApplySignIn(42, 10, "live", observationVersion: 11));
+
+        feature.ReplaceFriends([CreateFriend()], [], snapshotVersion: 10);
+
+        Assert.IsNotNull(feature.TryApplySignOut(42, 10, "live", observationVersion: 12));
+    }
+
+    [TestMethod]
+    public void NewerOfflineSnapshotClearsOlderLiveSignIn()
+    {
+        var feature = new LobbyContactsFeature();
+        feature.Friends.Add(CreateFriend());
+
+        Assert.IsNotNull(feature.TryApplySignIn(42, 10, "live", observationVersion: 10));
+
+        feature.ReplaceFriends([CreateFriend()], [], snapshotVersion: 11);
+
+        Assert.IsNull(feature.TryApplySignOut(42, 10, "live", observationVersion: 12));
     }
 
     [TestMethod]

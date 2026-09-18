@@ -37,5 +37,7 @@ namespace Hagalaz.Services.Contacts.Store.Model
         public long WorldGeneration { get; }
 
         public Guid SessionId { get; }
+
+        public long PresenceVersion { get; internal set; }
     }
 }

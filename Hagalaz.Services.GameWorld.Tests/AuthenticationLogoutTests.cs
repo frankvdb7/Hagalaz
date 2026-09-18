@@ -19,7 +19,9 @@ using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
 using Hagalaz.Services.GameWorld.Model;
 using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Services.Model;
+using Hagalaz.Services.GameWorld.Store;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using MassTransit;
 using NSubstitute;
@@ -34,7 +36,7 @@ public sealed class AuthenticationLogoutTests
 {
     [TestMethod]
     [Timeout(5000)]
-    public async Task SignOutAsync_WhenPersistenceFails_KeepsSessionForRetry()
+    public async Task SignOutAsync_WhenPersistenceFails_RemovesDetachedSessionForRetry()
     {
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
@@ -60,9 +62,189 @@ public sealed class AuthenticationLogoutTests
             () => service.SignOutAsync());
 
         Assert.AreSame(persistenceFailure, exception);
-        await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>());
+        await gameSessionService.Received(1).RemoveSession(session, CancellationToken.None);
         await characterLogoutService.Received(1).DetachAsync(character, Arg.Any<CancellationToken>());
         await characterService.DidNotReceive().RemoveAsync(character);
+    }
+
+    [TestMethod]
+    public async Task SignOutAsync_WhenAbortAlreadyRemovedExactSession_CompletesOldLogoutWithoutRemovingReplacement()
+    {
+        var session = Substitute.For<IGameWorldSession>();
+        session.MasterId.Returns(42u);
+        session.ConnectionId.Returns("old-world");
+        session.SessionGeneration.Returns(7L);
+        session.SessionClaimId.Returns("old-claim");
+        var replacement = Substitute.For<IGameSession>();
+        replacement.MasterId.Returns(42u);
+        replacement.ConnectionId.Returns("replacement");
+
+        var sessions = new GameSessionStore();
+        Assert.IsTrue(await sessions.TryAdd(session));
+        var terminator = Substitute.For<IGameSessionConnectionTerminator>();
+        var abortCoordinator = new GameSessionAbortCoordinator(
+            sessions,
+            terminator,
+            NullLogger<GameSessionAbortCoordinator>.Instance);
+        Assert.IsTrue(await abortCoordinator.ReserveAndAbortLostSessionAsync(session, CancellationToken.None));
+        Assert.IsTrue(await sessions.TryAdd(replacement));
+
+        var gameSessionService = new GameSessionService(
+            sessions,
+            Substitute.For<IGameSessionFactory>(),
+            Substitute.For<IGameSessionClaimStore>(),
+            NullLogger<GameSessionService>.Instance,
+            abortCoordinator);
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        character.Session.Returns(session);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
+        using var characterProvider = new ServiceCollection()
+            .AddSingleton(dehydrationService)
+            .BuildServiceProvider();
+        character.ServiceProvider.Returns(characterProvider);
+        var characterStore = Substitute.For<ICharacterService>();
+        characterStore.Remove(character).Returns(true);
+        var persistenceState = new CharacterPersistenceState();
+        persistenceState.InitializeRevision(42, 0, session.SessionGeneration);
+        var logoutState = new CharacterLogoutState();
+        var mediator = Substitute.For<IGameMediator>();
+        var persistence = Substitute.For<ICharacterPersistenceService>();
+        var receipt = CreateReceipt(character);
+        persistence.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<CharacterPersistenceReceipt?>(receipt));
+        persistence.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(CharacterPersistenceOutcome.Committed));
+        var logout = new CharacterLogoutService(
+            logoutState,
+            characterStore,
+            new ImmediateTaskScheduler(),
+            mediator,
+            persistenceState,
+            persistence,
+            gameSessionService);
+        var authentication = CreateAuthenticationService(
+            characterStore,
+            persistence,
+            gameSessionService,
+            CreateContextAccessor(character, session, CreateAuthenticationProperties(42)),
+            mediator: mediator,
+            characterLogoutService: logout,
+            configureLogoutService: false);
+
+        await authentication.SignOutAsync();
+
+        Assert.IsFalse(logoutState.IsPending(42));
+        Assert.AreSame(replacement, await gameSessionService.FindByMasterId(42));
+        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        Assert.AreEqual(1L, persistenceState.NextRevision(42));
+        terminator.Received(1).Abort(session);
+    }
+
+    [TestMethod]
+    public async Task DetachedLogoutRecovery_WhenInitialPersistenceFails_CompletesExactlyOnceLater()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        session.SessionGeneration.Returns(7L);
+        character.Session.Returns(session);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
+        using var characterProvider = new ServiceCollection()
+            .AddSingleton(dehydrationService)
+            .BuildServiceProvider();
+        character.ServiceProvider.Returns(characterProvider);
+        var characterStore = Substitute.For<ICharacterService>();
+        characterStore.Remove(character).Returns(true);
+        var logoutState = new CharacterLogoutState();
+        var persistenceState = new CharacterPersistenceState();
+        persistenceState.InitializeRevision(42, 0, session.SessionGeneration);
+        var persistence = Substitute.For<ICharacterPersistenceService>();
+        var failure = new InvalidOperationException("temporary persistence failure");
+        var receipt = CreateReceipt(character);
+        persistence.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
+            .Returns(
+                Task.FromException<CharacterPersistenceReceipt?>(failure),
+                Task.FromResult<CharacterPersistenceReceipt?>(receipt));
+        persistence.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(CharacterPersistenceOutcome.Committed));
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.RemoveSession(session, Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+        var mediator = Substitute.For<IGameMediator>();
+        var logout = new CharacterLogoutService(
+            logoutState,
+            characterStore,
+            new ImmediateTaskScheduler(),
+            mediator,
+            persistenceState,
+            persistence,
+            gameSessionService);
+        var authentication = CreateAuthenticationService(
+            characterStore,
+            persistence,
+            gameSessionService,
+            CreateContextAccessor(character, session, CreateAuthenticationProperties(42)),
+            mediator: mediator,
+            characterLogoutService: logout,
+            configureLogoutService: false);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => authentication.SignOutAsync());
+
+        Assert.IsTrue(logoutState.IsPending(42));
+        characterStore.Received(1).Remove(character);
+        character.Received(1).Destroy();
+        await gameSessionService.Received(1).RemoveSession(session, CancellationToken.None);
+        mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
+
+        await logout.RecoverPendingLogoutsAsync();
+
+        Assert.IsFalse(logoutState.IsPending(42));
+        await persistence.Received(2).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
+        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        Assert.AreEqual(1L, persistenceState.NextRevision(42));
+    }
+
+    [TestMethod]
+    public async Task DetachedLogoutRecovery_DoesNotCompleteWhenReplacementOwnsSession()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        var oldSession = Substitute.For<IGameSession>();
+        oldSession.ConnectionId.Returns("old");
+        oldSession.SessionGeneration.Returns(7L);
+        character.Session.Returns(oldSession);
+        var state = new CharacterLogoutState();
+        Assert.IsTrue(state.TryBeginLogout(character, out _));
+        Assert.IsTrue(state.SetSnapshot(character, new CharacterModel { SnapshotRevision = 1 }));
+        var persistenceState = new CharacterPersistenceState();
+        persistenceState.InitializeRevision(42, 0, 7);
+        var persistence = Substitute.For<ICharacterPersistenceService>();
+        var receipt = CreateReceipt(character);
+        persistence.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<CharacterPersistenceReceipt?>(receipt));
+        persistence.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(CharacterPersistenceOutcome.Committed));
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.RemoveSession(oldSession, Arg.Any<CancellationToken>()).Returns(Task.FromResult(false));
+        var mediator = Substitute.For<IGameMediator>();
+        var logout = new CharacterLogoutService(
+            state,
+            Substitute.For<ICharacterService>(),
+            new ImmediateTaskScheduler(),
+            mediator,
+            persistenceState,
+            persistence,
+            gameSessionService);
+
+        await logout.RecoverPendingLogoutsAsync();
+
+        Assert.IsTrue(state.IsPending(42));
+        await gameSessionService.Received(1).RemoveSession(oldSession, CancellationToken.None);
+        mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
+        Assert.AreEqual(1L, persistenceState.NextRevision(42));
     }
 
     [TestMethod]
@@ -106,7 +288,7 @@ public sealed class AuthenticationLogoutTests
 
         await persistenceService.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
         Assert.IsFalse(persistenceCancellation.CanBeCanceled);
-        await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>());
+        await gameSessionService.DidNotReceive().RemoveSession(session, CancellationToken.None);
         Assert.IsFalse(signOutTask.IsCompleted);
 
         acknowledge.TrySetResult(CharacterPersistenceOutcome.Committed);
@@ -307,7 +489,7 @@ public sealed class AuthenticationLogoutTests
             Arg.Is<CharacterModel>(snapshot => snapshot.SnapshotRevision == 8),
             true,
             Arg.Any<CancellationToken>());
-        await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>());
+        await gameSessionService.Received(1).RemoveSession(session, CancellationToken.None);
     }
 
     [TestMethod]

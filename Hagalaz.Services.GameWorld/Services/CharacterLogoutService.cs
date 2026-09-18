@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Mediator;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
@@ -10,6 +13,7 @@ using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Services.Model;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Services.GameWorld.Services;
 
@@ -19,9 +23,11 @@ public interface ICharacterLogoutService
 
     bool SetPendingLogoutPersistence(ICharacter character, CharacterPersistenceReceipt receipt);
     bool TryGetPendingPersistence(ICharacter character, out CharacterPersistenceReceipt? persistenceReceipt);
+    bool MarkSessionRemoved(ICharacter character);
     bool IsPendingLogout(ICharacter character);
     bool IsPendingLogout(uint masterId);
     Task<CharacterModel> DetachAsync(ICharacter character, CancellationToken cancellationToken = default);
+    Task RecoverPendingLogoutsAsync(CancellationToken cancellationToken = default);
     void CompleteLogout(ICharacter character);
 }
 
@@ -80,6 +86,45 @@ public sealed class CharacterLogoutState
 
             receipt = null;
             return false;
+        }
+    }
+
+    public bool MarkSessionRemoved(ICharacter character)
+    {
+        lock (_gate)
+        {
+            if (!_pending.TryGetValue(character.MasterId, out var pending) ||
+                !ReferenceEquals(pending.Character, character))
+            {
+                return false;
+            }
+
+            pending.SessionRemoved = true;
+            return true;
+        }
+    }
+
+    public bool ClearPersistenceReceipt(ICharacter character, CharacterPersistenceReceipt receipt)
+    {
+        lock (_gate)
+        {
+            if (!_pending.TryGetValue(character.MasterId, out var pending) ||
+                !ReferenceEquals(pending.Character, character) ||
+                !ReferenceEquals(pending.PersistenceReceipt, receipt))
+            {
+                return false;
+            }
+
+            pending.PersistenceReceipt = null;
+            return true;
+        }
+    }
+
+    public IReadOnlyList<PendingLogout> FindPendingWithSnapshots()
+    {
+        lock (_gate)
+        {
+            return _pending.Values.Where(pending => pending.Snapshot is not null).ToArray();
         }
     }
 
@@ -185,17 +230,20 @@ public sealed class CharacterLogoutState
         public PendingLogout(ICharacter character)
         {
             Character = character;
+            Session = character.Session;
             MasterId = character.MasterId;
             SessionGeneration = character.Session.SessionGeneration;
             ConnectionId = character.Session.ConnectionId;
         }
 
         public ICharacter Character { get; }
+        public IGameSession Session { get; }
         public uint MasterId { get; }
         public long SessionGeneration { get; }
         public string ConnectionId { get; }
         public CharacterModel? Snapshot { get; set; }
         public CharacterPersistenceReceipt? PersistenceReceipt { get; set; }
+        public bool SessionRemoved { get; set; }
         public TaskCompletionSource<CharacterModel>? TerminalTransition { get; set; }
     }
 }
@@ -207,19 +255,28 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
     private readonly IRsTaskService _taskService;
     private readonly IGameMediator _mediator;
     private readonly CharacterPersistenceState _persistenceState;
+    private readonly ICharacterPersistenceService? _persistenceService;
+    private readonly IGameSessionService? _gameSessionService;
+    private readonly ILogger<CharacterLogoutService> _logger;
 
     public CharacterLogoutService(
         CharacterLogoutState logoutState,
         ICharacterService characterService,
         IRsTaskService taskService,
         IGameMediator mediator,
-        CharacterPersistenceState persistenceState)
+        CharacterPersistenceState persistenceState,
+        ICharacterPersistenceService? persistenceService = null,
+        IGameSessionService? gameSessionService = null,
+        ILogger<CharacterLogoutService>? logger = null)
     {
         _logoutState = logoutState;
         _characterService = characterService;
         _taskService = taskService;
         _mediator = mediator;
         _persistenceState = persistenceState;
+        _persistenceService = persistenceService;
+        _gameSessionService = gameSessionService;
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<CharacterLogoutService>.Instance;
     }
 
     public bool TryBeginLogout(ICharacter character, out CharacterPersistenceReceipt? persistenceReceipt) =>
@@ -231,9 +288,85 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
     public bool TryGetPendingPersistence(ICharacter character, out CharacterPersistenceReceipt? persistenceReceipt) =>
         _logoutState.TryGetPersistenceReceipt(character, out persistenceReceipt);
 
+    public bool MarkSessionRemoved(ICharacter character) => _logoutState.MarkSessionRemoved(character);
+
     public bool IsPendingLogout(ICharacter character) => _logoutState.IsPending(character);
 
     public bool IsPendingLogout(uint masterId) => _logoutState.IsPending(masterId);
+
+    public async Task RecoverPendingLogoutsAsync(CancellationToken cancellationToken = default)
+    {
+        if (_persistenceService is null || _gameSessionService is null)
+        {
+            throw new InvalidOperationException("Logout recovery requires persistence and session services.");
+        }
+
+        foreach (var pending in _logoutState.FindPendingWithSnapshots())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                await RecoverPendingLogoutAsync(pending, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "Failed to recover logout for character '{MasterId}'.", pending.MasterId);
+            }
+        }
+    }
+
+    private async Task RecoverPendingLogoutAsync(
+        CharacterLogoutState.PendingLogout pending,
+        CancellationToken cancellationToken)
+    {
+        var receipt = pending.PersistenceReceipt;
+        if (receipt is { IsCompleted: true })
+        {
+            var completedOutcome = await _persistenceService!.WaitForAcknowledgementAsync(receipt, cancellationToken);
+            if (completedOutcome is not (CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate))
+            {
+                _logoutState.ClearPersistenceReceipt(pending.Character, receipt);
+                receipt = null;
+            }
+        }
+
+        if (receipt is null)
+        {
+            receipt = await _persistenceService!.PersistAsync(
+                pending.MasterId,
+                pending.Snapshot!,
+                force: true,
+                CancellationToken.None);
+            if (receipt is null || !_logoutState.SetPersistenceReceipt(pending.Character, receipt))
+            {
+                throw new InvalidOperationException(
+                    $"Final character persistence did not return an owned receipt for master id {pending.MasterId}.");
+            }
+        }
+
+        var outcome = await _persistenceService.WaitForAcknowledgementAsync(receipt, cancellationToken);
+        if (outcome is not (CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate))
+        {
+            _logoutState.ClearPersistenceReceipt(pending.Character, receipt);
+            return;
+        }
+
+        if (!pending.SessionRemoved)
+        {
+            if (!await _gameSessionService!.RemoveSession(pending.Session, CancellationToken.None))
+            {
+                return;
+            }
+
+            _logoutState.MarkSessionRemoved(pending.Character);
+        }
+
+        CompleteLogout(pending.Character);
+    }
 
     public async Task<CharacterModel> DetachAsync(ICharacter character, CancellationToken cancellationToken = default)
     {
@@ -288,7 +421,7 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
     {
         if (_logoutState.TryComplete(character, out var command))
         {
-            _persistenceState.Release(character.MasterId, character.Session.SessionGeneration);
+            _persistenceState.Release(character.MasterId, command.SessionGeneration);
             _mediator.Publish(command);
         }
     }
