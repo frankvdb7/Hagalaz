@@ -205,6 +205,7 @@ public sealed class WorldSignInCommandConsumerTests
             Options.Create(new WorldOptions { Id = 1 }),
             scheduler,
             connectionTerminator,
+            Substitute.For<IGameConnectionService>(),
             identity ?? new WorldInstanceIdentity(),
             NullLogger<WorldSignInCommandConsumer>.Instance);
 

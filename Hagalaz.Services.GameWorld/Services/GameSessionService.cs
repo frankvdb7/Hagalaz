@@ -201,9 +201,9 @@ namespace Hagalaz.Services.GameWorld.Services
         public async Task<bool> RemoveSession(IGameSession expectedSession, CancellationToken cancellationToken = default)
         {
             // An abort removes the exact session from active ownership before the
-            // connection's normal sign-out callback runs. Keep that terminal
-            // transition distinguishable from a missing or replacement session.
-            if (await _abortCoordinator.TryAcknowledgeCompletedSessionAbort(expectedSession))
+            // connection's normal sign-out callback runs. Acknowledge that exact
+            // pending abort without affecting a replacement session.
+            if (await _abortCoordinator.TryRemovePendingSessionAbort(expectedSession))
             {
                 return true;
             }

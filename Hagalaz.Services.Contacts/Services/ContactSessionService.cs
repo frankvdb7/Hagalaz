@@ -70,7 +70,7 @@ namespace Hagalaz.Services.Contacts.Services
                 PreviousDisplayName = character.PreviousDisplayName,
                 WorldId = worldId,
                 WorldName = worldName
-            }, acceptedSession.SessionGeneration, acceptedSession.ConnectionId, acceptedSession.PresenceVersion));
+            }, acceptedSession.SessionGeneration, acceptedSession.ConnectionId));
         }
 
         public async Task AddWorldSession(
@@ -119,28 +119,28 @@ namespace Hagalaz.Services.Contacts.Services
                 PreviousDisplayName = character.PreviousDisplayName,
                 WorldId = worldId,
                 WorldName = worldName
-            }, acceptedSession.SessionGeneration, acceptedSession.ConnectionId, acceptedSession.PresenceVersion));
+            }, acceptedSession.SessionGeneration, acceptedSession.ConnectionId));
         }
 
         public async Task RemoveSession(uint masterId, long sessionGeneration, string connectionId)
         {
-            if (!_contacts.TryRemoveExact(masterId, sessionGeneration, connectionId, out var presenceVersion))
+            if (!_contacts.TryRemoveExact(masterId, sessionGeneration, connectionId))
             {
                 return;
             }
 
-                await PublishSignOut(masterId, sessionGeneration, connectionId, presenceVersion);
+                await PublishSignOut(masterId, sessionGeneration, connectionId);
         }
 
         public async Task RemoveWorldSessions(int worldId, string worldInstanceId, long worldGeneration)
         {
             foreach (var session in _contacts.RemoveSessionsForWorld(worldId, worldInstanceId, worldGeneration))
             {
-                await PublishSignOut(session.MasterId, session.SessionGeneration, session.ConnectionId, session.PresenceVersion);
+                await PublishSignOut(session.MasterId, session.SessionGeneration, session.ConnectionId);
             }
         }
 
-        private async Task PublishSignOut(uint masterId, long sessionGeneration, string connectionId, long presenceVersion)
+        private async Task PublishSignOut(uint masterId, long sessionGeneration, string connectionId)
         {
             var character = await _characterService.FindCharacterByIdAsync(masterId);
             if (character == null)
@@ -152,7 +152,7 @@ namespace Hagalaz.Services.Contacts.Services
                 MasterId = masterId,
                 DisplayName = character.DisplayName,
                 PreviousDisplayName = character.PreviousDisplayName
-            }, sessionGeneration, connectionId, presenceVersion));
+            }, sessionGeneration, connectionId));
         }
     }
 }

@@ -27,7 +27,8 @@ public sealed class MapRegionDestructionTests
         var second = CreateGameObject(Location.Create(2, 2, 0, 0), secondScript);
         var failure = new InvalidOperationException("object-a");
         firstScript.When(value => value.OnDestroy()).Do(_ => throw failure);
-        var region = CreateRegion();
+        var entityStore = new EntityStore();
+        var region = CreateRegion(entityStore: entityStore);
         region.Add(first);
         region.Add(second);
 
@@ -37,6 +38,8 @@ public sealed class MapRegionDestructionTests
         Assert.AreSame(failure, actual.InnerExceptions[0]);
         firstScript.Received(1).OnDestroy();
         secondScript.Received(1).OnDestroy();
+        Assert.IsFalse(entityStore.TryResolve(first.Handle, out IGameObject? _));
+        Assert.IsFalse(entityStore.TryResolve(second.Handle, out IGameObject? _));
     }
 
     [TestMethod]
@@ -97,7 +100,7 @@ public sealed class MapRegionDestructionTests
         objectScript.Received(1).OnDestroy();
     }
 
-    private static MapRegion CreateRegion(INpcService? npcService = null) => new(
+    private static MapRegion CreateRegion(INpcService? npcService = null, IEntityStore? entityStore = null) => new(
         Location.Create(0, 0, 0, 0),
         [0, 0, 0, 0],
         npcService ?? Substitute.For<INpcService>(),
@@ -105,7 +108,7 @@ public sealed class MapRegionDestructionTests
         Substitute.For<IGameObjectBuilder>(),
         Substitute.For<IGroundItemBuilder>(),
         Substitute.For<AutoMapper.IMapper>(),
-        new EntityStore());
+        entityStore ?? new EntityStore());
 
     private static INpc CreateNpc(int index)
     {

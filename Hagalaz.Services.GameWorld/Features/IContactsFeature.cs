@@ -6,18 +6,18 @@ namespace Hagalaz.Services.GameWorld.Features
     public sealed record ContactPresenceOwner(
         uint MasterId,
         long SessionGeneration,
-        string ConnectionId,
-        long ObservationVersion = 0);
+        string ConnectionId);
 
     public interface IContactsFeature
     {
         public IContactList<Friend> Friends { get; }
         public IContactList<Ignore> Ignores { get; }
 
-        void ReplaceFriends(IEnumerable<Friend> friends, IEnumerable<ContactPresenceOwner> onlineOwners, long snapshotVersion = 0);
-        Friend AddFriend(Friend friend, ContactPresenceOwner? onlineOwner);
+        long CaptureObservationBoundary();
+        void ReplaceFriends(IEnumerable<Friend> friends, IEnumerable<ContactPresenceOwner> onlineOwners, long observationBoundary = 0);
+        Friend AddFriend(Friend friend, ContactPresenceOwner? onlineOwner, long observationBoundary = 0);
         bool RemoveFriend(uint masterId);
-        Friend? TryApplySignIn(uint masterId, long sessionGeneration, string connectionId, long observationVersion = 0);
-        Friend? TryApplySignOut(uint masterId, long sessionGeneration, string connectionId, long observationVersion = 0);
+        Friend? TryApplySignIn(uint masterId, long sessionGeneration, string connectionId);
+        Friend? TryApplySignOut(uint masterId, long sessionGeneration, string connectionId);
     }
 }

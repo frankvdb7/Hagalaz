@@ -10,6 +10,7 @@ using MassTransit;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Hagalaz.Services.GameWorld.Services;
+using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Game.Abstractions.Services;
 
 namespace Hagalaz.Services.GameWorld.Mediator.Consumers
@@ -20,6 +21,7 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
         private readonly IOptions<WorldOptions> _options;
         private readonly IMapRegionLoadScheduler _mapRegionLoadScheduler;
         private readonly IGameSessionConnectionTerminator _connectionTerminator;
+        private readonly IGameConnectionService _connectionService;
         private readonly WorldInstanceIdentity _identity;
         private readonly ILogger<WorldSignInCommandConsumer> _logger;
 
@@ -28,6 +30,7 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
             IOptions<WorldOptions> options,
             IMapRegionLoadScheduler mapRegionLoadScheduler,
             IGameSessionConnectionTerminator connectionTerminator,
+            IGameConnectionService connectionService,
             WorldInstanceIdentity identity,
             ILogger<WorldSignInCommandConsumer> logger)
         {
@@ -35,6 +38,7 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
             _options = options;
             _mapRegionLoadScheduler = mapRegionLoadScheduler;
             _connectionTerminator = connectionTerminator;
+            _connectionService = connectionService;
             _identity = identity;
             _logger = logger;
         }
@@ -54,8 +58,16 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
                 character.Viewport.RefreshVisibleRegions();
                 await _mapRegionLoadScheduler.EnsureLoadedAsync(character.Viewport.VisibleRegions, context.CancellationToken);
                 character.OnRegistered();
+                var observationBoundary = 0L;
+                var connection = await _connectionService.FindById(session.ConnectionId);
+                var contacts = connection?.Features.Get<IContactsFeature>();
+                if (contacts is not null)
+                {
+                    observationBoundary = contacts.CaptureObservationBoundary();
+                }
+
                 await Task.WhenAll(
-                    _publishEndpoint.Publish(new GetContactsRequest(character.MasterId)),
+                    _publishEndpoint.Publish(new GetContactsRequest(character.MasterId, observationBoundary)),
                     _publishEndpoint.Publish(new WorldUserSignInMessage(
                         character.MasterId,
                         options.Id,

@@ -76,6 +76,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 return;
             }
             var contacts = Context.GetContacts();
+            var observationBoundary = contacts.CaptureObservationBoundary();
             try
             {
                 var response = await _addContactRequestClient.GetResponse<AddContactResponse>(new AddContactRequest
@@ -88,7 +89,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
                     && message.Contact.SessionConnectionId is { } connectionId
                     ? new ContactPresenceOwner(message.Contact.MasterId, sessionGeneration, connectionId)
                     : null;
-                contacts.AddFriend(friend, onlineOwner);
+                contacts.AddFriend(friend, onlineOwner, observationBoundary);
 
                 var friendContact = _mapper.Map<ContactDto>(message.Contact);
                 var friendMessage = new FriendsListMessage

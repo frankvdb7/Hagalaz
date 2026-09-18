@@ -24,6 +24,7 @@ public interface ICharacterLogoutService
     bool SetPendingLogoutPersistence(ICharacter character, CharacterPersistenceReceipt receipt);
     bool TryGetPendingPersistence(ICharacter character, out CharacterPersistenceReceipt? persistenceReceipt);
     bool MarkSessionRemoved(ICharacter character);
+    bool MarkRecoveryEligible(ICharacter character);
     bool IsPendingLogout(ICharacter character);
     bool IsPendingLogout(uint masterId);
     Task<CharacterModel> DetachAsync(ICharacter character, CancellationToken cancellationToken = default);
@@ -120,11 +121,29 @@ public sealed class CharacterLogoutState
         }
     }
 
-    public IReadOnlyList<PendingLogout> FindPendingWithSnapshots()
+    public bool MarkRecoveryEligible(ICharacter character)
     {
         lock (_gate)
         {
-            return _pending.Values.Where(pending => pending.Snapshot is not null).ToArray();
+            if (!_pending.TryGetValue(character.MasterId, out var pending) ||
+                !ReferenceEquals(pending.Character, character) ||
+                pending.Snapshot is null)
+            {
+                return false;
+            }
+
+            pending.RecoveryEligible = true;
+            return true;
+        }
+    }
+
+    public IReadOnlyList<PendingLogout> FindRecoverablePendingLogouts()
+    {
+        lock (_gate)
+        {
+            return _pending.Values
+                .Where(pending => pending.Snapshot is not null && pending.RecoveryEligible)
+                .ToArray();
         }
     }
 
@@ -150,6 +169,22 @@ public sealed class CharacterLogoutState
             }
 
             snapshot = null!;
+            return false;
+        }
+    }
+
+    public bool TryGetSessionGeneration(ICharacter character, out long sessionGeneration)
+    {
+        lock (_gate)
+        {
+            if (_pending.TryGetValue(character.MasterId, out var pending) &&
+                ReferenceEquals(pending.Character, character))
+            {
+                sessionGeneration = pending.SessionGeneration;
+                return true;
+            }
+
+            sessionGeneration = 0;
             return false;
         }
     }
@@ -244,6 +279,7 @@ public sealed class CharacterLogoutState
         public CharacterModel? Snapshot { get; set; }
         public CharacterPersistenceReceipt? PersistenceReceipt { get; set; }
         public bool SessionRemoved { get; set; }
+        public bool RecoveryEligible { get; set; }
         public TaskCompletionSource<CharacterModel>? TerminalTransition { get; set; }
     }
 }
@@ -290,6 +326,8 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
 
     public bool MarkSessionRemoved(ICharacter character) => _logoutState.MarkSessionRemoved(character);
 
+    public bool MarkRecoveryEligible(ICharacter character) => _logoutState.MarkRecoveryEligible(character);
+
     public bool IsPendingLogout(ICharacter character) => _logoutState.IsPending(character);
 
     public bool IsPendingLogout(uint masterId) => _logoutState.IsPending(masterId);
@@ -301,7 +339,7 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
             throw new InvalidOperationException("Logout recovery requires persistence and session services.");
         }
 
-        foreach (var pending in _logoutState.FindPendingWithSnapshots())
+        foreach (var pending in _logoutState.FindRecoverablePendingLogouts())
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
@@ -419,9 +457,22 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
 
     public void CompleteLogout(ICharacter character)
     {
+        if (!_logoutState.TryGetSessionGeneration(character, out var sessionGeneration))
+        {
+            return;
+        }
+
+        if (!_persistenceState.Release(character.MasterId, sessionGeneration))
+        {
+            _logger.LogError(
+                "Could not release persistence state for character '{MasterId}' during logout completion.",
+                character.MasterId);
+            _logoutState.MarkRecoveryEligible(character);
+            return;
+        }
+
         if (_logoutState.TryComplete(character, out var command))
         {
-            _persistenceState.Release(character.MasterId, command.SessionGeneration);
             _mediator.Publish(command);
         }
     }

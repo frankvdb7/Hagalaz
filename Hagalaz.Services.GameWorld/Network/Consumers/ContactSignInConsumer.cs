@@ -31,8 +31,7 @@ namespace Hagalaz.Services.GameWorld.Network.Consumers
                 var friend = connection.Features.Get<IContactsFeature>()?.TryApplySignIn(
                     message.Contact.MasterId,
                     message.SessionGeneration,
-                    message.ConnectionId,
-                    message.PresenceVersion);
+                    message.ConnectionId);
                 if (friend == null)
                 {
                     continue;

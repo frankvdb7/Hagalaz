@@ -7,16 +7,6 @@ namespace Hagalaz.Services.Contacts.Store
     {
         private readonly Dictionary<uint, ContactSessionContext> _sessions = new();
         private readonly object _sessionGate = new();
-        private long _presenceVersion;
-
-        public long CapturePresenceVersion()
-        {
-            lock (_sessionGate)
-            {
-                return _presenceVersion;
-            }
-        }
-
         public bool TrySetNewerSession(ContactSessionContext session) =>
             TrySetNewerSession(session, out _);
 
@@ -31,7 +21,6 @@ namespace Hagalaz.Services.Contacts.Store
                     return false;
                 }
 
-                session.PresenceVersion = ++_presenceVersion;
                 acceptedSession = session;
                 _sessions[session.MasterId] = session;
                 return true;
@@ -39,9 +28,6 @@ namespace Hagalaz.Services.Contacts.Store
         }
 
         public bool TryRemoveExact(uint masterId, long sessionGeneration, string connectionId)
-            => TryRemoveExact(masterId, sessionGeneration, connectionId, out _);
-
-        public bool TryRemoveExact(uint masterId, long sessionGeneration, string connectionId, out long presenceVersion)
         {
             lock (_sessionGate)
             {
@@ -49,12 +35,9 @@ namespace Hagalaz.Services.Contacts.Store
                     session.SessionGeneration != sessionGeneration ||
                     session.ConnectionId != connectionId)
                 {
-                    presenceVersion = 0;
                     return false;
                 }
 
-                presenceVersion = ++_presenceVersion;
-                session.PresenceVersion = presenceVersion;
                 return _sessions.Remove(masterId);
             }
         }
@@ -69,7 +52,6 @@ namespace Hagalaz.Services.Contacts.Store
                     return false;
                 }
 
-                expectedSession.PresenceVersion = ++_presenceVersion;
                 return _sessions.Remove(expectedSession.MasterId);
             }
         }
@@ -101,7 +83,6 @@ namespace Hagalaz.Services.Contacts.Store
                         session.WorldInstanceId == worldInstanceId &&
                         session.WorldGeneration == worldGeneration)
                     {
-                        session.PresenceVersion = ++_presenceVersion;
                         removed.Add(session);
                     }
                 }

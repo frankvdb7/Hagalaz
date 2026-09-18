@@ -38,6 +38,5 @@ namespace Hagalaz.Services.Contacts.Store.Model
 
         public Guid SessionId { get; }
 
-        public long PresenceVersion { get; internal set; }
     }
 }

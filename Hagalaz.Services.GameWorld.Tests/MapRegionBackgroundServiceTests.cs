@@ -79,141 +79,42 @@ public sealed class MapRegionBackgroundServiceTests
     }
 
     [TestMethod]
-    public async Task HostedWorker_RetainsFailedDetachedRegionUntilTheNextHousekeepingCycle()
+    public async Task HostedWorker_DoesNotRetryFailedDetachedRegion()
     {
         var region = Substitute.For<IMapRegion>();
         region.Id.Returns(1);
         region.CanDestroy().Returns(true);
-        var dimension = Substitute.For<IDimension>();
-        dimension.Id.Returns(1);
-        var removeAttempts = 0;
-        var successfulRemovals = 0;
-        var destroyCalls = 0;
-        var firstAttempt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var secondAttempt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var failure = new InvalidOperationException("destructive cleanup failure");
+        var destructionFailed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         region.When(value => value.Destroy()).Do(_ =>
         {
-            var attempt = Interlocked.Increment(ref destroyCalls);
-            if (attempt == 1)
-            {
-                firstAttempt.TrySetResult();
-                throw new InvalidOperationException("transient cleanup failure");
-            }
-
-            secondAttempt.TrySetResult();
+            destructionFailed.TrySetResult();
+            throw failure;
         });
+        var dimension = Substitute.For<IDimension>();
+        dimension.Id.Returns(1);
+        var detached = false;
         var regionService = Substitute.For<IMapRegionService>();
         regionService.FindAllDimensions().Returns(new[] { dimension });
         regionService.FindRegionsByDimension(1).Returns([]);
-        regionService.FindIdleRegionsByDimension(1).Returns(new[] { region });
+        regionService.FindIdleRegionsByDimension(1).Returns(_ => detached ? [] : new[] { region });
         regionService.TryRemoveIdleMapRegion(1, 1, region).Returns(_ =>
         {
-            var attempt = Interlocked.Increment(ref removeAttempts);
-            if (attempt == 1)
-            {
-                Interlocked.Increment(ref successfulRemovals);
-                return true;
-            }
-
-            return false;
+            detached = true;
+            return true;
         });
-        var service = CreateService(regionService);
+        var service = CreateService(regionService, new TestLogger(_ => { }));
 
         await service.StartAsync(CancellationToken.None);
         try
         {
             await service.ProcessRegionsOnceAsync(new Dictionary<int, ICharacter>());
-            await firstAttempt.Task;
-
-            Assert.AreEqual(1, service.PendingDetachedRegionCount);
-            Assert.AreEqual(1, destroyCalls);
-
-            await service.ProcessRegionsOnceAsync(new Dictionary<int, ICharacter>());
-            await secondAttempt.Task;
-
-            Assert.AreEqual(2, destroyCalls);
-            Assert.AreEqual(0, service.PendingDetachedRegionCount);
-            Assert.AreEqual(1, successfulRemovals);
-        }
-        finally
-        {
-            await service.StopAsync(CancellationToken.None);
-        }
-    }
-
-    [TestMethod]
-    public async Task HostedWorker_PersistentDetachedRegionFailureWaitsForAnotherHousekeepingCycle()
-    {
-        var region = Substitute.For<IMapRegion>();
-        region.Id.Returns(1);
-        region.CanDestroy().Returns(true);
-        var firstAttempt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var secondAttempt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var destroyCalls = 0;
-        var firstError = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var secondError = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var errorCount = 0;
-        region.When(value => value.Destroy()).Do(_ =>
-        {
-            if (Interlocked.Increment(ref destroyCalls) == 1)
-            {
-                firstAttempt.TrySetResult();
-            }
-            else
-            {
-                secondAttempt.TrySetResult();
-            }
-
-            throw new InvalidOperationException("persistent cleanup failure");
-        });
-        var dimension = Substitute.For<IDimension>();
-        dimension.Id.Returns(1);
-        var removeAttempts = 0;
-        var successfulRemovals = 0;
-        var regionService = Substitute.For<IMapRegionService>();
-        regionService.FindAllDimensions().Returns(new[] { dimension });
-        regionService.FindRegionsByDimension(1).Returns([]);
-        regionService.FindIdleRegionsByDimension(1).Returns(new[] { region });
-        regionService.TryRemoveIdleMapRegion(1, 1, region).Returns(_ =>
-        {
-            var attempt = Interlocked.Increment(ref removeAttempts);
-            if (attempt == 1)
-            {
-                Interlocked.Increment(ref successfulRemovals);
-                return true;
-            }
-
-            return false;
-        });
-        var service = CreateService(
-            regionService,
-            new TestLogger(_ =>
-            {
-                if (Interlocked.Increment(ref errorCount) == 1)
-                {
-                    firstError.TrySetResult();
-                }
-                else
-                {
-                    secondError.TrySetResult();
-                }
-            }));
-
-        await service.StartAsync(CancellationToken.None);
-        try
-        {
-            await service.ProcessRegionsOnceAsync(new Dictionary<int, ICharacter>());
-            await firstAttempt.Task;
-            await firstError.Task;
-            Assert.AreEqual(1, service.PendingDetachedRegionCount);
+            await destructionFailed.Task;
             region.Received(1).Destroy();
 
             await service.ProcessRegionsOnceAsync(new Dictionary<int, ICharacter>());
-            await secondAttempt.Task;
-            await secondError.Task;
-            Assert.AreEqual(1, service.PendingDetachedRegionCount);
-            region.Received(2).Destroy();
-            Assert.AreEqual(1, successfulRemovals);
+            region.Received(1).Destroy();
+            regionService.Received(1).TryRemoveIdleMapRegion(1, 1, region);
         }
         finally
         {

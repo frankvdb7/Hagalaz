@@ -9,23 +9,11 @@ namespace Hagalaz.Services.Contacts.Consumers
     public class GetContactsConsumer : IConsumer<GetContactsRequest>
     {
         private readonly IContactService _contactService;
-        private readonly ContactSessionStore _contactSessionStore;
-
-        public GetContactsConsumer(IContactService contactService, ContactSessionStore contactSessionStore)
-        {
-            _contactService = contactService;
-            _contactSessionStore = contactSessionStore;
-        }
-
-        public GetContactsConsumer(IContactService contactService)
-            : this(contactService, new ContactSessionStore())
-        {
-        }
+        public GetContactsConsumer(IContactService contactService) => _contactService = contactService;
 
         public async Task Consume(ConsumeContext<GetContactsRequest> context)
         {
             var message = context.Message;
-            var snapshotVersion = _contactSessionStore.CapturePresenceVersion();
             var friends = await _contactService.FindFriendsByIdAsync(message.MasterId);
             var ignores = await _contactService.FindIgnoresByIdAsync(message.MasterId);
 
@@ -42,7 +30,6 @@ namespace Hagalaz.Services.Contacts.Consumers
                     WorldName = c.WorldName,
                     SessionGeneration = c.SessionGeneration,
                     SessionConnectionId = c.SessionConnectionId,
-                    PresenceVersion = c.PresenceVersion,
                     AreMutualFriends = c.AreMutualFriends,
                     Settings = new ContactSettingsDto(c.Settings?.Availability.Off == true ? ContactAvailability.Off :
                                 c.Settings?.Availability.Friends == true ? ContactAvailability.Friends : ContactAvailability.Everyone)
@@ -55,7 +42,7 @@ namespace Hagalaz.Services.Contacts.Consumers
                     PreviousDisplayName = c.PreviousDisplayName
                 })
                     .ToList(),
-                SnapshotVersion = snapshotVersion
+                ObservationBoundary = message.ObservationBoundary
             });
         }
     }

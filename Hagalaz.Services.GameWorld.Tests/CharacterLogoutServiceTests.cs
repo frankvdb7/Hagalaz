@@ -77,6 +77,32 @@ public sealed class CharacterLogoutServiceTests
     }
 
     [TestMethod]
+    public void CompleteLogout_WhenPersistenceReleaseIsRefused_RetainsRecoverableLogout()
+    {
+        var character = CreateCharacter(42);
+        var receipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 7);
+        var persistenceState = new CharacterPersistenceState();
+        persistenceState.InitializeRevision(42, 500, 7);
+        persistenceState.MarkPending(42, "snapshot", receipt);
+        var state = new CharacterLogoutState();
+        Assert.IsTrue(state.TryBeginLogout(character, out _));
+        Assert.IsTrue(state.SetSnapshot(character, new CharacterModel { SnapshotRevision = 501 }));
+        var mediator = Substitute.For<IGameMediator>();
+        var service = new CharacterLogoutService(
+            state,
+            Substitute.For<ICharacterService>(),
+            new InlineTaskScheduler(),
+            mediator,
+            persistenceState);
+
+        service.CompleteLogout(character);
+
+        Assert.IsTrue(state.IsPending(character));
+        Assert.AreEqual(1, state.FindRecoverablePendingLogouts().Count);
+        mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
+    }
+
+    [TestMethod]
     public async Task DetachAsync_CapturesSnapshotRemovesExactOwnerAndDestroysOnce()
     {
         var character = CreateCharacter(42);

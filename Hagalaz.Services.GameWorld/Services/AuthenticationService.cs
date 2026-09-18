@@ -516,6 +516,10 @@ namespace Hagalaz.Services.GameWorld.Services
                     {
                         _characterLogoutService.CompleteLogout(character);
                     }
+                    else if (character != null && characterDetached)
+                    {
+                        _characterLogoutService.MarkRecoveryEligible(character);
+                    }
                 }
 
                 if (session is not null && session is not IGameWorldSession && masterId is not null)

@@ -15,9 +15,7 @@ public interface IGameSessionAbortState
 
     ValueTask<bool> TryBeginPendingSessionAbort(IGameSession expectedSession);
 
-    ValueTask<bool> TryCompletePendingSessionAbort(IGameSession expectedSession);
-
-    ValueTask<bool> TryAcknowledgeCompletedSessionAbort(IGameSession expectedSession);
+    ValueTask<bool> TryRemovePendingSessionAbort(IGameSession expectedSession);
 
     ValueTask<bool> TryReleasePendingSessionAbort(IGameSession expectedSession);
 

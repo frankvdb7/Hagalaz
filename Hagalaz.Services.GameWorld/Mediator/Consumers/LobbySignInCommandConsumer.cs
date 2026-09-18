@@ -6,6 +6,7 @@ using Hagalaz.Game.Messages;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Services.GameWorld.Services;
+using Hagalaz.Services.GameWorld.Features;
 using MassTransit;
 using Microsoft.Extensions.Options;
 
@@ -15,17 +16,20 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
     {
         private readonly IPublishEndpoint _publishEndpoint;
         private readonly IScopedGameMediator _gameMediator;
+        private readonly IGameConnectionService _connectionService;
         private readonly IOptions<WorldOptions> _options;
         private readonly WorldInstanceIdentity _identity;
 
         public LobbySignInCommandConsumer(
             IBus publishEndpoint,
             IScopedGameMediator gameMediator,
+            IGameConnectionService connectionService,
             IOptions<WorldOptions> options,
             WorldInstanceIdentity identity)
         {
             _publishEndpoint = publishEndpoint;
             _gameMediator = gameMediator;
+            _connectionService = connectionService;
             _options = options;
             _identity = identity;
         }
@@ -67,8 +71,16 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
             {
                 Id = 2567, Value = 65
             }); // needed to open lobby frame
+            var observationBoundary = 0L;
+            var connection = await _connectionService.FindById(session.ConnectionId);
+            var contacts = connection?.Features.Get<IContactsFeature>();
+            if (contacts is not null)
+            {
+                observationBoundary = contacts.CaptureObservationBoundary();
+            }
+
             await Task.WhenAll(_gameMediator.SendAsync(new SendWorldInfoCommand(session)),
-                _publishEndpoint.Publish(new GetContactsRequest(command.MasterId)),
+                _publishEndpoint.Publish(new GetContactsRequest(command.MasterId, observationBoundary)),
                 _publishEndpoint.Publish(new LobbyUserSignInMessage(
                     command.MasterId,
                     options.Id,

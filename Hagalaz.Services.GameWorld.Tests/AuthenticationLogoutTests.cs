@@ -208,6 +208,79 @@ public sealed class AuthenticationLogoutTests
     }
 
     [TestMethod]
+    public async Task SignOutAsync_DoesNotAllowRecoveryToRacePersistenceBeforeHandoff()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        session.SessionGeneration.Returns(7L);
+        character.Session.Returns(session);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
+        var serviceProvider = CreateServiceProvider(dehydrationService);
+        character.ServiceProvider.Returns(serviceProvider);
+        var characterService = Substitute.For<ICharacterService>();
+        characterService.Remove(character).Returns(true);
+        var persistenceState = new CharacterPersistenceState();
+        persistenceState.InitializeRevision(42, 0, 7);
+        var persistence = Substitute.For<ICharacterPersistenceService>();
+        var persistenceStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePersistence = new TaskCompletionSource<CharacterPersistenceReceipt?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var receipt = CreateReceipt(character);
+        var persistCalls = 0;
+        persistence.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                if (Interlocked.Increment(ref persistCalls) == 1)
+                {
+                    persistenceStarted.TrySetResult();
+                    return releasePersistence.Task;
+                }
+
+                return Task.FromResult<CharacterPersistenceReceipt?>(receipt);
+            });
+        persistence.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(CharacterPersistenceOutcome.Committed));
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.RemoveSession(session, Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+        var mediator = Substitute.For<IGameMediator>();
+        var logout = new CharacterLogoutService(
+            new CharacterLogoutState(),
+            characterService,
+            new ImmediateTaskScheduler(),
+            mediator,
+            persistenceState,
+            persistence,
+            gameSessionService);
+        var authentication = CreateAuthenticationService(
+            characterService,
+            persistence,
+            gameSessionService,
+            CreateContextAccessor(character, session, CreateAuthenticationProperties(42)),
+            mediator: mediator,
+            characterLogoutService: logout,
+            configureLogoutService: false);
+
+        var signOutTask = authentication.SignOutAsync();
+        await persistenceStarted.Task;
+
+        await logout.RecoverPendingLogoutsAsync();
+
+        Assert.AreEqual(1, persistCalls);
+        await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>(), Arg.Any<CancellationToken>());
+        releasePersistence.TrySetException(new InvalidOperationException("persistence failed"));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => signOutTask);
+
+        await logout.RecoverPendingLogoutsAsync();
+
+        Assert.AreEqual(2, persistCalls);
+        await gameSessionService.Received(1).RemoveSession(session, CancellationToken.None);
+        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        Assert.AreEqual(1L, persistenceState.NextRevision(42));
+    }
+
+    [TestMethod]
     public async Task DetachedLogoutRecovery_DoesNotCompleteWhenReplacementOwnsSession()
     {
         var character = Substitute.For<ICharacter>();
@@ -219,6 +292,7 @@ public sealed class AuthenticationLogoutTests
         var state = new CharacterLogoutState();
         Assert.IsTrue(state.TryBeginLogout(character, out _));
         Assert.IsTrue(state.SetSnapshot(character, new CharacterModel { SnapshotRevision = 1 }));
+        Assert.IsTrue(state.MarkRecoveryEligible(character));
         var persistenceState = new CharacterPersistenceState();
         persistenceState.InitializeRevision(42, 0, 7);
         var persistence = Substitute.For<ICharacterPersistenceService>();
@@ -319,13 +393,15 @@ public sealed class AuthenticationLogoutTests
         var characterService = Substitute.For<ICharacterService>();
         characterService.Remove(character).Returns(true);
         var state = new CharacterLogoutState();
+        var persistenceState = new CharacterPersistenceState();
+        persistenceState.InitializeRevision(42, 0, 7);
         var mediator = Substitute.For<IGameMediator>();
         var logoutService = new CharacterLogoutService(
             state,
             characterService,
             new ImmediateTaskScheduler(),
             mediator,
-            new CharacterPersistenceState());
+            persistenceState);
         var receipt = CreateReceipt(character);
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
         persistenceService.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())

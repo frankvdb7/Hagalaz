@@ -131,7 +131,7 @@ public sealed class GameSessionServiceTests
 
         Assert.AreNotEqual(firstTask.Result, secondTask.Result);
         Assert.IsTrue(firstTask.Result || secondTask.Result);
-        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session));
+        Assert.IsTrue(await store.TryRemovePendingSessionAbort(session));
         Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
     }
 
@@ -148,7 +148,7 @@ public sealed class GameSessionServiceTests
         Assert.IsTrue(await store.TryReleasePendingSessionAbort(session));
 
         Assert.IsTrue(await store.TryBeginPendingSessionAbort(session));
-        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session));
+        Assert.IsTrue(await store.TryRemovePendingSessionAbort(session));
         Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
     }
 
@@ -162,35 +162,30 @@ public sealed class GameSessionServiceTests
         Assert.IsTrue(await store.TryAdd(session));
         Assert.IsTrue(await store.TryMoveToPendingAbort(session));
         Assert.IsFalse(await store.TryBeginPendingSessionAbort(differentSession));
-        Assert.IsFalse(await store.TryCompletePendingSessionAbort(differentSession));
+        Assert.IsFalse(await store.TryRemovePendingSessionAbort(differentSession));
         Assert.IsFalse(await store.TryReleasePendingSessionAbort(differentSession));
 
         Assert.IsTrue(await store.TryBeginPendingSessionAbort(session));
-        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session));
+        Assert.IsTrue(await store.TryRemovePendingSessionAbort(session));
     }
 
     [TestMethod]
-    public async Task AbortCoordinator_WhenCompletionFails_ReleasesProcessingMarker()
+    public async Task AbortCoordinator_LeavesExactPendingSessionUntilSignOutAcknowledgesIt()
     {
         var store = new GameSessionStore();
         var session = CreateLobbySession(42, "abort-connection");
         Assert.IsTrue(await store.TryAdd(session));
         Assert.IsTrue(await store.TryMoveToPendingAbort(session));
 
-        var abortStore = new CompletionFailingAbortStore(store);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
-        var coordinator = new GameSessionAbortCoordinator(
-            abortStore,
-            terminator,
-            NullLogger<GameSessionAbortCoordinator>.Instance);
-
-        Assert.IsFalse(await coordinator.AbortPendingSessionAsync(session, CancellationToken.None));
-        Assert.AreEqual(1, abortStore.ReleaseCalls);
-        Assert.AreEqual(1, (await store.FindSessionsPendingAbort()).Count);
+        var coordinator = CreateAbortCoordinator(store, terminator);
 
         Assert.IsTrue(await coordinator.AbortPendingSessionAsync(session, CancellationToken.None));
+        Assert.AreEqual(1, (await store.FindSessionsPendingAbort()).Count);
+
+        Assert.IsTrue(await store.TryRemovePendingSessionAbort(session));
         Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
-        terminator.Received(2).Abort(session);
+        terminator.Received(1).Abort(session);
     }
 
     [TestMethod]
@@ -707,7 +702,9 @@ public sealed class GameSessionServiceTests
 
         Assert.AreEqual(2, terminator.Attempts);
         Assert.AreSame(lobbySession, terminator.LastAbortedSession);
-        Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
+        Assert.AreEqual(1, (await store.FindSessionsPendingAbort()).Count);
+        Assert.IsFalse(await store.TryAdd(CreateLobbySession(43, lobbySession.ConnectionId)));
+        Assert.IsTrue(await service.RemoveSession(lobbySession));
         Assert.IsTrue(await store.TryAdd(CreateLobbySession(43, lobbySession.ConnectionId)));
     }
 
@@ -763,7 +760,7 @@ public sealed class GameSessionServiceTests
 
         Assert.AreEqual(2, terminator.Attempts);
         Assert.AreSame(lobbySession, terminator.LastAbortedSession);
-        Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
+        Assert.AreEqual(1, (await store.FindSessionsPendingAbort()).Count);
     }
 
     [TestMethod]
@@ -1226,7 +1223,7 @@ public sealed class GameSessionServiceTests
 
         await leaseService.RenewSessionsAsync(CancellationToken.None);
 
-        Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
+        Assert.AreEqual(1, (await store.FindSessionsPendingAbort()).Count);
     }
 
     [TestMethod]
@@ -1251,7 +1248,7 @@ public sealed class GameSessionServiceTests
 
         await leaseService.RenewSessionsAsync(CancellationToken.None);
 
-        Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
+        Assert.AreEqual(1, (await store.FindSessionsPendingAbort()).Count);
     }
 
     [TestMethod]
@@ -1308,45 +1305,6 @@ public sealed class GameSessionServiceTests
             store,
             terminator,
             NullLogger<GameSessionAbortCoordinator>.Instance);
-
-    private sealed class CompletionFailingAbortStore : IGameSessionAbortState
-    {
-        private readonly GameSessionStore _store;
-        private bool _failCompletion = true;
-
-        public CompletionFailingAbortStore(GameSessionStore store) => _store = store;
-
-        public int ReleaseCalls { get; private set; }
-
-        public ValueTask<bool> TryMoveToPendingAbort(IGameSession expectedSession) =>
-            _store.TryMoveToPendingAbort(expectedSession);
-
-        public ValueTask<bool> TryBeginPendingSessionAbort(IGameSession expectedSession) =>
-            _store.TryBeginPendingSessionAbort(expectedSession);
-
-        public ValueTask<bool> TryCompletePendingSessionAbort(IGameSession expectedSession)
-        {
-            if (_failCompletion)
-            {
-                _failCompletion = false;
-                return new(false);
-            }
-
-            return _store.TryCompletePendingSessionAbort(expectedSession);
-        }
-
-        public ValueTask<bool> TryAcknowledgeCompletedSessionAbort(IGameSession expectedSession) =>
-            _store.TryAcknowledgeCompletedSessionAbort(expectedSession);
-
-        public ValueTask<bool> TryReleasePendingSessionAbort(IGameSession expectedSession)
-        {
-            ReleaseCalls++;
-            return _store.TryReleasePendingSessionAbort(expectedSession);
-        }
-
-        public ValueTask<IReadOnlyList<IGameSession>> FindSessionsPendingAbort() =>
-            _store.FindSessionsPendingAbort();
-    }
 
     private static IGameWorldSession CreateSession(uint masterId, string connectionId, string claimId)
     {

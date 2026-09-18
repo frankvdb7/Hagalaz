@@ -47,9 +47,8 @@ namespace Hagalaz.Services.GameWorld.Network.Consumers
                     .Select(contact => new ContactPresenceOwner(
                         contact.MasterId,
                         contact.SessionGeneration!.Value,
-                        contact.SessionConnectionId!,
-                        contact.PresenceVersion ?? message.SnapshotVersion)),
-                message.SnapshotVersion);
+                        contact.SessionConnectionId!)),
+                message.ObservationBoundary);
             contactFeature?.Ignores?.Set(ignoreList);
 
             await Task.WhenAll(

@@ -233,12 +233,13 @@ public sealed class ContactPresenceConsumerTests
     {
         var feature = new LobbyContactsFeature();
         feature.Friends.Add(CreateFriend());
+        var boundary = feature.CaptureObservationBoundary();
 
-        Assert.IsNotNull(feature.TryApplySignIn(42, 10, "live", observationVersion: 11));
+        Assert.IsNotNull(feature.TryApplySignIn(42, 10, "live"));
 
-        feature.ReplaceFriends([CreateFriend()], [], snapshotVersion: 10);
+        feature.ReplaceFriends([CreateFriend()], [], boundary);
 
-        Assert.IsNotNull(feature.TryApplySignOut(42, 10, "live", observationVersion: 12));
+        Assert.IsNotNull(feature.TryApplySignOut(42, 10, "live"));
     }
 
     [TestMethod]
@@ -247,11 +248,12 @@ public sealed class ContactPresenceConsumerTests
         var feature = new LobbyContactsFeature();
         feature.Friends.Add(CreateFriend());
 
-        Assert.IsNotNull(feature.TryApplySignIn(42, 10, "live", observationVersion: 10));
+        Assert.IsNotNull(feature.TryApplySignIn(42, 10, "live"));
+        var boundary = feature.CaptureObservationBoundary();
 
-        feature.ReplaceFriends([CreateFriend()], [], snapshotVersion: 11);
+        feature.ReplaceFriends([CreateFriend()], [], boundary);
 
-        Assert.IsNull(feature.TryApplySignOut(42, 10, "live", observationVersion: 12));
+        Assert.IsNull(feature.TryApplySignOut(42, 10, "live"));
     }
 
     [TestMethod]
@@ -331,9 +333,35 @@ public sealed class ContactPresenceConsumerTests
         var feature = new LobbyContactsFeature();
 
         feature.AddFriend(CreateFriend(), new ContactPresenceOwner(42, 11, "old"));
-        feature.AddFriend(CreateFriend(), null);
+        feature.AddFriend(CreateFriend(), null, feature.CaptureObservationBoundary());
 
         Assert.IsNull(feature.TryApplySignOut(42, 11, "old"));
+    }
+
+    [TestMethod]
+    public void AddFriend_StaleOfflineResponseDoesNotClearNewerLivePresence()
+    {
+        var feature = new LobbyContactsFeature();
+        feature.Friends.Add(CreateFriend());
+        var boundary = feature.CaptureObservationBoundary();
+
+        Assert.IsNotNull(feature.TryApplySignIn(42, 10, "live"));
+        feature.AddFriend(CreateFriend(), null, boundary);
+
+        Assert.IsNotNull(feature.TryApplySignOut(42, 10, "live"));
+    }
+
+    [TestMethod]
+    public void AddFriend_CurrentOfflineResponseClearsOlderLivePresence()
+    {
+        var feature = new LobbyContactsFeature();
+        feature.Friends.Add(CreateFriend());
+        Assert.IsNotNull(feature.TryApplySignIn(42, 10, "live"));
+        var boundary = feature.CaptureObservationBoundary();
+
+        feature.AddFriend(CreateFriend(), null, boundary);
+
+        Assert.IsNull(feature.TryApplySignOut(42, 10, "live"));
     }
 
     private static IGameConnection CreateConnection(IContactList<Friend> contacts)

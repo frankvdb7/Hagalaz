@@ -186,7 +186,6 @@ namespace Hagalaz.Services.Contacts.Services
                     WorldName = contactSession.WorldName,
                     SessionGeneration = contactSession.SessionGeneration,
                     SessionConnectionId = contactSession.ConnectionId,
-                    PresenceVersion = contactSession.PresenceVersion,
                     AreMutualFriends = mutualFriend != null,
                     Settings = settings
                 };

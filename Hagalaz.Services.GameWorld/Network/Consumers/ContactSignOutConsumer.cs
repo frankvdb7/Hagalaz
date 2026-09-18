@@ -31,8 +31,7 @@ namespace Hagalaz.Services.GameWorld.Network.Consumers
                 var currentFriend = connection.Features.Get<IContactsFeature>()?.TryApplySignOut(
                     message.Contact.MasterId,
                     message.SessionGeneration,
-                    message.ConnectionId,
-                    message.PresenceVersion);
+                    message.ConnectionId);
                 if (currentFriend is null)
                 {
                     continue;

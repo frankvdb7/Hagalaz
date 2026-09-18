@@ -40,7 +40,7 @@ public sealed class GetContactsConsumerTests
 
         GetContactsResponse? response = null;
         var context = new Mock<ConsumeContext<GetContactsRequest>>();
-        context.SetupGet(item => item.Message).Returns(new GetContactsRequest(42));
+        context.SetupGet(item => item.Message).Returns(new GetContactsRequest(42, 17));
         context
             .Setup(item => item.RespondAsync(It.IsAny<GetContactsResponse>()))
             .Callback<GetContactsResponse>(message => response = message)
@@ -57,5 +57,6 @@ public sealed class GetContactsConsumerTests
         Assert.AreEqual("new", online.SessionConnectionId);
         Assert.IsNull(offline.SessionGeneration);
         Assert.IsNull(offline.SessionConnectionId);
+        Assert.AreEqual(17L, response.ObservationBoundary);
     }
 }

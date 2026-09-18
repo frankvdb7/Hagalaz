@@ -55,13 +55,11 @@ public sealed class GameSessionAbortCoordinator
         try
         {
             _connectionTerminator.Abort(session);
-            if (!await _abortSessions.TryCompletePendingSessionAbort(session))
+            if (!await _abortSessions.TryReleasePendingSessionAbort(session))
             {
-                _logger.LogCritical(
-                    "Could not clear the completed abort reservation for session '{connectionId}'.",
+                _logger.LogDebug(
+                    "Pending abort for session '{connectionId}' was already acknowledged by its exact sign-out path.",
                     session.ConnectionId);
-                await ReleaseProcessingMarkerAsync(session);
-                return false;
             }
 
             return true;
@@ -89,8 +87,8 @@ public sealed class GameSessionAbortCoordinator
         }
     }
 
-    internal ValueTask<bool> TryAcknowledgeCompletedSessionAbort(IGameSession session) =>
-        _abortSessions.TryAcknowledgeCompletedSessionAbort(session);
+    internal ValueTask<bool> TryRemovePendingSessionAbort(IGameSession session) =>
+        _abortSessions.TryRemovePendingSessionAbort(session);
 
     private async Task ReleaseProcessingMarkerAsync(IGameSession session)
     {
