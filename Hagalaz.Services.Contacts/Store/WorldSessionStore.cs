@@ -117,6 +117,26 @@ public sealed class WorldSessionStore
     public WorldSessionContext? GetOrDefault(int worldId) =>
         GetUpdate(worldId, DateTimeOffset.UtcNow, false).ActiveSession;
 
+    public bool TryGetAvailableExact(
+        int worldId,
+        string instanceId,
+        long generation,
+        out WorldSessionContext session)
+    {
+        var update = GetUpdate(worldId, DateTimeOffset.UtcNow, false);
+        if (!update.IsAvailable ||
+            update.ActiveSession is not { } activeSession ||
+            activeSession.InstanceId != instanceId ||
+            activeSession.Generation != generation)
+        {
+            session = null!;
+            return false;
+        }
+
+        session = activeSession;
+        return true;
+    }
+
     public bool TryAdd(int worldId, WorldSessionContext session)
     {
         var normalized = string.IsNullOrWhiteSpace(session.InstanceId)

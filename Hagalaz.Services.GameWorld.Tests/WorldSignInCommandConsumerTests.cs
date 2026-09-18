@@ -77,10 +77,12 @@ public sealed class WorldSignInCommandConsumerTests
         var publishEndpoint = Substitute.For<IBus>();
         using var schedulerProvider = new ServiceCollection().BuildServiceProvider();
         using var scheduler = CreateScheduler(schedulerProvider);
+        var identity = new WorldInstanceIdentity();
         var consumer = CreateConsumer(
             publishEndpoint,
             scheduler,
-            Substitute.For<IGameSessionConnectionTerminator>());
+            Substitute.For<IGameSessionConnectionTerminator>(),
+            identity);
 
         await consumer.Consume(CreateContext(new WorldSignInCommand(character)));
 
@@ -89,7 +91,7 @@ public sealed class WorldSignInCommandConsumerTests
             Arg.Is<GetContactsRequest>(message => message != null && message.MasterId == 42u),
             Arg.Any<CancellationToken>());
         await publishEndpoint.Received(1).Publish(
-            Arg.Is<WorldUserSignInMessage>(message => message != null && message.MasterId == 42u && message.WorldId == 1 && message.SessionGeneration == 2L && message.ConnectionId == "world-connection"),
+            Arg.Is<WorldUserSignInMessage>(message => message != null && message.MasterId == 42u && message.WorldId == 1 && message.WorldInstanceId == identity.InstanceId && message.WorldGeneration == identity.Generation && message.SessionGeneration == 2L && message.ConnectionId == "world-connection"),
             Arg.Any<CancellationToken>());
         character.DidNotReceive().Destroy();
     }
@@ -146,7 +148,7 @@ public sealed class WorldSignInCommandConsumerTests
             Arg.Is<GetContactsRequest>(message => message != null && message.MasterId == 42u),
             Arg.Any<CancellationToken>());
         await publishEndpoint.Received(1).Publish(
-            Arg.Is<WorldUserSignInMessage>(message => message != null && message.MasterId == 42u && message.WorldId == 1 && message.SessionGeneration == 2L && message.ConnectionId == "world-connection"),
+            Arg.Is<WorldUserSignInMessage>(message => message != null && message.MasterId == 42u && message.WorldId == 1 && message.WorldInstanceId != string.Empty && message.WorldGeneration != 0 && message.SessionGeneration == 2L && message.ConnectionId == "world-connection"),
             Arg.Any<CancellationToken>());
         terminator.DidNotReceive().Abort(Arg.Any<IGameSession>());
     }
@@ -196,12 +198,14 @@ public sealed class WorldSignInCommandConsumerTests
     private static WorldSignInCommandConsumer CreateConsumer(
         IBus publishEndpoint,
         IMapRegionLoadScheduler scheduler,
-        IGameSessionConnectionTerminator connectionTerminator) =>
+        IGameSessionConnectionTerminator connectionTerminator,
+        WorldInstanceIdentity? identity = null) =>
         new(
             publishEndpoint,
             Options.Create(new WorldOptions { Id = 1 }),
             scheduler,
             connectionTerminator,
+            identity ?? new WorldInstanceIdentity(),
             NullLogger<WorldSignInCommandConsumer>.Instance);
 
     private static MapRegionLoadScheduler CreateScheduler(ServiceProvider provider) =>

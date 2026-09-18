@@ -31,6 +31,18 @@ public sealed class ContactSessionStoreTests
     }
 
     [TestMethod]
+    public void TryRemoveExact_ContextRequiresMatchingWorldIncarnation()
+    {
+        var store = new ContactSessionStore();
+        var current = CreateSession(3, "current", worldInstanceId: "instance-b");
+        store.TrySetNewerSession(current);
+
+        Assert.IsFalse(store.TryRemoveExact(CreateSession(3, "current", worldInstanceId: "instance-a")));
+        Assert.AreSame(current, store.GetOrDefault(current.MasterId));
+        Assert.IsTrue(store.TryRemoveExact(current));
+    }
+
+    [TestMethod]
     public async Task ConcurrentStaleAndNewerUpdatesKeepTheNewestGeneration()
     {
         var store = new ContactSessionStore();

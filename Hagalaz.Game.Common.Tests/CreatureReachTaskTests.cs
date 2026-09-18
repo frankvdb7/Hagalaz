@@ -21,6 +21,7 @@ namespace Hagalaz.Game.Common.Tests
         private ICreature _reacher = null!;
         private ICharacter _target = null!;
         private ISmartPathFinder _pathFinder = null!;
+        private IEntityService _entityService = null!;
         private IServiceProvider _serviceProvider = null!;
 
         [TestInitialize]
@@ -33,16 +34,16 @@ namespace Hagalaz.Game.Common.Tests
 
             var pathFinderProvider = Substitute.For<IPathFinderProvider>();
             pathFinderProvider.Smart.Returns(_pathFinder);
-            var entityService = Substitute.For<IEntityService>();
+            _entityService = Substitute.For<IEntityService>();
             var handle = new EntityHandle<ICreature>(1, 1);
             _target.Handle.Returns(handle);
-            entityService.TryResolve<ICreature>(handle, out Arg.Any<ICreature>()).Returns(callInfo =>
+            _entityService.TryResolve<ICreature>(handle, out Arg.Any<ICreature>()).Returns(callInfo =>
             {
                 callInfo[1] = _target;
                 return true;
             });
             _serviceProvider.GetService(typeof(IPathFinderProvider)).Returns(pathFinderProvider);
-            _serviceProvider.GetService(typeof(IEntityService)).Returns(entityService);
+            _serviceProvider.GetService(typeof(IEntityService)).Returns(_entityService);
             _reacher.ServiceProvider.Returns(_serviceProvider);
             _reacher.Viewport.VisibleCreatures.Returns(new List<ICreature> { _target });
         }
@@ -113,7 +114,7 @@ namespace Hagalaz.Game.Common.Tests
         }
 
         [TestMethod]
-        public void CreatureReachTask_WhenInterrupted_IsCancelled()
+    public void CreatureReachTask_WhenInterrupted_IsCancelled()
         {
             // Arrange
             EventHappened<CreatureInterruptedEvent> handler = null;
@@ -125,7 +126,57 @@ namespace Hagalaz.Game.Common.Tests
             handler.Invoke(new CreatureInterruptedEvent(_reacher, new object()));
 
             // Assert
-            Assert.IsTrue(task.IsCancelled);
-        }
+        Assert.IsTrue(task.IsCancelled);
     }
+
+    [TestMethod]
+    public void PerformTickImpl_WhenTargetHandleBecomesStale_ClearsFacingAndFails()
+    {
+        _reacher.FacedCreature.Returns(_target);
+        var callbackResult = true;
+        var task = new CreatureReachTask(_reacher, _target.Handle, result => callbackResult = result);
+        _entityService.TryResolve<ICreature>(_target.Handle, out Arg.Any<ICreature>()).Returns(false);
+
+        task.Tick();
+
+        Assert.IsFalse(callbackResult);
+        _reacher.Received(1).ResetFacing();
+        Assert.IsTrue(task.IsCancelled);
+    }
+
+    [TestMethod]
+    public void CreatureReachTask_WhenStaleTargetIsInterrupted_ClearsItsFacing()
+    {
+        EventHappened<CreatureInterruptedEvent>? handler = null;
+        _reacher.RegisterEventHandler(Arg.Do<EventHappened<CreatureInterruptedEvent>>(value => handler = value));
+        _reacher.FacedCreature.Returns(_target);
+        var path = Substitute.For<IPath>();
+        path.Successful.Returns(true);
+        path.ReachedDestination.Returns(false);
+        _pathFinder.Find(_reacher, _target, true).Returns(path);
+        var task = new CreatureReachTask(_reacher, _target.Handle, _ => { });
+
+        task.Tick();
+        _entityService.TryResolve<ICreature>(_target.Handle, out Arg.Any<ICreature>()).Returns(false);
+        handler!.Invoke(new CreatureInterruptedEvent(_reacher, new object()));
+
+        _reacher.Received(1).ResetFacing();
+        Assert.IsTrue(task.IsCancelled);
+    }
+
+    [TestMethod]
+    public void PerformTickImpl_WhenStaleTargetIsNotCurrentFacing_PreservesCurrentFacing()
+    {
+        var otherCreature = Substitute.For<ICreature>();
+        otherCreature.Handle.Returns(new EntityHandle<ICreature>(2, 1));
+        _reacher.FacedCreature.Returns(otherCreature);
+        var task = new CreatureReachTask(_reacher, _target.Handle, _ => { });
+        _entityService.TryResolve<ICreature>(_target.Handle, out Arg.Any<ICreature>()).Returns(false);
+
+        task.Tick();
+
+        _reacher.DidNotReceive().ResetFacing();
+        Assert.IsTrue(task.IsCancelled);
+    }
+}
 }

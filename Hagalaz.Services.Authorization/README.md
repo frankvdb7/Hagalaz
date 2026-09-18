@@ -47,7 +47,7 @@ The issuer is required because Hagalaz also creates tokens from MassTransit cons
 OpenIddict:Issuer=https://auth.example.test/
 ```
 
-Development Aspire and HTTPS launch-profile runs derive the issuer from `ASPNETCORE_HTTPS_PORT` when `OpenIddict:Issuer` is not set.
+The Aspire AppHost supplies `OpenIddict__Issuer` from the authorization service's named HTTPS endpoint during local development. Standalone development runs and production deployments must set `OpenIddict:Issuer` explicitly; use an HTTP URI only for an intentional Development-only HTTP setup and HTTPS everywhere else. The value must be an absolute HTTP(S) URI without a query or fragment.
 
 ### Trusted reverse proxy configuration
 

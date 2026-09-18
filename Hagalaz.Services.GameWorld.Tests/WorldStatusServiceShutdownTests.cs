@@ -110,6 +110,7 @@ public sealed class WorldStatusServiceShutdownTests
         await host.StartAsync();
         await onlinePublished.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.IsTrue(lifecycle.CanAcceptWorldSignIns);
+        await bus.Received(1).Publish(Arg.Any<WorldOnlineMessage>(), Arg.Any<CancellationToken>());
 
         await host.StopAsync();
 
@@ -119,6 +120,61 @@ public sealed class WorldStatusServiceShutdownTests
         Assert.AreEqual(identity.Generation, offline.Generation);
         CollectionAssert.AreEqual(new[] { "character-flush", "offline", "bus-stopped" }, events);
         Assert.IsFalse(lifecycle.CanAcceptWorldSignIns);
+    }
+
+    [TestMethod]
+    [Timeout(10000)]
+    public async Task RegistrationPublicationFailure_DoesNotMarkWorldReadyOrPublishOffline()
+    {
+        var onlinePublishStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var bus = Substitute.For<IBus>();
+        var mediator = Substitute.For<IGameMediator>();
+        var identity = new WorldInstanceIdentity();
+        var lifecycle = new WorldLifecycleState();
+        lifecycle.MarkCompleted();
+        var onlineMessage = CreateOnlineMessage(identity);
+
+#pragma warning disable CA2012
+        mediator.GetResponseAsync<WorldStatusRequest, WorldOnlineMessage>(Arg.Any<WorldStatusRequest>())
+            .Returns(new ValueTask<WorldOnlineMessage>(onlineMessage));
+#pragma warning restore CA2012
+        bus.Publish(Arg.Any<WorldOnlineMessage>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                onlinePublishStarted.TrySetResult(true);
+                return Task.FromException(new InvalidOperationException("publication failed"));
+            });
+
+        using var host = new HostBuilder()
+            .ConfigureServices(collection =>
+            {
+                collection.AddLogging();
+                collection.AddSingleton(bus);
+                collection.AddSingleton(mediator);
+                collection.AddSingleton<IMapper>(Substitute.For<IMapper>());
+                collection.AddSingleton(identity);
+                collection.AddSingleton(lifecycle);
+                collection.AddSingleton<WorldRegistrationStore>();
+                collection.AddSingleton<IOptions<WorldOptions>>(Options.Create(new WorldOptions
+                {
+                    Id = onlineMessage.Id,
+                    Name = onlineMessage.Name,
+                    AdvertisedEndpoint = new WorldEndpointOptions { Host = onlineMessage.IpAddress, Port = onlineMessage.Port },
+                    RegistrationLeaseDuration = TimeSpan.FromMinutes(1),
+                    RegistrationRenewalInterval = TimeSpan.FromMinutes(1),
+                    RegistrationRetryDelay = TimeSpan.FromHours(1)
+                }));
+                collection.AddHostedService<WorldStatusService>();
+            })
+            .Build();
+
+        await host.StartAsync();
+        await onlinePublishStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.IsFalse(lifecycle.CanAcceptWorldSignIns);
+        await bus.Received(1).Publish(Arg.Any<WorldOnlineMessage>(), Arg.Any<CancellationToken>());
+
+        await host.StopAsync();
+        await bus.DidNotReceiveWithAnyArgs().Publish(default(WorldOfflineMessage)!, default);
     }
 
     private static WorldOnlineMessage CreateOnlineMessage(WorldInstanceIdentity identity) => new()

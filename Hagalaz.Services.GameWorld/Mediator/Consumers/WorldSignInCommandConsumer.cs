@@ -20,6 +20,7 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
         private readonly IOptions<WorldOptions> _options;
         private readonly IMapRegionLoadScheduler _mapRegionLoadScheduler;
         private readonly IGameSessionConnectionTerminator _connectionTerminator;
+        private readonly WorldInstanceIdentity _identity;
         private readonly ILogger<WorldSignInCommandConsumer> _logger;
 
         public WorldSignInCommandConsumer(
@@ -27,12 +28,14 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
             IOptions<WorldOptions> options,
             IMapRegionLoadScheduler mapRegionLoadScheduler,
             IGameSessionConnectionTerminator connectionTerminator,
+            WorldInstanceIdentity identity,
             ILogger<WorldSignInCommandConsumer> logger)
         {
             _publishEndpoint = publishEndpoint;
             _options = options;
             _mapRegionLoadScheduler = mapRegionLoadScheduler;
             _connectionTerminator = connectionTerminator;
+            _identity = identity;
             _logger = logger;
         }
 
@@ -53,7 +56,13 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
                 character.OnRegistered();
                 await Task.WhenAll(
                     _publishEndpoint.Publish(new GetContactsRequest(character.MasterId)),
-                    _publishEndpoint.Publish(new WorldUserSignInMessage(character.MasterId, options.Id, session.SessionGeneration, session.ConnectionId)));
+                    _publishEndpoint.Publish(new WorldUserSignInMessage(
+                        character.MasterId,
+                        options.Id,
+                        _identity.InstanceId,
+                        _identity.Generation,
+                        session.SessionGeneration,
+                        session.ConnectionId)));
             }
             catch (Exception exception)
             {

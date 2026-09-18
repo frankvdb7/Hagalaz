@@ -14,14 +14,14 @@ public sealed class SessionPresenceConsumerTests
     {
         var service = new Mock<IContactSessionService>();
         service
-            .Setup(x => x.AddWorldSession(1, 42, 2, "world-b"))
+            .Setup(x => x.AddWorldSession(1, "instance-a", 1, 42, 2, "world-b"))
             .Returns(Task.CompletedTask);
         var consumer = new WorldUserSignInOutConsumer(service.Object);
-        var context = CreateContext(new WorldUserSignInMessage(42, 1, 2, "world-b"));
+        var context = CreateContext(new WorldUserSignInMessage(42, 1, "instance-a", 1, 2, "world-b"));
 
         await consumer.Consume(context.Object);
 
-        service.Verify(x => x.AddWorldSession(1, 42, 2, "world-b"), Times.Once);
+        service.Verify(x => x.AddWorldSession(1, "instance-a", 1, 42, 2, "world-b"), Times.Once);
     }
 
     [TestMethod]
@@ -44,14 +44,14 @@ public sealed class SessionPresenceConsumerTests
     {
         var service = new Mock<IContactSessionService>();
         service
-            .Setup(x => x.AddLobbySession(1, 42, 1, "lobby-a"))
+            .Setup(x => x.AddLobbySession(1, "instance-a", 1, 42, 1, "lobby-a"))
             .Returns(Task.CompletedTask);
         var consumer = new LobbyUserSignInOutConsumer(service.Object);
-        var context = CreateContext(new LobbyUserSignInMessage(42, 1, 1, "lobby-a"));
+        var context = CreateContext(new LobbyUserSignInMessage(42, 1, "instance-a", 1, 1, "lobby-a"));
 
         await consumer.Consume(context.Object);
 
-        service.Verify(x => x.AddLobbySession(1, 42, 1, "lobby-a"), Times.Once);
+        service.Verify(x => x.AddLobbySession(1, "instance-a", 1, 42, 1, "lobby-a"), Times.Once);
     }
 
     [TestMethod]

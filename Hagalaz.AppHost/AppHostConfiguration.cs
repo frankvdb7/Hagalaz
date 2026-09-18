@@ -88,7 +88,10 @@ public static class AppHostConfiguration
             .WaitForCompletion(migrations)
             .WithReference(database)
             .WithReference(messaging)
+            .WithHttpsEndpoint()
             .WithScalarDocs();
+
+        authService.WithEnvironment("OpenIddict__Issuer", authService.GetEndpoint("https"));
 
         if (includeHealthChecks)
         {

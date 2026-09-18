@@ -516,7 +516,7 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
-    public void CreateDynamicRegion_ResumesIdleDestinationBeforeMutation()
+    public void CreateDynamicRegion_RejectsIdleDestinationWithoutResumingOrMutating()
     {
         var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
         loadRequests.EnsureLoadedAsync(Arg.Any<IEnumerable<IMapRegion>>(), Arg.Any<CancellationToken>())
@@ -534,8 +534,9 @@ public sealed class MapRegionServiceTests
         provider.GetRequiredService<IRsTaskService>().Tick();
 
         Assert.AreSame(destinationRegion, service.FindMapRegion(destination.RegionId, destination.Dimension));
-        Assert.IsFalse(service.FindIdleRegionsByDimension(destination.Dimension).Contains(destinationRegion));
-        Assert.IsTrue(destinationRegion.IsDynamic);
+        Assert.IsTrue(service.FindIdleRegionsByDimension(destination.Dimension).Contains(destinationRegion));
+        Assert.IsFalse(destinationRegion.IsDynamic);
+        Assert.AreEqual(MapRegionState.Ready, destinationRegion.State);
     }
 
     [TestMethod]
@@ -603,12 +604,9 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
-    public void CreateDynamicRegion_WhenExistingDestinationPopulationFails_KeepsCanonicalRegion()
+    public void CreateDynamicRegion_RejectsExistingActiveDestinationWithoutMutation()
     {
-        var failure = new InvalidOperationException("source load failed");
         var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
-        loadRequests.EnsureLoadedAsync(Arg.Any<IEnumerable<IMapRegion>>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromException(failure));
         using var provider = CreateProvider(loadRequests);
         var service = CreateService(provider);
         var source = Location.Create(64, 64, 0, 0);
@@ -617,34 +615,29 @@ public sealed class MapRegionServiceTests
         var destinationRegion = service.GetOrCreateMapRegion(destination.RegionId, destination.Dimension);
         sourceRegion.MarkReady();
         destinationRegion.MarkReady();
+        destinationRegion.FlagCollision(0, 0, 0, CollisionFlag.WallNorth);
 
         service.CreateDynamicRegion(source, destination);
         provider.GetRequiredService<IRsTaskService>().Tick();
 
         Assert.AreSame(destinationRegion, service.FindMapRegion(destination.RegionId, destination.Dimension));
         Assert.AreEqual(MapRegionState.Ready, destinationRegion.State);
+        Assert.IsFalse(destinationRegion.IsDynamic);
+        Assert.AreEqual(CollisionFlag.WallNorth, service.GetClippingFlag(destination.X, destination.Y, destination.Z));
+        loadRequests.DidNotReceiveWithAnyArgs().EnsureLoadedAsync(default!, default);
     }
 
     [TestMethod]
-    public void CreateDynamicRegion_WhenExistingDestinationIsCanceled_KeepsCanonicalRegion()
+    public void CreateDynamicRegion_RejectsIdleDestinationWithoutResumingOrMutatingEvenWhenSourceIsCanceled()
     {
-        var sourceReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
-        loadRequests.EnsureLoadedAsync(Arg.Any<IEnumerable<IMapRegion>>(), Arg.Any<CancellationToken>())
-            .Returns(callInfo =>
-            {
-                var cancellationToken = callInfo.Arg<CancellationToken>();
-                cancellationToken.Register(() => sourceReady.TrySetCanceled(cancellationToken));
-                return sourceReady.Task;
-            });
         using var provider = CreateProvider(loadRequests);
         var service = CreateService(provider);
         var source = Location.Create(64, 64, 0, 0);
         var destination = Location.Create(128, 64, 0, 0);
-        var sourceRegion = service.GetOrCreateMapRegion(source.RegionId, source.Dimension);
         var destinationRegion = service.GetOrCreateMapRegion(destination.RegionId, destination.Dimension);
-        sourceRegion.MarkReady();
         destinationRegion.MarkReady();
+        Assert.IsTrue(service.TrySuspendMapRegion(destinationRegion));
 
         var handle = service.CreateDynamicRegion(source, destination);
         var taskService = provider.GetRequiredService<IRsTaskService>();
@@ -653,7 +646,9 @@ public sealed class MapRegionServiceTests
         taskService.Tick();
 
         Assert.AreSame(destinationRegion, service.FindMapRegion(destination.RegionId, destination.Dimension));
+        Assert.IsTrue(service.FindIdleRegionsByDimension(destination.Dimension).Contains(destinationRegion));
         Assert.AreEqual(MapRegionState.Ready, destinationRegion.State);
+        Assert.IsFalse(destinationRegion.IsDynamic);
     }
 
     [TestMethod]

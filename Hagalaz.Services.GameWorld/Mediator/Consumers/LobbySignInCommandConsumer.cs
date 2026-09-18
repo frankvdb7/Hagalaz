@@ -5,6 +5,7 @@ using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Messages;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Game.Messages.Protocol;
+using Hagalaz.Services.GameWorld.Services;
 using MassTransit;
 using Microsoft.Extensions.Options;
 
@@ -15,12 +16,18 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
         private readonly IPublishEndpoint _publishEndpoint;
         private readonly IScopedGameMediator _gameMediator;
         private readonly IOptions<WorldOptions> _options;
+        private readonly WorldInstanceIdentity _identity;
 
-        public LobbySignInCommandConsumer(IBus publishEndpoint, IScopedGameMediator gameMediator, IOptions<WorldOptions> options)
+        public LobbySignInCommandConsumer(
+            IBus publishEndpoint,
+            IScopedGameMediator gameMediator,
+            IOptions<WorldOptions> options,
+            WorldInstanceIdentity identity)
         {
             _publishEndpoint = publishEndpoint;
             _gameMediator = gameMediator;
             _options = options;
+            _identity = identity;
         }
 
         public async Task Consume(ConsumeContext<LobbySignInCommand> context)
@@ -62,7 +69,13 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
             }); // needed to open lobby frame
             await Task.WhenAll(_gameMediator.SendAsync(new SendWorldInfoCommand(session)),
                 _publishEndpoint.Publish(new GetContactsRequest(command.MasterId)),
-                _publishEndpoint.Publish(new LobbyUserSignInMessage(command.MasterId, options.Id, session.SessionGeneration, session.ConnectionId)));
+                _publishEndpoint.Publish(new LobbyUserSignInMessage(
+                    command.MasterId,
+                    options.Id,
+                    _identity.InstanceId,
+                    _identity.Generation,
+                    session.SessionGeneration,
+                    session.ConnectionId)));
         }
     }
 }

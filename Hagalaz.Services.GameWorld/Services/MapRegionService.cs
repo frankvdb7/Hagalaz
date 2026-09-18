@@ -450,8 +450,7 @@ namespace Hagalaz.Services.GameWorld.Services
             var task = new RsAsyncTask(async cancellationToken =>
             {
                 var standardRegion = GetOrCreateMapRegion(source.RegionId, source.Dimension);
-                var dynamicRegionAcquisition = GetOrCreateDynamicRegion(destination.RegionId, destination.Dimension);
-                var dynamicRegion = dynamicRegionAcquisition.Region;
+                var dynamicRegion = GetOrCreateDynamicRegion(destination.RegionId, destination.Dimension);
                 var discardGate = new object();
                 var discardStarted = false;
                 var populationSucceeded = false;
@@ -473,10 +472,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
                 using var cancellationRegistration = cancellationToken.Register(() =>
                 {
-                    if (dynamicRegionAcquisition.Created)
-                    {
-                        _taskScheduler.Schedule(new RsTask(DiscardCreatedRegion, 1));
-                    }
+                    _taskScheduler.Schedule(new RsTask(DiscardCreatedRegion, 1));
                 });
 
                 try
@@ -537,10 +533,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
                 finally
                 {
-                    if (dynamicRegionAcquisition.Created)
-                    {
-                        DiscardCreatedRegion();
-                    }
+                    DiscardCreatedRegion();
                 }
             });
             _taskScheduler.Schedule(task);
@@ -569,33 +562,20 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
-        private (IMapRegion Region, bool Created) GetOrCreateDynamicRegion(int id, int dimension)
+        private IMapRegion GetOrCreateDynamicRegion(int id, int dimension)
         {
             lock (_residencyGate)
             {
                 var mapDimension = _dimensions[dimension] ?? throw new InvalidOperationException($"Dimension[{dimension}] no longer exists.");
-                if (mapDimension.ActiveRegions.TryGetValue(id, out var activeRegion))
+                if (mapDimension.ActiveRegions.ContainsKey(id) || mapDimension.IdleRegionStore.ContainsKey(id))
                 {
-                    if (activeRegion.State == MapRegionState.Initializing && !activeRegion.IsDynamic)
-                    {
-                        throw new InvalidOperationException($"Region {id} is already being loaded as a normal region.");
-                    }
-
-                    activeRegion.MakeDynamic();
-                    return (activeRegion, false);
-                }
-
-                if (mapDimension.IdleRegionStore.TryGetValue(id, out var idleRegion))
-                {
-                    var resumedRegion = ResumeIdleRegion(mapDimension, id, idleRegion);
-                    resumedRegion.MakeDynamic();
-                    return (resumedRegion, false);
+                    throw new InvalidOperationException($"Region {id} already exists and cannot be used as a dynamic destination.");
                 }
 
                 var dynamicRegion = CreateMapRegion(id, dimension);
                 dynamicRegion.MakeDynamic();
                 mapDimension.ActiveRegions.Add(id, dynamicRegion);
-                return (dynamicRegion, true);
+                return dynamicRegion;
             }
         }
 

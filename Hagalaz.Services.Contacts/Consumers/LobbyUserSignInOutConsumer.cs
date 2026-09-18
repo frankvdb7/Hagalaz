@@ -16,7 +16,13 @@ namespace Hagalaz.Services.Contacts.Consumers
         public async Task Consume(ConsumeContext<LobbyUserSignInMessage> context)
         {
             var message = context.Message;
-            await _contactSessionService.AddLobbySession(message.WorldId, message.MasterId, message.SessionGeneration, message.ConnectionId);
+            await _contactSessionService.AddLobbySession(
+                message.WorldId,
+                message.WorldInstanceId,
+                message.WorldGeneration,
+                message.MasterId,
+                message.SessionGeneration,
+                message.ConnectionId);
         }
 
         public async Task Consume(ConsumeContext<LobbyUserSignOutMessage> context)

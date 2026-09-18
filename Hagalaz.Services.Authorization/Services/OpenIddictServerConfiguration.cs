@@ -12,28 +12,16 @@ namespace Hagalaz.Services.Authorization.Services
             bool isDevelopment)
         {
             var issuer = configuration.GetValue<string>("OpenIddict:Issuer");
-            if (string.IsNullOrWhiteSpace(issuer) && isDevelopment)
-            {
-                var httpsPort = configuration.GetValue<int?>("ASPNETCORE_HTTPS_PORT");
-                var httpPort = configuration.GetValue<int?>("ASPNETCORE_HTTP_PORT");
-                if (httpsPort is > 0 and <= 65535)
-                {
-                    issuer = $"https://localhost:{httpsPort}/";
-                }
-                else if (httpPort is > 0 and <= 65535)
-                {
-                    issuer = $"http://localhost:{httpPort}/";
-                }
-            }
 
             if (!Uri.TryCreate(issuer, UriKind.Absolute, out var issuerUri) ||
                 string.IsNullOrWhiteSpace(issuerUri.Host) ||
                 !string.IsNullOrEmpty(issuerUri.Query) ||
                 !string.IsNullOrEmpty(issuerUri.Fragment) ||
-                (!isDevelopment && issuerUri.Scheme != Uri.UriSchemeHttps))
+                (issuerUri.Scheme != Uri.UriSchemeHttps &&
+                 (!isDevelopment || issuerUri.Scheme != Uri.UriSchemeHttp)))
             {
                 throw new InvalidOperationException(
-                    "OpenIddict:Issuer must be configured as an absolute URI without a query or fragment." +
+                    "OpenIddict:Issuer must be configured explicitly as an absolute HTTP(S) URI without a query or fragment." +
                     (isDevelopment ? string.Empty : " Production issuers must use HTTPS."));
             }
 

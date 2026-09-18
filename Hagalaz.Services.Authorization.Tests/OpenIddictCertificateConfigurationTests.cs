@@ -36,7 +36,7 @@ namespace Hagalaz.Services.Authorization.Tests
         }
 
         [TestMethod]
-        public void ConfigureIssuer_Development_UsesHttpsPortFallback()
+        public void ConfigureIssuer_Development_RequiresExplicitIssuer()
         {
             var services = new ServiceCollection();
             services.AddOptions();
@@ -48,15 +48,14 @@ namespace Hagalaz.Services.Authorization.Tests
                 })
                 .Build();
 
-            OpenIddictServerConfiguration.ConfigureIssuer(options, configuration, isDevelopment: true);
+            var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>
+                OpenIddictServerConfiguration.ConfigureIssuer(options, configuration, isDevelopment: true));
 
-            var serverOptions = services.BuildServiceProvider()
-                .GetRequiredService<IOptions<OpenIddictServerOptions>>().Value;
-            Assert.AreEqual(new Uri("https://localhost:7006/"), serverOptions.Issuer);
+            StringAssert.Contains(exception.Message, "OpenIddict:Issuer");
         }
 
         [TestMethod]
-        public void ConfigureIssuer_Development_PrefersHttpsPortOverHttpPort()
+        public void ConfigureIssuer_Development_IgnoresObsoletePortFallback()
         {
             var services = new ServiceCollection();
             services.AddOptions();
@@ -69,15 +68,14 @@ namespace Hagalaz.Services.Authorization.Tests
                 })
                 .Build();
 
-            OpenIddictServerConfiguration.ConfigureIssuer(options, configuration, isDevelopment: true);
+            var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>
+                OpenIddictServerConfiguration.ConfigureIssuer(options, configuration, isDevelopment: true));
 
-            var serverOptions = services.BuildServiceProvider()
-                .GetRequiredService<IOptions<OpenIddictServerOptions>>().Value;
-            Assert.AreEqual(new Uri("https://localhost:7006/"), serverOptions.Issuer);
+            StringAssert.Contains(exception.Message, "OpenIddict:Issuer");
         }
 
         [TestMethod]
-        public void ConfigureIssuer_Development_UsesHttpPortFallback()
+        public void ConfigureIssuer_Development_AllowsExplicitHttpIssuer()
         {
             var services = new ServiceCollection();
             services.AddOptions();
@@ -85,7 +83,7 @@ namespace Hagalaz.Services.Authorization.Tests
             var configuration = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["ASPNETCORE_HTTP_PORT"] = "5009"
+                    ["OpenIddict:Issuer"] = "http://localhost:5009/"
                 })
                 .Build();
 
@@ -97,7 +95,7 @@ namespace Hagalaz.Services.Authorization.Tests
         }
 
         [TestMethod]
-        public void ConfigureIssuer_Development_ThrowsWhenNoLaunchProfilePortExists()
+        public void ConfigureIssuer_Development_ThrowsWhenIssuerIsMissing()
         {
             var services = new ServiceCollection();
             var options = new OpenIddictServerBuilder(services);

@@ -2,7 +2,6 @@
 using Hagalaz.Contacts.Messages.Model;
 using MassTransit;
 using Microsoft.Extensions.Localization;
-using Hagalaz.Exceptions;
 using Hagalaz.Services.Contacts.Store;
 using Hagalaz.Services.Contacts.Store.Model;
 
@@ -25,26 +24,43 @@ namespace Hagalaz.Services.Contacts.Services
             _stringLocalizer = stringLocalizer;
         }
 
-        public async Task AddLobbySession(int worldId, uint masterId, long sessionGeneration, string connectionId)
+        public async Task AddLobbySession(
+            int worldId,
+            string worldInstanceId,
+            long worldGeneration,
+            uint masterId,
+            long sessionGeneration,
+            string connectionId)
         {
+            if (!_worlds.TryGetAvailableExact(worldId, worldInstanceId, worldGeneration, out _))
+            {
+                return;
+            }
+
             var character = await _characterService.FindCharacterByIdAsync(masterId);
             if (character == null)
             {
                 return;
             }
             var worldName = _stringLocalizer["Lobby"];
-            var world = _worlds.GetOrDefault(worldId);
-            if (!_contacts.TrySetNewerSession(new ContactSessionContext
+            var session = new ContactSessionContext
             (
                 masterId,
                 worldId,
                 worldName,
                 sessionGeneration,
                 connectionId,
-                world?.InstanceId ?? string.Empty,
-                world?.Generation ?? 0
-            )))
+                worldInstanceId,
+                worldGeneration
+            );
+            if (!_contacts.TrySetNewerSession(session))
             {
+                return;
+            }
+
+            if (!_worlds.TryGetAvailableExact(worldId, worldInstanceId, worldGeneration, out _))
+            {
+                _contacts.TryRemoveExact(session);
                 return;
             }
             await _publishEndpoint.Publish(new ContactSignInMessage(new ContactDto
@@ -57,25 +73,43 @@ namespace Hagalaz.Services.Contacts.Services
             }, sessionGeneration, connectionId));
         }
 
-        public async Task AddWorldSession(int worldId, uint masterId, long sessionGeneration, string connectionId)
+        public async Task AddWorldSession(
+            int worldId,
+            string worldInstanceId,
+            long worldGeneration,
+            uint masterId,
+            long sessionGeneration,
+            string connectionId)
         {
-            var worldName = _worlds.TryGetValue(worldId, out var world) ? world.WorldName : throw new NotFoundException(nameof(world));
+            if (!_worlds.TryGetAvailableExact(worldId, worldInstanceId, worldGeneration, out var world))
+            {
+                return;
+            }
+
+            var worldName = world.WorldName;
             var character = await _characterService.FindCharacterByIdAsync(masterId);
             if (character == null)
             {
                 return;
             }
-            if (!_contacts.TrySetNewerSession(new ContactSessionContext
+            var session = new ContactSessionContext
             (
                 masterId,
                 worldId,
                 worldName,
                 sessionGeneration,
                 connectionId,
-                world.InstanceId,
-                world.Generation
-            )))
+                worldInstanceId,
+                worldGeneration
+            );
+            if (!_contacts.TrySetNewerSession(session))
             {
+                return;
+            }
+
+            if (!_worlds.TryGetAvailableExact(worldId, worldInstanceId, worldGeneration, out _))
+            {
+                _contacts.TryRemoveExact(session);
                 return;
             }
             await _publishEndpoint.Publish(new ContactSignInMessage(new ContactDto

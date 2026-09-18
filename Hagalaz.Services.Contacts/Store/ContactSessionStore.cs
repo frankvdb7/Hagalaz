@@ -38,8 +38,19 @@ namespace Hagalaz.Services.Contacts.Store
             }
         }
 
-        public bool TryRemoveExact(ContactSessionContext expectedSession) =>
-            TryRemoveExact(expectedSession.MasterId, expectedSession.SessionGeneration, expectedSession.ConnectionId);
+        public bool TryRemoveExact(ContactSessionContext expectedSession)
+        {
+            lock (_sessionGate)
+            {
+                if (!_sessions.TryGetValue(expectedSession.MasterId, out var session) ||
+                    session != expectedSession)
+                {
+                    return false;
+                }
+
+                return _sessions.Remove(expectedSession.MasterId);
+            }
+        }
 
         public bool TryGetValue(uint masterId, out ContactSessionContext session)
         {

@@ -72,7 +72,7 @@ namespace Hagalaz.Game.Common.Tasks
                     return false;
                 }
 
-                if (TickCount >= 1 && _reacher.FacedCreature == ResolveTarget())
+                if (TickCount >= 1 && IsFacingTarget())
                 {
                     _reacher.ResetFacing();
                 }
@@ -94,7 +94,7 @@ namespace Hagalaz.Game.Common.Tasks
                 || _reacher.Movement.Locked
                 || !_reacher.Viewport.VisibleCreatures.Contains(target))
             {
-                if (TickCount >= 1 && _reacher.FacedCreature == target)
+                if (TickCount >= 1 && IsFacingTarget())
                     _reacher.ResetFacing();
                 _finishCallback.Invoke(false);
                 Cancel();
@@ -132,6 +132,8 @@ namespace Hagalaz.Game.Common.Tasks
         {
             return _entityService.TryResolve<ICreature>(_targetHandle, out var creature) ? creature : null;
         }
+
+        private bool IsFacingTarget() => _reacher.FacedCreature?.Handle == _targetHandle;
 
         /// <summary>
         /// 

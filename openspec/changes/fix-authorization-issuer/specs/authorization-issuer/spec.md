@@ -5,15 +5,15 @@
 The authorization service MUST configure a valid absolute OpenIddict issuer so
 token creation from a MassTransit consumer does not depend on an HTTP request.
 
-#### Scenario: Aspire Development issuer
+#### Scenario: Missing development issuer
 
-- **WHEN** Development configuration has no explicit issuer and exposes an HTTPS launch-profile port
-- **THEN** the authorization service uses the localhost HTTPS URI for that port
+- **WHEN** Development configuration has no explicit `OpenIddict:Issuer`, regardless of launch-profile port variables
+- **THEN** configuration fails with an error naming `OpenIddict:Issuer`
 
-#### Scenario: HTTP-only Development issuer
+#### Scenario: Explicit HTTP Development issuer
 
-- **WHEN** Development configuration has no explicit issuer, no valid HTTPS launch-profile port, and exposes an HTTP launch-profile port
-- **THEN** the authorization service uses the localhost HTTP URI for that port
+- **WHEN** Development configuration explicitly sets an HTTP `OpenIddict:Issuer`
+- **THEN** that URI is configured as the OpenIddict issuer
 
 #### Scenario: Explicit issuer
 
@@ -34,3 +34,8 @@ relative, query-bearing, fragment-bearing, or non-HTTPS issuer during startup.
 
 - **WHEN** a non-development service configures an HTTP issuer
 - **THEN** configuration fails before token processing
+
+#### Scenario: Aspire injects development issuer
+
+- **WHEN** the AppHost configures the authorization service
+- **THEN** it exposes a named HTTPS endpoint and sets `OpenIddict__Issuer` from that endpoint reference

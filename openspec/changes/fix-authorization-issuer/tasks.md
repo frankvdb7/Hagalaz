@@ -1,4 +1,5 @@
-- [x] 1. Add Development and production-safe issuer configuration.
-- [x] 2. Add focused issuer configuration regression tests.
-- [x] 3. Document the required deployment setting.
-- [x] 4. Run focused tests, build, strict OpenSpec validation, and retry the real client login.
+- [x] 1. Require explicit HTTP(S) issuer configuration and remove port fallback.
+- [x] 2. Wire the AppHost issuer from the authorization HTTPS endpoint.
+- [x] 3. Add focused issuer validation and AppHost model regression tests.
+- [x] 4. Document Aspire, standalone-development, and production configuration.
+- [ ] 5. Run focused tests, build, and strict OpenSpec validation.
