@@ -114,6 +114,11 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public void InitializeRevision(uint masterId, long persistedRevision) => _state.InitializeRevision(masterId, persistedRevision);
 
+        public void InitializeRevision(uint masterId, long persistedRevision, long lifecycleGeneration) =>
+            _state.InitializeRevision(masterId, persistedRevision, lifecycleGeneration);
+
+        public bool Release(uint masterId, long lifecycleGeneration) => _state.Release(masterId, lifecycleGeneration);
+
         public Task<CharacterPersistenceOutcome> WaitForAcknowledgementAsync(
             CharacterPersistenceReceipt receipt,
             CancellationToken cancellationToken = default) => receipt.WaitAsync(cancellationToken);
@@ -186,13 +191,37 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
-        public void InitializeRevision(uint masterId, long persistedRevision)
+        public void InitializeRevision(uint masterId, long persistedRevision) =>
+            InitializeRevision(masterId, persistedRevision, lifecycleGeneration: 0);
+
+        public void InitializeRevision(uint masterId, long persistedRevision, long lifecycleGeneration)
         {
             ArgumentOutOfRangeException.ThrowIfNegative(persistedRevision);
+            ArgumentOutOfRangeException.ThrowIfNegative(lifecycleGeneration);
             lock (_stateGate)
             {
                 var entry = GetOrCreateEntry(masterId);
                 entry.Revision = Math.Max(entry.Revision, persistedRevision);
+                if (lifecycleGeneration > 0 || entry.LifecycleGeneration == 0)
+                {
+                    entry.LifecycleGeneration = Math.Max(entry.LifecycleGeneration, lifecycleGeneration);
+                }
+            }
+        }
+
+        public bool Release(uint masterId, long lifecycleGeneration)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(lifecycleGeneration);
+            lock (_stateGate)
+            {
+                if (!_entries.TryGetValue(masterId, out var entry) ||
+                    entry.LifecycleGeneration != lifecycleGeneration ||
+                    entry.Pending is not null)
+                {
+                    return false;
+                }
+
+                return _entries.Remove(masterId);
             }
         }
 
@@ -294,6 +323,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private sealed class PersistenceEntry
         {
             public long Revision { get; set; }
+            public long LifecycleGeneration { get; set; }
             public string? PersistedFingerprint { get; set; }
             public PendingSnapshot? Pending { get; set; }
         }

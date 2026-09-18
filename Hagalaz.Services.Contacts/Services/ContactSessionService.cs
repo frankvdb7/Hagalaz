@@ -33,13 +33,16 @@ namespace Hagalaz.Services.Contacts.Services
                 return;
             }
             var worldName = _stringLocalizer["Lobby"];
+            var world = _worlds.GetOrDefault(worldId);
             if (!_contacts.TrySetNewerSession(new ContactSessionContext
             (
                 masterId,
                 worldId,
                 worldName,
                 sessionGeneration,
-                connectionId
+                connectionId,
+                world?.InstanceId ?? string.Empty,
+                world?.Generation ?? 0
             )))
             {
                 return;
@@ -68,7 +71,9 @@ namespace Hagalaz.Services.Contacts.Services
                 worldId,
                 worldName,
                 sessionGeneration,
-                connectionId
+                connectionId,
+                world.InstanceId,
+                world.Generation
             )))
             {
                 return;
@@ -93,9 +98,9 @@ namespace Hagalaz.Services.Contacts.Services
             await PublishSignOut(masterId, sessionGeneration, connectionId);
         }
 
-        public async Task RemoveWorldSessions(int worldId)
+        public async Task RemoveWorldSessions(int worldId, string worldInstanceId, long worldGeneration)
         {
-            foreach (var session in _contacts.RemoveSessionsForWorld(worldId))
+            foreach (var session in _contacts.RemoveSessionsForWorld(worldId, worldInstanceId, worldGeneration))
             {
                 await PublishSignOut(session.MasterId, session.SessionGeneration, session.ConnectionId);
             }

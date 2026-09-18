@@ -132,7 +132,8 @@ public sealed class WorldSessionAdmissionServiceTests
         await fixture.GameSessionService.Received(1).RemoveSession(fixture.Session, CancellationToken.None);
         fixture.CharacterService.Received(1).Remove(fixture.Character);
         fixture.Character.Received(1).Destroy();
-        fixture.PersistenceService.Received(1).InitializeRevision(42, 7);
+        fixture.PersistenceService.Received(1).InitializeRevision(42, 7, 0);
+        fixture.PersistenceService.Received(1).Release(42, 0);
         Assert.IsNull(fixture.Context.Features.Get<ICharacterFeature>());
     }
 
@@ -151,7 +152,7 @@ public sealed class WorldSessionAdmissionServiceTests
             });
 #pragma warning restore CA2012
         fixture.PersistenceService
-            .When(service => service.InitializeRevision(42, 7))
+            .When(service => service.InitializeRevision(42, 7, 0))
             .Do(_ => order.Add("initialize"));
 
         var result = await fixture.Service.AdmitAsync(
@@ -184,7 +185,8 @@ public sealed class WorldSessionAdmissionServiceTests
 
         Assert.AreSame(failure, exception);
         fixture.Character.Received(1).Destroy();
-        fixture.PersistenceService.Received(1).InitializeRevision(42, 7);
+        fixture.PersistenceService.Received(1).InitializeRevision(42, 7, 0);
+        fixture.PersistenceService.Received(1).Release(42, 0);
     }
 
     [TestMethod]

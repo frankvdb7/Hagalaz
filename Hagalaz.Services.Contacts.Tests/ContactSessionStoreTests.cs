@@ -50,12 +50,12 @@ public sealed class ContactSessionStoreTests
     public void RemoveSessionsForWorld_RemovesMatchingSessionsAtomicallyAndReturnsExactEntries()
     {
         var store = new ContactSessionStore();
-        var first = CreateSession(1, "first", 1, 42);
+        var first = CreateSession(1, "first", 1, 42, "instance-a");
         var otherWorld = CreateSession(1, "other-world", 2, 43);
         store.TrySetNewerSession(first);
         store.TrySetNewerSession(otherWorld);
 
-        var removed = store.RemoveSessionsForWorld(1);
+        var removed = store.RemoveSessionsForWorld(1, "instance-a", 1);
 
         Assert.HasCount(1, removed);
         Assert.AreSame(first, removed[0]);
@@ -63,6 +63,27 @@ public sealed class ContactSessionStoreTests
         Assert.AreSame(otherWorld, store.GetOrDefault(otherWorld.MasterId));
     }
 
-    private static ContactSessionContext CreateSession(long generation, string connectionId, int worldId = 1, uint masterId = 42) =>
-        new(masterId, worldId, "World", generation, connectionId);
+    [TestMethod]
+    public void RemoveSessionsForWorld_LeavesReplacementWorldGeneration()
+    {
+        var store = new ContactSessionStore();
+        var oldSession = CreateSession(1, "old", masterId: 42, worldInstanceId: "instance-a");
+        var replacement = CreateSession(2, "replacement", masterId: 43, worldInstanceId: "instance-b");
+        store.TrySetNewerSession(oldSession);
+        store.TrySetNewerSession(replacement);
+
+        var removed = store.RemoveSessionsForWorld(1, "instance-a", 1);
+
+        Assert.HasCount(1, removed);
+        Assert.AreSame(oldSession, removed[0]);
+        Assert.AreSame(replacement, store.GetOrDefault(replacement.MasterId));
+    }
+
+    private static ContactSessionContext CreateSession(
+        long generation,
+        string connectionId,
+        int worldId = 1,
+        uint masterId = 42,
+        string worldInstanceId = "instance-a") =>
+        new(masterId, worldId, "World", generation, connectionId, worldInstanceId, 1);
 }

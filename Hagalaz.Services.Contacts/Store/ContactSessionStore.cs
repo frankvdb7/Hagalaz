@@ -57,14 +57,16 @@ namespace Hagalaz.Services.Contacts.Store
             }
         }
 
-        public IReadOnlyList<ContactSessionContext> RemoveSessionsForWorld(int worldId)
+        public IReadOnlyList<ContactSessionContext> RemoveSessionsForWorld(int worldId, string worldInstanceId, long worldGeneration)
         {
             lock (_sessionGate)
             {
                 var removed = new List<ContactSessionContext>();
                 foreach (var session in _sessions.Values)
                 {
-                    if (session.WorldId == worldId)
+                    if (session.WorldId == worldId &&
+                        session.WorldInstanceId == worldInstanceId &&
+                        session.WorldGeneration == worldGeneration)
                     {
                         removed.Add(session);
                     }
@@ -72,7 +74,8 @@ namespace Hagalaz.Services.Contacts.Store
 
                 foreach (var session in removed)
                 {
-                    _sessions.Remove(session.MasterId);
+                    ((ICollection<KeyValuePair<uint, ContactSessionContext>>)_sessions)
+                        .Remove(new KeyValuePair<uint, ContactSessionContext>(session.MasterId, session));
                 }
 
                 return removed;

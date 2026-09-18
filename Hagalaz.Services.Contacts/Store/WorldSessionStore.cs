@@ -10,7 +10,8 @@ public sealed record WorldSessionUpdate(
     int WorldId,
     WorldSessionContext? ActiveSession,
     bool IsAvailable,
-    bool Changed);
+    bool Changed,
+    WorldSessionContext? RemovedSession = null);
 
 public sealed class WorldSessionStore
 {
@@ -53,10 +54,15 @@ public sealed class WorldSessionStore
         }
 
         var removed = false;
+        WorldSessionContext? removedSession = null;
         if (sessions.TryGetValue(instanceId, out var existing) && existing.Generation == generation)
         {
             removed = ((ICollection<KeyValuePair<string, WorldSessionContext>>)sessions)
                 .Remove(new KeyValuePair<string, WorldSessionContext>(instanceId, existing));
+            if (removed)
+            {
+                removedSession = existing;
+            }
         }
 
         if (sessions.IsEmpty)
@@ -64,7 +70,7 @@ public sealed class WorldSessionStore
             _sessions.TryRemove(worldId, out _);
         }
 
-        return GetUpdate(worldId, now ?? DateTimeOffset.UtcNow, removed);
+        return GetUpdate(worldId, now ?? DateTimeOffset.UtcNow, removed, removedSession);
     }
 
     public IReadOnlyList<WorldSessionUpdate> Expire(DateTimeOffset? now = null)
@@ -73,7 +79,7 @@ public sealed class WorldSessionStore
         var updates = new List<WorldSessionUpdate>();
         foreach (var pair in _sessions)
         {
-            var removed = false;
+            var removedSessions = new List<WorldSessionContext>();
             foreach (var session in pair.Value)
             {
                 if (IsLive(session.Value, currentTime))
@@ -81,7 +87,10 @@ public sealed class WorldSessionStore
                     continue;
                 }
 
-                removed |= ((ICollection<KeyValuePair<string, WorldSessionContext>>)pair.Value).Remove(session);
+                if (((ICollection<KeyValuePair<string, WorldSessionContext>>)pair.Value).Remove(session))
+                {
+                    removedSessions.Add(session.Value);
+                }
             }
 
             if (pair.Value.IsEmpty)
@@ -89,9 +98,10 @@ public sealed class WorldSessionStore
                 _sessions.TryRemove(pair.Key, out _);
             }
 
-            if (removed)
+            if (removedSessions.Count > 0)
             {
-                updates.Add(GetUpdate(pair.Key, currentTime, true));
+                var update = GetUpdate(pair.Key, currentTime, true);
+                updates.AddRange(removedSessions.Select(removed => update with { RemovedSession = removed }));
             }
         }
 
@@ -120,11 +130,15 @@ public sealed class WorldSessionStore
         return _sessions.TryRemove(worldId, out _);
     }
 
-    private WorldSessionUpdate GetUpdate(int worldId, DateTimeOffset now, bool changed)
+    private WorldSessionUpdate GetUpdate(
+        int worldId,
+        DateTimeOffset now,
+        bool changed,
+        WorldSessionContext? removedSession = null)
     {
         if (!_sessions.TryGetValue(worldId, out var sessions))
         {
-            return new WorldSessionUpdate(worldId, null, false, changed);
+            return new WorldSessionUpdate(worldId, null, false, changed, removedSession);
         }
 
         var live = sessions.Values.Where(session => IsLive(session, now)).ToArray();
@@ -132,7 +146,8 @@ public sealed class WorldSessionStore
             worldId,
             live.Length == 1 ? live[0] : null,
             live.Length == 1,
-            changed);
+            changed,
+            removedSession);
     }
 
     private static bool IsLive(WorldSessionContext session, DateTimeOffset now) =>

@@ -39,5 +39,7 @@ namespace Hagalaz.Services.GameWorld.Services
         Task<CharacterPersistenceOutcome> WaitForAcknowledgementAsync(CharacterPersistenceReceipt receipt, CancellationToken cancellationToken = default);
         void Acknowledge(uint masterId, Guid correlationId, long snapshotRevision, CharacterPersistenceOutcome outcome);
         void InitializeRevision(uint masterId, long persistedRevision);
+        void InitializeRevision(uint masterId, long persistedRevision, long lifecycleGeneration);
+        bool Release(uint masterId, long lifecycleGeneration);
     }
 }

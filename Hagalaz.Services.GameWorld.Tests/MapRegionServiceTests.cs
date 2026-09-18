@@ -603,6 +603,108 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
+    public void CreateDynamicRegion_WhenExistingDestinationPopulationFails_KeepsCanonicalRegion()
+    {
+        var failure = new InvalidOperationException("source load failed");
+        var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
+        loadRequests.EnsureLoadedAsync(Arg.Any<IEnumerable<IMapRegion>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(failure));
+        using var provider = CreateProvider(loadRequests);
+        var service = CreateService(provider);
+        var source = Location.Create(64, 64, 0, 0);
+        var destination = Location.Create(128, 64, 0, 0);
+        var sourceRegion = service.GetOrCreateMapRegion(source.RegionId, source.Dimension);
+        var destinationRegion = service.GetOrCreateMapRegion(destination.RegionId, destination.Dimension);
+        sourceRegion.MarkReady();
+        destinationRegion.MarkReady();
+
+        service.CreateDynamicRegion(source, destination);
+        provider.GetRequiredService<IRsTaskService>().Tick();
+
+        Assert.AreSame(destinationRegion, service.FindMapRegion(destination.RegionId, destination.Dimension));
+        Assert.AreEqual(MapRegionState.Ready, destinationRegion.State);
+    }
+
+    [TestMethod]
+    public void CreateDynamicRegion_WhenExistingDestinationIsCanceled_KeepsCanonicalRegion()
+    {
+        var sourceReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
+        loadRequests.EnsureLoadedAsync(Arg.Any<IEnumerable<IMapRegion>>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var cancellationToken = callInfo.Arg<CancellationToken>();
+                cancellationToken.Register(() => sourceReady.TrySetCanceled(cancellationToken));
+                return sourceReady.Task;
+            });
+        using var provider = CreateProvider(loadRequests);
+        var service = CreateService(provider);
+        var source = Location.Create(64, 64, 0, 0);
+        var destination = Location.Create(128, 64, 0, 0);
+        var sourceRegion = service.GetOrCreateMapRegion(source.RegionId, source.Dimension);
+        var destinationRegion = service.GetOrCreateMapRegion(destination.RegionId, destination.Dimension);
+        sourceRegion.MarkReady();
+        destinationRegion.MarkReady();
+
+        var handle = service.CreateDynamicRegion(source, destination);
+        var taskService = provider.GetRequiredService<IRsTaskService>();
+        taskService.Tick();
+        handle.Cancel();
+        taskService.Tick();
+
+        Assert.AreSame(destinationRegion, service.FindMapRegion(destination.RegionId, destination.Dimension));
+        Assert.AreEqual(MapRegionState.Ready, destinationRegion.State);
+    }
+
+    [TestMethod]
+    public void CreateDynamicRegion_WhenCanceledAfterPopulationCommit_DoesNotDiscardCreatedRegion()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
+        loadRequests.EnsureLoadedAsync(Arg.Any<IEnumerable<IMapRegion>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        var gameObjectBuilder = Substitute.For<IGameObjectBuilder>();
+        var objectIdBuilder = Substitute.For<IGameObjectId>();
+        var objectLocationBuilder = Substitute.For<IGameObjectLocation>();
+        var objectOptionalBuilder = Substitute.For<IGameObjectOptional>();
+        GameObject? copiedObject = null;
+        ILocation? copiedLocation = null;
+        gameObjectBuilder.Create().Returns(objectIdBuilder);
+        objectIdBuilder.WithId(Arg.Any<int>()).Returns(objectLocationBuilder);
+        objectLocationBuilder.WithLocation(Arg.Any<ILocation>()).Returns(objectOptionalBuilder);
+        objectLocationBuilder.When(builder => builder.WithLocation(Arg.Any<ILocation>()))
+            .Do(callInfo => copiedLocation = callInfo.Arg<ILocation>());
+        objectOptionalBuilder.WithRotation(Arg.Any<int>()).Returns(objectOptionalBuilder);
+        objectOptionalBuilder.WithShape(Arg.Any<ShapeType>()).Returns(objectOptionalBuilder);
+        objectOptionalBuilder.Build().Returns(_ =>
+        {
+            copiedObject = CreateGameObject(copiedLocation!);
+            cancellation.Cancel();
+            return copiedObject;
+        });
+        using var provider = CreateProvider(loadRequests);
+        var service = CreateService(provider, new LocationBuilder(), gameObjectBuilder);
+        var source = Location.Create(64, 64, 0, 0);
+        var destination = Location.Create(128, 64, 0, 0);
+        var sourceRegion = service.GetOrCreateMapRegion(source.RegionId, source.Dimension);
+        sourceRegion.GetRegionPartData(0, 0, 0);
+        sourceRegion.MakeStandard();
+        sourceRegion.MarkReady();
+        var sourceObject = CreateGameObject(Location.Create(64, 64, 0, 0));
+        sourceRegion.Add(sourceObject);
+
+        service.CreateDynamicRegion(source, destination);
+        var taskService = provider.GetRequiredService<IRsTaskService>();
+        taskService.Tick();
+        taskService.Tick();
+
+        var destinationRegion = service.FindMapRegion(destination.RegionId, destination.Dimension);
+        Assert.IsNotNull(destinationRegion);
+        Assert.AreEqual(MapRegionState.Ready, destinationRegion.State);
+        Assert.IsTrue(destinationRegion.IsDynamic);
+    }
+
+    [TestMethod]
     public void CreateDynamicRegion_FailedStaleDestinationCannotRemoveReplacement()
     {
         var sourceReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -825,16 +927,34 @@ public sealed class MapRegionServiceTests
 
     private static MapRegionService CreateService(IServiceProvider provider) => CreateService(provider, new LocationBuilder());
 
-    private static MapRegionService CreateService(IServiceProvider provider, ILocationBuilder locationBuilder) => new(
+    private static MapRegionService CreateService(
+        IServiceProvider provider,
+        ILocationBuilder locationBuilder,
+        IGameObjectBuilder? gameObjectBuilder = null) => new(
         provider,
         locationBuilder,
-        Substitute.For<IGameObjectBuilder>(),
+        gameObjectBuilder ?? Substitute.For<IGameObjectBuilder>(),
         Substitute.For<IGroundItemBuilder>(),
         Substitute.For<ILogger<MapRegionService>>(),
         Substitute.For<IMapper>(),
         provider.GetRequiredService<IMapRegionLoadScheduler>(),
         provider.GetRequiredService<IRsTaskService>(),
         provider.GetRequiredService<IEntityStore>());
+
+    private static GameObject CreateGameObject(ILocation location)
+    {
+        var definition = Substitute.For<IGameObjectDefinition>();
+        definition.SizeX.Returns(1);
+        definition.SizeY.Returns(1);
+        return new GameObject(
+            42,
+            location,
+            0,
+            ShapeType.GroundDefault,
+            false,
+            definition,
+            Substitute.For<IGameObjectScript>());
+    }
 
     private sealed class BlockingLocationBuilder(Barrier creationGate) : ILocationBuilder
     {

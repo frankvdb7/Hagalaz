@@ -124,6 +124,138 @@ public sealed class FusionCacheGameSessionClaimStoreTests
     }
 
     [TestMethod]
+    public async Task ExecuteIfOwnerAndReplaceAsync_WhenActionThrows_RestoresOwnerAndPreservesOriginalFailure()
+    {
+        var (store, cache, _) = CreateStore();
+        cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.FromValue("lobby-claim")));
+        cache.SetAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<FusionCacheEntryOptions>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new ValueTask());
+        var failure = new InvalidOperationException("local commit failed");
+
+        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            store.ExecuteIfOwnerAndReplaceAsync(
+                42,
+                "lobby-claim",
+                "world-claim",
+                _ => Task.FromException<bool>(failure)));
+
+        Assert.AreSame(failure, actual);
+        await cache.Received(1).SetAsync(
+            "hagalaz:game-session:42",
+            "world-claim",
+            Arg.Any<FusionCacheEntryOptions>(),
+            Arg.Any<CancellationToken>());
+        await cache.Received(1).SetAsync(
+            "hagalaz:game-session:42",
+            "lobby-claim",
+            Arg.Any<FusionCacheEntryOptions>(),
+            CancellationToken.None);
+    }
+
+    [TestMethod]
+    public async Task ExecuteIfOwnerAndReplaceAsync_WhenActionIsCanceled_RestoresOwnerAndPreservesCancellation()
+    {
+        var (store, cache, _) = CreateStore();
+        cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.FromValue("lobby-claim")));
+        cache.SetAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<FusionCacheEntryOptions>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new ValueTask());
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var canceled = new OperationCanceledException(cancellation.Token);
+
+        var actual = await Assert.ThrowsExactlyAsync<OperationCanceledException>(() =>
+            store.ExecuteIfOwnerAndReplaceAsync(
+                42,
+                "lobby-claim",
+                "world-claim",
+                _ => Task.FromException<bool>(canceled),
+                cancellation.Token));
+
+        Assert.AreEqual(cancellation.Token, actual.CancellationToken);
+        await cache.Received(1).SetAsync(
+            "hagalaz:game-session:42",
+            "lobby-claim",
+            Arg.Any<FusionCacheEntryOptions>(),
+            CancellationToken.None);
+    }
+
+    [TestMethod]
+    public async Task ExecuteIfOwnerAndReplaceAsync_WhenCompensationFails_PreservesCallbackFailure()
+    {
+        var (store, cache, _) = CreateStore();
+        cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.FromValue("lobby-claim")));
+        var callbackFailure = new InvalidOperationException("local commit failed");
+        var compensationFailure = new InvalidOperationException("claim restoration failed");
+        var setCalls = 0;
+        cache.SetAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<FusionCacheEntryOptions>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                setCalls++;
+                return setCalls == 1
+                    ? new ValueTask()
+                    : new ValueTask(Task.FromException(compensationFailure));
+            });
+
+        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            store.ExecuteIfOwnerAndReplaceAsync(
+                42,
+                "lobby-claim",
+                "world-claim",
+                _ => Task.FromException<bool>(callbackFailure)));
+
+        Assert.AreSame(callbackFailure, actual);
+        await cache.Received(1).SetAsync(
+            "hagalaz:game-session:42",
+            "lobby-claim",
+            Arg.Any<FusionCacheEntryOptions>(),
+            CancellationToken.None);
+    }
+
+    [TestMethod]
+    public async Task ClaimOperation_WhenLockHandleIsMissing_DoesNotInvokeOrRelease()
+    {
+        var (store, cache, locker) = CreateStore(lockAcquired: false);
+        var callbackCalled = false;
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            store.ExecuteIfOwnerAsync(42, "owner", _ =>
+            {
+                callbackCalled = true;
+                return Task.FromResult(true);
+            }));
+
+        Assert.IsFalse(callbackCalled);
+        await cache.DidNotReceive().TryGetAsync<string>(
+            Arg.Any<string>(),
+            Arg.Any<FusionCacheEntryOptions>(),
+            Arg.Any<CancellationToken>());
+        await locker.DidNotReceive().ReleaseLockAsync(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<object>(),
+            Arg.Any<ILogger>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public async Task ExecuteIfOwnerAndReplaceAsync_WhenRestorationFailsPropagatesRestorationFailure()
     {
         var (store, cache, _) = CreateStore();
@@ -307,7 +439,8 @@ public sealed class FusionCacheGameSessionClaimStoreTests
             CancellationToken.None);
     }
 
-    private static (FusionCacheGameSessionClaimStore Store, IFusionCache Cache, IFusionCacheDistributedLocker Locker) CreateStore()
+    private static (FusionCacheGameSessionClaimStore Store, IFusionCache Cache, IFusionCacheDistributedLocker Locker) CreateStore(
+        bool lockAcquired = true)
     {
         var cache = Substitute.For<IFusionCache>();
         var locker = Substitute.For<IFusionCacheDistributedLocker>();
@@ -320,7 +453,7 @@ public sealed class FusionCacheGameSessionClaimStoreTests
                 Arg.Any<TimeSpan>(),
                 Arg.Any<ILogger>(),
                 Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<object>(new object()));
+            .Returns(new ValueTask<object?>(Task.FromResult<object?>(lockAcquired ? new object() : null)));
         locker.ReleaseLockAsync(
                 Arg.Any<string>(),
                 Arg.Any<string>(),

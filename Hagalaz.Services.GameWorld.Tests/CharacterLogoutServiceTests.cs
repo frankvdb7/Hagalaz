@@ -8,6 +8,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
+using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Services.Model;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,6 +52,28 @@ public sealed class CharacterLogoutServiceTests
 
         Assert.IsFalse(state.TryBeginLogout(second, out var receipt));
         Assert.IsNull(receipt);
+    }
+
+    [TestMethod]
+    public void CompleteLogout_ReleasesPersistenceStateForTheCompletedLifecycle()
+    {
+        var character = CreateCharacter(42);
+        var persistenceState = new CharacterPersistenceState();
+        persistenceState.InitializeRevision(42, 500, 7);
+        var logoutState = new CharacterLogoutState();
+        Assert.IsTrue(logoutState.TryBeginLogout(character, out _));
+        var mediator = Substitute.For<IGameMediator>();
+        var service = new CharacterLogoutService(
+            logoutState,
+            Substitute.For<ICharacterService>(),
+            new InlineTaskScheduler(),
+            mediator,
+            persistenceState);
+
+        service.CompleteLogout(character);
+
+        Assert.AreEqual(1L, persistenceState.NextRevision(42));
+        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
     }
 
     [TestMethod]

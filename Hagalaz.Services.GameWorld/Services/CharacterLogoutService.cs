@@ -288,6 +288,7 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
     {
         if (_logoutState.TryComplete(character, out var command))
         {
+            _persistenceState.Release(character.MasterId, character.Session.SessionGeneration);
             _mediator.Publish(command);
         }
     }

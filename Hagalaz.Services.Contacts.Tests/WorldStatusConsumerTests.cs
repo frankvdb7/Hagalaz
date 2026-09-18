@@ -37,7 +37,7 @@ namespace Hagalaz.Services.Contacts.Tests
 
             await _consumer.Consume(contextMock.Object);
 
-            _contactSessionServiceMock.Verify(x => x.RemoveWorldSessions(worldId), Times.Once);
+            _contactSessionServiceMock.Verify(x => x.RemoveWorldSessions(worldId, "instance-a", 1), Times.Once);
             Assert.IsFalse(_worldSessions.TryGetValue(worldId, out _));
         }
 
@@ -55,7 +55,7 @@ namespace Hagalaz.Services.Contacts.Tests
 
             Assert.IsTrue(_worldSessions.TryGetValue(worldId, out var replacement));
             Assert.AreEqual("instance-b", replacement!.InstanceId);
-            _contactSessionServiceMock.Verify(x => x.RemoveWorldSessions(worldId), Times.Never);
+            _contactSessionServiceMock.Verify(x => x.RemoveWorldSessions(worldId, "instance-a", 1), Times.Once);
         }
 
         [TestMethod]

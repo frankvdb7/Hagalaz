@@ -32,7 +32,7 @@ public sealed class ContactSessionServiceTests
             .Returns(Task.CompletedTask);
 
         var contactSessions = new ContactSessionStore();
-        contactSessions.TrySetNewerSession(new ContactSessionContext(removedMasterId, worldId, "World 1", 1, "removed"));
+        contactSessions.TrySetNewerSession(new ContactSessionContext(removedMasterId, worldId, "World 1", 1, "removed", "instance-a", 1));
         contactSessions.TrySetNewerSession(new ContactSessionContext(retainedMasterId, 2, "World 2", 1, "retained"));
 
         var service = new ContactSessionService(
@@ -42,11 +42,11 @@ public sealed class ContactSessionServiceTests
             publishEndpoint.Object,
             new Mock<IStringLocalizer<ContactSessionService>>().Object);
 
-        await service.RemoveWorldSessions(worldId);
+        await service.RemoveWorldSessions(worldId, "instance-a", 1);
 
         Assert.IsFalse(contactSessions.TryGetValue(removedMasterId, out _));
         Assert.IsTrue(contactSessions.TryGetValue(retainedMasterId, out _));
-        Assert.IsTrue(contactSessions.TrySetNewerSession(new ContactSessionContext(removedMasterId, worldId, "World 1", 1, "removed")));
+        Assert.IsTrue(contactSessions.TrySetNewerSession(new ContactSessionContext(removedMasterId, worldId, "World 1", 1, "removed", "instance-a", 1)));
         publishEndpoint.Verify(
             x => x.Publish(
                 It.Is<ContactSignOutMessage>(message =>
@@ -58,15 +58,15 @@ public sealed class ContactSessionServiceTests
     }
 
     [TestMethod]
-    public async Task RemoveWorldSessions_DoesNotRemoveSameWorldReplacementSession()
+    public async Task RemoveWorldSessions_DoesNotRemoveDifferentWorldGenerationReplacementSession()
     {
         const int worldId = 1;
         const uint firstMasterId = 100;
         const uint secondMasterId = 200;
         var replacementMasterId = 0u;
 
-        var firstSession = new ContactSessionContext(firstMasterId, worldId, "World 1", 1, "first");
-        var replacedSession = new ContactSessionContext(secondMasterId, worldId, "World 1", 1, "replaced");
+        var firstSession = new ContactSessionContext(firstMasterId, worldId, "World 1", 1, "first", "instance-a", 1);
+        var replacedSession = new ContactSessionContext(secondMasterId, worldId, "World 1", 1, "replaced", "instance-a", 1);
         var contactSessions = new ContactSessionStore();
         contactSessions.TrySetNewerSession(firstSession);
         contactSessions.TrySetNewerSession(replacedSession);
@@ -82,7 +82,7 @@ public sealed class ContactSessionServiceTests
                     replacementAdded = true;
                     replacementMasterId = masterId;
                     Assert.IsTrue(contactSessions.TrySetNewerSession(
-                        new ContactSessionContext(masterId, worldId, "World 1", 2, "replacement")));
+                        new ContactSessionContext(masterId, worldId, "World 1", 2, "replacement", "instance-b", 2)));
                 }
 
                 return ValueTask.FromResult<CharacterDto?>(new CharacterDto
@@ -104,11 +104,13 @@ public sealed class ContactSessionServiceTests
             publishEndpoint.Object,
             new Mock<IStringLocalizer<ContactSessionService>>().Object);
 
-        await service.RemoveWorldSessions(worldId);
+        await service.RemoveWorldSessions(worldId, "instance-a", 1);
 
         Assert.AreNotEqual(0u, replacementMasterId);
         Assert.IsTrue(contactSessions.TryGetValue(replacementMasterId, out var replacement));
         Assert.AreEqual(worldId, replacement!.WorldId);
+        Assert.AreEqual("instance-b", replacement.WorldInstanceId);
+        Assert.AreEqual(2L, replacement.WorldGeneration);
         var originalReplacementSession = replacementMasterId == firstMasterId ? firstSession : replacedSession;
         Assert.AreNotEqual(originalReplacementSession.SessionGeneration, replacement.SessionGeneration);
         publishEndpoint.Verify(

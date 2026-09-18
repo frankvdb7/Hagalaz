@@ -81,13 +81,37 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
             }
 
             await _cache.SetAsync(GetKey(masterId), replacementClaimId, EntryOptions, token);
-            var succeeded = await action(token);
-            if (!succeeded)
+            var restorationAttempted = false;
+            try
             {
-                await _cache.SetAsync(GetKey(masterId), ownerClaimId, EntryOptions, CancellationToken.None);
-            }
+                var succeeded = await action(token);
+                if (!succeeded)
+                {
+                    restorationAttempted = true;
+                    await _cache.SetAsync(GetKey(masterId), ownerClaimId, EntryOptions, CancellationToken.None);
+                }
 
-            return succeeded;
+                return succeeded;
+            }
+            catch (Exception)
+            {
+                if (!restorationAttempted)
+                {
+                    try
+                    {
+                        await _cache.SetAsync(GetKey(masterId), ownerClaimId, EntryOptions, CancellationToken.None);
+                    }
+                    catch (Exception compensationException)
+                    {
+                        _logger.LogError(
+                            compensationException,
+                            "Failed to restore the previous game-session claim for account '{masterId}' after replacement callback failure.",
+                            masterId);
+                    }
+                }
+
+                throw;
+            }
         }, cancellationToken);
 
     public Task<bool> ReleaseAsync(uint masterId, string claimId, CancellationToken cancellationToken = default) =>
@@ -146,6 +170,12 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
             DistributedLockTimeout,
             _logger,
             token);
+
+        if (lockObject is null)
+        {
+            throw new InvalidOperationException(
+                $"Unable to acquire the distributed game-session claim lock for account '{masterId}'.");
+        }
 
         try
         {

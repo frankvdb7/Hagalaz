@@ -450,13 +450,35 @@ namespace Hagalaz.Services.GameWorld.Services
             var task = new RsAsyncTask(async cancellationToken =>
             {
                 var standardRegion = GetOrCreateMapRegion(source.RegionId, source.Dimension);
-                var dynamicRegion = GetOrCreateDynamicRegion(destination.RegionId, destination.Dimension);
-                using var cancellationRegistration = cancellationToken.Register(() =>
-                    _taskScheduler.Schedule(new RsTask(
-                        () => DiscardDynamicRegion(destination, dynamicRegion),
-                        1)));
-
+                var dynamicRegionAcquisition = GetOrCreateDynamicRegion(destination.RegionId, destination.Dimension);
+                var dynamicRegion = dynamicRegionAcquisition.Region;
+                var discardGate = new object();
+                var discardStarted = false;
                 var populationSucceeded = false;
+
+                void DiscardCreatedRegion()
+                {
+                    lock (discardGate)
+                    {
+                        if (populationSucceeded || discardStarted)
+                        {
+                            return;
+                        }
+
+                        discardStarted = true;
+                    }
+
+                    DiscardDynamicRegion(destination, dynamicRegion);
+                }
+
+                using var cancellationRegistration = cancellationToken.Register(() =>
+                {
+                    if (dynamicRegionAcquisition.Created)
+                    {
+                        _taskScheduler.Schedule(new RsTask(DiscardCreatedRegion, 1));
+                    }
+                });
+
                 try
                 {
                     await _loadScheduler.EnsureLoadedAsync([standardRegion], cancellationToken);
@@ -503,18 +525,21 @@ namespace Hagalaz.Services.GameWorld.Services
                         }
                     }
 
-                    if (dynamicRegion.State == MapRegionState.Initializing)
+                    lock (discardGate)
                     {
-                        dynamicRegion.MarkReady();
-                    }
+                        if (dynamicRegion.State == MapRegionState.Initializing)
+                        {
+                            dynamicRegion.MarkReady();
+                        }
 
-                    populationSucceeded = true;
+                        populationSucceeded = true;
+                    }
                 }
                 finally
                 {
-                    if (!populationSucceeded)
+                    if (dynamicRegionAcquisition.Created)
                     {
-                        DiscardDynamicRegion(destination, dynamicRegion);
+                        DiscardCreatedRegion();
                     }
                 }
             });
@@ -530,9 +555,21 @@ namespace Hagalaz.Services.GameWorld.Services
             }
 
             TryRemoveMapRegion(destination.RegionId, destination.Dimension, dynamicRegion);
+            try
+            {
+                dynamicRegion.Destroy();
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(
+                    exception,
+                    "Failed to destroy discarded dynamic region {RegionId} in dimension {Dimension}.",
+                    destination.RegionId,
+                    destination.Dimension);
+            }
         }
 
-        private IMapRegion GetOrCreateDynamicRegion(int id, int dimension)
+        private (IMapRegion Region, bool Created) GetOrCreateDynamicRegion(int id, int dimension)
         {
             lock (_residencyGate)
             {
@@ -545,20 +582,20 @@ namespace Hagalaz.Services.GameWorld.Services
                     }
 
                     activeRegion.MakeDynamic();
-                    return activeRegion;
+                    return (activeRegion, false);
                 }
 
                 if (mapDimension.IdleRegionStore.TryGetValue(id, out var idleRegion))
                 {
                     var resumedRegion = ResumeIdleRegion(mapDimension, id, idleRegion);
                     resumedRegion.MakeDynamic();
-                    return resumedRegion;
+                    return (resumedRegion, false);
                 }
 
                 var dynamicRegion = CreateMapRegion(id, dimension);
                 dynamicRegion.MakeDynamic();
                 mapDimension.ActiveRegions.Add(id, dynamicRegion);
-                return dynamicRegion;
+                return (dynamicRegion, true);
             }
         }
 

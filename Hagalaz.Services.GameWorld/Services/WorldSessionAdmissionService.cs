@@ -82,6 +82,7 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         var signInSucceeded = false;
         ICharacter? character = null;
         var characterRegistered = false;
+        var persistenceInitialized = false;
         try
         {
             CharacterModel characterModel;
@@ -111,7 +112,11 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
                 return SignInResult.Fail;
             }
 
-            _characterPersistenceService.InitializeRevision(masterId, characterModel.SnapshotRevision);
+            _characterPersistenceService.InitializeRevision(
+                masterId,
+                characterModel.SnapshotRevision,
+                session.SessionGeneration);
+            persistenceInitialized = true;
 
             if (!await _characterService.AddAsync(character))
             {
@@ -142,7 +147,8 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
                     masterId,
                     sessionRegistration.Session,
                     character,
-                    characterRegistered);
+                    characterRegistered,
+                    persistenceInitialized);
             }
         }
     }
@@ -163,11 +169,13 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         uint masterId,
         IGameSession session,
         ICharacter? character,
-        bool characterRegistered)
+        bool characterRegistered,
+        bool persistenceInitialized)
     {
         if (character is not null && !characterRegistered)
         {
             DestroyUnregisteredCharacter(character);
+            ReleasePersistenceState(masterId, session, persistenceInitialized);
         }
 
         if (character is not null && characterRegistered)
@@ -182,6 +190,7 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
                     if (removed)
                     {
                         DestroyUnregisteredCharacter(character);
+                        ReleasePersistenceState(masterId, session, persistenceInitialized);
                     }
                     else
                     {
@@ -211,5 +220,15 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         }
 
         await _gameSessionService.RemoveSession(session, CancellationToken.None);
+    }
+
+    private void ReleasePersistenceState(uint masterId, IGameSession session, bool persistenceInitialized)
+    {
+        if (persistenceInitialized && !_characterPersistenceService.Release(masterId, session.SessionGeneration))
+        {
+            _logger.LogWarning(
+                "Persistence state for character '{MasterId}' was not released because a different lifecycle owns it",
+                masterId);
+        }
     }
 }

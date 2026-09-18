@@ -808,7 +808,7 @@ public sealed class AuthenticationSignInTests
 
         Assert.IsFalse(result.Succeeded);
         await gameSessionService.Received(1).RemoveSession(session);
-        persistenceService.Received(1).InitializeRevision(42, 27);
+        persistenceService.Received(1).InitializeRevision(42, 27, 0);
         character.Received(1).Destroy();
     }
 
@@ -834,7 +834,7 @@ public sealed class AuthenticationSignInTests
 
         Assert.IsFalse(result.Succeeded);
         Assert.AreEqual(0, characterService.FindByMasterIdCallCount);
-        persistenceService.Received(1).InitializeRevision(42, 27);
+        persistenceService.Received(1).InitializeRevision(42, 27, 0);
     }
 
     [TestMethod]
@@ -1291,7 +1291,7 @@ public sealed class AuthenticationSignInTests
         var characterHydrationService = Substitute.For<ICharacterHydrationService>();
         characterHydrationService.HydrateAsync(Arg.Any<ICharacter>(), Arg.Any<CharacterModel>()).Returns(Task.FromResult(true));
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
-        persistenceService.When(service => service.InitializeRevision(42u, 27L))
+        persistenceService.When(service => service.InitializeRevision(42u, 27L, 0L))
             .Do(_ => registrationOrder.Add("initialize"));
 
         var service = CreateAuthenticationService(
@@ -1305,7 +1305,7 @@ public sealed class AuthenticationSignInTests
 
         Assert.IsTrue(result.Succeeded);
         await characterHydrationService.Received(1).HydrateAsync(Arg.Any<ICharacter>(), Arg.Any<CharacterModel>());
-        persistenceService.Received(1).InitializeRevision(42u, 27L);
+        persistenceService.Received(1).InitializeRevision(42u, 27L, 0L);
         CollectionAssert.AreEqual(new[] { "initialize", "add" }, registrationOrder);
         Assert.AreEqual(1, characterService.AddCallCount);
         await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>());

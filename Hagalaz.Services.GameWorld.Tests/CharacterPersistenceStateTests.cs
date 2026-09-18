@@ -88,6 +88,27 @@ public sealed class CharacterPersistenceStateTests
     }
 
     [TestMethod]
+    public void Release_RemovesOnlyTheExactLifecycleAndAllowsFreshRevisionSequence()
+    {
+        var state = new CharacterPersistenceState();
+        state.InitializeRevision(42, 500, 7);
+
+        Assert.IsTrue(state.Release(42, 7));
+        Assert.AreEqual(1L, state.NextRevision(42));
+    }
+
+    [TestMethod]
+    public void Release_DoesNotRemoveStateOwnedByNewerLifecycle()
+    {
+        var state = new CharacterPersistenceState();
+        state.InitializeRevision(42, 500, 7);
+        state.InitializeRevision(42, 600, 8);
+
+        Assert.IsFalse(state.Release(42, 7));
+        Assert.AreEqual(601L, state.NextRevision(42));
+    }
+
+    [TestMethod]
     public async Task NextRevision_ConcurrentCallsRemainUniqueAndMonotonic()
     {
         var state = new CharacterPersistenceState();
