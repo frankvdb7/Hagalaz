@@ -101,12 +101,16 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <param name="id">Region Id.</param>
         /// <param name="dimension">Dimension Id, 0 for global world.</param>
         /// <returns>Returns the active or idle map region, or <c>null</c> when it is not known.</returns>
-        /// <exception cref="Exception"></exception>
         public IMapRegion? FindMapRegion(int id, int dimension)
         {
             lock (_residencyGate)
             {
-                var dim = _dimensions[dimension] ?? throw new Exception("'" + dimension + "' is not an existing dimension!");
+                var dim = _dimensions[dimension];
+                if (dim is null)
+                {
+                    return null;
+                }
+
                 if (dim.ActiveRegions.TryGetValue(id, out var activeRegion))
                 {
                     return activeRegion;

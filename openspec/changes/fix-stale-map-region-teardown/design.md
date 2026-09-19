@@ -1,7 +1,8 @@
 # Design
 
 `MapRegionService.FindMapRegion` already returns the canonical active or idle
-region without creating or resuming one. The fix reuses that lookup for
+region without creating or resuming one. It also treats a removed dimension as
+an absent lookup result. The fix reuses that lookup for
 operations whose target is existing state. A missing region is treated as a
 harmless stale operation. An idle region remains idle while its retained state
 is removed or updated.

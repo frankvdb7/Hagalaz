@@ -136,6 +136,101 @@ public sealed class MapRegionStaleMutationTests
         mapper.DidNotReceive().Map<RaidoMessage>(Arg.Any<object>());
     }
 
+    [TestMethod]
+    public void DelayedGameObjectUpdate_AfterDynamicDimensionRemoval_DoesNotThrowOrRecreateDimension()
+    {
+        var loadScheduler = Substitute.For<IMapRegionLoadScheduler>();
+        using var provider = CreateProvider(loadScheduler);
+        var service = CreateService(provider);
+        Assert.IsTrue(service.TryCreateDimension(out var dimension));
+
+        var gameObject = CreateGameObject(Location.Create(64, 65, 0, dimension!.Id));
+        service.AddGameObject(gameObject);
+        var region = service.FindMapRegion(gameObject.Location.RegionId, dimension.Id)!;
+        Assert.IsTrue(service.TryRemoveMapRegion(region.Id, dimension.Id, region));
+        Assert.IsTrue(service.TryRemoveEmptyDimension(dimension));
+        region.Destroy();
+
+        var objectService = new GameObjectService(
+            service,
+            Substitute.For<IGameObjectDefinitionRepository>(),
+            Substitute.For<ITypeProvider<GameObjectDefinition>>());
+
+        objectService.UpdateGameObject(new GameObjectUpdate
+        {
+            Instance = gameObject,
+            Id = gameObject.Id,
+            Rotation = 1
+        });
+
+        Assert.IsFalse(service.FindAllDimensions().Any(item => item.Id == dimension.Id));
+        Assert.IsNull(service.FindMapRegion(region.Id, dimension.Id));
+        loadScheduler.Received(1).RequestLoad(region);
+    }
+
+    [TestMethod]
+    public void RemoveGroundItem_AfterDynamicDimensionRemoval_DoesNotThrowOrRecreateDimension()
+    {
+        var loadScheduler = Substitute.For<IMapRegionLoadScheduler>();
+        using var provider = CreateProvider(loadScheduler);
+        var service = CreateService(provider);
+        Assert.IsTrue(service.TryCreateDimension(out var dimension));
+
+        var item = CreateGroundItem(service, Location.Create(64, 64, 0, dimension!.Id));
+        service.AddGroundItem(item);
+        var region = service.FindMapRegion(item.Location.RegionId, dimension.Id)!;
+        Assert.IsTrue(service.TryRemoveMapRegion(region.Id, dimension.Id, region));
+        Assert.IsTrue(service.TryRemoveEmptyDimension(dimension));
+        region.Destroy();
+
+        Assert.IsFalse(service.RemoveGroundItem(item));
+        Assert.IsFalse(service.FindAllDimensions().Any(value => value.Id == dimension.Id));
+        Assert.IsNull(service.FindMapRegion(region.Id, dimension.Id));
+        loadScheduler.Received(1).RequestLoad(region);
+    }
+
+    [TestMethod]
+    public void DelayedGameObjectUpdate_AfterDynamicDimensionIdReuse_DoesNotMutateNewDimension()
+    {
+        var loadScheduler = Substitute.For<IMapRegionLoadScheduler>();
+        var mapper = Substitute.For<IMapper>();
+        using var provider = CreateProvider(loadScheduler);
+        var service = CreateService(provider, mapper);
+        Assert.IsTrue(service.TryCreateDimension(out var oldDimension));
+
+        var location = Location.Create(65, 65, 0, oldDimension!.Id);
+        var staleObject = CreateWallGameObject(location, 0);
+        service.AddGameObject(staleObject);
+        var oldRegion = service.FindMapRegion(location.RegionId, oldDimension.Id)!;
+        Assert.IsTrue(service.TryRemoveMapRegion(oldRegion.Id, oldDimension.Id, oldRegion));
+        Assert.IsTrue(service.TryRemoveEmptyDimension(oldDimension));
+        oldRegion.Destroy();
+
+        Assert.IsTrue(service.TryCreateDimension(out var newDimension));
+        Assert.AreEqual(oldDimension.Id, newDimension!.Id);
+        var replacementObject = CreateWallGameObject(location, 0);
+        service.AddGameObject(replacementObject);
+        var replacementRegion = service.FindMapRegion(location.RegionId, newDimension.Id)!;
+        var expectedCurrentCollision = CollisionFlag.WallWest | CollisionFlag.WallAllowRangeWest;
+        var expectedNeighbourCollision = CollisionFlag.WallEast | CollisionFlag.WallAllowRangeEast;
+
+        var objectService = new GameObjectService(
+            service,
+            Substitute.For<IGameObjectDefinitionRepository>(),
+            Substitute.For<ITypeProvider<GameObjectDefinition>>());
+
+        objectService.UpdateGameObject(new GameObjectUpdate
+        {
+            Instance = staleObject,
+            Id = staleObject.Id,
+            Rotation = 1
+        });
+
+        Assert.AreEqual(expectedCurrentCollision, replacementRegion.GetCollision(location.RegionLocalX, location.RegionLocalY, 0));
+        Assert.AreEqual(expectedNeighbourCollision, replacementRegion.GetCollision(location.RegionLocalX - 1, location.RegionLocalY, 0));
+        mapper.DidNotReceive().Map<RaidoMessage>(Arg.Any<object>());
+    }
+
     private static ServiceProvider CreateProvider(IMapRegionLoadScheduler loadScheduler) => new ServiceCollection()
         .AddSingleton(Substitute.For<INpcService>())
         .AddSingleton<IEntityStore, EntityStore>()

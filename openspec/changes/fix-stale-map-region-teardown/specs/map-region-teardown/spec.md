@@ -26,6 +26,13 @@ an intentional no-op.
 - **THEN** the retained state MAY be removed in place
 - **AND** the region MUST remain idle
 
+#### Scenario: Removed dynamic dimension receives stale work
+
+- **WHEN** the dimension containing a stale object or item has been removed
+- **AND** delayed teardown or existing-object mutation runs
+- **THEN** the operation MUST be treated as a missing owner
+- **AND** it MUST NOT throw, recreate the dimension, recreate a region, or schedule loading
+
 ### Requirement: Stale game-object work cannot affect replacement state
 
 Collision teardown, collision mutation, and existing-object update records MUST

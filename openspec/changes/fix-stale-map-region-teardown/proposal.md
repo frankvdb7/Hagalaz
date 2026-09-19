@@ -21,6 +21,8 @@ removed, and stale game-object collision work can reach a replacement region.
 ## Acceptance criteria
 
 - Stale teardown never creates or resumes a map region.
+- Stale work from a removed dynamic dimension is treated as a no-op and does
+  not recreate the dimension or schedule loading.
 - Teardown against a suspended canonical region does not activate it.
 - Stale game-object callbacks cannot mutate replacement collision or queued
   object state.
