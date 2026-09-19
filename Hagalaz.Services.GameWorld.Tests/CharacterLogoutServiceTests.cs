@@ -311,6 +311,219 @@ public sealed class CharacterLogoutServiceTests
     }
 
     [TestMethod]
+    [Timeout(5000)]
+    public async Task RecoverPendingLogouts_ClaimsRecoveryExactlyOnce()
+    {
+        var character = CreateCharacter(42);
+        var state = new CharacterLogoutState();
+        Assert.IsTrue(state.TryBeginLogout(character, out _));
+        Assert.IsTrue(state.SetSnapshot(character, new CharacterModel { SnapshotRevision = 1 }));
+        Assert.IsTrue(state.MarkRecoveryEligible(character));
+
+        var persistenceState = new CharacterPersistenceState();
+        persistenceState.InitializeRevision(42, 0, 7);
+        var persistence = Substitute.For<ICharacterPersistenceService>();
+        var receipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 1);
+        var persistenceStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var acknowledge = new TaskCompletionSource<CharacterPersistenceOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+        persistence.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                persistenceStarted.TrySetResult(true);
+                return Task.FromResult<CharacterPersistenceReceipt?>(receipt);
+            });
+        persistence.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
+            .Returns(acknowledge.Task);
+        var sessionService = Substitute.For<IGameSessionService>();
+        sessionService.RemoveSession(character.Session, CancellationToken.None).Returns(Task.FromResult(true));
+        var mediator = Substitute.For<IGameMediator>();
+        var service = new CharacterLogoutService(
+            state,
+            Substitute.For<ICharacterService>(),
+            new InlineTaskScheduler(),
+            mediator,
+            persistenceState,
+            persistence,
+            sessionService);
+
+        var firstRecovery = service.RecoverPendingLogoutsAsync();
+        await persistenceStarted.Task;
+        var secondRecovery = service.RecoverPendingLogoutsAsync();
+
+        await secondRecovery;
+        await persistence.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
+        await sessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>(), Arg.Any<CancellationToken>());
+
+        acknowledge.TrySetResult(CharacterPersistenceOutcome.Committed);
+        await firstRecovery;
+
+        await sessionService.Received(1).RemoveSession(character.Session, CancellationToken.None);
+        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        Assert.IsFalse(state.IsPending(character));
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task DetachAsync_WhenCanceledAttemptFailsBeforeSnapshot_DoesNotPoisonSuccessfulRetry()
+    {
+        var character = CreateCharacter(42);
+        var state = new CharacterLogoutState();
+        Assert.IsTrue(state.TryBeginLogout(character, out _));
+        var characterService = Substitute.For<ICharacterService>();
+        characterService.Remove(character).Returns(false);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
+        using var provider = new ServiceCollection()
+            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .BuildServiceProvider();
+        character.ServiceProvider.Returns(provider);
+        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var persistence = Substitute.For<ICharacterPersistenceService>();
+        var sessionService = Substitute.For<IGameSessionService>();
+        var service = new CharacterLogoutService(
+            state,
+            characterService,
+            scheduler,
+            Substitute.For<IGameMediator>(),
+            new CharacterPersistenceState(),
+            persistence,
+            sessionService);
+        using var cancellation = new CancellationTokenSource();
+
+        var canceledAttempt = service.DetachAsync(character, cancellation.Token);
+        cancellation.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => canceledAttempt);
+        scheduler.Tick();
+
+        characterService.Remove(character).Returns(true);
+        var retry = service.DetachAsync(character);
+        scheduler.Tick();
+        var snapshot = await retry;
+
+        Assert.IsNotNull(snapshot);
+        Assert.IsFalse(state.FindRecoverablePendingLogouts().Count > 0);
+        await service.RecoverPendingLogoutsAsync();
+        await persistence.DidNotReceive().PersistAsync(
+            Arg.Any<uint>(),
+            Arg.Any<CharacterModel>(),
+            true,
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task DetachAsync_WhenCancellationWinsAfterSnapshotPublication_MakesSnapshotRecoverable()
+    {
+        var character = CreateCharacter(42);
+        var state = new CharacterLogoutState();
+        Assert.IsTrue(state.TryBeginLogout(character, out _));
+        var characterService = Substitute.For<ICharacterService>();
+        characterService.Remove(character).Returns(true);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
+        using var provider = new ServiceCollection()
+            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .BuildServiceProvider();
+        character.ServiceProvider.Returns(provider);
+        var snapshotPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDestroy = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        character.When(value => value.Destroy()).Do(_ =>
+        {
+            snapshotPublished.TrySetResult(true);
+            releaseDestroy.Task.GetAwaiter().GetResult();
+        });
+        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var service = new CharacterLogoutService(
+            state,
+            characterService,
+            scheduler,
+            Substitute.For<IGameMediator>(),
+            new CharacterPersistenceState());
+        using var cancellation = new CancellationTokenSource();
+
+        var detach = service.DetachAsync(character, cancellation.Token);
+        var worker = Task.Run(scheduler.Tick);
+        await snapshotPublished.Task;
+        cancellation.Cancel();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => detach);
+        Assert.AreEqual(1, state.FindRecoverablePendingLogouts().Count);
+
+        releaseDestroy.TrySetResult(true);
+        await worker;
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task RecoverPendingLogouts_WhenDestroyIsBlocked_CompletesRecoveryBeforeWorkerFinishes()
+    {
+        var character = CreateCharacter(42);
+        var state = new CharacterLogoutState();
+        Assert.IsTrue(state.TryBeginLogout(character, out _));
+        var characterService = Substitute.For<ICharacterService>();
+        characterService.Remove(character).Returns(true);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
+        using var provider = new ServiceCollection()
+            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .BuildServiceProvider();
+        character.ServiceProvider.Returns(provider);
+        var snapshotPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDestroy = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        character.When(value => value.Destroy()).Do(_ =>
+        {
+            snapshotPublished.TrySetResult(true);
+            releaseDestroy.Task.GetAwaiter().GetResult();
+        });
+        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var persistenceState = new CharacterPersistenceState();
+        persistenceState.InitializeRevision(42, 0, 7);
+        var persistence = Substitute.For<ICharacterPersistenceService>();
+        var receipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 1);
+        var persistenceStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var acknowledge = new TaskCompletionSource<CharacterPersistenceOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+        persistence.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                persistenceStarted.TrySetResult(true);
+                return Task.FromResult<CharacterPersistenceReceipt?>(receipt);
+            });
+        persistence.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
+            .Returns(acknowledge.Task);
+        var sessionService = Substitute.For<IGameSessionService>();
+        sessionService.RemoveSession(character.Session, CancellationToken.None).Returns(Task.FromResult(true));
+        var mediator = Substitute.For<IGameMediator>();
+        var service = new CharacterLogoutService(
+            state,
+            characterService,
+            scheduler,
+            mediator,
+            persistenceState,
+            persistence,
+            sessionService);
+        using var cancellation = new CancellationTokenSource();
+
+        var detach = service.DetachAsync(character, cancellation.Token);
+        cancellation.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => detach);
+        var worker = Task.Run(scheduler.Tick);
+        await snapshotPublished.Task;
+
+        var recovery = service.RecoverPendingLogoutsAsync();
+        await persistenceStarted.Task;
+        acknowledge.TrySetResult(CharacterPersistenceOutcome.Committed);
+        await recovery;
+
+        await persistence.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
+        await sessionService.Received(1).RemoveSession(character.Session, CancellationToken.None);
+        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        Assert.IsFalse(state.IsPending(character));
+
+        releaseDestroy.TrySetResult(true);
+        await worker;
+    }
+
+    [TestMethod]
     public async Task RecoverPendingLogouts_UsesCallerCancellationTokenForPersistence()
     {
         var character = CreateCharacter(42);

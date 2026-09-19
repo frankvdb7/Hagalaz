@@ -1,12 +1,17 @@
 ## 1. Terminal detach ownership
 
-- [x] 1.1 Record cancellation of the terminal-detach wait in the existing logout state without marking a missing snapshot recoverable, and verify the focused logout regression test covers it.
-- [x] 1.2 Atomically promote a canceled terminal transition to recovery eligibility when the final snapshot is stored, and preserve eligibility when cleanup fails after snapshot storage.
+- [x] 1.1 Record cancellation against the specific terminal transition without marking a missing snapshot recoverable.
+- [x] 1.2 Atomically promote a canceled terminal transition to recovery availability when the final snapshot is stored, and preserve availability when cleanup fails after snapshot storage.
+- [x] 1.3 Add mutually exclusive normal-continuation and recovery claims under the existing logout-state lock.
+- [x] 1.4 Reject a competing sign-out while recovery owns the snapshot, preventing a second forced persistence command.
+- [x] 1.5 Release a recovery claim after a failed or canceled recovery attempt without clearing unrelated state.
 
 ## 2. Regression coverage
 
-- [x] 2.1 Add a deterministic cancellation-before-worker regression that runs the existing recovery path to completion and fails against the previous implementation.
-- [x] 2.2 Cover terminal failure before snapshot storage and verify it is not incorrectly recovery-eligible.
+- [x] 2.1 Cover recovery ownership versus a second `SignOutAsync`, with exactly one persistence/session/completion path.
+- [x] 2.2 Cover competing recovery operations, with exactly one recovery claim.
+- [x] 2.3 Cover terminal failure before snapshot storage followed by a successful retry, with no stale recovery ownership.
+- [x] 2.4 Cover cancellation after snapshot publication and cancellation while destruction is blocked.
 
 ## 3. Validation
 

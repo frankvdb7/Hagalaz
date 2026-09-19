@@ -1,13 +1,14 @@
 ## Why
 
-The logout request can time out while the GameWorker terminal-detach task continues. The task can then remove and destroy the character and store its final snapshot without making the pending logout recoverable, leaving persistence and session ownership stranded.
+The logout request can time out while the GameWorker terminal-detach task continues. The task can then remove and destroy the character and store its final snapshot without making the pending logout recoverable, leaving persistence and session ownership stranded. A first recovery fix also left normal and recovery continuations insufficiently exclusive: a later sign-out could issue another forced persistence command while recovery was already completing the same snapshot.
 
 ## What Changes
 
-- Record cancellation of the terminal-detach wait without canceling the already-scheduled terminal transition.
-- Atomically make a stored terminal snapshot recovery-eligible when the canceled wait has been observed.
+- Record cancellation against the specific terminal transition without canceling the already-scheduled terminal transition.
+- Represent normal continuation, recovery availability, and claimed continuation ownership in the existing logout state gate.
+- Atomically claim exactly one normal or recovery continuation for a stored snapshot.
 - Preserve normal logout handoff ordering and retain recovery eligibility when terminal cleanup fails after a valid snapshot exists.
-- Add deterministic regression coverage for cancellation before worker execution and recovery completion.
+- Add deterministic regression coverage for competing sign-outs/recovery scans, stale cancellation, cancellation after snapshot publication, and blocked destruction.
 
 ## Capabilities
 

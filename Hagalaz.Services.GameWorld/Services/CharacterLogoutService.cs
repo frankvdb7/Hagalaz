@@ -34,6 +34,22 @@ public interface ICharacterLogoutService
 
 public sealed class CharacterLogoutState
 {
+    internal enum ContinuationOwner
+    {
+        Normal,
+        NormalClaimed,
+        RecoveryAvailable,
+        RecoveryClaimed
+    }
+
+    internal sealed class TerminalTransition
+    {
+        public TaskCompletionSource<CharacterModel> Completion { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool RecoveryRequested { get; set; }
+    }
+
     private readonly object _gate = new();
     private readonly Dictionary<uint, PendingLogout> _pending = new();
 
@@ -49,7 +65,8 @@ public sealed class CharacterLogoutState
                 return true;
             }
 
-            if (!ReferenceEquals(pending.Character, character))
+            if (!ReferenceEquals(pending.Character, character) ||
+                pending.ContinuationOwner is ContinuationOwner.RecoveryAvailable or ContinuationOwner.RecoveryClaimed)
             {
                 persistenceReceipt = null;
                 return false;
@@ -132,25 +149,36 @@ public sealed class CharacterLogoutState
                 return false;
             }
 
-            pending.RecoveryEligible = true;
+            pending.ContinuationOwner = ContinuationOwner.RecoveryAvailable;
             return true;
         }
     }
 
-    public bool MarkTerminalTransitionCanceled(ICharacter character)
+    public bool MarkTerminalTransitionCanceled(
+        ICharacter character,
+        TaskCompletionSource<CharacterModel> completion)
     {
         lock (_gate)
         {
             if (!_pending.TryGetValue(character.MasterId, out var pending) ||
-                !ReferenceEquals(pending.Character, character))
+                !ReferenceEquals(pending.Character, character) ||
+                pending.TerminalTransition is not { } transition ||
+                !ReferenceEquals(transition.Completion, completion))
             {
                 return false;
             }
 
-            pending.RecoveryRequested = true;
+            if (pending.ContinuationOwner is ContinuationOwner.NormalClaimed or
+                ContinuationOwner.RecoveryAvailable or
+                ContinuationOwner.RecoveryClaimed)
+            {
+                return true;
+            }
+
+            transition.RecoveryRequested = true;
             if (pending.Snapshot is not null)
             {
-                pending.RecoveryEligible = true;
+                pending.ContinuationOwner = ContinuationOwner.RecoveryAvailable;
             }
 
             return true;
@@ -162,8 +190,56 @@ public sealed class CharacterLogoutState
         lock (_gate)
         {
             return _pending.Values
-                .Where(pending => pending.Snapshot is not null && pending.RecoveryEligible)
+                .Where(pending => pending.Snapshot is not null &&
+                                  pending.ContinuationOwner == ContinuationOwner.RecoveryAvailable)
                 .ToArray();
+        }
+    }
+
+    public bool TryClaimNormalContinuation(ICharacter character, CharacterModel snapshot)
+    {
+        lock (_gate)
+        {
+            if (!_pending.TryGetValue(character.MasterId, out var pending) ||
+                !ReferenceEquals(pending.Character, character) ||
+                !ReferenceEquals(pending.Snapshot, snapshot) ||
+                pending.ContinuationOwner != ContinuationOwner.Normal)
+            {
+                return false;
+            }
+
+            pending.ContinuationOwner = ContinuationOwner.NormalClaimed;
+            return true;
+        }
+    }
+
+    public bool TryClaimRecovery(PendingLogout pending)
+    {
+        lock (_gate)
+        {
+            if (!_pending.TryGetValue(pending.MasterId, out var current) ||
+                !ReferenceEquals(current, pending) ||
+                current.Snapshot is null ||
+                current.ContinuationOwner != ContinuationOwner.RecoveryAvailable)
+            {
+                return false;
+            }
+
+            current.ContinuationOwner = ContinuationOwner.RecoveryClaimed;
+            return true;
+        }
+    }
+
+    public void ReleaseRecoveryClaim(PendingLogout pending)
+    {
+        lock (_gate)
+        {
+            if (_pending.TryGetValue(pending.MasterId, out var current) &&
+                ReferenceEquals(current, pending) &&
+                current.ContinuationOwner == ContinuationOwner.RecoveryClaimed)
+            {
+                current.ContinuationOwner = ContinuationOwner.RecoveryAvailable;
+            }
         }
     }
 
@@ -209,22 +285,40 @@ public sealed class CharacterLogoutState
         }
     }
 
-    public bool SetSnapshot(ICharacter character, CharacterModel snapshot)
+    public bool SetSnapshot(ICharacter character, CharacterModel snapshot) =>
+        SetSnapshot(character, snapshot, completion: null);
+
+    public bool SetSnapshot(
+        ICharacter character,
+        CharacterModel snapshot,
+        TaskCompletionSource<CharacterModel>? completion)
     {
         lock (_gate)
         {
             if (!_pending.TryGetValue(character.MasterId, out var pending) ||
-                !ReferenceEquals(pending.Character, character) || pending.Snapshot is not null)
+                !ReferenceEquals(pending.Character, character) ||
+                pending.Snapshot is not null ||
+                completion is not null && !IsCurrentTransition(pending, completion))
             {
                 return false;
             }
 
             pending.Snapshot = snapshot;
-            // The scheduled terminal transition may outlive a canceled request wait.
-            pending.RecoveryEligible |= pending.RecoveryRequested;
+            if (pending.TerminalTransition?.RecoveryRequested == true &&
+                pending.ContinuationOwner == ContinuationOwner.Normal)
+            {
+                pending.ContinuationOwner = ContinuationOwner.RecoveryAvailable;
+            }
+
             return true;
         }
     }
+
+    private static bool IsCurrentTransition(
+        PendingLogout pending,
+        TaskCompletionSource<CharacterModel> completion) =>
+        pending.TerminalTransition is { } transition &&
+        ReferenceEquals(transition.Completion, completion);
 
     public bool TryBeginTerminalTransition(
         ICharacter character,
@@ -240,15 +334,16 @@ public sealed class CharacterLogoutState
                 return false;
             }
 
-            if (pending.TerminalTransition is { } existing && !existing.Task.IsFaulted)
+            if (pending.TerminalTransition is { } existing && !existing.Completion.Task.IsFaulted)
             {
-                completion = existing;
+                completion = existing.Completion;
                 shouldSchedule = false;
                 return true;
             }
 
-            completion = new TaskCompletionSource<CharacterModel>(TaskCreationOptions.RunContinuationsAsynchronously);
-            pending.TerminalTransition = completion;
+            var transition = new TerminalTransition();
+            pending.TerminalTransition = transition;
+            completion = transition.Completion;
             shouldSchedule = true;
             return true;
         }
@@ -301,9 +396,8 @@ public sealed class CharacterLogoutState
         public CharacterModel? Snapshot { get; set; }
         public CharacterPersistenceReceipt? PersistenceReceipt { get; set; }
         public bool SessionRemoved { get; set; }
-        public bool RecoveryEligible { get; set; }
-        public bool RecoveryRequested { get; set; }
-        public TaskCompletionSource<CharacterModel>? TerminalTransition { get; set; }
+        internal ContinuationOwner ContinuationOwner { get; set; }
+        internal TerminalTransition? TerminalTransition { get; set; }
     }
 }
 
@@ -364,9 +458,14 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
 
         foreach (var pending in _logoutState.FindRecoverablePendingLogouts())
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            if (!_logoutState.TryClaimRecovery(pending))
+            {
+                continue;
+            }
+
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 await RecoverPendingLogoutAsync(pending, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -376,6 +475,10 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
             catch (Exception exception)
             {
                 _logger.LogError(exception, "Failed to recover logout for character '{MasterId}'.", pending.MasterId);
+            }
+            finally
+            {
+                _logoutState.ReleaseRecoveryClaim(pending);
             }
         }
     }
@@ -433,6 +536,12 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
     {
         if (_logoutState.TryGetSnapshot(character, out var snapshot))
         {
+            if (!_logoutState.TryClaimNormalContinuation(character, snapshot))
+            {
+                throw new InvalidOperationException(
+                    $"Character '{character.MasterId}' logout continuation is owned by recovery or another caller.");
+            }
+
             return snapshot;
         }
 
@@ -460,7 +569,7 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
                             $"Character '{character.MasterId}' was no longer owned by the character store during logout.");
                     }
 
-                    if (!_logoutState.SetSnapshot(character, finalSnapshot))
+                    if (!_logoutState.SetSnapshot(character, finalSnapshot, completion))
                     {
                         throw new InvalidOperationException($"Character '{character.MasterId}' logout snapshot was already captured.");
                     }
@@ -484,11 +593,18 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
 
         try
         {
-            return await completion.Task.WaitAsync(cancellationToken);
+            var finalSnapshot = await completion.Task.WaitAsync(cancellationToken);
+            if (!_logoutState.TryClaimNormalContinuation(character, finalSnapshot))
+            {
+                throw new InvalidOperationException(
+                    $"Character '{character.MasterId}' logout continuation is owned by recovery or another caller.");
+            }
+
+            return finalSnapshot;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            _logoutState.MarkTerminalTransitionCanceled(character);
+            _logoutState.MarkTerminalTransitionCanceled(character, completion);
             throw;
         }
     }
