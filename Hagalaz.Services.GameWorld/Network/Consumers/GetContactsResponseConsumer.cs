@@ -26,8 +26,18 @@ namespace Hagalaz.Services.GameWorld.Network.Consumers
         public async Task Consume(ConsumeContext<GetContactsResponse> context)
         {
             var message = context.Message;
-            var connection = await _connectionService.FindByMasterId(message.MasterId);
+            var connection = await _connectionService.FindById(message.ConnectionId);
             if (connection == null)
+            {
+                return;
+            }
+
+            var session = connection.Features.Get<ISessionFeature>()?.Session;
+            if (connection.ConnectionId != message.ConnectionId ||
+                session is null ||
+                session.MasterId != message.MasterId ||
+                session.SessionGeneration != message.SessionGeneration ||
+                session.ConnectionId != message.ConnectionId)
             {
                 return;
             }
@@ -38,23 +48,35 @@ namespace Hagalaz.Services.GameWorld.Network.Consumers
             var ignoreContacts = _mapper.Map<List<ContactDto>>(message.Ignores);
 
             var contactFeature = connection.Features.Get<IContactsFeature>();
-            contactFeature?.ReplaceFriends(
-                friendsList,
-                message.Friends
-                    .Where(contact => contact.WorldId is not null &&
-                                      contact.SessionGeneration is not null &&
-                                      contact.SessionConnectionId is not null)
-                    .Select(contact => new ContactPresenceOwner(
-                        contact.MasterId,
-                        contact.SessionGeneration!.Value,
-                        contact.SessionConnectionId!)),
-                message.ObservationBoundary);
-            contactFeature?.Ignores?.Set(ignoreList);
+            if (contactFeature is null)
+            {
+                return;
+            }
 
-            await Task.WhenAll(
-                connection.SendMessage(new FriendsListMessage { Friends = friendContacts }, context.CancellationToken),
-                connection.SendMessage(new IgnoreListMessage { Ignores = ignoreContacts }, context.CancellationToken)
-            );
+            try
+            {
+                contactFeature.ReplaceFriends(
+                    friendsList,
+                    message.Friends
+                        .Where(contact => contact.WorldId is not null &&
+                                          contact.SessionGeneration is not null &&
+                                          contact.SessionConnectionId is not null)
+                        .Select(contact => new ContactPresenceOwner(
+                            contact.MasterId,
+                            contact.SessionGeneration!.Value,
+                            contact.SessionConnectionId!)),
+                    message.ObservationBoundary);
+                contactFeature.Ignores.Set(ignoreList);
+
+                await Task.WhenAll(
+                    connection.SendMessage(new FriendsListMessage { Friends = friendContacts }, context.CancellationToken),
+                    connection.SendMessage(new IgnoreListMessage { Ignores = ignoreContacts }, context.CancellationToken)
+                );
+            }
+            finally
+            {
+                contactFeature.EndObservationWindow();
+            }
         }
     }
 }

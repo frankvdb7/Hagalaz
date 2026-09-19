@@ -364,6 +364,56 @@ public sealed class ContactPresenceConsumerTests
         Assert.IsNull(feature.TryApplySignOut(42, 10, "live"));
     }
 
+    [TestMethod]
+    public void LiveUnknownPresenceDuringSnapshotWindowIsAppliedWhenSnapshotAddsFriend()
+    {
+        var feature = new LobbyContactsFeature();
+        var boundary = feature.BeginObservationWindow();
+
+        Assert.IsNull(feature.TryApplySignIn(42, 10, "live"));
+        feature.ReplaceFriends([CreateFriend()], [], boundary);
+        feature.EndObservationWindow();
+
+        Assert.IsNotNull(feature.TryApplySignOut(42, 10, "live"));
+    }
+
+    [TestMethod]
+    public void LiveUnknownPresenceOutsideSnapshotWindowIsIgnored()
+    {
+        var feature = new LobbyContactsFeature();
+
+        Assert.IsNull(feature.TryApplySignIn(42, 10, "live"));
+        feature.ReplaceFriends([CreateFriend()], []);
+
+        Assert.IsNull(feature.TryApplySignOut(42, 10, "live"));
+    }
+
+    [TestMethod]
+    public void UnknownPresenceIsPrunedWhenSnapshotDoesNotContainTheContact()
+    {
+        var feature = new LobbyContactsFeature();
+        var boundary = feature.BeginObservationWindow();
+
+        Assert.IsNull(feature.TryApplySignIn(42, 10, "live"));
+        feature.ReplaceFriends([], [], boundary);
+        feature.EndObservationWindow();
+        feature.AddFriend(CreateFriend(), null);
+
+        Assert.IsNull(feature.TryApplySignOut(42, 10, "live"));
+    }
+
+    [TestMethod]
+    public async Task InitialSnapshotGateCompletesWhenTheFirstSnapshotIsApplied()
+    {
+        var feature = new LobbyContactsFeature();
+        var wait = feature.WaitForInitialSnapshotAsync();
+
+        Assert.IsFalse(wait.IsCompleted);
+        feature.ReplaceFriends([CreateFriend()], []);
+
+        await wait;
+    }
+
     private static IGameConnection CreateConnection(IContactList<Friend> contacts)
     {
         var connection = Substitute.For<IGameConnection>();

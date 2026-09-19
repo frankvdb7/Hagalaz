@@ -78,10 +78,15 @@ public sealed class GameSessionLeaseService : BackgroundService
                 _logger.LogWarning("Lost active game-session claim for account '{masterId}' and session '{sessionClaimId}'. Aborting the connection.",
                     session.MasterId, session.SessionClaimId);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                _logger.LogError(ex, "Failed to renew active game-session claim for account '{masterId}'. Aborting the connection.",
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to renew active game-session claim for account '{masterId}'; keeping the session for the next lease cycle.",
                     session.MasterId);
+                continue;
             }
 
             try

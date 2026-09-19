@@ -1135,20 +1135,51 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
-    public async Task LeaseService_RenewalExceptionReconcilesLocalSession()
+    public async Task LeaseService_RenewalExceptionKeepsLocalSessionForNextCycle()
     {
         var store = new GameSessionStore();
         var claims = Substitute.For<IGameSessionClaimStore>();
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var session = CreateSession(42, "connection", "claim");
-        var factory = Substitute.For<IGameSessionFactory>();
-        factory.CreateWorld(42, "connection", Arg.Any<long>()).Returns(session);
-        var gameSessions = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
-        claims.TryClaimAsync(42, "claim").Returns(Task.FromResult(true));
-        await gameSessions.TryAddWorldSession(42, "connection");
+        var gameSessions = GameSessionTestDependencies.CreateService(
+            store,
+            store,
+            Substitute.For<IGameSessionFactory>(),
+            claims,
+            terminator);
+        Assert.IsTrue(await store.TryAdd(session));
         claims.RenewAsync(42, "claim").Returns(Task.FromException<bool>(new InvalidOperationException("Redis unavailable.")));
 
         var leaseService = GameSessionTestDependencies.CreateLeaseService(store, store, claims, terminator);
+        await leaseService.RenewSessionsAsync(CancellationToken.None);
+
+        terminator.DidNotReceive().Abort(Arg.Any<IGameSession>());
+        Assert.AreSame(session, await gameSessions.FindByMasterId(42));
+    }
+
+    [TestMethod]
+    public async Task LeaseService_RenewalExceptionThenLostClaimAbortsOnNextCycle()
+    {
+        var store = new GameSessionStore();
+        var claims = Substitute.For<IGameSessionClaimStore>();
+        var terminator = Substitute.For<IGameSessionConnectionTerminator>();
+        var session = CreateSession(42, "connection", "claim");
+        var gameSessions = GameSessionTestDependencies.CreateService(
+            store,
+            store,
+            Substitute.For<IGameSessionFactory>(),
+            claims,
+            terminator);
+        Assert.IsTrue(await store.TryAdd(session));
+        claims.RenewAsync(42, "claim")
+            .Returns(
+                Task.FromException<bool>(new InvalidOperationException("Redis unavailable.")),
+                Task.FromResult(false));
+
+        var leaseService = GameSessionTestDependencies.CreateLeaseService(store, store, claims, terminator);
+        await leaseService.RenewSessionsAsync(CancellationToken.None);
+        Assert.AreSame(session, await gameSessions.FindByMasterId(42));
+
         await leaseService.RenewSessionsAsync(CancellationToken.None);
 
         terminator.Received(1).Abort(session);
@@ -1244,11 +1275,13 @@ public sealed class GameSessionServiceTests
         await leaseService.RenewSessionsAsync(CancellationToken.None);
 
         Assert.IsNull(await gameSessions.FindByMasterId(42));
-        Assert.AreEqual(1, (await store.FindSessionsPendingAbort()).Count);
+        Assert.IsTrue(await store.IsPendingWorldSession(session));
+        Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
 
         await leaseService.RenewSessionsAsync(CancellationToken.None);
 
-        Assert.AreEqual(1, (await store.FindSessionsPendingAbort()).Count);
+        Assert.IsTrue(await store.IsPendingWorldSession(session));
+        Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
     }
 
     [TestMethod]

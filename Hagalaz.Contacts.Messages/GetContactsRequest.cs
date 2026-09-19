@@ -1,4 +1,8 @@
 ﻿namespace Hagalaz.Contacts.Messages
 {
-    public record GetContactsRequest(uint MasterId, long ObservationBoundary = 0);
+    public record GetContactsRequest(
+        uint MasterId,
+        long SessionGeneration,
+        string ConnectionId,
+        long ObservationBoundary);
 }

@@ -20,6 +20,8 @@ namespace Hagalaz.Services.Contacts.Consumers
             await context.RespondAsync(new GetContactsResponse()
             {
                 MasterId = message.MasterId,
+                SessionGeneration = message.SessionGeneration,
+                ConnectionId = message.ConnectionId,
                 Friends = friends.Select(c => new ContactDto()
                 {
                     MasterId = c.MasterId,

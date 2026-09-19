@@ -77,6 +77,53 @@ public sealed class CharacterLogoutServiceTests
     }
 
     [TestMethod]
+    public void CompleteLogout_DoesNotReleaseNewerPersistenceLifecycle()
+    {
+        var oldCharacter = CreateCharacter(42);
+        var newCharacter = CreateCharacter(42);
+        newCharacter.Session.SessionGeneration.Returns(8L);
+        var persistenceState = new CharacterPersistenceState();
+        persistenceState.InitializeRevision(42, 500, 7);
+        var state = new CharacterLogoutState();
+        Assert.IsTrue(state.TryBeginLogout(oldCharacter, out _));
+        Assert.IsTrue(state.SetSnapshot(oldCharacter, new CharacterModel { SnapshotRevision = 501 }));
+        persistenceState.InitializeRevision(42, 900, 8);
+        var mediator = Substitute.For<IGameMediator>();
+        var service = new CharacterLogoutService(
+            state,
+            Substitute.For<ICharacterService>(),
+            new InlineTaskScheduler(),
+            mediator,
+            persistenceState);
+
+        service.CompleteLogout(oldCharacter);
+
+        Assert.AreEqual(901L, persistenceState.NextRevision(42));
+        Assert.IsTrue(state.TryBeginLogout(newCharacter, out _));
+        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+    }
+
+    [TestMethod]
+    public void CompleteLogout_WhenPersistenceStateIsAlreadyAbsent_CompletesLogout()
+    {
+        var character = CreateCharacter(42);
+        var state = new CharacterLogoutState();
+        Assert.IsTrue(state.TryBeginLogout(character, out _));
+        var mediator = Substitute.For<IGameMediator>();
+        var service = new CharacterLogoutService(
+            state,
+            Substitute.For<ICharacterService>(),
+            new InlineTaskScheduler(),
+            mediator,
+            new CharacterPersistenceState());
+
+        service.CompleteLogout(character);
+
+        Assert.IsFalse(state.IsPending(character));
+        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+    }
+
+    [TestMethod]
     public void CompleteLogout_WhenPersistenceReleaseIsRefused_RetainsRecoverableLogout()
     {
         var character = CreateCharacter(42);
@@ -143,6 +190,47 @@ public sealed class CharacterLogoutServiceTests
         characterService.Received(1).Remove(character);
         character.Received(1).Destroy();
         CollectionAssert.AreEqual(new[] { "snapshot", "remove", "destroy" }, order);
+    }
+
+    [TestMethod]
+    public async Task RecoverPendingLogouts_UsesCallerCancellationTokenForPersistence()
+    {
+        var character = CreateCharacter(42);
+        var state = new CharacterLogoutState();
+        Assert.IsTrue(state.TryBeginLogout(character, out _));
+        Assert.IsTrue(state.SetSnapshot(character, new CharacterModel { SnapshotRevision = 1 }));
+        Assert.IsTrue(state.MarkRecoveryEligible(character));
+
+        var persistenceState = new CharacterPersistenceState();
+        persistenceState.InitializeRevision(42, 0, 7);
+        var persistence = Substitute.For<ICharacterPersistenceService>();
+        var tokenObserved = new TaskCompletionSource<CancellationToken>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var persistenceTask = new TaskCompletionSource<CharacterPersistenceReceipt?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        persistence.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var token = callInfo.Arg<CancellationToken>();
+                tokenObserved.TrySetResult(token);
+                token.Register(() => persistenceTask.TrySetCanceled(token));
+                return persistenceTask.Task;
+            });
+        var service = new CharacterLogoutService(
+            state,
+            Substitute.For<ICharacterService>(),
+            new InlineTaskScheduler(),
+            Substitute.For<IGameMediator>(),
+            persistenceState,
+            persistence,
+            Substitute.For<IGameSessionService>());
+        using var cancellation = new CancellationTokenSource();
+
+        var recovery = service.RecoverPendingLogoutsAsync(cancellation.Token);
+        var suppliedToken = await tokenObserved.Task;
+
+        Assert.AreNotEqual(default, suppliedToken);
+        cancellation.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => recovery);
+        Assert.IsTrue(state.IsPending(character));
     }
 
     [TestMethod]

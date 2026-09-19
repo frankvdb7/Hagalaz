@@ -63,11 +63,15 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
                 var contacts = connection?.Features.Get<IContactsFeature>();
                 if (contacts is not null)
                 {
-                    observationBoundary = contacts.CaptureObservationBoundary();
+                    observationBoundary = contacts.BeginObservationWindow();
                 }
 
                 await Task.WhenAll(
-                    _publishEndpoint.Publish(new GetContactsRequest(character.MasterId, observationBoundary)),
+                    _publishEndpoint.Publish(new GetContactsRequest(
+                        character.MasterId,
+                        session.SessionGeneration,
+                        session.ConnectionId,
+                        observationBoundary)),
                     _publishEndpoint.Publish(new WorldUserSignInMessage(
                         character.MasterId,
                         options.Id,

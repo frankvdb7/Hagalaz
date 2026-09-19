@@ -152,6 +152,14 @@ namespace Hagalaz.Services.GameWorld.Services
 
     public sealed class CharacterPersistenceState
     {
+        internal enum LogoutPersistenceReleaseResult
+        {
+            Released,
+            AlreadyAbsent,
+            PendingPersistence,
+            Superseded
+        }
+
         private readonly Dictionary<uint, PersistenceEntry> _entries = new();
         private readonly object _stateGate = new();
         private readonly Dictionary<uint, LockEntry> _locks = new();
@@ -222,6 +230,37 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
 
                 return _entries.Remove(masterId);
+            }
+        }
+
+        internal LogoutPersistenceReleaseResult ReleaseForLogout(uint masterId, long lifecycleGeneration)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(lifecycleGeneration);
+            lock (_stateGate)
+            {
+                if (!_entries.TryGetValue(masterId, out var entry))
+                {
+                    return LogoutPersistenceReleaseResult.AlreadyAbsent;
+                }
+
+                if (entry.LifecycleGeneration < lifecycleGeneration)
+                {
+                    throw new InvalidOperationException(
+                        $"Character '{masterId}' persistence state is older than logout lifecycle {lifecycleGeneration}.");
+                }
+
+                if (entry.LifecycleGeneration > lifecycleGeneration)
+                {
+                    return LogoutPersistenceReleaseResult.Superseded;
+                }
+
+                if (entry.Pending is not null)
+                {
+                    return LogoutPersistenceReleaseResult.PendingPersistence;
+                }
+
+                _entries.Remove(masterId);
+                return LogoutPersistenceReleaseResult.Released;
             }
         }
 

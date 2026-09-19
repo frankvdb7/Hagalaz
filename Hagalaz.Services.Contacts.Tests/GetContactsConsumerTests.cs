@@ -40,7 +40,7 @@ public sealed class GetContactsConsumerTests
 
         GetContactsResponse? response = null;
         var context = new Mock<ConsumeContext<GetContactsRequest>>();
-        context.SetupGet(item => item.Message).Returns(new GetContactsRequest(42, 17));
+        context.SetupGet(item => item.Message).Returns(new GetContactsRequest(42, 9, "connection", 17));
         context
             .Setup(item => item.RespondAsync(It.IsAny<GetContactsResponse>()))
             .Callback<GetContactsResponse>(message => response = message)
@@ -49,6 +49,9 @@ public sealed class GetContactsConsumerTests
         await new GetContactsConsumer(contactService.Object).Consume(context.Object);
 
         Assert.IsNotNull(response);
+        Assert.AreEqual(42u, response.MasterId);
+        Assert.AreEqual(9L, response.SessionGeneration);
+        Assert.AreEqual("connection", response.ConnectionId);
         var online = response.Friends.Single(friend => friend.MasterId == 7);
         var offline = response.Friends.Single(friend => friend.MasterId == 8);
         Assert.AreEqual(1, online.WorldId);

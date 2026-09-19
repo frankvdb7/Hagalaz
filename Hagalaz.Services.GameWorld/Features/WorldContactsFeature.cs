@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 
 namespace Hagalaz.Services.GameWorld.Features
@@ -15,6 +17,13 @@ namespace Hagalaz.Services.GameWorld.Features
         public IContactList<Ignore> Ignores => _character.Ignores;
 
         public long CaptureObservationBoundary() => _presence.CaptureObservationBoundary();
+
+        public long BeginObservationWindow() => _presence.BeginObservationWindow();
+
+        public void EndObservationWindow() => _presence.EndObservationWindow(Friends);
+
+        public Task WaitForInitialSnapshotAsync(CancellationToken cancellationToken = default) =>
+            _presence.WaitForInitialSnapshotAsync(cancellationToken);
 
         public void ReplaceFriends(IEnumerable<Friend> friends, IEnumerable<ContactPresenceOwner> onlineOwners, long observationBoundary = 0) =>
             _presence.ReplaceFriends(Friends, friends, onlineOwners, observationBoundary);

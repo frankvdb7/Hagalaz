@@ -76,7 +76,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 return;
             }
             var contacts = Context.GetContacts();
-            var observationBoundary = contacts.CaptureObservationBoundary();
+            await contacts.WaitForInitialSnapshotAsync(Context.ConnectionAborted);
+            var observationBoundary = contacts.BeginObservationWindow();
             try
             {
                 var response = await _addContactRequestClient.GetResponse<AddContactResponse>(new AddContactRequest
@@ -109,6 +110,10 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
             }
+            finally
+            {
+                contacts.EndObservationWindow();
+            }
         }
 
         [RaidoMessageHandler(typeof(RemoveFriendMessage))]
@@ -123,6 +128,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var contacts = Context.GetContacts();
             try
             {
+                await contacts.WaitForInitialSnapshotAsync(Context.ConnectionAborted);
                 var response = await _removeContactRequestClient.GetResponse<RemoveContactResponse>(new RemoveContactRequest
                 {
                     MasterId = masterId.Value, ContactDisplayName = request.DisplayName, Ignore = false
@@ -152,6 +158,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var contacts = Context.GetContacts();
             try
             {
+                await contacts.WaitForInitialSnapshotAsync(Context.ConnectionAborted);
                 var response = await _addContactRequestClient.GetResponse<AddContactResponse>(new AddContactRequest
                 {
                     MasterId = masterId.Value, ContactDisplayName = request.DisplayName, Ignore = true
@@ -192,6 +199,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var contacts = Context.GetContacts();
             try
             {
+                await contacts.WaitForInitialSnapshotAsync(Context.ConnectionAborted);
                 var response = await _removeContactRequestClient.GetResponse<RemoveContactResponse>(new RemoveContactRequest
                 {
                     MasterId = masterId.Value, ContactDisplayName = request.DisplayName, Ignore = true

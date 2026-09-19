@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 
 namespace Hagalaz.Services.GameWorld.Features
@@ -8,7 +10,47 @@ namespace Hagalaz.Services.GameWorld.Features
     {
         private readonly object _gate = new();
         private readonly Dictionary<uint, PresenceEntry> _entries = new();
+        private readonly Dictionary<uint, PendingPresenceObservation> _pendingObservations = new();
+        private readonly TaskCompletionSource _initialSnapshot = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private long _observationSequence;
+        private int _observationWindows;
+
+        public Task WaitForInitialSnapshotAsync(CancellationToken cancellationToken) =>
+            _initialSnapshot.Task.WaitAsync(cancellationToken);
+
+        public long BeginObservationWindow()
+        {
+            lock (_gate)
+            {
+                _observationWindows++;
+                return _observationSequence;
+            }
+        }
+
+        public void EndObservationWindow(IContactList<Friend> friends)
+        {
+            lock (_gate)
+            {
+                if (_observationWindows == 0)
+                {
+                    return;
+                }
+
+                _observationWindows--;
+                if (_observationWindows != 0)
+                {
+                    return;
+                }
+
+                foreach (var masterId in new List<uint>(_pendingObservations.Keys))
+                {
+                    if (friends.Get(masterId) is null)
+                    {
+                        _pendingObservations.Remove(masterId);
+                    }
+                }
+            }
+        }
 
         public long CaptureObservationBoundary()
         {
@@ -44,6 +86,16 @@ namespace Hagalaz.Services.GameWorld.Features
                     }
                 }
 
+                foreach (var pending in new List<PendingPresenceObservation>(_pendingObservations.Values))
+                {
+                    if (friends.Get(pending.MasterId) is not null &&
+                        pending.ObservationSequence > observationBoundary)
+                    {
+                        ApplyPendingObservation(pending);
+                        _pendingObservations.Remove(pending.MasterId);
+                    }
+                }
+
                 foreach (var entry in _entries)
                 {
                     if (!seededOwners.Contains(entry.Key) &&
@@ -55,6 +107,8 @@ namespace Hagalaz.Services.GameWorld.Features
                             observationBoundary);
                     }
                 }
+
+                _initialSnapshot.TrySetResult();
             }
         }
 
@@ -69,6 +123,14 @@ namespace Hagalaz.Services.GameWorld.Features
                 var masterId = unchecked((uint)friend.MasterId);
                 friends.Remove(masterId);
                 friends.Add(friend);
+
+                if (_pendingObservations.TryGetValue(masterId, out var pending) &&
+                    pending.ObservationSequence > observationBoundary)
+                {
+                    ApplyPendingObservation(pending);
+                    _pendingObservations.Remove(masterId);
+                    return friend;
+                }
 
                 if (owner is { } presenceOwner)
                 {
@@ -128,9 +190,14 @@ namespace Hagalaz.Services.GameWorld.Features
                 var friend = friends.Get(masterId);
                 if (friend is null)
                 {
+                    if (_observationWindows != 0)
+                    {
+                        RecordPendingObservation(masterId, sessionGeneration, connectionId, signedIn: true);
+                    }
                     return null;
                 }
 
+                _pendingObservations.Remove(masterId);
                 var entry = existingEntry ?? GetOrCreateEntry(masterId);
                 entry.LatestSessionGeneration = sessionGeneration;
                 entry.HasGeneration = true;
@@ -151,6 +218,10 @@ namespace Hagalaz.Services.GameWorld.Features
                 var friend = friends.Get(masterId);
                 if (friend is null)
                 {
+                    if (_observationWindows != 0)
+                    {
+                        RecordPendingObservation(masterId, sessionGeneration, connectionId, signedIn: false);
+                    }
                     return null;
                 }
 
@@ -181,8 +252,56 @@ namespace Hagalaz.Services.GameWorld.Features
                 }
 
                 entry.CurrentOwner = null;
+                _pendingObservations.Remove(masterId);
                 return friend;
             }
+        }
+
+        private void RecordPendingObservation(
+            uint masterId,
+            long sessionGeneration,
+            string connectionId,
+            bool signedIn)
+        {
+            if (_entries.TryGetValue(masterId, out var entry) &&
+                entry.HasGeneration &&
+                sessionGeneration < entry.LatestSessionGeneration)
+            {
+                return;
+            }
+
+            if (_pendingObservations.TryGetValue(masterId, out var existing))
+            {
+                if (sessionGeneration < existing.SessionGeneration ||
+                    (sessionGeneration == existing.SessionGeneration &&
+                     !signedIn && existing.SignedIn && existing.ConnectionId != connectionId))
+                {
+                    return;
+                }
+            }
+
+            _pendingObservations[masterId] = new PendingPresenceObservation(
+                masterId,
+                sessionGeneration,
+                connectionId,
+                signedIn,
+                checked(++_observationSequence));
+        }
+
+        private void ApplyPendingObservation(PendingPresenceObservation pending)
+        {
+            var entry = GetOrCreateEntry(pending.MasterId);
+            if (entry.HasGeneration && pending.SessionGeneration < entry.LatestSessionGeneration)
+            {
+                return;
+            }
+
+            entry.HasGeneration = true;
+            entry.LatestSessionGeneration = pending.SessionGeneration;
+            entry.CurrentOwner = pending.SignedIn
+                ? new SessionIdentity(pending.SessionGeneration, pending.ConnectionId)
+                : null;
+            entry.LatestObservationSequence = pending.ObservationSequence;
         }
 
         private PresenceEntry GetOrCreateEntry(uint masterId)
@@ -207,6 +326,13 @@ namespace Hagalaz.Services.GameWorld.Features
 
             public long LatestObservationSequence { get; set; }
         }
+
+        private sealed record PendingPresenceObservation(
+            uint MasterId,
+            long SessionGeneration,
+            string ConnectionId,
+            bool SignedIn,
+            long ObservationSequence);
 
         private readonly record struct SessionIdentity(long SessionGeneration, string ConnectionId);
     }

@@ -88,7 +88,7 @@ public sealed class WorldSignInCommandConsumerTests
 
         character.Received(1).OnRegistered();
         await publishEndpoint.Received(1).Publish(
-            Arg.Is<GetContactsRequest>(message => message != null && message.MasterId == 42u),
+            Arg.Is<GetContactsRequest>(message => message != null && message.MasterId == 42u && message.SessionGeneration == 2L && message.ConnectionId == "world-connection"),
             Arg.Any<CancellationToken>());
         await publishEndpoint.Received(1).Publish(
             Arg.Is<WorldUserSignInMessage>(message => message != null && message.MasterId == 42u && message.WorldId == 1 && message.WorldInstanceId == identity.InstanceId && message.WorldGeneration == identity.Generation && message.SessionGeneration == 2L && message.ConnectionId == "world-connection"),
@@ -145,7 +145,7 @@ public sealed class WorldSignInCommandConsumerTests
 
         character.Received(1).OnRegistered();
         await publishEndpoint.Received(1).Publish(
-            Arg.Is<GetContactsRequest>(message => message != null && message.MasterId == 42u),
+            Arg.Is<GetContactsRequest>(message => message != null && message.MasterId == 42u && message.SessionGeneration == 2L && message.ConnectionId == "world-connection"),
             Arg.Any<CancellationToken>());
         await publishEndpoint.Received(1).Publish(
             Arg.Is<WorldUserSignInMessage>(message => message != null && message.MasterId == 42u && message.WorldId == 1 && message.WorldInstanceId != string.Empty && message.WorldGeneration != 0 && message.SessionGeneration == 2L && message.ConnectionId == "world-connection"),

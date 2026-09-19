@@ -378,7 +378,7 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
                 pending.MasterId,
                 pending.Snapshot!,
                 force: true,
-                CancellationToken.None);
+                cancellationToken);
             if (receipt is null || !_logoutState.SetPersistenceReceipt(pending.Character, receipt))
             {
                 throw new InvalidOperationException(
@@ -462,7 +462,8 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
             return;
         }
 
-        if (!_persistenceState.Release(character.MasterId, sessionGeneration))
+        var releaseResult = _persistenceState.ReleaseForLogout(character.MasterId, sessionGeneration);
+        if (releaseResult is CharacterPersistenceState.LogoutPersistenceReleaseResult.PendingPersistence)
         {
             _logger.LogError(
                 "Could not release persistence state for character '{MasterId}' during logout completion.",
