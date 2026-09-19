@@ -149,6 +149,11 @@ public sealed class CharacterLogoutState
                 return false;
             }
 
+            if (pending.ContinuationOwner == ContinuationOwner.RecoveryClaimed)
+            {
+                return true;
+            }
+
             pending.ContinuationOwner = ContinuationOwner.RecoveryAvailable;
             return true;
         }

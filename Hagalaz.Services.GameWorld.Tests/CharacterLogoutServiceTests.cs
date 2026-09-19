@@ -524,6 +524,95 @@ public sealed class CharacterLogoutServiceTests
     }
 
     [TestMethod]
+    [Timeout(5000)]
+    public async Task RecoverPendingLogouts_WhenDestroyFailsAfterRecoveryClaim_DoesNotReleaseRecoveryClaim()
+    {
+        var character = CreateCharacter(42);
+        var state = new CharacterLogoutState();
+        Assert.IsTrue(state.TryBeginLogout(character, out _));
+        var characterService = Substitute.For<ICharacterService>();
+        characterService.Remove(character).Returns(true);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
+        using var provider = new ServiceCollection()
+            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .BuildServiceProvider();
+        character.ServiceProvider.Returns(provider);
+
+        var snapshotPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDestroy = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var destroyFailure = new InvalidOperationException("destroy failed");
+        character.When(value => value.Destroy()).Do(_ =>
+        {
+            snapshotPublished.TrySetResult(true);
+            releaseDestroy.Task.GetAwaiter().GetResult();
+            throw destroyFailure;
+        });
+
+        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var persistenceState = new CharacterPersistenceState();
+        persistenceState.InitializeRevision(42, 0, 7);
+        var persistence = Substitute.For<ICharacterPersistenceService>();
+        var receipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 1);
+        var firstPersistenceStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFirstPersistence = new TaskCompletionSource<CharacterPersistenceReceipt?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondPersistenceStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var acknowledge = new TaskCompletionSource<CharacterPersistenceOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var persistCalls = 0;
+        persistence.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                if (Interlocked.Increment(ref persistCalls) == 1)
+                {
+                    firstPersistenceStarted.TrySetResult(true);
+                    return releaseFirstPersistence.Task;
+                }
+
+                secondPersistenceStarted.TrySetResult(true);
+                return Task.FromResult<CharacterPersistenceReceipt?>(receipt);
+            });
+        persistence.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
+            .Returns(acknowledge.Task);
+        var sessionService = Substitute.For<IGameSessionService>();
+        sessionService.RemoveSession(character.Session, CancellationToken.None).Returns(Task.FromResult(true));
+        var mediator = Substitute.For<IGameMediator>();
+        var service = new CharacterLogoutService(
+            state,
+            characterService,
+            scheduler,
+            mediator,
+            persistenceState,
+            persistence,
+            sessionService);
+        using var cancellation = new CancellationTokenSource();
+
+        var detach = service.DetachAsync(character, cancellation.Token);
+        var worker = Task.Run(scheduler.Tick);
+        await snapshotPublished.Task;
+        cancellation.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => detach);
+
+        var recovery = service.RecoverPendingLogoutsAsync();
+        await firstPersistenceStarted.Task;
+        releaseDestroy.TrySetResult(true);
+        await worker;
+
+        var competingRecovery = service.RecoverPendingLogoutsAsync();
+        var firstCompleted = await Task.WhenAny(competingRecovery, secondPersistenceStarted.Task);
+        Assert.AreSame(competingRecovery, firstCompleted);
+        Assert.AreEqual(1, persistCalls);
+
+        releaseFirstPersistence.TrySetResult(receipt);
+        acknowledge.TrySetResult(CharacterPersistenceOutcome.Committed);
+        await recovery;
+
+        await persistence.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
+        await sessionService.Received(1).RemoveSession(character.Session, CancellationToken.None);
+        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        Assert.IsFalse(state.IsPending(character));
+    }
+
+    [TestMethod]
     public async Task RecoverPendingLogouts_UsesCallerCancellationTokenForPersistence()
     {
         var character = CreateCharacter(42);
