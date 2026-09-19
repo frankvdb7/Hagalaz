@@ -88,7 +88,12 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 var friend = _mapper.Map<Friend>(message.Contact);
                 var onlineOwner = message.Contact.SessionGeneration is { } sessionGeneration
                     && message.Contact.SessionConnectionId is { } connectionId
-                    ? new ContactPresenceOwner(message.Contact.MasterId, sessionGeneration, connectionId)
+                    ? new ContactPresenceOwner(
+                        message.Contact.MasterId,
+                        sessionGeneration,
+                        connectionId,
+                        message.Contact.WorldId,
+                        message.Contact.WorldName)
                     : null;
                 contacts.AddFriend(friend, onlineOwner, observationBoundary);
 
@@ -97,7 +102,10 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 {
                     Friends = new List<ContactDto>
                     {
-                        friendContact
+                        ContactSnapshotApplicator.ReconcileFriendContact(
+                            friend,
+                            friendContact,
+                            contacts.GetPresence(message.Contact.MasterId))
                     }
                 };
                 await Clients.Caller.SendAsync(friendMessage);

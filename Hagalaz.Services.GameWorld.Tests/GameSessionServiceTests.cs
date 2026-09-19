@@ -49,6 +49,9 @@ public sealed class GameSessionServiceTests
 
         Assert.IsTrue(result.Created);
         factory.Received(1).Create(42, "connection", 11L);
+        session.Received().ClaimLeaseValidUntil = Arg.Is<DateTimeOffset>(value =>
+            value > DateTimeOffset.UtcNow + GameSessionClaimOptions.LeaseDuration - TimeSpan.FromSeconds(5) &&
+            value < DateTimeOffset.UtcNow + GameSessionClaimOptions.LeaseDuration + TimeSpan.FromSeconds(5));
     }
 
     [TestMethod]
@@ -228,7 +231,7 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
-    public async Task AddSession_OnAnotherGameWorld_CannotSupersedeActiveWorldSession()
+    public async Task DetachedSessionClaim_BlocksReplacementAdmissionUntilRecoveryRemovesExactSession()
     {
         var claims = new InMemoryGameSessionClaimStore();
         var worldStore = new GameSessionStore();
@@ -263,6 +266,15 @@ public sealed class GameSessionServiceTests
         Assert.IsNull(await lobbyService.FindByMasterId(42));
         Assert.AreSame(worldSession, await worldService.FindByMasterId(42));
         Assert.AreEqual("world-claim", claims.Get(42));
+
+        // The old store entry and distributed claim intentionally remain while
+        // the detached character's final persistence is unresolved.
+        Assert.IsTrue(await worldService.RemoveSession(worldSession));
+        var recoveredRegistration = await lobbyService.AddSession(42, "lobby-connection");
+
+        Assert.IsTrue(recoveredRegistration.Created);
+        Assert.AreSame(lobbySession, recoveredRegistration.Session);
+        Assert.AreEqual(lobbySession.SessionClaimId, claims.Get(42));
     }
 
     [TestMethod]
@@ -389,6 +401,9 @@ public sealed class GameSessionServiceTests
         Assert.AreEqual(worldSession.SessionClaimId, claims.Get(42));
         Assert.AreSame(worldSession, await worldService.FindByMasterId(42));
         Assert.AreSame(lobbySession, await lobbyService.FindByMasterId(42));
+        worldSession.Received().ClaimLeaseValidUntil = Arg.Is<DateTimeOffset>(value =>
+            value > DateTimeOffset.UtcNow + GameSessionClaimOptions.LeaseDuration - TimeSpan.FromSeconds(5) &&
+            value < DateTimeOffset.UtcNow + GameSessionClaimOptions.LeaseDuration + TimeSpan.FromSeconds(5));
     }
 
     [TestMethod]
@@ -1086,6 +1101,9 @@ public sealed class GameSessionServiceTests
         using var cancellationSource = new CancellationTokenSource();
         var cancellationToken = cancellationSource.Token;
         await gameSessions.TryAddWorldSession(42, "connection");
+        session.Received().ClaimLeaseValidUntil = Arg.Is<DateTimeOffset>(value =>
+            value > DateTimeOffset.UtcNow + GameSessionClaimOptions.LeaseDuration - TimeSpan.FromSeconds(5) &&
+            value < DateTimeOffset.UtcNow + GameSessionClaimOptions.LeaseDuration + TimeSpan.FromSeconds(5));
         claims.RenewAsync(42, "claim", cancellationToken).Returns(Task.FromResult(true));
 
         var leaseService = GameSessionTestDependencies.CreateLeaseService(store, store, claims, terminator);
@@ -1093,6 +1111,9 @@ public sealed class GameSessionServiceTests
 
         await claims.Received(1).RenewAsync(42, "claim", cancellationToken);
         terminator.DidNotReceive().Abort(Arg.Any<IGameSession>());
+        session.Received().ClaimLeaseValidUntil = Arg.Is<DateTimeOffset>(value =>
+            value > DateTimeOffset.UtcNow + GameSessionClaimOptions.LeaseDuration - TimeSpan.FromSeconds(5) &&
+            value < DateTimeOffset.UtcNow + GameSessionClaimOptions.LeaseDuration + TimeSpan.FromSeconds(5));
     }
 
     [TestMethod]
@@ -1148,6 +1169,7 @@ public sealed class GameSessionServiceTests
             claims,
             terminator);
         Assert.IsTrue(await store.TryAdd(session));
+        session.ClaimLeaseValidUntil.Returns(DateTimeOffset.UtcNow + GameSessionClaimOptions.RenewalInterval + TimeSpan.FromMinutes(1));
         claims.RenewAsync(42, "claim").Returns(Task.FromException<bool>(new InvalidOperationException("Redis unavailable.")));
 
         var leaseService = GameSessionTestDependencies.CreateLeaseService(store, store, claims, terminator);
@@ -1155,6 +1177,30 @@ public sealed class GameSessionServiceTests
 
         terminator.DidNotReceive().Abort(Arg.Any<IGameSession>());
         Assert.AreSame(session, await gameSessions.FindByMasterId(42));
+    }
+
+    [TestMethod]
+    public async Task LeaseService_RenewalExceptionAtLeaseBoundaryAbortsConnection()
+    {
+        var store = new GameSessionStore();
+        var claims = Substitute.For<IGameSessionClaimStore>();
+        var terminator = Substitute.For<IGameSessionConnectionTerminator>();
+        var session = CreateSession(42, "connection", "claim");
+        var gameSessions = GameSessionTestDependencies.CreateService(
+            store,
+            store,
+            Substitute.For<IGameSessionFactory>(),
+            claims,
+            terminator);
+        Assert.IsTrue(await store.TryAdd(session));
+        session.ClaimLeaseValidUntil.Returns(DateTimeOffset.UtcNow + GameSessionClaimOptions.RenewalInterval);
+        claims.RenewAsync(42, "claim").Returns(Task.FromException<bool>(new InvalidOperationException("Redis unavailable.")));
+
+        var leaseService = GameSessionTestDependencies.CreateLeaseService(store, store, claims, terminator);
+        await leaseService.RenewSessionsAsync(CancellationToken.None);
+
+        terminator.Received(1).Abort(session);
+        Assert.IsNull(await gameSessions.FindByMasterId(42));
     }
 
     [TestMethod]
@@ -1171,6 +1217,7 @@ public sealed class GameSessionServiceTests
             claims,
             terminator);
         Assert.IsTrue(await store.TryAdd(session));
+        session.ClaimLeaseValidUntil.Returns(DateTimeOffset.UtcNow + GameSessionClaimOptions.RenewalInterval + TimeSpan.FromMinutes(1));
         claims.RenewAsync(42, "claim")
             .Returns(
                 Task.FromException<bool>(new InvalidOperationException("Redis unavailable.")),

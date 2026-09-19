@@ -25,6 +25,10 @@ namespace Hagalaz.Services.GameWorld.Features
         public Task WaitForInitialSnapshotAsync(CancellationToken cancellationToken = default) =>
             _presence.WaitForInitialSnapshotAsync(cancellationToken);
 
+        public void CompleteInitialSnapshot() => _presence.CompleteInitialSnapshot();
+
+        public ContactPresenceView GetPresence(uint masterId) => _presence.GetPresence(masterId);
+
         public void ReplaceFriends(IEnumerable<Friend> friends, IEnumerable<ContactPresenceOwner> onlineOwners, long observationBoundary = 0) =>
             _presence.ReplaceFriends(Friends, friends, onlineOwners, observationBoundary);
 
@@ -33,8 +37,8 @@ namespace Hagalaz.Services.GameWorld.Features
 
         public bool RemoveFriend(uint masterId) => _presence.RemoveFriend(Friends, masterId);
 
-        public Friend? TryApplySignIn(uint masterId, long sessionGeneration, string connectionId)
-            => _presence.TrySignIn(masterId, sessionGeneration, connectionId, Friends);
+        public Friend? TryApplySignIn(uint masterId, long sessionGeneration, string connectionId, int? worldId = null, string? worldName = null)
+            => _presence.TrySignIn(masterId, sessionGeneration, connectionId, worldId, worldName, Friends);
 
         public Friend? TryApplySignOut(uint masterId, long sessionGeneration, string connectionId)
             => _presence.TrySignOut(masterId, sessionGeneration, connectionId, Friends);

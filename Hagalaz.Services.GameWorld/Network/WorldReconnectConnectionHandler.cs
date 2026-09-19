@@ -115,6 +115,7 @@ internal sealed class WorldReconnectConnectionHandler
             }
 
             var reconnectResult = ReconnectResult.Rejected;
+            var claimStartedAt = DateTimeOffset.UtcNow;
             var attached = await _sessionClaims.ExecuteIfOwnerAsync(
                 masterId,
                 session.SessionClaimId,
@@ -209,6 +210,11 @@ internal sealed class WorldReconnectConnectionHandler
                     }
                 },
                 cancellationToken);
+            if (attached)
+            {
+                session.ClaimLeaseValidUntil =
+                    claimStartedAt + GameSessionClaimOptions.LeaseDuration;
+            }
             if (!attached && reconnectResult == ReconnectResult.Rejected)
             {
                 await SendResponseAsync(connection, handshakeProtocol, ClientSignInResponse.BadSession, cancellationToken);

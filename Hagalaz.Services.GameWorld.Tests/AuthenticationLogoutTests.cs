@@ -36,7 +36,7 @@ public sealed class AuthenticationLogoutTests
 {
     [TestMethod]
     [Timeout(5000)]
-    public async Task SignOutAsync_WhenPersistenceFails_RemovesDetachedSessionForRetry()
+    public async Task SignOutAsync_WhenPersistenceFails_RetainsDetachedSessionForRecovery()
     {
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
@@ -62,7 +62,7 @@ public sealed class AuthenticationLogoutTests
             () => service.SignOutAsync());
 
         Assert.AreSame(persistenceFailure, exception);
-        await gameSessionService.Received(1).RemoveSession(session, CancellationToken.None);
+        await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>(), Arg.Any<CancellationToken>());
         await characterLogoutService.Received(1).DetachAsync(character, Arg.Any<CancellationToken>());
         await characterService.DidNotReceive().RemoveAsync(character);
     }
@@ -196,13 +196,14 @@ public sealed class AuthenticationLogoutTests
         Assert.IsTrue(logoutState.IsPending(42));
         characterStore.Received(1).Remove(character);
         character.Received(1).Destroy();
-        await gameSessionService.Received(1).RemoveSession(session, CancellationToken.None);
+        await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>(), Arg.Any<CancellationToken>());
         mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
 
         await logout.RecoverPendingLogoutsAsync();
 
         Assert.IsFalse(logoutState.IsPending(42));
         await persistence.Received(2).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
+        await gameSessionService.Received(1).RemoveSession(session, CancellationToken.None);
         mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
         Assert.AreEqual(1L, persistenceState.NextRevision(42));
     }
@@ -565,7 +566,7 @@ public sealed class AuthenticationLogoutTests
             Arg.Is<CharacterModel>(snapshot => snapshot.SnapshotRevision == 8),
             true,
             Arg.Any<CancellationToken>());
-        await gameSessionService.Received(1).RemoveSession(session, CancellationToken.None);
+        await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

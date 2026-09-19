@@ -450,7 +450,6 @@ namespace Hagalaz.Services.GameWorld.Services
                 var persistenceSucceeded = character == null;
                 var sessionRemoved = session == null;
                 var characterDetached = character == null;
-                var sessionCleanupAttempted = false;
                 try
                 {
                     if (character != null)
@@ -495,18 +494,11 @@ namespace Hagalaz.Services.GameWorld.Services
 
                     if (session != null && persistenceSucceeded)
                     {
-                        sessionCleanupAttempted = true;
                         sessionRemoved = await _gameSessionService.RemoveSession(session);
                     }
                 }
                 finally
                 {
-                    if (session != null && characterDetached && !sessionRemoved && !sessionCleanupAttempted)
-                    {
-                        sessionCleanupAttempted = true;
-                        sessionRemoved = await _gameSessionService.RemoveSession(session, CancellationToken.None);
-                    }
-
                     if (character != null && sessionRemoved)
                     {
                         _characterLogoutService.MarkSessionRemoved(character);

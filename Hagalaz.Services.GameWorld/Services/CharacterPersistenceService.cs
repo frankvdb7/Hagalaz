@@ -209,6 +209,12 @@ namespace Hagalaz.Services.GameWorld.Services
             lock (_stateGate)
             {
                 var entry = GetOrCreateEntry(masterId);
+                if (entry.Pending is not null && lifecycleGeneration > entry.LifecycleGeneration)
+                {
+                    throw new InvalidOperationException(
+                        $"Character '{masterId}' cannot initialize lifecycle {lifecycleGeneration} while lifecycle {entry.LifecycleGeneration} has a pending persistence operation.");
+                }
+
                 entry.Revision = Math.Max(entry.Revision, persistedRevision);
                 if (lifecycleGeneration > 0 || entry.LifecycleGeneration == 0)
                 {

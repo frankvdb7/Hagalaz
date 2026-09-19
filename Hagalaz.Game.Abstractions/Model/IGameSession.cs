@@ -1,5 +1,7 @@
 ﻿using Raido.Common.Protocol;
 
+using System;
+
 namespace Hagalaz.Game.Abstractions.Model
 {
     /// <summary>
@@ -26,6 +28,8 @@ namespace Hagalaz.Game.Abstractions.Model
         /// Gets the exact distributed account-ownership claim for this session.
         /// </summary>
         public string SessionClaimId { get; }
+
+        DateTimeOffset ClaimLeaseValidUntil { get; set; }
 
         /// <summary>
         /// Sends a message to the client associated with this game session.

@@ -365,6 +365,23 @@ public sealed class ContactPresenceConsumerTests
     }
 
     [TestMethod]
+    public void AddFriend_WhenSignInIsBufferedDuringObservation_PreservesReconciledPresence()
+    {
+        var feature = new LobbyContactsFeature();
+        var boundary = feature.BeginObservationWindow();
+
+        Assert.IsNull(feature.TryApplySignIn(42, 10, "live", 5, "World 5"));
+        feature.AddFriend(CreateFriend(), null, boundary);
+
+        var presence = feature.GetPresence(42);
+        Assert.IsTrue(presence.IsOnline);
+        Assert.AreEqual(5, presence.WorldId);
+        Assert.AreEqual("World 5", presence.WorldName);
+
+        feature.EndObservationWindow();
+    }
+
+    [TestMethod]
     public void LiveUnknownPresenceDuringSnapshotWindowIsAppliedWhenSnapshotAddsFriend()
     {
         var feature = new LobbyContactsFeature();
@@ -410,8 +427,60 @@ public sealed class ContactPresenceConsumerTests
 
         Assert.IsFalse(wait.IsCompleted);
         feature.ReplaceFriends([CreateFriend()], []);
+        feature.CompleteInitialSnapshot();
 
         await wait;
+    }
+
+    [TestMethod]
+    public void PendingSameGenerationSignInCannotResurrectSignOut()
+    {
+        var feature = new LobbyContactsFeature();
+        var boundary = feature.BeginObservationWindow();
+
+        Assert.IsNull(feature.TryApplySignOut(42, 10, "live"));
+        Assert.IsNull(feature.TryApplySignIn(42, 10, "live", 5, "World 5"));
+
+        feature.ReplaceFriends([CreateFriend()], [], boundary);
+
+        var presence = feature.GetPresence(42);
+        Assert.IsFalse(presence.IsOnline);
+        feature.EndObservationWindow();
+    }
+
+    [TestMethod]
+    public void PendingSameGenerationWrongConnectionSignOutCannotKillOwner()
+    {
+        var feature = new LobbyContactsFeature();
+        var boundary = feature.BeginObservationWindow();
+
+        Assert.IsNull(feature.TryApplySignIn(42, 10, "connection-a", 5, "World 5"));
+        Assert.IsNull(feature.TryApplySignOut(42, 10, "connection-b"));
+
+        feature.ReplaceFriends([CreateFriend()], [], boundary);
+
+        var presence = feature.GetPresence(42);
+        Assert.IsTrue(presence.IsOnline);
+        Assert.AreEqual(5, presence.WorldId);
+        Assert.AreEqual("World 5", presence.WorldName);
+        feature.EndObservationWindow();
+    }
+
+    [TestMethod]
+    public void PendingHigherGenerationSupersedesOlderObservation()
+    {
+        var feature = new LobbyContactsFeature();
+        var boundary = feature.BeginObservationWindow();
+
+        Assert.IsNull(feature.TryApplySignOut(42, 10, "connection-a"));
+        Assert.IsNull(feature.TryApplySignIn(42, 11, "connection-b", 6, "World 6"));
+
+        feature.ReplaceFriends([CreateFriend()], [], boundary);
+
+        var presence = feature.GetPresence(42);
+        Assert.IsTrue(presence.IsOnline);
+        Assert.AreEqual(6, presence.WorldId);
+        feature.EndObservationWindow();
     }
 
     private static IGameConnection CreateConnection(IContactList<Friend> contacts)

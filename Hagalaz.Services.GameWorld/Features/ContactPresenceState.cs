@@ -18,6 +18,8 @@ namespace Hagalaz.Services.GameWorld.Features
         public Task WaitForInitialSnapshotAsync(CancellationToken cancellationToken) =>
             _initialSnapshot.Task.WaitAsync(cancellationToken);
 
+        public void CompleteInitialSnapshot() => _initialSnapshot.TrySetResult();
+
         public long BeginObservationWindow()
         {
             lock (_gate)
@@ -68,7 +70,13 @@ namespace Hagalaz.Services.GameWorld.Features
         {
             lock (_gate)
             {
-                friends.Set(replacement);
+                var replacementFriends = new List<Friend>(replacement);
+                friends.Set(replacementFriends);
+
+                foreach (var friend in replacementFriends)
+                {
+                    _ = GetOrCreateEntry(unchecked((uint)friend.MasterId));
+                }
 
                 var seededOwners = new HashSet<uint>();
                 foreach (var owner in owners)
@@ -79,7 +87,11 @@ namespace Hagalaz.Services.GameWorld.Features
                     {
                         entry.LatestSessionGeneration = owner.SessionGeneration;
                         entry.HasGeneration = true;
-                        entry.CurrentOwner = new SessionIdentity(owner.SessionGeneration, owner.ConnectionId);
+                        entry.CurrentOwner = new SessionIdentity(
+                            owner.SessionGeneration,
+                            owner.ConnectionId,
+                            owner.WorldId,
+                            owner.WorldName);
                         entry.LatestObservationSequence = Math.Max(
                             entry.LatestObservationSequence,
                             observationBoundary);
@@ -108,7 +120,19 @@ namespace Hagalaz.Services.GameWorld.Features
                     }
                 }
 
-                _initialSnapshot.TrySetResult();
+            }
+        }
+
+        public ContactPresenceView GetPresence(uint masterId)
+        {
+            lock (_gate)
+            {
+                if (!_entries.TryGetValue(masterId, out var entry) || entry.CurrentOwner is not { } owner)
+                {
+                    return new ContactPresenceView(false, null, null);
+                }
+
+                return new ContactPresenceView(true, owner.WorldId, owner.WorldName);
             }
         }
 
@@ -142,7 +166,9 @@ namespace Hagalaz.Services.GameWorld.Features
                         entry.HasGeneration = true;
                         entry.CurrentOwner = new SessionIdentity(
                             presenceOwner.SessionGeneration,
-                            presenceOwner.ConnectionId);
+                            presenceOwner.ConnectionId,
+                            presenceOwner.WorldId,
+                            presenceOwner.WorldName);
                         entry.LatestObservationSequence = Math.Max(
                             entry.LatestObservationSequence,
                             observationBoundary);
@@ -176,6 +202,8 @@ namespace Hagalaz.Services.GameWorld.Features
             uint masterId,
             long sessionGeneration,
             string connectionId,
+            int? worldId,
+            string? worldName,
             IContactList<Friend> friends)
         {
             lock (_gate)
@@ -192,7 +220,7 @@ namespace Hagalaz.Services.GameWorld.Features
                 {
                     if (_observationWindows != 0)
                     {
-                        RecordPendingObservation(masterId, sessionGeneration, connectionId, signedIn: true);
+                        RecordPendingObservation(masterId, sessionGeneration, connectionId, signedIn: true, worldId, worldName);
                     }
                     return null;
                 }
@@ -201,7 +229,7 @@ namespace Hagalaz.Services.GameWorld.Features
                 var entry = existingEntry ?? GetOrCreateEntry(masterId);
                 entry.LatestSessionGeneration = sessionGeneration;
                 entry.HasGeneration = true;
-                entry.CurrentOwner = new SessionIdentity(sessionGeneration, connectionId);
+                entry.CurrentOwner = new SessionIdentity(sessionGeneration, connectionId, worldId, worldName);
                 entry.LatestObservationSequence = checked(++_observationSequence);
                 return friend;
             }
@@ -220,7 +248,7 @@ namespace Hagalaz.Services.GameWorld.Features
                 {
                     if (_observationWindows != 0)
                     {
-                        RecordPendingObservation(masterId, sessionGeneration, connectionId, signedIn: false);
+                        RecordPendingObservation(masterId, sessionGeneration, connectionId, signedIn: false, null, null);
                     }
                     return null;
                 }
@@ -261,22 +289,23 @@ namespace Hagalaz.Services.GameWorld.Features
             uint masterId,
             long sessionGeneration,
             string connectionId,
-            bool signedIn)
+            bool signedIn,
+            int? worldId,
+            string? worldName)
         {
-            if (_entries.TryGetValue(masterId, out var entry) &&
-                entry.HasGeneration &&
-                sessionGeneration < entry.LatestSessionGeneration)
-            {
-                return;
-            }
-
             if (_pendingObservations.TryGetValue(masterId, out var existing))
             {
-                if (sessionGeneration < existing.SessionGeneration ||
-                    (sessionGeneration == existing.SessionGeneration &&
-                     !signedIn && existing.SignedIn && existing.ConnectionId != connectionId))
+                if (sessionGeneration < existing.SessionGeneration)
                 {
                     return;
+                }
+
+                if (sessionGeneration == existing.SessionGeneration)
+                {
+                    if (signedIn || !existing.SignedIn || existing.ConnectionId != connectionId)
+                    {
+                        return;
+                    }
                 }
             }
 
@@ -285,6 +314,8 @@ namespace Hagalaz.Services.GameWorld.Features
                 sessionGeneration,
                 connectionId,
                 signedIn,
+                worldId,
+                worldName,
                 checked(++_observationSequence));
         }
 
@@ -296,10 +327,26 @@ namespace Hagalaz.Services.GameWorld.Features
                 return;
             }
 
+            if (entry.HasGeneration && pending.SessionGeneration == entry.LatestSessionGeneration)
+            {
+                if (pending.SignedIn)
+                {
+                    return;
+                }
+
+                if (entry.CurrentOwner is { } current && current.ConnectionId == pending.ConnectionId)
+                {
+                    entry.CurrentOwner = null;
+                    entry.LatestObservationSequence = pending.ObservationSequence;
+                }
+
+                return;
+            }
+
             entry.HasGeneration = true;
             entry.LatestSessionGeneration = pending.SessionGeneration;
             entry.CurrentOwner = pending.SignedIn
-                ? new SessionIdentity(pending.SessionGeneration, pending.ConnectionId)
+                ? new SessionIdentity(pending.SessionGeneration, pending.ConnectionId, pending.WorldId, pending.WorldName)
                 : null;
             entry.LatestObservationSequence = pending.ObservationSequence;
         }
@@ -332,8 +379,14 @@ namespace Hagalaz.Services.GameWorld.Features
             long SessionGeneration,
             string ConnectionId,
             bool SignedIn,
+            int? WorldId,
+            string? WorldName,
             long ObservationSequence);
 
-        private readonly record struct SessionIdentity(long SessionGeneration, string ConnectionId);
+        private readonly record struct SessionIdentity(
+            long SessionGeneration,
+            string ConnectionId,
+            int? WorldId,
+            string? WorldName);
     }
 }

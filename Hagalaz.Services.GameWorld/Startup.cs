@@ -10,6 +10,7 @@ using System;
 using System.Threading.Tasks;
 using System.Threading.RateLimiting;
 using AutoMapper;
+using Hagalaz.Contacts.Messages;
 using Hagalaz.Cache;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
@@ -675,6 +676,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddAuthorization();
             services.AddMassTransit(x =>
             {
+                x.AddRequestClient<GetContactsRequest>();
                 x.AddDelayedMessageScheduler();
                 x.AddEntityFrameworkOutbox<HagalazDbContext>(options =>
                 {
@@ -715,7 +717,6 @@ namespace Hagalaz.Services.GameWorld
                 x.AddConsumer<ContactSettingsChangedConsumer>();
                 x.AddConsumer<ContactAddedConsumer>();
                 x.AddConsumer<ContactRemovedConsumer>();
-                x.AddConsumer<GetContactsResponseConsumer>();
                 x.AddConsumer<WorldStatusRequestConsumer>();
                 x.AddConsumer<WorldOnlineConsumer>();
                 x.AddConsumer<WorldOfflineConsumer>();

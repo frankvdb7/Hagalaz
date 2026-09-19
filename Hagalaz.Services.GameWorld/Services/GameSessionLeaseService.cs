@@ -70,8 +70,11 @@ public sealed class GameSessionLeaseService : BackgroundService
 
             try
             {
+                var renewalStartedAt = DateTimeOffset.UtcNow;
                 if (await _claims.RenewAsync(session.MasterId, session.SessionClaimId, cancellationToken))
                 {
+                    session.ClaimLeaseValidUntil =
+                        renewalStartedAt + GameSessionClaimOptions.LeaseDuration;
                     continue;
                 }
 
@@ -84,9 +87,16 @@ public sealed class GameSessionLeaseService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to renew active game-session claim for account '{masterId}'; keeping the session for the next lease cycle.",
+                var nextRenewalAttemptAt = DateTimeOffset.UtcNow + GameSessionClaimOptions.RenewalInterval;
+                if (nextRenewalAttemptAt < session.ClaimLeaseValidUntil)
+                {
+                    _logger.LogError(ex, "Failed to renew active game-session claim for account '{masterId}'; keeping the session for the next lease cycle.",
+                        session.MasterId);
+                    continue;
+                }
+
+                _logger.LogWarning(ex, "Failed to renew active game-session claim for account '{masterId}' before the known lease deadline; aborting the connection.",
                     session.MasterId);
-                continue;
             }
 
             try

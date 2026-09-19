@@ -3,6 +3,8 @@ using Hagalaz.Services.GameWorld.Model;
 using Raido.Common.Protocol;
 using Raido.Server;
 
+using System;
+
 namespace Hagalaz.Services.GameWorld.Network.Model
 {
     public class GameSession : IGameSession
@@ -13,6 +15,7 @@ namespace Hagalaz.Services.GameWorld.Network.Model
         public string ConnectionId { get; init; }
         public long SessionGeneration { get; init; }
         public string SessionClaimId { get; }
+        public DateTimeOffset ClaimLeaseValidUntil { get; set; } = DateTimeOffset.MinValue;
 
         public GameSession(uint masterId, string connectionId, long sessionGeneration, string sessionClaimId, IRaidoClientProxy clientProxy)
         {

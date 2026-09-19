@@ -24,11 +24,10 @@ namespace Hagalaz.Services.GameWorld.Network.Consumers
         public async Task Consume(ConsumeContext<ContactSignOutMessage> context)
         {
             var message = context.Message;
-            var friend = _mapper.Map<ContactDto>(message.Contact);
-            var friendUpdateMessage = new FriendsListMessage { Friends = new List<ContactDto> { friend }, Notify = true };
             await foreach (var connection in _connectionService.FindAll())
             {
-                var currentFriend = connection.Features.Get<IContactsFeature>()?.TryApplySignOut(
+                var contacts = connection.Features.Get<IContactsFeature>();
+                var currentFriend = contacts?.TryApplySignOut(
                     message.Contact.MasterId,
                     message.SessionGeneration,
                     message.ConnectionId);
@@ -36,6 +35,12 @@ namespace Hagalaz.Services.GameWorld.Network.Consumers
                 {
                     continue;
                 }
+                var friend = _mapper.Map<ContactDto>(message.Contact) with
+                {
+                    WorldId = null,
+                    WorldName = null
+                };
+                var friendUpdateMessage = new FriendsListMessage { Friends = new List<ContactDto> { friend }, Notify = true };
                 await connection.SendMessage(friendUpdateMessage);
             }
         }

@@ -41,6 +41,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
             var sessionGeneration = await _claims.AllocateSessionGenerationAsync(masterId);
             var createdSession = _gameSessionFactory.Create(masterId, connectionId, sessionGeneration);
+            var claimStartedAt = DateTimeOffset.UtcNow;
             try
             {
                 if (!await _claims.TryClaimAsync(masterId, createdSession.SessionClaimId))
@@ -54,6 +55,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     return (await _sessions.FindByMasterId(masterId) ?? createdSession, Created: false);
                 }
 
+                createdSession.ClaimLeaseValidUntil = claimStartedAt + GameSessionClaimOptions.LeaseDuration;
                 return (createdSession, Created: true);
             }
             catch (Exception)
@@ -110,8 +112,10 @@ namespace Hagalaz.Services.GameWorld.Services
 
             try
             {
+                var claimStartedAt = DateTimeOffset.UtcNow;
                 if (await _claims.TryClaimAsync(masterId, createdSession.SessionClaimId, cancellationToken))
                 {
+                    createdSession.ClaimLeaseValidUntil = claimStartedAt + GameSessionClaimOptions.LeaseDuration;
                     return (createdSession, true);
                 }
             }
@@ -142,6 +146,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 replacedSession = result.ReplacedSession;
                 return result.Committed;
             });
+            var claimStartedAt = DateTimeOffset.UtcNow;
             bool committed;
             try
             {
@@ -185,6 +190,9 @@ namespace Hagalaz.Services.GameWorld.Services
                 await _sessions.TryRemovePendingWorldSession(worldSession);
                 return false;
             }
+
+            worldSession.ClaimLeaseValidUntil =
+                claimStartedAt + GameSessionClaimOptions.LeaseDuration;
 
             if (replacedSession != null &&
                 !ReferenceEquals(replacedSession, expectedSession) &&

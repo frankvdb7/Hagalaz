@@ -109,6 +109,21 @@ public sealed class CharacterPersistenceStateTests
     }
 
     [TestMethod]
+    public void InitializeRevision_RejectsNewerLifecycleWhileOlderPersistenceIsPending()
+    {
+        var state = new CharacterPersistenceState();
+        var receipt = CreateReceipt(Guid.NewGuid(), 7);
+        state.InitializeRevision(42, 500, 7);
+        state.MarkPending(42, "fingerprint", receipt);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => state.InitializeRevision(42, 600, 8));
+
+        Assert.IsTrue(state.TryGetPending(42, out var pending));
+        Assert.AreSame(receipt, pending);
+        Assert.AreEqual(501L, state.NextRevision(42));
+    }
+
+    [TestMethod]
     public async Task NextRevision_ConcurrentCallsRemainUniqueAndMonotonic()
     {
         var state = new CharacterPersistenceState();
