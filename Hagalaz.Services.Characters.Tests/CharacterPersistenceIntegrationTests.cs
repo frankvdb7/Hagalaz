@@ -290,7 +290,7 @@ public sealed class CharacterPersistenceIntegrationTests
             new NotesDto { Notes = [new NotesDto.NoteDto { Id = 32, Color = 33, Text = noteText }] },
             new ProfileDto { JsonData = "{\"changed\":true}" },
             new ItemAppearanceCollectionDto { Appearances = [new ItemAppearanceDto { Id = 40, MaleModels = [1, 2, 3], FemaleModels = [4, 5, 6], ModelColors = [7, 8], TextureColors = [9, 10] }] },
-            new StateDto { StatesEx = [new StateDto.StateExDto { Id = 50, TicksLeft = 51 }] },
+            new StateDto { StatesEx = [new StateDto.StateExDto { Id = "50", TicksLeft = 51 }] },
             revision);
 
     private sealed class AcknowledgementCapture

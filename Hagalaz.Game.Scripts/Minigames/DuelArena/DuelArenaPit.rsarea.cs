@@ -99,7 +99,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     character.Interrupt(this);
                     character.ForceRunMovementType(forceRun);
                     character.FaceLocation(target);
-                    character.Combat.SetTarget(target);
+                    character.Combat.SetTarget(target.Handle);
                 });
             }
         }

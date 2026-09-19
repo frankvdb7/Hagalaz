@@ -14,6 +14,7 @@ using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Game.Messages.Protocol.Model;
 using Hagalaz.Game.Resources;
 using Hagalaz.Services.GameWorld.Extensions;
+using Hagalaz.Services.GameWorld.Features;
 
 namespace Hagalaz.Services.GameWorld.Hubs
 {
@@ -75,6 +76,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 return;
             }
             var contacts = Context.GetContacts();
+            await contacts.WaitForInitialSnapshotAsync(Context.ConnectionAborted);
+            var observationBoundary = contacts.BeginObservationWindow();
             try
             {
                 var response = await _addContactRequestClient.GetResponse<AddContactResponse>(new AddContactRequest
@@ -83,14 +86,26 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 });
                 var message = response.Message;
                 var friend = _mapper.Map<Friend>(message.Contact);
-                contacts.Friends.Add(friend);
+                var onlineOwner = message.Contact.SessionGeneration is { } sessionGeneration
+                    && message.Contact.SessionConnectionId is { } connectionId
+                    ? new ContactPresenceOwner(
+                        message.Contact.MasterId,
+                        sessionGeneration,
+                        connectionId,
+                        message.Contact.WorldId,
+                        message.Contact.WorldName)
+                    : null;
+                contacts.AddFriend(friend, onlineOwner, observationBoundary);
 
                 var friendContact = _mapper.Map<ContactDto>(message.Contact);
                 var friendMessage = new FriendsListMessage
                 {
                     Friends = new List<ContactDto>
                     {
-                        friendContact
+                        ContactSnapshotApplicator.ReconcileFriendContact(
+                            friend,
+                            friendContact,
+                            contacts.GetPresence(message.Contact.MasterId))
                     }
                 };
                 await Clients.Caller.SendAsync(friendMessage);
@@ -102,6 +117,10 @@ namespace Hagalaz.Services.GameWorld.Hubs
             catch (Exception)
             {
                 await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
+            }
+            finally
+            {
+                contacts.EndObservationWindow();
             }
         }
 
@@ -117,12 +136,13 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var contacts = Context.GetContacts();
             try
             {
+                await contacts.WaitForInitialSnapshotAsync(Context.ConnectionAborted);
                 var response = await _removeContactRequestClient.GetResponse<RemoveContactResponse>(new RemoveContactRequest
                 {
                     MasterId = masterId.Value, ContactDisplayName = request.DisplayName, Ignore = false
                 });
                 var message = response.Message;
-                contacts.Friends.Remove(message.Contact.MasterId);
+                contacts.RemoveFriend(message.Contact.MasterId);
             }
             catch (NotFoundException)
             {
@@ -146,6 +166,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var contacts = Context.GetContacts();
             try
             {
+                await contacts.WaitForInitialSnapshotAsync(Context.ConnectionAborted);
                 var response = await _addContactRequestClient.GetResponse<AddContactResponse>(new AddContactRequest
                 {
                     MasterId = masterId.Value, ContactDisplayName = request.DisplayName, Ignore = true
@@ -186,6 +207,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var contacts = Context.GetContacts();
             try
             {
+                await contacts.WaitForInitialSnapshotAsync(Context.ConnectionAborted);
                 var response = await _removeContactRequestClient.GetResponse<RemoveContactResponse>(new RemoveContactRequest
                 {
                     MasterId = masterId.Value, ContactDisplayName = request.DisplayName, Ignore = true

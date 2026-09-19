@@ -76,7 +76,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
                 Damage = useMelee ? combat.GetMeleeDamage(victim) : combat.GetRangeDamage(victim),
                 MaxDamage = useMelee ? combat.GetMeleeMaxHit(victim) : combat.GetRangeMaxHit(victim),
                 DamageType = DamageType.FullSummoning,
-                Target = victim,
+                Target = victim.Handle,
                 Delay = 0
             });
 
@@ -85,7 +85,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
                 Damage = useMelee ? combat.GetMeleeDamage(victim) : combat.GetRangeDamage(victim),
                 MaxDamage = useMelee ? combat.GetMeleeMaxHit(victim) : combat.GetRangeMaxHit(victim),
                 DamageType = DamageType.FullSummoning,
-                Target = victim,
+                Target = victim.Handle,
                 Delay = 0
             });
 
@@ -94,7 +94,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
                 Damage = useMelee ? combat.GetMeleeDamage(victim) : combat.GetRangeDamage(victim),
                 MaxDamage = useMelee ? combat.GetMeleeMaxHit(victim) : combat.GetRangeMaxHit(victim),
                 DamageType = DamageType.FullSummoning,
-                Target = victim,
+                Target = victim.Handle,
                 Delay = 1
             });
 
@@ -103,7 +103,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
                 Damage = useMelee ? combat.GetMeleeDamage(victim) : combat.GetRangeDamage(victim),
                 MaxDamage = useMelee ? combat.GetMeleeMaxHit(victim) : combat.GetRangeMaxHit(victim),
                 DamageType = DamageType.FullSummoning,
-                Target = victim,
+                Target = victim.Handle,
                 Delay = 1
             });
         }
@@ -131,7 +131,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
                                 Damage = ((INpcCombat)Owner.Combat).GetMeleeDamage(target),
                                 MaxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target),
                                 DamageType = DamageType.FullSummoning,
-                                Target = target,
+                                Target = target.Handle,
                                 Delay = 0
                             });
                             break;
@@ -162,7 +162,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
                                 MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
                                 DamageType = DamageType.FullSummoning,
                                 Delay = delay + 41,
-                                Target = target
+                                Target = target.Handle
                             });
                             break;
                         }
@@ -192,7 +192,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
                                 Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 268),
                                 MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 268),
                                 DamageType = DamageType.FullSummoning,
-                                Target = target,
+                                Target = target.Handle,
                                 Delay = delay + 41
                             });
                             break;

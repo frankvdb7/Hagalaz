@@ -55,7 +55,7 @@ public sealed class NpcChildScopeTests
         npcService.RegisterAsync(Arg.Any<INpc>()).Returns(Task.CompletedTask);
         var eventManager = Substitute.For<IEventManager>();
         var mapRegionService = Substitute.For<IMapRegionService>();
-        mapRegionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>())
+        mapRegionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>())
             .Returns(Substitute.For<IMapRegion>());
         var summoner = Substitute.For<ICharacter>();
         summoner.EventManager.Returns(eventManager);
@@ -79,6 +79,7 @@ public sealed class NpcChildScopeTests
             .AddSingleton(Substitute.For<IProjectilePathFinder>())
             .AddSingleton<IOptions<CombatOptions>>(Options.Create(new CombatOptions()))
             .AddSingleton(Substitute.For<IHitSplatBuilder>())
+            .AddSingleton(Substitute.For<IEntityService>())
             .AddSingleton(Substitute.For<ILootService>())
             .AddSingleton(Substitute.For<ILootGenerator>())
             .AddSingleton(Substitute.For<IGroundItemBuilder>())
@@ -102,7 +103,7 @@ public sealed class NpcChildScopeTests
             .Spawn()
             .Npc;
 
-        await npc.OnRegistered();
+        npc.OnRegistered();
 
         var script = (TestBobFamiliarScript)npc.Script;
         Assert.AreEqual(37, script.Dehydrate().TicksRemaining);
@@ -137,6 +138,7 @@ public sealed class NpcChildScopeTests
             .AddSingleton(Substitute.For<IProjectilePathFinder>())
             .AddSingleton<IOptions<CombatOptions>>(Options.Create(new CombatOptions()))
             .AddSingleton(Substitute.For<IHitSplatBuilder>())
+            .AddSingleton(Substitute.For<IEntityService>())
             .AddSingleton(Substitute.For<ILootService>())
             .AddSingleton(Substitute.For<ILootGenerator>())
             .AddSingleton(Substitute.For<IGroundItemBuilder>())

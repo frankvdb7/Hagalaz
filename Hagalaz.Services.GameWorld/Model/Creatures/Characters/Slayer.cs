@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using System.Threading.Tasks;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Logic.Dehydrations;
 using Hagalaz.Game.Abstractions.Logic.Hydrations;
@@ -9,6 +10,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
@@ -76,7 +78,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return;
             }
 
-            _creatureKilledHandler = _owner.RegisterEventHandler(new EventHappened<CreatureKillEvent>((e) =>
+            _creatureKilledHandler = _owner.RegisterEventHandler(new EventHappened<CreatureKillEvent>(e =>
             {
                 if (e.Victim is not INpc npc)
                 {
@@ -88,38 +90,50 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return false; // allow other events to catch a creature killed event.
                 }
 
-                var task = _slayerService.FindSlayerTaskDefinition(CurrentTaskId).Result;
-                if (task == null)
-                {
-                    return false; // allow other events to catch a creature killed event.
-                }
-
-                _owner.Statistics.AddExperience(StatisticsConstants.Slayer, npc.Definition.MaxLifePoints * 0.1);
-                CurrentKillCount--;
-                if (CurrentKillCount <= 0)
-                {
-                    OnCompleted();
-                }
+                _owner.QueueTask(cancellationToken => ProcessCreatureKillAsync(npc, cancellationToken));
 
                 return false; // allow other events to catch a creature killed event.
             }));
         }
 
+        private async Task ProcessCreatureKillAsync(INpc npc, System.Threading.CancellationToken cancellationToken)
+        {
+            var taskId = CurrentTaskId;
+            var task = await _slayerService.FindSlayerTaskDefinition(taskId);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (task == null || taskId != CurrentTaskId)
+            {
+                return;
+            }
+
+            ISlayerMasterTable? masterTable = null;
+            if (CurrentKillCount <= 1)
+            {
+                masterTable = await _slayerService.FindSlayerMasterTableByNpcId(task.SlayerMasterId);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (masterTable == null || taskId != CurrentTaskId)
+                {
+                    return;
+                }
+            }
+
+            _owner.Statistics.AddExperience(StatisticsConstants.Slayer, npc.Definition.MaxLifePoints * 0.1);
+            CurrentKillCount--;
+            if (CurrentKillCount <= 0)
+            {
+                CompleteTask(task, masterTable!);
+            }
+        }
+
         /// <summary>
         /// Called when [completed].
         /// </summary>
-        private void OnCompleted()
+        private void CompleteTask(ISlayerTaskDefinition task, ISlayerMasterTable masterTable)
         {
             if (_creatureKilledHandler != null)
             {
                 _owner.UnregisterEventHandler<CreatureKillEvent>(_creatureKilledHandler);
                 _creatureKilledHandler = null;
-            }
-
-            var task = _slayerService.FindSlayerTaskDefinition(CurrentTaskId).Result;
-            if (task == null)
-            {
-                return;
             }
 
             if (task.CoinCount > 0)
@@ -128,12 +142,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 // TODO - Calculate coins earned based on difficulty
                 var coinsEarned = (int)(task.CoinCount * coinCountRate);
                 _owner.Inventory.TryAddItems(_owner, [(995, coinsEarned)], out _);
-            }
-
-            var masterTable = _slayerService.FindSlayerMasterTableByNpcId(task.SlayerMasterId).Result;
-            if (masterTable == null)
-            {
-                return;
             }
 
             var pointsEarned = masterTable.BaseSlayerRewardPoints;
@@ -156,9 +164,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 _creatureKilledHandler = null;
             }
 
-            _owner.QueueTask(async () =>
+            _owner.QueueTask(async cancellationToken =>
             {
                 var table = await _slayerService.FindSlayerMasterTableByNpcId(slayerMasterId);
+                cancellationToken.ThrowIfCancellationRequested();
                 if (table == null)
                 {
                     return;

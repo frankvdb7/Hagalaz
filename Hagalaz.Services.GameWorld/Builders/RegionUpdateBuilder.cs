@@ -37,8 +37,7 @@ namespace Hagalaz.Services.GameWorld.Builders
         public IRegionPartUpdate Queue()
         {
             var update = Build();
-            var region = _mapRegionService.GetOrCreateMapRegion(_location.RegionId, _location.Dimension, true);
-            region.QueueUpdate(update);
+            _mapRegionService.QueueUpdate(update);
             return update;
         }
 

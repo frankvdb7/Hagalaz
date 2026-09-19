@@ -9,6 +9,7 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.Updates;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Messages.Protocol.Map;
 using Hagalaz.Game.Utilities;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions.Updates;
@@ -25,15 +26,19 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     {
         private readonly IMapper _mapper;
         private readonly IGroundItemBuilder _groundItemBuilder;
+        private readonly IEntityStore _entityStore;
         private readonly Dictionary<int, List<IGroundItem>> _groundItems = new();
         private readonly Dictionary<int, IGameObject> _gameObjects = new();
         private readonly Dictionary<int, IGameObject> _disabledStaticGameObjects = new();
-        private readonly List<IRegionPartUpdate> _updates = [];
+        private List<IRegionPartUpdate> _pendingUpdates = [];
+        private List<IRegionPartUpdate> _preparedUpdates = [];
+        private readonly object _updatesLock = new();
 
-        public MapRegionPart(IMapper mapper, IGroundItemBuilder groundItemBuilder)
+        public MapRegionPart(IMapper mapper, IGroundItemBuilder groundItemBuilder, IEntityStore entityStore)
         {
             _mapper = mapper;
             _groundItemBuilder = groundItemBuilder;
+            _entityStore = entityStore;
         }
 
         /// <summary>
@@ -57,6 +62,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// </summary>
         public int DrawRegionZ { get; set; }
 
+        public int DrawRegionDimension { get; set; }
+
+        public bool HasDrawSource { get; set; }
+
         /// <summary>
         /// Contains rotation of this sector,
         /// It is 0 by default if not modified.
@@ -64,6 +73,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         public int Rotation { get; set; }
 
         public IEnumerable<IGameObject> FindAllGameObjects() => _gameObjects.Values;
+
+        public IEnumerable<IGameObject> FindAllDisabledStaticGameObjects() => _disabledStaticGameObjects.Values;
 
         public IGameObject? FindGameObject(LayerType layer, int localX, int localY, int z)
         {
@@ -82,26 +93,40 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 throw new InvalidOperationException($"GameObject {gameObject} is already added to this region!");
             }
 
+            var needsAddUpdate = gameObjectOnLocation != null;
             if (gameObjectOnLocation != null)
             {
                 Remove(gameObjectOnLocation);
-                _gameObjects[localHash] = gameObject;
-            }
-            else
-            {
-                _gameObjects.Add(localHash, gameObject);
             }
 
             IGameObject? disabledStaticGameObject = null;
             if (gameObject.IsStatic)
             {
                 _disabledStaticGameObjects.Remove(localHash, out disabledStaticGameObject);
-                gameObject.Enable();
+                if (disabledStaticGameObject is not null)
+                {
+                    needsAddUpdate = true;
+                    if (!ReferenceEquals(disabledStaticGameObject, gameObject))
+                    {
+                        RemoveDisabledStaticGameObject(disabledStaticGameObject);
+                        disabledStaticGameObject = null;
+                    }
+                }
             }
 
+            if (disabledStaticGameObject is null)
+            {
+                _entityStore.Add(gameObject);
+            }
+
+            _gameObjects[localHash] = gameObject;
+            if (gameObject.IsStatic)
+            {
+                gameObject.Enable();
+            }
             gameObject.OnSpawn();
 
-            if (!gameObject.IsStatic || disabledStaticGameObject != null)
+            if (!gameObject.IsStatic || needsAddUpdate)
             {
                 QueueUpdate(new AddGameObjectUpdate(gameObject));
             }
@@ -144,6 +169,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 }
             }
 
+            _entityStore.Add(item);
             item.OnSpawn();
             itemsOnLocation.Add(item);
             QueueUpdate(new AddGroundItemUpdate(item));
@@ -170,7 +196,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
             else
             {
-                gameObject.Destroy();
+                DestroyAndUnregister(gameObject);
             }
 
             QueueUpdate(new RemoveGameObjectUpdate(gameObject));
@@ -200,7 +226,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             if (item.CanRespawn() && !item.IsRespawning)
             {
-                item.Destroy();
+                DestroyAndUnregister(item);
 
                 var respawnBuilder = _groundItemBuilder
                     .Create()
@@ -216,11 +242,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 }
 
                 var respawnItem = respawnBuilder.Build();
+                _entityStore.Add(respawnItem);
                 itemsOnLocation.Add(respawnItem);
             }
             else
             {
-                item.Destroy();
+                DestroyAndUnregister(item);
             }
 
             if (itemsOnLocation.Count <= 0)
@@ -244,8 +271,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 return;
             }
 
-            // Always remove the expired item first
-            itemsOnLocation.Remove(item);
+            // Always remove the expired item first, but only for the exact
+            // instance still owned by this location.
+            if (!itemsOnLocation.Remove(item))
+            {
+                return;
+            }
+
+            _entityStore.Remove(item);
 
             if (!item.IsRespawning && item.CanRespawn())
             {
@@ -258,6 +291,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     .WithTicks(item.RespawnTicks)
                     .AsRespawning()
                     .Build();
+                _entityStore.Add(respawnItem);
                 itemsOnLocation.Add(respawnItem);
                 return;
             }
@@ -273,6 +307,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     .WithTicks(item.RespawnTicks)
                     // Do NOT call AsRespawning here!
                     .Build();
+                _entityStore.Add(normalItem);
                 itemsOnLocation.Add(normalItem);
                 return;
             }
@@ -287,6 +322,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     .WithLocation(item.Location.Clone())
                     .WithRespawnTicks(0)
                     .Build();
+                _entityStore.Add(publicGroundItem);
                 itemsOnLocation.Add(publicGroundItem);
             }
 
@@ -307,17 +343,18 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void SendUpdates(ICharacter character)
         {
-            if (_updates.Count <= 0)
+            List<IRegionPartUpdate> preparedUpdates;
+            lock (_updatesLock)
             {
-                return;
-            }
-            //var lastLocation = character.LastLocation;
-            //var fullUpdate = lastLocation == null || 
-            //    lastLocation.RegionPartX != DrawRegionPartX || 
-            //    lastLocation.RegionPartY != DrawRegionPartY ||
-            //    lastLocation.Z != DrawRegionZ;
+                if (_preparedUpdates.Count <= 0)
+                {
+                    return;
+                }
 
-            SendUpdates(character, _updates, false);
+                preparedUpdates = _preparedUpdates;
+            }
+
+            SendUpdates(character, preparedUpdates, false);
         }
 
         public void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)
@@ -346,25 +383,78 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void QueueUpdate(IRegionPartUpdate update)
         {
-            if (_updates.Any(u => u.Equals(update)))
-            {
-                return;
-            }
+            ArgumentNullException.ThrowIfNull(update);
 
-            _updates.Add(update);
+            lock (_updatesLock)
+            {
+                if (_pendingUpdates.Any(u => u.Equals(update)))
+                {
+                    return;
+                }
+
+                _pendingUpdates.Add(update);
+            }
         }
 
-        public void ClearUpdates() => _updates.Clear();
+        public void PrepareUpdatesForTick()
+        {
+            lock (_updatesLock)
+            {
+                var previousPrepared = _preparedUpdates;
+                _preparedUpdates = _pendingUpdates;
+                _pendingUpdates = previousPrepared;
+                _pendingUpdates.Clear();
+            }
+        }
+
+        public void CompleteUpdateTick()
+        {
+            lock (_updatesLock)
+            {
+                _preparedUpdates.Clear();
+            }
+        }
 
         public void Erase()
         {
             DrawRegionPartX = 0;
             DrawRegionPartY = 0;
             DrawRegionZ = 0;
+            DrawRegionDimension = 0;
+            HasDrawSource = false;
             Rotation = 0;
         }
 
         public override int GetHashCode() =>
             ((Rotation & 0x3) << 1) | ((DrawRegionZ & 0x3) << 24) | ((DrawRegionPartX & 0x3ff) << 14) | ((DrawRegionPartY & 0x7ff) << 3);
+
+        private void RemoveDisabledStaticGameObject(IGameObject gameObject)
+        {
+            DestroyAndUnregister(gameObject);
+        }
+
+        private void DestroyAndUnregister(IGameObject gameObject)
+        {
+            try
+            {
+                gameObject.Destroy();
+            }
+            finally
+            {
+                _entityStore.Remove(gameObject);
+            }
+        }
+
+        private void DestroyAndUnregister(IGroundItem item)
+        {
+            try
+            {
+                item.Destroy();
+            }
+            finally
+            {
+                _entityStore.Remove(item);
+            }
+        }
     }
 }

@@ -190,7 +190,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     Character.Interrupt(this);
                     Character.ForceRunMovementType(forceRun);
                     var task = new CreatureReachTask(Character,
-                        target,
+                        target.Handle,
                         success =>
                         {
                             Character.Interrupt(this);
@@ -1609,12 +1609,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         {
             if (DuelSession)
             {
-                if (Target == null || Target.IsDestroyed)
+                if (Target == null)
                 {
                     CancelDuelSession();
                 }
 
-                if (Character == null || Character.IsDestroyed)
+                if (Character == null)
                 {
                     CancelDuelSession();
                 }
@@ -1663,7 +1663,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return;
             }
 
-            if (LastRequest.IsDestroyed || !Character.Viewport.InBounds(LastRequest.Location))
+            if (!Character.Viewport.InBounds(LastRequest.Location))
             {
                 LastRequest = null;
             }

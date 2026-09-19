@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Builders.Animation;
 using Hagalaz.Game.Abstractions.Builders.Graphic;
@@ -23,6 +24,7 @@ using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Utilities;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -51,6 +53,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="owner">The owner.</param>
         public CharacterCombat(
             ICharacter owner,
+            IEntityService entityService,
             IAnimationBuilder animationBuilder,
             IGraphicBuilder graphicBuilder,
             IProjectileBuilder projectileBuilder,
@@ -60,7 +63,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             IProjectilePathFinder projectilePathFinder,
             ISmartPathFinder smartPathFinder,
             IOptions<CombatOptions> combatOptions)
-            : base(owner, projectilePathFinder, smartPathFinder, combatOptions, hitSplatBuilder)
+            : base(owner, entityService, projectilePathFinder, smartPathFinder, combatOptions, hitSplatBuilder)
         {
             _character = owner;
             _animationBuilder = animationBuilder;
@@ -154,8 +157,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     .WithLocation(Owner.Location)
                     .WithOwner(groundItemOwner)
                     .Build();
-                _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false)
-                    .Add(groundItem); // we spawn it with this method, as the container was normally stacked.
+                _mapRegionService.AddGroundItem(groundItem); // we spawn it with this method, as the container was normally stacked.
             }
 
             var bones = _groundItemBuilder.Create()
@@ -163,7 +165,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 .WithLocation(Owner.Location)
                 .WithOwner(groundItemOwner)
                 .Build();
-            _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).Add(bones);
+                _mapRegionService.AddGroundItem(bones);
             _character.Inventory.AddRange(itemsOnDeath.keptItems);
             _character.Inventory.OnUpdate();
             _character.Equipment.OnUpdate();
@@ -217,11 +219,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns>
         /// If creature target was set sucessfully.
         /// </returns>
-        public override bool SetTarget(ICreature target)
+        public override bool SetTarget(EntityHandle<ICreature> targetHandle)
         {
-            if (!CanSetTarget(target)) return false;
+            var target = ResolveCreature(targetHandle);
+            if (target is null || !CanSetResolvedTarget(target)) return false;
+            SetTargetHandle(targetHandle);
             CheckSkullConditions(target);
-            Target = target;
             Owner.FaceCreature(target);
             _character.EventManager.SendEvent(new CreatureSetCombatTargetEvent(Owner, target));
             return true;
@@ -232,9 +235,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <param name="target">The target.</param>
         /// <returns><c>true</c> if this instance [can set target] the specified target; otherwise, <c>false</c>.</returns>
-        public override bool CanSetTarget(ICreature target)
+        public override bool CanSetTarget(EntityHandle<ICreature> targetHandle)
         {
-            if (target.IsDestroyed || target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
+            var target = ResolveCreature(targetHandle);
+            return target is not null && CanSetResolvedTarget(target);
+        }
+
+        protected override bool CanSetResolvedTarget(ICreature target)
+        {
+            if (target is not ICharacter and not INpc)
+            {
+                return false;
+            }
+
+            if (target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
             if (!target.Area.Script.CanBeAttacked(target, Owner)) return false;
             if (!Owner.Area.Script.CanAttack(Owner, target)) return false;
             if (!CanAttack(target)) return false;
@@ -248,7 +262,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public override void CancelTarget()
         {
             _character.Magic.SelectedSpell = null;
-            Target = null;
+            SetTargetHandle(default);
             Owner.ResetFacing();
         }
 
@@ -259,7 +273,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns><c>true</c> if this instance can attack the specified target; otherwise, <c>false</c>.</returns>
         public override bool CanAttack(ICreature target)
         {
-            if (target.IsDestroyed || target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
+            if (target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
             if (!_character.EventManager.SendEvent(new AttackAllowEvent(_character, GetAttackStyle()))) return false;
             var scripts = _character.GetScripts();
             return scripts.All(script => script.CanAttack(target));
@@ -272,7 +286,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns><c>true</c> if this instance [can be attacked by] the specified attacker; otherwise, <c>false</c>.</returns>
         public override bool CanBeAttackedBy(ICreature attacker)
         {
-            if (attacker.IsDestroyed || attacker.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(attacker)) return false;
+            if (attacker.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(attacker)) return false;
             var scripts = _character.GetScripts();
             return scripts.All(script => script.CanBeAttackedBy(attacker));
         }
@@ -293,6 +307,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var enemyPrayerDrain = (int)(Math.Round(predictedDamage * 0.10));
             var hpHeal = (int)(Math.Round(predictedDamage * 0.10));
             if (enemyPrayerDrain <= 0)
+            {
+                return;
+            }
+
+            var targetHandle = target.Handle;
+            if (targetHandle == default)
             {
                 return;
             }
@@ -323,16 +343,22 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             Owner.QueueTask(new RsTask(() =>
                 {
-                    deltaX = Owner.Location.X - target.Location.X;
-                    deltaY = Owner.Location.Y - target.Location.Y;
+                    var currentTarget = ResolveCreature(targetHandle);
+                    if (currentTarget is null)
+                    {
+                        return;
+                    }
+
+                    deltaX = Owner.Location.X - currentTarget.Location.X;
+                    deltaY = Owner.Location.Y - currentTarget.Location.Y;
                     if (deltaX < 0) deltaX = -deltaX;
                     if (deltaY < 0) deltaY = -deltaY;
                     duration = Math.Max(30, deltaX * 15 + deltaY * 15);
 
-                    target.QueueGraphic(_graphicBuilder.Create().WithId(2264).Build());
+                    currentTarget.QueueGraphic(_graphicBuilder.Create().WithId(2264).Build());
                     _projectileBuilder.Create()
                         .WithGraphicId(2263)
-                        .FromCreature(target)
+                        .FromCreature(currentTarget)
                         .ToCreature(Owner)
                         .WithDuration(duration)
                         .WithSlope(20)
@@ -416,7 +442,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
                 Owner.Combat.PerformAttack(new AttackParams()
                 {
-                    Target = attacker, DamageType = DamageType.Reflected, Damage = damage, Delay = delay
+                    Target = attacker.Handle, DamageType = DamageType.Reflected, Damage = damage, Delay = delay
                 });
             }
 
@@ -550,7 +576,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (owner.Profile.GetValue<bool>(ProfileConstants.CombatSettingsAutoRetaliate))
             {
-                Owner.QueueTask(new RsTask(() => owner.Combat.SetTarget(attacker), 1));
+                var attackerHandle = attacker.Handle;
+                if (attackerHandle != default)
+                {
+                    Owner.QueueTask(new RsTask(() =>
+                    {
+                        owner.Combat.SetTarget(attackerHandle);
+                    }, 1));
+                }
             }
 
             return damage;
@@ -559,12 +592,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public override IRsTaskHandle<AttackResult> PerformAttack(AttackParams attackParams)
         {
             var handle = base.PerformAttack(attackParams);
-            PerformSoulSplit(attackParams.Target, attackParams.Damage);
+            var target = ResolveCreature(attackParams.Target);
+            if (target is not null)
+            {
+                PerformSoulSplit(target, attackParams.Damage);
+            }
+
+            var damageType = attackParams.DamageType;
             handle.RegisterResultHandler(result =>
             {
                 if (result.DamageLifePoints.Succeeded)
                 {
-                    AddExperience(attackParams.DamageType, result.DamageLifePoints.Count);
+                    AddExperience(damageType, result.DamageLifePoints.Count);
                 }
             });
             return handle;
@@ -649,7 +688,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     Owner.QueueAnimation(_animationBuilder.Create().WithId(GetAttackStyle() == AttackStyle.MeleeAggressive ? 423 : 422).Build());
                     PerformAttack(new AttackParams()
                     {
-                        Target = Target, Damage = GetMeleeDamage(Target, false), DamageType = DamageType.FullMelee, MaxDamage = GetMeleeMaxHit(Target, false)
+                        Target = Target.Handle, Damage = GetMeleeDamage(Target, false), DamageType = DamageType.FullMelee, MaxDamage = GetMeleeMaxHit(Target, false)
                     });
                 }
 

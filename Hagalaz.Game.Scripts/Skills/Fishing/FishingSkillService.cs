@@ -3,6 +3,7 @@ using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services;
@@ -35,12 +36,19 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         ///     Fishes the specified character.
         /// </summary>
         /// <param name="character">The character.</param>
-        /// <param name="fishingSpot">The fishing spot.</param>
+        /// <param name="fishingSpotHandle">The fishing spot identity.</param>
         /// <param name="table">The definition.</param>
         /// <returns></returns>
-        public bool TryFish(ICharacter character, INpc fishingSpot, IFishingSpotTable? table, int characterCount)
+        public bool TryFish(ICharacter character, EntityHandle<ICreature> fishingSpotHandle, IFishingSpotTable? table, int characterCount)
         {
-            if (table == null || fishingSpot.IsDestroyed || !fishingSpot.Appearance.Visible)
+            var entityService = character.ServiceProvider.GetRequiredService<IEntityService>();
+            if (!entityService.TryResolve(fishingSpotHandle, out var creature)
+                || creature is not INpc fishingSpot)
+            {
+                return false;
+            }
+
+            if (table == null || !fishingSpot.Appearance.Visible)
             {
                 return false;
             }
@@ -82,7 +90,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
                 fishChance += fishingBasedChance;
             }
 
-            bool Callback()
+            bool Callback(INpc resolvedSpot)
             {
                 foreach (var result in _lootGenerator.GenerateLoot<IFishingLoot>(new CharacterLootParams(table, character)))
                 {
@@ -116,9 +124,16 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
 
                     var respawnTick = (int)(table.RespawnTime * (1.0 + characterCount * -0.00025) * 100.0);
 
-                    fishingSpot.Appearance.Visible = false;
+                    resolvedSpot.Appearance.Visible = false;
 
-                    _rsTaskService.Schedule(new RsTask(() => { fishingSpot.Appearance.Visible = true; }, respawnTick));
+                    _rsTaskService.Schedule(new RsTask(() =>
+                    {
+                        if (entityService.TryResolve(fishingSpotHandle, out var respawnCreature)
+                            && respawnCreature is INpc respawnSpot)
+                        {
+                            respawnSpot.Appearance.Visible = true;
+                        }
+                    }, respawnTick));
                     return true;
                 }
 
@@ -143,7 +158,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
             }
 
             // queue the fishing task.
-            character.QueueTask(new FishingTask(character, Callback, fishChance, fishingSpot, table.RequiredTool.FishAnimationId));
+            character.QueueTask(new FishingTask(character, Callback, fishChance, fishingSpotHandle, table.RequiredTool.FishAnimationId));
             if (table.RequiredTool.CastAnimationId > 0)
             {
                 character.QueueAnimation(Animation.Create(table.RequiredTool.CastAnimationId));

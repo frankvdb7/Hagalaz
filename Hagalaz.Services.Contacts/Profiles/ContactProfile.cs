@@ -24,7 +24,9 @@ namespace Hagalaz.Services.Contacts.Profiles
                 .ForMember(dto => dto.WorldId, opt => opt.Ignore())
                 .ForMember(dto => dto.WorldName, opt => opt.Ignore())
                 .ForMember(dto => dto.AreMutualFriends, opt => opt.Ignore())
-                .ForMember(dto => dto.Settings, opt => opt.Ignore());
+                .ForMember(dto => dto.Settings, opt => opt.Ignore())
+                .ForMember(dto => dto.SessionGeneration, opt => opt.Ignore())
+                .ForMember(dto => dto.SessionConnectionId, opt => opt.Ignore());
 
             CreateMap<Model_ContactSettingsDto.AvailabilitySettingsDto, byte>().ConstructUsing(source => MapAvailabilityDtoToFlag(source));
             CreateMap<byte, Model_ContactSettingsDto.AvailabilitySettingsDto>().ConvertUsing(source => MapFlagToAvailabilityDto(source));
@@ -46,7 +48,9 @@ namespace Hagalaz.Services.Contacts.Profiles
                 .ForMember(dest => dest.WorldId, opt => opt.Ignore())
                 .ForMember(dest => dest.WorldName, opt => opt.Ignore())
                 .ForMember(dest => dest.AreMutualFriends, opt => opt.Ignore())
-                .ForMember(dest => dest.Settings, opt => opt.Ignore());
+                .ForMember(dest => dest.Settings, opt => opt.Ignore())
+                .ForMember(dest => dest.SessionGeneration, opt => opt.Ignore())
+                .ForMember(dest => dest.SessionConnectionId, opt => opt.Ignore());
 
             CreateMap<CharacterDto, ContactMessageNotification.SenderDto>()
                 .ForMember(dest => dest.Claims, opt => opt.MapFrom(src => src.Claims));

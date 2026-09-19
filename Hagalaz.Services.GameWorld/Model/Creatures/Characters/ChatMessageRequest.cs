@@ -38,7 +38,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 {
                     Target.Interrupt(this);
                     Target.Movement.MovementType = Target.Movement.MovementType == MovementType.Run || forceRun ? MovementType.Run : MovementType.Walk;
-                    Target.QueueTask(new CreatureReachTask(Target, source, (success) =>
+                    Target.QueueTask(new CreatureReachTask(Target, source.Handle, (success) =>
                     {
                         Target.Interrupt(this);
                         if (success)
@@ -63,7 +63,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             };
 
         public void TrySend() =>
-            Source.QueueTask(new CreatureReachTask(Source, Target, (success) =>
+            Source.QueueTask(new CreatureReachTask(Source, Target.Handle, (success) =>
             {
                 Source.Interrupt(this);
                 if (success)

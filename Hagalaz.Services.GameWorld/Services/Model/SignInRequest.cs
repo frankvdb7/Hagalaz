@@ -7,5 +7,6 @@ namespace Hagalaz.Services.GameWorld.Services.Model
         public string Login { get; init; } = default!;
         public string Password { get; init; } = default!;
         public IGameClient GameClient { get; init; } = default!;
+        public string? LobbySessionClaimId { get; init; }
     }
 }

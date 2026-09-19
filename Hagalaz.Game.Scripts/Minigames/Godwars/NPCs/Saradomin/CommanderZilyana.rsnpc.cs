@@ -78,14 +78,14 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
                             Damage = combat.GetMagicDamage(target, 310),
                             MaxDamage = maxDamage,
                             DamageType = DamageType.StandardMagic,
-                            Target = target
+                            Target = target.Handle
                         });
                         Owner.Combat.PerformAttack(new AttackParams()
                         {
                             Damage = combat.GetMagicDamage(target, 310),
                             MaxDamage = maxDamage,
                             DamageType = DamageType.StandardMagic,
-                            Target = target
+                            Target = target.Handle
                         });
                     },
                     3));

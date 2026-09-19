@@ -72,7 +72,7 @@ namespace Hagalaz.Game.Scripts.Model.Items
 
                         attacker.Combat.PerformAttack(new AttackParams()
                         {
-                            Target = victim, Damage = damage, MaxDamage = maxDamage, DamageType = DamageType.FullMelee
+                            Target = victim.Handle, Damage = damage, MaxDamage = maxDamage, DamageType = DamageType.FullMelee
                         });
                         break;
                     }

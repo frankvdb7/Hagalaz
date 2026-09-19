@@ -94,7 +94,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
 
             // Assert
             Assert.IsTrue(result, $"Test case: {displayName}");
-            character.Received(1).QueueTask(Arg.Any<ITaskItem>());
+            character.Received(1).QueueTask(Arg.Any<Func<CancellationToken, Task>>());
         }
 
         [TestMethod]
@@ -172,7 +172,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
             _firemakingService.FindByLogId(logItem.Id).Returns(Task.FromResult<FiremakingDto?>(firemakingDefinition));
             character.Statistics.Returns(statistics);
             statistics.GetSkillLevel(StatisticsConstants.Firemaking).Returns(99);
-            _mapRegionService.GetMapRegion(Arg.Any<int>(), Arg.Any<int>(), false, true).Returns(mapRegion);
+            _mapRegionService.FindMapRegion(Arg.Any<int>(), Arg.Any<int>()).Returns(mapRegion);
             mapRegion.FindStandardGameObject(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns((IGameObject)null);
             character.Inventory.Returns(inventory);
             inventory.GetById(FiremakingConstants.Tinderbox).Returns(Substitute.For<IItem>());

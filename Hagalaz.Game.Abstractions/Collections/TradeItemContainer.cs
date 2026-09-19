@@ -16,12 +16,12 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
     /// <summary>
     /// Gets the synchronization boundary shared by trade operations on this container.
     /// </summary>
-    internal object MutationLock => _mutationLock;
+    public object MutationLock => _mutationLock;
 
     /// <summary>
     /// Gets the stable order used when trade operations lock multiple containers.
     /// </summary>
-    internal long MutationOrder { get; } = Interlocked.Increment(ref _nextMutationOrder);
+    public long MutationOrder { get; } = Interlocked.Increment(ref _nextMutationOrder);
 
     protected TradeItemContainer(StorageType type, int capacity)
         : base(type, capacity)

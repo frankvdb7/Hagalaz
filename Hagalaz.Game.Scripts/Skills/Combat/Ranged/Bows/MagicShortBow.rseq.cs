@@ -73,7 +73,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
             // attack 1
             attacker.Combat.PerformAttack(new AttackParams
             {
-                Target = victim,
+                Target = victim.Handle,
                 Damage = damage1,
                 MaxDamage = maxDamage,
                 DamageType = DamageType.FullRange,
@@ -84,7 +84,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
             // attack 2
             attacker.Combat.PerformAttack(new AttackParams
             {
-                Target = victim,
+                Target = victim.Handle,
                 Damage = damage2,
                 MaxDamage = maxDamage,
                 DamageType = DamageType.FullRange,

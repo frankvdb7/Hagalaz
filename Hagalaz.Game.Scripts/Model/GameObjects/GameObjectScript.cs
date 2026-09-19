@@ -1,12 +1,15 @@
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Game.Resources;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Model.GameObjects
 {
@@ -141,10 +144,34 @@ namespace Hagalaz.Game.Scripts.Model.GameObjects
                 if (clicker.EventManager.SendEvent(new WalkAllowEvent(clicker, Owner.Location, forceRun, false)))
                 {
                     clicker.Movement.MovementType = clicker.Movement.MovementType == MovementType.Run || forceRun ? MovementType.Run : MovementType.Walk;
-                    clicker.QueueTask(new GameObjectReachTask(clicker, Owner, (success) => OnCharacterClickReached(clicker, clickType, success)));
+                    var targetHandle = Owner.Handle;
+                    clicker.QueueTask(new GameObjectReachTask(clicker, targetHandle, success =>
+                    {
+                        if (!IsActiveTarget(clicker, targetHandle))
+                        {
+                            if (clicker.HasState<FrozenState>())
+                            {
+                                clicker.SendChatMessage(GameStrings.MagicalForceMovement);
+                            }
+                            else
+                            {
+                                clicker.SendChatMessage(GameStrings.YouCantReachThat);
+                            }
+
+                            return;
+                        }
+
+                        OnCharacterClickReached(clicker, clickType, success);
+                    }));
                 }
             }
         }
+
+        private bool IsActiveTarget(ICharacter clicker, EntityHandle<IGameObject> targetHandle) =>
+            clicker.ServiceProvider.GetRequiredService<IEntityService>().TryResolve<IGameObject>(targetHandle, out var target)
+            && target is not null
+            && !target.IsDisabled
+            && ReferenceEquals(target, Owner);
 
         /// <summary>
         /// Happens when character click's this object and then walks to it

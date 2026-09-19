@@ -25,7 +25,6 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var gameObjectLocationMock = Substitute.For<IGameObjectLocation>();
             var gameObjectOptionalMock = Substitute.For<IGameObjectOptional>();
             var gameObjectMock = Substitute.For<IGameObject>();
-            var regionMock = Substitute.For<IMapRegion>();
             var mapRegionServiceMock = Substitute.For<IMapRegionService>();
             var location = new Location(10, 20, 0, 0);
 
@@ -39,7 +38,6 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var serviceProviderMock = Substitute.For<IServiceProvider>();
             serviceProviderMock.GetService(typeof(IGameObjectBuilder)).Returns(gameObjectBuilderMock);
             serviceProviderMock.GetService(typeof(IMapRegionService)).Returns(mapRegionServiceMock);
-            mapRegionServiceMock.GetOrCreateMapRegion(location.RegionId, location.Dimension, false).Returns(regionMock);
 
             var characterMock = Substitute.For<ICharacter>();
             characterMock.ServiceProvider.Returns(serviceProviderMock);
@@ -53,7 +51,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
 
             // Assert
             gameObjectBuilderMock.Received(1).Create();
-            regionMock.Received(1).Add(Arg.Any<IGameObject>());
+            mapRegionServiceMock.Received(1).AddGameObject(Arg.Any<IGameObject>());
         }
     }
 }

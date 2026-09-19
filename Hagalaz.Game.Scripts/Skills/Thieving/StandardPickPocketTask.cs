@@ -172,13 +172,15 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
                     _performer.SendChatMessage("Your lighting-fast reactions allow you to steal quadruple loot.");
                 }
 
-                _performer.Statistics.AddExperience(StatisticsConstants.Thieving, _definition.Experience);
+                var lootTableId = _npc.Definition.PickPocketingLootTableId;
 
                 var lootGenerator = _npc.ServiceProvider.GetRequiredService<ILootGenerator>();
                 var lootService = _npc.ServiceProvider.GetRequiredService<ILootService>();
-                _npc.QueueTask(async () =>
+                _performer.QueueTask(async cancellationToken =>
                 {
-                    var table = await lootService.FindNpcLootTable(_npc.Definition.PickPocketingLootTableId);
+                    var table = await lootService.FindNpcLootTable(lootTableId);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    _performer.Statistics.AddExperience(StatisticsConstants.Thieving, _definition.Experience);
                     if (table != null)
                     {
                         _performer.Inventory.TryAddLoot(_performer,

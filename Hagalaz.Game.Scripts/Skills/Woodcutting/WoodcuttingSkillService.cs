@@ -69,8 +69,21 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                 .FirstOrDefault();
         }
 
-        public async Task StartCuttingAsync(ICharacter character, IGameObject tree)
+        public async Task StartCuttingAsync(
+            ICharacter character,
+            EntityHandle<IGameObject> treeHandle,
+            System.Threading.CancellationToken cancellationToken = default)
         {
+            var entityService = character.ServiceProvider.GetRequiredService<IEntityService>();
+            if (!entityService.TryResolve(treeHandle, out var initialTree)
+                || initialTree is null
+                || initialTree.IsDisabled)
+            {
+                return;
+            }
+
+            var treeId = initialTree.Id;
+            var lootTableId = initialTree.Definition.LootTableId;
             var interrupted = false;
             var interruptEvent = character.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
@@ -81,13 +94,13 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
             try
             {
                 var service = _serviceProvider.GetRequiredService<IWoodcuttingService>();
-                var logs = await service.FindLogByTreeId(tree.Id);
+                var logs = await service.FindLogByTreeId(treeId);
                 if (logs is null)
                 {
                     return;
                 }
 
-                var treeDto = await service.FindTreeById(tree.Id);
+                var treeDto = await service.FindTreeById(treeId);
                 if (treeDto is null)
                 {
                     return;
@@ -95,12 +108,16 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
 
                 var hatchets = await service.FindAllHatchets();
                 var lootService = _serviceProvider.GetRequiredService<ILootService>();
-                var lootTable = await lootService.FindGameObjectLootTable(tree.Definition.LootTableId);
+                var lootTable = await lootService.FindGameObjectLootTable(lootTableId);
                 var characterCount = await _characterStore.CountAsync();
+                cancellationToken.ThrowIfCancellationRequested();
 
-                if (!interrupted)
+                if (!interrupted
+                    && entityService.TryResolve(treeHandle, out var currentTree)
+                    && currentTree is not null
+                    && !currentTree.IsDisabled)
                 {
-                    StartCutting(character, tree, logs, treeDto, hatchets, lootTable, characterCount);
+                    StartCutting(character, treeHandle, logs, treeDto, hatchets, lootTable, characterCount);
                 }
             }
             finally
@@ -111,7 +128,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
 
         private void StartCutting(
             ICharacter character,
-            IGameObject tree,
+            EntityHandle<IGameObject> treeHandle,
             LogDto logs,
             TreeDto treeDto,
             IReadOnlyList<HatchetDto> hatchets,
@@ -119,13 +136,24 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
             int characterCount,
             bool ivyTree = false)
         {
+            var entityService = character.ServiceProvider.GetRequiredService<IEntityService>();
+            if (!entityService.TryResolve(treeHandle, out var tree) || tree is null || tree.IsDisabled)
+            {
+                if (tree?.IsDisabled == true)
+                {
+                    character.SendChatMessage(TreeAlreadyCut);
+                }
+
+                return;
+            }
+
             if (character.Statistics.GetSkillLevel(StatisticsConstants.Woodcutting) < logs.RequiredLevel)
             {
                 character.SendChatMessage("You must have a woodcutting level of " + logs.RequiredLevel + " or higher to cut this tree.");
                 return;
             }
 
-            if (tree.IsDestroyed || tree.IsDisabled)
+            if (tree.IsDisabled)
             {
                 character.SendChatMessage(TreeAlreadyCut);
                 return;
@@ -158,7 +186,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                 return;
             }
 
-            bool Callback()
+            bool Callback(IGameObject target)
             {
                 if (character.Inventory.FreeSlots < 1)
                 {
@@ -183,20 +211,19 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                     var gameObjectService = _serviceProvider.GetRequiredService<IGameObjectService>();
 
                     var treeLeaves = gameObjectService
-                                         .FindByLocation(tree.Location.Translate(0, 0, 1))
+                                         .FindByLocation(target.Location.Translate(0, 0, 1))
                                          .FindByStandardObject()
                                          .FirstOrDefault()
                                      ?? gameObjectService
-                                         .FindByLocation(tree.Location.Translate(-1, -1, 1))
+                                         .FindByLocation(target.Location.Translate(-1, -1, 1))
                                          .FindByStandardObject()
                                          .FirstOrDefault();
+                    var treeLeavesHandle = treeLeaves?.Handle;
 
                     // new trees have leaves, so remove the leaves if possible.
                     if (treeLeaves != null)
                     {
-                        character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension, false)
-                            .Remove(treeLeaves);
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>().RemoveGameObject(treeLeaves);
                     }
 
                     var goBuilder = _serviceProvider.GetRequiredService<IGameObjectBuilder>();
@@ -205,33 +232,36 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                     {
                         var stumpObj = goBuilder.Create()
                             .WithId(treeDto.StumpId)
-                            .WithLocation(tree.Location)
-                            .WithRotation(tree.Rotation)
-                            .WithShape(tree.ShapeType)
+                            .WithLocation(target.Location)
+                            .WithRotation(target.Rotation)
+                            .WithShape(target.ShapeType)
                             .Build();
-                        character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension, false)
-                            .Add(stumpObj);
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>().AddGameObject(stumpObj);
                     }
                     else // delete the tree object.
                     {
-                        character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                            .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension, false)
-                            .Remove(tree);
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>().RemoveGameObject(target);
                     }
 
                     var respawnTick = (int)(logs.RespawnTime * (1.0 + characterCount * -0.00025) * 100.0);
+                    var targetHandle = target.Handle;
                     // register a task that will respawn the tree once it has reached the respawn rate.
                     _rsTaskService.Schedule(new RsTask(() =>
                         {
-                            character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                                .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension, false)
-                                .Add(tree);
-                            if (treeLeaves != null)
+                            var mapRegionService = character.ServiceProvider.GetRequiredService<IMapRegionService>();
+                            if (entityService.TryResolve(targetHandle, out var respawnTree)
+                                && respawnTree is not null
+                                && respawnTree.IsDisabled)
                             {
-                                character.ServiceProvider.GetRequiredService<IMapRegionService>()
-                                    .GetOrCreateMapRegion(tree.Location.RegionId, tree.Location.Dimension, false)
-                                    .Add(treeLeaves);
+                                mapRegionService.AddGameObject(respawnTree);
+                            }
+
+                            if (treeLeavesHandle is { } leavesHandle
+                                && entityService.TryResolve(leavesHandle, out var respawnLeaves)
+                                && respawnLeaves is not null
+                                && respawnLeaves.IsDisabled)
+                            {
+                                mapRegionService.AddGameObject(respawnLeaves);
                             }
                         },
                         respawnTick));
@@ -242,7 +272,14 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
             }
 
             // queue the woodcutting task.
-            character.QueueTask(new WoodcuttingTask(character, Callback, cutChance, hatchetData, tree, ivyTree));
+            if (!entityService.TryResolve(treeHandle, out var currentTreeBeforeQueue)
+                || currentTreeBeforeQueue is null
+                || currentTreeBeforeQueue.IsDisabled)
+            {
+                return;
+            }
+
+            character.QueueTask(new WoodcuttingTask(character, Callback, cutChance, hatchetData, treeHandle, ivyTree));
             character.QueueAnimation(Animation.Create(ivyTree ? hatchetData.CanoeAnimationId : hatchetData.ChopAnimationId));
             character.SendChatMessage(SwingAxe);
         }

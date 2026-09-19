@@ -13,13 +13,19 @@ namespace Hagalaz.Services.Contacts.Consumers
         public async Task Consume(ConsumeContext<WorldUserSignInMessage> context)
         {
             var message = context.Message;
-            await _contactSessionService.AddWorldSession(message.WorldId, message.MasterId);
+            await _contactSessionService.AddWorldSession(
+                message.WorldId,
+                message.WorldInstanceId,
+                message.WorldGeneration,
+                message.MasterId,
+                message.SessionGeneration,
+                message.ConnectionId);
         }
 
         public async Task Consume(ConsumeContext<WorldUserSignOutMessage> context)
         {
             var message = context.Message;
-            await _contactSessionService.RemoveSession(message.MasterId);
+            await _contactSessionService.RemoveSession(message.MasterId, message.SessionGeneration, message.ConnectionId);
         }
     }
 }

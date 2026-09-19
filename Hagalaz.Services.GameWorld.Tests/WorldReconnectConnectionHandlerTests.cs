@@ -35,6 +35,112 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class WorldReconnectConnectionHandlerTests
 {
     [TestMethod]
+    public async Task HandleAsync_WhenClaimIsLostDuringReconnect_SendsOneBadSessionResponse()
+    {
+        var protocol = CreateClientProtocol("replacement-protocol");
+        var resolver = Substitute.For<IClientProtocolResolver>();
+        resolver.GetProtocol(742).Returns(protocol);
+        await using var provider = new ServiceCollection()
+            .AddScoped<IClientProtocolResolver>(_ => resolver)
+            .BuildServiceProvider();
+        await using var fixture = CreateReconnectFixture(provider, protocol, out _);
+        fixture.Claims.ExecuteIfOwnerAsync(
+                42,
+                "claim",
+                Arg.Any<Func<CancellationToken, Task<bool>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(false));
+
+        var run = fixture.Handler.HandleAsync(
+            fixture.Replacement,
+            new RaidoConnectionDispatchContext(
+                fixture.Replacement,
+                Substitute.For<IRaidoHubConnectionContextFactory>(),
+                fixture.ConnectionHandler),
+            CreateHandshakeProtocol(),
+            CreateReconnectRequest(),
+            CancellationToken.None);
+        await fixture.Gate.FlushStarted.Task;
+        Assert.AreEqual((byte)ClientSignInResponseOpcode.BadSession, fixture.Gate.FlushedBytes![0]);
+        fixture.Gate.Release();
+        await run;
+        Assert.AreEqual(1, fixture.Gate.FlushCount);
+    }
+
+    [TestMethod]
+    public async Task HandleAsync_WhenSessionIsReplacedDuringProtectedValidation_SendsBadSession()
+    {
+        var protocol = CreateClientProtocol("replacement-protocol");
+        var resolver = Substitute.For<IClientProtocolResolver>();
+        resolver.GetProtocol(742).Returns(protocol);
+        await using var provider = new ServiceCollection()
+            .AddScoped<IClientProtocolResolver>(_ => resolver)
+            .BuildServiceProvider();
+        await using var fixture = CreateReconnectFixture(provider, protocol, out _);
+        var oldSession = (IGameWorldSession)fixture.Target.Features.Get<Hagalaz.Services.GameWorld.Features.ISessionFeature>()!.Session;
+        var replacementSession = Substitute.For<IGameWorldSession>();
+        replacementSession.ConnectionId.Returns("replacement-session");
+        replacementSession.MasterId.Returns(42u);
+        replacementSession.SessionClaimId.Returns("replacement-claim");
+        fixture.Sessions.FindWorldSessionByMasterId(42)
+            .Returns(
+                Task.FromResult<IGameWorldSession?>(oldSession),
+                Task.FromResult<IGameWorldSession?>(replacementSession));
+
+        var run = fixture.Handler.HandleAsync(
+            fixture.Replacement,
+            new RaidoConnectionDispatchContext(
+                fixture.Replacement,
+                Substitute.For<IRaidoHubConnectionContextFactory>(),
+                fixture.ConnectionHandler),
+            CreateHandshakeProtocol(),
+            CreateReconnectRequest(),
+            CancellationToken.None);
+        await fixture.Gate.FlushStarted.Task;
+        Assert.AreEqual((byte)ClientSignInResponseOpcode.BadSession, fixture.Gate.FlushedBytes![0]);
+        fixture.Gate.Release();
+        await run;
+        Assert.AreEqual(1, fixture.Gate.FlushCount);
+    }
+
+    [TestMethod]
+    public async Task HandleAsync_WhenCharacterDisappearsDuringProtectedValidation_SendsBadSession()
+    {
+        var protocol = CreateClientProtocol("replacement-protocol");
+        var resolver = Substitute.For<IClientProtocolResolver>();
+        resolver.GetProtocol(742).Returns(protocol);
+        await using var provider = new ServiceCollection()
+            .AddScoped<IClientProtocolResolver>(_ => resolver)
+            .BuildServiceProvider();
+        await using var fixture = CreateReconnectFixture(provider, protocol, out _);
+        fixture.Claims.ExecuteIfOwnerAsync(
+                42,
+                "claim",
+                Arg.Any<Func<CancellationToken, Task<bool>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                fixture.Target.Features.Set<ICharacterFeature>(new CharacterFeature { Character = null! });
+                return callInfo.Arg<Func<CancellationToken, Task<bool>>>()!(CancellationToken.None);
+            });
+
+        var run = fixture.Handler.HandleAsync(
+            fixture.Replacement,
+            new RaidoConnectionDispatchContext(
+                fixture.Replacement,
+                Substitute.For<IRaidoHubConnectionContextFactory>(),
+                fixture.ConnectionHandler),
+            CreateHandshakeProtocol(),
+            CreateReconnectRequest(),
+            CancellationToken.None);
+        await fixture.Gate.FlushStarted.Task;
+        Assert.AreEqual((byte)ClientSignInResponseOpcode.BadSession, fixture.Gate.FlushedBytes![0]);
+        fixture.Gate.Release();
+        await run;
+        Assert.AreEqual(1, fixture.Gate.FlushCount);
+    }
+
+    [TestMethod]
     public async Task HandleAsync_WhenInjectedValidatorRejects_DoesNotAuthenticate()
     {
         var validator = new TestHandshakeValidator(ClientSignInResponse.Outdated);
@@ -394,9 +500,10 @@ public sealed class WorldReconnectConnectionHandlerTests
             fixture.ConnectionHandler,
             NullLogger<RaidoConnectionDispatcher>.Instance);
 
+        gate.Release();
         await dispatcher.OnConnectedAsync(fixture.Replacement);
 
-        Assert.IsNull(gate.FlushedBytes);
+        Assert.AreEqual((byte)ClientSignInResponseOpcode.BadSession, gate.FlushedBytes![0]);
         clientProtocol.DidNotReceive().SetEncryptionSeed(Arg.Any<uint[]>());
         Assert.AreSame(oldProtocol, fixture.Target.Protocol);
         Assert.AreSame(oldGameClient, fixture.Target.Features.Get<ICharacterFeature>()!.Character!.GameClient);
@@ -472,7 +579,8 @@ public sealed class WorldReconnectConnectionHandlerTests
         {
             AuthenticationProperties = new AuthenticationProperties
             {
-                Claims = new Dictionary<string, object> { [OpenIddictConstants.Claims.Subject] = "42" }
+                Claims = new Dictionary<string, object> { [OpenIddictConstants.Claims.Subject] = "42" },
+                AuthorizationId = "authorization-id"
             }
         });
 
@@ -576,6 +684,7 @@ public sealed class WorldReconnectConnectionHandlerTests
             Assert.AreEqual(Language.English, gameClient.Language);
 
             gateA.Release();
+            gateB.Release();
             await taskA.WaitAsync(TimeSpan.FromSeconds(1));
             await taskB.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -583,7 +692,7 @@ public sealed class WorldReconnectConnectionHandlerTests
             Assert.IsTrue(firstClaimReleasedAfterAttach);
             Assert.AreEqual(targetItemsCount, target.Items.Count);
             Assert.AreEqual(4611, gateA.FlushedBytes!.Length);
-            Assert.IsNull(gateB.FlushedBytes);
+            Assert.AreEqual((byte)ClientSignInResponseOpcode.BadSession, gateB.FlushedBytes![0]);
             Assert.AreSame(protocolA, target.Protocol);
             Assert.AreSame(session, target.Features.Get<Hagalaz.Services.GameWorld.Features.ISessionFeature>()!.Session);
             Assert.AreSame(character, target.Features.Get<ICharacterFeature>()!.Character);
@@ -600,9 +709,10 @@ public sealed class WorldReconnectConnectionHandlerTests
             Assert.AreSame(candidateA, current);
             candidateB.Received(1).Abort(Arg.Any<ConnectionAbortedException>());
 
+            gateC.Release();
             var taskC = dispatcherC.OnConnectedAsync(candidateC);
             await taskC.WaitAsync(TimeSpan.FromSeconds(1));
-            Assert.IsNull(gateC.FlushedBytes);
+            Assert.AreEqual((byte)ClientSignInResponseOpcode.BadSession, gateC.FlushedBytes![0]);
             candidateC.Received(1).Abort(Arg.Any<ConnectionAbortedException>());
             Assert.AreSame(candidateA, current);
             Assert.AreSame(protocolA, target.Protocol);
@@ -808,7 +918,8 @@ public sealed class WorldReconnectConnectionHandlerTests
                 Claims = new Dictionary<string, object>
                 {
                     [OpenIddictConstants.Claims.Subject] = "42"
-                }
+                },
+                AuthorizationId = "authorization-id"
             }
         });
 
@@ -855,6 +966,7 @@ public sealed class WorldReconnectConnectionHandlerTests
             stableConnectionId,
             clientProtocol,
             gate,
+            sessions,
             claims,
             metricsMeter);
     }
@@ -952,6 +1064,7 @@ public sealed class WorldReconnectConnectionHandlerTests
 
         public TaskCompletionSource FlushStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public byte[]? FlushedBytes { get; private set; }
+        public int FlushCount { get; private set; }
 
         public void Release() => Release(new FlushResult(false, false));
 
@@ -967,6 +1080,7 @@ public sealed class WorldReconnectConnectionHandlerTests
 
         public override ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default)
         {
+            FlushCount++;
             FlushedBytes = _buffer.WrittenSpan.ToArray();
             FlushStarted.TrySetResult();
             return _honorCancellation
@@ -1053,6 +1167,7 @@ public sealed class WorldReconnectConnectionHandlerTests
             string stableConnectionId,
             IClientProtocol clientProtocol,
             GatedPipeWriter gate,
+            IGameSessionService sessions,
             IGameSessionClaimStore claims,
             Meter metricsMeter)
         {
@@ -1070,6 +1185,7 @@ public sealed class WorldReconnectConnectionHandlerTests
             StableConnectionId = stableConnectionId;
             ClientProtocol = clientProtocol;
             Gate = gate;
+            Sessions = sessions;
             Claims = claims;
             _metricsMeter = metricsMeter;
         }
@@ -1088,6 +1204,7 @@ public sealed class WorldReconnectConnectionHandlerTests
         public string StableConnectionId { get; }
         public IClientProtocol ClientProtocol { get; }
         public GatedPipeWriter Gate { get; }
+        public IGameSessionService Sessions { get; }
         public IGameSessionClaimStore Claims { get; }
 
         public async ValueTask DisposeAsync()

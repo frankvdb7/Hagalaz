@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Contacts.Messages;
@@ -25,10 +24,23 @@ namespace Hagalaz.Services.GameWorld.Network.Consumers
         public async Task Consume(ConsumeContext<ContactSignOutMessage> context)
         {
             var message = context.Message;
-            var friend = _mapper.Map<ContactDto>(message.Contact);
-            var friendUpdateMessage = new FriendsListMessage { Friends = new List<ContactDto> { friend }, Notify = true };
-            await foreach (var connection in _connectionService.FindAll().Where(c => c.Features.Get<IContactsFeature>()?.Friends?.Contains(message.Contact.MasterId) ?? false))
+            await foreach (var connection in _connectionService.FindAll())
             {
+                var contacts = connection.Features.Get<IContactsFeature>();
+                var currentFriend = contacts?.TryApplySignOut(
+                    message.Contact.MasterId,
+                    message.SessionGeneration,
+                    message.ConnectionId);
+                if (currentFriend is null)
+                {
+                    continue;
+                }
+                var friend = _mapper.Map<ContactDto>(message.Contact) with
+                {
+                    WorldId = null,
+                    WorldName = null
+                };
+                var friendUpdateMessage = new FriendsListMessage { Friends = new List<ContactDto> { friend }, Notify = true };
                 await connection.SendMessage(friendUpdateMessage);
             }
         }

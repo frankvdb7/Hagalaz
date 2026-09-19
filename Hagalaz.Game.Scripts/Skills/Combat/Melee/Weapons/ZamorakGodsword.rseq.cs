@@ -32,7 +32,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
                 Damage = damage,
                 MaxDamage = maxDamage,
                 DamageType = DamageType.FullMelee,
-                Target = victim,
+                Target = victim.Handle,
             });
             victim.QueueGraphic(Graphic.Create(victim.Freeze(34, 40) ? 2104 : 2105));
         }

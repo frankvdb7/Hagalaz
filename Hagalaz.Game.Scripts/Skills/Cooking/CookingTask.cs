@@ -9,6 +9,7 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
+using System.Linq;
 using Hagalaz.Game.Common.Events;
 
 namespace Hagalaz.Game.Scripts.Skills.Cooking
@@ -22,7 +23,11 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
         /// </summary>
         private readonly EventHappened _interruptEvent;
 
-        public CookingTask(ICharacterContextAccessor characterContextAccessor, IItemService itemService, IItemBuilder itemBuilder)
+        public CookingTask(
+            ICharacterContextAccessor characterContextAccessor,
+            IItemService itemService,
+            IItemBuilder itemBuilder,
+            IMapRegionService mapRegionService)
         {
             Performer = characterContextAccessor.Context.Character;
             TickActionMethod = PerformTickImpl;
@@ -33,6 +38,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
             });
             _itemService = itemService;
             _itemBuilder = itemBuilder;
+            _mapRegionService = mapRegionService;
         }
 
         /// <summary>
@@ -70,13 +76,26 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
 
         private readonly IItemBuilder _itemBuilder;
 
+        private readonly IMapRegionService _mapRegionService;
+
         /// <summary>
         ///     Contains tick implementation.
         /// </summary>
         /// <returns></returns>
         private void PerformTickImpl()
         {
-            if (GameObject.IsDestroyed)
+            if (GameObject.IsDisabled)
+            {
+                Cancel();
+                return;
+            }
+
+            var region = _mapRegionService.FindMapRegion(GameObject.Location.RegionId, GameObject.Location.Dimension);
+            if (region is null || !region.FindGameObjects(
+                    GameObject.Location.RegionLocalX,
+                    GameObject.Location.RegionLocalY,
+                    GameObject.Location.Z)
+                .Any(gameObject => ReferenceEquals(gameObject, GameObject)))
             {
                 Cancel();
                 return;

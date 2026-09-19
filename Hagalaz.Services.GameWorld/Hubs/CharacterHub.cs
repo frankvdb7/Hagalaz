@@ -5,6 +5,7 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Game.Messages.Protocol;
@@ -24,11 +25,16 @@ namespace Hagalaz.Services.GameWorld.Hubs
     {
         private readonly ICharacterService _characterService;
         private readonly IAuthenticationService _authenticationService;
+        private readonly IEntityService _entityService;
 
-        public CharacterHub(ICharacterService characterService, IAuthenticationService authenticationService)
+        public CharacterHub(
+            ICharacterService characterService,
+            IAuthenticationService authenticationService,
+            IEntityService entityService)
         {
             _characterService = characterService;
             _authenticationService = authenticationService;
+            _entityService = entityService;
         }
 
         [RaidoMessageHandler(typeof(CharacterClickMessage))]
@@ -43,38 +49,47 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 return;
             }
+            var targetHandle = target.Handle;
             var character = Context.GetCharacter();
-            if (!character.Viewport.VisibleCreatures.Contains(target))
+            character.QueueTask(new RsTask(() =>
             {
-                return;
-            }
-            character.OnCharacterClicked(message.ClickType, message.ForceRun, target);
+                if (_entityService.TryResolve<ICreature>(targetHandle, out var currentTarget)
+                    && currentTarget is ICharacter currentCharacter
+                    && character.Viewport.VisibleCreatures.Contains(currentCharacter))
+                {
+                    character.OnCharacterClicked(message.ClickType, message.ForceRun, currentCharacter);
+                }
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(PublicChatMessage))]
         public void OnPublicChat(PublicChatMessage message)
         {
             var character = Context.GetCharacter();
-            if (!character.EventManager.SendEvent(new ChatAllowEvent(character, message.Text)))
+            character.QueueTask(new RsTask(() =>
             {
-                return;
-            }
-            switch (character.CurrentChatType)
-            {
-                // TODO - other chat types
-                case ClientChatType.Normal:
-                default:
-                    var publicChatMessage = new PublicChatMessage
-                    {
-                        CharacterIndex = character.Index,
-                        Permissions = character.Permissions,
-                        Text = message.Text,
-                        TextAnimation = message.TextAnimation,
-                        TextColor = message.TextColor
-                    };
-                    character.Viewport.VisibleCharacters.ForEach(c => c.Session.SendMessage(publicChatMessage));
-                    break;
-            }
+                if (!character.EventManager.SendEvent(new ChatAllowEvent(character, message.Text)))
+                {
+                    return;
+                }
+
+                switch (character.CurrentChatType)
+                {
+                    // TODO - other chat types
+                    case ClientChatType.Normal:
+                    default:
+                        var publicChatMessage = new PublicChatMessage
+                        {
+                            CharacterIndex = character.Index,
+                            Permissions = character.Permissions,
+                            Text = message.Text,
+                            TextAnimation = message.TextAnimation,
+                            TextColor = message.TextColor
+                        };
+                        character.Viewport.VisibleCharacters.ForEach(c => c.Session.SendMessage(publicChatMessage));
+                        break;
+                }
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(MovementMessage))]
@@ -86,16 +101,21 @@ namespace Hagalaz.Services.GameWorld.Hubs
             }
 
             var character = Context.GetCharacter();
-            var target = Location.Create(message.AbsX, message.AbsY, character.Location.Z, character.Location.Dimension);
-            var delta = Location.GetDelta(character.Location, target);
-            if (delta.X > 100 || delta.X < -100 || delta.Y > 100 || delta.Y < -100)
+            character.QueueTask(new RsTask(() =>
             {
-                return;
-            }
+                var target = Location.Create(message.AbsX, message.AbsY, character.Location.Z, character.Location.Dimension);
+                var delta = Location.GetDelta(character.Location, target);
+                if (delta.X > 100 || delta.X < -100 || delta.Y > 100 || delta.Y < -100)
+                {
+                    return;
+                }
 
-            if (character.EventManager.SendEvent(new WalkAllowEvent(character, target, message.ForceRun, false)))
-            {
-                character.Interrupt(this);
+                if (!character.EventManager.SendEvent(new WalkAllowEvent(character, target, message.ForceRun, false)))
+                {
+                    return;
+                }
+
+                character.Interrupt(message);
                 character.Movement.MovementType = message.ForceRun ? MovementType.Run : character.Movement.MovementType;
                 var task = new LocationReachTask(character,
                     target,
@@ -107,21 +127,27 @@ namespace Hagalaz.Services.GameWorld.Hubs
                         }
                     });
                 character.QueueTask(task);
-            }
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(MusicPlayedMessage))]
         public void OnMusicPlayed(MusicPlayedMessage message)
         {
             var character = Context.GetCharacter();
-            character.Music.OnMusicPlayed(message.MusicId);
+            character.QueueTask(new RsTask(() =>
+            {
+                character.Music.OnMusicPlayed(message.MusicId);
+            }, 1));
         }
 
         [RaidoMessageHandler(typeof(SetClientChatTypeMessage))]
         public void SetClientChatType(SetClientChatTypeMessage message)
         {
             var character = Context.GetCharacter();
-            character.CurrentChatType = message.Type;
+            character.QueueTask(new RsTask(() =>
+            {
+                character.CurrentChatType = message.Type;
+            }, 1));
         }
     }
 }

@@ -12,11 +12,12 @@ namespace Hagalaz.Services.GameWorld.Factories
 
         public GameSessionFactory(IRaidoHubLifetimeManager lifetimeManager) => _lifetimeManager = lifetimeManager;
 
-        public IGameSession Create(uint masterId, string connectionId) =>
-            new GameSession(masterId, connectionId, new GameClientProxy(_lifetimeManager, connectionId));
+        public IGameSession Create(uint masterId, string connectionId, long sessionGeneration) =>
+            new GameSession(masterId, connectionId, sessionGeneration, Guid.NewGuid().ToString("N"),
+                new GameClientProxy(_lifetimeManager, connectionId));
 
-        public IGameWorldSession CreateWorld(uint masterId, string connectionId) =>
-            new WorldGameSession(masterId, connectionId, new GameClientProxy(_lifetimeManager, connectionId),
+        public IGameWorldSession CreateWorld(uint masterId, string connectionId, long sessionGeneration) =>
+            new WorldGameSession(masterId, connectionId, sessionGeneration, new GameClientProxy(_lifetimeManager, connectionId),
                 Guid.NewGuid().ToString("N"));
     }
 }

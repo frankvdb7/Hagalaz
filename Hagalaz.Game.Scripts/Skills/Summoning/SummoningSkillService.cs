@@ -30,8 +30,17 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
         /// </summary>
         /// <param name="character">The character.</param>
         /// <param name="item">The item.</param>
-        public async Task SummonFamiliar(ICharacter character, IItem item)
+        public async Task SummonFamiliar(ICharacter character, IItem item, System.Threading.CancellationToken cancellationToken = default)
         {
+            var pouchId = item.Id;
+            var summoningManager = character.ServiceProvider.GetRequiredService<ISummoningService>();
+            var def = await summoningManager.FindDefinitionByPouchId(pouchId);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (def == null)
+            {
+                return;
+            }
+
             if (!character.Area.FamiliarAllowed)
             {
                 character.SendChatMessage("You cannot summon a familiar in this area.");
@@ -45,13 +54,6 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
 
             var slot = character.Inventory.GetInstanceSlot(item);
             if (slot == -1)
-            {
-                return;
-            }
-
-            var summoningManager = character.ServiceProvider.GetRequiredService<ISummoningService>();
-            var def = await summoningManager.FindDefinitionByPouchId(item.Id);
-            if (def == null)
             {
                 return;
             }

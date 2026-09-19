@@ -6,7 +6,7 @@ namespace Hagalaz.Services.GameWorld.Factories
 {
     public interface IGameSessionFactory
     {
-        IGameSession Create(uint masterId, string connectionId);
-        IGameWorldSession CreateWorld(uint masterId, string connectionId);
+        IGameSession Create(uint masterId, string connectionId, long sessionGeneration);
+        IGameWorldSession CreateWorld(uint masterId, string connectionId, long sessionGeneration);
     }
 }

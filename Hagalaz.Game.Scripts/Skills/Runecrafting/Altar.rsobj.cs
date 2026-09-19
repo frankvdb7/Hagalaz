@@ -33,7 +33,7 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                clicker.QueueTask(() => CraftRunes(clicker));
+                clicker.QueueTask(cancellationToken => CraftRunes(clicker, cancellationToken));
                 return;
             }
 
@@ -44,9 +44,11 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
         ///     Crafts the runes.
         /// </summary>
         /// <param name="character">The character.</param>
-        public async Task CraftRunes(ICharacter character)
+        public async Task CraftRunes(ICharacter character, System.Threading.CancellationToken cancellationToken = default)
         {
-            var definition = await _runecraftingService.FindAltarById(Owner.Id);
+            var altarId = Owner.Id;
+            var definition = await _runecraftingService.FindAltarById(altarId);
+            cancellationToken.ThrowIfCancellationRequested();
             if (definition == null)
             {
                 return;

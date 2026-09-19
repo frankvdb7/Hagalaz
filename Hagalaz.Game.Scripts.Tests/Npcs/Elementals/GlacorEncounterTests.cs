@@ -60,7 +60,7 @@ public sealed class GlacorEncounterTests
 
         queuedTask!.Tick();
 
-        glacorCombat.Received(1).SetTarget(target);
+        glacorCombat.Received(1).SetTarget(target.Handle);
     }
 
     [TestMethod]

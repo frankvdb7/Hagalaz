@@ -30,7 +30,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
 
             var handle = attacker.Combat.PerformAttack(new AttackParams
             {
-                Target = victim,
+                Target = victim.Handle,
                 DamageType = DamageType.FullMelee,
                 Damage = damage,
                 MaxDamage = maxDamage

@@ -62,7 +62,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             {
                 Damage = ((INpcCombat)Owner.Combat).GetRangeDamage(target),
                 MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
-                Target = target,
+                Target = target.Handle,
                 DamageType = DamageType.StandardRange,
                 Delay = delay,
             });

@@ -7,6 +7,7 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Skills.Woodcutting
 {
@@ -22,12 +23,19 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
         /// <param name="finishCallback">The finish callback.</param>
         /// <param name="chance">The chance.</param>
         /// <param name="hatchetData">The hatchet data.</param>
-        /// <param name="gameObject">The game object.</param>
+        /// <param name="gameObjectHandle">The game object handle.</param>
         /// <param name="ivyTree">if set to <c>true</c> [ivy tree].</param>
-        public WoodcuttingTask(ICharacter performer, Func<bool> finishCallback, double chance, HatchetDto hatchetData, IGameObject gameObject, bool ivyTree)
+        public WoodcuttingTask(
+            ICharacter performer,
+            Func<IGameObject, bool> finishCallback,
+            double chance,
+            HatchetDto hatchetData,
+            EntityHandle<IGameObject> gameObjectHandle,
+            bool ivyTree)
         {
             _performer = performer;
             _finishCallback = finishCallback;
+            _entityService = performer.ServiceProvider.GetRequiredService<IEntityService>();
             TickActionMethod = PerformTickImpl;
             _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
             {
@@ -36,7 +44,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
             });
             _chance = chance;
             _hatchetData = hatchetData;
-            _gameObject = gameObject;
+            _gameObjectHandle = gameObjectHandle;
             _ivyTree = ivyTree;
         }
 
@@ -49,12 +57,17 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
         /// <summary>
         ///     Contains finish callback.
         /// </summary>
-        internal readonly Func<bool> _finishCallback;
+        internal readonly Func<IGameObject, bool> _finishCallback;
 
         /// <summary>
         ///     Contains performer.
         /// </summary>
         private readonly ICharacter _performer;
+
+        /// <summary>
+        /// Resolves live world entities.
+        /// </summary>
+        private readonly IEntityService _entityService;
 
         /// <summary>
         ///     The chance of getting log from the tree.
@@ -69,7 +82,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
         /// <summary>
         ///     The object this task is for.
         /// </summary>
-        private readonly IGameObject _gameObject;
+        private readonly EntityHandle<IGameObject> _gameObjectHandle;
 
         /// <summary>
         ///     Whether this tree is a ivy tree.
@@ -82,16 +95,16 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
         /// <returns></returns>
         private void PerformTickImpl()
         {
+            if (!_entityService.TryResolve(_gameObjectHandle, out var gameObject) || gameObject is null || gameObject.IsDisabled)
+            {
+                Cancel();
+                return;
+            }
+
             var randomValue = RandomStatic.Generator.NextDouble();
             if (randomValue <= _chance)
             {
-                if (_gameObject.IsDestroyed || _gameObject.IsDisabled)
-                {
-                    Cancel();
-                    return;
-                }
-
-                if (_finishCallback())
+                if (_finishCallback(gameObject))
                 {
                     Cancel();
                     return;

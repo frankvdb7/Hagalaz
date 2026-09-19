@@ -1,5 +1,6 @@
 using Hagalaz.Game.Messages;
 using Hagalaz.Services.Contacts.Store;
+using Hagalaz.Services.Contacts.Store.Model;
 using MassTransit;
 
 namespace Hagalaz.Services.Contacts.Services
@@ -67,9 +68,9 @@ namespace Hagalaz.Services.Contacts.Services
                 {
                     foreach (var update in _worldSessions.Expire())
                     {
-                        if (!update.IsAvailable)
+                        if (update.RemovedSession is { } removedSession)
                         {
-                            await TryRemoveWorldSessionsAsync(update.WorldId, cancellationToken);
+                            await TryRemoveWorldSessionsAsync(removedSession, cancellationToken);
                         }
                     }
                 }
@@ -120,13 +121,16 @@ namespace Hagalaz.Services.Contacts.Services
             }
         }
 
-        private async Task TryRemoveWorldSessionsAsync(int worldId, CancellationToken cancellationToken)
+        private async Task TryRemoveWorldSessionsAsync(WorldSessionContext world, CancellationToken cancellationToken)
         {
             try
             {
                 using var scope = _scopeFactory.CreateScope();
                 var contactSessionService = scope.ServiceProvider.GetRequiredService<IContactSessionService>();
-                await contactSessionService.RemoveWorldSessions(worldId);
+                await contactSessionService.RemoveWorldSessions(
+                    world.WorldId,
+                    world.InstanceId,
+                    world.Generation);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -134,19 +138,19 @@ namespace Hagalaz.Services.Contacts.Services
             }
             catch (OperationCanceledException exception)
             {
-                _logger.LogWarning(exception, "Contact cleanup was cancelled before completion for world {WorldId}", worldId);
+                _logger.LogWarning(exception, "Contact cleanup was cancelled before completion for world {WorldId}", world.WorldId);
             }
             catch (MassTransitException exception)
             {
-                _logger.LogError(exception, "Error while cleaning up contacts for world {WorldId}", worldId);
+                _logger.LogError(exception, "Error while cleaning up contacts for world {WorldId}", world.WorldId);
             }
             catch (TimeoutException exception)
             {
-                _logger.LogError(exception, "Timed out while cleaning up contacts for world {WorldId}", worldId);
+                _logger.LogError(exception, "Timed out while cleaning up contacts for world {WorldId}", world.WorldId);
             }
             catch (InvalidOperationException exception)
             {
-                _logger.LogError(exception, "Invalid contact cleanup state for world {WorldId}", worldId);
+                _logger.LogError(exception, "Invalid contact cleanup state for world {WorldId}", world.WorldId);
             }
         }
     }

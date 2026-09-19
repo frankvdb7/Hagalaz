@@ -91,7 +91,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                 .Spawn();
             var npc = handle.Npc;
             npc.Speak("You dare to disturb my rest?!");
-            npc.QueueTask(new RsTask(() => npc.Combat.SetTarget(character), 1));
+            var characterHandle = character.Handle;
+            npc.QueueTask(new RsTask(() => npc.Combat.SetTarget(characterHandle), 1));
 
             var icon = _hintIconBuilder.Create().AtEntity(npc).Build();
             if (character.TryRegisterHintIcon(icon))
@@ -409,7 +410,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         /// <param name="obj">The object.</param>
         public void LootChest(IGameObject obj)
         {
-            if (obj.IsDestroyed || Character.Combat.IsInCombat() || !Character.HasState<BarrowsOpenedChestState>())
+            if (obj.IsDisabled || Character.Combat.IsInCombat() || !Character.HasState<BarrowsOpenedChestState>())
             {
                 return;
             }

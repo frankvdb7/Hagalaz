@@ -3,9 +3,11 @@ using System.Threading;
 using System.Runtime.CompilerServices;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Mediator;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Messages;
 using Hagalaz.Services.GameWorld.Services;
@@ -59,15 +61,17 @@ public sealed class WorldStatusServiceShutdownTests
             });
 
         var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
         var characterStore = new SingleCharacterStore(character);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
-        persistenceService.IsPendingLogout(character).Returns(false);
-        persistenceService.PersistAsync(character, true, Arg.Any<CancellationToken>())
+        persistenceService.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
                 Assert.IsFalse(events.Contains("bus-stopped"));
                 events.Add("character-flush");
-                return Task.CompletedTask;
+                return Task.FromResult<CharacterPersistenceReceipt?>(null);
             });
 
         var busLifetime = new RecordingBusLifetime(events);
@@ -91,7 +95,11 @@ public sealed class WorldStatusServiceShutdownTests
                     RegistrationRetryDelay = TimeSpan.FromSeconds(1)
                 }));
                 collection.AddSingleton<ICharacterStore>(characterStore);
+                collection.AddSingleton<IRsTaskService>(new InlineTaskScheduler());
+                collection.AddSingleton(new CharacterPersistenceState());
+                collection.AddScoped<ICharacterDehydrationService>(_ => dehydrationService);
                 collection.AddScoped<ICharacterPersistenceService>(_ => persistenceService);
+                collection.AddScoped<ICharacterLogoutService>(_ => Substitute.For<ICharacterLogoutService>());
                 collection.AddSingleton(busLifetime);
                 collection.AddSingleton<IHostedService>(provider => provider.GetRequiredService<RecordingBusLifetime>());
                 collection.AddHostedService<WorldStatusService>();
@@ -102,6 +110,7 @@ public sealed class WorldStatusServiceShutdownTests
         await host.StartAsync();
         await onlinePublished.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.IsTrue(lifecycle.CanAcceptWorldSignIns);
+        await bus.Received(1).Publish(Arg.Any<WorldOnlineMessage>(), Arg.Any<CancellationToken>());
 
         await host.StopAsync();
 
@@ -111,6 +120,61 @@ public sealed class WorldStatusServiceShutdownTests
         Assert.AreEqual(identity.Generation, offline.Generation);
         CollectionAssert.AreEqual(new[] { "character-flush", "offline", "bus-stopped" }, events);
         Assert.IsFalse(lifecycle.CanAcceptWorldSignIns);
+    }
+
+    [TestMethod]
+    [Timeout(10000)]
+    public async Task RegistrationPublicationFailure_DoesNotMarkWorldReadyOrPublishOffline()
+    {
+        var onlinePublishStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var bus = Substitute.For<IBus>();
+        var mediator = Substitute.For<IGameMediator>();
+        var identity = new WorldInstanceIdentity();
+        var lifecycle = new WorldLifecycleState();
+        lifecycle.MarkCompleted();
+        var onlineMessage = CreateOnlineMessage(identity);
+
+#pragma warning disable CA2012
+        mediator.GetResponseAsync<WorldStatusRequest, WorldOnlineMessage>(Arg.Any<WorldStatusRequest>())
+            .Returns(new ValueTask<WorldOnlineMessage>(onlineMessage));
+#pragma warning restore CA2012
+        bus.Publish(Arg.Any<WorldOnlineMessage>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                onlinePublishStarted.TrySetResult(true);
+                return Task.FromException(new InvalidOperationException("publication failed"));
+            });
+
+        using var host = new HostBuilder()
+            .ConfigureServices(collection =>
+            {
+                collection.AddLogging();
+                collection.AddSingleton(bus);
+                collection.AddSingleton(mediator);
+                collection.AddSingleton<IMapper>(Substitute.For<IMapper>());
+                collection.AddSingleton(identity);
+                collection.AddSingleton(lifecycle);
+                collection.AddSingleton<WorldRegistrationStore>();
+                collection.AddSingleton<IOptions<WorldOptions>>(Options.Create(new WorldOptions
+                {
+                    Id = onlineMessage.Id,
+                    Name = onlineMessage.Name,
+                    AdvertisedEndpoint = new WorldEndpointOptions { Host = onlineMessage.IpAddress, Port = onlineMessage.Port },
+                    RegistrationLeaseDuration = TimeSpan.FromMinutes(1),
+                    RegistrationRenewalInterval = TimeSpan.FromMinutes(1),
+                    RegistrationRetryDelay = TimeSpan.FromHours(1)
+                }));
+                collection.AddHostedService<WorldStatusService>();
+            })
+            .Build();
+
+        await host.StartAsync();
+        await onlinePublishStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.IsFalse(lifecycle.CanAcceptWorldSignIns);
+        await bus.Received(1).Publish(Arg.Any<WorldOnlineMessage>(), Arg.Any<CancellationToken>());
+
+        await host.StopAsync();
+        await bus.DidNotReceiveWithAnyArgs().Publish(default(WorldOfflineMessage)!, default);
     }
 
     private static WorldOnlineMessage CreateOnlineMessage(WorldInstanceIdentity identity) => new()
@@ -156,19 +220,21 @@ public sealed class WorldStatusServiceShutdownTests
 
         public SingleCharacterStore(ICharacter character) => _character = character;
 
-        public async IAsyncEnumerable<ICharacter> FindAllAsync()
-        {
-            yield return _character;
-            await Task.CompletedTask;
-        }
-
         public ValueTask<IReadOnlyDictionary<int, ICharacter>> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
             new(new Dictionary<int, ICharacter> { [_character.Index] = _character });
 
         public ValueTask<int> CountAsync() => throw new NotSupportedException();
         public ValueTask<bool> AddAsync(ICharacter character) => throw new NotSupportedException();
         public ValueTask<bool> RemoveAsync(ICharacter character) => throw new NotSupportedException();
-        public ValueTask<ICharacter?> FindAsync(Func<ICharacter, bool> predicate) => throw new NotSupportedException();
         public ValueTask<ICharacter?> FindByIdAsync(uint id) => throw new NotSupportedException();
+        public ValueTask<ICharacter?> FindByIndexAsync(int index) => throw new NotSupportedException();
+        public ICharacter? FindByMasterId(uint id) => id == _character.MasterId ? _character : null;
+        public bool Remove(ICharacter character) => false;
+    }
+
+    private sealed class InlineTaskScheduler : IRsTaskService
+    {
+        public void Schedule(ITaskItem action) => action.Tick();
+        public void Tick() { }
     }
 }

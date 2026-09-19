@@ -1,14 +1,23 @@
 ﻿using System;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Services.GameWorld.Store;
 
 namespace Hagalaz.Services.GameWorld.Model.Maps.GameObjects
 {
     /// <summary>
     /// Class which represents game object.
     /// </summary>
-    public class GameObject : IGameObject
+    public class GameObject : IGameObject, IEntityIdentity
     {
+        private EntityHandle<IGameObject> _handle;
+
+        public EntityHandle<IGameObject> Handle => _handle;
+
+        int IEntityIdentity.HandleSlot => _handle.Slot;
+        uint IEntityIdentity.HandleGeneration => _handle.Generation;
+        void IEntityIdentity.SetHandle(int slot, uint generation) => _handle = new EntityHandle<IGameObject>(slot, generation);
+
         /// <summary>
         /// Contains Id of this object.
         /// </summary>
@@ -100,8 +109,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.GameObjects
             }
         }
 
-        public bool IsDestroyed { get; private set; }
-
         /// <summary>
         /// Construct's new game object.
         /// </summary>
@@ -161,12 +168,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.GameObjects
         /// </summary>
         public void Destroy()
         {
-            if (IsDestroyed)
-            {
-                throw new InvalidOperationException($"{this} is already destroyed!");
-            }
-
-            IsDestroyed = true;
             Script.OnDestroy();
         }
 

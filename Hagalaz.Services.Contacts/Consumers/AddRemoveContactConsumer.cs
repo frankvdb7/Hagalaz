@@ -11,15 +11,13 @@ namespace Hagalaz.Services.Contacts.Consumers
     public class AddRemoveContactConsumer : IConsumer<AddContactRequest>, IConsumer<RemoveContactRequest>
     {
         private readonly ContactSessionStore _contactSessions;
-        private readonly WorldSessionStore _worldSessions;
         private readonly IContactService _contactService;
         private readonly ICharacterService _characterService;
         private readonly IMapper _mapper;
 
-        public AddRemoveContactConsumer(ContactSessionStore contactSessions, WorldSessionStore worldSessions, IContactService contactService, ICharacterService characterService, IMapper mapper)
+        public AddRemoveContactConsumer(ContactSessionStore contactSessions, IContactService contactService, ICharacterService characterService, IMapper mapper)
         {
             _contactSessions = contactSessions;
-            _worldSessions = worldSessions;
             _contactService = contactService;
             _characterService = characterService;
             _mapper = mapper;
@@ -53,27 +51,28 @@ namespace Hagalaz.Services.Contacts.Consumers
 
             var contactFriend = await _contactService.FindFriendByIdAsync(characterContact.MasterId, message.MasterId);
             var contactSession = _contactSessions.GetOrDefault(characterContact.MasterId);
-            var contactWorldSession = _worldSessions.GetOrDefault(contactSession?.WorldId ?? 0);
 
             // Fetch actual contact settings if mutual friendship is not yet established.
             var contactSettings = contactFriend?.Settings ?? await _contactService.FindContactSettingsAsync(characterContact.MasterId);
             var contactDto = _mapper.Map<ContactDto>(characterContact) with
             {
                 AreMutualFriends = contactFriend != null,
-                WorldId = contactWorldSession?.WorldId,
-                WorldName = contactWorldSession?.WorldName,
+                WorldId = contactSession?.WorldId,
+                WorldName = contactSession?.WorldName,
+                SessionGeneration = contactSession?.SessionGeneration,
+                SessionConnectionId = contactSession?.ConnectionId,
                 Rank = FriendsChatRank.Friend,
                 Settings = new ContactSettingsDto(contactSettings?.Availability?.Off == true ? ContactAvailability.Off :
                     contactSettings?.Availability?.Friends == true ? ContactAvailability.Friends : ContactAvailability.Everyone)
             };
 
             var characterSession = _contactSessions.GetOrDefault(message.MasterId);
-            var characterWorldSession = _worldSessions.GetOrDefault(characterSession?.WorldId ?? 0);
-            // Fix: Use characterWorldSession instead of contactWorldSession to ensure the correct WorldId is sent for the adder.
             var masterDto = _mapper.Map<ContactDto>(character) with
-            { 
-                WorldId = characterWorldSession?.WorldId,
-                WorldName = characterWorldSession?.WorldName
+            {
+                WorldId = characterSession?.WorldId,
+                WorldName = characterSession?.WorldName,
+                SessionGeneration = characterSession?.SessionGeneration,
+                SessionConnectionId = characterSession?.ConnectionId
             };
             var responseTask = context.RespondAsync(new AddContactResponse
             {

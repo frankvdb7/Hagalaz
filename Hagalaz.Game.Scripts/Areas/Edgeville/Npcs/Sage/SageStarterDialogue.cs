@@ -114,7 +114,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Sage
                 if (npc != null)
                 {
                     //this.owner.Session.SendPacket(new SetCameraPositionPacketComposer())
-                    var task = new CreatureReachTask(Owner, npc, success =>
+                    var task = new CreatureReachTask(Owner, npc.Handle, success =>
                     {
                         if (success)
                         {

@@ -77,7 +77,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
 
             if (CanRetaliateTo(attacker))
             {
-                Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(attacker), 1));
+                var attackerHandle = attacker.Handle;
+                Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(attackerHandle), 1));
             }
 
             return false;
@@ -124,12 +125,12 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                         var maxDamage = combat.GetMeleeMaxHit(target);
                         Owner.Combat.PerformAttack(new AttackParams
                         {
-                            Target = target, DamageType = DamageType.StandardMelee, Damage = combat.GetMeleeDamage(target, maxDamage), MaxDamage = maxDamage
+                            Target = target.Handle, DamageType = DamageType.StandardMelee, Damage = combat.GetMeleeDamage(target, maxDamage), MaxDamage = maxDamage
                         });
 
                         Owner.Combat.PerformAttack(new AttackParams
                         {
-                            Target = target, DamageType = DamageType.StandardMelee, Damage = combat.GetMeleeDamage(target, maxDamage), MaxDamage = maxDamage
+                            Target = target.Handle, DamageType = DamageType.StandardMelee, Damage = combat.GetMeleeDamage(target, maxDamage), MaxDamage = maxDamage
                         });
                         break;
                     }
@@ -168,7 +169,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
 
                             Owner.Combat.PerformAttack(new AttackParams
                             {
-                                Target = c,
+                                Target = c.Handle,
                                 DamageType = DamageType.StandardMagic,
                                 Damage = dmg,
                                 MaxDamage = combat.GetMagicMaxHit(c, 210),
@@ -218,7 +219,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                                 Damage = dmg,
                                 Delay = delay,
                                 MaxDamage = combat.GetRangeMaxHit(c),
-                                Target = c,
+                                Target = c.Handle,
                                 DamageType = DamageType.StandardRange,
                             });
 
