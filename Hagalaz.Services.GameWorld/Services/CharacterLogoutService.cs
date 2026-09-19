@@ -137,6 +137,26 @@ public sealed class CharacterLogoutState
         }
     }
 
+    public bool MarkTerminalTransitionCanceled(ICharacter character)
+    {
+        lock (_gate)
+        {
+            if (!_pending.TryGetValue(character.MasterId, out var pending) ||
+                !ReferenceEquals(pending.Character, character))
+            {
+                return false;
+            }
+
+            pending.RecoveryRequested = true;
+            if (pending.Snapshot is not null)
+            {
+                pending.RecoveryEligible = true;
+            }
+
+            return true;
+        }
+    }
+
     public IReadOnlyList<PendingLogout> FindRecoverablePendingLogouts()
     {
         lock (_gate)
@@ -200,6 +220,8 @@ public sealed class CharacterLogoutState
             }
 
             pending.Snapshot = snapshot;
+            // The scheduled terminal transition may outlive a canceled request wait.
+            pending.RecoveryEligible |= pending.RecoveryRequested;
             return true;
         }
     }
@@ -280,6 +302,7 @@ public sealed class CharacterLogoutState
         public CharacterPersistenceReceipt? PersistenceReceipt { get; set; }
         public bool SessionRemoved { get; set; }
         public bool RecoveryEligible { get; set; }
+        public bool RecoveryRequested { get; set; }
         public TaskCompletionSource<CharacterModel>? TerminalTransition { get; set; }
     }
 }
@@ -422,6 +445,7 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
         {
             _taskService.Schedule(new RsTask(() =>
             {
+                var snapshotEstablished = false;
                 try
                 {
                     var dehydrationService = character.ServiceProvider.GetRequiredService<ICharacterDehydrationService>();
@@ -441,18 +465,32 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
                         throw new InvalidOperationException($"Character '{character.MasterId}' logout snapshot was already captured.");
                     }
 
+                    snapshotEstablished = true;
                     character.Destroy();
                     completion.TrySetResult(finalSnapshot);
                 }
                 catch (Exception exception)
                 {
+                    if (snapshotEstablished)
+                    {
+                        _logoutState.MarkRecoveryEligible(character);
+                    }
+
                     completion.TrySetException(exception);
                     throw;
                 }
             }, 1));
         }
 
-        return await completion.Task.WaitAsync(cancellationToken);
+        try
+        {
+            return await completion.Task.WaitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _logoutState.MarkTerminalTransitionCanceled(character);
+            throw;
+        }
     }
 
     public void CompleteLogout(ICharacter character)

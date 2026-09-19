@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -190,6 +191,123 @@ public sealed class CharacterLogoutServiceTests
         characterService.Received(1).Remove(character);
         character.Received(1).Destroy();
         CollectionAssert.AreEqual(new[] { "snapshot", "remove", "destroy" }, order);
+    }
+
+    [TestMethod]
+    public async Task DetachAsync_WhenWaitIsCanceledBeforeWorkerRuns_MakesTerminalSnapshotRecoverable()
+    {
+        var character = CreateCharacter(42);
+        var state = new CharacterLogoutState();
+        Assert.IsTrue(state.TryBeginLogout(character, out _));
+        var characterService = Substitute.For<ICharacterService>();
+        characterService.Remove(character).Returns(true);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
+        using var provider = new ServiceCollection()
+            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .BuildServiceProvider();
+        character.ServiceProvider.Returns(provider);
+
+        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var persistenceState = new CharacterPersistenceState();
+        persistenceState.InitializeRevision(42, 0, 7);
+        var persistence = Substitute.For<ICharacterPersistenceService>();
+        var receipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 1);
+        persistence.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<CharacterPersistenceReceipt?>(receipt));
+        persistence.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(CharacterPersistenceOutcome.Committed));
+        var sessionService = Substitute.For<IGameSessionService>();
+        sessionService.RemoveSession(character.Session, CancellationToken.None).Returns(Task.FromResult(true));
+        var mediator = Substitute.For<IGameMediator>();
+        var service = new CharacterLogoutService(
+            state,
+            characterService,
+            scheduler,
+            mediator,
+            persistenceState,
+            persistence,
+            sessionService);
+        using var cancellation = new CancellationTokenSource();
+
+        var detachTask = service.DetachAsync(character, cancellation.Token);
+        cancellation.Cancel();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => detachTask);
+        Assert.AreEqual(0, state.FindRecoverablePendingLogouts().Count);
+
+        scheduler.Tick();
+
+        Assert.AreEqual(1, state.FindRecoverablePendingLogouts().Count);
+        Assert.IsTrue(state.TryGetSnapshot(character, out var snapshot));
+        await service.RecoverPendingLogoutsAsync();
+
+        await persistence.Received(1).PersistAsync(42, snapshot, true, Arg.Any<CancellationToken>());
+        await persistence.Received(1).WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>());
+        await sessionService.Received(1).RemoveSession(character.Session, CancellationToken.None);
+        Assert.IsFalse(state.IsPending(character));
+        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+    }
+
+    [TestMethod]
+    public async Task DetachAsync_WhenDehydrationFailsBeforeSnapshot_DoesNotMakeLogoutRecoverable()
+    {
+        var character = CreateCharacter(42);
+        var state = new CharacterLogoutState();
+        Assert.IsTrue(state.TryBeginLogout(character, out _));
+        var characterService = Substitute.For<ICharacterService>();
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        var failure = new InvalidOperationException("dehydration failed");
+        dehydrationService.Dehydrate(character).Returns(_ => throw failure);
+        using var provider = new ServiceCollection()
+            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .BuildServiceProvider();
+        character.ServiceProvider.Returns(provider);
+
+        var service = new CharacterLogoutService(
+            state,
+            characterService,
+            new InlineTaskScheduler(),
+            Substitute.For<IGameMediator>(),
+            new CharacterPersistenceState());
+
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.DetachAsync(character));
+
+        Assert.AreSame(failure, exception);
+        Assert.AreEqual(0, state.FindRecoverablePendingLogouts().Count);
+        Assert.IsFalse(state.TryGetSnapshot(character, out _));
+        characterService.DidNotReceive().Remove(character);
+    }
+
+    [TestMethod]
+    public async Task DetachAsync_WhenCleanupFailsAfterSnapshot_MakesLogoutRecoverable()
+    {
+        var character = CreateCharacter(42);
+        var state = new CharacterLogoutState();
+        Assert.IsTrue(state.TryBeginLogout(character, out _));
+        var characterService = Substitute.For<ICharacterService>();
+        characterService.Remove(character).Returns(true);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
+        using var provider = new ServiceCollection()
+            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .BuildServiceProvider();
+        character.ServiceProvider.Returns(provider);
+        var failure = new InvalidOperationException("destroy failed");
+        character.When(value => value.Destroy()).Do(_ => throw failure);
+
+        var service = new CharacterLogoutService(
+            state,
+            characterService,
+            new InlineTaskScheduler(),
+            Substitute.For<IGameMediator>(),
+            new CharacterPersistenceState());
+
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.DetachAsync(character));
+
+        Assert.AreSame(failure, exception);
+        Assert.AreEqual(1, state.FindRecoverablePendingLogouts().Count);
+        Assert.IsTrue(state.TryGetSnapshot(character, out _));
     }
 
     [TestMethod]
