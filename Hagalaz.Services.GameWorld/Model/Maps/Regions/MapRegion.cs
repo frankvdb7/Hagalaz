@@ -16,6 +16,7 @@ using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Extensions;
+using Hagalaz.Services.GameWorld.Model.Maps.Regions.Updates;
 using Microsoft.AspNetCore.Connections;
 
 namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
@@ -367,6 +368,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         public void QueueUpdate(IRegionPartUpdate update)
         {
             EnsureAcceptsMutation();
+            if ((update is AddGameObjectUpdate addGameObjectUpdate
+                    && !OwnsGameObject(addGameObjectUpdate.GameObject))
+                || (update is SetGameObjectAnimationUpdate animationUpdate
+                    && !OwnsGameObject(animationUpdate.GameObject)))
+            {
+                return;
+            }
+
             var partHash = update.Location.GetRegionPartHash();
             _parts.GetOrAdd(partHash, CreateRegionPart).QueueUpdate(update);
         }

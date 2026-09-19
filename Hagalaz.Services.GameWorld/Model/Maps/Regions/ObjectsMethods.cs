@@ -81,9 +81,18 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 return;
             }
 
+            if (!OwnsGameObject(gameObject))
+            {
+                return;
+            }
+
+            UnFlagCollisionCore(gameObject);
             part.Remove(gameObject);
-            UnFlagCollision(gameObject);
         }
+
+        private bool OwnsGameObject(IGameObject gameObject) =>
+            FindGameObjects(gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z)
+                .Any(existing => ReferenceEquals(existing, gameObject));
 
         public void UnloadPartGameObjects(int partX, int partY, int partZ, int partRotation)
         {

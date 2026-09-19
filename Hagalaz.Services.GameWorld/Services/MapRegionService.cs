@@ -229,10 +229,11 @@ namespace Hagalaz.Services.GameWorld.Services
         public bool RemoveGroundItem(IGroundItem item)
         {
             ArgumentNullException.ThrowIfNull(item);
-            // Removal may destroy or schedule the item, so keep it outside
-            // the residency gate on the serialized GameWorker boundary.
-            var region = GetOrCreateMapRegion(item.Location.RegionId, item.Location.Dimension);
-            return region.Remove(item);
+            // Stale removal must not resume or recreate a region. The current
+            // region owns the retained item state and performs the callback on
+            // the serialized GameWorker boundary.
+            var region = FindMapRegion(item.Location.RegionId, item.Location.Dimension);
+            return region is not null && region.State != MapRegionState.Discarded && region.Remove(item);
         }
 
         public void AddGameObject(IGameObject gameObject)
@@ -247,45 +248,51 @@ namespace Hagalaz.Services.GameWorld.Services
         public void RemoveGameObject(IGameObject gameObject)
         {
             ArgumentNullException.ThrowIfNull(gameObject);
-            // Removal may invoke object lifecycle code; the GameWorker owns
-            // this callback boundary rather than the residency gate.
-            var region = GetOrCreateMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension);
-            region.Remove(gameObject);
+            // Stale removal must not resume or recreate a region. Object
+            // lifecycle callbacks remain on the serialized GameWorker boundary.
+            var region = FindMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension);
+            if (region is not null && region.State != MapRegionState.Discarded)
+            {
+                region.Remove(gameObject);
+            }
         }
 
         public void FlagCollision(IGameObject gameObject)
         {
             ArgumentNullException.ThrowIfNull(gameObject);
-            var region = GetOrCreateMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension);
-
-            lock (_residencyGate)
+            var region = FindMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension);
+            if (region is not null
+                && region.State != MapRegionState.Discarded
+                && OwnsGameObject(region, gameObject))
             {
-                var dimension = _dimensions[gameObject.Location.Dimension] ?? throw new InvalidOperationException($"Dimension[{gameObject.Location.Dimension}] no longer exists.");
-                ResolveActiveRegionForMutation(dimension, region.Id).FlagCollision(gameObject);
+                region.FlagCollision(gameObject);
             }
         }
 
         public void UnFlagCollision(IGameObject gameObject)
         {
             ArgumentNullException.ThrowIfNull(gameObject);
-            var region = GetOrCreateMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension);
-
-            lock (_residencyGate)
+            var region = FindMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension);
+            if (region is not null
+                && region.State != MapRegionState.Discarded
+                && OwnsGameObject(region, gameObject))
             {
-                var dimension = _dimensions[gameObject.Location.Dimension] ?? throw new InvalidOperationException($"Dimension[{gameObject.Location.Dimension}] no longer exists.");
-                ResolveActiveRegionForMutation(dimension, region.Id).UnFlagCollision(gameObject);
+                region.UnFlagCollision(gameObject);
             }
         }
+
+        private static bool OwnsGameObject(IMapRegion region, IGameObject gameObject) =>
+            region.FindAllGameObjects().Any(existing => ReferenceEquals(existing, gameObject));
 
         public void QueueUpdate(IRegionPartUpdate update)
         {
             ArgumentNullException.ThrowIfNull(update);
-            var region = GetOrCreateMapRegion(update.Location.RegionId, update.Location.Dimension);
-
-            lock (_residencyGate)
+            // Region effects and existing-object updates must not resurrect a
+            // region merely because delayed work arrived after teardown.
+            var region = FindMapRegion(update.Location.RegionId, update.Location.Dimension);
+            if (region is not null && region.State != MapRegionState.Discarded)
             {
-                var dimension = _dimensions[update.Location.Dimension] ?? throw new InvalidOperationException($"Dimension[{update.Location.Dimension}] no longer exists.");
-                ResolveActiveRegionForMutation(dimension, region.Id).QueueUpdate(update);
+                region.QueueUpdate(update);
             }
         }
 
@@ -616,12 +623,12 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <param name="flag">The flag.</param>
         public void UnFlagCollision(ILocation location, CollisionFlag flag)
         {
-            var region = GetOrCreateMapRegion(location.RegionId, location.Dimension);
-            lock (_residencyGate)
+            // Unflagging is teardown of existing collision state. It must not
+            // create or resume a region when the owning region is gone or idle.
+            var region = FindMapRegion(location.RegionId, location.Dimension);
+            if (region is not null && region.State != MapRegionState.Discarded)
             {
-                var dimension = _dimensions[location.Dimension] ?? throw new InvalidOperationException($"Dimension[{location.Dimension}] no longer exists.");
-                ResolveActiveRegionForMutation(dimension, region.Id)
-                    .UnFlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, flag);
+                region.UnFlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, flag);
             }
         }
 
