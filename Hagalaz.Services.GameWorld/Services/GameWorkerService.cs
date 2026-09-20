@@ -46,7 +46,18 @@ namespace Hagalaz.Services.GameWorld.Services
         public override async Task StopAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("{Name} is stopping.", nameof(GameWorkerService));
-            await base.StopAsync(cancellationToken);
+            _rsTaskScheduler.BeginShutdown();
+            try
+            {
+                await base.StopAsync(cancellationToken);
+            }
+            finally
+            {
+                if (ExecuteTask is null)
+                {
+                    _rsTaskScheduler.CompleteShutdown();
+                }
+            }
 
             if (ExecuteTask is { IsCompleted: false })
             {
@@ -57,35 +68,42 @@ namespace Hagalaz.Services.GameWorld.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var tickTimeSpan = _gameOptions.TickTimeSpan;
-            while (!stoppingToken.IsCancellationRequested)
+            try
             {
-                try
+                var tickTimeSpan = _gameOptions.TickTimeSpan;
+                while (!stoppingToken.IsCancellationRequested)
                 {
-                    await Task.Delay(tickTimeSpan, stoppingToken);
-                }
-                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-                {
-                    break;
-                }
+                    try
+                    {
+                        await Task.Delay(tickTimeSpan, stoppingToken);
+                    }
+                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
 
-                if (stoppingToken.IsCancellationRequested)
-                {
-                    break;
-                }
+                    if (stoppingToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
 
-                try
-                {
-                    await ExecuteTickAsync(stoppingToken);
+                    try
+                    {
+                        await ExecuteTickAsync(stoppingToken);
+                    }
+                    catch (OperationCanceledException ex) when (ex.CancellationToken == stoppingToken)
+                    {
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error occurred in major game tick.");
+                    }
                 }
-                catch (OperationCanceledException ex) when (ex.CancellationToken == stoppingToken)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error occurred in major game tick.");
-                }
+            }
+            finally
+            {
+                _rsTaskScheduler.CompleteShutdown();
             }
         }
 

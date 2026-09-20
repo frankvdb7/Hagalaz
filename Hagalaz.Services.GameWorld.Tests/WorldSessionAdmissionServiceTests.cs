@@ -209,6 +209,46 @@ public sealed class WorldSessionAdmissionServiceTests
         fixture.Character.Received(1).Destroy();
     }
 
+    [TestMethod]
+    public async Task AdmitAsync_WhenCommitFailsAndShutdownBeginsAfterRollbackIsAccepted_CompletesRollback()
+    {
+        var scheduler = new DeferredTaskScheduler();
+        var fixture = CreateFixture(commitResult: false, scheduler);
+        var admission = fixture.Service.AdmitAsync(
+            CreateSignInRequest(),
+            fixture.Context,
+            42,
+            new AuthenticationProperties()).AsTask();
+
+        await scheduler.Scheduled.Task;
+        scheduler.BeginShutdown();
+        scheduler.CompleteShutdown();
+
+        Assert.IsFalse((await admission).Succeeded);
+        fixture.CharacterService.Received(1).Remove(fixture.Character);
+        fixture.Character.Received(1).Destroy();
+        await fixture.GameSessionService.Received(1).RemoveSession(fixture.Session, CancellationToken.None);
+    }
+
+    [TestMethod]
+    public async Task AdmitAsync_WhenCommitFailsAfterShutdownCompletes_CompletesRollbackImmediately()
+    {
+        var scheduler = new DeferredTaskScheduler();
+        var fixture = CreateFixture(commitResult: false, scheduler);
+        scheduler.BeginShutdown();
+        scheduler.CompleteShutdown();
+
+        var result = await fixture.Service.AdmitAsync(
+            CreateSignInRequest(),
+            fixture.Context,
+            42,
+            new AuthenticationProperties());
+
+        Assert.IsFalse(result.Succeeded);
+        fixture.CharacterService.Received(1).Remove(fixture.Character);
+        fixture.Character.Received(1).Destroy();
+    }
+
     private static Fixture CreateFixture(bool commitResult, IRsTaskService? scheduler = null)
     {
         var mapper = Substitute.For<IMapper>();
@@ -326,12 +366,17 @@ public sealed class WorldSessionAdmissionServiceTests
     {
         public void Schedule(ITaskItem action) => action.Tick();
         public void Tick() { }
+        public void ScheduleLifecycleCritical(System.Action action) => action();
+        public void BeginShutdown() { }
+        public void CompleteShutdown() { }
     }
 
     private sealed class DeferredTaskScheduler : IRsTaskService
     {
         public TaskCompletionSource<bool> Scheduled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private ITaskItem? _pending;
+        private System.Action? _pendingLifecycleAction;
+        private bool _shutdownCompleted;
 
         public void Schedule(ITaskItem action)
         {
@@ -339,11 +384,40 @@ public sealed class WorldSessionAdmissionServiceTests
             Scheduled.TrySetResult(true);
         }
 
+        public void ScheduleLifecycleCritical(System.Action action)
+        {
+            if (_shutdownCompleted)
+            {
+                action();
+                return;
+            }
+
+            _pendingLifecycleAction = action;
+            Scheduled.TrySetResult(true);
+        }
+
+        public void BeginShutdown() { }
+
+        public void CompleteShutdown()
+        {
+            _shutdownCompleted = true;
+            var pending = _pendingLifecycleAction;
+            _pendingLifecycleAction = null;
+            pending?.Invoke();
+        }
+
         public void Tick()
         {
-            var pending = _pending ?? throw new InvalidOperationException("No task was scheduled.");
-            _pending = null;
-            pending.Tick();
+            if (_pending is not null)
+            {
+                var pending = _pending;
+                _pending = null;
+                pending.Tick();
+            }
+
+            var pendingLifecycleAction = _pendingLifecycleAction;
+            _pendingLifecycleAction = null;
+            pendingLifecycleAction?.Invoke();
         }
     }
 }

@@ -747,5 +747,8 @@ public sealed class CharacterLogoutServiceTests
     {
         public void Schedule(ITaskItem action) => action.Tick();
         public void Tick() { }
+        public void ScheduleLifecycleCritical(System.Action action) => action();
+        public void BeginShutdown() { }
+        public void CompleteShutdown() { }
     }
 }

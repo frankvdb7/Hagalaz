@@ -7,7 +7,6 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld.Factories;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
@@ -181,7 +180,7 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         if (character is not null && characterRegistered)
         {
             var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            _taskScheduler.Schedule(new RsTask(() =>
+            _taskScheduler.ScheduleLifecycleCritical(() =>
             {
                 var removed = false;
                 try
@@ -208,7 +207,7 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
                 {
                     completion.TrySetResult(removed);
                 }
-            }, 1));
+            });
 
             if (!await completion.Task)
             {

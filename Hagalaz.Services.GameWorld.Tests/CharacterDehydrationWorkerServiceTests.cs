@@ -206,6 +206,10 @@ public sealed class CharacterDehydrationWorkerServiceTests
             Scheduled.TrySetResult(true);
         }
 
+        public void ScheduleLifecycleCritical(System.Action action) => action();
+        public void BeginShutdown() { }
+        public void CompleteShutdown() { }
+
         public void Tick()
         {
             var pending = _pending ?? throw new InvalidOperationException("No task was scheduled.");
@@ -224,5 +228,8 @@ public sealed class CharacterDehydrationWorkerServiceTests
     {
         public void Schedule(ITaskItem action) => action.Tick();
         public void Tick() { }
+        public void ScheduleLifecycleCritical(System.Action action) => action();
+        public void BeginShutdown() { }
+        public void CompleteShutdown() { }
     }
 }
