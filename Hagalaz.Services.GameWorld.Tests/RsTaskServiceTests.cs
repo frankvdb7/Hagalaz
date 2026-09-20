@@ -51,68 +51,6 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public void CompleteShutdown_DrainsAcceptedLifecycleTasksWithoutDrainingOrdinaryTasks()
-        {
-            var taskService = new RsTaskService(new NullLogger<RsTaskService>());
-            var ordinaryExecuted = false;
-            var lifecycleExecuted = false;
-
-            taskService.Schedule(new RsTask(() => ordinaryExecuted = true, executeDelay: 1));
-            taskService.ScheduleLifecycleCritical(() => lifecycleExecuted = true);
-            taskService.BeginShutdown();
-
-            taskService.CompleteShutdown();
-
-            Assert.IsTrue(lifecycleExecuted);
-            Assert.IsFalse(ordinaryExecuted);
-        }
-
-        [TestMethod]
-        public void ScheduleLifecycleCritical_AfterShutdownExecutesImmediately()
-        {
-            var taskService = new RsTaskService(new NullLogger<RsTaskService>());
-            var executed = false;
-            taskService.BeginShutdown();
-            taskService.CompleteShutdown();
-
-            taskService.ScheduleLifecycleCritical(() => executed = true);
-
-            Assert.IsTrue(executed);
-        }
-
-        [TestMethod]
-        public async Task CompleteShutdown_WaitsForLifecycleTaskAlreadyExecuting()
-        {
-            var taskService = new RsTaskService(new NullLogger<RsTaskService>());
-            using var started = new ManualResetEventSlim();
-            using var release = new ManualResetEventSlim();
-            var completed = false;
-            taskService.ScheduleLifecycleCritical(() =>
-            {
-                started.Set();
-                release.Wait();
-                completed = true;
-            });
-            taskService.BeginShutdown();
-
-            var shutdown = Task.Run(taskService.CompleteShutdown);
-            try
-            {
-                Assert.IsTrue(started.Wait(TimeSpan.FromSeconds(5)));
-                Assert.IsFalse(shutdown.IsCompleted);
-                release.Set();
-                await shutdown.WaitAsync(TimeSpan.FromSeconds(5));
-            }
-            finally
-            {
-                release.Set();
-                await shutdown;
-            }
-
-            Assert.IsTrue(completed);
-        }
-
-        [TestMethod]
         public void Tick_WithMultipleCompletedTasks_RemovesAllCompletedTasks()
         {
             // Arrange

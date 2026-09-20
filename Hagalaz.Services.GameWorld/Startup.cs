@@ -158,7 +158,9 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<MapRegionLoadScheduler>();
             services.AddSingleton<IMapRegionLoadScheduler>(provider => provider.GetRequiredService<MapRegionLoadScheduler>());
             services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<MapRegionLoadScheduler>());
-            services.AddHostedService<GameWorkerService>();
+            services.AddSingleton<GameWorkerService>();
+            services.AddSingleton<IGameWorkerExecution>(provider => provider.GetRequiredService<GameWorkerService>());
+            services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<GameWorkerService>());
             services.AddSingleton<InMemoryEventBus>();
             services.AddSingleton<IEventBus>(provider => provider.GetRequiredService<InMemoryEventBus>());
             services.AddSingleton<IEventManager>(provider => provider.GetRequiredService<InMemoryEventBus>());

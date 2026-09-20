@@ -246,6 +246,66 @@ public sealed class GameWorkerServiceTests
     }
 
     [TestMethod]
+    public async Task ExecutionCompleted_CompletesAfterHostedExecutionTaskTerminates()
+    {
+        using var worker = CreateWorker(Substitute.For<IMapRegion>(), TimeSpan.FromDays(1)).Worker;
+
+        await worker.StartAsync(CancellationToken.None);
+        Assert.IsFalse(worker.ExecutionCompleted.IsCompleted);
+
+        await worker.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(1));
+        await worker.ExecutionCompleted.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.IsTrue(worker.ExecuteTask?.IsCompleted ?? false);
+    }
+
+    [TestMethod]
+    public async Task ExecutionCompleted_CompletesWhenHostedExecutionTaskFaults()
+    {
+        using var worker = CreateWorker(
+            Substitute.For<IMapRegion>(),
+            TimeSpan.FromMilliseconds(-2)).Worker;
+
+        _ = worker.StartAsync(CancellationToken.None);
+        var executeTask = worker.ExecuteTask ?? throw new AssertFailedException("The worker did not start an execution task.");
+
+        await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
+            () => executeTask.WaitAsync(TimeSpan.FromSeconds(1)));
+
+        Assert.IsTrue(executeTask.IsFaulted);
+        await worker.ExecutionCompleted.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.IsTrue(worker.ExecutionCompleted.IsCompletedSuccessfully);
+    }
+
+    [TestMethod]
+    public async Task ExecutionCompleted_RemainsIncompleteWhenStopTimeoutExpiresDuringTick()
+    {
+        var tickStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseTick = new ManualResetEventSlim();
+        var region = Substitute.For<IMapRegion>();
+        region.When(item => item.MajorUpdateTick()).Do(_ =>
+        {
+            tickStarted.TrySetResult(true);
+            releaseTick.Wait();
+        });
+
+        using var worker = CreateWorker(region, TimeSpan.Zero).Worker;
+        await worker.StartAsync(CancellationToken.None);
+        await tickStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        using var stopCancellation = new CancellationTokenSource();
+        var stopTask = worker.StopAsync(stopCancellation.Token);
+        stopCancellation.Cancel();
+
+        await Assert.ThrowsExactlyAsync<TimeoutException>(() => stopTask);
+        Assert.IsFalse(worker.ExecutionCompleted.IsCompleted);
+
+        releaseTick.Set();
+        await worker.ExecutionCompleted.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.IsTrue(worker.ExecuteTask?.IsCompleted ?? false);
+    }
+
+    [TestMethod]
     public async Task ExecuteTickAsync_CancellationBeforeTickLeavesRegionsUntouched()
     {
         var regionService = Substitute.For<IMapRegionService>();

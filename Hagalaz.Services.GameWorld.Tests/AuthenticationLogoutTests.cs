@@ -1008,7 +1008,8 @@ public sealed class AuthenticationLogoutTests
                 persistenceService,
                 gameSessionService,
                 Substitute.For<IRequestClient<HydrateCharacter>>(),
-                new ImmediateTaskScheduler()),
+                new ImmediateTaskScheduler(),
+                Substitute.For<IGameWorkerExecution>()),
             Substitute.For<IRequestClient<SignInUserRequestMessage>>(),
             Substitute.For<IRequestClient<ValidateExistingAuthenticationRequestMessage>>(),
             Substitute.For<IRequestClient<GetUserInfoRequestMessage>>(),
@@ -1082,8 +1083,5 @@ public sealed class AuthenticationLogoutTests
     {
         public void Schedule(ITaskItem action) => action.Tick();
         public void Tick() { }
-        public void ScheduleLifecycleCritical(System.Action action) => action();
-        public void BeginShutdown() { }
-        public void CompleteShutdown() { }
     }
 }

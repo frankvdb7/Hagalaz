@@ -1422,7 +1422,8 @@ public sealed class AuthenticationSignInTests
             persistenceService,
             gameSessionService,
             getCharacterRequestClient ?? hydrateRequestClient,
-            new ImmediateTaskScheduler());
+            new ImmediateTaskScheduler(),
+            Substitute.For<IGameWorkerExecution>());
 
         return new AuthenticationService(
             NullLogger<AuthenticationService>.Instance,
@@ -1799,8 +1800,5 @@ public sealed class AuthenticationSignInTests
     {
         public void Schedule(ITaskItem action) => action.Tick();
         public void Tick() { }
-        public void ScheduleLifecycleCritical(System.Action action) => action();
-        public void BeginShutdown() { }
-        public void CompleteShutdown() { }
     }
 }

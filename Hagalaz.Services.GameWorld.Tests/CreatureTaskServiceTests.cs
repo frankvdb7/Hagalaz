@@ -182,8 +182,5 @@ public sealed class CreatureTaskServiceTests
         }
 
         public void Tick() => (_scheduled ?? throw new InvalidOperationException("No task was scheduled.")).Tick();
-        public void ScheduleLifecycleCritical(System.Action action) => action();
-        public void BeginShutdown() { }
-        public void CompleteShutdown() { }
     }
 }

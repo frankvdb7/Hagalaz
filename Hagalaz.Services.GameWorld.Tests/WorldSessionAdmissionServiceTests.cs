@@ -210,7 +210,7 @@ public sealed class WorldSessionAdmissionServiceTests
     }
 
     [TestMethod]
-    public async Task AdmitAsync_WhenCommitFailsAndShutdownBeginsAfterRollbackIsAccepted_CompletesRollback()
+    public async Task AdmitAsync_WhenCommitFailsAfterWorkerExecutionCompletes_CompletesWithoutWorkerTick()
     {
         var scheduler = new DeferredTaskScheduler();
         var fixture = CreateFixture(commitResult: false, scheduler);
@@ -221,32 +221,104 @@ public sealed class WorldSessionAdmissionServiceTests
             new AuthenticationProperties()).AsTask();
 
         await scheduler.Scheduled.Task;
-        scheduler.BeginShutdown();
-        scheduler.CompleteShutdown();
+        fixture.WorkerCompleted.TrySetResult(true);
 
-        Assert.IsFalse((await admission).Succeeded);
+        var result = await admission;
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual(0, scheduler.TickCalls);
         fixture.CharacterService.Received(1).Remove(fixture.Character);
         fixture.Character.Received(1).Destroy();
+        fixture.PersistenceService.Received(1).Release(42, 0);
         await fixture.GameSessionService.Received(1).RemoveSession(fixture.Session, CancellationToken.None);
     }
 
     [TestMethod]
-    public async Task AdmitAsync_WhenCommitFailsAfterShutdownCompletes_CompletesRollbackImmediately()
+    public async Task AdmitAsync_WhenRollbackCallbackWinsBeforeWorkerCompletion_DoesNotDuplicateCleanup()
     {
         var scheduler = new DeferredTaskScheduler();
         var fixture = CreateFixture(commitResult: false, scheduler);
-        scheduler.BeginShutdown();
-        scheduler.CompleteShutdown();
-
-        var result = await fixture.Service.AdmitAsync(
+        var admission = fixture.Service.AdmitAsync(
             CreateSignInRequest(),
             fixture.Context,
             42,
-            new AuthenticationProperties());
+            new AuthenticationProperties()).AsTask();
 
-        Assert.IsFalse(result.Succeeded);
+        await scheduler.Scheduled.Task;
+        scheduler.Tick();
+        Assert.IsFalse((await admission).Succeeded);
+
+        fixture.WorkerCompleted.TrySetResult(true);
+
         fixture.CharacterService.Received(1).Remove(fixture.Character);
         fixture.Character.Received(1).Destroy();
+        fixture.PersistenceService.Received(1).Release(42, 0);
+    }
+
+    [TestMethod]
+    public async Task AdmitAsync_WhenWorkerCompletesBeforeQueuedRollback_QueuedCallbackCannotDuplicateCleanup()
+    {
+        var scheduler = new DeferredTaskScheduler();
+        var fixture = CreateFixture(commitResult: false, scheduler);
+        var admission = fixture.Service.AdmitAsync(
+            CreateSignInRequest(),
+            fixture.Context,
+            42,
+            new AuthenticationProperties()).AsTask();
+
+        await scheduler.Scheduled.Task;
+        fixture.WorkerCompleted.TrySetResult(true);
+        Assert.IsFalse((await admission).Succeeded);
+
+        scheduler.Tick();
+
+        fixture.CharacterService.Received(1).Remove(fixture.Character);
+        fixture.Character.Received(1).Destroy();
+        fixture.PersistenceService.Received(1).Release(42, 0);
+    }
+
+    [TestMethod]
+    public async Task AdmitAsync_WhenRollbackCallbackOwnsCleanup_AdmissionWaitsAndLaterWorkerCompletionDoesNotDuplicateCleanup()
+    {
+        var scheduler = new DeferredTaskScheduler();
+        var fixture = CreateFixture(commitResult: false, scheduler);
+        var cleanupStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseCleanup = new ManualResetEventSlim();
+        fixture.CharacterService.Remove(fixture.Character).Returns(_ =>
+        {
+            cleanupStarted.TrySetResult(true);
+            releaseCleanup.Wait();
+            return true;
+        });
+
+        var admission = fixture.Service.AdmitAsync(
+            CreateSignInRequest(),
+            fixture.Context,
+            42,
+            new AuthenticationProperties()).AsTask();
+
+        await scheduler.Scheduled.Task;
+        var schedulerTick = Task.Run(scheduler.Tick);
+        try
+        {
+            await cleanupStarted.Task;
+            Assert.IsFalse(admission.IsCompleted);
+            releaseCleanup.Set();
+            await schedulerTick;
+
+            fixture.WorkerCompleted.TrySetResult(true);
+            Assert.IsFalse((await admission).Succeeded);
+        }
+        finally
+        {
+            releaseCleanup.Set();
+            await schedulerTick;
+        }
+
+        fixture.CharacterService.Received(1).Remove(fixture.Character);
+        fixture.Character.Received(1).Destroy();
+        fixture.PersistenceService.Received(1).Release(42, 0);
+        await fixture.GameSessionService.Received(1).RemoveSession(fixture.Session, CancellationToken.None);
     }
 
     private static Fixture CreateFixture(bool commitResult, IRsTaskService? scheduler = null)
@@ -303,6 +375,9 @@ public sealed class WorldSessionAdmissionServiceTests
         var context = Substitute.For<RaidoCallerContext>();
         context.ConnectionId.Returns("connection");
         context.Features.Returns(new FeatureCollection());
+        var workerCompleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var workerExecution = Substitute.For<IGameWorkerExecution>();
+        workerExecution.ExecutionCompleted.Returns(workerCompleted.Task);
         var service = new WorldSessionAdmissionService(
             NullLogger<WorldSessionAdmissionService>.Instance,
             mapper,
@@ -312,8 +387,9 @@ public sealed class WorldSessionAdmissionServiceTests
             persistence,
             sessionService,
             hydrateClient,
-            scheduler ?? new InlineTaskScheduler());
-        return new Fixture(service, context, sessionService, session, characterService, character, persistence, characterStore, hydrateClient);
+            scheduler ?? new InlineTaskScheduler(),
+            workerExecution);
+        return new Fixture(service, context, sessionService, session, characterService, character, persistence, characterStore, hydrateClient, workerCompleted);
     }
 
     private static SignInRequest CreateSignInRequest() => new()
@@ -360,23 +436,20 @@ public sealed class WorldSessionAdmissionServiceTests
         ICharacter Character,
         ICharacterPersistenceService PersistenceService,
         ICharacterStore CharacterStore,
-        IRequestClient<HydrateCharacter> HydrateClient);
+        IRequestClient<HydrateCharacter> HydrateClient,
+        TaskCompletionSource<bool> WorkerCompleted);
 
     private sealed class InlineTaskScheduler : IRsTaskService
     {
         public void Schedule(ITaskItem action) => action.Tick();
         public void Tick() { }
-        public void ScheduleLifecycleCritical(System.Action action) => action();
-        public void BeginShutdown() { }
-        public void CompleteShutdown() { }
     }
 
     private sealed class DeferredTaskScheduler : IRsTaskService
     {
         public TaskCompletionSource<bool> Scheduled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private ITaskItem? _pending;
-        private System.Action? _pendingLifecycleAction;
-        private bool _shutdownCompleted;
+        public int TickCalls { get; private set; }
 
         public void Schedule(ITaskItem action)
         {
@@ -384,40 +457,12 @@ public sealed class WorldSessionAdmissionServiceTests
             Scheduled.TrySetResult(true);
         }
 
-        public void ScheduleLifecycleCritical(System.Action action)
-        {
-            if (_shutdownCompleted)
-            {
-                action();
-                return;
-            }
-
-            _pendingLifecycleAction = action;
-            Scheduled.TrySetResult(true);
-        }
-
-        public void BeginShutdown() { }
-
-        public void CompleteShutdown()
-        {
-            _shutdownCompleted = true;
-            var pending = _pendingLifecycleAction;
-            _pendingLifecycleAction = null;
-            pending?.Invoke();
-        }
-
         public void Tick()
         {
-            if (_pending is not null)
-            {
-                var pending = _pending;
-                _pending = null;
-                pending.Tick();
-            }
-
-            var pendingLifecycleAction = _pendingLifecycleAction;
-            _pendingLifecycleAction = null;
-            pendingLifecycleAction?.Invoke();
+            TickCalls++;
+            var pending = _pending ?? throw new InvalidOperationException("No task was scheduled.");
+            _pending = null;
+            pending.Tick();
         }
     }
 }

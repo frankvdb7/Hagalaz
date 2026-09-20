@@ -7,6 +7,7 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld.Factories;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
@@ -34,6 +35,7 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
     private readonly IGameSessionService _gameSessionService;
     private readonly IRequestClient<HydrateCharacter> _getCharacterRequestClient;
     private readonly IRsTaskService _taskScheduler;
+    private readonly IGameWorkerExecution _gameWorkerExecution;
 
     public WorldSessionAdmissionService(
         ILogger<WorldSessionAdmissionService> logger,
@@ -44,7 +46,8 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         ICharacterPersistenceService characterPersistenceService,
         IGameSessionService gameSessionService,
         IRequestClient<HydrateCharacter> getCharacterRequestClient,
-        IRsTaskService taskScheduler)
+        IRsTaskService taskScheduler,
+        IGameWorkerExecution gameWorkerExecution)
     {
         _logger = logger;
         _mapper = mapper;
@@ -55,6 +58,7 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         _gameSessionService = gameSessionService;
         _getCharacterRequestClient = getCharacterRequestClient;
         _taskScheduler = taskScheduler;
+        _gameWorkerExecution = gameWorkerExecution;
     }
 
     public async ValueTask<SignInResult> AdmitAsync(
@@ -180,8 +184,15 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
         if (character is not null && characterRegistered)
         {
             var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            _taskScheduler.ScheduleLifecycleCritical(() =>
+            var cleanupStarted = 0;
+
+            void RemoveRegisteredCharacter()
             {
+                if (Interlocked.CompareExchange(ref cleanupStarted, 1, 0) != 0)
+                {
+                    return;
+                }
+
                 var removed = false;
                 try
                 {
@@ -207,7 +218,23 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
                 {
                     completion.TrySetResult(removed);
                 }
-            });
+            }
+
+            var workerCompletion = _gameWorkerExecution.ExecutionCompleted;
+            if (workerCompletion.IsCompleted)
+            {
+                RemoveRegisteredCharacter();
+            }
+            else
+            {
+                _taskScheduler.Schedule(new RsTask(RemoveRegisteredCharacter, 1));
+                await Task.WhenAny(completion.Task, workerCompletion);
+
+                if (!completion.Task.IsCompleted && workerCompletion.IsCompleted)
+                {
+                    RemoveRegisteredCharacter();
+                }
+            }
 
             if (!await completion.Task)
             {
