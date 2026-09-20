@@ -767,6 +767,11 @@ public sealed class CharacterUpdateRequestConsumerTests
             _onReset?.Invoke();
         }
 
+        public Task<TResult> ExecuteConsistentReadAsync<TResult>(
+            Func<CancellationToken, Task<TResult>> operation,
+            CancellationToken cancellationToken = default) =>
+            _inner.ExecuteConsistentReadAsync(operation, cancellationToken);
+
         public ValueTask RollbackAsync() => _inner.RollbackAsync();
         public async ValueTask CommitAsync()
         {

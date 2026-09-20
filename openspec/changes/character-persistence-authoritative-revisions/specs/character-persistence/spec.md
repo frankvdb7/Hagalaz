@@ -44,6 +44,14 @@ The Characters hydration response SHALL include the persisted snapshot revision,
 - **WHEN** registration returns false and the singleton store contains no character with the MasterId
 - **THEN** GameWorld forgets the unused initialized revision state
 
+### Requirement: Hydration returns one coherent database snapshot
+
+The Characters hydration response SHALL contain the snapshot revision and aggregate data materialized from one coherent committed database snapshot. Concurrent persistence or profile updates MAY commit while hydration is active, but no mixture of committed states SHALL be returned.
+
+#### Scenario: Concurrent updates do not mix hydration state
+- **WHEN** hydration begins at revision 100, a separate persistence transaction commits revision 101 after an early graph read, and a separate profile update also commits while hydration continues
+- **THEN** the response contains revision 100 and all graph and profile values from the older snapshot while the database retains both newer commits
+
 ### Requirement: Exact duplicates and conflicts have distinct outcomes
 
 The persistence consumer SHALL use both snapshot revision and deterministic content fingerprint to classify a message as committed, exact duplicate, or conflict. Missing or unknown outcome values SHALL be treated as non-success by all acknowledgement and dehydration consumers.

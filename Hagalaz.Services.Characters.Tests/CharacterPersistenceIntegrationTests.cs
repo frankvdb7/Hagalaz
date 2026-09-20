@@ -1,4 +1,6 @@
 using AutoMapper;
+using System.Data.Common;
+using System.Text.Json;
 using Hagalaz.Characters.Messages;
 using Hagalaz.Characters.Messages.Model;
 using Hagalaz.Data;
@@ -6,9 +8,11 @@ using Hagalaz.Data.Entities;
 using Hagalaz.Services.Characters.Consumers;
 using Hagalaz.Services.Characters.Data;
 using Hagalaz.Services.Characters.Metrics;
+using Hagalaz.Services.Characters.Services;
 using MassTransit;
 using MassTransit.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.MySql;
 
@@ -172,6 +176,55 @@ public sealed class CharacterPersistenceIntegrationTests
         Assert.AreEqual("old note", note.Text);
     }
 
+    [TestMethod]
+    [Timeout(120000)]
+    public async Task GetCharacterRequest_ReturnsOneRepeatableReadSnapshot_WhenWritesCommitDuringHydration()
+    {
+        var masterId = await SeedHydrationCharacterAsync();
+        var gate = new HydrationReadGate();
+        await using var provider = CreateHydrationProvider(gate);
+        var harness = provider.GetTestHarness();
+        await harness.Start();
+
+        try
+        {
+            var hydrationTask = harness.GetRequestClient<GetCharacterRequest>()
+                .GetResponse<GetCharacterResponse>(new GetCharacterRequest(Guid.NewGuid(), masterId));
+
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            await gate.AppearanceReadReached.WaitAsync(timeout.Token);
+
+            await CommitPersistenceUpdateAsync(masterId).WaitAsync(timeout.Token);
+            await CommitContactProfileUpdateAsync(masterId).WaitAsync(timeout.Token);
+
+            gate.Release();
+            var response = await hydrationTask.WaitAsync(timeout.Token);
+
+            Assert.AreEqual(100L, response.Message.SnapshotRevision);
+            Assert.AreEqual(3200, response.Message.Details.CoordX);
+            Assert.AreEqual(111, response.Message.Appearance.HairLook);
+            using (var responseProfile = JsonDocument.Parse(response.Message.Profile.JsonData))
+            {
+                Assert.AreEqual("old", responseProfile.RootElement.GetProperty("marker").GetString());
+            }
+        }
+        finally
+        {
+            gate.Release();
+            await harness.Stop();
+        }
+
+        await using var verificationContext = CreateContext();
+        var character = await verificationContext.Characters.SingleAsync(x => x.Id == masterId);
+        var appearance = await verificationContext.CharactersLooks.SingleAsync(x => x.MasterId == masterId);
+        var profile = await verificationContext.CharacterProfiles.SingleAsync(x => x.MasterId == masterId);
+        Assert.AreEqual(101L, character.SnapshotRevision);
+        Assert.AreEqual(3300, character.CoordX);
+        Assert.AreEqual(222, appearance.HairLook);
+        using var persistedProfile = JsonDocument.Parse(profile.Data);
+        Assert.AreEqual("new", persistedProfile.RootElement.GetProperty("marker").GetString());
+    }
+
     private static ServiceProvider CreateProvider(
         CommitBarrier? barrier = null,
         bool immediateRetry = false,
@@ -232,6 +285,17 @@ public sealed class CharacterPersistenceIntegrationTests
         return services.BuildServiceProvider(true);
     }
 
+    private static ServiceProvider CreateHydrationProvider(HydrationReadGate gate) => new ServiceCollection()
+        .AddLogging()
+        .AddDbContext<HagalazDbContext>(options => options
+            .UseMySQL(_database!.GetConnectionString(), mysqlOptions => mysqlOptions.EnableRetryOnFailure(6))
+            .AddInterceptors(gate))
+        .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
+        .AddScoped<ICharacterService, CharacterService>()
+        .AddAutoMapper(_ => { }, typeof(Program))
+        .AddMassTransitTestHarness(x => x.AddConsumer<GetCharacterRequestConsumer>())
+        .BuildServiceProvider(true);
+
     private static async Task<uint> SeedCharacterAsync()
     {
         var masterId = (uint)Interlocked.Increment(ref _nextMasterId);
@@ -254,6 +318,40 @@ public sealed class CharacterPersistenceIntegrationTests
         context.CharactersStates.Add(new CharactersState { MasterId = masterId, StateId = "50", TicksLeft = 1 });
         await context.SaveChangesAsync();
         return masterId;
+    }
+
+    private static async Task<uint> SeedHydrationCharacterAsync()
+    {
+        var masterId = await SeedCharacterAsync();
+        await using var context = CreateContext();
+        var character = await context.Characters.SingleAsync(x => x.Id == masterId);
+        var appearance = await context.CharactersLooks.SingleAsync(x => x.MasterId == masterId);
+        var profile = await context.CharacterProfiles.SingleAsync(x => x.MasterId == masterId);
+        character.SnapshotRevision = 100;
+        character.CoordX = 3200;
+        appearance.HairLook = 111;
+        profile.Data = "{\"marker\":\"old\"}";
+        await context.SaveChangesAsync();
+        return masterId;
+    }
+
+    private static async Task CommitPersistenceUpdateAsync(uint masterId)
+    {
+        await using var context = CreateContext();
+        var character = await context.Characters.SingleAsync(x => x.Id == masterId);
+        var appearance = await context.CharactersLooks.SingleAsync(x => x.MasterId == masterId);
+        character.SnapshotRevision = 101;
+        character.CoordX = 3300;
+        appearance.HairLook = 222;
+        await context.SaveChangesAsync();
+    }
+
+    private static async Task CommitContactProfileUpdateAsync(uint masterId)
+    {
+        await using var context = CreateContext();
+        var profile = await context.CharacterProfiles.SingleAsync(x => x.MasterId == masterId);
+        profile.Data = "{\"marker\":\"new\"}";
+        await context.SaveChangesAsync();
     }
 
     private static HagalazDbContext CreateContext() => new(
@@ -292,6 +390,35 @@ public sealed class CharacterPersistenceIntegrationTests
             new ItemAppearanceCollectionDto { Appearances = [new ItemAppearanceDto { Id = 40, MaleModels = [1, 2, 3], FemaleModels = [4, 5, 6], ModelColors = [7, 8], TextureColors = [9, 10] }] },
             new StateDto { StatesEx = [new StateDto.StateExDto { Id = "50", TicksLeft = 51 }] },
             revision);
+
+    private sealed class HydrationReadGate : DbCommandInterceptor
+    {
+        private readonly TaskCompletionSource _appearanceReadReached =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _released =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _paused;
+
+        public Task AppearanceReadReached => _appearanceReadReached.Task;
+
+        public void Release() => _released.TrySetResult();
+
+        public override async ValueTask<DbDataReader> ReaderExecutedAsync(
+            DbCommand command,
+            CommandExecutedEventData eventData,
+            DbDataReader result,
+            CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("characters_look", StringComparison.OrdinalIgnoreCase) &&
+                Interlocked.Exchange(ref _paused, 1) == 0)
+            {
+                _appearanceReadReached.TrySetResult();
+                await _released.Task.WaitAsync(cancellationToken);
+            }
+
+            return result;
+        }
+    }
 
     private sealed class AcknowledgementCapture
     {
@@ -473,6 +600,10 @@ public sealed class CharacterPersistenceIntegrationTests
         public void Add<TEntity>(TEntity entity) where TEntity : class => _inner.Add(entity);
         public void Remove<TEntity>(TEntity entity) where TEntity : class => _inner.Remove(entity);
         public void Reset() => _inner.Reset();
+        public Task<TResult> ExecuteConsistentReadAsync<TResult>(
+            Func<CancellationToken, Task<TResult>> operation,
+            CancellationToken cancellationToken = default) =>
+            _inner.ExecuteConsistentReadAsync(operation, cancellationToken);
         public ValueTask RollbackAsync() => _inner.RollbackAsync();
 
         public ValueTask CommitAsync() => _commit();

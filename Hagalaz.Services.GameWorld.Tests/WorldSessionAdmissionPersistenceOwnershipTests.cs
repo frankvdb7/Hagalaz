@@ -21,6 +21,7 @@ using Hagalaz.Services.GameWorld.Store;
 using MassTransit;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -54,9 +55,16 @@ public sealed class WorldSessionAdmissionPersistenceOwnershipTests
     }
 
     [TestMethod]
-    public async Task AdmitAsync_WhenCharacterStoreIsAtCapacity_DoesNotCreatePersistenceState()
+    public async Task AdmitAsync_WhenCharacterStoreIsAtCapacity_DoesNotInitializePersistence()
     {
-        await using var fixture = CreateFixture(capacity: 1, existingCharacter: false, sessionGeneration: 2);
+        var persistence = Substitute.For<ICharacterPersistenceService>();
+
+        await using var fixture = CreateFixture(
+            capacity: 1,
+            existingCharacter: true,
+            sessionGeneration: 2,
+            existingMasterId: 99,
+            persistenceService: persistence);
 
         var result = await fixture.Service.AdmitAsync(
             CreateSignInRequest(),
@@ -65,10 +73,91 @@ public sealed class WorldSessionAdmissionPersistenceOwnershipTests
             new AuthenticationProperties());
 
         Assert.IsFalse(result.Succeeded);
-        Assert.AreEqual(0, await fixture.CharacterStore.CountAsync());
+        Assert.AreEqual(1, await fixture.CharacterStore.CountAsync());
+        Assert.AreSame(fixture.ExistingCharacter, await fixture.CharacterStore.FindByIdAsync(99));
+        persistence.DidNotReceive().InitializeRevision(Arg.Any<uint>(), Arg.Any<long>(), Arg.Any<long>());
         Assert.AreEqual(1L, fixture.PersistenceState.NextRevision(42));
         fixture.CandidateCharacter.Received(1).Destroy();
         await fixture.GameSessionService.Received(1).RemoveSession(fixture.Session, CancellationToken.None);
+    }
+
+    [TestMethod]
+    [Timeout(10000)]
+    public async Task AdmitAsync_WhenDehydrationCapturesRegisteredCharacterBeforeInitialization_PreservesMonotonicOwnership()
+    {
+        var registered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var continueAdmission = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var persistence = Substitute.For<ICharacterPersistenceService>();
+        persistence.PersistAsync(
+                42,
+                Arg.Any<CharacterModel>(),
+                false,
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<CharacterPersistenceReceipt?>(null));
+
+        await using var fixture = CreateFixture(
+            capacity: 2,
+            existingCharacter: false,
+            sessionGeneration: 2,
+            persistenceService: persistence,
+            characterServiceDecorator: service => new GatedCharacterService(service, registered, continueAdmission));
+        persistence
+            .When(service => service.InitializeRevision(Arg.Any<uint>(), Arg.Any<long>(), Arg.Any<long>()))
+            .Do(callInfo => fixture.PersistenceState.InitializeRevision(
+                callInfo.Arg<uint>(),
+                callInfo.ArgAt<long>(1),
+                callInfo.ArgAt<long>(2)));
+
+        var admission = fixture.Service.AdmitAsync(
+            CreateSignInRequest(),
+            fixture.Context,
+            42,
+            new AuthenticationProperties()).AsTask();
+
+        await registered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.IsFalse(admission.IsCompleted);
+        Assert.AreSame(fixture.CandidateCharacter, await fixture.CharacterStore.FindByIdAsync(42));
+
+        var dehydration = Substitute.For<ICharacterDehydrationService>();
+        dehydration.Dehydrate(fixture.CandidateCharacter).Returns(new CharacterModel());
+        var logout = Substitute.For<ICharacterLogoutService>();
+        logout.RecoverPendingLogoutsAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        logout.IsPendingLogout(42).Returns(false);
+
+        using var provider = new ServiceCollection()
+            .AddScoped<ICharacterPersistenceService>(_ => persistence)
+            .AddScoped<ICharacterDehydrationService>(_ => dehydration)
+            .AddScoped<ICharacterLogoutService>(_ => logout)
+            .AddSingleton(fixture.PersistenceState)
+            .BuildServiceProvider();
+        var worker = new CharacterDehydrationWorkerService(
+            NullLogger<CharacterDehydrationWorkerService>.Instance,
+            provider,
+            fixture.CharacterStore,
+            new InlineTaskScheduler());
+
+        try
+        {
+            await worker.FlushAsync(force: false, CancellationToken.None);
+
+            dehydration.Received(1).Dehydrate(fixture.CandidateCharacter);
+            await persistence.Received(1).PersistAsync(
+                42,
+                Arg.Is<CharacterModel>(model => model.SnapshotRevision == 1),
+                false,
+                Arg.Any<CancellationToken>());
+        }
+        finally
+        {
+            continueAdmission.TrySetResult(true);
+        }
+
+        Assert.IsTrue((await admission).Succeeded);
+
+        persistence.Received(1).InitializeRevision(42, 100, 2);
+        Assert.IsFalse(fixture.PersistenceState.TryGetPending(42, out _));
+        Assert.IsFalse(fixture.PersistenceState.Release(42, 1));
+        Assert.AreEqual(101L, fixture.PersistenceState.NextRevision(42));
     }
 
     private static SignInRequest CreateSignInRequest() => new()
@@ -76,7 +165,13 @@ public sealed class WorldSessionAdmissionPersistenceOwnershipTests
         GameClient = Substitute.For<IGameClient>()
     };
 
-    private static AdmissionFixture CreateFixture(int capacity, bool existingCharacter, long sessionGeneration)
+    private static AdmissionFixture CreateFixture(
+        int capacity,
+        bool existingCharacter,
+        long sessionGeneration,
+        ICharacterPersistenceService? persistenceService = null,
+        Func<ICharacterService, ICharacterService>? characterServiceDecorator = null,
+        uint existingMasterId = 42)
     {
         var characterStore = new CharacterStore(Options.Create(new GameServerOptions
         {
@@ -87,7 +182,7 @@ public sealed class WorldSessionAdmissionPersistenceOwnershipTests
         }));
         var entityStore = new EntityStore();
         var characterService = new CharacterService(characterStore, entityStore);
-        var existing = existingCharacter ? CreateCharacter(42) : null;
+        var existing = existingCharacter ? CreateCharacter(existingMasterId) : null;
         if (existing is not null)
         {
             Assert.IsTrue(characterService.AddAsync(existing).AsTask().GetAwaiter().GetResult());
@@ -96,13 +191,13 @@ public sealed class WorldSessionAdmissionPersistenceOwnershipTests
         var candidate = CreateCharacter(42);
         var persistenceState = new CharacterPersistenceState();
         var dbContext = Substitute.For<HagalazDbContext>(CreateDbContextOptions());
-        var persistence = new CharacterPersistenceService(
+        var persistence = persistenceService ?? new CharacterPersistenceService(
             NullLogger<CharacterPersistenceService>.Instance,
             Substitute.For<IMapper>(),
             Substitute.For<IPublishEndpoint>(),
             dbContext,
             persistenceState);
-        if (existing is not null)
+        if (existing is not null && existingMasterId == 42)
         {
             persistence.InitializeRevision(42, 100, 1);
         }
@@ -126,6 +221,8 @@ public sealed class WorldSessionAdmissionPersistenceOwnershipTests
         var gameSessionService = Substitute.For<IGameSessionService>();
         gameSessionService.TryAddWorldSession(42, "duplicate-connection", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<(IGameSession?, bool)>((session, true)));
+        gameSessionService.CommitWorldSession(session, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(true));
         gameSessionService.RemoveSession(session, Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
 
         var hydrated = new CharacterHydrated
@@ -161,7 +258,7 @@ public sealed class WorldSessionAdmissionPersistenceOwnershipTests
         var service = new WorldSessionAdmissionService(
             NullLogger<WorldSessionAdmissionService>.Instance,
             mapper,
-            characterService,
+            characterServiceDecorator?.Invoke(characterService) ?? characterService,
             characterFactory,
             hydration,
             persistence,
@@ -230,5 +327,45 @@ public sealed class WorldSessionAdmissionPersistenceOwnershipTests
     {
         public void Schedule(ITaskItem action) => action.Tick();
         public void Tick() { }
+    }
+
+    private sealed class GatedCharacterService : ICharacterService
+    {
+        private readonly ICharacterService _inner;
+        private readonly TaskCompletionSource<bool> _registered;
+        private readonly TaskCompletionSource<bool> _continueAdmission;
+
+        public GatedCharacterService(
+            ICharacterService inner,
+            TaskCompletionSource<bool> registered,
+            TaskCompletionSource<bool> continueAdmission)
+        {
+            _inner = inner;
+            _registered = registered;
+            _continueAdmission = continueAdmission;
+        }
+
+        public async ValueTask<bool> AddAsync(ICharacter character)
+        {
+            var added = await _inner.AddAsync(character);
+            if (!added)
+            {
+                return false;
+            }
+
+            _registered.TrySetResult(true);
+            await _continueAdmission.Task;
+            return true;
+        }
+
+        public ValueTask<int> CountAsync() => _inner.CountAsync();
+
+        public ValueTask<ICharacter?> FindByIndex(int index) => _inner.FindByIndex(index);
+
+        public ValueTask<ICharacter?> FindByMasterId(uint masterId) => _inner.FindByMasterId(masterId);
+
+        public bool Remove(ICharacter character) => _inner.Remove(character);
+
+        public ValueTask<bool> RemoveAsync(ICharacter character) => _inner.RemoveAsync(character);
     }
 }
