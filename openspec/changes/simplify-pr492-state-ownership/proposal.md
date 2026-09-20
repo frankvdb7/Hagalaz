@@ -103,11 +103,13 @@ receives only detached models.
   clone dictionaries through property getters, and `TryRemoveEmptyDimension`
   checks global-dimension exclusion, exact ownership, and emptiness while
   holding the residency owner lock.
-- World admission calls `InitializeRevision` before `AddAsync`; registration
-  failure destroys the unregistered character without calling
-  `FindByMasterId` or `Forget`. Later failure removes the exact registered
-  character, destroys it, and releases the session reservation without
-  rolling back the monotonic revision state.
+- World admission acquires character-store ownership through `AddAsync` before
+  calling `InitializeRevision`; registration failure destroys the unregistered
+  character without changing or releasing persistence state owned by another
+  character. Later failure removes the exact registered character, destroys
+  it, releases only persistence state initialized by that admission, and
+  releases the session reservation without rolling back the monotonic revision
+  state.
 - Creature destruction cleanup attempts every independent cleanup operation,
   reports all failures in one `AggregateException`, and leaves no retry
   inventory or registration capability on the dead object.

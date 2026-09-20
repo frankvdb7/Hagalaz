@@ -15,13 +15,14 @@ it does not check a state through one API and mutate it through another.
    the same gate, and empty-dimension removal validates global-dimension,
    exact-instance, and emptiness invariants atomically.
 
-2. **Admission initializes revision before publication.** Hydration creates a
-   character, `InitializeRevision` monotonically seeds its persistence state,
-   and `CharacterService.AddAsync` then claims the exact local instance. A
-   failed registration destroys only the unregistered object and does not
-   forget the monotonic revision. Later failures remove and destroy the exact
-   registered instance before releasing the session reservation; revision
-   initialization is not rolled back.
+2. **Admission acquires character ownership before persistence state.**
+   Hydration creates a character, `CharacterService.AddAsync` claims the exact
+   local instance, and only then does `InitializeRevision` seed persistence
+   state for that admission. A failed registration destroys only the
+   unregistered object and cannot change or release another character's
+   persistence state. Later failures remove and destroy the exact registered
+   instance before releasing the session reservation; revision initialization
+   is released only when this admission acquired it.
 
 3. **Map-region callers state intent explicitly.** `GetOrCreateMapRegion`
    returns canonical active ownership for mutations and general gameplay.

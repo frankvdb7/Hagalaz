@@ -115,12 +115,6 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
                 return SignInResult.Fail;
             }
 
-            _characterPersistenceService.InitializeRevision(
-                masterId,
-                characterModel.SnapshotRevision,
-                session.SessionGeneration);
-            persistenceInitialized = true;
-
             if (!await _characterService.AddAsync(character))
             {
                 _logger.LogWarning("Unable to add character '{character}'", character);
@@ -128,6 +122,12 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
             }
 
             characterRegistered = true;
+
+            _characterPersistenceService.InitializeRevision(
+                masterId,
+                characterModel.SnapshotRevision,
+                session.SessionGeneration);
+            persistenceInitialized = true;
 
             if (!await _gameSessionService.CommitWorldSession(session, cancellationToken))
             {

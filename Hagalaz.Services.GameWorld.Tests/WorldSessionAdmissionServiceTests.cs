@@ -138,7 +138,7 @@ public sealed class WorldSessionAdmissionServiceTests
     }
 
     [TestMethod]
-    public async Task AdmitAsync_InitializesRevisionBeforePublishingCharacterOwnership()
+    public async Task AdmitAsync_InitializesRevisionAfterAcquiringCharacterOwnership()
     {
         var fixture = CreateFixture(commitResult: true);
         var order = new List<string>();
@@ -162,7 +162,7 @@ public sealed class WorldSessionAdmissionServiceTests
             new AuthenticationProperties());
 
         Assert.IsTrue(result.Succeeded);
-        CollectionAssert.AreEqual(new[] { "initialize", "add" }, order);
+        CollectionAssert.AreEqual(new[] { "add", "initialize" }, order);
     }
 
     [TestMethod]
@@ -185,8 +185,31 @@ public sealed class WorldSessionAdmissionServiceTests
 
         Assert.AreSame(failure, exception);
         fixture.Character.Received(1).Destroy();
-        fixture.PersistenceService.Received(1).InitializeRevision(42, 7, 0);
-        fixture.PersistenceService.Received(1).Release(42, 0);
+        fixture.PersistenceService.DidNotReceive().InitializeRevision(Arg.Any<uint>(), Arg.Any<long>(), Arg.Any<long>());
+        fixture.PersistenceService.DidNotReceive().Release(Arg.Any<uint>(), Arg.Any<long>());
+    }
+
+    [TestMethod]
+    public async Task AdmitAsync_WhenPersistenceInitializationThrows_RemovesRegisteredCharacterWithoutReleasingUninitializedState()
+    {
+        var fixture = CreateFixture(commitResult: true);
+        var failure = new InvalidOperationException("persistence initialization failed");
+        fixture.PersistenceService
+            .When(service => service.InitializeRevision(42, 7, 0))
+            .Do(_ => throw failure);
+
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => fixture.Service.AdmitAsync(
+                CreateSignInRequest(),
+                fixture.Context,
+                42,
+                new AuthenticationProperties()).AsTask());
+
+        Assert.AreSame(failure, exception);
+        fixture.CharacterService.Received(1).Remove(fixture.Character);
+        fixture.Character.Received(1).Destroy();
+        fixture.PersistenceService.DidNotReceive().Release(Arg.Any<uint>(), Arg.Any<long>());
+        await fixture.GameSessionService.Received(1).RemoveSession(fixture.Session, CancellationToken.None);
     }
 
     [TestMethod]

@@ -69,14 +69,18 @@ MUST use `FindMapRegion`, which MUST NOT create or resume an idle region.
 
 ### Requirement: World admission preserves monotonic revision state
 
-`WorldSessionAdmissionService` MUST call `InitializeRevision` before
-`CharacterService.AddAsync`. Revision initialization MUST remain monotonic and
-MUST NOT be forgotten as rollback for a failed local registration.
+`WorldSessionAdmissionService` MUST acquire local character ownership through
+`CharacterService.AddAsync` before initializing persistence revision state.
+Persistence initialization MUST NOT replace state owned by an already-registered
+character or session. Revision initialization MUST remain monotonic after this
+admission acquires character ownership.
 
-#### Scenario: Registration fails after revision initialization
+#### Scenario: Registration fails before revision initialization
 
 - **WHEN** local character registration returns false or throws
 - **THEN** the character is destroyed as unregistered
+- **AND** persistence initialization and release are not performed for that
+  admission
 - **AND** no `FindByMasterId` probe or persistence `Forget` operation occurs
 
 #### Scenario: A post-registration failure removes only the claimed instance
@@ -84,6 +88,7 @@ MUST NOT be forgotten as rollback for a failed local registration.
 - **WHEN** a later admission step fails after `AddAsync` succeeds
 - **THEN** the exact character instance is removed and destroyed before the
   session reservation is released
+- **AND** persistence state is released only when this admission initialized it
 - **AND** the monotonic revision state is not rolled back
 
 ### Requirement: Store collection boundaries are explicit
