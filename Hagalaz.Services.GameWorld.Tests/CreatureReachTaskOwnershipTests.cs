@@ -32,6 +32,7 @@ public sealed class CreatureReachTaskOwnershipTests
         entityStore.Add(target);
         var (reacher, visibleCreatures) = CreateReacher(provider);
         visibleCreatures.Add(target);
+        Assert.Contains(target, visibleCreatures);
         var result = false;
         var reachedPath = CreateReachedPath();
         pathFinder.Find(reacher, target, true).Returns(reachedPath);
@@ -54,8 +55,7 @@ public sealed class CreatureReachTaskOwnershipTests
         using var provider = CreateProvider(pathFinder, characterStore: store);
         var entityStore = provider.GetRequiredService<IEntityStore>();
         entityStore.Add(target);
-        var (reacher, visibleCreatures) = CreateReacher(provider);
-        visibleCreatures.Add(target);
+        var (reacher, _) = CreateReacher(provider);
         var result = true;
         var task = new CreatureReachTask(reacher, target.Handle, value => result = value);
 
@@ -82,6 +82,7 @@ public sealed class CreatureReachTaskOwnershipTests
         entityStore.Add(target);
         var (reacher, visibleCreatures) = CreateReacher(provider);
         visibleCreatures.Add(replacement);
+        Assert.Contains(replacement, visibleCreatures);
         var result = true;
         var task = new CreatureReachTask(reacher, target.Handle, value => result = value);
 
@@ -108,8 +109,7 @@ public sealed class CreatureReachTaskOwnershipTests
         using var provider = CreateProvider(pathFinder, npcStore: store);
         var entityStore = provider.GetRequiredService<IEntityStore>();
         entityStore.Add(target);
-        var (reacher, visibleCreatures) = CreateReacher(provider);
-        visibleCreatures.Add(target);
+        var (reacher, _) = CreateReacher(provider);
         var result = true;
         var task = new CreatureReachTask(reacher, target.Handle, value => result = value);
 
@@ -136,6 +136,7 @@ public sealed class CreatureReachTaskOwnershipTests
         entityStore.Add(target);
         var (reacher, visibleCreatures) = CreateReacher(provider);
         visibleCreatures.Add(replacement);
+        Assert.Contains(replacement, visibleCreatures);
         var result = true;
         var task = new CreatureReachTask(reacher, target.Handle, value => result = value);
 

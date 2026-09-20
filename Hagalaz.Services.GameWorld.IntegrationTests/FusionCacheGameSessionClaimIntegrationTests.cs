@@ -273,6 +273,7 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
             .Build();
         var services = new ServiceCollection();
         new Hagalaz.Services.GameWorld.Startup(configuration).ConfigureServices(services);
+        new Hagalaz.Game.Scripts.Startup().Configure(services);
         if (harness != null)
         {
             services.AddSingleton(harness.CharacterService);
