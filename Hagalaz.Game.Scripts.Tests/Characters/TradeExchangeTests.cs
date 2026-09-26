@@ -283,6 +283,27 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
+    public void OfferInventoryItem_UsesSharedExactTransferBoundary()
+    {
+        var firstInventory = new TestInventory(14);
+        var secondInventory = new TestInventory(14);
+        var firstMoneyPouch = new TestMoneyPouch(firstInventory);
+        var secondMoneyPouch = new TestMoneyPouch(secondInventory);
+        var first = CreateCharacter(firstInventory, firstMoneyPouch);
+        var second = CreateCharacter(secondInventory, secondMoneyPouch);
+        var item = new TestItem(102, 5, stackable: true);
+        firstInventory.Add(item).Should().BeTrue();
+        var script = CreatePreparedScript(first, second, firstMoneyPouch, secondMoneyPouch);
+        var method = typeof(TradingCharacterScript).GetMethod("TryOfferInventoryItem", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        var result = (bool)method.Invoke(script, [true, item, 3, 0])!;
+
+        result.Should().BeTrue();
+        firstInventory.GetCountById(102).Should().Be(2);
+        script.SelfContainer.GetCountById(102).Should().Be(3);
+    }
+
+    [TestMethod]
     public async Task FinishTradeSession_ConcurrentCallsTransferOnlyOnce()
     {
         var firstInventory = new TestInventory(14);

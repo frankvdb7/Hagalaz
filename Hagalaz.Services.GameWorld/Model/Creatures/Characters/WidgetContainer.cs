@@ -81,13 +81,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            OpenWidget(new Widget(_owner,
+            return OpenWidget(new Widget(_owner,
                 interfaceID,
                 CurrentFrame.Id,
                 _owner.GameClient.IsScreenFixed ? (short)InterfaceSlots.FixedMainInterfaceSlot : (short)InterfaceSlots.ResizedMainInterfaceSlot,
                 transparency,
-                script));
-            return true;
+                script), true);
         }
 
         /// <summary>
@@ -113,8 +112,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            OpenWidget(new Widget(_owner, interfaceID, CurrentFrame.Id, parentSlot, transparency, script));
-            return true;
+            return OpenWidget(new Widget(_owner, interfaceID, CurrentFrame.Id, parentSlot, transparency, script), true);
         }
 
         /// <summary>
@@ -134,8 +132,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 _owner.Interrupt(this);
             }
 
-            OpenWidget(new Widget(_owner, interfaceID, parent.Id, parentSlot, transparency, script));
-            return true;
+            return OpenWidget(new Widget(_owner, interfaceID, parent.Id, parentSlot, transparency, script), true);
         }
 
         /// <summary>
@@ -160,8 +157,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             script.SetSource(source);
 
-            OpenWidget(new Widget(_owner, 0, chatbox.Id, (int)InterfaceSlots.ChatboxOverlay, 0, script, source), false);
-            return true;
+            return OpenWidget(new Widget(_owner, 0, chatbox.Id, (int)InterfaceSlots.ChatboxOverlay, 0, script, source), false);
         }
 
         /// <summary>
@@ -190,8 +186,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             script.SetSource(source);
 
-            OpenWidget(new Widget(_owner, interfaceID, chatbox.Id, (int)InterfaceSlots.ChatboxOverlay, transparency, script, source));
-            return true;
+            return OpenWidget(new Widget(_owner, interfaceID, chatbox.Id, (int)InterfaceSlots.ChatboxOverlay, transparency, script, source), true);
         }
 
         /// <summary>
@@ -208,7 +203,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             CloseWidget(overlay);
-            return true;
+            return !overlay.IsOpened;
         }
 
         /// <summary>
@@ -225,13 +220,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            OpenWidget(new Widget(_owner,
+            return OpenWidget(new Widget(_owner,
                 interfaceID,
                 CurrentFrame.Id,
                 _owner.GameClient.IsScreenFixed ? (int)InterfaceSlots.FixedInventoryOverlay : (int)InterfaceSlots.ResizedInventoryOverlay,
                 transparency,
-                script));
-            return true;
+                script), true);
         }
 
         /// <summary>
@@ -246,8 +240,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            OpenWidget(toOpen);
-            return true;
+            return OpenWidget(toOpen, true);
         }
 
         /// <summary>
@@ -270,7 +263,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             CloseWidget(overlay);
-            return true;
+            return !overlay.IsOpened;
         }
 
         /// <summary>
@@ -305,6 +298,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (CurrentFrame != null)
             {
                 CloseWidget(CurrentFrame, false);
+                if (CurrentFrame != null)
+                {
+                    return;
+                }
+
                 forceRedraw = true;
             }
 
@@ -333,32 +331,40 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="toOpen">To open.</param>
         /// <param name="refresh">if set to <c>true</c> [refresh].</param>
         /// <exception cref="Exception">Couldn't add interface!</exception>
-        private void OpenWidget(IWidget toOpen, bool refresh)
+        private bool OpenWidget(IWidget toOpen, bool refresh)
         {
             if (toOpen.IsFrame)
             {
-                return;
+                return false;
             }
 
             if (IsOpened(toOpen))
             {
                 CloseWidget(GetOpenWidget(toOpen.Id)!, false);
+                if (IsOpened(toOpen))
+                {
+                    return false;
+                }
             }
 
             var parent = GetOpenWidget(toOpen.ParentId);
             if (parent == null)
             {
-                return;
+                return false;
             }
 
             if (parent.SlotUsed(toOpen.ParentSlot))
             {
                 CloseWidget(parent.GetChild(toOpen.ParentSlot)!, false);
+                if (parent.SlotUsed(toOpen.ParentSlot))
+                {
+                    return false;
+                }
             }
 
             if (!AddInterface(toOpen))
             {
-                throw new Exception("Couldn't add interface!");
+                return false;
             }
 
             parent.AttachChildren(toOpen, toOpen.ParentSlot);
@@ -372,6 +378,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             toOpen.OnOpen();
             _owner.EventManager.SendEvent(new InterfaceOpenedEvent(_owner, toOpen));
+            return true;
         }
 
         /// <summary>
@@ -387,16 +394,48 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="refresh">if set to <c>true</c> [refresh].</param>
         private void CloseWidget(IWidget toClose, bool refresh)
         {
+            if (!IsOpened(toClose) || !TryPrepareClose(toClose))
+            {
+                return;
+            }
+
+            CloseWidgetCore(toClose, refresh);
+        }
+
+        private bool TryPrepareClose(IWidget toClose)
+        {
+            if (!IsOpened(toClose))
+            {
+                return true;
+            }
+
+            if (toClose.Script is IWidgetCloseGuard closeGuard && !closeGuard.TryClose())
+            {
+                return false;
+            }
+
+            foreach (var child in toClose.GetAllChildren())
+            {
+                if (!TryPrepareClose(child))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private void CloseWidgetCore(IWidget toClose, bool refresh)
+        {
             if (!RemoveInterface(toClose))
             {
                 return;
             }
 
-
             // First off , close it's childs.
             foreach (var child in toClose.GetAllChildren())
             {
-                CloseWidget(child, refresh);
+                CloseWidgetCore(child, refresh);
             }
 
             // Remove ourselves from parent.

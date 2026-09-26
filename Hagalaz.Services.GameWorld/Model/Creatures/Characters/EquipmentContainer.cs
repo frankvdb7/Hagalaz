@@ -75,29 +75,31 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return false;
                 }
 
-                if (_owner.Inventory.Remove(item, slot) <= 0)
-                {
-                    return false;
-                }
-
-                Add(equipSlot, item);
-                return true;
+                return TryMoveFromInventoryToSlot(item, slot, equipSlot);
             }
 
             if (equipSlot != EquipmentSlot.Weapon && equipSlot != EquipmentSlot.Shield)
             {
+                if (equipItem == null)
+                {
+                    if (!TryMoveFromInventoryToSlot(item, slot, equipSlot))
+                    {
+                        return false;
+                    }
+
+                    item.EquipmentScript.OnEquipped(item, _owner);
+                    return true;
+                }
+
                 if (_owner.Inventory.Remove(item, slot) <= 0)
                 {
                     return false;
                 }
 
-                if (equipItem != null)
+                if (!equipItem.EquipmentScript.UnEquipItem(equipItem, _owner, slot))
                 {
-                    if (!equipItem.EquipmentScript.UnEquipItem(equipItem, _owner, slot))
-                    {
-                        _owner.Inventory.Add(slot, item);
-                        return false;
-                    }
+                    _owner.Inventory.Add(slot, item);
+                    return false;
                 }
 
                 Add(equipSlot, item);
@@ -109,12 +111,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var equippedShield = this[EquipmentSlot.Shield];
             if (equippedWeapon == null && equippedShield == null)
             {
-                if (_owner.Inventory.Remove(item, slot) <= 0)
+                if (!TryMoveFromInventoryToSlot(item, slot, equipSlot))
                 {
                     return false;
                 }
 
-                Add(equipSlot, item);
                 item.EquipmentScript.OnEquipped(item, _owner);
                 return true;
             }
@@ -211,6 +212,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public bool Add(EquipmentSlot slot, IItem item) => base.Add((int)slot, item);
 
+        private bool TryMoveFromInventoryToSlot(IItem item, int inventorySlot, EquipmentSlot equipmentSlot) =>
+            BaseItemContainer.TryTransfer(_owner.Inventory, this, item, item.Count, inventorySlot, (int)equipmentSlot);
+
         public void Replace(EquipmentSlot slot, IItem item)
         {
             var itemSlot = (int)slot;
@@ -276,33 +280,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 return false;
             }
-            if (!_owner.Inventory.HasSpaceFor(item))
+            var destinationSlot = -1;
+            if (toInventorySlot >= 0 && (uint)toInventorySlot < (uint)_owner.Inventory.Capacity &&
+                _owner.Inventory[toInventorySlot] == null)
+            {
+                destinationSlot = toInventorySlot;
+            }
+
+            if (!BaseItemContainer.TryTransfer(this, _owner.Inventory, item, item.Count, (int)slot, destinationSlot))
             {
                 _owner.SendChatMessage("Not enough space in your inventory.");
                 return false;
             }
 
-            if (base.Remove(item, (int)slot) <= 0)
-            {
-                return false;
-            }
             item.EquipmentScript.OnUnequipped(item, _owner);
-            if (toInventorySlot != -1)
-            {
-                if (_owner.Inventory[toInventorySlot] == null)
-                {
-                    _owner.Inventory.Add(toInventorySlot, item);
-                }
-                else
-                {
-                    _owner.Inventory.Add(item);
-                }
-            }
-            else
-            {
-                _owner.Inventory.Add(item);
-            }
-
             return true;
         }
 

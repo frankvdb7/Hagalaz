@@ -162,14 +162,11 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                             else
                             {
                                 _mediator.Publish(new ProfileSetIntAction(ProfileConstants.BankSettingsOptionX, value));
+                                var takenSlotsBefore = Owner.Bank.TakenSlots;
                                 Owner.Bank.DepositFromInventory(item, value, out var deposited);
                                 if (deposited != null)
                                 {
-                                    var dslot = Owner.Bank.GetInstanceSlot(deposited);
-                                    if (dslot == Owner.Bank.TakenSlots - 1 && _currentTabId != 8)
-                                    {
-                                        InsertIntoTab(_currentTabId, dslot);
-                                    }
+                                    InsertNewDepositIntoTab(deposited, takenSlotsBefore);
                                 }
                             }
                         };
@@ -191,14 +188,11 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
 
                     if (amount > 0)
                     {
+                        var takenSlotsBefore = Owner.Bank.TakenSlots;
                         Owner.Bank.DepositFromInventory(item, amount, out var deposit);
                         if (deposit != null)
                         {
-                            var dslot = Owner.Bank.GetInstanceSlot(deposit);
-                            if (dslot == Owner.Bank.TakenSlots - 1 && _currentTabId != 8)
-                            {
-                                InsertIntoTab(_currentTabId, dslot);
-                            }
+                            InsertNewDepositIntoTab(deposit, takenSlotsBefore);
                         }
                     }
 
@@ -313,6 +307,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                             continue;
                         }
 
+                        var takenSlotsBefore = Owner.Bank.TakenSlots;
                         if (!Owner.Bank.DepositFromFamiliar(item, item.Count, out var outItem, inventory))
                         {
                             break;
@@ -320,11 +315,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
 
                         if (outItem != null)
                         {
-                            var dslot = Owner.Bank.GetInstanceSlot(outItem);
-                            if (dslot == Owner.Bank.TakenSlots - 1 && _currentTabId != 8)
-                            {
-                                InsertIntoTab(_currentTabId, dslot);
-                            }
+                            InsertNewDepositIntoTab(outItem, takenSlotsBefore);
                         }
                     }
 
@@ -336,16 +327,13 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                 {
                     foreach (var item in Owner.Inventory.OfType<IItem>())
                     {
+                        var takenSlotsBefore = Owner.Bank.TakenSlots;
                         if (!Owner.Bank.DepositFromInventory(item, item.Count, out var outItem))
                         {
                             break;
                         }
 
-                        var dslot = Owner.Bank.GetInstanceSlot(outItem);
-                        if (dslot == Owner.Bank.TakenSlots - 1 && _currentTabId != 8)
-                        {
-                            InsertIntoTab(_currentTabId, dslot);
-                        }
+                        InsertNewDepositIntoTab(outItem, takenSlotsBefore);
                     }
 
                     return true;
@@ -376,16 +364,13 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                             continue;
                         }
 
+                        var takenSlotsBefore = Owner.Bank.TakenSlots;
                         if (!Owner.Bank.DepositFromEquipment(item, item.Count, out var outItem))
                         {
                             break;
                         }
 
-                        var dslot = Owner.Bank.GetInstanceSlot(outItem);
-                        if (dslot == Owner.Bank.TakenSlots - 1 && _currentTabId != 8)
-                        {
-                            InsertIntoTab(_currentTabId, dslot);
-                        }
+                        InsertNewDepositIntoTab(outItem, takenSlotsBefore);
                     }
 
                     return true;
@@ -630,6 +615,20 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
         /// <param name="tab"></param>
         /// <param name="slot"></param>
         /// <returns></returns>
+        private void InsertNewDepositIntoTab(IItem deposited, int takenSlotsBefore)
+        {
+            if (_currentTabId == 8 || Owner.Bank.TakenSlots <= takenSlotsBefore)
+            {
+                return;
+            }
+
+            var slot = Owner.Bank.GetSlotByItem(deposited);
+            if (slot == Owner.Bank.TakenSlots - 1)
+            {
+                InsertIntoTab(_currentTabId, slot);
+            }
+        }
+
         public void InsertIntoTab(int tab, int slot)
         {
             RemoveFromTab(tab, slot);
