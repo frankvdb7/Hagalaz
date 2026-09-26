@@ -17,6 +17,7 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Services.GameWorld.Metrics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -95,7 +96,8 @@ namespace Hagalaz.Services.GameWorld.Data
             activity?.SetTag("map.region.id", region.Id);
             activity?.SetTag("map.region.dimension", region.BaseLocation.Dimension);
 
-            var watch = Stopwatch.StartNew();
+            var loadStart = Stopwatch.GetTimestamp();
+            var outcome = "failure";
             var registeredNpcs = new List<INpc>();
             var createdGroundItems = new List<IGroundItem>();
             var createdGameObjects = new List<IGameObject>();
@@ -127,13 +129,12 @@ namespace Hagalaz.Services.GameWorld.Data
 
                 activity?.SetTag("map.region.load.outcome", "success");
                 activity?.SetStatus(ActivityStatusCode.Ok);
-                _logger.LogDebug("Region[{id}] was loaded in {ms} ms", region.Id, watch.ElapsedMilliseconds);
+                outcome = "success";
             }
             catch (Exception exception)
             {
-                activity?.SetTag(
-                    "map.region.load.outcome",
-                    exception is OperationCanceledException ? "cancelled" : "failure");
+                outcome = exception is OperationCanceledException ? "cancelled" : "failure";
+                activity?.SetTag("map.region.load.outcome", outcome);
                 if (exception is not OperationCanceledException)
                 {
                     activity?.SetTag("error.type", exception.GetType().FullName);
@@ -152,6 +153,10 @@ namespace Hagalaz.Services.GameWorld.Data
 
                 _logger.LogError(exception, "Region[{id}] failed to load and was discarded", region.Id);
                 throw;
+            }
+            finally
+            {
+                GameWorldMetrics.RecordRegionLoad(outcome, Stopwatch.GetElapsedTime(loadStart).TotalSeconds);
             }
         }
 
@@ -205,31 +210,15 @@ namespace Hagalaz.Services.GameWorld.Data
             activity?.SetTag("map.region.gameobject_placement_count", staticObjectSpawns.Count + objectSpawns.Length);
             activity?.SetTag("map.region.gameobject.definition_id_count", objectIds.Length);
             activity?.SetTag("map.region.npc_spawn_count", npcSpawns.Length);
-            activity?.SetTag("map.region.gameobject.definition_resolution_required", objectIds.Length > 0);
 
             IReadOnlyDictionary<int, IGameObjectDefinition> definitions;
             if (objectIds.Length == 0)
             {
                 definitions = new Dictionary<int, IGameObjectDefinition>();
-                activity?.SetTag("map.region.gameobject.definition_resolution_duration_ms", 0L);
             }
             else
             {
-                var definitionResolutionWatch = activity is null ? null : Stopwatch.StartNew();
-                try
-                {
-                    definitions = await _gameObjectService.FindGameObjectDefinitionsByIdsAsync(objectIds, cancellationToken);
-                }
-                finally
-                {
-                    if (definitionResolutionWatch is not null)
-                    {
-                        definitionResolutionWatch.Stop();
-                        activity?.SetTag(
-                            "map.region.gameobject.definition_resolution_duration_ms",
-                            definitionResolutionWatch.ElapsedMilliseconds);
-                    }
-                }
+                definitions = await _gameObjectService.FindGameObjectDefinitionsByIdsAsync(objectIds, cancellationToken);
             }
             cancellationToken.ThrowIfCancellationRequested();
 

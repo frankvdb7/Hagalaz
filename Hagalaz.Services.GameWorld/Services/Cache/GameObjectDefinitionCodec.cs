@@ -2,7 +2,6 @@ using System.IO;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Services.GameWorld.Data.Model;
-using Hagalaz.Services.GameWorld.Diagnostics;
 
 namespace Hagalaz.Services.GameWorld.Services.Cache;
 
@@ -15,18 +14,7 @@ public sealed class GameObjectDefinitionCodec : ITypeCodec<GameObjectDefinition>
     public GameObjectDefinition Decode(int id, MemoryStream stream)
     {
         var definition = new GameObjectDefinition(id);
-        var activity = GameObjectDefinitionResolutionDiagnostics.CurrentCompositionActivity;
-        var decodeStart = GameObjectDefinitionResolutionDiagnostics.StartTiming(activity);
-        try
-        {
-            _codec.Decode(definition, stream);
-            GameObjectDefinitionResolutionDiagnostics.AddCount(activity, "codec.decode_count");
-        }
-        finally
-        {
-            GameObjectDefinitionResolutionDiagnostics.RecordElapsed(activity, "codec.decode_duration_ms", decodeStart);
-        }
-
+        _codec.Decode(definition, stream);
         return definition;
     }
 

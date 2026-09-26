@@ -1,6 +1,5 @@
 ﻿using Hagalaz.Cache.Abstractions.Types.Factories;
 using Hagalaz.Services.GameWorld.Data.Model;
-using Hagalaz.Services.GameWorld.Diagnostics;
 
 namespace Hagalaz.Services.GameWorld.Factories
 {
@@ -8,7 +7,6 @@ namespace Hagalaz.Services.GameWorld.Factories
     {
         public GameObjectDefinition CreateType(int typeId)
         {
-            GameObjectDefinitionResolutionDiagnostics.RecordMissingArchiveDefinition();
             return new(typeId);
         }
     }

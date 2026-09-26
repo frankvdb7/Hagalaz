@@ -30,6 +30,7 @@ using NSubstitute;
 namespace Hagalaz.Services.GameWorld.Tests;
 
 [TestClass]
+[DoNotParallelize]
 public sealed class MapRegionLoaderTests
 {
     [TestMethod]
@@ -38,7 +39,8 @@ public sealed class MapRegionLoaderTests
         var region = CreateRegion();
         var regionId = Random.Shared.Next(1_000_000, int.MaxValue);
         region.Id.Returns(regionId);
-        Activity? stoppedActivity = null;
+        var stoppedActivities = new List<Activity>();
+        using var measurements = new MeterListenerSpy("Hagalaz.Services.GameWorld");
         using var listener = new ActivityListener
         {
             ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
@@ -46,7 +48,7 @@ public sealed class MapRegionLoaderTests
             ActivityStopped = activity =>
             {
                 if (activity.GetTagItem("map.region.id") is int stoppedRegionId && stoppedRegionId == regionId)
-                    stoppedActivity = activity;
+                    stoppedActivities.Add(activity);
             }
         };
         ActivitySource.AddActivityListener(listener);
@@ -58,19 +60,20 @@ public sealed class MapRegionLoaderTests
 
         await fixture.Loader.LoadAsync(region);
 
-        Assert.IsNotNull(stoppedActivity);
+        Assert.AreEqual(1, stoppedActivities.Count);
+        var stoppedActivity = stoppedActivities[0];
         Assert.AreEqual("Hagalaz.Services.GameWorld.MapRegionLoader.Load", stoppedActivity.OperationName);
         Assert.AreEqual(region.Id, stoppedActivity.GetTagItem("map.region.id"));
         Assert.AreEqual(region.BaseLocation.Dimension, stoppedActivity.GetTagItem("map.region.dimension"));
-        Assert.AreEqual(0, stoppedActivity.GetTagItem("map.region.static_gameobject_placement_count"));
-        Assert.AreEqual(0, stoppedActivity.GetTagItem("map.region.database_gameobject_spawn_count"));
         Assert.AreEqual(0, stoppedActivity.GetTagItem("map.region.gameobject_placement_count"));
-        Assert.AreEqual(0, stoppedActivity.GetTagItem("map.region.gameobject.definition_id_count"));
-        Assert.AreEqual(0, stoppedActivity.GetTagItem("map.region.npc_spawn_count"));
-        Assert.AreEqual(false, stoppedActivity.GetTagItem("map.region.gameobject.definition_resolution_required"));
-        Assert.AreEqual(0L, stoppedActivity.GetTagItem("map.region.gameobject.definition_resolution_duration_ms"));
         Assert.AreEqual("success", stoppedActivity.GetTagItem("map.region.load.outcome"));
         Assert.AreEqual(ActivityStatusCode.Ok, stoppedActivity.Status);
+
+        var count = measurements.Measurements.Single(measurement => measurement.InstrumentName == "hagalaz.gameworld.map.region.load");
+        Assert.AreEqual(1d, count.Value);
+        Assert.AreEqual("success", count.Tags["outcome"]);
+        var duration = measurements.Measurements.Single(measurement => measurement.InstrumentName == "hagalaz.gameworld.map.region.load.duration");
+        Assert.AreEqual("success", duration.Tags["outcome"]);
     }
 
     [TestMethod]
@@ -109,6 +112,20 @@ public sealed class MapRegionLoaderTests
     [TestMethod]
     public async Task LoadAsync_WhenStaticDecodeFails_DoesNotApplyStagedDataOrRegisterNpcs()
     {
+        var stoppedActivities = new List<Activity>();
+        using var measurements = new MeterListenerSpy("Hagalaz.Services.GameWorld");
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStopped = activity =>
+            {
+                if (activity.OperationName == "Hagalaz.Services.GameWorld.MapRegionLoader.Load")
+                    stoppedActivities.Add(activity);
+            }
+        };
+        ActivitySource.AddActivityListener(listener);
+
         var region = CreateRegion();
         var gameObject = Substitute.For<IGameObject>();
         var gameObjectBuilder = ConfigureStaticGameObjectBuilder(gameObject);
@@ -128,6 +145,14 @@ public sealed class MapRegionLoaderTests
 
         Assert.AreSame(failure, actual);
         Assert.AreEqual(MapRegionState.Discarded, region.State);
+        var failedActivity = stoppedActivities.Single();
+        Assert.AreEqual("failure", failedActivity.GetTagItem("map.region.load.outcome"));
+        Assert.AreEqual(ActivityStatusCode.Error, failedActivity.Status);
+        Assert.AreEqual(typeof(InvalidDataException).FullName, failedActivity.GetTagItem("error.type"));
+        var loadCount = measurements.Measurements.Single(measurement => measurement.InstrumentName == "hagalaz.gameworld.map.region.load");
+        Assert.AreEqual("failure", loadCount.Tags["outcome"]);
+        var loadDuration = measurements.Measurements.Single(measurement => measurement.InstrumentName == "hagalaz.gameworld.map.region.load.duration");
+        Assert.AreEqual("failure", loadDuration.Tags["outcome"]);
         region.DidNotReceive().FlagCollision(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CollisionFlag>());
         region.DidNotReceive().Add(gameObject);
         await fixture.NpcService.DidNotReceive().RegisterAsync(Arg.Any<INpc>());
@@ -320,6 +345,19 @@ public sealed class MapRegionLoaderTests
     [TestMethod]
     public async Task LoadAsync_WhenCanceledAfterNpcRegistration_UnregistersRegisteredNpcsAndDiscardsRegion()
     {
+        var stoppedActivities = new List<Activity>();
+        using var measurements = new MeterListenerSpy("Hagalaz.Services.GameWorld");
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStopped = activity =>
+            {
+                if (activity.OperationName == "Hagalaz.Services.GameWorld.MapRegionLoader.Load")
+                    stoppedActivities.Add(activity);
+            }
+        };
+        ActivitySource.AddActivityListener(listener);
         using var cancellation = new CancellationTokenSource();
         var region = CreateRegion();
         var npcA = CreateNpc(1);
@@ -338,6 +376,11 @@ public sealed class MapRegionLoaderTests
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => fixture.Loader.LoadAsync(region, cancellation.Token));
 
         Assert.AreEqual(MapRegionState.Discarded, region.State);
+        var cancelledActivity = stoppedActivities.Single();
+        Assert.AreEqual("cancelled", cancelledActivity.GetTagItem("map.region.load.outcome"));
+        Assert.AreNotEqual(ActivityStatusCode.Error, cancelledActivity.Status);
+        Assert.AreEqual("cancelled", measurements.Measurements.Single(measurement =>
+            measurement.InstrumentName == "hagalaz.gameworld.map.region.load").Tags["outcome"]);
         await fixture.NpcService.Received(1).UnregisterAsync(npcA);
         await fixture.NpcService.DidNotReceive().UnregisterAsync(npcB);
         fixture.RegionService.Received(1).TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);

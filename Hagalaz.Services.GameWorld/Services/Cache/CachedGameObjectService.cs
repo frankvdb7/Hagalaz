@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -8,6 +9,8 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Services.GameWorld.Diagnostics;
+using Hagalaz.Services.GameWorld.Data.Model;
+using Hagalaz.Services.GameWorld.Metrics;
 using Microsoft.Extensions.Caching.Hybrid;
 
 namespace Hagalaz.Services.GameWorld.Services.Cache
@@ -38,100 +41,68 @@ namespace Hagalaz.Services.GameWorld.Services.Cache
             IEnumerable<int> objectIds,
             CancellationToken cancellationToken = default)
         {
-            using var resolutionActivity = GameObjectDefinitionResolutionDiagnostics.StartActivity(
-                GameObjectDefinitionResolutionDiagnostics.BulkResolutionActivityName);
-            resolutionActivity?.SetTag("outcome", "started");
+            using var resolutionActivity = GameObjectDefinitionResolutionDiagnostics.StartActivity();
+            var resolutionStart = Stopwatch.GetTimestamp();
+            var resolutionOutcome = "failure";
+            int? batchSize = null;
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-            }
-            catch (System.Exception exception)
-            {
-                GameObjectDefinitionResolutionDiagnostics.RecordFailure(resolutionActivity, exception);
-                throw;
-            }
-
-            var deduplicateAndSortStart = GameObjectDefinitionResolutionDiagnostics.StartTiming(resolutionActivity);
-            var requestedIds = objectIds.Distinct().OrderBy(id => id).ToArray();
-            GameObjectDefinitionResolutionDiagnostics.RecordElapsed(
-                resolutionActivity,
-                "cache.key_deduplicate_sort_duration_ms",
-                deduplicateAndSortStart);
-            resolutionActivity?.SetTag("requested_definition_count", requestedIds.Length);
-            if (requestedIds.Length == 0)
-            {
-                resolutionActivity?.SetTag("outcome", "empty");
-                resolutionActivity?.SetStatus(ActivityStatusCode.Ok);
-                return new Dictionary<int, IGameObjectDefinition>();
-            }
-
-            var keyGenerationStart = GameObjectDefinitionResolutionDiagnostics.StartTiming(resolutionActivity);
-            var cacheKey = $"{Constants.Cache.GameObjectDefinitionCachePrefix}batch:{string.Join(",", requestedIds)}";
-            GameObjectDefinitionResolutionDiagnostics.RecordElapsed(
-                resolutionActivity,
-                "cache.key_generation_duration_ms",
-                keyGenerationStart);
-
-            using var cacheActivity = GameObjectDefinitionResolutionDiagnostics.StartActivity(
-                GameObjectDefinitionResolutionDiagnostics.CacheLookupActivityName);
-            var factoryInvoked = false;
-            var factoryStart = 0L;
-            var factoryCompleted = 0L;
-
-            try
-            {
-                var definitions = await _cache.GetOrCreateAsync(cacheKey,
-                    async token =>
-                    {
-                        factoryInvoked = true;
-                        factoryStart = GameObjectDefinitionResolutionDiagnostics.StartTiming(cacheActivity);
-                        try
-                        {
-                            return await _inner.FindGameObjectDefinitionsByIdsAsync(requestedIds, token);
-                        }
-                        finally
-                        {
-                            factoryCompleted = factoryStart == 0 ? 0 : Stopwatch.GetTimestamp();
-                            GameObjectDefinitionResolutionDiagnostics.RecordElapsed(
-                                cacheActivity,
-                                "cache.factory_duration_ms",
-                                factoryStart);
-                        }
-                    },
-                    tags: Constants.Cache.GameObjectTags,
-                    cancellationToken: cancellationToken);
-
-                cacheActivity?.SetTag("cache.factory_invoked", factoryInvoked);
-                cacheActivity?.SetTag("cache.outcome", factoryInvoked ? "miss" : "hit");
-                if (factoryInvoked && factoryCompleted != 0)
+                var requestedIds = objectIds.Distinct().OrderBy(id => id).ToArray();
+                batchSize = requestedIds.Length;
+                resolutionActivity?.SetTag("requested_definition_count", requestedIds.Length);
+                if (requestedIds.Length == 0)
                 {
-                    GameObjectDefinitionResolutionDiagnostics.AddDuration(
-                        cacheActivity,
-                        "cache.after_factory_duration_ms",
-                        Stopwatch.GetElapsedTime(factoryCompleted).TotalMilliseconds);
+                    resolutionOutcome = "empty";
+                    resolutionActivity?.SetTag("result_definition_count", 0);
+                    resolutionActivity?.SetTag("outcome", resolutionOutcome);
+                    resolutionActivity?.SetStatus(ActivityStatusCode.Ok);
+                    return new Dictionary<int, IGameObjectDefinition>();
                 }
 
-                var dictionaryStart = GameObjectDefinitionResolutionDiagnostics.StartTiming(resolutionActivity);
+                var cacheKey = $"{Constants.Cache.GameObjectDefinitionCachePrefix}batch:{string.Join(",", requestedIds)}";
+                var factoryInvoked = false;
+                IReadOnlyDictionary<int, GameObjectDefinition> definitions;
+                try
+                {
+                    definitions = await _cache.GetOrCreateAsync(cacheKey,
+                        async token =>
+                        {
+                            factoryInvoked = true;
+                            return await _inner.FindGameObjectDefinitionsByIdsAsync(requestedIds, token);
+                        },
+                        tags: Constants.Cache.GameObjectTags,
+                        cancellationToken: cancellationToken);
+                }
+                catch (Exception exception)
+                {
+                    GameWorldMetrics.RecordDefinitionCacheLookup(exception is OperationCanceledException ? "cancelled" : "error");
+                    throw;
+                }
+
+                var cacheOutcome = factoryInvoked ? "miss" : "hit";
+                resolutionActivity?.SetTag("cache.outcome", cacheOutcome);
+                GameWorldMetrics.RecordDefinitionCacheLookup(cacheOutcome);
+
                 var result = definitions.ToDictionary(pair => pair.Key, pair => (IGameObjectDefinition)pair.Value);
-                GameObjectDefinitionResolutionDiagnostics.RecordElapsed(
-                    resolutionActivity,
-                    "result_dictionary_materialization_duration_ms",
-                    dictionaryStart);
                 resolutionActivity?.SetTag("result_definition_count", result.Count);
-                resolutionActivity?.SetTag("outcome", "success");
+                resolutionOutcome = "success";
+                resolutionActivity?.SetTag("outcome", resolutionOutcome);
                 resolutionActivity?.SetStatus(ActivityStatusCode.Ok);
-                cacheActivity?.SetStatus(ActivityStatusCode.Ok);
                 return result;
             }
-            catch (System.Exception exception)
+            catch (Exception exception)
             {
-                cacheActivity?.SetTag("cache.factory_invoked", factoryInvoked);
-                cacheActivity?.SetTag(
-                    "cache.outcome",
-                    exception is System.OperationCanceledException ? "cancelled" : "error");
-                GameObjectDefinitionResolutionDiagnostics.RecordFailure(cacheActivity, exception);
+                resolutionOutcome = exception is OperationCanceledException ? "cancelled" : "failure";
                 GameObjectDefinitionResolutionDiagnostics.RecordFailure(resolutionActivity, exception);
                 throw;
+            }
+            finally
+            {
+                GameWorldMetrics.RecordDefinitionResolution(
+                    resolutionOutcome,
+                    batchSize,
+                    Stopwatch.GetElapsedTime(resolutionStart).TotalSeconds);
             }
         }
 

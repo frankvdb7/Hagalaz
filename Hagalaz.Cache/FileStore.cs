@@ -4,7 +4,6 @@ using System.IO;
 using System.Threading;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
-using Hagalaz.Cache.Diagnostics;
 using Hagalaz.Cache.Models;
 
 namespace Hagalaz.Cache
@@ -89,20 +88,14 @@ namespace Hagalaz.Cache
 
             if (((long)Models.Index.IndexSize * fileId + Models.Index.IndexSize) > indexStream.Length) throw new FileNotFoundException();
 
-            var activity = CacheArchiveReadDiagnostics.CurrentReadArchiveActivityForFile(indexId, fileId);
-            var lockWaitStart = CacheArchiveReadDiagnostics.StartTiming(activity);
             lock (_lockObj)
             {
-                CacheArchiveReadDiagnostics.RecordElapsed(activity, "filestore.lock_wait_duration_ms", lockWaitStart);
-                var readStart = CacheArchiveReadDiagnostics.StartTiming(activity);
-                long bytesRead = 0;
                 var indexData = ArrayPool<byte>.Shared.Rent(Models.Index.IndexSize);
                 byte[]? dataBuffer = null;
                 try
                 {
                     indexStream.Seek((long)Models.Index.IndexSize * fileId, SeekOrigin.Begin);
                     indexStream.ReadExactly(indexData, 0, Models.Index.IndexSize);
-                    bytesRead += Models.Index.IndexSize;
 
                     var index = _indexCodec.Decode(indexData);
                     if (index.Size < 0 || index.Size > Sector.MaxFileSize) throw new InvalidDataException("Index size is invalid.");
@@ -122,7 +115,6 @@ namespace Hagalaz.Cache
                         var dataSectorSize = index.Size - readBytesCount;
                         if (dataSectorSize > sectorSize) dataSectorSize = sectorSize;
                         _dataFile.ReadExactly(dataBuffer, 0, headerSectorSize + dataSectorSize);
-                        bytesRead += headerSectorSize + dataSectorSize;
 
                         var sector = _sectorCodec.Decode(dataBuffer, extended);
                         if (fileId != sector.FileID) throw new InvalidDataException("Invalid file id.");
@@ -144,8 +136,6 @@ namespace Hagalaz.Cache
                 {
                     ArrayPool<byte>.Shared.Return(indexData);
                     if (dataBuffer != null) ArrayPool<byte>.Shared.Return(dataBuffer);
-                    CacheArchiveReadDiagnostics.RecordElapsed(activity, "filestore.read_duration_ms", readStart);
-                    activity?.SetTag("filestore.read_bytes", bytesRead);
                 }
             }
         }

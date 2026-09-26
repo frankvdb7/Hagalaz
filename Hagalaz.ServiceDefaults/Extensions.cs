@@ -200,7 +200,6 @@ public static class Extensions
                     .AddSource("MassTransit")
                     .AddSource("Polly")
                     .AddSource("Hagalaz.Services.GameWorld")
-                    .AddSource("Hagalaz.Cache")
                     .AddSource("Raido.Server");
             });
 
@@ -346,7 +345,9 @@ public static class Extensions
             "Polly",
             "Raido.Server",
             "Hagalaz.Services.Characters.Persistence",
-            "Hagalaz.Services.GameWorld.Authentication");
+            "Hagalaz.Services.GameWorld.Authentication",
+            "Hagalaz.Services.GameWorld",
+            "Hagalaz.Cache");
 
     public static string? GetServiceConfigurationValue(this IConfiguration configuration, string serviceName, string key, string? fallbackKey = null)
     {

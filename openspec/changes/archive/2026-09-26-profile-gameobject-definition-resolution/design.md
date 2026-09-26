@@ -45,4 +45,10 @@ Alternatives rejected: a per-definition span or ID/key fingerprint would add unn
 
 ## Migration Plan
 
-No data or configuration migration is required. Build and test the instrumented GameWorld output. Then hand control to the user for the exact Aspire restart and one-login reproduction. Analyze the resulting traces before proposing any behavior or performance change. Remove the diagnostic code in a separate decision if the measurements show no useful follow-up.
+No data or configuration migration is required. The one-login runtime sample was supplied and analyzed as part of the investigation. The user retained control of Aspire and client interaction; this observability cleanup required no runtime restart or reproduction.
+
+## Completed Investigation and Disposition
+
+The supplied one-login profile confirmed that the original per-definition database query issue was resolved. The remaining resolution cost came from rebuilding whole Cache archives during type-provider member reads. Reusing immutable archive snapshots is tracked separately as #506 and is outside this change.
+
+The investigation-only phase diagnostics have been replaced with bounded operational observability: one region-load activity, one bulk-resolution activity, low-cardinality GameWorld metrics, and Cache measurements for actual archive loads and container decoding. Detailed phase timing, per-archive spans, FileStore profiling, and archive-split profiling are removed. No metric or attribute names are product requirements, and no main behavior specifications are needed for this observability-only change.

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Model;
@@ -16,11 +17,25 @@ using NSubstitute;
 namespace Hagalaz.Services.GameWorld.Tests;
 
 [TestClass]
+[DoNotParallelize]
 public sealed class CachedGameObjectServiceTests
 {
     [TestMethod]
     public async Task FindDefinitionsByIds_DeduplicatesRequestedIdsAndCachesTheBatch()
     {
+        var activities = new List<Activity>();
+        using var measurements = new MeterListenerSpy("Hagalaz.Services.GameWorld");
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStopped = activity =>
+            {
+                if (activity.OperationName == "Hagalaz.Services.GameWorld.GameObjectDefinitions.ResolveBulk")
+                    activities.Add(activity);
+            }
+        };
+        ActivitySource.AddActivityListener(listener);
         var overrides = new Dictionary<uint, GameObjectDefinitionOverride>
         {
             [100] = new(100, "override-100", 11),
@@ -52,6 +67,33 @@ public sealed class CachedGameObjectServiceTests
         Assert.AreEqual(4, repeated.Count);
         await repository.Received(1).FindOverridesByIdsAsync(
             Arg.Any<IReadOnlyCollection<uint>>(), Arg.Any<CancellationToken>());
+
+        Assert.AreEqual(2, activities.Count);
+        Assert.IsTrue(activities.All(activity => activity.GetTagItem("requested_definition_count") is 4));
+        Assert.IsTrue(activities.All(activity => activity.GetTagItem("result_definition_count") is 4));
+        CollectionAssert.AreEqual(new[] { "miss", "hit" }, activities.Select(activity => activity.GetTagItem("cache.outcome")).Cast<string>().ToArray());
+        Assert.IsTrue(activities.All(activity => activity.GetTagItem("outcome") as string == "success"));
+
+        var resolutions = measurements.Measurements
+            .Where(measurement => measurement.InstrumentName == "hagalaz.gameworld.gameobject.definition.resolve")
+            .ToArray();
+        Assert.AreEqual(2, resolutions.Length);
+        Assert.IsTrue(resolutions.All(measurement => measurement.Tags["outcome"] as string == "success"));
+        var durations = measurements.Measurements
+            .Where(measurement => measurement.InstrumentName == "hagalaz.gameworld.gameobject.definition.resolve.duration")
+            .ToArray();
+        Assert.AreEqual(2, durations.Length);
+        var batchSizes = measurements.Measurements
+            .Where(measurement => measurement.InstrumentName == "hagalaz.gameworld.gameobject.definition.resolve.batch_size")
+            .ToArray();
+        Assert.AreEqual(2, batchSizes.Length);
+        Assert.IsTrue(batchSizes.All(measurement => measurement.Value == 4 && measurement.Tags.Count == 0));
+        var lookups = measurements.Measurements
+            .Where(measurement => measurement.InstrumentName == "hagalaz.gameworld.gameobject.definition.cache.lookup")
+            .Select(measurement => measurement.Tags["outcome"] as string)
+            .OrderBy(outcome => outcome)
+            .ToArray();
+        CollectionAssert.AreEqual(new[] { "hit", "miss" }, lookups);
     }
 
     [TestMethod]
@@ -75,11 +117,31 @@ public sealed class CachedGameObjectServiceTests
     [TestMethod]
     public async Task FindDefinitionsByIds_WithEmptyInputReturnsEmptyWithoutDatabaseQuery()
     {
+        var activities = new List<Activity>();
+        using var measurements = new MeterListenerSpy("Hagalaz.Services.GameWorld");
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStopped = activity =>
+            {
+                if (activity.OperationName == "Hagalaz.Services.GameWorld.GameObjectDefinitions.ResolveBulk")
+                    activities.Add(activity);
+            }
+        };
+        ActivitySource.AddActivityListener(listener);
         var (service, repository, _) = CreateService([]);
 
         var result = await service.FindGameObjectDefinitionsByIdsAsync([]);
 
         Assert.AreEqual(0, result.Count);
+        var emptyActivity = activities.Single();
+        Assert.AreEqual("empty", emptyActivity.GetTagItem("outcome"));
+        Assert.AreEqual(0, emptyActivity.GetTagItem("result_definition_count"));
+        Assert.AreEqual("empty", measurements.Measurements.Single(measurement =>
+            measurement.InstrumentName == "hagalaz.gameworld.gameobject.definition.resolve").Tags["outcome"]);
+        Assert.AreEqual(0, measurements.Measurements.Single(measurement =>
+            measurement.InstrumentName == "hagalaz.gameworld.gameobject.definition.resolve.batch_size").Value);
         await repository.DidNotReceive().FindOverridesByIdsAsync(
             Arg.Any<IReadOnlyCollection<uint>>(), Arg.Any<CancellationToken>());
     }
@@ -87,6 +149,19 @@ public sealed class CachedGameObjectServiceTests
     [TestMethod]
     public async Task FindDefinitionsByIds_PropagatesCancellationToBulkRead()
     {
+        var activities = new List<Activity>();
+        using var measurements = new MeterListenerSpy("Hagalaz.Services.GameWorld");
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStopped = activity =>
+            {
+                if (activity.OperationName == "Hagalaz.Services.GameWorld.GameObjectDefinitions.ResolveBulk")
+                    activities.Add(activity);
+            }
+        };
+        ActivitySource.AddActivityListener(listener);
         using var source = new CancellationTokenSource();
         var repository = Substitute.For<IGameObjectDefinitionRepository>();
         repository.FindOverridesByIdsAsync(Arg.Any<IReadOnlyCollection<uint>>(), Arg.Any<CancellationToken>())
@@ -108,6 +183,54 @@ public sealed class CachedGameObjectServiceTests
         await repository.Received(1).FindOverridesByIdsAsync(
             Arg.Is<IReadOnlyCollection<uint>>(ids => ids != null && ids.SequenceEqual(new uint[] { 100 })),
             Arg.Any<CancellationToken>());
+        var cancelledActivity = activities.Single();
+        Assert.AreEqual("cancelled", cancelledActivity.GetTagItem("outcome"));
+        Assert.AreNotEqual(ActivityStatusCode.Error, cancelledActivity.Status);
+        Assert.AreEqual("cancelled", measurements.Measurements.Single(measurement =>
+            measurement.InstrumentName == "hagalaz.gameworld.gameobject.definition.resolve").Tags["outcome"]);
+        Assert.AreEqual("cancelled", measurements.Measurements.Single(measurement =>
+            measurement.InstrumentName == "hagalaz.gameworld.gameobject.definition.cache.lookup").Tags["outcome"]);
+    }
+
+    [TestMethod]
+    public async Task FindDefinitionsByIds_WhenRepositoryFailsRecordsResolutionAndCacheFailure()
+    {
+        var activities = new List<Activity>();
+        using var measurements = new MeterListenerSpy("Hagalaz.Services.GameWorld");
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStopped = activity =>
+            {
+                if (activity.OperationName == "Hagalaz.Services.GameWorld.GameObjectDefinitions.ResolveBulk")
+                    activities.Add(activity);
+            }
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        var failure = new InvalidOperationException("repository unavailable");
+        var repository = Substitute.For<IGameObjectDefinitionRepository>();
+        repository.FindOverridesByIdsAsync(Arg.Any<IReadOnlyCollection<uint>>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromException<Dictionary<uint, GameObjectDefinitionOverride>>(failure));
+        var inner = new GameObjectService(
+            Substitute.For<IMapRegionService>(),
+            repository,
+            CreateDefinitionProvider());
+        var service = new CachedGameObjectService(inner, new SharedHybridCache());
+
+        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            service.FindGameObjectDefinitionsByIdsAsync([100]));
+
+        Assert.AreSame(failure, actual);
+        var activity = activities.Single();
+        Assert.AreEqual("failure", activity.GetTagItem("outcome"));
+        Assert.AreEqual(typeof(InvalidOperationException).FullName, activity.GetTagItem("error.type"));
+        Assert.AreEqual(ActivityStatusCode.Error, activity.Status);
+        Assert.AreEqual("error", measurements.Measurements.Single(measurement =>
+            measurement.InstrumentName == "hagalaz.gameworld.gameobject.definition.cache.lookup").Tags["outcome"]);
+        Assert.AreEqual("failure", measurements.Measurements.Single(measurement =>
+            measurement.InstrumentName == "hagalaz.gameworld.gameobject.definition.resolve").Tags["outcome"]);
     }
 
     [TestMethod]
