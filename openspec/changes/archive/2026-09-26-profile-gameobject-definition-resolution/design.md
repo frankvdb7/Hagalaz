@@ -20,6 +20,8 @@ The GameObject type provider is transient and decodes a requested definition in 
 
 ## Decisions
 
+The numbered decisions below describe the investigation-only profiling plan. The final permanent telemetry is recorded under Completed Investigation and Disposition.
+
 1. **Reuse the existing GameWorld activity source.** Add a shared internal diagnostics helper using the already-subscribed `Hagalaz.Services.GameWorld` source. Keep the existing region-load activity as the parent and add only bulk-level activities for full resolution, cache access, core resolution, and repository access.
 
 2. **Measure key work as scalar data on the bulk activity.** Time the current `Distinct`, `OrderBy`, array, and key-string construction. Record only the deduplicated count and elapsed time. Do not attach the key, IDs, or a key hash.
@@ -28,7 +30,7 @@ The GameObject type provider is transient and decodes a requested definition in 
 
 4. **Measure repository work around the complete EF method.** The repository activity spans query construction, execution, materialization, and return. Existing EF command spans remain the SQL-only measurement nested under it.
 
-5. **Aggregate archive and codec work without per-definition activities.** In the core resolution activity, accumulate elapsed time around `ITypeProvider<GameObjectDefinition>.Get` calls and codec decoding. The provider measurement includes reference-table access, archive read/container/archive decode, entry extraction, type decode, and hooks; the codec timer separates the object-definition decoder portion. Count archive fallbacks through the registered GameObject-definition factory only while the core resolution activity is current.
+5. **Aggregate archive and codec work without per-definition activities.** During investigation, accumulate elapsed time around `ITypeProvider<GameObjectDefinition>.Get` calls and codec decoding, and count archive-fallback factory calls while the core resolution activity is current. These phase timings and the fallback count were removed from permanent telemetry after the investigation; archive-fallback creation is normal factory behavior.
 
 6. **Measure composition and collection conversion separately.** Record aggregate elapsed time for core deduplication/DB-ID preparation, metadata override application, core dictionary insertion, and the cached result's final interface dictionary materialization. Do not enumerate the input solely to measure it.
 
@@ -51,4 +53,4 @@ No data or configuration migration is required. The one-login runtime sample was
 
 The supplied one-login profile confirmed that the original per-definition database query issue was resolved. The remaining resolution cost came from rebuilding whole Cache archives during type-provider member reads. Reusing immutable archive snapshots is tracked separately as #506 and is outside this change.
 
-The investigation-only phase diagnostics have been replaced with bounded operational observability: one region-load activity, one bulk-resolution activity, low-cardinality GameWorld metrics, and Cache measurements for actual archive loads and container decoding. Detailed phase timing, per-archive spans, FileStore profiling, and archive-split profiling are removed. No metric or attribute names are product requirements, and no main behavior specifications are needed for this observability-only change.
+The investigation-only phase diagnostics have been replaced with bounded operational observability: `Hagalaz.Services.GameWorld.MapRegionLoader.Load` and `Hagalaz.Services.GameWorld.GameObjectDefinitions.ResolveBulk` activities; GameWorld metrics for region loads, definition-resolution count/duration/batch size, and HybridCache hits/misses; and Cache metrics for archive-load count/duration and container-decode duration. No archive-definition fallback metric remains. Detailed phase timing, per-archive spans, FileStore profiling, and archive-split profiling are removed. No metric or attribute names are product requirements, and no main behavior specifications are needed for this observability-only change.

@@ -18,7 +18,7 @@ The system SHALL derive each new character snapshot revision from the character'
 
 ### Requirement: Hydration exposes persisted revision
 
-The Characters hydration response SHALL include the persisted snapshot revision, and GameWorld SHALL carry that value through its hydration state and initialize the character persistence state before the character is exposed to the singleton store or can be flushed.
+The Characters hydration response SHALL include the persisted snapshot revision, and GameWorld SHALL carry that value through its hydration state, initialize persistence state after successfully claiming the exact character through `CharacterService.AddAsync`, and do so before committing the world session.
 
 #### Scenario: Hydration transfers revision
 - **WHEN** the Characters service hydrates a character with revision 27

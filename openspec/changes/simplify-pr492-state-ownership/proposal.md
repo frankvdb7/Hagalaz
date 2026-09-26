@@ -18,10 +18,10 @@ receives only detached models.
 - Make map-region snapshots explicit at `MapRegionService`; remove expensive
   dictionary-copying properties from `IDimension` and make empty-dimension
   removal enforce its complete invariant atomically.
-- Initialize the monotonic persistence revision before claiming the exact
-  local character, so admission cannot publish a character before its
-  revision baseline exists and failed registration never rolls that baseline
-  back.
+- Claim the hydrated character through `CharacterService.AddAsync` before
+  calling `InitializeRevision`, and initialize revision state before session
+  commit. A failed registration does not seed or roll back another character's
+  persistence state.
 - Make creature destruction cleanup one terminal attempt that continues across
   independent failures, reports them in one `AggregateException`, and discards
   dead-creature bookkeeping.

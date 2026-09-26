@@ -161,15 +161,18 @@ it does not check a state through one API and mutate it through another.
 24. **Breaking shared contracts use coordinated deployment.** The Contacts
     session-generation/connection-identity messages and the Authorization
     exact-`AuthorizationId` revocation request are intentionally breaking
-    across old and new versions. `Hagalaz.Services.GameWorld`,
-    `Hagalaz.Services.Contacts`, and `Hagalaz.Services.Authorization` therefore
-    form one contract-compatible release set on the shared RabbitMQ topology;
-    old and new versions must not overlap for this rollout. No legacy fallback
-    or compatibility adapter is added: missing authorization identity must not
-    fall back to broad revocation, and missing contact identity must not weaken
-    ownership fencing. Future breaking shared-contract changes require either
-    the same coordinated release treatment or an explicit compatibility and
-    versioning plan.
+    across old and new versions. The `StateDto.Id` change from `int` to `string`
+    is also breaking between Characters and GameWorld: old GameWorld with new
+    Characters, and new GameWorld with old Characters, are both unsafe. These
+    contracts therefore require `Hagalaz.Services.GameWorld`,
+    `Hagalaz.Services.Contacts`, `Hagalaz.Services.Authorization`, and
+    `Hagalaz.Services.Characters` to form one contract-compatible release set
+    on the shared RabbitMQ topology; old and new versions must not overlap for
+    this rollout. No legacy fallback or compatibility adapter is added:
+    missing authorization identity must not fall back to broad revocation, and
+    missing contact identity must not weaken ownership fencing. Future breaking
+    shared-contract changes require either the same coordinated release
+    treatment or an explicit compatibility and versioning plan.
 
 ## Verification strategy
 

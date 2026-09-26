@@ -22,7 +22,7 @@ internal static class ContactSnapshotApplicator
             response.ConnectionId != session.ConnectionId)
         {
             return false;
-        }   
+        }
 
         var friends = new List<Friend>(mapper.Map<IEnumerable<Friend>>(response.Friends) ?? []);
         var ignores = new List<Ignore>(mapper.Map<IEnumerable<Ignore>>(response.Ignores) ?? []);

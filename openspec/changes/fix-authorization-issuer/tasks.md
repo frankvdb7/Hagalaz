@@ -2,4 +2,4 @@
 - [x] 2. Wire the AppHost issuer from the authorization HTTPS endpoint.
 - [x] 3. Add focused issuer validation and AppHost model regression tests.
 - [x] 4. Document Aspire, standalone-development, and production configuration.
-- [ ] 5. Run focused tests, build, and strict OpenSpec validation.
+- [x] 5. Run focused tests, build, and strict OpenSpec validation.

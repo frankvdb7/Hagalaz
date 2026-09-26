@@ -10,5 +10,5 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Run focused handshake tests and the complete GameWorld test project.
+- [x] 3.1 Run focused handshake tests and the complete GameWorld test project.
 - [ ] 3.2 Run the affected build, strict OpenSpec validation, and manual revision-742 login.
