@@ -1,0 +1,14 @@
+{
+  "format": ["csharp"],
+  "minLines": 10,
+  "minTokens": 80,
+  "mode": "mild",
+  "reporters": ["console", "json", "sarif"],
+  "ignore": [
+    "**/bin/**",
+    "**/obj/**",
+    "**/Migrations/**",
+    "**/*.g.cs",
+    "**/*.Designer.cs"
+  ]
+}

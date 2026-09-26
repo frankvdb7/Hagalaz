@@ -58,6 +58,42 @@ jobs:
       - name: Validate archived OpenSpec tasks
         run: npx --yes @fission-ai/openspec@1.10.0 validate --archived --no-interactive
 
+  duplication:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository and target branch
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Scan C# duplication
+        id: jscpd
+        uses: kucherenko/jscpd@v5.3.2
+        with:
+          version: '5.3.2'
+          config: .jscpd.json
+          reporters: console,json,sarif
+          baseline-from-ref: origin/${{ github.base_ref }}
+          fail-on-new-clones: true
+          fail-on-empty: true
+          upload-sarif: false
+
+      - name: Upload duplication SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: report/jscpd-report.sarif
+
+      - name: Enforce duplication result
+        if: always()
+        env:
+          JSCPD_EXIT_CODE: ${{ steps.jscpd.outputs.exit-code }}
+        run: test "$JSCPD_EXIT_CODE" = "0"
+
   webapp:
     runs-on: ubuntu-latest
     defaults:
