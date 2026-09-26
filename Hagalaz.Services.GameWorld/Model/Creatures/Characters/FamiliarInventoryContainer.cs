@@ -106,13 +106,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="slots">The slots.</param>
         public override void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new FamiliarInventoryChangedEvent(_owner, slots));
 
-        public void Hydrate(IReadOnlyList<HydratedItem> inventory) => RestoreItems(ItemContainerPersistence.Build(inventory, _itemBuilder));
+        public void Hydrate(IReadOnlyList<HydratedItem> inventory) => RestoreItems(inventory.Select(item =>
+            (item.SlotId, _itemBuilder.Create().WithId(item.ItemId).WithCount(item.Count)
+                .WithExtraData(item.ExtraData ?? string.Empty).Build())));
 
-        public IReadOnlyList<HydratedItem> Dehydrate()
-        {
-            return ItemContainerPersistence.Dehydrate(this)
-                .Select(item => new HydratedItem(item.ItemId, item.Count, item.SlotId, item.ExtraData))
-                .ToList();
-        }
+        public IReadOnlyList<HydratedItem> Dehydrate() => EnumerateOccupiedSlots()
+            .Select(entry => new HydratedItem(entry.Item.Id, entry.Item.Count, entry.Slot, entry.Item.SerializeExtraData()))
+            .ToArray();
     }
 }

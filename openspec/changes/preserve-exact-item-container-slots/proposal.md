@@ -6,6 +6,7 @@ Persisted item containers compact sparse slots while dehydrating, so loading mov
 
 - Preserve physical slot IDs in all six persisted character item containers.
 - Restore persisted items through one protected, validated container operation that does not use gameplay insertion.
+- Enumerate occupied physical slots through a protected container operation; keep DTO mapping in each persisted container.
 - Keep `SetItems` for trade rollback, but require capacity-sized input and copy its array.
 - Preserve item extra data when the item builder finishes construction.
 - Add focused round-trip and corrupt-state regressions.

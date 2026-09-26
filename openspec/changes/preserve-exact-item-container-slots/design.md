@@ -5,9 +5,9 @@
 ## Decisions
 
 - Add a protected `RestoreItems` operation to `BaseItemContainer` that accepts slot/item pairs, validates slots, duplicates, and counts, builds a new capacity-sized array, then uses the existing `SetItems` path. This retains equipment and money-pouch post-restore behavior and trade locking.
-- Make count validation positive by default. The existing `CountToResetTo = 0` setting explicitly opts money pouch and shop stock into their zero-count sentinel semantics. Shop stock does not use persisted restoration.
-- Keep `SetItems` for trade rollback. Validate array length and copy the array before assignment. It retains item references because trade rollback restores exact item instances and counts.
-- Use one small GameWorld persistence helper to build item/slot pairs and dehydrate by looping over physical slots. Keep the DTO types as they are, including the familiar-specific type.
+- Require positive counts during exact restoration by default. Money pouch explicitly allows its zero-coin item. Shop stock has zero-count stock behavior but does not use exact restoration.
+- Keep `SetItems` for trade rollback and other direct replacements. Validate array length and copy the array before assignment without changing their count semantics. It retains item references because trade rollback restores exact item instances and counts.
+- Add a protected, persistence-neutral occupied-slot enumerator to `BaseItemContainer`. Each concrete persisted container builds items and maps occupied slots to its existing DTO type, including the familiar-specific type.
 - Return the configured item from `ItemBuilder.Build` so hydrated extra data is not discarded.
 
 ## Risks / Trade-offs

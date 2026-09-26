@@ -9,6 +9,7 @@
 - [x] 2.1 Add the protected restoration boundary and make `SetItems` capacity-safe and array-owning.
 - [x] 2.2 Correct all affected dehydrate/hydrate paths and retain money-pouch count semantics.
 - [x] 2.3 Return the extra-data-configured item from `ItemBuilder.Build`.
+- [x] 2.4 Replace the static persistence helper with protected occupied-slot enumeration and concrete DTO mapping; validate counts only during exact restoration.
 
 ## 3. Verification
 
