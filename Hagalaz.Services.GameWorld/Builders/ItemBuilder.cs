@@ -37,7 +37,7 @@ namespace Hagalaz.Services.GameWorld.Builders
             {
                 item.UnserializeExtraData(_extraData);
             }
-            return new Item(_id, _count, itemDefinition, equipmentDefinition, itemScript, equipmentScript);
+            return item;
         }
 
         public IItemOptional WithCount(int count)

@@ -884,11 +884,9 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
             container.Add(CreateItem(1, 1));
-            var newItems = new IItem[]
-            {
-                CreateItem(10, 1),
-                CreateItem(11, 1)
-            };
+            var newItems = new IItem[container.Capacity];
+            newItems[0] = CreateItem(10, 1);
+            newItems[1] = CreateItem(11, 1);
 
             // Act
             container.SetItems(newItems, true);
@@ -897,6 +895,34 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.AreEqual(2, container.TakenSlots);
             Assert.AreEqual(10, container[0]!.Id);
             Assert.AreEqual(11, container[1]!.Id);
+        }
+
+        [TestMethod]
+        public void SetItems_WithInvalidLength_RejectsInputAndKeepsCapacitySizedStorage()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            container.Add(CreateItem(1, 1));
+
+            Assert.ThrowsExactly<ArgumentException>(() => container.SetItems([CreateItem(2, 1)], false));
+
+            Assert.AreEqual(container.Capacity, container.ToArray().Length);
+            Assert.AreEqual(1, container[0]!.Id);
+        }
+
+        [TestMethod]
+        public void SetItems_DoesNotRetainCallerOwnedArray()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var items = new IItem[container.Capacity];
+            items[5] = CreateItem(10, 1);
+            container.SetItems(items, false);
+
+            items[5] = CreateItem(11, 1);
+            items[2] = CreateItem(12, 1);
+
+            Assert.AreEqual(10, container[5]!.Id);
+            Assert.IsNull(container[2]);
+            Assert.AreEqual(container.Capacity, container.ToArray().Length);
         }
 
         [TestMethod]

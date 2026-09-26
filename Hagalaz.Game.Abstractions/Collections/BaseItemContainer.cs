@@ -835,16 +835,55 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>
-        /// Replaces the entire internal item array with a new one.
+        /// Replaces the entire internal item array with a capacity-sized copy.
         /// </summary>
         /// <param name="items">The new array of items.</param>
         /// <param name="update">If set to <c>true</c>, the <see cref="OnUpdate"/> callback is invoked.</param>
         public virtual void SetItems(IItem[] items, bool update)
         {
-            Items = items;
+            ArgumentNullException.ThrowIfNull(items);
+            if (items.Length != Capacity)
+            {
+                throw new ArgumentException("Item storage length must equal container capacity.", nameof(items));
+            }
+
+            foreach (var item in items)
+            {
+                if (item != null && item.Count <= 0 && !(item.Count == 0 && CountToResetTo == 0))
+                {
+                    throw new ArgumentOutOfRangeException(nameof(items), "Item count is invalid for this container.");
+                }
+            }
+
+            Items = (IItem?[])items.Clone();
 
             if (update) OnUpdate();
             _version++;
+        }
+
+        /// <summary>
+        /// Restores persisted items into their exact physical slots without gameplay insertion.
+        /// </summary>
+        protected void RestoreItems(IEnumerable<(int Slot, IItem Item)> persistedItems)
+        {
+            ArgumentNullException.ThrowIfNull(persistedItems);
+            var restored = new IItem[Capacity];
+            foreach (var (slot, item) in persistedItems)
+            {
+                if ((uint)slot >= (uint)Capacity)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(persistedItems), $"Slot {slot} is outside the container capacity.");
+                }
+
+                if (restored[slot] != null)
+                {
+                    throw new ArgumentException($"Slot {slot} is duplicated in persisted state.", nameof(persistedItems));
+                }
+
+                restored[slot] = item;
+            }
+
+            SetItems(restored, false);
         }
 
         /// <summary>

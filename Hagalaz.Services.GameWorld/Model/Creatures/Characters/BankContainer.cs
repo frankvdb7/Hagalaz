@@ -334,28 +334,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         }
 
-        public void Hydrate(IReadOnlyList<HydratedItemDto> bank)
-        {
-            var items = new IItem[Capacity];
-            foreach (var hydrated in bank)
-            {
-                var builder = _itemBuilder.Create().WithId(hydrated.ItemId).WithCount(hydrated.Count);
-                if (!string.IsNullOrEmpty(hydrated.ExtraData))
-                {
-                    builder.WithExtraData(hydrated.ExtraData);
-                }
-                items[hydrated.SlotId] = builder.Build();
-            }
-            SetItems(items, false);
-        }
+        public void Hydrate(IReadOnlyList<HydratedItemDto> bank) => RestoreItems(ItemContainerPersistence.Build(bank, _itemBuilder));
 
-        public IReadOnlyList<HydratedItemDto> Dehydrate()
-        {
-            var items = ToArray();
-            return items
-                .OfType<IItem>()
-                .Select((item, index) => new HydratedItemDto(item.Id, item.Count, index, item.SerializeExtraData()))
-                .ToList();
-        }
+        public IReadOnlyList<HydratedItemDto> Dehydrate() => ItemContainerPersistence.Dehydrate(this);
     }
 }
