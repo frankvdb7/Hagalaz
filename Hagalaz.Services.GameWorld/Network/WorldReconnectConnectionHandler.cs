@@ -24,6 +24,13 @@ namespace Hagalaz.Services.GameWorld.Network;
 
 internal sealed class WorldReconnectConnectionHandler
 {
+    private enum ReconnectResult
+    {
+        Rejected,
+        Attached,
+        ResponseAlreadySent
+    }
+
     private readonly IAuthenticationService _authenticationService;
     private readonly IGameSessionService _gameSessionService;
     private readonly IGameSessionClaimStore _sessionClaims;
@@ -107,6 +114,8 @@ internal sealed class WorldReconnectConnectionHandler
                 return;
             }
 
+            var reconnectResult = ReconnectResult.Rejected;
+            var claimStartedAt = DateTimeOffset.UtcNow;
             var attached = await _sessionClaims.ExecuteIfOwnerAsync(
                 masterId,
                 session.SessionClaimId,
@@ -122,12 +131,14 @@ internal sealed class WorldReconnectConnectionHandler
                         currentTarget.ConnectionId != currentSession.ConnectionId ||
                         !IsMatchingWorldConnection(currentTarget, currentSession, masterId))
                     {
+                        reconnectResult = ReconnectResult.Rejected;
                         return false;
                     }
 
                     var character = currentTarget.Features.Get<ICharacterFeature>()?.Character;
                     if (character is null)
                     {
+                        reconnectResult = ReconnectResult.Rejected;
                         return false;
                     }
 
@@ -139,13 +150,14 @@ internal sealed class WorldReconnectConnectionHandler
                     if (clientProtocol is null)
                     {
                         await SendResponseAsync(connection, handshakeProtocol, ClientSignInResponse.Outdated, claimCancellationToken);
+                        reconnectResult = ReconnectResult.ResponseAlreadySent;
                         return false;
                     }
 
                     var targetMutated = false;
                     try
                     {
-                        return await dispatch.DispatchExistingAsync(
+                        var dispatched = await dispatch.DispatchExistingAsync(
                             currentTarget,
                             async prepareCancellationToken =>
                             {
@@ -184,6 +196,8 @@ internal sealed class WorldReconnectConnectionHandler
                                     prepareCancellationToken);
                             },
                             claimCancellationToken);
+                        reconnectResult = dispatched ? ReconnectResult.Attached : ReconnectResult.Rejected;
+                        return dispatched;
                     }
                     catch
                     {
@@ -196,8 +210,14 @@ internal sealed class WorldReconnectConnectionHandler
                     }
                 },
                 cancellationToken);
-            if (!attached)
+            if (attached)
             {
+                session.ClaimLeaseValidUntil =
+                    claimStartedAt + GameSessionClaimOptions.LeaseDuration;
+            }
+            if (!attached && reconnectResult == ReconnectResult.Rejected)
+            {
+                await SendResponseAsync(connection, handshakeProtocol, ClientSignInResponse.BadSession, cancellationToken);
                 return;
             }
         }
@@ -263,7 +283,8 @@ internal sealed class WorldReconnectConnectionHandler
             ReferenceEquals(targetCharacter.Session, session) &&
             targetAuthentication?.TryGetClaim<string>(OpenIddictConstants.Claims.Subject, out var subject) == true &&
             uint.TryParse(subject, out var authenticatedMasterId) &&
-            authenticatedMasterId == masterId;
+            authenticatedMasterId == masterId &&
+            !string.IsNullOrWhiteSpace(targetAuthentication.AuthorizationId);
     }
 
     private static class Log

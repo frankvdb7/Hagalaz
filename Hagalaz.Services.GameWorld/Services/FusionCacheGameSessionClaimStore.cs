@@ -10,6 +10,7 @@ namespace Hagalaz.Services.GameWorld.Services;
 public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
 {
     private const string KeyPrefix = "hagalaz:game-session:";
+    private const string GenerationKeyPrefix = "hagalaz:game-session-generation:";
     private const string LockName = "game-session-claim";
     private static readonly TimeSpan DistributedLockTimeout = TimeSpan.FromSeconds(30);
     private static readonly FusionCacheEntryOptions EntryOptions = new()
@@ -20,6 +21,14 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
         SkipMemoryCacheRead = true,
         SkipMemoryCacheWrite = true
     };
+    private static readonly FusionCacheEntryOptions GenerationEntryOptions = new FusionCacheEntryOptions
+    {
+        IsFailSafeEnabled = false,
+        SkipMemoryCacheRead = true,
+        SkipMemoryCacheWrite = true
+    }
+        .SetDurationInfinite()
+        .SetDistributedCacheDurationInfinite();
 
     private readonly IFusionCache _cache;
     private readonly IFusionCacheDistributedLocker _locker;
@@ -35,6 +44,15 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
         _logger = logger;
     }
 
+    public Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default) =>
+        WithClaimLockAsync(masterId, async token =>
+        {
+            var current = await _cache.TryGetAsync<long>(GetGenerationKey(masterId), GenerationEntryOptions, token);
+            var next = current.HasValue ? checked(current.Value + 1) : 1L;
+            await _cache.SetAsync(GetGenerationKey(masterId), next, GenerationEntryOptions, token);
+            return next;
+        }, cancellationToken);
+
     public Task<bool> TryClaimAsync(uint masterId, string claimId, CancellationToken cancellationToken = default) =>
         WithClaimLockAsync(masterId, async token =>
         {
@@ -46,6 +64,54 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
 
             await _cache.SetAsync(GetKey(masterId), claimId, EntryOptions, token);
             return true;
+        }, cancellationToken);
+
+    public Task<bool> ExecuteIfOwnerAndReplaceAsync(
+        uint masterId,
+        string ownerClaimId,
+        string replacementClaimId,
+        Func<CancellationToken, Task<bool>> action,
+        CancellationToken cancellationToken = default) =>
+        WithClaimLockAsync(masterId, async token =>
+        {
+            var current = await _cache.TryGetAsync<string>(GetKey(masterId), EntryOptions, token);
+            if (!current.HasValue || current.Value != ownerClaimId)
+            {
+                return false;
+            }
+
+            await _cache.SetAsync(GetKey(masterId), replacementClaimId, EntryOptions, token);
+            var restorationAttempted = false;
+            try
+            {
+                var succeeded = await action(token);
+                if (!succeeded)
+                {
+                    restorationAttempted = true;
+                    await _cache.SetAsync(GetKey(masterId), ownerClaimId, EntryOptions, CancellationToken.None);
+                }
+
+                return succeeded;
+            }
+            catch (Exception)
+            {
+                if (!restorationAttempted)
+                {
+                    try
+                    {
+                        await _cache.SetAsync(GetKey(masterId), ownerClaimId, EntryOptions, CancellationToken.None);
+                    }
+                    catch (Exception compensationException)
+                    {
+                        _logger.LogError(
+                            compensationException,
+                            "Failed to restore the previous game-session claim for account '{masterId}' after replacement callback failure.",
+                            masterId);
+                    }
+                }
+
+                throw;
+            }
         }, cancellationToken);
 
     public Task<bool> ReleaseAsync(uint masterId, string claimId, CancellationToken cancellationToken = default) =>
@@ -105,6 +171,12 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
             _logger,
             token);
 
+        if (lockObject is null)
+        {
+            throw new InvalidOperationException(
+                $"Unable to acquire the distributed game-session claim lock for account '{masterId}'.");
+        }
+
         try
         {
             return await action(token);
@@ -133,4 +205,6 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
     }
 
     private static string GetKey(uint masterId) => $"{KeyPrefix}{masterId}";
+
+    private static string GetGenerationKey(uint masterId) => $"{GenerationKeyPrefix}{masterId}";
 }

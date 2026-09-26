@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System;
-using System.Threading.Tasks;
+using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Factories;
@@ -67,6 +67,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <value>The bounds.</value>
         public IBounds Bounds { get; }
 
+        private bool _scriptCreateStarted;
+
         /// <summary>
         /// Gets the path finder.
         /// </summary>
@@ -96,6 +98,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             IProjectilePathFinder projectilePathFinder,
             IOptions<CombatOptions> combatOptions,
             IHitSplatBuilder hitSplatBuilder,
+            IEntityService entityService,
             INpcService npcService,
             ILootService lootService,
             ILootGenerator lootGenerator,
@@ -115,7 +118,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             Bounds = new Bounds(definition.BoundsType, defaultLocation.Clone(), minimumLocation, maximumLocation);
             Statistics = new NpcStatistics(this, eventManager, hitSplatBuilder);
             Appearance = new NpcAppearance(this, npcService);
-            Combat = new NpcCombat(this, npcService, lootService, lootGenerator, groundItemBuilder, projectilePathFinder,
+            Combat = new NpcCombat(this, entityService, npcService, lootService, lootGenerator, groundItemBuilder, projectilePathFinder,
                 smartPathFinder, combatOptions, hitSplatBuilder);
             SpawnFaceDirection = spawnFaceDirection is DirectionFlag.None or null
                 ? DirectionHelper.GetNpcFaceDirection(definition.SpawnFaceDirection)
@@ -148,11 +151,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <summary>
         /// Get's called when npc is registered.
         /// </summary>
-        public override async Task OnRegistered()
+        public override void OnRegistered()
         {
             // initialize the most important drawing logic first
             RenderInformation.OnRegistered();
-            await base.OnRegistered();
+            base.OnRegistered();
+            _scriptCreateStarted = true;
             Script.OnCreate();
             if (Definition.WalksRandomly && Definition.BoundsType != BoundsType.Static)
             {
@@ -165,9 +169,34 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         protected override void OnDestroy()
         {
-            EventManager.SendEvent(new CreatureDestroyedEvent(this));
-            Script.OnDestroy();
+            List<Exception>? exceptions = null;
+            try
+            {
+                EventManager.SendEvent(new CreatureDestroyedEvent(this));
+            }
+            catch (Exception exception)
+            {
+                (exceptions ??= []).Add(exception);
+            }
+
+            if (_scriptCreateStarted)
+            {
+                try
+                {
+                    Script.OnDestroy();
+                }
+                catch (Exception exception)
+                {
+                    (exceptions ??= []).Add(exception);
+                }
+            }
+
             UnregisterEventHandlers();
+
+            if (exceptions is { Count: > 0 })
+            {
+                throw new AggregateException("One or more NPC cleanup operations failed.", exceptions).Flatten();
+            }
         }
 
         /// <summary>

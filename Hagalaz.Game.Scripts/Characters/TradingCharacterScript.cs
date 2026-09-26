@@ -155,7 +155,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     Character.Interrupt(this);
                     Character.ForceRunMovementType(forceRun);
                     Character.QueueTask(new CreatureReachTask(Character,
-                        target,
+                        target.Handle,
                         success =>
                         {
                             Character.Interrupt(this);
@@ -247,7 +247,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
             if (LastRequest != null)
             {
-                if (LastRequest.IsDestroyed || !Character.Viewport.InBounds(LastRequest.Location))
+                if (!Character.Viewport.InBounds(LastRequest.Location))
                 {
                     LastRequest = null;
                 }
@@ -312,11 +312,6 @@ namespace Hagalaz.Game.Scripts.Characters
             if (selfOverlay == null || targetOverlay == null)
             {
                 return false;
-            }
-
-            if (target.IsDestroyed || Character.IsDestroyed)
-            {
-                return true;
             }
 
             if (!selfInterface.IsOpened || !targetInterface.IsOpened)

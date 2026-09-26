@@ -44,6 +44,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
         /// </summary>
         private int _productCount;
 
+        private int _seedId;
+
         /// <summary>
         /// Contains the current cycle.
         /// </summary>
@@ -105,6 +107,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
         public void Plant(SeedDto definition)
         {
             Seed = definition;
+            _seedId = definition.ItemID;
             CurrentCycle = 0;
             Reset();
             AddCondition(PatchCondition.Planted);
@@ -238,9 +241,11 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
         /// </summary>
         public void Refresh()
         {
-            _owner.QueueTask(async () =>
+            var objectId = PatchDefinition.ObjectID;
+            _owner.QueueTask(async cancellationToken =>
             {
-                var objDefinition = await _gameObjectService.FindGameObjectDefinitionById(PatchDefinition.ObjectID);
+                var objDefinition = await _gameObjectService.FindGameObjectDefinitionById(objectId);
+                cancellationToken.ThrowIfCancellationRequested();
                 _owner.Configurations.SendBitConfiguration(objDefinition.VarpBitFileId,
                     HasCondition(PatchCondition.Planted) ? GetVarpBitValue() : CurrentCycle);
             });
@@ -373,35 +378,67 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
 
         public void Hydrate(HydratedFarmingDto.PatchDto hydration)
         {
+            Hydrate(hydration, DateTimeOffset.Now);
+        }
+
+        internal void Hydrate(HydratedFarmingDto.PatchDto hydration, DateTimeOffset now)
+        {
             _conditionFlag = hydration.Condition;
             _productCount = hydration.ProductCount;
             CurrentCycle = hydration.CurrentCycle;
-            TickCount = -hydration.CurrentCycleTicks;
+            _seedId = hydration.SeedId;
             if (HasCondition(PatchCondition.Planted))
             {
                 Seed = _farmingService.FindSeedById(hydration.SeedId).Result;
             }
 
-            // calculate the current cycle
-            var timePassed = DateTimeOffset.Now - _owner.LastLogin;
-            var ticksPassed = TickCount + (int)(timePassed.TotalMilliseconds / 600);
-            var cyclesPassed = ticksPassed / (HasCondition(PatchCondition.Planted) && Seed != null ? Seed.CycleTicks : _weedGrowTicks);
-            for (var cycle = 0; cycle < cyclesPassed; cycle++)
+            var cycleLength = HasCondition(PatchCondition.Planted) && Seed != null
+                ? Seed.CycleTicks
+                : _weedGrowTicks;
+            if (cycleLength <= 0 || HasCondition(PatchCondition.Mature) || HasCondition(PatchCondition.Dead))
             {
-                if (HasCondition(PatchCondition.Mature) || HasCondition(PatchCondition.Dead))
-                    break;
-                Grow(false);
-                ticksPassed -= Seed != null && HasCondition(PatchCondition.Planted) ? Seed.CycleTicks : _weedGrowTicks;
+                TickCount = 0;
+                return;
             }
 
-            if (ticksPassed > 0)
+            // CurrentCycle and the crop conditions already persist completed growth.
+            // Only retain the legacy counter's within-cycle remainder; replaying its
+            // quotient would advance the persisted crop state a second time.
+            var ticksPassed = Math.Max(0L, hydration.CurrentCycleTicks) % cycleLength;
+            var offlineElapsed = (now - _owner.LastLogin).Ticks;
+            if (offlineElapsed > 0)
             {
-                TickCount = ticksPassed;
+                ticksPassed += offlineElapsed / (TimeSpan.TicksPerMillisecond * 600L);
             }
+
+            while (ticksPassed >= cycleLength)
+            {
+                ticksPassed -= cycleLength;
+                var previousCycle = CurrentCycle;
+                var previousConditions = _conditionFlag;
+                Grow(false);
+
+                if (HasCondition(PatchCondition.Mature) || HasCondition(PatchCondition.Dead))
+                {
+                    ticksPassed = 0;
+                    break;
+                }
+
+                if (CurrentCycle == previousCycle && _conditionFlag == previousConditions)
+                {
+                    // A missing seed or already-empty patch cannot consume more cycles.
+                    ticksPassed %= cycleLength;
+                    break;
+                }
+            }
+
+            TickCount = checked((int)ticksPassed);
         }
 
         public HydratedFarmingDto.PatchDto Dehydrate() => new HydratedFarmingDto.PatchDto()
         {
+            Id = PatchDefinition.ObjectID,
+            SeedId = _seedId,
             Condition = _conditionFlag,
             ProductCount = _productCount,
             CurrentCycle = CurrentCycle,

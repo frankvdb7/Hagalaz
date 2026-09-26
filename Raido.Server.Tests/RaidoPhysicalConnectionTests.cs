@@ -21,6 +21,8 @@ namespace Raido.Server.Tests;
 [TestClass]
 public sealed class RaidoPhysicalConnectionTests
 {
+    public TestContext TestContext { get; set; } = null!;
+
     private readonly List<RaidoHubConnectionContext> _connections = new();
     private readonly List<PhysicalConnection> _physicalConnections = new();
     private readonly List<BlockingHeartbeatFeature> _blockingHeartbeatFeatures = new();
@@ -2471,7 +2473,7 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    [Timeout(5000)]
+    [Timeout(5000, CooperativeCancellation = true)]
     public async Task PhysicalDetachWaitsForActiveProtocolSerialization()
     {
         using var initial = CreatePhysicalConnection("initial");
@@ -2483,22 +2485,30 @@ public sealed class RaidoPhysicalConnectionTests
 
         try
         {
-            writeTask = Task.Run(() => context.WriteAsync(new TestMessage()).AsTask());
-            await protocol.WriteStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            writeTask = Task.Factory.StartNew(
+                () => context.WriteAsync(new TestMessage()).AsTask(),
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default).Unwrap();
+            await protocol.WriteStarted.Task.WaitAsync(TestContext.CancellationToken);
 
             var detachStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            detachTask = Task.Run(() =>
-            {
-                detachStarted.TrySetResult();
-                context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-            });
-            await detachStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            detachTask = Task.Factory.StartNew(
+                () =>
+                {
+                    detachStarted.TrySetResult();
+                    context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+                },
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
+            await detachStarted.Task.WaitAsync(TestContext.CancellationToken);
 
             Assert.IsFalse(detachTask.IsCompleted);
 
             protocol.Release.TrySetResult();
-            await writeTask.WaitAsync(TimeSpan.FromSeconds(1));
-            await detachTask.WaitAsync(TimeSpan.FromSeconds(1));
+            await writeTask.WaitAsync(TestContext.CancellationToken);
+            await detachTask.WaitAsync(TestContext.CancellationToken);
 
             Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
         }
@@ -2598,7 +2608,7 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    [Timeout(5000)]
+    [Timeout(5000, CooperativeCancellation = true)]
     public async Task CleanupAsyncCancelsConnectionClosedAndCompletesAbortAsync()
     {
         using var initial = CreatePhysicalConnection("initial");
@@ -2607,13 +2617,13 @@ public sealed class RaidoPhysicalConnectionTests
         var connectionClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var registration = context.ConnectionAborted.Register(() => connectionClosed.TrySetResult());
 
-        await context.CleanupAsync().WaitAsync(TimeSpan.FromSeconds(1));
+        await context.CleanupAsync().WaitAsync(TestContext.CancellationToken);
 
         Assert.IsTrue(connectionClosed.Task.IsCompletedSuccessfully);
         Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
-        await context.AbortAsync().WaitAsync(TimeSpan.FromSeconds(1));
+        await context.AbortAsync().WaitAsync(TestContext.CancellationToken);
     }
 
     [TestMethod]

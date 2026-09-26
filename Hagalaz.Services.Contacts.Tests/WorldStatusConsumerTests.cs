@@ -37,7 +37,7 @@ namespace Hagalaz.Services.Contacts.Tests
 
             await _consumer.Consume(contextMock.Object);
 
-            _contactSessionServiceMock.Verify(x => x.RemoveWorldSessions(worldId), Times.Once);
+            _contactSessionServiceMock.Verify(x => x.RemoveWorldSessions(worldId, "instance-a", 1), Times.Once);
             Assert.IsFalse(_worldSessions.TryGetValue(worldId, out _));
         }
 
@@ -55,7 +55,7 @@ namespace Hagalaz.Services.Contacts.Tests
 
             Assert.IsTrue(_worldSessions.TryGetValue(worldId, out var replacement));
             Assert.AreEqual("instance-b", replacement!.InstanceId);
-            _contactSessionServiceMock.Verify(x => x.RemoveWorldSessions(worldId), Times.Never);
+            _contactSessionServiceMock.Verify(x => x.RemoveWorldSessions(worldId, "instance-a", 1), Times.Once);
         }
 
         [TestMethod]
@@ -74,7 +74,7 @@ namespace Hagalaz.Services.Contacts.Tests
         }
 
         [TestMethod]
-        public void WorldSessionStore_ExpiresCrashedGeneration()
+    public void WorldSessionStore_ExpiresCrashedGeneration()
         {
             const int worldId = 1;
             var now = DateTimeOffset.UtcNow;
@@ -90,7 +90,17 @@ namespace Hagalaz.Services.Contacts.Tests
 
             Assert.AreEqual(1, updates.Count);
             Assert.IsFalse(updates[0].IsAvailable);
-            Assert.IsFalse(_worldSessions.TryGetValue(worldId, out _));
-        }
+        Assert.IsFalse(_worldSessions.TryGetValue(worldId, out _));
     }
+
+    [TestMethod]
+    public void WorldSessionStore_TryGetAvailableExact_RejectsStaleInstanceAndGeneration()
+    {
+        _worldSessions.ObserveOnline(new WorldSessionContext(1, "World 1", "instance-b", 2));
+
+        Assert.IsFalse(_worldSessions.TryGetAvailableExact(1, "instance-a", 1, out _));
+        Assert.IsTrue(_worldSessions.TryGetAvailableExact(1, "instance-b", 2, out var current));
+        Assert.AreEqual("instance-b", current.InstanceId);
+    }
+}
 }

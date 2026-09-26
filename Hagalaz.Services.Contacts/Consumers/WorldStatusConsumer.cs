@@ -55,13 +55,17 @@ namespace Hagalaz.Services.Contacts.Consumers
                 return;
             }
 
+            await _contactSessionService.RemoveWorldSessions(
+                message.Id,
+                message.InstanceId,
+                message.Generation);
+
             if (update.IsAvailable)
             {
                 _logger.LogInformation("Retained surviving world generation: {Id} - {InstanceId}", message.Id, update.ActiveSession!.InstanceId);
                 return;
             }
 
-            await _contactSessionService.RemoveWorldSessions(message.Id);
             _logger.LogInformation("Removed world: {Id}", message.Id);
         }
     }

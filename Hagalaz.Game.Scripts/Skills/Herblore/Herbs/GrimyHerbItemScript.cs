@@ -30,7 +30,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
             }
 
             character.Interrupt(this);
-            character.QueueTask(() => _herblore.TryCleanHerb(character, item));
+            character.QueueTask(cancellationToken => _herblore.TryCleanHerb(character, item, cancellationToken));
         }
     }
 }

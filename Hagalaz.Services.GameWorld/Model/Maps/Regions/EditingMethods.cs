@@ -15,6 +15,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// </summary>
         public void MakeStandard()
         {
+            EnsureAcceptsMutation();
             for (var z = 0; z < 4; z++)
             {
                 for (var x = 0; x < 8; x++)
@@ -29,19 +30,25 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                             part.DrawRegionPartX = partX;
                             part.DrawRegionPartY = partY;
                             part.DrawRegionZ = z;
+                            part.DrawRegionDimension = BaseLocation.Dimension;
+                            part.HasDrawSource = true;
                             part.Rotation = 0;
                         }
                     }
                 }
-            }
 
+            }
             IsDynamic = false;
         }
 
         /// <summary>
         /// Make's this region dynamic.
         /// </summary>
-        public void MakeDynamic() => IsDynamic = true;
+        public void MakeDynamic()
+        {
+            EnsureAcceptsMutation();
+            IsDynamic = true;
+        }
 
         public static int PartToLocalPart(int part) => part - part / 8 * 8;
         public int LocalPartXToPartX(int index) => BaseLocation.RegionX * 8 + index;
@@ -51,6 +58,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public IMapRegionPart GetRegionPartData(int partX, int partY, int z)
         {
+            EnsureAcceptsMutation();
             var partHash = LocationHelper.GetRegionPartHash(partX, partY, z);
             return _parts.GetOrAdd(partHash, CreateRegionPart);
         }
@@ -64,6 +72,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// <returns>RegionPartData.</returns>
         public IMapRegionPart GetRegionPartByLocalPart(int localPartX, int localPartY, int z)
         {
+            EnsureAcceptsMutation();
             var partX = LocalPartXToPartX(localPartX);
             var partY = LocalPartYToPartY(localPartY);
             var partHash = LocationHelper.GetRegionPartHash(partX, partY, z);
@@ -79,10 +88,13 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// <param name="drawPartX">The draw part X.</param>
         /// <param name="drawPartY">The draw part Y.</param>
         /// <param name="drawPartZ">The draw part Z.</param>
-        public void WriteBlock(int partX, int partY, int z, int drawPartX, int drawPartY, int drawPartZ) => WriteBlockByIndex(PartToLocalPart(partX), PartToLocalPart(partY), z, drawPartX, drawPartY, drawPartZ);
+        public void WriteBlock(int partX, int partY, int z, int drawPartX, int drawPartY, int drawPartZ) => WriteBlock(partX, partY, z, drawPartX, drawPartY, drawPartZ, BaseLocation.Dimension);
 
-        public void WriteBlockByIndex(int localPartX, int localPartY, int z, int drawPartX, int drawPartY, int drawPartZ)
+        public void WriteBlock(int partX, int partY, int z, int drawPartX, int drawPartY, int drawPartZ, int drawPartDimension) => WriteBlockByIndex(PartToLocalPart(partX), PartToLocalPart(partY), z, drawPartX, drawPartY, drawPartZ, drawPartDimension);
+
+        public void WriteBlockByIndex(int localPartX, int localPartY, int z, int drawPartX, int drawPartY, int drawPartZ, int drawPartDimension)
         {
+            EnsureAcceptsMutation();
             if (!IsDynamic)
             {
                 throw new NotSupportedException("Writing blocks is not supported in non-dynamic regions!");
@@ -94,6 +106,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             part.DrawRegionPartX = drawPartX;
             part.DrawRegionPartY = drawPartY;
             part.DrawRegionZ = drawPartZ;
+            part.DrawRegionDimension = drawPartDimension;
+            part.HasDrawSource = true;
             UnloadPartGameObjects(partX, partY, z, part.Rotation);
             LoadPartObjects(partX, partY, z, part.Rotation);
         }
@@ -102,6 +116,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void RotateBlockByIndex(int localPartX, int localPartY, int z, int rotation)
         {
+            EnsureAcceptsMutation();
             if (!IsDynamic)
             {
                 throw new NotSupportedException("Rotating blocks is not supported in non-dynamic regions!");
@@ -122,6 +137,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void DeleteBlockByIndex(int localPartX, int localPartY, int z)
         {
+            EnsureAcceptsMutation();
             if (!IsDynamic)
             {
                 throw new NotSupportedException("Deleting blocks is not supported in non-dynamic regions!");

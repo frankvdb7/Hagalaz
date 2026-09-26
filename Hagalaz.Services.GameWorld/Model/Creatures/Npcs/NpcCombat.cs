@@ -1,4 +1,5 @@
 ﻿using System;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Logic.Loot;
@@ -14,6 +15,7 @@ using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
@@ -44,6 +46,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <param name="owner"></param>
         public NpcCombat(
             INpc owner,
+            IEntityService entityService,
             INpcService npcService,
             ILootService lootService,
             ILootGenerator lootGenerator,
@@ -52,7 +55,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             ISmartPathFinder smartPathFinder,
             IOptions<CombatOptions> combatOptions,
             IHitSplatBuilder hitSplatBuilder)
-            : base(owner, projectilePathFinder, smartPathFinder, combatOptions, hitSplatBuilder)
+            : base(owner, entityService, projectilePathFinder, smartPathFinder, combatOptions, hitSplatBuilder)
         {
             _npc = owner;
             _npcService = npcService;
@@ -90,7 +93,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             if (_npc.Script.CanRespawn())
                 Owner.QueueTask(new RsTask(() => _npc.Script.Respawn(), delay + _npc.Definition.RespawnTime + 1));
             else
-                Owner.QueueTask(new RsTask(() => _npcService.UnregisterAsync(_npc).Wait(), delay + 1));
+                Owner.QueueTask(new RsTask(
+                    () => Owner.QueueTask(_ => _npcService.UnregisterAsync(_npc)),
+                    delay + 1));
         }
 
         /// <summary>
@@ -111,9 +116,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             }
 
             var kill = killer as ICharacter;
-            kill?.QueueTask(async () =>
+            var lootTableId = _npc.Definition.LootTableId;
+            var lootLocation = Owner.Location;
+            kill?.QueueTask(async cancellationToken =>
             {
-                var table = await _lootService.FindNpcLootTable(_npc.Definition.LootTableId);
+                var table = await _lootService.FindNpcLootTable(lootTableId);
+                cancellationToken.ThrowIfCancellationRequested();
                 if (table == null)
                 {
                     return;
@@ -123,7 +131,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
                 {
                     _groundItemBuilder.Create()
                         .WithItem(builder => builder.Create().WithId(loot.Item.Id).WithCount(loot.Count))
-                        .WithLocation(Owner.Location)
+                        .WithLocation(lootLocation)
                         .WithOwner(kill)
                         .Spawn();
                 }
@@ -219,10 +227,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <returns>
         /// If creature target was set sucessfully.
         /// </returns>
-        public override bool SetTarget(ICreature target)
+        public override bool SetTarget(EntityHandle<ICreature> targetHandle)
         {
-            if (!CanSetTarget(target)) return false;
-            Target = target;
+            var target = ResolveCreature(targetHandle);
+            if (target is null || !CanSetResolvedTarget(target)) return false;
+            SetTargetHandle(targetHandle);
             Owner.FaceCreature(target);
             _npc.Script.OnSetTarget(target);
             ((Npc)Owner).EventManager.SendEvent(new CreatureSetCombatTargetEvent(Owner, target));
@@ -234,9 +243,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         /// <param name="target">The target.</param>
         /// <returns></returns>
-        public override bool CanSetTarget(ICreature target)
+        public override bool CanSetTarget(EntityHandle<ICreature> targetHandle)
         {
-            if (target.IsDestroyed || target.Combat.IsDead || IsDead) return false;
+            var target = ResolveCreature(targetHandle);
+            return target is not null && CanSetResolvedTarget(target);
+        }
+
+        protected override bool CanSetResolvedTarget(ICreature target)
+        {
+            if (target is not ICharacter and not INpc)
+            {
+                return false;
+            }
+
+            if (target.Combat.IsDead || IsDead) return false;
             return _npc.Script.CanSetTarget(target);
         }
 
@@ -245,7 +265,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         public override bool CanAttack(ICreature target)
         {
-            if (target.IsDestroyed || target.Combat.IsDead || IsDead) return false;
+            if (target.Combat.IsDead || IsDead) return false;
             return _npc.Script.CanAttack(target);
         }
 
@@ -254,7 +274,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         public override bool CanBeAttackedBy(ICreature attacker)
         {
-            if (attacker.IsDestroyed || attacker.Combat.IsDead || IsDead) return false;
+            if (attacker.Combat.IsDead || IsDead) return false;
             return _npc.Script.CanBeAttackedBy(attacker);
         }
 
@@ -263,7 +283,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         public override void CancelTarget()
         {
-            Target = null;
+            SetTargetHandle(default);
             Owner.ResetFacing();
             _npc.Script.OnCancelTarget();
         }
@@ -663,7 +683,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
                 AddDamageToAttacker(attacker, damage);
             }
 
-            if (_npc.Script.CanRetaliateTo(attacker)) Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(attacker), 1));
+            var attackerHandle = attacker.Handle;
+            if (_npc.Script.CanRetaliateTo(attacker) && attackerHandle != default)
+            {
+                Owner.QueueTask(new RsTask(() =>
+                {
+                    Owner.Combat.SetTarget(attackerHandle);
+                }, 1));
+            }
             return damage;
         }
     }

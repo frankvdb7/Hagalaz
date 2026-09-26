@@ -1,3 +1,6 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Services.Common.Data;
 
 namespace Hagalaz.Services.Characters.Data
@@ -12,6 +15,10 @@ namespace Hagalaz.Services.Characters.Data
         /// endpoint retries query fresh values from the database.
         /// </summary>
         void Reset();
+
+        Task<TResult> ExecuteConsistentReadAsync<TResult>(
+            Func<CancellationToken, Task<TResult>> operation,
+            CancellationToken cancellationToken = default);
 
         public ICharacterRepository CharacterRepository { get; }
         public ICharacterStatisticsRepository CharacterStatisticsRepository { get; }

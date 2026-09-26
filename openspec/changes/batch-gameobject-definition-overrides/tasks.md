@@ -1,0 +1,11 @@
+- [x] Replace whole-table repository read with an ID-filtered projected query.
+- [x] Implement deduplicating requested-ID resolution and a batch-scoped HybridCache entry; retain the single-ID cache path.
+- [x] Add the bulk definitions API and remove explicit preload semantics.
+- [x] Allow the existing builder to accept a resolved definition; preserve its fallback lookup for existing callers.
+- [x] Resolve static and database-spawn IDs once per region and pass the matching definitions into construction.
+- [x] Add unit coverage for deduplication, requested-only behavior, archive/override composition, missing metadata, empty input, cancellation, batch-cache reuse, and single-ID compatibility.
+- [x] Add builder and MapRegionLoader tests for supplied definitions and region ID collection.
+- [x] Add the real-MySQL repository query-count/filter test.
+- [x] Re-run the same real-data cold/warm viewport-definition probe using one batch per region.
+- [x] Run focused tests, provider integration tests, GameWorld tests, full solution build, OpenSpec validation, and `git diff --check`.
+- [x] Verify login ordering and preserve persistence, Notes, and other unrelated working-tree changes.

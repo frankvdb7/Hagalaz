@@ -1,0 +1,8 @@
+- [x] Correct hydration to combine saved progress and offline ticks without negative runtime state.
+- [x] Add deterministic GameWorld regressions for no elapsed ticks, partial progress, exact cycle completion, and multi-cycle catch-up.
+- [x] Extend Characters MySQL persistence coverage for nonzero cycle ticks and existing patch/seed identity.
+- [x] Run requested test suites, solution build, and `git diff --check`; report unavailable infrastructure separately.
+- [x] Normalize oversized legacy progress from the separately persisted crop state, use wide offline arithmetic, and stop catch-up at terminal/non-progressing states.
+- [x] Add deterministic tests for the observed five-year overflow, active legacy normalization, terminal self-healing, cycle boundaries, and nonnegative dehydration.
+- [x] Make unsigned-to-signed farming projection checked and add a real-MySQL regression for legacy-value self-healing and overflow rejection.
+- [ ] Run focused and full requested validation, strict OpenSpec validation, and runtime preparation; report any failed or unavailable gate.

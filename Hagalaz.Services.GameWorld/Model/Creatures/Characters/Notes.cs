@@ -93,12 +93,23 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var note = new Note
             {
                 Text = text,
-                Id = Count
+                Id = GetNextId()
             };
             _notes.Add(note);
 
             SetText(note.Id, note.Text);
             SetColor(note.Id, note.Color);
+        }
+
+        private int GetNextId()
+        {
+            var id = 0;
+            while (_notes.Any(note => note.Id == id))
+            {
+                id++;
+            }
+
+            return id;
         }
 
         /// <summary>

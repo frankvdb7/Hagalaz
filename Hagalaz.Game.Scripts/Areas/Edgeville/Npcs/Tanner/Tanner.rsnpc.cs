@@ -26,7 +26,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Tanner
         {
             if (clickType == NpcClickType.Option3Click)
             {
-                clicker.QueueTask(() => _craftingSkillService.TryTan(clicker));
+                clicker.QueueTask(cancellationToken => _craftingSkillService.TryTan(clicker, cancellationToken));
                 return;
             }
 

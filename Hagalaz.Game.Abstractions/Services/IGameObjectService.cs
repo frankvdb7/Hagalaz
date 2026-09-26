@@ -28,6 +28,16 @@ namespace Hagalaz.Game.Abstractions.Services
         Task<IGameObjectDefinition> FindGameObjectDefinitionById(int objectId, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Finds game object definitions for the supplied IDs.
+        /// </summary>
+        /// <param name="objectIds">The game object definition IDs to resolve.</param>
+        /// <param name="cancellationToken">A token to cancel the lookup.</param>
+        /// <returns>The definitions keyed by ID.</returns>
+        Task<IReadOnlyDictionary<int, IGameObjectDefinition>> FindGameObjectDefinitionsByIdsAsync(
+            IEnumerable<int> objectIds,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Gets the total number of game objects currently in the world.
         /// </summary>
         /// <returns>The total count of game objects.</returns>

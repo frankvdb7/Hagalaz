@@ -40,7 +40,7 @@ public sealed class WorldStatusServiceTests
         });
 
         var contactSessions = new ContactSessionStore();
-        contactSessions.TryAdd(masterId, new ContactSessionContext(masterId, worldId, "World 1"));
+        contactSessions.TrySetNewerSession(new ContactSessionContext(masterId, worldId, "World 1", 1, "connection", "instance-a", 1));
         var worldSessions = new WorldSessionStore();
         worldSessions.ObserveOnline(new WorldSessionContext(
             worldId,
@@ -95,8 +95,8 @@ public sealed class WorldStatusServiceTests
         var cleanupService = new Mock<IContactSessionService>();
         var cleanupCalls = 0;
         cleanupService
-            .Setup(x => x.RemoveWorldSessions(It.IsAny<int>()))
-            .Returns((int _) =>
+            .Setup(x => x.RemoveWorldSessions(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<long>()))
+            .Returns((int _, string _, long _) =>
                 Interlocked.Increment(ref cleanupCalls) == 1
                     ? Task.FromException(new TimeoutException("cleanup failed"))
                     : Task.CompletedTask);
@@ -122,7 +122,7 @@ public sealed class WorldStatusServiceTests
         await service.StopAsync(CancellationToken.None);
 
         Assert.AreEqual(2, cleanupCalls);
-        cleanupService.Verify(x => x.RemoveWorldSessions(1), Times.Once);
-        cleanupService.Verify(x => x.RemoveWorldSessions(2), Times.Once);
+        cleanupService.Verify(x => x.RemoveWorldSessions(1, "instance-a", 1), Times.Once);
+        cleanupService.Verify(x => x.RemoveWorldSessions(2, "instance-b", 1), Times.Once);
     }
 }

@@ -192,7 +192,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                     MaxDamage = maxDamage,
                     Delay = delay,
                     DamageType = DamageType.FullMagic,
-                    Target = creature,
+                    Target = creature.Handle,
                 });
 
                 handle.RegisterResultHandler(result =>

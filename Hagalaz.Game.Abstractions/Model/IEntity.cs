@@ -12,11 +12,6 @@ namespace Hagalaz.Game.Abstractions.Model
         ILocation Location { get; }
 
         /// <summary>
-        /// Gets a value indicating whether the entity has been destroyed and removed from the game.
-        /// </summary>
-        bool IsDestroyed { get; }
-
-        /// <summary>
         /// Gets the size of the entity in game tiles (e.g., a value of 1 means a 1x1 tile footprint).
         /// </summary>
         int Size { get; }
@@ -42,5 +37,18 @@ namespace Hagalaz.Game.Abstractions.Model
         /// A callback method that is executed when the entity is first spawned into the game world.
         /// </summary>
         void OnSpawn();
+    }
+
+    /// <summary>
+    /// Defines the identity contract for an entity category.
+    /// </summary>
+    /// <typeparam name="TEntity">The logical entity category represented by the handle.</typeparam>
+    public interface IEntity<TEntity> : IEntity
+        where TEntity : class, IEntity
+    {
+        /// <summary>
+        /// Gets the identity assigned to this entity by the entity store.
+        /// </summary>
+        EntityHandle<TEntity> Handle { get; }
     }
 }

@@ -6,6 +6,7 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
+using Hagalaz.Services.GameWorld.Store;
 using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests;
@@ -361,7 +362,8 @@ public sealed class CollisionMethodsTests
             mapRegionService,
             Substitute.For<IGameObjectBuilder>(),
             Substitute.For<IGroundItemBuilder>(),
-            Substitute.For<IMapper>());
+            Substitute.For<IMapper>(),
+            new EntityStore());
 
         return (region, recorder);
     }

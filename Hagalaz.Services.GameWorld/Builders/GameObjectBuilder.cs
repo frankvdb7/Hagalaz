@@ -18,6 +18,7 @@ namespace Hagalaz.Services.GameWorld.Builders
         private int _rotation = 0;
         private ShapeType _shapeType = ShapeType.GroundDefault;
         private IGameObjectScript? _script;
+        private IGameObjectDefinition? _definition;
         private Type? _scriptType;
         private bool _isStatic = false;
 
@@ -53,6 +54,12 @@ namespace Hagalaz.Services.GameWorld.Builders
             return this;
         }
 
+        public IGameObjectOptional WithDefinition(IGameObjectDefinition definition)
+        {
+            _definition = definition ?? throw new ArgumentNullException(nameof(definition));
+            return this;
+        }
+
         public IGameObjectOptional WithScript(IGameObjectScript script)
         {
             _script = script;
@@ -78,7 +85,7 @@ namespace Hagalaz.Services.GameWorld.Builders
                 var scriptType = _scriptType ?? _gameObjectScriptProvider.GetGameObjectScriptTypeById(_id);
                 _script = (IGameObjectScript)_serviceProvider.GetRequiredService(scriptType);
             }
-            var definition = _serviceProvider.GetRequiredService<IGameObjectService>().FindGameObjectDefinitionById(_id).Result;
+            var definition = _definition ?? _serviceProvider.GetRequiredService<IGameObjectService>().FindGameObjectDefinitionById(_id).Result;
             return new GameObject(_id, _location, _rotation, _shapeType, _isStatic, definition, _script);
         }
     }

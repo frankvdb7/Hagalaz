@@ -24,13 +24,15 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
         /// <returns></returns>
         public override bool UseItemOnGameObject(IItem used, ICharacter character)
         {
-            character.QueueTask(() => TeleportCharacter(character));
+            character.QueueTask(cancellationToken => TeleportCharacter(character, cancellationToken));
             return true;
         }
 
-        private async Task TeleportCharacter(ICharacter character)
+        private async Task TeleportCharacter(ICharacter character, System.Threading.CancellationToken cancellationToken)
         {
-            var altar = await _runecraftingService.FindAltarByRuinId(Owner.Id);
+            var ruinId = Owner.Id;
+            var altar = await _runecraftingService.FindAltarByRuinId(ruinId);
+            cancellationToken.ThrowIfCancellationRequested();
             if (altar == null)
             {
                 return;

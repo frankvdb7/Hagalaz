@@ -18,7 +18,7 @@ The system SHALL derive each new character snapshot revision from the character'
 
 ### Requirement: Hydration exposes persisted revision
 
-The Characters hydration response SHALL include the persisted snapshot revision, and GameWorld SHALL carry that value through its hydration state and initialize the character persistence state before the character is exposed to the singleton store or can be flushed.
+The Characters hydration response SHALL include the persisted snapshot revision, and GameWorld SHALL carry that value through its hydration state, initialize persistence state after successfully claiming the exact character through `CharacterService.AddAsync`, and do so before committing the world session.
 
 #### Scenario: Hydration transfers revision
 - **WHEN** the Characters service hydrates a character with revision 27
@@ -43,6 +43,14 @@ The Characters hydration response SHALL include the persisted snapshot revision,
 #### Scenario: Registration capacity failure can clean up state
 - **WHEN** registration returns false and the singleton store contains no character with the MasterId
 - **THEN** GameWorld forgets the unused initialized revision state
+
+### Requirement: Hydration returns one coherent database snapshot
+
+The Characters hydration response SHALL contain the snapshot revision and aggregate data materialized from one coherent committed database snapshot. Concurrent persistence or profile updates MAY commit while hydration is active, but no mixture of committed states SHALL be returned.
+
+#### Scenario: Concurrent updates do not mix hydration state
+- **WHEN** hydration begins at revision 100, a separate persistence transaction commits revision 101 after an early graph read, and a separate profile update also commits while hydration continues
+- **THEN** the response contains revision 100 and all graph and profile values from the older snapshot while the database retains both newer commits
 
 ### Requirement: Exact duplicates and conflicts have distinct outcomes
 

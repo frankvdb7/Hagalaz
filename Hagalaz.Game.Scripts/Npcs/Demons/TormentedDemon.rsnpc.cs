@@ -255,7 +255,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
                             MaxDamage = combat.GetRangeMaxHit(target),
                             Delay = delay,
                             DamageType = DamageType.StandardRange,
-                            Target = target
+                            Target = target.Handle
                         });
                         break;
                     }
@@ -294,7 +294,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
                             MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 300),
                             Delay = delay,
                             DamageType = DamageType.StandardMagic,
-                            Target = target
+                            Target = target.Handle
                         });
                         break;
                     }
@@ -493,7 +493,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
         /// </summary>
         private void DisableShield()
         {
-            if (_weakener != null && !_weakener.IsDestroyed)
+            if (_weakener != null)
             {
                 _weakener.SendChatMessage("The demon is temporarily weakened by your weapon.");
             }
@@ -507,7 +507,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
         /// </summary>
         private void EnabledShield()
         {
-            if (_weakener != null && !_weakener.IsDestroyed)
+            if (_weakener != null)
             {
                 _weakener.SendChatMessage("The Tormented demon regains its strength against your weapon.");
             }

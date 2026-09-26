@@ -27,16 +27,18 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                clicker.QueueTask(() => TeleportToRuin(clicker));
+                clicker.QueueTask(cancellationToken => TeleportToRuin(clicker, cancellationToken));
                 return;
             }
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
 
-        private async Task TeleportToRuin(ICharacter character)
+        private async Task TeleportToRuin(ICharacter character, System.Threading.CancellationToken cancellationToken)
         {
-            var altar = await _runecraftingService.FindAltarByPortalId(Owner.Id);
+            var portalId = Owner.Id;
+            var altar = await _runecraftingService.FindAltarByPortalId(portalId);
+            cancellationToken.ThrowIfCancellationRequested();
             if (altar == null)
             {
                 return;

@@ -3,11 +3,20 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Services.GameWorld.Store;
 
 namespace Hagalaz.Services.GameWorld.Model.Items
 {
-    public class GroundItem : IGroundItem
+    public class GroundItem : IGroundItem, IEntityIdentity
     {
+        private EntityHandle<IGroundItem> _handle;
+
+        public EntityHandle<IGroundItem> Handle => _handle;
+
+        int IEntityIdentity.HandleSlot => _handle.Slot;
+        uint IEntityIdentity.HandleGeneration => _handle.Generation;
+        void IEntityIdentity.SetHandle(int slot, uint generation) => _handle = new EntityHandle<IGroundItem>(slot, generation);
+
         public IItem ItemOnGround { get; }
         public ILocation Location { get; }
         private readonly IMapRegionService _mapRegionService;
@@ -18,8 +27,6 @@ namespace Hagalaz.Services.GameWorld.Model.Items
         public bool IsPublic => Owner == null;
         public int Size => 0;
         public string Name => ItemOnGround.Name;
-        public bool IsDestroyed { get; private set; }
-
         public GroundItem(
             IItem itemOnGround,
             ILocation location,
@@ -51,11 +58,6 @@ namespace Hagalaz.Services.GameWorld.Model.Items
         /// </summary>
         public void Destroy()
         {
-            if (IsDestroyed)
-            {
-                throw new InvalidOperationException($"{this} is already destroyed!");
-            }
-            IsDestroyed = true;
         }
 
         /// <summary>
@@ -86,8 +88,7 @@ namespace Hagalaz.Services.GameWorld.Model.Items
         /// <returns></returns>
         public bool Despawn()
         {
-            var region = _mapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, false);
-            return region.Remove(this);
+            return _mapRegionService.RemoveGroundItem(this);
         }
 
         /// <summary>

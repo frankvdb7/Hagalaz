@@ -82,7 +82,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                 DamageType = DamageType.FullMagic,
                 MaxDamage = max,
                 Delay = delay,
-                Target = victim
+                Target = victim.Handle
             });
 
             handle.RegisterResultHandler(_ => { victim.QueueGraphic(Graphic.Create(85, 0, 150)); });

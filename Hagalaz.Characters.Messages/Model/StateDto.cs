@@ -4,7 +4,7 @@
     {
         public record StateExDto
         {
-            public required int Id { get; init; }
+            public required string Id { get; init; }
             public required int TicksLeft { get; init; }
         }
 

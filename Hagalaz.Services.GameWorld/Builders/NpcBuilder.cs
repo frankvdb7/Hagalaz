@@ -76,6 +76,7 @@ namespace Hagalaz.Services.GameWorld.Builders
                     _serviceProvider.GetRequiredService<IProjectilePathFinder>(),
                     _serviceProvider.GetRequiredService<IOptions<CombatOptions>>(),
                     _serviceProvider.GetRequiredService<IHitSplatBuilder>(),
+                    _serviceProvider.GetRequiredService<IEntityService>(),
                     npcService,
                     _serviceProvider.GetRequiredService<ILootService>(),
                     _serviceProvider.GetRequiredService<ILootGenerator>(),
@@ -92,7 +93,7 @@ namespace Hagalaz.Services.GameWorld.Builders
         {
             var npc = Build();
             var npcService = _serviceProvider.GetRequiredService<INpcService>();
-            npcService.RegisterAsync(npc).GetAwaiter().GetResult();
+            npcService.Register(npc);
             return new NpcHandle(npc, npcService);
         }
 

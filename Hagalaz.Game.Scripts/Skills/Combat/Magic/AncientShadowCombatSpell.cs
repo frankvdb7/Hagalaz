@@ -166,7 +166,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                 {
                     Damage = damage,
                     MaxDamage = maxDamage,
-                    Target = c,
+                    Target = c.Handle,
                     Delay = delay,
                     DamageType = DamageType.FullMagic
                 });

@@ -1,6 +1,7 @@
 ﻿using Hagalaz.Contacts.Messages;
 using Hagalaz.Contacts.Messages.Model;
 using Hagalaz.Services.Contacts.Services;
+using Hagalaz.Services.Contacts.Store;
 using MassTransit;
 
 namespace Hagalaz.Services.Contacts.Consumers
@@ -8,11 +9,7 @@ namespace Hagalaz.Services.Contacts.Consumers
     public class GetContactsConsumer : IConsumer<GetContactsRequest>
     {
         private readonly IContactService _contactService;
-
-        public GetContactsConsumer(IContactService contactService)
-        {
-            _contactService = contactService;
-        }
+        public GetContactsConsumer(IContactService contactService) => _contactService = contactService;
 
         public async Task Consume(ConsumeContext<GetContactsRequest> context)
         {
@@ -23,6 +20,8 @@ namespace Hagalaz.Services.Contacts.Consumers
             await context.RespondAsync(new GetContactsResponse()
             {
                 MasterId = message.MasterId,
+                SessionGeneration = message.SessionGeneration,
+                ConnectionId = message.ConnectionId,
                 Friends = friends.Select(c => new ContactDto()
                 {
                     MasterId = c.MasterId,
@@ -31,6 +30,8 @@ namespace Hagalaz.Services.Contacts.Consumers
                     Rank = c.Rank,
                     WorldId = c.WorldId,
                     WorldName = c.WorldName,
+                    SessionGeneration = c.SessionGeneration,
+                    SessionConnectionId = c.SessionConnectionId,
                     AreMutualFriends = c.AreMutualFriends,
                     Settings = new ContactSettingsDto(c.Settings?.Availability.Off == true ? ContactAvailability.Off :
                                 c.Settings?.Availability.Friends == true ? ContactAvailability.Friends : ContactAvailability.Everyone)
@@ -42,7 +43,8 @@ namespace Hagalaz.Services.Contacts.Consumers
                     DisplayName = c.DisplayName,
                     PreviousDisplayName = c.PreviousDisplayName
                 })
-                    .ToList()
+                    .ToList(),
+                ObservationBoundary = message.ObservationBoundary
             });
         }
     }

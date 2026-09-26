@@ -1,3 +1,4 @@
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 
 namespace Hagalaz.Game.Abstractions.Model.Creatures
@@ -13,11 +14,9 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
     public record AttackParams
     {
         /// <summary>
-        /// Specifies the target of an attack operation. The target is an entity that implements
-        /// the <see cref="ICreature"/> interface and represents the creature or entity
-        /// that will receive the attack within the game mechanics.
+        /// Specifies the identity of the target of an attack operation.
         /// </summary>
-        public required ICreature Target { get; init; }
+        public required EntityHandle<ICreature> Target { get; init; }
         /// <summary>
         /// Indicates the type of damage associated with an attack. This property defines the category
         /// of the inflicted damage, which determines how the attack is processed and mitigated

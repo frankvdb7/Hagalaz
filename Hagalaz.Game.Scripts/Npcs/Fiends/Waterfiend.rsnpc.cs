@@ -134,7 +134,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Fiends
                             MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, magicMax),
                             Delay = delay,
                             DamageType = DamageType.StandardMagic,
-                            Target = target
+                            Target = target.Handle
                         });
                         break;
                     }
@@ -171,7 +171,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Fiends
                             MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
                             Delay = delay,
                             DamageType = DamageType.StandardRange,
-                            Target = target
+                            Target = target.Handle
                         });
 
                         handle.RegisterResultHandler(_ =>

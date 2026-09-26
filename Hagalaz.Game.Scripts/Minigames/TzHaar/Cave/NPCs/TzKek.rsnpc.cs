@@ -24,7 +24,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
         {
             Owner.Combat.PerformAttack(new AttackParams()
             {
-                Damage = 10, DamageType = DamageType.Reflected, Target = attacker
+                Damage = 10, DamageType = DamageType.Reflected, Target = attacker.Handle
             });
             return base.OnAttack(attacker, damageType, damage);
         }

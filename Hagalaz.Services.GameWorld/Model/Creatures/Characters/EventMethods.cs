@@ -1,8 +1,10 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Features;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character.Packet;
 using Microsoft.Extensions.Logging;
 
@@ -17,23 +19,46 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Get's called when character class is created.
         /// </summary>
         private void RegisterEventHandlers() =>
-            RegisterEventHandler(new EventHappened<ConsoleCommandEvent>(e => OnCommandReceived(e.Command).Result));
+            RegisterEventHandler(new EventHappened<ConsoleCommandEvent>(e => OnCommandReceived(e.Command)));
 
         /// <summary>
         /// This method is called when ConsoleCommandEvent is caught by our handler.
         /// </summary>
         /// <param name="commandAndArgs">Command which was received.</param>
-        private async Task<bool> OnCommandReceived(string commandAndArgs)
+        private bool OnCommandReceived(string commandAndArgs)
         {
             try
             {
                 var (command, arguments) = ParseCommandAndArguments(commandAndArgs);
-                return await _gameCommandPrompt.ExecuteAsync(command, this, arguments);
+                QueueTask(cancellationToken => ExecuteCommandAsync(command, arguments, commandAndArgs, cancellationToken));
+                // The event was handled by handing the command to the game-loop owner.
+                return true;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error while handling character command: {Command}", commandAndArgs);
                 return false;
+            }
+        }
+
+        private async Task ExecuteCommandAsync(
+            string command,
+            string[] arguments,
+            string commandAndArgs,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _gameCommandPrompt.ExecuteAsync(command, this, arguments);
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while handling character command: {Command}", commandAndArgs);
             }
         }
 

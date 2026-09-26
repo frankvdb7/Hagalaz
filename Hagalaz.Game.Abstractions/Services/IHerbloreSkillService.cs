@@ -16,7 +16,10 @@ namespace Hagalaz.Game.Abstractions.Services
         /// <param name="character">The character cleaning the herb.</param>
         /// <param name="item">The grimy herb item.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        Task TryCleanHerb(ICharacter character, IItem item);
+        Task TryCleanHerb(
+            ICharacter character,
+            IItem item,
+            System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Gets a potion definition by the ID of its primary ingredient.

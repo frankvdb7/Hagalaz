@@ -114,11 +114,12 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         ///     Tries the bake pottery.
         /// </summary>
         /// <param name="character">The character.</param>
-        public async Task TryBakePottery(ICharacter character)
+        public async Task TryBakePottery(ICharacter character, System.Threading.CancellationToken cancellationToken = default)
         {
             var craftingManager = character.ServiceProvider.GetRequiredService<ICraftingService>();
             var itemManager = character.ServiceProvider.GetRequiredService<IItemService>();
             var productIDs = (await craftingManager.FindAllPottery()).Select(p => p.BakedProductID).ToArray();
+            cancellationToken.ThrowIfCancellationRequested();
 
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
             dialogue.ProductIds = productIDs;
@@ -229,11 +230,12 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// </summary>
         /// <param name="character">The character.</param>
         /// <returns></returns>
-        public async Task TryFormPottery(ICharacter character)
+        public async Task TryFormPottery(ICharacter character, System.Threading.CancellationToken cancellationToken = default)
         {
             var craftingManager = character.ServiceProvider.GetRequiredService<ICraftingService>();
             var itemManager = character.ServiceProvider.GetRequiredService<IItemService>();
             var productIDs = (await craftingManager.FindAllPottery()).Select(p => p.FormedProductID).ToArray();
+            cancellationToken.ThrowIfCancellationRequested();
 
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
             dialogue.ProductIds = productIDs;
@@ -408,10 +410,11 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         ///     Tries the spin.
         /// </summary>
         /// <param name="character">The character.</param>
-        public async Task TrySpin(ICharacter character)
+        public async Task TrySpin(ICharacter character, System.Threading.CancellationToken cancellationToken = default)
         {
             var craftingManager = character.ServiceProvider.GetRequiredService<ICraftingService>();
             var productIDs = (await craftingManager.FindAllSpin()).Select(s => s.ProductID).ToArray();
+            cancellationToken.ThrowIfCancellationRequested();
             var itemManager = character.ServiceProvider.GetRequiredService<IItemService>();
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
             dialogue.ProductIds = productIDs;
@@ -552,10 +555,11 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         ///     Tries the tan.
         /// </summary>
         /// <param name="character">The character.</param>
-        public async Task TryTan(ICharacter character)
+        public async Task TryTan(ICharacter character, System.Threading.CancellationToken cancellationToken = default)
         {
             var craftingManager = character.ServiceProvider.GetRequiredService<ICraftingService>();
             var productIDs = (await craftingManager.FindAllTan()).Select(t => t.ProductID).ToArray();
+            cancellationToken.ThrowIfCancellationRequested();
             var itemManager = character.ServiceProvider.GetRequiredService<IItemService>();
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
             dialogue.ProductIds = productIDs;

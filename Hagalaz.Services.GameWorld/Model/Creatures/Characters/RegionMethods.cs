@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using System.Threading;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common;
@@ -21,24 +22,30 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Notifies character that it must add itself to given region.
         /// </summary>
         /// <param name="newRegion"></param>
-        protected override void AddToRegion(IMapRegion newRegion) => newRegion.Add(this);
+        protected override IMapRegion AddToRegion() => MapRegionService.AttachCharacter(this);
 
         /// <summary>
         /// Notifies character that it must remove itself from given region.
         /// </summary>
         /// <param name="region"></param>
-        protected override void RemoveFromRegion(IMapRegion region) => region.Remove(this);
+        protected override void RemoveFromRegion(IMapRegion region) => MapRegionService.DetachCharacter(this, region);
 
         /// <summary>
         /// Notifier for region relink.
         /// </summary>
         protected override void OnRegionChange()
         {
-            this.QueueTask(async () =>
+            var regionId = Location.RegionId;
+            var dimension = Location.Dimension;
+            this.QueueTask(async cancellationToken =>
             {
-                var region = _mapRegionService
-                    .GetOrCreateMapRegion(Location.RegionId, Location.Dimension, false);
+                var region = _mapRegionService.FindMapRegion(regionId, dimension);
+                if (region is null)
+                {
+                    return;
+                }
                 var musicIds = await _musicService.FindMusicIdsByRegionId(region.Id);
+                cancellationToken.ThrowIfCancellationRequested();
                 if (musicIds.Any(musicId => Music.UnlockMusic(musicId)))
                 {
                     Music.RefreshMusicList();

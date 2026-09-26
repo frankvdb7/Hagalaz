@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
+using System.Threading;
 using AutoMapper;
 using Hagalaz.Collections;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
@@ -14,7 +14,10 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Extensions;
+using Hagalaz.Services.GameWorld.Model.Maps.Regions.Updates;
+using Microsoft.AspNetCore.Connections;
 
 namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 {
@@ -25,6 +28,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     {
         private readonly ConcurrentStore<int, ICharacter> _characters = new();
         private readonly ConcurrentStore<int, INpc> _npcs = new();
+        private readonly HashSet<int> _nonSuspendableNpcIndexes = [];
         private readonly ConcurrentStore<int, IMapRegionPart> _parts = new();
         private readonly CollisionFlag[,,] _collision;
         private DateTime _idleTime = DateTime.MinValue;
@@ -33,12 +37,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly IGameObjectBuilder _gameObjectBuilder;
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly IMapper _mapper;
+        private readonly IEntityStore _entityStore;
         public int Id => BaseLocation.RegionId;
         public ILocation BaseLocation { get; }
         public IVector3 Size { get; }
         public bool IsDynamic { get; private set; }
-        public bool IsLoaded { get; private set; }
-        public bool IsDestroyed { get; private set; }
+        private int _state = (int)MapRegionState.Initializing;
+        public MapRegionState State => (MapRegionState)Volatile.Read(ref _state);
+        public bool HasNonSuspendableNpcs => _nonSuspendableNpcIndexes.Count > 0;
         public int[] XteaKeys { get; }
 
         public MapRegion(
@@ -48,7 +54,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             IMapRegionService regionService,
             IGameObjectBuilder gameObjectBuilder,
             IGroundItemBuilder groundItemBuilder,
-            IMapper mapper)
+            IMapper mapper,
+            IEntityStore entityStore)
         {
             BaseLocation = baseLocation;
             Size = Location.Create(64, 64, 4);
@@ -60,27 +67,48 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             _gameObjectBuilder = gameObjectBuilder;
             _groundItemBuilder = groundItemBuilder;
             _mapper = mapper;
+            _entityStore = entityStore;
         }
 
-        public void Add(INpc npc)
+        public void Add(INpc npc) => Add(npc, npc.CanSuspend());
+
+        public void Add(INpc npc, bool canSuspend)
         {
-            if (!_npcs.TryAdd(npc.Index, npc))
+            EnsureAcceptsMutation();
+            var index = npc.Index;
+            if (!_npcs.TryAdd(index, npc))
             {
                 throw new InvalidOperationException($"Npc {npc} is already added to this region");
+            }
+
+            if (!canSuspend)
+            {
+                _nonSuspendableNpcIndexes.Add(index);
             }
         }
 
         public void Add(ICharacter character)
         {
+            EnsureAcceptsMutation();
             if (!_characters.TryAdd(character.Index, character))
             {
                 throw new InvalidOperationException($"Character {character} is already added to this region");
             }
         }
 
-        public void Remove(ICharacter character) => _characters.TryRemove(character.Index);
+        public void Remove(ICharacter character)
+        {
+            _characters.TryRemove(character.Index);
+        }
 
-        public void Remove(INpc npc) => _npcs.TryRemove(npc.Index);
+        public void Remove(INpc npc)
+        {
+            var index = npc.Index;
+            if (_npcs.TryRemove(index, npc))
+            {
+                _nonSuspendableNpcIndexes.Remove(index);
+            }
+        }
 
         public IEnumerable<ICharacter> FindAllCharacters() => _characters;
 
@@ -140,6 +168,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         {
             TickGroundItems();
             ForEachCreature(c => c.MajorClientPrepareUpdateTick());
+            foreach (var part in _parts)
+            {
+                part.PrepareUpdatesForTick();
+            }
         }
 
         /// <summary>
@@ -147,17 +179,26 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// </summary>
         public void MajorClientUpdateTick(IReadOnlyDictionary<int, ICharacter> characters)
         {
-            foreach (var part in _parts)
+            foreach (var character in _characters)
             {
-                foreach (var character in _characters)
+                try
                 {
-                    part.SendUpdates(character);
+                    foreach (var part in _parts)
+                    {
+                        part.SendUpdates(character);
+                    }
+                    character.MajorClientUpdateTick(characters);
+                }
+                catch (ConnectionAbortedException)
+                {
+                    // The connection lifecycle owns this failure. Continue updating other characters.
                 }
             }
 
-            ForEachCreature(
-                character => character.MajorClientUpdateTick(characters),
-                npc => npc.MajorClientUpdateTick());
+            foreach (var npc in _npcs)
+            {
+                npc.MajorClientUpdateTick();
+            }
         }
 
         /// <summary>
@@ -168,7 +209,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             // clear update things like projectiles & etc
             foreach (var part in _parts)
             {
-                part.ClearUpdates();
+                part.CompleteUpdateTick();
             }
 
             ForEachCreature(c => c.MajorClientUpdateResetTick());
@@ -176,7 +217,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public bool CanSuspend()
         {
-            if (AnyCreature(c => !c.CanSuspend()))
+            if (_characters.Any())
+            {
+                return false;
+            }
+
+            if (_npcs.Any(npc => !npc.CanSuspend()))
             {
                 return false;
             }
@@ -224,47 +270,131 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             return true;
         }
 
-        public void Load() => IsLoaded = true;
+        public void MarkReady()
+        {
+            if (State != MapRegionState.Initializing)
+            {
+                throw new InvalidOperationException($"Region {this} cannot transition to ready from state {State}.");
+            }
+
+            Volatile.Write(ref _state, (int)MapRegionState.Ready);
+        }
+
+        public void MarkDiscarded()
+        {
+            if (State == MapRegionState.Discarded)
+            {
+                return;
+            }
+
+            if (State != MapRegionState.Initializing)
+            {
+                throw new InvalidOperationException($"Region {this} cannot transition to discarded from state {State}.");
+            }
+
+            Volatile.Write(ref _state, (int)MapRegionState.Discarded);
+        }
 
         public void Resume() => _idleTime = DateTime.MinValue;
 
         public void Suspend() => _idleTime = DateTime.Now;
 
-        public async Task DestroyAsync()
+        public void Destroy()
         {
-            if (IsDestroyed)
+            List<Exception>? exceptions = null;
+            var npcs = _npcs.ToArray();
+            var items = FindAllGroundItems().ToArray();
+            var objects = FindAllGameObjects().ToArray();
+            var disabledStaticObjects = _parts.SelectMany(part => part.FindAllDisabledStaticGameObjects()).ToArray();
+
+            foreach (var npc in npcs)
             {
-                throw new InvalidOperationException($"Region {this} is already destroyed");
+                try
+                {
+                    _npcService.Unregister(npc);
+                }
+                catch (Exception ex)
+                {
+                    (exceptions ??= []).Add(ex);
+                }
             }
 
-            foreach (var npc in FindAllNpcs())
+            foreach (var item in items)
             {
-                await _npcService.UnregisterAsync(npc);
+                try
+                {
+                    item.Destroy();
+                }
+                catch (Exception ex)
+                {
+                    (exceptions ??= []).Add(ex);
+                }
+                finally
+                {
+                    _entityStore.Remove(item);
+                }
             }
 
-            foreach (var item in FindAllGroundItems())
+            foreach (var obj in objects.Concat(disabledStaticObjects))
             {
-                item.Destroy();
+                try
+                {
+                    obj.Destroy();
+                }
+                catch (Exception ex)
+                {
+                    (exceptions ??= []).Add(ex);
+                }
+                finally
+                {
+                    _entityStore.Remove(obj);
+                }
             }
 
-            foreach (var obj in FindAllGameObjects())
+            if (exceptions is { Count: > 0 })
             {
-                obj.Destroy();
+                throw new AggregateException("One or more map region resources failed to be destroyed.", exceptions).Flatten();
             }
+        }
 
-            IsDestroyed = true;
+        private void EnsureAcceptsMutation()
+        {
+            if (State == MapRegionState.Discarded)
+            {
+                throw new InvalidOperationException($"Region {this} no longer accepts mutations because it was discarded.");
+            }
         }
 
         public void QueueUpdate(IRegionPartUpdate update)
         {
+            EnsureAcceptsMutation();
+            if ((update is AddGameObjectUpdate addGameObjectUpdate
+                    && !OwnsGameObject(addGameObjectUpdate.GameObject))
+                || (update is SetGameObjectAnimationUpdate animationUpdate
+                    && !OwnsGameObject(animationUpdate.GameObject)))
+            {
+                return;
+            }
+
             var partHash = update.Location.GetRegionPartHash();
             _parts.GetOrAdd(partHash, CreateRegionPart).QueueUpdate(update);
         }
 
-        public IMapRegionPart CreateRegionPart(int partHash) =>
-            new MapRegionPart(_mapper, _groundItemBuilder)
+        public IMapRegionPart CreateRegionPart(int partHash)
+        {
+            EnsureAcceptsMutation();
+            return CreateRegionPartCore(partHash);
+        }
+
+        private MapRegionPart CreateRegionPartCore(int partHash) =>
+            new MapRegionPart(_mapper, _groundItemBuilder, _entityStore)
             {
-                DrawRegionPartX = partHash & 0x3ff, DrawRegionPartY = (partHash >> 10) & 0x7ff, DrawRegionZ = (partHash >> 21) & 0x3,
+                DrawRegionPartX = partHash & 0x3ff,
+                DrawRegionPartY = (partHash >> 10) & 0x7ff,
+                DrawRegionZ = (partHash >> 21) & 0x3,
+                DrawRegionDimension = BaseLocation.Dimension,
+                HasDrawSource = true,
             };
+
     }
 }

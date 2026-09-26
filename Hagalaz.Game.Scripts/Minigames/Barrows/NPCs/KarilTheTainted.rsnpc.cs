@@ -57,7 +57,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
             {
                 Damage = dmg,
                 DamageType = DamageType.StandardRange,
-                Target = target,
+                Target = target.Handle,
                 MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
                 Delay = delay,
             });

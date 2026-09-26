@@ -88,7 +88,7 @@ namespace Hagalaz.Game.Scripts.Model.Maps
                     c.Interrupt(this);
                     c.Movement.MovementType = c.Movement.MovementType == MovementType.Run || forceRun ? MovementType.Run : MovementType.Walk;
                     c.FaceLocation(target);
-                    c.Combat.SetTarget(target);
+                    c.Combat.SetTarget(target.Handle);
                 });
             }
             else

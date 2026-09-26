@@ -1,6 +1,9 @@
 ﻿using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Services.GameWorld.Hubs.Filters;
 using Microsoft.AspNetCore.Authorization;
@@ -15,10 +18,12 @@ namespace Hagalaz.Services.GameWorld.Hubs
     public class NpcHub : RaidoHub
     {
         private readonly INpcService _npcService;
+        private readonly IEntityService _entityService;
 
-        public NpcHub(INpcService npcService)
+        public NpcHub(INpcService npcService, IEntityService entityService)
         {
             _npcService = npcService;
+            _entityService = entityService;
         }
 
         [RaidoMessageHandler(typeof(NpcClickMessage))]
@@ -33,12 +38,17 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 return;
             }
+            var npcHandle = npc.Handle;
             var character = Context.GetCharacter();
-            if (!character.Viewport.VisibleCreatures.Contains(npc))
+            character.QueueTask(new RsTask(() =>
             {
-                return;
-            }
-            npc.Script.OnCharacterClick(character, message.ClickType, message.ForceRun);
+                if (_entityService.TryResolve<ICreature>(npcHandle, out var currentNpc)
+                    && currentNpc is INpc resolvedNpc
+                    && character.Viewport.VisibleCreatures.Contains(resolvedNpc))
+                {
+                    resolvedNpc.Script.OnCharacterClick(character, message.ClickType, message.ForceRun);
+                }
+            }, 1));
         }
 
     }

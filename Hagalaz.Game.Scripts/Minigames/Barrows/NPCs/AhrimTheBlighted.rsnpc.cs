@@ -53,7 +53,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
 
             var handler = combat.PerformAttack(new AttackParams()
             {
-                Target = target, DamageType = DamageType.StandardMagic, Damage = damage, MaxDamage = damage, Delay = delay
+                Target = target.Handle, DamageType = DamageType.StandardMagic, Damage = damage, MaxDamage = damage, Delay = delay
             });
 
 

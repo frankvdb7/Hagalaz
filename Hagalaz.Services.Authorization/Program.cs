@@ -101,6 +101,11 @@ namespace Hagalaz.Services.Authorization
                     // Enable the password and refresh token  flows.
                     options.AllowPasswordFlow().AllowRefreshTokenFlow().RequireProofKeyForCodeExchange();
 
+                    OpenIddictServerConfiguration.ConfigureIssuer(
+                        options,
+                        builder.Configuration,
+                        builder.Environment.IsDevelopment());
+
                     // Development certificates are intentionally limited to local development.
                     OpenIddictServerConfiguration.ConfigureCredentials(
                         options,

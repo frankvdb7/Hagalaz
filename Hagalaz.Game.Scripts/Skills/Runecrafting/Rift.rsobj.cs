@@ -28,16 +28,18 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                clicker.QueueTask(() => TeleportAltar(clicker));
+                clicker.QueueTask(cancellationToken => TeleportAltar(clicker, cancellationToken));
                 return;
             }
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
 
-        private async Task TeleportAltar(ICharacter character)
+        private async Task TeleportAltar(ICharacter character, System.Threading.CancellationToken cancellationToken)
         {
-            var altar = await _runecraftingService.FindAltarByRiftId(Owner.Id);
+            var riftId = Owner.Id;
+            var altar = await _runecraftingService.FindAltarByRiftId(riftId);
+            cancellationToken.ThrowIfCancellationRequested();
             if (altar == null)
             {
                 return;

@@ -1,10 +1,14 @@
-﻿using System.Linq;
-using Hagalaz.Data.Entities;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Hagalaz.Services.GameWorld.Data.Model;
 
 namespace Hagalaz.Services.GameWorld.Data
 {
     public interface IGameObjectDefinitionRepository
     {
-        IQueryable<GameobjectDefinition> FindAll();
+        Task<Dictionary<uint, GameObjectDefinitionOverride>> FindOverridesByIdsAsync(
+            IReadOnlyCollection<uint> objectIds,
+            CancellationToken cancellationToken = default);
     }
 }

@@ -89,7 +89,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses.Dagannoth
                 MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 610),
                 Delay = delay,
                 DamageType = DamageType.StandardMagic,
-                Target = target
+                Target = target.Handle
             });
         }
     }

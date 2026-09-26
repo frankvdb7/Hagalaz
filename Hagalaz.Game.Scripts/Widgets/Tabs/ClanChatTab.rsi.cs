@@ -95,7 +95,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 {
                     Owner.Interrupt(this);
                     Owner.ForceRunMovementType(forceRun);
-                    Owner.QueueTask(new CreatureReachTask(Owner, usedOn, success =>
+                    Owner.QueueTask(new CreatureReachTask(Owner, usedOn.Handle, success =>
                     {
                         Owner.Interrupt(this);
                         if (success)

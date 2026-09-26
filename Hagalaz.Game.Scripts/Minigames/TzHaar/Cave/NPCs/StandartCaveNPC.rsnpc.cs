@@ -83,7 +83,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
             var character = Owner.Viewport.VisibleRegions.SelectMany(r => r.FindAllCharacters()).FirstOrDefault();
             if (character != null)
             {
-                Owner.Combat.SetTarget(character);
+                Owner.Combat.SetTarget(character.Handle);
             }
         }
 

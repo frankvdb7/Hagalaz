@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Threading;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Hagalaz.AppHost;
@@ -58,5 +60,44 @@ public sealed class AppHostDependencyTests
             Assert.AreEqual(443, tcpEndpoint.Port, serviceName);
             Assert.IsFalse(tcpEndpoint.IsProxied, serviceName);
         }
+    }
+
+    [TestMethod]
+    public async Task Authorization_HasNamedHttpsEndpointAndEndpointDerivedIssuerEnvironment()
+    {
+        var builder = DistributedApplication.CreateBuilder(["--disable-dashboard"]);
+        AppHostConfiguration.Configure(builder, includeHealthChecks: false);
+
+        await using var application = builder.Build();
+        var model = application.Services.GetRequiredService<DistributedApplicationModel>();
+        var authorization = model.GetProjectResources()
+            .Single(resource => resource.Name == "hagalaz-services-authorization");
+
+        var https = authorization.Annotations
+            .OfType<EndpointAnnotation>()
+            .Single(endpoint => endpoint.Name == "https");
+        Assert.AreEqual("https", https.Name);
+        Assert.IsTrue(https.IsProxied);
+
+        var environmentAnnotations = authorization.Annotations
+            .OfType<EnvironmentCallbackAnnotation>()
+            .ToArray();
+        Assert.IsTrue(environmentAnnotations.Length > 0);
+
+        var environment = new Dictionary<string, object>();
+        var executionContext = application.Services.GetRequiredService<DistributedApplicationExecutionContext>();
+        var callbackContext = new EnvironmentCallbackContext(
+            executionContext,
+            authorization,
+            environment,
+            CancellationToken.None);
+        foreach (var annotation in environmentAnnotations)
+        {
+            await annotation.Callback(callbackContext);
+        }
+
+        Assert.IsTrue(environment.TryGetValue("OpenIddict__Issuer", out var issuer));
+        Assert.IsInstanceOfType<EndpointReference>(issuer);
+        Assert.AreSame(https, ((EndpointReference)issuer).EndpointAnnotation);
     }
 }

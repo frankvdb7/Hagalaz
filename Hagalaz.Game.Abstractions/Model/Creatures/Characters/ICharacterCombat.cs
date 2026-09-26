@@ -58,7 +58,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// </summary>
         /// <param name="target">The potential target.</param>
         /// <returns><c>true</c> if the target can be set; otherwise, <c>false</c>.</returns>
-        bool CanSetTarget(ICreature target);
+        bool CanSetTarget(EntityHandle<ICreature> target);
         /// <summary>
         /// Checks and applies skulling conditions if the character attacks another player.
         /// </summary>
@@ -224,6 +224,6 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// </summary>
         /// <param name="target">The creature to target.</param>
         /// <returns><c>true</c> if the target was set successfully; otherwise, <c>false</c>.</returns>
-        bool SetTarget(ICreature target);
+        bool SetTarget(EntityHandle<ICreature> target);
     }
 }

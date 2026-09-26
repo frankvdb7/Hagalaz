@@ -83,9 +83,9 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
         /// </summary>
         public override void Tick()
         {
-            if (_jad == null || _jad.IsDestroyed)
+            if (_jad == null)
             {
-                Owner.QueueTask(() => _npcRegistration.RegisterAsync(Owner));
+                Owner.QueueTask(_ => _npcRegistration.RegisterAsync(Owner));
                 return;
             }
 

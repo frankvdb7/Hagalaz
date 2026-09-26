@@ -72,7 +72,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
         {
             _activated[index] = true;
             var center = _obelisksCenters[index];
-            var region = _regionService.GetOrCreateMapRegion(center.RegionId, center.Dimension, true);
+            var region = _regionService.GetOrCreateMapRegion(center.RegionId, center.Dimension);
             var centerObj = region.FindGameObjects(center.RegionLocalX, center.RegionLocalY, center.Z).FirstOrDefault(g => g.Id == Owner.Id);
             var pillar1 = region.FindGameObjects(center.RegionLocalX + 4, center.RegionLocalY, center.Z).FirstOrDefault(g => g.Id == Owner.Id);
             var pillar2 = region.FindGameObjects(center.RegionLocalX, center.RegionLocalY + 4, center.Z).FirstOrDefault(g => g.Id == Owner.Id);
@@ -104,9 +104,8 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
                     for (var y = 1; y < 4; y++)
                     {
                         var loc = center.Translate(x, y, 0);
-                        var locRegion = _regionService.GetOrCreateMapRegion(loc.RegionId, loc.Dimension, true);
                         var update = _regionUpdateBuilder.Create().WithLocation(loc).WithGraphic(Graphic.Create(661)).Build();
-                        locRegion.QueueUpdate(update);
+                        _regionService.QueueUpdate(update);
                     }
                 }
 

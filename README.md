@@ -117,6 +117,42 @@ dotnet ef database update --project Hagalaz.Data/Hagalaz.Data.csproj -- --connec
 dotnet ef migrations has-pending-model-changes --project Hagalaz.Data/Hagalaz.Data.csproj -- --connection="Server=localhost;Database=hagalaz-db;User=root;Password=..."
 ```
 
+### Breaking shared-contract rollouts
+
+Services that communicate through an incompatible shared asynchronous or
+request/reply contract MUST be deployed as one contract-compatible release set.
+This does not require every service to use the same binary version for every
+release: additive changes remain compatible only when their serializer and
+consumer semantics permit it. Newly required fields, changed defaults or
+meaning, removed fields, and fields required by new consumer behavior are
+breaking changes.
+
+For PR #492, the affected release set is `Hagalaz.Services.GameWorld`,
+`Hagalaz.Services.Contacts`, and `Hagalaz.Services.Authorization`. Old and new
+versions of these services MUST NOT overlap while using the changed contracts
+on the same RabbitMQ topology. Contacts messages now carry session generation
+and connection identity for ownership fencing; authorization revocation now
+carries the exact `AuthorizationId`. Legacy messages or consumers cannot
+provide those guarantees safely.
+
+For this breaking-contract rollout:
+
+1. Apply required database migrations with the one-shot migrator and wait for
+   successful completion.
+2. Stop and drain the affected GameWorld, Contacts, and Authorization
+   instances.
+3. Deploy contract-compatible versions of all three services.
+4. Start the affected services and verify service health and RabbitMQ
+   consumers.
+5. Resume normal traffic.
+
+Do not add a legacy fallback that broadens authorization revocation or weakens
+contact generation/connection fencing. If rolling deployment becomes a
+requirement, define an explicit compatibility or message-versioning plan
+before changing these contracts. This generalizes the existing
+[Characters/GameWorld contract guidance](docs/character-persistence.md) without
+requiring unrelated services to restart for ordinary compatible releases.
+
 ### 4. Development Workflow
 
 A typical workflow for adding a new feature might look like this:

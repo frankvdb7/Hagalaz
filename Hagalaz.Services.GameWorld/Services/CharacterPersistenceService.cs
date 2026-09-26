@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -22,7 +21,6 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly IMapper _mapper;
         private readonly IPublishEndpoint _publishEndpoint;
         private readonly HagalazDbContext _dbContext;
-        private readonly ICharacterDehydrationService _dehydrationService;
         private readonly CharacterPersistenceState _state;
 
         public CharacterPersistenceService(
@@ -30,56 +28,107 @@ namespace Hagalaz.Services.GameWorld.Services
             IMapper mapper,
             IPublishEndpoint publishEndpoint,
             HagalazDbContext dbContext,
-            ICharacterDehydrationService dehydrationService,
             CharacterPersistenceState state)
         {
             _logger = logger;
             _mapper = mapper;
             _publishEndpoint = publishEndpoint;
             _dbContext = dbContext;
-            _dehydrationService = dehydrationService;
             _state = state;
         }
 
-        public async Task PersistAsync(ICharacter character, bool force, CancellationToken cancellationToken = default)
+        public async Task<CharacterPersistenceReceipt?> PersistAsync(
+            uint masterId,
+            CharacterModel model,
+            bool force,
+            CancellationToken cancellationToken = default)
         {
-            using var characterLock = await _state.AcquireAsync(character.MasterId, cancellationToken);
-            var model = await _dehydrationService.DehydrateAsync(character);
-            var command = CreateCommand(_mapper, model, character.MasterId, 0);
-            var fingerprint = CharacterSnapshotFingerprint.Compute(command);
-
-            if (!force && _state.IsPersisted(character.MasterId, fingerprint))
+            using var characterLock = await _state.AcquireAsync(masterId, cancellationToken);
+            while (true)
             {
-                return;
+                if (_state.TryGetPending(masterId, out var pending))
+                {
+                    if (!pending.IsCompleted)
+                    {
+                        if (!force)
+                        {
+                            return null;
+                        }
+
+                        await pending.WaitAsync(cancellationToken);
+                    }
+
+                    _state.RemovePending(masterId, pending);
+                    continue;
+                }
+
+                if (model.SnapshotRevision <= 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Character '{masterId}' persistence requires a snapshot revision reserved during capture.");
+                }
+
+                if (_state.IsRevisionSuperseded(masterId, model.SnapshotRevision))
+                {
+                    if (force)
+                    {
+                        throw new InvalidOperationException(
+                            $"Character '{masterId}' snapshot revision {model.SnapshotRevision} is older than a newer captured snapshot.");
+                    }
+
+                    return null;
+                }
+
+                var command = CreateCommand(_mapper, model, masterId, model.SnapshotRevision);
+                var fingerprint = CharacterSnapshotFingerprint.Compute(command);
+
+                if (!force && _state.IsPersisted(masterId, fingerprint))
+                {
+                    return null;
+                }
+
+                var receipt = new CharacterPersistenceReceipt(
+                    masterId,
+                    command.CorrelationId,
+                    model.SnapshotRevision);
+
+                // Record the snapshot before publishing so a fast acknowledgement cannot arrive
+                // before the producer has state to match it.
+                _state.MarkPending(masterId, fingerprint, receipt);
+
+                try
+                {
+                    await _publishEndpoint.Publish(command, cancellationToken);
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                }
+                catch
+                {
+                    _state.RemovePending(masterId, receipt);
+                    throw;
+                }
+
+                _logger.LogDebug("Queued character {MasterId} snapshot revision {SnapshotRevision} in the EF bus outbox", masterId, model.SnapshotRevision);
+                return receipt;
             }
-
-            var snapshotRevision = _state.NextRevision(character.MasterId);
-            command = command with { SnapshotRevision = snapshotRevision };
-
-            // Record the snapshot before publishing so a fast acknowledgement cannot arrive
-            // before the producer has state to match it. If publishing or the outbox commit
-            // fails, the pending snapshot remains eligible for redrive.
-            _state.MarkPending(character.MasterId, command.CorrelationId, fingerprint, snapshotRevision);
-            await _publishEndpoint.Publish(command, cancellationToken);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            _logger.LogDebug("Queued character {MasterId} snapshot revision {SnapshotRevision} in the EF bus outbox", character.MasterId, snapshotRevision);
         }
-
-        public void TrackPendingLogout(ICharacter character) => _state.TrackPendingLogout(character);
 
         public void InitializeRevision(uint masterId, long persistedRevision) => _state.InitializeRevision(masterId, persistedRevision);
 
-        public bool IsPendingLogout(ICharacter character) => _state.IsPendingLogout(character);
+        public void InitializeRevision(uint masterId, long persistedRevision, long lifecycleGeneration) =>
+            _state.InitializeRevision(masterId, persistedRevision, lifecycleGeneration);
 
-        public void MarkPendingLogoutRemoved(ICharacter character) => _state.MarkPendingLogoutRemoved(character);
+        public bool Release(uint masterId, long lifecycleGeneration) => _state.Release(masterId, lifecycleGeneration);
 
-        public bool IsPendingLogoutRemoved(ICharacter character) => _state.IsPendingLogoutRemoved(character);
+        public Task<CharacterPersistenceOutcome> WaitForAcknowledgementAsync(
+            CharacterPersistenceReceipt receipt,
+            CancellationToken cancellationToken = default) => receipt.WaitAsync(cancellationToken);
 
-        public IReadOnlyCollection<ICharacter> GetPendingLogouts() => _state.GetPendingLogouts();
-
-        public bool IsPersistenceAcknowledged(ICharacter character) => _state.IsPersistenceAcknowledged(character.MasterId);
-
-        public void Forget(uint masterId) => _state.Forget(masterId);
+        public void Acknowledge(
+            uint masterId,
+            Guid correlationId,
+            long snapshotRevision,
+            CharacterPersistenceOutcome outcome) =>
+            _state.Acknowledge(masterId, correlationId, snapshotRevision, outcome);
 
         internal static PersistCharacterCommand CreateCommand(IMapper mapper, CharacterModel model, uint masterId, long snapshotRevision) =>
             new(
@@ -103,12 +152,16 @@ namespace Hagalaz.Services.GameWorld.Services
 
     public sealed class CharacterPersistenceState
     {
-        private readonly ConcurrentDictionary<uint, string> _persistedFingerprints = new();
-        private readonly ConcurrentDictionary<uint, PendingSnapshot> _pendingSnapshots = new();
-        private readonly ConcurrentDictionary<uint, long> _nextRevisions = new();
-        private readonly ConcurrentDictionary<uint, ICharacter> _pendingLogouts = new();
-        private readonly ConcurrentDictionary<uint, byte> _removedPendingLogouts = new();
-        private readonly ConcurrentDictionary<uint, byte> _completingLogouts = new();
+        internal enum LogoutPersistenceReleaseResult
+        {
+            Released,
+            AlreadyAbsent,
+            PendingPersistence,
+            Superseded
+        }
+
+        private readonly Dictionary<uint, PersistenceEntry> _entries = new();
+        private readonly object _stateGate = new();
         private readonly Dictionary<uint, LockEntry> _locks = new();
         private readonly object _lockRegistryGate = new();
 
@@ -138,84 +191,189 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
-        internal int LockCount
+        public bool IsPersisted(uint masterId, string fingerprint)
         {
-            get
+            lock (_stateGate)
             {
-                lock (_lockRegistryGate)
+                return _entries.TryGetValue(masterId, out var entry) && entry.PersistedFingerprint == fingerprint;
+            }
+        }
+
+        public void InitializeRevision(uint masterId, long persistedRevision) =>
+            InitializeRevision(masterId, persistedRevision, lifecycleGeneration: 0);
+
+        public void InitializeRevision(uint masterId, long persistedRevision, long lifecycleGeneration)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(persistedRevision);
+            ArgumentOutOfRangeException.ThrowIfNegative(lifecycleGeneration);
+            lock (_stateGate)
+            {
+                var entry = GetOrCreateEntry(masterId);
+                if (entry.Pending is not null && lifecycleGeneration > entry.LifecycleGeneration)
                 {
-                    return _locks.Count;
+                    throw new InvalidOperationException(
+                        $"Character '{masterId}' cannot initialize lifecycle {lifecycleGeneration} while lifecycle {entry.LifecycleGeneration} has a pending persistence operation.");
+                }
+
+                entry.Revision = Math.Max(entry.Revision, persistedRevision);
+                if (lifecycleGeneration > 0 || entry.LifecycleGeneration == 0)
+                {
+                    entry.LifecycleGeneration = Math.Max(entry.LifecycleGeneration, lifecycleGeneration);
                 }
             }
         }
 
-        public bool IsPersisted(uint masterId, string fingerprint) =>
-            _persistedFingerprints.TryGetValue(masterId, out var persistedFingerprint) && persistedFingerprint == fingerprint;
-
-        public void InitializeRevision(uint masterId, long persistedRevision)
+        public bool Release(uint masterId, long lifecycleGeneration)
         {
-            ArgumentOutOfRangeException.ThrowIfNegative(persistedRevision);
-            _nextRevisions.AddOrUpdate(masterId, persistedRevision, (_, current) => Math.Max(current, persistedRevision));
-        }
-
-        public long NextRevision(uint masterId) =>
-            _nextRevisions.AddOrUpdate(masterId, 1L, (_, current) => checked(current + 1));
-
-        public void MarkPending(uint masterId, Guid correlationId, string fingerprint, long snapshotRevision) =>
-            _pendingSnapshots[masterId] = new PendingSnapshot(correlationId, fingerprint, snapshotRevision);
-
-        public void Acknowledge(uint masterId, Guid correlationId, long snapshotRevision)
-        {
-            if (!_pendingSnapshots.TryGetValue(masterId, out var pending) ||
-                pending.CorrelationId != correlationId ||
-                pending.SnapshotRevision != snapshotRevision)
+            ArgumentOutOfRangeException.ThrowIfNegative(lifecycleGeneration);
+            lock (_stateGate)
             {
-                return;
-            }
+                if (!_entries.TryGetValue(masterId, out var entry) ||
+                    entry.LifecycleGeneration != lifecycleGeneration ||
+                    entry.Pending is not null)
+                {
+                    return false;
+                }
 
-            var pendingPair = new KeyValuePair<uint, PendingSnapshot>(masterId, pending);
-            if (((ICollection<KeyValuePair<uint, PendingSnapshot>>)_pendingSnapshots).Remove(pendingPair))
-            {
-                _persistedFingerprints[masterId] = pending.Fingerprint;
+                return _entries.Remove(masterId);
             }
         }
 
-        public void Forget(uint masterId)
+        internal LogoutPersistenceReleaseResult ReleaseForLogout(uint masterId, long lifecycleGeneration)
         {
-            _persistedFingerprints.TryRemove(masterId, out _);
-            _pendingSnapshots.TryRemove(masterId, out _);
-            _nextRevisions.TryRemove(masterId, out _);
-            _pendingLogouts.TryRemove(masterId, out _);
-            _removedPendingLogouts.TryRemove(masterId, out _);
+            ArgumentOutOfRangeException.ThrowIfNegative(lifecycleGeneration);
+            lock (_stateGate)
+            {
+                if (!_entries.TryGetValue(masterId, out var entry))
+                {
+                    return LogoutPersistenceReleaseResult.AlreadyAbsent;
+                }
+
+                if (entry.LifecycleGeneration < lifecycleGeneration)
+                {
+                    throw new InvalidOperationException(
+                        $"Character '{masterId}' persistence state is older than logout lifecycle {lifecycleGeneration}.");
+                }
+
+                if (entry.LifecycleGeneration > lifecycleGeneration)
+                {
+                    return LogoutPersistenceReleaseResult.Superseded;
+                }
+
+                if (entry.Pending is not null)
+                {
+                    return LogoutPersistenceReleaseResult.PendingPersistence;
+                }
+
+                _entries.Remove(masterId);
+                return LogoutPersistenceReleaseResult.Released;
+            }
         }
 
-        public void TrackPendingLogout(ICharacter character)
+        public long NextRevision(uint masterId)
         {
-            _pendingLogouts[character.MasterId] = character;
-            _removedPendingLogouts.TryRemove(character.MasterId, out _);
+            lock (_stateGate)
+            {
+                var entry = GetOrCreateEntry(masterId);
+                return entry.Revision = checked(entry.Revision + 1);
+            }
         }
 
-        public bool IsPendingLogout(ICharacter character) =>
-            _pendingLogouts.TryGetValue(character.MasterId, out var pendingCharacter) &&
-            ReferenceEquals(pendingCharacter, character);
+        public bool IsRevisionSuperseded(uint masterId, long snapshotRevision)
+        {
+            lock (_stateGate)
+            {
+                return _entries.TryGetValue(masterId, out var entry) && entry.Revision > snapshotRevision;
+            }
+        }
 
-        public IReadOnlyCollection<ICharacter> GetPendingLogouts() => _pendingLogouts.Values.ToArray();
+        public void MarkPending(uint masterId, string fingerprint, CharacterPersistenceReceipt receipt)
+        {
+            lock (_stateGate)
+            {
+                var entry = GetOrCreateEntry(masterId);
+                if (entry.Pending is not null)
+                {
+                    throw new InvalidOperationException($"Character '{masterId}' already has an unacknowledged persistence operation.");
+                }
 
-        public void MarkPendingLogoutRemoved(ICharacter character) => _removedPendingLogouts[character.MasterId] = 0;
+                entry.Pending = new PendingSnapshot(fingerprint, receipt);
+            }
+        }
 
-        public bool IsPendingLogoutRemoved(ICharacter character) => _removedPendingLogouts.ContainsKey(character.MasterId);
+        public bool TryGetPending(uint masterId, out CharacterPersistenceReceipt receipt)
+        {
+            lock (_stateGate)
+            {
+                if (_entries.TryGetValue(masterId, out var entry) && entry.Pending is { } pending)
+                {
+                    receipt = pending.Receipt;
+                    return true;
+                }
 
-        public bool IsPersistenceAcknowledged(uint masterId) => !_pendingSnapshots.ContainsKey(masterId);
+                receipt = null!;
+                return false;
+            }
+        }
 
-        public bool TryGetPendingLogout(uint masterId, out ICharacter character) =>
-            _pendingLogouts.TryGetValue(masterId, out character!);
+        public void RemovePending(uint masterId, CharacterPersistenceReceipt receipt)
+        {
+            lock (_stateGate)
+            {
+                if (_entries.TryGetValue(masterId, out var entry) &&
+                    entry.Pending is { } pending &&
+                    ReferenceEquals(pending.Receipt, receipt))
+                {
+                    entry.Pending = null;
+                }
+            }
+        }
 
-        public bool TryBeginLogoutCompletion(uint masterId) =>
-            _completingLogouts.TryAdd(masterId, 0);
+        public void Acknowledge(uint masterId, Guid correlationId, long snapshotRevision, CharacterPersistenceOutcome outcome)
+        {
+            lock (_stateGate)
+            {
+                if (!_entries.TryGetValue(masterId, out var entry) ||
+                    entry.Pending is not { } pending ||
+                    pending.Receipt.CorrelationId != correlationId ||
+                    pending.Receipt.SnapshotRevision != snapshotRevision)
+                {
+                    return;
+                }
 
-        public void EndLogoutCompletion(uint masterId) => _completingLogouts.TryRemove(masterId, out _);
+                if (!pending.Receipt.TryAcknowledge(outcome))
+                {
+                    return;
+                }
 
-        private sealed record PendingSnapshot(Guid CorrelationId, string Fingerprint, long SnapshotRevision);
+                entry.Pending = null;
+                if (outcome is CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate)
+                {
+                    entry.PersistedFingerprint = pending.Fingerprint;
+                }
+            }
+        }
+
+        private PersistenceEntry GetOrCreateEntry(uint masterId)
+        {
+            if (!_entries.TryGetValue(masterId, out var entry))
+            {
+                entry = new PersistenceEntry();
+                _entries.Add(masterId, entry);
+            }
+
+            return entry;
+        }
+
+        private sealed class PersistenceEntry
+        {
+            public long Revision { get; set; }
+            public long LifecycleGeneration { get; set; }
+            public string? PersistedFingerprint { get; set; }
+            public PendingSnapshot? Pending { get; set; }
+        }
+
+        private sealed record PendingSnapshot(string Fingerprint, CharacterPersistenceReceipt Receipt);
 
         private void Release(uint masterId, LockEntry entry)
         {

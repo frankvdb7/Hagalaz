@@ -297,6 +297,38 @@ public sealed class CharacterUpdateRequestConsumerTests
     }
 
     [TestMethod]
+    public async Task Consume_LowerSnapshotRevision_ReportsConflictWithoutMutation()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        await SeedCharacterAsync(databaseName, snapshotRevision: 20);
+
+        await using var provider = new ServiceCollection()
+            .AddScoped(_ => CreateContext(databaseName))
+            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
+            .AddAutoMapper(_ => { }, typeof(Program))
+            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetTestHarness();
+        await harness.Start();
+        var request = CreateRequest() with
+        {
+            SnapshotRevision = 10,
+            Details = new DetailsDto(9999, 9998, 1)
+        };
+        var response = await harness.GetRequestClient<UpdateCharacterRequest>()
+            .GetResponse<UpdateCharacterResponse>(request);
+
+        Assert.AreEqual(CharacterPersistenceOutcome.Conflict, response.Message.Outcome);
+        await harness.Stop();
+
+        await using var verificationContext = CreateContext(databaseName);
+        var character = await verificationContext.Characters.SingleAsync(x => x.Id == request.MasterId);
+        Assert.AreEqual(20L, character.SnapshotRevision);
+        Assert.AreNotEqual(request.Details.CoordX, character.CoordX);
+    }
+
+    [TestMethod]
     public async Task Consume_ExistingCharacter_PersistsSnapshotBeforeResponding()
     {
         var databaseName = Guid.NewGuid().ToString();
@@ -323,6 +355,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         var character = await verificationContext.Characters.SingleAsync(x => x.Id == request.MasterId);
         var statistics = await verificationContext.CharactersStatistics.SingleAsync(x => x.MasterId == request.MasterId);
         var items = await verificationContext.CharactersItems.SingleAsync(x => x.MasterId == request.MasterId);
+        var farmingPatch = await verificationContext.CharactersFarmingPatches.SingleAsync(x => x.MasterId == request.MasterId);
         var state = await verificationContext.CharactersStates.SingleAsync(x => x.MasterId == request.MasterId);
 
         Assert.AreEqual(request.Details.CoordX, character.CoordX);
@@ -331,7 +364,8 @@ public sealed class CharacterUpdateRequestConsumerTests
         Assert.AreEqual(request.Statistics.AttackExp, statistics.AttackExp);
         Assert.AreEqual(request.ItemCollection.Bank[0].ItemId, items.ItemId);
         Assert.AreEqual((sbyte)0, items.ContainerType);
-        Assert.AreEqual(request.State.StatesEx[0].Id.ToString(), state.StateId);
+        Assert.AreEqual(24u, farmingPatch.CurrentCycleTicks);
+        Assert.AreEqual(request.State.StatesEx[0].Id, state.StateId);
         Assert.AreEqual(request.Profile.JsonData, (await verificationContext.CharacterProfiles.SingleAsync(x => x.MasterId == request.MasterId)).Data);
         Assert.AreEqual(request.Music.UnlockedMusicIds[0].ToString(), (await verificationContext.CharactersMusics.SingleAsync(x => x.MasterId == request.MasterId)).UnlockedMusic.Split(',')[0]);
     }
@@ -367,7 +401,7 @@ public sealed class CharacterUpdateRequestConsumerTests
             Farming = new FarmingDto { Patches = [new FarmingDto.PatchDto { Id = 999, SeedId = 999 }] },
             Notes = new NotesDto { Notes = [new NotesDto.NoteDto { Id = 999, Text = "stale" }] },
             ItemAppearanceCollection = new ItemAppearanceCollectionDto { Appearances = [new ItemAppearanceDto { Id = 999 }] },
-            State = new StateDto { StatesEx = [new StateDto.StateExDto { Id = 999, TicksLeft = 999 }] }
+            State = new StateDto { StatesEx = [new StateDto.StateExDto { Id = "999", TicksLeft = 999 }] }
         };
         var response = await client.GetResponse<UpdateCharacterResponse>(staleRequest);
 
@@ -389,7 +423,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         Assert.AreEqual((uint)currentRequest.Farming.Patches[0].Id, farmingPatch.PatchId);
         Assert.AreEqual(currentRequest.Notes.Notes[0].Id, note.NoteId);
         Assert.AreEqual(currentRequest.ItemAppearanceCollection.Appearances[0].Id, itemAppearance.ItemId);
-        Assert.AreEqual(currentRequest.State.StatesEx[0].Id.ToString(), state.StateId);
+        Assert.AreEqual(currentRequest.State.StatesEx[0].Id, state.StateId);
     }
 
     [TestMethod]
@@ -505,6 +539,88 @@ public sealed class CharacterUpdateRequestConsumerTests
     }
 
     [TestMethod]
+    [Timeout(120_000)]
+    public async Task Consume_MultipleFarmingPatches_PersistsEachPatchAndValidSeedId()
+    {
+        await using var database = new MySqlBuilder("mysql:8.4")
+            .WithDatabase("hagalaz-characters-farming-test")
+            .WithUsername("root")
+            .WithPassword("hagalaz-characters-farming-test")
+            .WithCommand(
+                "--character-set-server=utf8mb4",
+                "--collation-server=utf8mb4_0900_ai_ci")
+            .Build();
+        await database.StartAsync();
+
+        await using (var seedContext = CreateMySqlContext(database))
+        {
+            await seedContext.Database.MigrateAsync();
+            seedContext.Characters.Add(new Character
+            {
+                Id = 1,
+                UserName = "farming-test-character",
+                NormalizedUserName = "FARMING-TEST-CHARACTER",
+                DisplayName = "FarmingTest",
+                RegisterIp = "127.0.0.1"
+            });
+            seedContext.SkillsFarmingPatchDefinitions.AddRange(
+                new SkillsFarmingPatchDefinition { ObjectId = 8389, Type = "Allotment" },
+                new SkillsFarmingPatchDefinition { ObjectId = 8550, Type = "Allotment" });
+            seedContext.SkillsFarmingSeedDefinitions.AddRange(
+                CreateSeedDefinition(5374),
+                CreateSeedDefinition(5318));
+            await seedContext.SaveChangesAsync();
+        }
+
+        await using var provider = new ServiceCollection()
+            .AddScoped(_ => CreateMySqlContext(database))
+            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
+            .AddAutoMapper(_ => { }, typeof(Program))
+            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetTestHarness();
+        await harness.Start();
+
+        var request = CreateRequest() with
+        {
+            MasterId = 1,
+            Familiar = null,
+            Farming = new FarmingDto
+            {
+                Patches =
+                [
+                    new FarmingDto.PatchDto { Id = 8389, SeedId = 5374, CurrentCycle = 3, CurrentCycleTicks = 34, ProductCount = 2 },
+                    new FarmingDto.PatchDto { Id = 8550, SeedId = 5318, CurrentCycle = 1, CurrentCycleTicks = 6, ProductCount = 4 }
+                ]
+            },
+            Slayer = new SlayerDto(),
+            ItemAppearanceCollection = new ItemAppearanceCollectionDto { Appearances = [] },
+            State = new StateDto { StatesEx = [] },
+            SnapshotRevision = 1
+        };
+        var response = await harness.GetRequestClient<UpdateCharacterRequest>()
+            .GetResponse<UpdateCharacterResponse>(request);
+        await harness.Stop();
+
+        Assert.AreEqual(CharacterPersistenceOutcome.Committed, response.Message.Outcome);
+        await using var verificationContext = CreateMySqlContext(database);
+        var persisted = await verificationContext.CharactersFarmingPatches
+            .Where(patch => patch.MasterId == request.MasterId)
+            .OrderBy(patch => patch.PatchId)
+            .ToListAsync();
+
+        Assert.AreEqual(2, persisted.Count);
+        Assert.AreEqual(8389u, persisted[0].PatchId);
+        Assert.AreEqual(5374, persisted[0].SeedId);
+        Assert.AreEqual(34u, persisted[0].CurrentCycleTicks);
+        Assert.AreEqual(8550u, persisted[1].PatchId);
+        Assert.AreEqual(5318, persisted[1].SeedId);
+        Assert.AreEqual(6u, persisted[1].CurrentCycleTicks);
+        Assert.IsTrue(persisted.All(patch => patch.SeedId != 0));
+    }
+
+    [TestMethod]
     public async Task Consume_WhenCommitFails_PropagatesFailureWithoutSuccessResponse()
     {
         var databaseName = Guid.NewGuid().ToString();
@@ -546,6 +662,21 @@ public sealed class CharacterUpdateRequestConsumerTests
         var fingerprintProperty = context.Model.FindEntityType(typeof(Character))!.FindProperty(nameof(Character.SnapshotFingerprint));
         Assert.IsNotNull(fingerprintProperty);
         Assert.AreEqual(64, fingerprintProperty.GetMaxLength());
+    }
+
+    [TestMethod]
+    public void CharacterFarmingProfile_RejectsUnsignedTicksAboveSignedRange()
+    {
+        var mapper = CreateMapper();
+        var patch = new CharactersFarmingPatch
+        {
+            CurrentCycleTicks = (uint)int.MaxValue + 1
+        };
+
+        var exception = Assert.ThrowsExactly<AutoMapperMappingException>(
+            () => mapper.Map<Hagalaz.Services.Characters.Services.Model.Farming.Patch>(patch));
+
+        Assert.IsInstanceOfType<OverflowException>(exception.InnerException);
     }
 
     [TestMethod]
@@ -591,7 +722,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         new NotesDto { Notes = [new NotesDto.NoteDto { Id = 32, Color = 33, Text = "note" }] },
         new ProfileDto { JsonData = "{\"changed\":true}" },
         new ItemAppearanceCollectionDto { Appearances = [new ItemAppearanceDto { Id = 40, MaleModels = [1, 2, 3], FemaleModels = [4, 5, 6], ModelColors = [7, 8], TextureColors = [9, 10] }] },
-        new StateDto { StatesEx = [new StateDto.StateExDto { Id = 50, TicksLeft = 51 }] },
+        new StateDto { StatesEx = [new StateDto.StateExDto { Id = "50", TicksLeft = 51 }] },
         2);
 
     private static PersistCharacterCommand CreateCommand()
@@ -644,6 +775,21 @@ public sealed class CharacterUpdateRequestConsumerTests
         new DbContextOptionsBuilder<HagalazDbContext>()
             .UseMySQL(database.GetConnectionString())
             .Options);
+
+    private static SkillsFarmingSeedDefinition CreateSeedDefinition(ushort itemId) => new()
+    {
+        ItemId = itemId,
+        ProductId = 100,
+        MinimumProductCount = 1,
+        MaximumProductCount = 3,
+        RequiredLevel = 1,
+        PlantingExperience = 0,
+        HarvestExperience = 0,
+        VarpbitIndex = 1,
+        MaxCycles = 4,
+        CycleTicks = 100,
+        Type = "Allotment"
+    };
 
     private static IMapper CreateMapper()
     {
@@ -734,6 +880,11 @@ public sealed class CharacterUpdateRequestConsumerTests
             _inner.Reset();
             _onReset?.Invoke();
         }
+
+        public Task<TResult> ExecuteConsistentReadAsync<TResult>(
+            Func<CancellationToken, Task<TResult>> operation,
+            CancellationToken cancellationToken = default) =>
+            _inner.ExecuteConsistentReadAsync(operation, cancellationToken);
 
         public ValueTask RollbackAsync() => _inner.RollbackAsync();
         public async ValueTask CommitAsync()
