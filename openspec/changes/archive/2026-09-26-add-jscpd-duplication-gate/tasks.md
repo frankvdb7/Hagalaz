@@ -5,7 +5,7 @@
 
 ## 2. Enforce the pull-request gate
 
-- [x] 2.1 Add a dedicated PR-only CI job with a full-history checkout, exact jscpd version, target-branch baseline, and empty-scan failure; verify the workflow selects an available base ref and does not construct one on pushes.
+- [x] 2.1 Add a dedicated PR-only CI job with a full-history checkout, exact jscpd version, PR-event base commit, and empty-scan failure; verify the commit is available and no PR baseline is constructed on pushes.
 - [x] 2.2 Generate and upload SARIF with job-scoped permissions and an explicit scanner-exit assertion; verify the report identifies both clone locations and workflow syntax is valid.
 
 ## 3. Validate regression behavior

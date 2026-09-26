@@ -5,7 +5,7 @@ Hagalaz has a large C# codebase with existing copy/paste duplication. Issue #507
 ## What Changes
 
 - Add one root jscpd v5 configuration for C# production and test source, with narrow generated/build exclusions.
-- Add a dedicated CI duplication job that compares pull requests with their target branch, fails on new clones or an empty scan, and publishes SARIF findings.
+- Add a dedicated CI duplication job that compares pull requests with the base commit recorded in their event, fails on new clones or an empty scan, and publishes SARIF findings.
 - Run jscpd against the current repository and validate the baseline, new-clone, exclusion, and empty-scan behaviors.
 
 ### Non-goals
@@ -20,7 +20,7 @@ Hagalaz has a large C# codebase with existing copy/paste duplication. Issue #507
 - Existing clones appear in the report and do not fail an unchanged or unrelated pull request.
 - A new clone above the chosen thresholds fails the pull-request job; removing it restores success.
 - A scan with no analyzed source fails clearly.
-- The pull-request base ref is available and selected deterministically; push handling never uses an empty base ref.
+- The exact base commit recorded in the pull-request event is available for comparison; push handling never uses an empty PR base.
 - SARIF identifies both clone locations and is uploaded to Code Scanning when CI permissions allow it.
 - The baseline statistics, thresholds, and any remaining verification limits are recorded.
 

@@ -18,10 +18,10 @@ The repository SHALL scan maintained C# production and test source for duplicate
 
 ### Requirement: Pull requests are gated on new duplication
 
-The pull-request check SHALL compare its C# findings with the target branch and SHALL fail when a new clone above the configured minimum size is found.
+The pull-request check SHALL compare its C# findings with the exact base commit recorded in the pull-request event and SHALL fail when a new clone above the configured minimum size is found.
 
 #### Scenario: Only historical clones are present
-- **WHEN** a pull request adds no new C# clone relative to its target branch
+- **WHEN** a pull request adds no new C# clone relative to its event's base commit
 - **THEN** the duplication gate passes while reporting historical clones
 
 #### Scenario: A new qualifying clone is introduced
@@ -34,19 +34,19 @@ The pull-request check SHALL compare its C# findings with the target branch and 
 
 ### Requirement: Misconfigured scans fail visibly
 
-The duplication check SHALL fail if it analyzes no relevant source and SHALL use an available target-branch reference for pull-request comparison.
+The duplication check SHALL fail if it analyzes no relevant source and SHALL use the available PR-event base commit for comparison.
 
 #### Scenario: No C# source is analyzed
 - **WHEN** the scan configuration excludes or fails to match all relevant source
 - **THEN** the check fails rather than reporting a successful empty scan
 
-#### Scenario: Target branch reference is unavailable
-- **WHEN** the configured comparison reference is missing
+#### Scenario: PR base commit is unavailable
+- **WHEN** the pull-request event's base commit is missing from checkout
 - **THEN** the check fails rather than accepting an empty or unrelated baseline
 
 #### Scenario: CI runs on a push
 - **WHEN** the CI workflow runs for a push rather than a pull request
-- **THEN** it does not construct a comparison reference from an absent pull-request target branch
+- **THEN** it does not attempt pull-request base comparison
 
 ### Requirement: CI publishes inspectable findings
 

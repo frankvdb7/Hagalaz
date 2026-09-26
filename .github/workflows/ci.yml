@@ -72,12 +72,12 @@ jobs:
 
       - name: Scan C# duplication
         id: jscpd
-        uses: kucherenko/jscpd@v5.3.2
+        uses: kucherenko/jscpd@beb552864d3342241fbcca0f2c46c6248b0426df # v5.3.2
         with:
           version: '5.3.2'
           config: .jscpd.json
           reporters: console,json,sarif
-          baseline-from-ref: origin/${{ github.base_ref }}
+          baseline-from-ref: ${{ github.event.pull_request.base.sha }}
           fail-on-new-clones: true
           fail-on-empty: true
           upload-sarif: false
