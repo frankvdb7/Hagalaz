@@ -894,9 +894,10 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         protected IEnumerable<(int Slot, IItem Item)> EnumerateOccupiedSlots()
         {
-            for (var slot = 0; slot < Capacity; slot++)
+            var items = ToArray();
+            for (var slot = 0; slot < items.Length; slot++)
             {
-                if (Items[slot] is { } item)
+                if (items[slot] is { } item)
                 {
                     yield return (slot, item);
                 }

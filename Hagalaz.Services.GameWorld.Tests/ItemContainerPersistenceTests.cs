@@ -29,6 +29,33 @@ public sealed class ItemContainerPersistenceTests
     }
 
     [TestMethod]
+    public void InventoryDehydrate_CapturesSlotsBeforeMappingItems()
+    {
+        using var scenario = new Scenario();
+        var container = new InventoryContainer(scenario.Owner, 7, Substitute.For<IMapRegionService>(),
+            Substitute.For<IGroundItemBuilder>(), scenario.Builder);
+        var first = Substitute.For<IItem>();
+        first.Id.Returns(101);
+        first.Count.Returns(1);
+        var second = scenario.Builder.Create().WithId(102).WithCount(2).Build();
+        var items = new IItem[container.Capacity];
+        items[0] = first;
+        items[4] = second;
+        container.SetItems(items, false);
+        first.SerializeExtraData().Returns(_ =>
+        {
+            container.Clear(false);
+            return null;
+        });
+
+        var saved = container.Dehydrate();
+
+        CollectionAssert.AreEqual(new[] { 0, 4 }, saved.Select(item => item.SlotId).ToArray());
+        Assert.AreEqual(102, saved[1].ItemId);
+        Assert.AreEqual(0, container.TakenSlots);
+    }
+
+    [TestMethod]
     public void BankRoundTrip_PreservesSparseSlots()
     {
         using var scenario = new Scenario();
