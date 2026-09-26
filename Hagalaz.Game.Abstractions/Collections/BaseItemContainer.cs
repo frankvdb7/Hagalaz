@@ -835,16 +835,73 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>
-        /// Replaces the entire internal item array with a new one.
+        /// Replaces the entire internal item array with a capacity-sized copy.
         /// </summary>
         /// <param name="items">The new array of items.</param>
         /// <param name="update">If set to <c>true</c>, the <see cref="OnUpdate"/> callback is invoked.</param>
         public virtual void SetItems(IItem[] items, bool update)
         {
-            Items = items;
+            ArgumentNullException.ThrowIfNull(items);
+            if (items.Length != Capacity)
+            {
+                throw new ArgumentException("Item storage length must equal container capacity.", nameof(items));
+            }
+
+            Items = (IItem?[])items.Clone();
 
             if (update) OnUpdate();
             _version++;
+        }
+
+        /// <summary>
+        /// Restores items into their exact physical slots without gameplay insertion.
+        /// </summary>
+        protected void RestoreItems(IEnumerable<(int Slot, IItem Item)> items)
+        {
+            ArgumentNullException.ThrowIfNull(items);
+            var restored = new IItem[Capacity];
+            foreach (var (slot, item) in items)
+            {
+                if ((uint)slot >= (uint)Capacity)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(items), $"Slot {slot} is outside the container capacity.");
+                }
+
+                if (restored[slot] != null)
+                {
+                    throw new ArgumentException($"Slot {slot} is duplicated in restored state.", nameof(items));
+                }
+
+                ArgumentNullException.ThrowIfNull(item);
+                if (!IsValidRestoredCount(item.Count))
+                {
+                    throw new ArgumentOutOfRangeException(nameof(items), "Item count is invalid for this container.");
+                }
+
+                restored[slot] = item;
+            }
+
+            SetItems(restored, false);
+        }
+
+        /// <summary>
+        /// Determines whether an item count is valid when restoring exact container state.
+        /// </summary>
+        protected virtual bool IsValidRestoredCount(int count) => count > 0;
+
+        /// <summary>
+        /// Enumerates non-empty items together with their physical slots.
+        /// </summary>
+        protected IEnumerable<(int Slot, IItem Item)> EnumerateOccupiedSlots()
+        {
+            var items = ToArray();
+            for (var slot = 0; slot < items.Length; slot++)
+            {
+                if (items[slot] is { } item)
+                {
+                    yield return (slot, item);
+                }
+            }
         }
 
         /// <summary>

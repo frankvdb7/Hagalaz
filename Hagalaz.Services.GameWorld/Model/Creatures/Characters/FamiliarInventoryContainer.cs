@@ -106,28 +106,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="slots">The slots.</param>
         public override void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new FamiliarInventoryChangedEvent(_owner, slots));
 
-        public void Hydrate(IReadOnlyList<HydratedItem> inventory)
-        {
-            var items = new IItem[Capacity];
-            foreach (var hydrated in inventory)
-            {
-                var builder = _itemBuilder.Create().WithId(hydrated.ItemId).WithCount(hydrated.Count);
-                if (!string.IsNullOrEmpty(hydrated.ExtraData))
-                {
-                    builder.WithExtraData(hydrated.ExtraData);
-                }
-                items[hydrated.SlotId] = builder.Build();
-            }
-            SetItems(items, false);
-        }
+        public void Hydrate(IReadOnlyList<HydratedItem> inventory) => RestoreItems(inventory.Select(item =>
+            (item.SlotId, _itemBuilder.Create().WithId(item.ItemId).WithCount(item.Count)
+                .WithExtraData(item.ExtraData ?? string.Empty).Build())));
 
-        public IReadOnlyList<HydratedItem> Dehydrate()
-        {
-            var items = ToArray();
-            return items
-                .OfType<IItem>()
-                .Select((item, index) => new HydratedItem(item!.Id, item!.Count, index, item!.SerializeExtraData()))
-                .ToList();
-        }
+        public IReadOnlyList<HydratedItem> Dehydrate() => EnumerateOccupiedSlots()
+            .Select(entry => new HydratedItem(entry.Item.Id, entry.Item.Count, entry.Slot, entry.Item.SerializeExtraData()))
+            .ToArray();
     }
 }

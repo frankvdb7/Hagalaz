@@ -419,7 +419,11 @@ public sealed class CharacterStatePersistenceTests
         item.EquipmentScript.Returns(equipmentScript);
         itemBuilder.Create().Returns(itemId);
         itemId.WithId(Arg.Any<int>()).Returns(itemOptional);
-        itemOptional.WithCount(Arg.Any<int>()).Returns(itemOptional);
+        itemOptional.WithCount(Arg.Any<int>()).Returns(call =>
+        {
+            item.Count = call.Arg<int>();
+            return itemOptional;
+        });
         itemOptional.WithExtraData(Arg.Any<string>()).Returns(itemOptional);
         itemOptional.Build().Returns(item);
 
