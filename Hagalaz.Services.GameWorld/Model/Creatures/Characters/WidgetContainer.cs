@@ -370,10 +370,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             parent.AttachChildren(toOpen, toOpen.ParentSlot);
             if (refresh)
             {
-                _owner.Session.SendMessage(new DrawInterfaceComponentMessage
-                {
-                    Id = toOpen.Id, ParentId = parent.Id, ParentSlot = toOpen.ParentSlot, Transparency = toOpen.Transparency
-                });
+                SendDrawInterfaceComponent(toOpen, parent);
             }
 
             toOpen.OnOpen();
@@ -394,13 +391,29 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="refresh">if set to <c>true</c> [refresh].</param>
         private void CloseWidget(IWidget toClose, bool refresh)
         {
-            if (!IsOpened(toClose) || !TryPrepareClose(toClose))
+            if (!IsOpened(toClose))
             {
+                return;
+            }
+
+            if (!TryPrepareClose(toClose))
+            {
+                if (refresh && !toClose.IsFrame && GetOpenWidget(toClose.ParentId) is { } parent)
+                {
+                    SendDrawInterfaceComponent(toClose, parent);
+                }
+
                 return;
             }
 
             CloseWidgetCore(toClose, refresh);
         }
+
+        private void SendDrawInterfaceComponent(IWidget widget, IWidget parent) =>
+            _owner.Session.SendMessage(new DrawInterfaceComponentMessage
+            {
+                Id = widget.Id, ParentId = parent.Id, ParentSlot = widget.ParentSlot, Transparency = widget.Transparency
+            });
 
         private bool TryPrepareClose(IWidget toClose)
         {

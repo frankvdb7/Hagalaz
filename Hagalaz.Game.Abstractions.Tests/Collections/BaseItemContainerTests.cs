@@ -18,6 +18,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             public int UpdateCount { get; private set; }
             public bool ThrowOnUpdate { get; set; }
+            public Exception? UpdateException { get; set; }
             public Action<HashSet<int>?>? UpdateHandler { get; set; }
 
             public TestableItemContainer(StorageType type, int capacity) : base(type, capacity)
@@ -32,6 +33,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             {
                 UpdateCount++;
                 UpdateHandler?.Invoke(slots);
+                if (UpdateException is { } exception)
+                {
+                    throw exception;
+                }
+
                 if (ThrowOnUpdate)
                 {
                     throw new InvalidOperationException("Controlled observer failure.");
@@ -49,13 +55,15 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             public IItemScript ItemScript { get; }
             public IEquipmentScript EquipmentScript { get; }
             private readonly long[] _extraData;
+            private readonly Action? _onClone;
             public long[] ExtraData => _extraData;
 
-            public TestItem(int id, int count, bool stackable = false, bool noted = false, long[]? extraData = null)
+            public TestItem(int id, int count, bool stackable = false, bool noted = false, long[]? extraData = null, Action? onClone = null)
             {
                 Id = id;
                 Count = count;
                 _extraData = extraData ?? Array.Empty<long>();
+                _onClone = onClone;
                 Name = $"TestItem_{id}";
 
                 var itemDef = Substitute.For<IItemDefinition>();
@@ -79,7 +87,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             }
 
             public IItem Clone() => Clone(1);
-            public IItem Clone(int newCount) => new TestItem(Id, newCount, ItemDefinition.Stackable, ItemDefinition.Noted, (long[])_extraData.Clone());
+            public IItem Clone(int newCount)
+            {
+                _onClone?.Invoke();
+                return new TestItem(Id, newCount, ItemDefinition.Stackable, ItemDefinition.Noted, (long[])_extraData.Clone(), _onClone);
+            }
 
             public bool Equals(IItem other, bool ignoreCount = false)
             {
@@ -94,24 +106,24 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             public string? SerializeExtraData() => _extraData.Length == 0 ? null : string.Join(",", _extraData);
         }
 
-        private IItem CreateItem(int id, int count, bool stackable = false, bool noted = false, long[]? extraData = null)
+        private IItem CreateItem(int id, int count, bool stackable = false, bool noted = false, long[]? extraData = null, Action? onClone = null)
         {
-            return new TestItem(id, count, stackable, noted, extraData);
+            return new TestItem(id, count, stackable, noted, extraData, onClone);
         }
 
         private sealed class TestableBaseItemContainer : BaseItemContainer
         {
             public int UpdateCount { get; private set; }
-            public bool ThrowOnUpdate { get; set; }
+            public Exception? UpdateException { get; set; }
 
             public TestableBaseItemContainer(StorageType type, int capacity) : base(type, capacity) { }
 
             public override void OnUpdate(HashSet<int>? slots = null)
             {
                 UpdateCount++;
-                if (ThrowOnUpdate)
+                if (UpdateException is { } exception)
                 {
-                    throw new InvalidOperationException("Controlled observer failure.");
+                    throw exception;
                 }
             }
         }
@@ -1393,22 +1405,75 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public void TryTransfer_ObserverThrowsAfterCommit_PropagatesWithoutUndoingStorage()
+        public void TryTransfer_SourceObserverThrowsAfterCommit_StillNotifiesDestinationAndReturnsSuccess()
         {
             var source = new TestableBaseItemContainer(StorageType.Normal, 1);
             source.Add(CreateItem(1, 1));
-            var destination = new TestableBaseItemContainer(StorageType.Normal, 1)
-            {
-                ThrowOnUpdate = true
-            };
+            source.UpdateException = new InvalidOperationException("Controlled source observer failure.");
+            var destination = new TestableBaseItemContainer(StorageType.Normal, 1);
             var item = source[0];
 
-            Assert.ThrowsExactly<InvalidOperationException>(() => BaseItemContainer.TryTransfer(source, destination, item!, 1));
+            Assert.IsTrue(BaseItemContainer.TryTransfer(source, destination, item!, 1));
 
             Assert.IsNull(source[0]);
             Assert.AreSame(item, destination[0]);
             Assert.AreEqual(2, source.UpdateCount);
             Assert.AreEqual(1, destination.UpdateCount);
+        }
+
+        [TestMethod]
+        public void TryTransfer_DestinationObserverThrowsAfterCommit_ReturnsSuccess()
+        {
+            var source = new TestableBaseItemContainer(StorageType.Normal, 1);
+            source.Add(CreateItem(1, 1));
+            var destination = new TestableBaseItemContainer(StorageType.Normal, 1)
+            {
+                UpdateException = new InvalidOperationException("Controlled destination observer failure.")
+            };
+            var item = source[0];
+
+            Assert.IsTrue(BaseItemContainer.TryTransfer(source, destination, item!, 1));
+
+            Assert.IsNull(source[0]);
+            Assert.AreSame(item, destination[0]);
+            Assert.AreEqual(2, source.UpdateCount);
+            Assert.AreEqual(1, destination.UpdateCount);
+        }
+
+        [TestMethod]
+        public void TryTransfer_ProcessFatalObserverExceptionIsNotSwallowed()
+        {
+            var source = new TestableBaseItemContainer(StorageType.Normal, 1);
+            source.Add(CreateItem(1, 1));
+            source.UpdateException = new OutOfMemoryException("Controlled fatal observer failure.");
+            var destination = new TestableBaseItemContainer(StorageType.Normal, 1);
+            var item = source[0];
+
+            Assert.ThrowsExactly<OutOfMemoryException>(() => BaseItemContainer.TryTransfer(source, destination, item!, 1));
+
+            Assert.IsNull(source[0]);
+            Assert.AreSame(item, destination[0]);
+            Assert.AreEqual(0, destination.UpdateCount);
+        }
+
+        [TestMethod]
+        public void TryTransfer_HugeNonStackableQuantityRejectsBeforePerUnitCloning()
+        {
+            var cloneCount = 0;
+            var source = new TestableBaseItemContainer(StorageType.AlwaysStack, 1);
+            var sourceItem = CreateItem(1, int.MaxValue, onClone: () => cloneCount++);
+            Assert.IsTrue(source.Add(sourceItem));
+            var destination = new TestableBaseItemContainer(StorageType.Normal, 4);
+            var sourceUpdates = source.UpdateCount;
+
+            Assert.IsFalse(BaseItemContainer.TryTransfer(source, destination, sourceItem, int.MaxValue));
+
+            Assert.AreEqual(0, cloneCount);
+            Assert.AreSame(sourceItem, source[0]);
+            Assert.AreEqual(int.MaxValue, source[0]!.Count);
+            Assert.AreEqual(0, destination.TakenSlots);
+            Assert.AreEqual(sourceUpdates, source.UpdateCount);
+            Assert.AreEqual(0, destination.UpdateCount);
         }
 
         [TestMethod]
@@ -1450,15 +1515,15 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public void TryTransfer_TradeObserverInvalidOperationDoesNotChangeCommittedResult()
+        public void TryTransfer_TradeObserverFailuresUseCommonCommittedSuccessSemantics()
         {
             var source = new TestableItemContainer(StorageType.Normal, 1);
             var destination = new TestableItemContainer(StorageType.Normal, 1);
             var item = CreateItem(1, 1);
             source.Add(item);
             var storedItem = source[0];
-            source.ThrowOnUpdate = true;
-            destination.ThrowOnUpdate = true;
+            source.UpdateException = new ArgumentException("Controlled trade source observer failure.");
+            destination.UpdateException = new ArgumentException("Controlled trade destination observer failure.");
 
             Assert.IsTrue(BaseItemContainer.TryTransfer(source, destination, storedItem!, 1));
 

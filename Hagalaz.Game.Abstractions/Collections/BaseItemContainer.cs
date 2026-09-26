@@ -171,8 +171,8 @@ namespace Hagalaz.Game.Abstractions.Collections
                 return false;
             }
 
-            sourceContainer.NotifyTransferCommitted(sourceSlots);
-            destinationContainer.NotifyTransferCommitted(destinationSlots);
+            NotifyTransferCommittedSafely(sourceContainer, sourceSlots);
+            NotifyTransferCommittedSafely(destinationContainer, destinationSlots);
             return true;
         }
 
@@ -181,6 +181,18 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// may retain their established post-commit observer behavior.
         /// </summary>
         protected virtual void NotifyTransferCommitted(HashSet<int> slots) => OnUpdate(slots);
+
+        private static void NotifyTransferCommittedSafely(BaseItemContainer container, HashSet<int> slots)
+        {
+            try
+            {
+                container.NotifyTransferCommitted(slots);
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException and not AccessViolationException)
+            {
+                // A committed transfer remains successful, and one observer must not prevent notifying the other.
+            }
+        }
 
         private static bool TryTransferLocked(
             BaseItemContainer source,
@@ -200,7 +212,13 @@ namespace Hagalaz.Game.Abstractions.Collections
             }
 
             var destinationTemplate = destinationItem ?? item;
-            var incomingItems = CreateIncomingItems(source, destination, destinationTemplate, destinationItem != null, removals);
+            var isTransformed = destinationItem != null;
+            if (CannotAcceptExpandedNonStackableTransfer(destination, destinationTemplate, isTransformed, count, destinationSlot, removals))
+            {
+                return false;
+            }
+
+            var incomingItems = CreateIncomingItems(source, destination, destinationTemplate, isTransformed, removals);
             var simulatedItems = new IItem?[destination.Items.Length];
             for (var i = 0; i < destination.Items.Length; i++)
             {
@@ -274,6 +292,92 @@ namespace Hagalaz.Game.Abstractions.Collections
             destination.Items = committedDestination;
             source.AdvanceRevision();
             destination.AdvanceRevision();
+            return true;
+        }
+
+        private static bool CannotAcceptExpandedNonStackableTransfer(
+            BaseItemContainer destination,
+            IItem destinationTemplate,
+            bool isTransformed,
+            int count,
+            int destinationSlot,
+            IReadOnlyList<(int Slot, int Count, IItem Item)> removals)
+        {
+            if (destination.Type == StorageType.AlwaysStack || destinationTemplate.ItemDefinition.Stackable || destinationTemplate.ItemDefinition.Noted)
+            {
+                return false;
+            }
+
+            IItem IncomingTemplate((int Slot, int Count, IItem Item) removal) => isTransformed ? destinationTemplate : removal.Item;
+
+            if (destinationSlot >= 0)
+            {
+                if ((uint)destinationSlot >= (uint)destination.Items.Length)
+                {
+                    return true;
+                }
+
+                var incoming = IncomingTemplate(removals[0]);
+                var slotItem = destination.Items[destinationSlot];
+                if (slotItem != null)
+                {
+                    if (slotItem.Id != incoming.Id || !slotItem.ItemScript.CanStackItem(slotItem, incoming, false))
+                    {
+                        return true;
+                    }
+
+                    return count > int.MaxValue - (long)slotItem.Count;
+                }
+
+                if (count == 1)
+                {
+                    return false;
+                }
+
+                var nextIncoming = removals[0].Count > 1 ? incoming : IncomingTemplate(removals[1]);
+                return !incoming.ItemScript.CanStackItem(incoming, nextIncoming, false);
+            }
+
+            if (destination.FreeSlots >= count)
+            {
+                return false;
+            }
+
+            var firstIncoming = IncomingTemplate(removals[0]);
+            foreach (var slotItem in destination.Items)
+            {
+                if (slotItem != null && slotItem.Id == firstIncoming.Id && slotItem.ItemScript.CanStackItem(slotItem, firstIncoming, false))
+                {
+                    return count > int.MaxValue - (long)slotItem.Count;
+                }
+            }
+
+            foreach (var slotItem in destination.Items)
+            {
+                if (slotItem == null)
+                {
+                    continue;
+                }
+
+                foreach (var removal in removals)
+                {
+                    var incoming = IncomingTemplate(removal);
+                    if (slotItem.Id == incoming.Id && slotItem.ItemScript.CanStackItem(slotItem, incoming, false))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            foreach (var removal in removals)
+            {
+                var incoming = IncomingTemplate(removal);
+                if (incoming.ItemScript.CanStackItem(incoming, incoming, false))
+                {
+                    return false;
+                }
+            }
+
             return true;
         }
 

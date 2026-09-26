@@ -103,6 +103,32 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
         }
 
         [TestMethod]
+        public void CloseWidget_WhenGuardRejects_RedrawsOpenWidgetWithoutRepeatingLifecycle()
+        {
+            _widgetScriptProviderMock.GetInterfacesCount().Returns(10);
+            var frame = new Widget(_characterMock, 1, 0, Substitute.For<IWidgetScript>());
+            _widgetContainer.OpenFrame(frame);
+
+            var script = Substitute.For<IWidgetScript, IWidgetCloseGuard>();
+            ((IWidgetCloseGuard)script).TryClose().Returns(false);
+            var widget = new Widget(_characterMock, 2, frame.Id, 0, 0, script);
+            _widgetContainer.OpenWidget(widget);
+            _sessionMock.ClearReceivedCalls();
+
+            _widgetContainer.CloseWidget(widget);
+
+            _sessionMock.Received(1).SendMessage(Arg.Is<DrawInterfaceComponentMessage>(message =>
+                message.Id == widget.Id && message.ParentId == frame.Id && message.ParentSlot == widget.ParentSlot && message.Transparency == widget.Transparency));
+            Assert.AreSame(widget, frame.GetChild(widget.ParentSlot));
+            Assert.AreSame(widget, _widgetContainer.GetOpenWidget(widget.Id));
+            Assert.AreEqual(2, _widgetContainer.Widgets.Count);
+            Assert.IsTrue(widget.IsOpened);
+            script.Received(1).OnOpen();
+            script.DidNotReceive().OnClose();
+            ((IWidgetCloseGuard)script).Received(1).TryClose();
+        }
+
+        [TestMethod]
         public void OpenFrame_ExplicitForceRedraw_ForceRedrawIsTrue()
         {
             // Arrange

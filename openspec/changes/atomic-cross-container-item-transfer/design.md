@@ -31,19 +31,21 @@ See proposal.md for motivation and scope. `BaseItemContainer` owns slot storage 
 
 5. **Keep partial-count and domain decisions outside the primitive.** Bank withdrawal and reward/familiar flows calculate their intended quantity before requesting it. Bank may provide a destination item when deposit/withdraw-as-note behavior transforms the item ID. Equipment owns eligibility and callbacks; the storage primitive does not call equipment scripts. Simple equipment moves use the primitive with an explicit equipment slot; replacement decisions and multi-item weapon/shield behavior stay in `EquipmentContainer`.
 
-6. **Preserve observer exception behavior after commit.** Update callbacks run after the transfer is committed and locks are released. If a callback throws, the operation does not restore storage or turn the committed transfer into a capacity failure. Generic observer exceptions keep their existing propagation behavior; trade's existing best-effort handling remains local to trade notifications.
+6. **Keep post-commit observer failures outside transfer success.** Update callbacks run after the transfer is committed and locks are released. Each nonfatal callback failure is isolated so the second container is still notified and the committed transfer returns success. Process-fatal exceptions are not swallowed. Trade transfers use this common boundary; checked trade add/remove operations retain their existing trade-specific notifications.
 
 7. **Retain the legacy bulk helper as explicit best-effort movement.** `AddAndRemoveFrom` keeps its existing "move complete source items that fit" behavior by determining one exact quantity per source item and calling the common transfer operation. The helper does not offer hidden partial counts within a single item.
 
 8. **Limit shop migration to the item leg.** Shop sales use the primitive to move the sold item from inventory into stock. Payment remains in the existing shop workflow; this change does not make payout, stock, and inventory one transaction or alter shop purchasing.
 
-9. **Keep Price Checker contents reachable on close failure.** A Price Checker close guard attempts exact returns before the widget is detached. If inventory cannot accept the remaining contents, closing is refused and the widget stays attached so those items remain accessible.
+9. **Keep Price Checker contents reachable on close failure.** A Price Checker close guard attempts exact returns before the widget is detached. If inventory cannot accept the remaining contents, closing is refused and the widget stays attached. When the client has already hidden the component locally, redraw that same open component without reopening it or invoking lifecycle callbacks.
+
+10. **Reject impossible non-stackable unit expansion before cloning.** For a transfer shape that expands a quantity into per-unit non-stackable items, use existing slot and stackability facts to reject only requests that cannot fit. Do not add a quantity cap or replace the normal insertion algorithm.
 
 ## Risks / Trade-offs
 
 - [Risk] A caller that bypasses the base mutation boundary could still mutate shared item objects concurrently. → Keep storage-changing base methods under the same lock and inspect derived overrides; current GameWorld container implementations either use base storage methods or their existing ordered trade/pouch boundary.
 - [Risk] Cloning during preflight could lose item-specific data if an `IItem.Clone` implementation is incomplete. → Preserve original item references for whole-instance moves and add regressions for identity and serialized item data on split moves.
-- [Risk] An observer can throw after the transfer has committed, so the caller may receive an exception while storage remains changed. → Preserve current callback exception rules and test the committed contents explicitly; never add storage rollback after notifications.
+- [Risk] A nonfatal observer can fail after the transfer has committed. → Keep the committed result successful, attempt both container notifications, and do not let callbacks trigger storage rollback.
 - [Risk] A broad storage lock can expose callback reentrancy deadlocks if callbacks run under it. → Release the locks before `OnUpdate` and retain deterministic ordering for every pair operation.
 
 ## Migration Plan

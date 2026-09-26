@@ -1,14 +1,17 @@
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Collections;
+using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.Shops;
 using Hagalaz.Game.Abstractions.Logic.Characters.Model;
 using Hagalaz.Game.Abstractions.Logic.Dehydrations;
 using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Services.GameWorld.Builders;
 using Hagalaz.Services.GameWorld.Logic.Shops;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
@@ -290,6 +293,37 @@ public sealed class ItemContainerPersistenceTests
         Assert.IsTrue(equipment.EquipItem(item));
 
         Assert.IsTrue(callbackSawCommittedStorage);
+    }
+
+    [TestMethod]
+    public void EquipItem_ObserverFailureStillCallsEquippedAfterStorageCommit()
+    {
+        using var scenario = new Scenario();
+        var inventory = CreateInventory(scenario, 2);
+        scenario.Owner.Inventory.Returns(inventory);
+        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        scenario.Owner.Equipment.Returns(equipment);
+        scenario.DefaultEquipmentDefinition.Slot.Returns(EquipmentSlot.Hat);
+        var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        Assert.IsTrue(inventory.Add(item));
+        item.EquipmentScript.CanEquipItem(item, scenario.Owner).Returns(true);
+        var callbackSawCommittedStorage = false;
+        item.EquipmentScript.When(script => script.OnEquipped(item, scenario.Owner)).Do(_ =>
+        {
+            Assert.IsNull(inventory[0]);
+            Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
+            callbackSawCommittedStorage = true;
+        });
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        eventManager
+            .When(manager => manager.SendEvent(Arg.Any<IEvent>()))
+            .Do(_ => throw new InvalidOperationException("Controlled equipment observer failure."));
+
+        Assert.IsTrue(equipment.EquipItem(item));
+
+        Assert.IsTrue(callbackSawCommittedStorage);
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
     }
 
     [TestMethod]

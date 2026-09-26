@@ -16,3 +16,4 @@
 
 - [x] 3.1 Run focused and affected project test suites, build the appropriate solution boundary, and record successful commands and any pre-existing warnings
 - [x] 3.2 Run strict OpenSpec validation and review the complete diff for atomicity, locking, item identity, notification timing, callback behavior, trade duplication, and scope
+- [x] 3.3 Correct post-commit observer semantics, refused client-close redraw, and impossible non-stackable preflight with focused regressions

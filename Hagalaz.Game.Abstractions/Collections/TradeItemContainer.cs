@@ -29,8 +29,6 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
     {
     }
 
-    protected override void NotifyTransferCommitted(HashSet<int> slots) => NotifyTradeUpdate(slots);
-
     /// <inheritdoc />
     public bool AddRangeForTrade(IEnumerable<IItem?> items)
     {

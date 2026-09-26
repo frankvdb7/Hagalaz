@@ -49,8 +49,23 @@ Concurrent transfers involving the same containers SHALL acquire their mutation 
 - **THEN** neither container receives an update callback
 
 #### Scenario: An update observer throws after commit
-- **WHEN** a container update observer throws after storage has committed
-- **THEN** both committed storage states remain in place and the exception is handled using the existing observer exception semantics
+- **WHEN** either container update observer throws a nonfatal exception after storage has committed
+- **THEN** both committed storage states remain in place, the transfer returns success, and the other container's observer is still attempted
+
+#### Scenario: A process-fatal observer exception occurs
+- **WHEN** a container update observer throws a process-fatal exception after storage has committed
+- **THEN** the exception is not swallowed and committed storage is not restored
+
+#### Scenario: A huge non-stackable request cannot fit
+- **WHEN** an exact transfer would expand a huge non-stackable quantity into more items than the destination can accept and no existing stack can receive them
+- **THEN** the operation fails before creating per-unit incoming items and both containers remain unchanged
+
+### Requirement: Refused widget closes restore client reachability
+A close refused by a widget guard SHALL redraw an already-open client component when the client may have hidden it locally. The redraw SHALL NOT reopen or re-register the widget or invoke its open/close lifecycle callbacks.
+
+#### Scenario: A client-originated close is refused
+- **WHEN** the client locally closes a guarded widget and the server refuses that close
+- **THEN** the server redraws the same open widget, its contents remain attached, and no duplicate open or close lifecycle occurs
 
 ### Requirement: Gameplay partial transfers remain explicit
 
