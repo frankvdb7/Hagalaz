@@ -12,7 +12,7 @@ See the proposal and `csharp-duplication-gate` delta spec. The existing CI workf
 
 ### Use the official jscpd action and exact v5.3.2 engine
 
-Pin the official action to commit `beb552864d3342241fbcca0f2c46c6248b0426df`, the commit backing v5.3.2, and retain `version: 5.3.2` for the engine. The commit SHA fixes the action source; the version input selects the jscpd engine. The action captures the scanner exit code as an output so report steps can run; CI explicitly asserts that output after report upload.
+Pin the official action to commit `beb552864d3342241fbcca0f2c46c6248b0426df`, the commit backing v5.3.2, and retain `version: 5.3.2` for the engine. The commit SHA fixes the action source; the version input selects the jscpd engine. The action captures the scanner exit code as an output so report steps can run; CI explicitly asserts that output after the optional upload step.
 
 Alternatives: A repository Node package would couple the C# gate to frontend tooling. A hand-written binary installer would duplicate the action's supported installation path. A release tag, unversioned `v5` tag, or default `latest` engine can move and is insufficient for pinning third-party action code.
 
@@ -28,13 +28,13 @@ Start with `csharp`, `minLines: 10`, `minTokens: 80`, and mild mode. Exclude `bi
 
 ### Publish SARIF with explicit failure visibility
 
-The action will generate console, JSON (needed for its output parsing), and SARIF reports. Disable its built-in SARIF upload because that step uses `continue-on-error`. Upload the generated SARIF with an explicit Code Scanning step and job-level `security-events: write`; assert the scanner's exit-code output in a final step. A narrow ignore for the generated `report/` directory prevents local report files from entering the diff.
+The action will generate console, JSON (needed for its output parsing), and SARIF reports. Disable its built-in SARIF upload because that step uses `continue-on-error`. Upload the generated SARIF with an explicit Code Scanning step and job-level `security-events: write` for same-repository, non-Dependabot PRs; fork and Dependabot PRs retain console findings. Assert the scanner's exit-code output in a final step for every PR. A narrow ignore for the generated `report/` directory prevents local report files from entering the diff.
 
 ## Risks / Trade-offs
 
 - [Base commit missing in CI] → Use full-history checkout; a missing commit produces a failing scan and is validated locally.
-- [Action captures scanner failure for reporting] → Assert its output after SARIF upload.
-- [SARIF upload permission or GitHub availability] → Give only this job `security-events: write` and leave upload failure visible. Local validation can verify report structure, but cannot prove GitHub's hosted upload without a CI run.
+- [Action captures scanner failure for reporting] → Assert its output whether or not SARIF upload runs.
+- [SARIF upload permission or GitHub availability] → Skip upload for fork and Dependabot PRs; leave upload failure visible for same-repository PRs. Local validation can verify report structure, but cannot prove GitHub's hosted upload without a CI run.
 - [Existing duplication volume] → Retain baseline comparison and avoid a global threshold or broad source exclusions.
 
 ## Migration Plan

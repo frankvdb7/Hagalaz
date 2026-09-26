@@ -59,13 +59,14 @@ jobs:
         run: npx --yes @fission-ai/openspec@1.10.0 validate --archived --no-interactive
 
   duplication:
+    name: C# Duplication
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
     steps:
-      - name: Checkout repository and target branch
+      - name: Checkout repository with history
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
@@ -83,7 +84,10 @@ jobs:
           upload-sarif: false
 
       - name: Upload duplication SARIF
-        if: always()
+        if: >-
+          always() &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.pull_request.user.login != 'dependabot[bot]'
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: report/jscpd-report.sarif
