@@ -225,6 +225,129 @@ public sealed class CharacterPersistenceIntegrationTests
         Assert.AreEqual("new", persistedProfile.RootElement.GetProperty("marker").GetString());
     }
 
+    [TestMethod]
+    [Timeout(120000)]
+    public async Task PersistCharacterCommand_ReplacesLegacyMatureFarmingTicksWithNormalizedZero()
+    {
+        var masterId = await SeedCharacterAsync();
+        await using (var seedContext = CreateContext())
+        {
+            seedContext.SkillsFarmingPatchDefinitions.Add(
+                new SkillsFarmingPatchDefinition { ObjectId = 8390, Type = "Tree" });
+            seedContext.SkillsFarmingSeedDefinitions.Add(new SkillsFarmingSeedDefinition
+            {
+                ItemId = 5374,
+                ProductId = 6051,
+                MinimumProductCount = 1,
+                MaximumProductCount = 1,
+                RequiredLevel = 75,
+                PlantingExperience = 145.5m,
+                HarvestExperience = 13768.3m,
+                VarpbitIndex = 41,
+                MaxCycles = 12,
+                CycleTicks = 3500,
+                Type = "Tree"
+            });
+            seedContext.CharactersFarmingPatches.Add(new CharactersFarmingPatch
+            {
+                MasterId = masterId,
+                PatchId = 8390,
+                SeedId = 5374,
+                ConditionFlag = 928,
+                CurrentCycle = 12,
+                CurrentCycleTicks = 1_860_765_382,
+                ProductCount = 1
+            });
+            await seedContext.SaveChangesAsync();
+        }
+
+        await using var provider = CreateProvider();
+        var harness = provider.GetTestHarness();
+        var acknowledgementCapture = provider.GetRequiredService<AcknowledgementCapture>();
+        await harness.Start();
+
+        try
+        {
+            var command = CreateCommand(masterId, 1) with
+            {
+                Farming = new FarmingDto
+                {
+                    Patches =
+                    [
+                        new FarmingDto.PatchDto
+                        {
+                            Id = 8390,
+                            SeedId = 5374,
+                            Condition = 928,
+                            CurrentCycle = 12,
+                            CurrentCycleTicks = 0,
+                            ProductCount = 1
+                        }
+                    ]
+                }
+            };
+            await harness.Bus.Publish(command);
+
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var acknowledgement = await acknowledgementCapture.Received.Task.WaitAsync(timeout.Token);
+            Assert.AreEqual(CharacterPersistenceOutcome.Committed, acknowledgement.Outcome);
+        }
+        finally
+        {
+            await harness.Stop();
+        }
+
+        await using var verificationContext = CreateContext();
+        var persistedPatch = await verificationContext.CharactersFarmingPatches
+            .SingleAsync(patch => patch.MasterId == masterId && patch.PatchId == 8390);
+        Assert.AreEqual(12, persistedPatch.CurrentCycle);
+        Assert.AreEqual(928u, persistedPatch.ConditionFlag);
+        Assert.AreEqual(0u, persistedPatch.CurrentCycleTicks);
+        Assert.AreEqual(1u, persistedPatch.ProductCount);
+    }
+
+    [TestMethod]
+    [Timeout(120000)]
+    public async Task GetFarmingAsync_RejectsUnsignedProgressAboveSignedDtoRange()
+    {
+        var masterId = await SeedCharacterAsync();
+        await using (var seedContext = CreateContext())
+        {
+            seedContext.SkillsFarmingPatchDefinitions.Add(
+                new SkillsFarmingPatchDefinition { ObjectId = 8391, Type = "Tree" });
+            seedContext.SkillsFarmingSeedDefinitions.Add(new SkillsFarmingSeedDefinition
+            {
+                ItemId = 5373,
+                ProductId = 6051,
+                MinimumProductCount = 1,
+                MaximumProductCount = 1,
+                RequiredLevel = 75,
+                PlantingExperience = 145.5m,
+                HarvestExperience = 13768.3m,
+                VarpbitIndex = 41,
+                MaxCycles = 12,
+                CycleTicks = 3500,
+                Type = "Tree"
+            });
+            seedContext.CharactersFarmingPatches.Add(new CharactersFarmingPatch
+            {
+                MasterId = masterId,
+                PatchId = 8391,
+                SeedId = 5373,
+                CurrentCycleTicks = (uint)int.MaxValue + 1
+            });
+            await seedContext.SaveChangesAsync();
+        }
+
+        await using var provider = CreateProvider();
+        await using var context = CreateContext();
+        var mapper = provider.GetRequiredService<global::AutoMapper.IMapper>();
+        var service = new CharacterService(new CharacterUnitOfWork(context), mapper);
+
+        await Assert.ThrowsAsync<OverflowException>(
+            () => service.GetFarmingAsync(masterId));
+    }
+
     private static ServiceProvider CreateProvider(
         CommitBarrier? barrier = null,
         bool immediateRetry = false,
@@ -260,6 +383,8 @@ public sealed class CharacterPersistenceIntegrationTests
             {
                 options.UseMySql();
                 options.UseBusOutbox();
+
+                options.DisableInboxCleanupService();
             });
             if (immediateRetry)
             {

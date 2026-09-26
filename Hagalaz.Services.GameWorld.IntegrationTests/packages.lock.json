@@ -34,6 +34,15 @@
           "Castle.Core": "5.1.1"
         }
       },
+      "Testcontainers.MySql": {
+        "type": "Direct",
+        "requested": "[4.13.0, )",
+        "resolved": "4.13.0",
+        "contentHash": "7pDoa9McctTjN5vyS6gIo0cBWGkbtm9WVrQ35f20cbYt8Ib4x6ks8O0jTzjDsdkh4MiKARY6iIYAltXJDMBjTg==",
+        "dependencies": {
+          "Testcontainers": "4.13.0"
+        }
+      },
       "Testcontainers.Redis": {
         "type": "Direct",
         "requested": "[4.13.0, )",

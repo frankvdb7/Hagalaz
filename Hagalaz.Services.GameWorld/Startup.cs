@@ -684,6 +684,8 @@ namespace Hagalaz.Services.GameWorld
                 {
                     options.UseMySql();
                     options.UseBusOutbox();
+
+                    options.DisableInboxCleanupService();
                 });
                 x.UsingRabbitMq((context, cfg) =>
                 {

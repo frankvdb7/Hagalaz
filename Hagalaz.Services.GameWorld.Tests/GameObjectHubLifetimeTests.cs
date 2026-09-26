@@ -164,6 +164,11 @@ public sealed class GameObjectHubLifetimeTests
         public Task<IGameObjectDefinition> FindGameObjectDefinitionById(int objectId, CancellationToken cancellationToken = default) =>
             Task.FromResult<IGameObjectDefinition>(null!);
 
+        public Task<IReadOnlyDictionary<int, IGameObjectDefinition>> FindGameObjectDefinitionsByIdsAsync(
+            IEnumerable<int> objectIds,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<int, IGameObjectDefinition>>(new Dictionary<int, IGameObjectDefinition>());
+
         public int GetObjectsCount() => 0;
 
         public void UpdateGameObject(GameObjectUpdate gameObjectUpdate) { }

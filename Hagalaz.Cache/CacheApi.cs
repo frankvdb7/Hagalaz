@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
+using Hagalaz.Cache.Diagnostics;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Utilities;
 using Hagalaz.Security;
@@ -87,7 +89,21 @@ namespace Hagalaz.Cache
         public IContainer ReadContainer(int indexId, int fileId)
         {
             using var stream = Read(indexId, fileId);
-            return _containerFactory.Decode(stream);
+            var activity = CacheArchiveReadDiagnostics.CurrentReadArchiveActivity;
+            var decodeStart = CacheArchiveReadDiagnostics.StartTiming(activity);
+            var rawBytes = stream.Length;
+            IContainer container;
+            try
+            {
+                container = _containerFactory.Decode(stream);
+            }
+            finally
+            {
+                CacheArchiveReadDiagnostics.RecordElapsed(activity, "container.decode_duration_ms", decodeStart);
+            }
+
+            CacheArchiveReadDiagnostics.RecordContainer(activity, rawBytes, container);
+            return container;
         }
 
         /// <summary>
@@ -118,18 +134,44 @@ namespace Hagalaz.Cache
         /// <exception cref="FileNotFoundException">Thrown if the index, file, or archive entry does not exist.</exception>
         public IArchive ReadArchive(int indexId, int fileId)
         {
-            /* check if the index is valid */
-            if (indexId >= _store.IndexFileCount) throw new FileNotFoundException();
-            var table = _referenceTableProvider.ReadReferenceTable(indexId);
-            if (fileId < 0 || fileId >= table.Capacity) throw new FileNotFoundException();
-            var entry = table.GetEntry(fileId);
-            if (entry == null) throw new FileNotFoundException();
-
-            /* grab the container and the reference table sub file count */
-            using (var container = ReadContainer(indexId, fileId))
+            using var activity = CacheArchiveReadDiagnostics.StartReadArchive(indexId, fileId);
+            var readStart = CacheArchiveReadDiagnostics.StartTiming(activity);
+            try
             {
-                /* decode the archive from the container */
-                return _archiveDecoder.Decode(container, entry.Capacity);
+                /* check if the index is valid */
+                if (indexId >= _store.IndexFileCount) throw new FileNotFoundException();
+                var table = _referenceTableProvider.ReadReferenceTable(indexId);
+                if (fileId < 0 || fileId >= table.Capacity) throw new FileNotFoundException();
+                var entry = table.GetEntry(fileId);
+                if (entry == null) throw new FileNotFoundException();
+
+                /* grab the container and the reference table sub file count */
+                using (var container = ReadContainer(indexId, fileId))
+                {
+                    var decodeStart = CacheArchiveReadDiagnostics.StartTiming(activity);
+                    try
+                    {
+                        /* decode the archive from the container */
+                        var archive = _archiveDecoder.Decode(container, entry.Capacity);
+                        CacheArchiveReadDiagnostics.RecordArchive(activity, entry.Capacity, container.Data.Length);
+                        activity?.SetTag("outcome", "success");
+                        activity?.SetStatus(ActivityStatusCode.Ok);
+                        return archive;
+                    }
+                    finally
+                    {
+                        CacheArchiveReadDiagnostics.RecordElapsed(activity, "archive.decode_duration_ms", decodeStart);
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                CacheArchiveReadDiagnostics.RecordFailure(activity, exception);
+                throw;
+            }
+            finally
+            {
+                CacheArchiveReadDiagnostics.RecordElapsed(activity, "readarchive.duration_ms", readStart);
             }
         }
 

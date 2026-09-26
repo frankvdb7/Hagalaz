@@ -199,6 +199,8 @@ public static class Extensions
                     .AddEntityFrameworkCoreInstrumentation()
                     .AddSource("MassTransit")
                     .AddSource("Polly")
+                    .AddSource("Hagalaz.Services.GameWorld")
+                    .AddSource("Hagalaz.Cache")
                     .AddSource("Raido.Server");
             });
 

@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Diagnostics;
 using System.IO;
 using System.Linq.Expressions;
 using AutoMapper;
@@ -32,6 +33,47 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class MapRegionLoaderTests
 {
     [TestMethod]
+    public async Task LoadAsync_EmitsPerRegionActivityWithBoundedLoadDetails()
+    {
+        var region = CreateRegion();
+        var regionId = Random.Shared.Next(1_000_000, int.MaxValue);
+        region.Id.Returns(regionId);
+        Activity? stoppedActivity = null;
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStopped = activity =>
+            {
+                if (activity.GetTagItem("map.region.id") is int stoppedRegionId && stoppedRegionId == regionId)
+                    stoppedActivity = activity;
+            }
+        };
+        ActivitySource.AddActivityListener(listener);
+        var mapProvider = Substitute.For<IMapProvider>();
+        mapProvider.When(provider => provider.DecodeRegion(
+                Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<ObjectDecoded>(), Arg.Any<ImpassibleTerrainDecoded>()))
+            .Do(_ => { });
+        var fixture = CreateLoader(mapProvider: mapProvider);
+
+        await fixture.Loader.LoadAsync(region);
+
+        Assert.IsNotNull(stoppedActivity);
+        Assert.AreEqual("Hagalaz.Services.GameWorld.MapRegionLoader.Load", stoppedActivity.OperationName);
+        Assert.AreEqual(region.Id, stoppedActivity.GetTagItem("map.region.id"));
+        Assert.AreEqual(region.BaseLocation.Dimension, stoppedActivity.GetTagItem("map.region.dimension"));
+        Assert.AreEqual(0, stoppedActivity.GetTagItem("map.region.static_gameobject_placement_count"));
+        Assert.AreEqual(0, stoppedActivity.GetTagItem("map.region.database_gameobject_spawn_count"));
+        Assert.AreEqual(0, stoppedActivity.GetTagItem("map.region.gameobject_placement_count"));
+        Assert.AreEqual(0, stoppedActivity.GetTagItem("map.region.gameobject.definition_id_count"));
+        Assert.AreEqual(0, stoppedActivity.GetTagItem("map.region.npc_spawn_count"));
+        Assert.AreEqual(false, stoppedActivity.GetTagItem("map.region.gameobject.definition_resolution_required"));
+        Assert.AreEqual(0L, stoppedActivity.GetTagItem("map.region.gameobject.definition_resolution_duration_ms"));
+        Assert.AreEqual("success", stoppedActivity.GetTagItem("map.region.load.outcome"));
+        Assert.AreEqual(ActivityStatusCode.Ok, stoppedActivity.Status);
+    }
+
+    [TestMethod]
     public async Task LoadAsync_StagesStaticDecodeBeforeApplyingRegionState()
     {
         var decodeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -58,6 +100,8 @@ public sealed class MapRegionLoaderTests
         await loadTask;
 
         Assert.AreEqual(MapRegionState.Ready, region.State);
+        await fixture.GameObjectService.DidNotReceive().FindGameObjectDefinitionsByIdsAsync(
+            Arg.Any<IEnumerable<int>>(), Arg.Any<CancellationToken>());
         region.Received(1).FlagCollision(1, 1, 0, CollisionFlag.FloorBlock);
         region.Received(1).MarkReady();
     }
@@ -111,6 +155,9 @@ public sealed class MapRegionLoaderTests
 
         Assert.AreSame(constructionFailure, actual);
         Assert.AreEqual(MapRegionState.Discarded, region.State);
+        await fixture.GameObjectService.Received(1).FindGameObjectDefinitionsByIdsAsync(
+            Arg.Is<IEnumerable<int>>(ids => ids.OrderBy(id => id).SequenceEqual(new[] { 100, 101 })),
+            Arg.Any<CancellationToken>());
         firstObject.Received(1).Destroy();
         region.DidNotReceive().Add(firstObject);
         region.DidNotReceive().FlagCollision(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CollisionFlag>());
@@ -132,6 +179,56 @@ public sealed class MapRegionLoaderTests
         region.DidNotReceive().Add(Arg.Any<IGameObject>());
         region.DidNotReceive().Add(Arg.Any<Hagalaz.Game.Abstractions.Model.Items.IGroundItem>());
         fixture.RegionService.Received(1).TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_ResolvesDistinctStaticAndDatabaseSpawnIdsInOneRegionBatch()
+    {
+        var region = CreateRegion();
+        var mapProvider = Substitute.For<IMapProvider>();
+        mapProvider.When(provider => provider.DecodeRegion(
+                Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<ObjectDecoded>(), Arg.Any<ImpassibleTerrainDecoded>()))
+            .Do(callInfo =>
+            {
+                callInfo.Arg<ObjectDecoded>()(100, 0, 0, 1, 1, 0);
+                callInfo.Arg<ObjectDecoded>()(100, 0, 0, 2, 2, 0);
+                callInfo.Arg<ObjectDecoded>()(101, 0, 0, 3, 3, 0);
+            });
+        var definitions = new Dictionary<int, IGameObjectDefinition>
+        {
+            [100] = Substitute.For<IGameObjectDefinition>(),
+            [101] = Substitute.For<IGameObjectDefinition>(),
+            [200] = Substitute.For<IGameObjectDefinition>()
+        };
+        var gameObjectService = Substitute.For<IGameObjectService>();
+        gameObjectService.FindGameObjectDefinitionsByIdsAsync(Arg.Any<IEnumerable<int>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyDictionary<int, IGameObjectDefinition>>(definitions));
+        var gameObjectBuilder = Substitute.For<IGameObjectBuilder>();
+        var idBuilder = Substitute.For<IGameObjectId>();
+        var locationBuilder = Substitute.For<IGameObjectLocation>();
+        var optionalBuilder = Substitute.For<IGameObjectOptional>();
+        gameObjectBuilder.Create().Returns(idBuilder);
+        idBuilder.WithId(Arg.Any<int>()).Returns(locationBuilder);
+        locationBuilder.WithLocation(Arg.Any<ILocation>()).Returns(optionalBuilder);
+        optionalBuilder.WithDefinition(Arg.Any<IGameObjectDefinition>()).Returns(optionalBuilder);
+        optionalBuilder.WithRotation(Arg.Any<int>()).Returns(optionalBuilder);
+        optionalBuilder.WithShape(Arg.Any<ShapeType>()).Returns(optionalBuilder);
+        optionalBuilder.AsStatic().Returns(optionalBuilder);
+        optionalBuilder.Build().Returns(Substitute.For<IGameObject>());
+        var fixture = CreateLoader(
+            mapProvider: mapProvider,
+            gameObjectBuilder: gameObjectBuilder,
+            gameObjectService: gameObjectService,
+            objectSpawns: [new GameobjectSpawn { GameobjectId = 200, CoordX = 10, CoordY = 10 }]);
+
+        await fixture.Loader.LoadAsync(region);
+
+        await fixture.GameObjectService.Received(1).FindGameObjectDefinitionsByIdsAsync(
+            Arg.Is<IEnumerable<int>>(ids => ids.OrderBy(id => id).SequenceEqual(new[] { 100, 101, 200 })),
+            Arg.Any<CancellationToken>());
+        optionalBuilder.Received(2).WithDefinition(definitions[100]);
+        optionalBuilder.Received(1).WithDefinition(definitions[101]);
+        optionalBuilder.Received(1).WithDefinition(definitions[200]);
     }
 
     [TestMethod]
@@ -417,8 +514,10 @@ public sealed class MapRegionLoaderTests
         builder.Create().Returns(id);
         id.WithId(Arg.Any<int>()).Returns(location);
         location.WithLocation(Arg.Any<ILocation>()).Returns(optional);
+        optional.WithDefinition(Arg.Any<IGameObjectDefinition>()).Returns(optional);
         optional.WithRotation(Arg.Any<int>()).Returns(optional);
         optional.WithShape(Arg.Any<ShapeType>()).Returns(optional);
+        optional.WithDefinition(Arg.Any<IGameObjectDefinition>()).Returns(optional);
         optional.AsStatic().Returns(optional);
         optional.Build().Returns(gameObject);
         return builder;
@@ -477,6 +576,7 @@ public sealed class MapRegionLoaderTests
         builder.Create().Returns(firstId, secondId);
         firstId.WithId(Arg.Any<int>()).Returns(location);
         location.WithLocation(Arg.Any<ILocation>()).Returns(optional);
+        optional.WithDefinition(Arg.Any<IGameObjectDefinition>()).Returns(optional);
         optional.WithRotation(Arg.Any<int>()).Returns(optional);
         optional.WithShape(Arg.Any<ShapeType>()).Returns(optional);
         optional.AsStatic().Returns(optional);
@@ -506,12 +606,14 @@ public sealed class MapRegionLoaderTests
     private static LoaderFixture CreateLoader(
         IMapProvider? mapProvider = null,
         IEnumerable<NpcSpawn>? npcSpawns = null,
+        IEnumerable<GameobjectSpawn>? objectSpawns = null,
         Exception? itemSourceFailure = null,
         IGameObjectBuilder? gameObjectBuilder = null,
         IGroundItemBuilder? groundItemBuilder = null,
         IEnumerable<ItemSpawn>? itemSpawns = null,
         IEntityStore? entityStore = null,
-        IMapRegionService? regionService = null)
+        IMapRegionService? regionService = null,
+        IGameObjectService? gameObjectService = null)
     {
         var mapperConfiguration = new MapperConfiguration(
             configuration =>
@@ -538,9 +640,21 @@ public sealed class MapRegionLoaderTests
 
         var objectRepository = Substitute.For<IGameObjectSpawnRepository>();
         objectRepository.FindByBounds(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
-            .Returns(new TestAsyncEnumerable<GameobjectSpawn>([]));
+            .Returns(new TestAsyncEnumerable<GameobjectSpawn>(objectSpawns ?? []));
         regionService ??= Substitute.For<IMapRegionService>();
         regionService.IsCurrentMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IMapRegion>()).Returns(true);
+        if (gameObjectService is null)
+        {
+            gameObjectService = Substitute.For<IGameObjectService>();
+            gameObjectService.FindGameObjectDefinitionsByIdsAsync(Arg.Any<IEnumerable<int>>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    var definitions = callInfo.Arg<IEnumerable<int>>()
+                        .Distinct()
+                        .ToDictionary(id => id, _ => (IGameObjectDefinition)Substitute.For<IGameObjectDefinition>());
+                    return Task.FromResult<IReadOnlyDictionary<int, IGameObjectDefinition>>(definitions);
+                });
+        }
         var npcService = Substitute.For<INpcService>();
         var npcBuilder = Substitute.For<INpcBuilder>();
         var loader = new MapRegionLoader(
@@ -549,6 +663,7 @@ public sealed class MapRegionLoaderTests
             npcRepository,
             itemRepository,
             objectRepository,
+            gameObjectService,
             mapProvider ?? Substitute.For<IMapProvider>(),
             new LocationBuilder(),
             groundItemBuilder ?? Substitute.For<IGroundItemBuilder>(),
@@ -557,14 +672,15 @@ public sealed class MapRegionLoaderTests
             mapperConfiguration.CreateMapper(),
             Substitute.For<ILogger<MapRegionLoader>>(),
             entityStore ?? new EntityStore());
-        return new LoaderFixture(loader, regionService, npcService, npcBuilder);
+        return new LoaderFixture(loader, regionService, npcService, npcBuilder, gameObjectService);
     }
 
     private sealed record LoaderFixture(
         MapRegionLoader Loader,
         IMapRegionService RegionService,
         INpcService NpcService,
-        INpcBuilder NpcBuilder);
+        INpcBuilder NpcBuilder,
+        IGameObjectService GameObjectService);
 
     private sealed class TestAsyncEnumerable<T> : EnumerableQuery<T>, IAsyncEnumerable<T>, IQueryable<T>
     {

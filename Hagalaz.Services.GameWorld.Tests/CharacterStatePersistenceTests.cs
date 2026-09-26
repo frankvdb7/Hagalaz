@@ -40,10 +40,13 @@ using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
+using Hagalaz.Services.GameWorld.Logic.Dehydrators;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
+using Hagalaz.Services.GameWorld.Profiles;
 using Hagalaz.Services.GameWorld.Data;
 using Hagalaz.Services.GameWorld.Providers;
 using Hagalaz.Services.GameWorld.Logic.Hydrators;
+using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Services.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -152,6 +155,114 @@ public sealed class CharacterStatePersistenceTests
 
         Assert.IsNull(character.FamiliarScript);
         ((IHydratable<HydratedFamiliarDto>)familiarScript).Received(1).Hydrate(hydration);
+    }
+
+    [TestMethod]
+    public void ItemAppearanceCollectionHydrator_HydratesNestedCharacterAppearance()
+    {
+        const int itemId = 1337;
+        var character = CreateCharacter(new TestStateService(), out _, itemPartFactory: CreateItemPartFactory());
+        var expected = CreateItemAppearance(itemId);
+
+        new ItemAppearanceCollectionHydrator().Hydrate(character, new CharacterModel
+        {
+            ItemAppearanceCollection = new HydratedItemAppearanceCollectionDto
+            {
+                Appearances = [expected]
+            }
+        });
+
+        var actual = ((IDehydratable<HydratedItemAppearanceCollectionDto>)character.Appearance).Dehydrate();
+
+        Assert.HasCount(1, actual.Appearances);
+        AssertItemAppearanceEqual(expected, actual.Appearances[0]);
+    }
+
+    [TestMethod]
+    public void ItemAppearanceCollectionDehydrator_CapturesNestedCharacterAppearanceAndEmptyState()
+    {
+        const int itemId = 1337;
+        var character = CreateCharacter(new TestStateService(), out _, itemPartFactory: CreateItemPartFactory());
+        var expected = CreateItemAppearance(itemId);
+        new ItemAppearanceCollectionHydrator().Hydrate(character, new CharacterModel
+        {
+            ItemAppearanceCollection = new HydratedItemAppearanceCollectionDto
+            {
+                Appearances = [expected]
+            }
+        });
+
+        var result = new ItemAppearanceCollectionDehydrator().Dehydrate(character, new CharacterModel());
+
+        Assert.IsNotNull(result.ItemAppearanceCollection);
+        Assert.HasCount(1, result.ItemAppearanceCollection.Appearances);
+        AssertItemAppearanceEqual(expected, result.ItemAppearanceCollection.Appearances[0]);
+
+        var emptyCharacter = CreateCharacter(new TestStateService(), out _, itemPartFactory: CreateItemPartFactory());
+        var emptyResult = new ItemAppearanceCollectionDehydrator().Dehydrate(emptyCharacter, new CharacterModel());
+
+        Assert.IsNotNull(emptyResult.ItemAppearanceCollection);
+        Assert.HasCount(0, emptyResult.ItemAppearanceCollection.Appearances);
+    }
+
+    [TestMethod]
+    public void ItemAppearanceCollection_RoundTripPreservesPersistenceData()
+    {
+        const int itemId = 1337;
+        var source = CreateCharacter(new TestStateService(), out _, itemPartFactory: CreateItemPartFactory());
+        var expected = CreateItemAppearance(itemId);
+        var input = new CharacterModel
+        {
+            ItemAppearanceCollection = new HydratedItemAppearanceCollectionDto
+            {
+                Appearances = [expected]
+            }
+        };
+
+        new ItemAppearanceCollectionHydrator().Hydrate(source, input);
+        var dehydrated = new CharacterDehydrationService([new ItemAppearanceCollectionDehydrator()]).Dehydrate(source);
+
+        var restored = CreateCharacter(new TestStateService(), out _, itemPartFactory: CreateItemPartFactory());
+        new ItemAppearanceCollectionHydrator().Hydrate(restored, dehydrated);
+        var roundTripped = ((IDehydratable<HydratedItemAppearanceCollectionDto>)restored.Appearance).Dehydrate();
+
+        Assert.HasCount(1, roundTripped.Appearances);
+        AssertItemAppearanceEqual(expected, roundTripped.Appearances[0]);
+    }
+
+    [TestMethod]
+    public void CharacterPersistenceCommand_ReceivesDehydratedItemAppearanceCollection()
+    {
+        const int itemId = 1337;
+        var character = CreateCharacter(new TestStateService(), out _, itemPartFactory: CreateItemPartFactory());
+        var expected = CreateItemAppearance(itemId);
+        new ItemAppearanceCollectionHydrator().Hydrate(character, new CharacterModel
+        {
+            ItemAppearanceCollection = new HydratedItemAppearanceCollectionDto
+            {
+                Appearances = [expected]
+            }
+        });
+
+        var model = new CharacterDehydrationService([new ItemAppearanceCollectionDehydrator()]).Dehydrate(character) with
+        {
+            SnapshotRevision = 1
+        };
+        using var provider = new ServiceCollection()
+            .AddLogging()
+            .AddAutoMapper(configuration => configuration.AddProfile<CharacterProfile>())
+            .BuildServiceProvider();
+
+        var command = CharacterPersistenceService.CreateCommand(
+            provider.GetRequiredService<AutoMapper.IMapper>(), model, 42, model.SnapshotRevision);
+
+        Assert.IsNotNull(command.ItemAppearanceCollection);
+        Assert.HasCount(1, command.ItemAppearanceCollection.Appearances);
+        Assert.AreEqual(itemId, command.ItemAppearanceCollection.Appearances[0].Id);
+        CollectionAssert.AreEqual(expected.MaleModels, command.ItemAppearanceCollection.Appearances[0].MaleModels);
+        CollectionAssert.AreEqual(expected.FemaleModels, command.ItemAppearanceCollection.Appearances[0].FemaleModels);
+        CollectionAssert.AreEqual(expected.ModelColors, command.ItemAppearanceCollection.Appearances[0].ModelColors);
+        CollectionAssert.AreEqual(expected.TextureColors, command.ItemAppearanceCollection.Appearances[0].TextureColors);
     }
 
     [TestMethod]
@@ -272,7 +383,8 @@ public sealed class CharacterStatePersistenceTests
     private static Character CreateCharacter(
         TestStateService stateService,
         out IEquipmentScript equipmentScript,
-        IEnumerable<IDefaultCharacterScript>? defaultScripts = null)
+        IEnumerable<IDefaultCharacterScript>? defaultScripts = null,
+        IItemPartFactory? itemPartFactory = null)
     {
         return CreateCharacter(
             stateService,
@@ -280,7 +392,8 @@ public sealed class CharacterStatePersistenceTests
             defaultScripts,
             Substitute.For<IEventManager>(),
             Substitute.For<IGameCommandPrompt>(),
-            Substitute.For<ICreatureTaskService>());
+            Substitute.For<ICreatureTaskService>(),
+            itemPartFactory: itemPartFactory);
     }
 
     private static Character CreateCharacter(
@@ -291,7 +404,8 @@ public sealed class CharacterStatePersistenceTests
         IGameCommandPrompt gameCommandPrompt,
         ICreatureTaskService taskService,
         IMapRegionService? mapRegionService = null,
-        IMusicService? musicService = null)
+        IMusicService? musicService = null,
+        IItemPartFactory? itemPartFactory = null)
     {
         var serviceProvider = Substitute.For<IServiceProvider>();
         var serviceScope = Substitute.For<IServiceScope>();
@@ -370,7 +484,7 @@ public sealed class CharacterStatePersistenceTests
             bodyDataRepository,
             Substitute.For<ICharacterNpcScriptProvider>(),
             Substitute.For<ICharacterNpcScriptActivator>(),
-            Substitute.For<IItemPartFactory>(),
+            itemPartFactory ?? Substitute.For<IItemPartFactory>(),
             Substitute.For<ICharacterLocationService>(),
             Substitute.For<IItemService>(),
             Substitute.For<IClientMapDefinitionProvider>(),
@@ -387,6 +501,39 @@ public sealed class CharacterStatePersistenceTests
             CoordY = 3200
         });
         return character;
+    }
+
+    private static IItemPartFactory CreateItemPartFactory()
+    {
+        var factory = Substitute.For<IItemPartFactory>();
+        factory.Create(Arg.Any<int>()).Returns(callInfo => new ItemPart(callInfo.Arg<int>())
+        {
+            MaleModels = [],
+            FemaleModels = [],
+            ModelColors = [],
+            TextureColors = []
+        });
+        return factory;
+    }
+
+    private static HydratedItemAppearanceDto CreateItemAppearance(int itemId) => new()
+    {
+        Id = itemId,
+        MaleModels = [101, 102, 103],
+        FemaleModels = [201, 202, 203],
+        ModelColors = [301, 302],
+        TextureColors = [401]
+    };
+
+    private static void AssertItemAppearanceEqual(
+        HydratedItemAppearanceDto expected,
+        HydratedItemAppearanceDto actual)
+    {
+        Assert.AreEqual(expected.Id, actual.Id);
+        CollectionAssert.AreEqual(expected.MaleModels, actual.MaleModels);
+        CollectionAssert.AreEqual(expected.FemaleModels, actual.FemaleModels);
+        CollectionAssert.AreEqual(expected.ModelColors, actual.ModelColors);
+        CollectionAssert.AreEqual(expected.TextureColors, actual.TextureColors);
     }
 
     private static void Register<T>(IServiceProvider serviceProvider, T service) where T : class =>

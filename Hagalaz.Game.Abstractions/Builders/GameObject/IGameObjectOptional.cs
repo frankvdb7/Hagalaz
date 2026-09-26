@@ -29,6 +29,12 @@ namespace Hagalaz.Game.Abstractions.Builders.GameObject
         /// <returns>The same builder instance to allow for further optional configuration.</returns>
         public IGameObjectOptional WithShape(ShapeType shapeType);
         /// <summary>
+        /// Supplies an already-resolved definition for the game object.
+        /// </summary>
+        /// <param name="definition">The definition to use when building the game object.</param>
+        /// <returns>The same builder instance to allow for further optional configuration.</returns>
+        public IGameObjectOptional WithDefinition(IGameObjectDefinition definition);
+        /// <summary>
         /// Attaches a specific script instance to the game object to define its behavior.
         /// </summary>
         /// <param name="script">An instance of a class that implements <see cref="IGameObjectScript"/>.</param>

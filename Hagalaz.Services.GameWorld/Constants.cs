@@ -23,8 +23,8 @@ namespace Hagalaz.Services.GameWorld
             public static readonly string[] SlayerTags = ["slayer"];
             public const string SlayerMasterTableCachePrefix = "slayer-master-table:";
             public const string SlayerTaskDefinitionCachePrefix = "slayer-task-definition:";
-            public static readonly string[] GameObjectTags = ["game-object"];
             public const string GameObjectDefinitionCachePrefix = "game-object-definition:";
+            public static readonly string[] GameObjectTags = ["game-object"];
         }
     }
 }

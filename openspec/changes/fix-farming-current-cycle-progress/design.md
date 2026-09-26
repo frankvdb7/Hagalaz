@@ -1,0 +1,9 @@
+# Design
+
+`FarmingPatchTickTask` owns farming progress and offline catch-up. Its inherited `TickCount` is an elapsed-progress counter: the base task increments it, `Grow` advances a cycle, and cycle transitions reset it. `CurrentCycle` and the crop conditions are persisted independently, so the quotient of an oversized legacy tick value must not be replayed as additional growth. For active cycling states, normalize legacy progress modulo the applicable cycle length before adding offline time. For mature/dead states, discard post-terminal tick accumulation and set progress to zero.
+
+Accumulate elapsed time using `long`. Apply the existing `Grow(false)` transitions only while another cycle can be completed; stop on terminal state or when the state machine makes no progress, then retain only a valid within-cycle remainder. Provide an internal deterministic hydration-time overload for the focused GameWorld regression while the production hydration path uses the current time.
+
+Keep `CurrentCycleTicks` signed in the existing in-process DTOs and unsigned in persistence. Retain the checked `int`-to-`uint` mapping as a boundary invariant and make the reverse `uint`-to-`int` projection checked so values above `Int32.MaxValue` cannot wrap. Do not use a negative task counter as scratch state or clamp during dehydration.
+
+Regression tests use deterministic `LastLogin` and hydration timestamps, including the observed 2021–2026 legacy state, and verify growth state, the live counter, dehydration, and checked persistence. The disposable Characters MySQL regression seeds an oversized legacy mature counter and verifies a normal successful snapshot replaces it with zero while preserving its independently persisted terminal crop state. A provider-level projection test verifies unsigned values above the signed DTO range fail instead of wrapping.

@@ -9,7 +9,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Hydrators
     {
         public void Hydrate(ICharacter character, CharacterModel model)
         {
-            if (character is IHydratable<HydratedItemAppearanceCollectionDto> hydratable)
+            if (character.Appearance is IHydratable<HydratedItemAppearanceCollectionDto> hydratable)
             {
                 hydratable.Hydrate(model.ItemAppearanceCollection);
             }

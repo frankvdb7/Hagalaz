@@ -46,6 +46,7 @@ public static class AppHostConfiguration
 
         var gameWorldService = builder.AddProject<Projects.Hagalaz_Services_GameWorld>("hagalaz-services-gameworld-1", launchProfileName: "tcp")
             .WaitFor(messaging)
+            .WaitFor(database)
             .WaitForCompletion(migrations)
             .WaitFor(cache)
             .WithReference(database)

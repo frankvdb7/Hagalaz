@@ -24,11 +24,15 @@ namespace Hagalaz.Services.GameWorld.Data
 {
     public class MapRegionLoader : IMapRegionLoader
     {
+        private const string LoadActivityName = "Hagalaz.Services.GameWorld.MapRegionLoader.Load";
+        private static readonly ActivitySource ActivitySource = new("Hagalaz.Services.GameWorld");
+
         private readonly INpcService _npcService;
         private readonly IMapRegionService _regionService;
         private readonly INpcSpawnRepository _npcSpawnRepository;
         private readonly IGroundItemSpawnRepository _itemSpawnRepository;
         private readonly IGameObjectSpawnRepository _objectSpawnRepository;
+        private readonly IGameObjectService _gameObjectService;
         private readonly IMapProvider _mapProvider;
         private readonly ILocationBuilder _locationBuilder;
         private readonly IGroundItemBuilder _groundItemBuilder;
@@ -44,6 +48,7 @@ namespace Hagalaz.Services.GameWorld.Data
             INpcSpawnRepository npcSpawnRepository,
             IGroundItemSpawnRepository itemSpawnRepository,
             IGameObjectSpawnRepository objectSpawnRepository,
+            IGameObjectService gameObjectService,
             IMapProvider mapProvider,
             ILocationBuilder locationBuilder,
             IGroundItemBuilder groundItemBuilder,
@@ -58,6 +63,7 @@ namespace Hagalaz.Services.GameWorld.Data
             _npcSpawnRepository = npcSpawnRepository;
             _itemSpawnRepository = itemSpawnRepository;
             _objectSpawnRepository = objectSpawnRepository;
+            _gameObjectService = gameObjectService;
             _mapProvider = mapProvider;
             _locationBuilder = locationBuilder;
             _groundItemBuilder = groundItemBuilder;
@@ -85,6 +91,10 @@ namespace Hagalaz.Services.GameWorld.Data
                 throw new InvalidOperationException($"Region[{region.Id}] is no longer the current region instance.");
             }
 
+            using var activity = ActivitySource.StartActivity(LoadActivityName, ActivityKind.Internal);
+            activity?.SetTag("map.region.id", region.Id);
+            activity?.SetTag("map.region.dimension", region.BaseLocation.Dimension);
+
             var watch = Stopwatch.StartNew();
             var registeredNpcs = new List<INpc>();
             var createdGroundItems = new List<IGroundItem>();
@@ -104,6 +114,7 @@ namespace Hagalaz.Services.GameWorld.Data
                     max,
                     createdGroundItems,
                     createdGameObjects,
+                    activity,
                     cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -114,10 +125,21 @@ namespace Hagalaz.Services.GameWorld.Data
                 cancellationToken.ThrowIfCancellationRequested();
                 region.MarkReady();
 
+                activity?.SetTag("map.region.load.outcome", "success");
+                activity?.SetStatus(ActivityStatusCode.Ok);
                 _logger.LogDebug("Region[{id}] was loaded in {ms} ms", region.Id, watch.ElapsedMilliseconds);
             }
             catch (Exception exception)
             {
+                activity?.SetTag(
+                    "map.region.load.outcome",
+                    exception is OperationCanceledException ? "cancelled" : "failure");
+                if (exception is not OperationCanceledException)
+                {
+                    activity?.SetTag("error.type", exception.GetType().FullName);
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                }
+
                 if (region.State == MapRegionState.Initializing)
                 {
                     region.MarkDiscarded();
@@ -139,6 +161,7 @@ namespace Hagalaz.Services.GameWorld.Data
             ILocation max,
             List<IGroundItem> createdGroundItems,
             List<IGameObject> createdGameObjects,
+            Activity? activity,
             CancellationToken cancellationToken)
         {
             var npcSpawns = await _mapper.ProjectTo<NpcSpawnDto>(_npcSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)).ToArrayAsync(cancellationToken);
@@ -173,8 +196,46 @@ namespace Hagalaz.Services.GameWorld.Data
                 });
 
             cancellationToken.ThrowIfCancellationRequested();
+            var objectIds = staticObjectSpawns.Select(spawn => spawn.Id)
+                .Concat(objectSpawns.Select(spawn => (int)spawn.GameobjectId))
+                .Distinct()
+                .ToArray();
+            activity?.SetTag("map.region.static_gameobject_placement_count", staticObjectSpawns.Count);
+            activity?.SetTag("map.region.database_gameobject_spawn_count", objectSpawns.Length);
+            activity?.SetTag("map.region.gameobject_placement_count", staticObjectSpawns.Count + objectSpawns.Length);
+            activity?.SetTag("map.region.gameobject.definition_id_count", objectIds.Length);
+            activity?.SetTag("map.region.npc_spawn_count", npcSpawns.Length);
+            activity?.SetTag("map.region.gameobject.definition_resolution_required", objectIds.Length > 0);
+
+            IReadOnlyDictionary<int, IGameObjectDefinition> definitions;
+            if (objectIds.Length == 0)
+            {
+                definitions = new Dictionary<int, IGameObjectDefinition>();
+                activity?.SetTag("map.region.gameobject.definition_resolution_duration_ms", 0L);
+            }
+            else
+            {
+                var definitionResolutionWatch = activity is null ? null : Stopwatch.StartNew();
+                try
+                {
+                    definitions = await _gameObjectService.FindGameObjectDefinitionsByIdsAsync(objectIds, cancellationToken);
+                }
+                finally
+                {
+                    if (definitionResolutionWatch is not null)
+                    {
+                        definitionResolutionWatch.Stop();
+                        activity?.SetTag(
+                            "map.region.gameobject.definition_resolution_duration_ms",
+                            definitionResolutionWatch.ElapsedMilliseconds);
+                    }
+                }
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+
             foreach (var spawn in staticObjectSpawns)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var location = _locationBuilder.Create()
                     .FromLocation(region.BaseLocation)
                     .WithZ(spawn.Z)
@@ -184,6 +245,7 @@ namespace Hagalaz.Services.GameWorld.Data
                     .Create()
                     .WithId(spawn.Id)
                     .WithLocation(location)
+                    .WithDefinition(definitions[spawn.Id])
                     .WithRotation(spawn.Rotation)
                     .WithShape((ShapeType)spawn.ShapeType)
                     .AsStatic()
@@ -205,11 +267,13 @@ namespace Hagalaz.Services.GameWorld.Data
 
             foreach (var spawn in objectSpawns)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var location = new Location(spawn.CoordX, spawn.CoordY, spawn.CoordZ, region.BaseLocation.Dimension);
                 var gameObject = _gameObjectBuilder
                     .Create()
                     .WithId((int)spawn.GameobjectId)
                     .WithLocation(location)
+                    .WithDefinition(definitions[(int)spawn.GameobjectId])
                     .WithRotation(spawn.Face)
                     .WithShape((ShapeType)spawn.Type)
                     .Build();
