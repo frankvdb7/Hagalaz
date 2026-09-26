@@ -113,6 +113,36 @@ public sealed class ItemContainerPersistenceTests
     }
 
     [TestMethod]
+    public void MoneyPouchHydration_EmptyStateRestoresZeroCoinSentinel()
+    {
+        using var scenario = new Scenario();
+        var container = new MoneyPouchContainer(scenario.Owner, scenario.Builder);
+        container.Hydrate([new HydratedItemDto(995, 25, 0, null)]);
+
+        container.Hydrate([]);
+
+        Assert.AreEqual(0, container.Count);
+        Assert.IsNotNull(container[0]);
+        Assert.AreEqual(995, container[0]!.Id);
+        var saved = container.Dehydrate();
+        Assert.HasCount(1, saved);
+        Assert.AreEqual(new HydratedItemDto(995, 0, 0, null), saved[0]);
+    }
+
+    [TestMethod]
+    public void MoneyPouchHydration_RejectsNonCoinItemWithoutChangingState()
+    {
+        using var scenario = new Scenario();
+        var container = new MoneyPouchContainer(scenario.Owner, scenario.Builder);
+        container.Hydrate([new HydratedItemDto(995, 25, 0, null)]);
+
+        Assert.ThrowsExactly<ArgumentException>(() => container.Hydrate([new HydratedItemDto(101, 5, 0, null)]));
+
+        Assert.AreEqual(25, container.Count);
+        Assert.AreEqual(995, container[0]!.Id);
+    }
+
+    [TestMethod]
     public void InventoryRoundTrip_PreservesItemExtraData()
     {
         using var scenario = new Scenario();

@@ -394,9 +394,23 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         protected override bool IsValidRestoredCount(int count) => count >= 0;
 
-        public void Hydrate(IReadOnlyList<HydratedItemDto> moneyPouch) => RestoreItems(moneyPouch.Select(item =>
-            (item.SlotId, _itemBuilder.Create().WithId(item.ItemId).WithCount(item.Count)
-                .WithExtraData(item.ExtraData ?? string.Empty).Build())));
+        public void Hydrate(IReadOnlyList<HydratedItemDto> moneyPouch)
+        {
+            if (moneyPouch.Count == 0)
+            {
+                RestoreItems([(0, _itemBuilder.Create().WithId(995).WithCount(0).Build())]);
+                return;
+            }
+
+            if (moneyPouch.Any(item => item.ItemId != 995))
+            {
+                throw new ArgumentException("Money pouch state must contain coins.", nameof(moneyPouch));
+            }
+
+            RestoreItems(moneyPouch.Select(item =>
+                (item.SlotId, _itemBuilder.Create().WithId(item.ItemId).WithCount(item.Count)
+                    .WithExtraData(item.ExtraData ?? string.Empty).Build())));
+        }
 
         public IReadOnlyList<HydratedItemDto> Dehydrate() => EnumerateOccupiedSlots()
             .Select(entry => new HydratedItemDto(entry.Item.Id, entry.Item.Count, entry.Slot, entry.Item.SerializeExtraData()))

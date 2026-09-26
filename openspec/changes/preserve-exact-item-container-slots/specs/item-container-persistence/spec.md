@@ -18,7 +18,15 @@ Every persisted character item container SHALL dehydrate occupied items with the
 
 ### Requirement: Exact restoration owns and validates storage
 
-The container SHALL reject persisted entries with duplicate or out-of-bounds slots or invalid counts before replacing its state. The resulting storage SHALL have length `Capacity` and SHALL not alias a caller-owned array. Money pouch SHALL permit its zero-coin item.
+The container SHALL reject persisted entries with duplicate or out-of-bounds slots or invalid counts before replacing its state. The resulting storage SHALL have length `Capacity` and SHALL not alias a caller-owned array. Money pouch SHALL permit its zero-coin item, restore that item in slot 0 when persisted pouch state is empty, and reject non-coin entries.
+
+#### Scenario: Empty persisted money pouch
+- **WHEN** a money pouch hydrates from an empty persisted item list
+- **THEN** slot 0 contains item 995 with count 0 and can be dehydrated as that item
+
+#### Scenario: Non-coin persisted money pouch item
+- **WHEN** a money pouch hydrates from an item other than coins
+- **THEN** hydration rejects the item without changing the previous pouch state
 
 #### Scenario: Corrupt persisted state
 - **WHEN** entries have a negative slot, a slot at or above capacity, a duplicate slot, or an invalid count

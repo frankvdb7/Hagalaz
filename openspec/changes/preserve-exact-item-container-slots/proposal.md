@@ -21,6 +21,7 @@ Persisted item containers compact sparse slots while dehydrating, so loading mov
 - Inventory, bank, equipment, familiar inventory, reward, and money pouch dehydration records physical slots; sparse round trips retain every slot.
 - Extra data survives a dehydrate/hydrate round trip.
 - Restoration rejects negative/out-of-range/duplicate slots and invalid counts, while money pouch accepts zero coins.
+- An empty persisted money pouch restores its slot-0 zero-coin item; non-coin pouch entries are rejected.
 - Restoration is separate from gameplay insertion and retains capacity-sized, container-owned storage.
 - The trade snapshot use of `SetItems` remains functional and cannot change storage length or retain a caller-owned array.
 
