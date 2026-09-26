@@ -350,3 +350,4 @@ node_modules
 /Cache
 coveragereport/
 coveragereport_utilities/
+/report/
