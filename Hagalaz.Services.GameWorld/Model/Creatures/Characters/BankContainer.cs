@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics.CodeAnalysis;
 using Hagalaz.Game.Abstractions.Builders.Item;
@@ -122,29 +123,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            var toRemove = item.Clone(count);
-            if (toRemove.ItemDefinition.Noted && toRemove.ItemDefinition.NoteId != -1)
+            count = Math.Min(count, container.GetCount(item));
+            if (count <= 0)
             {
-                deposited = _itemBuilder.Create().WithId(toRemove.ItemDefinition.NoteId).WithCount(count).Build();
-            }
-            else
-            {
-                deposited = _itemBuilder.Create().WithId(toRemove.Id).WithCount(count).Build();
-            }
-            if (!HasSpaceFor(deposited))
-            {
-                _owner.SendChatMessage("Not enough space in your bank.");
                 deposited = null;
                 return false;
             }
 
-            var removed = container.Remove(toRemove, slot);
-            deposited.Count = removed;
-            if (Add(deposited))
+            deposited = CreateDepositItem(item, count, out var transformed);
+            if (BaseItemContainer.TryTransfer(container, this, item, count, slot,
+                    destinationItem: transformed ? deposited : null))
             {
                 return true;
             }
 
+            _owner.SendChatMessage("Not enough space in your bank.");
             deposited = null;
             return false;
         }
@@ -171,29 +164,33 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            var toRemove = item.Clone(count);
-            if (toRemove.ItemDefinition.Noted && toRemove.ItemDefinition.NoteId != -1)
+            if (_owner.Equipment is not IItemContainer equipmentContainer || equipmentContainer[(int)slot] is not { } equippedItem)
             {
-                deposited = _itemBuilder.Create().WithId(toRemove.ItemDefinition.NoteId).WithCount(count).Build();
-            }
-            else
-            {
-                deposited = _itemBuilder.Create().WithId(toRemove.Id).WithCount(count).Build();
-            }
-            if (!HasSpaceFor(deposited))
-            {
-                _owner.SendChatMessage("Not enough space in your bank.");
                 deposited = null;
                 return false;
             }
 
-            var removed = _owner.Equipment.Remove(toRemove, slot);
-            deposited.Count = removed;
-            if (Add(deposited))
+            count = Math.Min(count, equippedItem.Count);
+            if (count <= 0)
             {
+                deposited = null;
+                return false;
+            }
+
+            var fullyRemoved = count == equippedItem.Count;
+            deposited = CreateDepositItem(equippedItem, count, out var transformed);
+            if (BaseItemContainer.TryTransfer(equipmentContainer, this, equippedItem, count, (int)slot,
+                    destinationItem: transformed ? deposited : null))
+            {
+                if (fullyRemoved)
+                {
+                    equippedItem.EquipmentScript.OnUnequipped(equippedItem, _owner);
+                }
+
                 return true;
             }
 
+            _owner.SendChatMessage("Not enough space in your bank.");
             deposited = null;
             return false;
 
@@ -215,30 +212,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            var toRemove = item.Clone(count);
-            if (toRemove.ItemDefinition.Noted && toRemove.ItemDefinition.NoteId != -1)
+            count = Math.Min(count, _owner.Inventory.GetCount(item));
+            if (count <= 0)
             {
-                deposited = _itemBuilder.Create().WithId(toRemove.ItemDefinition.NoteId).WithCount(count).Build();
-            }
-            else
-            {
-                deposited = _itemBuilder.Create().WithId(toRemove.Id).WithCount(count).Build();
-            }
-
-            if (!HasSpaceFor(deposited))
-            {
-                _owner.SendChatMessage("Not enough space in your bank.");
                 deposited = null;
                 return false;
             }
 
-            var removed = _owner.Inventory.Remove(toRemove, slot);
-            deposited.Count = removed;
-            if (Add(deposited))
+            deposited = CreateDepositItem(item, count, out var transformed);
+            if (BaseItemContainer.TryTransfer(_owner.Inventory, this, item, count, slot,
+                    destinationItem: transformed ? deposited : null))
             {
                 return true;
             }
 
+            _owner.SendChatMessage("Not enough space in your bank.");
             deposited = null;
             return false;
 
@@ -262,18 +250,23 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            var toRemove = item.Clone();
-            if (toRemove.Count < count)
+            count = Math.Min(count, item.Count);
+            if (count <= 0)
             {
-                count = toRemove.Count;
+                withdrawed = null;
+                return false;
             }
-            toRemove.Count = count;
+
+            var toRemove = item.Clone(count);
             withdrawed = toRemove.Clone(count);
+            var transformed = false;
             if (notingEnabled)
             {
                 if (!toRemove.ItemDefinition.Noted && toRemove.ItemDefinition.NoteId != -1)
                 {
-                    withdrawed = _itemBuilder.Create().WithId(toRemove.ItemDefinition.NoteId).WithCount(count).Build();
+                    withdrawed = _itemBuilder.Create().WithId(toRemove.ItemDefinition.NoteId).WithCount(count)
+                        .WithExtraData(toRemove.SerializeExtraData() ?? string.Empty).Build();
+                    transformed = true;
                 }
                 else
                 {
@@ -281,13 +274,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
             }
 
-            var stack = toRemove.ItemDefinition.Stackable || toRemove.ItemDefinition.Noted;
+            var stack = withdrawed.ItemDefinition.Stackable || withdrawed.ItemDefinition.Noted;
             var needSlots = 0;
             if (stack)
             {
-                if (_owner.Inventory.GetSlotByItem(toRemove) != -1)
+                if (_owner.Inventory.GetSlotByItem(withdrawed) != -1)
                 {
-                    long total = _owner.Inventory.GetCount(toRemove) + (long)count;
+                    long total = _owner.Inventory.GetCount(withdrawed) + (long)count;
                     if (total > int.MaxValue)
                     {
                         withdrawed = null;
@@ -317,15 +310,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 toRemove.Count = count;
             }
 
-            var removed = Remove(toRemove, slot);
-            if (removed <= 0)
+            withdrawed.Count = count;
+            if (!BaseItemContainer.TryTransfer(this, _owner.Inventory, item, count, slot,
+                    destinationItem: transformed ? withdrawed : null))
             {
-                return false;
-            }
-
-            withdrawed.Count = removed;
-            if (!_owner.Inventory.Add(withdrawed))
-            {
+                _owner.SendChatMessage(GameStrings.InventoryFull);
+                withdrawed = null;
                 return false;
             }
 
@@ -341,5 +331,19 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public IReadOnlyList<HydratedItemDto> Dehydrate() => EnumerateOccupiedSlots()
             .Select(entry => new HydratedItemDto(entry.Item.Id, entry.Item.Count, entry.Slot, entry.Item.SerializeExtraData()))
             .ToArray();
+
+        private IItem CreateDepositItem(IItem item, int count, out bool transformed)
+        {
+            var sourceItem = item.Clone(count);
+            if (sourceItem.ItemDefinition.Noted && sourceItem.ItemDefinition.NoteId != -1)
+            {
+                transformed = true;
+                return _itemBuilder.Create().WithId(sourceItem.ItemDefinition.NoteId).WithCount(count)
+                    .WithExtraData(sourceItem.SerializeExtraData() ?? string.Empty).Build();
+            }
+
+            transformed = false;
+            return sourceItem;
+        }
     }
 }

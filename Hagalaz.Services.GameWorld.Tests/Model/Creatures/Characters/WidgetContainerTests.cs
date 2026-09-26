@@ -10,6 +10,7 @@ using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Services.GameWorld.Builders;
 using Hagalaz.Game.Abstractions.Builders.Widget;
 using Hagalaz.Game.Abstractions.Factories;
+using Hagalaz.Services.GameWorld.Model.Widgets;
 
 namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
 {
@@ -77,6 +78,28 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
             // Assert
             _sessionMock.Received(1).SendMessage(Arg.Is<DrawFrameComponentMessage>(m => m.Id == 2 && m.ForceRedraw == true));
             Assert.AreEqual(frame2, _widgetContainer.CurrentFrame);
+        }
+
+        [TestMethod]
+        public void CloseWidget_WhenChildCloseGuardRejects_LeavesWidgetTreeAttachedAndOpen()
+        {
+            _widgetScriptProviderMock.GetInterfacesCount().Returns(10);
+            var frame = new Widget(_characterMock, 1, 0, Substitute.For<IWidgetScript>());
+            _widgetContainer.OpenFrame(frame);
+
+            var script = Substitute.For<IWidgetScript, IWidgetCloseGuard>();
+            ((IWidgetCloseGuard)script).TryClose().Returns(false);
+            var widget = new Widget(_characterMock, 2, frame.Id, 0, 0, script);
+            _widgetContainer.OpenWidget(widget);
+
+            _widgetContainer.CloseWidget(frame);
+
+            Assert.AreSame(frame, _widgetContainer.CurrentFrame);
+            Assert.IsTrue(frame.IsOpened);
+            Assert.IsTrue(widget.IsOpened);
+            Assert.AreSame(widget, frame.GetChild(0));
+            Assert.AreSame(widget, _widgetContainer.GetOpenWidget(widget.Id));
+            ((IWidgetCloseGuard)script).Received(1).TryClose();
         }
 
         [TestMethod]

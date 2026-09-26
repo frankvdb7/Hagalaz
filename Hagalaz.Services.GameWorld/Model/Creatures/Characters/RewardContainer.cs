@@ -83,20 +83,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 toRemove.Count = count;
             }
 
-            var removed = Remove(toRemove, slot);
-            if (removed <= 0)
-            {
-                return -1;
-            }
-
-            toRemove.Count = removed;
-            if (!_owner.Inventory.Add(toRemove))
+            if (!BaseItemContainer.TryTransfer(this, _owner.Inventory, item, count, slot))
             {
                 return -1;
             }
 
             Sort();
-            return removed;
+            return count;
         }
 
         /// <summary>

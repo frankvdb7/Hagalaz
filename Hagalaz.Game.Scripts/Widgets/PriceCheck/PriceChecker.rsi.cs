@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -11,7 +12,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
     /// <summary>
     ///     Represents price checker interface.
     /// </summary>
-    public class PriceChecker : WidgetScript
+    public class PriceChecker : WidgetScript, IWidgetCloseGuard
     {
         /// <summary>
         ///     Price checker interface container.
@@ -283,9 +284,33 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                 Owner.Widgets.CloseWidget(_inventoryInterface);
             }
 
-            Owner.Inventory.AddRange(_priceCheckInterface);
-            _priceCheckInterface.Clear(false);
-            _priceCheckInterface = null;
+            if (_priceCheckInterface?.TakenSlots == 0)
+            {
+                _priceCheckInterface = null;
+            }
+        }
+
+        /// <summary>
+        /// Returns stored items before the widget is detached. A failed return
+        /// keeps the widget open so its remaining items stay reachable.
+        /// </summary>
+        public bool TryClose()
+        {
+            if (_priceCheckInterface == null)
+            {
+                return true;
+            }
+
+            for (var slot = 0; slot < _priceCheckInterface.Capacity; slot++)
+            {
+                var item = _priceCheckInterface[slot];
+                if (item != null && !BaseItemContainer.TryTransfer(_priceCheckInterface, Owner.Inventory, item, item.Count, slot))
+                {
+                    return false;
+                }
+            }
+
+            return _priceCheckInterface.TakenSlots == 0;
         }
 
         /// <summary>
@@ -298,17 +323,10 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
         /// </returns>
         private bool AddItemToPriceChecker(IItem item, int amount)
         {
-            var toRemove = item.Clone();
-            toRemove.Count = amount;
-            var removed = Owner.Inventory.Remove(toRemove);
-            if (removed > 0)
-            {
-                toRemove.Count = removed;
-                _priceCheckInterface.Add(toRemove);
-                return true;
-            }
-
-            return false;
+            var slot = Owner.Inventory.GetInstanceSlot(item);
+            var count = Math.Min(amount, Owner.Inventory.GetCount(item));
+            return slot >= 0 && count > 0 &&
+                   BaseItemContainer.TryTransfer(Owner.Inventory, _priceCheckInterface, item, count, slot);
         }
 
         /// <summary>
@@ -321,17 +339,10 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
         /// </returns>
         private bool RemoveItemToInventory(IItem item, int amount)
         {
-            var toRemove = item.Clone();
-            toRemove.Count = amount;
-            var removed = _priceCheckInterface.Remove(toRemove);
-            if (removed > 0)
-            {
-                toRemove.Count = removed;
-                Owner.Inventory.Add(toRemove);
-                return true;
-            }
-
-            return false;
+            var slot = _priceCheckInterface.GetInstanceSlot(item);
+            var count = Math.Min(amount, _priceCheckInterface.GetCount(item));
+            return slot >= 0 && count > 0 &&
+                   BaseItemContainer.TryTransfer(_priceCheckInterface, Owner.Inventory, item, count, slot);
         }
     }
 }
