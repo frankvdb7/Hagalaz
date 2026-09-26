@@ -6,7 +6,7 @@ namespace Hagalaz.Services.Characters.Services.Model
     {
         public record StateEx
         {
-            public required int Id { get; init; }
+            public required string Id { get; init; }
             public required int TicksLeft { get; init; }
         }
 

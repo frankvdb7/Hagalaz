@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
+using Hagalaz.Cache.Metrics;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Utilities;
 using Hagalaz.Security;
@@ -87,7 +89,7 @@ namespace Hagalaz.Cache
         public IContainer ReadContainer(int indexId, int fileId)
         {
             using var stream = Read(indexId, fileId);
-            return _containerFactory.Decode(stream);
+            return DecodeContainer(stream);
         }
 
         /// <summary>
@@ -125,11 +127,23 @@ namespace Hagalaz.Cache
             var entry = table.GetEntry(fileId);
             if (entry == null) throw new FileNotFoundException();
 
-            /* grab the container and the reference table sub file count */
-            using (var container = ReadContainer(indexId, fileId))
+            var loadStart = Stopwatch.GetTimestamp();
+            var loadSucceeded = false;
+            try
             {
-                /* decode the archive from the container */
-                return _archiveDecoder.Decode(container, entry.Capacity);
+                IArchive archive;
+                using (var container = ReadContainer(indexId, fileId))
+                {
+                    /* decode the archive from the container */
+                    archive = _archiveDecoder.Decode(container, entry.Capacity);
+                }
+
+                loadSucceeded = true;
+                return archive;
+            }
+            finally
+            {
+                CacheMetrics.RecordArchiveLoad(loadSucceeded, Stopwatch.GetElapsedTime(loadStart).TotalSeconds);
             }
         }
 
@@ -176,7 +190,7 @@ namespace Hagalaz.Cache
             using (var compressedFile = _store.Read(indexId, fileId))
             {
                 /* if the xtea keys are not defined, return decoded container data as is */
-                if (xteaKeys[0] == 0 && xteaKeys[1] == 0 && xteaKeys[2] == 0 && xteaKeys[3] == 0) return _containerFactory.Decode(compressedFile);
+                if (xteaKeys[0] == 0 && xteaKeys[1] == 0 && xteaKeys[2] == 0 && xteaKeys[3] == 0) return DecodeContainer(compressedFile);
 
                 /* decrypt the compressed stream, starting at offset 5 to skip the header */
                 var buffer = compressedFile.ToArray();
@@ -186,8 +200,29 @@ namespace Hagalaz.Cache
                 using (var stream = new MemoryStream(decrypted))
                 {
                     /* decode and return the decrypted data */
-                    return _containerFactory.Decode(stream);
+                    return DecodeContainer(stream);
                 }
+            }
+        }
+
+        private IContainer DecodeContainer(MemoryStream stream)
+        {
+            var decodeStart = Stopwatch.GetTimestamp();
+            Hagalaz.Cache.Abstractions.Model.CompressionType? compression = null;
+            var outcome = "failure";
+            try
+            {
+                var container = _containerFactory.Decode(stream);
+                compression = container.CompressionType;
+                outcome = "success";
+                return container;
+            }
+            finally
+            {
+                CacheMetrics.RecordContainerDecode(
+                    compression,
+                    outcome,
+                    Stopwatch.GetElapsedTime(decodeStart).TotalSeconds);
             }
         }
 

@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.Metrics;
+using System.IO;
 using Moq;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic;
@@ -18,6 +22,7 @@ namespace Hagalaz.Cache.Tests
         }
     }
 
+    [Collection(CacheApiTelemetryCollection.Name)]
     public class CacheApiTests
     {
         private readonly Mock<IFileStore> _fileStoreMock;
@@ -86,5 +91,107 @@ namespace Hagalaz.Cache.Tests
             // Assert
             Assert.True(streamSpy.IsDisposed);
         }
+
+        [Fact]
+        public void ReadArchive_RecordsSuccessfulArchiveAndContainerDecodeMetrics()
+        {
+            SetupArchiveRead(CompressionType.Gzip);
+            using var measurements = new CacheMeterListener();
+
+            _cacheApi.ReadArchive(0, 0);
+
+            var archiveLoad = Assert.Single(measurements.Measurements, measurement =>
+                measurement.InstrumentName == "hagalaz.cache.archive.load");
+            Assert.Equal(1d, archiveLoad.Value);
+            Assert.Equal("success", archiveLoad.Tags["outcome"]);
+            var archiveDuration = Assert.Single(measurements.Measurements, measurement =>
+                measurement.InstrumentName == "hagalaz.cache.archive.load.duration");
+            Assert.Equal("success", archiveDuration.Tags["outcome"]);
+            var containerDuration = Assert.Single(measurements.Measurements, measurement =>
+                measurement.InstrumentName == "hagalaz.cache.container.decode.duration");
+            Assert.Equal("gzip", containerDuration.Tags["compression"]);
+            Assert.Equal("success", containerDuration.Tags["outcome"]);
+        }
+
+        [Fact]
+        public void ReadArchive_WhenContainerDecodeFails_RecordsFailureWithUnknownCompression()
+        {
+            SetupArchiveRead(CompressionType.Gzip);
+            _containerDecoderMock
+                .Setup(decoder => decoder.Decode(It.IsAny<System.IO.MemoryStream>()))
+                .Throws<InvalidDataException>();
+            using var measurements = new CacheMeterListener();
+
+            Assert.Throws<InvalidDataException>(() => _cacheApi.ReadArchive(0, 0));
+
+            var archiveLoad = Assert.Single(measurements.Measurements, measurement =>
+                measurement.InstrumentName == "hagalaz.cache.archive.load");
+            Assert.Equal("failure", archiveLoad.Tags["outcome"]);
+            var archiveDuration = Assert.Single(measurements.Measurements, measurement =>
+                measurement.InstrumentName == "hagalaz.cache.archive.load.duration");
+            Assert.Equal("failure", archiveDuration.Tags["outcome"]);
+            var containerDuration = Assert.Single(measurements.Measurements, measurement =>
+                measurement.InstrumentName == "hagalaz.cache.container.decode.duration");
+            Assert.Equal("unknown", containerDuration.Tags["compression"]);
+            Assert.Equal("failure", containerDuration.Tags["outcome"]);
+        }
+
+        private void SetupArchiveRead(CompressionType compression)
+        {
+            _fileStoreMock.SetupGet(store => store.IndexFileCount).Returns(1);
+            _fileStoreMock.Setup(store => store.Read(0, 0)).Returns(new System.IO.MemoryStream());
+
+            var entry = new Mock<IReferenceTableEntry>();
+            entry.SetupGet(reference => reference.Capacity).Returns(1);
+            var table = new Mock<IReferenceTable>();
+            table.SetupGet(reference => reference.Capacity).Returns(1);
+            table.Setup(reference => reference.GetEntry(0)).Returns(entry.Object);
+            _referenceTableProviderMock.Setup(provider => provider.ReadReferenceTable(0)).Returns(table.Object);
+
+            var container = new Mock<IContainer>();
+            container.SetupGet(decoded => decoded.CompressionType).Returns(compression);
+            _containerDecoderMock
+                .Setup(decoder => decoder.Decode(It.IsAny<System.IO.MemoryStream>()))
+                .Returns(container.Object);
+            _archiveDecoderMock
+                .Setup(decoder => decoder.Decode(container.Object, 1))
+                .Returns(new Mock<IArchive>().Object);
+        }
+
+        private sealed class CacheMeterListener : IDisposable
+        {
+            private readonly MeterListener _listener = new();
+
+            public CacheMeterListener()
+            {
+                _listener.InstrumentPublished = (instrument, listener) =>
+                {
+                    if (instrument.Meter.Name == "Hagalaz.Cache")
+                    {
+                        listener.EnableMeasurementEvents(instrument);
+                    }
+                };
+                _listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) => Record(instrument, value, tags));
+                _listener.SetMeasurementEventCallback<double>((instrument, value, tags, _) => Record(instrument, value, tags));
+                _listener.Start();
+            }
+
+            public List<CacheMeasurement> Measurements { get; } = [];
+
+            public void Dispose() => _listener.Dispose();
+
+            private void Record(Instrument instrument, double value, ReadOnlySpan<KeyValuePair<string, object?>> tags)
+            {
+                var copiedTags = new Dictionary<string, object?>(tags.Length);
+                foreach (var tag in tags)
+                {
+                    copiedTags[tag.Key] = tag.Value;
+                }
+
+                Measurements.Add(new CacheMeasurement(instrument.Name, value, copiedTags));
+            }
+        }
+
+        private sealed record CacheMeasurement(string InstrumentName, double Value, IReadOnlyDictionary<string, object?> Tags);
     }
 }

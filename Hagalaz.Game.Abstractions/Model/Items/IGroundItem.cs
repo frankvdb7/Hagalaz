@@ -6,7 +6,7 @@ namespace Hagalaz.Game.Abstractions.Model.Items
     /// <summary>
     /// Defines the contract for an item that is lying on the ground in the game world.
     /// </summary>
-    public interface IGroundItem : IEntity
+    public interface IGroundItem : IEntity<IGroundItem>
     {
         /// <summary>
         /// Gets or sets the character who owns this ground item. A null value indicates the item is public.

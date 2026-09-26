@@ -1,5 +1,9 @@
+using System;
+using System.Data;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace Hagalaz.Services.Characters.Data
 {
@@ -40,5 +44,34 @@ namespace Hagalaz.Services.Characters.Data
         public void Reset() => _context.ChangeTracker.Clear();
         public async ValueTask CommitAsync() => await _context.SaveChangesAsync();
         public ValueTask RollbackAsync() => _context.DisposeAsync();
+
+        public Task<TResult> ExecuteConsistentReadAsync<TResult>(
+            Func<CancellationToken, Task<TResult>> operation,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(operation);
+
+            return _context.Database.CreateExecutionStrategy().ExecuteAsync(
+                operation,
+                (_, readOperation, operationCancellationToken) => ExecuteReadTransactionAsync(
+                    readOperation,
+                    operationCancellationToken),
+                null,
+                cancellationToken);
+        }
+
+        private async Task<TResult> ExecuteReadTransactionAsync<TResult>(
+            Func<CancellationToken, Task<TResult>> operation,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await using var transaction = await _context.Database.BeginTransactionAsync(
+                IsolationLevel.RepeatableRead,
+                cancellationToken);
+
+            var result = await operation(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return result;
+        }
     }
 }

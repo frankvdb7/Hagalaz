@@ -611,7 +611,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                         return false;
                                     }
 
-                                    Owner.QueueTask(() => CastEnchant(Owner, item, definition));
+                                    Owner.QueueTask(cancellationToken => CastEnchant(Owner, item, definition, cancellationToken));
                                     return true;
                                 });
                         }
@@ -952,7 +952,11 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             Refresh();
         }
 
-        public async Task<bool> CastEnchant(ICharacter character, IItem item, EnchantingSpellDto dto)
+        public async Task<bool> CastEnchant(
+            ICharacter character,
+            IItem item,
+            EnchantingSpellDto dto,
+            System.Threading.CancellationToken cancellationToken = default)
         {
             if (!character.Magic.CheckMagicLevel(dto.RequiredLevel))
             {
@@ -965,19 +969,26 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             }
 
             var product = await _magicService.FindEnchantingSpellProductByButtonId(dto.ButtonId);
+            cancellationToken.ThrowIfCancellationRequested();
             if (product == null)
             {
                 character.SendChatMessage("You can not enchant this item!");
                 return false;
             }
 
-            character.Magic.RemoveRunes(dto.RequiredRunes, dto.RequiredRunesCounts);
             var slot = character.Inventory.GetInstanceSlot(item);
             if (slot == -1)
             {
                 return false;
             }
 
+            if (!character.Magic.CheckMagicLevel(dto.RequiredLevel) ||
+                !character.Magic.CheckRunes(dto.RequiredRunes, dto.RequiredRunesCounts))
+            {
+                return false;
+            }
+
+            character.Magic.RemoveRunes(dto.RequiredRunes, dto.RequiredRunesCounts);
             character.Inventory.Replace(slot, _itemBuilder.Create().WithId(product.ProductId).Build());
             // TODO - Animation
             character.QueueGraphic(Graphic.Create(dto.GraphicId));
@@ -1105,7 +1116,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             Owner.Magic.SelectedSpell = spell;
             Owner.ForceRunMovementType(forceRun);
             Owner.FaceLocation(target);
-            Owner.Combat.SetTarget(target);
+            Owner.Combat.SetTarget(target.Handle);
         }
 
         /// <summary>

@@ -2,10 +2,8 @@
 using Hagalaz.Contacts.Messages.Model;
 using MassTransit;
 using Microsoft.Extensions.Localization;
-using Hagalaz.Exceptions;
 using Hagalaz.Services.Contacts.Store;
 using Hagalaz.Services.Contacts.Store.Model;
-using System.Linq;
 
 namespace Hagalaz.Services.Contacts.Services
 {
@@ -26,21 +24,43 @@ namespace Hagalaz.Services.Contacts.Services
             _stringLocalizer = stringLocalizer;
         }
 
-        public async Task AddLobbySession(int worldId, uint masterId)
+        public async Task AddLobbySession(
+            int worldId,
+            string worldInstanceId,
+            long worldGeneration,
+            uint masterId,
+            long sessionGeneration,
+            string connectionId)
         {
+            if (!_worlds.TryGetAvailableExact(worldId, worldInstanceId, worldGeneration, out _))
+            {
+                return;
+            }
+
             var character = await _characterService.FindCharacterByIdAsync(masterId);
             if (character == null)
             {
                 return;
             }
             var worldName = _stringLocalizer["Lobby"];
-            if (!_contacts.TryAdd(masterId, new ContactSessionContext
+            var session = new ContactSessionContext
             (
                 masterId,
                 worldId,
-                worldName
-            )))
+                worldName,
+                sessionGeneration,
+                connectionId,
+                worldInstanceId,
+                worldGeneration
+            );
+            if (!_contacts.TrySetNewerSession(session, out var acceptedSession))
             {
+                return;
+            }
+
+            if (!_worlds.TryGetAvailableExact(worldId, worldInstanceId, worldGeneration, out _))
+            {
+                _contacts.TryRemoveExact(session);
                 return;
             }
             await _publishEndpoint.Publish(new ContactSignInMessage(new ContactDto
@@ -50,24 +70,46 @@ namespace Hagalaz.Services.Contacts.Services
                 PreviousDisplayName = character.PreviousDisplayName,
                 WorldId = worldId,
                 WorldName = worldName
-            }));
+            }, acceptedSession.SessionGeneration, acceptedSession.ConnectionId));
         }
 
-        public async Task AddWorldSession(int worldId, uint masterId)
+        public async Task AddWorldSession(
+            int worldId,
+            string worldInstanceId,
+            long worldGeneration,
+            uint masterId,
+            long sessionGeneration,
+            string connectionId)
         {
-            var worldName = _worlds.TryGetValue(worldId, out var world) ? world.WorldName : throw new NotFoundException(nameof(world));
+            if (!_worlds.TryGetAvailableExact(worldId, worldInstanceId, worldGeneration, out var world))
+            {
+                return;
+            }
+
+            var worldName = world.WorldName;
             var character = await _characterService.FindCharacterByIdAsync(masterId);
             if (character == null)
             {
                 return;
             }
-            if (!_contacts.TryAdd(masterId, new ContactSessionContext
+            var session = new ContactSessionContext
             (
                 masterId,
                 worldId,
-                worldName
-            )))
+                worldName,
+                sessionGeneration,
+                connectionId,
+                worldInstanceId,
+                worldGeneration
+            );
+            if (!_contacts.TrySetNewerSession(session, out var acceptedSession))
             {
+                return;
+            }
+
+            if (!_worlds.TryGetAvailableExact(worldId, worldInstanceId, worldGeneration, out _))
+            {
+                _contacts.TryRemoveExact(session);
                 return;
             }
             await _publishEndpoint.Publish(new ContactSignInMessage(new ContactDto
@@ -77,40 +119,28 @@ namespace Hagalaz.Services.Contacts.Services
                 PreviousDisplayName = character.PreviousDisplayName,
                 WorldId = worldId,
                 WorldName = worldName
-            }));
+            }, acceptedSession.SessionGeneration, acceptedSession.ConnectionId));
         }
 
-        public async Task RemoveSession(uint masterId)
+        public async Task RemoveSession(uint masterId, long sessionGeneration, string connectionId)
         {
-            await RemoveSession(masterId, expectedSession: null);
-        }
-
-        public async Task RemoveWorldSessions(int worldId)
-        {
-            var sessions = _contacts
-                .Where(session => session.WorldId == worldId)
-                .ToList();
-
-            foreach (var session in sessions)
-            {
-                await RemoveSession(session.MasterId, session);
-            }
-        }
-
-        private async Task RemoveSession(uint masterId, ContactSessionContext? expectedSession)
-        {
-            var removed = expectedSession == null
-                ? _contacts.TryRemove(masterId)
-                : _contacts.TryRemove(masterId, expectedSession);
-            if (!removed)
+            if (!_contacts.TryRemoveExact(masterId, sessionGeneration, connectionId))
             {
                 return;
             }
 
-            await PublishSignOut(masterId);
+                await PublishSignOut(masterId, sessionGeneration, connectionId);
         }
 
-        private async Task PublishSignOut(uint masterId)
+        public async Task RemoveWorldSessions(int worldId, string worldInstanceId, long worldGeneration)
+        {
+            foreach (var session in _contacts.RemoveSessionsForWorld(worldId, worldInstanceId, worldGeneration))
+            {
+                await PublishSignOut(session.MasterId, session.SessionGeneration, session.ConnectionId);
+            }
+        }
+
+        private async Task PublishSignOut(uint masterId, long sessionGeneration, string connectionId)
         {
             var character = await _characterService.FindCharacterByIdAsync(masterId);
             if (character == null)
@@ -122,7 +152,7 @@ namespace Hagalaz.Services.Contacts.Services
                 MasterId = masterId,
                 DisplayName = character.DisplayName,
                 PreviousDisplayName = character.PreviousDisplayName
-            }));
+            }, sessionGeneration, connectionId));
         }
     }
 }

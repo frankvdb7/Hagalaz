@@ -24,13 +24,21 @@ namespace Hagalaz.Game.Scripts.Items.Slayer
             }
             else if (clickType == ComponentClickType.Option2Click)
             {
-                character.QueueTask(async () =>
+                character.QueueTask(async cancellationToken =>
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (character.HasSlayerTask())
                     {
+                        var taskId = character.Slayer.CurrentTaskId;
                         var slayerService = character.ServiceProvider.GetRequiredService<ISlayerService>();
-                        var slayerTask = await slayerService.FindSlayerTaskDefinition(character.Slayer.CurrentTaskId);
+                        var slayerTask = await slayerService.FindSlayerTaskDefinition(taskId);
+                        cancellationToken.ThrowIfCancellationRequested();
                         var slayer = character.Slayer;
+                        if (slayer.CurrentTaskId != taskId || slayerTask == null)
+                        {
+                            return;
+                        }
+
                         character.SendChatMessage("You are currently assigned to kill: " + slayerTask!.Name + ". Only " + slayer.CurrentKillCount +
                                                   " more to go.");
                     }

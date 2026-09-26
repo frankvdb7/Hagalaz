@@ -67,6 +67,8 @@ namespace Hagalaz.Services.Characters
                 {
                     options.UseMySql();
                     options.UseBusOutbox();
+
+                    options.DisableInboxCleanupService();
                 });
 
                 x.UsingRabbitMq((context, cfg) =>

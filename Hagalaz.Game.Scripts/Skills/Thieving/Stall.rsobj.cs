@@ -26,7 +26,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
         ///     Contains the stall owner.
         /// </summary>
         public INpc? StallOwner => _mapRegionService
-            .GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false)
+            .FindMapRegion(Owner.Location.RegionId, Owner.Location.Dimension)?
             .FindAllNpcs()
             .FirstOrDefault(npc => npc.Appearance.CompositeID == Definition.NpcOwnerID);
 
@@ -48,7 +48,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
             if (clickType == GameObjectClickType.Option1Click || clickType == GameObjectClickType.Option2Click)
             {
                 clicker.Interrupt(this);
-                clicker.QueueTask(() => Thieving.Steal(clicker, Owner, this));
+                clicker.QueueTask(cancellationToken => Thieving.Steal(clicker, Owner, this, cancellationToken));
                 return;
             }
 

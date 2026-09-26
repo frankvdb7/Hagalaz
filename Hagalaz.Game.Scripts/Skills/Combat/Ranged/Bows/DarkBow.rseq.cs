@@ -104,7 +104,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
             var damage2 = combat.GetRangedDamage(victim, false);
             attacker.Combat.PerformAttack(new AttackParams()
             {
-                Target = victim,
+                Target = victim.Handle,
                 DamageType = DamageType.FullRange,
                 Damage = damage1,
                 MaxDamage = maxDamage,
@@ -114,7 +114,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
 
             attacker.Combat.PerformAttack(new AttackParams()
             {
-                Target = victim,
+                Target = victim.Handle,
                 DamageType = DamageType.FullRange,
                 Damage = damage2,
                 MaxDamage = maxDamage,
@@ -205,7 +205,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
 
             attacker.Combat.PerformAttack(new AttackParams
             {
-                Target = victim,
+                Target = victim.Handle,
                 Damage = damage1,
                 DamageType = DamageType.FullRange,
                 Delay = duration + delay,
@@ -215,7 +215,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
 
             attacker.Combat.PerformAttack(new AttackParams()
             {
-                Target = victim,
+                Target = victim.Handle,
                 Damage = damage2,
                 DamageType = DamageType.FullRange,
                 Delay = duration * 2 + delay,

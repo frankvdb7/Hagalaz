@@ -12,6 +12,8 @@ namespace Raido.Server
 
         internal static TimeSpan DefaultClientTimeoutInterval => TimeSpan.FromSeconds(30);
 
+        internal static TimeSpan DefaultStatefulReconnectTimeout => TimeSpan.FromSeconds(30);
+
         internal const int DefaultMaximumMessageSize = 32 * 1024;
 
         /// <summary>
@@ -30,6 +32,11 @@ namespace Raido.Server
             if (options.ClientTimeoutInterval == null)
             {
                 options.ClientTimeoutInterval = DefaultClientTimeoutInterval;
+            }
+
+            if (options.StatefulReconnectTimeout == null)
+            {
+                options.StatefulReconnectTimeout = DefaultStatefulReconnectTimeout;
             }
 
             if (options.MaximumReceiveMessageSize == null)

@@ -288,21 +288,66 @@ namespace Raido.Server
                 throw new ObjectDisposedException(nameof(RaidoProtocolReader));
             }
 
+            if (_hasMessage)
+            {
+                if (advanceCursor)
+                {
+                    _reader.AdvanceTo(_consumed);
+                }
+
+                _buffer = _buffer.Slice(_consumed);
+                _hasMessage = false;
+                return;
+            }
+
             if (advanceCursor)
             {
                 _reader.AdvanceTo(_consumed);
             }
 
             _isCanceled = false;
+        }
 
-            if (!_hasMessage)
+        internal void DiscardIncompleteInput()
+        {
+            if (_disposed)
             {
-                return;
+                throw new ObjectDisposedException(nameof(RaidoProtocolReader));
             }
 
-            _buffer = _buffer.Slice(_consumed);
-
+            _reader.AdvanceTo(_buffer.End);
+            _buffer = default;
+            _consumed = default;
+            _examined = default;
+            _isCanceled = false;
+            _isCompleted = false;
             _hasMessage = false;
+        }
+
+        internal bool TryReadBufferedMessage<TReadMessage>(
+            IRaidoMessageReader<TReadMessage> reader,
+            long? maximumMessageSize,
+            out RaidoProtocolReadResult<TReadMessage> readResult)
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(RaidoProtocolReader));
+            }
+
+            if (_hasMessage)
+            {
+                throw new InvalidOperationException($"{nameof(Advance)} must be called before reading another message");
+            }
+
+            if (TryParseMessage(maximumMessageSize, reader, _buffer, out var protocolMessage))
+            {
+                _hasMessage = true;
+                readResult = new RaidoProtocolReadResult<TReadMessage>(protocolMessage, isCanceled: false, isCompleted: false);
+                return true;
+            }
+
+            readResult = default;
+            return false;
         }
 
         /// <summary>

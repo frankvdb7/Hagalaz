@@ -31,7 +31,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             await command.Execute(args);
 
             // Assert
-            combatMock.Received(1).PerformAttack(Arg.Is<AttackParams>(a => a.Target == npcMock));
+            combatMock.Received(1).PerformAttack(Arg.Is<AttackParams>(a => a.Target == npcMock.Handle));
         }
     }
 }

@@ -79,7 +79,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
                         var maxDamage = combat.GetMeleeMaxHit(target);
                         Owner.Combat.PerformAttack(new AttackParams()
                         {
-                            Damage = damage, MaxDamage = maxDamage, DamageType = DamageType.StandardMelee, Target = target
+                            Damage = damage, MaxDamage = maxDamage, DamageType = DamageType.StandardMelee, Target = target.Handle
                         });
                         break;
                     }
@@ -126,7 +126,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
                                 Damage = damage,
                                 MaxDamage = maxDamage,
                                 DamageType = DamageType.StandardRange,
-                                Target = c,
+                                Target = c.Handle,
                                 Delay = delay
                             });
                         }

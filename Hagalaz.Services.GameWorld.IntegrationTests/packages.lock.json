@@ -34,6 +34,15 @@
           "Castle.Core": "5.1.1"
         }
       },
+      "Testcontainers.MySql": {
+        "type": "Direct",
+        "requested": "[4.13.0, )",
+        "resolved": "4.13.0",
+        "contentHash": "7pDoa9McctTjN5vyS6gIo0cBWGkbtm9WVrQ35f20cbYt8Ib4x6ks8O0jTzjDsdkh4MiKARY6iIYAltXJDMBjTg==",
+        "dependencies": {
+          "Testcontainers": "4.13.0"
+        }
+      },
       "Testcontainers.Redis": {
         "type": "Direct",
         "requested": "[4.13.0, )",
@@ -1431,6 +1440,26 @@
       },
       "hagalaz.game.resources": {
         "type": "Project"
+      },
+      "hagalaz.game.scripts": {
+        "type": "Project",
+        "dependencies": {
+          "Hagalaz.Cache": "[1.0.0, )",
+          "Hagalaz.Cache.Abstractions": "[1.0.0, )",
+          "Hagalaz.Collections.Extensions": "[1.0.0, )",
+          "Hagalaz.Configuration": "[1.0.0, )",
+          "Hagalaz.Game": "[1.0.0, )",
+          "Hagalaz.Game.Abstractions": "[1.0.0, )",
+          "Hagalaz.Game.Common": "[1.0.0, )",
+          "Hagalaz.Game.Configuration": "[1.0.0, )",
+          "Hagalaz.Game.Extensions": "[1.0.0, )",
+          "Hagalaz.Game.Features": "[1.0.0, )",
+          "Hagalaz.Game.Resources": "[1.0.0, )",
+          "Hagalaz.Game.Utilities": "[1.0.0, )",
+          "JetBrains.Annotations": "[2026.2.0, )",
+          "Scrutor": "[7.0.0, )",
+          "System.Linq.Async": "[7.0.1, )"
+        }
       },
       "hagalaz.game.utilities": {
         "type": "Project",

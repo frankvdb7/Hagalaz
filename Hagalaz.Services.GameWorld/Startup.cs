@@ -3,12 +3,14 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
+using Raido.Server;
 using Raido.Server.Extensions;
 using MassTransit;
 using System;
 using System.Threading.Tasks;
 using System.Threading.RateLimiting;
 using AutoMapper;
+using Hagalaz.Contacts.Messages;
 using Hagalaz.Cache;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
@@ -19,6 +21,7 @@ using Hagalaz.Cache.Types.Data;
 using Hagalaz.Cache.Types.Hooks;
 using Hagalaz.Cache.Types.Providers;
 using Hagalaz.Game.Abstractions.Builders.Animation;
+using Hagalaz.Services.GameWorld.Network;
 using Hagalaz.Game.Abstractions.Builders.Audio;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.Glow;
@@ -59,8 +62,6 @@ using Hagalaz.Services.GameWorld.Factories;
 using Hagalaz.Services.GameWorld.Hubs;
 using Hagalaz.Services.GameWorld.Hubs.Filters;
 using Hagalaz.Services.GameWorld.Logic.Characters.Consumers;
-using Hagalaz.Services.GameWorld.Logic.Characters.StateMachines;
-using Hagalaz.Services.GameWorld.Logic.Characters.States;
 using Hagalaz.Services.GameWorld.Logic.Dehydrators;
 using Hagalaz.Services.GameWorld.Logic.Hydrators;
 using Hagalaz.Services.GameWorld.Logic.Pathfinding;
@@ -115,7 +116,8 @@ namespace Hagalaz.Services.GameWorld
         {
             services.AddSingleton<WorldLifecycleState>();
             services.AddSingleton<IStartupTaskState>(provider => provider.GetRequiredService<WorldLifecycleState>());
-            services.AddSingleton<WorldInstanceIdentity>();
+            var worldIdentity = new WorldInstanceIdentity();
+            services.AddSingleton(worldIdentity);
             services.AddSingleton<WorldRegistrationStore>();
             services.AddHealthChecks().AddCheck<WorldReadinessHealthCheck>("world-readiness");
 
@@ -145,18 +147,27 @@ namespace Hagalaz.Services.GameWorld
             // services
             services.AddSingleton<Hagalaz.Game.Abstractions.Logic.Random.IRandomProvider, Hagalaz.Services.GameWorld.Logic.Random.DefaultRandomProvider>();
             services.AddScoped<IAuthenticationService, AuthenticationService>();
+            services.AddScoped<IWorldSessionAdmissionService, WorldSessionAdmissionService>();
+            services.AddScoped<IHandshakeValidator, DefaultHandshakeValidator>();
+            services.AddScoped<WorldReconnectConnectionHandler>();
+            services.AddScoped<ClientConnectionHandler>();
+            services.AddScoped<RaidoConnectionDelegate>(provider =>
+                provider.GetRequiredService<ClientConnectionHandler>().HandleAsync);
             services.AddScoped<IClientPermissionProvider, ClientPermissionProvider>();
             services.AddScoped<IClientProtocolResolver, ClientProtocolResolver>();
             services.AddSingleton<MapRegionLoadScheduler>();
             services.AddSingleton<IMapRegionLoadScheduler>(provider => provider.GetRequiredService<MapRegionLoadScheduler>());
             services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<MapRegionLoadScheduler>());
-            services.AddHostedService<GameWorkerService>();
+            services.AddSingleton<GameWorkerService>();
+            services.AddSingleton<IGameWorkerExecution>(provider => provider.GetRequiredService<GameWorkerService>());
+            services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<GameWorkerService>());
             services.AddSingleton<InMemoryEventBus>();
             services.AddSingleton<IEventBus>(provider => provider.GetRequiredService<InMemoryEventBus>());
             services.AddSingleton<IEventManager>(provider => provider.GetRequiredService<InMemoryEventBus>());
             services.AddSingleton<ISystemUpdateService, SystemUpdateService>();
-            services.AddSingleton<IRsTaskService, RsTaskService>();
-            services.AddTransient<ICreatureTaskService, RsTaskService>();
+            services.AddSingleton<RsTaskService>();
+            services.AddSingleton<IRsTaskService>(provider => provider.GetRequiredService<RsTaskService>());
+            services.AddSingleton<ICreatureTaskService, CreatureTaskService>();
             services.AddSingleton<IGameMessageService, GameMessageService>();
             services.AddSingleton<IHitSplatRenderTypeProvider, HitSplatRenderTypeProvider>();
             services.AddScoped<IRatesService, RatesService>();
@@ -182,6 +193,8 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<ICharacterService, CharacterService>();
             services.AddScoped<ICharacterCreateInfoRepository, CharacterCreateInfoRepository>();
             services.AddSingleton<ICharacterStore, CharacterStore>();
+            services.AddSingleton<IEntityStore, EntityStore>();
+            services.AddSingleton<IEntityService, EntityService>();
             services.AddScoped<ICharacterRenderMasksWriter, CharacterRenderMasksWriter>();
             services.AddScoped<IDefaultCharacterScriptProvider, DefaultCharacterScriptProvider>();
             services.AddScoped<ICharacterScriptActivator, CharacterScriptActivator>();
@@ -222,6 +235,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<ICharacterPersistenceService, CharacterPersistenceService>();
             services.AddScoped<ICharacterLogoutService, CharacterLogoutService>();
             services.AddSingleton<CharacterPersistenceState>();
+            services.AddSingleton<CharacterLogoutState>();
             services.AddScoped<ICharacterDehydrator, AppearanceDehydrator>();
             services.AddScoped<ICharacterDehydrator, DetailsDehydrator>();
             services.AddScoped<ICharacterDehydrator, StatisticsDehydrator>();
@@ -257,7 +271,9 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<IMapRegionService, MapRegionService>();
             services.AddSingleton<IMapUpdateService, MapUpdateService>();
             services.AddScoped<IMapRegionLoader, MapRegionLoader>();
-            services.AddHostedService<MapRegionBackgroundService>();
+            services.AddSingleton<MapRegionBackgroundService>();
+            services.AddSingleton<IHostedService>(serviceProvider =>
+                serviceProvider.GetRequiredService<MapRegionBackgroundService>());
             services.AddSingleton<ILocationBuilder, LocationBuilder>();
             services.AddSingleton<IRegionUpdateBuilder, RegionUpdateBuilder>();
 
@@ -512,13 +528,13 @@ namespace Hagalaz.Services.GameWorld
                 options.AddDecoder<ClientHandshakeRequestDecoder>(14);
                 options.AddDecoder<ClientUpdateRequestDecoder>(15);
                 options.AddDecoder<WorldHandshakeRequestDecoder>(16);
-                options.AddDecoder<WorldHandshakeRequestDecoder>(18); // reconnect
                 options.AddDecoder<LobbyHandshakeRequestDecoder>(19);
 
                 options.AddEncoder<ClientHandshakeResponseEncoder>();
                 options.AddEncoder<ClientSignInResponseEncoder>();
                 options.AddEncoder<LobbySignInResponseEncoder>();
                 options.AddEncoder<WorldSignInResponseEncoder>();
+                options.AddEncoder<WorldReconnectResponseEncoder>();
             });
 
             services.AddRaidoProtocol<ClientProtocol742>(options =>
@@ -662,11 +678,14 @@ namespace Hagalaz.Services.GameWorld
             services.AddAuthorization();
             services.AddMassTransit(x =>
             {
+                x.AddRequestClient<GetContactsRequest>();
                 x.AddDelayedMessageScheduler();
                 x.AddEntityFrameworkOutbox<HagalazDbContext>(options =>
                 {
                     options.UseMySql();
                     options.UseBusOutbox();
+
+                    options.DisableInboxCleanupService();
                 });
                 x.UsingRabbitMq((context, cfg) =>
                 {
@@ -693,8 +712,7 @@ namespace Hagalaz.Services.GameWorld
                     cfg.ConfigureEndpoints(context);
                 });
 
-                x.AddSagaStateMachine<CharacterHydrationStateMachine, CharacterHydrationState>()
-                    .InMemoryRepository();
+                x.AddWorldCharacterHydration(worldIdentity);
 
                 x.AddConsumer<WorldUserSignInConsumer>();
                 x.AddConsumer<WorldUserSignOutConsumer>();
@@ -703,7 +721,6 @@ namespace Hagalaz.Services.GameWorld
                 x.AddConsumer<ContactSettingsChangedConsumer>();
                 x.AddConsumer<ContactAddedConsumer>();
                 x.AddConsumer<ContactRemovedConsumer>();
-                x.AddConsumer<GetContactsResponseConsumer>();
                 x.AddConsumer<WorldStatusRequestConsumer>();
                 x.AddConsumer<WorldOnlineConsumer>();
                 x.AddConsumer<WorldOfflineConsumer>();

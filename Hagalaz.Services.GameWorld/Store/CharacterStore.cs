@@ -36,17 +36,6 @@ namespace Hagalaz.Services.GameWorld.Store
         /// <returns>
         ///     The characters.
         /// </returns>
-        public async IAsyncEnumerable<ICharacter> FindAllAsync()
-        {
-            using (await _lock.ReaderLockAsync())
-            {
-                foreach (var character in _characters)
-                {
-                    yield return character;
-                }
-            }
-        }
-
         public async ValueTask<IReadOnlyDictionary<int, ICharacter>> GetSnapshotAsync(CancellationToken cancellationToken = default)
         {
             using (await _lock.ReaderLockAsync(cancellationToken))
@@ -92,7 +81,41 @@ namespace Hagalaz.Services.GameWorld.Store
             }
         }
 
-        public ValueTask<ICharacter?> FindAsync(Func<ICharacter, bool> predicate) => FindAllAsync().Where(predicate).FirstOrDefaultAsync();
-        public ValueTask<ICharacter?> FindByIdAsync(uint id) => FindAsync(character => character.MasterId == id);
+        public bool Remove(ICharacter character)
+        {
+            using (_lock.WriterLock())
+            {
+                return _characters.Remove(character);
+            }
+        }
+
+        public async ValueTask<ICharacter?> FindByIdAsync(uint id)
+        {
+            using (await _lock.ReaderLockAsync())
+            {
+                return _characters.FirstOrDefault(character => character.MasterId == id);
+            }
+        }
+
+        public ICharacter? FindByMasterId(uint id)
+        {
+            using (_lock.ReaderLock())
+            {
+                return _characters.FirstOrDefault(character => character.MasterId == id);
+            }
+        }
+
+        public async ValueTask<ICharacter?> FindByIndexAsync(int index)
+        {
+            using (await _lock.ReaderLockAsync())
+            {
+                if (index < 1 || index > _characters.Capacity)
+                {
+                    return null;
+                }
+
+                return _characters[index];
+            }
+        }
     }
 }

@@ -65,21 +65,21 @@ The hosted GameWorld worker MUST retain ownership of its execution task and MUST
 
 Character map rebuilding and packet construction MUST be synchronous within the render phase. A map-update service MUST orchestrate the viewport rebuild, map packet send, synchronous non-blocking region-load requests, and full region-part updates during that same synchronous operation; the actual region data load MUST be owned by a dedicated asynchronous scheduler. `Viewport` MUST remain responsible only for visible-region state, bounds, and visibility calculations.
 
-The `ICharacter` model contract MUST expose only a synchronous map-update operation. `IViewport` MUST NOT expose map-update orchestration, and callers MUST NOT use sync-over-async waits for map updates. The region-load scheduler MUST accept requests synchronously without blocking the game tick or creating detached tasks, skip loaded or already scheduled regions, deduplicate pending and in-flight requests, and own the asynchronous loader operation. `IMapRegion.IsLoaded` remains the authoritative indication that a region should not be admitted again; this requirement does not define recovery for a loader that marks a region loaded before a later population step fails.
+The `ICharacter` model contract MUST expose only a synchronous map-update operation. `IViewport` MUST NOT expose map-update orchestration, and callers MUST NOT use sync-over-async waits for map updates. The region-load scheduler MUST accept requests synchronously without blocking the game tick or creating detached tasks, skip ready or already scheduled regions, deduplicate pending and in-flight requests, and own the asynchronous loader operation. `IMapRegion.State == Ready` remains the authoritative indication that a region should not be admitted again; this requirement does not define recovery for a loader that marks a region ready before a later population step fails.
 
 #### Scenario: A character crosses a viewport rebuild boundary
 
 - **WHEN** a character's render update detects that its viewport must be rebuilt
 - **THEN** the map-update service asks the viewport to rebuild, sends the map update, synchronously requests each visible region load through the dedicated scheduler, and sends full region-part updates before the current render operation returns, without awaiting region loading, blocking for queue capacity, or scheduling an `RsAsyncTask`
 
-#### Scenario: A region is already loaded or scheduled
+#### Scenario: A region is already ready or scheduled
 
 - **WHEN** a map update requests a region whose data is loaded or whose load is already admitted/in flight
 - **THEN** the loading layer does not enqueue another work item for that region
 
-#### Scenario: A completed load marks a region loaded
+#### Scenario: A completed load marks a region ready
 
-- **WHEN** a region load work item completes after the loader has marked the region loaded
+- **WHEN** a region load work item completes after the loader has marked the region ready
 - **THEN** a later map update does not enqueue another work item for that region
 
 #### Scenario: Region loading is busy

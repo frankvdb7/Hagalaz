@@ -65,7 +65,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
                         {
                             return;
                         }
-                        var task = new CreatureReachTask(Owner, npc, success =>
+                        var task = new CreatureReachTask(Owner, npc.Handle, success =>
                         {
                             if (success)
                             {

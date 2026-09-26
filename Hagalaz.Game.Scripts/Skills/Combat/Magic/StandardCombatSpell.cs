@@ -59,7 +59,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                 DamageType = DamageType.FullMagic,
                 MaxDamage = maxDamage,
                 Delay = delay,
-                Target = victim
+                Target = victim.Handle
             });
 
             if (Dto.ProjectileId != -1)

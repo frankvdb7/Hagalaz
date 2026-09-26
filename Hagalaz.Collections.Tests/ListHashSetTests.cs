@@ -2,7 +2,6 @@ using Hagalaz.Collections;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 
 namespace Hagalaz.Collections.Tests
@@ -10,6 +9,29 @@ namespace Hagalaz.Collections.Tests
     [TestClass]
     public class ListHashSetTests
     {
+        private sealed class EqualityProbe : IEquatable<EqualityProbe>
+        {
+            private readonly Action _onEquals;
+
+            public EqualityProbe(int value, Action onEquals)
+            {
+                Value = value;
+                _onEquals = onEquals;
+            }
+
+            public int Value { get; }
+
+            public bool Equals(EqualityProbe? other)
+            {
+                _onEquals();
+                return other is not null && Value == other.Value;
+            }
+
+            public override bool Equals(object? obj) => Equals(obj as EqualityProbe);
+
+            public override int GetHashCode() => Value;
+        }
+
         [TestMethod]
         public void Add_IncreasesCount()
         {
@@ -97,41 +119,28 @@ namespace Hagalaz.Collections.Tests
         }
 
         [TestMethod]
-        public void Contains_IsSignificantlyFasterThanList()
+        public void Contains_UsesHashSetLookup()
         {
             // Arrange
-            int n = 10000;
-            var items = Enumerable.Range(0, n).ToList();
+            const int itemCount = 10000;
+            var equalityCount = 0;
+            var items = Enumerable.Range(0, itemCount)
+                .Select(value => new EqualityProbe(value, () => equalityCount++))
+                .ToList();
             var listHashSet = items.ToListHashSet();
-            int lookup = n - 1; // Worst case for List
+            var lookup = new EqualityProbe(itemCount - 1, () => equalityCount++);
 
-            // Warmup
-            _ = items.Contains(lookup);
-            _ = listHashSet.Contains(lookup);
+            // Act
+            Assert.IsTrue(items.Contains(lookup));
+            var listEqualityCount = equalityCount;
 
-            // Act - List
-            var sw = Stopwatch.StartNew();
-            for (int i = 0; i < 1000; i++)
-            {
-                _ = items.Contains(lookup);
-            }
-            sw.Stop();
-            long listTime = sw.ElapsedTicks;
-
-            // Act - ListHashSet
-            sw.Restart();
-            for (int i = 0; i < 1000; i++)
-            {
-                _ = listHashSet.Contains(lookup);
-            }
-            sw.Stop();
-            long listHashSetTime = sw.ElapsedTicks;
+            equalityCount = 0;
+            Assert.IsTrue(listHashSet.Contains(lookup));
+            var listHashSetEqualityCount = equalityCount;
 
             // Assert
-            // ListHashSet should be much faster. We use a conservative 5x check
-            // to avoid flakiness while still catching major regressions (like falling back to O(N)).
-            Assert.IsLessThan(listTime / 5, listHashSetTime,
-                $"Performance regression: ListHashSet.Contains ({listHashSetTime} ticks) should be at least 5x faster than List.Contains ({listTime} ticks)");
+            Assert.AreEqual(itemCount, listEqualityCount);
+            Assert.AreEqual(1, listHashSetEqualityCount);
         }
     }
 }

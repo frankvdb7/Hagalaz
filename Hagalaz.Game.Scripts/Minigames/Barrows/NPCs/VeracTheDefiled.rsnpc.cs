@@ -24,7 +24,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
             var maxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target);
             Owner.Combat.PerformAttack(new AttackParams()
             {
-                Target = target, DamageType = hitTruPrayer ? DamageType.FullMelee : DamageType.StandardMelee, Damage = damage, MaxDamage = maxDamage,
+                Target = target.Handle, DamageType = hitTruPrayer ? DamageType.FullMelee : DamageType.StandardMelee, Damage = damage, MaxDamage = maxDamage,
             });
         }
 

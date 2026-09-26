@@ -41,14 +41,14 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
         /// </summary>
         public override void AggressivenessTick()
         {
-            if (CharacterTarget == null || CharacterTarget.IsDestroyed)
+            if (CharacterTarget == null)
             {
                 return;
             }
 
             if (Owner.Combat.Target == null)
             {
-                Owner.Combat.SetTarget(CharacterTarget);
+                Owner.Combat.SetTarget(CharacterTarget.Handle);
             }
         }
 

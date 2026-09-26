@@ -696,6 +696,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         }
 
         public void FlagCollision(IGameObject gameObject)
+            => FlagCollisionCore(gameObject);
+
+        private void FlagCollisionCore(IGameObject gameObject)
         {
             var layer = gameObject.ShapeType.GetLayerType();
             if (layer == LayerType.Walls)
@@ -707,6 +710,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         }
 
         public void UnFlagCollision(IGameObject gameObject)
+            => UnFlagCollisionCore(gameObject);
+
+        private void UnFlagCollisionCore(IGameObject gameObject)
         {
             var layer = gameObject.ShapeType.GetLayerType();
             if (layer == LayerType.Walls)

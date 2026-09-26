@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using FluentResults;
@@ -24,9 +25,9 @@ namespace Hagalaz.Services.Characters.Services
             _mapper = mapper;
         }
 
-        public async Task<Result<bool>> GetExistsAsync(uint masterId)
+        public async Task<Result<bool>> GetExistsAsync(uint masterId, CancellationToken cancellationToken = default)
         {
-            var exists = await _characterUnitOfWork.CharacterRepository.FindById(masterId).AsNoTracking().Select(c => c.Id).AnyAsync();
+            var exists = await _characterUnitOfWork.CharacterRepository.FindById(masterId).AsNoTracking().Select(c => c.Id).AnyAsync(cancellationToken);
             if (!exists)
             {
                 return ResultHelper.Fail(new NotFoundException("character"));
@@ -34,12 +35,12 @@ namespace Hagalaz.Services.Characters.Services
             return exists;
         }
 
-        public async Task<Result<long>> GetSnapshotRevisionAsync(uint masterId)
+        public async Task<Result<long>> GetSnapshotRevisionAsync(uint masterId, CancellationToken cancellationToken = default)
         {
             var revision = await _characterUnitOfWork.CharacterRepository.FindById(masterId)
                 .AsNoTracking()
                 .Select(c => (long?)c.SnapshotRevision)
-                .SingleOrDefaultAsync();
+                .SingleOrDefaultAsync(cancellationToken);
             if (revision == null)
             {
                 return ResultHelper.Fail(new NotFoundException("character"));
@@ -48,9 +49,9 @@ namespace Hagalaz.Services.Characters.Services
             return revision.Value;
         }
 
-        public async Task<Result<Appearance>> GetAppearanceAsync(uint masterId)
+        public async Task<Result<Appearance>> GetAppearanceAsync(uint masterId, CancellationToken cancellationToken = default)
         {
-            var appearance = await _mapper.ProjectTo<Appearance>(_characterUnitOfWork.CharacterLookRepository.FindById(masterId).AsNoTracking()).FirstOrDefaultAsync();
+            var appearance = await _mapper.ProjectTo<Appearance>(_characterUnitOfWork.CharacterLookRepository.FindById(masterId).AsNoTracking()).FirstOrDefaultAsync(cancellationToken);
             if (appearance == null)
             {
                 return ResultHelper.Fail(new NotFoundException(nameof(appearance)));
@@ -58,9 +59,9 @@ namespace Hagalaz.Services.Characters.Services
             return appearance;
         }
 
-        public async Task<Result<IReadOnlyList<ItemAppearance>>> GetItemAppearancesAsync(uint masterId)
+        public async Task<Result<IReadOnlyList<ItemAppearance>>> GetItemAppearancesAsync(uint masterId, CancellationToken cancellationToken = default)
         {
-            var items = await _mapper.ProjectTo<ItemAppearance>(_characterUnitOfWork.CharacterItemLookRepository.FindById(masterId)).ToListAsync();
+            var items = await _mapper.ProjectTo<ItemAppearance>(_characterUnitOfWork.CharacterItemLookRepository.FindById(masterId)).ToListAsync(cancellationToken);
             if (items == null)
             {
                 return ResultHelper.Fail(new NotFoundException(nameof(items)));
@@ -68,9 +69,9 @@ namespace Hagalaz.Services.Characters.Services
             return items;
         }
 
-        public async Task<Result<Details>> GetDetailsAsync(uint masterId)
+        public async Task<Result<Details>> GetDetailsAsync(uint masterId, CancellationToken cancellationToken = default)
         {
-            var details = await _mapper.ProjectTo<Details>(_characterUnitOfWork.CharacterRepository.FindById(masterId).AsNoTracking()).FirstOrDefaultAsync();
+            var details = await _mapper.ProjectTo<Details>(_characterUnitOfWork.CharacterRepository.FindById(masterId).AsNoTracking()).FirstOrDefaultAsync(cancellationToken);
             if (details == null)
             {
                 return ResultHelper.Fail(new NotFoundException(nameof(details)));
@@ -78,9 +79,9 @@ namespace Hagalaz.Services.Characters.Services
             return details;
         }
 
-        public async Task<Result<Familiar>> GetFamiliarAsync(uint masterId)
+        public async Task<Result<Familiar>> GetFamiliarAsync(uint masterId, CancellationToken cancellationToken = default)
         {
-            var familiar = await _mapper.ProjectTo<Familiar>(_characterUnitOfWork.CharacterFamiliarRepository.FindById(masterId).AsNoTracking()).FirstOrDefaultAsync();
+            var familiar = await _mapper.ProjectTo<Familiar>(_characterUnitOfWork.CharacterFamiliarRepository.FindById(masterId).AsNoTracking()).FirstOrDefaultAsync(cancellationToken);
             if (familiar == null)
             {
                 return ResultHelper.Fail(new NotFoundException(nameof(familiar)));
@@ -88,9 +89,9 @@ namespace Hagalaz.Services.Characters.Services
             return familiar;
         }
 
-        public async Task<Result<Farming>> GetFarmingAsync(uint masterId)
+        public async Task<Result<Farming>> GetFarmingAsync(uint masterId, CancellationToken cancellationToken = default)
         {
-            var patches = await _mapper.ProjectTo<Farming.Patch>(_characterUnitOfWork.CharacterFarmingRepository.FindById(masterId).AsNoTracking()).ToListAsync();
+            var patches = await _mapper.ProjectTo<Farming.Patch>(_characterUnitOfWork.CharacterFarmingRepository.FindById(masterId).AsNoTracking()).ToListAsync(cancellationToken);
             if (patches == null)
             {
                 return ResultHelper.Fail(new NotFoundException(nameof(patches)));
@@ -101,20 +102,20 @@ namespace Hagalaz.Services.Characters.Services
             };
         }
 
-        public async Task<Result<IReadOnlyList<Item>>> GetItemsAsync(uint masterId)
+        public async Task<Result<IReadOnlyList<Item>>> GetItemsAsync(uint masterId, CancellationToken cancellationToken = default)
         {
-            var items = await _mapper.ProjectTo<Item>(_characterUnitOfWork.CharacterItemRepository.FindByMasterId(masterId).AsNoTracking()).ToListAsync();
+            var items = await _mapper.ProjectTo<Item>(_characterUnitOfWork.CharacterItemRepository.FindByMasterId(masterId).AsNoTracking()).ToListAsync(cancellationToken);
             return items;
         }
 
-        public async Task<Result<Music>> GetMusicAsync(uint masterId)
+        public async Task<Result<Music>> GetMusicAsync(uint masterId, CancellationToken cancellationToken = default)
         {
-            var music = await _characterUnitOfWork.CharacterMusicRepository.FindById(masterId).AsNoTracking().FirstOrDefaultAsync();
+            var music = await _characterUnitOfWork.CharacterMusicRepository.FindById(masterId).AsNoTracking().FirstOrDefaultAsync(cancellationToken);
             if (music == null)
             {
                 return ResultHelper.Fail(new NotFoundException(nameof(music)));
             }
-            var playlist = await _characterUnitOfWork.CharacterMusicPlaylistRepository.FindById(masterId).AsNoTracking().FirstOrDefaultAsync();
+            var playlist = await _characterUnitOfWork.CharacterMusicPlaylistRepository.FindById(masterId).AsNoTracking().FirstOrDefaultAsync(cancellationToken);
             if (playlist == null)
             {
                 return ResultHelper.Fail(new NotFoundException(nameof(playlist)));
@@ -125,9 +126,9 @@ namespace Hagalaz.Services.Characters.Services
             return musicAndPlaylist;
         }
 
-        public async Task<Result<Notes>> GetNotesAsync(uint masterId)
+        public async Task<Result<Notes>> GetNotesAsync(uint masterId, CancellationToken cancellationToken = default)
         {
-            var notes = await _mapper.ProjectTo<Notes.Note>(_characterUnitOfWork.CharacterNotesRepository.FindById(masterId).AsNoTracking()).ToListAsync();
+            var notes = await _mapper.ProjectTo<Notes.Note>(_characterUnitOfWork.CharacterNotesRepository.FindById(masterId).AsNoTracking()).ToListAsync(cancellationToken);
             if (notes == null)
             {
                 return ResultHelper.Fail(new NotFoundException(nameof(notes)));
@@ -138,9 +139,9 @@ namespace Hagalaz.Services.Characters.Services
             };
         }
 
-        public async Task<Result<TValue>> GetProfileDataByKeyAsync<TValue>(uint masterId, string key)
+        public async Task<Result<TValue>> GetProfileDataByKeyAsync<TValue>(uint masterId, string key, CancellationToken cancellationToken = default)
         {
-            var data = await _characterUnitOfWork.CharacterProfileRepository.FindProfileDataByKey(masterId, key).AsNoTracking().FirstOrDefaultAsync();
+            var data = await _characterUnitOfWork.CharacterProfileRepository.FindProfileDataByKey(masterId, key).AsNoTracking().FirstOrDefaultAsync(cancellationToken);
             if (data == null)
             {
                 return ResultHelper.Fail(new NotFoundException(nameof(data)));
@@ -160,9 +161,9 @@ namespace Hagalaz.Services.Characters.Services
             }
         }
 
-        public async Task<Result<ProfileModel>> GetProfileAsync(uint masterId)
+        public async Task<Result<ProfileModel>> GetProfileAsync(uint masterId, CancellationToken cancellationToken = default)
         {
-            var profile = await _mapper.ProjectTo<ProfileModel>(_characterUnitOfWork.CharacterProfileRepository.FindProfileById(masterId).AsNoTracking()).FirstOrDefaultAsync();
+            var profile = await _mapper.ProjectTo<ProfileModel>(_characterUnitOfWork.CharacterProfileRepository.FindProfileById(masterId).AsNoTracking()).FirstOrDefaultAsync(cancellationToken);
             if (profile == null)
             {
                 return ResultHelper.Fail(new NotFoundException(nameof(profile)));
@@ -170,9 +171,9 @@ namespace Hagalaz.Services.Characters.Services
             return profile;
         }
 
-        public async Task<Result<Slayer>> GetSlayerAsync(uint masterId)
+        public async Task<Result<Slayer>> GetSlayerAsync(uint masterId, CancellationToken cancellationToken = default)
         {
-            var task = await _mapper.ProjectTo<Slayer.SlayerTask>(_characterUnitOfWork.CharacterSlayerRepository.FindById(masterId).AsNoTracking()).FirstOrDefaultAsync();
+            var task = await _mapper.ProjectTo<Slayer.SlayerTask>(_characterUnitOfWork.CharacterSlayerRepository.FindById(masterId).AsNoTracking()).FirstOrDefaultAsync(cancellationToken);
             if (task == null)
             {
                 return ResultHelper.Fail(new NotFoundException(nameof(task)));
@@ -183,9 +184,9 @@ namespace Hagalaz.Services.Characters.Services
             };
         }
 
-        public async Task<Result<Statistics>> GetStatisticsAsync(uint masterId)
+        public async Task<Result<Statistics>> GetStatisticsAsync(uint masterId, CancellationToken cancellationToken = default)
         {
-            var statistics = await _mapper.ProjectTo<Statistics>(_characterUnitOfWork.CharacterStatisticsRepository.FindById(masterId).AsNoTracking()).FirstOrDefaultAsync();
+            var statistics = await _mapper.ProjectTo<Statistics>(_characterUnitOfWork.CharacterStatisticsRepository.FindById(masterId).AsNoTracking()).FirstOrDefaultAsync(cancellationToken);
             if (statistics == null)
             {
                 return ResultHelper.Fail(new NotFoundException(nameof(statistics)));
@@ -193,9 +194,9 @@ namespace Hagalaz.Services.Characters.Services
             return statistics;
         }
 
-        public async Task<Result<State>> GetStateAsync(uint masterId)
+        public async Task<Result<State>> GetStateAsync(uint masterId, CancellationToken cancellationToken = default)
         {
-            var states = await _mapper.ProjectTo<State.StateEx>(_characterUnitOfWork.CharacterStateRepository.FindAll().Where(c => c.MasterId == masterId).AsNoTracking()).ToListAsync();
+            var states = await _mapper.ProjectTo<State.StateEx>(_characterUnitOfWork.CharacterStateRepository.FindAll().Where(c => c.MasterId == masterId).AsNoTracking()).ToListAsync(cancellationToken);
             return new State { StatesEx = states };
         }
     }

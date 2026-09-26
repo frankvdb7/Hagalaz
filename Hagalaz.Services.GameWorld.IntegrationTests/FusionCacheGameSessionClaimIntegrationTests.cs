@@ -172,6 +172,32 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
 
     [TestMethod]
     [Timeout(120000)]
+    public async Task ExecuteIfOwnerAndReplaceAsync_TransfersLobbyOwnershipAcrossProviders()
+    {
+        await using var firstProvider = CreateProvider();
+        await using var secondProvider = CreateProvider();
+        var firstStore = firstProvider.GetRequiredService<IGameSessionClaimStore>();
+        var secondStore = secondProvider.GetRequiredService<IGameSessionClaimStore>();
+        const uint masterId = 48;
+        await ClearClaimAsync(firstProvider, masterId);
+
+        Assert.IsTrue(await firstStore.TryClaimAsync(masterId, "lobby-1"));
+        Assert.IsTrue(await secondStore.ExecuteIfOwnerAndReplaceAsync(
+            masterId,
+            "lobby-1",
+            "world-1",
+            _ => Task.FromResult(true)));
+
+        var cache = firstProvider.GetRequiredService<IFusionCache>();
+        var current = await cache.TryGetAsync<string>(Key(masterId), EntryOptions());
+        Assert.IsTrue(current.HasValue);
+        Assert.AreEqual("world-1", current.Value);
+        Assert.IsFalse(await firstStore.ReleaseAsync(masterId, "lobby-1"));
+        Assert.IsTrue(await secondStore.ReleaseAsync(masterId, "world-1"));
+    }
+
+    [TestMethod]
+    [Timeout(120000)]
     public async Task ReleaseAndRenewAsync_RequireExactClaimOwner()
     {
         await using var firstProvider = CreateProvider();
@@ -247,6 +273,7 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
             .Build();
         var services = new ServiceCollection();
         new Hagalaz.Services.GameWorld.Startup(configuration).ConfigureServices(services);
+        new Hagalaz.Game.Scripts.Startup().Configure(services);
         if (harness != null)
         {
             services.AddSingleton(harness.CharacterService);
@@ -262,6 +289,7 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
             services.AddSingleton(harness.GetUserInfoRequestClient);
             services.AddSingleton(harness.RevokeTokenRequestClient);
             services.AddSingleton(harness.GetCharacterRequestClient);
+            services.AddSingleton(harness.ValidateExistingAuthenticationRequestClient);
         }
         services.AddLogging();
         return services.BuildServiceProvider();
@@ -320,10 +348,44 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
         harness.GetCharacterRequestClient
             .GetResponse<CharacterHydrated, CharacterNotFound>(Arg.Any<HydrateCharacter>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
             .ReturnsForAnyArgs(Task.FromResult(characterResponse));
+        var logoutReceipt = new CharacterPersistenceReceipt(47, Guid.NewGuid(), 1);
+        harness.CharacterLogoutService.TryBeginLogout(
+                Arg.Any<ICharacter>(),
+                out Arg.Any<CharacterPersistenceReceipt?>())
+            .Returns(callInfo =>
+            {
+                callInfo[1] = null;
+                return true;
+            });
+        harness.CharacterLogoutService.SetPendingLogoutPersistence(
+                Arg.Any<ICharacter>(),
+                Arg.Any<CharacterPersistenceReceipt>())
+            .Returns(true);
+        harness.CharacterPersistenceService.PersistAsync(
+                Arg.Any<uint>(),
+                Arg.Any<CharacterModel>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<CharacterPersistenceReceipt?>(logoutReceipt));
+        harness.CharacterPersistenceService.WaitForAcknowledgementAsync(
+                logoutReceipt,
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(CharacterPersistenceOutcome.Committed));
         var revokeTokenResponse = CreateResponse(new RevokeTokenResponseMessage { Succeeded = true });
         harness.RevokeTokenRequestClient
             .GetResponse<RevokeTokenResponseMessage>(Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
             .ReturnsForAnyArgs(Task.FromResult(revokeTokenResponse));
+        var validateAuthenticationResponse = CreateResponse(new ValidateExistingAuthenticationResponseMessage
+        {
+            Succeeded = true,
+            Subject = "47"
+        });
+        harness.ValidateExistingAuthenticationRequestClient
+            .GetResponse<ValidateExistingAuthenticationResponseMessage>(
+                Arg.Any<ValidateExistingAuthenticationRequestMessage>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<RequestTimeout>())
+            .ReturnsForAnyArgs(Task.FromResult(validateAuthenticationResponse));
 
         return harness;
     }
@@ -421,16 +483,15 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
         public IRequestClient<GetUserInfoRequestMessage> GetUserInfoRequestClient { get; } = Substitute.For<IRequestClient<GetUserInfoRequestMessage>>();
         public IRequestClient<RevokeTokenRequestMessage> RevokeTokenRequestClient { get; } = Substitute.For<IRequestClient<RevokeTokenRequestMessage>>();
         public IRequestClient<HydrateCharacter> GetCharacterRequestClient { get; } = Substitute.For<IRequestClient<HydrateCharacter>>();
+        public IRequestClient<ValidateExistingAuthenticationRequestMessage> ValidateExistingAuthenticationRequestClient { get; } = Substitute.For<IRequestClient<ValidateExistingAuthenticationRequestMessage>>();
         public ICharacter Character { get; } = Substitute.For<ICharacter>();
         public int HydrationCalls;
         public int CharacterAddCalls;
 
         public void PersistenceServiceSetup()
         {
-            CharacterPersistenceService.PersistAsync(Arg.Any<ICharacter>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
-                .Returns(Task.CompletedTask);
             CharacterLogoutService.DetachAsync(Arg.Any<ICharacter>(), Arg.Any<CancellationToken>())
-                .Returns(Task.CompletedTask);
+                .Returns(Task.FromResult(new CharacterModel()));
         }
     }
 

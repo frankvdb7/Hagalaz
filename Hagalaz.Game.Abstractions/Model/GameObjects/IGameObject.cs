@@ -3,7 +3,7 @@ namespace Hagalaz.Game.Abstractions.Model.GameObjects
     /// <summary>
     /// Defines the contract for an interactive object in the game world.
     /// </summary>
-    public interface IGameObject : IEntity
+    public interface IGameObject : IEntity<IGameObject>
     {
         /// <summary>
         /// Gets the unique ID of the game object.

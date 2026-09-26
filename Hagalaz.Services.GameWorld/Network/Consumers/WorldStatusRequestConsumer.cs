@@ -67,7 +67,9 @@ namespace Hagalaz.Services.GameWorld.Network.Consumers
             if (context.ResponseAddress != null)
             {
                 await context.RespondAsync(onlineMessage);
+                return;
             }
+
             await _publishEndpoint.Publish(onlineMessage, context.CancellationToken);
         }
     }

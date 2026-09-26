@@ -9,7 +9,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Dehydrators
     {
         public CharacterModel Dehydrate(ICharacter character, CharacterModel model)
         {
-            if (character is IDehydratable<HydratedItemAppearanceCollectionDto> dehydratable)
+            if (character.Appearance is IDehydratable<HydratedItemAppearanceCollectionDto> dehydratable)
             {
                 return model with { ItemAppearanceCollection = dehydratable.Dehydrate() };
             }

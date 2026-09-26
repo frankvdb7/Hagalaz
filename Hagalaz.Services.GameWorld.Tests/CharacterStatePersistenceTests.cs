@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Builders.Animation;
 using Hagalaz.Game.Abstractions.Builders.Audio;
@@ -23,18 +26,27 @@ using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
+using Hagalaz.Game.Common.Events.Character.Packet;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
+using Hagalaz.Services.GameWorld.Logic.Dehydrators;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
+using Hagalaz.Services.GameWorld.Profiles;
+using Hagalaz.Services.GameWorld.Data;
 using Hagalaz.Services.GameWorld.Providers;
 using Hagalaz.Services.GameWorld.Logic.Hydrators;
+using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Services.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -145,10 +157,255 @@ public sealed class CharacterStatePersistenceTests
         ((IHydratable<HydratedFamiliarDto>)familiarScript).Received(1).Hydrate(hydration);
     }
 
+    [TestMethod]
+    public void ItemAppearanceCollectionHydrator_HydratesNestedCharacterAppearance()
+    {
+        const int itemId = 1337;
+        var character = CreateCharacter(new TestStateService(), out _, itemPartFactory: CreateItemPartFactory());
+        var expected = CreateItemAppearance(itemId);
+
+        new ItemAppearanceCollectionHydrator().Hydrate(character, new CharacterModel
+        {
+            ItemAppearanceCollection = new HydratedItemAppearanceCollectionDto
+            {
+                Appearances = [expected]
+            }
+        });
+
+        var actual = ((IDehydratable<HydratedItemAppearanceCollectionDto>)character.Appearance).Dehydrate();
+
+        Assert.HasCount(1, actual.Appearances);
+        AssertItemAppearanceEqual(expected, actual.Appearances[0]);
+    }
+
+    [TestMethod]
+    public void ItemAppearanceCollectionDehydrator_CapturesNestedCharacterAppearanceAndEmptyState()
+    {
+        const int itemId = 1337;
+        var character = CreateCharacter(new TestStateService(), out _, itemPartFactory: CreateItemPartFactory());
+        var expected = CreateItemAppearance(itemId);
+        new ItemAppearanceCollectionHydrator().Hydrate(character, new CharacterModel
+        {
+            ItemAppearanceCollection = new HydratedItemAppearanceCollectionDto
+            {
+                Appearances = [expected]
+            }
+        });
+
+        var result = new ItemAppearanceCollectionDehydrator().Dehydrate(character, new CharacterModel());
+
+        Assert.IsNotNull(result.ItemAppearanceCollection);
+        Assert.HasCount(1, result.ItemAppearanceCollection.Appearances);
+        AssertItemAppearanceEqual(expected, result.ItemAppearanceCollection.Appearances[0]);
+
+        var emptyCharacter = CreateCharacter(new TestStateService(), out _, itemPartFactory: CreateItemPartFactory());
+        var emptyResult = new ItemAppearanceCollectionDehydrator().Dehydrate(emptyCharacter, new CharacterModel());
+
+        Assert.IsNotNull(emptyResult.ItemAppearanceCollection);
+        Assert.HasCount(0, emptyResult.ItemAppearanceCollection.Appearances);
+    }
+
+    [TestMethod]
+    public void ItemAppearanceCollection_RoundTripPreservesPersistenceData()
+    {
+        const int itemId = 1337;
+        var source = CreateCharacter(new TestStateService(), out _, itemPartFactory: CreateItemPartFactory());
+        var expected = CreateItemAppearance(itemId);
+        var input = new CharacterModel
+        {
+            ItemAppearanceCollection = new HydratedItemAppearanceCollectionDto
+            {
+                Appearances = [expected]
+            }
+        };
+
+        new ItemAppearanceCollectionHydrator().Hydrate(source, input);
+        var dehydrated = new CharacterDehydrationService([new ItemAppearanceCollectionDehydrator()]).Dehydrate(source);
+
+        var restored = CreateCharacter(new TestStateService(), out _, itemPartFactory: CreateItemPartFactory());
+        new ItemAppearanceCollectionHydrator().Hydrate(restored, dehydrated);
+        var roundTripped = ((IDehydratable<HydratedItemAppearanceCollectionDto>)restored.Appearance).Dehydrate();
+
+        Assert.HasCount(1, roundTripped.Appearances);
+        AssertItemAppearanceEqual(expected, roundTripped.Appearances[0]);
+    }
+
+    [TestMethod]
+    public void CharacterPersistenceCommand_ReceivesDehydratedItemAppearanceCollection()
+    {
+        const int itemId = 1337;
+        var character = CreateCharacter(new TestStateService(), out _, itemPartFactory: CreateItemPartFactory());
+        var expected = CreateItemAppearance(itemId);
+        new ItemAppearanceCollectionHydrator().Hydrate(character, new CharacterModel
+        {
+            ItemAppearanceCollection = new HydratedItemAppearanceCollectionDto
+            {
+                Appearances = [expected]
+            }
+        });
+
+        var model = new CharacterDehydrationService([new ItemAppearanceCollectionDehydrator()]).Dehydrate(character) with
+        {
+            SnapshotRevision = 1
+        };
+        using var provider = new ServiceCollection()
+            .AddLogging()
+            .AddAutoMapper(configuration => configuration.AddProfile<CharacterProfile>())
+            .BuildServiceProvider();
+
+        var command = CharacterPersistenceService.CreateCommand(
+            provider.GetRequiredService<AutoMapper.IMapper>(), model, 42, model.SnapshotRevision);
+
+        Assert.IsNotNull(command.ItemAppearanceCollection);
+        Assert.HasCount(1, command.ItemAppearanceCollection.Appearances);
+        Assert.AreEqual(itemId, command.ItemAppearanceCollection.Appearances[0].Id);
+        CollectionAssert.AreEqual(expected.MaleModels, command.ItemAppearanceCollection.Appearances[0].MaleModels);
+        CollectionAssert.AreEqual(expected.FemaleModels, command.ItemAppearanceCollection.Appearances[0].FemaleModels);
+        CollectionAssert.AreEqual(expected.ModelColors, command.ItemAppearanceCollection.Appearances[0].ModelColors);
+        CollectionAssert.AreEqual(expected.TextureColors, command.ItemAppearanceCollection.Appearances[0].TextureColors);
+    }
+
+    [TestMethod]
+    public void Destroy_WhenCharacterScriptFails_PublishesCleanupEvent()
+    {
+        var script = Substitute.For<IDefaultCharacterScript>();
+        var failure = new InvalidOperationException("script cleanup failed");
+        var attempts = 0;
+        script.When(value => value.OnDestroy()).Do(_ =>
+        {
+            if (++attempts == 1)
+                throw failure;
+        });
+        var character = CreateCharacter(new TestStateService(), out _, new[] { script });
+
+        var actual = Assert.ThrowsExactly<AggregateException>(() => character.Destroy());
+
+        Assert.AreEqual(1, actual.InnerExceptions.Count);
+        Assert.AreSame(failure, actual.InnerExceptions[0]);
+        script.Received(1).OnDestroy();
+        character.EventManager.Received(1).SendEvent(Arg.Any<IEvent>());
+    }
+
+    [TestMethod]
+    public void ConsoleCommandEvent_QueuesCommandForGameLoopExecution()
+    {
+        var stateService = new TestStateService();
+        var eventManager = new InMemoryEventBus();
+        var commandPrompt = Substitute.For<IGameCommandPrompt>();
+        var taskService = Substitute.For<ICreatureTaskService>();
+        ITaskItem? scheduledTask = null;
+
+        taskService.When(service => service.Queue(Arg.Any<ITaskItem>(), Arg.Any<CancellationToken>()))
+            .Do(callInfo => scheduledTask = callInfo.Arg<ITaskItem>());
+        commandPrompt.ExecuteAsync("coords", Arg.Any<ICharacter>(), Arg.Is<string[]>(args => args.Length == 0))
+            .Returns(new ValueTask<bool>(true));
+
+        var character = CreateCharacter(stateService, out _, null, eventManager, commandPrompt, taskService);
+        typeof(Character)
+            .GetMethod("RegisterEventHandlers", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(character, null);
+
+        Assert.IsFalse(character.EventManager.SendEvent(new ConsoleCommandEvent(character, "coords")));
+        commandPrompt.DidNotReceive().ExecuteAsync(Arg.Any<string>(), Arg.Any<ICharacter>(), Arg.Any<string[]>());
+
+        Assert.IsNotNull(scheduledTask);
+        scheduledTask.Tick();
+
+        commandPrompt.Received(1).ExecuteAsync("coords", character, Arg.Is<string[]>(args => args.Length == 0));
+    }
+
+    [TestMethod]
+    public async Task ExecuteCommandAsync_RethrowsLifetimeCancellation()
+    {
+        var commandPrompt = Substitute.For<IGameCommandPrompt>();
+        commandPrompt.ExecuteAsync("coords", Arg.Any<ICharacter>(), Arg.Any<string[]>()
+            ).Returns(new ValueTask<bool>(true));
+        var character = CreateCharacter(
+            new TestStateService(),
+            out _,
+            null,
+            Substitute.For<IEventManager>(),
+            commandPrompt,
+            Substitute.For<ICreatureTaskService>());
+        var method = typeof(Character).GetMethod("ExecuteCommandAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        var task = (Task)method.Invoke(character, ["coords", Array.Empty<string>(), "coords", new CancellationToken(true)])!;
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => task);
+    }
+
+    [TestMethod]
+    public async Task OnRegionChange_DoesNotUpdateMusicAfterCharacterTeardown()
+    {
+        var mapRegionService = Substitute.For<IMapRegionService>();
+        var region = Substitute.For<IMapRegion>();
+        region.Id.Returns(42);
+        mapRegionService.FindMapRegion(Arg.Any<int>(), Arg.Any<int>()).Returns(region);
+
+        var musicLookup = new TaskCompletionSource<IReadOnlyList<int>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var musicService = Substitute.For<IMusicService>();
+        musicService.FindMusicIdsByRegionId(42).Returns(musicLookup.Task);
+
+        var taskService = Substitute.For<ICreatureTaskService>();
+        ITaskItem? scheduledTask = null;
+        taskService.When(service => service.Queue(Arg.Any<ITaskItem>(), Arg.Any<CancellationToken>()))
+            .Do(callInfo => scheduledTask = callInfo.Arg<ITaskItem>());
+        taskService.Queue(Arg.Any<ITaskItem>(), Arg.Any<CancellationToken>())
+            .Returns(Substitute.For<IRsTaskHandle>());
+
+        var character = CreateCharacter(
+            new TestStateService(),
+            out _,
+            null,
+            Substitute.For<IEventManager>(),
+            Substitute.For<IGameCommandPrompt>(),
+            taskService,
+            mapRegionService,
+            musicService);
+
+        typeof(Character)
+            .GetMethod("OnRegionChange", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(character, null);
+
+        Assert.IsNotNull(scheduledTask);
+        scheduledTask.Tick();
+        character.Destroy();
+
+        musicLookup.SetResult([123]);
+        await Task.Yield();
+        scheduledTask.Tick();
+
+        var music = ((IDehydratable<HydratedMusicDto>)character.Music).Dehydrate();
+        Assert.IsFalse(music.UnlockedMusicIds.Contains(123));
+    }
+
     private static Character CreateCharacter(
         TestStateService stateService,
         out IEquipmentScript equipmentScript,
-        IEnumerable<IDefaultCharacterScript>? defaultScripts = null)
+        IEnumerable<IDefaultCharacterScript>? defaultScripts = null,
+        IItemPartFactory? itemPartFactory = null)
+    {
+        return CreateCharacter(
+            stateService,
+            out equipmentScript,
+            defaultScripts,
+            Substitute.For<IEventManager>(),
+            Substitute.For<IGameCommandPrompt>(),
+            Substitute.For<ICreatureTaskService>(),
+            itemPartFactory: itemPartFactory);
+    }
+
+    private static Character CreateCharacter(
+        TestStateService stateService,
+        out IEquipmentScript equipmentScript,
+        IEnumerable<IDefaultCharacterScript>? defaultScripts,
+        IEventManager eventManager,
+        IGameCommandPrompt gameCommandPrompt,
+        ICreatureTaskService taskService,
+        IMapRegionService? mapRegionService = null,
+        IMusicService? musicService = null,
+        IItemPartFactory? itemPartFactory = null)
     {
         var serviceProvider = Substitute.For<IServiceProvider>();
         var serviceScope = Substitute.For<IServiceScope>();
@@ -171,11 +428,12 @@ public sealed class CharacterStatePersistenceTests
 
         var scripts = Substitute.For<IDefaultCharacterScriptProvider>();
         scripts.GetAllScripts().Returns(defaultScripts ?? Array.Empty<IDefaultCharacterScript>());
+        var entityService = Substitute.For<IEntityService>();
 
-        Register(serviceProvider, Substitute.For<ICreatureTaskService>());
+        Register(serviceProvider, taskService);
         Register(serviceProvider, Substitute.For<IScopedGameMediator>());
         Register(serviceProvider, Substitute.For<ICharacterContextProvider>());
-        Register(serviceProvider, Substitute.For<IEventManager>());
+        Register(serviceProvider, eventManager);
         Register(serviceProvider, Substitute.For<ISmartPathFinder>());
         Register(serviceProvider, Substitute.For<IProjectilePathFinder>());
         Register(serviceProvider, Substitute.For<IMapRegionService>());
@@ -192,13 +450,14 @@ public sealed class CharacterStatePersistenceTests
         Register(serviceProvider, scripts);
         Register(serviceProvider, itemBuilder);
         Register<IStateService>(serviceProvider, stateService);
+        Register(serviceProvider, entityService);
 
         var character = new Character(
             serviceScope,
             Substitute.For<IGameSession>(),
             Substitute.For<IGameClient>(),
             Substitute.For<ICharacterContextProvider>(),
-            Substitute.For<IEventManager>(),
+            eventManager,
             Substitute.For<IScopedGameMediator>(),
             Substitute.For<ISmartPathFinder>(),
             Substitute.For<IProjectilePathFinder>(),
@@ -207,10 +466,11 @@ public sealed class CharacterStatePersistenceTests
             scripts,
             Substitute.For<ICharacterScriptActivator>(),
             stateService,
-            Substitute.For<IMapRegionService>(),
+            entityService,
+            mapRegionService ?? Substitute.For<IMapRegionService>(),
             Substitute.For<IMapUpdateService>(),
-            Substitute.For<IMusicService>(),
-            Substitute.For<IGameCommandPrompt>(),
+            musicService ?? Substitute.For<IMusicService>(),
+            gameCommandPrompt,
             Substitute.For<Microsoft.Extensions.Logging.ILogger<ICharacter>>(),
             Substitute.For<IAudioBuilder>(),
             Substitute.For<IGameMessageService>(),
@@ -224,7 +484,7 @@ public sealed class CharacterStatePersistenceTests
             bodyDataRepository,
             Substitute.For<ICharacterNpcScriptProvider>(),
             Substitute.For<ICharacterNpcScriptActivator>(),
-            Substitute.For<IItemPartFactory>(),
+            itemPartFactory ?? Substitute.For<IItemPartFactory>(),
             Substitute.For<ICharacterLocationService>(),
             Substitute.For<IItemService>(),
             Substitute.For<IClientMapDefinitionProvider>(),
@@ -241,6 +501,39 @@ public sealed class CharacterStatePersistenceTests
             CoordY = 3200
         });
         return character;
+    }
+
+    private static IItemPartFactory CreateItemPartFactory()
+    {
+        var factory = Substitute.For<IItemPartFactory>();
+        factory.Create(Arg.Any<int>()).Returns(callInfo => new ItemPart(callInfo.Arg<int>())
+        {
+            MaleModels = [],
+            FemaleModels = [],
+            ModelColors = [],
+            TextureColors = []
+        });
+        return factory;
+    }
+
+    private static HydratedItemAppearanceDto CreateItemAppearance(int itemId) => new()
+    {
+        Id = itemId,
+        MaleModels = [101, 102, 103],
+        FemaleModels = [201, 202, 203],
+        ModelColors = [301, 302],
+        TextureColors = [401]
+    };
+
+    private static void AssertItemAppearanceEqual(
+        HydratedItemAppearanceDto expected,
+        HydratedItemAppearanceDto actual)
+    {
+        Assert.AreEqual(expected.Id, actual.Id);
+        CollectionAssert.AreEqual(expected.MaleModels, actual.MaleModels);
+        CollectionAssert.AreEqual(expected.FemaleModels, actual.FemaleModels);
+        CollectionAssert.AreEqual(expected.ModelColors, actual.ModelColors);
+        CollectionAssert.AreEqual(expected.TextureColors, actual.TextureColors);
     }
 
     private static void Register<T>(IServiceProvider serviceProvider, T service) where T : class =>

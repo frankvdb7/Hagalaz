@@ -35,7 +35,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
 
             attacker.Combat.PerformAttack(new AttackParams()
             {
-                Target = victim,
+                Target = victim.Handle,
                 Damage = damage,
                 MaxDamage = maxDamage,
                 DamageType = DamageType.FullMagic,

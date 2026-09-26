@@ -8,11 +8,11 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Utilities;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures
@@ -32,10 +32,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         private readonly List<ICreatureAttackerInfo> _recentAttackers = [];
 
-        /// <summary>
-        ///     The killers.
-        /// </summary>
-        private readonly List<ICreatureAttackerInfo> _attackers = [];
+        private readonly List<DamageContribution> _damageContributions = [];
+        private readonly IEntityService _entityService;
+        private EntityHandle<ICreature> _targetHandle;
+
+        private sealed class DamageContribution(EntityHandle<ICreature> attacker)
+        {
+            public EntityHandle<ICreature> Attacker { get; } = attacker;
+            public int TotalDamage { get; set; }
+            public int LastAttackTick { get; set; }
+        }
 
         /// <summary>
         /// The projectile path finder
@@ -69,7 +75,23 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         ///     Contains target character or null.
         /// </summary>
         /// <value>The target.</value>
-        public ICreature? Target { get; protected set; }
+        public ICreature? Target => ResolveTarget();
+
+        protected void SetTargetHandle(EntityHandle<ICreature> targetHandle) => _targetHandle = targetHandle;
+
+        private ICreature? ResolveTarget()
+        {
+            return ResolveCreature(_targetHandle);
+        }
+
+        protected ICreature? ResolveCreature(EntityHandle<ICreature> handle)
+        {
+            return _entityService.TryResolve<ICreature>(handle, out var creature)
+                ? creature
+                : null;
+        }
+
+        protected abstract bool CanSetResolvedTarget(ICreature target);
 
         /// <summary>
         ///     Contains last target or null.
@@ -90,28 +112,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </value>
         public IEnumerable<ICreatureAttackerInfo> RecentAttackers => _recentAttackers.AsEnumerable();
 
-        /// <summary>
-        ///     Construct's new combat class.
-        /// </summary>
-        /// <param name="owner">Owner of this class.</param>
-        protected CreatureCombat(ICreature owner)
-            : this(
-                owner,
-                owner.ServiceProvider.GetRequiredService<IProjectilePathFinder>(),
-                owner.ServiceProvider.GetRequiredService<ISmartPathFinder>(),
-                owner.ServiceProvider.GetRequiredService<IOptions<CombatOptions>>(),
-                owner.ServiceProvider.GetRequiredService<IHitSplatBuilder>())
-        {
-        }
-
         protected CreatureCombat(
             ICreature owner,
+            IEntityService entityService,
             IProjectilePathFinder projectilePathFinder,
             ISmartPathFinder smartPathFinder,
             IOptions<CombatOptions> combatOptions,
             IHitSplatBuilder hitSplatBuilder)
         {
             Owner = owner;
+            _entityService = entityService;
             DelayTick = 17;
 
             HitSplatBuilder = hitSplatBuilder;
@@ -173,14 +183,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         /// <param name="target">Creature which should be attacked.</param>
         /// <returns>If creature target was set sucessfully.</returns>
-        public abstract bool SetTarget(ICreature target);
+        public abstract bool SetTarget(EntityHandle<ICreature> target);
 
         /// <summary>
         ///     Determines whether this instance [can set target] the specified target.
         /// </summary>
         /// <param name="target">The target.</param>
         /// <returns><c>true</c> if this instance [can set target] the specified target; otherwise, <c>false</c>.</returns>
-        public abstract bool CanSetTarget(ICreature target);
+        public abstract bool CanSetTarget(EntityHandle<ICreature> target);
 
         /// <summary>
         ///     Get's called after attack was performed to specific target.
@@ -270,7 +280,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         ///     Gets the last attack tick.
         /// </summary>
         /// <returns></returns>
-        public int GetLastAttackerTick() => _attackers.Select(attacker => attacker.LastAttackTick).Prepend(-1).Max();
+        public int GetLastAttackerTick() => _damageContributions
+            .Select(attacker => attacker.LastAttackTick)
+            .Prepend(-1)
+            .Max();
 
         /// <summary>
         ///     Perform's incomming attack on this character.
@@ -317,23 +330,46 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
         public virtual IRsTaskHandle<AttackResult> PerformAttack(AttackParams attackParams)
         {
-            var distance = Owner.Location.GetDistance(attackParams.Target.Location);
+            var targetHandle = attackParams.Target;
+            if (!_entityService.TryResolve<ICreature>(targetHandle, out var targetOwner))
+            {
+                return Owner.QueueTask(new RsTask<AttackResult>(() => new AttackResult
+                {
+                    Damage = (false, 0),
+                    DamageLifePoints = (false, 0)
+                }, 0));
+            }
+
+            var damageType = attackParams.DamageType;
+            var maxDamage = attackParams.MaxDamage;
+            var requestedDamage = attackParams.Damage;
+            var distance = Owner.Location.GetDistance(targetOwner.Location);
             var delay = attackParams.Delay + (int)Math.Round(Math.Max(0, distance - 1) * 2);
 
-            var incomingDamage = attackParams.Target.Combat.IncomingAttack(Owner, attackParams.DamageType, attackParams.Damage, delay);
-            return attackParams.Target.QueueTask(new RsTask<AttackResult>(() =>
+            var incomingDamage = targetOwner.Combat.IncomingAttack(Owner, damageType, requestedDamage, delay);
+            return targetOwner.QueueTask(new RsTask<AttackResult>(() =>
             {
+                var target = ResolveCreature(targetHandle);
+                if (target is null)
+                {
+                    return new AttackResult
+                    {
+                        Damage = (false, incomingDamage),
+                        DamageLifePoints = (false, 0)
+                    };
+                }
+
                 var soak = -1;
-                var damage = attackParams.Target.Combat.Attack(Owner, attackParams.DamageType, incomingDamage, ref soak);
+                var damage = target.Combat.Attack(Owner, damageType, incomingDamage, ref soak);
                 var splat = HitSplatBuilder.Create()
                     .AddSprite(builder =>
                     {
                         builder
                             .WithDamage(damage)
-                            .WithDamageType(attackParams.DamageType);
-                        if (attackParams.MaxDamage is not null)
+                            .WithDamageType(damageType);
+                        if (maxDamage is not null)
                         {
-                            builder.WithMaxDamage(attackParams.MaxDamage.Value);
+                            builder.WithMaxDamage(maxDamage.Value);
                         }
                     })
                     .AddSprite(builder => builder
@@ -341,7 +377,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                         .WithSplatType(HitSplatType.HitDefendedDamage))
                     .FromSender(Owner)
                     .Build();
-                attackParams.Target.QueueHitSplat(splat);
+                target.QueueHitSplat(splat);
 
                 return new AttackResult
                 {
@@ -358,23 +394,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         protected void AddAttacker(ICreature attacker)
         {
             var attackerRef = _recentAttackers.FirstOrDefault(att => att.Attacker == attacker);
-            if (attackerRef != null)
+            if (attackerRef == null)
+            {
+                attackerRef = new CreatureAttackerInfo(attacker, 0);
+                _recentAttackers.Add(attackerRef);
+            }
+            else
             {
                 attackerRef.LastAttackTick = 0;
-                return;
             }
 
-            var attack = new CreatureAttackerInfo(attacker, 0);
-            _recentAttackers.Add(attack);
-
-            for (var index = 0; index < _attackers.Count; index++)
-                if (_attackers[index].Attacker == attacker)
-                {
-                    _attackers[index] = attack;
-                    return;
-                }
-
-            _attackers.Add(attack);
+            if (attacker is ICharacter or INpc)
+            {
+                AddDamageContribution(attacker);
+            }
         }
 
         /// <summary>
@@ -385,20 +418,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         {
             ICreature? killer = null;
             var damage = -1;
-            foreach (var att in _attackers.Where(att => att.TotalDamage > damage))
+
+            foreach (var contribution in _damageContributions)
             {
-                killer = att.Attacker;
-                damage = att.TotalDamage;
+                if (_entityService.TryResolve<ICreature>(contribution.Attacker, out var attacker)
+                    && contribution.TotalDamage > damage)
+                {
+                    killer = attacker;
+                    damage = contribution.TotalDamage;
+                }
             }
 
-            if (killer is not INpc npc)
+            if (killer is INpc familiar && familiar.TryGetScript<IFamiliarScript>(out var script))
             {
-                return killer;
-            }
-
-            if (npc.TryGetScript<IFamiliarScript>(out var script))
-            {
-                killer = script.Summoner;
+                return script.Summoner;
             }
 
             return killer;
@@ -420,6 +453,27 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             if (refAttack != null)
             {
                 refAttack.TotalDamage += damage;
+            }
+
+            var contribution = _damageContributions.FirstOrDefault(info => info.Attacker == attacker.Handle);
+            if (contribution is not null)
+            {
+                contribution.TotalDamage += damage;
+                contribution.LastAttackTick = 0;
+            }
+        }
+
+        private void AddDamageContribution(ICreature attacker)
+        {
+            var handle = attacker.Handle;
+            var contribution = _damageContributions.FirstOrDefault(info => info.Attacker == handle);
+            if (contribution is null)
+            {
+                _damageContributions.Add(new DamageContribution(handle));
+            }
+            else
+            {
+                contribution.LastAttackTick = 0;
             }
         }
 
@@ -556,15 +610,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         private void ConditionsTick()
         {
-            if (Target != null && !CanSetTarget(Target)) CancelTarget();
+            var target = Target;
+            if (target is not null && !CanSetResolvedTarget(target)) CancelTarget();
 
             DelayTick++;
-            if (LastAttacked != null && LastAttacked.IsDestroyed)
-            {
-                OnLastAttackedFade();
-                LastAttacked = null;
-            }
-            else if (LastAttacked != null)
+            if (LastAttacked != null)
             {
                 var attackers = LastAttacked.Combat.RecentAttackers;
                 var foundSelf = attackers.Any(attacker => attacker.Attacker == Owner);
@@ -580,26 +630,23 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             foreach (var info in att)
                 if (info.Attacker is ICharacter)
                 {
-                    if (info.LastAttackTick > _combatOptions.Value.CharacterAttackTickDelay) _recentAttackers.Remove(info);
+                    if (info.LastAttackTick > _combatOptions.Value.CharacterAttackTickDelay)
+                        _recentAttackers.Remove(info);
+                    else
+                        info.LastAttackTick++;
                 }
                 else if (info.Attacker is INpc)
                 {
-                    if (info.LastAttackTick > _combatOptions.Value.NpcAttackTickDelay) _recentAttackers.Remove(info);
+                    if (info.LastAttackTick > _combatOptions.Value.NpcAttackTickDelay)
+                        _recentAttackers.Remove(info);
+                    else
+                        info.LastAttackTick++;
                 }
 
-            var ks = new List<ICreatureAttackerInfo>(_attackers);
-            foreach (var attacker in ks)
-            {
-                if (attacker.Attacker.IsDestroyed)
-                {
-                    _attackers.Remove(attacker);
-                    continue;
-                }
-
-                if (Owner is ICharacter)
-                    if (++attacker.LastAttackTick >= 500) // 5 minutes, then the attacker that dealt damage will be removed.
-                        _attackers.Remove(attacker);
-            }
+            var contributions = new List<DamageContribution>(_damageContributions);
+            foreach (var attacker in contributions)
+                if (++attacker.LastAttackTick >= 500) // 5 minutes, then the attacker that dealt damage will be removed.
+                    _damageContributions.Remove(attacker);
         }
 
         /// <summary>
@@ -608,7 +655,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         protected void ResetAttackers()
         {
             _recentAttackers.Clear();
-            _attackers.Clear();
+            _damageContributions.Clear();
+        }
+
+        public void OnDestroy()
+        {
+            _targetHandle = default;
+            LastAttacked = null;
+            _recentAttackers.Clear();
+            _damageContributions.Clear();
         }
 
         /// <summary>

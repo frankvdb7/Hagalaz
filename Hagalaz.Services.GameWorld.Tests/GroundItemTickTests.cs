@@ -9,6 +9,7 @@ using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Services.GameWorld.Model.Items;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
+using Hagalaz.Services.GameWorld.Store;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 
@@ -19,7 +20,6 @@ namespace Hagalaz.Services.GameWorld.Tests
     {
         private static MapRegion CreateRegion(int publicTicks = 100)
         {
-            var npcService = Substitute.For<INpcService>();
             var regionService = Substitute.For<IMapRegionService>();
             var gameObjectBuilder = Substitute.For<IGameObjectBuilder>();
             var groundItemBuilder = new SimpleGroundItemBuilder(publicTicks, regionService);
@@ -28,11 +28,12 @@ namespace Hagalaz.Services.GameWorld.Tests
             return new MapRegion(
                 location,
                 new int[4],
-                npcService,
+                Substitute.For<INpcService>(),
                 regionService,
                 gameObjectBuilder,
                 groundItemBuilder,
-                mapper);
+                mapper,
+                new EntityStore());
         }
 
         private static IGroundItem CreateItem(int respawnTicks, int ticksLeft)
@@ -175,28 +176,23 @@ namespace Hagalaz.Services.GameWorld.Tests
         public void Despawn_RemovesItemFromLocationRegion()
         {
             var regionService = Substitute.For<IMapRegionService>();
-            var region = Substitute.For<IMapRegion>();
             var item = CreateItem(0, 0);
             var groundItem = new GroundItem(item.ItemOnGround, item.Location, null, 0, 0, regionService);
-            regionService.GetOrCreateMapRegion(item.Location.RegionId, item.Location.Dimension, false).Returns(region);
-            region.Remove(groundItem).Returns(true);
+            regionService.RemoveGroundItem(groundItem).Returns(true);
 
             var result = groundItem.Despawn();
 
             Assert.IsTrue(result);
-            regionService.Received(1).GetOrCreateMapRegion(item.Location.RegionId, item.Location.Dimension, false);
-            region.Received(1).Remove(groundItem);
+            regionService.Received(1).RemoveGroundItem(groundItem);
         }
 
         [TestMethod]
         public void Despawn_ReturnsFalse_WhenRegionDoesNotRemoveExactInstance()
         {
             var regionService = Substitute.For<IMapRegionService>();
-            var region = Substitute.For<IMapRegion>();
             var item = CreateItem(0, 0);
             var groundItem = new GroundItem(item.ItemOnGround, item.Location, null, 0, 0, regionService);
-            regionService.GetOrCreateMapRegion(item.Location.RegionId, item.Location.Dimension, false).Returns(region);
-            region.Remove(groundItem).Returns(false);
+            regionService.RemoveGroundItem(groundItem).Returns(false);
 
             var result = groundItem.Despawn();
 
@@ -214,7 +210,6 @@ namespace Hagalaz.Services.GameWorld.Tests
             var result = region.Remove(staleItem);
 
             Assert.IsFalse(result);
-            Assert.IsFalse(staleItem.IsDestroyed);
             Assert.HasCount(1, region.FindAllGroundItems());
             Assert.AreSame(activeItem, region.FindAllGroundItems().Single());
         }

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Builders.Animation;
@@ -279,6 +278,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             IDefaultCharacterScriptProvider defaultCharacterScriptProvider,
             ICharacterScriptActivator characterScriptActivator,
             IStateService stateService,
+            IEntityService entityService,
             IMapRegionService mapRegionService,
             IMapUpdateService mapUpdateService,
             IMusicService musicService,
@@ -340,7 +340,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             Statistics = new CharacterStatistics(this, combatOptions, skillOptions, hitSplatBuilder);
             Appearance = new CharacterAppearance(this, npcService, bodyDataRepository, characterNpcScriptProvider, characterNpcScriptActivator, itemPartFactory);
             Prayers = new Prayers(this, animationBuilder, graphicBuilder);
-            Combat = new CharacterCombat(this, animationBuilder, graphicBuilder, projectileBuilder, mapRegionService, groundItemBuilder, hitSplatBuilder,
+            Combat = new CharacterCombat(this, entityService, animationBuilder, graphicBuilder, projectileBuilder, mapRegionService, groundItemBuilder, hitSplatBuilder,
                 projectilePathFinder, pathFinder, combatOptions);
             Quests = new Quests(this);
             Farming = new Farming(this, farmingService, gameObjectService);
@@ -391,18 +391,40 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         protected override void OnDestroy()
         {
-            EventManager.SendEvent(new CreatureDestroyedEvent(this));
-            foreach (var characterScript in _scripts.Values)
+            List<Exception>? exceptions = null;
+            try
             {
-                characterScript.OnDestroy();
+                EventManager.SendEvent(new CreatureDestroyedEvent(this));
             }
+            catch (Exception exception)
+            {
+                (exceptions ??= []).Add(exception);
+            }
+
+            foreach (var script in _scripts.Values)
+            {
+                try
+                {
+                    script.OnDestroy();
+                }
+                catch (Exception exception)
+                {
+                    (exceptions ??= []).Add(exception);
+                }
+            }
+
             UnregisterEventHandlers();
+
+            if (exceptions is { Count: > 0 })
+            {
+                throw new AggregateException("One or more character cleanup operations failed.", exceptions).Flatten();
+            }
         }
 
         /// <summary>
         /// Get's called when entity is registered to world.
         /// </summary>
-        public override Task OnRegistered()
+        public override void OnRegistered()
         {
             // initialize the most important drawing logic first
             RenderInformation.OnRegistered();
@@ -424,7 +446,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 AddState(new LodestoneEdgevilleState());
 
             OnInit();
-            return Task.CompletedTask;
         }
 
         /// <summary>

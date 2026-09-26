@@ -22,6 +22,9 @@ namespace Raido.Server.Tests;
 [DoNotParallelize]
 public sealed class RaidoHubDispatcherTests
 {
+    private readonly List<RaidoHubConnectionContext> _connections = new();
+    private readonly List<(Pipe Input, Pipe Output)> _transports = new();
+
     private sealed class DispatchMessage : RaidoMessage { }
     private sealed class OtherMessage : RaidoMessage { }
     private sealed class TaskMessage : RaidoMessage { }
@@ -34,6 +37,13 @@ public sealed class RaidoHubDispatcherTests
     private sealed class InheritedAuthorizationMessage : RaidoMessage { }
     private sealed class MultiplePolicyMessage : RaidoMessage { }
     private sealed class AllowAnonymousMessage : RaidoMessage { }
+    private class BaseMessage : RaidoMessage { }
+    private sealed class DerivedMessage : BaseMessage { }
+
+    private sealed class ExactTypeDispatchTracker
+    {
+        public int Invoked;
+    }
 
     private sealed class DispatchHub : RaidoHub
     {
@@ -90,6 +100,12 @@ public sealed class RaidoHubDispatcherTests
             ValueTaskInvoked++;
             return ValueTask.FromResult(new DispatchMessage());
         }
+    }
+
+    private sealed class ExactTypeDispatchHub : RaidoHub
+    {
+        [RaidoMessageHandler(typeof(BaseMessage))]
+        public void Handle(BaseMessage message, ExactTypeDispatchTracker tracker) => tracker.Invoked++;
     }
 
     private sealed class DispatchFilter : IRaidoHubFilter
@@ -196,6 +212,7 @@ public sealed class RaidoHubDispatcherTests
         services.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Trace));
         services.AddAuthorization(configureAuthorization ?? (_ => { }));
         services.AddSingleton(new RaidoServerActivitySource());
+        services.AddSingleton<ExactTypeDispatchTracker>();
         services.AddScoped<IRaidoCallerContextAccessor, DefaultRaidoCallerContextAccessor>();
         services.AddScoped<IRaidoHubActivator<THub>, DefaultRaidoHubActivator<THub>>();
         services.AddOptions<RaidoHubOptions<THub>>();
@@ -206,7 +223,25 @@ public sealed class RaidoHubDispatcherTests
         return (services.BuildServiceProvider(), context);
     }
 
-    private static RaidoConnectionContext CreateConnection(string id = "connection")
+    [TestCleanup]
+    public async Task CleanupConnections()
+    {
+        foreach (var connection in _connections)
+        {
+            connection.Abort();
+            await connection.CleanupAsync();
+        }
+
+        foreach (var (input, output) in _transports)
+        {
+            input.Reader.Complete();
+            input.Writer.Complete();
+            output.Reader.Complete();
+            output.Writer.Complete();
+        }
+    }
+
+    private RaidoHubConnectionContext CreateConnection(string id = "connection")
     {
         var context = Substitute.For<ConnectionContext>();
         context.ConnectionId.Returns(id);
@@ -218,10 +253,14 @@ public sealed class RaidoHubDispatcherTests
         context.Transport.Returns(transport);
         context.Features.Returns(new FeatureCollection());
         context.ConnectionClosed.Returns(CancellationToken.None);
-        return new RaidoConnectionContext(context, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
-        {
-            Protocol = new TestProtocol()
-        };
+        _transports.Add((input, output));
+        var connection = RaidoTestConnectionFactory.Create(
+            context,
+            new RaidoConnectionContextOptions(),
+            NullLoggerFactory.Instance,
+            protocol: new TestProtocol());
+        _connections.Add(connection);
+        return connection;
     }
 
     private static DefaultRaidoHubDispatcher<DispatchHub> CreateDispatcher(ServiceProvider provider)
@@ -269,6 +308,18 @@ public sealed class RaidoHubDispatcherTests
         Assert.AreEqual(1, DispatchHub.Connected);
         Assert.AreEqual(1, DispatchHub.Invoked);
         Assert.AreEqual(1, DispatchHub.Disconnected);
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_DoesNotDispatchDerivedMessageToBaseMessageHandler()
+    {
+        using var provider = CreateProvider<ExactTypeDispatchHub>().Provider;
+        var dispatcher = CreateDispatcher<ExactTypeDispatchHub>(provider);
+        var tracker = provider.GetRequiredService<ExactTypeDispatchTracker>();
+
+        await dispatcher.DispatchMessageAsync(CreateConnection(), new DerivedMessage());
+
+        Assert.AreEqual(0, tracker.Invoked);
     }
 
     [TestMethod]

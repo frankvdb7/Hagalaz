@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 
@@ -24,12 +23,6 @@ namespace Hagalaz.Game.Abstractions.Services
         public ValueTask<ICharacter?> FindByIndex(int index);
 
         /// <summary>
-        /// Retrieves all characters currently in the game world.
-        /// </summary>
-        /// <returns>An <see cref="IAsyncEnumerable{T}"/> that contains all characters.</returns>
-        public IAsyncEnumerable<ICharacter> FindAll();
-
-        /// <summary>
         /// Adds a character to the game world.
         /// </summary>
         /// <param name="character">The character to add.</param>
@@ -42,6 +35,11 @@ namespace Hagalaz.Game.Abstractions.Services
         /// <param name="character">The character to remove.</param>
         /// <returns>A <see cref="ValueTask{TResult}"/> that represents the asynchronous operation. The task result contains <c>true</c> if the character was removed successfully; otherwise, <c>false</c>.</returns>
         public ValueTask<bool> RemoveAsync(ICharacter character);
+
+        /// <summary>
+        /// Removes a character synchronously from the game-worker lifecycle boundary.
+        /// </summary>
+        bool Remove(ICharacter character);
 
         /// <summary>
         /// Gets the total number of characters currently in the game world.

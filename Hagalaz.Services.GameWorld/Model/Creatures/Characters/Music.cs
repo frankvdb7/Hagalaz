@@ -183,9 +183,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="musicIndex">The index.</param>
         public void SendHint(int musicIndex)
         {
-            _owner.QueueTask(async () =>
+            _owner.QueueTask(async cancellationToken =>
             {
                 var music = await _musicService.FindMusicByIndex(musicIndex);
+                cancellationToken.ThrowIfCancellationRequested();
                 if (music != null)
                 {
                     _owner.SendChatMessage(music.Hint);

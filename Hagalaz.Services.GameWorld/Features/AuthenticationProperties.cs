@@ -15,6 +15,7 @@ namespace Hagalaz.Services.GameWorld.Features
         public const string TokenTypeKey = "token_type";
         public const string ClaimsKey = "claims";
         public const string ClientIdKey = "client_id";
+        public const string AuthorizationIdKey = "authorization_id";
 
         private readonly IDictionary<string, object?> _items;
 
@@ -62,6 +63,12 @@ namespace Hagalaz.Services.GameWorld.Features
         {
             get => GetItem<string>(ClientIdKey);
             set => SetItem(ClientIdKey, value);
+        }
+
+        public string? AuthorizationId
+        {
+            get => GetItem<string>(AuthorizationIdKey);
+            set => SetItem(AuthorizationIdKey, value);
         }
 
         public IDictionary<string, object>? Claims

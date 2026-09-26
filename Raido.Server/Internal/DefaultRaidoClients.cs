@@ -5,9 +5,9 @@ namespace Raido.Server.Internal
 {
     internal class DefaultRaidoClients : IRaidoClients
     {
-        private readonly IRaidoLifetimeManager _lifetimeManager;
+        private readonly IRaidoHubLifetimeManager _lifetimeManager;
 
-        public DefaultRaidoClients(IRaidoLifetimeManager lifetimeManager)
+        public DefaultRaidoClients(IRaidoHubLifetimeManager lifetimeManager)
         {
             _lifetimeManager = lifetimeManager;
             All = new AllClientProxy(lifetimeManager);

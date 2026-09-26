@@ -86,7 +86,7 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake
         {
             var buffer = MemoryBufferWriter.Get();
             var writer = new RaidoMessageBinaryWriter(buffer);
-            var headerBuffer = ArrayPool<byte>.Shared.Rent(2);
+            var headerBuffer = ArrayPool<byte>.Shared.Rent(4);
             var headerPosition = 0;
             try
             {
@@ -95,9 +95,23 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake
                     return false;
                 }
                 headerBuffer[headerPosition++] = (byte)writer.Opcode;
-                if (buffer.Length > 0)
+                switch (writer.Size)
                 {
-                    headerBuffer[headerPosition++] = (byte)buffer.Length;
+                    case RaidoMessageSize.Fixed:
+                        break;
+                    case RaidoMessageSize.VariableByte when buffer.Length > byte.MaxValue:
+                        throw new InvalidOperationException("Could not send a handshake response with more than 8-bit payload length.");
+                    case RaidoMessageSize.VariableByte:
+                        headerBuffer[headerPosition++] = (byte)buffer.Length;
+                        break;
+                    case RaidoMessageSize.VariableShort when buffer.Length > ushort.MaxValue:
+                        throw new InvalidOperationException("Could not send a handshake response with more than 16-bit payload length.");
+                    case RaidoMessageSize.VariableShort:
+                        headerBuffer[headerPosition++] = (byte)(buffer.Length >> 8);
+                        headerBuffer[headerPosition++] = (byte)buffer.Length;
+                        break;
+                    default:
+                        throw new NotImplementedException(nameof(writer.Size));
                 }
                 output.Write(headerBuffer.AsSpan()[..headerPosition]);
                 buffer.CopyTo(output);

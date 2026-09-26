@@ -1,9 +1,11 @@
 using System;
 using System.Linq;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -30,7 +32,8 @@ namespace Hagalaz.Game.Common.Tasks
         /// <summary>
         /// Contains target creature.
         /// </summary>
-        private readonly ICreature _target;
+        private readonly EntityHandle<ICreature> _targetHandle;
+        private readonly IEntityService _entityService;
 
         /// <summary>
         /// Contains finish callback.
@@ -51,14 +54,15 @@ namespace Hagalaz.Game.Common.Tasks
         /// Constructs new creature reach task.
         /// </summary>
         /// <param name="reacher">The reacher.</param>
-        /// <param name="target">The target.</param>
+        /// <param name="target">The target handle.</param>
         /// <param name="callback">The callback.</param>
         /// <param name="conditions">The conditions.</param>
-        public CreatureReachTask(ICreature reacher, ICreature target, Action<bool> callback, params Type[] conditions)
+        public CreatureReachTask(ICreature reacher, EntityHandle<ICreature> target, Action<bool> callback, params Type[] conditions)
             : base(conditions)
         {
             _reacher = reacher;
-            _target = target;
+            _entityService = _reacher.ServiceProvider.GetRequiredService<IEntityService>();
+            _targetHandle = target;
             _finishCallback = callback;
             TickActionMethod = PerformTickImpl;
             _interruptEvent = _reacher.RegisterEventHandler<CreatureInterruptedEvent>(e =>
@@ -68,7 +72,7 @@ namespace Hagalaz.Game.Common.Tasks
                     return false;
                 }
 
-                if (TickCount >= 1 && _reacher.FacedCreature == _target)
+                if (TickCount >= 1 && IsFacingTarget())
                 {
                     _reacher.ResetFacing();
                 }
@@ -76,7 +80,7 @@ namespace Hagalaz.Game.Common.Tasks
                 Cancel();
                 return false;
             });
-            _pathFinder = reacher.ServiceProvider.GetRequiredService<IPathFinderProvider>().Smart;
+            _pathFinder = reacher.ServiceProvider!.GetRequiredService<IPathFinderProvider>().Smart;
         }
 
         /// <summary>
@@ -85,9 +89,12 @@ namespace Hagalaz.Game.Common.Tasks
         /// <returns></returns>
         private void PerformTickImpl()
         {
-            if (_reacher.Movement.Locked || _target.IsDestroyed || !_reacher.Viewport.VisibleCreatures.Contains(_target))
+            var target = ResolveTarget();
+            if (target is null
+                || _reacher.Movement.Locked
+                || !_reacher.Viewport.VisibleCreatures.Contains(target))
             {
-                if (TickCount >= 1 && _reacher.FacedCreature == _target)
+                if (TickCount >= 1 && IsFacingTarget())
                     _reacher.ResetFacing();
                 _finishCallback.Invoke(false);
                 Cancel();
@@ -96,13 +103,13 @@ namespace Hagalaz.Game.Common.Tasks
 
             if (TickCount == 1)
             {
-                _reacher.FaceCreature(_target);
+                _reacher.FaceCreature(target);
             }
 
-            var path = _pathFinder.Find(_reacher, _target, true);
+            var path = _pathFinder.Find(_reacher, target, true);
             if (!path.Successful && !path.MovedNear || path.MovedNearDestination)
             {
-                _reacher.FaceLocation(_target.Location, _target.Size, _target.Size);
+                _reacher.FaceLocation(target.Location, target.Size, target.Size);
                 _reacher.ResetFacing();
                 _finishCallback(false);
                 Cancel();
@@ -111,7 +118,7 @@ namespace Hagalaz.Game.Common.Tasks
 
             if (path.ReachedDestination)
             {
-                _reacher.FaceLocation(_target.Location, _target.Size, _target.Size);
+                _reacher.FaceLocation(target.Location, target.Size, target.Size);
                 _reacher.ResetFacing();
                 _finishCallback(true);
                 Cancel();
@@ -120,6 +127,13 @@ namespace Hagalaz.Game.Common.Tasks
 
             _reacher.Movement.AddToQueue(path);
         }
+
+        private ICreature? ResolveTarget()
+        {
+            return _entityService.TryResolve<ICreature>(_targetHandle, out var creature) ? creature : null;
+        }
+
+        private bool IsFacingTarget() => _reacher.FacedCreature?.Handle == _targetHandle;
 
         /// <summary>
         /// 

@@ -30,14 +30,14 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
             {
                 Damage = combat.GetMeleeDamage(victim, true),
                 DamageType = DamageType.FullMelee,
-                Target = victim,
+                Target = victim.Handle,
                 MaxDamage = maxDamage
             });
             attacker.Combat.PerformAttack(new AttackParams()
             {
                 Damage = combat.GetMeleeDamage(victim, true),
                 DamageType = DamageType.FullMelee,
-                Target = victim,
+                Target = victim.Handle,
                 MaxDamage = maxDamage
             });
         }

@@ -13,13 +13,13 @@ namespace Raido.Server.Internal
 
         public DefaultRaidoDispatcher(IEnumerable<IRaidoHubDispatcher> hubDispatchers) => _hubDispatchers = hubDispatchers;
         
-        public Task OnConnectedAsync(RaidoConnectionContext connection) =>
+        public Task OnConnectedAsync(RaidoHubConnectionContext connection) =>
             Task.WhenAll(_hubDispatchers.Select(d => d.OnConnectedAsync(connection)));
 
-        public Task OnDisconnectedAsync(RaidoConnectionContext connection, Exception? exception) =>
+        public Task OnDisconnectedAsync(RaidoHubConnectionContext connection, Exception? exception) =>
             Task.WhenAll(_hubDispatchers.Select(d => d.OnDisconnectedAsync(connection, exception)));
 
-        public Task DispatchMessageAsync(RaidoConnectionContext connection, RaidoMessage message)
+        public Task DispatchMessageAsync(RaidoHubConnectionContext connection, RaidoMessage message)
         {
             if (message is not PingMessage)
             {

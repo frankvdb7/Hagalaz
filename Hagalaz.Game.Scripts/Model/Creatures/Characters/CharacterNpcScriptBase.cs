@@ -144,7 +144,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Characters
             var maxDamage = ((ICharacterCombat)Owner.Combat).GetMeleeMaxHit(target, false);
             Owner.Combat.PerformAttack(new AttackParams()
             {
-                Target = target, Damage = damage, MaxDamage = maxDamage, DamageType = DamageType.StandardMelee,
+                Target = target.Handle, Damage = damage, MaxDamage = maxDamage, DamageType = DamageType.StandardMelee,
             });
         }
 

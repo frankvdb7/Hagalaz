@@ -35,7 +35,7 @@ The change is limited to the existing worker, the `IMapRegion` and creature tick
 - Each tick obtains one character snapshot and all region client-update calls receive that same snapshot.
 - Character rendering does not enumerate the global character store once per character.
 - Viewport rebuild work is not deferred to a later creature-task tick: the map-update service performs the viewport rebuild, map packet send, non-blocking region-load requests, and full-part updates during the current synchronous render phase, while `Viewport` remains state-only.
-- Region-load requests are accepted synchronously without blocking the game tick or creating detached tasks, skip loaded or already scheduled regions, and are consumed asynchronously by one dedicated scheduler worker.
+- Region-load requests are accepted synchronously without blocking the game tick or creating detached tasks, skip ready or already scheduled regions, and are consumed asynchronously by one dedicated scheduler worker.
 - The region-load scheduler tolerates requests racing with intentional shutdown, while still surfacing unexpected request-channel failures during normal operation; hosted-service registration stops `GameWorkerService` before the scheduler so an already-started synchronous tick can finish.
 - `ICharacter` and `IViewport` do not expose `UpdateMapAsync`; startup and world-map callers use synchronous `UpdateMap` without sync-over-async waits.
 - `StopAsync` never reports successful completion while `ExecuteTask` is still alive; an expired host shutdown token is surfaced as a timeout when a synchronous tick cannot yet reach its boundary.

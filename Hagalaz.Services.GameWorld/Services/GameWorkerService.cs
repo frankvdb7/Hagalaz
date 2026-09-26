@@ -1,8 +1,8 @@
 using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Services.GameWorld.Configuration.Model;
@@ -12,23 +12,30 @@ using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Services
 {
-    public class GameWorkerService : BackgroundService
+    public class GameWorkerService : BackgroundService, IGameWorkerExecution
     {
         private readonly IRsTaskService _rsTaskScheduler;
         private readonly IMapRegionService _regionService;
+        private readonly MapRegionBackgroundService _regionHousekeeping;
         private readonly ICharacterStore _characterStore;
         private readonly GameServerOptions _gameOptions;
         private readonly ILogger<GameWorkerService> _logger;
+        private readonly TaskCompletionSource _executionCompleted =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task ExecutionCompleted => _executionCompleted.Task;
 
         public GameWorkerService(
             IRsTaskService rsTaskScheduler,
             IMapRegionService regionService,
+            MapRegionBackgroundService regionHousekeeping,
             ICharacterStore characterStore,
             IOptions<GameServerOptions> gameOptions,
             ILogger<GameWorkerService> logger)
         {
             _rsTaskScheduler = rsTaskScheduler;
             _regionService = regionService;
+            _regionHousekeeping = regionHousekeeping;
             _characterStore = characterStore;
             _gameOptions = gameOptions.Value;
             _logger = logger;
@@ -37,7 +44,21 @@ namespace Hagalaz.Services.GameWorld.Services
         public override Task StartAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("{Name} is starting.", nameof(GameWorkerService));
-            return base.StartAsync(cancellationToken);
+            var startTask = base.StartAsync(cancellationToken);
+            if (ExecuteTask is { } executionTask)
+            {
+                _ = executionTask.ContinueWith(
+                    _ => _executionCompleted.TrySetResult(),
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
+            }
+            else
+            {
+                _executionCompleted.TrySetResult();
+            }
+
+            return startTask;
         }
 
         public override async Task StopAsync(CancellationToken cancellationToken)
@@ -73,27 +94,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
                 try
                 {
-                    // Execute 'major-update' tasks.
-                    _rsTaskScheduler.Tick();
-
-                    var stopwatch = Stopwatch.StartNew();
-                    var tickCompleted = false;
-                    try
-                    {
-                        await RunMajorTickAsync(stoppingToken);
-                        tickCompleted = true;
-                    }
-                    finally
-                    {
-                        stopwatch.Stop();
-                        if (tickCompleted && stopwatch.Elapsed > tickTimeSpan)
-                        {
-                            _logger.LogWarning(
-                                "Major game tick exceeded its configured budget. Elapsed: {Elapsed}; budget: {Budget}.",
-                                stopwatch.Elapsed,
-                                tickTimeSpan);
-                        }
-                    }
+                    await ExecuteTickAsync(stoppingToken);
                 }
                 catch (OperationCanceledException ex) when (ex.CancellationToken == stoppingToken)
                 {
@@ -106,10 +107,35 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
+        internal async Task ExecuteTickAsync(CancellationToken stoppingToken)
+        {
+            // Execute 'major-update' tasks.
+            _rsTaskScheduler.Tick();
+
+            var stopwatch = Stopwatch.StartNew();
+            var tickCompleted = false;
+            try
+            {
+                await RunMajorTickAsync(stoppingToken);
+                tickCompleted = true;
+            }
+            finally
+            {
+                stopwatch.Stop();
+                if (tickCompleted && stopwatch.Elapsed > _gameOptions.TickTimeSpan)
+                {
+                    _logger.LogWarning(
+                        "Major game tick exceeded its configured budget. Elapsed: {Elapsed}; budget: {Budget}.",
+                        stopwatch.Elapsed,
+                        _gameOptions.TickTimeSpan);
+                }
+            }
+        }
+
         private async Task RunMajorTickAsync(CancellationToken stoppingToken)
         {
             stoppingToken.ThrowIfCancellationRequested();
-            var regions = _regionService.FindAllRegions().ToList();
+            var regions = _regionService.FindReadyRegions();
             var characters = await _characterStore.GetSnapshotAsync(stoppingToken);
 
             stoppingToken.ThrowIfCancellationRequested();
@@ -118,20 +144,28 @@ namespace Hagalaz.Services.GameWorld.Services
                 region.MajorUpdateTick();
             }
 
-            foreach (var region in regions)
+            try
             {
-                region.MajorClientPrepareUpdateTick();
+                foreach (var region in regions)
+                {
+                    region.MajorClientPrepareUpdateTick();
+                }
+
+                foreach (var region in regions)
+                {
+                    region.MajorClientUpdateTick(characters);
+                }
+            }
+            finally
+            {
+                foreach (var region in regions)
+                {
+                    region.MajorClientUpdateResetTick();
+                }
             }
 
-            foreach (var region in regions)
-            {
-                region.MajorClientUpdateTick(characters);
-            }
+            await _regionHousekeeping.ProcessRegionsIfDueAsync(characters);
 
-            foreach (var region in regions)
-            {
-                region.MajorClientUpdateResetTick();
-            }
         }
     }
 }

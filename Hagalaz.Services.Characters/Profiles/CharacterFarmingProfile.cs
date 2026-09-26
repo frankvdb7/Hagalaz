@@ -13,7 +13,7 @@ namespace Hagalaz.Services.Characters.Profiles
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => (int)src.PatchId))
                 .ForMember(dest => dest.Condition, opt => opt.MapFrom(src => (int)src.ConditionFlag))
                 .ForMember(dest => dest.SeedId, opt => opt.MapFrom(src => (int)src.SeedId))
-                .ForMember(dest => dest.CurrentCycleTicks, opt => opt.MapFrom(src => (int)src.CurrentCycleTicks))
+                .ForMember(dest => dest.CurrentCycleTicks, opt => opt.MapFrom(src => checked((int)src.CurrentCycleTicks)))
                 .ForMember(dest => dest.CurrentCycle, opt => opt.MapFrom(src => (int)src.CurrentCycle))
                 .ForMember(dest => dest.ProductCount, opt => opt.MapFrom(src => (int)src.ProductCount));
             CreateMap<Farming, FarmingDto>();

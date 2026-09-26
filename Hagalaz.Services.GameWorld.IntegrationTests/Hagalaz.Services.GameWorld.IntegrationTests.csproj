@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Hagalaz.Game.Scripts\Hagalaz.Game.Scripts.csproj" />
     <ProjectReference Include="..\Hagalaz.Services.GameWorld\Hagalaz.Services.GameWorld.csproj" />
   </ItemGroup>
 
@@ -16,6 +17,7 @@
     <PackageReference Include="MSTest" Version="4.3.3" />
     <PackageReference Include="NSubstitute" Version="6.0.0" />
     <PackageReference Include="Testcontainers.Redis" Version="4.13.0" />
+    <PackageReference Include="Testcontainers.MySql" Version="4.13.0" />
   </ItemGroup>
 
 </Project>

@@ -3,11 +3,15 @@ using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Widgets.Tabs
 {
@@ -87,23 +91,25 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 }
 
                 Owner.ForceRunMovementType(forceRun);
-                var task = new GameObjectReachTask(Owner, usedOn, success =>
+                var targetHandle = usedOn.Handle;
+                var entityService = Owner.ServiceProvider.GetRequiredService<IEntityService>();
+                var task = new GameObjectReachTask(Owner, targetHandle, success =>
                 {
-                    if (success)
+                    if (success && entityService.TryResolve<IGameObject>(targetHandle, out var target) && target is not null && !target.IsDisabled)
                     {
-                        if (used.ItemScript.UseItemOnGameObject(used, usedOn, Owner))
+                        if (used.ItemScript.UseItemOnGameObject(used, target, Owner))
                         {
                             return;
                         }
 
-                        if (usedOn.Script.UseItemOnGameObject(used, Owner))
+                        if (target.Script.UseItemOnGameObject(used, Owner))
                         {
                             return;
                         }
 
                         if (Owner.Permissions.HasAtLeastXPermission(Permission.GameAdministrator))
                         {
-                            Owner.SendChatMessage("item_used_on_object[used_id=" + used.Id + ",usedOn=" + usedOn.Id + "]", ChatMessageType.ConsoleText);
+                            Owner.SendChatMessage("item_used_on_object[used_id=" + used.Id + ",usedOn=" + target.Id + "]", ChatMessageType.ConsoleText);
                         }
                         else
                         {
@@ -133,15 +139,17 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 }
 
                 Owner.ForceRunMovementType(forceRun);
-                var task = new GroundItemReachTask(Owner, usedOn, success =>
+                var targetHandle = usedOn.Handle;
+                var entityService = Owner.ServiceProvider.GetRequiredService<IEntityService>();
+                var task = new GroundItemReachTask(Owner, targetHandle, success =>
                 {
-                    if (success)
+                    if (success && entityService.TryResolve<IGroundItem>(targetHandle, out var target) && target is not null)
                     {
-                        if (!used.ItemScript.UseItemOnGroundItem(used, usedOn, Owner))
+                        if (!used.ItemScript.UseItemOnGroundItem(used, target, Owner))
                         {
                             if (Owner.Permissions.HasAtLeastXPermission(Permission.GameAdministrator))
                             {
-                                Owner.SendChatMessage("use_item_on_gitem[used_id=" + used.Id + ",usedWith_id=" + usedOn.ItemOnGround.Id + "]", ChatMessageType.ConsoleText);
+                                Owner.SendChatMessage("use_item_on_gitem[used_id=" + used.Id + ",usedWith_id=" + target.ItemOnGround.Id + "]", ChatMessageType.ConsoleText);
                             }
                             else
                             {
@@ -218,7 +226,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 }
 
                 Owner.ForceRunMovementType(forceRun);
-                var task = new CreatureReachTask(Owner, usedOn, success =>
+                var task = new CreatureReachTask(Owner, usedOn.Handle, success =>
                 {
                     if (success)
                     {

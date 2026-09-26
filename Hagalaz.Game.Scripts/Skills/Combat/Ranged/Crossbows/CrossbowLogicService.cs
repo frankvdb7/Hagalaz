@@ -225,7 +225,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
             var maxDamage = combat.GetRangedMaxHit(victim, spec);
             var attackResult = attacker.Combat.PerformAttack(new AttackParams
             {
-                Target = victim,
+                Target = victim.Handle,
                 DamageType = DamageType.FullRange,
                 Damage = damage,
                 MaxDamage = maxDamage,

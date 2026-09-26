@@ -6,11 +6,13 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Dialogues.Items;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Model.Items
 {
@@ -271,7 +273,18 @@ namespace Hagalaz.Game.Scripts.Model.Items
             {
                 character.Interrupt(this);
                 character.Movement.MovementType = character.Movement.MovementType == MovementType.Run || forceRun ? MovementType.Run : MovementType.Walk;
-                character.QueueTask(new GroundItemReachTask(character, item, (success) => ItemClickedOnGroundReached(item, character, clickType, success)));
+                var targetHandle = item.Handle;
+                var entityService = character.ServiceProvider.GetRequiredService<IEntityService>();
+                character.QueueTask(new GroundItemReachTask(character, targetHandle, success =>
+                {
+                    if (success && entityService.TryResolve<IGroundItem>(targetHandle, out var target) && target is not null)
+                    {
+                        ItemClickedOnGroundReached(target, character, clickType, true);
+                        return;
+                    }
+
+                    ItemClickedOnGroundReached(item, character, clickType, false);
+                }));
             }
         }
 

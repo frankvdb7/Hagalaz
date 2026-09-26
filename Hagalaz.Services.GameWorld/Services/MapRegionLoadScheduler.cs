@@ -1,5 +1,6 @@
 using System;
-using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -17,17 +18,17 @@ namespace Hagalaz.Services.GameWorld.Services
     /// </summary>
     public sealed class MapRegionLoadScheduler : BackgroundService, IMapRegionLoadScheduler
     {
+        private readonly object _stateLock = new();
+        private readonly Dictionary<IMapRegion, TaskCompletionSource> _inFlight = new();
+        private readonly IServiceScopeFactory _scopeFactory;
+        private readonly ILogger<MapRegionLoadScheduler> _logger;
         private readonly Channel<IMapRegion> _requests = Channel.CreateUnbounded<IMapRegion>(new UnboundedChannelOptions
         {
             SingleReader = true,
             SingleWriter = false,
             AllowSynchronousContinuations = false
         });
-
-        private readonly ConcurrentDictionary<IMapRegion, byte> _scheduled = new();
-        private readonly IServiceScopeFactory _scopeFactory;
-        private readonly ILogger<MapRegionLoadScheduler> _logger;
-        private volatile bool _stopping;
+        private bool _stopping;
 
         public MapRegionLoadScheduler(
             IServiceScopeFactory scopeFactory,
@@ -37,58 +38,122 @@ namespace Hagalaz.Services.GameWorld.Services
             _logger = logger;
         }
 
-        public void RequestLoad(IMapRegion region)
+        public void RequestLoad(IMapRegion region) => _ = GetOrRequestLoad(region, true);
+
+        public async Task EnsureLoadedAsync(IEnumerable<IMapRegion> regions, CancellationToken cancellationToken = default)
         {
-            if (_stopping || region.IsLoaded || !_scheduled.TryAdd(region, 0))
+            ArgumentNullException.ThrowIfNull(regions);
+            var waits = new List<Task>();
+            foreach (var region in regions.Distinct())
             {
-                return;
+                cancellationToken.ThrowIfCancellationRequested();
+                var completion = GetOrRequestLoad(region, false);
+                if (completion is not null)
+                    waits.Add(completion);
             }
 
-            if (_requests.Writer.TryWrite(region))
-            {
-                return;
-            }
-
-            _scheduled.TryRemove(region, out _);
-
-            if (_stopping)
-            {
-                return;
-            }
-
-            throw new InvalidOperationException($"Unable to schedule loading for region {region.Id}.");
+            await Task.WhenAll(waits).WaitAsync(cancellationToken);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             await foreach (var region in _requests.Reader.ReadAllAsync(stoppingToken))
             {
+                Exception? failure = null;
+                var canceled = false;
                 try
                 {
                     await using var scope = _scopeFactory.CreateAsyncScope();
-                    await scope.ServiceProvider.GetRequiredService<IMapRegionLoader>()
-                        .LoadAsync(region, stoppingToken);
+                    await scope.ServiceProvider.GetRequiredService<IMapRegionLoader>().LoadAsync(region, stoppingToken);
+                    if (region.State != MapRegionState.Ready)
+                        throw new InvalidOperationException($"Region {region.Id} did not publish readiness after loading.");
                 }
                 catch (OperationCanceledException ex) when (stoppingToken.IsCancellationRequested && ex.CancellationToken == stoppingToken)
                 {
+                    failure = ex;
+                    canceled = true;
                     _logger.LogDebug(ex, "Loading region {id} was canceled during scheduler shutdown", region.Id);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
+                    failure = ex;
                     _logger.LogError(ex, "Failed to load region {id}", region.Id);
+                }
+                catch (OperationCanceledException ex)
+                {
+                    failure = ex;
+                    canceled = true;
                 }
                 finally
                 {
-                    _scheduled.TryRemove(region, out _);
+                    Complete(region, canceled, failure);
                 }
             }
         }
 
-        public override Task StopAsync(CancellationToken stoppingToken)
+        private Task? GetOrRequestLoad(IMapRegion region, bool tolerateInvalidState)
         {
-            _stopping = true;
+            lock (_stateLock)
+            {
+                if (_stopping)
+                {
+                    if (tolerateInvalidState)
+                        return null;
+                    throw new InvalidOperationException("The map-region scheduler is stopping.");
+                }
+
+                if (region.State == MapRegionState.Ready)
+                    return null;
+                if (region.State == MapRegionState.Discarded)
+                {
+                    if (tolerateInvalidState)
+                        return null;
+                    throw new InvalidOperationException($"Region {region.Id} is discarded and cannot be loaded.");
+                }
+                if (_inFlight.TryGetValue(region, out var completion))
+                    return completion.Task;
+
+                completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _inFlight.Add(region, completion);
+                if (_requests.Writer.TryWrite(region))
+                    return completion.Task;
+
+                _inFlight.Remove(region);
+                completion.TrySetException(new InvalidOperationException($"Unable to schedule loading for region {region.Id}."));
+                throw new InvalidOperationException($"Unable to schedule loading for region {region.Id}.");
+            }
+        }
+
+        private void Complete(IMapRegion region, bool cancellation, Exception? exception)
+        {
+            TaskCompletionSource? completion;
+            lock (_stateLock)
+                _inFlight.Remove(region, out completion);
+
+            if (completion is null)
+                return;
+            if (cancellation)
+                completion.TrySetCanceled();
+            else if (exception is null)
+                completion.TrySetResult();
+            else
+                completion.TrySetException(exception);
+        }
+
+        public override async Task StopAsync(CancellationToken stoppingToken)
+        {
+            List<TaskCompletionSource> completions;
+            lock (_stateLock)
+            {
+                _stopping = true;
+                completions = _inFlight.Values.ToList();
+            }
+
             _requests.Writer.TryComplete();
-            return base.StopAsync(stoppingToken);
+            foreach (var completion in completions)
+                completion.TrySetCanceled();
+
+            await base.StopAsync(stoppingToken);
         }
     }
 }

@@ -26,19 +26,19 @@ namespace Raido.Server.Extensions
 
             services.AddSingleton<IConfigureOptions<RaidoOptions>, RaidoOptionsSetup>();
             
-            services.TryAddTransient<RaidoConnectionHandler>();
+            services.TryAddTransient<RaidoHubConnectionHandler>();
 
-            services.TryAddSingleton<RaidoConnectionStore>();
-            services.TryAddSingleton<IRaidoProtocolResolver, DefaultRaidoProtocolResolver>();
-            services.TryAddSingleton<IRaidoLifetimeManager, DefaultRaidoLifetimeManager>();
+            services.TryAddSingleton<RaidoHubConnectionStore>();
+            services.TryAddScoped<IRaidoProtocolResolver, DefaultRaidoProtocolResolver>();
+            services.TryAddSingleton<IRaidoHubLifetimeManager, DefaultRaidoHubLifetimeManager>();
             services.TryAddSingleton<IRaidoContext, DefaultRaidoContext>();
             services.TryAddSingleton<IRaidoDispatcher, DefaultRaidoDispatcher>();
-            services.TryAddTransient<IRaidoConnectionContextBuilder, DefaultRaidoConnectionContextBuilder>();
+            services.TryAddSingleton<IRaidoHubConnectionContextFactory, DefaultRaidoHubConnectionContextFactory>();
             services.TryAddScoped<IRaidoCallerContextAccessor, DefaultRaidoCallerContextAccessor>();
             services.TryAddScoped(typeof(IRaidoHubActivator<>), typeof(DefaultRaidoHubActivator<>));
 
             services.TryAddTransient(typeof(IRaidoCodecFactory<>), typeof(DefaultRaidoCodecFactory<>));
-            services.TryAddSingleton(typeof(IRaidoCodec<>), typeof(DefaultRaidoCodec<>));
+            services.TryAddScoped(typeof(IRaidoCodec<>), typeof(DefaultRaidoCodec<>));
 
             services.TryAddSingleton(new RaidoServerActivitySource());
             services.TryAddSingleton<RaidoMetrics>();

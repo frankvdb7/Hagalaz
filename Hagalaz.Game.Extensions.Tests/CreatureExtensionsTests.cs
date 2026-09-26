@@ -76,93 +76,25 @@ namespace Hagalaz.Game.Extensions.Tests
             Assert.IsFalse(isAlive);
         }
 
-        [TestMethod]
-        public async Task QueueTask_WithAsyncOperation_DoesNotBlockWhileOperationIsPending()
+    [TestMethod]
+    public void QueueTask_WithAction_UsesOneShotGameTickSemantics()
+    {
+        var creature = Substitute.For<ICreature>();
+        ITaskItem? queuedTask = null;
+        creature.When(x => x.QueueTask(Arg.Any<ITaskItem>())).Do(callInfo =>
         {
-            var context = new GameLoopSynchronizationContext();
-            var creature = Substitute.For<ICreature>();
-            ITaskItem? queuedTask = null;
-            creature.When(x => x.QueueTask(Arg.Any<ITaskItem>())).Do(callInfo =>
-            {
-                queuedTask = callInfo.Arg<ITaskItem>();
-            });
+            queuedTask = callInfo.Arg<ITaskItem>();
+        });
+        var executions = 0;
 
-            var operationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var operation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var operationCompleted = false;
-            creature.QueueTask(async () =>
-            {
-                operationStarted.SetResult(true);
-                await operation.Task;
-                operationCompleted = true;
-            });
+        creature.QueueTask(() => executions++);
 
-            Assert.IsNotNull(queuedTask);
-            Assert.IsInstanceOfType(queuedTask, typeof(RsAsyncTask));
-            var previousContext = SynchronizationContext.Current;
-            SynchronizationContext.SetSynchronizationContext(context);
-            try
-            {
-                queuedTask.Tick();
-            }
-            finally
-            {
-                SynchronizationContext.SetSynchronizationContext(previousContext);
-            }
+        Assert.IsNotNull(queuedTask);
+        queuedTask!.Tick();
+        queuedTask.Tick();
 
-            await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
-            Assert.IsFalse(operationCompleted);
-            Assert.IsFalse(queuedTask.IsCompleted);
+        Assert.AreEqual(1, executions);
+    }
 
-            operation.SetResult(true);
-            await Task.Delay(10);
-            Assert.IsFalse(operationCompleted);
-            context.RunPending();
-            queuedTask.Tick();
-
-            Assert.IsTrue(operationCompleted);
-            Assert.IsTrue(queuedTask.IsCompleted);
-        }
-
-        [TestMethod]
-        public void QueueTask_WithCancellationAwareAsyncOperation_QueuesRsAsyncTask()
-        {
-            var creature = Substitute.For<ICreature>();
-            ITaskItem? queuedTask = null;
-            creature.When(x => x.QueueTask(Arg.Any<ITaskItem>())).Do(callInfo =>
-            {
-                queuedTask = callInfo.Arg<ITaskItem>();
-            });
-
-            creature.QueueTask(_ => Task.CompletedTask);
-
-            Assert.IsNotNull(queuedTask);
-            Assert.IsInstanceOfType(queuedTask, typeof(RsAsyncTask));
-        }
-
-        [TestMethod]
-        public void QueueTask_WithExternalCancellation_PreventsOperationFromStarting()
-        {
-            var creature = Substitute.For<ICreature>();
-            ITaskItem? queuedTask = null;
-            creature.When(x => x.QueueTask(Arg.Any<ITaskItem>())).Do(callInfo =>
-            {
-                queuedTask = callInfo.Arg<ITaskItem>();
-            });
-
-            using var cancellation = new CancellationTokenSource();
-            var operationStarted = false;
-            creature.QueueTask(_ =>
-            {
-                operationStarted = true;
-                return Task.CompletedTask;
-            }, cancellation.Token);
-
-            cancellation.Cancel();
-            queuedTask!.Tick();
-
-            Assert.IsFalse(operationStarted);
-            Assert.IsTrue(queuedTask.IsCancelled);
-        }
     }
 }

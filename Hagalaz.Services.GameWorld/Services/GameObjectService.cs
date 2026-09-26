@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,7 +12,6 @@ using Hagalaz.Services.GameWorld.Data;
 using Hagalaz.Services.GameWorld.Data.Model;
 using Hagalaz.Services.GameWorld.Model.Maps.GameObjects;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions.Updates;
-using Microsoft.EntityFrameworkCore;
 
 namespace Hagalaz.Services.GameWorld.Services
 {
@@ -32,7 +32,12 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public IEnumerable<IGameObject> FindByLocation(ILocation location)
         {
-            var region = _regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension, true);
+            var region = _regionService.FindMapRegion(location.RegionId, location.Dimension);
+            if (region is null)
+            {
+                yield break;
+            }
+
             foreach (var gameObject in region.FindAllGameObjects().Where(gameObject => gameObject.Location.Equals(location)))
             {
                 yield return gameObject;
@@ -47,12 +52,11 @@ namespace Hagalaz.Services.GameWorld.Services
                 return;
             }
 
-            var region = _regionService.GetOrCreateMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension, true);
             if (go.Id != gameObjectUpdate.Id)
             {
                 go.Id = gameObjectUpdate.Id;
                 go.IsStatic = false;
-                region.QueueUpdate(new AddGameObjectUpdate(gameObject));
+                _regionService.QueueUpdate(new AddGameObjectUpdate(gameObject));
             }
 
             if (go.Rotation == gameObjectUpdate.Rotation)
@@ -60,34 +64,48 @@ namespace Hagalaz.Services.GameWorld.Services
                 return;
             }
 
-            region.UnFlagCollision(go);
+            _regionService.UnFlagCollision(go);
             go.Rotation = gameObjectUpdate.Rotation;
             go.IsStatic = false;
-            region.FlagCollision(go);
-            region.QueueUpdate(new AddGameObjectUpdate(gameObject));
+            _regionService.FlagCollision(go);
+            _regionService.QueueUpdate(new AddGameObjectUpdate(gameObject));
         }
 
         public void AnimateGameObject(IGameObject gameObject, IAnimation animation)
         {
-            var region = _regionService.GetOrCreateMapRegion(gameObject.Location.RegionId, gameObject.Location.Dimension, true);
-            region.QueueUpdate(new SetGameObjectAnimationUpdate(gameObject, animation));
+            _regionService.QueueUpdate(new SetGameObjectAnimationUpdate(gameObject, animation));
         }
 
         public async Task<GameObjectDefinition> FindGameObjectDefinitionById(int objectId, CancellationToken cancellationToken = default)
         {
-            var definition = _objectProvider.Get(objectId);
-            var databaseDefinition = await _gameObjectDefinitionRepository.FindAll()
-                .Where(g => g.GameobjectId == objectId)
-                .FirstOrDefaultAsync(cancellationToken);
+            var definitions = await FindGameObjectDefinitionsByIdsAsync([objectId], cancellationToken);
+            return definitions[objectId];
+        }
 
-            if (databaseDefinition == null)
+        public async Task<Dictionary<int, GameObjectDefinition>> FindGameObjectDefinitionsByIdsAsync(
+            IEnumerable<int> objectIds,
+            CancellationToken cancellationToken = default)
+        {
+            var requestedIds = objectIds.Distinct().ToArray();
+            var databaseIds = requestedIds.Where(id => id >= 0).Select(id => (uint)id).Distinct().ToArray();
+            var overrides = databaseIds.Length == 0
+                ? new Dictionary<uint, GameObjectDefinitionOverride>()
+                : await _gameObjectDefinitionRepository.FindOverridesByIdsAsync(databaseIds, cancellationToken);
+
+            var definitions = new Dictionary<int, GameObjectDefinition>(requestedIds.Length);
+            foreach (var objectId in requestedIds)
             {
-                return definition;
+                var definition = _objectProvider.Get(objectId);
+                if (objectId >= 0 && overrides.TryGetValue((uint)objectId, out var databaseDefinition))
+                {
+                    definition.Examine = databaseDefinition.Examine;
+                    definition.LootTableId = databaseDefinition.LootTableId ?? 0;
+                }
+
+                definitions.Add(objectId, definition);
             }
 
-            definition.Examine = databaseDefinition.Examine;
-            definition.LootTableId = databaseDefinition.GameobjectLootId ?? 0;
-            return definition;
+            return definitions;
         }
 
         public int GetObjectsCount() => _objectProvider.ArchiveSize;

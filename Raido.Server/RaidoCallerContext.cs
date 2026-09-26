@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Security.Claims;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http.Features;
 using Raido.Common.Protocol;
 
@@ -35,7 +37,7 @@ namespace Raido.Server
         /// <summary>
         /// Gets a <see cref="CancellationToken"/> that is triggered when the connection is aborted.
         /// </summary>
-        public abstract CancellationToken ConnectionAbortedToken { get; }
+        public abstract CancellationToken ConnectionAborted { get; }
         
         /// <summary>
         /// Gets the local IP endpoint of the connection.
@@ -48,9 +50,29 @@ namespace Raido.Server
         public abstract IPEndPoint? RemoteIPEndPoint { get; }
 
         /// <summary>
-        /// Gets or sets the protocol used by the connection.
+        /// Gets the protocol used by the connection.
         /// </summary>
-        public abstract IRaidoProtocol Protocol { get; set; }
+        public abstract IRaidoProtocol Protocol { get; }
+
+        /// <summary>
+        /// Changes the protocol used by the connection after writes using the current protocol have completed.
+        /// </summary>
+        /// <param name="protocol">The protocol to use for subsequent reads and writes.</param>
+        /// <param name="cancellationToken">The token that cancels waiting for the write boundary.</param>
+        /// <returns>A <see cref="ValueTask"/> that represents the transition.</returns>
+        public abstract ValueTask SetProtocolAsync(IRaidoProtocol protocol, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Changes the protocol used by the connection and transfers ownership of its lifetime to the connection.
+        /// </summary>
+        /// <param name="protocol">The protocol to use for subsequent reads and writes.</param>
+        /// <param name="protocolLifetime">The lifetime for the protocol and its connection-owned dependencies.</param>
+        /// <param name="cancellationToken">The token that cancels waiting for the write boundary.</param>
+        /// <returns>A <see cref="ValueTask"/> that represents the transition.</returns>
+        public abstract ValueTask SetProtocolAsync(
+            IRaidoProtocol protocol,
+            IAsyncDisposable protocolLifetime,
+            CancellationToken cancellationToken);
 
         /// <summary>
         /// Aborts the connection.

@@ -9,6 +9,7 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Services.GameWorld.Logic.Pathfinding;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
+using Hagalaz.Services.GameWorld.Store;
 using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests;
@@ -455,7 +456,8 @@ public sealed class ProjectilePathfinderTests
             mapRegionService,
             Substitute.For<IGameObjectBuilder>(),
             Substitute.For<IGroundItemBuilder>(),
-            Substitute.For<IMapper>());
+            Substitute.For<IMapper>(),
+            new EntityStore());
         var gameObject = CreateGameObject(shapeType, rotation, solid, gateway);
 
         if (shapeType.GetLayerType() == LayerType.StandardObjects)

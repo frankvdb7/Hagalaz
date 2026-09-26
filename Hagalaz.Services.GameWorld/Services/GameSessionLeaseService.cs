@@ -17,9 +17,9 @@ public interface IGameSessionConnectionTerminator
 
 public sealed class GameSessionConnectionTerminator : IGameSessionConnectionTerminator
 {
-    private readonly Raido.Server.RaidoConnectionStore _connections;
+    private readonly Raido.Server.RaidoHubConnectionStore _connections;
 
-    public GameSessionConnectionTerminator(Raido.Server.RaidoConnectionStore connections) => _connections = connections;
+    public GameSessionConnectionTerminator(Raido.Server.RaidoHubConnectionStore connections) => _connections = connections;
 
     public void Abort(IGameSession session) => _connections[session.ConnectionId]?.Abort();
 }
@@ -57,47 +57,51 @@ public sealed class GameSessionLeaseService : BackgroundService
 
     internal async Task RenewSessionsAsync(CancellationToken cancellationToken)
     {
-        var pendingCleanupSessions = await _sessions.FindWorldSessionsPendingCleanup();
+        var pendingCleanupSessions = await _sessions.FindSessionsPendingCleanup();
         var deferredAbortSessions = await _abortSessions.FindSessionsPendingAbort();
-        var pendingCleanupSet = pendingCleanupSessions.Count == 0
-            ? null
-            : new HashSet<IGameWorldSession>(pendingCleanupSessions, ReferenceEqualityComparer.Instance);
         foreach (var session in await _sessions.FindAll())
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (session is not IGameWorldSession worldSession ||
-                pendingCleanupSet?.Contains(worldSession) == true)
+            if (session is IGameWorldSession worldSession &&
+                await _sessions.FindPendingWorldSessionPreviousClaimId(worldSession) != null)
             {
                 continue;
             }
 
-            var claimWasLost = false;
             try
             {
-                if (await _claims.RenewAsync(worldSession.MasterId, worldSession.SessionClaimId, cancellationToken))
+                var renewalStartedAt = DateTimeOffset.UtcNow;
+                if (await _claims.RenewAsync(session.MasterId, session.SessionClaimId, cancellationToken))
                 {
+                    session.ClaimLeaseValidUntil =
+                        renewalStartedAt + GameSessionClaimOptions.LeaseDuration;
                     continue;
                 }
 
                 _logger.LogWarning("Lost active game-session claim for account '{masterId}' and session '{sessionClaimId}'. Aborting the connection.",
-                    worldSession.MasterId, worldSession.SessionClaimId);
-                claimWasLost = true;
+                    session.MasterId, session.SessionClaimId);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                _logger.LogError(ex, "Failed to renew active game-session claim for account '{masterId}'. Aborting the connection.",
-                    worldSession.MasterId);
-                claimWasLost = true;
+                throw;
             }
+            catch (Exception ex)
+            {
+                var nextRenewalAttemptAt = DateTimeOffset.UtcNow + GameSessionClaimOptions.RenewalInterval;
+                if (nextRenewalAttemptAt < session.ClaimLeaseValidUntil)
+                {
+                    _logger.LogError(ex, "Failed to renew active game-session claim for account '{masterId}'; keeping the session for the next lease cycle.",
+                        session.MasterId);
+                    continue;
+                }
 
-            if (!claimWasLost)
-            {
-                continue;
+                _logger.LogWarning(ex, "Failed to renew active game-session claim for account '{masterId}' before the known lease deadline; aborting the connection.",
+                    session.MasterId);
             }
 
             try
             {
-                await AbortAndReconcileLostSession(worldSession, cancellationToken);
+                await _abortCoordinator.ReserveAndAbortLostSessionAsync(session, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -107,8 +111,8 @@ public sealed class GameSessionLeaseService : BackgroundService
             {
                 _logger.LogError(ex,
                     "Failed to reconcile the lost game-session connection for account '{masterId}' and session '{sessionClaimId}'.",
-                    worldSession.MasterId,
-                    worldSession.SessionClaimId);
+                    session.MasterId,
+                    session.SessionClaimId);
             }
         }
 
@@ -117,7 +121,7 @@ public sealed class GameSessionLeaseService : BackgroundService
     }
 
     private async Task ReconcileDeferredClaimReleasesAsync(
-        IReadOnlyList<IGameWorldSession> pendingSessions,
+        IReadOnlyList<IGameSession> pendingSessions,
         CancellationToken cancellationToken)
     {
         foreach (var pendingSession in pendingSessions)
@@ -125,21 +129,17 @@ public sealed class GameSessionLeaseService : BackgroundService
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                if (await _claims.ReleaseAsync(
-                        pendingSession.MasterId,
-                        pendingSession.SessionClaimId,
-                        cancellationToken))
+                var released = await _claims.ReleaseAsync(
+                    pendingSession.MasterId,
+                    pendingSession.SessionClaimId,
+                    cancellationToken);
+                await _sessions.TryRemovePendingSessionCleanup(pendingSession);
+                if (released)
                 {
-                    await _sessions.TryRemovePendingWorldSession(pendingSession);
                     _logger.LogInformation(
                         "Released deferred world-session claim '{sessionClaimId}' for account '{masterId}'.",
                         pendingSession.SessionClaimId,
                         pendingSession.MasterId);
-                }
-                else
-                {
-                    // A false result proves that this exact owner no longer exists.
-                    await _sessions.TryRemovePendingWorldSession(pendingSession);
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -176,10 +176,4 @@ public sealed class GameSessionLeaseService : BackgroundService
         }
     }
 
-    private async Task AbortAndReconcileLostSession(
-        IGameWorldSession session,
-        CancellationToken cancellationToken)
-    {
-        await _abortCoordinator.ReserveAndAbortLostSessionAsync(session, cancellationToken);
-    }
 }

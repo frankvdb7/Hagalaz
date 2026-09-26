@@ -116,7 +116,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
                                 MaxDamage = combat.GetMagicMaxHit(c, maxHit),
                                 Delay = delay,
                                 DamageType = DamageType.StandardMagic,
-                                Target = c
+                                Target = c.Handle
                             });
                         }
                         break;
@@ -136,7 +136,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
                             MaxDamage = maxDamage,
                             Delay = 10,
                             DamageType = DamageType.Standard,
-                            Target = target
+                            Target = target.Handle
                         });
 
                         if (target is ICharacter character)

@@ -63,6 +63,7 @@
         ///     There's a system update.
         /// </summary>
         SystemUpdate = 14,
+        ReconnectSuccessful = 15,
         TooManyAttempts = 16,
         MembersOnlyArea = 17,
         AccountLocked = 18,

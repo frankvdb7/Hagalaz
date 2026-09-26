@@ -46,6 +46,9 @@ namespace Hagalaz.Services.GameWorld.Tests
             // Arrange
             var character = Substitute.For<ICharacter>();
             var region = Substitute.For<IMapRegion>();
+            region.State.Returns(MapRegionState.Ready);
+            region.Id.Returns(1);
+            region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
 
             // Set up owner location
             var ownerLocation = Substitute.For<ILocation>();
@@ -61,8 +64,9 @@ namespace Hagalaz.Services.GameWorld.Tests
             region.FindAllCharacters().Returns(new List<ICharacter> { character });
             region.FindAllNpcs().Returns(new List<INpc>());
 
-            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>())
+            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<IMapSize>())
                 .Returns(new List<IMapRegion> { region });
+            _regionService.GetOrCreateMapRegion(1, 0).Returns(region);
 
             _viewport.RebuildView();
             _viewport.UpdateTick();
@@ -78,6 +82,9 @@ namespace Hagalaz.Services.GameWorld.Tests
             var char1 = Substitute.For<ICharacter>();
             var char2 = Substitute.For<ICharacter>();
             var region = Substitute.For<IMapRegion>();
+            region.State.Returns(MapRegionState.Ready);
+            region.Id.Returns(1);
+            region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
 
             var ownerLocation = Substitute.For<ILocation>();
             _owner.Location.Returns(ownerLocation);
@@ -92,8 +99,9 @@ namespace Hagalaz.Services.GameWorld.Tests
             region.FindAllCharacters().Returns(new List<ICharacter> { char1, char2 });
             region.FindAllNpcs().Returns(new List<INpc>());
 
-            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>())
+            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<IMapSize>())
                 .Returns(new List<IMapRegion> { region });
+            _regionService.GetOrCreateMapRegion(1, 0).Returns(region);
 
             _viewport.RebuildView();
             _viewport.UpdateTick();
@@ -110,6 +118,9 @@ namespace Hagalaz.Services.GameWorld.Tests
             // Arrange
             var character = Substitute.For<ICharacter>();
             var region = Substitute.For<IMapRegion>();
+            region.State.Returns(MapRegionState.Ready);
+            region.Id.Returns(1);
+            region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
 
             var ownerLocation = Substitute.For<ILocation>();
             _owner.Location.Returns(ownerLocation);
@@ -122,8 +133,9 @@ namespace Hagalaz.Services.GameWorld.Tests
             region.FindAllCharacters().Returns(new List<ICharacter> { character });
             region.FindAllNpcs().Returns(new List<INpc>());
 
-            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>())
+            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<IMapSize>())
                 .Returns(new List<IMapRegion> { region });
+            _regionService.GetOrCreateMapRegion(1, 0).Returns(region);
 
             _viewport.RebuildView();
             _viewport.UpdateTick();
@@ -137,6 +149,236 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsEmpty(_viewport.VisibleCreatures);
             Assert.IsFalse(_viewport.VisibleCreatures.Contains(character));
         }
+
+        [TestMethod]
+        public void VisibleRegions_IsPassiveUntilExplicitRefresh()
+        {
+            var location = new Location(100, 100, 0, 0);
+            var firstRegion = Substitute.For<IMapRegion>();
+            var replacementRegion = Substitute.For<IMapRegion>();
+            firstRegion.Id.Returns(location.RegionId);
+            firstRegion.BaseLocation.Returns(Location.Create(location.RegionX * 64, location.RegionY * 64, 0, 0));
+            firstRegion.State.Returns(MapRegionState.Discarded);
+            replacementRegion.Id.Returns(location.RegionId);
+            replacementRegion.BaseLocation.Returns(firstRegion.BaseLocation);
+            replacementRegion.State.Returns(MapRegionState.Initializing);
+            _owner.Location.Returns(location);
+            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), _mapSize)
+                .Returns(new[] { firstRegion });
+            _regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension).Returns(replacementRegion);
+
+            _viewport.RebuildView();
+
+            var visibleRegions = _viewport.VisibleRegions;
+
+            Assert.AreSame(firstRegion, visibleRegions.Single());
+            _regionService.DidNotReceive().GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>());
+
+            _viewport.RefreshVisibleRegions();
+
+            Assert.AreSame(replacementRegion, _viewport.VisibleRegions.Single());
+            _viewport.UpdateTick();
+            firstRegion.DidNotReceive().FindAllCharacters();
+            firstRegion.DidNotReceive().FindAllNpcs();
+            replacementRegion.DidNotReceive().FindAllCharacters();
+            replacementRegion.DidNotReceive().FindAllNpcs();
+        }
+
+        [TestMethod]
+        public void UpdateTick_SynchronizesRegionWhenItBecomesReady()
+        {
+            var scenario = CreateMapSynchronizationScenario(MapRegionState.Initializing);
+
+            scenario.Viewport.RebuildView();
+            scenario.Viewport.RefreshVisibleRegions();
+            scenario.Viewport.BeginMapRegionSynchronization();
+            scenario.Region.DidNotReceive().SendFullPartUpdates(scenario.Character);
+
+            scenario.SetState(MapRegionState.Ready);
+            scenario.Viewport.UpdateTick();
+
+            scenario.Region.Received(1).SendFullPartUpdates(scenario.Character);
+        }
+
+        [TestMethod]
+        public void UpdateTick_DoesNotResendTheSameRegionInstance()
+        {
+            var scenario = CreateMapSynchronizationScenario(MapRegionState.Ready);
+
+            scenario.Viewport.RebuildView();
+            scenario.Viewport.RefreshVisibleRegions();
+            scenario.Viewport.BeginMapRegionSynchronization();
+            scenario.Viewport.UpdateTick();
+            scenario.Viewport.UpdateTick();
+
+            scenario.Region.Received(1).SendFullPartUpdates(scenario.Character);
+        }
+
+        [TestMethod]
+        public void BeginMapRegionSynchronization_ResendsReadyRegionsForNewMap()
+        {
+            var scenario = CreateMapSynchronizationScenario(MapRegionState.Ready);
+
+            scenario.Viewport.RebuildView();
+            scenario.Viewport.RefreshVisibleRegions();
+            scenario.Viewport.BeginMapRegionSynchronization();
+            scenario.Viewport.BeginMapRegionSynchronization();
+
+            scenario.Region.Received(2).SendFullPartUpdates(scenario.Character);
+        }
+
+        [TestMethod]
+        public void UpdateTick_SynchronizesReadyCanonicalReplacementOnce()
+        {
+            var scenario = CreateMapSynchronizationScenario(MapRegionState.Ready);
+            var replacement = CreateRegion(scenario.Region.BaseLocation, MapRegionState.Ready);
+            IMapRegion canonicalRegion = scenario.Region;
+            scenario.RegionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>())
+                .Returns(_ => canonicalRegion);
+
+            scenario.Viewport.RebuildView();
+            scenario.Viewport.RefreshVisibleRegions();
+            scenario.Viewport.BeginMapRegionSynchronization();
+
+            canonicalRegion = replacement;
+            scenario.Viewport.UpdateTick();
+            scenario.Viewport.UpdateTick();
+
+            scenario.Region.Received(1).SendFullPartUpdates(scenario.Character);
+            replacement.Received(1).SendFullPartUpdates(scenario.Character);
+        }
+
+        [TestMethod]
+        public void UpdateTick_WaitsForInitializingCanonicalReplacement()
+        {
+            var scenario = CreateMapSynchronizationScenario(MapRegionState.Ready);
+            var replacement = CreateRegion(scenario.Region.BaseLocation, MapRegionState.Initializing);
+            IMapRegion canonicalRegion = scenario.Region;
+            scenario.RegionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>())
+                .Returns(_ => canonicalRegion);
+
+            scenario.Viewport.RebuildView();
+            scenario.Viewport.RefreshVisibleRegions();
+            scenario.Viewport.BeginMapRegionSynchronization();
+
+            canonicalRegion = replacement;
+            scenario.Viewport.UpdateTick();
+            replacement.DidNotReceive().SendFullPartUpdates(scenario.Character);
+
+            replacement.State.Returns(MapRegionState.Ready);
+            scenario.Viewport.UpdateTick();
+
+            replacement.Received(1).SendFullPartUpdates(scenario.Character);
+        }
+
+        [TestMethod]
+        public void UpdateTick_SynchronizesReadyRegionWithoutWaitingForSlowRegion()
+        {
+            var scenario = CreateMapSynchronizationScenario(MapRegionState.Initializing);
+            var readyRegion = CreateRegion(Location.Create(164, 100, 0, 0), MapRegionState.Ready);
+            IMapRegion[] visibleRegions = [scenario.Region];
+            scenario.RegionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<IMapSize>())
+                .Returns(_ => visibleRegions);
+            scenario.RegionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>())
+                .Returns(callInfo => callInfo[0] is int id && id == readyRegion.Id ? readyRegion : scenario.Region);
+
+            scenario.Viewport.RebuildView();
+            scenario.Viewport.RefreshVisibleRegions();
+            scenario.Viewport.BeginMapRegionSynchronization();
+
+            visibleRegions = [scenario.Region, readyRegion];
+            scenario.Viewport.RebuildView();
+            scenario.Viewport.UpdateTick();
+
+            readyRegion.Received(1).SendFullPartUpdates(scenario.Character);
+            scenario.Region.DidNotReceive().SendFullPartUpdates(scenario.Character);
+        }
+
+        [TestMethod]
+        public void UpdateTick_SynchronizesReadyRegionWhenAnotherRegionIsDiscarded()
+        {
+            var discardedRegion = CreateRegion(Location.Create(100, 100, 0, 0), MapRegionState.Discarded);
+            var readyRegion = CreateRegion(Location.Create(164, 100, 0, 0), MapRegionState.Ready);
+            var character = Substitute.For<ICharacter>();
+            IMapRegion[] visibleRegions = [discardedRegion, readyRegion];
+            var regionService = Substitute.For<IMapRegionService>();
+            var mapSize = Substitute.For<IMapSize>();
+            mapSize.Size.Returns(104);
+            var viewport = new Viewport(character, regionService, mapSize);
+
+            character.Location.Returns(Location.Create(100, 100, 0, 0));
+            regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), mapSize)
+                .Returns(_ => visibleRegions);
+            regionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>())
+                .Returns(callInfo => callInfo[0] is int id && id == readyRegion.Id ? readyRegion : discardedRegion);
+
+            viewport.RebuildView();
+            viewport.UpdateTick();
+
+            readyRegion.Received(1).SendFullPartUpdates(character);
+            discardedRegion.DidNotReceive().SendFullPartUpdates(character);
+        }
+
+        [TestMethod]
+        public void UpdateTick_SynchronizesReadyDynamicRegionWithoutNormalLoading()
+        {
+            var scenario = CreateMapSynchronizationScenario(MapRegionState.Initializing, true);
+
+            scenario.Viewport.RebuildView();
+            scenario.Viewport.UpdateTick();
+            scenario.Region.DidNotReceive().SendFullPartUpdates(scenario.Character);
+
+            scenario.SetState(MapRegionState.Ready);
+            scenario.Viewport.UpdateTick();
+
+            scenario.Region.Received(1).SendFullPartUpdates(scenario.Character);
+        }
+
+        private static MapSynchronizationScenario CreateMapSynchronizationScenario(MapRegionState state, bool isDynamic = false)
+        {
+            var character = Substitute.For<ICharacter>();
+            var regionService = Substitute.For<IMapRegionService>();
+            var mapSize = Substitute.For<IMapSize>();
+            var location = Location.Create(100, 100, 0, 0);
+            var region = CreateRegion(location, state, isDynamic);
+            var viewport = new Viewport(character, regionService, mapSize);
+            var currentState = state;
+
+            character.Location.Returns(location);
+            region.State.Returns(_ => currentState);
+            regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), mapSize)
+                .Returns(new[] { region });
+            regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension).Returns(region);
+            regionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>())
+                .Returns(region);
+
+            return new MapSynchronizationScenario(
+                character,
+                regionService,
+                viewport,
+                region,
+                value => currentState = value);
+        }
+
+        private static IMapRegion CreateRegion(ILocation baseLocation, MapRegionState state, bool isDynamic = false)
+        {
+            var region = Substitute.For<IMapRegion>();
+            region.Id.Returns(baseLocation.RegionId);
+            region.BaseLocation.Returns(Location.Create(baseLocation.RegionX * 64, baseLocation.RegionY * 64, 0, baseLocation.Dimension));
+            region.State.Returns(state);
+            region.IsDynamic.Returns(isDynamic);
+            region.XteaKeys.Returns(new[] { 1, 2, 3, 4 });
+            region.FindAllCharacters().Returns(Array.Empty<ICharacter>());
+            region.FindAllNpcs().Returns(Array.Empty<INpc>());
+            return region;
+        }
+
+        private sealed record MapSynchronizationScenario(
+            ICharacter Character,
+            IMapRegionService RegionService,
+            Viewport Viewport,
+            IMapRegion Region,
+            Action<MapRegionState> SetState);
 
         [TestMethod]
         public void InBounds_ReturnsTrue_WhenLocationIsWithinBounds()

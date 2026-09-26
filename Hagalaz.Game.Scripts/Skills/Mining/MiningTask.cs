@@ -7,6 +7,7 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Skills.Mining
 {
@@ -23,10 +24,16 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         /// <summary>
         ///     Construct's new mining task.
         /// </summary>
-        public MiningTask(ICharacter performer, Func<bool> finishCallback, double chance, PickaxeDto pickaxeData, IGameObject gameObject)
+        public MiningTask(
+            ICharacter performer,
+            Func<IGameObject, bool> finishCallback,
+            double chance,
+            PickaxeDto pickaxeData,
+            EntityHandle<IGameObject> gameObjectHandle)
         {
             _performer = performer;
             _finishCallback = finishCallback;
+            _entityService = performer.ServiceProvider.GetRequiredService<IEntityService>();
             TickActionMethod = PerformTickImpl;
             _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
             {
@@ -35,18 +42,23 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
             });
             _chance = chance;
             _pickaxeData = pickaxeData;
-            _gameObject = gameObject;
+            _gameObjectHandle = gameObjectHandle;
         }
 
         /// <summary>
         ///     Contains finish callback.
         /// </summary>
-        private readonly Func<bool> _finishCallback;
+        private readonly Func<IGameObject, bool> _finishCallback;
 
         /// <summary>
         ///     Contains performer.
         /// </summary>
         private readonly ICharacter _performer;
+
+        /// <summary>
+        /// Resolves live world entities.
+        /// </summary>
+        private readonly IEntityService _entityService;
 
         /// <summary>
         ///     The chance of getting log from the tree.
@@ -61,7 +73,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         /// <summary>
         ///     The object this task is for.
         /// </summary>
-        private readonly IGameObject _gameObject;
+        private readonly EntityHandle<IGameObject> _gameObjectHandle;
 
         /// <summary>
         ///     Contains tick implementation.
@@ -69,16 +81,16 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         /// <returns></returns>
         private void PerformTickImpl()
         {
+            if (!_entityService.TryResolve(_gameObjectHandle, out var gameObject) || gameObject is null || gameObject.IsDisabled)
+            {
+                Cancel();
+                return;
+            }
+
             var randomValue = RandomStatic.Generator.NextDouble();
             if (randomValue <= _chance)
             {
-                if (_gameObject.IsDestroyed || _gameObject.IsDisabled)
-                {
-                    Cancel();
-                    return;
-                }
-
-                if (_finishCallback())
+                if (_finishCallback(gameObject))
                 {
                     Cancel();
                     return;

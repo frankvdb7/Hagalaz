@@ -6,10 +6,10 @@ namespace Raido.Server.Internal.Proxies
 {
     internal class SingleClientProxy : IRaidoClientProxy
     {
-        private readonly IRaidoLifetimeManager _lifetimeManager;
+        private readonly IRaidoHubLifetimeManager _lifetimeManager;
         private readonly string _connectionId;
 
-        public SingleClientProxy(IRaidoLifetimeManager lifetimeManager, string connectionId)
+        public SingleClientProxy(IRaidoHubLifetimeManager lifetimeManager, string connectionId)
         {
             _lifetimeManager = lifetimeManager;
             _connectionId = connectionId;

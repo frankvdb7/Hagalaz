@@ -43,9 +43,7 @@ namespace Hagalaz.Game.Scripts
         {
             // services
             services.AddSingleton<IDefaultFamiliarScriptProvider, DefaultFamiliarScriptProvider>();
-            services.AddScoped<DefaultFamiliarScript>();
             services.AddSingleton<IDefaultNpcScriptProvider, DefaultNpcScriptProvider>();
-            services.AddScoped<DefaultNpcScript>();
             services.AddSingleton<IDefaultCharacterNpcScriptProvider, DefaultCharacterNpcScriptProvider>();
             services.AddScoped<DefaultCharacterNpcScript>();
             services.AddSingleton<IDefaultGameObjectScriptProvider, DefaultGameObjectScriptProvider>();
@@ -118,13 +116,6 @@ namespace Hagalaz.Game.Scripts
                 .WithScopedLifetime());
 
             // npcs
-            services.Scan(scan => scan.FromAssemblyOf<Startup>()
-                .AddClasses(classes =>
-                    classes.AssignableTo<INpcScript>()
-                        .Where(type => !type.IsAssignableFrom(typeof(DefaultNpcScript)) && !type.IsAssignableFrom(typeof(DefaultFamiliarScript))))
-                .AsSelfWithInterfaces()
-                .WithTransientLifetime());
-
             services.Scan(scan => scan.FromAssemblyOf<Startup>()
                 .AddClasses(classes => classes.AssignableTo<INpcScriptFactory>())
                 .AsSelfWithInterfaces()

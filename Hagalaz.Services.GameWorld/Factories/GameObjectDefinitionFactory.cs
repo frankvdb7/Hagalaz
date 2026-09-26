@@ -5,6 +5,9 @@ namespace Hagalaz.Services.GameWorld.Factories
 {
     public class GameObjectDefinitionFactory : ITypeFactory<GameObjectDefinition>
     {
-        public GameObjectDefinition CreateType(int typeId) => new(typeId);
+        public GameObjectDefinition CreateType(int typeId)
+        {
+            return new(typeId);
+        }
     }
 }

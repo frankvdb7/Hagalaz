@@ -27,6 +27,16 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         int DrawRegionZ { get; set; }
 
         /// <summary>
+        /// Gets or sets the dimension of the source region part.
+        /// </summary>
+        int DrawRegionDimension { get; set; }
+
+        /// <summary>
+        /// Gets whether this part has a source mapping to load.
+        /// </summary>
+        bool HasDrawSource { get; set; }
+
+        /// <summary>
         /// Gets or sets the rotation of this region part.
         /// </summary>
         int Rotation { get; set; }
@@ -46,6 +56,13 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// </summary>
         /// <returns>An enumerable collection of game objects.</returns>
         IEnumerable<IGameObject> FindAllGameObjects();
+
+        /// <summary>
+        /// Finds static game objects that are disabled but remain owned by this
+        /// region so they can be re-enabled without losing their identity.
+        /// </summary>
+        /// <returns>The disabled static game objects in this part.</returns>
+        IEnumerable<IGameObject> FindAllDisabledStaticGameObjects();
 
         /// <summary>
         /// Finds all ground items in this region part.
@@ -97,15 +114,23 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         void SendUpdates(ICharacter character);
 
         /// <summary>
+        /// Freezes the updates queued before the client tick for delivery during
+        /// that tick. Updates queued after this point remain pending for the next
+        /// tick.
+        /// </summary>
+        void PrepareUpdatesForTick();
+
+        /// <summary>
         /// Queues an update for this region part to be sent in the next client update.
         /// </summary>
         /// <param name="update">The region part update to queue.</param>
         void QueueUpdate(IRegionPartUpdate update);
 
         /// <summary>
-        /// Clears all queued updates for this region part.
+        /// Completes the current client update tick by discarding only the
+        /// prepared updates.
         /// </summary>
-        void ClearUpdates();
+        void CompleteUpdateTick();
 
         /// <summary>
         /// Erases all dynamic data from this region part, resetting it to its base state.

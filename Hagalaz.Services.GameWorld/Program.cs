@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using McMaster.NETCore.Plugins;
 using Microsoft.AspNetCore.Hosting;
@@ -18,6 +19,8 @@ using Hagalaz.Game.Abstractions.Scripts;
 using Hagalaz.Services.GameWorld.Network;
 using Hagalaz.Services.GameWorld.Providers;
 using Hagalaz.Services.GameWorld.Services;
+using Raido.Server;
+using Raido.Server.Extensions;
 using Hagalaz.ServiceDefaults;
 
 namespace Hagalaz.Services.GameWorld
@@ -53,7 +56,7 @@ namespace Hagalaz.Services.GameWorld
                     tcpPort,
                     listenOptions =>
                     {
-                        listenOptions.UseConnectionHandler<ClientConnectionHandler>();
+                        listenOptions.UseRaido();
                         listenOptions.UseConnectionLogging();
                     });
 
@@ -116,7 +119,11 @@ namespace Hagalaz.Services.GameWorld
                 // Create an instance of plugin types
                 foreach (var loader in GetPluginLoaders())
                 {
-                    foreach (var pluginType in loader.LoadDefaultAssembly().GetTypes().Where(t => typeof(IPluginStartup).IsAssignableFrom(t) && !t.IsAbstract))
+                    var pluginAssembly = loader.LoadDefaultAssembly();
+                    services.AddSingleton(pluginAssembly);
+
+                    foreach (var pluginType in GetLoadableTypes(pluginAssembly)
+                                 .Where(t => typeof(IPluginStartup).IsAssignableFrom(t) && !t.IsAbstract))
                     {
                         // This assumes the implementation of IPluginStartup has a parameterless constructor
                         var plugin = Activator.CreateInstance(pluginType) as IPluginStartup;
@@ -124,6 +131,20 @@ namespace Hagalaz.Services.GameWorld
                         plugin?.Configure(services);
                     }
                 }
+
             });
+
+        private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+        {
+            try
+            {
+                return assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException exception)
+            {
+                Console.Error.WriteLine($"Plugin assembly '{assembly.FullName}' was only partially loadable: {exception}");
+                return exception.Types.OfType<Type>();
+            }
+        }
     }
 }

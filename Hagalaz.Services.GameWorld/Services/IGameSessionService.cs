@@ -1,15 +1,17 @@
 ﻿using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Services.GameWorld.Model;
 
 namespace Hagalaz.Services.GameWorld.Services
 {
     public interface IGameSessionService
     {
         public Task<IGameSession?> FindByMasterId(uint masterId);
+        public Task<IGameWorldSession?> FindWorldSessionByMasterId(uint masterId);
         public Task<(IGameSession Session, bool Created)> AddSession(uint masterId, string connectionId);
         public Task<(IGameSession? Session, bool Created)> TryAddWorldSession(uint masterId, string connectionId, System.Threading.CancellationToken cancellationToken = default);
+        public Task<(IGameSession? Session, bool Created)> TryAddWorldSession(uint masterId, string connectionId, string? lobbySessionClaimId, System.Threading.CancellationToken cancellationToken = default);
         public Task<bool> CommitWorldSession(IGameSession expectedSession, System.Threading.CancellationToken cancellationToken = default);
         public Task<bool> RemoveSession(IGameSession expectedSession, System.Threading.CancellationToken cancellationToken = default);
-        public Task<bool> RemoveLocalSession(IGameSession expectedSession);
     }
 }

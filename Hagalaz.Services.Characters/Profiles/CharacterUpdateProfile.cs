@@ -98,7 +98,7 @@ namespace Hagalaz.Services.Characters.Profiles
 
             CreateMap<StateDto.StateExDto, CharactersState>()
                 .ForMember(dest => dest.MasterId, opt => opt.Ignore())
-                .ForMember(dest => dest.StateId, opt => opt.MapFrom(src => src.Id.ToString(CultureInfo.InvariantCulture)))
+                .ForMember(dest => dest.StateId, opt => opt.MapFrom(src => src.Id))
                 .ForMember(dest => dest.Master, opt => opt.Ignore());
         }
     }
