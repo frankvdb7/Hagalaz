@@ -301,14 +301,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                 return true;
             }
 
-            for (var slot = 0; slot < _priceCheckInterface.Capacity; slot++)
-            {
-                var item = _priceCheckInterface[slot];
-                if (item != null && !BaseItemContainer.TryTransfer(_priceCheckInterface, Owner.Inventory, item, item.Count, slot))
-                {
-                    return false;
-                }
-            }
+            Owner.Inventory.AddAndRemoveFrom(_priceCheckInterface);
 
             return _priceCheckInterface.TakenSlots == 0;
         }
