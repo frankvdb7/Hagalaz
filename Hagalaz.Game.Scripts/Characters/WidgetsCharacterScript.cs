@@ -45,10 +45,7 @@ namespace Hagalaz.Game.Scripts.Characters
         private void OnDisplayChanged()
         {
             var opened = new List<IWidget>(Character.Widgets.Widgets);
-            if (!OpenMainGameFrame())
-            {
-                return;
-            }
+            OpenMainGameFrame();
 
             foreach (var inter in opened.Where(inter => inter.IsOpened))
             {
@@ -58,7 +55,7 @@ namespace Hagalaz.Game.Scripts.Characters
             Character.Area.Script.RenderEnterArea(Character);
         }
 
-        public bool OpenMainGameFrame()
+        public void OpenMainGameFrame()
         {
             // Capture if a frame was open before clearing, to signal a necessary client redraw.
             var wasFrameOpen = Character.Widgets.CurrentFrame != null;
@@ -72,15 +69,14 @@ namespace Hagalaz.Game.Scripts.Characters
                 .AsFrame()
                 .Build();
             Character.Widgets.OpenFrame(gameFrame, wasFrameOpen);
-            return Character.Widgets.CurrentFrame == gameFrame;
         }
         
-        public bool OpenCharacterDesignFrame()
+        public void OpenCharacterDesignFrame()
         {
             if (Character.Equipment.FreeSlots != Character.Equipment.Capacity)
             {
                 Character.SendChatMessage("Please remove all your equipment before customizing your character.");
-                return false;
+                return;
             }
 
             // Capture if a frame was open before clearing, to signal a necessary client redraw.
@@ -95,7 +91,6 @@ namespace Hagalaz.Game.Scripts.Characters
                 .AsFrame()
                 .Build();
             Character.Widgets.OpenFrame(designFrame, wasFrameOpen);
-            return Character.Widgets.CurrentFrame == designFrame;
         }
         
         /// <summary>

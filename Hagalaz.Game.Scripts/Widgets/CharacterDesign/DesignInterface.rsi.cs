@@ -1016,7 +1016,6 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterDesign
             Owner.Appearance.DrawCharacter(); // redraw , so accessories are removed
             Owner.Appearance.Refresh();
             Owner.Widgets.CloseAll();
-
             Owner.GetScript<WidgetsCharacterScript>()?.OpenMainGameFrame();
             InitiateWelcome();
         }

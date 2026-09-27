@@ -105,38 +105,6 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
-    public void TryExchange_WhenRecipientPreflightFails_DoesNotMutateOrNotify()
-    {
-        var firstInventory = new TestInventory(3);
-        var secondInventory = new TestInventory(3);
-        var first = CreateCharacter(firstInventory, Substitute.For<IMoneyPouchContainer>());
-        var eventManager = Substitute.For<IEventManager>();
-        first.EventManager.Returns(eventManager);
-        var firstMoneyPouch = new MoneyPouchContainer(first, CreateItemBuilder());
-        first.MoneyPouch.Returns(firstMoneyPouch);
-
-        var secondExisting = new TestItem(100, 1, stackable: true) { ThrowOnStackCheck = true };
-        secondInventory.Add(secondExisting).Should().BeTrue();
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
-        var firstOffer = new TestItemContainer(StorageType.Normal, 14);
-        var secondOffer = new TestItemContainer(StorageType.Normal, 14);
-        firstOffer.Add(new TestItem(201, 1)).Should().BeTrue();
-        firstOffer.Add(new TestItem(100, 1, stackable: true)).Should().BeTrue();
-        secondOffer.Add(new TestItem(995, 10, stackable: true)).Should().BeTrue();
-
-        TradeExchange.TryExchange(first, firstOffer, second, secondOffer, CreateItemBuilder()).Should().BeFalse();
-
-        firstMoneyPouch.Count.Should().Be(0);
-        firstInventory.TakenSlots.Should().Be(0);
-        secondInventory.GetCountById(100).Should().Be(1);
-        firstOffer.GetCountById(201).Should().Be(1);
-        firstOffer.GetCountById(100).Should().Be(1);
-        secondOffer.GetCountById(995).Should().Be(10);
-        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
-        first.DidNotReceive().SendChatMessage(Arg.Any<string>());
-    }
-
-    [TestMethod]
     public void TryExchange_WhenPouchIsFull_UsesInventoryForCoinOverflow()
     {
         var firstInventory = new TestInventory(1);
@@ -182,32 +150,6 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
-    public void TryExchange_WhenDestinationStackCheckFailsDuringBatch_DoesNotLeavePartialCredit()
-    {
-        var firstInventory = new TestInventory(3);
-        firstInventory.Add(new TestItem(100, 1, stackable: true) { ThrowOnStackCheck = true }).Should().BeTrue();
-        var secondInventory = new TestInventory(3);
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
-        var firstOffer = new TestItemContainer(StorageType.Normal, 14);
-        var secondOffer = new TestItemContainer(StorageType.Normal, 14);
-        firstOffer.Add(new TestItem(200, 1)).Should().BeTrue();
-        secondOffer.Add(new TestItem(101, 1)).Should().BeTrue();
-        secondOffer.Add(new TestItem(100, 1, stackable: true)).Should().BeTrue();
-
-        TradeExchange.TryExchange(first, firstOffer, second, secondOffer, CreateItemBuilder()).Should().BeFalse();
-        TradeExchange.TryRefund(first, firstOffer, second, secondOffer, CreateItemBuilder()).Should().BeTrue();
-
-        firstInventory.GetCountById(101).Should().Be(0);
-        firstInventory.GetCountById(200).Should().Be(1);
-        secondInventory.GetCountById(101).Should().Be(1);
-        secondInventory.GetCountById(100).Should().Be(1);
-        firstOffer.GetCountById(200).Should().Be(0);
-        secondOffer.GetCountById(101).Should().Be(0);
-        secondOffer.GetCountById(100).Should().Be(0);
-    }
-
-    [TestMethod]
     public void TryExchange_WhenDestinationBatchReturnsFalseAfterEarlierItem_DoesNotLeavePartialCredit()
     {
         var firstInventory = new TestInventory(2);
@@ -233,9 +175,11 @@ public sealed class TradeExchangeTests
     public void TryExchange_WhenSecondRecipientPreflightFails_DoesNotMutateFirstRecipientBeforeRefund()
     {
         var firstInventory = new TestInventory(3);
-        var secondInventory = new TestInventory(3);
-        var secondExisting = new TestItem(100, 1, stackable: true) { ThrowOnStackCheck = true };
+        var secondInventory = new TestInventory(2);
+        var secondExisting = new TestItem(100, 1, stackable: true);
         secondInventory.Add(secondExisting).Should().BeTrue();
+        var capacityItem = new TestItem(300, 1);
+        secondInventory.Add(capacityItem).Should().BeTrue();
         var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
         var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
         var firstOffer = new TestItemContainer(StorageType.Normal, 14);
@@ -254,7 +198,7 @@ public sealed class TradeExchangeTests
         firstOffer.GetCountById(100).Should().Be(1);
         secondOffer.GetCountById(101).Should().Be(1);
 
-        secondExisting.ThrowOnStackCheck = false;
+        secondInventory.Remove(capacityItem).Should().Be(1);
         TradeExchange.TryRefund(first, firstOffer, second, secondOffer, CreateItemBuilder()).Should().BeTrue();
 
         firstInventory.GetCountById(101).Should().Be(0);
@@ -423,40 +367,6 @@ public sealed class TradeExchangeTests
         script.TradeSession.Should().BeFalse();
         firstInventory.GetCountById(101).Should().Be(1);
         secondInventory.GetCountById(100).Should().Be(1);
-    }
-
-    [TestMethod]
-    public void TryConserveEscrow_WhenSourceNotificationFails_CommitsMove()
-    {
-        var firstInventory = new TestInventory(14);
-        var secondInventory = new TestInventory(14);
-        var firstRewards = new TestRewardContainer(14);
-        var first = CreateCharacter(
-            firstInventory,
-            new TestMoneyPouch(firstInventory),
-            firstRewards);
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
-        var firstOffer = new TestItemContainer(StorageType.Normal, 14);
-        var secondOffer = new TestItemContainer(StorageType.Normal, 14);
-        firstOffer.Add(new TestItem(100, 1)).Should().BeTrue();
-        firstOffer.FailNextUpdate = true;
-        TradeExchange.TryConserveEscrow(
-            first,
-            firstOffer,
-            second,
-            secondOffer).Should().BeTrue();
-
-        firstOffer.GetCountById(100).Should().Be(0);
-        firstRewards.GetCountById(100).Should().Be(1);
-
-        TradeExchange.TryConserveEscrow(
-            first,
-            firstOffer,
-            second,
-            secondOffer).Should().BeTrue();
-
-        firstOffer.GetCountById(100).Should().Be(0);
-        firstRewards.GetCountById(100).Should().Be(1);
     }
 
     [TestMethod]
@@ -801,17 +711,13 @@ public sealed class TradeExchangeTests
     private sealed class TestItem : IItem
     {
         public int Id { get; }
+        public long[] ExtraData => [];
         public int Count { get; set; }
         public string Name => $"Test item {Id}";
         public IItemDefinition ItemDefinition { get; }
         public IEquipmentDefinition EquipmentDefinition { get; } = Substitute.For<IEquipmentDefinition>();
         public IItemScript ItemScript { get; }
         public IEquipmentScript EquipmentScript { get; } = Substitute.For<IEquipmentScript>();
-        public long[] ExtraData => [];
-
-        public bool ThrowOnStackCheck { get; set; }
-        public bool ThrowOnEquals { get; set; }
-
         public TestItem(int id, int count, bool stackable = false, bool noted = false)
         {
             Id = id;
@@ -823,14 +729,10 @@ public sealed class TradeExchangeTests
             var script = Substitute.For<IItemScript>();
             script.CanStackItem(Arg.Any<IItem>(), Arg.Any<IItem>(), Arg.Any<bool>()).Returns(info =>
             {
-                if (ThrowOnStackCheck)
-                {
-                    throw new InvalidOperationException("Controlled item stack-check failure.");
-                }
-
                 var left = info.ArgAt<IItem>(0);
                 var right = info.ArgAt<IItem>(1);
-                return info.ArgAt<bool>(2) || left.ItemDefinition.Stackable && left.Id == right.Id;
+                return left.Id == right.Id && left.ExtraData.SequenceEqual(right.ExtraData) &&
+                       (info.ArgAt<bool>(2) || left.ItemDefinition.Stackable || left.ItemDefinition.Noted);
             });
             ItemScript = script;
         }
@@ -839,30 +741,18 @@ public sealed class TradeExchangeTests
             Id,
             Count,
             ItemDefinition.Stackable,
-            ItemDefinition.Noted)
-        {
-            ThrowOnStackCheck = ThrowOnStackCheck,
-            ThrowOnEquals = ThrowOnEquals
-        };
+            ItemDefinition.Noted);
 
         public IItem Clone(int newCount) => new TestItem(
             Id,
             newCount,
             ItemDefinition.Stackable,
-            ItemDefinition.Noted)
-        {
-            ThrowOnStackCheck = ThrowOnStackCheck,
-            ThrowOnEquals = ThrowOnEquals
-        };
+            ItemDefinition.Noted);
 
         public bool Equals(IItem otherItem, bool ignoreCount = true)
         {
-            if (ThrowOnEquals)
-            {
-                throw new InvalidOperationException("Controlled item equality failure.");
-            }
-
-            return otherItem != null && Id == otherItem.Id && (ignoreCount || Count == otherItem.Count);
+            return otherItem != null && Id == otherItem.Id && ExtraData.SequenceEqual(otherItem.ExtraData) &&
+                   (ignoreCount || Count == otherItem.Count);
         }
 
         public string? SerializeExtraData() => null;

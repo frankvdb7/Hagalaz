@@ -171,20 +171,24 @@ namespace Hagalaz.Game.Abstractions.Collections
                 return false;
             }
 
-            NotifyTransferCommittedSafely(sourceContainer, sourceSlots);
-            NotifyTransferCommittedSafely(destinationContainer, destinationSlots);
+            NotifyAfterCommit(() => sourceContainer.OnUpdate(sourceSlots));
+            NotifyAfterCommit(() => destinationContainer.OnUpdate(destinationSlots));
             return true;
         }
 
-        private static void NotifyTransferCommittedSafely(BaseItemContainer container, HashSet<int> slots)
+        /// <summary>
+        /// Delivers an observer notification after storage has committed.
+        /// A nonfatal observer failure does not change the mutation result.
+        /// </summary>
+        protected static void NotifyAfterCommit(Action notification)
         {
             try
             {
-                container.OnUpdate(slots);
+                notification();
             }
             catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException and not AccessViolationException)
             {
-                // A committed transfer remains successful, and one observer must not prevent notifying the other.
+                // Observer delivery must not make committed storage appear uncommitted.
             }
         }
 
@@ -1277,7 +1281,7 @@ namespace Hagalaz.Game.Abstractions.Collections
                 _version++;
             }
 
-            if (update) OnUpdate();
+            if (update) NotifyAfterCommit(() => OnUpdate());
         }
 
         /// <summary>

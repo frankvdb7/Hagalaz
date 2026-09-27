@@ -740,8 +740,6 @@ public sealed class CharacterLogoutServiceTests
         session.ConnectionId.Returns("connection");
         session.SessionGeneration.Returns(7L);
         character.Session.Returns(session);
-        var widgets = Substitute.For<IWidgetContainer>();
-        character.Widgets.Returns(widgets);
         return character;
     }
 

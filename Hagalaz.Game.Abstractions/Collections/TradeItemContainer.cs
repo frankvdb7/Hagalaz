@@ -44,21 +44,13 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
                 countsBefore[i] = itemsBefore[i]?.Count ?? 0;
             }
 
-            try
-            {
-                if (!AddRangeCore(items, out slotsToUpdate))
-                {
-                    RestoreSnapshot(itemsBefore, countsBefore);
-                    return false;
-                }
-
-                AdvanceRevision();
-            }
-            catch (InvalidOperationException)
+            if (!AddRangeCore(items, out slotsToUpdate))
             {
                 RestoreSnapshot(itemsBefore, countsBefore);
                 return false;
             }
+
+            AdvanceRevision();
         }
 
         NotifyTradeUpdate(slotsToUpdate);
@@ -102,14 +94,7 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
     /// </summary>
     protected void NotifyTradeUpdate(HashSet<int>? slots = null)
     {
-        try
-        {
-            OnUpdate(slots);
-        }
-        catch (InvalidOperationException)
-        {
-            // Storage mutation has already committed; observer delivery is best effort.
-        }
+        NotifyAfterCommit(() => OnUpdate(slots));
     }
 
 }

@@ -110,42 +110,35 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var itemsBefore = (IItem?[])Items.Clone();
             var countsBefore = itemsBefore.Select(item => item?.Count ?? 0).ToArray();
             var previousCountBefore = _previousCount;
-            try
+            var pouchCount = Math.Min(count, int.MaxValue - Count);
+            var inventoryCount = count - pouchCount;
+            if (inventoryCount > 0 && !_owner.Inventory.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
             {
-                var pouchCount = Math.Min(count, int.MaxValue - Count);
-                var inventoryCount = count - pouchCount;
-                if (inventoryCount > 0 && !_owner.Inventory.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
-                {
-                    return false;
-                }
-
-                _previousCount = Count;
-                if (pouchCount > 0 && !AddRangeForTrade([_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()]))
-                {
-                    return false;
-                }
-
-                SendMoneyPouchChangedMessageForTrade(pouchCount);
-
-                if (inventoryCount <= 0)
-                {
-                    return true;
-                }
-
-                if (!_owner.Inventory.AddRangeForTrade(
-                        [_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()]))
-                {
-                    RestoreTradeState(itemsBefore, countsBefore, previousCountBefore);
-                    return false;
-                }
-
-                return true;
+                return false;
             }
-            catch (InvalidOperationException)
+
+            _previousCount = Count;
+            if (pouchCount > 0 && !AddRangeForTrade([_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()]))
             {
                 RestoreTradeState(itemsBefore, countsBefore, previousCountBefore);
                 return false;
             }
+
+            SendMoneyPouchChangedMessageForTrade(pouchCount);
+
+            if (inventoryCount <= 0)
+            {
+                return true;
+            }
+
+            if (!_owner.Inventory.AddRangeForTrade(
+                    [_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()]))
+            {
+                RestoreTradeState(itemsBefore, countsBefore, previousCountBefore);
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -195,37 +188,30 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var itemsBefore = (IItem?[])Items.Clone();
             var countsBefore = itemsBefore.Select(item => item?.Count ?? 0).ToArray();
             var previousCountBefore = _previousCount;
-            try
+            var pouchCount = Math.Min(count, Count);
+            var inventoryCount = count - pouchCount;
+            if (inventoryCount > _owner.Inventory.GetCountById(995))
             {
-                var pouchCount = Math.Min(count, Count);
-                var inventoryCount = count - pouchCount;
-                if (inventoryCount > _owner.Inventory.GetCountById(995))
-                {
-                    return false;
-                }
-
-                _previousCount = Count;
-                if (pouchCount > 0 && !RemoveForTrade(
-                        _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0))
-                {
-                    return false;
-                }
-
-                if (inventoryCount > 0 && !_owner.Inventory.RemoveForTrade(
-                        _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
-                {
-                    RestoreTradeState(itemsBefore, countsBefore, previousCountBefore);
-                    return false;
-                }
-
-                SendMoneyPouchChangedMessageForTrade(-count);
-                return true;
+                return false;
             }
-            catch (InvalidOperationException)
+
+            _previousCount = Count;
+            if (pouchCount > 0 && !RemoveForTrade(
+                    _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0))
             {
                 RestoreTradeState(itemsBefore, countsBefore, previousCountBefore);
                 return false;
             }
+
+            if (inventoryCount > 0 && !_owner.Inventory.RemoveForTrade(
+                    _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
+            {
+                RestoreTradeState(itemsBefore, countsBefore, previousCountBefore);
+                return false;
+            }
+
+            SendMoneyPouchChangedMessageForTrade(-count);
+            return true;
         }
 
         private bool ExecuteWithInventoryBoundary(Func<bool> operation)
@@ -260,14 +246,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 _previousCount = currentCount;
                 SendMoneyPouchChangedMessageForTrade(Count - currentCount);
-                try
-                {
-                    OnUpdate();
-                }
-                catch (InvalidOperationException)
-                {
-                    // The authoritative state is restored; observer delivery is best effort.
-                }
+                NotifyAfterCommit(() => OnUpdate());
             }
 
             _previousCount = previousCount;
@@ -281,20 +260,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 _previousCount = previousCount;
                 SendMoneyPouchChangedMessageForTrade(Count - previousCount);
-                OnUpdate();
+                NotifyAfterCommit(() => OnUpdate());
             }
         }
 
         private void SendMoneyPouchChangedMessageForTrade(int changeCount)
         {
-            try
-            {
-                SendMoneyPouchChangedMessage(changeCount);
-            }
-            catch (InvalidOperationException)
-            {
-                // Trade storage has already committed; observer delivery is best effort.
-            }
+            NotifyAfterCommit(() => SendMoneyPouchChangedMessage(changeCount));
         }
 
         /// <summary>

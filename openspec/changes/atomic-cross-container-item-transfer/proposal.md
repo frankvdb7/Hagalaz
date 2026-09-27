@@ -26,7 +26,6 @@ Item movement is currently split across separate removal and insertion calls. A 
 - Concurrent opposite-direction transfers use one deterministic lock order and complete without deadlock.
 - Listed gameplay flows use the primitive without changing their intentional partial-count or equipment-callback behavior.
 - Price Checker selections are non-owning clones. Inventory remains authoritative, and closing or disconnecting cannot lose items because no authoritative item leaves Inventory.
-- Logout closes open widgets before snapshot capture so active trade cancellation can refund escrow into the character inventories.
 - Trade checked add/remove operations reuse the common storage mutation implementation while retaining trade-owned settlement and notification behavior.
 - Widget close remains unconditional, with a safe snapshot during batch closure. No close guard or terminal conservation lifecycle is introduced.
 - Focused MSTest regressions and strict OpenSpec validation pass.

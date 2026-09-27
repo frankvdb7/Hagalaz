@@ -43,6 +43,5 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             // Assert
             widgetContainerMock.Received(1).OpenFrame(widgetMock);
         }
-
     }
 }

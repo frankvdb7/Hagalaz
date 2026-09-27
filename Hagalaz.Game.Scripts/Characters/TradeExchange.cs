@@ -28,66 +28,46 @@ internal static class TradeExchange
         ITradeItemContainer secondOffer, IItemBuilder itemBuilder)
     {
         using var locks = AcquireLocks(GetContainers(firstOffer, secondOffer, first, second));
-        List<ContainerSnapshot> recipientSnapshots = [];
-        try
+        var firstItems = SnapshotItems(firstOffer);
+        var secondItems = SnapshotItems(secondOffer);
+        if (!CanReceive(first, secondItems, itemBuilder) || !CanReceive(second, firstItems, itemBuilder))
         {
-            var firstItems = SnapshotItems(firstOffer);
-            var secondItems = SnapshotItems(secondOffer);
-            if (!CanReceive(first, secondItems, itemBuilder) || !CanReceive(second, firstItems, itemBuilder))
-            {
-                return false;
-            }
-
-            recipientSnapshots = CaptureSnapshots(first.Inventory, first.MoneyPouch, second.Inventory, second.MoneyPouch);
-            if (!Receive(first, secondItems) || !Receive(second, firstItems))
-            {
-                RestoreSnapshots(recipientSnapshots);
-                return false;
-            }
-
-            firstOffer.Clear(false);
-            secondOffer.Clear(false);
-            return true;
+            return false;
         }
-        catch (InvalidOperationException)
+
+        var recipientSnapshots = CaptureSnapshots(first.Inventory, first.MoneyPouch, second.Inventory, second.MoneyPouch);
+        if (!Receive(first, secondItems) || !Receive(second, firstItems))
         {
-            // Capacity and storage checks happen under the same boundary as the
-            // commit. An unexpected domain failure is reported as a failed try.
             RestoreSnapshots(recipientSnapshots);
             return false;
         }
+
+        firstOffer.Clear(false);
+        secondOffer.Clear(false);
+        return true;
     }
 
     internal static bool TryRefundTrade(ICharacter first, ITradeItemContainer firstOffer, ICharacter second,
         ITradeItemContainer secondOffer, IItemBuilder itemBuilder)
     {
         using var locks = AcquireLocks(GetContainers(firstOffer, secondOffer, first, second));
-        List<ContainerSnapshot> recipientSnapshots = [];
-        try
+        var firstItems = SnapshotItems(firstOffer);
+        var secondItems = SnapshotItems(secondOffer);
+        if (!CanReceive(first, firstItems, itemBuilder) || !CanReceive(second, secondItems, itemBuilder))
         {
-            var firstItems = SnapshotItems(firstOffer);
-            var secondItems = SnapshotItems(secondOffer);
-            if (!CanReceive(first, firstItems, itemBuilder) || !CanReceive(second, secondItems, itemBuilder))
-            {
-                return false;
-            }
-
-            recipientSnapshots = CaptureSnapshots(first.Inventory, first.MoneyPouch, second.Inventory, second.MoneyPouch);
-            if (!Receive(first, firstItems) || !Receive(second, secondItems))
-            {
-                RestoreSnapshots(recipientSnapshots);
-                return false;
-            }
-
-            firstOffer.Clear(false);
-            secondOffer.Clear(false);
-            return true;
+            return false;
         }
-        catch (InvalidOperationException)
+
+        var recipientSnapshots = CaptureSnapshots(first.Inventory, first.MoneyPouch, second.Inventory, second.MoneyPouch);
+        if (!Receive(first, firstItems) || !Receive(second, secondItems))
         {
             RestoreSnapshots(recipientSnapshots);
             return false;
         }
+
+        firstOffer.Clear(false);
+        secondOffer.Clear(false);
+        return true;
     }
 
     /// <summary>
@@ -105,41 +85,32 @@ internal static class TradeExchange
         AddContainer(containers, second.Rewards);
         AddContainer(containers, second.Bank);
         using var locks = AcquireLocks(containers);
-        List<ContainerSnapshot> conservationSnapshots = [];
-        try
+        var firstItems = SnapshotItems(firstOffer);
+        var secondItems = SnapshotItems(secondOffer);
+        var firstDestination = GetRecoveryContainer(first, firstItems);
+        var secondDestination = GetRecoveryContainer(second, secondItems);
+        if ((firstItems.Length > 0 && firstDestination == null) ||
+            (secondItems.Length > 0 && secondDestination == null))
         {
-            var firstItems = SnapshotItems(firstOffer);
-            var secondItems = SnapshotItems(secondOffer);
-            var firstDestination = GetRecoveryContainer(first, firstItems);
-            var secondDestination = GetRecoveryContainer(second, secondItems);
-            if ((firstItems.Length > 0 && firstDestination == null) ||
-                (secondItems.Length > 0 && secondDestination == null))
-            {
-                return false;
-            }
-
-            conservationSnapshots = CaptureSnapshots(firstOffer, secondOffer, firstDestination, secondDestination);
-            if (firstDestination != null && firstItems.Length > 0 && !firstDestination.AddRangeForTrade(firstItems))
-            {
-                RestoreSnapshots(conservationSnapshots);
-                return false;
-            }
-
-            if (secondDestination != null && secondItems.Length > 0 && !secondDestination.AddRangeForTrade(secondItems))
-            {
-                RestoreSnapshots(conservationSnapshots);
-                return false;
-            }
-
-            firstOffer.Clear(false);
-            secondOffer.Clear(false);
-            return true;
+            return false;
         }
-        catch (InvalidOperationException)
+
+        var conservationSnapshots = CaptureSnapshots(firstOffer, secondOffer, firstDestination, secondDestination);
+        if (firstDestination != null && firstItems.Length > 0 && !firstDestination.AddRangeForTrade(firstItems))
         {
             RestoreSnapshots(conservationSnapshots);
             return false;
         }
+
+        if (secondDestination != null && secondItems.Length > 0 && !secondDestination.AddRangeForTrade(secondItems))
+        {
+            RestoreSnapshots(conservationSnapshots);
+            return false;
+        }
+
+        firstOffer.Clear(false);
+        secondOffer.Clear(false);
+        return true;
     }
 
     internal static bool AddRangeForTrade(ITradeItemContainer container, IEnumerable<IItem?> items) =>
@@ -230,14 +201,7 @@ internal static class TradeExchange
                 }
             }
 
-            try
-            {
-                snapshot.Container.SetItems(snapshot.Items, true);
-            }
-            catch (InvalidOperationException)
-            {
-                // The authoritative state is restored; observer delivery is best effort.
-            }
+            snapshot.Container.SetItems(snapshot.Items, true);
         }
     }
 

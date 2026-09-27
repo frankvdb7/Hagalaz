@@ -42,5 +42,4 @@ namespace Hagalaz.Game.Abstractions.Model.Widgets
         /// <returns><c>true</c> if the widget can be interrupted; otherwise, <c>false</c>.</returns>
         bool CanInterrupt();
     }
-
 }

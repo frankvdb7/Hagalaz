@@ -1739,10 +1739,6 @@ namespace Hagalaz.Game.Scripts.Characters
                 {
                     exchanged = TradeExchange.TryCompleteTrade(Character, SelfContainer, target, TargetContainer, _itemBuilder);
                 }
-                catch (InvalidOperationException)
-                {
-                    exchanged = false;
-                }
                 finally
                 {
                     if (!exchanged && session.State == TradeState.Completing)

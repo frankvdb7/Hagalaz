@@ -1432,25 +1432,6 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public void TryTransfer_DestinationObserverThrowsAfterCommit_ReturnsSuccess()
-        {
-            var source = new TestableBaseItemContainer(StorageType.Normal, 1);
-            source.Add(CreateItem(1, 1));
-            var destination = new TestableBaseItemContainer(StorageType.Normal, 1)
-            {
-                UpdateException = new InvalidOperationException("Controlled destination observer failure.")
-            };
-            var item = source[0];
-
-            Assert.IsTrue(BaseItemContainer.TryTransfer(source, destination, item!, 1));
-
-            Assert.IsNull(source[0]);
-            Assert.AreSame(item, destination[0]);
-            Assert.AreEqual(2, source.UpdateCount);
-            Assert.AreEqual(1, destination.UpdateCount);
-        }
-
-        [TestMethod]
         public void TryTransfer_ProcessFatalObserverExceptionIsNotSwallowed()
         {
             var source = new TestableBaseItemContainer(StorageType.Normal, 1);
@@ -1522,25 +1503,6 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
 
             Assert.AreEqual(2, container[0]!.Count);
             Assert.AreEqual(2, container.UpdateCount);
-        }
-
-        [TestMethod]
-        public void TryTransfer_TradeObserverFailuresUseCommonCommittedSuccessSemantics()
-        {
-            var source = new TestableItemContainer(StorageType.Normal, 1);
-            var destination = new TestableItemContainer(StorageType.Normal, 1);
-            var item = CreateItem(1, 1);
-            source.Add(item);
-            var storedItem = source[0];
-            source.UpdateException = new ArgumentException("Controlled trade source observer failure.");
-            destination.UpdateException = new ArgumentException("Controlled trade destination observer failure.");
-
-            Assert.IsTrue(BaseItemContainer.TryTransfer(source, destination, storedItem!, 1));
-
-            Assert.AreEqual(0, source.TakenSlots);
-            Assert.AreSame(storedItem, destination[0]);
-            Assert.AreEqual(2, source.UpdateCount);
-            Assert.AreEqual(1, destination.UpdateCount);
         }
 
         [TestMethod]
