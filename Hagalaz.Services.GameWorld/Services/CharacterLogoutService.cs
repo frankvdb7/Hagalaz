@@ -562,8 +562,6 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
                 var snapshotEstablished = false;
                 try
                 {
-                    character.Widgets.CloseAll();
-
                     var dehydrationService = character.ServiceProvider.GetRequiredService<ICharacterDehydrationService>();
                     var finalSnapshot = dehydrationService.Dehydrate(character) with
                     {

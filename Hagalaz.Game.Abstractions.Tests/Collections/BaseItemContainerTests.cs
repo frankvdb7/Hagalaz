@@ -77,8 +77,9 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                     var arg1 = (IItem)info[0];
                     var arg2 = (IItem)info[1];
                     var alwaysStack = (bool)info[2];
-                    if (alwaysStack) return arg1.Id == arg2.Id;
-                    return (arg1.ItemDefinition.Stackable || arg1.ItemDefinition.Noted) && arg1.Id == arg2.Id;
+                    return arg1.Id == arg2.Id &&
+                           arg1.ExtraData.AsSpan().SequenceEqual(arg2.ExtraData) &&
+                           (alwaysStack || arg1.ItemDefinition.Stackable || arg1.ItemDefinition.Noted);
                 });
                 ItemScript = itemScript;
 
@@ -93,15 +94,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                 return new TestItem(Id, newCount, ItemDefinition.Stackable, ItemDefinition.Noted, (long[])_extraData.Clone(), _onClone);
             }
 
-            public bool Equals(IItem other, bool ignoreCount = false)
-            {
-                if (other is null) return false;
-                if (ignoreCount)
-                {
-                    return Id == other.Id;
-                }
-                return Id == other.Id && Count == other.Count;
-            }
+            public bool Equals(IItem other, bool ignoreCount = true) =>
+                other is not null &&
+                Id == other.Id &&
+                _extraData.AsSpan().SequenceEqual(other.ExtraData) &&
+                (ignoreCount || Count == other.Count);
 
             public string? SerializeExtraData() => _extraData.Length == 0 ? null : string.Join(",", _extraData);
         }
@@ -1323,7 +1320,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             source.SetItems(
             [
                 CreateItem(1, 1, extraData: [17]),
-                CreateItem(1, 1, extraData: [29])
+                CreateItem(1, 1, extraData: [17])
             ], false);
             var first = source[0];
             var second = source[1];
@@ -1336,7 +1333,33 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.AreSame(first, destination[0]);
             Assert.AreSame(second, destination[1]);
             CollectionAssert.AreEqual(new long[] { 17 }, destination[0]!.ExtraData);
-            CollectionAssert.AreEqual(new long[] { 29 }, destination[1]!.ExtraData);
+            CollectionAssert.AreEqual(new long[] { 17 }, destination[1]!.ExtraData);
+        }
+
+        [TestMethod]
+        public void TryTransfer_SameIdDifferentExtraDataCannotSatisfyExactQuantity()
+        {
+            var source = new TestableItemContainer(StorageType.Normal, 2);
+            source.SetItems(
+            [
+                CreateItem(1, 1, extraData: [17]),
+                CreateItem(1, 1, extraData: [29])
+            ], false);
+            var first = source[0];
+            var second = source[1];
+            var sourceUpdates = source.UpdateCount;
+            var destination = new TestableItemContainer(StorageType.Normal, 2);
+            var destinationUpdates = destination.UpdateCount;
+
+            Assert.IsFalse(BaseItemContainer.TryTransfer(source, destination, first!, 2));
+
+            Assert.AreSame(first, source[0]);
+            Assert.AreSame(second, source[1]);
+            Assert.AreEqual(1, source[0]!.Count);
+            Assert.AreEqual(1, source[1]!.Count);
+            Assert.AreEqual(0, destination.TakenSlots);
+            Assert.AreEqual(sourceUpdates, source.UpdateCount);
+            Assert.AreEqual(destinationUpdates, destination.UpdateCount);
         }
 
         [TestMethod]

@@ -75,10 +75,6 @@ Price Checker selections SHALL be non-owning clones. Inventory SHALL remain auth
 - **WHEN** Inventory changes and a selected item quantity is no longer owned
 - **THEN** the selection is reduced to the matching quantity still in Inventory and the projection is refreshed
 
-#### Scenario: Logout closes an active trade before snapshot capture
-- **WHEN** a character logs out while a trade is active
-- **THEN** widget closure runs trade cancellation before the character snapshot is captured so escrow can be refunded to Inventory
-
 ### Requirement: Gameplay partial transfers remain explicit
 
 Gameplay operations that intentionally move fewer than the originally requested quantity SHALL determine the exact quantity first and then request one exact transfer for that quantity. Equipment eligibility and gameplay callbacks SHALL remain owned by the equipment domain and SHALL run only around a successful storage commit.

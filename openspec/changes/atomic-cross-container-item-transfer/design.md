@@ -39,11 +39,9 @@ See proposal.md for motivation and scope. `BaseItemContainer` owns slot storage 
 
 9. **Keep Price Checker non-owning.** Inventory remains authoritative; Price Checker selections are clones. Closing or disconnecting discards selections without losing items.
 
-10. **Keep trade cancellation before the logout snapshot.** Closing widgets invokes active trade cancellation, which attempts to return escrowed items to each character's Inventory before dehydration. Price Checker does not need logout recovery because its selections never remove items from Inventory.
+10. **Keep widget close unconditional and retain the batch fix.** `CloseAll()` snapshots the open widgets before recursively closing their trees. Replacement callers inspect the resulting widget state when close callbacks open another frame.
 
-11. **Keep widget close unconditional and retain the batch fix.** `CloseAll()` snapshots the open widgets before recursively closing their trees. Replacement callers inspect the resulting widget state when close callbacks open another frame.
-
-12. **Reject impossible non-stackable unit expansion before cloning.** For a transfer shape that expands a quantity into per-unit non-stackable items, use existing slot and stackability facts to reject only requests that cannot fit. Do not add a quantity cap or replace the normal insertion algorithm.
+11. **Reject impossible non-stackable unit expansion before cloning.** For a transfer shape that expands a quantity into per-unit non-stackable items, use existing slot and stackability facts to reject only requests that cannot fit. Do not add a quantity cap or replace the normal insertion algorithm.
 
 ## Risks / Trade-offs
 

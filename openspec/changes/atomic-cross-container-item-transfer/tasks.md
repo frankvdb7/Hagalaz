@@ -17,5 +17,5 @@
 - [x] 3.1 Run focused and affected project test suites, build the appropriate solution boundary, and record successful commands and any pre-existing warnings
 - [x] 3.2 Run strict OpenSpec validation and review the complete diff for atomicity, locking, item identity, notification timing, callback behavior, trade duplication, and scope
 - [x] 3.3 Correct post-commit observer semantics and impossible non-stackable preflight with focused regressions; the refused-close redraw was removed with the superseded close-guard design
-- [x] 3.4 Remove close refusal concepts and simplify widget-close APIs while preserving trade refunds before logout snapshots and safe batch snapshots
+- [x] 3.4 Remove close refusal concepts and simplify widget-close APIs while retaining safe batch snapshots
 - [x] 3.5 Remove obsolete refusal tests, retain behavior tests, and rerun the requested project/build/OpenSpec/jscpd/diff validation

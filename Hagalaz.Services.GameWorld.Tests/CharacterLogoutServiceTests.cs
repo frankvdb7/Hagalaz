@@ -155,7 +155,6 @@ public sealed class CharacterLogoutServiceTests
     {
         var character = CreateCharacter(42);
         var order = new List<string>();
-        character.Widgets.When(widgets => widgets.CloseAll()).Do(_ => order.Add("close widgets"));
         var state = new CharacterLogoutState();
         state.TryBeginLogout(character, out _);
         var characterService = Substitute.For<ICharacterService>();
@@ -191,7 +190,7 @@ public sealed class CharacterLogoutServiceTests
         Assert.AreEqual(0L, snapshot.SnapshotRevision);
         characterService.Received(1).Remove(character);
         character.Received(1).Destroy();
-        CollectionAssert.AreEqual(new[] { "close widgets", "snapshot", "remove", "destroy" }, order);
+        CollectionAssert.AreEqual(new[] { "snapshot", "remove", "destroy" }, order);
     }
 
     [TestMethod]

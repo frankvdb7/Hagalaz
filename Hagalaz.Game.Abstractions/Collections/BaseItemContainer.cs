@@ -176,17 +176,11 @@ namespace Hagalaz.Game.Abstractions.Collections
             return true;
         }
 
-        /// <summary>
-        /// Notifies observers after a transfer has committed. Derived containers
-        /// may retain their established post-commit observer behavior.
-        /// </summary>
-        protected virtual void NotifyTransferCommitted(HashSet<int> slots) => OnUpdate(slots);
-
         private static void NotifyTransferCommittedSafely(BaseItemContainer container, HashSet<int> slots)
         {
             try
             {
-                container.NotifyTransferCommitted(slots);
+                container.OnUpdate(slots);
             }
             catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException and not AccessViolationException)
             {
@@ -694,11 +688,6 @@ namespace Hagalaz.Game.Abstractions.Collections
             return true;
         }
 
-        /// <summary>
-        /// Adds a collection of items to this container.
-        /// </summary>
-        /// <param name="newItems">The collection of items to add.</param>
-        /// <returns><c>true</c> if all items were added successfully; otherwise, <c>false</c>.</returns>
         /// <summary>
         /// Adds a collection of items to this container.
         /// </summary>
