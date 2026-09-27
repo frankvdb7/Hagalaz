@@ -137,9 +137,40 @@ namespace Hagalaz.Game.Abstractions.Collections
             int destinationSlot = -1,
             IItem? destinationItem = null)
         {
+            if (!TryTransferStorage(source, destination, item, count, preferredSourceSlot, destinationSlot, destinationItem,
+                    out var sourceSlots, out var destinationSlots))
+            {
+                return false;
+            }
+
+            source.OnUpdate(sourceSlots);
+            destination.OnUpdate(destinationSlots);
+            return true;
+        }
+
+        /// <summary>
+        /// Commits an exact transfer without publishing container changes. Derived
+        /// domain operations can run their required effects before publishing.
+        /// </summary>
+        protected static bool TryTransferStorage(
+            IItemContainer source,
+            IItemContainer destination,
+            IItem item,
+            int count,
+            int preferredSourceSlot,
+            int destinationSlot,
+            IItem? destinationItem,
+            out HashSet<int> sourceSlots,
+            out HashSet<int> destinationSlots)
+        {
             ArgumentNullException.ThrowIfNull(source);
             ArgumentNullException.ThrowIfNull(destination);
             ArgumentNullException.ThrowIfNull(item);
+
+            var changedSourceSlots = new HashSet<int>();
+            var changedDestinationSlots = new HashSet<int>();
+            sourceSlots = changedSourceSlots;
+            destinationSlots = changedDestinationSlots;
 
             if (count <= 0 || ReferenceEquals(source, destination))
             {
@@ -156,24 +187,15 @@ namespace Hagalaz.Game.Abstractions.Collections
                 return false;
             }
 
-            HashSet<int> sourceSlots = [];
-            HashSet<int> destinationSlots = [];
             var transferred = false;
 
             WithOrderedMutationLocks(sourceContainer, destinationContainer, () =>
             {
                 transferred = TryTransferLocked(sourceContainer, destinationContainer, item, count,
-                    preferredSourceSlot, destinationSlot, destinationItem, sourceSlots, destinationSlots);
+                    preferredSourceSlot, destinationSlot, destinationItem, changedSourceSlots, changedDestinationSlots);
             });
 
-            if (!transferred)
-            {
-                return false;
-            }
-
-            sourceContainer.OnUpdate(sourceSlots);
-            destinationContainer.OnUpdate(destinationSlots);
-            return true;
+            return transferred;
         }
 
         private static bool TryTransferLocked(

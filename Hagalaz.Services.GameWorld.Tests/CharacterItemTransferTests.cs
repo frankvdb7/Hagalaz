@@ -117,10 +117,25 @@ public sealed class CharacterItemTransferTests
             Assert.AreSame(item, bank[0]);
             callbackSawCommittedStorage = true;
         });
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        var publicationSawEquipmentEffect = false;
+        eventManager
+            .When(manager => manager.SendEvent(Arg.Any<IEvent>()))
+            .Do(call =>
+            {
+                if (call.Arg<IEvent>() is BankChangedEvent or EquipmentChangedEvent)
+                {
+                    publicationSawEquipmentEffect = callbackSawCommittedStorage;
+                }
+            });
 
         Assert.IsTrue(bank.DepositFromEquipment(item, 1, out _));
 
         Assert.IsTrue(callbackSawCommittedStorage);
+        Assert.IsTrue(publicationSawEquipmentEffect);
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is BankChangedEvent));
     }
 
     [TestMethod]
@@ -213,23 +228,37 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    public void EquipItem_ObserverFailurePropagatesAfterStorageCommit()
+    public void EquipItem_EquipmentPublicationThrowsAfterDomainEffectAndStorageCommit()
     {
         using var scenario = new Scenario();
         var (inventory, equipment, item) = CreateEquipmentSetup(scenario);
         var callbackSawCommittedStorage = ObserveEquippedState(scenario.Owner, inventory, equipment, item);
         var eventManager = Substitute.For<IEventManager>();
         scenario.Owner.EventManager.Returns(eventManager);
+        var publicationSawEquipmentEffect = false;
         eventManager
             .When(manager => manager.SendEvent(Arg.Any<IEvent>()))
-            .Do(_ => throw new InvalidOperationException("Controlled equipment observer failure."));
+            .Do(call =>
+            {
+                if (call.Arg<IEvent>() is InventoryChangedEvent or EquipmentChangedEvent)
+                {
+                    publicationSawEquipmentEffect = callbackSawCommittedStorage();
+                }
+
+                if (call.Arg<IEvent>() is EquipmentChangedEvent)
+                {
+                    throw new InvalidOperationException("Controlled equipment publication failure.");
+                }
+            });
 
         Assert.ThrowsExactly<InvalidOperationException>(() => equipment.EquipItem(item));
 
-        Assert.IsFalse(callbackSawCommittedStorage());
+        Assert.IsTrue(callbackSawCommittedStorage());
+        Assert.IsTrue(publicationSawEquipmentEffect);
         Assert.IsNull(inventory[0]);
         Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is InventoryChangedEvent));
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
     }
 
     [TestMethod]
@@ -271,10 +300,23 @@ public sealed class CharacterItemTransferTests
             Assert.AreSame(item, inventory[0]);
             callbackSawCommittedStorage = true;
         });
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        var publicationSawEquipmentEffect = false;
+        eventManager
+            .When(manager => manager.SendEvent(Arg.Any<IEvent>()))
+            .Do(call =>
+            {
+                if (call.Arg<IEvent>() is InventoryChangedEvent or EquipmentChangedEvent)
+                {
+                    publicationSawEquipmentEffect = callbackSawCommittedStorage;
+                }
+            });
 
         Assert.IsTrue(equipment.UnEquipItem(item));
 
         Assert.IsTrue(callbackSawCommittedStorage);
+        Assert.IsTrue(publicationSawEquipmentEffect);
     }
 
     [TestMethod]

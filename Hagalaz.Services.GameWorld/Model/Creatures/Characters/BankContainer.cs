@@ -179,14 +179,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             var fullyRemoved = count == equippedItem.Count;
             deposited = CreateDepositItem(equippedItem, count, out var transformed);
-            if (BaseItemContainer.TryTransfer(equipmentContainer, this, equippedItem, count, (int)slot,
-                    destinationItem: transformed ? deposited : null))
+            if (TryTransferStorage(equipmentContainer, this, equippedItem, count, (int)slot, -1,
+                    transformed ? deposited : null, out var equipmentSlots, out var bankSlots))
             {
                 if (fullyRemoved)
                 {
                     equippedItem.EquipmentScript.OnUnequipped(equippedItem, _owner);
                 }
 
+                equipmentContainer.OnUpdate(equipmentSlots);
+                OnUpdate(bankSlots);
                 return true;
             }
 

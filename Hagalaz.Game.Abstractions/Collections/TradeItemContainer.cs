@@ -32,9 +32,20 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
     /// <inheritdoc />
     public bool AddRangeForTrade(IEnumerable<IItem?> items)
     {
-        ArgumentNullException.ThrowIfNull(items);
+        if (!TryAddRangeForTradeStorage(items, out var slotsToUpdate))
+        {
+            return false;
+        }
 
-        HashSet<int> slotsToUpdate;
+        OnUpdate(slotsToUpdate);
+        return true;
+    }
+
+    /// <inheritdoc />
+    public bool TryAddRangeForTradeStorage(IEnumerable<IItem?> items, out HashSet<int> changedSlots)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        changedSlots = [];
         lock (MutationLock)
         {
             var itemsBefore = (IItem?[])Items.Clone();
@@ -44,16 +55,16 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
                 countsBefore[i] = itemsBefore[i]?.Count ?? 0;
             }
 
-            if (!AddRangeCore(items, out slotsToUpdate))
+            if (!AddRangeCore(items, out changedSlots))
             {
                 RestoreSnapshot(itemsBefore, countsBefore);
+                changedSlots.Clear();
                 return false;
             }
 
             AdvanceRevision();
         }
 
-        OnUpdate(slotsToUpdate);
         return true;
     }
 
@@ -73,18 +84,29 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
     /// <inheritdoc />
     public bool RemoveForTrade(IItem item, int preferredSlot = -1)
     {
-        ArgumentNullException.ThrowIfNull(item);
+        if (!TryRemoveForTradeStorage(item, preferredSlot, out var slotsToUpdate))
+        {
+            return false;
+        }
 
-        HashSet<int> slotsToUpdate;
+        OnUpdate(slotsToUpdate);
+        return true;
+    }
+
+    /// <inheritdoc />
+    public bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        changedSlots = [];
         lock (MutationLock)
         {
-            if (!TryRemoveExactCore(item, item.Count, preferredSlot, out slotsToUpdate))
+            if (!TryRemoveExactCore(item, item.Count, preferredSlot, out changedSlots))
             {
+                changedSlots.Clear();
                 return false;
             }
         }
 
-        OnUpdate(slotsToUpdate);
         return true;
     }
 

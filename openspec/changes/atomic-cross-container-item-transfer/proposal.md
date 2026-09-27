@@ -7,7 +7,7 @@ Item movement is currently split across separate removal and insertion calls. A 
 - Add a synchronous exact transfer operation for two item containers. Success commits the requested quantity on both sides; failure leaves both storage states and revisions unchanged.
 - Share a deterministic lock order across normal container mutations and transfers, based on the existing trade-container ordering.
 - Preserve source item data and instances for ordinary movement, honor preferred source and destination slots, reject zero-count transfers, and retain container sentinel behavior when a source is drained.
-- Publish container updates only after both storage states have committed. Keep equipment callbacks in the equipment domain.
+- Separate storage mutation from change publication for the named composed operations: trade settlement/refund/conservation, offer coin movement, paired Money Pouch and Inventory operations, and equipment movement. Complete storage first, then required equipment domain effects, then publish changes.
 - Migrate bank, familiar inventory, reward, equipment/inventory, generic familiar bulk movement, and trade checked mutations to the common storage boundary where their existing behavior is an exact item movement. Price Checker keeps cloned non-owning selections and renders a projected inventory view.
 - Use the same boundary for the item movement in shop sales, while leaving payment and full shop transaction behavior in the owning shop flow.
 - Keep intentional partial gameplay behavior explicit by choosing its exact quantity before calling the transfer operation.
@@ -16,17 +16,17 @@ Item movement is currently split across separate removal and insertion calls. A 
 
 - No inheritance-to-composition migration from #438.
 - No atomic payment, stock, and inventory transaction for shop purchases from #449; exact shop payment remains covered by #441.
-- No generic transaction/Unit of Work, mutation-planning framework, async lock, or multi-container transaction.
-- No redesign of money-pouch currency operations, duel escrow, persistence, or unrelated container APIs.
+- No generic transaction/Unit of Work, mutation-planning framework, async lock, event queue, or reusable multi-container transaction framework. The named existing operations may use explicit storage-only mutations under their existing locks and snapshots.
+- No redesign of duel escrow, persistence, shop transaction scope, or unrelated container APIs.
 
 ### Acceptance Criteria
 
 - Failed exact transfers, including capacity and stack overflow failures, leave source/destination slots, counts, and revisions unchanged and publish no updates.
-- Successful transfers preserve the exact requested quantity, stacking rules, preferred slots, item data, and source sentinel state; both updates observe both committed containers.
+- Successful transfers preserve the exact requested quantity, stacking rules, preferred slots, item data, and source sentinel state; standalone transfers publish only after both containers commit.
 - Concurrent opposite-direction transfers use one deterministic lock order and complete without deadlock.
 - Listed gameplay flows use the primitive without changing their intentional partial-count or equipment-callback behavior.
 - Price Checker selections are non-owning clones. Inventory remains authoritative, and closing or disconnecting cannot lose items because no authoritative item leaves Inventory.
-- Trade checked add/remove operations reuse the common storage mutation implementation while retaining trade-owned settlement and notification behavior.
+- Composed trade, Money Pouch, and equipment operations finish all related storage mutations and required equipment effects before publishing changed container state. Checked failures restore all affected storage before any restored-state publication.
 - Widget close remains unconditional, with a safe snapshot during batch closure. No close guard or terminal conservation lifecycle is introduced.
 - Focused MSTest regressions and strict OpenSpec validation pass.
 

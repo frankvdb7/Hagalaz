@@ -1,8 +1,12 @@
 using System.Collections.Generic;
+using System.Threading;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
+using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using NSubstitute;
 
@@ -73,6 +77,53 @@ public sealed class MoneyPouchContainerTests
         Assert.IsTrue(result);
     }
 
+    [TestMethod]
+    public void AddForTrade_PublishesOnlyAfterPouchAndInventoryReachFinalState()
+    {
+        var scenario = CreateScenario(pouchCoins: int.MaxValue - 1, inventoryCoins: 0);
+        AssertTradeStoragePublishesAfterFinalState(scenario, 2, int.MaxValue - 1, int.MaxValue, 1,
+            static (pouch, count) => pouch.AddForTrade(count));
+    }
+
+    [TestMethod]
+    public void RemoveForTrade_PublishesOnlyAfterPouchAndInventoryReachFinalState()
+    {
+        var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
+        AssertTradeStoragePublishesAfterFinalState(scenario, 12, 10, 0, 3,
+            static (pouch, count) => pouch.RemoveForTrade(count));
+    }
+
+    private static void AssertTradeStoragePublishesAfterFinalState(MoneyPouchScenario scenario, int movedCoins,
+        int previousPouchCount, int expectedPouchCount, int expectedInventoryCoins,
+        Func<IMoneyPouchContainer, int, bool> operation)
+    {
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        scenario.Inventory.OnUpdateAction = () =>
+        {
+            Assert.IsFalse(Monitor.IsEntered(scenario.Inventory.MutationLock));
+            Assert.IsFalse(Monitor.IsEntered(scenario.MoneyPouch.MutationLock));
+            Assert.AreEqual(expectedPouchCount, scenario.MoneyPouch.Count);
+            Assert.AreEqual(expectedInventoryCoins, scenario.Inventory.GetCountById(CoinId));
+        };
+        var moneyPouchEventObservedFinalState = false;
+        eventManager
+            .When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>()))
+            .Do(call =>
+            {
+                var changedEvent = call.Arg<MoneyPouchChangedEvent>();
+                Assert.IsFalse(Monitor.IsEntered(scenario.Inventory.MutationLock));
+                Assert.IsFalse(Monitor.IsEntered(scenario.MoneyPouch.MutationLock));
+                Assert.AreEqual(previousPouchCount, changedEvent.PreviousCount);
+                Assert.AreEqual(expectedPouchCount, changedEvent.Count);
+                Assert.AreEqual(expectedInventoryCoins, scenario.Inventory.GetCountById(CoinId));
+                moneyPouchEventObservedFinalState = true;
+            });
+
+        Assert.IsTrue(operation(scenario.MoneyPouch, movedCoins));
+        Assert.IsTrue(moneyPouchEventObservedFinalState);
+    }
+
     private static MoneyPouchScenario CreateScenario(int pouchCoins, int inventoryCoins)
     {
         var inventory = new TestInventory(10);
@@ -90,16 +141,21 @@ public sealed class MoneyPouchContainerTests
             Assert.IsTrue(moneyPouch.Add(pouchCoins));
         }
 
-        return new MoneyPouchScenario(moneyPouch, inventory);
+        return new MoneyPouchScenario(moneyPouch, inventory, character);
     }
 
-    private sealed record MoneyPouchScenario(IMoneyPouchContainer MoneyPouch, IInventoryContainer Inventory);
+    private sealed record MoneyPouchScenario(IMoneyPouchContainer MoneyPouch, TestInventory Inventory,
+        ICharacter Owner);
 
     private sealed class TestInventory : TestItemContainer, IInventoryContainer
     {
         public TestInventory(int capacity) : base(StorageType.Normal, capacity) { }
 
         public bool DropItem(IItem item) => false;
+
+        public Action? OnUpdateAction { get; set; }
+
+        public override void OnUpdate(HashSet<int>? slots = null) => OnUpdateAction?.Invoke();
     }
 
     private abstract class TestItemContainer : TradeItemContainer

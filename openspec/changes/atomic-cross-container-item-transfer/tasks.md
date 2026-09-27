@@ -25,3 +25,11 @@
 - [x] 4.1 Remove observer exception suppression and invoke transfer, trade, and Money Pouch callbacks directly after storage commits
 - [x] 4.2 Replace observer suppression tests with one regression proving callback exceptions propagate while committed transfer storage remains committed; remove fatal-exception policy tests
 - [x] 4.3 Run focused and full project tests, solution build, strict OpenSpec, jscpd against `origin/main`, and `git diff --check`
+
+## 5. Separate storage mutation from publication in composed operations
+
+- [x] 5.1 Factor one storage-only transfer path for equipment while keeping standalone `TryTransfer` behavior unchanged
+- [x] 5.2 Add checked trade storage-only operations with changed slots, and defer settlement/refund/conservation/offer coin publication until final storage is committed or restored
+- [x] 5.3 Separate paired Money Pouch and Inventory storage mutation from change publication and pouch messages
+- [x] 5.4 Run equipment domain effects after storage commit and before publication for equip and unequip operations
+- [x] 5.5 Add focused ordering and rollback regressions for trade coin movement, settlement, restoration, and equipment; validate affected project suites

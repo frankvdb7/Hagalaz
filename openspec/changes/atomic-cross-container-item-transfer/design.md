@@ -10,13 +10,13 @@ See proposal.md for motivation and scope. `BaseItemContainer` owns slot storage 
 - Reuse the existing insertion rules to validate a complete destination state before either real container changes.
 - Reuse one exact source-removal implementation for transfers and trade checked removal.
 - Keep item instances in place when moving whole items; clone only a split stack or a transformed destination item.
-- Invoke container callbacks only after both storage states and revisions are committed and after pair locks are released.
+- Separate storage mutation from container-change publication for composed operations, and publish only after all related storage is stable and required equipment effects have run.
 - Keep bank conversion/count policy, reward/familiar/UI policy, equipment validation, and equipment callbacks in their owning domains.
 
 **Non-Goals:**
 
 - A generic transaction or reusable mutation-plan framework. A transfer may use private temporary container representations, but those do not escape the operation.
-- A multi-container transaction for equipment swaps, trade settlement, shop purchase, or payment.
+- A reusable multi-container transaction for equipment swaps, shop purchases, or payment. Existing trade, Money Pouch, and equipment operations may use explicit storage-only steps within their existing domain methods.
 - A new synchronization mechanism beside the existing trade lock-order concept.
 
 ## Decisions
@@ -25,13 +25,13 @@ See proposal.md for motivation and scope. `BaseItemContainer` owns slot storage 
 
 2. **Use one lock and order per base container.** Move the lock/order source from `TradeItemContainer` into `BaseItemContainer`, keeping the trade-facing properties available. All base storage mutators and checked trade mutations use this same lock; pair operations acquire distinct locks by ascending order. This reuses the proven trade ordering instead of relying on object hash codes or adding another lock scheme.
 
-3. **Validate both sides before touching stored item instances.** Under the ordered locks, compute exact source removals and apply the destination insertion rules to a temporary destination representation. Reuse the current range insertion algorithm for stack checks, free-slot consumption, and overflow. If validation succeeds, apply the planned slot/count changes to the original arrays, retain whole moved item references, advance both revisions, release locks, and then notify.
+3. **Validate both sides before touching stored item instances.** Under the ordered locks, compute exact source removals and apply the destination insertion rules to a temporary destination representation. Reuse the current range insertion algorithm for stack checks, free-slot consumption, and overflow. If validation succeeds, apply the planned slot/count changes to the original arrays, retain whole moved item references, and advance both revisions. The public standalone transfer then releases locks and publishes both changed containers. A protected storage-only entry point reuses the same planner and commit for equipment, which runs its domain effect before publishing.
 
-4. **Keep exact add/remove semantics shared with trade.** `AddRangeForTrade` remains a trade-facing checked operation because its observer behavior is trade-specific, but it uses the common range insertion code. `RemoveForTrade` delegates to the common exact-removal code. Trade settlement keeps its current multi-container lifecycle and snapshots; this change does not turn a two-container primitive into a settlement transaction.
+4. **Keep checked trade mutations explicit.** Trade containers expose checked storage-only add/remove methods that return changed slots. Existing standalone checked methods compose storage mutation with immediate publication. Trade settlement, refund, conservation, and offer coin movement use the storage-only methods while holding their existing ordered locks, including each participating Money Pouch, restore all base-container snapshots storage-only on a checked failure, release locks, and only then publish the final or restored state.
 
-5. **Keep partial-count and domain decisions outside the primitive.** Bank withdrawal and reward/familiar flows calculate their intended quantity before requesting it. Bank may provide a destination item when deposit/withdraw-as-note behavior transforms the item ID. Equipment owns eligibility and callbacks; the storage primitive does not call equipment scripts. Simple equipment moves use the primitive with an explicit equipment slot; replacement decisions and multi-item weapon/shield behavior stay in `EquipmentContainer`.
+5. **Keep partial-count and domain decisions outside the primitive.** Bank withdrawal and reward/familiar flows calculate their intended quantity before requesting it. Bank may provide a destination item when deposit/withdraw-as-note behavior transforms the item ID. Equipment owns eligibility and effects; the storage primitive does not call equipment scripts. Equipment uses the protected storage-only transfer for a move, runs `OnEquipped` or `OnUnequipped`, then publishes the changed containers. Replacement decisions and multi-item weapon/shield behavior stay in `EquipmentContainer`.
 
-6. **Run callbacks after committed storage.** Update callbacks run after the transfer is committed and locks are released. If a callback throws, the exception propagates and committed storage is not rolled back. Trade transfers use the same callback ordering; checked trade add/remove operations notify after their checked storage mutation.
+6. **Publish after the operation is stable.** A composed operation performs all storage mutations and required domain effects before change publication. Publication and domain exceptions propagate; they do not roll committed storage back. No publication runs under the ordered multi-container locks.
 
 7. **Retain the legacy bulk helper as explicit best-effort movement.** `AddAndRemoveFrom` keeps its existing "move complete source items that fit" behavior by determining one exact quantity per source item and calling the common transfer operation. The helper does not offer hidden partial counts within a single item.
 
@@ -47,7 +47,7 @@ See proposal.md for motivation and scope. `BaseItemContainer` owns slot storage 
 
 - [Risk] A caller that bypasses the base mutation boundary could still mutate shared item objects concurrently. → Keep storage-changing base methods under the same lock and inspect derived overrides; current GameWorld container implementations either use base storage methods or their existing ordered trade/pouch boundary.
 - [Risk] Cloning during preflight could lose item-specific data if an `IItem.Clone` implementation is incomplete. → Preserve original item references for whole-instance moves and add regressions for identity and serialized item data on split moves.
-- [Risk] An observer can fail after the transfer has committed. → Let the exception propagate and keep committed storage in place; do not roll back because of callback failure.
+- [Risk] Publication or an equipment domain effect can fail after storage commits. → Let the exception propagate and keep the final committed storage in place; do not publish between storage legs or roll back because publication/effects failed.
 - [Risk] A broad storage lock can expose callback reentrancy deadlocks if callbacks run under it. → Release the locks before `OnUpdate` and retain deterministic ordering for every pair operation.
 
 ## Migration Plan

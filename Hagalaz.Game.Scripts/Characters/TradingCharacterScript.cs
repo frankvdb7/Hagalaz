@@ -1160,19 +1160,9 @@ namespace Hagalaz.Game.Scripts.Characters
 
                 var toRemove = item.Clone();
                 toRemove.Count = count;
-                var toAdd = item.Clone();
-                toAdd.Count = count;
 
-                if (!TradeExchange.RemoveForTrade(offer, toRemove, preferredSlot))
-                {
+                if (!TradeExchange.TryReturnMoneyToPouch(character, offer, toRemove, preferredSlot))
                     return false;
-                }
-
-                if (!TradeExchange.AddMoney(character, count))
-                {
-                    offer.Add(toAdd);
-                    return false;
-                }
 
                 RefreshTradeOfferScreenLocked(session);
                 ProcessTradeChangeLocked(session, self, true);
@@ -1203,20 +1193,13 @@ namespace Hagalaz.Game.Scripts.Characters
                     return false;
                 }
 
-                if (!character.MoneyPouch.Contains(995, requestedCount) ||
-                    !TradeExchange.AddRangeForTrade(offer, [coinOffer]))
-                {
-                    return false;
-                }
-
-                if (TradeExchange.RemoveMoney(character, requestedCount))
+                if (TradeExchange.TryOfferMoneyFromPouch(character, offer, coinOffer))
                 {
                     RefreshTradeOfferScreenLocked(session);
                     ProcessTradeChangeLocked(session, self, false);
                     return true;
                 }
 
-                TradeExchange.RemoveForTrade(offer, coinOffer);
                 return false;
             }
         }

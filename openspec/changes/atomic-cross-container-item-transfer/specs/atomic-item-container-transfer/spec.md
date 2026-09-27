@@ -32,16 +32,16 @@ An exact transfer SHALL move the complete requested positive quantity from its s
 - **WHEN** an exact transfer drains a source item whose container retains a zero-count sentinel
 - **THEN** the destination receives the requested positive quantity and the source sentinel remains in its slot
 
-### Requirement: Transfers serialize and publish committed state
+### Requirement: Transfers serialize storage and publish committed changes
 
-Concurrent transfers involving the same containers SHALL acquire their mutation boundaries in a deterministic order. A successful operation SHALL commit both containers and advance their revisions before invoking either container update callback. A failed operation SHALL emit no committed update. Callbacks SHALL execute only after storage has committed.
+Concurrent transfers involving the same containers SHALL acquire their mutation boundaries in a deterministic order. A successful standalone transfer SHALL commit both containers and advance their revisions before publishing either container's changes, and publication SHALL happen after the pair locks are released. A failed operation SHALL emit no committed update. If publication throws, the exception SHALL propagate and committed storage SHALL remain committed.
 
 #### Scenario: Transfers run in opposite directions
 - **WHEN** two operations concurrently transfer items in opposite directions between the same containers
 - **THEN** both operations complete without deadlock and each result preserves exact quantities
 
-#### Scenario: Successful update observers inspect container state
-- **WHEN** either container receives an update callback for a successful transfer
+#### Scenario: Successful publication observes both containers
+- **WHEN** either container publishes changes for a successful standalone transfer
 - **THEN** both source removal and destination insertion are already visible
 
 #### Scenario: A transfer validation fails
@@ -49,9 +49,37 @@ Concurrent transfers involving the same containers SHALL acquire their mutation 
 - **THEN** neither container receives an update callback
 
 #### Scenario: An update observer throws after commit
-- **WHEN** a transfer has committed both container storage states and an update callback throws
+- **WHEN** a transfer has committed both container storage states and change publication throws
 - **THEN** committed storage is not rolled back
 - **AND** the exception propagates normally
+
+### Requirement: Composed operations publish only after storage is stable
+
+Trade offer coin movement, trade completion, refund, escrow conservation, and paired Money Pouch and Inventory operations SHALL complete all related storage mutations before publishing container changes or Money Pouch messages. A checked storage failure SHALL restore every affected snapshot before publishing any restored-state changes. A publication exception SHALL propagate without undoing the final committed or restored storage.
+
+#### Scenario: A trade offer moves coins between the pouch and offer
+- **WHEN** coins are offered or removed from an offer
+- **THEN** the pouch, Inventory, and offer storage reach their final state before any of their changes are published
+
+#### Scenario: Trade settlement publishes only after both recipients and escrow are final
+- **WHEN** trade settlement succeeds
+- **THEN** both recipients' storage and both escrow containers are in their final state before any changes are published
+
+#### Scenario: A later checked settlement step fails
+- **WHEN** settlement restores earlier storage mutations after a checked storage failure
+- **THEN** every snapshot is restored before any restored-state change is published
+
+### Requirement: Equipment domain effects precede container change publication
+
+For an equipment movement, storage SHALL commit before the required equipment domain effect runs, and container changes SHALL publish only after the domain effect completes. Unexpected domain or publication exceptions SHALL propagate without undoing committed storage.
+
+#### Scenario: An item is equipped
+- **WHEN** an item moves from Inventory into Equipment
+- **THEN** `OnEquipped` runs after storage commit and before either container publishes its changes
+
+#### Scenario: An item is unequipped
+- **WHEN** an item moves from Equipment into Inventory
+- **THEN** `OnUnequipped` runs after storage commit and before either container publishes its changes
 
 #### Scenario: A huge non-stackable request cannot fit
 - **WHEN** an exact transfer would expand a huge non-stackable quantity into more items than the destination can accept and no existing stack can receive them
