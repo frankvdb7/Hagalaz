@@ -14,7 +14,17 @@ public interface ITradeItemContainer : IItemContainer
     bool AddRangeForTrade(IEnumerable<IItem?> items);
 
     /// <summary>
+    /// Adds all items atomically without publishing the changed slots.
+    /// </summary>
+    bool TryAddRangeForTradeStorage(IEnumerable<IItem?> items, out HashSet<int> changedSlots);
+
+    /// <summary>
     /// Removes the item as one checked trade operation.
     /// </summary>
     bool RemoveForTrade(IItem item, int preferredSlot = -1);
+
+    /// <summary>
+    /// Removes the item atomically without publishing the changed slots.
+    /// </summary>
+    bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots);
 }

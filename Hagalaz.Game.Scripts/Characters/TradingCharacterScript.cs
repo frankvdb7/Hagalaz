@@ -1112,29 +1112,13 @@ namespace Hagalaz.Game.Scripts.Characters
                     return false;
                 }
 
-                var toRemove = item.Clone();
-                toRemove.Count = count;
-                if (!offer.HasSpaceFor(toRemove))
-                {
-                    return false;
-                }
-
-                var removed = character.Inventory.Remove(toRemove, preferredSlot);
-                if (removed <= 0)
-                {
-                    return false;
-                }
-
-                var toAdd = item.Clone();
-                toAdd.Count = removed;
-                if (TradeExchange.AddRangeForTrade(offer, [toAdd]))
+                if (BaseItemContainer.TryTransfer(character.Inventory, offer, item, count, preferredSlot))
                 {
                     RefreshTradeOfferScreenLocked(session);
                     ProcessTradeChangeLocked(session, self, false);
                     return true;
                 }
 
-                character.Inventory.Add(toAdd);
                 return false;
             }
         }
@@ -1162,37 +1146,23 @@ namespace Hagalaz.Game.Scripts.Characters
                     return false;
                 }
 
+                if (item.Id != 995)
+                {
+                    if (!BaseItemContainer.TryTransfer(offer, character.Inventory, item, count, preferredSlot))
+                    {
+                        return false;
+                    }
+
+                    RefreshTradeOfferScreenLocked(session);
+                    ProcessTradeChangeLocked(session, self, false);
+                    return true;
+                }
+
                 var toRemove = item.Clone();
                 toRemove.Count = count;
-                var toAdd = item.Clone();
-                toAdd.Count = count;
-                if (item.Id != 995 && !character.Inventory.HasSpaceFor(toAdd))
-                {
-                    return false;
-                }
 
-                if (!TradeExchange.RemoveForTrade(offer, toRemove, preferredSlot))
-                {
+                if (!TradeExchange.TryReturnMoneyToPouch(character, offer, toRemove, preferredSlot))
                     return false;
-                }
-
-                toAdd.Count = count;
-                if (item.Id == 995)
-                {
-                    if (!TradeExchange.AddMoney(character, count))
-                    {
-                        offer.Add(toAdd);
-                        return false;
-                    }
-                }
-                else
-                {
-                    if (!TradeExchange.AddRangeForTrade(character.Inventory, [toAdd]))
-                    {
-                        offer.Add(toAdd);
-                        return false;
-                    }
-                }
 
                 RefreshTradeOfferScreenLocked(session);
                 ProcessTradeChangeLocked(session, self, true);
@@ -1223,20 +1193,13 @@ namespace Hagalaz.Game.Scripts.Characters
                     return false;
                 }
 
-                if (!character.MoneyPouch.Contains(995, requestedCount) ||
-                    !TradeExchange.AddRangeForTrade(offer, [coinOffer]))
-                {
-                    return false;
-                }
-
-                if (TradeExchange.RemoveMoney(character, requestedCount))
+                if (TradeExchange.TryOfferMoneyFromPouch(character, offer, coinOffer))
                 {
                     RefreshTradeOfferScreenLocked(session);
                     ProcessTradeChangeLocked(session, self, false);
                     return true;
                 }
 
-                TradeExchange.RemoveForTrade(offer, coinOffer);
                 return false;
             }
         }
@@ -1758,10 +1721,6 @@ namespace Hagalaz.Game.Scripts.Characters
                 try
                 {
                     exchanged = TradeExchange.TryCompleteTrade(Character, SelfContainer, target, TargetContainer, _itemBuilder);
-                }
-                catch (InvalidOperationException)
-                {
-                    exchanged = false;
                 }
                 finally
                 {

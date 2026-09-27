@@ -91,10 +91,22 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 return false;
             }
 
-            IItem sold;
-            if (item.ItemDefinition.Noted && item.ItemDefinition.NoteId != -1)
+            var availableCount = viewer.Inventory.GetCount(item);
+            if (count > availableCount)
             {
-                sold = _itemBuilder.Create().WithId(item.ItemDefinition.NoteId).WithCount(count).Build();
+                count = availableCount;
+            }
+            if (count <= 0)
+            {
+                return false;
+            }
+
+            var transformed = item.ItemDefinition.Noted && item.ItemDefinition.NoteId != -1;
+            IItem sold;
+            if (transformed)
+            {
+                sold = _itemBuilder.Create().WithId(item.ItemDefinition.NoteId).WithCount(count)
+                    .WithExtraData(item.SerializeExtraData() ?? string.Empty).Build();
             }
             else
             {
@@ -113,17 +125,15 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 return false;
             }
 
-            var toRemove = item.Clone(count);
-            var removed = viewer.Inventory.Remove(toRemove, slot);
-            sold.Count = removed;
-            var currencyCount = sold.Count * (long)_shop.GetSellValue(item);
+            var currencyCount = count * (long)_shop.GetSellValue(item);
             if (currencyCount > int.MaxValue)
             {
                 viewer.SendChatMessage("The shop does not have enough money for this amount of items.");
                 return false;
             }
 
-            if (!Add(sold))
+            if (!BaseItemContainer.TryTransfer(viewer.Inventory, this, item, count, slot,
+                    destinationItem: transformed ? sold : null))
             {
                 return false;
             }
@@ -234,38 +244,68 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         public void NormalizeStock()
         {
             var changedSlots = new HashSet<int>();
-            // This uses the full capacity, because we don't know if items were added.
-            for (var i = 0; i < Capacity; i++)
+            var shouldSort = false;
+            lock (ContainerMutationLock)
             {
-                var item = Items[i];
-                if (item == null)
+                // This uses the full capacity, because we don't know if items were added.
+                for (var i = 0; i < Capacity; i++)
                 {
-                    continue;
-                }
-
-                if (item.Count < _originalStock[i].Count)
-                {
-                    item.Count += 1;
-                    changedSlots.Add(i);
-                }
-                else if (item.Count > 0 && _originalStock.All(original => original.Id != item.Id))
-                {
-                    item.Count -= 1;
-                    if (item.Count <= 0)
+                    var item = Items[i];
+                    if (item == null)
                     {
-                        Remove(item, i);
-                        Sort();
+                        continue;
                     }
-                    else
+
+                    if (item.Count < _originalStock[i].Count)
                     {
+                        item.Count += 1;
                         changedSlots.Add(i);
                     }
+                    else if (item.Count > 0 && _originalStock.All(original => original.Id != item.Id))
+                    {
+                        item.Count -= 1;
+                        changedSlots.Add(i);
+                        if (item.Count <= 0)
+                        {
+                            if (CountToResetTo == -1)
+                            {
+                                Items[i] = null;
+                            }
+                            else
+                            {
+                                item.Count = CountToResetTo;
+                            }
+
+                            shouldSort = true;
+                        }
+                    }
+                }
+
+                if (shouldSort)
+                {
+                    var write = 0;
+                    for (var i = 0; i < Items.Length; i++)
+                    {
+                        if (Items[i] == null)
+                        {
+                            continue;
+                        }
+
+                        var item = Items[i];
+                        Items[i] = null;
+                        Items[write++] = item;
+                    }
+                }
+
+                if (changedSlots.Count > 0)
+                {
+                    AdvanceRevision();
                 }
             }
 
             if (changedSlots.Count > 0)
             {
-                OnUpdate(changedSlots);
+                OnUpdate(shouldSort ? null : changedSlots);
             }
         }
     }

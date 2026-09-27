@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
@@ -46,26 +47,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var slot = _owner.Inventory.GetInstanceSlot(item);
             if (slot == -1 || count <= 0)
                 return false;
-            var toRemove = item.Clone();
-            toRemove.Count = count;
 
-            if (!HasSpaceFor(toRemove))
+            count = Math.Min(count, _owner.Inventory.GetCount(item));
+            if (count <= 0)
             {
-                _owner.SendChatMessage(GameStrings.FamiliarInventoryFull);
                 return false;
             }
 
-            var removed = _owner.Inventory.Remove(toRemove, slot);
-            if (removed > 0)
+            if (BaseItemContainer.TryTransfer(_owner.Inventory, this, item, count, slot))
             {
-                toRemove.Count = removed;
-                if (!Add(toRemove))
-                {
-                    return false;
-                }
+                return true;
             }
 
-            return true;
+            _owner.SendChatMessage(GameStrings.FamiliarInventoryFull);
+            return false;
         }
 
         /// <summary>
@@ -79,25 +74,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var slot = GetInstanceSlot(item);
             if (slot == -1 || count <= 0)
                 return false;
-            var toRemove = item.Clone();
-            toRemove.Count = count;
-            if (!_owner.Inventory.HasSpaceFor(toRemove))
+
+            count = Math.Min(count, GetCount(item));
+            if (count <= 0)
             {
-                _owner.SendChatMessage(GameStrings.InventoryFull);
                 return false;
             }
 
-            var removed = Remove(toRemove, slot);
-            if (removed > 0)
+            if (BaseItemContainer.TryTransfer(this, _owner.Inventory, item, count, slot))
             {
-                toRemove.Count = removed;
-                if (!_owner.Inventory.Add(toRemove))
-                {
-                    return false;
-                }
+                return true;
             }
 
-            return true;
+            _owner.SendChatMessage(GameStrings.InventoryFull);
+            return false;
         }
 
         /// <summary>

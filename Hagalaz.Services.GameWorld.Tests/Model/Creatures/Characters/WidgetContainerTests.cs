@@ -10,6 +10,7 @@ using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Services.GameWorld.Builders;
 using Hagalaz.Game.Abstractions.Builders.Widget;
 using Hagalaz.Game.Abstractions.Factories;
+using Hagalaz.Services.GameWorld.Model.Widgets;
 
 namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
 {
@@ -80,6 +81,46 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
         }
 
         [TestMethod]
+        public void CloseAll_WhenMultipleNestedWidgetsAreOpen_ClosesEachWidgetOnce()
+        {
+            _widgetScriptProviderMock.GetInterfacesCount().Returns(10);
+            var frameScript = Substitute.For<IWidgetScript>();
+            var frame = OpenFrame(1, frameScript);
+            var parentScript = Substitute.For<IWidgetScript>();
+            var parent = OpenWidget(2, frame, 0, parentScript);
+            var childScript = Substitute.For<IWidgetScript>();
+            OpenWidget(3, parent, 0, childScript);
+            var siblingScript = Substitute.For<IWidgetScript>();
+            OpenWidget(4, frame, 1, siblingScript);
+
+            _widgetContainer.CloseAll();
+
+            Assert.AreEqual(0, _widgetContainer.Widgets.Count);
+            Assert.IsNull(_widgetContainer.CurrentFrame);
+            frameScript.Received(1).OnClose();
+            parentScript.Received(1).OnClose();
+            childScript.Received(1).OnClose();
+            siblingScript.Received(1).OnClose();
+        }
+
+        [TestMethod]
+        public void OpenFrame_WhenCloseCallbackOpensAnotherFrame_DoesNotReplaceThatFrame()
+        {
+            _widgetScriptProviderMock.GetInterfacesCount().Returns(10);
+            var script = Substitute.For<IWidgetScript>();
+            script.When(value => value.OnClose()).Do(_ => _widgetContainer.OpenFrame(CreateFrame(3)));
+            var initialFrame = OpenFrame(1, script);
+            var requestedFrame = CreateFrame(2);
+
+            _widgetContainer.OpenFrame(requestedFrame);
+
+            Assert.IsFalse(initialFrame.IsOpened);
+            Assert.AreEqual(3, _widgetContainer.CurrentFrame!.Id);
+            Assert.IsFalse(requestedFrame.IsOpened);
+            Assert.AreEqual(1, _widgetContainer.Widgets.Count);
+        }
+
+        [TestMethod]
         public void OpenFrame_ExplicitForceRedraw_ForceRedrawIsTrue()
         {
             // Arrange
@@ -136,5 +177,25 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
             Assert.IsNotNull(widget);
             Assert.IsTrue(widget.IsFrame);
         }
+
+        private IWidget OpenFrame(int id, IWidgetScript script)
+        {
+            var frame = CreateFrame(id, script);
+            _widgetContainer.OpenFrame(frame);
+            return frame;
+        }
+
+        private IWidget OpenWidget(int id, IWidget parent, int slot, IWidgetScript script)
+        {
+            var widget = new Widget(_characterMock, id, parent.Id, slot, 0, script);
+            _widgetContainer.OpenWidget(widget);
+            return widget;
+        }
+
+        private IWidget CreateFrame(int id, IWidgetScript? script = null)
+        {
+            return new Widget(_characterMock, id, 0, script ?? Substitute.For<IWidgetScript>());
+        }
+
     }
 }

@@ -98,54 +98,70 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// trade operation. This method acquires the pouch and inventory
         /// mutation boundaries together.
         /// </summary>
-        public bool AddForTrade(int count) => ExecuteWithInventoryBoundary(() => AddForTradeCore(count));
-
-        private bool AddForTradeCore(int count)
+        public bool AddForTrade(int count)
         {
+            if (!TryAddForTradeStorage(count, out var pouchChangeCount, out var inventorySlots))
+            {
+                return false;
+            }
+
+            if (inventorySlots.Count > 0)
+            {
+                _owner.Inventory.OnUpdate(inventorySlots);
+            }
+
+            PublishTradeChanges(pouchChangeCount);
+            return true;
+        }
+
+        public bool TryAddForTradeStorage(int count, out int pouchChangeCount,
+            out HashSet<int> inventoryChangedSlots)
+        {
+            var changedSlots = new HashSet<int>();
+            var changeCount = 0;
+            var succeeded = ExecuteWithInventoryBoundary(() =>
+                TryAddForTradeStorageCore(count, out changeCount, out changedSlots));
+            pouchChangeCount = changeCount;
+            inventoryChangedSlots = changedSlots;
+            return succeeded;
+        }
+
+        private bool TryAddForTradeStorageCore(int count, out int pouchChangeCount,
+            out HashSet<int> inventoryChangedSlots)
+        {
+            pouchChangeCount = 0;
+            inventoryChangedSlots = [];
             if (count <= 0)
             {
                 return false;
             }
 
-            var itemsBefore = (IItem?[])Items.Clone();
-            var countsBefore = itemsBefore.Select(item => item?.Count ?? 0).ToArray();
-            var previousCountBefore = _previousCount;
-            try
+            var snapshot = CaptureTradeStorage();
+            var pouchCount = Math.Min(count, int.MaxValue - Count);
+            var inventoryCount = count - pouchCount;
+            if (inventoryCount > 0 && !_owner.Inventory.HasSpaceFor(
+                    _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
             {
-                var pouchCount = Math.Min(count, int.MaxValue - Count);
-                var inventoryCount = count - pouchCount;
-                if (inventoryCount > 0 && !_owner.Inventory.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
-                {
-                    return false;
-                }
-
-                _previousCount = Count;
-                if (pouchCount > 0 && !AddRangeForTrade([_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()]))
-                {
-                    return false;
-                }
-
-                SendMoneyPouchChangedMessageForTrade(pouchCount);
-
-                if (inventoryCount <= 0)
-                {
-                    return true;
-                }
-
-                if (!_owner.Inventory.AddRangeForTrade(
-                        [_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()]))
-                {
-                    RestoreTradeState(itemsBefore, countsBefore, previousCountBefore);
-                    return false;
-                }
-
-                return true;
-            }
-            catch (InvalidOperationException)
-            {
-                RestoreTradeState(itemsBefore, countsBefore, previousCountBefore);
                 return false;
             }
+
+            _previousCount = Count;
+            if (pouchCount > 0 && !base.TryAddRangeForTradeStorage(
+                    [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()], out _))
+            {
+                RestoreTradeStorage(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
+                return false;
+            }
+
+            if (inventoryCount > 0 && !_owner.Inventory.TryAddRangeForTradeStorage(
+                    [_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()], out inventoryChangedSlots))
+            {
+                RestoreTradeStorage(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
+                return false;
+            }
+
+            pouchChangeCount = pouchCount;
+            return true;
         }
 
         /// <summary>
@@ -178,54 +194,80 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// trade operation. This method acquires the pouch and inventory
         /// mutation boundaries together.
         /// </summary>
-        public bool RemoveForTrade(int count) => ExecuteWithInventoryBoundary(() => RemoveForTradeCore(count));
+        public bool RemoveForTrade(int count)
+        {
+            if (!TryRemoveForTradeStorage(count, out var pouchChangeCount, out var inventorySlots))
+            {
+                return false;
+            }
+
+            if (inventorySlots.Count > 0)
+            {
+                _owner.Inventory.OnUpdate(inventorySlots);
+            }
+
+            PublishTradeChanges(pouchChangeCount);
+            return true;
+        }
 
         /// <summary>
         /// Removes exactly the requested number of coins using the checked pouch and inventory operation.
         /// </summary>
         public bool TryRemoveExact(int count) => RemoveForTrade(count);
 
-        private bool RemoveForTradeCore(int count)
+        public bool TryRemoveForTradeStorage(int count, out int pouchChangeCount,
+            out HashSet<int> inventoryChangedSlots)
         {
+            var changedSlots = new HashSet<int>();
+            var changeCount = 0;
+            var succeeded = ExecuteWithInventoryBoundary(() =>
+                TryRemoveForTradeStorageCore(count, out changeCount, out changedSlots));
+            pouchChangeCount = changeCount;
+            inventoryChangedSlots = changedSlots;
+            return succeeded;
+        }
+
+        private bool TryRemoveForTradeStorageCore(int count, out int pouchChangeCount,
+            out HashSet<int> inventoryChangedSlots)
+        {
+            pouchChangeCount = 0;
+            inventoryChangedSlots = [];
             if (count <= 0)
             {
                 return false;
             }
 
-            var itemsBefore = (IItem?[])Items.Clone();
-            var countsBefore = itemsBefore.Select(item => item?.Count ?? 0).ToArray();
-            var previousCountBefore = _previousCount;
-            try
+            var snapshot = CaptureTradeStorage();
+            var pouchCount = Math.Min(count, Count);
+            var inventoryCount = count - pouchCount;
+            if (inventoryCount > _owner.Inventory.GetCountById(995))
             {
-                var pouchCount = Math.Min(count, Count);
-                var inventoryCount = count - pouchCount;
-                if (inventoryCount > _owner.Inventory.GetCountById(995))
-                {
-                    return false;
-                }
-
-                _previousCount = Count;
-                if (pouchCount > 0 && !RemoveForTrade(
-                        _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0))
-                {
-                    return false;
-                }
-
-                if (inventoryCount > 0 && !_owner.Inventory.RemoveForTrade(
-                        _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
-                {
-                    RestoreTradeState(itemsBefore, countsBefore, previousCountBefore);
-                    return false;
-                }
-
-                SendMoneyPouchChangedMessageForTrade(-count);
-                return true;
-            }
-            catch (InvalidOperationException)
-            {
-                RestoreTradeState(itemsBefore, countsBefore, previousCountBefore);
                 return false;
             }
+
+            _previousCount = Count;
+            if (pouchCount > 0 && !base.TryRemoveForTradeStorage(
+                    _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0, out _))
+            {
+                RestoreTradeStorage(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
+                return false;
+            }
+
+            if (inventoryCount > 0 && !_owner.Inventory.TryRemoveForTradeStorage(
+                    _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build(), -1, out inventoryChangedSlots))
+            {
+                RestoreTradeStorage(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
+                return false;
+            }
+
+            pouchChangeCount = -count;
+            return true;
+        }
+
+        public void PublishTradeChanges(int pouchChangeCount)
+        {
+            SendMoneyPouchChangedMessage(pouchChangeCount);
+            OnUpdate();
         }
 
         private bool ExecuteWithInventoryBoundary(Func<bool> operation)
@@ -244,10 +286,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
         }
 
-        private void RestoreTradeState(IItem?[] items, IReadOnlyList<int> counts, int previousCount)
+        private (IItem?[] Items, int[] Counts, int PreviousCount) CaptureTradeStorage()
         {
-            var currentCount = Count;
-            Items = items;
+            var items = (IItem?[])Items.Clone();
+            var counts = items.Select(item => item?.Count ?? 0).ToArray();
+            return (items, counts, _previousCount);
+        }
+
+        private void RestoreTradeStorage(IItem?[] items, IReadOnlyList<int> counts, int previousCount)
+        {
             for (var i = 0; i < items.Length; i++)
             {
                 if (items[i] != null)
@@ -256,20 +303,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
             }
 
-            if (currentCount != Count)
-            {
-                _previousCount = currentCount;
-                SendMoneyPouchChangedMessageForTrade(Count - currentCount);
-                try
-                {
-                    OnUpdate();
-                }
-                catch (InvalidOperationException)
-                {
-                    // The authoritative state is restored; observer delivery is best effort.
-                }
-            }
-
+            SetItems(items!, false);
             _previousCount = previousCount;
         }
 
@@ -280,20 +314,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (update && previousCount != Count)
             {
                 _previousCount = previousCount;
-                SendMoneyPouchChangedMessageForTrade(Count - previousCount);
+                SendMoneyPouchChangedMessage(Count - previousCount);
                 OnUpdate();
-            }
-        }
-
-        private void SendMoneyPouchChangedMessageForTrade(int changeCount)
-        {
-            try
-            {
-                SendMoneyPouchChangedMessage(changeCount);
-            }
-            catch (InvalidOperationException)
-            {
-                // Trade storage has already committed; observer delivery is best effort.
             }
         }
 

@@ -1,14 +1,19 @@
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Collections;
+using Hagalaz.Game.Abstractions.Data;
+using Hagalaz.Game.Abstractions.Features.Shops;
 using Hagalaz.Game.Abstractions.Logic.Characters.Model;
 using Hagalaz.Game.Abstractions.Logic.Dehydrations;
 using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Services.GameWorld.Builders;
+using Hagalaz.Services.GameWorld.Logic.Shops;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Microsoft.Extensions.DependencyInjection;
@@ -62,6 +67,20 @@ public sealed class ItemContainerPersistenceTests
         AssertRoundTrip(() => new BankContainer(scenario.Owner, 12, scenario.Builder),
             [new(101, 2, 2, null), new(102, 3, 9, null)]);
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     [TestMethod]
     public void EquipmentRoundTrip_PreservesSemanticSlotsAndGaps()
@@ -243,36 +262,4 @@ public sealed class ItemContainerPersistenceTests
         }
     }
 
-    private sealed class Scenario : IDisposable
-    {
-        private readonly ServiceProvider _services;
-
-        public ICharacter Owner { get; } = Substitute.For<ICharacter>();
-        public IItemBuilder Builder { get; }
-
-        public Scenario()
-        {
-            Owner.Statistics.Returns(Substitute.For<ICharacterStatistics>());
-            var itemDefinition = Substitute.For<IItemDefinition>();
-            itemDefinition.Stackable.Returns(true);
-            var equipmentDefinition = Substitute.For<IEquipmentDefinition>();
-            var itemScript = Substitute.For<IItemScript>();
-            var equipmentScript = Substitute.For<IEquipmentScript>();
-            var itemService = Substitute.For<IItemService>();
-            itemService.FindItemDefinitionById(Arg.Any<int>()).Returns(itemDefinition);
-            var equipmentService = Substitute.For<IEquipmentService>();
-            equipmentService.FindEquipmentDefinitionById(Arg.Any<int>()).Returns(equipmentDefinition);
-            var itemProvider = Substitute.For<IItemScriptProvider>();
-            itemProvider.FindItemScriptById(Arg.Any<int>()).Returns(itemScript);
-            var equipmentProvider = Substitute.For<IEquipmentScriptProvider>();
-            equipmentProvider.FindEquipmentScriptById(Arg.Any<int>()).Returns(equipmentScript);
-            _services = new ServiceCollection()
-                .AddSingleton(itemService)
-                .AddSingleton(equipmentService)
-                .BuildServiceProvider();
-            Builder = new ItemBuilder(_services, itemProvider, equipmentProvider);
-        }
-
-        public void Dispose() => _services.Dispose();
-    }
 }

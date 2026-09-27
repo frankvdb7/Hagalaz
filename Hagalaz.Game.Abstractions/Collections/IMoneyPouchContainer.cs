@@ -54,6 +54,23 @@
         bool RemoveForTrade(int count);
 
         /// <summary>
+        /// Adds coins to the pouch and, if needed, Inventory without publishing changes.
+        /// </summary>
+        bool TryAddForTradeStorage(int count, out int pouchChangeCount,
+            out System.Collections.Generic.HashSet<int> inventoryChangedSlots);
+
+        /// <summary>
+        /// Removes coins from the pouch and, if needed, Inventory without publishing changes.
+        /// </summary>
+        bool TryRemoveForTradeStorage(int count, out int pouchChangeCount,
+            out System.Collections.Generic.HashSet<int> inventoryChangedSlots);
+
+        /// <summary>
+        /// Publishes a completed checked pouch change and its player message.
+        /// </summary>
+        void PublishTradeChanges(int pouchChangeCount);
+
+        /// <summary>
         /// Removes exactly the requested number of coins from the pouch and inventory, if available.
         /// </summary>
         bool TryRemoveExact(int count);
