@@ -322,6 +322,11 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             }
 
             _inputHandler = null;
+            if (_inventoryInterface?.IsOpened == true)
+            {
+                Owner.Widgets.CloseWidget(_inventoryInterface);
+            }
+
             _inventoryInterface = null;
             _priceCheckInterface = null;
             Owner.Configurations.SendItems(93, false, Owner.Inventory);

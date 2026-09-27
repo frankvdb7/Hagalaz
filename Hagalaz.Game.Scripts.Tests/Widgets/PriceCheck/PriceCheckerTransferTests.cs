@@ -173,6 +173,7 @@ public sealed class PriceCheckerTransferTests
         Assert.IsNull(harness.Character.Widgets.IntInputHandler);
         Assert.IsNull(GetField(harness.Script, "_priceCheckInterface"));
         harness.Character.Received(1).UnregisterEventHandler<InventoryChangedEvent>(harness.InventoryChangeHandle!);
+        harness.Widgets.Received(1).CloseWidget(harness.InventoryOverlay);
         Assert.IsNotNull(pendingInput);
         harness.Configurations.Received().SendItems(93, false, harness.Inventory, null);
     }
@@ -221,6 +222,7 @@ public sealed class PriceCheckerTransferTests
         var widgets = Substitute.For<IWidgetContainer>();
         var interfaceInstance = Substitute.For<IWidget>();
         var inventoryOverlay = Substitute.For<IWidget>();
+        inventoryOverlay.IsOpened.Returns(true);
         character.Widgets.Returns(widgets);
         widgets.OpenInventoryOverlay(207, 1, Arg.Any<IWidgetScript>()).Returns(true);
         widgets.GetOpenWidget(207).Returns(inventoryOverlay);
