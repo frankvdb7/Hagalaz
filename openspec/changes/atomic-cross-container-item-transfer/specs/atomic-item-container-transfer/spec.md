@@ -34,7 +34,7 @@ An exact transfer SHALL move the complete requested positive quantity from its s
 
 ### Requirement: Transfers serialize and publish committed state
 
-Concurrent transfers involving the same containers SHALL acquire their mutation boundaries in a deterministic order. A successful operation SHALL commit both containers and advance their revisions before invoking either container update callback. A failed operation SHALL emit no committed update. An observer exception SHALL not restore or otherwise undo committed storage.
+Concurrent transfers involving the same containers SHALL acquire their mutation boundaries in a deterministic order. A successful operation SHALL commit both containers and advance their revisions before invoking either container update callback. A failed operation SHALL emit no committed update. Callbacks SHALL execute only after storage has committed.
 
 #### Scenario: Transfers run in opposite directions
 - **WHEN** two operations concurrently transfer items in opposite directions between the same containers
@@ -49,12 +49,9 @@ Concurrent transfers involving the same containers SHALL acquire their mutation 
 - **THEN** neither container receives an update callback
 
 #### Scenario: An update observer throws after commit
-- **WHEN** either container update observer throws a nonfatal exception after storage has committed
-- **THEN** both committed storage states remain in place, the transfer returns success, and the other container's observer is still attempted
-
-#### Scenario: A process-fatal observer exception occurs
-- **WHEN** a container update observer throws a process-fatal exception after storage has committed
-- **THEN** the exception is not swallowed and committed storage is not restored
+- **WHEN** a transfer has committed both container storage states and an update callback throws
+- **THEN** committed storage is not rolled back
+- **AND** the exception propagates normally
 
 #### Scenario: A huge non-stackable request cannot fit
 - **WHEN** an exact transfer would expand a huge non-stackable quantity into more items than the destination can accept and no existing stack can receive them

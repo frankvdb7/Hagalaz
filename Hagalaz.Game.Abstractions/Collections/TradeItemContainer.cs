@@ -53,7 +53,7 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
             AdvanceRevision();
         }
 
-        NotifyTradeUpdate(slotsToUpdate);
+        OnUpdate(slotsToUpdate);
         return true;
     }
 
@@ -84,17 +84,8 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
             }
         }
 
-        NotifyTradeUpdate(slotsToUpdate);
+        OnUpdate(slotsToUpdate);
         return true;
-    }
-
-    /// <summary>
-    /// Delivers a checked trade update without turning observer failures into a
-    /// failed settlement. Normal inherited mutations do not use this path.
-    /// </summary>
-    protected void NotifyTradeUpdate(HashSet<int>? slots = null)
-    {
-        NotifyAfterCommit(() => OnUpdate(slots));
     }
 
 }

@@ -65,46 +65,6 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
-    public void TryExchange_WhenRecipientNotificationFails_CompletesExchange()
-    {
-        var firstInventory = new TestInventory(14);
-        var secondInventory = new TestInventory(14);
-        firstInventory.Add(new TestItem(200, 1)).Should().BeTrue();
-        firstInventory.FailNextUpdate = true;
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
-        var firstOffer = new TestItemContainer(StorageType.Normal, 14);
-        var secondOffer = new TestItemContainer(StorageType.Normal, 14);
-        firstOffer.Add(new TestItem(100, 1)).Should().BeTrue();
-        secondOffer.Add(new TestItem(101, 1)).Should().BeTrue();
-
-        var result = TradeExchange.TryExchange(first, firstOffer, second, secondOffer, CreateItemBuilder());
-
-        result.Should().BeTrue();
-        firstInventory.GetCountById(200).Should().Be(1);
-        firstInventory.GetCountById(101).Should().Be(1);
-        secondInventory.GetCountById(100).Should().Be(1);
-        firstOffer.GetCountById(100).Should().Be(0);
-        secondOffer.GetCountById(101).Should().Be(0);
-    }
-
-    [TestMethod]
-    public void MoneyPouchTradeAdd_WhenNotificationFails_CompletesTheMutation()
-    {
-        var inventory = new TestInventory(14);
-        var character = CreateCharacter(inventory, Substitute.For<IMoneyPouchContainer>());
-        var eventManager = Substitute.For<IEventManager>();
-        eventManager.SendEvent(Arg.Any<IEvent>()).Returns(_ => throw new InvalidOperationException("Controlled observer failure."));
-        character.EventManager.Returns(eventManager);
-        var moneyPouch = new MoneyPouchContainer(character, CreateItemBuilder());
-
-        var result = moneyPouch.AddForTrade(1);
-
-        result.Should().BeTrue();
-        moneyPouch.Count.Should().Be(1);
-    }
-
-    [TestMethod]
     public void TryExchange_WhenPouchIsFull_UsesInventoryForCoinOverflow()
     {
         var firstInventory = new TestInventory(1);
@@ -353,23 +313,6 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
-    public void FinishTradeSession_WhenRecipientNotificationFails_CompletesTrade()
-    {
-        var firstInventory = new TestInventory(14);
-        var secondInventory = new TestInventory(14) { FailNextUpdate = true };
-        var firstMoneyPouch = new TestMoneyPouch(firstInventory);
-        var secondMoneyPouch = new TestMoneyPouch(secondInventory);
-        var first = CreateCharacter(firstInventory, firstMoneyPouch);
-        var second = CreateCharacter(secondInventory, secondMoneyPouch);
-        var script = CreatePreparedScript(first, second, firstMoneyPouch, secondMoneyPouch);
-        script.FinishTradeSession();
-
-        script.TradeSession.Should().BeFalse();
-        firstInventory.GetCountById(101).Should().Be(1);
-        secondInventory.GetCountById(100).Should().Be(1);
-    }
-
-    [TestMethod]
     public void TryConserveEscrow_WhenSecondRecoveryFails_RestoresFirstRecovery()
     {
         var firstInventory = new TestInventory(14);
@@ -581,7 +524,6 @@ public sealed class TradeExchangeTests
 
     private class TestItemContainer : TradeItemContainer
     {
-        public bool FailNextUpdate { get; set; }
         public int UpdateCount { get; private set; }
 
         public TestItemContainer(StorageType type, int capacity) : base(type, capacity) { }
@@ -589,13 +531,6 @@ public sealed class TradeExchangeTests
         public override void OnUpdate(HashSet<int>? slots = null)
         {
             UpdateCount++;
-            if (!FailNextUpdate)
-            {
-                return;
-            }
-
-            FailNextUpdate = false;
-            throw new InvalidOperationException("Controlled container failure.");
         }
 
     }

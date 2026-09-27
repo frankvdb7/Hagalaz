@@ -18,7 +18,6 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             public int UpdateCount { get; private set; }
             public bool ThrowOnUpdate { get; set; }
-            public Exception? UpdateException { get; set; }
             public Action<HashSet<int>?>? UpdateHandler { get; set; }
 
             public TestableItemContainer(StorageType type, int capacity) : base(type, capacity)
@@ -33,11 +32,6 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             {
                 UpdateCount++;
                 UpdateHandler?.Invoke(slots);
-                if (UpdateException is { } exception)
-                {
-                    throw exception;
-                }
-
                 if (ThrowOnUpdate)
                 {
                     throw new InvalidOperationException("Controlled observer failure.");
@@ -111,17 +105,12 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         private sealed class TestableBaseItemContainer : BaseItemContainer
         {
             public int UpdateCount { get; private set; }
-            public Exception? UpdateException { get; set; }
 
             public TestableBaseItemContainer(StorageType type, int capacity) : base(type, capacity) { }
 
             public override void OnUpdate(HashSet<int>? slots = null)
             {
                 UpdateCount++;
-                if (UpdateException is { } exception)
-                {
-                    throw exception;
-                }
             }
         }
 
@@ -1415,36 +1404,19 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public void TryTransfer_SourceObserverThrowsAfterCommit_StillNotifiesDestinationAndReturnsSuccess()
+        public void TryTransfer_SourceObserverThrowsAfterCommit_LeavesCommittedStorageInPlace()
         {
-            var source = new TestableBaseItemContainer(StorageType.Normal, 1);
+            var source = new TestableItemContainer(StorageType.Normal, 1);
             source.Add(CreateItem(1, 1));
-            source.UpdateException = new InvalidOperationException("Controlled source observer failure.");
-            var destination = new TestableBaseItemContainer(StorageType.Normal, 1);
+            source.ThrowOnUpdate = true;
+            var destination = new TestableItemContainer(StorageType.Normal, 1);
             var item = source[0];
 
-            Assert.IsTrue(BaseItemContainer.TryTransfer(source, destination, item!, 1));
+            Assert.ThrowsExactly<InvalidOperationException>(
+                () => BaseItemContainer.TryTransfer(source, destination, item!, 1));
 
             Assert.IsNull(source[0]);
             Assert.AreSame(item, destination[0]);
-            Assert.AreEqual(2, source.UpdateCount);
-            Assert.AreEqual(1, destination.UpdateCount);
-        }
-
-        [TestMethod]
-        public void TryTransfer_ProcessFatalObserverExceptionIsNotSwallowed()
-        {
-            var source = new TestableBaseItemContainer(StorageType.Normal, 1);
-            source.Add(CreateItem(1, 1));
-            source.UpdateException = new OutOfMemoryException("Controlled fatal observer failure.");
-            var destination = new TestableBaseItemContainer(StorageType.Normal, 1);
-            var item = source[0];
-
-            Assert.ThrowsExactly<OutOfMemoryException>(() => BaseItemContainer.TryTransfer(source, destination, item!, 1));
-
-            Assert.IsNull(source[0]);
-            Assert.AreSame(item, destination[0]);
-            Assert.AreEqual(0, destination.UpdateCount);
         }
 
         [TestMethod]
@@ -1490,19 +1462,6 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.AreEqual(1, left.GetCountById(2));
             Assert.AreEqual(1, right.GetCountById(1));
             Assert.AreEqual(2, left.TakenSlots + right.TakenSlots);
-        }
-
-        [TestMethod]
-        public void RemoveForTrade_UsesExactSharedRemovalAndRetainsTradeObserverHandling()
-        {
-            var container = new TestableItemContainer(StorageType.Normal, 2);
-            container.Add(CreateItem(1, 5, stackable: true));
-            container.ThrowOnUpdate = true;
-
-            Assert.IsTrue(container.RemoveForTrade(CreateItem(1, 3, stackable: true)));
-
-            Assert.AreEqual(2, container[0]!.Count);
-            Assert.AreEqual(2, container.UpdateCount);
         }
 
         [TestMethod]

@@ -124,7 +124,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            SendMoneyPouchChangedMessageForTrade(pouchCount);
+            SendMoneyPouchChangedMessage(pouchCount);
 
             if (inventoryCount <= 0)
             {
@@ -210,7 +210,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            SendMoneyPouchChangedMessageForTrade(-count);
+            SendMoneyPouchChangedMessage(-count);
             return true;
         }
 
@@ -245,8 +245,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (currentCount != Count)
             {
                 _previousCount = currentCount;
-                SendMoneyPouchChangedMessageForTrade(Count - currentCount);
-                NotifyAfterCommit(() => OnUpdate());
+                SendMoneyPouchChangedMessage(Count - currentCount);
+                OnUpdate();
             }
 
             _previousCount = previousCount;
@@ -259,14 +259,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (update && previousCount != Count)
             {
                 _previousCount = previousCount;
-                SendMoneyPouchChangedMessageForTrade(Count - previousCount);
-                NotifyAfterCommit(() => OnUpdate());
+                SendMoneyPouchChangedMessage(Count - previousCount);
+                OnUpdate();
             }
-        }
-
-        private void SendMoneyPouchChangedMessageForTrade(int changeCount)
-        {
-            NotifyAfterCommit(() => SendMoneyPouchChangedMessage(changeCount));
         }
 
         /// <summary>

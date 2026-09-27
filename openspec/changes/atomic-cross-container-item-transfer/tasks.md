@@ -19,3 +19,9 @@
 - [x] 3.3 Correct post-commit observer semantics and impossible non-stackable preflight with focused regressions; the refused-close redraw was removed with the superseded close-guard design
 - [x] 3.4 Remove close refusal concepts and simplify widget-close APIs while retaining safe batch snapshots
 - [x] 3.5 Remove obsolete refusal tests, retain behavior tests, and rerun the requested project/build/OpenSpec/jscpd/diff validation
+
+## 4. Post-commit callback failure behavior
+
+- [x] 4.1 Remove observer exception suppression and invoke transfer, trade, and Money Pouch callbacks directly after storage commits
+- [x] 4.2 Replace observer suppression tests with one regression proving callback exceptions propagate while committed transfer storage remains committed; remove fatal-exception policy tests
+- [x] 4.3 Run focused and full project tests, solution build, strict OpenSpec, jscpd against `origin/main`, and `git diff --check`

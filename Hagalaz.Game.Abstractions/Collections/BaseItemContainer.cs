@@ -171,25 +171,9 @@ namespace Hagalaz.Game.Abstractions.Collections
                 return false;
             }
 
-            NotifyAfterCommit(() => sourceContainer.OnUpdate(sourceSlots));
-            NotifyAfterCommit(() => destinationContainer.OnUpdate(destinationSlots));
+            sourceContainer.OnUpdate(sourceSlots);
+            destinationContainer.OnUpdate(destinationSlots);
             return true;
-        }
-
-        /// <summary>
-        /// Delivers an observer notification after storage has committed.
-        /// A nonfatal observer failure does not change the mutation result.
-        /// </summary>
-        protected static void NotifyAfterCommit(Action notification)
-        {
-            try
-            {
-                notification();
-            }
-            catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException and not AccessViolationException)
-            {
-                // Observer delivery must not make committed storage appear uncommitted.
-            }
         }
 
         private static bool TryTransferLocked(
@@ -1281,7 +1265,7 @@ namespace Hagalaz.Game.Abstractions.Collections
                 _version++;
             }
 
-            if (update) NotifyAfterCommit(() => OnUpdate());
+            if (update) OnUpdate();
         }
 
         /// <summary>

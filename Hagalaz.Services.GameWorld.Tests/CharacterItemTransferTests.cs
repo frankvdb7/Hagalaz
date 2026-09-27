@@ -213,7 +213,7 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    public void EquipItem_ObserverFailureStillCallsEquippedAfterStorageCommit()
+    public void EquipItem_ObserverFailurePropagatesAfterStorageCommit()
     {
         using var scenario = new Scenario();
         var (inventory, equipment, item) = CreateEquipmentSetup(scenario);
@@ -224,10 +224,12 @@ public sealed class CharacterItemTransferTests
             .When(manager => manager.SendEvent(Arg.Any<IEvent>()))
             .Do(_ => throw new InvalidOperationException("Controlled equipment observer failure."));
 
-        Assert.IsTrue(equipment.EquipItem(item));
+        Assert.ThrowsExactly<InvalidOperationException>(() => equipment.EquipItem(item));
 
-        Assert.IsTrue(callbackSawCommittedStorage());
-        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+        Assert.IsFalse(callbackSawCommittedStorage());
+        Assert.IsNull(inventory[0]);
+        Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is InventoryChangedEvent));
     }
 
     [TestMethod]
