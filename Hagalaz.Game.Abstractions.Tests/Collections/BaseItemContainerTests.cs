@@ -17,8 +17,8 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         private class TestableItemContainer : TradeItemContainer
         {
             public int UpdateCount { get; private set; }
-            public bool ThrowOnUpdate { get; set; }
-            public Action<HashSet<int>?>? UpdateHandler { get; set; }
+            public bool ThrowOnPublication { get; set; }
+            public Action<HashSet<int>?>? PublicationHandler { get; set; }
 
             public TestableItemContainer(StorageType type, int capacity) : base(type, capacity)
             {
@@ -31,10 +31,10 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             public override void OnUpdate(HashSet<int>? slots = null)
             {
                 UpdateCount++;
-                UpdateHandler?.Invoke(slots);
-                if (ThrowOnUpdate)
+                PublicationHandler?.Invoke(slots);
+                if (ThrowOnPublication)
                 {
-                    throw new InvalidOperationException("Controlled observer failure.");
+                    throw new InvalidOperationException("Controlled publication failure.");
                 }
             }
         }
@@ -764,11 +764,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public void AddRange_WhenObserverFails_PropagatesTheFailureForNormalMutation()
+        public void AddRange_WhenPublicationThrows_PropagatesTheFailureForNormalMutation()
         {
             var container = new TestableItemContainer(StorageType.Normal, 10)
             {
-                ThrowOnUpdate = true
+                ThrowOnPublication = true
             };
 
             Assert.ThrowsExactly<InvalidOperationException>(() => container.AddRange([CreateItem(1, 1)]));
@@ -1279,13 +1279,13 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var destinationItem = destination[0];
             var sourceObservedCommit = false;
             var destinationObservedCommit = false;
-            source.UpdateHandler = _ =>
+            source.PublicationHandler = _ =>
             {
                 Assert.AreEqual(7, destination[0]!.Count);
                 Assert.AreEqual(7, source.GetCountById(1));
                 sourceObservedCommit = true;
             };
-            destination.UpdateHandler = _ =>
+            destination.PublicationHandler = _ =>
             {
                 Assert.AreEqual(7, destination[0]!.Count);
                 Assert.AreEqual(7, source.GetCountById(1));
@@ -1404,11 +1404,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public void TryTransfer_SourceObserverThrowsAfterCommit_LeavesCommittedStorageInPlace()
+        public void TryTransfer_SourcePublicationThrowsAfterCommit_LeavesCommittedStorageInPlace()
         {
             var source = new TestableItemContainer(StorageType.Normal, 1);
             source.Add(CreateItem(1, 1));
-            source.ThrowOnUpdate = true;
+            source.ThrowOnPublication = true;
             var destination = new TestableItemContainer(StorageType.Normal, 1);
             var item = source[0];
 

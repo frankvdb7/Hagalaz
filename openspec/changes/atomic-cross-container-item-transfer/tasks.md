@@ -16,14 +16,14 @@
 
 - [x] 3.1 Run focused and affected project test suites, build the appropriate solution boundary, and record successful commands and any pre-existing warnings
 - [x] 3.2 Run strict OpenSpec validation and review the complete diff for atomicity, locking, item identity, notification timing, callback behavior, trade duplication, and scope
-- [x] 3.3 Correct post-commit observer semantics and impossible non-stackable preflight with focused regressions; the refused-close redraw was removed with the superseded close-guard design
+- [x] 3.3 Correct post-commit publication semantics and impossible non-stackable preflight with focused regressions
 - [x] 3.4 Remove close refusal concepts and simplify widget-close APIs while retaining safe batch snapshots
 - [x] 3.5 Remove obsolete refusal tests, retain behavior tests, and rerun the requested project/build/OpenSpec/jscpd/diff validation
 
-## 4. Post-commit callback failure behavior
+## 4. Post-commit publication exception behavior
 
-- [x] 4.1 Remove observer exception suppression and invoke transfer, trade, and Money Pouch callbacks directly after storage commits
-- [x] 4.2 Replace observer suppression tests with one regression proving callback exceptions propagate while committed transfer storage remains committed; remove fatal-exception policy tests
+- [x] 4.1 Let transfer, trade, and Money Pouch change publication run after storage commits, with unexpected exceptions propagating
+- [x] 4.2 Verify publication exceptions propagate while committed transfer storage remains committed
 - [x] 4.3 Run focused and full project tests, solution build, strict OpenSpec, jscpd against `origin/main`, and `git diff --check`
 
 ## 5. Separate storage mutation from publication in composed operations

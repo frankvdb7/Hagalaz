@@ -73,7 +73,7 @@ internal static class TradeExchange
     internal static bool TryConserveEscrow(ICharacter first, ITradeItemContainer firstOffer, ICharacter second,
         ITradeItemContainer secondOffer)
     {
-        var containers = new List<MutationBoundary>();
+        var containers = new List<TradeItemContainer>();
         AddContainer(containers, firstOffer);
         AddContainer(containers, secondOffer);
         AddContainer(containers, first.Rewards);
@@ -387,10 +387,10 @@ internal static class TradeExchange
         return slots;
     }
 
-    private static List<MutationBoundary> GetContainers(ITradeItemContainer firstOffer, ITradeItemContainer secondOffer,
+    private static List<TradeItemContainer> GetContainers(ITradeItemContainer firstOffer, ITradeItemContainer secondOffer,
         ICharacter first, ICharacter second)
     {
-        var containers = new List<MutationBoundary>();
+        var containers = new List<TradeItemContainer>();
         AddContainer(containers, firstOffer);
         AddContainer(containers, secondOffer);
         AddContainer(containers, first.Inventory);
@@ -400,38 +400,30 @@ internal static class TradeExchange
         return containers;
     }
 
-    private static void AddContainer(List<MutationBoundary> containers, IItemContainer? container)
+    private static void AddContainer(List<TradeItemContainer> containers, IItemContainer? container)
     {
-        MutationBoundary? boundary = container switch
+        if (container is TradeItemContainer tradeContainer &&
+            !containers.Any(existing => ReferenceEquals(existing.MutationLock, tradeContainer.MutationLock)))
         {
-            TradeItemContainer tradeContainer => new MutationBoundary(tradeContainer.MutationLock, tradeContainer.MutationOrder),
-            IMoneyPouchContainer moneyPouch => new MutationBoundary(moneyPouch.MutationLock, moneyPouch.MutationOrder),
-            _ => null
-        };
-
-        if (boundary is { } mutationBoundary && !containers.Any(existing => ReferenceEquals(existing.Lock, mutationBoundary.Lock)))
-        {
-            containers.Add(mutationBoundary);
+            containers.Add(tradeContainer);
         }
     }
 
-    private static LockScope AcquireLocks(IEnumerable<MutationBoundary> containers) =>
-        new(containers.OrderBy(container => container.Order));
+    private static LockScope AcquireLocks(IEnumerable<TradeItemContainer> containers) =>
+        new(containers.OrderBy(container => container.MutationOrder));
 
     private sealed record ContainerSnapshot(BaseItemContainer Container, IItem[] Items, int[] Counts);
 
-    private readonly record struct MutationBoundary(object Lock, long Order);
-
     private sealed class LockScope : IDisposable
     {
-        private readonly IReadOnlyList<MutationBoundary> _containers;
+        private readonly IReadOnlyList<TradeItemContainer> _containers;
 
-        public LockScope(IEnumerable<MutationBoundary> containers)
+        public LockScope(IEnumerable<TradeItemContainer> containers)
         {
             _containers = containers.ToArray();
             foreach (var container in _containers)
             {
-                Monitor.Enter(container.Lock);
+                Monitor.Enter(container.MutationLock);
             }
         }
 
@@ -439,7 +431,7 @@ internal static class TradeExchange
         {
             for (var i = _containers.Count - 1; i >= 0; i--)
             {
-                Monitor.Exit(_containers[i].Lock);
+                Monitor.Exit(_containers[i].MutationLock);
             }
         }
     }

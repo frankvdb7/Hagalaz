@@ -5,10 +5,6 @@
     /// </summary>
     public interface IMoneyPouchContainer : IItemContainer
     {
-        object MutationLock { get; }
-
-        long MutationOrder { get; }
-
         /// <summary>
         /// Gets the "Examine" text for the money pouch, which typically displays the total number of coins.
         /// </summary>

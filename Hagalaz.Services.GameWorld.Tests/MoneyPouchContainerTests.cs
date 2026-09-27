@@ -144,7 +144,7 @@ public sealed class MoneyPouchContainerTests
         return new MoneyPouchScenario(moneyPouch, inventory, character);
     }
 
-    private sealed record MoneyPouchScenario(IMoneyPouchContainer MoneyPouch, TestInventory Inventory,
+    private sealed record MoneyPouchScenario(MoneyPouchContainer MoneyPouch, TestInventory Inventory,
         ICharacter Owner);
 
     private sealed class TestInventory : TestItemContainer, IInventoryContainer

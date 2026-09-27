@@ -37,10 +37,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public int Count => this[0]!.Count;
 
-        public object MutationLock => ContainerMutationLock;
-
-        public long MutationOrder => ContainerMutationOrder;
-
         /// <summary>
         /// Gets the examine.
         /// </summary>

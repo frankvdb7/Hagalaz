@@ -48,7 +48,7 @@ See proposal.md for motivation and scope. `BaseItemContainer` owns slot storage 
 - [Risk] A caller that bypasses the base mutation boundary could still mutate shared item objects concurrently. → Keep storage-changing base methods under the same lock and inspect derived overrides; current GameWorld container implementations either use base storage methods or their existing ordered trade/pouch boundary.
 - [Risk] Cloning during preflight could lose item-specific data if an `IItem.Clone` implementation is incomplete. → Preserve original item references for whole-instance moves and add regressions for identity and serialized item data on split moves.
 - [Risk] Publication or an equipment domain effect can fail after storage commits. → Let the exception propagate and keep the final committed storage in place; do not publish between storage legs or roll back because publication/effects failed.
-- [Risk] A broad storage lock can expose callback reentrancy deadlocks if callbacks run under it. → Release the locks before `OnUpdate` and retain deterministic ordering for every pair operation.
+- [Risk] A broad storage lock can expose publication reentrancy deadlocks if publication runs under it. → Release the locks before `OnUpdate` and retain deterministic ordering for every pair operation.
 
 ## Migration Plan
 

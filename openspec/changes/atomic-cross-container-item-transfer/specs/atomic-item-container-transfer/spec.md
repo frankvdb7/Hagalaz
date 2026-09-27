@@ -46,10 +46,10 @@ Concurrent transfers involving the same containers SHALL acquire their mutation 
 
 #### Scenario: A transfer validation fails
 - **WHEN** an exact transfer cannot complete
-- **THEN** neither container receives an update callback
+- **THEN** neither container publishes a change
 
-#### Scenario: An update observer throws after commit
-- **WHEN** a transfer has committed both container storage states and change publication throws
+#### Scenario: Change publication throws after commit
+- **WHEN** a transfer has committed both container storage states and publication throws
 - **THEN** committed storage is not rolled back
 - **AND** the exception propagates normally
 
