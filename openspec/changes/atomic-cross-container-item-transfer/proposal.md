@@ -25,7 +25,7 @@ Item movement is currently split across separate removal and insertion calls. A 
 - Successful transfers preserve the exact requested quantity, stacking rules, preferred slots, item data, and source sentinel state; both updates observe both committed containers.
 - Concurrent opposite-direction transfers use one deterministic lock order and complete without deadlock.
 - Listed gameplay flows use the primitive without changing their intentional partial-count or equipment-callback behavior.
-- Price Checker close refuses to detach while any item remains that could not be returned to inventory.
+- Price Checker close returns temporary items to inventory and stores any remainder in the character's persistent reward container. Character logout closes open widgets before snapshot capture; logout is refused only if an open widget cannot preserve its temporary items.
 - Trade checked add/remove operations reuse the common storage mutation implementation while retaining trade-owned settlement and notification behavior.
 - Focused MSTest regressions and strict OpenSpec validation pass.
 

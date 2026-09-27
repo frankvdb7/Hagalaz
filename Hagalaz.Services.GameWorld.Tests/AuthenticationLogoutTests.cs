@@ -38,7 +38,7 @@ public sealed class AuthenticationLogoutTests
     [Timeout(5000)]
     public async Task SignOutAsync_WhenPersistenceFails_RetainsDetachedSessionForRecovery()
     {
-        var character = Substitute.For<ICharacter>();
+        var character = CreateCharacter();
         character.MasterId.Returns(42u);
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
@@ -95,14 +95,13 @@ public sealed class AuthenticationLogoutTests
             Substitute.For<IGameSessionClaimStore>(),
             NullLogger<GameSessionService>.Instance,
             abortCoordinator);
-        var character = Substitute.For<ICharacter>();
+        var character = CreateCharacter();
         character.MasterId.Returns(42u);
         character.Session.Returns(session);
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         dehydrationService.Dehydrate(character).Returns(new CharacterModel());
-        using var characterProvider = new ServiceCollection()
-            .AddSingleton(dehydrationService)
-            .BuildServiceProvider();
+        var characterProvider = Substitute.For<IServiceProvider>();
+        characterProvider.GetService(typeof(ICharacterDehydrationService)).Returns(dehydrationService);
         character.ServiceProvider.Returns(characterProvider);
         var characterStore = Substitute.For<ICharacterService>();
         characterStore.Remove(character).Returns(true);
@@ -145,18 +144,7 @@ public sealed class AuthenticationLogoutTests
     [TestMethod]
     public async Task DetachedLogoutRecovery_WhenInitialPersistenceFails_CompletesExactlyOnceLater()
     {
-        var character = Substitute.For<ICharacter>();
-        character.MasterId.Returns(42u);
-        var session = Substitute.For<IGameSession>();
-        session.ConnectionId.Returns("connection");
-        session.SessionGeneration.Returns(7L);
-        character.Session.Returns(session);
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
-        using var characterProvider = new ServiceCollection()
-            .AddSingleton(dehydrationService)
-            .BuildServiceProvider();
-        character.ServiceProvider.Returns(characterProvider);
+        var (character, session, dehydrationService) = CreateRecoveryCharacter();
         var characterStore = Substitute.For<ICharacterService>();
         characterStore.Remove(character).Returns(true);
         var logoutState = new CharacterLogoutState();
@@ -211,16 +199,7 @@ public sealed class AuthenticationLogoutTests
     [TestMethod]
     public async Task SignOutAsync_DoesNotAllowRecoveryToRacePersistenceBeforeHandoff()
     {
-        var character = Substitute.For<ICharacter>();
-        character.MasterId.Returns(42u);
-        var session = Substitute.For<IGameSession>();
-        session.ConnectionId.Returns("connection");
-        session.SessionGeneration.Returns(7L);
-        character.Session.Returns(session);
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
-        var serviceProvider = CreateServiceProvider(dehydrationService);
-        character.ServiceProvider.Returns(serviceProvider);
+        var (character, session, dehydrationService) = CreateRecoveryCharacter();
         var characterService = Substitute.For<ICharacterService>();
         characterService.Remove(character).Returns(true);
         var persistenceState = new CharacterPersistenceState();
@@ -284,7 +263,7 @@ public sealed class AuthenticationLogoutTests
     [TestMethod]
     public async Task DetachedLogoutRecovery_DoesNotCompleteWhenReplacementOwnsSession()
     {
-        var character = Substitute.For<ICharacter>();
+        var character = CreateCharacter();
         character.MasterId.Returns(42u);
         var oldSession = Substitute.For<IGameSession>();
         oldSession.ConnectionId.Returns("old");
@@ -326,7 +305,7 @@ public sealed class AuthenticationLogoutTests
     [Timeout(5000)]
     public async Task SignOutAsync_WhenRecoveryOwnsCanceledDetach_DoesNotStartSecondPersistence()
     {
-        var character = Substitute.For<ICharacter>();
+        var character = CreateCharacter();
         character.MasterId.Returns(42u);
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
@@ -403,7 +382,7 @@ public sealed class AuthenticationLogoutTests
     [Timeout(5000)]
     public async Task SignOutAsync_WaitsForExactPersistenceAcknowledgementBeforeReleasingSession()
     {
-        var character = Substitute.For<ICharacter>();
+        var character = CreateCharacter();
         character.MasterId.Returns(42u);
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
@@ -455,7 +434,7 @@ public sealed class AuthenticationLogoutTests
     [TestMethod]
     public async Task SignOutAsync_WithRealLogoutOwner_CapturesDetachesPersistsAcknowledgesAndReleasesOnce()
     {
-        var character = Substitute.For<ICharacter>();
+        var character = CreateCharacter();
         character.MasterId.Returns(42u);
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
@@ -517,7 +496,7 @@ public sealed class AuthenticationLogoutTests
     public async Task SignOutAsync_PersistsBeforeReleasingSession()
     {
         var order = new List<string>();
-        var character = Substitute.For<ICharacter>();
+        var character = CreateCharacter();
         character.MasterId.Returns(42u);
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
@@ -559,7 +538,7 @@ public sealed class AuthenticationLogoutTests
     [TestMethod]
     public async Task SignOutAsync_WhenLogoutAlreadyHasReceipt_ReusesReceiptWithoutForcedRepersist()
     {
-        var character = Substitute.For<ICharacter>();
+        var character = CreateCharacter();
         character.MasterId.Returns(42u);
         var session = Substitute.For<IGameSession>();
         var receipt = CreateReceipt(character);
@@ -599,7 +578,7 @@ public sealed class AuthenticationLogoutTests
     [TestMethod]
     public async Task SignOutAsync_WhenPersistenceConflicts_RetainsOwnershipAndDoesNotRetry()
     {
-        var character = Substitute.For<ICharacter>();
+        var character = CreateCharacter();
         character.MasterId.Returns(42u);
         var session = Substitute.For<IGameSession>();
         var firstReceipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 7);
@@ -649,7 +628,7 @@ public sealed class AuthenticationLogoutTests
     [TestMethod]
     public async Task SignOutAsync_WhenSessionReleaseFails_KeepsPendingLogoutForRetry()
     {
-        var character = Substitute.For<ICharacter>();
+        var character = CreateCharacter();
         character.MasterId.Returns(42u);
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
@@ -675,7 +654,7 @@ public sealed class AuthenticationLogoutTests
     [TestMethod]
     public async Task SignOutAsync_WhenSessionCleanupIsQueued_DetachesCharacterAfterLocalRemoval()
     {
-        var character = Substitute.For<ICharacter>();
+        var character = CreateCharacter();
         character.MasterId.Returns(42u);
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
@@ -700,7 +679,7 @@ public sealed class AuthenticationLogoutTests
     [Timeout(5000)]
     public async Task SignOutAsync_WhenTokenRevocationFails_ReleasesSessionClaim()
     {
-        var character = Substitute.For<ICharacter>();
+        var character = CreateCharacter();
         character.MasterId.Returns(42u);
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
@@ -748,7 +727,7 @@ public sealed class AuthenticationLogoutTests
     [Timeout(5000)]
     public async Task SignOutAsync_ReleasesSessionBeforeRevocationCompletes()
     {
-        var character = Substitute.For<ICharacter>();
+        var character = CreateCharacter();
         character.MasterId.Returns(42u);
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
@@ -910,7 +889,7 @@ public sealed class AuthenticationLogoutTests
     [Timeout(5000)]
     public async Task OnDisconnectedAsync_WhenSignOutFails_DoesNotDestroyRegisteredCharacter()
     {
-        var character = Substitute.For<ICharacter>();
+        var character = CreateCharacter();
         var authenticationService = Substitute.For<IAuthenticationService>();
         authenticationService.SignOutAsync().Returns(Task.FromException(new InvalidOperationException("Sign out failed.")));
         var hub = new ConnectionHub(authenticationService, NullLogger<ConnectionHub>.Instance);
@@ -926,7 +905,7 @@ public sealed class AuthenticationLogoutTests
     [Timeout(5000)]
     public async Task OnDisconnectedAsync_WhenSignOutSucceeds_LeavesCleanupToCoordinator()
     {
-        var character = Substitute.For<ICharacter>();
+        var character = CreateCharacter();
         var authenticationService = Substitute.For<IAuthenticationService>();
         authenticationService.SignOutAsync().Returns(Task.CompletedTask);
         var hub = new ConnectionHub(authenticationService, NullLogger<ConnectionHub>.Instance);
@@ -1030,6 +1009,31 @@ public sealed class AuthenticationLogoutTests
         var context = CreateContext(character, session, authenticationProperties);
         accessor.Context.Returns(context);
         return accessor;
+    }
+
+    private static ICharacter CreateCharacter()
+    {
+        var character = Substitute.For<ICharacter>();
+        var widgets = Substitute.For<IWidgetContainer>();
+        widgets.CloseAll().Returns(true);
+        character.Widgets.Returns(widgets);
+        return character;
+    }
+
+    private static (ICharacter Character, IGameSession Session, ICharacterDehydrationService DehydrationService)
+        CreateRecoveryCharacter()
+    {
+        var character = CreateCharacter();
+        character.MasterId.Returns(42u);
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        session.SessionGeneration.Returns(7L);
+        character.Session.Returns(session);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
+        var serviceProvider = CreateServiceProvider(dehydrationService);
+        character.ServiceProvider.Returns(serviceProvider);
+        return (character, session, dehydrationService);
     }
 
     private static RaidoCallerContext CreateContext(

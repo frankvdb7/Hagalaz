@@ -176,18 +176,7 @@ public sealed class ItemContainerPersistenceTests
     {
         using var scenario = new Scenario();
         scenario.DefineItem(101, stackable: true);
-        var inventory = CreateInventory(scenario, 4);
-        scenario.Owner.Inventory.Returns(inventory);
-        var moneyPouch = Substitute.For<IMoneyPouchContainer>();
-        moneyPouch.Contains(995).Returns(true);
-        moneyPouch.Add(Arg.Any<int>()).Returns(true);
-        scenario.Owner.MoneyPouch.Returns(moneyPouch);
-        var shop = Substitute.For<IShop>();
-        shop.GeneralStore.Returns(true);
-        shop.CurrencyId.Returns(995);
-        shop.GetSellValue(Arg.Any<IItem>()).Returns(2);
-        var stock = new ShopStockContainer(shop, Substitute.For<IItemService>(), scenario.Builder, false,
-            StorageType.Normal, 4, new List<IItem>(), scenario.Owner.EventManager);
+        var (inventory, stock, moneyPouch) = CreateShopScenario(scenario);
         var item = scenario.Builder.Create().WithId(101).WithCount(5).WithExtraData("11,22").Build();
         item.ItemScript.CanSellItem(Arg.Any<IItem>(), scenario.Owner).Returns(true);
         inventory.Add(item);
@@ -206,18 +195,7 @@ public sealed class ItemContainerPersistenceTests
         using var scenario = new Scenario();
         scenario.DefineItem(101, stackable: true);
         scenario.DefineItem(201, stackable: true, noted: true, noteId: 101);
-        var inventory = CreateInventory(scenario, 4);
-        scenario.Owner.Inventory.Returns(inventory);
-        var moneyPouch = Substitute.For<IMoneyPouchContainer>();
-        moneyPouch.Contains(995).Returns(true);
-        moneyPouch.Add(Arg.Any<int>()).Returns(true);
-        scenario.Owner.MoneyPouch.Returns(moneyPouch);
-        var shop = Substitute.For<IShop>();
-        shop.GeneralStore.Returns(true);
-        shop.CurrencyId.Returns(995);
-        shop.GetSellValue(Arg.Any<IItem>()).Returns(2);
-        var stock = new ShopStockContainer(shop, Substitute.For<IItemService>(), scenario.Builder, false,
-            StorageType.Normal, 4, new List<IItem>(), scenario.Owner.EventManager);
+        var (inventory, stock, moneyPouch) = CreateShopScenario(scenario);
         var item = scenario.Builder.Create().WithId(201).WithCount(5).WithExtraData("11,22").Build();
         item.ItemScript.CanSellItem(Arg.Any<IItem>(), scenario.Owner).Returns(true);
         inventory.Add(item);
@@ -274,46 +252,20 @@ public sealed class ItemContainerPersistenceTests
     public void EquipItem_EmptySlotCallsEquippedAfterStorageCommit()
     {
         using var scenario = new Scenario();
-        var inventory = CreateInventory(scenario, 2);
-        scenario.Owner.Inventory.Returns(inventory);
-        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
-        scenario.Owner.Equipment.Returns(equipment);
-        scenario.DefaultEquipmentDefinition.Slot.Returns(EquipmentSlot.Hat);
-        var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
-        inventory.Add(item);
-        item.EquipmentScript.CanEquipItem(item, scenario.Owner).Returns(true);
-        var callbackSawCommittedStorage = false;
-        item.EquipmentScript.When(script => script.OnEquipped(item, scenario.Owner)).Do(_ =>
-        {
-            Assert.IsNull(inventory[0]);
-            Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
-            callbackSawCommittedStorage = true;
-        });
+        var (inventory, equipment, item) = CreateEquipmentSetup(scenario);
+        var callbackSawCommittedStorage = ObserveEquippedState(scenario.Owner, inventory, equipment, item);
 
         Assert.IsTrue(equipment.EquipItem(item));
 
-        Assert.IsTrue(callbackSawCommittedStorage);
+        Assert.IsTrue(callbackSawCommittedStorage());
     }
 
     [TestMethod]
     public void EquipItem_ObserverFailureStillCallsEquippedAfterStorageCommit()
     {
         using var scenario = new Scenario();
-        var inventory = CreateInventory(scenario, 2);
-        scenario.Owner.Inventory.Returns(inventory);
-        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
-        scenario.Owner.Equipment.Returns(equipment);
-        scenario.DefaultEquipmentDefinition.Slot.Returns(EquipmentSlot.Hat);
-        var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
-        Assert.IsTrue(inventory.Add(item));
-        item.EquipmentScript.CanEquipItem(item, scenario.Owner).Returns(true);
-        var callbackSawCommittedStorage = false;
-        item.EquipmentScript.When(script => script.OnEquipped(item, scenario.Owner)).Do(_ =>
-        {
-            Assert.IsNull(inventory[0]);
-            Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
-            callbackSawCommittedStorage = true;
-        });
+        var (inventory, equipment, item) = CreateEquipmentSetup(scenario);
+        var callbackSawCommittedStorage = ObserveEquippedState(scenario.Owner, inventory, equipment, item);
         var eventManager = Substitute.For<IEventManager>();
         scenario.Owner.EventManager.Returns(eventManager);
         eventManager
@@ -322,7 +274,7 @@ public sealed class ItemContainerPersistenceTests
 
         Assert.IsTrue(equipment.EquipItem(item));
 
-        Assert.IsTrue(callbackSawCommittedStorage);
+        Assert.IsTrue(callbackSawCommittedStorage());
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
     }
 
@@ -572,6 +524,54 @@ public sealed class ItemContainerPersistenceTests
     private static InventoryContainer CreateInventory(Scenario scenario, int capacity) =>
         new(scenario.Owner, capacity, Substitute.For<IMapRegionService>(),
             Substitute.For<IGroundItemBuilder>(), scenario.Builder);
+
+    private static (InventoryContainer Inventory, ShopStockContainer Stock, IMoneyPouchContainer MoneyPouch)
+        CreateShopScenario(Scenario scenario)
+    {
+        var inventory = CreateInventory(scenario, 4);
+        scenario.Owner.Inventory.Returns(inventory);
+        var moneyPouch = Substitute.For<IMoneyPouchContainer>();
+        moneyPouch.Contains(995).Returns(true);
+        moneyPouch.Add(Arg.Any<int>()).Returns(true);
+        scenario.Owner.MoneyPouch.Returns(moneyPouch);
+        var shop = Substitute.For<IShop>();
+        shop.GeneralStore.Returns(true);
+        shop.CurrencyId.Returns(995);
+        shop.GetSellValue(Arg.Any<IItem>()).Returns(2);
+        var stock = new ShopStockContainer(shop, Substitute.For<IItemService>(), scenario.Builder, false,
+            StorageType.Normal, 4, new List<IItem>(), scenario.Owner.EventManager);
+        return (inventory, stock, moneyPouch);
+    }
+
+    private static (InventoryContainer Inventory, EquipmentContainer Equipment, IItem Item) CreateEquipmentSetup(
+        Scenario scenario)
+    {
+        var inventory = CreateInventory(scenario, 2);
+        scenario.Owner.Inventory.Returns(inventory);
+        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        scenario.Owner.Equipment.Returns(equipment);
+        scenario.DefaultEquipmentDefinition.Slot.Returns(EquipmentSlot.Hat);
+        var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        Assert.IsTrue(inventory.Add(item));
+        item.EquipmentScript.CanEquipItem(item, scenario.Owner).Returns(true);
+        return (inventory, equipment, item);
+    }
+
+    private static Func<bool> ObserveEquippedState(
+        ICharacter owner,
+        IItemContainer inventory,
+        EquipmentContainer equipment,
+        IItem item)
+    {
+        var callbackSawCommittedStorage = false;
+        item.EquipmentScript.When(script => script.OnEquipped(item, owner)).Do(_ =>
+        {
+            Assert.IsNull(inventory[0]);
+            Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
+            callbackSawCommittedStorage = true;
+        });
+        return () => callbackSawCommittedStorage;
+    }
 
     private sealed class Scenario : IDisposable
     {

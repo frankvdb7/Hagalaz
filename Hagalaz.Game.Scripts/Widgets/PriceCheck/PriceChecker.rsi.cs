@@ -291,8 +291,8 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
         }
 
         /// <summary>
-        /// Returns stored items before the widget is detached. A failed return
-        /// keeps the widget open so its remaining items stay reachable.
+        /// Returns stored items to inventory before the widget is detached and
+        /// preserves any inventory overflow in the reward container.
         /// </summary>
         public bool TryClose()
         {
@@ -302,6 +302,10 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             }
 
             Owner.Inventory.AddAndRemoveFrom(_priceCheckInterface);
+            if (_priceCheckInterface.TakenSlots > 0)
+            {
+                Owner.Rewards.AddAndRemoveFrom(_priceCheckInterface);
+            }
 
             return _priceCheckInterface.TakenSlots == 0;
         }

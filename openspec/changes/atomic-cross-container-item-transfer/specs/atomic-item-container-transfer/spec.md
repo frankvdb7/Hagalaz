@@ -67,6 +67,18 @@ A close refused by a widget guard SHALL redraw an already-open client component 
 - **WHEN** the client locally closes a guarded widget and the server refuses that close
 - **THEN** the server redraws the same open widget, its contents remain attached, and no duplicate open or close lifecycle occurs
 
+#### Scenario: A batch close is refused
+- **WHEN** a guard in any open widget tree refuses a batch close
+- **THEN** no widget tree in that batch is structurally closed and no close lifecycle callback runs
+
+#### Scenario: Logout cannot preserve a guarded widget's items
+- **WHEN** a widget guard cannot return all temporary items to inventory or another persistent character container before snapshot capture
+- **THEN** the character is not detached, destroyed, or snapshotted for logout
+
+#### Scenario: Price Checker inventory overflow is preserved on logout
+- **WHEN** inventory cannot accept every item held by the Price Checker during logout
+- **THEN** the remaining items move to the character's persistent reward container before the Price Checker closes and the logout snapshot is captured
+
 ### Requirement: Gameplay partial transfers remain explicit
 
 Gameplay operations that intentionally move fewer than the originally requested quantity SHALL determine the exact quantity first and then request one exact transfer for that quantity. Equipment eligibility and gameplay callbacks SHALL remain owned by the equipment domain and SHALL run only around a successful storage commit.

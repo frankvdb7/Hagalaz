@@ -269,12 +269,28 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Close's all interfaces.
         /// </summary>
-        public void CloseAll()
+        public bool CloseAll()
         {
-            foreach (var i in _openedInterfaces)
+            var roots = _openedInterfaces.Where(widget => widget.IsFrame).ToArray();
+            if (roots.Length == 0 && _openedInterfaces.Count != 0)
             {
-                CloseWidget(i);
+                return false;
             }
+
+            foreach (var root in roots)
+            {
+                if (!TryPrepareClose(root))
+                {
+                    return false;
+                }
+            }
+
+            foreach (var root in roots)
+            {
+                CloseWidgetCore(root, true);
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -382,18 +398,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Closes the interface.
         /// </summary>
         /// <param name="interface">The interface.</param>
-        public void CloseWidget(IWidget @interface) => CloseWidget(@interface, true);
+        public bool CloseWidget(IWidget @interface) => CloseWidget(@interface, true);
 
         /// <summary>
         /// Closes interface for character.
         /// </summary>
         /// <param name="toClose">To close.</param>
         /// <param name="refresh">if set to <c>true</c> [refresh].</param>
-        private void CloseWidget(IWidget toClose, bool refresh)
+        private bool CloseWidget(IWidget toClose, bool refresh)
         {
             if (!IsOpened(toClose))
             {
-                return;
+                return true;
             }
 
             if (!TryPrepareClose(toClose))
@@ -403,10 +419,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     SendDrawInterfaceComponent(toClose, parent);
                 }
 
-                return;
+                return false;
             }
 
             CloseWidgetCore(toClose, refresh);
+            return !IsOpened(toClose);
         }
 
         private void SendDrawInterfaceComponent(IWidget widget, IWidget parent) =>

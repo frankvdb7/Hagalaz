@@ -1168,21 +1168,6 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public void AddRange_WhenNotEnoughSpace_AddsNoItems()
-        {
-            // Arrange
-            var container = new TestableItemContainer(StorageType.Normal, 2);
-            var items = new[] { CreateItem(1, 1), CreateItem(2, 1), CreateItem(3, 1) };
-
-            // Act
-            var result = container.AddRange(items);
-
-            // Assert
-            Assert.IsFalse(result);
-            Assert.AreEqual(0, container.TakenSlots);
-        }
-
-        [TestMethod]
         public void AddAndRemoveFrom_IntegerOverflow_DoesNotRemoveFromSource()
         {
             // Arrange

@@ -8,7 +8,7 @@
 
 - [x] 2.1 Migrate bank, familiar inventory, and reward flows while preserving their explicit quantity and note policies, and verify the GameWorld container tests
 - [x] 2.2 Migrate applicable one-item equipment/inventory storage paths while keeping validation and callbacks in `EquipmentContainer`, and verify equipment callback tests
-- [x] 2.3 Migrate Price Checker/inventory movement and refuse close while items cannot be returned, and verify movement and widget-close tests
+- [x] 2.3 Migrate Price Checker/inventory movement, preserve inventory overflow in the persistent reward container on close, and verify movement and widget-close tests
 - [x] 2.4 Migrate the exact item movement in shop sales and verify stock, inventory, and item data; leave payout/purchase transaction semantics to the owning shop flow
 - [x] 2.5 Preserve bank-tab insertion behavior after transfer stops guaranteeing destination object identity, and verify the affected Scripts build/test boundary
 
@@ -17,3 +17,4 @@
 - [x] 3.1 Run focused and affected project test suites, build the appropriate solution boundary, and record successful commands and any pre-existing warnings
 - [x] 3.2 Run strict OpenSpec validation and review the complete diff for atomicity, locking, item identity, notification timing, callback behavior, trade duplication, and scope
 - [x] 3.3 Correct post-commit observer semantics, refused client-close redraw, and impossible non-stackable preflight with focused regressions
+- [x] 3.4 Close widgets before logout snapshot capture; verify Price Checker overflow is persistent and a refused close prevents character detachment

@@ -225,7 +225,7 @@ namespace Hagalaz.Game.Abstractions.Collections
                 simulatedItems[i] = destination.Items[i]?.Clone(destination.Items[i]!.Count);
             }
 
-            var simulatedIncoming = incomingItems.Select(incoming => (IItem?)incoming.Item.Clone(incoming.Item.Count)).ToArray();
+            var simulatedIncoming = incomingItems.Select(incoming => incoming.Item.Clone(incoming.Item.Count)).ToArray();
             var slotOrigins = new int[simulatedItems.Length];
             Array.Fill(slotOrigins, -1);
 

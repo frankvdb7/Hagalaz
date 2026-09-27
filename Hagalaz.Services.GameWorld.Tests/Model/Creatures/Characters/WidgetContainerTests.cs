@@ -83,14 +83,7 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
         [TestMethod]
         public void CloseWidget_WhenChildCloseGuardRejects_LeavesWidgetTreeAttachedAndOpen()
         {
-            _widgetScriptProviderMock.GetInterfacesCount().Returns(10);
-            var frame = new Widget(_characterMock, 1, 0, Substitute.For<IWidgetScript>());
-            _widgetContainer.OpenFrame(frame);
-
-            var script = Substitute.For<IWidgetScript, IWidgetCloseGuard>();
-            ((IWidgetCloseGuard)script).TryClose().Returns(false);
-            var widget = new Widget(_characterMock, 2, frame.Id, 0, 0, script);
-            _widgetContainer.OpenWidget(widget);
+            var (frame, widget, script) = OpenGuardedWidgetTree();
 
             _widgetContainer.CloseWidget(frame);
 
@@ -105,14 +98,7 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
         [TestMethod]
         public void CloseWidget_WhenGuardRejects_RedrawsOpenWidgetWithoutRepeatingLifecycle()
         {
-            _widgetScriptProviderMock.GetInterfacesCount().Returns(10);
-            var frame = new Widget(_characterMock, 1, 0, Substitute.For<IWidgetScript>());
-            _widgetContainer.OpenFrame(frame);
-
-            var script = Substitute.For<IWidgetScript, IWidgetCloseGuard>();
-            ((IWidgetCloseGuard)script).TryClose().Returns(false);
-            var widget = new Widget(_characterMock, 2, frame.Id, 0, 0, script);
-            _widgetContainer.OpenWidget(widget);
+            var (frame, widget, script) = OpenGuardedWidgetTree();
             _sessionMock.ClearReceivedCalls();
 
             _widgetContainer.CloseWidget(widget);
@@ -126,6 +112,65 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
             script.Received(1).OnOpen();
             script.DidNotReceive().OnClose();
             ((IWidgetCloseGuard)script).Received(1).TryClose();
+        }
+
+        [TestMethod]
+        public void CloseAll_WhenWidgetTreeIsOpen_ClosesEachWidgetOnce()
+        {
+            _widgetScriptProviderMock.GetInterfacesCount().Returns(10);
+            var frameScript = Substitute.For<IWidgetScript>();
+            var frame = OpenFrame(1, frameScript);
+            var parentScript = Substitute.For<IWidgetScript>();
+            var parent = OpenWidget(2, frame, 0, parentScript);
+            var childScript = Substitute.For<IWidgetScript>();
+            OpenWidget(3, parent, 0, childScript);
+
+            var closed = _widgetContainer.CloseAll();
+
+            Assert.IsTrue(closed);
+            Assert.AreEqual(0, _widgetContainer.Widgets.Count);
+            Assert.IsNull(_widgetContainer.CurrentFrame);
+            frameScript.Received(1).OnClose();
+            parentScript.Received(1).OnClose();
+            childScript.Received(1).OnClose();
+        }
+
+        [TestMethod]
+        public void CloseAll_WhenChildGuardRejects_LeavesWholeTreeOpenWithoutLifecycleCallbacks()
+        {
+            var (frame, guardedChild, guardedScript) = OpenGuardedWidgetTree();
+            var frameScript = frame.Script;
+            var siblingScript = Substitute.For<IWidgetScript>();
+            OpenWidget(3, frame, 1, siblingScript);
+
+            var closed = _widgetContainer.CloseAll();
+
+            Assert.IsFalse(closed);
+            Assert.AreSame(frame, _widgetContainer.CurrentFrame);
+            Assert.IsTrue(frame.IsOpened);
+            Assert.IsTrue(guardedChild.IsOpened);
+            Assert.AreSame(guardedChild, frame.GetChild(guardedChild.ParentSlot));
+            Assert.IsTrue(_widgetContainer.Widgets.Contains(guardedChild));
+            Assert.IsTrue(_widgetContainer.Widgets.Any(widget => widget.Script == siblingScript));
+            ((IWidgetCloseGuard)guardedScript).Received(1).TryClose();
+            frameScript.DidNotReceive().OnClose();
+            siblingScript.DidNotReceive().OnClose();
+            guardedScript.DidNotReceive().OnClose();
+        }
+
+        [TestMethod]
+        public void OpenFrame_WhenExistingTreeGuardRejects_KeepsOldFrameAndDoesNotOpenReplacement()
+        {
+            var (oldFrame, child, guardedScript) = OpenGuardedWidgetTree();
+            var replacement = CreateFrame(3);
+
+            _widgetContainer.OpenFrame(replacement);
+
+            Assert.AreSame(oldFrame, _widgetContainer.CurrentFrame);
+            Assert.IsTrue(oldFrame.IsOpened);
+            Assert.IsFalse(replacement.IsOpened);
+            Assert.AreSame(child, oldFrame.GetChild(child.ParentSlot));
+            ((IWidgetCloseGuard)guardedScript).Received(1).TryClose();
         }
 
         [TestMethod]
@@ -184,6 +229,35 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
             // Assert
             Assert.IsNotNull(widget);
             Assert.IsTrue(widget.IsFrame);
+        }
+
+        private IWidget OpenFrame(int id, IWidgetScript script)
+        {
+            var frame = CreateFrame(id, script);
+            _widgetContainer.OpenFrame(frame);
+            return frame;
+        }
+
+        private IWidget OpenWidget(int id, IWidget parent, int slot, IWidgetScript script)
+        {
+            var widget = new Widget(_characterMock, id, parent.Id, slot, 0, script);
+            _widgetContainer.OpenWidget(widget);
+            return widget;
+        }
+
+        private IWidget CreateFrame(int id, IWidgetScript? script = null)
+        {
+            return new Widget(_characterMock, id, 0, script ?? Substitute.For<IWidgetScript>());
+        }
+
+        private (IWidget Frame, IWidget Widget, IWidgetScript Script) OpenGuardedWidgetTree()
+        {
+            _widgetScriptProviderMock.GetInterfacesCount().Returns(10);
+            var frame = OpenFrame(1, Substitute.For<IWidgetScript>());
+            var script = Substitute.For<IWidgetScript, IWidgetCloseGuard>();
+            ((IWidgetCloseGuard)script).TryClose().Returns(false);
+            var widget = OpenWidget(2, frame, 0, script);
+            return (frame, widget, script);
         }
     }
 }

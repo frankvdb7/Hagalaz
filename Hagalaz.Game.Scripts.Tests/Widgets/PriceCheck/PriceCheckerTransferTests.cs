@@ -15,12 +15,8 @@ public sealed class PriceCheckerTransferTests
     [TestMethod]
     public void AddItemToPriceChecker_WhenFull_LeavesInventoryItemUnchanged()
     {
-        var inventory = new TestInventory(1);
-        var item = new TestItem(100, 2, stackable: true);
-        Assert.IsTrue(inventory.Add(item));
-
-        var priceCheckerItems = new TestContainer(StorageType.AlwaysStack, 1);
-        Assert.IsTrue(priceCheckerItems.Add(new TestItem(200, 1, stackable: true)));
+        var item = CreateItem(100, 2);
+        var (inventory, priceCheckerItems) = CreateFullContainers(item, CreateItem(200, 1));
         var script = CreateScript(inventory, priceCheckerItems);
 
         Assert.IsFalse(InvokeTransfer(script, "AddItemToPriceChecker", item, 1));
@@ -34,45 +30,87 @@ public sealed class PriceCheckerTransferTests
     [TestMethod]
     public void RemoveItemToInventory_WhenFull_LeavesPriceCheckerItemUnchanged()
     {
-        var inventory = new TestInventory(1);
-        Assert.IsTrue(inventory.Add(new TestItem(200, 1, stackable: true)));
-
-        var priceCheckerItems = new TestContainer(StorageType.AlwaysStack, 1);
-        var item = new TestItem(100, 3, stackable: true);
-        Assert.IsTrue(priceCheckerItems.Add(item));
+        var item = CreateItem(100, 3);
+        var (inventory, priceCheckerItems) = CreateFullContainers(CreateItem(200, 1), item);
         var script = CreateScript(inventory, priceCheckerItems);
 
         Assert.IsFalse(InvokeTransfer(script, "RemoveItemToInventory", item, 2));
-
-        Assert.AreSame(item, priceCheckerItems[0]);
-        Assert.AreEqual(3, item.Count);
-        Assert.AreEqual(1, inventory.GetCountById(200));
-        Assert.AreEqual(0, inventory.GetCountById(100));
+        AssertItemsRemain(inventory, priceCheckerItems, item);
     }
 
     [TestMethod]
-    public void TryClose_WhenInventoryCannotAcceptItems_LeavesItemsInTheOpenContainer()
+    public void TryClose_WhenInventoryCannotAcceptItems_MovesRemainderToRewards()
+    {
+        var item = CreateItem(100, 3);
+        var (inventory, priceCheckerItems) = CreateFullContainers(CreateItem(200, 1), item);
+        var rewards = new TestRewardContainer();
+        var script = CreateScript(inventory, priceCheckerItems, rewards);
+
+        Assert.IsTrue(script.TryClose());
+
+        Assert.AreEqual(0, priceCheckerItems.TakenSlots);
+        Assert.AreEqual(3, rewards.GetCountById(100));
+        Assert.AreEqual(1, inventory.GetCountById(200));
+    }
+
+    private static (TestInventory Inventory, TestContainer PriceCheckerItems) CreateFullContainers(
+        IItem inventoryItem,
+        IItem priceCheckerItem)
     {
         var inventory = new TestInventory(1);
-        Assert.IsTrue(inventory.Add(new TestItem(200, 1, stackable: true)));
-
+        Assert.IsTrue(inventory.Add(inventoryItem));
         var priceCheckerItems = new TestContainer(StorageType.AlwaysStack, 1);
-        var item = new TestItem(100, 3, stackable: true);
-        Assert.IsTrue(priceCheckerItems.Add(item));
-        var script = CreateScript(inventory, priceCheckerItems);
+        Assert.IsTrue(priceCheckerItems.Add(priceCheckerItem));
+        return (inventory, priceCheckerItems);
+    }
 
-        Assert.IsFalse(script.TryClose());
-
+    private static void AssertItemsRemain(TestInventory inventory, TestContainer priceCheckerItems, IItem item)
+    {
         Assert.AreSame(item, priceCheckerItems[0]);
         Assert.AreEqual(3, item.Count);
         Assert.AreEqual(1, inventory.GetCountById(200));
         Assert.AreEqual(0, inventory.GetCountById(100));
     }
 
-    private static PriceChecker CreateScript(IInventoryContainer inventory, IItemContainer priceCheckerItems)
+    private static IItem CreateItem(int id, int count)
+    {
+        var definition = Substitute.For<IItemDefinition>();
+        definition.Stackable.Returns(true);
+        var script = Substitute.For<IItemScript>();
+        script.CanStackItem(Arg.Any<IItem>(), Arg.Any<IItem>(), Arg.Any<bool>()).Returns(call =>
+        {
+            var left = call.ArgAt<IItem>(0);
+            var right = call.ArgAt<IItem>(1);
+            return call.ArgAt<bool>(2) || left.ItemDefinition.Stackable && left.Id == right.Id;
+        });
+        return CreateItem(id, count, definition, script);
+    }
+
+    private static IItem CreateItem(int id, int count, IItemDefinition definition, IItemScript script)
+    {
+        var item = Substitute.For<IItem>();
+        item.Id.Returns(id);
+        item.Count.Returns(count);
+        item.ItemDefinition.Returns(definition);
+        item.ItemScript.Returns(script);
+        item.Clone().Returns(_ => CreateItem(id, count, definition, script));
+        item.Clone(Arg.Any<int>()).Returns(call => CreateItem(id, call.ArgAt<int>(0), definition, script));
+        item.Equals(Arg.Any<IItem>(), Arg.Any<bool>()).Returns(call =>
+        {
+            var other = call.ArgAt<IItem>(0);
+            return other != null && other.Id == id && (call.ArgAt<bool>(1) || other.Count == count);
+        });
+        return item;
+    }
+
+    private static PriceChecker CreateScript(
+        IInventoryContainer inventory,
+        IItemContainer priceCheckerItems,
+        IRewardContainer? rewards = null)
     {
         var character = Substitute.For<ICharacter>();
         character.Inventory.Returns(inventory);
+        character.Rewards.Returns(rewards ?? new TestRewardContainer());
         var context = Substitute.For<ICharacterContext>();
         context.Character.Returns(character);
         var accessor = Substitute.For<ICharacterContextAccessor>();
@@ -102,42 +140,11 @@ public sealed class PriceCheckerTransferTests
         public override void OnUpdate(HashSet<int>? slots = null) { }
     }
 
-    private sealed class TestItem : IItem
+    private sealed class TestRewardContainer() : TradeItemContainer(StorageType.AlwaysStack, byte.MaxValue), IRewardContainer
     {
-        public int Id { get; }
-        public int Count { get; set; }
-        public string Name => $"Test item {Id}";
-        public IItemDefinition ItemDefinition { get; }
-        public IEquipmentDefinition EquipmentDefinition { get; } = Substitute.For<IEquipmentDefinition>();
-        public IItemScript ItemScript { get; }
-        public IEquipmentScript EquipmentScript { get; } = Substitute.For<IEquipmentScript>();
-        public long[] ExtraData => [];
+        public int Claim(IItem item, int count) => -1;
 
-        public TestItem(int id, int count, bool stackable)
-        {
-            Id = id;
-            Count = count;
-            var definition = Substitute.For<IItemDefinition>();
-            definition.Stackable.Returns(stackable);
-            ItemDefinition = definition;
-
-            var script = Substitute.For<IItemScript>();
-            script.CanStackItem(Arg.Any<IItem>(), Arg.Any<IItem>(), Arg.Any<bool>()).Returns(call =>
-            {
-                var left = call.ArgAt<IItem>(0);
-                var right = call.ArgAt<IItem>(1);
-                return call.ArgAt<bool>(2) || left.ItemDefinition.Stackable && left.Id == right.Id;
-            });
-            ItemScript = script;
-        }
-
-        public IItem Clone() => Clone(Count);
-
-        public IItem Clone(int newCount) => new TestItem(Id, newCount, ItemDefinition.Stackable);
-
-        public bool Equals(IItem otherItem, bool ignoreCount = true) =>
-            otherItem != null && Id == otherItem.Id && (ignoreCount || Count == otherItem.Count);
-
-        public string? SerializeExtraData() => null;
+        public override void OnUpdate(HashSet<int>? slots = null) { }
     }
+
 }

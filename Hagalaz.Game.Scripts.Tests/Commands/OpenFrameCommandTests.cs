@@ -30,6 +30,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             ((IWidgetBuild)widgetOptionalMock).Build().Returns(widgetMock);
 
             var widgetContainerMock = Substitute.For<IWidgetContainer>();
+            widgetContainerMock.CloseAll().Returns(true);
 
             var characterMock = Substitute.For<ICharacter>();
             characterMock.Widgets.Returns(widgetContainerMock);
@@ -42,6 +43,22 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
 
             // Assert
             widgetContainerMock.Received(1).OpenFrame(widgetMock);
+        }
+
+        [TestMethod]
+        public async Task Execute_WhenWidgetsCannotClose_DoesNotBuildReplacementFrame()
+        {
+            var widgetBuilder = Substitute.For<IWidgetBuilder>();
+            var widgetContainer = Substitute.For<IWidgetContainer>();
+            widgetContainer.CloseAll().Returns(false);
+            var character = Substitute.For<ICharacter>();
+            character.Widgets.Returns(widgetContainer);
+            var command = new OpenFrameCommand(widgetBuilder);
+
+            await command.Execute(new GameCommandArgs(character, new[] { "openframe", "123" }));
+
+            widgetBuilder.DidNotReceive().Create();
+            widgetContainer.DidNotReceiveWithAnyArgs().OpenFrame(default!);
         }
     }
 }
