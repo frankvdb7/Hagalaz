@@ -60,24 +60,24 @@ Concurrent transfers involving the same containers SHALL acquire their mutation 
 - **WHEN** an exact transfer would expand a huge non-stackable quantity into more items than the destination can accept and no existing stack can receive them
 - **THEN** the operation fails before creating per-unit incoming items and both containers remain unchanged
 
-### Requirement: Refused widget closes restore client reachability
-A close refused by a widget guard SHALL redraw an already-open client component when the client may have hidden it locally. The redraw SHALL NOT reopen or re-register the widget or invoke its open/close lifecycle callbacks.
+### Requirement: Price Checker selections do not own inventory items
+Price Checker selections SHALL be non-owning clones. Inventory SHALL remain authoritative, and closing or disconnecting SHALL NOT lose items because no authoritative item leaves Inventory.
 
-#### Scenario: A client-originated close is refused
-- **WHEN** the client locally closes a guarded widget and the server refuses that close
-- **THEN** the server redraws the same open widget, its contents remain attached, and no duplicate open or close lifecycle occurs
+#### Scenario: A selection is added
+- **WHEN** a player selects an item quantity for Price Checker
+- **THEN** the selection contains a clone and Inventory remains unchanged
 
-#### Scenario: A batch close is refused
-- **WHEN** a guard in any open widget tree refuses a batch close
-- **THEN** no widget tree in that batch is structurally closed and no close lifecycle callback runs
+#### Scenario: A selection is removed
+- **WHEN** a player removes quantity from Price Checker
+- **THEN** only the selection changes and Inventory remains unchanged
 
-#### Scenario: Logout cannot preserve a guarded widget's items
-- **WHEN** a widget guard cannot return all temporary items to inventory or another persistent character container before snapshot capture
-- **THEN** the character is not detached, destroyed, or snapshotted for logout
+#### Scenario: Inventory quantity falls below its selection
+- **WHEN** Inventory changes and a selected item quantity is no longer owned
+- **THEN** the selection is reduced to the matching quantity still in Inventory and the projection is refreshed
 
-#### Scenario: Price Checker inventory overflow is preserved on logout
-- **WHEN** inventory cannot accept every item held by the Price Checker during logout
-- **THEN** the remaining items move to the character's persistent reward container before the Price Checker closes and the logout snapshot is captured
+#### Scenario: Logout closes an active trade before snapshot capture
+- **WHEN** a character logs out while a trade is active
+- **THEN** widget closure runs trade cancellation before the character snapshot is captured so escrow can be refunded to Inventory
 
 ### Requirement: Gameplay partial transfers remain explicit
 

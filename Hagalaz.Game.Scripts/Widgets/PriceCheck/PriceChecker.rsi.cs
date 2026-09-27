@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
+using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
 namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
@@ -12,7 +14,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
     /// <summary>
     ///     Represents price checker interface.
     /// </summary>
-    public class PriceChecker : WidgetScript, IWidgetCloseGuard
+    public class PriceChecker : WidgetScript
     {
         /// <summary>
         ///     Price checker interface container.
@@ -106,20 +108,37 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             }
         }
 
+        private sealed class ProjectedInventoryContainer : BaseItemContainer
+        {
+            public ProjectedInventoryContainer(int capacity) : base(StorageType.Normal, capacity) { }
+
+            public bool RemoveExact(IItem item, int count)
+            {
+                lock (ContainerMutationLock)
+                {
+                    return TryRemoveExactCore(item, count, -1, out _);
+                }
+            }
+
+            public override void OnUpdate(HashSet<int>? slots = null) { }
+        }
+
         /// <summary>
         ///     Contains inventory interface.
         /// </summary>
-        private IWidget _inventoryInterface;
+        private IWidget? _inventoryInterface;
 
         /// <summary>
         ///     Contains price check interface container.
         /// </summary>
-        private IItemContainer _priceCheckInterface;
+        private PriceCheckerInterfaceContainer? _priceCheckInterface;
 
         /// <summary>
         ///     Handler for adding X amount of items from the owner's inventory to the price check interface.
         /// </summary>
-        private OnIntInput _inputHandler;
+        private OnIntInput? _inputHandler;
+
+        private EventHappened? _inventoryChangeHandler;
 
         public PriceChecker(ICharacterContextAccessor characterContextAccessor) : base(characterContextAccessor) { }
 
@@ -136,27 +155,33 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                 return;
             }
 
-            _inventoryInterface = Owner.Widgets.GetOpenWidget(207);
-            if (_inventoryInterface == null)
+            var inventoryInterface = Owner.Widgets.GetOpenWidget(207);
+            if (inventoryInterface == null)
             {
                 Owner.Widgets.CloseWidget(InterfaceInstance);
                 return;
             }
+            _inventoryInterface = inventoryInterface;
 
             // set options
             Owner.Configurations.SendCs2Script(150, [(207 << 16) | 0, 93, 4, 7, 0, -1, "Insert", "Insert-5", "Insert-10", "Insert-All", "Insert-X", "", "", "", ""
             ]);
-            _inventoryInterface.SetOptions(0, 0, 27, 0x2 | 0x4 | 0x8 | 0x10 | 0x20 | 0x400); // allow clicking of 5 right click options + auto examine option ( last )
+            inventoryInterface.SetOptions(0, 0, 27, 0x2 | 0x4 | 0x8 | 0x10 | 0x20 | 0x400); // allow clicking of 5 right click options + auto examine option ( last )
             InterfaceInstance.SetOptions(15, 0, 27, 0x2 | 0x4 | 0x8 | 0x10 | 0x20 | 0x400);
             Owner.Configurations.SendGlobalCs2Int(729, 0);
 
             // price check interface & clear interface items (from previous price checks).
-            _priceCheckInterface = new PriceCheckerInterfaceContainer(Owner);
-            _priceCheckInterface.OnUpdate();
+            var priceCheckInterface = new PriceCheckerInterfaceContainer(Owner);
+            _priceCheckInterface = priceCheckInterface;
+
+            _inventoryChangeHandler = Owner.RegisterEventHandler<InventoryChangedEvent>(OnInventoryChanged);
+
+            priceCheckInterface.OnUpdate();
+            RefreshProjectedInventory();
 
 
             // Component attachment for inventory (for ability to add items to price check interface).
-            _inventoryInterface.AttachClickHandler(0, (componentID, clickType, itemID, slot) =>
+            inventoryInterface.AttachClickHandler(0, (componentID, clickType, itemID, slot) =>
             {
                 if (slot < 0 || slot >= Owner.Inventory.Capacity)
                 {
@@ -220,12 +245,18 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             // Component attachment for price checker (for ability to remove items to owner's inventory).
             InterfaceInstance.AttachClickHandler(15, (componentID, clickType, itemID, slot) =>
             {
-                if (slot < 0 || slot >= _priceCheckInterface.Capacity)
+                var priceCheckInterface = _priceCheckInterface;
+                if (priceCheckInterface == null)
                 {
                     return false;
                 }
 
-                var item = _priceCheckInterface[slot];
+                if (slot < 0 || slot >= priceCheckInterface.Capacity)
+                {
+                    return false;
+                }
+
+                var item = priceCheckInterface[slot];
                 if (item == null || item.Id != itemID)
                 {
                     return false;
@@ -246,7 +277,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                 }
                 else if (clickType == ComponentClickType.Option4Click)
                 {
-                    amount = _priceCheckInterface.GetCount(item);
+                    amount = priceCheckInterface.GetCount(item);
                 }
                 else if (clickType == ComponentClickType.Option5Click)
                 {
@@ -255,7 +286,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                         _inputHandler = Owner.Widgets.IntInputHandler = null;
                         if (value > 0)
                         {
-                            RemoveItemToInventory(item, value);
+                            RemoveSelection(item, value);
                         }
                     };
                     Owner.Configurations.SendIntegerInput("Enter amount to remove:");
@@ -267,7 +298,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
 
                 if (amount > 0)
                 {
-                    RemoveItemToInventory(item, amount);
+                    RemoveSelection(item, amount);
                 }
 
                 return false;
@@ -279,35 +310,21 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
         /// </summary>
         public override void OnClose()
         {
-            if (_inventoryInterface != null)
+            if (_inventoryChangeHandler != null)
             {
-                Owner.Widgets.CloseWidget(_inventoryInterface);
+                Owner.UnregisterEventHandler<InventoryChangedEvent>(_inventoryChangeHandler);
+                _inventoryChangeHandler = null;
             }
 
-            if (_priceCheckInterface?.TakenSlots == 0)
+            if (_inputHandler != null && Owner.Widgets.IntInputHandler == _inputHandler)
             {
-                _priceCheckInterface = null;
-            }
-        }
-
-        /// <summary>
-        /// Returns stored items to inventory before the widget is detached and
-        /// preserves any inventory overflow in the reward container.
-        /// </summary>
-        public bool TryClose()
-        {
-            if (_priceCheckInterface == null)
-            {
-                return true;
+                Owner.Widgets.IntInputHandler = null;
             }
 
-            Owner.Inventory.AddAndRemoveFrom(_priceCheckInterface);
-            if (_priceCheckInterface.TakenSlots > 0)
-            {
-                Owner.Rewards.AddAndRemoveFrom(_priceCheckInterface);
-            }
-
-            return _priceCheckInterface.TakenSlots == 0;
+            _inputHandler = null;
+            _inventoryInterface = null;
+            _priceCheckInterface = null;
+            Owner.Configurations.SendItems(93, false, Owner.Inventory);
         }
 
         /// <summary>
@@ -320,26 +337,119 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
         /// </returns>
         private bool AddItemToPriceChecker(IItem item, int amount)
         {
-            var slot = Owner.Inventory.GetInstanceSlot(item);
-            var count = Math.Min(amount, Owner.Inventory.GetCount(item));
-            return slot >= 0 && count > 0 &&
-                   BaseItemContainer.TryTransfer(Owner.Inventory, _priceCheckInterface, item, count, slot);
+            var priceCheckInterface = _priceCheckInterface;
+            if (priceCheckInterface == null)
+            {
+                return false;
+            }
+
+            var available = Owner.Inventory.GetCount(item) - priceCheckInterface.GetCount(item);
+            var count = Math.Min(amount, available);
+            if (count <= 0 || !priceCheckInterface.Add(item.Clone(count)))
+            {
+                return false;
+            }
+
+            RefreshProjectedInventory();
+            return true;
         }
 
         /// <summary>
-        ///     Removes an item from the price checker interface to the owner's inventory.
+        ///     Removes an item from the temporary price checker selection.
         /// </summary>
         /// <param name="item">The item.</param>
         /// <param name="amount">The item amount.</param>
         /// <returns>
-        ///     Returns true if succesfully removed to the owner's inventory; false otherwise.
+        ///     Returns true if successfully removed; false otherwise.
         /// </returns>
-        private bool RemoveItemToInventory(IItem item, int amount)
+        private bool RemoveSelection(IItem item, int amount)
         {
-            var slot = _priceCheckInterface.GetInstanceSlot(item);
-            var count = Math.Min(amount, _priceCheckInterface.GetCount(item));
-            return slot >= 0 && count > 0 &&
-                   BaseItemContainer.TryTransfer(_priceCheckInterface, Owner.Inventory, item, count, slot);
+            var priceCheckInterface = _priceCheckInterface;
+            if (priceCheckInterface == null)
+            {
+                return false;
+            }
+
+            var count = Math.Min(amount, priceCheckInterface.GetCount(item));
+            if (count <= 0 || priceCheckInterface.Remove(item.Clone(count)) != count)
+            {
+                return false;
+            }
+
+            RefreshProjectedInventory();
+            return true;
+        }
+
+        private bool ReconcileSelections()
+        {
+            var priceCheckInterface = _priceCheckInterface;
+            if (priceCheckInterface == null)
+            {
+                return false;
+            }
+
+            var changed = false;
+            for (var slot = 0; slot < priceCheckInterface.Capacity; slot++)
+            {
+                if (priceCheckInterface[slot] is not { } selected)
+                {
+                    continue;
+                }
+
+                var actual = Owner.Inventory.GetCount(selected);
+                if (selected.Count > actual)
+                {
+                    priceCheckInterface.Remove(selected.Clone(selected.Count - actual), slot, update: false);
+                    changed = true;
+                }
+            }
+
+            return changed;
+        }
+
+        private bool OnInventoryChanged(InventoryChangedEvent _)
+        {
+            var priceCheckInterface = _priceCheckInterface;
+            if (priceCheckInterface == null)
+            {
+                return false;
+            }
+
+            if (ReconcileSelections())
+            {
+                priceCheckInterface.OnUpdate();
+            }
+
+            RefreshProjectedInventory();
+            return false;
+        }
+
+        private void RefreshProjectedInventory()
+        {
+            var priceCheckInterface = _priceCheckInterface;
+            if (priceCheckInterface == null)
+            {
+                return;
+            }
+
+            var projected = new ProjectedInventoryContainer(Owner.Inventory.Capacity);
+            for (var slot = 0; slot < Owner.Inventory.Capacity; slot++)
+            {
+                if (Owner.Inventory[slot] is { } item)
+                {
+                    projected.Replace(slot, item.Clone());
+                }
+            }
+
+            for (var slot = 0; slot < priceCheckInterface.Capacity; slot++)
+            {
+                if (priceCheckInterface[slot] is { } selected)
+                {
+                    projected.RemoveExact(selected, selected.Count);
+                }
+            }
+
+            Owner.Configurations.SendItems(93, false, projected);
         }
     }
 }

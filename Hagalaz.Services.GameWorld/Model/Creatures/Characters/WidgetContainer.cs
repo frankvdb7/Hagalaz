@@ -269,28 +269,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Close's all interfaces.
         /// </summary>
-        public bool CloseAll()
+        public void CloseAll()
         {
             var roots = _openedInterfaces.Where(widget => widget.IsFrame).ToArray();
-            if (roots.Length == 0 && _openedInterfaces.Count != 0)
-            {
-                return false;
-            }
-
             foreach (var root in roots)
             {
-                if (!TryPrepareClose(root))
+                if (IsOpened(root))
                 {
-                    return false;
+                    CloseWidgetCore(root, true);
                 }
             }
-
-            foreach (var root in roots)
-            {
-                CloseWidgetCore(root, true);
-            }
-
-            return true;
         }
 
         /// <summary>
@@ -398,32 +386,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Closes the interface.
         /// </summary>
         /// <param name="interface">The interface.</param>
-        public bool CloseWidget(IWidget @interface) => CloseWidget(@interface, true);
+        public void CloseWidget(IWidget @interface) => CloseWidget(@interface, true);
 
         /// <summary>
         /// Closes interface for character.
         /// </summary>
         /// <param name="toClose">To close.</param>
         /// <param name="refresh">if set to <c>true</c> [refresh].</param>
-        private bool CloseWidget(IWidget toClose, bool refresh)
+        private void CloseWidget(IWidget toClose, bool refresh)
         {
             if (!IsOpened(toClose))
             {
-                return true;
-            }
-
-            if (!TryPrepareClose(toClose))
-            {
-                if (refresh && !toClose.IsFrame && GetOpenWidget(toClose.ParentId) is { } parent)
-                {
-                    SendDrawInterfaceComponent(toClose, parent);
-                }
-
-                return false;
+                return;
             }
 
             CloseWidgetCore(toClose, refresh);
-            return !IsOpened(toClose);
         }
 
         private void SendDrawInterfaceComponent(IWidget widget, IWidget parent) =>
@@ -431,29 +408,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 Id = widget.Id, ParentId = parent.Id, ParentSlot = widget.ParentSlot, Transparency = widget.Transparency
             });
-
-        private bool TryPrepareClose(IWidget toClose)
-        {
-            if (!IsOpened(toClose))
-            {
-                return true;
-            }
-
-            if (toClose.Script is IWidgetCloseGuard closeGuard && !closeGuard.TryClose())
-            {
-                return false;
-            }
-
-            foreach (var child in toClose.GetAllChildren())
-            {
-                if (!TryPrepareClose(child))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
 
         private void CloseWidgetCore(IWidget toClose, bool refresh)
         {

@@ -59,8 +59,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// Closes a specific widget.
         /// </summary>
         /// <param name="widget">The widget to close.</param>
-        /// <returns><c>true</c> if the widget closed or was already closed; otherwise, <c>false</c>.</returns>
-        bool CloseWidget(IWidget widget);
+        void CloseWidget(IWidget widget);
         /// <summary>
         /// Opens a standard widget with a script.
         /// </summary>
@@ -112,8 +111,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// <summary>
         /// Closes all open widgets.
         /// </summary>
-        /// <returns><c>true</c> if all open widget trees closed; otherwise, <c>false</c>.</returns>
-        bool CloseAll();
+        void CloseAll();
         /// <summary>
         /// Changes the ID of a currently open widget, effectively replacing it with another one.
         /// </summary>

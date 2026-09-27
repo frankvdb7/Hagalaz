@@ -562,11 +562,7 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
                 var snapshotEstablished = false;
                 try
                 {
-                    if (!character.Widgets.CloseAll())
-                    {
-                        throw new InvalidOperationException(
-                            $"Character '{character.MasterId}' cannot log out until its open widgets can return their items.");
-                    }
+                    character.Widgets.CloseAll();
 
                     var dehydrationService = character.ServiceProvider.GetRequiredService<ICharacterDehydrationService>();
                     var finalSnapshot = dehydrationService.Dehydrate(character) with

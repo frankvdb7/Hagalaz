@@ -18,10 +18,7 @@ namespace Hagalaz.Game.Scripts.Commands
             await Task.CompletedTask;
             args.Handled = true;
             var frameID = int.Parse(args.Arguments[1]);
-            if (!args.Character.Widgets.CloseAll())
-            {
-                return;
-            }
+            args.Character.Widgets.CloseAll();
             var frame = _widgetBuilder
                 .Create()
                 .ForCharacter(args.Character)

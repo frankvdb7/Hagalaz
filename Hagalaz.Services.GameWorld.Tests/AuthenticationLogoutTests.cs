@@ -1015,7 +1015,6 @@ public sealed class AuthenticationLogoutTests
     {
         var character = Substitute.For<ICharacter>();
         var widgets = Substitute.For<IWidgetContainer>();
-        widgets.CloseAll().Returns(true);
         character.Widgets.Returns(widgets);
         return character;
     }

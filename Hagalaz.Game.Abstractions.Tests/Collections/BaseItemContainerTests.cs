@@ -394,23 +394,25 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public void AddRange_FullContainer_Fails()
+        public void AddRange_WhenNotEnoughSpace_PreservesExistingItemsAndInsertsNone()
         {
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 2);
-            var items = new[]
-            {
-                CreateItem(1, 1),
-                CreateItem(2, 1),
-                CreateItem(3, 1)
-            };
+            var existingItem = CreateItem(10, 1);
+            Assert.IsTrue(container.Add(existingItem));
+            var existingStoredItem = container[0]!;
+            var items = new[] { CreateItem(1, 1), CreateItem(2, 1) };
 
             // Act
             var result = container.AddRange(items);
 
             // Assert
             Assert.IsFalse(result);
-            Assert.AreEqual(0, container.TakenSlots);
+            Assert.AreEqual(1, container.TakenSlots);
+            Assert.AreSame(existingStoredItem, container[0]);
+            Assert.AreEqual(1, existingStoredItem.Count);
+            Assert.AreEqual(0, container.GetCountById(1));
+            Assert.AreEqual(0, container.GetCountById(2));
         }
 
         [TestMethod]

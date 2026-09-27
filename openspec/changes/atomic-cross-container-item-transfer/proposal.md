@@ -8,7 +8,7 @@ Item movement is currently split across separate removal and insertion calls. A 
 - Share a deterministic lock order across normal container mutations and transfers, based on the existing trade-container ordering.
 - Preserve source item data and instances for ordinary movement, honor preferred source and destination slots, reject zero-count transfers, and retain container sentinel behavior when a source is drained.
 - Publish container updates only after both storage states have committed. Keep equipment callbacks in the equipment domain.
-- Migrate bank, familiar inventory, reward, equipment/inventory, Price Checker/inventory, generic familiar bulk movement, and trade checked mutations to the common storage boundary where their existing behavior is an exact item movement.
+- Migrate bank, familiar inventory, reward, equipment/inventory, generic familiar bulk movement, and trade checked mutations to the common storage boundary where their existing behavior is an exact item movement. Price Checker keeps cloned non-owning selections and renders a projected inventory view.
 - Use the same boundary for the item movement in shop sales, while leaving payment and full shop transaction behavior in the owning shop flow.
 - Keep intentional partial gameplay behavior explicit by choosing its exact quantity before calling the transfer operation.
 
@@ -25,8 +25,10 @@ Item movement is currently split across separate removal and insertion calls. A 
 - Successful transfers preserve the exact requested quantity, stacking rules, preferred slots, item data, and source sentinel state; both updates observe both committed containers.
 - Concurrent opposite-direction transfers use one deterministic lock order and complete without deadlock.
 - Listed gameplay flows use the primitive without changing their intentional partial-count or equipment-callback behavior.
-- Price Checker close returns temporary items to inventory and stores any remainder in the character's persistent reward container. Character logout closes open widgets before snapshot capture; logout is refused only if an open widget cannot preserve its temporary items.
+- Price Checker selections are non-owning clones. Inventory remains authoritative, and closing or disconnecting cannot lose items because no authoritative item leaves Inventory.
+- Logout closes open widgets before snapshot capture so active trade cancellation can refund escrow into the character inventories.
 - Trade checked add/remove operations reuse the common storage mutation implementation while retaining trade-owned settlement and notification behavior.
+- Widget close remains unconditional, with a safe snapshot during batch closure. No close guard or terminal conservation lifecycle is introduced.
 - Focused MSTest regressions and strict OpenSpec validation pass.
 
 ### Stop Conditions

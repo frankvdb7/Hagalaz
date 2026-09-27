@@ -43,14 +43,4 @@ namespace Hagalaz.Game.Abstractions.Model.Widgets
         bool CanInterrupt();
     }
 
-    /// <summary>
-    /// Allows a widget script to keep its widget open when closing would lose owned state.
-    /// </summary>
-    public interface IWidgetCloseGuard
-    {
-        /// <summary>
-        /// Prepares the widget for closing and returns whether it can now be closed.
-        /// </summary>
-        bool TryClose();
-    }
 }

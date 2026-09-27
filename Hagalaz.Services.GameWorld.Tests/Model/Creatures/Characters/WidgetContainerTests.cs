@@ -81,41 +81,7 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
         }
 
         [TestMethod]
-        public void CloseWidget_WhenChildCloseGuardRejects_LeavesWidgetTreeAttachedAndOpen()
-        {
-            var (frame, widget, script) = OpenGuardedWidgetTree();
-
-            _widgetContainer.CloseWidget(frame);
-
-            Assert.AreSame(frame, _widgetContainer.CurrentFrame);
-            Assert.IsTrue(frame.IsOpened);
-            Assert.IsTrue(widget.IsOpened);
-            Assert.AreSame(widget, frame.GetChild(0));
-            Assert.AreSame(widget, _widgetContainer.GetOpenWidget(widget.Id));
-            ((IWidgetCloseGuard)script).Received(1).TryClose();
-        }
-
-        [TestMethod]
-        public void CloseWidget_WhenGuardRejects_RedrawsOpenWidgetWithoutRepeatingLifecycle()
-        {
-            var (frame, widget, script) = OpenGuardedWidgetTree();
-            _sessionMock.ClearReceivedCalls();
-
-            _widgetContainer.CloseWidget(widget);
-
-            _sessionMock.Received(1).SendMessage(Arg.Is<DrawInterfaceComponentMessage>(message =>
-                message.Id == widget.Id && message.ParentId == frame.Id && message.ParentSlot == widget.ParentSlot && message.Transparency == widget.Transparency));
-            Assert.AreSame(widget, frame.GetChild(widget.ParentSlot));
-            Assert.AreSame(widget, _widgetContainer.GetOpenWidget(widget.Id));
-            Assert.AreEqual(2, _widgetContainer.Widgets.Count);
-            Assert.IsTrue(widget.IsOpened);
-            script.Received(1).OnOpen();
-            script.DidNotReceive().OnClose();
-            ((IWidgetCloseGuard)script).Received(1).TryClose();
-        }
-
-        [TestMethod]
-        public void CloseAll_WhenWidgetTreeIsOpen_ClosesEachWidgetOnce()
+        public void CloseAll_WhenMultipleNestedWidgetsAreOpen_ClosesEachWidgetOnce()
         {
             _widgetScriptProviderMock.GetInterfacesCount().Returns(10);
             var frameScript = Substitute.For<IWidgetScript>();
@@ -124,53 +90,34 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
             var parent = OpenWidget(2, frame, 0, parentScript);
             var childScript = Substitute.For<IWidgetScript>();
             OpenWidget(3, parent, 0, childScript);
+            var siblingScript = Substitute.For<IWidgetScript>();
+            OpenWidget(4, frame, 1, siblingScript);
 
-            var closed = _widgetContainer.CloseAll();
+            _widgetContainer.CloseAll();
 
-            Assert.IsTrue(closed);
             Assert.AreEqual(0, _widgetContainer.Widgets.Count);
             Assert.IsNull(_widgetContainer.CurrentFrame);
             frameScript.Received(1).OnClose();
             parentScript.Received(1).OnClose();
             childScript.Received(1).OnClose();
+            siblingScript.Received(1).OnClose();
         }
 
         [TestMethod]
-        public void CloseAll_WhenChildGuardRejects_LeavesWholeTreeOpenWithoutLifecycleCallbacks()
+        public void OpenFrame_WhenCloseCallbackOpensAnotherFrame_DoesNotReplaceThatFrame()
         {
-            var (frame, guardedChild, guardedScript) = OpenGuardedWidgetTree();
-            var frameScript = frame.Script;
-            var siblingScript = Substitute.For<IWidgetScript>();
-            OpenWidget(3, frame, 1, siblingScript);
+            _widgetScriptProviderMock.GetInterfacesCount().Returns(10);
+            var script = Substitute.For<IWidgetScript>();
+            script.When(value => value.OnClose()).Do(_ => _widgetContainer.OpenFrame(CreateFrame(3)));
+            var initialFrame = OpenFrame(1, script);
+            var requestedFrame = CreateFrame(2);
 
-            var closed = _widgetContainer.CloseAll();
+            _widgetContainer.OpenFrame(requestedFrame);
 
-            Assert.IsFalse(closed);
-            Assert.AreSame(frame, _widgetContainer.CurrentFrame);
-            Assert.IsTrue(frame.IsOpened);
-            Assert.IsTrue(guardedChild.IsOpened);
-            Assert.AreSame(guardedChild, frame.GetChild(guardedChild.ParentSlot));
-            Assert.IsTrue(_widgetContainer.Widgets.Contains(guardedChild));
-            Assert.IsTrue(_widgetContainer.Widgets.Any(widget => widget.Script == siblingScript));
-            ((IWidgetCloseGuard)guardedScript).Received(1).TryClose();
-            frameScript.DidNotReceive().OnClose();
-            siblingScript.DidNotReceive().OnClose();
-            guardedScript.DidNotReceive().OnClose();
-        }
-
-        [TestMethod]
-        public void OpenFrame_WhenExistingTreeGuardRejects_KeepsOldFrameAndDoesNotOpenReplacement()
-        {
-            var (oldFrame, child, guardedScript) = OpenGuardedWidgetTree();
-            var replacement = CreateFrame(3);
-
-            _widgetContainer.OpenFrame(replacement);
-
-            Assert.AreSame(oldFrame, _widgetContainer.CurrentFrame);
-            Assert.IsTrue(oldFrame.IsOpened);
-            Assert.IsFalse(replacement.IsOpened);
-            Assert.AreSame(child, oldFrame.GetChild(child.ParentSlot));
-            ((IWidgetCloseGuard)guardedScript).Received(1).TryClose();
+            Assert.IsFalse(initialFrame.IsOpened);
+            Assert.AreEqual(3, _widgetContainer.CurrentFrame!.Id);
+            Assert.IsFalse(requestedFrame.IsOpened);
+            Assert.AreEqual(1, _widgetContainer.Widgets.Count);
         }
 
         [TestMethod]
@@ -250,14 +197,5 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
             return new Widget(_characterMock, id, 0, script ?? Substitute.For<IWidgetScript>());
         }
 
-        private (IWidget Frame, IWidget Widget, IWidgetScript Script) OpenGuardedWidgetTree()
-        {
-            _widgetScriptProviderMock.GetInterfacesCount().Returns(10);
-            var frame = OpenFrame(1, Substitute.For<IWidgetScript>());
-            var script = Substitute.For<IWidgetScript, IWidgetCloseGuard>();
-            ((IWidgetCloseGuard)script).TryClose().Returns(false);
-            var widget = OpenWidget(2, frame, 0, script);
-            return (frame, widget, script);
-        }
     }
 }

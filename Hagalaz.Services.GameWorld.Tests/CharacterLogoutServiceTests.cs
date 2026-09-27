@@ -155,11 +155,7 @@ public sealed class CharacterLogoutServiceTests
     {
         var character = CreateCharacter(42);
         var order = new List<string>();
-        character.Widgets.CloseAll().Returns(_ =>
-        {
-            order.Add("close widgets");
-            return true;
-        });
+        character.Widgets.When(widgets => widgets.CloseAll()).Do(_ => order.Add("close widgets"));
         var state = new CharacterLogoutState();
         state.TryBeginLogout(character, out _);
         var characterService = Substitute.For<ICharacterService>();
@@ -196,30 +192,6 @@ public sealed class CharacterLogoutServiceTests
         characterService.Received(1).Remove(character);
         character.Received(1).Destroy();
         CollectionAssert.AreEqual(new[] { "close widgets", "snapshot", "remove", "destroy" }, order);
-    }
-
-    [TestMethod]
-    public async Task DetachAsync_WhenWidgetItemsCannotBeReturned_DoesNotCaptureOrDestroyCharacter()
-    {
-        var character = CreateCharacter(42);
-        character.Widgets.CloseAll().Returns(false);
-        var state = new CharacterLogoutState();
-        Assert.IsTrue(state.TryBeginLogout(character, out _));
-        var characterService = Substitute.For<ICharacterService>();
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        var service = new CharacterLogoutService(
-            state,
-            characterService,
-            new InlineTaskScheduler(),
-            Substitute.For<IGameMediator>(),
-            new CharacterPersistenceState());
-
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.DetachAsync(character));
-
-        dehydrationService.DidNotReceive().Dehydrate(character);
-        characterService.DidNotReceive().Remove(character);
-        character.DidNotReceive().Destroy();
-        Assert.IsFalse(state.TryGetSnapshot(character, out _));
     }
 
     [TestMethod]
@@ -770,7 +742,6 @@ public sealed class CharacterLogoutServiceTests
         session.SessionGeneration.Returns(7L);
         character.Session.Returns(session);
         var widgets = Substitute.For<IWidgetContainer>();
-        widgets.CloseAll().Returns(true);
         character.Widgets.Returns(widgets);
         return character;
     }
