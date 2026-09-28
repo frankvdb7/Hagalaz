@@ -30,13 +30,12 @@ namespace Hagalaz.Game.Abstractions.Collections
         private int _version;
 
         /// <summary>
-        /// Advances the container revision after a derived container applies a storage mutation.
+        /// Advances the storage revision after a mutation commits.
         /// </summary>
         private void AdvanceRevision() => _version++;
 
         /// <summary>
-        /// The common container mutation boundary, exposed to trade containers
-        /// for their existing multi-container settlement operation.
+        /// Synchronization boundary used by operations that mutate multiple stores.
         /// </summary>
         public object MutationLock => _mutationLock;
 
@@ -405,12 +404,19 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>
-        /// Removes a complete requested quantity using the shared exact-removal
-        /// behavior used by checked trade removal and cross-container transfer.
-        /// The caller must hold this container's mutation lock.
+        /// Removes a complete requested quantity using the exact-removal behavior
+        /// used by checked trade removal and cross-container transfer.
+        /// </summary>
+        public bool TryRemoveExact(IItem? item, int preferredSlot, out HashSet<int> slotsToUpdate) =>
+            TryRemoveExact(item!, item?.Count ?? 0, preferredSlot, out slotsToUpdate);
+
+        /// <summary>
+        /// Removes a complete requested quantity using the exact-removal behavior
+        /// used by checked trade removal and cross-container transfer.
         /// </summary>
         public bool TryRemoveExact(IItem item, int count, int preferredSlot, out HashSet<int> slotsToUpdate)
         {
+            ArgumentNullException.ThrowIfNull(item);
             slotsToUpdate = [];
             if (count <= 0)
             {
@@ -471,7 +477,7 @@ namespace Hagalaz.Game.Abstractions.Collections
 
             foreach (var removal in removals)
             {
-            var canMoveInstance = !isTransformed && removal.Count == removal.Item.Count && source._countToResetTo == -1;
+                var canMoveInstance = !isTransformed && removal.Count == removal.Item.Count && source._countToResetTo == -1;
                 if (splitIntoUnits)
                 {
                     for (var unit = 0; unit < removal.Count; unit++)
@@ -611,9 +617,6 @@ namespace Hagalaz.Game.Abstractions.Collections
             return true;
         }
 
-        public bool Add(int slot, IItem item) => TryAdd(slot, item, out _);
-
-
         /// <summary>
         /// Adds an item to the container. It will either stack with an existing item or be placed in the first available free slot.
         /// </summary>
@@ -673,8 +676,6 @@ namespace Hagalaz.Game.Abstractions.Collections
             return true;
         }
 
-        public bool Add(IItem item) => TryAdd(item, out _);
-
         /// <summary>
         /// Adds a collection of items to this container.
         /// </summary>
@@ -693,6 +694,7 @@ namespace Hagalaz.Game.Abstractions.Collections
                 Array.Fill(slotOrigins, -1);
                 if (!ApplyAddRange(simulatedItems, simulatedIncoming, slotsToUpdate, slotOrigins))
                 {
+                    slotsToUpdate.Clear();
                     return false;
                 }
 
@@ -712,7 +714,7 @@ namespace Hagalaz.Game.Abstractions.Collections
 
                     var incoming = incomingItems[slotOrigins[slot]]!;
                     var stacks = Type == StorageType.AlwaysStack || incoming.ItemDefinition.Stackable || incoming.ItemDefinition.Noted;
-                    var newItem = stacks ? incoming : incoming.Clone(simulatedItem.Count);
+                    var newItem = stacks ? incoming : incoming.Clone();
                     newItem.Count = simulatedItem.Count;
                     committedItems[slot] = newItem;
                 }
@@ -723,8 +725,6 @@ namespace Hagalaz.Game.Abstractions.Collections
 
             return true;
         }
-
-        public bool AddRange(IEnumerable<IItem?> newItems) => TryAddRange(newItems, out _);
 
         private void AddInitialItem(IItem item)
         {
@@ -814,10 +814,6 @@ namespace Hagalaz.Game.Abstractions.Collections
             ReferenceEquals(targetItems, Items) ? GetFreeSlot() : Array.FindIndex(targetItems, item => item == null);
 
         /// <summary>
-        /// Transfers all items from another container into this one.
-        /// </summary>
-        /// <param name="container">The source container from which to transfer items.</param>
-        /// <summary>
         /// Removes a specified item from the container.
         /// </summary>
         /// <param name="item">The item to remove, including the amount to be removed.</param>
@@ -838,8 +834,6 @@ namespace Hagalaz.Game.Abstractions.Collections
 
             return removed;
         }
-
-        public int Remove(IItem item, int preferredSlot = -1) => Remove(item, preferredSlot, out _);
 
         private int ApplyRemove(IItem item, int preferredSlot, HashSet<int> slotsToUpdate)
         {
@@ -938,29 +932,6 @@ namespace Hagalaz.Game.Abstractions.Collections
             {
                 Items[slot] = item;
                 AdvanceRevision();
-            }
-        }
-
-        /// <summary>Sets an exact slot value without stacking.</summary>
-        public void SetSlot(int slot, IItem? item)
-        {
-            lock (_mutationLock)
-            {
-                Items[slot] = item;
-                AdvanceRevision();
-            }
-        }
-
-        /// <summary>Sets an occupied item's count and advances the storage revision.</summary>
-        public void SetCountAt(int slot, int count)
-        {
-            lock (_mutationLock)
-            {
-                if (Items[slot] is { } item)
-                {
-                    item.Count = count;
-                    AdvanceRevision();
-                }
             }
         }
 

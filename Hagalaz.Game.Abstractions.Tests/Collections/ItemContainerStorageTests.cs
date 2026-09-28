@@ -64,7 +64,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             public bool AddRangeForTrade(IEnumerable<IItem?> items) { if (!TryAddRangeForTradeStorage(items, out var s)) return false; OnUpdate(s); return true; }
             public bool TryAddRangeForTradeStorage(IEnumerable<IItem?> items, out HashSet<int> changedSlots) => Storage.TryAddRange(items, out changedSlots);
             public bool RemoveForTrade(IItem item, int preferredSlot = -1) { if (!TryRemoveForTradeStorage(item, preferredSlot, out var s)) return false; OnUpdate(s); return true; }
-            public bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots) => Storage.TryRemoveExact(item, item.Count, preferredSlot, out changedSlots);
+            public bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots) => Storage.TryRemoveExact(item, preferredSlot, out changedSlots);
             public void OnUpdate(HashSet<int>? slots = null)
             {
                 UpdateCount++;
@@ -74,6 +74,15 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                     throw new InvalidOperationException("Controlled publication failure.");
                 }
             }
+        }
+
+        [TestMethod]
+        public void TryRemoveForTradeStorage_NullItem_ThrowsArgumentNullException()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+
+            Assert.ThrowsExactly<ArgumentNullException>(() =>
+                container.TryRemoveForTradeStorage(null!, -1, out _));
         }
 
         private class TestItem : IItem
@@ -564,27 +573,71 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         public void AddRange_StackableItemsWithNoExistingStack_ShareOneCreatedStack()
         {
             var container = new TestableItemContainer(StorageType.Normal, 1);
-            var items = new[] { CreateItem(1, 3, stackable: true), CreateItem(1, 4, stackable: true) };
+            var first = CreateItem(1, 3, stackable: true);
+            var second = CreateItem(1, 4, stackable: true);
+            var items = new[] { first, second };
 
             Assert.IsTrue(container.HasSpaceForRange(items));
             Assert.IsTrue(container.AddRange(items));
             Assert.AreEqual(1, container.TakenSlots);
+            Assert.AreSame(first, container[0]);
             Assert.AreEqual(7, container[0].Count);
+            Assert.AreEqual(4, second.Count);
+        }
+
+        [TestMethod]
+        public void AddRange_PreservesExistingStackAndNewStackIdentitiesAndChangedSlots()
+        {
+            var storage = new ItemContainerStorage(StorageType.AlwaysStack, 2);
+            var existing = CreateItem(1, 5, stackable: true);
+            var newStack = CreateItem(2, 4, stackable: true);
+            Assert.IsTrue(storage.TryAdd(existing, out _));
+
+            Assert.IsTrue(storage.TryAddRange([CreateItem(1, 3, stackable: true), newStack], out var changedSlots));
+
+            Assert.AreSame(existing, storage[0]);
+            Assert.AreEqual(8, existing.Count);
+            Assert.AreSame(newStack, storage[1]);
+            Assert.AreEqual(4, newStack.Count);
+            CollectionAssert.AreEquivalent(new[] { 0, 1 }, changedSlots.ToArray());
+        }
+
+        [TestMethod]
+        public void AddRange_NonStackableItems_ClonesEachInstanceIntoOneCountSlots()
+        {
+            var storage = new ItemContainerStorage(StorageType.Normal, 2);
+            var incoming = CreateItem(1, 2);
+
+            Assert.IsTrue(storage.TryAddRange([incoming], out var changedSlots));
+
+            Assert.AreEqual(1, storage[0]!.Count);
+            Assert.AreEqual(1, storage[1]!.Count);
+            Assert.AreNotSame(incoming, storage[0]);
+            Assert.AreNotSame(incoming, storage[1]);
+            Assert.AreNotSame(storage[0], storage[1]);
+            Assert.AreEqual(2, incoming.Count);
+            CollectionAssert.AreEquivalent(new[] { 0, 1 }, changedSlots.ToArray());
         }
 
         [TestMethod]
         public void AddRange_CombinedStackOverflow_FailsWithoutMutation()
         {
-            var container = new TestableItemContainer(StorageType.Normal, 1);
+            var storage = new ItemContainerStorage(StorageType.Normal, 1);
             var existing = CreateItem(1, int.MaxValue - 1, stackable: true);
-            container.Add(existing);
+            Assert.IsTrue(storage.TryAdd(existing, out _));
+            var enumerator = storage.GetEnumerator();
+            Assert.IsTrue(enumerator.MoveNext());
+            var incoming = CreateItem(1, 2, stackable: true);
 
-            var result = container.AddRange([CreateItem(1, 2, stackable: true)]);
+            var result = storage.TryAddRange([incoming], out var changedSlots);
 
             Assert.IsFalse(result);
-            Assert.IsFalse(container.HasSpaceForRange([CreateItem(1, 2, stackable: true)]));
-            Assert.AreSame(existing, container[0]);
-            Assert.AreEqual(int.MaxValue - 1, container[0].Count);
+            Assert.IsFalse(storage.HasSpaceForRange([incoming]));
+            Assert.IsEmpty(changedSlots);
+            Assert.AreSame(existing, storage[0]);
+            Assert.AreEqual(int.MaxValue - 1, existing.Count);
+            Assert.AreEqual(2, incoming.Count);
+            Assert.IsFalse(enumerator.MoveNext());
         }
 
         [TestMethod]

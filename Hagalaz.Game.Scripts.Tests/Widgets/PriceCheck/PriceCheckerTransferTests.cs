@@ -358,8 +358,8 @@ public sealed class PriceCheckerTransferTests
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
         public bool AddRangeForTrade(IEnumerable<IItem?> items) => _storage.TryAddRange(items, out _);
         public bool TryAddRangeForTradeStorage(IEnumerable<IItem?> items, out HashSet<int> changedSlots) => _storage.TryAddRange(items, out changedSlots);
-        public bool RemoveForTrade(IItem item, int preferredSlot = -1) => _storage.TryRemoveExact(item, item.Count, preferredSlot, out _);
-        public bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots) => _storage.TryRemoveExact(item, item.Count, preferredSlot, out changedSlots);
+        public bool RemoveForTrade(IItem item, int preferredSlot = -1) => _storage.TryRemoveExact(item, preferredSlot, out _);
+        public bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots) => _storage.TryRemoveExact(item, preferredSlot, out changedSlots);
         public bool DropItem(IItem item) => false;
         public void OnUpdate(HashSet<int>? slots = null) { }
     }

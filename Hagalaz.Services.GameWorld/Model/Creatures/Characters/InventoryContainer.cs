@@ -97,7 +97,7 @@ public class InventoryContainer : IInventoryContainer, IItemContainerStorageProv
         return true;
     }
     public bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots) =>
-        _storage.TryRemoveExact(item, item.Count, preferredSlot, out changedSlots);
+        _storage.TryRemoveExact(item, preferredSlot, out changedSlots);
 
     public void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new InventoryChangedEvent(_owner, slots));
 
@@ -117,10 +117,10 @@ public class InventoryContainer : IInventoryContainer, IItemContainerStorageProv
         {
             if ((uint)entry.SlotId >= (uint)Capacity)
                 throw new ArgumentOutOfRangeException(nameof(entry.SlotId));
-            if (entry.Count <= 0)
-                throw new ArgumentOutOfRangeException(nameof(entry.Count));
             if (items[entry.SlotId] != null)
                 throw new ArgumentException("Inventory contains a duplicate restored slot.", nameof(inventory));
+            if (entry.Count <= 0)
+                throw new ArgumentOutOfRangeException(nameof(entry.Count));
             items[entry.SlotId] = _itemBuilder.Create().WithId(entry.ItemId).WithCount(entry.Count)
                 .WithExtraData(entry.ExtraData ?? string.Empty).Build();
         }

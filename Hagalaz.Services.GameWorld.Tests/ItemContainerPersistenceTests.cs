@@ -179,46 +179,108 @@ public sealed class ItemContainerPersistenceTests
     }
 
     [TestMethod]
-    public void InventoryHydration_RejectsDuplicateSlotsWithoutChangingState()
+    [DataRow("Inventory")]
+    [DataRow("Bank")]
+    [DataRow("Reward")]
+    [DataRow("Familiar")]
+    [DataRow("Equipment")]
+    public void OrdinaryHydration_InvalidPhysicalSlot_ThrowsOutOfRangeWithoutChangingState(string containerName)
     {
         using var scenario = new Scenario();
-        var container = new InventoryContainer(scenario.Owner, 7, Substitute.For<IMapRegionService>(),
-            Substitute.For<IGroundItemBuilder>(), scenario.Builder);
-        container.Hydrate([new HydratedItemDto(101, 1, 4, null)]);
+        var subject = CreateHydrationSubject(containerName, scenario);
+        subject.Hydrate([new HydrationEntry(101, 1, 0)]);
+        var original = subject.Storage[0];
+
+        foreach (var invalidSlot in new[] { -1, subject.Storage.Capacity })
+        {
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+                subject.Hydrate([new HydrationEntry(102, 1, invalidSlot)]));
+            Assert.AreSame(original, subject.Storage[0]);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("Inventory")]
+    [DataRow("Bank")]
+    [DataRow("Reward")]
+    [DataRow("Familiar")]
+    [DataRow("Equipment")]
+    public void OrdinaryHydration_NonPositiveCount_ThrowsOutOfRangeWithoutChangingState(string containerName)
+    {
+        using var scenario = new Scenario();
+        var subject = CreateHydrationSubject(containerName, scenario);
+        subject.Hydrate([new HydrationEntry(101, 1, 0)]);
+        var original = subject.Storage[0];
+
+        foreach (var invalidCount in new[] { 0, -1 })
+        {
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+                subject.Hydrate([new HydrationEntry(102, invalidCount, 1)]));
+            Assert.AreSame(original, subject.Storage[0]);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("Inventory")]
+    [DataRow("Bank")]
+    [DataRow("Reward")]
+    [DataRow("Familiar")]
+    [DataRow("Equipment")]
+    public void OrdinaryHydration_DuplicatePhysicalSlot_ThrowsArgumentExceptionWithoutChangingState(string containerName)
+    {
+        using var scenario = new Scenario();
+        var subject = CreateHydrationSubject(containerName, scenario);
+        subject.Hydrate([new HydrationEntry(101, 1, 0)]);
+        var original = subject.Storage[0];
+
+        Assert.ThrowsExactly<ArgumentException>(() => subject.Hydrate(
+            [new HydrationEntry(102, 1, 1), new HydrationEntry(103, 1, 1)]));
+
+        Assert.AreSame(original, subject.Storage[0]);
+    }
+
+    [TestMethod]
+    [DataRow(-1)]
+    [DataRow(1)]
+    public void MoneyPouchHydration_InvalidCoinSlot_ThrowsOutOfRangeWithoutChangingState(int invalidSlot)
+    {
+        using var scenario = new Scenario();
+        var container = new MoneyPouchContainer(scenario.Owner, scenario.Builder);
+        container.Hydrate([new HydratedItemDto(995, 25, 0, null)]);
+
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => container.Hydrate(
+            [new HydratedItemDto(995, 5, invalidSlot, null)]));
+
+        Assert.AreEqual(25, container.Count);
+        Assert.AreEqual(995, container[0]!.Id);
+    }
+
+    [TestMethod]
+    public void MoneyPouchHydration_NegativeCoinCount_ThrowsOutOfRangeWithoutChangingState()
+    {
+        using var scenario = new Scenario();
+        var container = new MoneyPouchContainer(scenario.Owner, scenario.Builder);
+        container.Hydrate([new HydratedItemDto(995, 25, 0, null)]);
+
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => container.Hydrate(
+            [new HydratedItemDto(995, -1, 0, null)]));
+
+        Assert.AreEqual(25, container.Count);
+        Assert.AreEqual(995, container[0]!.Id);
+    }
+
+    [TestMethod]
+    public void MoneyPouchHydration_DuplicateCoinSlot_ThrowsArgumentExceptionWithoutChangingState()
+    {
+        using var scenario = new Scenario();
+        var container = new MoneyPouchContainer(scenario.Owner, scenario.Builder);
+        container.Hydrate([new HydratedItemDto(995, 25, 0, null)]);
 
         Assert.ThrowsExactly<ArgumentException>(() => container.Hydrate(
-            [new HydratedItemDto(102, 1, 2, null), new HydratedItemDto(103, 1, 2, null)]));
-        AssertSlots(container, (4, 101));
-    }
+            [new HydratedItemDto(995, 1, 0, null), new HydratedItemDto(995, 2, 0, null)]));
 
-    [TestMethod]
-    [DataRow(-1)]
-    [DataRow(7)]
-    public void InventoryHydration_RejectsOutOfBoundsSlotWithoutChangingState(int invalidSlot)
-    {
-        using var scenario = new Scenario();
-        var container = new InventoryContainer(scenario.Owner, 7, Substitute.For<IMapRegionService>(),
-            Substitute.For<IGroundItemBuilder>(), scenario.Builder);
-        container.Hydrate([new HydratedItemDto(101, 1, 4, null)]);
-
-        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => container.Hydrate(
-            [new HydratedItemDto(102, 1, invalidSlot, null)]));
-        AssertSlots(container, (4, 101));
-    }
-
-    [TestMethod]
-    [DataRow(-1)]
-    [DataRow(0)]
-    public void InventoryHydration_RejectsInvalidCountWithoutChangingState(int invalidCount)
-    {
-        using var scenario = new Scenario();
-        var container = new InventoryContainer(scenario.Owner, 7, Substitute.For<IMapRegionService>(),
-            Substitute.For<IGroundItemBuilder>(), scenario.Builder);
-        container.Hydrate([new HydratedItemDto(101, 1, 4, null)]);
-
-        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => container.Hydrate(
-            [new HydratedItemDto(102, invalidCount, 2, null)]));
-        AssertSlots(container, (4, 101));
+        Assert.AreEqual(25, container.Count);
+        Assert.AreEqual(995, container[0]!.Id);
     }
 
     [TestMethod]
@@ -261,5 +323,48 @@ public sealed class ItemContainerPersistenceTests
             Assert.AreEqual(match.ItemId == 0 ? null : match.ItemId, container[slot]?.Id, $"Slot {slot}");
         }
     }
+
+    private static HydrationSubject CreateHydrationSubject(string containerName, Scenario scenario)
+    {
+        switch (containerName)
+        {
+            case "Inventory":
+            {
+                var container = new InventoryContainer(scenario.Owner, 7, Substitute.For<IMapRegionService>(),
+                    Substitute.For<IGroundItemBuilder>(), scenario.Builder);
+                return new(((IItemContainerStorageProvider)container).Storage, entries =>
+                    container.Hydrate(entries.Select(entry => new HydratedItemDto(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
+            }
+            case "Bank":
+            {
+                var container = new BankContainer(scenario.Owner, 12, scenario.Builder);
+                return new(((IItemContainerStorageProvider)container).Storage, entries =>
+                    container.Hydrate(entries.Select(entry => new HydratedItemDto(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
+            }
+            case "Reward":
+            {
+                var container = new RewardContainer(scenario.Owner, scenario.Builder);
+                return new(((IItemContainerStorageProvider)container).Storage, entries =>
+                    container.Hydrate(entries.Select(entry => new HydratedItemDto(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
+            }
+            case "Familiar":
+            {
+                var container = new FamiliarInventoryContainer(scenario.Owner, StorageType.Normal, 8, scenario.Builder);
+                return new(((IItemContainerStorageProvider)container).Storage, entries =>
+                    container.Hydrate(entries.Select(entry => new HydratedItem(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
+            }
+            case "Equipment":
+            {
+                var container = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+                return new(((IItemContainerStorageProvider)container).Storage, entries =>
+                    container.Hydrate(entries.Select(entry => new HydratedItemDto(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
+            }
+            default:
+                throw new ArgumentOutOfRangeException(nameof(containerName));
+        }
+    }
+
+    private sealed record HydrationSubject(ItemContainerStorage Storage, Action<HydrationEntry[]> Hydrate);
+    private readonly record struct HydrationEntry(int ItemId, int Count, int SlotId);
 
 }

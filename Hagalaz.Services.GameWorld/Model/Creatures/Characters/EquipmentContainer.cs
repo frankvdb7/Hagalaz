@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Configuration;
@@ -327,15 +328,19 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             return true;
         }
 
-        public new EquipmentSlot GetInstanceSlot(IItem instance) => (EquipmentSlot)_storage.GetInstanceSlot(instance);
+        public EquipmentSlot GetInstanceSlot(IItem instance) => (EquipmentSlot)_storage.GetInstanceSlot(instance);
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> equipment)
         {
             var items = new IItem?[Capacity];
             foreach (var entry in equipment)
             {
-                if ((uint)entry.SlotId >= (uint)Capacity || entry.Count <= 0 || items[entry.SlotId] != null)
-                    throw new System.ArgumentException("Equipment contains an invalid restored slot.", nameof(equipment));
+                if ((uint)entry.SlotId >= (uint)Capacity)
+                    throw new ArgumentOutOfRangeException(nameof(equipment), $"Slot {entry.SlotId} is outside the equipment capacity.");
+                if (items[entry.SlotId] != null)
+                    throw new ArgumentException($"Slot {entry.SlotId} is duplicated in restored state.", nameof(equipment));
+                if (entry.Count <= 0)
+                    throw new ArgumentOutOfRangeException(nameof(equipment), "Item count is invalid for this container.");
                 items[entry.SlotId] = _itemBuilder.Create().WithId(entry.ItemId).WithCount(entry.Count)
                     .WithExtraData(entry.ExtraData ?? string.Empty).Build();
             }

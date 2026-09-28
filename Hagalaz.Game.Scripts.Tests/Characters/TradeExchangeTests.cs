@@ -689,7 +689,7 @@ public sealed class TradeExchangeTests
             return Storage.TryAddRange(items, out changedSlots);
         }
         public bool RemoveForTrade(IItem item, int preferredSlot = -1) { if (!TryRemoveForTradeStorage(item, preferredSlot, out var s)) return false; OnUpdate(s); return true; }
-        public bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots) => Storage.TryRemoveExact(item, item.Count, preferredSlot, out changedSlots);
+        public bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots) => Storage.TryRemoveExact(item, preferredSlot, out changedSlots);
         public bool DropItem(IItem item) => false;
         public int Claim(IItem item, int count) => 0;
         public void OnUpdate(HashSet<int>? slots = null) { UpdateCount++; OnUpdateAction?.Invoke(); }

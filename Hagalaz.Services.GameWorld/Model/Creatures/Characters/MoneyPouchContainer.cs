@@ -414,14 +414,25 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return;
             }
 
-            if (moneyPouch.Count != 1 || moneyPouch[0].SlotId != 0 || moneyPouch[0].ItemId != 995 || moneyPouch[0].Count < 0)
+            if (moneyPouch.Any(item => item.ItemId != 995))
             {
-                throw new ArgumentException("Money pouch state must contain one valid coin slot.", nameof(moneyPouch));
+                throw new ArgumentException("Money pouch state must contain coins.", nameof(moneyPouch));
             }
 
-            var entry = moneyPouch[0];
-            _storage.ReplaceState([_itemBuilder.Create().WithId(995).WithCount(entry.Count)
-                .WithExtraData(entry.ExtraData ?? string.Empty).Build()]);
+            var items = new IItem?[Capacity];
+            foreach (var entry in moneyPouch)
+            {
+                if ((uint)entry.SlotId >= (uint)Capacity)
+                    throw new ArgumentOutOfRangeException(nameof(moneyPouch), $"Slot {entry.SlotId} is outside the money pouch capacity.");
+                if (items[entry.SlotId] != null)
+                    throw new ArgumentException($"Slot {entry.SlotId} is duplicated in restored state.", nameof(moneyPouch));
+                if (entry.Count < 0)
+                    throw new ArgumentOutOfRangeException(nameof(moneyPouch), "Item count is invalid for this container.");
+                items[entry.SlotId] = _itemBuilder.Create().WithId(995).WithCount(entry.Count)
+                    .WithExtraData(entry.ExtraData ?? string.Empty).Build();
+            }
+
+            _storage.ReplaceState(items);
         }
 
         public IReadOnlyList<HydratedItemDto> Dehydrate() => new[] { _storage[0]! }

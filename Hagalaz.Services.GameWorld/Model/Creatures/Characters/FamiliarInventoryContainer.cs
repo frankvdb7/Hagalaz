@@ -106,8 +106,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var items = new IItem?[Capacity];
             foreach (var entry in inventory)
             {
-                if ((uint)entry.SlotId >= (uint)Capacity || entry.Count <= 0 || items[entry.SlotId] != null)
-                    throw new ArgumentException("Familiar inventory contains an invalid restored slot.", nameof(inventory));
+                if ((uint)entry.SlotId >= (uint)Capacity)
+                    throw new ArgumentOutOfRangeException(nameof(inventory), $"Slot {entry.SlotId} is outside the familiar inventory capacity.");
+                if (items[entry.SlotId] != null)
+                    throw new ArgumentException($"Slot {entry.SlotId} is duplicated in restored state.", nameof(inventory));
+                if (entry.Count <= 0)
+                    throw new ArgumentOutOfRangeException(nameof(inventory), "Item count is invalid for this container.");
                 items[entry.SlotId] = _itemBuilder.Create().WithId(entry.ItemId).WithCount(entry.Count)
                     .WithExtraData(entry.ExtraData ?? string.Empty).Build();
             }
