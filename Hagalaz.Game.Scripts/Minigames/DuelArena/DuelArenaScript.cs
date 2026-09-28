@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System.Collections;
+using System.Collections.Generic;
 using Hagalaz.Collections.Extensions;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Builders.Item;
@@ -6,6 +7,7 @@ using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
+using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
@@ -1224,7 +1226,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 container.AddRange(SelfContainer);
                 container.AddRange(TargetContainer);
 
-                var all = container.ToArray();
+                var all = System.Linq.Enumerable.ToArray(container);
 
                 if (!Character.Inventory.HasSpaceForRange(all))
                 {
@@ -1712,8 +1714,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     /// <summary>
     ///     Container for holding items in trade offer interfaces.
     /// </summary>
-    public class DuelContainer : BaseItemContainer
+    public class DuelContainer : IItemContainer, IItemContainerStorageProvider
     {
+        private readonly ItemContainerStorage _storage = new(StorageType.Normal, 9);
+        ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
         /// <summary>
         ///     Contains last slots update.
         /// </summary>
@@ -1722,15 +1726,14 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// <summary>
         ///     Construct's new trade container.
         /// </summary>
-        public DuelContainer()
-            : base(StorageType.Normal, 9) =>
+        public DuelContainer() =>
             Updates = [];
 
         /// <summary>
         ///     Happens when trade container get's updated.
         /// </summary>
         /// <param name="slots"></param>
-        public override void OnUpdate(HashSet<int>? slots = null)
+        public void OnUpdate(HashSet<int>? slots = null)
         {
             if (slots == null)
             {
@@ -1742,6 +1745,32 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             }
         }
 
+        public IItem? this[int index] => _storage[index];
+        public int Capacity => _storage.Capacity;
+        public StorageType Type => _storage.Type;
+        public int FreeSlots => _storage.FreeSlots;
+        public int TakenSlots => _storage.TakenSlots;
+        public bool Add(IItem item) { if (!_storage.TryAdd(item, out var s)) return false; OnUpdate(s); return true; }
+        public bool Add(int slot, IItem item) { if (!_storage.TryAdd(slot, item, out var s)) return false; OnUpdate(s); return true; }
+        public void AddAndRemoveFrom(IItemContainer container) => ItemContainerTransfer.AddAndRemoveFrom(this, container);
+        public IItem? GetById(int id) => _storage.GetById(id);
+        public int Remove(IItem item, int preferredSlot = -1, bool update = true) { var n = _storage.Remove(item, preferredSlot, out var s); if (n > 0 && update) OnUpdate(s); return n; }
+        public void Replace(int slot, IItem item) { _storage.Replace(slot, item); OnUpdate([slot]); }
+        public void Swap(int fromSlot, int toSlot) { if (_storage.Swap(fromSlot, toSlot)) OnUpdate([fromSlot, toSlot]); }
+        public void Move(int fromSlot, int toSlot) { if (_storage.Move(fromSlot, toSlot)) OnUpdate(); }
+        public bool AddRange(IEnumerable<IItem?> items) { if (!_storage.TryAddRange(items, out var s)) return false; OnUpdate(s); return true; }
+        public bool Contains(int id, int count) => _storage.Contains(id, count);
+        public bool Contains(int id) => _storage.Contains(id);
+        public int GetCount(IItem item) => _storage.GetCount(item);
+        public int GetCountById(int id) => _storage.GetCountById(id);
+        public int GetInstanceSlot(IItem item) => _storage.GetInstanceSlot(item);
+        public void Sort() { _storage.Sort(); OnUpdate(); }
+        public int GetSlotByItem(IItem item, bool ignoreCount = true) => _storage.GetSlotByItem(item, ignoreCount);
+        public bool HasSpaceFor(IItem item) => _storage.HasSpaceFor(item);
+        public bool HasSpaceForRange(IEnumerable<IItem?> items) => _storage.HasSpaceForRange(items);
+        public void Clear(bool update) { if (_storage.Clear() && update) OnUpdate(); }
+        public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
         /// <summary>
         ///     Calculate's total value of this container.
         /// </summary>

@@ -138,6 +138,36 @@ public sealed class ShopStockContainerTests
         Assert.AreEqual(0, scenario.Inventory.GetCountById(ItemId));
     }
 
+    [TestMethod]
+    public void NormalizeStock_RestocksDepletedOriginalItem()
+    {
+        var scenario = CreateScenario(cost: 0);
+        var depletedOriginal = scenario.StockItem.Clone(0);
+        var replacement = new IItem[scenario.Stock.Capacity];
+        replacement[0] = depletedOriginal;
+        scenario.Stock.SetItems(replacement, update: false);
+
+        scenario.Stock.NormalizeStock();
+
+        Assert.AreSame(depletedOriginal, scenario.Stock[0]);
+        Assert.AreEqual(1, scenario.Stock[0]!.Count);
+    }
+
+    [TestMethod]
+    public void NormalizeStock_RetainsDepletedPlayerStockAtZeroCount()
+    {
+        var scenario = CreateScenario(cost: 0);
+        var playerStock = new TestItem(2001, 1, stackable: true);
+        var replacement = new IItem[scenario.Stock.Capacity];
+        replacement[0] = playerStock;
+        scenario.Stock.SetItems(replacement, update: false);
+
+        scenario.Stock.NormalizeStock();
+
+        Assert.AreSame(playerStock, scenario.Stock[0]);
+        Assert.AreEqual(0, scenario.Stock[0]!.Count);
+    }
+
     private static ShopScenario CreateScenario(
         int cost,
         int currencyId = CoinId,
@@ -198,20 +228,44 @@ public sealed class ShopStockContainerTests
         IShopStockContainer Stock,
         IItem StockItem);
 
-    private sealed class TestInventory : TestItemContainer, IInventoryContainer
+    private sealed class TestInventory : IInventoryContainer, ITradeItemContainer, IItemContainerStorageProvider
     {
-        public TestInventory(int capacity) : base(StorageType.Normal, capacity) { }
-
+        private readonly ItemContainerStorage _storage;
+        ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
+        public TestInventory(int capacity) => _storage = new ItemContainerStorage(StorageType.Normal, capacity);
+        public IItem? this[int index] => _storage[index];
+        public int Capacity => _storage.Capacity;
+        public StorageType Type => _storage.Type;
+        public int FreeSlots => _storage.FreeSlots;
+        public int TakenSlots => _storage.TakenSlots;
+        public bool Add(IItem item) { if (!_storage.TryAdd(item, out var s)) return false; OnUpdate(s); return true; }
+        public bool Add(int slot, IItem item) { if (!_storage.TryAdd(slot, item, out var s)) return false; OnUpdate(s); return true; }
+        public void AddAndRemoveFrom(IItemContainer container) => ItemContainerTransfer.AddAndRemoveFrom(this, container);
+        public IItem? GetById(int id) => _storage.GetById(id);
+        public int Remove(IItem item, int preferredSlot = -1, bool update = true) { var n = _storage.Remove(item, preferredSlot, out var s); if (n > 0 && update) OnUpdate(s); return n; }
+        public void Replace(int slot, IItem item) { _storage.Replace(slot, item); OnUpdate([slot]); }
+        public void Swap(int fromSlot, int toSlot) { if (_storage.Swap(fromSlot, toSlot)) OnUpdate([fromSlot, toSlot]); }
+        public void Move(int fromSlot, int toSlot) { if (_storage.Move(fromSlot, toSlot)) OnUpdate((HashSet<int>?)null); }
+        public bool AddRange(IEnumerable<IItem?> items) { if (!_storage.TryAddRange(items, out var s)) return false; OnUpdate(s); return true; }
+        public bool Contains(int id, int count) => _storage.Contains(id, count);
+        public bool Contains(int id) => _storage.Contains(id);
+        public int GetCount(IItem item) => _storage.GetCount(item);
+        public int GetCountById(int id) => _storage.GetCountById(id);
+        public int GetInstanceSlot(IItem item) => _storage.GetInstanceSlot(item);
+        public void Sort() { _storage.Sort(); OnUpdate((HashSet<int>?)null); }
+        public int GetSlotByItem(IItem item, bool ignoreCount = true) => _storage.GetSlotByItem(item, ignoreCount);
+        public bool HasSpaceFor(IItem item) => _storage.HasSpaceFor(item);
+        public bool HasSpaceForRange(IEnumerable<IItem?> items) => _storage.HasSpaceForRange(items);
+        public void Clear(bool update) { if (_storage.Clear() && update) OnUpdate(); }
+        public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        public bool AddRangeForTrade(IEnumerable<IItem?> items) { if (!TryAddRangeForTradeStorage(items, out var s)) return false; OnUpdate(s); return true; }
+        public bool TryAddRangeForTradeStorage(IEnumerable<IItem?> items, out HashSet<int> changedSlots) => _storage.TryAddRange(items, out changedSlots);
+        public bool RemoveForTrade(IItem item, int preferredSlot = -1) { if (!TryRemoveForTradeStorage(item, preferredSlot, out var s)) return false; OnUpdate(s); return true; }
+        public bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots) => _storage.TryRemoveExact(item, item.Count, preferredSlot, out changedSlots);
         public bool DropItem(IItem item) => false;
+        public void OnUpdate(HashSet<int>? slots = null) { }
     }
-
-    private class TestItemContainer : TradeItemContainer
-    {
-        protected TestItemContainer(StorageType type, int capacity) : base(type, capacity) { }
-
-        public override void OnUpdate(HashSet<int>? slots = null) { }
-    }
-
     private sealed class TestItemBuilder : IItemBuilder, IItemId, IItemOptional
     {
         private int _id;

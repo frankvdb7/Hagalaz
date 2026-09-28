@@ -46,7 +46,7 @@ public sealed class ItemContainerPersistenceTests
         var items = new IItem[container.Capacity];
         items[0] = first;
         items[4] = second;
-        container.SetItems(items, false);
+        ((IItemContainerStorageProvider)container).Storage.ReplaceState(items);
         first.SerializeExtraData().Returns(_ =>
         {
             container.Clear(false);
@@ -236,7 +236,7 @@ public sealed class ItemContainerPersistenceTests
     }
 
     private static void AssertRoundTrip<T>(Func<T> create, IReadOnlyList<HydratedItemDto> initial)
-        where T : BaseItemContainer, IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
+        where T : IItemContainer, IItemContainerStorageProvider, IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         var source = create();
         source.Hydrate(initial);

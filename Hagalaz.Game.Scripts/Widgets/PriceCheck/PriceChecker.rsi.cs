@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -19,29 +20,57 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
         /// <summary>
         ///     Price checker interface container.
         /// </summary>
-        private class PriceCheckerInterfaceContainer : BaseItemContainer
+        private class PriceCheckerInterfaceContainer : IItemContainer, IItemContainerStorageProvider
         {
             /// <summary>
             ///     Contains owner of this class.
             /// </summary>
             private readonly ICharacter _owner;
+            private readonly ItemContainerStorage _storage;
+            ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
 
             /// <summary>
             ///     Construct's new instance.
             /// </summary>
             /// <param name="owner"></param>
-            public PriceCheckerInterfaceContainer(ICharacter owner) : base(StorageType.AlwaysStack, owner.Inventory.Capacity) => _owner = owner;
+            public PriceCheckerInterfaceContainer(ICharacter owner) { _owner = owner; _storage = new ItemContainerStorage(StorageType.AlwaysStack, owner.Inventory.Capacity); }
 
             /// <summary>
             ///     Happens when container is updated.
             /// </summary>
             /// <param name="slots"></param>
-            public override void OnUpdate(HashSet<int>? slots = null)
+            public void OnUpdate(HashSet<int>? slots = null)
             {
                 _owner.Configurations.SendItems(90, false, this, slots);
                 RefreshPrices(slots);
             }
 
+            public IItem? this[int index] => _storage[index];
+            public int Capacity => _storage.Capacity;
+            public StorageType Type => _storage.Type;
+            public int FreeSlots => _storage.FreeSlots;
+            public int TakenSlots => _storage.TakenSlots;
+            public bool Add(IItem item) { if (!_storage.TryAdd(item, out var s)) return false; OnUpdate(s); return true; }
+            public bool Add(int slot, IItem item) { if (!_storage.TryAdd(slot, item, out var s)) return false; OnUpdate(s); return true; }
+            public void AddAndRemoveFrom(IItemContainer container) => ItemContainerTransfer.AddAndRemoveFrom(this, container);
+            public IItem? GetById(int id) => _storage.GetById(id);
+            public int Remove(IItem item, int preferredSlot = -1, bool update = true) { var n = _storage.Remove(item, preferredSlot, out var s); if (n > 0 && update) OnUpdate(s); return n; }
+            public void Replace(int slot, IItem item) { _storage.Replace(slot, item); OnUpdate([slot]); }
+            public void Swap(int fromSlot, int toSlot) { if (_storage.Swap(fromSlot, toSlot)) OnUpdate([fromSlot, toSlot]); }
+            public void Move(int fromSlot, int toSlot) { if (_storage.Move(fromSlot, toSlot)) OnUpdate(); }
+            public bool AddRange(IEnumerable<IItem?> items) { if (!_storage.TryAddRange(items, out var s)) return false; OnUpdate(s); return true; }
+            public bool Contains(int id, int count) => _storage.Contains(id, count);
+            public bool Contains(int id) => _storage.Contains(id);
+            public int GetCount(IItem item) => _storage.GetCount(item);
+            public int GetCountById(int id) => _storage.GetCountById(id);
+            public int GetInstanceSlot(IItem item) => _storage.GetInstanceSlot(item);
+            public void Sort() { _storage.Sort(); OnUpdate(); }
+            public int GetSlotByItem(IItem item, bool ignoreCount = true) => _storage.GetSlotByItem(item, ignoreCount);
+            public bool HasSpaceFor(IItem item) => _storage.HasSpaceFor(item);
+            public bool HasSpaceForRange(IEnumerable<IItem?> items) => _storage.HasSpaceForRange(items);
+            public void Clear(bool update) { if (_storage.Clear() && update) OnUpdate(); }
+            public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
             /// <summary>
             ///     Calculate's total value of this container.
             /// </summary>
@@ -108,21 +137,40 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             }
         }
 
-        private sealed class ProjectedInventoryContainer : BaseItemContainer
+        private sealed class ProjectedInventoryContainer : IItemContainer, IItemContainerStorageProvider
         {
-            public ProjectedInventoryContainer(int capacity) : base(StorageType.Normal, capacity) { }
-
-            public bool RemoveExact(IItem item, int count)
-            {
-                lock (ContainerMutationLock)
-                {
-                    return TryRemoveExactCore(item, count, -1, out _);
-                }
-            }
-
-            public override void OnUpdate(HashSet<int>? slots = null) { }
+            private readonly ItemContainerStorage _storage;
+            ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
+            public ProjectedInventoryContainer(int capacity) => _storage = new ItemContainerStorage(StorageType.Normal, capacity);
+            public IItem? this[int index] => _storage[index];
+            public int Capacity => _storage.Capacity;
+            public StorageType Type => _storage.Type;
+            public int FreeSlots => _storage.FreeSlots;
+            public int TakenSlots => _storage.TakenSlots;
+            public bool Add(IItem item) => _storage.TryAdd(item, out _);
+            public bool Add(int slot, IItem item) => _storage.TryAdd(slot, item, out _);
+            public void AddAndRemoveFrom(IItemContainer container) => ItemContainerTransfer.AddAndRemoveFrom(this, container);
+            public IItem? GetById(int id) => _storage.GetById(id);
+            public int Remove(IItem item, int preferredSlot = -1, bool update = true) => _storage.Remove(item, preferredSlot, out _);
+            public void Replace(int slot, IItem item) => _storage.Replace(slot, item);
+            public void Swap(int fromSlot, int toSlot) => _storage.Swap(fromSlot, toSlot);
+            public void Move(int fromSlot, int toSlot) => _storage.Move(fromSlot, toSlot);
+            public bool AddRange(IEnumerable<IItem?> items) => _storage.TryAddRange(items, out _);
+            public bool Contains(int id, int count) => _storage.Contains(id, count);
+            public bool Contains(int id) => _storage.Contains(id);
+            public int GetCount(IItem item) => _storage.GetCount(item);
+            public int GetCountById(int id) => _storage.GetCountById(id);
+            public int GetInstanceSlot(IItem item) => _storage.GetInstanceSlot(item);
+            public void Sort() => _storage.Sort();
+            public int GetSlotByItem(IItem item, bool ignoreCount = true) => _storage.GetSlotByItem(item, ignoreCount);
+            public bool HasSpaceFor(IItem item) => _storage.HasSpaceFor(item);
+            public bool HasSpaceForRange(IEnumerable<IItem?> items) => _storage.HasSpaceForRange(items);
+            public void Clear(bool update) => _storage.Clear();
+            public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            public bool RemoveExact(IItem item, int count) => _storage.TryRemoveExact(item, count, -1, out _);
+            public void OnUpdate(HashSet<int>? slots = null) { }
         }
-
         /// <summary>
         ///     Contains inventory interface.
         /// </summary>

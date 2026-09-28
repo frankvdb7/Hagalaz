@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
@@ -15,7 +16,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public class RewardContainer : TradeItemContainer, IRewardContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public partial class RewardContainer : IRewardContainer, IItemContainerStorageProvider, IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
@@ -29,11 +30,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contstructs a container for character ingame mail.
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
+        private readonly ItemContainerStorage _storage;
+
+        ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
+
         public RewardContainer(ICharacter owner, IItemBuilder itemBuilder)
-            : base(StorageType.AlwaysStack, byte.MaxValue)
         {
             _owner = owner;
             _itemBuilder = itemBuilder;
+            _storage = new ItemContainerStorage(StorageType.AlwaysStack, byte.MaxValue);
         }
 
         /// <summary>
@@ -44,7 +49,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public int Claim(IItem item, int count)
         {
-            var slot = GetInstanceSlot(item);
+            var slot = _storage.GetInstanceSlot(item);
             if (slot == -1 || count <= 0) return -1;
             var toRemove = item.Clone();
             if (toRemove.Count < count) count = toRemove.Count;
@@ -83,7 +88,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 toRemove.Count = count;
             }
 
-            if (!BaseItemContainer.TryTransfer(this, _owner.Inventory, item, count, slot))
+            if (!ItemContainerTransfer.TryTransfer(this, _owner.Inventory, item, count, slot))
             {
                 return -1;
             }
@@ -96,14 +101,26 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
         /// <param name="slots">The slots.</param>
-        public override void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new RewardsChangedEvent(_owner, slots));
+        public void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new RewardsChangedEvent(_owner, slots));
 
-        public void Hydrate(IReadOnlyList<HydratedItemDto> rewards) => RestoreItems(rewards.Select(item =>
-            (item.SlotId, _itemBuilder.Create().WithId(item.ItemId).WithCount(item.Count)
-                .WithExtraData(item.ExtraData ?? string.Empty).Build())));
+        public void Hydrate(IReadOnlyList<HydratedItemDto> rewards)
+        {
+            var items = new IItem?[Capacity];
+            foreach (var entry in rewards)
+            {
+                if ((uint)entry.SlotId >= (uint)Capacity || entry.Count <= 0 || items[entry.SlotId] != null)
+                    throw new ArgumentException("Rewards contain an invalid restored slot.", nameof(rewards));
+                items[entry.SlotId] = _itemBuilder.Create().WithId(entry.ItemId).WithCount(entry.Count)
+                    .WithExtraData(entry.ExtraData ?? string.Empty).Build();
+            }
+            _storage.ReplaceState(items);
+        }
 
-        public IReadOnlyList<HydratedItemDto> Dehydrate() => EnumerateOccupiedSlots()
-            .Select(entry => new HydratedItemDto(entry.Item.Id, entry.Item.Count, entry.Slot, entry.Item.SerializeExtraData()))
-            .ToArray();
+        public IReadOnlyList<HydratedItemDto> Dehydrate()
+        {
+            var entries = _storage.Select((item, slot) => (item, slot)).Where(x => x.item != null).ToArray();
+            return entries.Select(entry => new HydratedItemDto(entry.item!.Id, entry.item.Count, entry.slot,
+                entry.item.SerializeExtraData())).ToArray();
+        }
     }
 }

@@ -243,7 +243,7 @@ public sealed class PriceCheckerTransferTests
         var script = new PriceChecker(accessor);
         script.Initialize(interfaceInstance);
         script.OnOpen();
-        var selections = (BaseItemContainer)GetField(script, "_priceCheckInterface")!;
+        var selections = (IItemContainer)GetField(script, "_priceCheckInterface")!;
 
         IContainer<IItem?>? projectedInventory = null;
         configurations.When(configuration => configuration.SendItems(
@@ -305,7 +305,7 @@ public sealed class PriceCheckerTransferTests
         TestInventory inventory,
         IWidgetContainer widgets,
         PriceChecker script,
-        BaseItemContainer selections,
+        IItemContainer selections,
         IWidget inventoryOverlay,
         OnComponentClick? inventoryClick,
         EventHappened<InventoryChangedEvent>? inventoryChangedHandler,
@@ -317,7 +317,7 @@ public sealed class PriceCheckerTransferTests
         public TestInventory Inventory { get; } = inventory;
         public IWidgetContainer Widgets { get; } = widgets;
         public PriceChecker Script { get; } = script;
-        public BaseItemContainer Selections { get; } = selections;
+        public IItemContainer Selections { get; } = selections;
         public IWidget InventoryOverlay { get; } = inventoryOverlay;
         public OnComponentClick? InventoryClick { get; } = inventoryClick;
         public EventHappened<InventoryChangedEvent>? InventoryChangedHandler { get; } = inventoryChangedHandler;
@@ -325,10 +325,42 @@ public sealed class PriceCheckerTransferTests
         public IContainer<IItem?>? ProjectedInventory => getProjectedInventory();
     }
 
-    private sealed class TestInventory(int capacity) : TradeItemContainer(StorageType.Normal, capacity), IInventoryContainer
+    private sealed class TestInventory : IInventoryContainer, IItemContainerStorageProvider
     {
+        private readonly ItemContainerStorage _storage;
+        ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
+        public TestInventory(int capacity) => _storage = new ItemContainerStorage(StorageType.Normal, capacity);
+        public IItem? this[int index] => _storage[index];
+        public int Capacity => _storage.Capacity;
+        public StorageType Type => _storage.Type;
+        public int FreeSlots => _storage.FreeSlots;
+        public int TakenSlots => _storage.TakenSlots;
+        public bool Add(IItem item) => _storage.TryAdd(item, out _);
+        public bool Add(int slot, IItem item) => _storage.TryAdd(slot, item, out _);
+        public void AddAndRemoveFrom(IItemContainer container) => ItemContainerTransfer.AddAndRemoveFrom(this, container);
+        public IItem? GetById(int id) => _storage.GetById(id);
+        public int Remove(IItem item, int preferredSlot = -1, bool update = true) => _storage.Remove(item, preferredSlot, out _);
+        public void Replace(int slot, IItem item) => _storage.Replace(slot, item);
+        public void Swap(int fromSlot, int toSlot) => _storage.Swap(fromSlot, toSlot);
+        public void Move(int fromSlot, int toSlot) => _storage.Move(fromSlot, toSlot);
+        public bool AddRange(IEnumerable<IItem?> items) => _storage.TryAddRange(items, out _);
+        public bool Contains(int id, int count) => _storage.Contains(id, count);
+        public bool Contains(int id) => _storage.Contains(id);
+        public int GetCount(IItem item) => _storage.GetCount(item);
+        public int GetCountById(int id) => _storage.GetCountById(id);
+        public int GetInstanceSlot(IItem item) => _storage.GetInstanceSlot(item);
+        public void Sort() => _storage.Sort();
+        public int GetSlotByItem(IItem item, bool ignoreCount = true) => _storage.GetSlotByItem(item, ignoreCount);
+        public bool HasSpaceFor(IItem item) => _storage.HasSpaceFor(item);
+        public bool HasSpaceForRange(IEnumerable<IItem?> items) => _storage.HasSpaceForRange(items);
+        public void Clear(bool update) => _storage.Clear();
+        public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        public bool AddRangeForTrade(IEnumerable<IItem?> items) => _storage.TryAddRange(items, out _);
+        public bool TryAddRangeForTradeStorage(IEnumerable<IItem?> items, out HashSet<int> changedSlots) => _storage.TryAddRange(items, out changedSlots);
+        public bool RemoveForTrade(IItem item, int preferredSlot = -1) => _storage.TryRemoveExact(item, item.Count, preferredSlot, out _);
+        public bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots) => _storage.TryRemoveExact(item, item.Count, preferredSlot, out changedSlots);
         public bool DropItem(IItem item) => false;
-
-        public override void OnUpdate(HashSet<int>? slots = null) { }
+        public void OnUpdate(HashSet<int>? slots = null) { }
     }
 }

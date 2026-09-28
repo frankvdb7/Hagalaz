@@ -17,7 +17,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// Class BankContainer
     /// </summary>
-    public class BankContainer : TradeItemContainer, IBankContainer, IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
+    public partial class BankContainer : IBankContainer, IItemContainerStorageProvider, IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
         /// Instance of the character who owns this container.
@@ -25,10 +25,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ICharacter _owner;
         private readonly IItemBuilder _itemBuilder;
 
-        /// <summary>
-        /// The maximum capacity.
-        /// </summary>
-        private readonly int _maximumCapacity;
+        private readonly ItemContainerStorage _storage;
+
+        ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
 
         /// <summary>
         /// Contstructs a container for character banks.
@@ -36,35 +35,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="owner">The owner of the container.</param>
         /// <param name="capacity">The capacity of the container.</param>
         public BankContainer(ICharacter owner, int capacity, IItemBuilder itemBuilder)
-            : base(StorageType.AlwaysStack, capacity)
         {
             _owner = owner;
             _itemBuilder = itemBuilder;
-            _maximumCapacity = capacity;
+            _storage = new ItemContainerStorage(StorageType.AlwaysStack, capacity);
         }
 
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
         /// <param name="slots">The slots.</param>
-        public override void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new BankChangedEvent(_owner, slots));
-
-        /// <summary>
-        /// Attempts to find a free slot in the container.
-        /// </summary>
-        /// <returns>Returns the availible slot id; -1 if none.</returns>
-        public override int GetFreeSlot()
-        {
-            for (var i = 0; i < _maximumCapacity; i++)
-            {
-                if (Items[i] == null)
-                {
-                    return i;
-                }
-            }
-
-            return -1;
-        }
+        public void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new BankChangedEvent(_owner, slots));
 
         /// <summary>
         /// Deposits from money pouch.
@@ -131,7 +112,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = CreateDepositItem(item, count, out var transformed);
-            if (BaseItemContainer.TryTransfer(container, this, item, count, slot,
+            if (ItemContainerTransfer.TryTransfer(container, this, item, count, slot,
                     destinationItem: transformed ? deposited : null))
             {
                 return true;
@@ -179,7 +160,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             var fullyRemoved = count == equippedItem.Count;
             deposited = CreateDepositItem(equippedItem, count, out var transformed);
-            if (TryTransferStorage(equipmentContainer, this, equippedItem, count, (int)slot, -1,
+            if (ItemContainerTransfer.TryTransferStorage(equipmentContainer, this, equippedItem, count, (int)slot, -1,
                     transformed ? deposited : null, out var equipmentSlots, out var bankSlots))
             {
                 if (fullyRemoved)
@@ -222,7 +203,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = CreateDepositItem(item, count, out var transformed);
-            if (BaseItemContainer.TryTransfer(_owner.Inventory, this, item, count, slot,
+            if (ItemContainerTransfer.TryTransfer(_owner.Inventory, this, item, count, slot,
                     destinationItem: transformed ? deposited : null))
             {
                 return true;
@@ -313,7 +294,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             withdrawed.Count = count;
-            if (!BaseItemContainer.TryTransfer(this, _owner.Inventory, item, count, slot,
+            if (!ItemContainerTransfer.TryTransfer(this, _owner.Inventory, item, count, slot,
                     destinationItem: transformed ? withdrawed : null))
             {
                 _owner.SendChatMessage(GameStrings.InventoryFull);
@@ -326,13 +307,25 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         }
 
-        public void Hydrate(IReadOnlyList<HydratedItemDto> bank) => RestoreItems(bank.Select(item =>
-            (item.SlotId, _itemBuilder.Create().WithId(item.ItemId).WithCount(item.Count)
-                .WithExtraData(item.ExtraData ?? string.Empty).Build())));
+        public void Hydrate(IReadOnlyList<HydratedItemDto> bank)
+        {
+            var items = new IItem?[Capacity];
+            foreach (var entry in bank)
+            {
+                if ((uint)entry.SlotId >= (uint)Capacity || entry.Count <= 0 || items[entry.SlotId] != null)
+                    throw new ArgumentException("Bank contains an invalid restored slot.", nameof(bank));
+                items[entry.SlotId] = _itemBuilder.Create().WithId(entry.ItemId).WithCount(entry.Count)
+                    .WithExtraData(entry.ExtraData ?? string.Empty).Build();
+            }
+            _storage.ReplaceState(items);
+        }
 
-        public IReadOnlyList<HydratedItemDto> Dehydrate() => EnumerateOccupiedSlots()
-            .Select(entry => new HydratedItemDto(entry.Item.Id, entry.Item.Count, entry.Slot, entry.Item.SerializeExtraData()))
-            .ToArray();
+        public IReadOnlyList<HydratedItemDto> Dehydrate()
+        {
+            var entries = _storage.Select((item, slot) => (item, slot)).Where(x => x.item != null).ToArray();
+            return entries.Select(entry => new HydratedItemDto(entry.item!.Id, entry.item.Count, entry.slot,
+                entry.item.SerializeExtraData())).ToArray();
+        }
 
         private IItem CreateDepositItem(IItem item, int count, out bool transformed)
         {

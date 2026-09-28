@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
@@ -14,7 +14,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
     /// <summary>
     /// Class ShopStockContainer
     /// </summary>
-    public class ShopStockContainer : BaseItemContainer, IShopStockContainer
+    public partial class ShopStockContainer : IShopStockContainer, IItemContainerStorageProvider
     {
         /// <summary>
         /// Wether this shop container is a sample container.
@@ -33,6 +33,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
         private readonly IItemBuilder _itemBuilder;
         private readonly IEventManager _eventManager;
+        private readonly ItemContainerStorage _storage;
+
+        ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
 
         /// <summary>
         /// The original stock of the shop.
@@ -53,11 +56,11 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         /// <param name="eventManager"></param>
         public ShopStockContainer(
             IShop shop, IItemService itemRepository, IItemBuilder itemBuilder, bool sampleContainer, StorageType type, int capacity,
-            IList<IItem> stock, IEventManager eventManager) : base(type, stock, capacity)
+            IList<IItem> stock, IEventManager eventManager)
         {
+            _storage = new ItemContainerStorage(type, stock, capacity, 0);
             _shop = shop;
             _sampleContainer = sampleContainer;
-            CountToResetTo = 0;
             _itemRepository = itemRepository;
             _itemBuilder = itemBuilder;
             _eventManager = eventManager;
@@ -68,12 +71,18 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
         /// <param name="slots">The slots.</param>
-        public override void OnUpdate(HashSet<int>? slots = null)
+        public void OnUpdate(HashSet<int>? slots = null)
         {
             if (_sampleContainer)
                 _eventManager.SendEvent(new ShopSampleStockChangedEvent(_shop, slots));
             else
                 _eventManager.SendEvent(new ShopStockChangedEvent(_shop, slots));
+        }
+
+        public void SetItems(IItem[] items, bool update)
+        {
+            _storage.ReplaceState(items);
+            if (update) OnUpdate();
         }
 
         /// <summary>
@@ -113,7 +122,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 sold = item.Clone(count);
             }
 
-            if (!sold.ItemScript.CanSellItem(sold, viewer) || !_shop.GeneralStore && !Contains(sold))
+            if (!sold.ItemScript.CanSellItem(sold, viewer) || !_shop.GeneralStore && !_storage.Contains(sold))
             {
                 viewer.SendChatMessage("You cannot sell this item.");
                 return false;
@@ -132,7 +141,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 return false;
             }
 
-            if (!BaseItemContainer.TryTransfer(viewer.Inventory, this, item, count, slot,
+            if (!ItemContainerTransfer.TryTransfer(viewer.Inventory, this, item, count, slot,
                     destinationItem: transformed ? sold : null))
             {
                 return false;
@@ -230,7 +239,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             else
             {
                 Remove(toRemove, slot);
-                if (Items[slot] == null) Sort();
+                if (_storage[slot] == null) Sort();
             }
 
             viewer.Inventory.Add(toRemove);
@@ -245,12 +254,13 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         {
             var changedSlots = new HashSet<int>();
             var shouldSort = false;
-            lock (ContainerMutationLock)
+            lock (_storage.MutationLock)
             {
+                var items = _storage.ToArray();
                 // This uses the full capacity, because we don't know if items were added.
                 for (var i = 0; i < Capacity; i++)
                 {
-                    var item = Items[i];
+                    var item = items[i];
                     if (item == null)
                     {
                         continue;
@@ -267,13 +277,13 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                         changedSlots.Add(i);
                         if (item.Count <= 0)
                         {
-                            if (CountToResetTo == -1)
+                            if (_storage.CountToResetTo == -1)
                             {
-                                Items[i] = null;
+                                items[i] = null;
                             }
                             else
                             {
-                                item.Count = CountToResetTo;
+                                item.Count = _storage.CountToResetTo;
                             }
 
                             shouldSort = true;
@@ -284,22 +294,22 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 if (shouldSort)
                 {
                     var write = 0;
-                    for (var i = 0; i < Items.Length; i++)
+                    for (var i = 0; i < items.Length; i++)
                     {
-                        if (Items[i] == null)
+                        if (items[i] == null)
                         {
                             continue;
                         }
 
-                        var item = Items[i];
-                        Items[i] = null;
-                        Items[write++] = item;
+                        var item = items[i];
+                        items[i] = null;
+                        items[write++] = item;
                     }
                 }
 
                 if (changedSlots.Count > 0)
                 {
-                    AdvanceRevision();
+                    _storage.ReplaceState(items);
                 }
             }
 

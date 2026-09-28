@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Collections.Extensions;
@@ -1112,7 +1113,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     return false;
                 }
 
-                if (BaseItemContainer.TryTransfer(character.Inventory, offer, item, count, preferredSlot))
+                if (ItemContainerTransfer.TryTransfer(character.Inventory, offer, item, count, preferredSlot))
                 {
                     RefreshTradeOfferScreenLocked(session);
                     ProcessTradeChangeLocked(session, self, false);
@@ -1148,7 +1149,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
                 if (item.Id != 995)
                 {
-                    if (!BaseItemContainer.TryTransfer(offer, character.Inventory, item, count, preferredSlot))
+                    if (!ItemContainerTransfer.TryTransfer(offer, character.Inventory, item, count, preferredSlot))
                     {
                         return false;
                     }
@@ -1854,8 +1855,10 @@ namespace Hagalaz.Game.Scripts.Characters
         /// <summary>
         ///     Container for holding items in trade offer interfaces.
         /// </summary>
-        public class TradeContainer : TradeItemContainer
+        public class TradeContainer : ITradeItemContainer, IItemContainerStorageProvider
         {
+            private readonly ItemContainerStorage _storage = new(StorageType.Normal, 14);
+            ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
             /// <summary>
             ///     Contains last slots update.
             /// </summary>
@@ -1870,7 +1873,6 @@ namespace Hagalaz.Game.Scripts.Characters
             ///     Construct's new trade container.
             /// </summary>
             public TradeContainer()
-                : base(StorageType.Normal, 14)
             {
                 Updates = [];
                 OnUpdate();
@@ -1880,7 +1882,7 @@ namespace Hagalaz.Game.Scripts.Characters
             ///     Happens when trade container get's updated.
             /// </summary>
             /// <param name="slots"></param>
-            public override void OnUpdate(HashSet<int>? slots = null)
+            public void OnUpdate(HashSet<int>? slots = null)
             {
                 Revision++;
                 if (slots == null)
@@ -1897,6 +1899,36 @@ namespace Hagalaz.Game.Scripts.Characters
                 }
             }
 
+            public IItem? this[int index] => _storage[index];
+            public int Capacity => _storage.Capacity;
+            public StorageType Type => _storage.Type;
+            public int FreeSlots => _storage.FreeSlots;
+            public int TakenSlots => _storage.TakenSlots;
+            public bool Add(IItem item) { if (!_storage.TryAdd(item, out var s)) return false; OnUpdate(s); return true; }
+            public bool Add(int slot, IItem item) { if (!_storage.TryAdd(slot, item, out var s)) return false; OnUpdate(s); return true; }
+            public void AddAndRemoveFrom(IItemContainer container) => ItemContainerTransfer.AddAndRemoveFrom(this, container);
+            public IItem? GetById(int id) => _storage.GetById(id);
+            public int Remove(IItem item, int preferredSlot = -1, bool update = true) { var n = _storage.Remove(item, preferredSlot, out var s); if (n > 0 && update) OnUpdate(s); return n; }
+            public void Replace(int slot, IItem item) { _storage.Replace(slot, item); OnUpdate([slot]); }
+            public void Swap(int fromSlot, int toSlot) { if (_storage.Swap(fromSlot, toSlot)) OnUpdate([fromSlot, toSlot]); }
+            public void Move(int fromSlot, int toSlot) { if (_storage.Move(fromSlot, toSlot)) OnUpdate(); }
+            public bool AddRange(IEnumerable<IItem?> items) { if (!_storage.TryAddRange(items, out var s)) return false; OnUpdate(s); return true; }
+            public bool Contains(int id, int count) => _storage.Contains(id, count);
+            public bool Contains(int id) => _storage.Contains(id);
+            public int GetCount(IItem item) => _storage.GetCount(item);
+            public int GetCountById(int id) => _storage.GetCountById(id);
+            public int GetInstanceSlot(IItem item) => _storage.GetInstanceSlot(item);
+            public void Sort() { _storage.Sort(); OnUpdate(); }
+            public int GetSlotByItem(IItem item, bool ignoreCount = true) => _storage.GetSlotByItem(item, ignoreCount);
+            public bool HasSpaceFor(IItem item) => _storage.HasSpaceFor(item);
+            public bool HasSpaceForRange(IEnumerable<IItem?> items) => _storage.HasSpaceForRange(items);
+            public void Clear(bool update) { if (_storage.Clear() && update) OnUpdate(); }
+            public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            public bool AddRangeForTrade(IEnumerable<IItem?> items) { if (!TryAddRangeForTradeStorage(items, out var s)) return false; OnUpdate(s); return true; }
+            public bool TryAddRangeForTradeStorage(IEnumerable<IItem?> items, out HashSet<int> changedSlots) => _storage.TryAddRange(items, out changedSlots);
+            public bool RemoveForTrade(IItem item, int preferredSlot = -1) { if (!TryRemoveForTradeStorage(item, preferredSlot, out var s)) return false; OnUpdate(s); return true; }
+            public bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots) => _storage.TryRemoveExact(item, item.Count, preferredSlot, out changedSlots);
             /// <summary>
             ///     Calculate's total value of this container.
             /// </summary>
