@@ -1,15 +1,8 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Logic.Dehydrations;
-using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Resources;
-using Hagalaz.Services.GameWorld.Logic.Characters.Model;
+using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Services.GameWorld.Logic.Characters;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -93,7 +86,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return -1;
             }
 
-            Sort();
+            this.Sort();
             return count;
         }
 
@@ -105,26 +98,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> rewards)
         {
-            var items = new IItem?[Capacity];
-            foreach (var entry in rewards)
-            {
-                if ((uint)entry.SlotId >= (uint)Capacity)
-                    throw new ArgumentOutOfRangeException(nameof(rewards), $"Slot {entry.SlotId} is outside the reward capacity.");
-                if (items[entry.SlotId] != null)
-                    throw new ArgumentException($"Slot {entry.SlotId} is duplicated in restored state.", nameof(rewards));
-                if (entry.Count <= 0)
-                    throw new ArgumentOutOfRangeException(nameof(rewards), "Item count is invalid for this container.");
-                items[entry.SlotId] = _itemBuilder.Create().WithId(entry.ItemId).WithCount(entry.Count)
-                    .WithExtraData(entry.ExtraData ?? string.Empty).Build();
-            }
-            _storage.ReplaceState(items);
+            _storage.RestoreItems(rewards.Select(entry => entry.ToStorageEntry(_itemBuilder)));
         }
 
         public IReadOnlyList<HydratedItemDto> Dehydrate()
         {
-            var entries = _storage.Select((item, slot) => (item, slot)).Where(x => x.item != null).ToArray();
-            return entries.Select(entry => new HydratedItemDto(entry.item!.Id, entry.item.Count, entry.slot,
-                entry.item.SerializeExtraData())).ToArray();
+            return _storage.ToHydratedItems();
         }
     }
 }

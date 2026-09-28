@@ -9,12 +9,12 @@
 **Goals:**
 
 - Move the single authoritative mutation implementation into `ItemContainerStorage` and use composition in all current production containers.
-- Keep the existing public container contracts and domain publication behavior.
+- Keep the read-only `IItemContainer` shape and domain publication behavior while removing repeated forwarding blocks. Shared item operations are extensions that delegate to the composed provider storage and publish only after committed changes. Checked trade operations remain separate; their unpublishing range-insertion primitive has one default interface delegation to storage so the trade coordinator can stage before publication.
 - Keep `TradeExchange` as the owner of trade-specific settlement and multi-container restoration.
 
 **Non-Goals:**
 
-- Change `IItemContainer`, `ITradeItemContainer`, `OnUpdate`, or general constructor semantics beyond changes required to remove the old base classes.
+- Redesign constructor semantics, item mutability, or the remaining broad low-level state replacement API. The minimum #439 overlap removes `OnUpdate` and mutation methods from `IItemContainer`; it does not cover the wider constructor and mutation API audit.
 - Redesign item mutability, shop transaction behavior, or trade acceptance rules.
 
 ## Decisions
@@ -31,11 +31,11 @@ Move add, remove, exact removal, range insertion, replace/move/swap/sort/clear, 
 
 Move the existing #437 plan/simulate/commit algorithm into a storage-to-storage static operation. `ItemContainerTransfer` resolves provider stores and publishes updates after a successful commit; its storage-only entry point returns slot sets so equipment can run domain callbacks before publication. `AddAndRemoveFrom` delegates to the coordinator while preserving its per-source-slot exact-transfer behavior.
 
-### Domain containers forward the unchanged contract
+### Domain containers own publication; extensions share storage operations
 
-Each container implements its current gameplay interface and `IItemContainerStorageProvider` directly, owns one private store, forwards `IItemContainer` queries and mutations, then calls its own `OnUpdate` according to existing flags and success semantics. Do not add a common forwarding base class or default-interface machinery.
+Each container owns one private store and implements `IItemContainerStorageProvider`. The single `ItemContainerExtensions` surface delegates common queries and mutations to that store, then calls the provider's domain publication hook only after a committed mutation and according to the existing update flag. Trade checked operations remain distinct; the unpublishing range-insertion primitive is one default interface method that delegates to storage for transaction staging. The gameplay interface does not expose raw storage or mutation methods. Do not add a common forwarding base class, storage interface hierarchy, or storage mutation algorithms to default interface methods.
 
-Hydration remains local: domain code validates persisted entries, builds capacity-sized slot state, and invokes a narrow storage replacement operation. Normal restored counts remain positive; MoneyPouch validates its coin-995 sentinel and allows count zero.
+Domain hydration code maps persisted DTOs to physical `(slot, item)` entries and calls one narrow `ItemContainerStorage.RestoreItems` operation. Storage validates capacity bounds, duplicate slots, item null/count rules and replaces state only after the complete input is valid. Normal restored counts remain positive; MoneyPouch independently validates its coin-995 entry at physical slot zero and allows count zero. A GameWorld hydration mapper shares DTO projection and construction without moving DTO knowledge into storage.
 
 ### Trade settlement locks stores directly
 
@@ -47,7 +47,7 @@ Storage accepts a simple `countToResetTo` constructor option. MoneyPouch seeds a
 
 ## Risks / Trade-offs
 
-- **Risk:** Direct composition repeats forwarding methods across containers. → **Mitigation:** Keep forwards explicit and mechanical; do not introduce inheritance or code generation.
+- **Risk:** Shared extensions publish at the wrong time or route through the wrong owner. → **Mitigation:** Extensions publish through the provider only after storage reports a successful commit; domain-specific callbacks remain in the owner.
 - **Risk:** Move/swap/replace and exact state replacement can bypass callback or revision behavior if split between storage and domain code. → **Mitigation:** Have storage return committed changed slots and advance only its private revision; domain wrappers preserve existing publication flags and equipment effects.
 - **Risk:** TradeExchange snapshots and storage mutation may restore the right slots but publish through the wrong owner. → **Mitigation:** Snapshot both storage and its owning `IItemContainer`, and retain existing post-commit publication tests.
 - **Risk:** MoneyPouch's zero-count coin sentinel and ShopStock's zero-count depleted entries look similar but have different domain rules. → **Mitigation:** Share only the configured reset count; keep sentinel validation and stock normalization in their domain classes.

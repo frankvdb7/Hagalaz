@@ -18,6 +18,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             public ItemContainerStorage Storage { get; }
             ItemContainerStorage IItemContainerStorageProvider.Storage => Storage;
+            void IItemContainerStorageProvider.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
             public int UpdateCount { get; private set; }
             public bool ThrowOnPublication { get; set; }
             public Action<HashSet<int>?>? PublicationHandler { get; set; }

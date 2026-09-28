@@ -842,12 +842,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             SelfInterface.AttachClickHandler(7,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= SelfContainer.Capacity)
+                    if (itemSlot < 0 || itemSlot >= ((IItemContainer)SelfContainer).Capacity)
                     {
                         return false;
                     }
 
-                    var item = SelfContainer[itemSlot];
+                    var item = ((IItemContainer)SelfContainer)[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -960,12 +960,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             TargetInterface.AttachClickHandler(7,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= TargetContainer.Capacity)
+                    if (itemSlot < 0 || itemSlot >= ((IItemContainer)TargetContainer).Capacity)
                     {
                         return false;
                     }
 
-                    var item = TargetContainer[itemSlot];
+                    var item = ((IItemContainer)TargetContainer)[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -1222,7 +1222,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             if (IsStaking)
             {
-                var container = new GenericContainer(StorageType.Normal, (short)(SelfContainer.Capacity + TargetContainer.Capacity));
+                IItemContainer container = new GenericContainer(StorageType.Normal, (short)(((IItemContainer)SelfContainer).Capacity + ((IItemContainer)TargetContainer).Capacity));
                 container.AddRange(SelfContainer);
                 container.AddRange(TargetContainer);
 
@@ -1299,12 +1299,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             /*if (this.IsStaking)
             {
-                if (this.SelfContainer.TakenSlots > 0)
+                if (this.((IItemContainer)SelfContainer).TakenSlots > 0)
                 {
                     this.SelfInterface.DrawString(25, string.Empty);
                     this.TargetInterface.DrawString(26, string.Empty);
                 }
-                if (this.TargetContainer.TakenSlots > 0)
+                if (this.((IItemContainer)TargetContainer).TakenSlots > 0)
                 {
                     this.SelfInterface.DrawString(26, string.Empty);
                     this.TargetInterface.DrawString(25, string.Empty);
@@ -1490,42 +1490,42 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             DuelSession = false;
             CloseInterfaces();
-            if (SelfContainer != null && SelfContainer.TakenSlots > 0)
+            if (SelfContainer != null && ((IItemContainer)SelfContainer).TakenSlots > 0)
             {
-                for (var i = 0; i < SelfContainer.Capacity; i++)
+                for (var i = 0; i < ((IItemContainer)SelfContainer).Capacity; i++)
                 {
-                    if (SelfContainer[i] == null)
+                    if (((IItemContainer)SelfContainer)[i] == null)
                     {
                         continue;
                     }
 
-                    if (SelfContainer[i].Id == 995)
+                    if (((IItemContainer)SelfContainer)[i].Id == 995)
                     {
-                        Character.MoneyPouch.Add(SelfContainer[i].Count);
+                        Character.MoneyPouch.Add(((IItemContainer)SelfContainer)[i].Count);
                     }
                     else
                     {
-                        Character.Inventory.Add(SelfContainer[i]);
+                        Character.Inventory.Add(((IItemContainer)SelfContainer)[i]);
                     }
                 }
             }
 
-            if (Target != null && TargetContainer != null && TargetContainer.TakenSlots > 0)
+            if (Target != null && TargetContainer != null && ((IItemContainer)TargetContainer).TakenSlots > 0)
             {
-                for (var i = 0; i < TargetContainer.Capacity; i++)
+                for (var i = 0; i < ((IItemContainer)TargetContainer).Capacity; i++)
                 {
-                    if (TargetContainer[i] == null)
+                    if (((IItemContainer)TargetContainer)[i] == null)
                     {
                         continue;
                     }
 
-                    if (TargetContainer[i].Id == 995)
+                    if (((IItemContainer)TargetContainer)[i].Id == 995)
                     {
-                        Target.MoneyPouch.Add(TargetContainer[i].Count);
+                        Target.MoneyPouch.Add(((IItemContainer)TargetContainer)[i].Count);
                     }
                     else
                     {
-                        Target.Inventory.Add(TargetContainer[i]);
+                        Target.Inventory.Add(((IItemContainer)TargetContainer)[i]);
                     }
                 }
             }
@@ -1718,6 +1718,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     {
         private readonly ItemContainerStorage _storage = new(StorageType.Normal, 9);
         ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
+        void IItemContainerStorageProvider.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
         /// <summary>
         ///     Contains last slots update.
         /// </summary>
@@ -1745,56 +1746,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             }
         }
 
-        public IItem? this[int index] => _storage[index];
-        public int Capacity => _storage.Capacity;
-        public StorageType Type => _storage.Type;
-        public int FreeSlots => _storage.FreeSlots;
-        public int TakenSlots => _storage.TakenSlots;
-        public bool Add(IItem item) { if (!_storage.TryAdd(item, out var s)) return false; OnUpdate(s); return true; }
-        public bool Add(int slot, IItem item) { if (!_storage.TryAdd(slot, item, out var s)) return false; OnUpdate(s); return true; }
-        public void AddAndRemoveFrom(IItemContainer container) => ItemContainerTransfer.AddAndRemoveFrom(this, container);
-        public IItem? GetById(int id) => _storage.GetById(id);
-        public int Remove(IItem item, int preferredSlot = -1, bool update = true) { var n = _storage.Remove(item, preferredSlot, out var s); if (n > 0 && update) OnUpdate(s); return n; }
-        public void Replace(int slot, IItem item) { _storage.Replace(slot, item); OnUpdate([slot]); }
-        public void Swap(int fromSlot, int toSlot) { if (_storage.Swap(fromSlot, toSlot)) OnUpdate([fromSlot, toSlot]); }
-        public void Move(int fromSlot, int toSlot) { if (_storage.Move(fromSlot, toSlot)) OnUpdate(); }
-        public bool AddRange(IEnumerable<IItem?> items) { if (!_storage.TryAddRange(items, out var s)) return false; OnUpdate(s); return true; }
-        public bool Contains(int id, int count) => _storage.Contains(id, count);
-        public bool Contains(int id) => _storage.Contains(id);
-        public int GetCount(IItem item) => _storage.GetCount(item);
-        public int GetCountById(int id) => _storage.GetCountById(id);
-        public int GetInstanceSlot(IItem item) => _storage.GetInstanceSlot(item);
-        public void Sort() { _storage.Sort(); OnUpdate(); }
-        public int GetSlotByItem(IItem item, bool ignoreCount = true) => _storage.GetSlotByItem(item, ignoreCount);
-        public bool HasSpaceFor(IItem item) => _storage.HasSpaceFor(item);
-        public bool HasSpaceForRange(IEnumerable<IItem?> items) => _storage.HasSpaceForRange(items);
-        public void Clear(bool update) { if (_storage.Clear() && update) OnUpdate(); }
-        public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
         /// <summary>
         ///     Calculate's total value of this container.
         /// </summary>
         /// <returns></returns>
-        public int CalculateTotalValue()
-        {
-            var total = 0;
-            for (var slot = 0; slot < Capacity; slot++)
-            {
-                var item = this[slot];
-                if (item == null)
-                {
-                    continue;
-                }
-
-                if ((ulong)total + (ulong)item.ItemDefinition.TradeValue * (ulong)item.Count > int.MaxValue)
-                {
-                    return -1;
-                }
-
-                total += item.ItemDefinition.TradeValue * item.Count;
-            }
-
-            return total;
-        }
+        public int CalculateTotalValue() => (int)ItemContainerTradeValue.Calculate(this);
     }
 }

@@ -34,6 +34,6 @@
 
 ## 7. Integration and review
 
-- [x] 7.1 Review the cumulative diff for one slot owner/one mutation algorithm, callback and publication order, exact persistence slots and absence of #439 cleanup; run focused Abstractions, GameWorld and Scripts test projects.
+- [x] 7.1 Review the cumulative diff for one slot owner/one mutation algorithm, callback and publication order, exact persistence slots and only the minimum #439 API cleanup required for composition; run focused Abstractions, GameWorld and Scripts test projects.
 - [x] 7.2 Run the affected solution build, strict OpenSpec validation, local repository-configured jscpd base comparison, and `git diff --check`; record exact commands and results.
-- [ ] 7.3 Resolve the 27 new clone pairs reported against the pull-request base under an approved policy, then obtain a passing `fail-on-new-clones` result.
+- [x] 7.3 Eliminate every new clone pair relative to the pull-request base and obtain a passing repository `fail-on-new-clones` result with zero new pairs.

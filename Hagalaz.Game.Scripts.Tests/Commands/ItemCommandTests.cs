@@ -22,13 +22,20 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var itemOptionalMock = Substitute.For<IItemOptional>();
             var itemBuildMock = Substitute.For<IItemBuild>();
             var itemMock = Substitute.For<IItem>();
+            itemMock.Id.Returns(123);
+            itemMock.Count.Returns(456);
+            var itemDefinitionMock = Substitute.For<IItemDefinition>();
+            itemDefinitionMock.Stackable.Returns(true);
+            itemMock.ItemDefinition.Returns(itemDefinitionMock);
+            itemMock.Clone().Returns(itemMock);
+            itemMock.Clone(Arg.Any<int>()).Returns(itemMock);
 
             itemBuilderMock.Create().Returns(itemIdMock);
             itemIdMock.WithId(123).Returns(itemOptionalMock);
             itemOptionalMock.WithCount(456).Returns(itemOptionalMock);
             ((IItemBuild)itemOptionalMock).Build().Returns(itemMock);
 
-            var inventoryMock = Substitute.For<IInventoryContainer>();
+            var inventoryMock = new ComposedTestContainer(28);
 
             var characterMock = Substitute.For<ICharacter>();
             characterMock.Inventory.Returns(inventoryMock);
@@ -40,7 +47,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             await command.Execute(args);
 
             // Assert
-            inventoryMock.Received(1).Add(itemMock);
+            Assert.AreEqual(456, inventoryMock.GetCountById(123));
         }
     }
 }

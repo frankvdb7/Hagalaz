@@ -407,8 +407,11 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// Removes a complete requested quantity using the exact-removal behavior
         /// used by checked trade removal and cross-container transfer.
         /// </summary>
-        public bool TryRemoveExact(IItem? item, int preferredSlot, out HashSet<int> slotsToUpdate) =>
-            TryRemoveExact(item!, item?.Count ?? 0, preferredSlot, out slotsToUpdate);
+        public bool TryRemoveExact(IItem item, int preferredSlot, out HashSet<int> slotsToUpdate)
+        {
+            ArgumentNullException.ThrowIfNull(item);
+            return TryRemoveExact(item, item.Count, preferredSlot, out slotsToUpdate);
+        }
 
         /// <summary>
         /// Removes a complete requested quantity using the exact-removal behavior
@@ -1137,6 +1140,29 @@ namespace Hagalaz.Game.Abstractions.Collections
             }
 
             return true;
+        }
+
+        /// <summary>Validates and restores exact persisted slots before replacing the current state.</summary>
+        public void RestoreItems(IEnumerable<(int Slot, IItem Item)> items, bool allowZeroCount = false)
+        {
+            ArgumentNullException.ThrowIfNull(items);
+
+            var restoredItems = new IItem?[Capacity];
+            foreach (var (slot, item) in items)
+            {
+                if ((uint)slot >= (uint)Capacity)
+                    throw new ArgumentOutOfRangeException(nameof(items), $"Slot {slot} is outside the storage capacity.");
+                if (restoredItems[slot] != null)
+                    throw new ArgumentException($"Slot {slot} is duplicated in restored state.", nameof(items));
+
+                ArgumentNullException.ThrowIfNull(item);
+                if (allowZeroCount ? item.Count < 0 : item.Count <= 0)
+                    throw new ArgumentOutOfRangeException(nameof(items), "Item count is invalid for restored storage.");
+
+                restoredItems[slot] = item;
+            }
+
+            ReplaceState(restoredItems);
         }
 
         /// <summary>Replaces the complete slot state with a capacity-sized copy.</summary>

@@ -72,13 +72,15 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
             var groundItemService = Substitute.For<IGroundItemService>();
             var groundItem = Substitute.For<IGroundItem>();
             var serviceProvider = Substitute.For<IServiceProvider>();
-            var inventory = Substitute.For<IInventoryContainer>();
+            var inventory = new ComposedTestContainer(28);
             var firemakingDefinition = new FiremakingDto { ItemId = 1, RequiredLevel = 1, FireObjectId = 1, Experience = 1, Ticks = 1 };
 
             tinderboxItem.Id.Returns(FiremakingConstants.Tinderbox);
             logItem.ItemScript.Returns(itemScript);
+            logItem.Count.Returns(1);
+            logItem.ItemDefinition.Returns(Substitute.For<IItemDefinition>());
             character.Inventory.Returns(inventory);
-            inventory.GetInstanceSlot(logItem).Returns(0);
+            inventory.SetItem(0, logItem);
             _firemakingService.FindByLogId(logItem.Id).Returns(Task.FromResult<FiremakingDto?>(firemakingDefinition));
             itemScript.DropItem(logItem, character).Returns(true);
             character.ServiceProvider.Returns(serviceProvider);
@@ -128,12 +130,14 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
             var logItem = Substitute.For<IItem>();
             var tinderboxItem = Substitute.For<IItem>();
             var itemScript = Substitute.For<IItemScript>();
-            var inventory = Substitute.For<IInventoryContainer>();
+            var inventory = new ComposedTestContainer(28);
 
             tinderboxItem.Id.Returns(FiremakingConstants.Tinderbox);
             logItem.ItemScript.Returns(itemScript);
+            logItem.Count.Returns(1);
+            logItem.ItemDefinition.Returns(Substitute.For<IItemDefinition>());
             character.Inventory.Returns(inventory);
-            inventory.GetInstanceSlot(logItem).Returns(0);
+            inventory.SetItem(0, logItem);
             itemScript.DropItem(logItem, character).Returns(false);
 
             var firemakingDefinition = new FiremakingDto
@@ -165,7 +169,6 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
             var mapRegion = Substitute.For<IMapRegion>();
             var location = Substitute.For<ILocation>();
             var firemakingDefinition = new FiremakingDto { ItemId = 1, RequiredLevel = 1, FireObjectId = 1, Experience = 1, Ticks = 1 };
-            var inventory = Substitute.For<IInventoryContainer>();
 
             groundItem.ItemOnGround.Returns(logItem);
             groundItem.Location.Returns(location);
@@ -174,8 +177,9 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
             statistics.GetSkillLevel(StatisticsConstants.Firemaking).Returns(99);
             _mapRegionService.FindMapRegion(Arg.Any<int>(), Arg.Any<int>()).Returns(mapRegion);
             mapRegion.FindStandardGameObject(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns((IGameObject)null);
+            var inventory = new ComposedTestContainer(28);
             character.Inventory.Returns(inventory);
-            inventory.GetById(FiremakingConstants.Tinderbox).Returns(Substitute.For<IItem>());
+            Assert.IsTrue(inventory.Add(ComposedTestContainer.CreateTestItem(FiremakingConstants.Tinderbox)));
 
             // Act
             await _standardLog.LightGroundLog(character, groundItem);

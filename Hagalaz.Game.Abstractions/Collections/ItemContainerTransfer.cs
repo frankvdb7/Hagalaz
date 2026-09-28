@@ -22,8 +22,8 @@ public static class ItemContainerTransfer
             return false;
         }
 
-        source.OnUpdate(sourceSlots);
-        destination.OnUpdate(destinationSlots);
+        source.PublishChanges(sourceSlots);
+        destination.PublishChanges(destinationSlots);
         return true;
     }
 

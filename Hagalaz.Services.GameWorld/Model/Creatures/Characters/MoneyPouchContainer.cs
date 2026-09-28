@@ -1,15 +1,7 @@
-﻿using System.Collections.Generic;
-using System;
 using System.Linq;
-using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Logic.Dehydrations;
-using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Resources;
-using Hagalaz.Services.GameWorld.Logic.Characters.Model;
+using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Utilities;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -29,6 +21,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ItemContainerStorage _storage;
 
         ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
+
+        public bool Add(IItem item) => ItemContainerExtensions.Add(this, item);
+
+        public int Remove(IItem item, int preferredSlot = -1, bool update = true) =>
+            ItemContainerExtensions.Remove(this, item, preferredSlot, update);
 
         /// <summary>
         /// The previous count
@@ -109,7 +106,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (inventorySlots.Count > 0)
             {
-                _owner.Inventory.OnUpdate(inventorySlots);
+                _owner.Inventory.PublishChanges(inventorySlots);
             }
 
             PublishTradeChanges(pouchChangeCount);
@@ -205,7 +202,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (inventorySlots.Count > 0)
             {
-                _owner.Inventory.OnUpdate(inventorySlots);
+                _owner.Inventory.PublishChanges(inventorySlots);
             }
 
             PublishTradeChanges(pouchChangeCount);
@@ -408,31 +405,22 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> moneyPouch)
         {
-            if (moneyPouch.Count == 0)
-            {
-                _storage.ReplaceState([_itemBuilder.Create().WithId(995).WithCount(0).Build()]);
-                return;
-            }
-
             if (moneyPouch.Any(item => item.ItemId != 995))
             {
                 throw new ArgumentException("Money pouch state must contain coins.", nameof(moneyPouch));
             }
 
-            var items = new IItem?[Capacity];
-            foreach (var entry in moneyPouch)
+            if (moneyPouch.Any(item => item.SlotId != 0))
             {
-                if ((uint)entry.SlotId >= (uint)Capacity)
-                    throw new ArgumentOutOfRangeException(nameof(moneyPouch), $"Slot {entry.SlotId} is outside the money pouch capacity.");
-                if (items[entry.SlotId] != null)
-                    throw new ArgumentException($"Slot {entry.SlotId} is duplicated in restored state.", nameof(moneyPouch));
-                if (entry.Count < 0)
-                    throw new ArgumentOutOfRangeException(nameof(moneyPouch), "Item count is invalid for this container.");
-                items[entry.SlotId] = _itemBuilder.Create().WithId(995).WithCount(entry.Count)
-                    .WithExtraData(entry.ExtraData ?? string.Empty).Build();
+                throw new ArgumentOutOfRangeException(nameof(moneyPouch), "Money pouch coins must occupy slot 0.");
             }
 
-            _storage.ReplaceState(items);
+            var items = moneyPouch.Count == 0
+                ? new[] { (0, _itemBuilder.Create().WithId(995).WithCount(0).Build()) }
+                : moneyPouch.Select(entry => (entry.SlotId,
+                    _itemBuilder.Create().WithId(995).WithCount(entry.Count)
+                        .WithExtraData(entry.ExtraData ?? string.Empty).Build())).ToArray();
+            _storage.RestoreItems(items, allowZeroCount: true);
         }
 
         public IReadOnlyList<HydratedItemDto> Dehydrate() => new[] { _storage[0]! }

@@ -32,9 +32,9 @@ public sealed class CasketTests
         });
 
         var character = Substitute.For<ICharacter>();
-        var item = Substitute.For<IItem>();
-        var inventory = Substitute.For<IInventoryContainer>();
-        inventory.GetInstanceSlot(item).Returns(0);
+        var item = ComposedTestContainer.CreateTestItem(1);
+        var inventory = new ComposedTestContainer(10);
+        inventory.SetItem(0, item);
         character.Inventory.Returns(inventory);
         var operation = CaptureQueuedOperation(character);
 
@@ -50,7 +50,7 @@ public sealed class CasketTests
 
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => operationTask);
 
-        inventory.DidNotReceive().Remove(Arg.Any<IItem>(), Arg.Any<int>(), Arg.Any<bool>());
+        Assert.AreEqual(0, inventory.GetInstanceSlot(item));
         character.DidNotReceive().SendChatMessage("and found some glorious loot!");
     }
 
@@ -63,7 +63,7 @@ public sealed class CasketTests
 
         var lootItem = Substitute.For<ILootItem>();
         lootItem.Id.Returns(995);
-        var generatedItem = Substitute.For<IItem>();
+        var generatedItem = ComposedTestContainer.CreateTestItem(995);
         var lootGenerator = Substitute.For<ILootGenerator>();
         lootGenerator.GenerateLoot<ILootItem>(Arg.Any<CharacterLootParams>())
             .Returns(new[] { new LootResult<ILootItem>(lootItem, 1) });
@@ -77,11 +77,9 @@ public sealed class CasketTests
         ((IItemBuild)itemOptional).Build().Returns(generatedItem);
 
         var character = Substitute.For<ICharacter>();
-        var item = Substitute.For<IItem>();
-        var inventory = Substitute.For<IInventoryContainer>();
-        inventory.GetInstanceSlot(item).Returns(3);
-        inventory.Remove(item, 3).Returns(1);
-        inventory.Add(generatedItem).Returns(true);
+        var item = ComposedTestContainer.CreateTestItem(1);
+        var inventory = new ComposedTestContainer(10);
+        inventory.SetItem(3, item);
         character.Inventory.Returns(inventory);
         character.ServiceProvider.Returns(new ServiceCollection()
             .AddSingleton<ILootGenerator>(lootGenerator)
@@ -93,8 +91,8 @@ public sealed class CasketTests
         new Casket(lootService).ItemClickedInInventory(ComponentClickType.LeftClick, item, character);
         await operation(CancellationToken.None);
 
-        inventory.Received(1).Remove(item, 3);
-        inventory.Received(1).Add(generatedItem);
+        Assert.AreEqual(-1, inventory.GetInstanceSlot(item));
+        Assert.IsGreaterThanOrEqualTo(0, inventory.GetInstanceSlot(generatedItem));
         lootGenerator.Received(1).GenerateLoot<ILootItem>(Arg.Any<CharacterLootParams>());
     }
 

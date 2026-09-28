@@ -128,7 +128,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 return false;
             }
 
-            if (!HasSpaceFor(sold))
+            if (!this.HasSpaceFor(sold))
             {
                 viewer.SendChatMessage("There is not enough space in the shop for this item.");
                 return false;
@@ -161,7 +161,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
         public bool BuyFromShop(ICharacter viewer, IItem item, int count)
         {
-            var slot = GetInstanceSlot(item);
+            var slot = this.GetInstanceSlot(item);
             if (slot == -1 || count <= 0) return false;
             if (!item.ItemScript.CanBuyItem(item, viewer)) return false;
             var toRemove = item.Clone();
@@ -234,12 +234,12 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
             if (_originalStock.Any(it => it.Id == item.Id))
             {
-                Remove(toRemove, slot);
+                this.Remove(toRemove, slot);
             }
             else
             {
-                Remove(toRemove, slot);
-                if (_storage[slot] == null) Sort();
+                this.Remove(toRemove, slot);
+                if (_storage[slot] == null) this.Sort();
             }
 
             viewer.Inventory.Add(toRemove);

@@ -12,6 +12,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
+using Hagalaz.Services.GameWorld.Logic.Characters;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -238,7 +239,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private void PublishEquipmentMove(HashSet<int> inventorySlots, HashSet<int> equipmentSlots)
         {
-            _owner.Inventory.OnUpdate(inventorySlots);
+            _owner.Inventory.PublishChanges(inventorySlots);
             OnUpdate(equipmentSlots);
         }
 
@@ -329,24 +330,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         }
 
         public EquipmentSlot GetInstanceSlot(IItem instance) => (EquipmentSlot)_storage.GetInstanceSlot(instance);
+        public IItem? GetById(int id) => _storage.GetById(id);
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> equipment)
         {
-            var items = new IItem?[Capacity];
-            foreach (var entry in equipment)
-            {
-                if ((uint)entry.SlotId >= (uint)Capacity)
-                    throw new ArgumentOutOfRangeException(nameof(equipment), $"Slot {entry.SlotId} is outside the equipment capacity.");
-                if (items[entry.SlotId] != null)
-                    throw new ArgumentException($"Slot {entry.SlotId} is duplicated in restored state.", nameof(equipment));
-                if (entry.Count <= 0)
-                    throw new ArgumentOutOfRangeException(nameof(equipment), "Item count is invalid for this container.");
-                items[entry.SlotId] = _itemBuilder.Create().WithId(entry.ItemId).WithCount(entry.Count)
-                    .WithExtraData(entry.ExtraData ?? string.Empty).Build();
-            }
-            _storage.ReplaceState(items);
+            var items = equipment.Select(entry => entry.ToStorageEntry(_itemBuilder)).ToArray();
+            _storage.RestoreItems(items);
             _owner.Statistics.CalculateBonuses();
-            foreach (var item in items.Where(i => i != null)) item!.EquipmentScript.OnEquipped(item, _owner);
+            foreach (var (_, item) in items) item.EquipmentScript.OnEquipped(item, _owner);
         }
 
         public IReadOnlyList<HydratedItemDto> Dehydrate() => _storage.Select((item, slot) => (item, slot)).Where(x => x.item != null)

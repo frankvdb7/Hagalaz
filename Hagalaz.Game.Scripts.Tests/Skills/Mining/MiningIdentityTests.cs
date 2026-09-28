@@ -177,7 +177,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Mining
             var groundItemBuilder = Substitute.For<IGroundItemBuilder>();
             var serviceProvider = Substitute.For<IServiceProvider>();
             var character = Substitute.For<ICharacter>();
-            var inventory = Substitute.For<IInventoryContainer>();
+            var inventory = new ComposedTestContainer(1);
             var equipment = Substitute.For<IEquipmentContainer>();
             var statistics = Substitute.For<ICharacterStatistics>();
             var originalRock = Substitute.For<IGameObject>();
@@ -237,7 +237,6 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Mining
             miningService.FindRockLootById(1).Returns(Task.FromResult<ILootTable?>(Substitute.For<ILootTable>()));
             characterStore.CountAsync().Returns(ValueTask.FromResult(0));
 
-            inventory.FreeSlots.Returns(1);
             equipment.GetById(pickaxe.ItemId).Returns(Substitute.For<IItem>());
             statistics.GetSkillLevel(StatisticsConstants.Mining).Returns(99);
             character.Inventory.Returns(inventory);

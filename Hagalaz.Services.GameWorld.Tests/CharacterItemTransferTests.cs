@@ -345,8 +345,10 @@ public sealed class CharacterItemTransferTests
     {
         var inventory = CreateInventory(scenario, 4);
         scenario.Owner.Inventory.Returns(inventory);
-        var moneyPouch = Substitute.For<IMoneyPouchContainer>();
-        moneyPouch.Contains(995).Returns(true);
+        var moneyPouch = Substitute.For<IMoneyPouchContainer, IItemContainerStorageProvider>();
+        var pouchStorage = new ItemContainerStorage(StorageType.AlwaysStack, 1, 0);
+        pouchStorage.RestoreItems([(0, scenario.Builder.Create().WithId(995).WithCount(0).Build())], allowZeroCount: true);
+        ((IItemContainerStorageProvider)moneyPouch).Storage.Returns(pouchStorage);
         moneyPouch.Add(Arg.Any<int>()).Returns(true);
         scenario.Owner.MoneyPouch.Returns(moneyPouch);
         var shop = Substitute.For<IShop>();

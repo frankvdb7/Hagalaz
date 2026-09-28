@@ -210,7 +210,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
         private static FishingFixture CreateFishingFixture()
         {
             var character = Substitute.For<ICharacter>();
-            var inventory = Substitute.For<IInventoryContainer>();
+            var inventory = new ComposedTestContainer(2);
             var statistics = Substitute.For<ICharacterStatistics>();
             var characterProvider = Substitute.For<IServiceProvider>();
             var scopedProvider = Substitute.For<IServiceProvider>();
@@ -252,8 +252,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             character.Inventory.Returns(inventory);
             character.Statistics.Returns(statistics);
             character.ServiceProvider.Returns(characterProvider);
-            inventory.FreeSlots.Returns(1);
-            inventory.Contains(1).Returns(true);
+            inventory.Add(ComposedTestContainer.CreateTestItem(1));
             statistics.GetSkillLevel(StatisticsConstants.Fishing).Returns(99);
             itemService.FindItemDefinitionById(1).Returns(Substitute.For<IItemDefinition>());
             itemService.FindItemDefinitionById(1).Name.Returns("small fishing net");

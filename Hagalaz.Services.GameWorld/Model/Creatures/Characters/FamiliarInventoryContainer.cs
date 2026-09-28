@@ -103,19 +103,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(IReadOnlyList<HydratedItem> inventory)
         {
-            var items = new IItem?[Capacity];
-            foreach (var entry in inventory)
-            {
-                if ((uint)entry.SlotId >= (uint)Capacity)
-                    throw new ArgumentOutOfRangeException(nameof(inventory), $"Slot {entry.SlotId} is outside the familiar inventory capacity.");
-                if (items[entry.SlotId] != null)
-                    throw new ArgumentException($"Slot {entry.SlotId} is duplicated in restored state.", nameof(inventory));
-                if (entry.Count <= 0)
-                    throw new ArgumentOutOfRangeException(nameof(inventory), "Item count is invalid for this container.");
-                items[entry.SlotId] = _itemBuilder.Create().WithId(entry.ItemId).WithCount(entry.Count)
-                    .WithExtraData(entry.ExtraData ?? string.Empty).Build();
-            }
-            _storage.ReplaceState(items);
+            _storage.RestoreItems(inventory.Select(entry => (entry.SlotId,
+                _itemBuilder.Create().WithId(entry.ItemId).WithCount(entry.Count)
+                    .WithExtraData(entry.ExtraData ?? string.Empty).Build())));
         }
 
         public IReadOnlyList<HydratedItem> Dehydrate() => _storage.Select((item, slot) => (item, slot)).Where(x => x.item != null)
