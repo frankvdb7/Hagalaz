@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
@@ -97,7 +97,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                         .Spawn();
                 }
 
-                Inventory.Remove(it, i, false);
+                Inventory.Items.Remove(it, i, false);
             }
         }
 

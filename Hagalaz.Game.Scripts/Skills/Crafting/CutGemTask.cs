@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
@@ -74,21 +74,21 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
             if (TickCount % 1 == 0)
             {
                 CutCount++;
-                var uncutItem = Performer.Inventory.GetById(Definition.UncutGemID);
+                var uncutItem = Performer.Inventory.Items.GetById(Definition.UncutGemID);
                 if (uncutItem == null)
                 {
                     Cancel();
                     return;
                 }
 
-                var slot = Performer.Inventory.GetInstanceSlot(uncutItem);
+                var slot = Performer.Inventory.Items.GetInstanceSlot(uncutItem);
                 if (slot == -1)
                 {
                     Cancel();
                     return;
                 }
 
-                Performer.Inventory.Replace(slot, _itemBuilder.Create().WithId(Definition.CutGemID).Build());
+                Performer.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(Definition.CutGemID).Build());
                 Performer.Statistics.AddExperience(StatisticsConstants.Crafting, Definition.CraftingExperience);
             }
         }

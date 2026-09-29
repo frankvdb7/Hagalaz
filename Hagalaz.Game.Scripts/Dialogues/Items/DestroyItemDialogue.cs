@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Hagalaz.Game.Abstractions.Builders.Audio;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -51,13 +51,13 @@ namespace Hagalaz.Game.Scripts.Dialogues.Items
                 }
 
                 var succes = false;
-                var slot = Owner.Inventory.GetInstanceSlot(_toDestroy);
+                var slot = Owner.Inventory.Items.GetInstanceSlot(_toDestroy);
                 if (slot == -1)
                 {
                     return false;
                 }
 
-                var removed = Owner.Inventory.Remove(_toDestroy, slot);
+                var removed = Owner.Inventory.Items.Remove(_toDestroy, slot);
                 if (removed > 0)
                 {
                     var sound = _soundBuilder.Create().AsSound().WithId(4500).Build();

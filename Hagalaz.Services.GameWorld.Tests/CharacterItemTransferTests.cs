@@ -28,13 +28,13 @@ public sealed class CharacterItemTransferTests
         scenario.Owner.Inventory.Returns(inventory);
         var bank = new BankContainer(scenario.Owner, 4, scenario.Builder);
         var item = scenario.Builder.Create().WithId(101).WithCount(5).WithExtraData("11,22").Build();
-        inventory.Add(item);
+        inventory.Items.Add(item);
 
         Assert.IsTrue(bank.DepositFromInventory(item, 3, out var deposited));
 
         Assert.AreEqual(3, deposited!.Count);
         Assert.AreEqual(2, inventory[0]!.Count);
-        Assert.AreEqual(3, bank.GetCountById(101));
+        Assert.AreEqual(3, bank.Items.GetCountById(101));
         CollectionAssert.AreEqual(new long[] { 11, 22 }, bank[0]!.ExtraData);
     }
 
@@ -47,14 +47,14 @@ public sealed class CharacterItemTransferTests
         scenario.Owner.Inventory.Returns(inventory);
         var bank = new BankContainer(scenario.Owner, 4, scenario.Builder);
         var note = scenario.Builder.Create().WithId(201).WithCount(4).WithExtraData("7,9").Build();
-        inventory.Add(note);
+        inventory.Items.Add(note);
 
         Assert.IsTrue(bank.DepositFromInventory(note, 2, out var deposited));
 
         Assert.AreEqual(101, deposited!.Id);
         Assert.AreEqual(2, deposited.Count);
-        Assert.AreEqual(2, inventory.GetCountById(201));
-        Assert.AreEqual(2, bank.GetCountById(101));
+        Assert.AreEqual(2, inventory.Items.GetCountById(201));
+        Assert.AreEqual(2, bank.Items.GetCountById(101));
         CollectionAssert.AreEqual(new long[] { 7, 9 }, bank[0]!.ExtraData);
     }
 
@@ -68,13 +68,13 @@ public sealed class CharacterItemTransferTests
         scenario.Owner.Inventory.Returns(inventory);
         var bank = new BankContainer(scenario.Owner, 4, scenario.Builder);
         var item = scenario.Builder.Create().WithId(101).WithCount(5).WithExtraData("11,22").Build();
-        bank.Add(item);
+        bank.Items.Add(item);
 
         Assert.IsTrue(bank.WithdrawFromBank(item, 3, notingEnabled: true, out var withdrawn));
 
         Assert.AreEqual(201, withdrawn!.Id);
-        Assert.AreEqual(3, inventory.GetCountById(201));
-        Assert.AreEqual(2, bank.GetCountById(101));
+        Assert.AreEqual(3, inventory.Items.GetCountById(201));
+        Assert.AreEqual(2, bank.Items.GetCountById(101));
         CollectionAssert.AreEqual(new long[] { 11, 22 }, inventory[0]!.ExtraData);
     }
 
@@ -87,16 +87,16 @@ public sealed class CharacterItemTransferTests
         var inventory = CreateInventory(scenario, 2);
         scenario.Owner.Inventory.Returns(inventory);
         var bank = new BankContainer(scenario.Owner, 4, scenario.Builder);
-        inventory.Add(scenario.Builder.Create().WithId(102).WithCount(1).Build());
+        inventory.Items.Add(scenario.Builder.Create().WithId(102).WithCount(1).Build());
         var item = scenario.Builder.Create().WithId(101).WithCount(5).Build();
-        bank.Add(item);
+        bank.Items.Add(item);
 
         Assert.IsTrue(bank.WithdrawFromBank(item, 3, notingEnabled: false, out var withdrawn));
 
         Assert.AreEqual(1, withdrawn!.Count);
-        Assert.AreEqual(4, bank.GetCountById(101));
-        Assert.AreEqual(1, inventory.GetCountById(101));
-        Assert.AreEqual(2, inventory.TakenSlots);
+        Assert.AreEqual(4, bank.Items.GetCountById(101));
+        Assert.AreEqual(1, inventory.Items.GetCountById(101));
+        Assert.AreEqual(2, inventory.Items.TakenSlots);
     }
 
     [TestMethod]
@@ -146,7 +146,7 @@ public sealed class CharacterItemTransferTests
         scenario.Owner.Equipment.Returns(equipment);
         var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
         equipment.Add(EquipmentSlot.Hat, item);
-        IItemContainer container = equipment;
+        var container = equipment.Items;
         var callbackObservedEquippedItem = false;
         item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ =>
         {
@@ -167,7 +167,7 @@ public sealed class CharacterItemTransferTests
                 }
             });
 
-        container.Clear(true);
+        equipment.Clear(true);
 
         Assert.IsTrue(callbackObservedEquippedItem);
         Assert.IsTrue(publicationObservedClearedStorageAfterCallback);
@@ -183,12 +183,12 @@ public sealed class CharacterItemTransferTests
         var (inventory, stock, moneyPouch) = CreateShopScenario(scenario);
         var item = scenario.Builder.Create().WithId(101).WithCount(5).WithExtraData("11,22").Build();
         item.ItemScript.CanSellItem(Arg.Any<IItem>(), scenario.Owner).Returns(true);
-        inventory.Add(item);
+        inventory.Items.Add(item);
 
         Assert.IsTrue(stock.SellFromInventory(scenario.Owner, item, 3));
 
-        Assert.AreEqual(2, inventory.GetCountById(101));
-        Assert.AreEqual(3, stock.GetCountById(101));
+        Assert.AreEqual(2, inventory.Items.GetCountById(101));
+        Assert.AreEqual(3, stock.Items.GetCountById(101));
         CollectionAssert.AreEqual(new long[] { 11, 22 }, stock[0]!.ExtraData);
         Assert.AreEqual(6, moneyPouch.Count);
     }
@@ -202,12 +202,12 @@ public sealed class CharacterItemTransferTests
         var (inventory, stock, moneyPouch) = CreateShopScenario(scenario);
         var item = scenario.Builder.Create().WithId(201).WithCount(5).WithExtraData("11,22").Build();
         item.ItemScript.CanSellItem(Arg.Any<IItem>(), scenario.Owner).Returns(true);
-        inventory.Add(item);
+        inventory.Items.Add(item);
 
         Assert.IsTrue(stock.SellFromInventory(scenario.Owner, item, 10));
 
-        Assert.AreEqual(0, inventory.GetCountById(201));
-        Assert.AreEqual(5, stock.GetCountById(101));
+        Assert.AreEqual(0, inventory.Items.GetCountById(201));
+        Assert.AreEqual(5, stock.Items.GetCountById(101));
         CollectionAssert.AreEqual(new long[] { 11, 22 }, stock[0]!.ExtraData);
         Assert.AreEqual(10, moneyPouch.Count);
     }
@@ -220,16 +220,16 @@ public sealed class CharacterItemTransferTests
         scenario.Owner.Inventory.Returns(inventory);
         var familiar = new FamiliarInventoryContainer(scenario.Owner, StorageType.Normal, 4, scenario.Builder);
         var item = scenario.Builder.Create().WithId(101).WithCount(5).Build();
-        inventory.Add(item);
+        inventory.Items.Add(item);
 
         Assert.IsTrue(familiar.DepositFromInventory(item, 3));
-        Assert.AreEqual(2, inventory.GetCountById(101));
-        Assert.AreEqual(3, familiar.GetCountById(101));
+        Assert.AreEqual(2, inventory.Items.GetCountById(101));
+        Assert.AreEqual(3, familiar.Items.GetCountById(101));
 
         var familiarItem = familiar[0]!;
         Assert.IsTrue(familiar.WithdrawFromFamiliarInventory(familiarItem, 2));
-        Assert.AreEqual(4, inventory.GetCountById(101));
-        Assert.AreEqual(1, familiar.GetCountById(101));
+        Assert.AreEqual(4, inventory.Items.GetCountById(101));
+        Assert.AreEqual(1, familiar.Items.GetCountById(101));
     }
 
     [TestMethod]
@@ -241,15 +241,15 @@ public sealed class CharacterItemTransferTests
         var inventory = CreateInventory(scenario, 2);
         scenario.Owner.Inventory.Returns(inventory);
         var rewards = new RewardContainer(scenario.Owner, scenario.Builder);
-        inventory.Add(scenario.Builder.Create().WithId(102).WithCount(1).Build());
+        inventory.Items.Add(scenario.Builder.Create().WithId(102).WithCount(1).Build());
         var rewardItem = scenario.Builder.Create().WithId(101).WithCount(4).Build();
-        rewards.Add(rewardItem);
+        rewards.Items.Add(rewardItem);
 
         Assert.AreEqual(1, rewards.Claim(rewardItem, 3));
 
-        Assert.AreEqual(3, rewards.GetCountById(101));
-        Assert.AreEqual(1, inventory.GetCountById(101));
-        Assert.AreEqual(2, inventory.TakenSlots);
+        Assert.AreEqual(3, rewards.Items.GetCountById(101));
+        Assert.AreEqual(1, inventory.Items.GetCountById(101));
+        Assert.AreEqual(2, inventory.Items.TakenSlots);
     }
 
     [TestMethod]
@@ -257,7 +257,7 @@ public sealed class CharacterItemTransferTests
     {
         using var scenario = new Scenario();
         var (inventory, equipment, item) = CreateEquipmentSetup(scenario);
-        var callbackSawCommittedStorage = ObserveEquippedState(scenario.Owner, inventory, equipment, item);
+        var callbackSawCommittedStorage = ObserveEquippedState(scenario.Owner, inventory.Items, equipment, item);
 
         Assert.IsTrue(equipment.EquipItem(item));
 
@@ -269,7 +269,7 @@ public sealed class CharacterItemTransferTests
     {
         using var scenario = new Scenario();
         var (inventory, equipment, item) = CreateEquipmentSetup(scenario);
-        var callbackSawCommittedStorage = ObserveEquippedState(scenario.Owner, inventory, equipment, item);
+        var callbackSawCommittedStorage = ObserveEquippedState(scenario.Owner, inventory.Items, equipment, item);
         var eventManager = Substitute.For<IEventManager>();
         scenario.Owner.EventManager.Returns(eventManager);
         var publicationSawEquipmentEffect = false;
@@ -309,13 +309,13 @@ public sealed class CharacterItemTransferTests
         scenario.DefaultEquipmentDefinition.Slot.Returns(EquipmentSlot.Hat);
         var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
         equipment.Add(EquipmentSlot.Hat, item);
-        inventory.Add(scenario.Builder.Create().WithId(102).WithCount(1).Build());
+        inventory.Items.Add(scenario.Builder.Create().WithId(102).WithCount(1).Build());
         item.EquipmentScript.CanUnEquipItem(item, scenario.Owner).Returns(true);
 
         Assert.IsFalse(equipment.UnEquipItem(item));
 
         Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
-        Assert.AreEqual(1, inventory.GetCountById(102));
+        Assert.AreEqual(1, inventory.Items.GetCountById(102));
         item.EquipmentScript.DidNotReceive().OnUnequipped(item, scenario.Owner);
     }
 
@@ -363,15 +363,15 @@ public sealed class CharacterItemTransferTests
         var inventory = CreateInventory(scenario, 1);
         scenario.Owner.Inventory.Returns(inventory);
         var rewards = new RewardContainer(scenario.Owner, scenario.Builder);
-        inventory.Add(scenario.Builder.Create().WithId(102).WithCount(1).Build());
+        inventory.Items.Add(scenario.Builder.Create().WithId(102).WithCount(1).Build());
         var rewardItem = scenario.Builder.Create().WithId(101).WithCount(4).Build();
-        rewards.Add(rewardItem);
+        rewards.Items.Add(rewardItem);
 
         Assert.AreEqual(-1, rewards.Claim(rewardItem, 1));
 
-        Assert.AreEqual(4, rewards.GetCountById(101));
-        Assert.AreEqual(0, inventory.GetCountById(101));
-        Assert.AreEqual(1, inventory.GetCountById(102));
+        Assert.AreEqual(4, rewards.Items.GetCountById(101));
+        Assert.AreEqual(0, inventory.Items.GetCountById(101));
+        Assert.AreEqual(1, inventory.Items.GetCountById(102));
     }
     private static InventoryContainer CreateInventory(Scenario scenario, int capacity) =>
         new(scenario.Owner, capacity, Substitute.For<IMapRegionService>(),
@@ -402,13 +402,13 @@ public sealed class CharacterItemTransferTests
         scenario.Owner.Equipment.Returns(equipment);
         scenario.DefaultEquipmentDefinition.Slot.Returns(EquipmentSlot.Hat);
         var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
-        Assert.IsTrue(inventory.Add(item));
+        Assert.IsTrue(inventory.Items.Add(item));
         item.EquipmentScript.CanEquipItem(item, scenario.Owner).Returns(true);
         return (inventory, equipment, item);
     }
     private static Func<bool> ObserveEquippedState(
         ICharacter owner,
-        IItemContainer inventory,
+        ITradeItemContainer inventory,
         EquipmentContainer equipment,
         IItem item)
     {

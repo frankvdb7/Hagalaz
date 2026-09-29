@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -66,7 +66,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
                 return;
             }
 
-            var slot = character.Inventory.GetInstanceSlot(item);
+            var slot = character.Inventory.Items.GetInstanceSlot(item);
             if (slot == -1)
             {
                 return;
@@ -87,7 +87,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
         /// <param name="slot">The slot.</param>
         private static void OnRemovedCallBack(ICharacter character, IItem toRemove, PrayerDto definition, int slot)
         {
-            var removed = character.Inventory.Remove(toRemove, slot);
+            var removed = character.Inventory.Items.Remove(toRemove, slot);
             if (removed <= 0)
             {
                 return;

@@ -59,7 +59,7 @@ public sealed class SummoningSkillServiceTests
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => summonTask);
 
         character.DidNotReceive().AttachFamiliar(Arg.Any<IFamiliarScript>());
-        Assert.AreEqual(0, inventory.TakenSlots);
+        Assert.AreEqual(0, inventory.Items.TakenSlots);
         character.Statistics.DidNotReceive().DamageSkill(Arg.Any<int>(), Arg.Any<int>());
         character.Statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
     }

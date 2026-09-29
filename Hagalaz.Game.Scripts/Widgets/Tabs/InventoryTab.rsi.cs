@@ -36,7 +36,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             InterfaceInstance.SetOptions(0, 28, 55, 2097152);
             InterfaceInstance.AttachClickHandler(0, (component, type, itemID, slot) =>
             {
-                if (slot < 0 || slot >= Owner.Inventory.Capacity)
+                if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
                 {
                     return false;
                 }
@@ -62,24 +62,24 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 }
 
-                if (fromSlot < 0 || fromSlot >= Owner.Inventory.Capacity)
+                if (fromSlot < 0 || fromSlot >= Owner.Inventory.Items.Capacity)
                 {
                     return false;
                 }
 
                 toSlot -= 28;
-                if (toSlot < 0 || toSlot >= Owner.Inventory.Capacity)
+                if (toSlot < 0 || toSlot >= Owner.Inventory.Items.Capacity)
                 {
                     return false;
                 }
 
-                Owner.Inventory.Swap(fromSlot, toSlot);
+                Owner.Inventory.Items.Swap(fromSlot, toSlot);
                 return true;
             });
 
             InterfaceInstance.AttachUseOnObjectHandler(0, (componentID, usedOn, forceRun, itemId, slot) =>
             {
-                if (slot < 0 || slot >= Owner.Inventory.Capacity)
+                if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
                 {
                     return false;
                 }
@@ -127,7 +127,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
             InterfaceInstance.AttachUseOnGroundItemHandler(0, (componentID, usedOn, forceRun, itemId, slot) =>
             {
-                if (slot < 0 || slot >= Owner.Inventory.Capacity)
+                if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
                 {
                     return false;
                 }
@@ -168,7 +168,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
             InterfaceInstance.AttachUseOnComponentHandler(0, (componentID, usedWithID, usedWithSlot, usedID, usedSlot) =>
             {
-                if (usedWithSlot < 0 || usedWithSlot >= Owner.Inventory.Capacity || usedSlot < 0 || usedSlot >= Owner.Inventory.Capacity)
+                if (usedWithSlot < 0 || usedWithSlot >= Owner.Inventory.Items.Capacity || usedSlot < 0 || usedSlot >= Owner.Inventory.Items.Capacity)
                 {
                     return false;
                 }
@@ -214,7 +214,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
             InterfaceInstance.AttachUseOnCreatureHandler(0, (componentID, usedOn, forceRun, itemId, slot) =>
             {
-                if (slot < 0 || slot >= Owner.Inventory.Capacity)
+                if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
                 {
                     return false;
                 }

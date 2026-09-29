@@ -59,7 +59,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
                 return true;
             }
 
-            if (character.Inventory.FreeSlots < 1)
+            if (character.Inventory.Items.FreeSlots < 1)
             {
                 character.SendChatMessage(GameStrings.InventoryFull);
                 return true;
@@ -67,14 +67,14 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
 
             var itemService = _serviceProvider.GetRequiredService<IItemService>();
             // check if character has required tool...
-            if (!character.Inventory.Contains(table.RequiredTool.ItemId))
+            if (!character.Inventory.Items.Contains(table.RequiredTool.ItemId))
             {
                 character.SendChatMessage(string.Format(You_need_a_X_in_order_to_fish_at_this_spot,
                     itemService.FindItemDefinitionById(table.RequiredTool.ItemId).Name.ToLower()));
                 return true;
             }
 
-            if (table.BaitId > 0 && !character.Inventory.Contains(table.BaitId))
+            if (table.BaitId > 0 && !character.Inventory.Items.Contains(table.BaitId))
             {
                 character.SendChatMessage(string.Format(You_need_X_in_order_to_fish_at_this_spot,
                     itemService.FindItemDefinitionById(table.BaitId).Name.ToLower()));
@@ -95,7 +95,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
                 foreach (var result in _lootGenerator.GenerateLoot<IFishingLoot>(new CharacterLootParams(table, character)))
                 {
                     var fish = _itemBuilder.Create().WithId(result.Item.Id).Build();
-                    if (!character.Inventory.Add(fish))
+                    if (!character.Inventory.Items.Add(fish))
                     {
                         continue;
                     }
@@ -138,15 +138,15 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
                 }
 
                 // No more space left to keep fishing.
-                if (character.Inventory.FreeSlots < 1)
+                if (character.Inventory.Items.FreeSlots < 1)
                 {
                     character.QueueAnimation(Animation.Create(-1));
                     character.SendChatMessage(You_cant_carry_any_more_fish);
                     return true; // stop fishing
                 }
 
-                if (table.BaitId <= 0 || (character.Inventory.Remove(_itemBuilder.Create().WithId(table.BaitId).Build()) > 0 &&
-                                          character.Inventory.Contains(table.BaitId)))
+                if (table.BaitId <= 0 || (character.Inventory.Items.Remove(_itemBuilder.Create().WithId(table.BaitId).Build()) > 0 &&
+                                          character.Inventory.Items.Contains(table.BaitId)))
                 {
                     return false; // keep fishing
                 }

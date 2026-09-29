@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.HintIcon;
+using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -159,16 +159,16 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 }
 
                 var removedCoins = 0;
-                var coins = SelfContainer.GetById(995);
+                var coins = SelfContainer.Items.GetById(995);
                 if (coins != null)
                 {
-                    removedCoins += SelfContainer.Remove(coins);
+                    removedCoins += SelfContainer.Items.Remove(coins);
                 }
 
-                coins = TargetContainer.GetById(995);
+                coins = TargetContainer.Items.GetById(995);
                 if (coins != null)
                 {
-                    removedCoins += TargetContainer.Remove(coins);
+                    removedCoins += TargetContainer.Items.Remove(coins);
                 }
 
                 if (removedCoins > 0)
@@ -176,8 +176,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     victor.MoneyPouch.Add(removedCoins);
                 }
 
-                victor.Inventory.AddRange(SelfContainer);
-                victor.Inventory.AddRange(TargetContainer);
+                victor.Inventory.Items.AddRange(SelfContainer);
+                victor.Inventory.Items.AddRange(TargetContainer);
             }
         }
 

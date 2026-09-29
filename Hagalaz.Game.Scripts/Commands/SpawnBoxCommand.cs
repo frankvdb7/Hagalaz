@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Builders.Item;
@@ -97,7 +97,7 @@ namespace Hagalaz.Game.Scripts.Commands
             }
 
 
-            IItemContainer container = new GenericContainer(StorageType.AlwaysStack, 8 * 35);
+            IItemContainer container = new GenericContainer(StorageType.AlwaysStack, 8 * 35).Items;
             for (var i = 0; i < searchResult.Count; i++)
             {
                 container.Add(_itemBuilder.Create().WithId(searchResult.Found[i]).Build());
@@ -121,9 +121,9 @@ namespace Hagalaz.Game.Scripts.Commands
                                 return false;
                             }
 
-                            if (args.Character.Inventory.HasSpaceFor(item))
+                            if (args.Character.Inventory.Items.HasSpaceFor(item))
                             {
-                                args.Character.Inventory.Add(item.Clone());
+                                args.Character.Inventory.Items.Add(item.Clone());
                             }
                             else
                             {
@@ -163,9 +163,9 @@ namespace Hagalaz.Game.Scripts.Commands
                                 var addItem = item.Clone();
                                 addItem.Count = value;
 
-                                if (args.Character.Inventory.HasSpaceFor(addItem))
+                                if (args.Character.Inventory.Items.HasSpaceFor(addItem))
                                 {
-                                    args.Character.Inventory.Add(addItem);
+                                    args.Character.Inventory.Items.Add(addItem);
                                 }
                                 else
                                 {

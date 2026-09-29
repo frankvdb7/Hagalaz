@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Widget;
 using Hagalaz.Game.Abstractions.Data;
@@ -168,7 +168,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
             _inventoryInterface.AttachClickHandler(0,
                 (componentID, type, itemID, slot) =>
                 {
-                    if (slot < 0 || slot >= Owner.Inventory.Capacity)
+                    if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
                     {
                         return false;
                     }
@@ -241,7 +241,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
 
             bool SellScreenHandler(int componentID, ComponentClickType type, int itemID, int slot)
             {
-                if (slot < 0 || slot >= Owner.Inventory.Capacity)
+                if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
                 {
                     return false;
                 }
@@ -551,7 +551,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
         /// <summary>
         ///     Refreshes the money pouch.
         /// </summary>
-        private void RefreshMoneyPouch() => Owner.Configurations.SendItems(623, false, Owner.MoneyPouch);
+        private void RefreshMoneyPouch() => Owner.Configurations.SendItems(623, false, Owner.MoneyPouch.Items);
 
         /// <summary>
         ///     Happens when interface is closed for character.

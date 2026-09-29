@@ -48,7 +48,7 @@ public sealed class GroundItemPickupTests
 
         Assert.IsTrue(firstResult);
         Assert.IsFalse(secondResult);
-        Assert.AreEqual(0, inventory.GetInstanceSlot(clone));
+        Assert.AreEqual(0, inventory.Items.GetInstanceSlot(clone));
         Assert.IsEmpty(region.FindAllGroundItems());
     }
 
@@ -66,7 +66,7 @@ public sealed class GroundItemPickupTests
 
         Assert.IsFalse(result);
         groundItem.DidNotReceive().Despawn();
-        Assert.AreEqual(0, inventory.TakenSlots);
+        Assert.AreEqual(0, inventory.Items.TakenSlots);
     }
 
     private static MapRegion CreateRegion(IMapRegionService regionService)

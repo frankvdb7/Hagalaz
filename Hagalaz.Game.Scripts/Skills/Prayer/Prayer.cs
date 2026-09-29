@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
@@ -18,7 +18,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
                 return true;
             }
 
-            var slot = character.Inventory.GetInstanceSlot(item);
+            var slot = character.Inventory.Items.GetInstanceSlot(item);
             if (slot == -1)
             {
                 return false;
@@ -43,7 +43,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
                 return true;
             };
 
-            var count = character.Inventory.GetCountById(dto.ItemId);
+            var count = character.Inventory.Items.GetCountById(dto.ItemId);
             dialogue.SetMaxCount(count, false);
             dialogue.SetCurrentCount(count, false);
 

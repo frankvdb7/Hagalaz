@@ -50,7 +50,7 @@ public sealed class CasketTests
 
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => operationTask);
 
-        Assert.AreEqual(0, inventory.GetInstanceSlot(item));
+        Assert.AreEqual(0, inventory.Items.GetInstanceSlot(item));
         character.DidNotReceive().SendChatMessage("and found some glorious loot!");
     }
 
@@ -91,8 +91,8 @@ public sealed class CasketTests
         new Casket(lootService).ItemClickedInInventory(ComponentClickType.LeftClick, item, character);
         await operation(CancellationToken.None);
 
-        Assert.AreEqual(-1, inventory.GetInstanceSlot(item));
-        Assert.IsGreaterThanOrEqualTo(0, inventory.GetInstanceSlot(generatedItem));
+        Assert.AreEqual(-1, inventory.Items.GetInstanceSlot(item));
+        Assert.IsGreaterThanOrEqualTo(0, inventory.Items.GetInstanceSlot(generatedItem));
         lootGenerator.Received(1).GenerateLoot<ILootItem>(Arg.Any<CharacterLootParams>());
     }
 

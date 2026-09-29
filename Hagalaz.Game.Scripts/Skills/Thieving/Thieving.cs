@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -164,7 +164,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
             }
 
             var maximumLootCount = lootTable.MaxResultCount;
-            if (clicker.Inventory.FreeSlots < maximumLootCount)
+            if (clicker.Inventory.Items.FreeSlots < maximumLootCount)
             {
                 clicker.SendChatMessage(GameStrings.InventoryFull);
                 return;
@@ -207,9 +207,9 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
             }
 
             var maximumLootCount = lootTable.MaxResultCount;
-            /*lock (clicker.Inventory.GetLock())
+            /*lock (clicker.Inventory.Items.GetLock())
 			{
-				if (clicker.Inventory.FreeSlots < maximumLootCount)
+				if (clicker.Inventory.Items.FreeSlots < maximumLootCount)
 				{
 					clicker.SendMessage(GameMessages.INVENTORY_FULL);
 					return;

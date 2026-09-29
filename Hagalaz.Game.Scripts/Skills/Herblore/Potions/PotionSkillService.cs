@@ -28,7 +28,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
         /// <param name="message">The message.</param>
         public void DrinkPotion(ICharacter character, IItem current, IItem next, OnFinish finish, int drinkingTicks = 2, string? message = null)
         {
-            var slot = character.Inventory.GetInstanceSlot(current);
+            var slot = character.Inventory.Items.GetInstanceSlot(current);
             if (slot == -1)
             {
                 return;
@@ -39,7 +39,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
                 return;
             }
 
-            character.Inventory.Replace(slot, next);
+            character.Inventory.Items.Replace(slot, next);
 
             character.AddState(new DrinkingState { TicksLeft = drinkingTicks });
             character.QueueAnimation(Animation.Create(829));
@@ -89,13 +89,13 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
         /// <returns></returns>
         public bool CombinePotions(ICharacter character, IItem used, IItem usedWith, int[] potionIds)
         {
-            var usedSlot = character.Inventory.GetInstanceSlot(used);
+            var usedSlot = character.Inventory.Items.GetInstanceSlot(used);
             if (usedSlot == -1)
             {
                 return false;
             }
 
-            var usedWithSlot = character.Inventory.GetInstanceSlot(usedWith);
+            var usedWithSlot = character.Inventory.Items.GetInstanceSlot(usedWith);
             if (usedWithSlot == -1)
             {
                 return false;
@@ -165,8 +165,8 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
 
             if (newUsed != null && newUsedWith != null)
             {
-                character.Inventory.Replace(usedSlot, newUsed);
-                character.Inventory.Replace(usedWithSlot, newUsedWith);
+                character.Inventory.Items.Replace(usedSlot, newUsed);
+                character.Inventory.Items.Replace(usedWithSlot, newUsedWith);
                 return true;
             }
 
@@ -181,13 +181,13 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
         /// <returns></returns>
         public bool EmptyPotion(ICharacter character, IItem potion)
         {
-            var slot = character.Inventory.GetInstanceSlot(potion);
+            var slot = character.Inventory.Items.GetInstanceSlot(potion);
             if (slot == -1)
             {
                 return false;
             }
 
-            character.Inventory.Replace(slot, _itemBuilder.Create().WithId(PotionConstants.Vial).Build());
+            character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(PotionConstants.Vial).Build());
             return true;
         }
     }

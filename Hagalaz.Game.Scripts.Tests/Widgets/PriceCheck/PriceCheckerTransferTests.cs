@@ -25,11 +25,11 @@ public sealed class PriceCheckerTransferTests
     {
         var harness = CreateHarness();
         var inventoryItem = CreateItem(100, 100);
-        Assert.IsTrue(harness.Inventory.Add(inventoryItem));
+        Assert.IsTrue(harness.Inventory.Items.Add(inventoryItem));
 
         Assert.IsTrue(AddSelection(harness, inventoryItem, 80));
 
-        Assert.AreEqual(100, harness.Inventory.GetCount(inventoryItem));
+        Assert.AreEqual(100, harness.Inventory.Items.GetCount(inventoryItem));
         Assert.AreEqual(100, inventoryItem.Count);
         Assert.AreEqual(80, harness.Selections.GetCount(inventoryItem));
         Assert.AreNotSame(inventoryItem, harness.Selections.GetById(inventoryItem.Id));
@@ -42,12 +42,12 @@ public sealed class PriceCheckerTransferTests
     {
         var harness = CreateHarness();
         var item = CreateItem(100, 100);
-        Assert.IsTrue(harness.Inventory.Add(item));
+        Assert.IsTrue(harness.Inventory.Items.Add(item));
         Assert.IsTrue(AddSelection(harness, item, 80));
 
         Assert.IsTrue(AddSelection(harness, item, int.MaxValue));
 
-        Assert.AreEqual(100, harness.Inventory.GetCount(item));
+        Assert.AreEqual(100, harness.Inventory.Items.GetCount(item));
         Assert.AreEqual(100, harness.Selections.GetCount(item));
         Assert.AreEqual(0, GetCount(harness.ProjectedInventory!, item));
     }
@@ -57,12 +57,12 @@ public sealed class PriceCheckerTransferTests
     {
         var harness = CreateHarness();
         var item = CreateItem(100, 100);
-        Assert.IsTrue(harness.Inventory.Add(item));
+        Assert.IsTrue(harness.Inventory.Items.Add(item));
         Assert.IsTrue(AddSelection(harness, item, 80));
 
         Assert.IsTrue(RemoveSelection(harness, item, 30));
 
-        Assert.AreEqual(100, harness.Inventory.GetCount(item));
+        Assert.AreEqual(100, harness.Inventory.Items.GetCount(item));
         Assert.AreEqual(50, harness.Selections.GetCount(item));
         Assert.AreEqual(50, GetCount(harness.ProjectedInventory!, item));
     }
@@ -72,13 +72,13 @@ public sealed class PriceCheckerTransferTests
     {
         var harness = CreateHarness();
         var item = CreateItem(100, 100);
-        Assert.IsTrue(harness.Inventory.Add(item));
+        Assert.IsTrue(harness.Inventory.Items.Add(item));
         Assert.IsTrue(AddSelection(harness, item, 80));
-        Assert.AreEqual(40, harness.Inventory.Remove(item.Clone(40)));
+        Assert.AreEqual(40, harness.Inventory.Items.Remove(item.Clone(40)));
 
         Assert.IsFalse(harness.InventoryChangedHandler!(new InventoryChangedEvent(harness.Character)));
 
-        Assert.AreEqual(60, harness.Inventory.GetCount(item));
+        Assert.AreEqual(60, harness.Inventory.Items.GetCount(item));
         Assert.AreEqual(60, harness.Selections.GetCount(item));
         Assert.AreEqual(0, GetCount(harness.ProjectedInventory!, item));
     }
@@ -88,9 +88,9 @@ public sealed class PriceCheckerTransferTests
     {
         var harness = CreateHarness();
         var item = CreateItem(100, 3, stackable: false);
-        Assert.IsTrue(harness.Inventory.Add(item));
+        Assert.IsTrue(harness.Inventory.Items.Add(item));
         Assert.IsTrue(AddSelection(harness, item, 2));
-        Assert.AreEqual(3, harness.Inventory.Remove(item.Clone(3)));
+        Assert.AreEqual(3, harness.Inventory.Items.Remove(item.Clone(3)));
 
         harness.InventoryChangedHandler!(new InventoryChangedEvent(harness.Character));
 
@@ -103,13 +103,13 @@ public sealed class PriceCheckerTransferTests
     {
         var harness = CreateHarness();
         var item = CreateItem(100, 100);
-        Assert.IsTrue(harness.Inventory.Add(item));
+        Assert.IsTrue(harness.Inventory.Items.Add(item));
         Assert.IsTrue(AddSelection(harness, item, 80));
-        Assert.IsTrue(harness.Inventory.Add(item.Clone(20)));
+        Assert.IsTrue(harness.Inventory.Items.Add(item.Clone(20)));
 
         harness.InventoryChangedHandler!(new InventoryChangedEvent(harness.Character));
 
-        Assert.AreEqual(120, harness.Inventory.GetCount(item));
+        Assert.AreEqual(120, harness.Inventory.Items.GetCount(item));
         Assert.AreEqual(80, harness.Selections.GetCount(item));
         Assert.AreEqual(40, GetCount(harness.ProjectedInventory!, item));
     }
@@ -120,8 +120,8 @@ public sealed class PriceCheckerTransferTests
         var harness = CreateHarness();
         var firstVariant = CreateItem(100, 2, stackable: false, extraData: [1]);
         var secondVariant = CreateItem(100, 2, stackable: false, extraData: [2]);
-        Assert.IsTrue(harness.Inventory.Add(firstVariant));
-        Assert.IsTrue(harness.Inventory.Add(secondVariant));
+        Assert.IsTrue(harness.Inventory.Items.Add(firstVariant));
+        Assert.IsTrue(harness.Inventory.Items.Add(secondVariant));
 
         Assert.IsTrue(AddSelection(harness, firstVariant, 1));
         harness.Script.GetType().GetMethod("RefreshProjectedInventory", BindingFlags.Instance | BindingFlags.NonPublic)!
@@ -130,7 +130,7 @@ public sealed class PriceCheckerTransferTests
         Assert.AreEqual(1, GetCount(harness.ProjectedInventory!, firstVariant));
         Assert.AreEqual(2, GetCount(harness.ProjectedInventory!, secondVariant));
         Assert.IsTrue(harness.Selections.GetById(firstVariant.Id)!.ExtraData.SequenceEqual(new long[] { 1 }));
-        Assert.AreEqual(4, harness.Inventory.TakenSlots);
+        Assert.AreEqual(4, harness.Inventory.Items.TakenSlots);
         Assert.IsTrue(Enumerable.Range(0, harness.ProjectedInventory!.Capacity)
             .Where(slot => harness.ProjectedInventory[slot] != null)
             .All(slot => !ReferenceEquals(harness.ProjectedInventory[slot], harness.Inventory[slot])));
@@ -141,16 +141,16 @@ public sealed class PriceCheckerTransferTests
     {
         var harness = CreateHarness();
         var item = CreateItem(100, 100);
-        Assert.IsTrue(harness.Inventory.Add(item));
+        Assert.IsTrue(harness.Inventory.Items.Add(item));
         Assert.IsTrue(AddSelection(harness, item, 80));
 
         Assert.IsFalse(harness.InventoryClick!(0, ComponentClickType.Option5Click, item.Id, 0));
         Assert.IsNotNull(harness.Character.Widgets.IntInputHandler);
-        Assert.IsTrue(harness.Inventory.Add(item.Clone(20)));
+        Assert.IsTrue(harness.Inventory.Items.Add(item.Clone(20)));
         harness.InventoryChangedHandler!(new InventoryChangedEvent(harness.Character));
         ((OnIntInput)GetField(harness.Script, "_inputHandler")!)(50);
 
-        Assert.AreEqual(120, harness.Inventory.GetCount(item));
+        Assert.AreEqual(120, harness.Inventory.Items.GetCount(item));
         Assert.AreEqual(120, harness.Selections.GetCount(item));
         Assert.AreEqual(0, GetCount(harness.ProjectedInventory!, item));
     }
@@ -160,7 +160,7 @@ public sealed class PriceCheckerTransferTests
     {
         var harness = CreateHarness();
         var item = CreateItem(100, 10);
-        Assert.IsTrue(harness.Inventory.Add(item));
+        Assert.IsTrue(harness.Inventory.Items.Add(item));
         Assert.IsTrue(AddSelection(harness, item, 4));
         Assert.IsFalse(harness.InventoryClick!(0, ComponentClickType.Option5Click, item.Id, 0));
         var pendingInput = (OnIntInput)GetField(harness.Script, "_inputHandler")!;
@@ -168,7 +168,7 @@ public sealed class PriceCheckerTransferTests
 
         harness.Script.OnClose();
 
-        Assert.AreEqual(10, harness.Inventory.GetCount(item));
+        Assert.AreEqual(10, harness.Inventory.Items.GetCount(item));
         Assert.AreSame(harness.Inventory, harness.ProjectedInventory);
         Assert.IsNull(harness.Character.Widgets.IntInputHandler);
         Assert.IsNull(GetField(harness.Script, "_priceCheckInterface"));
@@ -243,7 +243,8 @@ public sealed class PriceCheckerTransferTests
         var script = new PriceChecker(accessor);
         script.Initialize(interfaceInstance);
         script.OnOpen();
-        var selections = (IItemContainer)GetField(script, "_priceCheckInterface")!;
+        var selections = (IItemContainer)GetField(script, "_priceCheckInterface")!
+            .GetType().GetProperty("Items")!.GetValue(GetField(script, "_priceCheckInterface"))!;
 
         IContainer<IItem?>? projectedInventory = null;
         configurations.When(configuration => configuration.SendItems(

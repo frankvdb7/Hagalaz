@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Tasks;
@@ -27,7 +27,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Bandos
                 clicker.Interrupt(this);
                 switch (Owner.Id)
                 {
-                    case 26384 when !clicker.Inventory.Contains(2347):
+                    case 26384 when !clicker.Inventory.Items.Contains(2347):
                         clicker.SendChatMessage("You need a hammer to bang the door.");
                         return;
                     case 26384 when clicker.Statistics.GetSkillLevel(StatisticsConstants.Strength) < 70:

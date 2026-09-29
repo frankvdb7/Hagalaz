@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
@@ -124,7 +124,7 @@ namespace Hagalaz.Game.Scripts.Items.Tabs
         /// </summary>
         /// <param name="caster"></param>
         /// <returns></returns>
-        public override bool CanTeleport(ICharacter caster) => caster.Inventory.Contains(_tabItemId);
+        public override bool CanTeleport(ICharacter caster) => caster.Inventory.Items.Contains(_tabItemId);
 
         /// <summary>
         ///     Called when [teleport started].
@@ -133,7 +133,7 @@ namespace Hagalaz.Game.Scripts.Items.Tabs
         public override void OnTeleportStarted(ICharacter caster)
         {
             var itemBuilder = caster.ServiceProvider.GetRequiredService<IItemBuilder>();
-            caster.Inventory.Remove(itemBuilder.Create().WithId(_tabItemId).Build());
+            caster.Inventory.Items.Remove(itemBuilder.Create().WithId(_tabItemId).Build());
         }
     }
 }

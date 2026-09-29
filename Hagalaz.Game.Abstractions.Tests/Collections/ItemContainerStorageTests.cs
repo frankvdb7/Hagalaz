@@ -14,58 +14,24 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
     [TestClass]
     public class ItemContainerStorageTests
     {
-        private class TestableItemContainer : ITradeItemContainer, IItemContainerStorageOwner
+        private class TestableItemContainer
         {
-            public ItemContainerStorage Storage { get; }
-            ItemContainerStorage IItemContainerStorageOwner.Storage => Storage;
-            void IItemContainerStorageOwner.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
+            public ItemContainer Items { get; }
+            public ItemContainerStorage Storage => ((IItemContainerStorageOwner)Items).Storage;
             public int UpdateCount { get; private set; }
             public bool ThrowOnPublication { get; set; }
             public Action<HashSet<int>?>? PublicationHandler { get; set; }
 
             public TestableItemContainer(StorageType type, int capacity, int countToResetTo = -1)
             {
-                Storage = new ItemContainerStorage(type, capacity, countToResetTo);
+                Items = new ItemContainer(type, capacity, OnUpdate, countToResetTo);
             }
 
             public TestableItemContainer(StorageType type, IEnumerable<IItem> items, int capacity)
             {
-                Storage = new ItemContainerStorage(type, items, capacity);
+                Items = new ItemContainer(type, items, capacity);
             }
-
-            public IItem? this[int index] => Storage[index];
-            public int Capacity => Storage.Capacity;
-            public StorageType Type => Storage.Type;
-            public int FreeSlots => Storage.FreeSlots;
-            public int TakenSlots => Storage.TakenSlots;
-            public bool Add(IItem item) { if (!Storage.TryAdd(item, out var slots)) return false; OnUpdate(slots); return true; }
-            public bool Add(int slot, IItem item) { if (!Storage.TryAdd(slot, item, out var slots)) return false; OnUpdate(slots); return true; }
-            public void AddAndRemoveFrom(IItemContainer container) => ItemContainerTransfer.AddAndRemoveFrom(this, container);
-            public IItem? GetById(int id) => Storage.GetById(id);
-            public int Remove(IItem item, int preferredSlot = -1, bool update = true) { var removed = Storage.Remove(item, preferredSlot, out var slots); if (removed > 0 && update) OnUpdate(slots); return removed; }
-            public void Replace(int slot, IItem item) { Storage.Replace(slot, item); OnUpdate([slot]); }
-            public void Swap(int fromSlot, int toSlot) { if (Storage.Swap(fromSlot, toSlot)) OnUpdate([fromSlot, toSlot]); }
-            public void Move(int fromSlot, int toSlot) { if (Storage.Move(fromSlot, toSlot)) OnUpdate(); }
-            public bool AddRange(IEnumerable<IItem?> items) { if (!Storage.TryAddRange(items, out var slots)) return false; OnUpdate(slots); return true; }
-            public bool Contains(int id, int count) => Storage.Contains(id, count);
-            public bool Contains(int id) => Storage.Contains(id);
-            public bool Contains(IItem item, bool ignoreCount = true) => Storage.Contains(item, ignoreCount);
-            public int GetCount(IItem item) => Storage.GetCount(item);
-            public int GetCountById(int id) => Storage.GetCountById(id);
-            public int GetInstanceSlot(IItem instance) => Storage.GetInstanceSlot(instance);
-            public void Sort() { Storage.Sort(); OnUpdate(); }
-            public int GetSlotByItem(IItem item, bool ignoreCount = true) => Storage.GetSlotByItem(item, ignoreCount);
-            public bool HasSpaceFor(IItem item) => Storage.HasSpaceFor(item);
-            public bool HasSpaceForRange(IEnumerable<IItem?> items) => Storage.HasSpaceForRange(items);
-            public void Clear(bool update) { if (Storage.Clear() && update) OnUpdate(); }
-            public IItem?[] ToArray() => Storage.ToArray();
-            public IEnumerator<IItem?> GetEnumerator() => Storage.GetEnumerator();
-            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
             public void SetItems(IItem[] items, bool update) { Storage.ReplaceState(items); if (update) OnUpdate(); }
-            public bool AddRangeForTrade(IEnumerable<IItem?> items) { if (!TryAddRangeForTradeStorage(items, out var s)) return false; OnUpdate(s); return true; }
-            public bool TryAddRangeForTradeStorage(IEnumerable<IItem?> items, out HashSet<int> changedSlots) => Storage.TryAddRange(items, out changedSlots);
-            public bool RemoveForTrade(IItem item, int preferredSlot = -1) { if (!TryRemoveForTradeStorage(item, preferredSlot, out var s)) return false; OnUpdate(s); return true; }
-            public bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots) => Storage.TryRemoveExact(item, preferredSlot, out changedSlots);
             public void OnUpdate(HashSet<int>? slots = null)
             {
                 UpdateCount++;
@@ -83,7 +49,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var container = new TestableItemContainer(StorageType.Normal, 2);
 
             Assert.ThrowsExactly<ArgumentNullException>(() =>
-                container.TryRemoveForTradeStorage(null!, -1, out _));
+                container.Items.TryRemoveForTradeStorage(null!, -1, out _));
         }
 
         private class TestItem : IItem
@@ -157,14 +123,14 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var item = CreateItem(1, 1);
 
             // Act
-            var result = container.Add(item);
+            var result = container.Items.Add(item);
 
             // Assert
             Assert.IsTrue(result);
-            Assert.AreEqual(1, container.TakenSlots);
-            Assert.AreEqual(9, container.FreeSlots);
-            Assert.IsNotNull(container[0]);
-            Assert.IsTrue(item.Equals(container[0]));
+            Assert.AreEqual(1, container.Items.TakenSlots);
+            Assert.AreEqual(9, container.Items.FreeSlots);
+            Assert.IsNotNull(container.Items[0]);
+            Assert.IsTrue(item.Equals(container.Items[0]));
         }
 
         [TestMethod]
@@ -173,18 +139,18 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var existingItem = CreateItem(1, 5, stackable: true);
-            container.Add(existingItem);
+            container.Items.Add(existingItem);
 
             var newItem = CreateItem(1, 3, stackable: true);
 
             // Act
-            var result = container.Add(newItem);
+            var result = container.Items.Add(newItem);
 
             // Assert
             Assert.IsTrue(result);
-            Assert.AreEqual(1, container.TakenSlots);
-            Assert.AreEqual(9, container.FreeSlots);
-            Assert.AreEqual(8, container[0].Count);
+            Assert.AreEqual(1, container.Items.TakenSlots);
+            Assert.AreEqual(9, container.Items.FreeSlots);
+            Assert.AreEqual(8, container.Items[0].Count);
         }
 
         [TestMethod]
@@ -193,16 +159,16 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 1);
             var existingItem = CreateItem(1, 1);
-            container.Add(existingItem);
+            container.Items.Add(existingItem);
 
             var newItem = CreateItem(2, 1);
 
             // Act
-            var result = container.Add(newItem);
+            var result = container.Items.Add(newItem);
 
             // Assert
             Assert.IsFalse(result);
-            Assert.AreEqual(1, container.TakenSlots);
+            Assert.AreEqual(1, container.Items.TakenSlots);
         }
 
         [TestMethod]
@@ -220,12 +186,12 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Act
             foreach (var item in items)
             {
-                container.Add(item);
+                container.Items.Add(item);
             }
 
             // Assert
-            Assert.AreEqual(3, container.TakenSlots);
-            Assert.AreEqual(7, container.FreeSlots);
+            Assert.AreEqual(3, container.Items.TakenSlots);
+            Assert.AreEqual(7, container.Items.FreeSlots);
         }
 
         [TestMethod]
@@ -234,15 +200,15 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var item = CreateItem(1, 1);
-            container.Add(item);
+            container.Items.Add(item);
 
             // Act
-            var removedCount = container.Remove(item);
+            var removedCount = container.Items.Remove(item);
 
             // Assert
             Assert.AreEqual(1, removedCount);
-            Assert.AreEqual(0, container.TakenSlots);
-            Assert.AreEqual(10, container.FreeSlots);
+            Assert.AreEqual(0, container.Items.TakenSlots);
+            Assert.AreEqual(10, container.Items.FreeSlots);
         }
 
         [TestMethod]
@@ -251,17 +217,17 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var existingItem = CreateItem(1, 10, stackable: true);
-            container.Add(existingItem);
+            container.Items.Add(existingItem);
 
             var itemToRemove = CreateItem(1, 3, stackable: true);
 
             // Act
-            var removedCount = container.Remove(itemToRemove);
+            var removedCount = container.Items.Remove(itemToRemove);
 
             // Assert
             Assert.AreEqual(3, removedCount);
-            Assert.AreEqual(1, container.TakenSlots);
-            Assert.AreEqual(7, container[0].Count);
+            Assert.AreEqual(1, container.Items.TakenSlots);
+            Assert.AreEqual(7, container.Items[0].Count);
         }
 
         [TestMethod]
@@ -270,14 +236,14 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var item = CreateItem(1, 5, stackable: true);
-            container.Add(item);
+            container.Items.Add(item);
 
             // Act
-            var removedCount = container.Remove(item);
+            var removedCount = container.Items.Remove(item);
 
             // Assert
             Assert.AreEqual(5, removedCount);
-            Assert.AreEqual(0, container.TakenSlots);
+            Assert.AreEqual(0, container.Items.TakenSlots);
         }
 
         [TestMethod]
@@ -287,17 +253,17 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var item1 = CreateItem(1, 1);
             var item2 = CreateItem(2, 1);
-            container.Add(item1);
-            container.Add(item2);
+            container.Items.Add(item1);
+            container.Items.Add(item2);
 
             // Act
-            container.Swap(0, 1);
+            container.Items.Swap(0, 1);
 
             // Assert
-            Assert.IsNotNull(container[0]);
-            Assert.IsNotNull(container[1]);
-            Assert.IsTrue(item2.Equals(container[0]));
-            Assert.IsTrue(item1.Equals(container[1]));
+            Assert.IsNotNull(container.Items[0]);
+            Assert.IsNotNull(container.Items[1]);
+            Assert.IsTrue(item2.Equals(container.Items[0]));
+            Assert.IsTrue(item1.Equals(container.Items[1]));
         }
 
         [TestMethod]
@@ -307,16 +273,16 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var item1 = CreateItem(1, 1);
             var item2 = CreateItem(2, 1);
-            container.Add(item1);
-            container.Add(item2);
+            container.Items.Add(item1);
+            container.Items.Add(item2);
 
             // Act
-            container.Move(0, 5);
+            container.Items.Move(0, 5);
 
             // Assert
-            Assert.IsNull(container[0]);
-            Assert.IsNotNull(container[5]);
-            Assert.IsTrue(item1.Equals(container[5]));
+            Assert.IsNull(container.Items[0]);
+            Assert.IsNotNull(container.Items[5]);
+            Assert.IsTrue(item1.Equals(container.Items[5]));
         }
 
         [TestMethod]
@@ -326,15 +292,15 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var source = new TestableItemContainer(StorageType.Normal, 5);
             var destination = new TestableItemContainer(StorageType.Normal, 5);
             var item = CreateItem(1, 1);
-            source.Add(item);
+            source.Items.Add(item);
 
             // Act
-            destination.AddAndRemoveFrom(source);
+            destination.Items.AddAndRemoveFrom(source.Items);
 
             // Assert
-            Assert.AreEqual(0, source.TakenSlots);
-            Assert.AreEqual(1, destination.TakenSlots);
-            Assert.IsTrue(item.Equals(destination[0]));
+            Assert.AreEqual(0, source.Items.TakenSlots);
+            Assert.AreEqual(1, destination.Items.TakenSlots);
+            Assert.IsTrue(item.Equals(destination.Items[0]));
         }
 
         [TestMethod]
@@ -344,19 +310,19 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var source = new TestableItemContainer(StorageType.Normal, 5);
             var destination = new TestableItemContainer(StorageType.Normal, 5);
             var item = CreateItem(1, 10, stackable: true);
-            source.Add(item);
+            source.Items.Add(item);
 
             var itemToTransfer = CreateItem(1, 3, stackable: true);
 
             // Act
-            destination.Add(itemToTransfer);
-            source.Remove(itemToTransfer, 0);
+            destination.Items.Add(itemToTransfer);
+            source.Items.Remove(itemToTransfer, 0);
 
             // Assert
-            Assert.AreEqual(1, source.TakenSlots);
-            Assert.AreEqual(7, source[0].Count);
-            Assert.AreEqual(1, destination.TakenSlots);
-            Assert.AreEqual(3, destination[0].Count);
+            Assert.AreEqual(1, source.Items.TakenSlots);
+            Assert.AreEqual(7, source.Items[0].Count);
+            Assert.AreEqual(1, destination.Items.TakenSlots);
+            Assert.AreEqual(3, destination.Items[0].Count);
         }
 
         [TestMethod]
@@ -365,15 +331,15 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var item = CreateItem(1, 1, stackable: false); // Not stackable
-            container.Add(item);
-            container.Add(item.Clone());
+            container.Items.Add(item);
+            container.Items.Add(item.Clone());
 
             // Act
-            var removedCount = container.Remove(item);
+            var removedCount = container.Items.Remove(item);
 
             // Assert
             Assert.AreEqual(1, removedCount);
-            Assert.AreEqual(1, container.TakenSlots);
+            Assert.AreEqual(1, container.Items.TakenSlots);
         }
 
         [TestMethod]
@@ -381,16 +347,16 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
-            container.Add(CreateItem(1, 1));
-            container.Add(CreateItem(2, 5, stackable: true));
-            container.Add(CreateItem(3, 1));
+            container.Items.Add(CreateItem(1, 1));
+            container.Items.Add(CreateItem(2, 5, stackable: true));
+            container.Items.Add(CreateItem(3, 1));
 
             // Act
-            container.Clear(true);
+            container.Items.Clear(true);
 
             // Assert
-            Assert.AreEqual(0, container.TakenSlots);
-            Assert.AreEqual(10, container.FreeSlots);
+            Assert.AreEqual(0, container.Items.TakenSlots);
+            Assert.AreEqual(10, container.Items.FreeSlots);
         }
 
         [TestMethod]
@@ -406,12 +372,12 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             };
 
             // Act
-            var result = container.AddRange(items);
+            var result = container.Items.AddRange(items);
 
             // Assert
             Assert.IsTrue(result);
-            Assert.AreEqual(3, container.TakenSlots);
-            Assert.AreEqual(7, container.FreeSlots);
+            Assert.AreEqual(3, container.Items.TakenSlots);
+            Assert.AreEqual(7, container.Items.FreeSlots);
         }
 
         [TestMethod]
@@ -420,20 +386,20 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 2);
             var existingItem = CreateItem(10, 1);
-            Assert.IsTrue(container.Add(existingItem));
-            var existingStoredItem = container[0]!;
+            Assert.IsTrue(container.Items.Add(existingItem));
+            var existingStoredItem = container.Items[0]!;
             var items = new[] { CreateItem(1, 1), CreateItem(2, 1) };
 
             // Act
-            var result = container.AddRange(items);
+            var result = container.Items.AddRange(items);
 
             // Assert
             Assert.IsFalse(result);
-            Assert.AreEqual(1, container.TakenSlots);
-            Assert.AreSame(existingStoredItem, container[0]);
+            Assert.AreEqual(1, container.Items.TakenSlots);
+            Assert.AreSame(existingStoredItem, container.Items[0]);
             Assert.AreEqual(1, existingStoredItem.Count);
-            Assert.AreEqual(0, container.GetCountById(1));
-            Assert.AreEqual(0, container.GetCountById(2));
+            Assert.AreEqual(0, container.Items.GetCountById(1));
+            Assert.AreEqual(0, container.Items.GetCountById(2));
         }
 
         [TestMethod]
@@ -449,7 +415,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             };
 
             // Act
-            var result = container.HasSpaceForRange(items);
+            var result = container.Items.HasSpaceForRange(items);
 
             // Assert
             Assert.IsTrue(result);
@@ -468,7 +434,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             };
 
             // Act
-            var result = container.HasSpaceForRange(items);
+            var result = container.Items.HasSpaceForRange(items);
 
             // Assert
             Assert.IsFalse(result);
@@ -480,15 +446,15 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var item = CreateItem(1, 5, stackable: true);
-            container.Add(item);
+            container.Items.Add(item);
             var itemToRemove = CreateItem(1, 10, stackable: true);
 
             // Act
-            var removedCount = container.Remove(itemToRemove);
+            var removedCount = container.Items.Remove(itemToRemove);
 
             // Assert
             Assert.AreEqual(5, removedCount);
-            Assert.AreEqual(0, container.TakenSlots);
+            Assert.AreEqual(0, container.Items.TakenSlots);
         }
 
         [TestMethod]
@@ -499,11 +465,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                 [CreateItem(1, 3, stackable: true), CreateItem(1, 4, stackable: true)],
                 10);
 
-            var removedCount = container.Remove(CreateItem(1, 2, stackable: true));
+            var removedCount = container.Items.Remove(CreateItem(1, 2, stackable: true));
 
             Assert.AreEqual(2, removedCount);
-            Assert.AreEqual(1, container[0].Count);
-            Assert.AreEqual(2, container[1].Count);
+            Assert.AreEqual(1, container.Items[0].Count);
+            Assert.AreEqual(2, container.Items[1].Count);
         }
 
         [TestMethod]
@@ -512,15 +478,15 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var item = CreateItem(1, 1);
-            container.Add(item);
+            container.Items.Add(item);
             var itemToRemove = CreateItem(2, 1);
 
             // Act
-            var removedCount = container.Remove(itemToRemove);
+            var removedCount = container.Items.Remove(itemToRemove);
 
             // Assert
             Assert.AreEqual(0, removedCount);
-            Assert.AreEqual(1, container.TakenSlots);
+            Assert.AreEqual(1, container.Items.TakenSlots);
         }
 
         [TestMethod]
@@ -528,17 +494,17 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 5);
-            container.Add(CreateItem(1, 5, stackable: true));
+            container.Items.Add(CreateItem(1, 5, stackable: true));
             var itemsToAdd = new[] { CreateItem(1, 3, stackable: true), CreateItem(2, 2, stackable: true) };
 
             // Act
-            var result = container.AddRange(itemsToAdd);
+            var result = container.Items.AddRange(itemsToAdd);
 
             // Assert
             Assert.IsTrue(result);
-            Assert.AreEqual(2, container.TakenSlots);
-            Assert.AreEqual(8, container[0].Count);
-            Assert.AreEqual(2, container[1].Count);
+            Assert.AreEqual(2, container.Items.TakenSlots);
+            Assert.AreEqual(8, container.Items[0].Count);
+            Assert.AreEqual(2, container.Items[1].Count);
         }
 
         [TestMethod]
@@ -546,15 +512,15 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             var container = new TestableItemContainer(StorageType.Normal, 2);
             var existing = CreateItem(1, 1);
-            container.Add(existing);
+            container.Items.Add(existing);
 
-            var result = container.AddRange([CreateItem(2, 2)]);
+            var result = container.Items.AddRange([CreateItem(2, 2)]);
 
             Assert.IsFalse(result);
-            Assert.IsFalse(container.HasSpaceForRange([CreateItem(2, 2)]));
-            Assert.AreEqual(1, container.TakenSlots);
-            Assert.AreEqual(existing.Id, container[0].Id);
-            Assert.AreEqual(1, container[0].Count);
+            Assert.IsFalse(container.Items.HasSpaceForRange([CreateItem(2, 2)]));
+            Assert.AreEqual(1, container.Items.TakenSlots);
+            Assert.AreEqual(existing.Id, container.Items[0].Id);
+            Assert.AreEqual(1, container.Items[0].Count);
         }
 
         [TestMethod]
@@ -562,12 +528,12 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             var container = new TestableItemContainer(StorageType.Normal, 2);
 
-            var result = container.AddRange([CreateItem(1, 2)]);
+            var result = container.Items.AddRange([CreateItem(1, 2)]);
 
             Assert.IsTrue(result);
-            Assert.AreEqual(2, container.TakenSlots);
-            Assert.AreEqual(1, container[0].Count);
-            Assert.AreEqual(1, container[1].Count);
+            Assert.AreEqual(2, container.Items.TakenSlots);
+            Assert.AreEqual(1, container.Items[0].Count);
+            Assert.AreEqual(1, container.Items[1].Count);
         }
 
         [TestMethod]
@@ -578,11 +544,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var second = CreateItem(1, 4, stackable: true);
             var items = new[] { first, second };
 
-            Assert.IsTrue(container.HasSpaceForRange(items));
-            Assert.IsTrue(container.AddRange(items));
-            Assert.AreEqual(1, container.TakenSlots);
-            Assert.AreSame(first, container[0]);
-            Assert.AreEqual(7, container[0].Count);
+            Assert.IsTrue(container.Items.HasSpaceForRange(items));
+            Assert.IsTrue(container.Items.AddRange(items));
+            Assert.AreEqual(1, container.Items.TakenSlots);
+            Assert.AreSame(first, container.Items[0]);
+            Assert.AreEqual(7, container.Items[0].Count);
             Assert.AreEqual(4, second.Count);
         }
 
@@ -647,11 +613,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var container = new TestableItemContainer(StorageType.Normal, 2);
             var items = new[] { CreateItem(1, 1), CreateItem(2, 2) };
 
-            Assert.IsFalse(container.HasSpaceForRange(items));
-            Assert.IsFalse(container.AddRange(items));
-            Assert.AreEqual(0, container.TakenSlots);
-            Assert.IsNull(container[0]);
-            Assert.IsNull(container[1]);
+            Assert.IsFalse(container.Items.HasSpaceForRange(items));
+            Assert.IsFalse(container.Items.AddRange(items));
+            Assert.AreEqual(0, container.Items.TakenSlots);
+            Assert.IsNull(container.Items[0]);
+            Assert.IsNull(container.Items[1]);
         }
 
         [TestMethod]
@@ -659,16 +625,16 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 2);
-            container.Add(CreateItem(1, 1));
+            container.Items.Add(CreateItem(1, 1));
             var itemsToAdd = new[] { CreateItem(2, 1), CreateItem(3, 1) }; // Not enough space for item 3
 
             // Act
-            var result = container.AddRange(itemsToAdd);
+            var result = container.Items.AddRange(itemsToAdd);
 
             // Assert
             Assert.IsFalse(result);
-            Assert.AreEqual(1, container.TakenSlots); // Should not have added any items
-            Assert.AreEqual(1, container[0].Id);
+            Assert.AreEqual(1, container.Items.TakenSlots); // Should not have added any items
+            Assert.AreEqual(1, container.Items[0].Id);
         }
 
         [TestMethod]
@@ -679,7 +645,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var item = CreateItem(1, 1, stackable: true);
 
             // Act
-            var result = container.HasSpaceFor(item);
+            var result = container.Items.HasSpaceFor(item);
 
             // Assert
             Assert.IsTrue(result);
@@ -690,11 +656,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 2);
-            container.Add(CreateItem(1, 1));
+            container.Items.Add(CreateItem(1, 1));
             var item = CreateItem(2, 2, stackable: false); // Requires 2 slots
 
             // Act
-            var result = container.HasSpaceFor(item);
+            var result = container.Items.HasSpaceFor(item);
 
             // Assert
             Assert.IsFalse(result);
@@ -706,17 +672,17 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var item = CreateItem(1, 1, stackable: false);
-            container.Add(item.Clone());
-            container.Add(item.Clone());
-            container.Add(item.Clone());
+            container.Items.Add(item.Clone());
+            container.Items.Add(item.Clone());
+            container.Items.Add(item.Clone());
             var itemToRemove = CreateItem(1, 2, stackable: false);
 
             // Act
-            var removedCount = container.Remove(itemToRemove);
+            var removedCount = container.Items.Remove(itemToRemove);
 
             // Assert
             Assert.AreEqual(2, removedCount);
-            Assert.AreEqual(1, container.TakenSlots);
+            Assert.AreEqual(1, container.Items.TakenSlots);
         }
 
         [TestMethod]
@@ -724,13 +690,13 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
-            container.Add(CreateItem(1, 5, stackable: true));
-            container.Add(CreateItem(1, 1, stackable: false));
-            container.Add(CreateItem(1, 1, stackable: false));
-            container.Add(CreateItem(2, 3, stackable: true));
+            container.Items.Add(CreateItem(1, 5, stackable: true));
+            container.Items.Add(CreateItem(1, 1, stackable: false));
+            container.Items.Add(CreateItem(1, 1, stackable: false));
+            container.Items.Add(CreateItem(2, 3, stackable: true));
 
             // Act
-            var count = container.GetCountById(1);
+            var count = container.Items.GetCountById(1);
 
             // Assert
             Assert.AreEqual(7, count);
@@ -744,12 +710,12 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var item = CreateItem(1, 1);
 
             // Act
-            var result = container.Add(5, item);
+            var result = container.Items.Add(5, item);
 
             // Assert
             Assert.IsTrue(result);
-            Assert.IsNotNull(container[5]);
-            Assert.IsTrue(item.Equals(container[5]));
+            Assert.IsNotNull(container.Items[5]);
+            Assert.IsTrue(item.Equals(container.Items[5]));
         }
 
         [TestMethod]
@@ -758,12 +724,12 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var existingItem = CreateItem(1, 1);
-            container.Add(5, existingItem);
+            container.Items.Add(5, existingItem);
 
             var newItem = CreateItem(2, 1);
 
             // Act
-            var result = container.Add(5, newItem);
+            var result = container.Items.Add(5, newItem);
 
             // Assert
             Assert.IsFalse(result);
@@ -778,13 +744,13 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var item2 = CreateItem(1, 1, stackable: false);
 
             // Act
-            container.Add(item1);
-            var result = container.Add(item2);
+            container.Items.Add(item1);
+            var result = container.Items.Add(item2);
 
             // Assert
             Assert.IsTrue(result);
-            Assert.AreEqual(1, container.TakenSlots);
-            Assert.AreEqual(2, container[0].Count);
+            Assert.AreEqual(1, container.Items.TakenSlots);
+            Assert.AreEqual(2, container.Items[0].Count);
         }
 
         [TestMethod]
@@ -794,18 +760,18 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var container = new TestableItemContainer(StorageType.AlwaysStack, 10);
             var item1 = CreateItem(1, 1, stackable: false);
             var item2 = CreateItem(1, 1, stackable: false);
-            container.Add(item1);
-            container.Add(item2);
+            container.Items.Add(item1);
+            container.Items.Add(item2);
 
             var itemToRemove = CreateItem(1, 1, stackable: false);
 
             // Act
-            var removedCount = container.Remove(itemToRemove);
+            var removedCount = container.Items.Remove(itemToRemove);
 
             // Assert
             Assert.AreEqual(1, removedCount);
-            Assert.AreEqual(1, container.TakenSlots);
-            Assert.AreEqual(1, container[0].Count);
+            Assert.AreEqual(1, container.Items.TakenSlots);
+            Assert.AreEqual(1, container.Items[0].Count);
         }
 
         [TestMethod]
@@ -817,13 +783,13 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var item2 = CreateItem(1, 1, noted: true);
 
             // Act
-            container.Add(item1);
-            var result = container.Add(item2);
+            container.Items.Add(item1);
+            var result = container.Items.Add(item2);
 
             // Assert
             Assert.IsTrue(result);
-            Assert.AreEqual(1, container.TakenSlots);
-            Assert.AreEqual(2, container[0].Count);
+            Assert.AreEqual(1, container.Items.TakenSlots);
+            Assert.AreEqual(2, container.Items[0].Count);
         }
 
         [TestMethod]
@@ -835,11 +801,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var item2 = CreateItem(2, 1, stackable: true);
 
             // Act
-            container.Add(item1);
-            container.Add(item2);
+            container.Items.Add(item1);
+            container.Items.Add(item2);
 
             // Assert
-            Assert.AreEqual(2, container.TakenSlots);
+            Assert.AreEqual(2, container.Items.TakenSlots);
         }
 
         [TestMethod]
@@ -850,8 +816,8 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                 ThrowOnPublication = true
             };
 
-            Assert.ThrowsExactly<InvalidOperationException>(() => container.AddRange([CreateItem(1, 1)]));
-            Assert.AreEqual(1, container.TakenSlots);
+            Assert.ThrowsExactly<InvalidOperationException>(() => container.Items.AddRange([CreateItem(1, 1)]));
+            Assert.AreEqual(1, container.Items.TakenSlots);
         }
 
         [TestMethod]
@@ -873,7 +839,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                     proceed.Wait();
                     try
                     {
-                        container.Add(CreateItem(1, 1));
+                        container.Items.Add(CreateItem(1, 1));
                     }
                     finally
                     {
@@ -890,7 +856,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.IsFalse(finishedWhileLocked);
             Assert.IsTrue(finished.Wait(TimeSpan.FromSeconds(1)));
             mutation.GetAwaiter().GetResult();
-            Assert.AreEqual(1, container.TakenSlots);
+            Assert.AreEqual(1, container.Items.TakenSlots);
         }
 
         [TestMethod]
@@ -898,19 +864,19 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
-            container.Add(0, CreateItem(1, 1));
-            container.Add(2, CreateItem(2, 1));
-            container.Add(5, CreateItem(3, 1));
+            container.Items.Add(0, CreateItem(1, 1));
+            container.Items.Add(2, CreateItem(2, 1));
+            container.Items.Add(5, CreateItem(3, 1));
 
             // Act
-            container.Sort();
+            container.Items.Sort();
 
             // Assert
-            Assert.IsNotNull(container[0]);
-            Assert.IsNotNull(container[1]);
-            Assert.IsNotNull(container[2]);
-            Assert.IsNull(container[3]);
-            Assert.AreEqual(3, container.TakenSlots);
+            Assert.IsNotNull(container.Items[0]);
+            Assert.IsNotNull(container.Items[1]);
+            Assert.IsNotNull(container.Items[2]);
+            Assert.IsNull(container.Items[3]);
+            Assert.AreEqual(3, container.Items.TakenSlots);
         }
 
         [TestMethod]
@@ -918,14 +884,14 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
-            container.Add(CreateItem(1, 1));
+            container.Items.Add(CreateItem(1, 1));
 
             // Act & Assert
             Assert.ThrowsExactly<InvalidOperationException>(() =>
             {
-                foreach (var item in container)
+                foreach (var item in container.Items)
                 {
-                    container.Add(CreateItem(2, 1));
+                    container.Items.Add(CreateItem(2, 1));
                 }
             });
         }
@@ -936,21 +902,21 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10, 1);
             var item = CreateItem(1, 5, stackable: true);
-            container.Add(item);
+            container.Items.Add(item);
 
             // Act
-            container.Remove(CreateItem(1, 2, stackable: true));
+            container.Items.Remove(CreateItem(1, 2, stackable: true));
 
             // Assert
-            Assert.AreEqual(1, container.TakenSlots);
-            Assert.AreEqual(3, container[0]!.Count);
+            Assert.AreEqual(1, container.Items.TakenSlots);
+            Assert.AreEqual(3, container.Items[0]!.Count);
 
             // Act
-            container.Remove(CreateItem(1, 3, stackable: true));
+            container.Items.Remove(CreateItem(1, 3, stackable: true));
 
             // Assert
-            Assert.AreEqual(1, container.TakenSlots);
-            Assert.AreEqual(1, container[0]!.Count);
+            Assert.AreEqual(1, container.Items.TakenSlots);
+            Assert.AreEqual(1, container.Items[0]!.Count);
         }
 
         [TestMethod]
@@ -958,16 +924,16 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
-            container.Add(CreateItem(1, 1));
+            container.Items.Add(CreateItem(1, 1));
             var newItem = CreateItem(2, 5);
 
             // Act
-            container.Replace(0, newItem);
+            container.Items.Replace(0, newItem);
 
             // Assert
-            Assert.IsNotNull(container[0]);
-            Assert.AreEqual(2, container[0]!.Id);
-            Assert.AreEqual(5, container[0]!.Count);
+            Assert.IsNotNull(container.Items[0]);
+            Assert.AreEqual(2, container.Items[0]!.Id);
+            Assert.AreEqual(5, container.Items[0]!.Count);
         }
 
         [TestMethod]
@@ -975,8 +941,8 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
-            container.Add(CreateItem(1, 1));
-            var newItems = new IItem[container.Capacity];
+            container.Items.Add(CreateItem(1, 1));
+            var newItems = new IItem[container.Items.Capacity];
             newItems[0] = CreateItem(10, 1);
             newItems[1] = CreateItem(11, 1);
 
@@ -984,37 +950,37 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             container.Storage.ReplaceState(newItems);
 
             // Assert
-            Assert.AreEqual(2, container.TakenSlots);
-            Assert.AreEqual(10, container[0]!.Id);
-            Assert.AreEqual(11, container[1]!.Id);
+            Assert.AreEqual(2, container.Items.TakenSlots);
+            Assert.AreEqual(10, container.Items[0]!.Id);
+            Assert.AreEqual(11, container.Items[1]!.Id);
         }
 
         [TestMethod]
         public void ReplaceState_WithInvalidLength_RejectsInputAndKeepsCapacitySizedStorage()
         {
             var container = new TestableItemContainer(StorageType.Normal, 10);
-            container.Add(CreateItem(1, 1));
+            container.Items.Add(CreateItem(1, 1));
 
             Assert.ThrowsExactly<ArgumentException>(() => container.Storage.ReplaceState([CreateItem(2, 1)]));
 
-            Assert.AreEqual(container.Capacity, container.Storage.ToArray().Length);
-            Assert.AreEqual(1, container[0]!.Id);
+            Assert.AreEqual(container.Items.Capacity, container.Storage.ToArray().Length);
+            Assert.AreEqual(1, container.Items[0]!.Id);
         }
 
         [TestMethod]
         public void ReplaceState_DoesNotRetainCallerOwnedArray()
         {
             var container = new TestableItemContainer(StorageType.Normal, 10);
-            var items = new IItem[container.Capacity];
+            var items = new IItem[container.Items.Capacity];
             items[5] = CreateItem(10, 1);
             container.Storage.ReplaceState(items);
 
             items[5] = CreateItem(11, 1);
             items[2] = CreateItem(12, 1);
 
-            Assert.AreEqual(10, container[5]!.Id);
-            Assert.IsNull(container[2]);
-            Assert.AreEqual(container.Capacity, container.Storage.ToArray().Length);
+            Assert.AreEqual(10, container.Items[5]!.Id);
+            Assert.IsNull(container.Items[2]);
+            Assert.AreEqual(container.Items.Capacity, container.Storage.ToArray().Length);
         }
 
         [TestMethod]
@@ -1022,17 +988,17 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             // Arrange
             var source = new TestableItemContainer(StorageType.Normal, 5);
-            source.Add(CreateItem(1, 1));
+            source.Items.Add(CreateItem(1, 1));
             var destination = new TestableItemContainer(StorageType.Normal, 1);
-            destination.Add(CreateItem(2, 1));
+            destination.Items.Add(CreateItem(2, 1));
 
             // Act
-            destination.AddAndRemoveFrom(source);
+            destination.Items.AddAndRemoveFrom(source.Items);
 
             // Assert
-            Assert.AreEqual(1, source.TakenSlots);
-            Assert.AreEqual(1, destination.TakenSlots);
-            Assert.AreEqual(2, destination[0]!.Id);
+            Assert.AreEqual(1, source.Items.TakenSlots);
+            Assert.AreEqual(1, destination.Items.TakenSlots);
+            Assert.AreEqual(2, destination.Items[0]!.Id);
         }
 
         [TestMethod]
@@ -1040,16 +1006,16 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             // Arrange
             var source = new TestableItemContainer(StorageType.Normal, 5);
-            source.Add(CreateItem(1, 1, stackable: true));
+            source.Items.Add(CreateItem(1, 1, stackable: true));
             var destination = new TestableItemContainer(StorageType.Normal, 5);
-            destination.Add(CreateItem(1, int.MaxValue, stackable: true));
+            destination.Items.Add(CreateItem(1, int.MaxValue, stackable: true));
 
             // Act
-            destination.AddAndRemoveFrom(source);
+            destination.Items.AddAndRemoveFrom(source.Items);
 
             // Assert
-            Assert.AreEqual(1, source.TakenSlots);
-            Assert.AreEqual(int.MaxValue, destination[0]!.Count);
+            Assert.AreEqual(1, source.Items.TakenSlots);
+            Assert.AreEqual(int.MaxValue, destination.Items[0]!.Count);
         }
 
                                         [TestMethod]
@@ -1062,8 +1028,8 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var container = new TestableItemContainer(StorageType.Normal, items, 10);
 
             // Assert
-            Assert.AreEqual(2, container.TakenSlots);
-            Assert.AreEqual(8, container.FreeSlots);
+            Assert.AreEqual(2, container.Items.TakenSlots);
+            Assert.AreEqual(8, container.Items.FreeSlots);
         }
 
         [TestMethod]
@@ -1072,10 +1038,10 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var item = CreateItem(123, 1);
-            container.Add(item);
+            container.Items.Add(item);
 
             // Act
-            var foundItem = container.GetById(123);
+            var foundItem = container.Items.GetById(123);
 
             // Assert
             Assert.IsNotNull(foundItem);
@@ -1089,7 +1055,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var container = new TestableItemContainer(StorageType.Normal, 10);
 
             // Act
-            var foundItem = container.GetById(123);
+            var foundItem = container.Items.GetById(123);
 
             // Assert
             Assert.IsNull(foundItem);
@@ -1100,11 +1066,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
-            container.Add(CreateItem(1, 5, stackable: true));
-            container.Add(CreateItem(1, 1, stackable: false)); // Different item, same ID
+            container.Items.Add(CreateItem(1, 5, stackable: true));
+            container.Items.Add(CreateItem(1, 1, stackable: false)); // Different item, same ID
 
             // Act
-            var count = container.GetCount(CreateItem(1, 1, stackable: true));
+            var count = container.Items.GetCount(CreateItem(1, 1, stackable: true));
 
             // Assert
             Assert.AreEqual(6, count);
@@ -1115,10 +1081,10 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
-            container.Add(CreateItem(1, 1));
+            container.Items.Add(CreateItem(1, 1));
 
             // Act
-            var result = container.Contains(CreateItem(1, 1));
+            var result = container.Items.Contains(1);
 
             // Assert
             Assert.IsTrue(result);
@@ -1130,10 +1096,10 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var item = CreateItem(1, 1);
-            container.Add(0, item);
+            container.Items.Add(0, item);
 
             // Act
-            var slot = container.GetInstanceSlot(item);
+            var slot = container.Items.GetInstanceSlot(item);
 
             // Assert
             Assert.AreEqual(0, slot);
@@ -1145,7 +1111,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var item = CreateItem(1, 1);
-            container.Add(item);
+            container.Items.Add(item);
 
             // Act
             var array = container.Storage.ToArray();
@@ -1161,18 +1127,18 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             // Arrange
             var source = new TestableItemContainer(StorageType.Normal, 5);
-            source.Add(CreateItem(1, 10, stackable: true));
+            source.Items.Add(CreateItem(1, 10, stackable: true));
 
             var destination = new TestableItemContainer(StorageType.Normal, 5);
-            destination.Add(CreateItem(1, int.MaxValue - 5, stackable: true));
+            destination.Items.Add(CreateItem(1, int.MaxValue - 5, stackable: true));
 
             // Act
-            destination.AddAndRemoveFrom(source);
+            destination.Items.AddAndRemoveFrom(source.Items);
 
             // Assert
-            Assert.AreEqual(1, source.TakenSlots);
-            Assert.AreEqual(10, source[0].Count);
-            Assert.AreEqual(int.MaxValue - 5, destination[0].Count);
+            Assert.AreEqual(1, source.Items.TakenSlots);
+            Assert.AreEqual(10, source.Items[0].Count);
+            Assert.AreEqual(int.MaxValue - 5, destination.Items[0].Count);
         }
 
         [TestMethod]
@@ -1182,10 +1148,10 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var container = new TestableItemContainer(StorageType.Normal, 10);
 
             // Act
-            container.Clear(true);
+            container.Items.Clear(true);
 
             // Assert
-            Assert.AreEqual(0, container.TakenSlots);
+            Assert.AreEqual(0, container.Items.TakenSlots);
         }
 
         [TestMethod]
@@ -1194,33 +1160,33 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Arrange
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var item = CreateItem(1, 1);
-            container.Add(item);
+            container.Items.Add(item);
 
             // Act
-            container.Move(0, 10); // 10 is out of bounds
+            container.Items.Move(0, 10); // 10 is out of bounds
 
             // Assert
-            Assert.IsNotNull(container[0]);
+            Assert.IsNotNull(container.Items[0]);
         }
 
         [TestMethod]
         public void TryTransfer_DestinationFull_LeavesBothContainersUnchanged()
         {
             var source = new TestableItemContainer(StorageType.Normal, 1);
-            source.Add(CreateItem(1, 1));
+            source.Items.Add(CreateItem(1, 1));
             var destination = new TestableItemContainer(StorageType.Normal, 1);
-            destination.Add(CreateItem(2, 1));
-            var sourceItem = source[0];
-            var destinationItem = destination[0];
+            destination.Items.Add(CreateItem(2, 1));
+            var sourceItem = source.Items[0];
+            var destinationItem = destination.Items[0];
             var sourceUpdates = source.UpdateCount;
             var destinationUpdates = destination.UpdateCount;
-            var sourceEnumerator = source.GetEnumerator();
-            var destinationEnumerator = destination.GetEnumerator();
+            var sourceEnumerator = source.Items.GetEnumerator();
+            var destinationEnumerator = destination.Items.GetEnumerator();
 
-            Assert.IsFalse(ItemContainerTransfer.TryTransfer(source, destination, sourceItem!, 1));
+            Assert.IsFalse(ItemContainerTransfer.TryTransfer(source.Items, destination.Items, sourceItem!, 1));
 
-            Assert.AreSame(sourceItem, source[0]);
-            Assert.AreSame(destinationItem, destination[0]);
+            Assert.AreSame(sourceItem, source.Items[0]);
+            Assert.AreSame(destinationItem, destination.Items[0]);
             Assert.AreEqual(sourceUpdates, source.UpdateCount);
             Assert.AreEqual(destinationUpdates, destination.UpdateCount);
             Assert.IsTrue(sourceEnumerator.MoveNext());
@@ -1231,17 +1197,17 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         public void TryTransfer_InsufficientSource_LeavesBothContainersUnchanged()
         {
             var source = new TestableItemContainer(StorageType.Normal, 2);
-            source.Add(CreateItem(1, 2, stackable: true));
+            source.Items.Add(CreateItem(1, 2, stackable: true));
             var destination = new TestableItemContainer(StorageType.Normal, 2);
-            var sourceItem = source[0];
-            var sourceEnumerator = source.GetEnumerator();
+            var sourceItem = source.Items[0];
+            var sourceEnumerator = source.Items.GetEnumerator();
             var sourceUpdates = source.UpdateCount;
 
-            Assert.IsFalse(ItemContainerTransfer.TryTransfer(source, destination, CreateItem(1, 3, stackable: true), 3));
+            Assert.IsFalse(ItemContainerTransfer.TryTransfer(source.Items, destination.Items, CreateItem(1, 3, stackable: true), 3));
 
-            Assert.AreSame(sourceItem, source[0]);
-            Assert.AreEqual(2, source[0]!.Count);
-            Assert.IsNull(destination[0]);
+            Assert.AreSame(sourceItem, source.Items[0]);
+            Assert.AreEqual(2, source.Items[0]!.Count);
+            Assert.IsNull(destination.Items[0]);
             Assert.AreEqual(sourceUpdates, source.UpdateCount);
             Assert.AreEqual(0, destination.UpdateCount);
             Assert.IsTrue(sourceEnumerator.MoveNext());
@@ -1251,20 +1217,20 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         public void TryTransfer_StackOverflow_LeavesBothContainersUnchanged()
         {
             var source = new TestableItemContainer(StorageType.Normal, 2);
-            source.Add(CreateItem(1, 3, stackable: true));
+            source.Items.Add(CreateItem(1, 3, stackable: true));
             var destination = new TestableItemContainer(StorageType.Normal, 2);
-            destination.Add(CreateItem(1, int.MaxValue - 2, stackable: true));
-            var sourceItem = source[0];
-            var destinationItem = destination[0];
-            var sourceEnumerator = source.GetEnumerator();
-            var destinationEnumerator = destination.GetEnumerator();
+            destination.Items.Add(CreateItem(1, int.MaxValue - 2, stackable: true));
+            var sourceItem = source.Items[0];
+            var destinationItem = destination.Items[0];
+            var sourceEnumerator = source.Items.GetEnumerator();
+            var destinationEnumerator = destination.Items.GetEnumerator();
 
-            Assert.IsFalse(ItemContainerTransfer.TryTransfer(source, destination, sourceItem!, 3));
+            Assert.IsFalse(ItemContainerTransfer.TryTransfer(source.Items, destination.Items, sourceItem!, 3));
 
-            Assert.AreSame(sourceItem, source[0]);
-            Assert.AreSame(destinationItem, destination[0]);
-            Assert.AreEqual(3, source[0]!.Count);
-            Assert.AreEqual(int.MaxValue - 2, destination[0]!.Count);
+            Assert.AreSame(sourceItem, source.Items[0]);
+            Assert.AreSame(destinationItem, destination.Items[0]);
+            Assert.AreEqual(3, source.Items[0]!.Count);
+            Assert.AreEqual(int.MaxValue - 2, destination.Items[0]!.Count);
             Assert.IsTrue(sourceEnumerator.MoveNext());
             Assert.IsTrue(destinationEnumerator.MoveNext());
         }
@@ -1273,32 +1239,32 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         public void TryTransfer_StackableQuantity_TransfersExactCountAndNotifiesAfterCommit()
         {
             var source = new TestableItemContainer(StorageType.Normal, 2);
-            source.Add(CreateItem(1, 10, stackable: true));
+            source.Items.Add(CreateItem(1, 10, stackable: true));
             var destination = new TestableItemContainer(StorageType.Normal, 2);
-            destination.Add(CreateItem(1, 4, stackable: true));
-            var sourceItem = source[0];
-            var destinationItem = destination[0];
+            destination.Items.Add(CreateItem(1, 4, stackable: true));
+            var sourceItem = source.Items[0];
+            var destinationItem = destination.Items[0];
             var sourceObservedCommit = false;
             var destinationObservedCommit = false;
             source.PublicationHandler = _ =>
             {
-                Assert.AreEqual(7, destination[0]!.Count);
-                Assert.AreEqual(7, source.GetCountById(1));
+                Assert.AreEqual(7, destination.Items[0]!.Count);
+                Assert.AreEqual(7, source.Items.GetCountById(1));
                 sourceObservedCommit = true;
             };
             destination.PublicationHandler = _ =>
             {
-                Assert.AreEqual(7, destination[0]!.Count);
-                Assert.AreEqual(7, source.GetCountById(1));
+                Assert.AreEqual(7, destination.Items[0]!.Count);
+                Assert.AreEqual(7, source.Items.GetCountById(1));
                 destinationObservedCommit = true;
             };
 
-            Assert.IsTrue(ItemContainerTransfer.TryTransfer(source, destination, sourceItem!, 3));
+            Assert.IsTrue(ItemContainerTransfer.TryTransfer(source.Items, destination.Items, sourceItem!, 3));
 
-            Assert.AreSame(sourceItem, source[0]);
-            Assert.AreSame(destinationItem, destination[0]);
-            Assert.AreEqual(7, source[0]!.Count);
-            Assert.AreEqual(7, destination[0]!.Count);
+            Assert.AreSame(sourceItem, source.Items[0]);
+            Assert.AreSame(destinationItem, destination.Items[0]);
+            Assert.AreEqual(7, source.Items[0]!.Count);
+            Assert.AreEqual(7, destination.Items[0]!.Count);
             Assert.IsTrue(sourceObservedCommit);
             Assert.IsTrue(destinationObservedCommit);
         }
@@ -1312,18 +1278,18 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                 CreateItem(1, 1, extraData: [17]),
                 CreateItem(1, 1, extraData: [17])
             ]);
-            var first = source[0];
-            var second = source[1];
+            var first = source.Items[0];
+            var second = source.Items[1];
             var destination = new TestableItemContainer(StorageType.Normal, 2);
 
-            Assert.IsTrue(ItemContainerTransfer.TryTransfer(source, destination, first!, 2));
+            Assert.IsTrue(ItemContainerTransfer.TryTransfer(source.Items, destination.Items, first!, 2));
 
-            Assert.IsNull(source[0]);
-            Assert.IsNull(source[1]);
-            Assert.AreSame(first, destination[0]);
-            Assert.AreSame(second, destination[1]);
-            CollectionAssert.AreEqual(new long[] { 17 }, destination[0]!.ExtraData);
-            CollectionAssert.AreEqual(new long[] { 17 }, destination[1]!.ExtraData);
+            Assert.IsNull(source.Items[0]);
+            Assert.IsNull(source.Items[1]);
+            Assert.AreSame(first, destination.Items[0]);
+            Assert.AreSame(second, destination.Items[1]);
+            CollectionAssert.AreEqual(new long[] { 17 }, destination.Items[0]!.ExtraData);
+            CollectionAssert.AreEqual(new long[] { 17 }, destination.Items[1]!.ExtraData);
         }
 
         [TestMethod]
@@ -1335,19 +1301,19 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                 CreateItem(1, 1, extraData: [17]),
                 CreateItem(1, 1, extraData: [29])
             ]);
-            var first = source[0];
-            var second = source[1];
+            var first = source.Items[0];
+            var second = source.Items[1];
             var sourceUpdates = source.UpdateCount;
             var destination = new TestableItemContainer(StorageType.Normal, 2);
             var destinationUpdates = destination.UpdateCount;
 
-            Assert.IsFalse(ItemContainerTransfer.TryTransfer(source, destination, first!, 2));
+            Assert.IsFalse(ItemContainerTransfer.TryTransfer(source.Items, destination.Items, first!, 2));
 
-            Assert.AreSame(first, source[0]);
-            Assert.AreSame(second, source[1]);
-            Assert.AreEqual(1, source[0]!.Count);
-            Assert.AreEqual(1, source[1]!.Count);
-            Assert.AreEqual(0, destination.TakenSlots);
+            Assert.AreSame(first, source.Items[0]);
+            Assert.AreSame(second, source.Items[1]);
+            Assert.AreEqual(1, source.Items[0]!.Count);
+            Assert.AreEqual(1, source.Items[1]!.Count);
+            Assert.AreEqual(0, destination.Items.TakenSlots);
             Assert.AreEqual(sourceUpdates, source.UpdateCount);
             Assert.AreEqual(destinationUpdates, destination.UpdateCount);
         }
@@ -1363,44 +1329,44 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             ]);
             var destination = new TestableItemContainer(StorageType.Normal, 2);
 
-            Assert.IsTrue(ItemContainerTransfer.TryTransfer(source, destination, source[0]!, 4, preferredSourceSlot: 1, destinationSlot: 1));
+            Assert.IsTrue(ItemContainerTransfer.TryTransfer(source.Items, destination.Items, source.Items[0]!, 4, preferredSourceSlot: 1, destinationSlot: 1));
 
-            Assert.AreEqual(3, source[0]!.Count);
-            Assert.AreEqual(1, source[1]!.Count);
-            Assert.IsNull(destination[0]);
-            Assert.AreEqual(4, destination[1]!.Count);
+            Assert.AreEqual(3, source.Items[0]!.Count);
+            Assert.AreEqual(1, source.Items[1]!.Count);
+            Assert.IsNull(destination.Items[0]);
+            Assert.AreEqual(4, destination.Items[1]!.Count);
         }
 
         [TestMethod]
         public void TryTransfer_DrainedSentinelSlot_RetainsZeroCountSourceAndCopiesItem()
         {
             var source = new TestableItemContainer(StorageType.Normal, 1, 0);
-            source.Add(CreateItem(1, 5, stackable: true));
-            var sourceItem = source[0];
+            source.Items.Add(CreateItem(1, 5, stackable: true));
+            var sourceItem = source.Items[0];
             var destination = new TestableItemContainer(StorageType.Normal, 1);
 
-            Assert.IsTrue(ItemContainerTransfer.TryTransfer(source, destination, sourceItem!, 5));
+            Assert.IsTrue(ItemContainerTransfer.TryTransfer(source.Items, destination.Items, sourceItem!, 5));
 
-            Assert.AreSame(sourceItem, source[0]);
-            Assert.AreEqual(0, source[0]!.Count);
-            Assert.AreNotSame(sourceItem, destination[0]);
-            Assert.AreEqual(5, destination[0]!.Count);
+            Assert.AreSame(sourceItem, source.Items[0]);
+            Assert.AreEqual(0, source.Items[0]!.Count);
+            Assert.AreNotSame(sourceItem, destination.Items[0]);
+            Assert.AreEqual(5, destination.Items[0]!.Count);
         }
 
         [TestMethod]
         public void TryTransfer_SameContainerOrNonPositiveCount_DoesNotMutate()
         {
             var container = new TestableItemContainer(StorageType.Normal, 1);
-            container.Add(CreateItem(1, 2, stackable: true));
-            var item = container[0];
+            container.Items.Add(CreateItem(1, 2, stackable: true));
+            var item = container.Items[0];
             var updates = container.UpdateCount;
 
-            Assert.IsFalse(ItemContainerTransfer.TryTransfer(container, container, item!, 1));
-            Assert.IsFalse(ItemContainerTransfer.TryTransfer(container, new TestableItemContainer(StorageType.Normal, 1), item!, 0));
-            Assert.IsFalse(ItemContainerTransfer.TryTransfer(container, new TestableItemContainer(StorageType.Normal, 1), item!, -1));
+            Assert.IsFalse(ItemContainerTransfer.TryTransfer(container.Items, container.Items, item!, 1));
+            Assert.IsFalse(ItemContainerTransfer.TryTransfer(container.Items, new TestableItemContainer(StorageType.Normal, 1).Items, item!, 0));
+            Assert.IsFalse(ItemContainerTransfer.TryTransfer(container.Items, new TestableItemContainer(StorageType.Normal, 1).Items, item!, -1));
 
-            Assert.AreSame(item, container[0]);
-            Assert.AreEqual(2, container[0]!.Count);
+            Assert.AreSame(item, container.Items[0]);
+            Assert.AreEqual(2, container.Items[0]!.Count);
             Assert.AreEqual(updates, container.UpdateCount);
         }
 
@@ -1408,16 +1374,16 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         public void TryTransfer_SourcePublicationThrowsAfterCommit_LeavesCommittedStorageInPlace()
         {
             var source = new TestableItemContainer(StorageType.Normal, 1);
-            source.Add(CreateItem(1, 1));
+            source.Items.Add(CreateItem(1, 1));
             source.ThrowOnPublication = true;
             var destination = new TestableItemContainer(StorageType.Normal, 1);
-            var item = source[0];
+            var item = source.Items[0];
 
             Assert.ThrowsExactly<InvalidOperationException>(
-                () => ItemContainerTransfer.TryTransfer(source, destination, item!, 1));
+                () => ItemContainerTransfer.TryTransfer(source.Items, destination.Items, item!, 1));
 
-            Assert.IsNull(source[0]);
-            Assert.AreSame(item, destination[0]);
+            Assert.IsNull(source.Items[0]);
+            Assert.AreSame(item, destination.Items[0]);
         }
 
         [TestMethod]
@@ -1426,16 +1392,16 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var cloneCount = 0;
             var source = new TestableItemContainer(StorageType.AlwaysStack, 1);
             var sourceItem = CreateItem(1, int.MaxValue, onClone: () => cloneCount++);
-            Assert.IsTrue(source.Add(sourceItem));
+            Assert.IsTrue(source.Items.Add(sourceItem));
             var destination = new TestableItemContainer(StorageType.Normal, 4);
             var sourceUpdates = source.UpdateCount;
 
-            Assert.IsFalse(ItemContainerTransfer.TryTransfer(source, destination, sourceItem, int.MaxValue));
+            Assert.IsFalse(ItemContainerTransfer.TryTransfer(source.Items, destination.Items, sourceItem, int.MaxValue));
 
             Assert.AreEqual(0, cloneCount);
-            Assert.AreSame(sourceItem, source[0]);
-            Assert.AreEqual(int.MaxValue, source[0]!.Count);
-            Assert.AreEqual(0, destination.TakenSlots);
+            Assert.AreSame(sourceItem, source.Items[0]);
+            Assert.AreEqual(int.MaxValue, source.Items[0]!.Count);
+            Assert.AreEqual(0, destination.Items.TakenSlots);
             Assert.AreEqual(sourceUpdates, source.UpdateCount);
             Assert.AreEqual(0, destination.UpdateCount);
         }
@@ -1445,39 +1411,39 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             var left = new TestableItemContainer(StorageType.Normal, 2);
             var right = new TestableItemContainer(StorageType.Normal, 2);
-            left.Add(CreateItem(1, 1));
-            right.Add(CreateItem(2, 1));
-            var leftItem = left[0]!;
-            var rightItem = right[0]!;
+            left.Items.Add(CreateItem(1, 1));
+            right.Items.Add(CreateItem(2, 1));
+            var leftItem = left.Items[0]!;
+            var rightItem = right.Items[0]!;
             using var start = new Barrier(2);
 
             var leftToRight = Task.Run(() => start.SignalAndWait(TimeSpan.FromSeconds(5)) &&
-                ItemContainerTransfer.TryTransfer(left, right, leftItem, 1));
+                ItemContainerTransfer.TryTransfer(left.Items, right.Items, leftItem, 1));
             var rightToLeft = Task.Run(() => start.SignalAndWait(TimeSpan.FromSeconds(5)) &&
-                ItemContainerTransfer.TryTransfer(right, left, rightItem, 1));
+                ItemContainerTransfer.TryTransfer(right.Items, left.Items, rightItem, 1));
 
             var results = await Task.WhenAll(leftToRight, rightToLeft).WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.IsTrue(results[0]);
             Assert.IsTrue(results[1]);
-            Assert.AreEqual(1, left.GetCountById(2));
-            Assert.AreEqual(1, right.GetCountById(1));
-            Assert.AreEqual(2, left.TakenSlots + right.TakenSlots);
+            Assert.AreEqual(1, left.Items.GetCountById(2));
+            Assert.AreEqual(1, right.Items.GetCountById(1));
+            Assert.AreEqual(2, left.Items.TakenSlots + right.Items.TakenSlots);
         }
 
         [TestMethod]
         public void AddRangeForTrade_DestinationFull_LeavesContentsRevisionAndNotificationsUnchanged()
         {
             var container = new TestableItemContainer(StorageType.Normal, 1);
-            container.Add(CreateItem(1, 1));
-            var original = container[0];
+            container.Items.Add(CreateItem(1, 1));
+            var original = container.Items[0];
             var updates = container.UpdateCount;
-            var enumerator = container.GetEnumerator();
+            var enumerator = container.Items.GetEnumerator();
 
-            Assert.IsFalse(container.AddRangeForTrade([CreateItem(2, 1)]));
+            Assert.IsFalse(container.Items.AddRangeForTrade([CreateItem(2, 1)]));
 
-            Assert.AreSame(original, container[0]);
-            Assert.AreEqual(1, container[0]!.Id);
+            Assert.AreSame(original, container.Items[0]);
+            Assert.AreEqual(1, container.Items[0]!.Id);
             Assert.AreEqual(updates, container.UpdateCount);
             Assert.IsTrue(enumerator.MoveNext());
         }

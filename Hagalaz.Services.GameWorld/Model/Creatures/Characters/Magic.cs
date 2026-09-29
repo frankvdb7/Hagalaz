@@ -99,9 +99,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
             }
 
-            for (var i = 0; i < _owner.Inventory.Capacity; i++)
+            for (var i = 0; i < _owner.Inventory.Items.Capacity; i++)
             {
-                var item = _owner.Inventory[i];
+                var item = _owner.Inventory.Items[i];
                 if (item == null)
                     continue;
 
@@ -235,9 +235,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
             }
 
-            for (var slot = 0; slot < _owner.Inventory.Capacity; slot++)
+            for (var slot = 0; slot < _owner.Inventory.Items.Capacity; slot++)
             {
-                var item = _owner.Inventory[slot];
+                var item = _owner.Inventory.Items[slot];
                 if (item == null)
                     continue;
 
@@ -256,13 +256,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                         var newItem = item.Clone();
                         newItem.Count = item.Count - amounts[a];
                         item = newItem;
-                        _owner.Inventory.Replace(slot, newItem);
+                        _owner.Inventory.Items.Replace(slot, newItem);
                         amounts[a] = 0;
                     }
                     else
                     {
                         amounts[a] -= item.Count;
-                        _owner.Inventory.Remove(item, slot);
+                        _owner.Inventory.Items.Remove(item, slot);
                         break;
                     }
                 }

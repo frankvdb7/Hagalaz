@@ -48,7 +48,7 @@ internal static class TradeExchange
                 return false;
             }
 
-            var recipientSnapshots = CaptureSnapshots(first.Inventory, first.MoneyPouch, second.Inventory, second.MoneyPouch);
+            var recipientSnapshots = CaptureSnapshots(first.Inventory.Items, first.MoneyPouch.Items, second.Inventory.Items, second.MoneyPouch.Items);
             if (!Receive(first, firstItems, changes, pouchMessages) || !Receive(second, secondItems, changes, pouchMessages))
             {
                 RestoreSnapshotsStorage(recipientSnapshots);
@@ -76,10 +76,10 @@ internal static class TradeExchange
         var containers = new List<ItemContainerStorage>();
         AddContainer(containers, firstOffer);
         AddContainer(containers, secondOffer);
-        AddContainer(containers, first.Rewards);
-        AddContainer(containers, first.Bank);
-        AddContainer(containers, second.Rewards);
-        AddContainer(containers, second.Bank);
+        AddContainer(containers, first.Rewards?.Items);
+        AddContainer(containers, first.Bank?.Items);
+        AddContainer(containers, second.Rewards?.Items);
+        AddContainer(containers, second.Bank?.Items);
         var changes = CreateChanges();
         List<ContainerSnapshot>? restoreSnapshots = null;
         using (AcquireLocks(containers))
@@ -155,7 +155,7 @@ internal static class TradeExchange
                 return false;
             }
 
-            var snapshots = CaptureSnapshots(offer, character.Inventory, character.MoneyPouch);
+            var snapshots = CaptureSnapshots(offer, character.Inventory.Items, character.MoneyPouch.Items);
             if (!offer.TryAddRangeForTradeStorage([coins], out var offerSlots))
             {
                 return false;
@@ -170,7 +170,7 @@ internal static class TradeExchange
             else
             {
                 RecordChangedSlots(changes, offer, offerSlots);
-                RecordChangedSlots(changes, character.Inventory, inventorySlots);
+                RecordChangedSlots(changes, character.Inventory.Items, inventorySlots);
                 pouchMessages.Add((character.MoneyPouch, pouchChangeCount));
             }
         }
@@ -186,7 +186,7 @@ internal static class TradeExchange
         List<ContainerSnapshot>? restoreSnapshots = null;
         using (AcquireLocks(GetContainers(offer, offer, character, character)))
         {
-            var snapshots = CaptureSnapshots(offer, character.Inventory, character.MoneyPouch);
+            var snapshots = CaptureSnapshots(offer, character.Inventory.Items, character.MoneyPouch.Items);
             if (!offer.TryRemoveForTradeStorage(coins, preferredSlot, out var offerSlots))
             {
                 return false;
@@ -201,7 +201,7 @@ internal static class TradeExchange
             else
             {
                 RecordChangedSlots(changes, offer, offerSlots);
-                RecordChangedSlots(changes, character.Inventory, inventorySlots);
+                RecordChangedSlots(changes, character.Inventory.Items, inventorySlots);
                 pouchMessages.Add((character.MoneyPouch, pouchChangeCount));
             }
         }
@@ -231,12 +231,12 @@ internal static class TradeExchange
         var nonCoinItems = items.Where(item => item.Id != CoinsItemId).ToArray();
         if (nonCoinItems.Length > 0)
         {
-            if (!character.Inventory.TryAddRangeForTradeStorage(nonCoinItems, out var inventorySlots))
+            if (!character.Inventory.Items.TryAddRangeForTradeStorage(nonCoinItems, out var inventorySlots))
             {
                 return false;
             }
 
-            RecordChangedSlots(changes, character.Inventory, inventorySlots);
+            RecordChangedSlots(changes, character.Inventory.Items, inventorySlots);
         }
 
         var coinCount = items.Where(item => item.Id == CoinsItemId).Sum(item => (long)item.Count);
@@ -251,7 +251,7 @@ internal static class TradeExchange
             return false;
         }
 
-        RecordChangedSlots(changes, character.Inventory, coinInventorySlots);
+        RecordChangedSlots(changes, character.Inventory.Items, coinInventorySlots);
         pouchMessages.Add((character.MoneyPouch, pouchChangeCount));
         return true;
     }
@@ -277,22 +277,22 @@ internal static class TradeExchange
             recipientItems = nonCoinItems.Append(overflowCoins).ToArray();
         }
 
-        return character.Inventory.HasSpaceForRange(recipientItems);
+        return character.Inventory.Items.HasSpaceForRange(recipientItems);
     }
 
     private static ITradeItemContainer? GetRecoveryContainer(ICharacter character, IReadOnlyList<IItem> items)
     {
         if (items.Count == 0)
         {
-            return character.Rewards;
+            return character.Rewards?.Items;
         }
 
-        if (character.Rewards != null && character.Rewards.HasSpaceForRange(items))
+        if (character.Rewards != null && character.Rewards.Items.HasSpaceForRange(items))
         {
-            return character.Rewards;
+            return character.Rewards.Items;
         }
 
-        return character.Bank != null && character.Bank.HasSpaceForRange(items) ? character.Bank : null;
+        return character.Bank != null && character.Bank.Items.HasSpaceForRange(items) ? character.Bank.Items : null;
     }
 
     private static IItem[] SnapshotItems(IItemContainer container) =>
@@ -396,10 +396,10 @@ internal static class TradeExchange
         var containers = new List<ItemContainerStorage>();
         AddContainer(containers, firstOffer);
         AddContainer(containers, secondOffer);
-        AddContainer(containers, first.Inventory);
-        AddContainer(containers, second.Inventory);
-        AddContainer(containers, first.MoneyPouch);
-        AddContainer(containers, second.MoneyPouch);
+        AddContainer(containers, first.Inventory.Items);
+        AddContainer(containers, second.Inventory.Items);
+        AddContainer(containers, first.MoneyPouch.Items);
+        AddContainer(containers, second.MoneyPouch.Items);
         return containers;
     }
 

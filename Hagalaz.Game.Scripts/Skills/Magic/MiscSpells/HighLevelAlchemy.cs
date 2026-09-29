@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -47,27 +47,27 @@ namespace Hagalaz.Game.Scripts.Skills.Magic.MiscSpells
                 return false;
             }
 
-            var slot = _caster.Inventory.GetInstanceSlot(item);
+            var slot = _caster.Inventory.Items.GetInstanceSlot(item);
             if (slot == -1)
             {
                 return false;
             }
 
             var coins = _itemBuilder.Create().WithId(995).WithCount(item.ItemDefinition.HighAlchemyValue).Build();
-            if (!_caster.Inventory.HasSpaceFor(coins) && !_caster.MoneyPouch.HasSpaceFor(coins))
+            if (!_caster.Inventory.Items.HasSpaceFor(coins) && !_caster.MoneyPouch.Items.HasSpaceFor(coins))
             {
                 _caster.SendChatMessage(GameStrings.InventoryFull);
                 return false;
             }
 
             RemoveRequirements(_caster);
-            var removed = _caster.Inventory.Remove(_itemBuilder.Create().WithId(item.Id).WithCount(1).Build(), slot);
+            var removed = _caster.Inventory.Items.Remove(_itemBuilder.Create().WithId(item.Id).WithCount(1).Build(), slot);
             if (removed <= 0)
             {
                 return true;
             }
 
-            if (!_caster.Inventory.Add(coins))
+            if (!_caster.Inventory.Items.Add(coins))
             {
                 return true;
             }

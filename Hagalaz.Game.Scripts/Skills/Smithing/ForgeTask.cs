@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
@@ -77,7 +77,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
 
             if (TickCount == 1 || TickCount % 6 == 0)
             {
-                if (!Performer.Inventory.Contains(Definition.BarID, ForgeDefinition.RequiredBarCount))
+                if (!Performer.Inventory.Items.Contains(Definition.BarID, ForgeDefinition.RequiredBarCount))
                 {
                     Performer.SendChatMessage("You do not have sufficient " + _itemService.FindItemDefinitionById(Definition.BarID).Name.ToLower() + "s.");
                     Cancel();
@@ -95,7 +95,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
             }
 
             ForgeCount++;
-            var removed = Performer.Inventory.Remove(_itemBuilder.Create().WithId(Definition.BarID).WithCount(ForgeDefinition.RequiredBarCount).Build());
+            var removed = Performer.Inventory.Items.Remove(_itemBuilder.Create().WithId(Definition.BarID).WithCount(ForgeDefinition.RequiredBarCount).Build());
             if (removed < ForgeDefinition.RequiredBarCount) // something went wrong
             {
                 Cancel();
@@ -105,7 +105,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
             // TODO message
             //this.Performer.SendMessage("You retrieve a bar of " + World.ItemsManager.GetItemDefinition(this.Definition.BarID).Name.ToLower().Replace(" bar", "") + ".");
 
-            Performer.Inventory.Add(_itemBuilder.Create().WithId(ForgeDefinition.Product.Id).WithCount(ForgeDefinition.Product.Count).Build());
+            Performer.Inventory.Items.Add(_itemBuilder.Create().WithId(ForgeDefinition.Product.Id).WithCount(ForgeDefinition.Product.Count).Build());
             Performer.Statistics.AddExperience(StatisticsConstants.Smithing,
                 Definition.ForgeDefinition.BaseSmithingExperience * ForgeDefinition.RequiredBarCount); // Stop smithing if leveled up.
         }

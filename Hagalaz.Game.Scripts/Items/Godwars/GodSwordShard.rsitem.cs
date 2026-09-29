@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Scripts.Model.Items;
@@ -32,77 +32,77 @@ namespace Hagalaz.Game.Scripts.Items.Godwars
                 used.Id == 11712 && usedWith.Id == 11688 || usedWith.Id == 11712 && used.Id == 11688 ||
                 used.Id == 11714 && usedWith.Id == 11686 || usedWith.Id == 11714 && used.Id == 11686)
             {
-                var usedSlot = character.Inventory.GetInstanceSlot(used);
+                var usedSlot = character.Inventory.Items.GetInstanceSlot(used);
                 if (usedSlot == -1)
                 {
                     return false;
                 }
 
-                var usedWithSlot = character.Inventory.GetInstanceSlot(usedWith);
+                var usedWithSlot = character.Inventory.Items.GetInstanceSlot(usedWith);
                 if (usedWithSlot == -1)
                 {
                     return false;
                 }
 
-                character.Inventory.Remove(used, usedSlot);
-                character.Inventory.Replace(usedWithSlot, _itemBuilder.Create().WithId(11690).Build());
+                character.Inventory.Items.Remove(used, usedSlot);
+                character.Inventory.Items.Replace(usedWithSlot, _itemBuilder.Create().WithId(11690).Build());
                 return true;
             }
 
             if (used.Id == 11712 && usedWith.Id == 11714 || usedWith.Id == 11712 && used.Id == 11714)
             {
-                var usedSlot = character.Inventory.GetInstanceSlot(used);
+                var usedSlot = character.Inventory.Items.GetInstanceSlot(used);
                 if (usedSlot == -1)
                 {
                     return false;
                 }
 
-                var usedWithSlot = character.Inventory.GetInstanceSlot(usedWith);
+                var usedWithSlot = character.Inventory.Items.GetInstanceSlot(usedWith);
                 if (usedWithSlot == -1)
                 {
                     return false;
                 }
 
-                character.Inventory.Remove(used, usedSlot);
-                character.Inventory.Replace(usedWithSlot, _itemBuilder.Create().WithId(11692).Build());
+                character.Inventory.Items.Remove(used, usedSlot);
+                character.Inventory.Items.Replace(usedWithSlot, _itemBuilder.Create().WithId(11692).Build());
                 return true;
             }
 
             if (used.Id == 11710 && usedWith.Id == 11712 || usedWith.Id == 11710 && used.Id == 11712)
             {
-                var usedSlot = character.Inventory.GetInstanceSlot(used);
+                var usedSlot = character.Inventory.Items.GetInstanceSlot(used);
                 if (usedSlot == -1)
                 {
                     return false;
                 }
 
-                var usedWithSlot = character.Inventory.GetInstanceSlot(usedWith);
+                var usedWithSlot = character.Inventory.Items.GetInstanceSlot(usedWith);
                 if (usedWithSlot == -1)
                 {
                     return false;
                 }
 
-                character.Inventory.Remove(used, usedSlot);
-                character.Inventory.Replace(usedWithSlot, _itemBuilder.Create().WithId(11686).Build());
+                character.Inventory.Items.Remove(used, usedSlot);
+                character.Inventory.Items.Replace(usedWithSlot, _itemBuilder.Create().WithId(11686).Build());
                 return true;
             }
 
             if (used.Id == 11710 && usedWith.Id == 11714 || usedWith.Id == 11710 && usedWith.Id == 11714)
             {
-                var usedSlot = character.Inventory.GetInstanceSlot(used);
+                var usedSlot = character.Inventory.Items.GetInstanceSlot(used);
                 if (usedSlot == -1)
                 {
                     return false;
                 }
 
-                var usedWithSlot = character.Inventory.GetInstanceSlot(usedWith);
+                var usedWithSlot = character.Inventory.Items.GetInstanceSlot(usedWith);
                 if (usedWithSlot == -1)
                 {
                     return false;
                 }
 
-                character.Inventory.Remove(used, usedSlot);
-                character.Inventory.Replace(usedWithSlot, _itemBuilder.Create().WithId(11688).Build());
+                character.Inventory.Items.Remove(used, usedSlot);
+                character.Inventory.Items.Replace(usedWithSlot, _itemBuilder.Create().WithId(11688).Build());
                 return true;
             }
 

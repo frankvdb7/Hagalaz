@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Item;
@@ -164,7 +164,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
         private void AddCannonBalls()
         {
             var toRemoveCount = 30 - _cannonBalls.Count;
-            var removed = _cannonOwner.Inventory.Remove(_itemBuilder.Create().WithId(CannonballItemID).WithCount(toRemoveCount).Build());
+            var removed = _cannonOwner.Inventory.Items.Remove(_itemBuilder.Create().WithId(CannonballItemID).WithCount(toRemoveCount).Build());
             _cannonBalls = _itemBuilder.Create().WithId(CannonballItemID).WithCount(_cannonBalls.Count + removed).Build();
             _cannonOwner.SendChatMessage("You load the cannon with " + removed + " cannonball" + (removed == 1 ? "" : "s") + ".");
         }
@@ -339,23 +339,23 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                 {
                     character.SendChatMessage(GameStrings.PickCannonUp);
                     var toAdd = _itemBuilder.Create().WithId(DwarfMultiCannonItemScript.CannonItemIds[0 + cannonId]).Build();
-                    if (!character.Inventory.HasSpaceFor(toAdd))
+                    if (!character.Inventory.Items.HasSpaceFor(toAdd))
                     {
                         character.SendChatMessage(GameStrings.InventoryFull);
                         task.Cancel();
                         return;
                     }
 
-                    character.Inventory.Add(toAdd);
+                    character.Inventory.Items.Add(toAdd);
 
-                    if (!character.Inventory.HasSpaceFor(cannonBalls))
+                    if (!character.Inventory.Items.HasSpaceFor(cannonBalls))
                     {
                         character.SendChatMessage(GameStrings.InventoryFull);
                         task.Cancel();
                         return;
                     }
 
-                    character.Inventory.Add(cannonBalls);
+                    character.Inventory.Items.Add(cannonBalls);
 
                     _mapRegionService.RemoveGameObject(cannon);
 
@@ -371,7 +371,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                     character.SendChatMessage("You pick up the stand...");
 
                     var toAdd = _itemBuilder.Create().WithId(DwarfMultiCannonItemScript.CannonItemIds[1 + cannonId]).Build();
-                    if (!character.Inventory.HasSpaceFor(toAdd))
+                    if (!character.Inventory.Items.HasSpaceFor(toAdd))
                     {
                         character.SendChatMessage(GameStrings.InventoryFull);
                         character.Movement.Unlock(false);
@@ -379,7 +379,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                         return;
                     }
 
-                    character.Inventory.Add(toAdd);
+                    character.Inventory.Items.Add(toAdd);
 
                     _gameObjectService.UpdateGameObject(new GameObjectUpdate
                     {
@@ -391,7 +391,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                     character.SendChatMessage("You pick up the barrel...");
 
                     var toAdd = _itemBuilder.Create().WithId(DwarfMultiCannonItemScript.CannonItemIds[2 + cannonId]).Build();
-                    if (!character.Inventory.HasSpaceFor(toAdd))
+                    if (!character.Inventory.Items.HasSpaceFor(toAdd))
                     {
                         character.SendChatMessage(GameStrings.InventoryFull);
                         character.Movement.Unlock(false);
@@ -399,7 +399,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                         return;
                     }
 
-                    character.Inventory.Add(toAdd);
+                    character.Inventory.Items.Add(toAdd);
 
                     _gameObjectService.UpdateGameObject(new GameObjectUpdate
                     {
@@ -411,7 +411,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                     character.SendChatMessage("You pick up the furnace...");
 
                     var toAdd = _itemBuilder.Create().WithId(DwarfMultiCannonItemScript.CannonItemIds[3 + cannonId]).Build();
-                    if (!character.Inventory.HasSpaceFor(toAdd))
+                    if (!character.Inventory.Items.HasSpaceFor(toAdd))
                     {
                         character.SendChatMessage(GameStrings.InventoryFull);
                         character.Movement.Unlock(false);
@@ -419,7 +419,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                         return;
                     }
 
-                    character.Inventory.Add(toAdd);
+                    character.Inventory.Items.Add(toAdd);
 
                     _gameObjectService.UpdateGameObject(new GameObjectUpdate
                     {

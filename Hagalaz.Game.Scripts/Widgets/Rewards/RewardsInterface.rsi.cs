@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
@@ -56,7 +56,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Rewards
             InterfaceInstance.DrawString(15, "Rewards Container");
             InterfaceInstance.DrawString(17, "Click or right click on an item to claim your reward!<br><col=FF0000>Warning: You can not refund an item once you claim it!</col>");
             InterfaceInstance.SetVisible(19, false); // disable the collect sprite
-            if (Owner.Rewards.TakenSlots <= 48)
+            if (Owner.Rewards.Items.TakenSlots <= 48)
             {
                 InterfaceInstance.SetVisible(18, false); // disable scroll bar
             }

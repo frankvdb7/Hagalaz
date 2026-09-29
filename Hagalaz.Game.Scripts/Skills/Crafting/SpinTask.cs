@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
@@ -74,7 +74,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
 
             if (TickCount == 1 || TickCount % 6 == 0)
             {
-                var resource = Performer.Inventory.GetById(Definition.ResourceID);
+                var resource = Performer.Inventory.Items.GetById(Definition.ResourceID);
                 if (resource == null)
                 {
                     Performer.SendChatMessage("You need " + _itemService.FindItemDefinitionById(Definition.ResourceID).Name.ToLower() +
@@ -90,21 +90,21 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
             if (TickCount % 3 == 0)
             {
                 SpinCount++;
-                var resource = Performer.Inventory.GetById(Definition.ResourceID);
+                var resource = Performer.Inventory.Items.GetById(Definition.ResourceID);
                 if (resource == null)
                 {
                     Cancel();
                     return;
                 }
 
-                var slot = Performer.Inventory.GetInstanceSlot(resource);
+                var slot = Performer.Inventory.Items.GetInstanceSlot(resource);
                 if (slot == -1)
                 {
                     Cancel();
                     return;
                 }
 
-                Performer.Inventory.Replace(slot, _itemBuilder.Create().WithId(Definition.ProductID).Build());
+                Performer.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(Definition.ProductID).Build());
                 Performer.Statistics.AddExperience(StatisticsConstants.Crafting, Definition.CraftingExperience);
             }
         }

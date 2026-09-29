@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -231,7 +231,7 @@ namespace Hagalaz.Game.Scripts.Commands
                     CommandFunc = async (character, arguments) =>
                     {
                         await Task.CompletedTask;
-                        character.Inventory.Clear(true);
+                        character.Inventory.Items.Clear(true);
                         return true;
                     },
                     Permission = Permission.GameAdministrator

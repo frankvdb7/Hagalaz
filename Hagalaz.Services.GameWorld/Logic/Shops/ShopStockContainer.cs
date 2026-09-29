@@ -14,7 +14,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
     /// <summary>
     /// Class ShopStockContainer
     /// </summary>
-    public partial class ShopStockContainer : IShopStockContainer, IItemContainerStorageOwner
+    public partial class ShopStockContainer : IShopStockContainer
     {
         /// <summary>
         /// Wether this shop container is a sample container.
@@ -33,9 +33,13 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
         private readonly IItemBuilder _itemBuilder;
         private readonly IEventManager _eventManager;
-        private readonly ItemContainerStorage _storage;
-
-        ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
+        private readonly ItemContainer _items;
+        private ItemContainerStorage Storage => ((IItemContainerStorageOwner)_items).Storage;
+        public IItemContainer Items => _items;
+        public IItem? this[int index] => _items[index];
+        public int Capacity => _items.Capacity;
+        public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 
         /// <summary>
         /// The original stock of the shop.
@@ -58,7 +62,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             IShop shop, IItemService itemRepository, IItemBuilder itemBuilder, bool sampleContainer, StorageType type, int capacity,
             IList<IItem> stock, IEventManager eventManager)
         {
-            _storage = new ItemContainerStorage(type, stock, capacity, 0);
+            _items = new ItemContainer(type, stock, capacity, OnUpdate, 0);
             _shop = shop;
             _sampleContainer = sampleContainer;
             _itemRepository = itemRepository;
@@ -81,7 +85,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
         public void SetItems(IItem[] items, bool update)
         {
-            _storage.ReplaceState(items);
+            Storage.ReplaceState(items);
             if (update) OnUpdate();
         }
 
@@ -94,13 +98,13 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         /// <returns>If depositing was successful.</returns>
         public bool SellFromInventory(ICharacter viewer, IItem item, int count)
         {
-            var slot = viewer.Inventory.GetInstanceSlot(item);
+            var slot = viewer.Inventory.Items.GetInstanceSlot(item);
             if (slot == -1 || count <= 0)
             {
                 return false;
             }
 
-            var availableCount = viewer.Inventory.GetCount(item);
+            var availableCount = viewer.Inventory.Items.GetCount(item);
             if (count > availableCount)
             {
                 count = availableCount;
@@ -122,13 +126,13 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 sold = item.Clone(count);
             }
 
-            if (!sold.ItemScript.CanSellItem(sold, viewer) || !_shop.GeneralStore && !_storage.Contains(sold))
+            if (!sold.ItemScript.CanSellItem(sold, viewer) || !_shop.GeneralStore && !Storage.Contains(sold))
             {
                 viewer.SendChatMessage("You cannot sell this item.");
                 return false;
             }
 
-            if (!this.HasSpaceFor(sold))
+            if (!_items.HasSpaceFor(sold))
             {
                 viewer.SendChatMessage("There is not enough space in the shop for this item.");
                 return false;
@@ -141,7 +145,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 return false;
             }
 
-            if (!ItemContainerTransfer.TryTransfer(viewer.Inventory, this, item, count, slot,
+            if (!ItemContainerTransfer.TryTransfer(viewer.Inventory.Items, _items, item, count, slot,
                     destinationItem: transformed ? sold : null))
             {
                 return false;
@@ -149,7 +153,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
             return viewer.MoneyPouch.Contains(_shop.CurrencyId)
                 ? viewer.MoneyPouch.Add((int)currencyCount)
-                : viewer.Inventory.Add(_itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)currencyCount).Build());
+                : viewer.Inventory.Items.Add(_itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)currencyCount).Build());
         }
 
         /// <summary>
@@ -161,7 +165,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
         public bool BuyFromShop(ICharacter viewer, IItem item, int count)
         {
-            var slot = this.GetInstanceSlot(item);
+            var slot = _items.GetInstanceSlot(item);
             if (slot == -1 || count <= 0) return false;
             if (!item.ItemScript.CanBuyItem(item, viewer)) return false;
             var toRemove = item.Clone();
@@ -182,9 +186,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             var needSlots = 0;
             if (stack)
             {
-                if (viewer.Inventory.GetSlotByItem(toRemove) != -1)
+                if (viewer.Inventory.Items.GetSlotByItem(toRemove) != -1)
                 {
-                    var total = viewer.Inventory.GetCount(toRemove) + (long)count;
+                    var total = viewer.Inventory.Items.GetCount(toRemove) + (long)count;
                     if (total > int.MaxValue)
                     {
                         return false;
@@ -199,7 +203,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             }
 
             int freeSlots;
-            if ((freeSlots = viewer.Inventory.FreeSlots) < needSlots)
+            if ((freeSlots = viewer.Inventory.Items.FreeSlots) < needSlots)
             {
                 viewer.SendChatMessage("Not enough space in your inventory.");
                 if (stack || freeSlots <= 0) // we can't do anything since decreasing item count won't decrease needSlots.
@@ -222,7 +226,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
                 var paid = _shop.CurrencyId == 995
                     ? viewer.MoneyPouch.TryRemoveExact((int)cost)
-                    : viewer.Inventory.RemoveForTrade(
+                    : viewer.Inventory.Items.RemoveForTrade(
                         _itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)cost).Build());
 
                 if (!paid)
@@ -234,15 +238,15 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
             if (_originalStock.Any(it => it.Id == item.Id))
             {
-                this.Remove(toRemove, slot);
+                _items.Remove(toRemove, slot);
             }
             else
             {
-                this.Remove(toRemove, slot);
-                if (_storage[slot] == null) this.Sort();
+                _items.Remove(toRemove, slot);
+                if (_items[slot] == null) _items.Sort();
             }
 
-            viewer.Inventory.Add(toRemove);
+            viewer.Inventory.Items.Add(toRemove);
             _eventManager.SendEvent(new ShopItemBoughtEvent(viewer, _shop, toRemove));
             return true;
         }
@@ -254,11 +258,11 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         {
             var changedSlots = new HashSet<int>();
             var shouldSort = false;
-            lock (_storage.MutationLock)
+            lock (Storage.MutationLock)
             {
-                var items = _storage.ToArray();
+                var items = Storage.ToArray();
                 // This uses the full capacity, because we don't know if items were added.
-                for (var i = 0; i < Capacity; i++)
+                for (var i = 0; i < _items.Capacity; i++)
                 {
                     var item = items[i];
                     if (item == null)
@@ -277,13 +281,13 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                         changedSlots.Add(i);
                         if (item.Count <= 0)
                         {
-                            if (_storage.CountToResetTo == -1)
+                            if (Storage.CountToResetTo == -1)
                             {
                                 items[i] = null;
                             }
                             else
                             {
-                                item.Count = _storage.CountToResetTo;
+                                item.Count = Storage.CountToResetTo;
                             }
 
                             shouldSort = true;
@@ -309,7 +313,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
                 if (changedSlots.Count > 0)
                 {
-                    _storage.ReplaceState(items);
+                    Storage.ReplaceState(items);
                 }
             }
 

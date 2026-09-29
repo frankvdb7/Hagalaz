@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -52,7 +52,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                 return;
             }
 
-            var slot = character.Inventory.GetInstanceSlot(item);
+            var slot = character.Inventory.Items.GetInstanceSlot(item);
             if (slot == -1)
             {
                 return;
@@ -82,7 +82,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                     character.AttachFamiliar(familiarScript);
                 })
                 .Spawn();
-            character.Inventory.Remove(item, slot);
+            character.Inventory.Items.Remove(item, slot);
             character.Statistics.DamageSkill(StatisticsConstants.Summoning, def.SummonSpawnCost);
             character.Statistics.AddExperience(StatisticsConstants.Summoning, def.SummonExperience);
         }
@@ -137,7 +137,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
             {
                 var def = itemRepository.FindItemDefinitionById(key);
 
-                if (character.Inventory.Contains(key, amount * count))
+                if (character.Inventory.Items.Contains(key, amount * count))
                 {
                     continue;
                 }

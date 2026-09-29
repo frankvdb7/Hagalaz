@@ -47,7 +47,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             await command.Execute(args);
 
             // Assert
-            Assert.AreEqual(456, inventoryMock.GetCountById(123));
+            Assert.AreEqual(456, inventoryMock.Items.GetCountById(123));
         }
     }
 }

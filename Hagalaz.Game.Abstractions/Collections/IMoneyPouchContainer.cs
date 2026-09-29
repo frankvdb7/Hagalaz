@@ -3,8 +3,14 @@
     /// <summary>
     /// Defines the contract for a player's money pouch, a special container that holds coins separately from the main inventory.
     /// </summary>
-    public interface IMoneyPouchContainer : IItemContainer
+    public interface IMoneyPouchContainer
     {
+        IItemContainer Items { get; }
+
+        bool Contains(int id);
+
+        bool Contains(int id, int count);
+
         /// <summary>
         /// Gets the "Examine" text for the money pouch, which typically displays the total number of coins.
         /// </summary>

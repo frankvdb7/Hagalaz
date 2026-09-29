@@ -36,6 +36,9 @@
 
 - [x] 7.1 Review the cumulative diff for one slot owner/one mutation algorithm, callback and publication order, exact persistence slots and only the minimum #439 API cleanup required for composition; run focused Abstractions, GameWorld and Scripts test projects.
 - [x] 7.2 Run the affected solution build, strict OpenSpec validation, local repository-configured jscpd base comparison, and `git diff --check`; record exact commands and results.
-- [x] 7.3 Eliminate every new clone pair relative to the pull-request base and obtain a passing repository `fail-on-new-clones` result with zero new pairs.
+- [ ] 7.3 Eliminate every new clone pair relative to the pull-request base and obtain a passing repository `fail-on-new-clones` result with zero new pairs. Local jscpd 5.3.2 comparison against base `75e18b9975c58b209018662a2617fb9b8b285883` reports 38 new pairs (733 duplicated lines); the zero-new-clones gate remains open.
 - [x] 7.4 Preserve interface dispatch for domain-specialized operations, restore the complete checked-trade contract, name the storage owner accurately, and audit GameWorld global imports.
-- [ ] 7.5 Remove behavioral interface and extension implementations; implement the item-container and checked-trade contracts directly on each concrete composed container; retain domain dispatch/publication; then validate the full suite, OpenSpec, and zero-new-clones gate.
+- [x] 7.5 Add concrete `ItemContainer` as the single `IItemContainer`/`ITradeItemContainer` implementation over `ItemContainerStorage`, including committed-change publication callback.
+- [x] 7.6 Migrate production domain containers and script-local containers to compose `ItemContainer`; expose narrow `Items` contracts, remove copied generic forwarding, and retain domain-specific operations/callbacks.
+- [x] 7.7 Migrate trade settlement and tests to use composed `Items`; preserve checked trade behavior, MoneyPouch semantics, Equipment callback order, restoration, and shop zero-count behavior.
+- [ ] 7.8 Run focused projects, complete solution tests, build, strict OpenSpec validation, spec validation, diff check, and jscpd zero-new-clones gate. Focused and full solution tests, solution build, both strict validations, and `git diff --check` pass; completion is held by task 7.3's 38 new jscpd pairs.

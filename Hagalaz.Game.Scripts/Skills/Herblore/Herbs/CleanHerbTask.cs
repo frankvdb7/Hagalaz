@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Providers;
@@ -82,7 +82,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
             if (TickCount % TickDelay == 0)
             {
                 CleanCount++;
-                var item = Performer.Inventory.GetById(Definition.GrimyHerbId);
+                var item = Performer.Inventory.Items.GetById(Definition.GrimyHerbId);
                 if (item == null)
                 {
                     Performer.SendChatMessage("You do not have any grimy herbs left.");
@@ -90,14 +90,14 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                     return;
                 }
 
-                var slot = Performer.Inventory.GetInstanceSlot(item);
+                var slot = Performer.Inventory.Items.GetInstanceSlot(item);
                 if (slot == -1)
                 {
                     return;
                 }
 
                 Performer.SendChatMessage("You clean the drift from the " + item.Name.ToLower());
-                Performer.Inventory.Replace(slot, _itemBuilder.Create().WithId(Definition.CleanHerbId).Build());
+                Performer.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(Definition.CleanHerbId).Build());
                 Performer.Statistics.AddExperience(StatisticsConstants.Herblore, Definition.CleanExperience);
             }
         }

@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -117,14 +117,14 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
             if (TickCount % 3 == 0)
             {
                 CookCount++;
-                var rawItem = Performer.Inventory.GetById(RawDto.ItemId);
+                var rawItem = Performer.Inventory.Items.GetById(RawDto.ItemId);
                 if (rawItem == null)
                 {
                     Cancel();
                     return;
                 }
 
-                var slot = Performer.Inventory.GetInstanceSlot(rawItem);
+                var slot = Performer.Inventory.Items.GetInstanceSlot(rawItem);
                 if (slot == -1)
                 {
                     Cancel();
@@ -135,7 +135,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
                 Performer.SendChatMessage(burned
                     ? "Oops! You accidentally burnt the " + rawItem.Name.ToLower()
                     : "You successfully cook the " + rawItem.Name.ToLower());
-                Performer.Inventory.Replace(slot, _itemBuilder.Create().WithId(burned ? RawDto.BurntItemId : RawDto.CookedItemId).Build());
+                Performer.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(burned ? RawDto.BurntItemId : RawDto.CookedItemId).Build());
                 if (!burned)
                 {
                     Performer.Statistics.AddExperience(StatisticsConstants.Cooking, RawDto.Experience); // Stop cooking if leveled up.

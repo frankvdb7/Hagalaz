@@ -286,12 +286,12 @@ namespace Hagalaz.Game.Scripts.Characters
                 return false;
             }
 
-            if (Character.Inventory.FreeSlots != LastMyInventoryFreeSlots)
+            if (Character.Inventory.Items.FreeSlots != LastMyInventoryFreeSlots)
             {
                 return true;
             }
 
-            return target.Inventory.FreeSlots != LastTargetInventoryFreeSlots;
+            return target.Inventory.Items.FreeSlots != LastTargetInventoryFreeSlots;
         }
 
         private bool ShouldCancelTrade()
@@ -476,7 +476,7 @@ namespace Hagalaz.Game.Scripts.Characters
             SelfOverlay.AttachClickHandler(0,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= Character.Inventory.Capacity)
+                    if (itemSlot < 0 || itemSlot >= Character.Inventory.Items.Capacity)
                     {
                         return false;
                     }
@@ -498,7 +498,7 @@ namespace Hagalaz.Game.Scripts.Characters
                         clickType == ComponentClickType.Option5Click)
                     {
                         var count = 1;
-                        var max = Character.Inventory.GetCount(item);
+                        var max = Character.Inventory.Items.GetCount(item);
                         if (max <= 0)
                         {
                             return false;
@@ -586,7 +586,7 @@ namespace Hagalaz.Game.Scripts.Characters
             TargetOverlay.AttachClickHandler(0,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= Target.Inventory.Capacity)
+                    if (itemSlot < 0 || itemSlot >= Target.Inventory.Items.Capacity)
                     {
                         return false;
                     }
@@ -608,7 +608,7 @@ namespace Hagalaz.Game.Scripts.Characters
                         clickType == ComponentClickType.Option5Click)
                     {
                         var count = 1;
-                        var max = Target.Inventory.GetCount(item);
+                        var max = Target.Inventory.Items.GetCount(item);
                         if (max <= 0)
                         {
                             return false;
@@ -696,12 +696,12 @@ namespace Hagalaz.Game.Scripts.Characters
             SelfInterface.AttachClickHandler(32,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= ((IItemContainer)SelfContainer).Capacity)
+                    if (itemSlot < 0 || itemSlot >= SelfContainer.Items.Capacity)
                     {
                         return false;
                     }
 
-                    var item = ((IItemContainer)SelfContainer)[itemSlot];
+                    var item = SelfContainer.Items[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -712,7 +712,7 @@ namespace Hagalaz.Game.Scripts.Characters
                         clickType == ComponentClickType.Option5Click)
                     {
                         var count = 0;
-                        var max = SelfContainer.GetCount(item);
+                        var max = SelfContainer.Items.GetCount(item);
                         if (max <= 0)
                         {
                             return false;
@@ -798,12 +798,12 @@ namespace Hagalaz.Game.Scripts.Characters
             TargetInterface.AttachClickHandler(32,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= ((IItemContainer)TargetContainer).Capacity)
+                    if (itemSlot < 0 || itemSlot >= TargetContainer.Items.Capacity)
                     {
                         return false;
                     }
 
-                    var item = ((IItemContainer)TargetContainer)[itemSlot];
+                    var item = TargetContainer.Items[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -814,7 +814,7 @@ namespace Hagalaz.Game.Scripts.Characters
                         clickType == ComponentClickType.Option5Click)
                     {
                         var count = 0;
-                        var max = TargetContainer.GetCount(item);
+                        var max = TargetContainer.Items.GetCount(item);
                         if (max <= 0)
                         {
                             return false;
@@ -901,12 +901,12 @@ namespace Hagalaz.Game.Scripts.Characters
             SelfInterface.AttachClickHandler(35,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= ((IItemContainer)TargetContainer).Capacity)
+                    if (itemSlot < 0 || itemSlot >= TargetContainer.Items.Capacity)
                     {
                         return false;
                     }
 
-                    var item = ((IItemContainer)TargetContainer)[itemSlot];
+                    var item = TargetContainer.Items[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -941,12 +941,12 @@ namespace Hagalaz.Game.Scripts.Characters
             TargetInterface.AttachClickHandler(35,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= ((IItemContainer)SelfContainer).Capacity)
+                    if (itemSlot < 0 || itemSlot >= SelfContainer.Items.Capacity)
                     {
                         return false;
                     }
 
-                    var item = ((IItemContainer)SelfContainer)[itemSlot];
+                    var item = SelfContainer.Items[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -1107,14 +1107,14 @@ namespace Hagalaz.Game.Scripts.Characters
                 }
 
                 var character = self ? Character : session.Target;
-                var offer = self ? SelfContainer : TargetContainer;
-                var count = Math.Min(requestedCount, character.Inventory.GetCount(item));
+                var offer = (self ? SelfContainer : TargetContainer).Items;
+                var count = Math.Min(requestedCount, character.Inventory.Items.GetCount(item));
                 if (count <= 0)
                 {
                     return false;
                 }
 
-                if (ItemContainerTransfer.TryTransfer(character.Inventory, offer, item, count, preferredSlot))
+                if (ItemContainerTransfer.TryTransfer(character.Inventory.Items, offer, item, count, preferredSlot))
                 {
                     RefreshTradeOfferScreenLocked(session);
                     ProcessTradeChangeLocked(session, self, false);
@@ -1141,7 +1141,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 }
 
                 var character = self ? Character : session.Target;
-                var offer = self ? SelfContainer : TargetContainer;
+                var offer = (self ? SelfContainer : TargetContainer).Items;
                 var count = Math.Min(requestedCount, offer.GetCount(item));
                 if (count <= 0)
                 {
@@ -1150,7 +1150,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
                 if (item.Id != 995)
                 {
-                    if (!ItemContainerTransfer.TryTransfer(offer, character.Inventory, item, count, preferredSlot))
+                    if (!ItemContainerTransfer.TryTransfer(offer, character.Inventory.Items, item, count, preferredSlot))
                     {
                         return false;
                     }
@@ -1188,7 +1188,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 }
 
                 var character = self ? Character : session.Target;
-                var offer = self ? SelfContainer : TargetContainer;
+                var offer = (self ? SelfContainer : TargetContainer).Items;
                 var coinOffer = _itemBuilder.Create().WithId(995).WithCount(requestedCount).Build();
                 if (!offer.HasSpaceFor(coinOffer))
                 {
@@ -1315,8 +1315,8 @@ namespace Hagalaz.Game.Scripts.Characters
                     return;
                 }
 
-                LastMyInventoryFreeSlots = Character.Inventory.FreeSlots;
-                LastTargetInventoryFreeSlots = session.Target.Inventory.FreeSlots;
+                LastMyInventoryFreeSlots = Character.Inventory.Items.FreeSlots;
+                LastTargetInventoryFreeSlots = session.Target.Inventory.Items.FreeSlots;
                 Character.Configurations.SendGlobalCs2String(203,
                     "<br><br>" + session.Target.DisplayName + "<br>has " + LastTargetInventoryFreeSlots + " free<br>inventory slots.");
                 session.Target.Configurations.SendGlobalCs2String(203,
@@ -1667,14 +1667,14 @@ namespace Hagalaz.Game.Scripts.Characters
                     return;
                 }
 
-                if (!TradeExchange.TryRefundTrade(Character, SelfContainer, session.Target, TargetContainer, _itemBuilder))
+                if (!TradeExchange.TryRefundTrade(Character, SelfContainer.Items, session.Target, TargetContainer.Items, _itemBuilder))
                 {
                     if (forceConservation &&
                         TradeExchange.TryConserveEscrow(
                             Character,
-                            SelfContainer,
+                            SelfContainer.Items,
                             session.Target,
-                            TargetContainer))
+                            TargetContainer.Items))
                     {
                         session.State = TradeState.Cancelled;
                         ResetTradeSessionLocked(session);
@@ -1722,7 +1722,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 var exchanged = false;
                 try
                 {
-                    exchanged = TradeExchange.TryCompleteTrade(Character, SelfContainer, target, TargetContainer, _itemBuilder);
+                    exchanged = TradeExchange.TryCompleteTrade(Character, SelfContainer.Items, target, TargetContainer.Items, _itemBuilder);
                 }
                 finally
                 {
@@ -1756,8 +1756,8 @@ namespace Hagalaz.Game.Scripts.Characters
             TradeSession = false;
             _tradeSession = null;
 
-            SelfContainer?.Clear(false);
-            TargetContainer?.Clear(false);
+            SelfContainer?.Items.Clear(false);
+            TargetContainer?.Items.Clear(false);
 
             if (Character.Widgets.IntInputHandler == SelfIntInputHandler)
             {
@@ -1856,58 +1856,13 @@ namespace Hagalaz.Game.Scripts.Characters
         /// <summary>
         ///     Container for holding items in trade offer interfaces.
         /// </summary>
-        public class TradeContainer : ITradeItemContainer, IItemContainerStorageOwner
+        public class TradeContainer : IContainer<IItem?>
         {
-            private readonly ItemContainerStorage _storage = new(StorageType.Normal, 14);
-            ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
-            void IItemContainerStorageOwner.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
-            public StorageType Type => _storage.Type;
-            public int FreeSlots => _storage.FreeSlots;
-            public int TakenSlots => _storage.TakenSlots;
-            public IItem? this[int index] => _storage[index];
-            public int Capacity => _storage.Capacity;
-            public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
+            public ITradeItemContainer Items { get; }
+            public IItem? this[int index] => Items[index];
+            public int Capacity => Items.Capacity;
+            public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => Items.GetEnumerator();
             System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
-            public bool Add(IItem item) { if (!_storage.TryAdd(item, out var slots)) return false; OnUpdate(slots); return true; }
-            public bool Add(int slot, IItem item) { if (!_storage.TryAdd(slot, item, out var slots)) return false; OnUpdate(slots); return true; }
-            public void AddAndRemoveFrom(IItemContainer source) => ItemContainerTransfer.AddAndRemoveFrom(this, source);
-            public IItem? GetById(int id) => _storage.GetById(id);
-            public int Remove(IItem item, int preferredSlot = -1, bool update = true)
-            {
-                var removed = _storage.Remove(item, preferredSlot, out var slots);
-                if (removed > 0 && update) OnUpdate(slots);
-                return removed;
-            }
-            public void Replace(int slot, IItem item) { _storage.Replace(slot, item); OnUpdate([slot]); }
-            public void Swap(int fromSlot, int toSlot) { if (_storage.Swap(fromSlot, toSlot)) OnUpdate([fromSlot, toSlot]); }
-            public void Move(int fromSlot, int toSlot) { if (_storage.Move(fromSlot, toSlot)) OnUpdate(null); }
-            public bool AddRange(IEnumerable<IItem?> items) { if (!_storage.TryAddRange(items, out var slots)) return false; OnUpdate(slots); return true; }
-            public bool Contains(int id, int count) => _storage.Contains(id, count);
-            public bool Contains(int id) => _storage.Contains(id);
-            public int GetCount(IItem item) => _storage.GetCount(item);
-            public int GetCountById(int id) => _storage.GetCountById(id);
-            public int GetInstanceSlot(IItem instance) => _storage.GetInstanceSlot(instance);
-            public void Sort() { _storage.Sort(); OnUpdate(null); }
-            public int GetSlotByItem(IItem item, bool ignoreCount = true) => _storage.GetSlotByItem(item, ignoreCount);
-            public bool HasSpaceFor(IItem item) => _storage.HasSpaceFor(item);
-            public bool HasSpaceForRange(IEnumerable<IItem?> items) => _storage.HasSpaceForRange(items);
-            public void Clear(bool update) { if (_storage.Clear() && update) OnUpdate(null); }
-            public bool AddRangeForTrade(IEnumerable<IItem?> items)
-            {
-                if (!TryAddRangeForTradeStorage(items, out var slots)) return false;
-                OnUpdate(slots);
-                return true;
-            }
-            public bool TryAddRangeForTradeStorage(IEnumerable<IItem?> items, out HashSet<int> changedSlots) =>
-                _storage.TryAddRange(items, out changedSlots);
-            public bool RemoveForTrade(IItem item, int preferredSlot = -1)
-            {
-                if (!TryRemoveForTradeStorage(item, preferredSlot, out var slots)) return false;
-                OnUpdate(slots);
-                return true;
-            }
-            public bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots) =>
-                _storage.TryRemoveExact(item, preferredSlot, out changedSlots);
             /// <summary>
             ///     Contains last slots update.
             /// </summary>
@@ -1924,6 +1879,7 @@ namespace Hagalaz.Game.Scripts.Characters
             public TradeContainer()
             {
                 Updates = [];
+                Items = new ItemContainer(StorageType.Normal, 14, OnUpdate);
                 OnUpdate();
             }
 
@@ -1937,7 +1893,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 if (slots == null)
                 {
                     Updates.Clear();
-                    for (var i = 0; i < _storage.Capacity; i++)
+                    for (var i = 0; i < Capacity; i++)
                     {
                         Updates.Add(i);
                     }
@@ -1952,7 +1908,7 @@ namespace Hagalaz.Game.Scripts.Characters
             ///     Calculate's total value of this container.
             /// </summary>
             /// <returns></returns>
-            public int CalculateTotalValue() => (int)ItemContainerTradeValue.Calculate(this);
+            public int CalculateTotalValue() => (int)ItemContainerTradeValue.Calculate(Items);
         }
     }
 }

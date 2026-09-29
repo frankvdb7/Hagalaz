@@ -8,7 +8,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public partial class RewardContainer : IRewardContainer, IItemContainerStorageOwner, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public partial class RewardContainer : IRewardContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
@@ -22,15 +22,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contstructs a container for character ingame mail.
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
-        private readonly ItemContainerStorage _storage;
-
-        ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
+        private readonly ItemContainer _items;
+        public ITradeItemContainer Items => _items;
+        public IItem? this[int index] => _items[index];
+        public int Capacity => _items.Capacity;
+        public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 
         public RewardContainer(ICharacter owner, IItemBuilder itemBuilder)
         {
             _owner = owner;
             _itemBuilder = itemBuilder;
-            _storage = new ItemContainerStorage(StorageType.AlwaysStack, byte.MaxValue);
+            _items = new ItemContainer(StorageType.AlwaysStack, byte.MaxValue, OnUpdate);
         }
 
         /// <summary>
@@ -41,7 +44,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public int Claim(IItem item, int count)
         {
-            var slot = _storage.GetInstanceSlot(item);
+            var slot = _items.GetInstanceSlot(item);
             if (slot == -1 || count <= 0) return -1;
             var toRemove = item.Clone();
             if (toRemove.Count < count) count = toRemove.Count;
@@ -51,9 +54,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var needSlots = 0;
             if (stack)
             {
-                if (_owner.Inventory.GetSlotByItem(toRemove) != -1)
+                if (_owner.Inventory.Items.GetSlotByItem(toRemove) != -1)
                 {
-                    var total = _owner.Inventory.GetCount(toRemove) + (long)count;
+                    var total = _owner.Inventory.Items.GetCount(toRemove) + (long)count;
                     if (total > int.MaxValue)
                     {
                         return -1;
@@ -68,7 +71,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             int freeSlots;
-            if ((freeSlots = _owner.Inventory.FreeSlots) < needSlots)
+            if ((freeSlots = _owner.Inventory.Items.FreeSlots) < needSlots)
             {
                 _owner.SendChatMessage(GameStrings.InventoryFull);
                 if (stack || freeSlots <= 0) // we can't do anything since decreasing item count won't decrease needSlots.
@@ -80,12 +83,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 toRemove.Count = count;
             }
 
-            if (!ItemContainerTransfer.TryTransfer(this, _owner.Inventory, item, count, slot))
+            if (!ItemContainerTransfer.TryTransfer(_items, _owner.Inventory.Items, item, count, slot))
             {
                 return -1;
             }
 
-            this.Sort();
+            _items.Sort();
             return count;
         }
 
@@ -97,12 +100,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> rewards)
         {
-            _storage.RestoreItems(rewards.Select(entry => entry.ToStorageEntry(_itemBuilder)));
+            ((IItemContainerStorageOwner)_items).Storage.RestoreItems(rewards.Select(entry => entry.ToStorageEntry(_itemBuilder)));
         }
 
         public IReadOnlyList<HydratedItemDto> Dehydrate()
         {
-            return _storage.ToHydratedItems();
+            return ((IItemContainerStorageOwner)_items).Storage.ToHydratedItems();
         }
     }
 }

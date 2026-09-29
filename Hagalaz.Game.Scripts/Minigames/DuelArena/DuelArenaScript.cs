@@ -513,7 +513,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             SelfOverlay.AttachClickHandler(0,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= Character.Inventory.Capacity)
+                    if (itemSlot < 0 || itemSlot >= Character.Inventory.Items.Capacity)
                     {
                         return false;
                     }
@@ -531,7 +531,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     }
 
                     var count = 0;
-                    var max = Character.Inventory.GetCount(item);
+                    var max = Character.Inventory.Items.GetCount(item);
                     if (max <= 0)
                     {
                         return false;
@@ -572,13 +572,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                             var rem = item.Clone();
                             rem.Count = amt > max ? max : amt;
-                            if (!SelfContainer.HasSpaceFor(rem))
+                            if (!SelfContainer.Items.HasSpaceFor(rem))
                             {
                                 Character.SendChatMessage("The stake is full.");
                                 return;
                             }
 
-                            var cnt = Character.Inventory.Remove(rem);
+                            var cnt = Character.Inventory.Items.Remove(rem);
                             if (cnt <= 0)
                             {
                                 return;
@@ -586,7 +586,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                             var add = item.Clone();
                             add.Count = cnt;
-                            SelfContainer.Add(add);
+                            SelfContainer.Items.Add(add);
                             RefreshDuelStakeScreen();
                             ProcessDuelStakeChange(true, false);
                         };
@@ -608,13 +608,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         var toRemove = item.Clone();
                         toRemove.Count = count;
-                        if (!SelfContainer.HasSpaceFor(toRemove))
+                        if (!SelfContainer.Items.HasSpaceFor(toRemove))
                         {
                             Character.SendChatMessage("The stake is full.");
                             return false;
                         }
 
-                        count = Character.Inventory.Remove(toRemove, itemSlot);
+                        count = Character.Inventory.Items.Remove(toRemove, itemSlot);
                         if (count <= 0)
                         {
                             return false;
@@ -622,7 +622,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         var toAdd = item.Clone();
                         toAdd.Count = count;
-                        SelfContainer.Add(toAdd);
+                        SelfContainer.Items.Add(toAdd);
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(true, false);
                     }
@@ -633,7 +633,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             TargetOverlay.AttachClickHandler(0,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= Target.Inventory.Capacity)
+                    if (itemSlot < 0 || itemSlot >= Target.Inventory.Items.Capacity)
                     {
                         return false;
                     }
@@ -651,7 +651,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     }
 
                     var count = 0;
-                    var max = Target.Inventory.GetCount(item);
+                    var max = Target.Inventory.Items.GetCount(item);
                     if (max <= 0)
                     {
                         return false;
@@ -692,13 +692,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                             var rem = item.Clone();
                             rem.Count = amt > max ? max : amt;
-                            if (!TargetContainer.HasSpaceFor(rem))
+                            if (!TargetContainer.Items.HasSpaceFor(rem))
                             {
                                 Target.SendChatMessage("The stake is full.");
                                 return;
                             }
 
-                            var cnt = Target.Inventory.Remove(rem);
+                            var cnt = Target.Inventory.Items.Remove(rem);
                             if (cnt <= 0)
                             {
                                 return;
@@ -706,7 +706,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                             var add = item.Clone();
                             add.Count = cnt;
-                            TargetContainer.Add(add);
+                            TargetContainer.Items.Add(add);
                             RefreshDuelStakeScreen();
                             ProcessDuelStakeChange(false, false);
                         };
@@ -728,13 +728,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         var toRemove = item.Clone();
                         toRemove.Count = count;
-                        if (!TargetContainer.HasSpaceFor(toRemove))
+                        if (!TargetContainer.Items.HasSpaceFor(toRemove))
                         {
                             Target.SendChatMessage("The stake is full.");
                             return false;
                         }
 
-                        count = Target.Inventory.Remove(toRemove, itemSlot);
+                        count = Target.Inventory.Items.Remove(toRemove, itemSlot);
                         if (count <= 0)
                         {
                             return false;
@@ -742,7 +742,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         var toAdd = item.Clone();
                         toAdd.Count = count;
-                        TargetContainer.Add(toAdd);
+                        TargetContainer.Items.Add(toAdd);
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(false, false);
                     }
@@ -774,7 +774,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        if (!SelfContainer.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(amt).Build()))
+                        if (!SelfContainer.Items.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(amt).Build()))
                         {
                             Character.SendChatMessage("The stake is full.");
                             return;
@@ -786,7 +786,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        SelfContainer.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
+                        SelfContainer.Items.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(true, false);
                     };
@@ -818,7 +818,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        if (!TargetContainer.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(amt).Build()))
+                        if (!TargetContainer.Items.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(amt).Build()))
                         {
                             Target.SendChatMessage("The stake is full.");
                             return;
@@ -830,7 +830,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        TargetContainer.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
+                        TargetContainer.Items.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(false, false);
                     };
@@ -854,7 +854,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     }
 
                     var count = 0;
-                    var max = SelfContainer.GetCount(item);
+                    var max = SelfContainer.Items.GetCount(item);
                     if (max <= 0)
                     {
                         return false;
@@ -895,7 +895,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                             var rem = item.Clone();
                             rem.Count = amt > max ? max : amt;
-                            var cnt = SelfContainer.Remove(rem, itemSlot);
+                            var cnt = SelfContainer.Items.Remove(rem, itemSlot);
                             if (cnt <= 0)
                             {
                                 return;
@@ -909,7 +909,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             }
                             else
                             {
-                                Character.Inventory.Add(add);
+                                Character.Inventory.Items.Add(add);
                             }
 
                             RefreshDuelStakeScreen();
@@ -933,7 +933,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         var toRemove = item.Clone();
                         toRemove.Count = count;
-                        count = SelfContainer.Remove(toRemove, itemSlot);
+                        count = SelfContainer.Items.Remove(toRemove, itemSlot);
                         if (count <= 0)
                         {
                             return false;
@@ -947,7 +947,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         }
                         else
                         {
-                            Character.Inventory.Add(toAdd);
+                            Character.Inventory.Items.Add(toAdd);
                         }
 
                         RefreshDuelStakeScreen();
@@ -972,7 +972,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     }
 
                     var count = 0;
-                    var max = TargetContainer.GetCount(item);
+                    var max = TargetContainer.Items.GetCount(item);
                     if (max <= 0)
                     {
                         return false;
@@ -1013,7 +1013,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                             var rem = item.Clone();
                             rem.Count = amt > max ? max : amt;
-                            var cnt = TargetContainer.Remove(rem, itemSlot);
+                            var cnt = TargetContainer.Items.Remove(rem, itemSlot);
                             if (cnt <= 0)
                             {
                                 return;
@@ -1027,7 +1027,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             }
                             else
                             {
-                                Target.Inventory.Add(add);
+                                Target.Inventory.Items.Add(add);
                             }
 
                             RefreshDuelStakeScreen();
@@ -1051,7 +1051,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         var toRemove = item.Clone();
                         toRemove.Count = count;
-                        count = TargetContainer.Remove(toRemove, itemSlot);
+                        count = TargetContainer.Items.Remove(toRemove, itemSlot);
                         if (count <= 0)
                         {
                             return false;
@@ -1065,7 +1065,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         }
                         else
                         {
-                            Target.Inventory.Add(toAdd);
+                            Target.Inventory.Items.Add(toAdd);
                         }
 
                         RefreshDuelStakeScreen();
@@ -1222,13 +1222,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             if (IsStaking)
             {
-                IItemContainer container = new GenericContainer(StorageType.Normal, (short)(((IItemContainer)SelfContainer).Capacity + ((IItemContainer)TargetContainer).Capacity));
-                container.AddRange(SelfContainer);
-                container.AddRange(TargetContainer);
+                IItemContainer container = new GenericContainer(StorageType.Normal, (short)(SelfContainer!.Items.Capacity + TargetContainer!.Items.Capacity)).Items;
+                container.AddRange(SelfContainer!.Items);
+                container.AddRange(TargetContainer!.Items);
 
                 var all = System.Linq.Enumerable.ToArray(container);
 
-                if (!Character.Inventory.HasSpaceForRange(all))
+                if (!Character.Inventory.Items.HasSpaceForRange(all))
                 {
                     Character.SendChatMessage("You don't have enough space in your inventory for this duel.");
                     Target.SendChatMessage("Your opponent doesn't have enough space in their inventory for this duel.");
@@ -1236,7 +1236,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     return;
                 }
 
-                if (!Target.Inventory.HasSpaceForRange(all))
+                if (!Target.Inventory.Items.HasSpaceForRange(all))
                 {
                     Character.SendChatMessage("Your opponent doesn't have enough space in their inventory for this duel.");
                     Target.SendChatMessage("You don't have enough space in your inventory for this duel.");
@@ -1505,7 +1505,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     }
                     else
                     {
-                        Character.Inventory.Add(((IItemContainer)SelfContainer)[i]);
+                        Character.Inventory.Items.Add(((IItemContainer)SelfContainer)[i]);
                     }
                 }
             }
@@ -1525,7 +1525,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     }
                     else
                     {
-                        Target.Inventory.Add(((IItemContainer)TargetContainer)[i]);
+                        Target.Inventory.Items.Add(((IItemContainer)TargetContainer)[i]);
                     }
                 }
             }
@@ -1643,7 +1643,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                                     CancelDuelSession();
                                 }
 
-                                //if (this.Character.Inventory.FreeSlots != this.LastMyInventoryFreeSlots || this.Target.Inventory.FreeSlots != this.LastTargetInventoryFreeSlots)
+                                //if (this.Character.Inventory.Items.FreeSlots != this.LastMyInventoryFreeSlots || this.Target.Inventory.Items.FreeSlots != this.LastTargetInventoryFreeSlots)
                                 //this.RefreshFreeInventorySlots();
                                 break;
                             }
@@ -1714,42 +1714,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     /// <summary>
     ///     Container for holding items in trade offer interfaces.
     /// </summary>
-    public class DuelContainer : IItemContainer, IItemContainerStorageOwner
+    public class DuelContainer : IContainer<IItem?>
     {
-        private readonly ItemContainerStorage _storage = new(StorageType.Normal, 9);
-        ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
-        void IItemContainerStorageOwner.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
-        public StorageType Type => _storage.Type;
-        public int FreeSlots => _storage.FreeSlots;
-        public int TakenSlots => _storage.TakenSlots;
-        public IItem? this[int index] => _storage[index];
-        public int Capacity => _storage.Capacity;
-        public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
+        public ITradeItemContainer Items { get; }
+        public IItem? this[int index] => Items[index];
+        public int Capacity => Items.Capacity;
+        public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => Items.GetEnumerator();
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
-        public bool Add(IItem item) { if (!_storage.TryAdd(item, out var slots)) return false; OnUpdate(slots); return true; }
-        public bool Add(int slot, IItem item) { if (!_storage.TryAdd(slot, item, out var slots)) return false; OnUpdate(slots); return true; }
-        public void AddAndRemoveFrom(IItemContainer source) => ItemContainerTransfer.AddAndRemoveFrom(this, source);
-        public IItem? GetById(int id) => _storage.GetById(id);
-        public int Remove(IItem item, int preferredSlot = -1, bool update = true)
-        {
-            var removed = _storage.Remove(item, preferredSlot, out var slots);
-            if (removed > 0 && update) OnUpdate(slots);
-            return removed;
-        }
-        public void Replace(int slot, IItem item) { _storage.Replace(slot, item); OnUpdate([slot]); }
-        public void Swap(int fromSlot, int toSlot) { if (_storage.Swap(fromSlot, toSlot)) OnUpdate([fromSlot, toSlot]); }
-        public void Move(int fromSlot, int toSlot) { if (_storage.Move(fromSlot, toSlot)) OnUpdate(null); }
-        public bool AddRange(IEnumerable<IItem?> items) { if (!_storage.TryAddRange(items, out var slots)) return false; OnUpdate(slots); return true; }
-        public bool Contains(int id, int count) => _storage.Contains(id, count);
-        public bool Contains(int id) => _storage.Contains(id);
-        public int GetCount(IItem item) => _storage.GetCount(item);
-        public int GetCountById(int id) => _storage.GetCountById(id);
-        public int GetInstanceSlot(IItem instance) => _storage.GetInstanceSlot(instance);
-        public void Sort() { _storage.Sort(); OnUpdate(null); }
-        public int GetSlotByItem(IItem item, bool ignoreCount = true) => _storage.GetSlotByItem(item, ignoreCount);
-        public bool HasSpaceFor(IItem item) => _storage.HasSpaceFor(item);
-        public bool HasSpaceForRange(IEnumerable<IItem?> items) => _storage.HasSpaceForRange(items);
-        public void Clear(bool update) { if (_storage.Clear() && update) OnUpdate(null); }
         /// <summary>
         ///     Contains last slots update.
         /// </summary>
@@ -1758,8 +1729,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// <summary>
         ///     Construct's new trade container.
         /// </summary>
-        public DuelContainer() =>
+        public DuelContainer()
+        {
             Updates = [];
+            Items = new ItemContainer(StorageType.Normal, 9, OnUpdate);
+        }
 
         /// <summary>
         ///     Happens when trade container get's updated.
@@ -1781,6 +1755,6 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         ///     Calculate's total value of this container.
         /// </summary>
         /// <returns></returns>
-        public int CalculateTotalValue() => (int)ItemContainerTradeValue.Calculate(this);
+        public int CalculateTotalValue() => (int)ItemContainerTradeValue.Calculate(Items);
     }
 }

@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Collections;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Widgets;
@@ -87,7 +87,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
             });
             _inventoryInterface.AttachClickHandler(0, (component, type, itemID, slot) =>
             {
-                if (slot < 0 || slot >= Owner.Inventory.Capacity)
+                if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
                 {
                     return false;
                 }

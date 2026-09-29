@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
@@ -81,7 +81,7 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
 
         public bool LightInventoryLog(ICharacter character, IItem logItem)
         {
-            var slot = character.Inventory.GetInstanceSlot(logItem);
+            var slot = character.Inventory.Items.GetInstanceSlot(logItem);
             if (slot == -1)
             {
                 return false;
@@ -137,7 +137,7 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
                 return;
             }
 
-            if (character.Inventory.GetById(FiremakingConstants.Tinderbox) == null)
+            if (character.Inventory.Items.GetById(FiremakingConstants.Tinderbox) == null)
             {
                 character.SendChatMessage("You need a tinderbox if you intend on actually make a fire!");
                 return;

@@ -252,7 +252,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             character.Inventory.Returns(inventory);
             character.Statistics.Returns(statistics);
             character.ServiceProvider.Returns(characterProvider);
-            inventory.Add(ComposedTestContainer.CreateTestItem(1));
+            inventory.Items.Add(ComposedTestContainer.CreateTestItem(1));
             statistics.GetSkillLevel(StatisticsConstants.Fishing).Returns(99);
             itemService.FindItemDefinitionById(1).Returns(Substitute.For<IItemDefinition>());
             itemService.FindItemDefinitionById(1).Name.Returns("small fishing net");

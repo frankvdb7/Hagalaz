@@ -64,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
             var wcLevel = character.Statistics.GetSkillLevel(StatisticsConstants.Woodcutting);
             return hatchets
                 .Where(h => h.RequiredLevel <= wcLevel &&
-                            (character.Equipment.GetById(h.ItemId) != null || character.Inventory.GetById(h.ItemId) != null))
+                            (character.Equipment.GetById(h.ItemId) != null || character.Inventory.Items.GetById(h.ItemId) != null))
                 .OrderByDescending(h => h.RequiredLevel)
                 .FirstOrDefault();
         }
@@ -168,7 +168,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
             }
 
             // check if there is enough space in the character's inventory.
-            if (character.Inventory.FreeSlots < 1)
+            if (character.Inventory.Items.FreeSlots < 1)
             {
                 character.SendChatMessage(GameStrings.InventoryFull);
                 return;
@@ -188,7 +188,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
 
             bool Callback(IGameObject target)
             {
-                if (character.Inventory.FreeSlots < 1)
+                if (character.Inventory.Items.FreeSlots < 1)
                 {
                     character.QueueAnimation(Animation.Create(-1));
                     character.SendChatMessage(NoInventorySpace);

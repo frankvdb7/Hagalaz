@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
@@ -87,7 +87,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
             _inventoryInterface.AttachClickHandler(0,
                 (componentID, type, itemID, slot) =>
                 {
-                    if (slot < 0 || slot >= Owner.Inventory.Capacity)
+                    if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
                     {
                         return false;
                     }
@@ -118,7 +118,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                     }
                     else if (type == ComponentClickType.Option5Click)
                     {
-                        amount = Owner.Inventory.GetCount(item);
+                        amount = Owner.Inventory.Items.GetCount(item);
                     }
                     else if (type == ComponentClickType.Option4Click)
                     {
@@ -162,7 +162,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                         return false;
                     }
 
-                    if (slot < 0 || slot >= bob.Inventory.Capacity)
+                    if (slot < 0 || slot >= bob.Inventory.Items.Capacity)
                     {
                         return false;
                     }
@@ -188,7 +188,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                     }
                     else if (type == ComponentClickType.Option5Click)
                     {
-                        amount = bob.Inventory.GetCount(item);
+                        amount = bob.Inventory.Items.GetCount(item);
                     }
                     else if (type == ComponentClickType.Option4Click)
                     {
@@ -230,7 +230,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                         return false;
                     }
 
-                    Owner.Inventory.AddAndRemoveFrom(bob.Inventory);
+                    Owner.Inventory.Items.AddAndRemoveFrom(bob.Inventory.Items);
                     return true;
                 });
 

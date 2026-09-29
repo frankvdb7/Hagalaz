@@ -47,46 +47,13 @@ namespace Hagalaz.Game.Extensions.Tests
             return item;
         }
 
-        private sealed class TestInventory(int capacity) : IInventoryContainer, IItemContainerStorageOwner
+        private sealed class TestInventory(int capacity) : IInventoryContainer
         {
-            ItemContainerStorage IItemContainerStorageOwner.Storage { get; } = new(StorageType.Normal, capacity);
-            void IItemContainerStorageOwner.PublishChanges(HashSet<int>? changedSlots) { }
-            private ItemContainerStorage Storage => ((IItemContainerStorageOwner)this).Storage;
-            public StorageType Type => Storage.Type;
-            public int FreeSlots => Storage.FreeSlots;
-            public int TakenSlots => Storage.TakenSlots;
-            public IItem? this[int index] => Storage[index];
-            public int Capacity => Storage.Capacity;
-            public IEnumerator<IItem?> GetEnumerator() => Storage.GetEnumerator();
+            public ITradeItemContainer Items { get; } = new ItemContainer(StorageType.Normal, capacity);
+            public IItem? this[int index] => Items[index];
+            public int Capacity => Items.Capacity;
+            public IEnumerator<IItem?> GetEnumerator() => Items.GetEnumerator();
             System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
-            public bool Add(IItem item) { if (!Storage.TryAdd(item, out var slots)) return false; ((IItemContainerStorageOwner)this).PublishChanges(slots); return true; }
-            public bool Add(int slot, IItem item) { if (!Storage.TryAdd(slot, item, out var slots)) return false; ((IItemContainerStorageOwner)this).PublishChanges(slots); return true; }
-            public void AddAndRemoveFrom(IItemContainer source) => ItemContainerTransfer.AddAndRemoveFrom(this, source);
-            public IItem? GetById(int id) => Storage.GetById(id);
-            public int Remove(IItem item, int preferredSlot = -1, bool update = true)
-            {
-                var removed = Storage.Remove(item, preferredSlot, out var slots);
-                if (removed > 0 && update) ((IItemContainerStorageOwner)this).PublishChanges(slots);
-                return removed;
-            }
-            public void Replace(int slot, IItem item) { Storage.Replace(slot, item); ((IItemContainerStorageOwner)this).PublishChanges([slot]); }
-            public void Swap(int fromSlot, int toSlot) { if (Storage.Swap(fromSlot, toSlot)) ((IItemContainerStorageOwner)this).PublishChanges([fromSlot, toSlot]); }
-            public void Move(int fromSlot, int toSlot) { if (Storage.Move(fromSlot, toSlot)) ((IItemContainerStorageOwner)this).PublishChanges(null); }
-            public bool AddRange(IEnumerable<IItem?> items) { if (!Storage.TryAddRange(items, out var slots)) return false; ((IItemContainerStorageOwner)this).PublishChanges(slots); return true; }
-            public bool Contains(int id, int count) => Storage.Contains(id, count);
-            public bool Contains(int id) => Storage.Contains(id);
-            public int GetCount(IItem item) => Storage.GetCount(item);
-            public int GetCountById(int id) => Storage.GetCountById(id);
-            public int GetInstanceSlot(IItem instance) => Storage.GetInstanceSlot(instance);
-            public void Sort() { Storage.Sort(); ((IItemContainerStorageOwner)this).PublishChanges(null); }
-            public int GetSlotByItem(IItem item, bool ignoreCount = true) => Storage.GetSlotByItem(item, ignoreCount);
-            public bool HasSpaceFor(IItem item) => Storage.HasSpaceFor(item);
-            public bool HasSpaceForRange(IEnumerable<IItem?> items) => Storage.HasSpaceForRange(items);
-            public void Clear(bool update) { if (Storage.Clear() && update) ((IItemContainerStorageOwner)this).PublishChanges(null); }
-            public bool AddRangeForTrade(IEnumerable<IItem?> items) { if (!TryAddRangeForTradeStorage(items, out var slots)) return false; ((IItemContainerStorageOwner)this).PublishChanges(slots); return true; }
-            public bool TryAddRangeForTradeStorage(IEnumerable<IItem?> items, out HashSet<int> changedSlots) => Storage.TryAddRange(items, out changedSlots);
-            public bool RemoveForTrade(IItem item, int preferredSlot = -1) { if (!TryRemoveForTradeStorage(item, preferredSlot, out var slots)) return false; ((IItemContainerStorageOwner)this).PublishChanges(slots); return true; }
-            public bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots) => Storage.TryRemoveExact(item, preferredSlot, out changedSlots);
             public bool DropItem(IItem item) => false;
         }
 
@@ -136,7 +103,7 @@ namespace Hagalaz.Game.Extensions.Tests
             _inventory.TryAddItems(_character, items, out var addedItems);
 
             // Assert
-            Assert.AreEqual(2, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(2, _inventory.Items.TakenSlots);
             _groundItemOptional.DidNotReceive().Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(items, addedItems.ToList());
@@ -153,7 +120,7 @@ namespace Hagalaz.Game.Extensions.Tests
             _inventory.TryAddItems(_character, items, out var addedItems);
 
             // Assert
-            Assert.AreEqual(0, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(0, _inventory.Items.TakenSlots);
             _groundItemOptional.Received(2).Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(items, addedItems.ToList());
@@ -170,7 +137,7 @@ namespace Hagalaz.Game.Extensions.Tests
             _inventory.TryAddItems(_character, items, out var addedItems);
 
             // Assert
-            Assert.AreEqual(1, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(1, _inventory.Items.TakenSlots);
             _groundItemOptional.Received(1).Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(items, addedItems.ToList());
@@ -190,7 +157,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
             // Assert
             _itemOptional.Received(2).Build();
-            Assert.AreEqual(2, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(2, _inventory.Items.TakenSlots);
             _groundItemOptional.DidNotReceive().Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(builtItems, addedItems.ToList());
@@ -210,7 +177,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
             // Assert
             _itemOptional.Received(2).Build();
-            Assert.AreEqual(0, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(0, _inventory.Items.TakenSlots);
             _groundItemOptional.Received(2).Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(builtItems, addedItems.ToList());
@@ -230,7 +197,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
             // Assert
             _itemOptional.Received(2).Build();
-            Assert.AreEqual(1, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(1, _inventory.Items.TakenSlots);
             _groundItemOptional.Received(1).Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(builtItems, addedItems.ToList());
@@ -254,7 +221,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
             // Assert
             _lootGenerator.Received(1).GenerateLoot<ILootItem>(Arg.Any<CharacterLootParams>());
-            Assert.AreEqual(1, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(1, _inventory.Items.TakenSlots);
             _groundItemOptional.DidNotReceive().Spawn();
             Assert.AreEqual(1, addedItems.Count());
             Assert.AreEqual(builtItem, addedItems.First());
@@ -278,7 +245,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
             // Assert
             _lootGenerator.Received(1).GenerateLoot<ILootItem>(Arg.Any<CharacterLootParams>());
-            Assert.AreEqual(0, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(0, _inventory.Items.TakenSlots);
             _groundItemOptional.Received(1).Spawn();
             Assert.AreEqual(1, addedItems.Count());
             Assert.AreEqual(builtItem, addedItems.First());
@@ -299,7 +266,7 @@ namespace Hagalaz.Game.Extensions.Tests
             _inventory.TryAddLoot(_character, lootResults, out var addedItems);
 
             // Assert
-            Assert.AreEqual(1, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(1, _inventory.Items.TakenSlots);
             _groundItemOptional.DidNotReceive().Spawn();
             Assert.AreEqual(1, addedItems.Count());
             Assert.AreEqual(builtItem, addedItems.First());
@@ -320,7 +287,7 @@ namespace Hagalaz.Game.Extensions.Tests
             _inventory.TryAddLoot(_character, lootResults, out var addedItems);
 
             // Assert
-            Assert.AreEqual(0, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(0, _inventory.Items.TakenSlots);
             _groundItemOptional.Received(1).Spawn();
             Assert.AreEqual(1, addedItems.Count());
             Assert.AreEqual(builtItem, addedItems.First());
@@ -343,7 +310,7 @@ namespace Hagalaz.Game.Extensions.Tests
             _inventory.TryAddLoot(_character, lootResults, out var addedItems);
 
             // Assert
-            Assert.AreEqual(1, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(1, _inventory.Items.TakenSlots);
             _groundItemOptional.Received(1).Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(builtItems, addedItems.ToList());

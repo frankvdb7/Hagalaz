@@ -29,7 +29,7 @@ public sealed class ShopStockContainerTests
 
         Assert.IsFalse(result);
         Assert.AreEqual(1, scenario.MoneyPouch.Count);
-        Assert.AreEqual(0, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -42,7 +42,7 @@ public sealed class ShopStockContainerTests
 
         Assert.IsFalse(result);
         Assert.AreEqual(cost - 1, scenario.MoneyPouch.Count);
-        Assert.AreEqual(0, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -55,7 +55,7 @@ public sealed class ShopStockContainerTests
 
         Assert.IsTrue(result);
         Assert.AreEqual(0, GetTotalCoins(scenario));
-        Assert.AreEqual(1, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -68,7 +68,7 @@ public sealed class ShopStockContainerTests
 
         Assert.IsTrue(result);
         Assert.AreEqual(1, GetTotalCoins(scenario));
-        Assert.AreEqual(1, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -81,7 +81,7 @@ public sealed class ShopStockContainerTests
 
         Assert.IsTrue(result);
         Assert.AreEqual(0, GetTotalCoins(scenario));
-        Assert.AreEqual(1, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -94,8 +94,8 @@ public sealed class ShopStockContainerTests
 
         Assert.IsFalse(result);
         Assert.AreEqual(4_000, scenario.MoneyPouch.Count);
-        Assert.AreEqual(5_999, scenario.Inventory.GetCountById(CoinId));
-        Assert.AreEqual(0, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(5_999, scenario.Inventory.Items.GetCountById(CoinId));
+        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -107,7 +107,7 @@ public sealed class ShopStockContainerTests
 
         Assert.IsTrue(result);
         Assert.AreEqual(0, GetTotalCoins(scenario));
-        Assert.AreEqual(1, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -120,8 +120,8 @@ public sealed class ShopStockContainerTests
         var result = scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1);
 
         Assert.IsTrue(result);
-        Assert.AreEqual(0, scenario.Inventory.GetCountById(currencyId));
-        Assert.AreEqual(1, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(currencyId));
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -134,8 +134,8 @@ public sealed class ShopStockContainerTests
         var result = scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1);
 
         Assert.IsFalse(result);
-        Assert.AreEqual(cost - 1, scenario.Inventory.GetCountById(currencyId));
-        Assert.AreEqual(0, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(cost - 1, scenario.Inventory.Items.GetCountById(currencyId));
+        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -178,7 +178,7 @@ public sealed class ShopStockContainerTests
         var inventory = new ComposedTestInventory(10);
         if (inventoryCurrency > 0)
         {
-            Assert.IsTrue(inventory.Add(new ComposedTestItem(currencyId, inventoryCurrency, stackable: true)));
+            Assert.IsTrue(inventory.Items.Add(new ComposedTestItem(currencyId, inventoryCurrency, stackable: true)));
         }
 
         var character = Substitute.For<ICharacter>();
@@ -219,7 +219,7 @@ public sealed class ShopStockContainerTests
     }
 
     private static int GetTotalCoins(ShopScenario scenario) =>
-        scenario.MoneyPouch.Count + scenario.Inventory.GetCountById(CoinId);
+        scenario.MoneyPouch.Count + scenario.Inventory.Items.GetCountById(CoinId);
 
     private sealed record ShopScenario(
         ICharacter Character,

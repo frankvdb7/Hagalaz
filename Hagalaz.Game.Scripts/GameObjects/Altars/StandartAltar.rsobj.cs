@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -60,25 +60,25 @@ namespace Hagalaz.Game.Scripts.GameObjects.Altars
                     return false;
                 }
 
-                var usedSlot = character.Inventory.GetInstanceSlot(used);
+                var usedSlot = character.Inventory.Items.GetInstanceSlot(used);
                 if (usedSlot == -1) // no instanc of this item exists, possibly a rogue item or hack
                 {
                     return false;
                 }
 
                 var otherItem = _itemBuilder.Create().WithId(used.Id == 13754 ? 13734 : 13754).Build();
-                var otherSlot = character.Inventory.GetSlotByItem(otherItem);
+                var otherSlot = character.Inventory.Items.GetSlotByItem(otherItem);
                 if (otherSlot == -1)
                 {
                     character.SendChatMessage("You need a " + otherItem.Name + " in order to create a " + blessedShield.Name);
                     return false;
                 }
 
-                var removed = character.Inventory.Remove(used, usedSlot);
-                removed += character.Inventory.Remove(otherItem, otherSlot);
+                var removed = character.Inventory.Items.Remove(used, usedSlot);
+                removed += character.Inventory.Items.Remove(otherItem, otherSlot);
                 if (removed == 2)
                 {
-                    character.Inventory.Add(blessedShield);
+                    character.Inventory.Items.Add(blessedShield);
                     return true;
                 }
 

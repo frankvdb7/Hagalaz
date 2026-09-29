@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -170,12 +170,12 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             }
 
             // check if the instances do exist, this is merely a check to prevent 'fake' items.
-            if (character.Inventory.GetInstanceSlot(used) == -1)
+            if (character.Inventory.Items.GetInstanceSlot(used) == -1)
             {
                 return false;
             }
 
-            if (character.Inventory.GetInstanceSlot(usedWith) == -1)
+            if (character.Inventory.Items.GetInstanceSlot(usedWith) == -1)
             {
                 return false;
             }
@@ -197,7 +197,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             };
 
 
-            var count = character.Inventory.GetCountById(definition.ResourceID);
+            var count = character.Inventory.Items.GetCountById(definition.ResourceID);
             dialogue.SetMaxCount(count, false);
             dialogue.SetCurrentCount(count, false);
 
@@ -209,19 +209,19 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             return productIndex =>
             {
                 var amount = 1;
-                var resource = character.Inventory.GetById(definition.ResourceID);
+                var resource = character.Inventory.Items.GetById(definition.ResourceID);
                 if (resource == null)
                 {
                     return true;
                 }
 
-                var slot = character.Inventory.GetInstanceSlot(resource);
+                var slot = character.Inventory.Items.GetInstanceSlot(resource);
                 if (slot == -1)
                 {
                     return true;
                 }
 
-                var removed = character.Inventory.Remove(resource);
+                var removed = character.Inventory.Items.Remove(resource);
                 if (removed <= 0)
                 {
                     return true;
@@ -229,7 +229,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
 
                 amount = definition.ProductAmounts[productIndex];
                 var product = _itemBuilder.Create().WithId(definition.ProductIDs[productIndex]).WithCount(amount).Build();
-                character.Inventory.Add(product);
+                character.Inventory.Items.Add(product);
                 if (amount > 1)
                 {
                     character.SendChatMessage("You carefully cut the wood into " + amount + " " + product.Name.ToLower() + "s.");
@@ -264,12 +264,12 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             }
 
             // check if the instances do exist, this is merely a check to prevent 'fake' items.
-            if (character.Inventory.GetInstanceSlot(used) == -1)
+            if (character.Inventory.Items.GetInstanceSlot(used) == -1)
             {
                 return false;
             }
 
-            if (character.Inventory.GetInstanceSlot(usedWith) == -1)
+            if (character.Inventory.Items.GetInstanceSlot(usedWith) == -1)
             {
                 return false;
             }
@@ -291,7 +291,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             };
 
 
-            var count = character.Inventory.GetCountById(definition.ResourceID);
+            var count = character.Inventory.Items.GetCountById(definition.ResourceID);
             dialogue.SetMaxCount(count, false);
             dialogue.SetCurrentCount(count, false);
 
@@ -302,44 +302,44 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         {
             return productIndex =>
             {
-                var resource = character.Inventory.GetById(definition.ResourceID);
+                var resource = character.Inventory.Items.GetById(definition.ResourceID);
                 if (resource == null)
                 {
                     return true;
                 }
 
-                var resourceSlot = character.Inventory.GetInstanceSlot(resource);
+                var resourceSlot = character.Inventory.Items.GetInstanceSlot(resource);
                 if (resourceSlot == -1)
                 {
                     return true;
                 }
 
-                var tool = character.Inventory.GetById(definition.ToolId);
+                var tool = character.Inventory.Items.GetById(definition.ToolId);
                 if (tool == null)
                 {
                     return true;
                 }
 
-                var toolSlot = character.Inventory.GetInstanceSlot(tool);
+                var toolSlot = character.Inventory.Items.GetInstanceSlot(tool);
                 if (toolSlot == -1)
                 {
                     return true;
                 }
 
-                var removed = character.Inventory.Remove(resource, resourceSlot);
+                var removed = character.Inventory.Items.Remove(resource, resourceSlot);
                 if (removed <= 0)
                 {
                     return true;
                 }
 
-                removed = character.Inventory.Remove(tool, toolSlot);
+                removed = character.Inventory.Items.Remove(tool, toolSlot);
                 if (removed <= 0)
                 {
                     return true;
                 }
 
                 var product = _itemBuilder.Create().WithId(definition.ProductIDs[productIndex]).Build();
-                character.Inventory.Add(resourceSlot, product);
+                character.Inventory.Items.Add(resourceSlot, product);
                 character.SendChatMessage("You add a " + tool.Name.ToLower() + " to the " + product.Name.ToLower() + ".");
                 character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex]);
                 return false;
@@ -366,12 +366,12 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             }
 
             // check if the instances do exist, this is merely a check to prevent 'fake' items.
-            if (character.Inventory.GetInstanceSlot(used) == -1)
+            if (character.Inventory.Items.GetInstanceSlot(used) == -1)
             {
                 return false;
             }
 
-            if (character.Inventory.GetInstanceSlot(usedWith) == -1)
+            if (character.Inventory.Items.GetInstanceSlot(usedWith) == -1)
             {
                 return false;
             }
@@ -393,7 +393,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             };
 
 
-            var count = character.Inventory.GetCountById(definition.ResourceID);
+            var count = character.Inventory.Items.GetCountById(definition.ResourceID);
             dialogue.SetMaxCount(count, false);
             dialogue.SetCurrentCount(count, false);
 
@@ -404,25 +404,25 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         {
             return productIndex =>
             {
-                var resource = character.Inventory.GetById(definition.ResourceID);
+                var resource = character.Inventory.Items.GetById(definition.ResourceID);
                 if (resource == null)
                 {
                     return true;
                 }
 
-                var resourceSlot = character.Inventory.GetInstanceSlot(resource);
+                var resourceSlot = character.Inventory.Items.GetInstanceSlot(resource);
                 if (resourceSlot == -1)
                 {
                     return true;
                 }
 
-                var tool = character.Inventory.GetById(definition.ToolId);
+                var tool = character.Inventory.Items.GetById(definition.ToolId);
                 if (tool == null)
                 {
                     return true;
                 }
 
-                var toolSlot = character.Inventory.GetInstanceSlot(tool);
+                var toolSlot = character.Inventory.Items.GetInstanceSlot(tool);
                 if (toolSlot == -1)
                 {
                     return true;
@@ -430,25 +430,25 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
 
                 var amount = definition.ProductAmounts[productIndex];
 
-                var itemAmount = character.Inventory.GetCount(resource);
+                var itemAmount = character.Inventory.Items.GetCount(resource);
                 if (itemAmount < amount)
                 {
                     amount = itemAmount;
                 }
 
-                itemAmount = character.Inventory.GetCount(tool);
+                itemAmount = character.Inventory.Items.GetCount(tool);
                 if (itemAmount < amount)
                 {
                     amount = itemAmount;
                 }
 
-                var removed = character.Inventory.Remove(_itemBuilder.Create().WithId(resource.Id).WithCount(amount).Build(), resourceSlot);
+                var removed = character.Inventory.Items.Remove(_itemBuilder.Create().WithId(resource.Id).WithCount(amount).Build(), resourceSlot);
                 if (removed < amount)
                 {
                     amount = removed;
                 }
 
-                removed = character.Inventory.Remove(_itemBuilder.Create().WithId(tool.Id).WithCount(amount).Build(), toolSlot);
+                removed = character.Inventory.Items.Remove(_itemBuilder.Create().WithId(tool.Id).WithCount(amount).Build(), toolSlot);
                 if (removed < amount)
                 {
                     amount = removed;
@@ -460,7 +460,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                 }
 
                 var product = _itemBuilder.Create().WithId(definition.ProductIDs[productIndex]).WithCount(amount).Build();
-                character.Inventory.Add(product);
+                character.Inventory.Items.Add(product);
                 character.SendChatMessage("You attach " + tool.Name.ToLower() + " to the " + product.Name.ToLower() + ".");
                 character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex] * amount);
                 return false;
@@ -487,12 +487,12 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             }
 
             // check if the instances do exist, this is merely a check to prevent 'fake' items.
-            if (character.Inventory.GetInstanceSlot(used) == -1)
+            if (character.Inventory.Items.GetInstanceSlot(used) == -1)
             {
                 return false;
             }
 
-            if (character.Inventory.GetInstanceSlot(usedWith) == -1)
+            if (character.Inventory.Items.GetInstanceSlot(usedWith) == -1)
             {
                 return false;
             }
@@ -514,7 +514,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             };
 
 
-            var count = character.Inventory.GetCountById(definition.ResourceID);
+            var count = character.Inventory.Items.GetCountById(definition.ResourceID);
             dialogue.SetMaxCount(count, false);
             dialogue.SetCurrentCount(count, false);
 
@@ -525,19 +525,19 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         {
             return productIndex =>
             {
-                var resource = character.Inventory.GetById(definition.ResourceID);
+                var resource = character.Inventory.Items.GetById(definition.ResourceID);
                 if (resource == null)
                 {
                     return true;
                 }
 
-                var resourceSlot = character.Inventory.GetInstanceSlot(resource);
+                var resourceSlot = character.Inventory.Items.GetInstanceSlot(resource);
                 if (resourceSlot == -1)
                 {
                     return true;
                 }
 
-                var tool = character.Inventory.GetById(definition.ToolId);
+                var tool = character.Inventory.Items.GetById(definition.ToolId);
                 if (tool == null)
                 {
                     return true;
@@ -545,14 +545,14 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
 
                 var amount = definition.ProductAmounts[productIndex];
 
-                var removed = character.Inventory.Remove(_itemBuilder.Create().WithId(resource.Id).Build(), resourceSlot);
+                var removed = character.Inventory.Items.Remove(_itemBuilder.Create().WithId(resource.Id).Build(), resourceSlot);
                 if (removed <= 0)
                 {
                     return true;
                 }
 
                 var product = _itemBuilder.Create().WithId(definition.ProductIDs[productIndex]).WithCount(amount).Build();
-                character.Inventory.Add(product);
+                character.Inventory.Items.Add(product);
                 character.SendChatMessage("You cut the " + resource.Name.ToLower() + " to " + amount + " x " + product.Name.ToLower() + ".");
                 character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex] * amount);
                 return false;

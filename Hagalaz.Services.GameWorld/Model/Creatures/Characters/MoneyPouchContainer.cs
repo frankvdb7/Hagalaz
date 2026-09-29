@@ -8,7 +8,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public partial class MoneyPouchContainer : IMoneyPouchContainer, IItemContainerStorageOwner, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public partial class MoneyPouchContainer : IMoneyPouchContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
@@ -17,23 +17,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ICharacter _owner;
 
         private readonly IItemBuilder _itemBuilder;
-        private readonly ItemContainerStorage _storage;
-
-        ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
-
-        public bool Add(IItem item)
-        {
-            if (!_storage.TryAdd(item, out var changedSlots)) return false;
-            OnUpdate(changedSlots);
-            return true;
-        }
-
-        public int Remove(IItem item, int preferredSlot = -1, bool update = true)
-        {
-            var removed = _storage.Remove(item, preferredSlot, out var changedSlots);
-            if (removed > 0 && update) OnUpdate(changedSlots);
-            return removed;
-        }
+        private readonly ItemContainer _items;
+        private ItemContainerStorage Storage => ((IItemContainerStorageOwner)_items).Storage;
+        public IItemContainer Items => _items;
 
         /// <summary>
         /// The previous count
@@ -43,7 +29,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Contains the money count.
         /// </summary>
-        public int Count => _storage[0]!.Count;
+        public int Count => _items[0]!.Count;
 
         /// <summary>
         /// Gets the examine.
@@ -69,8 +55,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _owner = owner;
             _itemBuilder = itemBuilder;
             var coins = _itemBuilder.Create().WithId(995).WithCount(0).Build();
-            _storage = new ItemContainerStorage(StorageType.Normal, 1, 0);
-            _storage.ReplaceState([coins]);
+            _items = new ItemContainer(StorageType.Normal, [coins], 1, OnUpdate, 0);
         }
 
         /// <summary>
@@ -88,16 +73,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 {
                     _previousCount = Count;
                     SendMoneyPouchChangedMessage(remainingSpace);
-                    Add(_itemBuilder.Create().WithId(995).WithCount(remainingSpace).Build());
+                    _items.Add(_itemBuilder.Create().WithId(995).WithCount(remainingSpace).Build());
                 }
 
                 var inventoryCount = count - remainingSpace;
-                return count <= 0 || _owner.Inventory.Add(_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build());
+                return count <= 0 || _owner.Inventory.Items.Add(_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build());
             }
 
             _previousCount = Count;
             SendMoneyPouchChangedMessage(count);
-            return Add(_itemBuilder.Create().WithId(995).WithCount(count).Build());
+            return _items.Add(_itemBuilder.Create().WithId(995).WithCount(count).Build());
         }
 
         /// <summary>
@@ -114,7 +99,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (inventorySlots.Count > 0)
             {
-                ((IItemContainerStorageOwner)_owner.Inventory).PublishChanges(inventorySlots);
+                ((IItemContainerStorageOwner)_owner.Inventory.Items).PublishChanges(inventorySlots);
             }
 
             PublishTradeChanges(pouchChangeCount);
@@ -146,21 +131,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var snapshot = CaptureTradeStorage();
             var pouchCount = Math.Min(count, int.MaxValue - Count);
             var inventoryCount = count - pouchCount;
-            if (inventoryCount > 0 && !_owner.Inventory.HasSpaceFor(
+            if (inventoryCount > 0 && !_owner.Inventory.Items.HasSpaceFor(
                     _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
             {
                 return false;
             }
 
             _previousCount = Count;
-            if (pouchCount > 0 && !_storage.TryAddRange(
+            if (pouchCount > 0 && !Storage.TryAddRange(
                     [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()], out _))
             {
                 RestoreTradeStorage(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
                 return false;
             }
 
-            if (inventoryCount > 0 && !_owner.Inventory.TryAddRangeForTradeStorage(
+            if (inventoryCount > 0 && !_owner.Inventory.Items.TryAddRangeForTradeStorage(
                     [_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()], out inventoryChangedSlots))
             {
                 RestoreTradeStorage(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
@@ -181,19 +166,19 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (count > Count)
             {
                 var remaining = count - Count;
-                var inventoryCount = _owner.Inventory.GetCountById(995);
+                var inventoryCount = _owner.Inventory.Items.GetCountById(995);
                 if (remaining > inventoryCount) remaining = inventoryCount;
                 _previousCount = Count;
                 var removed = 0;
-                if (Count > 0) removed += Remove(_itemBuilder.Create().WithId(995).WithCount(Count).Build(), 0);
-                if (remaining > 0) removed += _owner.Inventory.Remove(_itemBuilder.Create().WithId(995).WithCount(remaining).Build());
+                if (Count > 0) removed += _items.Remove(_itemBuilder.Create().WithId(995).WithCount(Count).Build(), 0);
+                if (remaining > 0) removed += _owner.Inventory.Items.Remove(_itemBuilder.Create().WithId(995).WithCount(remaining).Build());
                 SendMoneyPouchChangedMessage(-removed);
                 return removed;
             }
 
             _previousCount = Count;
             SendMoneyPouchChangedMessage(-count);
-            return Remove(_itemBuilder.Create().WithId(995).WithCount(count).Build(), 0);
+            return _items.Remove(_itemBuilder.Create().WithId(995).WithCount(count).Build(), 0);
         }
 
         /// <summary>
@@ -210,7 +195,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (inventorySlots.Count > 0)
             {
-                ((IItemContainerStorageOwner)_owner.Inventory).PublishChanges(inventorySlots);
+                ((IItemContainerStorageOwner)_owner.Inventory.Items).PublishChanges(inventorySlots);
             }
 
             PublishTradeChanges(pouchChangeCount);
@@ -247,20 +232,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var snapshot = CaptureTradeStorage();
             var pouchCount = Math.Min(count, Count);
             var inventoryCount = count - pouchCount;
-            if (inventoryCount > _owner.Inventory.GetCountById(995))
+            if (inventoryCount > _owner.Inventory.Items.GetCountById(995))
             {
                 return false;
             }
 
             _previousCount = Count;
-            if (pouchCount > 0 && !_storage.TryRemoveExact(
+            if (pouchCount > 0 && !Storage.TryRemoveExact(
                     _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), pouchCount, 0, out _))
             {
                 RestoreTradeStorage(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
                 return false;
             }
 
-            if (inventoryCount > 0 && !_owner.Inventory.TryRemoveForTradeStorage(
+            if (inventoryCount > 0 && !_owner.Inventory.Items.TryRemoveForTradeStorage(
                     _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build(), -1, out inventoryChangedSlots))
             {
                 RestoreTradeStorage(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
@@ -279,12 +264,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private bool ExecuteWithInventoryBoundary(Func<bool> operation)
         {
-            if (_owner.Inventory is not IItemContainerStorageOwner provider)
+            if (_owner.Inventory.Items is not IItemContainerStorageOwner provider)
             {
                 return false;
             }
 
-            var pouchStorage = _storage;
+            var pouchStorage = Storage;
             var inventoryStorage = provider.Storage;
             var first = pouchStorage.MutationOrder <= inventoryStorage.MutationOrder ? pouchStorage : inventoryStorage;
             var second = ReferenceEquals(first, pouchStorage) ? inventoryStorage : pouchStorage;
@@ -297,7 +282,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private (IItem?[] Items, int[] Counts, int PreviousCount) CaptureTradeStorage()
         {
-            var items = _storage.ToArray();
+            var items = Storage.ToArray();
             var counts = items.Select(item => item?.Count ?? 0).ToArray();
             return (items, counts, _previousCount);
         }
@@ -312,7 +297,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
             }
 
-            _storage.ReplaceState(items);
+            Storage.ReplaceState(items);
             _previousCount = previousCount;
         }
 
@@ -345,7 +330,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (count <= 0) return false;
             var remove = _itemBuilder.Create().WithId(995).WithCount(count).Build();
-            var removed = _owner.Inventory.Remove(remove);
+            var removed = _owner.Inventory.Items.Remove(remove);
             return removed > 0 && Add(removed);
         }
 
@@ -358,19 +343,19 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             _previousCount = Count;
             var remove = _itemBuilder.Create().WithId(995).WithCount(count).Build();
-            if (!_owner.Inventory.HasSpaceFor(remove))
+            if (!_owner.Inventory.Items.HasSpaceFor(remove))
             {
                 _owner.SendChatMessage(GameStrings.InventoryFull);
                 return false;
             }
 
-            var removed = Remove(remove, 0);
+            var removed = _items.Remove(remove, 0);
             if (removed <= 0) return false;
             var add = _itemBuilder.Create().WithId(995).WithCount(removed).Build();
-            if (!_owner.Inventory.Add(add))
+            if (!_owner.Inventory.Items.Add(add))
             {
                 _owner.SendChatMessage(GameStrings.InventoryFull);
-                Add(add);
+                _items.Add(add);
                 return false;
             }
 
@@ -390,12 +375,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             if (id == 995)
             {
-                var availableCoins = (long)Count + _owner.Inventory.GetCountById(995);
+                var availableCoins = (long)Count + _owner.Inventory.Items.GetCountById(995);
                 return availableCoins >= count;
             }
 
-            return !_storage.Contains(id, count) && _owner.Inventory.Contains(id, count);
+            return !_items.Contains(id, count) && _owner.Inventory.Items.Contains(id, count);
         }
+
+        public bool Contains(int id) => _items.Contains(id);
 
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
@@ -428,10 +415,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 : moneyPouch.Select(entry => (entry.SlotId,
                     _itemBuilder.Create().WithId(995).WithCount(entry.Count)
                         .WithExtraData(entry.ExtraData ?? string.Empty).Build())).ToArray();
-            _storage.RestoreItems(items, allowZeroCount: true);
+            Storage.RestoreItems(items, allowZeroCount: true);
         }
 
-        public IReadOnlyList<HydratedItemDto> Dehydrate() => new[] { _storage[0]! }
+        public IReadOnlyList<HydratedItemDto> Dehydrate() => new[] { _items[0]! }
             .Select((item, slot) => new HydratedItemDto(item.Id, item.Count, slot, item.SerializeExtraData()))
             .ToArray();
     }

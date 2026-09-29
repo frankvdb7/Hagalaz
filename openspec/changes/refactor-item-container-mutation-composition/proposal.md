@@ -8,8 +8,9 @@ Before this change, item storage algorithms, synchronization and revision tracki
 
 - Add one `ItemContainerStorage` implementation for slots, mutations, revision, synchronization, restoration and transfer planning/commit.
 - Add a narrow `IItemContainerStorageOwner` infrastructure contract and `ItemContainerTransfer` coordinator.
-- Migrate every production consumer and test fixture to own storage directly; remove `BaseItemContainer`, `TradeItemContainer`, and `ItemContainerExtensions`.
-- Keep `IItemContainer`, `ITradeItemContainer`, and `IItemContainerStorageOwner` as contracts only. Concrete containers implement their public operations and delegate generic storage mechanics to their owned `ItemContainerStorage`; domain containers retain publication, callbacks, and trade-specific orchestration.
+- Add one concrete `ItemContainer` that implements the contract-only `IItemContainer` and `ITradeItemContainer` APIs by composing `ItemContainerStorage`.
+- Migrate domain containers and test fixtures to compose `ItemContainer`; expose it through the narrow `Items` contract they need. Remove `BaseItemContainer`, `TradeItemContainer`, and `ItemContainerExtensions`.
+- Keep `IItemContainer`, `ITradeItemContainer`, and `IItemContainerStorageOwner` as contracts only. `ItemContainer` owns generic mutation publication through a domain-supplied callback; domain containers retain their specialized operations and orchestration.
 - Preserve transfer behavior, publication timing, trade settlement, equipment callbacks, persistence slots and special zero-count semantics. Pull forward only the minimum #439 cleanup required to make composition concrete; defer a wider operation-surface redesign.
 
 ## Capabilities
@@ -32,10 +33,11 @@ Do not redesign constructor semantics globally, change item mutability, or broad
 
 ## Acceptance Criteria
 
-- Every production and test container owns or test-composes `ItemContainerStorage`; neither old implementation base exists.
+- One concrete `ItemContainer` implements the generic container contracts and composes `ItemContainerStorage`; domain containers compose `ItemContainer` rather than forwarding the full generic API.
+- Neither old implementation base nor an extension implementation layer exists.
 - Storage is the sole implementation of mutation and storage-to-storage transfer algorithms.
 - Item-container interfaces contain declarations only; no behavior is inherited through interfaces or a shared extension implementation layer.
-- Concrete domain containers directly delegate generic operations to their one owned `ItemContainerStorage` and retain domain publication/callback orchestration.
+- `ItemContainer` delegates storage mechanics to `ItemContainerStorage` and invokes a simple callback after committed generic mutations; domain containers retain specialized publication and callback orchestration.
 - Domain containers own events, UI publication, messages, persistence projection and equipment behavior.
 - Trade settlement locks composed stores in stable order and keeps offer acceptance revision separate from storage revision.
 - Existing and requested regression suites pass, strict OpenSpec validation passes, and the complete diff passes repository quality checks.

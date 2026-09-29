@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.HintIcon;
+using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Features.States;

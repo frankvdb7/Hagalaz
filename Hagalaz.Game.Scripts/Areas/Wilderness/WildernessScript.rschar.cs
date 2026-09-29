@@ -1,4 +1,4 @@
-﻿using Hagalaz.Configuration;
+using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -33,7 +33,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness
 
             var honorTokens = _itemBuilder.Create().WithId(19864).WithCount(CalculateHonorTokensCount(killer)).Build();
 
-            if (killer.Inventory.Add(honorTokens))
+            if (killer.Inventory.Items.Add(honorTokens))
             {
                 killer.SendChatMessage("<col=00BFFF>You earned " + honorTokens.Count + " x " + honorTokens.Name + "s!");
             }

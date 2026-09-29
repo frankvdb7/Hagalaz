@@ -74,7 +74,7 @@ namespace Hagalaz.Game.Extensions
             var added = new List<IItem>();
             foreach (var item in items)
             {
-                if (!container.Add(item))
+                if (!container.Items.Add(item))
                 {
                     groundItemBuilder.Create().WithItem(item).WithLocation(character.Location).WithOwner(character).Spawn();
                 }

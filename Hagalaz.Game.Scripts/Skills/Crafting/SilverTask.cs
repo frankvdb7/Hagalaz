@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
@@ -73,7 +73,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
 
             if (TickCount == 1 || TickCount % 6 == 0)
             {
-                if (!Performer.Inventory.Contains(CraftingSkillService.SilverBar))
+                if (!Performer.Inventory.Items.Contains(CraftingSkillService.SilverBar))
                 {
                     Performer.SendChatMessage("You do not have any more " + _itemService.FindItemDefinitionById(CraftingSkillService.SilverBar).Name +
                                               " that you can use.");
@@ -91,14 +91,14 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
             }
 
             MakeCount++;
-            var removed = Performer.Inventory.Remove(_itemBuilder.Create().WithId(CraftingSkillService.SilverBar).Build());
+            var removed = Performer.Inventory.Items.Remove(_itemBuilder.Create().WithId(CraftingSkillService.SilverBar).Build());
             if (removed <= 0)
             {
                 Cancel();
                 return;
             }
 
-            Performer.Inventory.Add(_itemBuilder.Create().WithId(Definition.ProductID).Build());
+            Performer.Inventory.Items.Add(_itemBuilder.Create().WithId(Definition.ProductID).Build());
             Performer.SendChatMessage("You shape the silver bar with the mould to make a " +
                                       _itemService.FindItemDefinitionById(Definition.ProductID).Name.ToLower() + ".");
 

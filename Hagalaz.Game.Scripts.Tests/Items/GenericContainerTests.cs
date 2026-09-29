@@ -20,10 +20,10 @@ public sealed class GenericContainerTests
         {
             callbackCount++;
             publishedSlots = slots;
-            Assert.AreSame(item, ((IItemContainer)container)[0]);
+            Assert.AreSame(item, container.Items[0]);
         });
 
-        Assert.IsTrue(container.Add(item));
+        Assert.IsTrue(container.Items.Add(item));
 
         Assert.AreEqual(1, callbackCount);
         CollectionAssert.AreEquivalent(new[] { 0 }, publishedSlots!.ToArray());
@@ -37,10 +37,10 @@ public sealed class GenericContainerTests
         var callbackCount = 0;
         var container = new GenericContainer(StorageType.Normal, 1, _ => callbackCount++);
 
-        Assert.IsFalse(container.AddRange([first, second]));
+        Assert.IsFalse(container.Items.AddRange([first, second]));
 
-        Assert.AreEqual(0, ((IItemContainer)container).TakenSlots);
-        Assert.IsNull(((IItemContainer)container)[0]);
+        Assert.AreEqual(0, container.Items.TakenSlots);
+        Assert.IsNull(container.Items[0]);
         Assert.AreEqual(0, callbackCount);
     }
 

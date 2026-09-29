@@ -97,7 +97,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
             }
 
             // check if there is enough space in the character's inventory.
-            if (character.Inventory.FreeSlots < 1)
+            if (character.Inventory.Items.FreeSlots < 1)
             {
                 character.SendChatMessage(MiningConstants.NoInventorySpace);
                 return;
@@ -105,7 +105,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
 
             bool Callback(IGameObject target)
             {
-                if (!character.Inventory.Add(ore))
+                if (!character.Inventory.Items.Add(ore))
                 {
                     return false;
                 }
@@ -114,7 +114,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                 character.Statistics.AddExperience(StatisticsConstants.Mining, expReceived);
 
                 // No more space left to keep cutting.
-                if (character.Inventory.FreeSlots >= 1)
+                if (character.Inventory.Items.FreeSlots >= 1)
                 {
                     return false;
                 }

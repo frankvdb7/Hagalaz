@@ -11,7 +11,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// Class BankContainer
     /// </summary>
-    public partial class BankContainer : IBankContainer, IItemContainerStorageOwner, IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
+    public partial class BankContainer : IBankContainer, IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
         /// Instance of the character who owns this container.
@@ -19,9 +19,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ICharacter _owner;
         private readonly IItemBuilder _itemBuilder;
 
-        private readonly ItemContainerStorage _storage;
-
-        ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
+        private readonly ItemContainer _items;
+        public ITradeItemContainer Items => _items;
+        public IItem? this[int index] => _items[index];
+        public int Capacity => _items.Capacity;
+        public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 
         /// <summary>
         /// Contstructs a container for character banks.
@@ -32,7 +35,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             _owner = owner;
             _itemBuilder = itemBuilder;
-            _storage = new ItemContainerStorage(StorageType.AlwaysStack, capacity);
+            _items = new ItemContainer(StorageType.AlwaysStack, capacity, OnUpdate);
         }
 
         /// <summary>
@@ -56,7 +59,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = _itemBuilder.Create().WithId(995).WithCount(count).Build();
-            if (!this.HasSpaceFor(deposited))
+            if (!_items.HasSpaceFor(deposited))
             {
                 _owner.SendChatMessage("Not enough space in your bank.");
                 deposited = null;
@@ -71,7 +74,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited.Count = removed;
-            if (this.Add(deposited))
+            if (_items.Add(deposited))
             {
                 return true;
             }
@@ -106,7 +109,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = CreateDepositItem(item, count, out var transformed);
-            if (ItemContainerTransfer.TryTransfer(container, this, item, count, slot,
+            if (ItemContainerTransfer.TryTransfer(container, _items, item, count, slot,
                     destinationItem: transformed ? deposited : null))
             {
                 return true;
@@ -139,7 +142,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            if (_owner.Equipment is not IItemContainer equipmentContainer || equipmentContainer[(int)slot] is not { } equippedItem)
+            var equipmentContainer = _owner.Equipment.Items;
+            if (equipmentContainer[(int)slot] is not { } equippedItem)
             {
                 deposited = null;
                 return false;
@@ -154,7 +158,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             var fullyRemoved = count == equippedItem.Count;
             deposited = CreateDepositItem(equippedItem, count, out var transformed);
-            if (ItemContainerTransfer.TryTransferStorage(equipmentContainer, this, equippedItem, count, (int)slot, -1,
+            if (ItemContainerTransfer.TryTransferStorage(equipmentContainer, _items, equippedItem, count, (int)slot, -1,
                     transformed ? deposited : null, out var equipmentSlots, out var bankSlots))
             {
                 if (fullyRemoved)
@@ -182,14 +186,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns>If depositing was sucessfull.</returns>
         public bool DepositFromInventory(IItem item, int count, [NotNullWhen(true)] out IItem? deposited)
         {
-            var slot = _owner.Inventory.GetInstanceSlot(item);
+            var slot = _owner.Inventory.Items.GetInstanceSlot(item);
             if (slot == -1 || count <= 0)
             {
                 deposited = null;
                 return false;
             }
 
-            count = Math.Min(count, _owner.Inventory.GetCount(item));
+            count = Math.Min(count, _owner.Inventory.Items.GetCount(item));
             if (count <= 0)
             {
                 deposited = null;
@@ -197,7 +201,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = CreateDepositItem(item, count, out var transformed);
-            if (ItemContainerTransfer.TryTransfer(_owner.Inventory, this, item, count, slot,
+            if (ItemContainerTransfer.TryTransfer(_owner.Inventory.Items, _items, item, count, slot,
                     destinationItem: transformed ? deposited : null))
             {
                 return true;
@@ -220,7 +224,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
         public bool WithdrawFromBank(IItem item, int count, bool notingEnabled, [NotNullWhen(true)] out IItem? withdrawed)
         {
-            var slot = this.GetInstanceSlot(item);
+            var slot = _items.GetInstanceSlot(item);
             if (slot == -1 || count <= 0)
             {
                 withdrawed = null;
@@ -255,9 +259,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var needSlots = 0;
             if (stack)
             {
-                if (_owner.Inventory.GetSlotByItem(withdrawed) != -1)
+                if (_owner.Inventory.Items.GetSlotByItem(withdrawed) != -1)
                 {
-                    long total = _owner.Inventory.GetCount(withdrawed) + (long)count;
+                    long total = _owner.Inventory.Items.GetCount(withdrawed) + (long)count;
                     if (total > int.MaxValue)
                     {
                         withdrawed = null;
@@ -273,7 +277,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             int freeSlots;
-            if ((freeSlots = _owner.Inventory.FreeSlots) < needSlots)
+            if ((freeSlots = _owner.Inventory.Items.FreeSlots) < needSlots)
             {
                 _owner.SendChatMessage(GameStrings.InventoryFull);
                 if (stack || freeSlots <= 0) // we can't do anything since decreasing item count won't decrease needSlots.
@@ -288,7 +292,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             withdrawed.Count = count;
-            if (!ItemContainerTransfer.TryTransfer(this, _owner.Inventory, item, count, slot,
+            if (!ItemContainerTransfer.TryTransfer(_items, _owner.Inventory.Items, item, count, slot,
                     destinationItem: transformed ? withdrawed : null))
             {
                 _owner.SendChatMessage(GameStrings.InventoryFull);
@@ -296,19 +300,19 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            this.Sort();
+            _items.Sort();
             return true;
 
         }
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> bank)
         {
-            _storage.RestoreItems(bank.Select(entry => entry.ToStorageEntry(_itemBuilder)));
+            ((IItemContainerStorageOwner)_items).Storage.RestoreItems(bank.Select(entry => entry.ToStorageEntry(_itemBuilder)));
         }
 
         public IReadOnlyList<HydratedItemDto> Dehydrate()
         {
-            return _storage.ToHydratedItems();
+            return ((IItemContainerStorageOwner)_items).Storage.ToHydratedItems();
         }
 
         private IItem CreateDepositItem(IItem item, int count, out bool transformed)

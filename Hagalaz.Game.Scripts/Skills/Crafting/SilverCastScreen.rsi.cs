@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
@@ -34,7 +34,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         {
             foreach (var definition in _craftingService.FindAllSilver().Result)
             {
-                if (!Owner.Inventory.Contains(definition.MouldID))
+                if (!Owner.Inventory.Items.Contains(definition.MouldID))
                 {
                     InterfaceInstance.DrawItem(definition.ChildID, definition.MouldID, 1);
                     InterfaceInstance.SetVisible(definition.ChildID + 2, false); // disable make text
@@ -73,7 +73,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
             }
             else if (type == ComponentClickType.Option3Click)
             {
-                count = Owner.Inventory.GetCountById(CraftingSkillService.SilverBar);
+                count = Owner.Inventory.Items.GetCountById(CraftingSkillService.SilverBar);
             }
             else if (type == ComponentClickType.Option4Click)
             {

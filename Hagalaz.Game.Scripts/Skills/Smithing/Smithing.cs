@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -176,7 +176,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
         /// <returns></returns>
         public static bool Smith(ICharacter character)
         {
-            for (short i = 0; i < character.Inventory.Capacity; i++)
+            for (short i = 0; i < character.Inventory.Items.Capacity; i++)
             {
                 if (character.Inventory[i] == null)
                 {
@@ -206,7 +206,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                 return false;
             }
 
-            if (!character.Inventory.Contains(2347))
+            if (!character.Inventory.Items.Contains(2347))
             {
                 character.SendChatMessage("You need a hammer in order to work with a " + item.Name.ToLower() + ".");
                 return false;
@@ -239,7 +239,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                 {
                     var resourceID = ore.Id;
                     var resourceCount = ore.Count;
-                    hasResources = character.Inventory.Contains(resourceID, resourceCount);
+                    hasResources = character.Inventory.Items.Contains(resourceID, resourceCount);
                 }
 
                 if (hasResources)
@@ -285,8 +285,8 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                 return true;
             };
             dialogue.Info = "How many bars you would like to smelt?<br>Choose a number, then click the bar to begin.";
-            dialogue.SetMaxCount(character.Inventory.Capacity, false);
-            dialogue.SetCurrentCount(character.Inventory.Capacity, false);
+            dialogue.SetMaxCount(character.Inventory.Items.Capacity, false);
+            dialogue.SetCurrentCount(character.Inventory.Items.Capacity, false);
             InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
         }
 

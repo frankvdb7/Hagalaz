@@ -1,4 +1,4 @@
-﻿using Hagalaz.Configuration;
+using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
@@ -28,7 +28,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
             InterfaceInstance.AttachClickHandler(17,
                 (componentID, type, itemID, slot) =>
                 {
-                    if (slot < 0 || slot >= Owner.Inventory.Capacity)
+                    if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
                     {
                         return false;
                     }
@@ -72,7 +72,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                     }
                     else if (type == ComponentClickType.Option5Click)
                     {
-                        amount = Owner.Inventory.GetCount(item);
+                        amount = Owner.Inventory.Items.GetCount(item);
                     }
                     else if (type == ComponentClickType.Option10Click)
                     {
@@ -94,7 +94,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
             InterfaceInstance.AttachClickHandler(18,
                 (componentID, type, itemID, slot) =>
                 {
-                    for (short i = 0; i < Owner.Inventory.Capacity; i++)
+                    for (short i = 0; i < Owner.Inventory.Items.Capacity; i++)
                     {
                         var item = Owner.Inventory[i];
                         if (item != null)
@@ -155,7 +155,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                         var item = inventory[i];
                         if (item != null)
                         {
-                            if (!Owner.Bank.DepositFromFamiliar(item, item.Count, out var outItem, inventory))
+                            if (!Owner.Bank.DepositFromFamiliar(item, item.Count, out var outItem, inventory.Items))
                             {
                                 break;
                             }

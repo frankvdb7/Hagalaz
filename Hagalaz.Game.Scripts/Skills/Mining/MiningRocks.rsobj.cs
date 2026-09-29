@@ -142,7 +142,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                 return;
             }
 
-            if (character.Inventory.FreeSlots < 1)
+            if (character.Inventory.Items.FreeSlots < 1)
             {
                 character.SendChatMessage(GameStrings.InventoryFull);
                 return;
@@ -205,7 +205,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                 }
 
                 // No more space left to keep mining.
-                if (character.Inventory.FreeSlots >= 1)
+                if (character.Inventory.Items.FreeSlots >= 1)
                 {
                     return false; // keep mining
                 }

@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
@@ -24,7 +24,7 @@ namespace Hagalaz.Game.Scripts.Commands
 
             if (id >= 0 && amount > 0)
             {
-                args.Character.Inventory.Add(_itemBuilder.Create().WithId(id).WithCount(amount).Build());
+                args.Character.Inventory.Items.Add(_itemBuilder.Create().WithId(id).WithCount(amount).Build());
             }
 
             return Task.CompletedTask;

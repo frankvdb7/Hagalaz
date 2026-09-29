@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -166,7 +166,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
         {
             var barString = new StringBuilder();
             var levelString = new StringBuilder();
-            if (Owner.Inventory.Contains(Definition.BarID, entry.RequiredBarCount))
+            if (Owner.Inventory.Items.Contains(Definition.BarID, entry.RequiredBarCount))
             {
                 barString.Append("<col=00FF00>");
             }

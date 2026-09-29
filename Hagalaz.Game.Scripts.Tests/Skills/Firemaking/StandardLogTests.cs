@@ -179,7 +179,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
             mapRegion.FindStandardGameObject(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns((IGameObject)null);
             var inventory = new ComposedTestContainer(28);
             character.Inventory.Returns(inventory);
-            Assert.IsTrue(inventory.Add(ComposedTestContainer.CreateTestItem(FiremakingConstants.Tinderbox)));
+            Assert.IsTrue(inventory.Items.Add(ComposedTestContainer.CreateTestItem(FiremakingConstants.Tinderbox)));
 
             // Act
             await _standardLog.LightGroundLog(character, groundItem);

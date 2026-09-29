@@ -482,7 +482,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                         InterfaceInstance.AttachUseOnComponentHandler(38,
                             (componentID, extraInfo1, extraInfo2, itemUsedOnId, itemUsedOnSlot) =>
                             {
-                                if (itemUsedOnSlot < 0 || itemUsedOnSlot >= Owner.Inventory.Capacity)
+                                if (itemUsedOnSlot < 0 || itemUsedOnSlot >= Owner.Inventory.Items.Capacity)
                                 {
                                     return false;
                                 }
@@ -500,7 +500,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                         InterfaceInstance.AttachUseOnComponentHandler(59,
                             (componentID, extraInfo1, extraInfo2, itemUsedOnId, itemUsedOnSlot) =>
                             {
-                                if (itemUsedOnSlot < 0 || itemUsedOnSlot >= Owner.Inventory.Capacity)
+                                if (itemUsedOnSlot < 0 || itemUsedOnSlot >= Owner.Inventory.Items.Capacity)
                                 {
                                     return false;
                                 }
@@ -600,7 +600,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             InterfaceInstance.AttachUseOnComponentHandler(definition.ButtonId,
                                 (componentID, extraInfo1, extraInfo2, itemUsedOnId, itemUsedOnSlot) =>
                                 {
-                                    if (itemUsedOnSlot < 0 || itemUsedOnSlot >= Owner.Inventory.Capacity)
+                                    if (itemUsedOnSlot < 0 || itemUsedOnSlot >= Owner.Inventory.Items.Capacity)
                                     {
                                         return false;
                                     }
@@ -976,7 +976,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 return false;
             }
 
-            var slot = character.Inventory.GetInstanceSlot(item);
+            var slot = character.Inventory.Items.GetInstanceSlot(item);
             if (slot == -1)
             {
                 return false;
@@ -989,7 +989,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             }
 
             character.Magic.RemoveRunes(dto.RequiredRunes, dto.RequiredRunesCounts);
-            character.Inventory.Replace(slot, _itemBuilder.Create().WithId(product.ProductId).Build());
+            character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(product.ProductId).Build());
             // TODO - Animation
             character.QueueGraphic(Graphic.Create(dto.GraphicId));
             character.Statistics.AddExperience(StatisticsConstants.Magic, dto.Experience);

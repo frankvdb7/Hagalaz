@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -26,14 +26,14 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.GameObjects
         {
             if (used.Id == 229)
             {
-                var slot = character.Inventory.GetInstanceSlot(used);
+                var slot = character.Inventory.Items.GetInstanceSlot(used);
                 if (slot == -1)
                 {
                     return false;
                 }
 
                 character.QueueAnimation(Animation.Create(827));
-                character.Inventory.Replace(slot, _itemBuilder.Create().WithId(227).Build());
+                character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(227).Build());
                 character.SendChatMessage("You filled the vial with water from the well.");
                 return true;
             }

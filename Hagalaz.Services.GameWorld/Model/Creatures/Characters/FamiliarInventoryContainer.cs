@@ -16,16 +16,19 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public partial class FamiliarInventoryContainer : IFamiliarInventoryContainer, IItemContainerStorageOwner, IHydratable<IReadOnlyList<HydratedItem>>, IDehydratable<IReadOnlyList<HydratedItem>>
+    public partial class FamiliarInventoryContainer : IFamiliarInventoryContainer, IHydratable<IReadOnlyList<HydratedItem>>, IDehydratable<IReadOnlyList<HydratedItem>>
     {
         /// <summary>
         /// Instance of the character who owns this container.
         /// </summary>
         private readonly ICharacter _owner;
         private readonly IItemBuilder _itemBuilder;
-        private readonly ItemContainerStorage _storage;
-
-        ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
+        private readonly ItemContainer _items;
+        public IItemContainer Items => _items;
+        public IItem? this[int index] => _items[index];
+        public int Capacity => _items.Capacity;
+        public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 
         /// <summary>
         /// Constructs a container for character inventories.
@@ -36,7 +39,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public FamiliarInventoryContainer(ICharacter owner, StorageType type, int capacity, IItemBuilder itemBuilder)
         {
             (_owner, _itemBuilder) = (owner, itemBuilder);
-            _storage = new ItemContainerStorage(type, capacity);
+            _items = new ItemContainer(type, capacity, OnUpdate);
         }
 
         /// <summary>
@@ -49,17 +52,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </returns>
         public bool DepositFromInventory(IItem item, int count)
         {
-            var slot = _owner.Inventory.GetInstanceSlot(item);
+            var slot = _owner.Inventory.Items.GetInstanceSlot(item);
             if (slot == -1 || count <= 0)
                 return false;
 
-            count = Math.Min(count, _owner.Inventory.GetCount(item));
+            count = Math.Min(count, _owner.Inventory.Items.GetCount(item));
             if (count <= 0)
             {
                 return false;
             }
 
-            if (ItemContainerTransfer.TryTransfer(_owner.Inventory, this, item, count, slot))
+            if (ItemContainerTransfer.TryTransfer(_owner.Inventory.Items, _items, item, count, slot))
             {
                 return true;
             }
@@ -76,17 +79,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public bool WithdrawFromFamiliarInventory(IItem item, int count)
         {
-            var slot = _storage.GetInstanceSlot(item);
+            var slot = _items.GetInstanceSlot(item);
             if (slot == -1 || count <= 0)
                 return false;
 
-            count = Math.Min(count, _storage.GetCount(item));
+            count = Math.Min(count, _items.GetCount(item));
             if (count <= 0)
             {
                 return false;
             }
 
-            if (ItemContainerTransfer.TryTransfer(this, _owner.Inventory, item, count, slot))
+            if (ItemContainerTransfer.TryTransfer(_items, _owner.Inventory.Items, item, count, slot))
             {
                 return true;
             }
@@ -103,12 +106,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(IReadOnlyList<HydratedItem> inventory)
         {
-            _storage.RestoreItems(inventory.Select(entry => (entry.SlotId,
+            ((IItemContainerStorageOwner)_items).Storage.RestoreItems(inventory.Select(entry => (entry.SlotId,
                 _itemBuilder.Create().WithId(entry.ItemId).WithCount(entry.Count)
                     .WithExtraData(entry.ExtraData ?? string.Empty).Build())));
         }
 
-        public IReadOnlyList<HydratedItem> Dehydrate() => _storage.Select((item, slot) => (item, slot)).Where(x => x.item != null)
+        public IReadOnlyList<HydratedItem> Dehydrate() => ((IItemContainerStorageOwner)_items).Storage.Select((item, slot) => (item, slot)).Where(x => x.item != null)
             .Select(entry => new HydratedItem(entry.item!.Id, entry.item.Count, entry.slot, entry.item.SerializeExtraData()))
             .ToArray();
     }

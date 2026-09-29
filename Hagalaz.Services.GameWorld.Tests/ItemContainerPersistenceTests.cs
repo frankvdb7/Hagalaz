@@ -30,6 +30,7 @@ public sealed class ItemContainerPersistenceTests
         using var scenario = new Scenario();
         AssertRoundTrip(() => new InventoryContainer(scenario.Owner, 7, Substitute.For<IMapRegionService>(),
                 Substitute.For<IGroundItemBuilder>(), scenario.Builder),
+            container => container.Items,
             [new(101, 1, 1, null), new(102, 2, 3, null), new(103, 1, 5, null)]);
     }
 
@@ -46,10 +47,10 @@ public sealed class ItemContainerPersistenceTests
         var items = new IItem[container.Capacity];
         items[0] = first;
         items[4] = second;
-        ((IItemContainerStorageOwner)container).Storage.ReplaceState(items);
+        ((IItemContainerStorageOwner)container.Items).Storage.ReplaceState(items);
         first.SerializeExtraData().Returns(_ =>
         {
-            container.Clear(false);
+            container.Items.Clear(false);
             return null;
         });
 
@@ -57,14 +58,14 @@ public sealed class ItemContainerPersistenceTests
 
         CollectionAssert.AreEqual(new[] { 0, 4 }, saved.Select(item => item.SlotId).ToArray());
         Assert.AreEqual(102, saved[1].ItemId);
-        Assert.AreEqual(0, container.TakenSlots);
+        Assert.AreEqual(0, container.Items.TakenSlots);
     }
 
     [TestMethod]
     public void BankRoundTrip_PreservesSparseSlots()
     {
         using var scenario = new Scenario();
-        AssertRoundTrip(() => new BankContainer(scenario.Owner, 12, scenario.Builder),
+        AssertRoundTrip(() => new BankContainer(scenario.Owner, 12, scenario.Builder), container => container.Items,
             [new(101, 2, 2, null), new(102, 3, 9, null)]);
     }
 
@@ -86,7 +87,7 @@ public sealed class ItemContainerPersistenceTests
     public void EquipmentRoundTrip_PreservesSemanticSlotsAndGaps()
     {
         using var scenario = new Scenario();
-        AssertRoundTrip(() => new EquipmentContainer(scenario.Owner, 15, scenario.Builder),
+        AssertRoundTrip(() => new EquipmentContainer(scenario.Owner, 15, scenario.Builder), container => container.Items,
             [new(101, 1, (int)EquipmentSlot.Hat, null), new(102, 1, (int)EquipmentSlot.Weapon, null),
                 new(103, 1, (int)EquipmentSlot.Shield, null), new(104, 1, (int)EquipmentSlot.Ring, null)]);
     }
@@ -104,14 +105,14 @@ public sealed class ItemContainerPersistenceTests
 
         var restored = Create();
         restored.Hydrate(saved);
-        AssertSlots(restored, (1, 101), (6, 102));
+        AssertSlots(restored.Items, (1, 101), (6, 102));
     }
 
     [TestMethod]
     public void RewardRoundTrip_PreservesSparseSlots()
     {
         using var scenario = new Scenario();
-        AssertRoundTrip(() => new RewardContainer(scenario.Owner, scenario.Builder),
+        AssertRoundTrip(() => new RewardContainer(scenario.Owner, scenario.Builder), container => container.Items,
             [new(101, 1, 4, null), new(102, 2, 200, null)]);
     }
 
@@ -128,7 +129,7 @@ public sealed class ItemContainerPersistenceTests
         var restored = new MoneyPouchContainer(scenario.Owner, scenario.Builder);
         restored.Hydrate(saved);
         Assert.AreEqual(0, restored.Count);
-        Assert.AreEqual(995, restored[0]!.Id);
+        Assert.AreEqual(995, restored.Items[0]!.Id);
     }
 
     [TestMethod]
@@ -141,8 +142,8 @@ public sealed class ItemContainerPersistenceTests
         container.Hydrate([]);
 
         Assert.AreEqual(0, container.Count);
-        Assert.IsNotNull(container[0]);
-        Assert.AreEqual(995, container[0]!.Id);
+        Assert.IsNotNull(container.Items[0]);
+        Assert.AreEqual(995, container.Items[0]!.Id);
         var saved = container.Dehydrate();
         Assert.HasCount(1, saved);
         Assert.AreEqual(new HydratedItemDto(995, 0, 0, null), saved[0]);
@@ -158,7 +159,7 @@ public sealed class ItemContainerPersistenceTests
         Assert.ThrowsExactly<ArgumentException>(() => container.Hydrate([new HydratedItemDto(101, 5, 0, null)]));
 
         Assert.AreEqual(25, container.Count);
-        Assert.AreEqual(995, container[0]!.Id);
+        Assert.AreEqual(995, container.Items[0]!.Id);
     }
 
     [TestMethod]
@@ -175,7 +176,7 @@ public sealed class ItemContainerPersistenceTests
 
         var restored = Create();
         restored.Hydrate(saved);
-        CollectionAssert.AreEqual(new long[] { 11, 22 }, restored[4]!.ExtraData);
+        CollectionAssert.AreEqual(new long[] { 11, 22 }, restored.Items[4]!.ExtraData);
     }
 
     [TestMethod]
@@ -252,7 +253,7 @@ public sealed class ItemContainerPersistenceTests
             [new HydratedItemDto(995, 5, invalidSlot, null)]));
 
         Assert.AreEqual(25, container.Count);
-        Assert.AreEqual(995, container[0]!.Id);
+        Assert.AreEqual(995, container.Items[0]!.Id);
     }
 
     [TestMethod]
@@ -266,7 +267,7 @@ public sealed class ItemContainerPersistenceTests
             [new HydratedItemDto(995, -1, 0, null)]));
 
         Assert.AreEqual(25, container.Count);
-        Assert.AreEqual(995, container[0]!.Id);
+        Assert.AreEqual(995, container.Items[0]!.Id);
     }
 
     [TestMethod]
@@ -280,7 +281,7 @@ public sealed class ItemContainerPersistenceTests
             [new HydratedItemDto(995, 1, 0, null), new HydratedItemDto(995, 2, 0, null)]));
 
         Assert.AreEqual(25, container.Count);
-        Assert.AreEqual(995, container[0]!.Id);
+        Assert.AreEqual(995, container.Items[0]!.Id);
     }
 
     [TestMethod]
@@ -292,13 +293,14 @@ public sealed class ItemContainerPersistenceTests
 
         container.Hydrate([new HydratedItemDto(101, 2, 2, null), new HydratedItemDto(101, 3, 5, null)]);
 
-        AssertSlots(container, (2, 101), (5, 101));
-        Assert.AreEqual(2, container[2]!.Count);
-        Assert.AreEqual(3, container[5]!.Count);
+        AssertSlots(container.Items, (2, 101), (5, 101));
+        Assert.AreEqual(2, container.Items[2]!.Count);
+        Assert.AreEqual(3, container.Items[5]!.Count);
     }
 
-    private static void AssertRoundTrip<T>(Func<T> create, IReadOnlyList<HydratedItemDto> initial)
-        where T : IItemContainer, IItemContainerStorageOwner, IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
+    private static void AssertRoundTrip<T>(Func<T> create, Func<T, IItemContainer> getItems,
+        IReadOnlyList<HydratedItemDto> initial)
+        where T : IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         var source = create();
         source.Hydrate(initial);
@@ -308,10 +310,11 @@ public sealed class ItemContainerPersistenceTests
 
         var restored = create();
         restored.Hydrate(saved);
-        AssertSlots(restored, initial.Select(item => (item.SlotId, item.ItemId)).ToArray());
+        var items = getItems(restored);
+        AssertSlots(items, initial.Select(item => (item.SlotId, item.ItemId)).ToArray());
         foreach (var item in initial)
         {
-            Assert.AreEqual(item.Count, restored[item.SlotId]!.Count);
+            Assert.AreEqual(item.Count, items[item.SlotId]!.Count);
         }
     }
 
@@ -320,7 +323,7 @@ public sealed class ItemContainerPersistenceTests
         for (var slot = 0; slot < container.Capacity; slot++)
         {
             var match = occupied.FirstOrDefault(item => item.Slot == slot);
-            Assert.AreEqual(match.ItemId == 0 ? null : match.ItemId, container[slot]?.Id, $"Slot {slot}");
+            Assert.AreEqual(match.ItemId == 0 ? (int?)null : match.ItemId, container[slot]?.Id, $"Slot {slot}");
         }
     }
 
@@ -332,31 +335,31 @@ public sealed class ItemContainerPersistenceTests
             {
                 var container = new InventoryContainer(scenario.Owner, 7, Substitute.For<IMapRegionService>(),
                     Substitute.For<IGroundItemBuilder>(), scenario.Builder);
-                return new(((IItemContainerStorageOwner)container).Storage, entries =>
+                return new(((IItemContainerStorageOwner)container.Items).Storage, entries =>
                     container.Hydrate(entries.Select(entry => new HydratedItemDto(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
             }
             case "Bank":
             {
                 var container = new BankContainer(scenario.Owner, 12, scenario.Builder);
-                return new(((IItemContainerStorageOwner)container).Storage, entries =>
+                return new(((IItemContainerStorageOwner)container.Items).Storage, entries =>
                     container.Hydrate(entries.Select(entry => new HydratedItemDto(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
             }
             case "Reward":
             {
                 var container = new RewardContainer(scenario.Owner, scenario.Builder);
-                return new(((IItemContainerStorageOwner)container).Storage, entries =>
+                return new(((IItemContainerStorageOwner)container.Items).Storage, entries =>
                     container.Hydrate(entries.Select(entry => new HydratedItemDto(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
             }
             case "Familiar":
             {
                 var container = new FamiliarInventoryContainer(scenario.Owner, StorageType.Normal, 8, scenario.Builder);
-                return new(((IItemContainerStorageOwner)container).Storage, entries =>
+                return new(((IItemContainerStorageOwner)container.Items).Storage, entries =>
                     container.Hydrate(entries.Select(entry => new HydratedItem(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
             }
             case "Equipment":
             {
                 var container = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
-                return new(((IItemContainerStorageOwner)container).Storage, entries =>
+                return new(((IItemContainerStorageOwner)container.Items).Storage, entries =>
                     container.Hydrate(entries.Select(entry => new HydratedItemDto(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
             }
             default:

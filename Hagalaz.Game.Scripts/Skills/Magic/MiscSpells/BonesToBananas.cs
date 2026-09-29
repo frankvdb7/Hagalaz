@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Providers;
@@ -39,13 +39,13 @@ namespace Hagalaz.Game.Scripts.Skills.Magic.MiscSpells
             }
 
             RemoveRequirements(_caster);
-            var removed = _caster.Inventory.Remove(_itemBuilder.Create().WithId(526).WithCount(_caster.Inventory.Capacity).Build());
-            removed += _caster.Inventory.Remove(_itemBuilder.Create().WithId(532).WithCount(_caster.Inventory.Capacity).Build());
+            var removed = _caster.Inventory.Items.Remove(_itemBuilder.Create().WithId(526).WithCount(_caster.Inventory.Items.Capacity).Build());
+            removed += _caster.Inventory.Items.Remove(_itemBuilder.Create().WithId(532).WithCount(_caster.Inventory.Items.Capacity).Build());
             if (removed > 0)
             {
                 _caster.QueueAnimation(Animation.Create(722));
                 _caster.QueueGraphic(Graphic.Create(141, 0, 100));
-                _caster.Inventory.Add(_itemBuilder.Create().WithId(1963).WithCount(removed).Build());
+                _caster.Inventory.Items.Add(_itemBuilder.Create().WithId(1963).WithCount(removed).Build());
                 _caster.Statistics.AddExperience(StatisticsConstants.Magic, 25 * removed);
             }
             else

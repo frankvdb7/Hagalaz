@@ -84,11 +84,11 @@ namespace Hagalaz.Services.GameWorld.Services.Model
         /// <param name="changedSlots">The changed slots.</param>
         public void RefreshPrice(ICharacter viewer, HashSet<int>? changedSlots)
         {
-            if (changedSlots == null || changedSlots.Count == MainStockContainer.Capacity)
+            if (changedSlots == null || changedSlots.Count == MainStockContainer.Items.Capacity)
             {
-                for (var slot = 0; slot < MainStockContainer.Capacity; slot++)
+                for (var slot = 0; slot < MainStockContainer.Items.Capacity; slot++)
                 {
-                    var item = MainStockContainer[slot];
+                    var item = MainStockContainer.Items[slot];
                     if (item != null) viewer.Configurations.SendGlobalCs2Int(946 + slot, 0); // -1 is N/A and 0 is owner price.
                 }
             }
@@ -96,7 +96,7 @@ namespace Hagalaz.Services.GameWorld.Services.Model
             {
                 foreach (var slot in changedSlots)
                 {
-                    var item = MainStockContainer[slot];
+                    var item = MainStockContainer.Items[slot];
                     if (item != null) viewer.Configurations.SendGlobalCs2Int(946 + slot, 0); // -1 is N/A and 0 is owner price.
                 }
             }

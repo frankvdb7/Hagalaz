@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
@@ -91,7 +91,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                     }
                     else if (type == ComponentClickType.Option4Click)
                     {
-                        amount = Owner.Inventory.GetCountById(definition.PouchId);
+                        amount = Owner.Inventory.Items.GetCountById(definition.PouchId);
                     }
                     else if (type == ComponentClickType.Option5Click)
                     {
@@ -108,13 +108,13 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                                 return;
                             }
 
-                            var removed = Owner.Inventory.Remove(_itemBuilder.Create().WithId(definition.PouchId).WithCount(value).Build());
+                            var removed = Owner.Inventory.Items.Remove(_itemBuilder.Create().WithId(definition.PouchId).WithCount(value).Build());
                             if (removed <= 0)
                             {
                                 return;
                             }
 
-                            Owner.Inventory.Add(_itemBuilder.Create().WithId(definition.ScrollId).WithCount(removed * _scrollsPerPouch).Build());
+                            Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(definition.ScrollId).WithCount(removed * _scrollsPerPouch).Build());
                             Owner.Statistics.AddExperience(StatisticsConstants.Summoning, definition.ScrollExperience * removed);
                         };
                         Owner.Configurations.SendIntegerInput("Please enter the amount to transform:");
@@ -136,13 +136,13 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                     }
 
 
-                    var removed = Owner.Inventory.Remove(_itemBuilder.Create().WithId(definition.PouchId).WithCount(amount).Build());
+                    var removed = Owner.Inventory.Items.Remove(_itemBuilder.Create().WithId(definition.PouchId).WithCount(amount).Build());
                     if (removed <= 0)
                     {
                         return true;
                     }
 
-                    Owner.Inventory.Add(_itemBuilder.Create().WithId(definition.ScrollId).WithCount(removed * _scrollsPerPouch).Build());
+                    Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(definition.ScrollId).WithCount(removed * _scrollsPerPouch).Build());
                     Owner.Statistics.AddExperience(StatisticsConstants.Summoning, definition.ScrollExperience * removed);
 
                     return true;

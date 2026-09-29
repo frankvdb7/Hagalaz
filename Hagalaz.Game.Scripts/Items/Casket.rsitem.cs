@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
@@ -43,8 +43,8 @@ namespace Hagalaz.Game.Scripts.Items
                         return;
                     }
 
-                    var slot = character.Inventory.GetInstanceSlot(item);
-                    if (slot == -1 || character.Inventory.Remove(item, slot) <= 0)
+                    var slot = character.Inventory.Items.GetInstanceSlot(item);
+                    if (slot == -1 || character.Inventory.Items.Remove(item, slot) <= 0)
                     {
                         return;
                     }

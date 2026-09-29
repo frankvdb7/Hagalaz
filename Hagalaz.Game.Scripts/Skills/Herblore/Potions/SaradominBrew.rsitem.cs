@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -61,13 +61,13 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
             }
             else if (clickType == ComponentClickType.Option7Click)
             {
-                var slot = character.Inventory.GetInstanceSlot(item);
+                var slot = character.Inventory.Items.GetInstanceSlot(item);
                 if (slot == -1)
                 {
                     return;
                 }
 
-                character.Inventory.Replace(slot, _itemBuilder.Create().WithId(PotionConstants.Vial).Build());
+                character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(PotionConstants.Vial).Build());
             }
             else
             {

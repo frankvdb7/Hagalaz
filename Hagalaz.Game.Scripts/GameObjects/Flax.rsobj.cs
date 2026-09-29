@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -34,7 +34,7 @@ namespace Hagalaz.Game.Scripts.GameObjects
             if (clickType == GameObjectClickType.Option2Click)
             {
                 clicker.Interrupt(this);
-                if (clicker.Inventory.FreeSlots <= 0)
+                if (clicker.Inventory.Items.FreeSlots <= 0)
                 {
                     clicker.SendChatMessage(GameStrings.InventoryFull);
                     return;
@@ -44,7 +44,7 @@ namespace Hagalaz.Game.Scripts.GameObjects
                 clicker.QueueAnimation(Animation.Create(827));
                 clicker.QueueTask(new RsTask(() =>
                     {
-                        if (clicker.Inventory.Add(_itemBuilder.Create().WithId(1779).Build()))
+                        if (clicker.Inventory.Items.Add(_itemBuilder.Create().WithId(1779).Build()))
                         {
                             if (0.40 >= RandomStatic.Generator.NextDouble())
                             {

@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
@@ -28,24 +28,24 @@ namespace Hagalaz.Game.Scripts.Items.Godwars
         {
             if (clickType == ComponentClickType.Option3Click)
             {
-                var slot = character.Inventory.GetInstanceSlot(item);
+                var slot = character.Inventory.Items.GetInstanceSlot(item);
                 if (slot == -1)
                 {
                     return;
                 }
 
-                if (character.Inventory.FreeSlots < 2)
+                if (character.Inventory.Items.FreeSlots < 2)
                 {
                     character.SendChatMessage("You do not have enough inventory space in order to dismantle this item!");
                     return;
                 }
 
-                if (character.Inventory.Remove(item, slot) <= 0)
+                if (character.Inventory.Items.Remove(item, slot) <= 0)
                 {
                     return;
                 }
 
-                character.Inventory.Add(_itemBuilder.Create().WithId(11690).Build());
+                character.Inventory.Items.Add(_itemBuilder.Create().WithId(11690).Build());
                 var hiltId = item.Id switch
                 {
                     11694 => 11702,
@@ -55,7 +55,7 @@ namespace Hagalaz.Game.Scripts.Items.Godwars
                     _ => -1
                 };
 
-                character.Inventory.Add(_itemBuilder.Create().WithId(hiltId).Build());
+                character.Inventory.Items.Add(_itemBuilder.Create().WithId(hiltId).Build());
 
                 return;
             }

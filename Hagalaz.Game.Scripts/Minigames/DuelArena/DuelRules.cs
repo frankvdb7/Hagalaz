@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -209,7 +209,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return true;
             }
 
-            if (character.Inventory.HasSpaceForRange(equipment.ToArray()))
+            if (character.Inventory.Items.HasSpaceForRange(equipment.ToArray()))
             {
                 return true;
             }
