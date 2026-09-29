@@ -2,7 +2,7 @@
 
 ## Context
 
-`BaseItemContainer` currently owns slot state and mutation algorithms. Its lock and stable order are shared by ordinary mutation and #437 transfer. `TradeItemContainer` exposes the same synchronization boundary and wraps the shared range/removal helpers for trade settlement. See proposal.md and the `item-container-storage` spec delta for goals and invariants.
+Before this change, `BaseItemContainer` owned slot state and mutation algorithms. Its lock and stable order were shared by ordinary mutation and #437 transfer. `TradeItemContainer` exposed the same synchronization boundary and wrapped the shared range/removal helpers for trade settlement. See proposal.md and the `item-container-storage` spec delta for goals and invariants.
 
 ## Goals / Non-Goals
 

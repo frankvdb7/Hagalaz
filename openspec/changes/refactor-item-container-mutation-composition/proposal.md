@@ -2,7 +2,7 @@
 
 ## Why
 
-Item storage algorithms, synchronization and revision tracking currently live in `BaseItemContainer`, while trade settlement adds a second inheritance layer. Composition will give every container one storage owner while keeping gameplay publication, callbacks and transaction coordination at their existing domain boundaries.
+Before this change, item storage algorithms, synchronization and revision tracking lived in `BaseItemContainer`, while trade settlement added a second inheritance layer. Composition gives every container one storage owner while keeping gameplay publication, callbacks and transaction coordination at their existing domain boundaries.
 
 ## What Changes
 
