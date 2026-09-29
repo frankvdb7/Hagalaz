@@ -21,10 +21,19 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
 
-        public bool Add(IItem item) => ItemContainerExtensions.Add(this, item);
+        public bool Add(IItem item)
+        {
+            if (!_storage.TryAdd(item, out var changedSlots)) return false;
+            OnUpdate(changedSlots);
+            return true;
+        }
 
-        public int Remove(IItem item, int preferredSlot = -1, bool update = true) =>
-            ItemContainerExtensions.Remove(this, item, preferredSlot, update);
+        public int Remove(IItem item, int preferredSlot = -1, bool update = true)
+        {
+            var removed = _storage.Remove(item, preferredSlot, out var changedSlots);
+            if (removed > 0 && update) OnUpdate(changedSlots);
+            return removed;
+        }
 
         /// <summary>
         /// The previous count
@@ -105,7 +114,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (inventorySlots.Count > 0)
             {
-                _owner.Inventory.PublishChanges(inventorySlots);
+                ((IItemContainerStorageOwner)_owner.Inventory).PublishChanges(inventorySlots);
             }
 
             PublishTradeChanges(pouchChangeCount);
@@ -201,7 +210,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (inventorySlots.Count > 0)
             {
-                _owner.Inventory.PublishChanges(inventorySlots);
+                ((IItemContainerStorageOwner)_owner.Inventory).PublishChanges(inventorySlots);
             }
 
             PublishTradeChanges(pouchChangeCount);

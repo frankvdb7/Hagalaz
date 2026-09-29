@@ -338,7 +338,7 @@ internal static class TradeExchange
     {
         foreach (var snapshot in snapshots)
         {
-            snapshot.Container.PublishChanges();
+            ((IItemContainerStorageOwner)snapshot.Container).PublishChanges(null);
         }
     }
 
@@ -363,7 +363,7 @@ internal static class TradeExchange
         {
             if (slots.Count > 0)
             {
-                container.PublishChanges(slots);
+                ((IItemContainerStorageOwner)container).PublishChanges(slots);
             }
         }
     }

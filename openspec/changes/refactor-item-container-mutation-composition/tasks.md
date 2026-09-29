@@ -38,3 +38,4 @@
 - [x] 7.2 Run the affected solution build, strict OpenSpec validation, local repository-configured jscpd base comparison, and `git diff --check`; record exact commands and results.
 - [x] 7.3 Eliminate every new clone pair relative to the pull-request base and obtain a passing repository `fail-on-new-clones` result with zero new pairs.
 - [x] 7.4 Preserve interface dispatch for domain-specialized operations, restore the complete checked-trade contract, name the storage owner accurately, and audit GameWorld global imports.
+- [ ] 7.5 Remove behavioral interface and extension implementations; implement the item-container and checked-trade contracts directly on each concrete composed container; retain domain dispatch/publication; then validate the full suite, OpenSpec, and zero-new-clones gate.

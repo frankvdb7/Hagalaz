@@ -239,7 +239,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private void PublishEquipmentMove(HashSet<int> inventorySlots, HashSet<int> equipmentSlots)
         {
-            _owner.Inventory.PublishChanges(inventorySlots);
+            ((IItemContainerStorageOwner)_owner.Inventory).PublishChanges(inventorySlots);
             OnUpdate(equipmentSlots);
         }
 

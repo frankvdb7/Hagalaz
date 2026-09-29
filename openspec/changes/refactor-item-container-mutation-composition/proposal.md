@@ -8,8 +8,9 @@ Item storage algorithms, synchronization and revision tracking currently live in
 
 - Add one `ItemContainerStorage` implementation for slots, mutations, revision, synchronization, restoration and transfer planning/commit.
 - Add a narrow `IItemContainerStorageOwner` infrastructure contract and `ItemContainerTransfer` coordinator.
-- Migrate every production consumer and test fixture to own storage directly; remove `BaseItemContainer` and `TradeItemContainer`.
-- Preserve transfer behavior, publication timing, trade settlement, equipment callbacks, persistence slots and special zero-count semantics. Pull forward only the minimum #439 cleanup needed for composition: remove `OnUpdate` from `IItemContainer`, keep its normal operation surface with default interface delegations to the shared storage-backed extensions, and move publication ownership to the composed domain container/infrastructure owner. Keep checked trade operations on `ITradeItemContainer`; their generic defaults delegate to the same shared operations.
+- Migrate every production consumer and test fixture to own storage directly; remove `BaseItemContainer`, `TradeItemContainer`, and `ItemContainerExtensions`.
+- Keep `IItemContainer`, `ITradeItemContainer`, and `IItemContainerStorageOwner` as contracts only. Concrete containers implement their public operations and delegate generic storage mechanics to their owned `ItemContainerStorage`; domain containers retain publication, callbacks, and trade-specific orchestration.
+- Preserve transfer behavior, publication timing, trade settlement, equipment callbacks, persistence slots and special zero-count semantics. Pull forward only the minimum #439 cleanup required to make composition concrete; defer a wider operation-surface redesign.
 
 ## Capabilities
 
@@ -27,12 +28,14 @@ Affected projects are `Hagalaz.Game.Abstractions`, `Hagalaz.Services.GameWorld`,
 
 ## Scope Boundary
 
-Do not redesign constructor semantics globally, change item mutability, or broadly revise low-level `Replace`/`ReplaceState`. The #439 overlap is limited to removing `OnUpdate` from `IItemContainer` and delegating its common operations to the single shared operation surface over `ItemContainerStorage` instead of inherited algorithms. Remaining #439 work includes deciding which mutation/query members should eventually leave `IItemContainer`, constructor behavior and the wider public API audit. Stop if preserving existing behavior requires a second mutation implementation, a storage strategy hierarchy, or a gameplay behavior change; revise this proposal before proceeding.
+Do not redesign constructor semantics globally, change item mutability, or broadly revise low-level `Replace`/`ReplaceState`. The #439 overlap is limited to keeping publication out of `IItemContainer` while making composed containers explicitly implement its existing operation contract. Remaining #439 work includes deciding which mutation/query members should eventually leave `IItemContainer`, constructor behavior and the wider public API audit. Stop if preserving existing behavior requires a second mutation implementation, a storage strategy hierarchy, or a gameplay behavior change; revise this proposal before proceeding.
 
 ## Acceptance Criteria
 
 - Every production and test container owns or test-composes `ItemContainerStorage`; neither old implementation base exists.
 - Storage is the sole implementation of mutation and storage-to-storage transfer algorithms.
+- Item-container interfaces contain declarations only; no behavior is inherited through interfaces or a shared extension implementation layer.
+- Concrete domain containers directly delegate generic operations to their one owned `ItemContainerStorage` and retain domain publication/callback orchestration.
 - Domain containers own events, UI publication, messages, persistence projection and equipment behavior.
 - Trade settlement locks composed stores in stable order and keeps offer acceptance revision separate from storage revision.
 - Existing and requested regression suites pass, strict OpenSpec validation passes, and the complete diff passes repository quality checks.

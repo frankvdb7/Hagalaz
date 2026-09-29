@@ -9,7 +9,7 @@
 **Goals:**
 
 - Move the single authoritative mutation implementation into `ItemContainerStorage` and use composition in all current production containers.
-- Keep normal `IItemContainer` operations as default interface delegations to the shared extensions while removing repeated forwarding blocks. `OnUpdate` is removed from the gameplay interface; the composed domain container/infrastructure owner publishes only after committed changes. The broader #439 decision about which operations should remain on `IItemContainer` is deferred.
+- Keep `IItemContainer`, `ITradeItemContainer`, and `IItemContainerStorageOwner` as contract-only interfaces. Each concrete domain container implements its operations and delegates generic mechanics to its owned storage. `OnUpdate` remains domain-owned; the broader #439 decision about which operations should remain on `IItemContainer` is deferred.
 - Keep `TradeExchange` as the owner of trade-specific settlement and multi-container restoration.
 
 **Non-Goals:**
@@ -19,9 +19,9 @@
 
 ## Decisions
 
-### One concrete storage, plus a provider boundary
+### One concrete storage, plus a narrow transfer boundary
 
-Create one public sealed `ItemContainerStorage` in Abstractions. The public `IItemContainerStorageOwner` exposes the concrete store only to cross-assembly infrastructure such as transfer and trade coordination. Do not add a storage interface or expose a `Storage` member on `IItemContainer`.
+Create one public sealed `ItemContainerStorage` in Abstractions. `IItemContainerStorageOwner` exposes the concrete store to cross-assembly transfer and trade coordination. Its `PublishChanges` declaration remains because `ItemContainerTransfer` must notify both domain containers after a successful atomic commit; ordinary mutations publish directly from their concrete owner. Do not add a storage interface or expose a `Storage` member on `IItemContainer`.
 
 ### Store methods mutate and return changed slots
 
@@ -31,9 +31,9 @@ Move add, remove, exact removal, range insertion, replace/move/swap/sort/clear, 
 
 Move the existing #437 plan/simulate/commit algorithm into a storage-to-storage static operation. `ItemContainerTransfer` resolves provider stores and publishes updates after a successful commit; its storage-only entry point returns slot sets so equipment can run domain callbacks before publication. `AddAndRemoveFrom` delegates to the coordinator while preserving its per-source-slot exact-transfer behavior.
 
-### Domain containers own publication; extensions share storage operations
+### Domain containers own operation delegation and publication
 
-Each container owns one private store and implements `IItemContainerStorageOwner`. The owner exposes the storage-backed `IContainer<IItem?>` read projection directly from its store, without a cast from `IItemContainer`; `IItemContainer` declares its remaining read properties. The single `ItemContainerExtensions` surface implements common queries and mutations against that store, then calls the owner's domain publication hook only after a committed mutation and according to the existing update flag. `IItemContainer` default methods delegate to those extensions so calls through container interfaces retain dynamic dispatch to any domain override. `ITradeItemContainer` retains checked operations with default delegations to the same shared layer. The gameplay interface does not expose raw storage or `OnUpdate`. Do not add a common forwarding base class, storage interface hierarchy, or storage mutation algorithms to default interface methods.
+Each container owns one private store and explicitly implements the `IItemContainer` contract, including the inherited `IContainer<IItem?>` projection. Small concrete forwarding members delegate generic queries and mutations to that container's store; successful mutations publish through the domain container according to the existing update flag. `ITradeItemContainer` declares checked operations only, and each concrete trade participant implements them so interface dispatch reaches specialized implementations. `ItemContainerTransfer` remains the shared cross-container coordinator. The gameplay interface does not expose raw storage or `OnUpdate`. Composition must not be replaced by default-interface implementation inheritance; item-container interfaces define contracts only. Do not add a common forwarding base class, extension implementation layer, storage interface hierarchy, or generated forwarding code.
 
 Domain hydration code maps persisted DTOs to physical `(slot, item)` entries and calls one narrow `ItemContainerStorage.RestoreItems` operation. Storage validates capacity bounds, duplicate slots, item null/count rules and replaces state only after the complete input is valid. Normal restored counts remain positive; MoneyPouch independently validates its coin-995 entry at physical slot zero and allows count zero. A GameWorld hydration mapper shares DTO projection and construction without moving DTO knowledge into storage.
 
@@ -47,8 +47,8 @@ Storage accepts a simple `countToResetTo` constructor option. MoneyPouch seeds a
 
 ## Risks / Trade-offs
 
-- **Trade-off:** `IItemContainer` default operations require the implementing object to also provide `IItemContainerStorageOwner`, but the gameplay-facing interface does not express that infrastructure requirement. Keep the owner contract separate and do not expose storage through `IItemContainer`; issue #439 should revisit this relationship when simplifying the public container API.
-- **Risk:** Shared extensions publish at the wrong time or route through the wrong owner. → **Mitigation:** Extensions publish through the provider only after storage reports a successful commit; domain-specific callbacks remain in the owner.
+- **Trade-off:** Concrete domain containers repeat small storage-forwarding members to keep implementation ownership visible. Review whether any low-level operation can leave the broad `IItemContainer` contract in #439, but do not introduce a shared implementation layer to avoid forwarding.
+- **Risk:** A concrete wrapper publishes at the wrong time or bypasses domain behavior. → **Mitigation:** Keep storage mutation and publication separate; container methods publish only after storage reports a successful commit, while equipment and trade callbacks remain domain-owned.
 - **Risk:** Move/swap/replace and exact state replacement can bypass callback or revision behavior if split between storage and domain code. → **Mitigation:** Have storage return committed changed slots and advance only its private revision; domain wrappers preserve existing publication flags and equipment effects.
 - **Risk:** TradeExchange snapshots and storage mutation may restore the right slots but publish through the wrong owner. → **Mitigation:** Snapshot both storage and its owning `IItemContainer`, and retain existing post-commit publication tests.
 - **Risk:** MoneyPouch's zero-count coin sentinel and ShopStock's zero-count depleted entries look similar but have different domain rules. → **Mitigation:** Share only the configured reset count; keep sentinel validation and stock normalization in their domain classes.
@@ -60,5 +60,6 @@ Storage accepts a simple `countToResetTo` constructor option. MoneyPouch seeds a
 3. Replace inheritance-based test fixtures with composed test containers and split core tests into storage and transfer suites; add focused ShopStock and Equipment characterization.
 4. Delete both old base classes and verify no source/test references or replacement implementation base remain.
 5. Run focused and affected test suites, solution build, strict OpenSpec validation, repository duplication/quality gate, and diff checks.
+6. Audit all item-container interfaces and consumers to ensure contracts contain declarations only, concrete containers own delegation, special interface dispatch remains intact, and the complete branch introduces no new clone pairs.
 
 Rollback is a source revert; there is no data or protocol migration.

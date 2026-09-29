@@ -4,11 +4,6 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Collections;
 
 /// <summary>Describes the operations and shape of an item container.</summary>
-/// <remarks>
-/// Hagalaz's composed implementations provide <see cref="IItemContainerStorageOwner"/> for these shared default operations.
-/// That infrastructure capability is not part of this gameplay-facing contract.
-/// Issue #439 should revisit this relationship when simplifying the public container API.
-/// </remarks>
 public interface IItemContainer : IContainer<IItem?>
 {
     StorageType Type { get; }
@@ -17,44 +12,41 @@ public interface IItemContainer : IContainer<IItem?>
 
     int TakenSlots { get; }
 
-    /// <summary>Adds an item and publishes after the storage mutation commits.</summary>
-    bool Add(IItem item) => ItemContainerExtensions.Add(this, item);
+    bool Add(IItem item);
 
-    /// <summary>Adds an item into a specific slot and publishes after the mutation commits.</summary>
-    bool Add(int slot, IItem item) => ItemContainerExtensions.Add(this, slot, item);
+    bool Add(int slot, IItem item);
 
-    void AddAndRemoveFrom(IItemContainer source) => ItemContainerExtensions.AddAndRemoveFrom(this, source);
+    void AddAndRemoveFrom(IItemContainer source);
 
-    IItem? GetById(int id) => ItemContainerExtensions.GetById(this, id);
+    IItem? GetById(int id);
 
-    int Remove(IItem item, int preferredSlot = -1, bool update = true) =>
-        ItemContainerExtensions.Remove(this, item, preferredSlot, update);
+    int Remove(IItem item, int preferredSlot = -1, bool update = true);
 
-    void Replace(int slot, IItem item) => ItemContainerExtensions.Replace(this, slot, item);
+    void Replace(int slot, IItem item);
 
-    void Swap(int fromSlot, int toSlot) => ItemContainerExtensions.Swap(this, fromSlot, toSlot);
+    void Swap(int fromSlot, int toSlot);
 
-    void Move(int fromSlot, int toSlot) => ItemContainerExtensions.Move(this, fromSlot, toSlot);
+    void Move(int fromSlot, int toSlot);
 
-    bool AddRange(IEnumerable<IItem?> items) => ItemContainerExtensions.AddRange(this, items);
+    bool AddRange(IEnumerable<IItem?> items);
 
-    bool Contains(int id, int count) => ItemContainerExtensions.Contains(this, id, count);
+    bool Contains(int id, int count);
 
-    bool Contains(int id) => ItemContainerExtensions.Contains(this, id);
+    bool Contains(int id);
 
-    int GetCount(IItem item) => ItemContainerExtensions.GetCount(this, item);
+    int GetCount(IItem item);
 
-    int GetCountById(int id) => ItemContainerExtensions.GetCountById(this, id);
+    int GetCountById(int id);
 
-    int GetInstanceSlot(IItem instance) => ItemContainerExtensions.GetInstanceSlot(this, instance);
+    int GetInstanceSlot(IItem instance);
 
-    void Sort() => ItemContainerExtensions.Sort(this);
+    void Sort();
 
-    int GetSlotByItem(IItem item, bool ignoreCount = true) => ItemContainerExtensions.GetSlotByItem(this, item, ignoreCount);
+    int GetSlotByItem(IItem item, bool ignoreCount = true);
 
-    bool HasSpaceFor(IItem item) => ItemContainerExtensions.HasSpaceFor(this, item);
+    bool HasSpaceFor(IItem item);
 
-    bool HasSpaceForRange(IEnumerable<IItem?> items) => ItemContainerExtensions.HasSpaceForRange(this, items);
+    bool HasSpaceForRange(IEnumerable<IItem?> items);
 
-    void Clear(bool update) => ItemContainerExtensions.Clear(this, update);
+    void Clear(bool update);
 }

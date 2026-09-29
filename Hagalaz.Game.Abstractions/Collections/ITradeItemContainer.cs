@@ -8,13 +8,11 @@ namespace Hagalaz.Game.Abstractions.Collections;
 /// </summary>
 public interface ITradeItemContainer : IItemContainer
 {
-    bool AddRangeForTrade(IEnumerable<IItem?> items) => ItemContainerExtensions.AddRangeForTrade(this, items);
+    bool AddRangeForTrade(IEnumerable<IItem?> items);
 
-    bool TryAddRangeForTradeStorage(IEnumerable<IItem?> items, out HashSet<int> changedSlots) =>
-        ItemContainerExtensions.TryAddRangeForTradeStorage(this, items, out changedSlots);
+    bool TryAddRangeForTradeStorage(IEnumerable<IItem?> items, out HashSet<int> changedSlots);
 
-    bool RemoveForTrade(IItem item, int preferredSlot = -1) => ItemContainerExtensions.RemoveForTrade(this, item, preferredSlot);
+    bool RemoveForTrade(IItem item, int preferredSlot = -1);
 
-    bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots) =>
-        ItemContainerExtensions.TryRemoveForTradeStorage(this, item, preferredSlot, out changedSlots);
+    bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots);
 }

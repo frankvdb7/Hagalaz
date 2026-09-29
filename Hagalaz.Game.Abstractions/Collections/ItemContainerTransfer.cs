@@ -22,8 +22,8 @@ public static class ItemContainerTransfer
             return false;
         }
 
-        source.PublishChanges(sourceSlots);
-        destination.PublishChanges(destinationSlots);
+        GetStorageOwner(source).PublishChanges(sourceSlots);
+        GetStorageOwner(destination).PublishChanges(destinationSlots);
         return true;
     }
 
@@ -77,13 +77,15 @@ public static class ItemContainerTransfer
         }
     }
 
-    private static ItemContainerStorage GetStorage(IItemContainer container)
+    private static ItemContainerStorage GetStorage(IItemContainer container) => GetStorageOwner(container).Storage;
+
+    private static IItemContainerStorageOwner GetStorageOwner(IItemContainer container)
     {
         if (container is not IItemContainerStorageOwner provider)
         {
             throw new ArgumentException("Container must provide composed item storage.", nameof(container));
         }
 
-        return provider.Storage;
+        return provider;
     }
 }

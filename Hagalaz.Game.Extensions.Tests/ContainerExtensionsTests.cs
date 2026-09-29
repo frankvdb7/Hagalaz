@@ -55,6 +55,38 @@ namespace Hagalaz.Game.Extensions.Tests
             public StorageType Type => Storage.Type;
             public int FreeSlots => Storage.FreeSlots;
             public int TakenSlots => Storage.TakenSlots;
+            public IItem? this[int index] => Storage[index];
+            public int Capacity => Storage.Capacity;
+            public IEnumerator<IItem?> GetEnumerator() => Storage.GetEnumerator();
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+            public bool Add(IItem item) { if (!Storage.TryAdd(item, out var slots)) return false; ((IItemContainerStorageOwner)this).PublishChanges(slots); return true; }
+            public bool Add(int slot, IItem item) { if (!Storage.TryAdd(slot, item, out var slots)) return false; ((IItemContainerStorageOwner)this).PublishChanges(slots); return true; }
+            public void AddAndRemoveFrom(IItemContainer source) => ItemContainerTransfer.AddAndRemoveFrom(this, source);
+            public IItem? GetById(int id) => Storage.GetById(id);
+            public int Remove(IItem item, int preferredSlot = -1, bool update = true)
+            {
+                var removed = Storage.Remove(item, preferredSlot, out var slots);
+                if (removed > 0 && update) ((IItemContainerStorageOwner)this).PublishChanges(slots);
+                return removed;
+            }
+            public void Replace(int slot, IItem item) { Storage.Replace(slot, item); ((IItemContainerStorageOwner)this).PublishChanges([slot]); }
+            public void Swap(int fromSlot, int toSlot) { if (Storage.Swap(fromSlot, toSlot)) ((IItemContainerStorageOwner)this).PublishChanges([fromSlot, toSlot]); }
+            public void Move(int fromSlot, int toSlot) { if (Storage.Move(fromSlot, toSlot)) ((IItemContainerStorageOwner)this).PublishChanges(null); }
+            public bool AddRange(IEnumerable<IItem?> items) { if (!Storage.TryAddRange(items, out var slots)) return false; ((IItemContainerStorageOwner)this).PublishChanges(slots); return true; }
+            public bool Contains(int id, int count) => Storage.Contains(id, count);
+            public bool Contains(int id) => Storage.Contains(id);
+            public int GetCount(IItem item) => Storage.GetCount(item);
+            public int GetCountById(int id) => Storage.GetCountById(id);
+            public int GetInstanceSlot(IItem instance) => Storage.GetInstanceSlot(instance);
+            public void Sort() { Storage.Sort(); ((IItemContainerStorageOwner)this).PublishChanges(null); }
+            public int GetSlotByItem(IItem item, bool ignoreCount = true) => Storage.GetSlotByItem(item, ignoreCount);
+            public bool HasSpaceFor(IItem item) => Storage.HasSpaceFor(item);
+            public bool HasSpaceForRange(IEnumerable<IItem?> items) => Storage.HasSpaceForRange(items);
+            public void Clear(bool update) { if (Storage.Clear() && update) ((IItemContainerStorageOwner)this).PublishChanges(null); }
+            public bool AddRangeForTrade(IEnumerable<IItem?> items) { if (!TryAddRangeForTradeStorage(items, out var slots)) return false; ((IItemContainerStorageOwner)this).PublishChanges(slots); return true; }
+            public bool TryAddRangeForTradeStorage(IEnumerable<IItem?> items, out HashSet<int> changedSlots) => Storage.TryAddRange(items, out changedSlots);
+            public bool RemoveForTrade(IItem item, int preferredSlot = -1) { if (!TryRemoveForTradeStorage(item, preferredSlot, out var slots)) return false; ((IItemContainerStorageOwner)this).PublishChanges(slots); return true; }
+            public bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots) => Storage.TryRemoveExact(item, preferredSlot, out changedSlots);
             public bool DropItem(IItem item) => false;
         }
 

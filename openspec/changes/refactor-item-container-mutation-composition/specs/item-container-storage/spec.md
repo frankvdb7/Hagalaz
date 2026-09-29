@@ -7,7 +7,7 @@ Defines the ownership boundary and correctness guarantees for item storage share
 ## MODIFIED Requirements
 
 ### Requirement: Containers compose one authoritative item store
-Storage mechanics MUST be composed rather than inherited. `BaseItemContainer` and `TradeItemContainer` MUST be removed, and every domain container MUST directly own one `ItemContainerStorage` instance as its authoritative slot state. Storage mutation MUST be implemented once and MUST NOT depend on character, trade, equipment, shop, UI, or persistence behavior. `IItemContainer` MUST retain its normal operation surface as default delegations to one shared extension implementation, without declaring `OnUpdate`; the composed domain container/infrastructure owner MUST publish only after committed changes. The storage owner MAY implement the base `IContainer<IItem?>` read projection directly from its owned store. Checked trade operations MUST remain on `ITradeItemContainer` and delegate to the same shared operation layer. Domain containers MUST retain ownership of gameplay callbacks.
+Storage mechanics MUST be composed rather than inherited. `BaseItemContainer`, `TradeItemContainer`, and `ItemContainerExtensions` MUST be removed. Every domain container MUST directly own one `ItemContainerStorage` instance as its authoritative slot state and explicitly implement its container contract by delegating generic mechanics to that store. `IItemContainer`, `ITradeItemContainer`, and `IItemContainerStorageOwner` MUST contain declarations only. Composition MUST NOT be replaced by default-interface implementation inheritance; item-container interfaces define contracts only. Storage MUST be the single implementation of generic mutation algorithms and MUST NOT depend on character, trade, equipment, shop, UI, or persistence behavior. Domain containers MUST publish only after committed changes and MUST retain ownership of gameplay callbacks. `IItemContainerStorageOwner` MUST expose only the composed storage and the minimum publication operation needed by cross-container transfer coordination.
 
 #### Scenario: Domain mutation publishes committed slots
 - **WHEN** a domain container successfully adds, removes, replaces, moves, swaps, sorts, clears, or restores items
@@ -16,6 +16,10 @@ Storage mechanics MUST be composed rather than inherited. `BaseItemContainer` an
 #### Scenario: Rejected mutation leaves storage unchanged
 - **WHEN** a single-container mutation or exact cross-container transfer cannot satisfy its quantity, capacity, stacking, or overflow rules
 - **THEN** every affected storage retains its pre-operation slot contents and counts
+
+#### Scenario: Interface dispatch reaches the concrete domain container
+- **WHEN** a caller invokes an item-container operation through `IItemContainer` or a checked trade operation through `ITradeItemContainer`
+- **THEN** normal interface dispatch invokes the concrete container implementation, including any domain-specific behavior
 
 ## ADDED Requirements
 

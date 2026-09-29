@@ -679,14 +679,14 @@ public sealed class TradeExchangeTests
         {
             if (count <= 0) return false;
             var pouchCount = Math.Min(int.MaxValue - Count, count);
-            if (pouchCount > 0 && !ItemContainerExtensions.Add(this, new TestItem(995, pouchCount, stackable: true))) return false;
+            if (pouchCount > 0 && !Add(new TestItem(995, pouchCount, stackable: true))) return false;
             var overflow = count - pouchCount;
             return overflow == 0 || _overflowInventory.Add(new TestItem(995, overflow, stackable: true));
         }
         public bool AddForTrade(int count)
         {
             if (!TryAddForTradeStorage(count, out var change, out var slots)) return false;
-            if (slots.Count > 0) _overflowInventory.PublishChanges(slots);
+            if (slots.Count > 0) ((IItemContainerStorageOwner)_overflowInventory).PublishChanges(slots);
             PublishTradeChanges(change);
             return true;
         }
@@ -711,14 +711,14 @@ public sealed class TradeExchangeTests
         public bool MoveToInventory(int count) => false;
         public int Remove(int count)
         {
-            var removed = ItemContainerExtensions.Remove(this, new TestItem(995, count, stackable: true));
+            var removed = Remove(new TestItem(995, count, stackable: true));
             var remaining = count - removed;
             return remaining <= 0 ? removed : removed + _overflowInventory.Remove(new TestItem(995, remaining, stackable: true));
         }
         public bool RemoveForTrade(int count)
         {
             if (!TryRemoveForTradeStorage(count, out var change, out var slots)) return false;
-            if (slots.Count > 0) _overflowInventory.PublishChanges(slots);
+            if (slots.Count > 0) ((IItemContainerStorageOwner)_overflowInventory).PublishChanges(slots);
             PublishTradeChanges(change); return true;
         }
         public bool TryRemoveForTradeStorage(int count, out int pouchChangeCount, out HashSet<int> inventoryChangedSlots)

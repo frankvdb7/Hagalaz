@@ -162,7 +162,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     equippedItem.EquipmentScript.OnUnequipped(equippedItem, _owner);
                 }
 
-                equipmentContainer.PublishChanges(equipmentSlots);
+                ((IItemContainerStorageOwner)equipmentContainer).PublishChanges(equipmentSlots);
                 OnUpdate(bankSlots);
                 return true;
             }
