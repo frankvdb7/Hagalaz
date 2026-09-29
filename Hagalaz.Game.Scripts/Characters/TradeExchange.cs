@@ -300,7 +300,7 @@ internal static class TradeExchange
 
     private static List<ContainerSnapshot> CaptureSnapshots(params IItemContainer?[] containers) =>
         containers
-            .OfType<IItemContainerStorageProvider>()
+            .OfType<IItemContainerStorageOwner>()
             .Select(provider => provider.Storage)
             .Distinct()
             .Select(storage =>
@@ -313,7 +313,7 @@ internal static class TradeExchange
 
                 var counts = items.Select(item => item?.Count ?? 0).ToArray();
                 var container = containers.OfType<IItemContainer>().First(value =>
-                    value is IItemContainerStorageProvider p && ReferenceEquals(p.Storage, storage));
+                    value is IItemContainerStorageOwner p && ReferenceEquals(p.Storage, storage));
                 return new ContainerSnapshot(container, storage, items, counts);
             })
             .ToList();
@@ -405,7 +405,7 @@ internal static class TradeExchange
 
     private static void AddContainer(List<ItemContainerStorage> containers, IItemContainer? container)
     {
-        if (container is IItemContainerStorageProvider provider &&
+        if (container is IItemContainerStorageOwner provider &&
             !containers.Any(existing => ReferenceEquals(existing, provider.Storage)))
         {
             containers.Add(provider.Storage);

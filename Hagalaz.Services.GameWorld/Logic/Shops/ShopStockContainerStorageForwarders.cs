@@ -14,5 +14,5 @@ public partial class ShopStockContainer
     public int TakenSlots => _storage.TakenSlots;
     public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-    void IItemContainerStorageProvider.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
+    void IItemContainerStorageOwner.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
 }

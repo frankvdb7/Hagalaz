@@ -99,7 +99,7 @@ public static class ItemContainerExtensions
 
     public static bool AddRangeForTrade(this ITradeItemContainer container, IEnumerable<IItem?> items)
     {
-        if (!TryAddRangeForTradeStorage(container, items, out var changedSlots)) return false;
+        if (!container.TryAddRangeForTradeStorage(items, out var changedSlots)) return false;
         GetProvider(container).PublishChanges(changedSlots);
         return true;
     }
@@ -112,7 +112,7 @@ public static class ItemContainerExtensions
 
     public static bool RemoveForTrade(this ITradeItemContainer container, IItem item, int preferredSlot = -1)
     {
-        if (!TryRemoveForTradeStorage(container, item, preferredSlot, out var changedSlots)) return false;
+        if (!container.TryRemoveForTradeStorage(item, preferredSlot, out var changedSlots)) return false;
         GetProvider(container).PublishChanges(changedSlots);
         return true;
     }
@@ -124,10 +124,10 @@ public static class ItemContainerExtensions
         out HashSet<int> changedSlots) =>
         GetProvider(container).Storage.TryRemoveExact(item, preferredSlot, out changedSlots);
 
-    private static IItemContainerStorageProvider GetProvider(IItemContainer container)
+    private static IItemContainerStorageOwner GetProvider(IItemContainer container)
     {
         ArgumentNullException.ThrowIfNull(container);
-        return container as IItemContainerStorageProvider ??
+        return container as IItemContainerStorageOwner ??
             throw new ArgumentException("Item container must provide composed storage.", nameof(container));
     }
 }

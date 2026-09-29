@@ -21,15 +21,18 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
         /// <summary>
         ///     Price checker interface container.
         /// </summary>
-        private class PriceCheckerInterfaceContainer : IItemContainer, IItemContainerStorageProvider
+        private class PriceCheckerInterfaceContainer : IItemContainer, IItemContainerStorageOwner
         {
             /// <summary>
             ///     Contains owner of this class.
             /// </summary>
             private readonly ICharacter _owner;
             private readonly ItemContainerStorage _storage;
-            ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
-            void IItemContainerStorageProvider.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
+            ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
+            void IItemContainerStorageOwner.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
+            public StorageType Type => _storage.Type;
+            public int FreeSlots => _storage.FreeSlots;
+            public int TakenSlots => _storage.TakenSlots;
 
             /// <summary>
             ///     Construct's new instance.
@@ -93,11 +96,11 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             }
         }
 
-        private sealed class ProjectedInventoryContainer : IItemContainer, IItemContainerStorageProvider
+        private sealed class ProjectedInventoryContainer : IItemContainer, IItemContainerStorageOwner
         {
             private readonly ItemContainerStorage _storage;
-            ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
-            void IItemContainerStorageProvider.PublishChanges(HashSet<int>? slots) { }
+            ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
+            void IItemContainerStorageOwner.PublishChanges(HashSet<int>? slots) { }
             public ProjectedInventoryContainer(int capacity) => _storage = new ItemContainerStorage(StorageType.Normal, capacity);
             public IItem? this[int index] => _storage[index];
             public int Capacity => _storage.Capacity;

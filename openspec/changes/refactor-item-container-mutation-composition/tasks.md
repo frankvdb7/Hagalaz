@@ -3,7 +3,7 @@
 ## 1. Storage core and transfer boundary
 
 - [x] 1.1 Implement `ItemContainerStorage` as the sole owner of slots, mutation algorithms, revision/enumeration, reset-count handling, exact restoration, and stable mutation locking; port core mutation cases into `ItemContainerStorageTests` and run the Abstractions test project.
-- [x] 1.2 Move storage-to-storage plan/commit logic into `ItemContainerStorage.TryTransfer`, add `IItemContainerStorageProvider` and `ItemContainerTransfer`, and verify exact transfer, publication, exceptions, sentinel movement, and lock ordering in `ItemContainerTransferTests`.
+- [x] 1.2 Move storage-to-storage plan/commit logic into `ItemContainerStorage.TryTransfer`, add `IItemContainerStorageOwner` and `ItemContainerTransfer`, and verify exact transfer, publication, exceptions, sentinel movement, and lock ordering in `ItemContainerTransferTests`.
 - [x] 1.3 Move `AddAndRemoveFrom` coordination to `ItemContainerTransfer`, preserve its current per-slot/partial behavior, and verify existing and new boundary cases in Abstractions tests.
 
 ## 2. Simple and temporary containers
@@ -37,3 +37,4 @@
 - [x] 7.1 Review the cumulative diff for one slot owner/one mutation algorithm, callback and publication order, exact persistence slots and only the minimum #439 API cleanup required for composition; run focused Abstractions, GameWorld and Scripts test projects.
 - [x] 7.2 Run the affected solution build, strict OpenSpec validation, local repository-configured jscpd base comparison, and `git diff --check`; record exact commands and results.
 - [x] 7.3 Eliminate every new clone pair relative to the pull-request base and obtain a passing repository `fail-on-new-clones` result with zero new pairs.
+- [x] 7.4 Preserve interface dispatch for domain-specialized operations, restore the complete checked-trade contract, name the storage owner accurately, and audit GameWorld global imports.

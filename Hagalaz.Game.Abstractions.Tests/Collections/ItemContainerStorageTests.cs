@@ -14,11 +14,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
     [TestClass]
     public class ItemContainerStorageTests
     {
-        private class TestableItemContainer : ITradeItemContainer, IItemContainerStorageProvider
+        private class TestableItemContainer : ITradeItemContainer, IItemContainerStorageOwner
         {
             public ItemContainerStorage Storage { get; }
-            ItemContainerStorage IItemContainerStorageProvider.Storage => Storage;
-            void IItemContainerStorageProvider.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
+            ItemContainerStorage IItemContainerStorageOwner.Storage => Storage;
+            void IItemContainerStorageOwner.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
             public int UpdateCount { get; private set; }
             public bool ThrowOnPublication { get; set; }
             public Action<HashSet<int>?>? PublicationHandler { get; set; }

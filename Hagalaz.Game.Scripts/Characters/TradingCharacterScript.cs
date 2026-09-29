@@ -1856,11 +1856,14 @@ namespace Hagalaz.Game.Scripts.Characters
         /// <summary>
         ///     Container for holding items in trade offer interfaces.
         /// </summary>
-        public class TradeContainer : ITradeItemContainer, IItemContainerStorageProvider
+        public class TradeContainer : ITradeItemContainer, IItemContainerStorageOwner
         {
             private readonly ItemContainerStorage _storage = new(StorageType.Normal, 14);
-            ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
-            void IItemContainerStorageProvider.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
+            ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
+            void IItemContainerStorageOwner.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
+            public StorageType Type => _storage.Type;
+            public int FreeSlots => _storage.FreeSlots;
+            public int TakenSlots => _storage.TakenSlots;
             /// <summary>
             ///     Contains last slots update.
             /// </summary>

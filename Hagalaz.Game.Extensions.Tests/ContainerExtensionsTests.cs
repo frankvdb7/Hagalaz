@@ -47,10 +47,14 @@ namespace Hagalaz.Game.Extensions.Tests
             return item;
         }
 
-        private sealed class TestInventory(int capacity) : IInventoryContainer, IItemContainerStorageProvider
+        private sealed class TestInventory(int capacity) : IInventoryContainer, IItemContainerStorageOwner
         {
-            ItemContainerStorage IItemContainerStorageProvider.Storage { get; } = new(StorageType.Normal, capacity);
-            void IItemContainerStorageProvider.PublishChanges(HashSet<int>? changedSlots) { }
+            ItemContainerStorage IItemContainerStorageOwner.Storage { get; } = new(StorageType.Normal, capacity);
+            void IItemContainerStorageOwner.PublishChanges(HashSet<int>? changedSlots) { }
+            private ItemContainerStorage Storage => ((IItemContainerStorageOwner)this).Storage;
+            public StorageType Type => Storage.Type;
+            public int FreeSlots => Storage.FreeSlots;
+            public int TakenSlots => Storage.TakenSlots;
             public bool DropItem(IItem item) => false;
         }
 
@@ -100,7 +104,7 @@ namespace Hagalaz.Game.Extensions.Tests
             _inventory.TryAddItems(_character, items, out var addedItems);
 
             // Assert
-            Assert.AreEqual(2, ((IItemContainerStorageProvider)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(2, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
             _groundItemOptional.DidNotReceive().Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(items, addedItems.ToList());
@@ -117,7 +121,7 @@ namespace Hagalaz.Game.Extensions.Tests
             _inventory.TryAddItems(_character, items, out var addedItems);
 
             // Assert
-            Assert.AreEqual(0, ((IItemContainerStorageProvider)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(0, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
             _groundItemOptional.Received(2).Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(items, addedItems.ToList());
@@ -134,7 +138,7 @@ namespace Hagalaz.Game.Extensions.Tests
             _inventory.TryAddItems(_character, items, out var addedItems);
 
             // Assert
-            Assert.AreEqual(1, ((IItemContainerStorageProvider)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(1, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
             _groundItemOptional.Received(1).Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(items, addedItems.ToList());
@@ -154,7 +158,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
             // Assert
             _itemOptional.Received(2).Build();
-            Assert.AreEqual(2, ((IItemContainerStorageProvider)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(2, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
             _groundItemOptional.DidNotReceive().Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(builtItems, addedItems.ToList());
@@ -174,7 +178,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
             // Assert
             _itemOptional.Received(2).Build();
-            Assert.AreEqual(0, ((IItemContainerStorageProvider)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(0, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
             _groundItemOptional.Received(2).Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(builtItems, addedItems.ToList());
@@ -194,7 +198,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
             // Assert
             _itemOptional.Received(2).Build();
-            Assert.AreEqual(1, ((IItemContainerStorageProvider)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(1, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
             _groundItemOptional.Received(1).Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(builtItems, addedItems.ToList());
@@ -218,7 +222,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
             // Assert
             _lootGenerator.Received(1).GenerateLoot<ILootItem>(Arg.Any<CharacterLootParams>());
-            Assert.AreEqual(1, ((IItemContainerStorageProvider)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(1, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
             _groundItemOptional.DidNotReceive().Spawn();
             Assert.AreEqual(1, addedItems.Count());
             Assert.AreEqual(builtItem, addedItems.First());
@@ -242,7 +246,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
             // Assert
             _lootGenerator.Received(1).GenerateLoot<ILootItem>(Arg.Any<CharacterLootParams>());
-            Assert.AreEqual(0, ((IItemContainerStorageProvider)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(0, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
             _groundItemOptional.Received(1).Spawn();
             Assert.AreEqual(1, addedItems.Count());
             Assert.AreEqual(builtItem, addedItems.First());
@@ -263,7 +267,7 @@ namespace Hagalaz.Game.Extensions.Tests
             _inventory.TryAddLoot(_character, lootResults, out var addedItems);
 
             // Assert
-            Assert.AreEqual(1, ((IItemContainerStorageProvider)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(1, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
             _groundItemOptional.DidNotReceive().Spawn();
             Assert.AreEqual(1, addedItems.Count());
             Assert.AreEqual(builtItem, addedItems.First());
@@ -284,7 +288,7 @@ namespace Hagalaz.Game.Extensions.Tests
             _inventory.TryAddLoot(_character, lootResults, out var addedItems);
 
             // Assert
-            Assert.AreEqual(0, ((IItemContainerStorageProvider)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(0, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
             _groundItemOptional.Received(1).Spawn();
             Assert.AreEqual(1, addedItems.Count());
             Assert.AreEqual(builtItem, addedItems.First());
@@ -307,7 +311,7 @@ namespace Hagalaz.Game.Extensions.Tests
             _inventory.TryAddLoot(_character, lootResults, out var addedItems);
 
             // Assert
-            Assert.AreEqual(1, ((IItemContainerStorageProvider)_inventory).Storage.TakenSlots);
+            Assert.AreEqual(1, ((IItemContainerStorageOwner)_inventory).Storage.TakenSlots);
             _groundItemOptional.Received(1).Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(builtItems, addedItems.ToList());

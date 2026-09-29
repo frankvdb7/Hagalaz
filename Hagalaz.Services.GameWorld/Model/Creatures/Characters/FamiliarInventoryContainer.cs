@@ -16,7 +16,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public partial class FamiliarInventoryContainer : IFamiliarInventoryContainer, IItemContainerStorageProvider, IHydratable<IReadOnlyList<HydratedItem>>, IDehydratable<IReadOnlyList<HydratedItem>>
+    public partial class FamiliarInventoryContainer : IFamiliarInventoryContainer, IItemContainerStorageOwner, IHydratable<IReadOnlyList<HydratedItem>>, IDehydratable<IReadOnlyList<HydratedItem>>
     {
         /// <summary>
         /// Instance of the character who owns this container.
@@ -25,7 +25,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IItemBuilder _itemBuilder;
         private readonly ItemContainerStorage _storage;
 
-        ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
+        ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
 
         /// <summary>
         /// Constructs a container for character inventories.

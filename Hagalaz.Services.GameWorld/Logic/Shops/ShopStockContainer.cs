@@ -14,7 +14,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
     /// <summary>
     /// Class ShopStockContainer
     /// </summary>
-    public partial class ShopStockContainer : IShopStockContainer, IItemContainerStorageProvider
+    public partial class ShopStockContainer : IShopStockContainer, IItemContainerStorageOwner
     {
         /// <summary>
         /// Wether this shop container is a sample container.
@@ -35,7 +35,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         private readonly IEventManager _eventManager;
         private readonly ItemContainerStorage _storage;
 
-        ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
+        ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
 
         /// <summary>
         /// The original stock of the shop.

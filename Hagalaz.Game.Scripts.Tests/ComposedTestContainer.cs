@@ -4,12 +4,12 @@ using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests;
 
-internal sealed class ComposedTestContainer : IInventoryContainer, IRewardContainer, IItemContainerStorageProvider
+internal class ComposedTestContainer : IInventoryContainer, IRewardContainer, IItemContainerStorageOwner
 {
     private readonly ItemContainerStorage _storage;
 
-    ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
-    void IItemContainerStorageProvider.PublishChanges(HashSet<int>? changedSlots) => OnUpdate(changedSlots);
+    ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
+    void IItemContainerStorageOwner.PublishChanges(HashSet<int>? changedSlots) => OnUpdate(changedSlots);
 
     public Action? OnUpdateAction { get; set; }
     public int UpdateCount { get; private set; }
@@ -18,7 +18,8 @@ internal sealed class ComposedTestContainer : IInventoryContainer, IRewardContai
     public long MutationOrder => _storage.MutationOrder;
 
     public ComposedTestContainer(int capacity) : this(StorageType.Normal, capacity) { }
-    public ComposedTestContainer(StorageType type, int capacity) => _storage = new ItemContainerStorage(type, capacity);
+    public ComposedTestContainer(StorageType type, int capacity, int countToResetTo = -1) =>
+        _storage = new ItemContainerStorage(type, capacity, countToResetTo);
 
     public static IItem CreateTestItem(int id, int count = 1)
     {

@@ -4,15 +4,19 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Scripts.Items
 {
     /// <summary>Basic container implementation for generic purposes.</summary>
-    public class GenericContainer : IItemContainer, IItemContainerStorageProvider
+    public class GenericContainer : IItemContainer, IItemContainerStorageOwner
     {
         public delegate void UpdateCallback(HashSet<int>? slots);
 
         private readonly UpdateCallback? _updateCallback;
         private readonly ItemContainerStorage _storage;
 
-        ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
-        void IItemContainerStorageProvider.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
+        ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
+        void IItemContainerStorageOwner.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
+
+        public StorageType Type => _storage.Type;
+        public int FreeSlots => _storage.FreeSlots;
+        public int TakenSlots => _storage.TakenSlots;
 
         public GenericContainer(StorageType storageType, short capacity, UpdateCallback? updateCallback = null)
         {

@@ -16,7 +16,7 @@ using Hagalaz.Services.GameWorld.Logic.Characters;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 
-public class InventoryContainer : IInventoryContainer, IItemContainerStorageProvider,
+public class InventoryContainer : IInventoryContainer, IItemContainerStorageOwner,
     IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
 {
     private readonly ICharacter _owner;
@@ -25,8 +25,8 @@ public class InventoryContainer : IInventoryContainer, IItemContainerStorageProv
     private readonly IItemBuilder _itemBuilder;
     private readonly ItemContainerStorage _storage;
 
-    ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
-    void IItemContainerStorageProvider.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
+    ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
+    void IItemContainerStorageOwner.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
 
     public InventoryContainer(ICharacter owner, int capacity, IMapRegionService mapRegionService,
         IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder)

@@ -79,7 +79,7 @@ public static class ItemContainerTransfer
 
     private static ItemContainerStorage GetStorage(IItemContainer container)
     {
-        if (container is not IItemContainerStorageProvider provider)
+        if (container is not IItemContainerStorageOwner provider)
         {
             throw new ArgumentException("Container must provide composed item storage.", nameof(container));
         }

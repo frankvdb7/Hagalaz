@@ -1,7 +1,6 @@
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Utilities;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -9,7 +8,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public partial class MoneyPouchContainer : IMoneyPouchContainer, IItemContainerStorageProvider, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public partial class MoneyPouchContainer : IMoneyPouchContainer, IItemContainerStorageOwner, IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
@@ -20,7 +19,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IItemBuilder _itemBuilder;
         private readonly ItemContainerStorage _storage;
 
-        ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
+        ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
 
         public bool Add(IItem item) => ItemContainerExtensions.Add(this, item);
 
@@ -271,7 +270,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private bool ExecuteWithInventoryBoundary(Func<bool> operation)
         {
-            if (_owner.Inventory is not IItemContainerStorageProvider provider)
+            if (_owner.Inventory is not IItemContainerStorageOwner provider)
             {
                 return false;
             }

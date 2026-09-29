@@ -9,19 +9,19 @@
 **Goals:**
 
 - Move the single authoritative mutation implementation into `ItemContainerStorage` and use composition in all current production containers.
-- Keep the read-only `IItemContainer` shape and domain publication behavior while removing repeated forwarding blocks. Shared item operations are extensions that delegate to the composed provider storage and publish only after committed changes. Checked trade operations remain separate; their unpublishing range-insertion primitive has one default interface delegation to storage so the trade coordinator can stage before publication.
+- Keep normal `IItemContainer` operations as default interface delegations to the shared extensions while removing repeated forwarding blocks. `OnUpdate` is removed from the gameplay interface; the composed domain container/infrastructure owner publishes only after committed changes. The broader #439 decision about which operations should remain on `IItemContainer` is deferred.
 - Keep `TradeExchange` as the owner of trade-specific settlement and multi-container restoration.
 
 **Non-Goals:**
 
-- Redesign constructor semantics, item mutability, or the remaining broad low-level state replacement API. The minimum #439 overlap removes `OnUpdate` and mutation methods from `IItemContainer`; it does not cover the wider constructor and mutation API audit.
+- Redesign constructor semantics, item mutability, or the remaining broad low-level state replacement API. The minimum #439 overlap removes `OnUpdate` from `IItemContainer` and delegates its common operations to composed storage rather than inherited algorithms; it does not decide which operations should eventually leave that interface.
 - Redesign item mutability, shop transaction behavior, or trade acceptance rules.
 
 ## Decisions
 
 ### One concrete storage, plus a provider boundary
 
-Create one public sealed `ItemContainerStorage` in Abstractions. The public `IItemContainerStorageProvider` exposes the concrete store only to cross-assembly infrastructure such as transfer and trade coordination. Do not add a storage interface or expose a `Storage` member on `IItemContainer`.
+Create one public sealed `ItemContainerStorage` in Abstractions. The public `IItemContainerStorageOwner` exposes the concrete store only to cross-assembly infrastructure such as transfer and trade coordination. Do not add a storage interface or expose a `Storage` member on `IItemContainer`.
 
 ### Store methods mutate and return changed slots
 
@@ -33,7 +33,7 @@ Move the existing #437 plan/simulate/commit algorithm into a storage-to-storage 
 
 ### Domain containers own publication; extensions share storage operations
 
-Each container owns one private store and implements `IItemContainerStorageProvider`. The single `ItemContainerExtensions` surface delegates common queries and mutations to that store, then calls the provider's domain publication hook only after a committed mutation and according to the existing update flag. Trade checked operations remain distinct; the unpublishing range-insertion primitive is one default interface method that delegates to storage for transaction staging. The gameplay interface does not expose raw storage or mutation methods. Do not add a common forwarding base class, storage interface hierarchy, or storage mutation algorithms to default interface methods.
+Each container owns one private store and implements `IItemContainerStorageOwner`. The owner exposes the storage-backed `IContainer<IItem?>` read projection directly from its store, without a cast from `IItemContainer`; `IItemContainer` declares its remaining read properties. The single `ItemContainerExtensions` surface implements common queries and mutations against that store, then calls the owner's domain publication hook only after a committed mutation and according to the existing update flag. `IItemContainer` default methods delegate to those extensions so calls through container interfaces retain dynamic dispatch to any domain override. `ITradeItemContainer` retains checked operations with default delegations to the same shared layer. The gameplay interface does not expose raw storage or `OnUpdate`. Do not add a common forwarding base class, storage interface hierarchy, or storage mutation algorithms to default interface methods.
 
 Domain hydration code maps persisted DTOs to physical `(slot, item)` entries and calls one narrow `ItemContainerStorage.RestoreItems` operation. Storage validates capacity bounds, duplicate slots, item null/count rules and replaces state only after the complete input is valid. Normal restored counts remain positive; MoneyPouch independently validates its coin-995 entry at physical slot zero and allows count zero. A GameWorld hydration mapper shares DTO projection and construction without moving DTO knowledge into storage.
 

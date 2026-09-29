@@ -139,6 +139,43 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
+    public void EquipmentClear_WhenCalledThroughItemContainer_RunsDomainCallbacksBeforePublication()
+    {
+        using var scenario = new Scenario();
+        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        scenario.Owner.Equipment.Returns(equipment);
+        var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        equipment.Add(EquipmentSlot.Hat, item);
+        IItemContainer container = equipment;
+        var callbackObservedEquippedItem = false;
+        item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ =>
+        {
+            Assert.AreSame(item, container[(int)EquipmentSlot.Hat]);
+            callbackObservedEquippedItem = true;
+        });
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        var publicationObservedClearedStorageAfterCallback = false;
+        eventManager
+            .When(manager => manager.SendEvent(Arg.Any<IEvent>()))
+            .Do(call =>
+            {
+                if (call.Arg<IEvent>() is EquipmentChangedEvent)
+                {
+                    publicationObservedClearedStorageAfterCallback = callbackObservedEquippedItem &&
+                        container[(int)EquipmentSlot.Hat] is null;
+                }
+            });
+
+        container.Clear(true);
+
+        Assert.IsTrue(callbackObservedEquippedItem);
+        Assert.IsTrue(publicationObservedClearedStorageAfterCallback);
+        Assert.IsNull(container[(int)EquipmentSlot.Hat]);
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+    }
+
+    [TestMethod]
     public void ShopSell_TransfersTheExactItemQuantityToStock()
     {
         using var scenario = new Scenario();
@@ -153,7 +190,7 @@ public sealed class CharacterItemTransferTests
         Assert.AreEqual(2, inventory.GetCountById(101));
         Assert.AreEqual(3, stock.GetCountById(101));
         CollectionAssert.AreEqual(new long[] { 11, 22 }, stock[0]!.ExtraData);
-        moneyPouch.Received(1).Add(6);
+        Assert.AreEqual(6, moneyPouch.Count);
     }
 
     [TestMethod]
@@ -172,7 +209,7 @@ public sealed class CharacterItemTransferTests
         Assert.AreEqual(0, inventory.GetCountById(201));
         Assert.AreEqual(5, stock.GetCountById(101));
         CollectionAssert.AreEqual(new long[] { 11, 22 }, stock[0]!.ExtraData);
-        moneyPouch.Received(1).Add(10);
+        Assert.AreEqual(10, moneyPouch.Count);
     }
 
     [TestMethod]
@@ -345,11 +382,8 @@ public sealed class CharacterItemTransferTests
     {
         var inventory = CreateInventory(scenario, 4);
         scenario.Owner.Inventory.Returns(inventory);
-        var moneyPouch = Substitute.For<IMoneyPouchContainer, IItemContainerStorageProvider>();
-        var pouchStorage = new ItemContainerStorage(StorageType.AlwaysStack, 1, 0);
-        pouchStorage.RestoreItems([(0, scenario.Builder.Create().WithId(995).WithCount(0).Build())], allowZeroCount: true);
-        ((IItemContainerStorageProvider)moneyPouch).Storage.Returns(pouchStorage);
-        moneyPouch.Add(Arg.Any<int>()).Returns(true);
+        scenario.Owner.EventManager.Returns(Substitute.For<IEventManager>());
+        var moneyPouch = new MoneyPouchContainer(scenario.Owner, scenario.Builder);
         scenario.Owner.MoneyPouch.Returns(moneyPouch);
         var shop = Substitute.For<IShop>();
         shop.GeneralStore.Returns(true);

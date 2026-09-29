@@ -1,7 +1,6 @@
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Services.GameWorld.Logic.Characters;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -9,7 +8,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public partial class RewardContainer : IRewardContainer, IItemContainerStorageProvider, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public partial class RewardContainer : IRewardContainer, IItemContainerStorageOwner, IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
@@ -25,7 +24,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="owner">The owner of the container.</param>
         private readonly ItemContainerStorage _storage;
 
-        ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
+        ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
 
         public RewardContainer(ICharacter owner, IItemBuilder itemBuilder)
         {

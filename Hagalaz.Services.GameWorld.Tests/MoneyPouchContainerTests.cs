@@ -48,6 +48,15 @@ public sealed class MoneyPouchContainerTests
     }
 
     [TestMethod]
+    public void Contains_WhenCalledThroughMoneyPouchInterface_IncludesInventoryCoins()
+    {
+        var scenario = CreateScenario(pouchCoins: 25, inventoryCoins: 75);
+        IMoneyPouchContainer pouch = scenario.MoneyPouch;
+
+        Assert.IsTrue(pouch.Contains(CoinId, 100));
+    }
+
+    [TestMethod]
     public void Contains_WhenCombinedCoinBalanceIsInsufficient_ReturnsFalse()
     {
         var scenario = CreateScenario(pouchCoins: 40, inventoryCoins: 59);
@@ -101,8 +110,8 @@ public sealed class MoneyPouchContainerTests
         scenario.Owner.EventManager.Returns(eventManager);
         scenario.Inventory.OnUpdateAction = () =>
         {
-            Assert.IsFalse(Monitor.IsEntered(((IItemContainerStorageProvider)scenario.Inventory).Storage.MutationLock));
-            Assert.IsFalse(Monitor.IsEntered(((IItemContainerStorageProvider)scenario.MoneyPouch).Storage.MutationLock));
+            Assert.IsFalse(Monitor.IsEntered(((IItemContainerStorageOwner)scenario.Inventory).Storage.MutationLock));
+            Assert.IsFalse(Monitor.IsEntered(((IItemContainerStorageOwner)scenario.MoneyPouch).Storage.MutationLock));
             Assert.AreEqual(expectedPouchCount, scenario.MoneyPouch.Count);
             Assert.AreEqual(expectedInventoryCoins, scenario.Inventory.GetCountById(CoinId));
         };
@@ -112,8 +121,8 @@ public sealed class MoneyPouchContainerTests
             .Do(call =>
             {
                 var changedEvent = call.Arg<MoneyPouchChangedEvent>();
-                Assert.IsFalse(Monitor.IsEntered(((IItemContainerStorageProvider)scenario.Inventory).Storage.MutationLock));
-                Assert.IsFalse(Monitor.IsEntered(((IItemContainerStorageProvider)scenario.MoneyPouch).Storage.MutationLock));
+                Assert.IsFalse(Monitor.IsEntered(((IItemContainerStorageOwner)scenario.Inventory).Storage.MutationLock));
+                Assert.IsFalse(Monitor.IsEntered(((IItemContainerStorageOwner)scenario.MoneyPouch).Storage.MutationLock));
                 Assert.AreEqual(previousPouchCount, changedEvent.PreviousCount);
                 Assert.AreEqual(expectedPouchCount, changedEvent.Count);
                 Assert.AreEqual(expectedInventoryCoins, scenario.Inventory.GetCountById(CoinId));

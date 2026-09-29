@@ -4,7 +4,6 @@ using System.Linq;
 using System.Diagnostics.CodeAnalysis;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Services.GameWorld.Logic.Characters;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -12,7 +11,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// Class BankContainer
     /// </summary>
-    public partial class BankContainer : IBankContainer, IItemContainerStorageProvider, IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
+    public partial class BankContainer : IBankContainer, IItemContainerStorageOwner, IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
         /// Instance of the character who owns this container.
@@ -22,7 +21,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private readonly ItemContainerStorage _storage;
 
-        ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
+        ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
 
         /// <summary>
         /// Contstructs a container for character banks.

@@ -46,7 +46,7 @@ public sealed class ItemContainerPersistenceTests
         var items = new IItem[container.Capacity];
         items[0] = first;
         items[4] = second;
-        ((IItemContainerStorageProvider)container).Storage.ReplaceState(items);
+        ((IItemContainerStorageOwner)container).Storage.ReplaceState(items);
         first.SerializeExtraData().Returns(_ =>
         {
             container.Clear(false);
@@ -298,7 +298,7 @@ public sealed class ItemContainerPersistenceTests
     }
 
     private static void AssertRoundTrip<T>(Func<T> create, IReadOnlyList<HydratedItemDto> initial)
-        where T : IItemContainer, IItemContainerStorageProvider, IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
+        where T : IItemContainer, IItemContainerStorageOwner, IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         var source = create();
         source.Hydrate(initial);
@@ -332,31 +332,31 @@ public sealed class ItemContainerPersistenceTests
             {
                 var container = new InventoryContainer(scenario.Owner, 7, Substitute.For<IMapRegionService>(),
                     Substitute.For<IGroundItemBuilder>(), scenario.Builder);
-                return new(((IItemContainerStorageProvider)container).Storage, entries =>
+                return new(((IItemContainerStorageOwner)container).Storage, entries =>
                     container.Hydrate(entries.Select(entry => new HydratedItemDto(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
             }
             case "Bank":
             {
                 var container = new BankContainer(scenario.Owner, 12, scenario.Builder);
-                return new(((IItemContainerStorageProvider)container).Storage, entries =>
+                return new(((IItemContainerStorageOwner)container).Storage, entries =>
                     container.Hydrate(entries.Select(entry => new HydratedItemDto(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
             }
             case "Reward":
             {
                 var container = new RewardContainer(scenario.Owner, scenario.Builder);
-                return new(((IItemContainerStorageProvider)container).Storage, entries =>
+                return new(((IItemContainerStorageOwner)container).Storage, entries =>
                     container.Hydrate(entries.Select(entry => new HydratedItemDto(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
             }
             case "Familiar":
             {
                 var container = new FamiliarInventoryContainer(scenario.Owner, StorageType.Normal, 8, scenario.Builder);
-                return new(((IItemContainerStorageProvider)container).Storage, entries =>
+                return new(((IItemContainerStorageOwner)container).Storage, entries =>
                     container.Hydrate(entries.Select(entry => new HydratedItem(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
             }
             case "Equipment":
             {
                 var container = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
-                return new(((IItemContainerStorageProvider)container).Storage, entries =>
+                return new(((IItemContainerStorageOwner)container).Storage, entries =>
                     container.Hydrate(entries.Select(entry => new HydratedItemDto(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
             }
             default:

@@ -19,7 +19,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// Class EquipmentContainer
     /// </summary>
-    public partial class EquipmentContainer : IEquipmentContainer, IItemContainer, IItemContainerStorageProvider, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public partial class EquipmentContainer : IEquipmentContainer, IItemContainer, IItemContainerStorageOwner, IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
@@ -29,7 +29,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IItemBuilder _itemBuilder;
         private readonly ItemContainerStorage _storage;
 
-        ItemContainerStorage IItemContainerStorageProvider.Storage => _storage;
+        ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
 
         /// <summary>
         /// Gets the item by the specified array index.

@@ -7,9 +7,9 @@ Item storage algorithms, synchronization and revision tracking currently live in
 ## What Changes
 
 - Add one `ItemContainerStorage` implementation for slots, mutations, revision, synchronization, restoration and transfer planning/commit.
-- Add a narrow `IItemContainerStorageProvider` infrastructure contract and `ItemContainerTransfer` coordinator.
+- Add a narrow `IItemContainerStorageOwner` infrastructure contract and `ItemContainerTransfer` coordinator.
 - Migrate every production consumer and test fixture to own storage directly; remove `BaseItemContainer` and `TradeItemContainer`.
-- Preserve transfer behavior, publication timing, trade settlement, equipment callbacks, persistence slots and special zero-count semantics. Pull forward the minimum #439 interface cleanup required for composed storage: keep `IItemContainer` read-only and expose shared storage-backed operations as extensions; keep checked trade operations separate and let the unpublishing range insertion delegate to storage through one narrow default interface method.
+- Preserve transfer behavior, publication timing, trade settlement, equipment callbacks, persistence slots and special zero-count semantics. Pull forward only the minimum #439 cleanup needed for composition: remove `OnUpdate` from `IItemContainer`, keep its normal operation surface with default interface delegations to the shared storage-backed extensions, and move publication ownership to the composed domain container/infrastructure owner. Keep checked trade operations on `ITradeItemContainer`; their generic defaults delegate to the same shared operations.
 
 ## Capabilities
 
@@ -23,11 +23,11 @@ None. The change is an internal architecture refactor; existing gameplay behavio
 
 ## Impact
 
-Affected projects are `Hagalaz.Game.Abstractions`, `Hagalaz.Services.GameWorld`, `Hagalaz.Game.Scripts`, and their test projects. No package, persistence schema, protocol or gameplay behavior changes are intended. `IItemContainer` remains as the read-only gameplay contract; `ITradeItemContainer` remains the checked-trade boundary.
+Affected projects are `Hagalaz.Game.Abstractions`, `Hagalaz.Services.GameWorld`, `Hagalaz.Game.Scripts`, and their test projects. No package, persistence schema, protocol or gameplay behavior changes are intended. `IItemContainer` retains normal container operations but no longer owns publication; `ITradeItemContainer` retains its checked-trade operations.
 
 ## Scope Boundary
 
-Do not redesign constructor semantics globally, change item mutability, or broadly revise low-level `Replace`/`ReplaceState`. The #439 overlap is limited to removing mutation and publication methods from `IItemContainer`, providing the single shared extension operation surface over `ItemContainerStorage`, and using one default interface delegation for checked trade range insertion that must remain unpublished until coordination commits. Remaining #439 work includes constructor behavior and the wider public mutation API audit. Stop if preserving existing behavior requires a second mutation implementation, a storage strategy hierarchy, or a gameplay behavior change; revise this proposal before proceeding.
+Do not redesign constructor semantics globally, change item mutability, or broadly revise low-level `Replace`/`ReplaceState`. The #439 overlap is limited to removing `OnUpdate` from `IItemContainer` and delegating its common operations to the single shared operation surface over `ItemContainerStorage` instead of inherited algorithms. Remaining #439 work includes deciding which mutation/query members should eventually leave `IItemContainer`, constructor behavior and the wider public API audit. Stop if preserving existing behavior requires a second mutation implementation, a storage strategy hierarchy, or a gameplay behavior change; revise this proposal before proceeding.
 
 ## Acceptance Criteria
 

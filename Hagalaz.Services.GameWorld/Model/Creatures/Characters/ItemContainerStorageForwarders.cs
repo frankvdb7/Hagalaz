@@ -14,7 +14,7 @@ public partial class RewardContainer
     public int TakenSlots => _storage.TakenSlots;
     public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-    void IItemContainerStorageProvider.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
+    void IItemContainerStorageOwner.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
 }
 
 public partial class FamiliarInventoryContainer
@@ -26,7 +26,7 @@ public partial class FamiliarInventoryContainer
     public int TakenSlots => _storage.TakenSlots;
     public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-    void IItemContainerStorageProvider.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
+    void IItemContainerStorageOwner.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
 }
 
 public partial class BankContainer
@@ -38,7 +38,7 @@ public partial class BankContainer
     public int TakenSlots => _storage.TakenSlots;
     public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-    void IItemContainerStorageProvider.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
+    void IItemContainerStorageOwner.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
 }
 
 public partial class MoneyPouchContainer
@@ -50,7 +50,7 @@ public partial class MoneyPouchContainer
     public int TakenSlots => _storage.TakenSlots;
     public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-    void IItemContainerStorageProvider.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
+    void IItemContainerStorageOwner.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
 }
 
 public partial class EquipmentContainer
@@ -62,5 +62,5 @@ public partial class EquipmentContainer
     public int TakenSlots => _storage.TakenSlots;
     public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-    void IItemContainerStorageProvider.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
+    void IItemContainerStorageOwner.PublishChanges(HashSet<int>? slots) => OnUpdate(slots);
 }
