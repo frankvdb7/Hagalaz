@@ -666,8 +666,6 @@ public sealed class TradeExchangeTests
     {
         private ItemContainerStorage Storage => ((IItemContainerStorageOwner)this).Storage;
         private readonly IInventoryContainer _overflowInventory;
-        public object MutationLock => Storage.MutationLock;
-        public long MutationOrder => Storage.MutationOrder;
         public bool FailNextStorageAdd { get; set; }
         public TestMoneyPouch(IInventoryContainer overflowInventory) : base(StorageType.AlwaysStack, 1, 0)
         {

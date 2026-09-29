@@ -52,8 +52,10 @@ public sealed class MoneyPouchContainerTests
     {
         var scenario = CreateScenario(pouchCoins: 25, inventoryCoins: 75);
         IMoneyPouchContainer pouch = scenario.MoneyPouch;
+        IItemContainer itemContainer = scenario.MoneyPouch;
 
         Assert.IsTrue(pouch.Contains(CoinId, 100));
+        Assert.IsTrue(itemContainer.Contains(CoinId, 100));
     }
 
     [TestMethod]

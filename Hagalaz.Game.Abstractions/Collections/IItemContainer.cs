@@ -4,6 +4,11 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Collections;
 
 /// <summary>Describes the operations and shape of an item container.</summary>
+/// <remarks>
+/// Hagalaz's composed implementations provide <see cref="IItemContainerStorageOwner"/> for these shared default operations.
+/// That infrastructure capability is not part of this gameplay-facing contract.
+/// Issue #439 should revisit this relationship when simplifying the public container API.
+/// </remarks>
 public interface IItemContainer : IContainer<IItem?>
 {
     StorageType Type { get; }

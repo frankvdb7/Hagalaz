@@ -4,7 +4,10 @@ using Hagalaz.Game.Abstractions.Model.Items;
 
 namespace Hagalaz.Game.Abstractions.Collections;
 
-/// <summary>Exposes a container's composed storage to shared infrastructure.</summary>
+/// <summary>
+/// Provides the infrastructure capability used by shared default item-container operations and cross-container coordination.
+/// </summary>
+/// <remarks>This is an infrastructure contract, not the gameplay-facing item-container API.</remarks>
 public interface IItemContainerStorageOwner : IContainer<IItem?>
 {
     ItemContainerStorage Storage { get; }

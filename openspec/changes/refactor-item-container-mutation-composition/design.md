@@ -47,6 +47,7 @@ Storage accepts a simple `countToResetTo` constructor option. MoneyPouch seeds a
 
 ## Risks / Trade-offs
 
+- **Trade-off:** `IItemContainer` default operations require the implementing object to also provide `IItemContainerStorageOwner`, but the gameplay-facing interface does not express that infrastructure requirement. Keep the owner contract separate and do not expose storage through `IItemContainer`; issue #439 should revisit this relationship when simplifying the public container API.
 - **Risk:** Shared extensions publish at the wrong time or route through the wrong owner. → **Mitigation:** Extensions publish through the provider only after storage reports a successful commit; domain-specific callbacks remain in the owner.
 - **Risk:** Move/swap/replace and exact state replacement can bypass callback or revision behavior if split between storage and domain code. → **Mitigation:** Have storage return committed changed slots and advance only its private revision; domain wrappers preserve existing publication flags and equipment effects.
 - **Risk:** TradeExchange snapshots and storage mutation may restore the right slots but publish through the wrong owner. → **Mitigation:** Snapshot both storage and its owning `IItemContainer`, and retain existing post-commit publication tests.
