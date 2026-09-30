@@ -33,13 +33,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
         private readonly IItemBuilder _itemBuilder;
         private readonly IEventManager _eventManager;
-        private readonly ItemContainer _items;
-        private ItemContainerStorage Storage => ((IItemContainerStorageOwner)_items).Storage;
-        public IItemContainer Items => _items;
-        public IItem? this[int index] => _items[index];
-        public int Capacity => _items.Capacity;
-        public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    public ItemContainer Items { get; }
+        private ItemContainerStorage Storage => ((IItemContainerStorageOwner)Items).Storage;
 
         /// <summary>
         /// The original stock of the shop.
@@ -62,7 +57,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             IShop shop, IItemService itemRepository, IItemBuilder itemBuilder, bool sampleContainer, StorageType type, int capacity,
             IList<IItem> stock, IEventManager eventManager)
         {
-            _items = new ItemContainer(type, stock, capacity, OnUpdate, 0);
+            Items = new ItemContainer(type, stock, capacity, OnUpdate, 0);
             _shop = shop;
             _sampleContainer = sampleContainer;
             _itemRepository = itemRepository;
@@ -132,7 +127,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 return false;
             }
 
-            if (!_items.HasSpaceFor(sold))
+            if (!Items.HasSpaceFor(sold))
             {
                 viewer.SendChatMessage("There is not enough space in the shop for this item.");
                 return false;
@@ -145,7 +140,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 return false;
             }
 
-            if (!ItemContainerTransfer.TryTransfer(viewer.Inventory.Items, _items, item, count, slot,
+            if (!ItemContainerTransfer.TryTransfer(viewer.Inventory.Items, Items, item, count, slot,
                     destinationItem: transformed ? sold : null))
             {
                 return false;
@@ -165,7 +160,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
         public bool BuyFromShop(ICharacter viewer, IItem item, int count)
         {
-            var slot = _items.GetInstanceSlot(item);
+            var slot = Items.GetInstanceSlot(item);
             if (slot == -1 || count <= 0) return false;
             if (!item.ItemScript.CanBuyItem(item, viewer)) return false;
             var toRemove = item.Clone();
@@ -238,12 +233,12 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
             if (_originalStock.Any(it => it.Id == item.Id))
             {
-                _items.Remove(toRemove, slot);
+                Items.Remove(toRemove, slot);
             }
             else
             {
-                _items.Remove(toRemove, slot);
-                if (_items[slot] == null) _items.Sort();
+                Items.Remove(toRemove, slot);
+                if (Items[slot] == null) Items.Sort();
             }
 
             viewer.Inventory.Items.Add(toRemove);
@@ -262,7 +257,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             {
                 var items = Storage.ToArray();
                 // This uses the full capacity, because we don't know if items were added.
-                for (var i = 0; i < _items.Capacity; i++)
+                for (var i = 0; i < Items.Capacity; i++)
                 {
                     var item = items[i];
                     if (item == null)

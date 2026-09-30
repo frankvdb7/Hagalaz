@@ -1,11 +1,15 @@
-﻿namespace Hagalaz.Game.Abstractions.Collections
+using Hagalaz.Game.Abstractions.Model.Items;
+
+namespace Hagalaz.Game.Abstractions.Collections
 {
     /// <summary>
     /// Defines the contract for a player's money pouch, a special container that holds coins separately from the main inventory.
     /// </summary>
     public interface IMoneyPouchContainer
     {
-        IItemContainer Items { get; }
+        IContainer<IItem?> Items { get; }
+
+        bool HasSpaceForCoins(int count);
 
         bool Contains(int id);
 

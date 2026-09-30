@@ -9,7 +9,7 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// </summary>
     public interface IEquipmentContainer : IEnumerable<IItem?>, IEnumerable, IContainer<IItem?>
     {
-        IItemContainer Items { get; }
+        IContainer<IItem?> Items { get; }
 
         /// <summary>
         /// Gets the number of empty equipment slots.

@@ -65,7 +65,7 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                 teleport.TeleportDistance,
                 () =>
                 {
-                    IContainer<IItem?> items = equipment ? character.Equipment : character.Inventory;
+                    IContainer<IItem?> items = equipment ? character.Equipment : character.Inventory.Items;
                     var slot = items.IndexOf(i => i == jewelry);
                     if (slot == -1)
                     {
@@ -108,7 +108,7 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                 teleport.TeleportDistance,
                 () =>
                 {
-                    IContainer<IItem?> items = equipment ? character.Equipment : character.Inventory;
+                    IContainer<IItem?> items = equipment ? character.Equipment : character.Inventory.Items;
                     var slot = items.IndexOf(i => i == jewelry);
                     if (slot == -1)
                     {
@@ -162,7 +162,7 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                 teleport.TeleportDistance,
                 () =>
                 {
-                    IContainer<IItem?> items = equipment ? character.Equipment : character.Inventory;
+                    IContainer<IItem?> items = equipment ? character.Equipment : character.Inventory.Items;
                     var slot = items.IndexOf(i => i == jewelry);
                     if (slot == -1)
                     {
@@ -204,7 +204,7 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                 teleport.TeleportDistance,
                 () =>
                 {
-                    IContainer<IItem?> items = equipment ? character.Equipment : character.Inventory;
+                    IContainer<IItem?> items = equipment ? character.Equipment : character.Inventory.Items;
                     var slot = items.IndexOf(i => i == jewelry);
                     if (slot == -1)
                     {

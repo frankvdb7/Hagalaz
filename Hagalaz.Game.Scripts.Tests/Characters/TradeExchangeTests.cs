@@ -648,10 +648,12 @@ public sealed class TradeExchangeTests
     private static object? GetProperty(object target, string name) =>
         target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(target);
 
-    private sealed class TestMoneyPouch : ComposedTestContainer, IMoneyPouchContainer
+    private sealed class TestMoneyPouch : ComposedTestContainer, IMoneyPouchContainer, IItemContainerStorageOwner
     {
         private ItemContainerStorage Storage => ((IItemContainerStorageOwner)Items).Storage;
-        IItemContainer IMoneyPouchContainer.Items => Items;
+        IContainer<IItem?> IMoneyPouchContainer.Items => Items;
+        ItemContainerStorage IItemContainerStorageOwner.Storage => Storage;
+        void IItemContainerStorageOwner.PublishChanges(HashSet<int>? changedSlots) => OnUpdate(changedSlots);
         private readonly IInventoryContainer _overflowInventory;
         public bool FailNextStorageAdd { get; set; }
         public TestMoneyPouch(IInventoryContainer overflowInventory) : base(StorageType.AlwaysStack, 1, 0)
@@ -661,6 +663,7 @@ public sealed class TradeExchangeTests
         }
         public string Examine => Count.ToString();
         public int Count => Storage[0]?.Count ?? 0;
+        public bool HasSpaceForCoins(int count) => count > 0 && (long)Count + count <= int.MaxValue;
         public bool Contains(int id) => Items.Contains(id);
         public bool Contains(int id, int count) => Items.Contains(id, count);
 

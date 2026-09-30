@@ -487,7 +487,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                     return false;
                                 }
 
-                                var item = Owner.Inventory[itemUsedOnSlot];
+                                var item = Owner.Inventory.Items[itemUsedOnSlot];
                                 if (item == null || item.Id != itemUsedOnId)
                                 {
                                     return false;
@@ -505,7 +505,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                     return false;
                                 }
 
-                                var item = Owner.Inventory[itemUsedOnSlot];
+                                var item = Owner.Inventory.Items[itemUsedOnSlot];
                                 if (item == null || item.Id != itemUsedOnId)
                                 {
                                     return false;
@@ -605,7 +605,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                         return false;
                                     }
 
-                                    var item = Owner.Inventory[itemUsedOnSlot];
+                                    var item = Owner.Inventory.Items[itemUsedOnSlot];
                                     if (item == null || item.Id != itemUsedOnId)
                                     {
                                         return false;

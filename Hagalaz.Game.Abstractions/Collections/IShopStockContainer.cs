@@ -7,9 +7,9 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// Defines the contract for a shop's stock container, which manages the items available for sale
     /// and handles buy/sell transactions with players.
     /// </summary>
-    public interface IShopStockContainer : IContainer<IItem?>
+    public interface IShopStockContainer
     {
-        IItemContainer Items { get; }
+        ItemContainer Items { get; }
 
         /// <summary>
         /// Resets the shop's stock to its default state. This is typically called periodically

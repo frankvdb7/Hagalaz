@@ -477,8 +477,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return;
             }
 
-            SelfContainer = [];
-            TargetContainer = [];
+            SelfContainer = new DuelContainer();
+            TargetContainer = new DuelContainer();
 
             SelfOverlay.SetOptions(0,
                 0,
@@ -518,7 +518,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return false;
                     }
 
-                    var item = Character.Inventory[itemSlot];
+                    var item = Character.Inventory.Items[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -638,7 +638,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return false;
                     }
 
-                    var item = Target.Inventory[itemSlot];
+                    var item = Target.Inventory.Items[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -842,12 +842,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             SelfInterface.AttachClickHandler(7,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= ((IItemContainer)SelfContainer).Capacity)
+                    if (itemSlot < 0 || itemSlot >= SelfContainer.Items.Capacity)
                     {
                         return false;
                     }
 
-                    var item = ((IItemContainer)SelfContainer)[itemSlot];
+                    var item = SelfContainer.Items[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -960,12 +960,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             TargetInterface.AttachClickHandler(7,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= ((IItemContainer)TargetContainer).Capacity)
+                    if (itemSlot < 0 || itemSlot >= TargetContainer.Items.Capacity)
                     {
                         return false;
                     }
 
-                    var item = ((IItemContainer)TargetContainer)[itemSlot];
+                    var item = TargetContainer.Items[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -1089,10 +1089,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             var selfFullUpdate = SelfContainer.Updates.Count == 0;
             var targetFullUpdate = TargetContainer.Updates.Count == 0;
 
-            Character.Configurations.SendItems(134, false, SelfContainer, selfFullUpdate ? null : SelfContainer.Updates);
-            Character.Configurations.SendItems(134, true, TargetContainer, targetFullUpdate ? null : TargetContainer.Updates);
-            Target.Configurations.SendItems(134, false, TargetContainer, targetFullUpdate ? null : TargetContainer.Updates);
-            Target.Configurations.SendItems(134, true, SelfContainer, selfFullUpdate ? null : SelfContainer.Updates);
+            Character.Configurations.SendItems(134, false, SelfContainer.Items, selfFullUpdate ? null : SelfContainer.Updates);
+            Character.Configurations.SendItems(134, true, TargetContainer.Items, targetFullUpdate ? null : TargetContainer.Updates);
+            Target.Configurations.SendItems(134, false, TargetContainer.Items, targetFullUpdate ? null : TargetContainer.Updates);
+            Target.Configurations.SendItems(134, true, SelfContainer.Items, selfFullUpdate ? null : SelfContainer.Updates);
 
             var selfTotal = SelfContainer.CalculateTotalValue();
             var targetTotal = TargetContainer.CalculateTotalValue();
@@ -1222,7 +1222,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             if (IsStaking)
             {
-                IItemContainer container = new GenericContainer(StorageType.Normal, (short)(SelfContainer!.Items.Capacity + TargetContainer!.Items.Capacity)).Items;
+                IItemContainer container = new ItemContainer(StorageType.Normal, (short)(SelfContainer!.Items.Capacity + TargetContainer!.Items.Capacity));
                 container.AddRange(SelfContainer!.Items);
                 container.AddRange(TargetContainer!.Items);
 
@@ -1299,12 +1299,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             /*if (this.IsStaking)
             {
-                if (this.((IItemContainer)SelfContainer).TakenSlots > 0)
+                if (SelfContainer.Items.TakenSlots > 0)
                 {
                     this.SelfInterface.DrawString(25, string.Empty);
                     this.TargetInterface.DrawString(26, string.Empty);
                 }
-                if (this.((IItemContainer)TargetContainer).TakenSlots > 0)
+                if (TargetContainer.Items.TakenSlots > 0)
                 {
                     this.SelfInterface.DrawString(26, string.Empty);
                     this.TargetInterface.DrawString(25, string.Empty);
@@ -1490,42 +1490,42 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             DuelSession = false;
             CloseInterfaces();
-            if (SelfContainer != null && ((IItemContainer)SelfContainer).TakenSlots > 0)
+            if (SelfContainer != null && SelfContainer.Items.TakenSlots > 0)
             {
-                for (var i = 0; i < ((IItemContainer)SelfContainer).Capacity; i++)
+                for (var i = 0; i < SelfContainer.Items.Capacity; i++)
                 {
-                    if (((IItemContainer)SelfContainer)[i] == null)
+                    if (SelfContainer.Items[i] == null)
                     {
                         continue;
                     }
 
-                    if (((IItemContainer)SelfContainer)[i].Id == 995)
+                    if (SelfContainer.Items[i].Id == 995)
                     {
-                        Character.MoneyPouch.Add(((IItemContainer)SelfContainer)[i].Count);
+                        Character.MoneyPouch.Add(SelfContainer.Items[i].Count);
                     }
                     else
                     {
-                        Character.Inventory.Items.Add(((IItemContainer)SelfContainer)[i]);
+                        Character.Inventory.Items.Add(SelfContainer.Items[i]);
                     }
                 }
             }
 
-            if (Target != null && TargetContainer != null && ((IItemContainer)TargetContainer).TakenSlots > 0)
+            if (Target != null && TargetContainer != null && TargetContainer.Items.TakenSlots > 0)
             {
-                for (var i = 0; i < ((IItemContainer)TargetContainer).Capacity; i++)
+                for (var i = 0; i < TargetContainer.Items.Capacity; i++)
                 {
-                    if (((IItemContainer)TargetContainer)[i] == null)
+                    if (TargetContainer.Items[i] == null)
                     {
                         continue;
                     }
 
-                    if (((IItemContainer)TargetContainer)[i].Id == 995)
+                    if (TargetContainer.Items[i].Id == 995)
                     {
-                        Target.MoneyPouch.Add(((IItemContainer)TargetContainer)[i].Count);
+                        Target.MoneyPouch.Add(TargetContainer.Items[i].Count);
                     }
                     else
                     {
-                        Target.Inventory.Items.Add(((IItemContainer)TargetContainer)[i]);
+                        Target.Inventory.Items.Add(TargetContainer.Items[i]);
                     }
                 }
             }
@@ -1714,13 +1714,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     /// <summary>
     ///     Container for holding items in trade offer interfaces.
     /// </summary>
-    public class DuelContainer : IContainer<IItem?>
+    public class DuelContainer
     {
-        public IItemContainer Items { get; }
-        public IItem? this[int index] => Items[index];
-        public int Capacity => Items.Capacity;
-        public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => Items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        public ItemContainer Items { get; }
         /// <summary>
         ///     Contains last slots update.
         /// </summary>

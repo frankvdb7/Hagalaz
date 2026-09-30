@@ -33,7 +33,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                         return false;
                     }
 
-                    var item = Owner.Inventory[slot];
+                    var item = Owner.Inventory.Items[slot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -96,7 +96,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                 {
                     for (short i = 0; i < Owner.Inventory.Items.Capacity; i++)
                     {
-                        var item = Owner.Inventory[i];
+                        var item = Owner.Inventory.Items[i];
                         if (item != null)
                         {
                             if (!Owner.Bank.DepositFromInventory(item, item.Count, out var outItem))
@@ -150,9 +150,9 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                     }
 
                     var inventory = bob.Inventory;
-                    for (short i = 0; i < inventory.Capacity; i++)
+                    for (short i = 0; i < inventory.Items.Capacity; i++)
                     {
-                        var item = inventory[i];
+                        var item = inventory.Items[i];
                         if (item != null)
                         {
                             if (!Owner.Bank.DepositFromFamiliar(item, item.Count, out var outItem, inventory.Items))

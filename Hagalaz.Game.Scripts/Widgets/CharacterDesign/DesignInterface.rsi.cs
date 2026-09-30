@@ -1042,7 +1042,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterDesign
                 {
                     case ItemContainerType.Inventory: Owner.Inventory.Items.Add(it); break;
                     case ItemContainerType.Bank: Owner.Bank.Items.Add(it); break;
-                    case ItemContainerType.MoneyPouch: Owner.MoneyPouch.Items.Add(it); break;
+                    case ItemContainerType.MoneyPouch: Owner.MoneyPouch.Add(it.Count); break;
                 }
             }
 

@@ -44,7 +44,7 @@ public sealed class ItemContainerPersistenceTests
         first.Id.Returns(101);
         first.Count.Returns(1);
         var second = scenario.Builder.Create().WithId(102).WithCount(2).Build();
-        var items = new IItem[container.Capacity];
+        var items = new IItem[container.Items.Capacity];
         items[0] = first;
         items[4] = second;
         ((IItemContainerStorageOwner)container.Items).Storage.ReplaceState(items);
@@ -298,7 +298,7 @@ public sealed class ItemContainerPersistenceTests
         Assert.AreEqual(3, container.Items[5]!.Count);
     }
 
-    private static void AssertRoundTrip<T>(Func<T> create, Func<T, IItemContainer> getItems,
+    private static void AssertRoundTrip<T>(Func<T> create, Func<T, IContainer<IItem?>> getItems,
         IReadOnlyList<HydratedItemDto> initial)
         where T : IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
@@ -318,7 +318,7 @@ public sealed class ItemContainerPersistenceTests
         }
     }
 
-    private static void AssertSlots(IItemContainer container, params (int Slot, int ItemId)[] occupied)
+    private static void AssertSlots(IContainer<IItem?> container, params (int Slot, int ItemId)[] occupied)
     {
         for (var slot = 0; slot < container.Capacity; slot++)
         {

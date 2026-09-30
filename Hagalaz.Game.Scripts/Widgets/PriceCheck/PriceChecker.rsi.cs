@@ -21,17 +21,13 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
         /// <summary>
         ///     Price checker interface container.
         /// </summary>
-        private class PriceCheckerInterfaceContainer : IContainer<IItem?>
+        private class PriceCheckerInterfaceContainer
         {
             /// <summary>
             ///     Contains owner of this class.
             /// </summary>
             private readonly ICharacter _owner;
-            public IItemContainer Items { get; }
-            public IItem? this[int index] => Items[index];
-            public int Capacity => Items.Capacity;
-            public IEnumerator<IItem?> GetEnumerator() => Items.GetEnumerator();
-            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            public ItemContainer Items { get; }
 
             /// <summary>
             ///     Construct's new instance.
@@ -49,7 +45,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             /// <param name="slots"></param>
             public void OnUpdate(HashSet<int>? slots = null)
             {
-                _owner.Configurations.SendItems(90, false, this, slots);
+                _owner.Configurations.SendItems(90, false, Items, slots);
                 RefreshPrices(slots);
             }
 
@@ -70,7 +66,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
 
                 if (slots == null)
                 {
-                    for (var i = 0; i < Capacity; i++)
+                    for (var i = 0; i < Items.Capacity; i++)
                     {
                         if (Items[i] != null)
                         {
@@ -99,16 +95,6 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             }
         }
 
-        private sealed class ProjectedInventoryContainer : IContainer<IItem?>
-        {
-            public ItemContainer Items { get; }
-            public ProjectedInventoryContainer(int capacity) => Items = new ItemContainer(StorageType.Normal, capacity);
-            public IItem? this[int index] => Items[index];
-            public int Capacity => Items.Capacity;
-            public IEnumerator<IItem?> GetEnumerator() => Items.GetEnumerator();
-            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-            public bool RemoveExact(IItem item) => Items.TryRemoveExact(item);
-        }
         /// <summary>
         ///     Contains inventory interface.
         /// </summary>
@@ -174,7 +160,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                     return false;
                 }
 
-                var item = Owner.Inventory[slot];
+                var item = Owner.Inventory.Items[slot];
                 if (item == null || item.Id != itemID)
                 {
                     return false;
@@ -237,7 +223,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                     return false;
                 }
 
-                if (slot < 0 || slot >= priceCheckInterface.Capacity)
+                if (slot < 0 || slot >= priceCheckInterface.Items.Capacity)
                 {
                     return false;
                 }
@@ -315,7 +301,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
 
             _inventoryInterface = null;
             _priceCheckInterface = null;
-            Owner.Configurations.SendItems(93, false, Owner.Inventory);
+            Owner.Configurations.SendItems(93, false, Owner.Inventory.Items);
         }
 
         /// <summary>
@@ -380,7 +366,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             }
 
             var changed = false;
-            for (var slot = 0; slot < priceCheckInterface.Capacity; slot++)
+            for (var slot = 0; slot < priceCheckInterface.Items.Capacity; slot++)
             {
                 if (priceCheckInterface.Items[slot] is not { } selected)
                 {
@@ -423,20 +409,20 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                 return;
             }
 
-            var projected = new ProjectedInventoryContainer(Owner.Inventory.Items.Capacity);
+            var projected = new ItemContainer(StorageType.Normal, Owner.Inventory.Items.Capacity);
             for (var slot = 0; slot < Owner.Inventory.Items.Capacity; slot++)
             {
-                if (Owner.Inventory[slot] is { } item)
+                if (Owner.Inventory.Items[slot] is { } item)
                 {
-                    projected.Items.Replace(slot, item.Clone());
+                    projected.Replace(slot, item.Clone());
                 }
             }
 
-            for (var slot = 0; slot < priceCheckInterface.Capacity; slot++)
+            for (var slot = 0; slot < priceCheckInterface.Items.Capacity; slot++)
             {
                 if (priceCheckInterface.Items[slot] is { } selected)
                 {
-                    projected.RemoveExact(selected);
+                    projected.TryRemoveExact(selected);
                 }
             }
 

@@ -5,9 +5,9 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// <summary>
     /// Defines the contract for a familiar's inventory container, which holds items for a summoned creature (e.g., a beast of burden).
     /// </summary>
-    public interface IFamiliarInventoryContainer : IContainer<IItem?>
+    public interface IFamiliarInventoryContainer
     {
-        IItemContainer Items { get; }
+        ItemContainer Items { get; }
 
         /// <summary>
         /// Deposits a specific item from the player's inventory into the familiar's inventory.

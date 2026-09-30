@@ -92,7 +92,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                         return false;
                     }
 
-                    var item = Owner.Inventory[slot];
+                    var item = Owner.Inventory.Items[slot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -167,7 +167,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                         return false;
                     }
 
-                    var item = bob.Inventory[slot];
+                    var item = bob.Inventory.Items[slot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -248,14 +248,14 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                 return;
             }
 
-            Owner.Configurations.SendItems(30, false, bob.Inventory, changedSlots);
+            Owner.Configurations.SendItems(30, false, bob.Inventory.Items, changedSlots);
         }
 
         /// <summary>
         ///     Refreshe's inventory.
         /// </summary>
         /// <param name="changedSlots"></param>
-        public void RefreshInventory(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(90, false, Owner.Inventory, changedSlots);
+        public void RefreshInventory(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(90, false, Owner.Inventory.Items, changedSlots);
 
         /// <summary>
         ///     Happens when interface is closed for character.

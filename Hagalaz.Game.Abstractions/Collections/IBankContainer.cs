@@ -7,9 +7,9 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// Defines the contract for a player's bank container, extending the base <see cref="IItemContainer"/>
     /// with methods specific to bank operations like depositing from other containers and withdrawing.
     /// </summary>
-    public interface IBankContainer : IContainer<IItem?>
+    public interface IBankContainer
     {
-        IItemContainer Items { get; }
+        ItemContainer Items { get; }
 
         /// <summary>
         /// Deposits the contents of the player's money pouch into the bank.
@@ -26,7 +26,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="deposited">When this method returns, contains the <see cref="IItem"/> that was actually deposited into the bank, if the operation was successful.</param>
         /// <param name="container">The source familiar inventory container.</param>
         /// <returns><c>true</c> if the deposit was successful; otherwise, <c>false</c>.</returns>
-        bool DepositFromFamiliar(IItem item, int count, [NotNullWhen(true)] out IItem? deposited, IItemContainer container);
+        bool DepositFromFamiliar(IItem item, int count, [NotNullWhen(true)] out IItem? deposited, ItemContainer container);
 
         /// <summary>
         /// Deposits a specific item from the player's equipment into the bank.

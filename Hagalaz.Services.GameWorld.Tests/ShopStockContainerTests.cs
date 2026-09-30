@@ -143,14 +143,14 @@ public sealed class ShopStockContainerTests
     {
         var scenario = CreateScenario(cost: 0);
         var depletedOriginal = scenario.StockItem.Clone(0);
-        var replacement = new IItem[scenario.Stock.Capacity];
+        var replacement = new IItem[scenario.Stock.Items.Capacity];
         replacement[0] = depletedOriginal;
         scenario.Stock.SetItems(replacement, update: false);
 
         scenario.Stock.NormalizeStock();
 
-        Assert.AreSame(depletedOriginal, scenario.Stock[0]);
-        Assert.AreEqual(1, scenario.Stock[0]!.Count);
+        Assert.AreSame(depletedOriginal, scenario.Stock.Items[0]);
+        Assert.AreEqual(1, scenario.Stock.Items[0]!.Count);
     }
 
     [TestMethod]
@@ -158,14 +158,14 @@ public sealed class ShopStockContainerTests
     {
         var scenario = CreateScenario(cost: 0);
         var playerStock = new ComposedTestItem(2001, 1, stackable: true);
-        var replacement = new IItem[scenario.Stock.Capacity];
+        var replacement = new IItem[scenario.Stock.Items.Capacity];
         replacement[0] = playerStock;
         scenario.Stock.SetItems(replacement, update: false);
 
         scenario.Stock.NormalizeStock();
 
-        Assert.AreSame(playerStock, scenario.Stock[0]);
-        Assert.AreEqual(0, scenario.Stock[0]!.Count);
+        Assert.AreSame(playerStock, scenario.Stock.Items[0]);
+        Assert.AreEqual(0, scenario.Stock.Items[0]!.Count);
     }
 
     private static ShopScenario CreateScenario(

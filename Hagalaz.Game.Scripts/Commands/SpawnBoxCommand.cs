@@ -97,7 +97,7 @@ namespace Hagalaz.Game.Scripts.Commands
             }
 
 
-            IItemContainer container = new GenericContainer(StorageType.AlwaysStack, 8 * 35).Items;
+            IItemContainer container = new ItemContainer(StorageType.AlwaysStack, 8 * 35);
             for (var i = 0; i < searchResult.Count; i++)
             {
                 container.Add(_itemBuilder.Create().WithId(searchResult.Found[i]).Build());

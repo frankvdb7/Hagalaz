@@ -7,8 +7,6 @@ namespace Hagalaz.Game.Scripts.Tests;
 internal class ComposedTestContainer : IInventoryContainer, IRewardContainer
 {
     public ItemContainer Items { get; }
-    IItemContainer IInventoryContainer.Items => Items;
-    IItemContainer IRewardContainer.Items => Items;
     public Action? OnUpdateAction { get; set; }
     public int UpdateCount { get; private set; }
     public object MutationLock => ((IItemContainerStorageOwner)Items).Storage.MutationLock;
@@ -33,10 +31,6 @@ internal class ComposedTestContainer : IInventoryContainer, IRewardContainer
         return item;
     }
 
-    public IItem? this[int index] => Items[index];
-    public int Capacity => Items.Capacity;
-    public IEnumerator<IItem?> GetEnumerator() => Items.GetEnumerator();
-    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     public bool DropItem(IItem item) => false;
     public int Claim(IItem item, int count) => 0;
     public void OnUpdate(HashSet<int>? changedSlots = null)

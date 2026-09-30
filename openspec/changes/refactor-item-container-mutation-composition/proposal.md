@@ -9,7 +9,7 @@ Before this change, item storage algorithms, synchronization and revision tracki
 - Add one `ItemContainerStorage` implementation for slots, mutations, revision, synchronization, restoration and transfer planning/commit.
 - Add a narrow `IItemContainerStorageOwner` infrastructure contract and `ItemContainerTransfer` coordinator.
 - Add one concrete `ItemContainer` that implements the contract-only `IItemContainer` API by composing `ItemContainerStorage`.
-- Migrate domain containers and test fixtures to compose `ItemContainer`; expose it through the narrow `Items` contract they need. Remove `BaseItemContainer`, `TradeItemContainer`, and `ItemContainerExtensions`.
+- Migrate ordinary domain containers, script objects, and test fixtures to own and use one concrete `ItemContainer`; expose it through `Items` and remove generic container forwarding. Remove `BaseItemContainer`, `TradeItemContainer`, `ITradeItemContainer`, `ItemContainerExtensions`, redundant `GenericContainer`, and script-local generic forwarding wrappers.
 - Keep `IItemContainer` and `IItemContainerStorageOwner` as contracts only. Trade is a consumer of the generic synchronous mutation and transfer boundary; it MUST NOT be modeled as a capability implemented by ordinary item containers. `ItemContainer` owns generic mutation publication through a domain-supplied callback; domain containers retain their specialized operations and orchestration.
 - Preserve transfer behavior, publication timing, trade settlement, equipment callbacks, persistence slots and special zero-count semantics. Ordinary domain container `Items` properties MUST be typed as `IItemContainer` and MUST NOT expose trade-named mutation APIs. `TradeExchange` stages generic storage operations under the existing deterministic locks. Pull forward only the minimum #439 cleanup required to make composition concrete; defer a wider operation-surface redesign.
 
@@ -34,12 +34,14 @@ Do not redesign constructor semantics globally, change item mutability, or broad
 ## Acceptance Criteria
 
 - One concrete `ItemContainer` implements the generic container contracts and composes `ItemContainerStorage`; domain containers compose `ItemContainer` rather than forwarding the full generic API.
+- Inventory, Bank, Reward, FamiliarInventory, ShopStock, TradeOffer, Duel, and Price Checker use the concrete generic implementation instead of reproducing the generic container contract or forwarding its operations.
+- Special domains such as MoneyPouch and Equipment keep their public `Items` view read-only and may compose `ItemContainerStorage` directly where the public generic mutation surface would bypass their invariants.
 - Neither old implementation base nor an extension implementation layer exists.
 - Storage is the sole implementation of mutation and storage-to-storage transfer algorithms.
-- Item-container interfaces contain declarations only; no behavior is inherited through interfaces or a shared extension implementation layer.
+- `IItemContainer` is declaration-only; no domain object implements it or forwards its generic surface. No behavior is inherited through interfaces or a shared extension implementation layer.
 - `ItemContainer` delegates storage mechanics to `ItemContainerStorage` and invokes a simple callback after committed generic mutations; domain containers retain specialized publication and callback orchestration.
 - Domain containers own events, UI publication, messages, persistence projection and equipment behavior.
 - Trade settlement locks composed stores in stable order and keeps offer acceptance revision separate from storage revision.
 - Trade is a consumer of the generic synchronous mutation/transfer boundary and MUST NOT be modeled as a capability inherited or implemented by ordinary item containers. Inventory, bank, reward and other generic domain containers MUST NOT expose trade-specific mutation contracts merely because trade can move items through them.
 - No `ITradeItemContainer`, trade-specific item-container operation, or trade-named MoneyPouch API remains. Exact staged pouch operations are domain-neutral and used only where the settlement transaction boundary requires them.
-- Existing and requested regression suites pass, strict OpenSpec validation passes, and the complete diff passes repository quality checks.
+- Existing and requested regression suites pass, strict OpenSpec validation passes, and the complete diff passes repository quality checks, including zero new jscpd clone pairs.

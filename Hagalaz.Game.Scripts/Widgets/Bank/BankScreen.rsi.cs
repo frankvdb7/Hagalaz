@@ -95,7 +95,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
         /// </summary>
         public void Setup()
         {
-            InterfaceInstance.SetOptions(95, 0, Owner.Bank.Capacity, 2622718);
+            InterfaceInstance.SetOptions(95, 0, Owner.Bank.Items.Capacity, 2622718);
             _inventoryInterface!.SetOptions(0, 0, 27, 2425982);
             Owner.Configurations.SendCs2Script(1451, []);
 
@@ -127,7 +127,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                         return false;
                     }
 
-                    var item = Owner.Inventory[slot];
+                    var item = Owner.Inventory.Items[slot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -201,12 +201,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
             InterfaceInstance.AttachClickHandler(95,
                 (componentID, type, itemID, slot) =>
                 {
-                    if (slot < 0 || slot >= Owner.Bank.Capacity)
+                    if (slot < 0 || slot >= Owner.Bank.Items.Capacity)
                     {
                         return false;
                     }
 
-                    var item = Owner.Bank[slot];
+                    var item = Owner.Bank.Items[slot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -300,7 +300,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                     }
 
                     var inventory = bob.Inventory;
-                    foreach (var item in inventory)
+                    foreach (var item in inventory.Items)
                     {
                         if (item == null)
                         {
@@ -472,18 +472,18 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                 var toSlot = toExtra2;
                 var fromID = fromExtra1;
                 var toID = toExtra1;
-                if (fromSlot < 0 || fromSlot >= Owner.Bank.Capacity)
+                if (fromSlot < 0 || fromSlot >= Owner.Bank.Items.Capacity)
                 {
                     return false;
                 }
 
-                if (toSlot < 0 || toSlot >= Owner.Bank.Capacity)
+                if (toSlot < 0 || toSlot >= Owner.Bank.Items.Capacity)
                 {
                     return false;
                 }
 
-                var fromItem = Owner.Bank[fromSlot];
-                var toItem = Owner.Bank[toSlot];
+                var fromItem = Owner.Bank.Items[fromSlot];
+                var toItem = Owner.Bank.Items[toSlot];
                 if (fromItem == null || toItem == null || fromItem.Id != fromID || toItem.Id != toID)
                 {
                     return false;
@@ -512,12 +512,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
 
                 var fromSlot = fromExtra2;
                 var fromID = fromExtra1;
-                if (fromSlot < 0 || fromSlot >= Owner.Bank.Capacity)
+                if (fromSlot < 0 || fromSlot >= Owner.Bank.Items.Capacity)
                 {
                     return false;
                 }
 
-                var fromItem = Owner.Bank[fromSlot];
+                var fromItem = Owner.Bank.Items[fromSlot];
                 if (fromItem == null || fromItem.Id != fromID)
                 {
                     return false;
@@ -531,12 +531,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
             {
                 var fromSlot = fromExtra2;
                 var fromID = fromExtra1;
-                if (fromSlot < 0 || fromSlot >= Owner.Bank.Capacity)
+                if (fromSlot < 0 || fromSlot >= Owner.Bank.Items.Capacity)
                 {
                     return false;
                 }
 
-                var fromItem = Owner.Bank[fromSlot];
+                var fromItem = Owner.Bank.Items[fromSlot];
                 if (fromItem == null || fromItem.Id != fromID)
                 {
                     return false;
@@ -732,14 +732,14 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
         {
             Owner.Configurations.SendGlobalCs2Int(192, Owner.Bank.Items.TakenSlots - 1);
             RefreshTabs();
-            Owner.Configurations.SendItems(95, false, Owner.Bank, changedSlots);
+            Owner.Configurations.SendItems(95, false, Owner.Bank.Items, changedSlots);
         }
 
         /// <summary>
         ///     Refreshe's inventory.
         /// </summary>
         /// <param name="changedSlots"></param>
-        public void RefreshInventory(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(31, false, Owner.Inventory, changedSlots);
+        public void RefreshInventory(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(31, false, Owner.Inventory.Items, changedSlots);
 
         public void RefreshBankX() =>
             Owner.Configurations.SendStandardConfiguration(1249,

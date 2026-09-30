@@ -22,18 +22,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contstructs a container for character ingame mail.
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
-        private readonly ItemContainer _items;
-        public IItemContainer Items => _items;
-        public IItem? this[int index] => _items[index];
-        public int Capacity => _items.Capacity;
-        public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    public ItemContainer Items { get; }
 
         public RewardContainer(ICharacter owner, IItemBuilder itemBuilder)
         {
             _owner = owner;
             _itemBuilder = itemBuilder;
-            _items = new ItemContainer(StorageType.AlwaysStack, byte.MaxValue, OnUpdate);
+            Items = new ItemContainer(StorageType.AlwaysStack, byte.MaxValue, OnUpdate);
         }
 
         /// <summary>
@@ -44,7 +39,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public int Claim(IItem item, int count)
         {
-            var slot = _items.GetInstanceSlot(item);
+            var slot = Items.GetInstanceSlot(item);
             if (slot == -1 || count <= 0) return -1;
             var toRemove = item.Clone();
             if (toRemove.Count < count) count = toRemove.Count;
@@ -83,12 +78,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 toRemove.Count = count;
             }
 
-            if (!ItemContainerTransfer.TryTransfer(_items, _owner.Inventory.Items, item, count, slot))
+            if (!ItemContainerTransfer.TryTransfer(Items, _owner.Inventory.Items, item, count, slot))
             {
                 return -1;
             }
 
-            _items.Sort();
+            Items.Sort();
             return count;
         }
 
@@ -100,12 +95,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> rewards)
         {
-            ((IItemContainerStorageOwner)_items).Storage.RestoreItems(rewards.Select(entry => entry.ToStorageEntry(_itemBuilder)));
+            ((IItemContainerStorageOwner)Items).Storage.RestoreItems(rewards.Select(entry => entry.ToStorageEntry(_itemBuilder)));
         }
 
         public IReadOnlyList<HydratedItemDto> Dehydrate()
         {
-            return ((IItemContainerStorageOwner)_items).Storage.ToHydratedItems();
+            return ((IItemContainerStorageOwner)Items).Storage.ToHydratedItems();
         }
     }
 }

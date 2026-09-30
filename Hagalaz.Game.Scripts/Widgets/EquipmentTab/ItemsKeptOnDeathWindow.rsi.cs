@@ -113,7 +113,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
             {
                 if (Owner.HasFamiliar() && Owner.FamiliarScript is BobFamiliarScriptBase familiarScriptBase)
                 {
-                    Owner.Configurations.SendItems(530, false, familiarScriptBase.Inventory);
+                    Owner.Configurations.SendItems(530, false, familiarScriptBase.Inventory.Items);
                 }
 
                 var itemSlotsOnDeathData = Owner.GetItemSlotsOnDeathData();

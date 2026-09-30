@@ -23,12 +23,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         private readonly ICharacter _owner;
         private readonly IItemBuilder _itemBuilder;
-        private readonly ItemContainer _items;
-        public IItemContainer Items => _items;
-        public IItem? this[int index] => _items[index];
-        public int Capacity => _items.Capacity;
-        public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    public ItemContainer Items { get; }
 
         /// <summary>
         /// Constructs a container for character inventories.
@@ -39,7 +34,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public FamiliarInventoryContainer(ICharacter owner, StorageType type, int capacity, IItemBuilder itemBuilder)
         {
             (_owner, _itemBuilder) = (owner, itemBuilder);
-            _items = new ItemContainer(type, capacity, OnUpdate);
+            Items = new ItemContainer(type, capacity, OnUpdate);
         }
 
         /// <summary>
@@ -62,7 +57,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            if (ItemContainerTransfer.TryTransfer(_owner.Inventory.Items, _items, item, count, slot))
+            if (ItemContainerTransfer.TryTransfer(_owner.Inventory.Items, Items, item, count, slot))
             {
                 return true;
             }
@@ -79,17 +74,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public bool WithdrawFromFamiliarInventory(IItem item, int count)
         {
-            var slot = _items.GetInstanceSlot(item);
+            var slot = Items.GetInstanceSlot(item);
             if (slot == -1 || count <= 0)
                 return false;
 
-            count = Math.Min(count, _items.GetCount(item));
+            count = Math.Min(count, Items.GetCount(item));
             if (count <= 0)
             {
                 return false;
             }
 
-            if (ItemContainerTransfer.TryTransfer(_items, _owner.Inventory.Items, item, count, slot))
+            if (ItemContainerTransfer.TryTransfer(Items, _owner.Inventory.Items, item, count, slot))
             {
                 return true;
             }
@@ -106,12 +101,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(IReadOnlyList<HydratedItem> inventory)
         {
-            ((IItemContainerStorageOwner)_items).Storage.RestoreItems(inventory.Select(entry => (entry.SlotId,
+            ((IItemContainerStorageOwner)Items).Storage.RestoreItems(inventory.Select(entry => (entry.SlotId,
                 _itemBuilder.Create().WithId(entry.ItemId).WithCount(entry.Count)
                     .WithExtraData(entry.ExtraData ?? string.Empty).Build())));
         }
 
-        public IReadOnlyList<HydratedItem> Dehydrate() => ((IItemContainerStorageOwner)_items).Storage.Select((item, slot) => (item, slot)).Where(x => x.item != null)
+        public IReadOnlyList<HydratedItem> Dehydrate() => ((IItemContainerStorageOwner)Items).Storage.Select((item, slot) => (item, slot)).Where(x => x.item != null)
             .Select(entry => new HydratedItem(entry.item!.Id, entry.item.Count, entry.slot, entry.item.SerializeExtraData()))
             .ToArray();
     }

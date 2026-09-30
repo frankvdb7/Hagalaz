@@ -8,8 +8,8 @@ namespace Hagalaz.Game.Abstractions.Collections;
 public static class ItemContainerTransfer
 {
     public static bool TryTransfer(
-        IItemContainer source,
-        IItemContainer destination,
+        IItemContainerStorageOwner source,
+        IItemContainerStorageOwner destination,
         IItem item,
         int count,
         int preferredSourceSlot = -1,
@@ -22,14 +22,14 @@ public static class ItemContainerTransfer
             return false;
         }
 
-        GetStorageOwner(source).PublishChanges(sourceSlots);
-        GetStorageOwner(destination).PublishChanges(destinationSlots);
+        source.PublishChanges(sourceSlots);
+        destination.PublishChanges(destinationSlots);
         return true;
     }
 
     public static bool TryTransferStorage(
-        IItemContainer source,
-        IItemContainer destination,
+        IItemContainerStorageOwner source,
+        IItemContainerStorageOwner destination,
         IItem item,
         int count,
         int preferredSourceSlot,
@@ -42,8 +42,8 @@ public static class ItemContainerTransfer
         ArgumentNullException.ThrowIfNull(destination);
         ArgumentNullException.ThrowIfNull(item);
 
-        var sourceStorage = GetStorage(source);
-        var destinationStorage = GetStorage(destination);
+        var sourceStorage = source.Storage;
+        var destinationStorage = destination.Storage;
         if (!ItemContainerStorage.TryTransfer(sourceStorage, destinationStorage, item, count,
                 preferredSourceSlot, destinationSlot, destinationItem,
                 out sourceChangedSlots, out destinationChangedSlots))
@@ -56,7 +56,7 @@ public static class ItemContainerTransfer
         return true;
     }
 
-    public static void AddAndRemoveFrom(IItemContainer destination, IItemContainer source)
+    public static void AddAndRemoveFrom(IItemContainerStorageOwner destination, IItemContainerStorageOwner source)
     {
         ArgumentNullException.ThrowIfNull(destination);
         ArgumentNullException.ThrowIfNull(source);
@@ -65,9 +65,9 @@ public static class ItemContainerTransfer
             return;
         }
 
-        for (var slot = 0; slot < source.Capacity; slot++)
+        for (var slot = 0; slot < source.Storage.Capacity; slot++)
         {
-            var item = source[slot];
+            var item = source.Storage[slot];
             if (item == null || item.Count <= 0)
             {
                 continue;
@@ -77,15 +77,4 @@ public static class ItemContainerTransfer
         }
     }
 
-    private static ItemContainerStorage GetStorage(IItemContainer container) => GetStorageOwner(container).Storage;
-
-    private static IItemContainerStorageOwner GetStorageOwner(IItemContainer container)
-    {
-        if (container is not IItemContainerStorageOwner provider)
-        {
-            throw new ArgumentException("Container must provide composed item storage.", nameof(container));
-        }
-
-        return provider;
-    }
 }

@@ -41,7 +41,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 }
 
-                var item = Owner.Inventory[slot];
+                var item = Owner.Inventory.Items[slot];
                 if (item == null || item.Id != itemID)
                 {
                     return false;
@@ -84,7 +84,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 }
 
-                var used = Owner.Inventory[slot];
+                var used = Owner.Inventory.Items[slot];
                 if (used == null || used.Id != itemId)
                 {
                     return false;
@@ -132,7 +132,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 }
 
-                var used = Owner.Inventory[slot];
+                var used = Owner.Inventory.Items[slot];
                 if (used == null || used.Id != itemId)
                 {
                     return false;
@@ -178,13 +178,13 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 }
 
-                var usedWith = Owner.Inventory[usedWithSlot];
+                var usedWith = Owner.Inventory.Items[usedWithSlot];
                 if (usedWith == null || usedWith.Id != usedWithID)
                 {
                     return false;
                 }
 
-                var used = Owner.Inventory[usedSlot];
+                var used = Owner.Inventory.Items[usedSlot];
                 if (used == null || used.Id != usedID)
                 {
                     return false;
@@ -219,7 +219,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 }
 
-                var used = Owner.Inventory[slot];
+                var used = Owner.Inventory.Items[slot];
                 if (used == null || used.Id != itemId)
                 {
                     return false;
@@ -297,7 +297,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         ///     Refreshes the inventory.
         /// </summary>
         /// <param name="changedSlots">The changed slots.</param>
-        public void RefreshInventory(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(93, false, Owner.Inventory, changedSlots);
+        public void RefreshInventory(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(93, false, Owner.Inventory.Items, changedSlots);
 
         /// <summary>
         ///     Happens when interface is closed for character.

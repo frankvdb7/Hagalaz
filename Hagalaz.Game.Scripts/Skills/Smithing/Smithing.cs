@@ -178,15 +178,15 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
         {
             for (short i = 0; i < character.Inventory.Items.Capacity; i++)
             {
-                if (character.Inventory[i] == null)
+                if (character.Inventory.Items[i] == null)
                 {
                     continue;
                 }
 
-                var barId = GetBarDefinitionID(character.Inventory[i]?.Id);
+                var barId = GetBarDefinitionID(character.Inventory.Items[i]?.Id);
                 if (barId != -1)
                 {
-                    return Smith(character, character.Inventory[i]);
+                    return Smith(character, character.Inventory.Items[i]);
                 }
             }
 

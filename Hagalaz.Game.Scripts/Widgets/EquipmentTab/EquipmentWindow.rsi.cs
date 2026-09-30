@@ -92,7 +92,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
                     return false;
                 }
 
-                var item = Owner.Inventory[slot];
+                var item = Owner.Inventory.Items[slot];
                 if (item == null || item.Id != itemID)
                 {
                     return false;

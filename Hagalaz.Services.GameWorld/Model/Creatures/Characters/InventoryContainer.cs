@@ -23,27 +23,22 @@ public class InventoryContainer : IInventoryContainer,
     private readonly IMapRegionService _mapRegionService;
     private readonly IGroundItemBuilder _groundItemBuilder;
     private readonly IItemBuilder _itemBuilder;
-    private readonly ItemContainer _items;
-    public IItemContainer Items => _items;
-    public IItem? this[int index] => _items[index];
-    public int Capacity => _items.Capacity;
-    public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => _items.GetEnumerator();
-    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    public ItemContainer Items { get; }
 
     public InventoryContainer(ICharacter owner, int capacity, IMapRegionService mapRegionService,
         IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder)
     {
         (_owner, _mapRegionService, _groundItemBuilder, _itemBuilder) =
             (owner, mapRegionService, groundItemBuilder, itemBuilder);
-        _items = new ItemContainer(StorageType.Normal, capacity, OnUpdate);
+        Items = new ItemContainer(StorageType.Normal, capacity, OnUpdate);
     }
 
     public void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new InventoryChangedEvent(_owner, slots));
 
     public bool DropItem(IItem item)
     {
-        var slot = _items.GetInstanceSlot(item);
-        if (slot == -1 || _items.Remove(item, slot) < item.Count) return false;
+        var slot = Items.GetInstanceSlot(item);
+        if (slot == -1 || Items.Remove(item, slot) < item.Count) return false;
         var groundItem = _groundItemBuilder.Create().WithItem(item).WithLocation(_owner.Location).WithOwner(_owner).Build();
         _mapRegionService.AddGroundItem(groundItem);
         return true;
@@ -51,12 +46,12 @@ public class InventoryContainer : IInventoryContainer,
 
     public void Hydrate(IReadOnlyList<HydratedItemDto> inventory)
     {
-        ((IItemContainerStorageOwner)_items).Storage.RestoreItems(inventory.Select(entry => entry.ToStorageEntry(_itemBuilder)));
+        ((IItemContainerStorageOwner)Items).Storage.RestoreItems(inventory.Select(entry => entry.ToStorageEntry(_itemBuilder)));
     }
 
     public IReadOnlyList<HydratedItemDto> Dehydrate()
     {
-        var entries = ((IItemContainerStorageOwner)_items).Storage.Select((item, slot) => (item, slot)).Where(entry => entry.item != null).ToArray();
+        var entries = ((IItemContainerStorageOwner)Items).Storage.Select((item, slot) => (item, slot)).Where(entry => entry.item != null).ToArray();
         return entries.Select(entry => new HydratedItemDto(entry.item!.Id, entry.item.Count, entry.slot,
             entry.item.SerializeExtraData())).ToArray();
     }

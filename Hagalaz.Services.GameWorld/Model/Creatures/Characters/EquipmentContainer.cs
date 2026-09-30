@@ -19,7 +19,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// Class EquipmentContainer
     /// </summary>
-    public partial class EquipmentContainer : IEquipmentContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public partial class EquipmentContainer : IEquipmentContainer, IItemContainerStorageOwner, IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
@@ -29,7 +29,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IItemBuilder _itemBuilder;
         private readonly ItemContainer _items;
         private ItemContainerStorage Storage => ((IItemContainerStorageOwner)_items).Storage;
-        public IItemContainer Items => _items;
+        public IContainer<IItem?> Items => _items;
+        ItemContainerStorage IItemContainerStorageOwner.Storage => Storage;
+        void IItemContainerStorageOwner.PublishChanges(HashSet<int>? changedSlots) =>
+            ((IItemContainerStorageOwner)_items).PublishChanges(changedSlots);
         public int Capacity => _items.Capacity;
         public int FreeSlots => _items.FreeSlots;
         public IItem? this[int index] => _items[index];

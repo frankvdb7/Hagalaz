@@ -168,7 +168,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 _mapRegionService.AddGroundItem(bones);
             _character.Inventory.Items.AddRange(itemsOnDeath.keptItems);
             ((IItemContainerStorageOwner)_character.Inventory.Items).PublishChanges(null);
-            ((IItemContainerStorageOwner)_character.Equipment.Items).PublishChanges(null);
+            ((IItemContainerStorageOwner)_character.Equipment).PublishChanges(null);
         }
 
         /// <summary>

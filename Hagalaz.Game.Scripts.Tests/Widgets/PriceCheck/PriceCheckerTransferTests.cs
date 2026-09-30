@@ -133,7 +133,7 @@ public sealed class PriceCheckerTransferTests
         Assert.AreEqual(4, harness.Inventory.Items.TakenSlots);
         Assert.IsTrue(Enumerable.Range(0, harness.ProjectedInventory!.Capacity)
             .Where(slot => harness.ProjectedInventory[slot] != null)
-            .All(slot => !ReferenceEquals(harness.ProjectedInventory[slot], harness.Inventory[slot])));
+            .All(slot => !ReferenceEquals(harness.ProjectedInventory[slot], harness.Inventory.Items[slot])));
     }
 
     [TestMethod]
@@ -169,13 +169,13 @@ public sealed class PriceCheckerTransferTests
         harness.Script.OnClose();
 
         Assert.AreEqual(10, harness.Inventory.Items.GetCount(item));
-        Assert.AreSame(harness.Inventory, harness.ProjectedInventory);
+        Assert.AreSame(harness.Inventory.Items, harness.ProjectedInventory);
         Assert.IsNull(harness.Character.Widgets.IntInputHandler);
         Assert.IsNull(GetField(harness.Script, "_priceCheckInterface"));
         harness.Character.Received(1).UnregisterEventHandler<InventoryChangedEvent>(harness.InventoryChangeHandle!);
         harness.Widgets.Received(1).CloseWidget(harness.InventoryOverlay);
         Assert.IsNotNull(pendingInput);
-        harness.Configurations.Received().SendItems(93, false, harness.Inventory, null);
+        harness.Configurations.Received().SendItems(93, false, harness.Inventory.Items, null);
     }
 
     private static bool AddSelection(Harness harness, IItem item, int amount) =>

@@ -16,24 +16,24 @@ internal static class TradeExchange
 {
     private const int CoinsItemId = 995;
 
-    public static bool TryExchange(ICharacter first, IItemContainer firstOffer, ICharacter second,
-        IItemContainer secondOffer, IItemBuilder itemBuilder) =>
+    public static bool TryExchange(ICharacter first, ItemContainer firstOffer, ICharacter second,
+        ItemContainer secondOffer, IItemBuilder itemBuilder) =>
         TryCompleteTrade(first, firstOffer, second, secondOffer, itemBuilder);
 
-    public static bool TryRefund(ICharacter first, IItemContainer firstOffer, ICharacter second,
-        IItemContainer secondOffer, IItemBuilder itemBuilder) =>
+    public static bool TryRefund(ICharacter first, ItemContainer firstOffer, ICharacter second,
+        ItemContainer secondOffer, IItemBuilder itemBuilder) =>
         TryRefundTrade(first, firstOffer, second, secondOffer, itemBuilder);
 
-    internal static bool TryCompleteTrade(ICharacter first, IItemContainer firstOffer, ICharacter second,
-        IItemContainer secondOffer, IItemBuilder itemBuilder) =>
+    internal static bool TryCompleteTrade(ICharacter first, ItemContainer firstOffer, ICharacter second,
+        ItemContainer secondOffer, IItemBuilder itemBuilder) =>
         TryExchangeOffers(first, firstOffer, second, secondOffer, secondOffer, firstOffer, itemBuilder);
 
-    internal static bool TryRefundTrade(ICharacter first, IItemContainer firstOffer, ICharacter second,
-        IItemContainer secondOffer, IItemBuilder itemBuilder) =>
+    internal static bool TryRefundTrade(ICharacter first, ItemContainer firstOffer, ICharacter second,
+        ItemContainer secondOffer, IItemBuilder itemBuilder) =>
         TryExchangeOffers(first, firstOffer, second, secondOffer, firstOffer, secondOffer, itemBuilder);
 
-    private static bool TryExchangeOffers(ICharacter first, IItemContainer firstOffer, ICharacter second,
-        IItemContainer secondOffer, IItemContainer itemsForFirst, IItemContainer itemsForSecond,
+    private static bool TryExchangeOffers(ICharacter first, ItemContainer firstOffer, ICharacter second,
+        ItemContainer secondOffer, ItemContainer itemsForFirst, ItemContainer itemsForSecond,
         IItemBuilder itemBuilder)
     {
         var changes = CreateChanges();
@@ -48,7 +48,8 @@ internal static class TradeExchange
                 return false;
             }
 
-            var recipientSnapshots = CaptureSnapshots(first.Inventory.Items, first.MoneyPouch.Items, second.Inventory.Items, second.MoneyPouch.Items);
+            var recipientSnapshots = CaptureSnapshots(first.Inventory.Items, (IItemContainerStorageOwner)first.MoneyPouch,
+                second.Inventory.Items, (IItemContainerStorageOwner)second.MoneyPouch);
             if (!Receive(first, firstItems, changes, pouchMessages) || !Receive(second, secondItems, changes, pouchMessages))
             {
                 RestoreSnapshotsStorage(recipientSnapshots);
@@ -70,8 +71,8 @@ internal static class TradeExchange
     /// Moves untouched escrow to the existing recovery containers. This is used
     /// only when cancellation cannot return value during forced destruction.
     /// </summary>
-    internal static bool TryConserveEscrow(ICharacter first, IItemContainer firstOffer, ICharacter second,
-        IItemContainer secondOffer)
+    internal static bool TryConserveEscrow(ICharacter first, ItemContainer firstOffer, ICharacter second,
+        ItemContainer secondOffer)
     {
         var containers = new List<ItemContainerStorage>();
         AddContainer(containers, firstOffer);
@@ -138,7 +139,7 @@ internal static class TradeExchange
         return true;
     }
 
-    internal static bool TryOfferMoneyFromPouch(ICharacter character, IItemContainer offer, IItem coins)
+    internal static bool TryOfferMoneyFromPouch(ICharacter character, ItemContainer offer, IItem coins)
     {
         if (coins.Count <= 0)
         {
@@ -155,7 +156,7 @@ internal static class TradeExchange
                 return false;
             }
 
-            var snapshots = CaptureSnapshots(offer, character.Inventory.Items, character.MoneyPouch.Items);
+            var snapshots = CaptureSnapshots(offer, character.Inventory.Items, (IItemContainerStorageOwner)character.MoneyPouch);
             if (!GetStorage(offer).TryAddRange([coins], out var offerSlots))
             {
                 return false;
@@ -178,7 +179,7 @@ internal static class TradeExchange
         return FinishMoneyPouchTransfer(changes, pouchMessages, restoreSnapshots);
     }
 
-    internal static bool TryReturnMoneyToPouch(ICharacter character, IItemContainer offer, IItem coins,
+    internal static bool TryReturnMoneyToPouch(ICharacter character, ItemContainer offer, IItem coins,
         int preferredSlot)
     {
         var changes = CreateChanges();
@@ -186,7 +187,7 @@ internal static class TradeExchange
         List<ContainerSnapshot>? restoreSnapshots = null;
         using (AcquireLocks(GetContainers(offer, offer, character, character)))
         {
-            var snapshots = CaptureSnapshots(offer, character.Inventory.Items, character.MoneyPouch.Items);
+            var snapshots = CaptureSnapshots(offer, character.Inventory.Items, (IItemContainerStorageOwner)character.MoneyPouch);
             if (!GetStorage(offer).TryRemoveExact(coins, preferredSlot, out var offerSlots))
             {
                 return false;
@@ -209,7 +210,7 @@ internal static class TradeExchange
         return FinishMoneyPouchTransfer(changes, pouchMessages, restoreSnapshots);
     }
 
-    private static bool FinishMoneyPouchTransfer(Dictionary<IItemContainer, HashSet<int>> changes,
+    private static bool FinishMoneyPouchTransfer(Dictionary<IItemContainerStorageOwner, HashSet<int>> changes,
         IEnumerable<(IMoneyPouchContainer Pouch, int ChangeCount)> pouchMessages,
         List<ContainerSnapshot>? restoreSnapshots)
     {
@@ -225,7 +226,7 @@ internal static class TradeExchange
     }
 
     private static bool Receive(ICharacter character, IReadOnlyList<IItem> items,
-        Dictionary<IItemContainer, HashSet<int>> changes,
+        Dictionary<IItemContainerStorageOwner, HashSet<int>> changes,
         ICollection<(IMoneyPouchContainer Pouch, int ChangeCount)> pouchMessages)
     {
         var nonCoinItems = items.Where(item => item.Id != CoinsItemId).ToArray();
@@ -280,7 +281,7 @@ internal static class TradeExchange
         return character.Inventory.Items.HasSpaceForRange(recipientItems);
     }
 
-    private static IItemContainer? GetRecoveryContainer(ICharacter character, IReadOnlyList<IItem> items)
+    private static ItemContainer? GetRecoveryContainer(ICharacter character, IReadOnlyList<IItem> items)
     {
         if (items.Count == 0)
         {
@@ -295,10 +296,10 @@ internal static class TradeExchange
         return character.Bank != null && character.Bank.Items.HasSpaceForRange(items) ? character.Bank.Items : null;
     }
 
-    private static IItem[] SnapshotItems(IItemContainer container) =>
+    private static IItem[] SnapshotItems(ItemContainer container) =>
         container.OfType<IItem>().Select(item => item.Clone()).ToArray();
 
-    private static List<ContainerSnapshot> CaptureSnapshots(params IItemContainer?[] containers) =>
+    private static List<ContainerSnapshot> CaptureSnapshots(params IItemContainerStorageOwner?[] containers) =>
         containers
             .OfType<IItemContainerStorageOwner>()
             .Select(provider => provider.Storage)
@@ -312,9 +313,9 @@ internal static class TradeExchange
                 }
 
                 var counts = items.Select(item => item?.Count ?? 0).ToArray();
-                var container = containers.OfType<IItemContainer>().First(value =>
-                    value is IItemContainerStorageOwner p && ReferenceEquals(p.Storage, storage));
-                return new ContainerSnapshot(container, storage, items, counts);
+                var owner = containers.OfType<IItemContainerStorageOwner>().First(value =>
+                    ReferenceEquals(value.Storage, storage));
+                return new ContainerSnapshot(owner, storage, items, counts);
             })
             .ToList();
 
@@ -338,15 +339,15 @@ internal static class TradeExchange
     {
         foreach (var snapshot in snapshots)
         {
-            ((IItemContainerStorageOwner)snapshot.Container).PublishChanges(null);
+            snapshot.Owner.PublishChanges(null);
         }
     }
 
-    private static Dictionary<IItemContainer, HashSet<int>> CreateChanges() =>
+    private static Dictionary<IItemContainerStorageOwner, HashSet<int>> CreateChanges() =>
         new(ReferenceEqualityComparer.Instance);
 
-    private static void RecordChangedSlots(Dictionary<IItemContainer, HashSet<int>> changes,
-        IItemContainer container, IEnumerable<int> slots)
+    private static void RecordChangedSlots(Dictionary<IItemContainerStorageOwner, HashSet<int>> changes,
+        IItemContainerStorageOwner container, IEnumerable<int> slots)
     {
         if (!changes.TryGetValue(container, out var changedSlots))
         {
@@ -357,13 +358,13 @@ internal static class TradeExchange
         changedSlots.UnionWith(slots);
     }
 
-    private static void PublishChanges(Dictionary<IItemContainer, HashSet<int>> changes)
+    private static void PublishChanges(Dictionary<IItemContainerStorageOwner, HashSet<int>> changes)
     {
         foreach (var (container, slots) in changes)
         {
             if (slots.Count > 0)
             {
-                ((IItemContainerStorageOwner)container).PublishChanges(slots);
+                container.PublishChanges(slots);
             }
         }
     }
@@ -376,7 +377,7 @@ internal static class TradeExchange
         }
     }
 
-    private static HashSet<int> GetOccupiedSlots(IItemContainer container)
+    private static HashSet<int> GetOccupiedSlots(ItemContainer container)
     {
         var slots = new HashSet<int>();
         for (var slot = 0; slot < container.Capacity; slot++)
@@ -390,7 +391,7 @@ internal static class TradeExchange
         return slots;
     }
 
-    private static List<ItemContainerStorage> GetContainers(IItemContainer firstOffer, IItemContainer secondOffer,
+    private static List<ItemContainerStorage> GetContainers(ItemContainer firstOffer, ItemContainer secondOffer,
         ICharacter first, ICharacter second)
     {
         var containers = new List<ItemContainerStorage>();
@@ -398,27 +399,25 @@ internal static class TradeExchange
         AddContainer(containers, secondOffer);
         AddContainer(containers, first.Inventory.Items);
         AddContainer(containers, second.Inventory.Items);
-        AddContainer(containers, first.MoneyPouch.Items);
-        AddContainer(containers, second.MoneyPouch.Items);
+        AddContainer(containers, (IItemContainerStorageOwner)first.MoneyPouch);
+        AddContainer(containers, (IItemContainerStorageOwner)second.MoneyPouch);
         return containers;
     }
 
-    private static void AddContainer(List<ItemContainerStorage> containers, IItemContainer? container)
+    private static void AddContainer(List<ItemContainerStorage> containers, IItemContainerStorageOwner? container)
     {
-        if (container is IItemContainerStorageOwner provider &&
-            !containers.Any(existing => ReferenceEquals(existing, provider.Storage)))
+        if (container != null && !containers.Any(existing => ReferenceEquals(existing, container.Storage)))
         {
-            containers.Add(provider.Storage);
+            containers.Add(container.Storage);
         }
     }
 
-    private static ItemContainerStorage GetStorage(IItemContainer container) =>
-        ((IItemContainerStorageOwner)container).Storage;
+    private static ItemContainerStorage GetStorage(IItemContainerStorageOwner container) => container.Storage;
 
     private static LockScope AcquireLocks(IEnumerable<ItemContainerStorage> containers) =>
         new(containers.OrderBy(storage => storage.MutationOrder));
 
-    private sealed record ContainerSnapshot(IItemContainer Container, ItemContainerStorage Storage, IItem?[] Items, int[] Counts);
+    private sealed record ContainerSnapshot(IItemContainerStorageOwner Owner, ItemContainerStorage Storage, IItem?[] Items, int[] Counts);
 
     private sealed class LockScope : IDisposable
     {

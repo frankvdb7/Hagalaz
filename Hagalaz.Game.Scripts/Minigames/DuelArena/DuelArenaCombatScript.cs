@@ -143,7 +143,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     //victoryInterface.SetOptions(14, 0, 27, (0x2 | 0x400)); // allow clicking of 2 right click options + auto examine option ( last ))
                     //victor.Configurations.SendCS2Script(158, new object[] { (1365 << 16 | 14), 130, 3, 3, 1, -1, "Value", "", "", "", "" });
 
-                    victor.Configurations.SendItems(136, false, victor == Character ? TargetContainer : SelfContainer);
+                    victor.Configurations.SendItems(136, false, (victor == Character ? TargetContainer : SelfContainer)!.Items);
                 }
 
                 if (!loserDestroyed)
@@ -154,7 +154,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         // loseInterface.SetOptions(14, 0, 27, (0x2 | 0x400)); // allow clicking of 2 right click options + auto examine option ( last ))
                         //loser.Configurations.SendCS2Script(158, new object[] { (1365 << 16 | 14), 130, 3, 3, 1, -1, "Value", "", "", "", "" });
 
-                        loser.Configurations.SendItems(136, false, victor == Character ? TargetContainer : SelfContainer);
+                        loser.Configurations.SendItems(136, false, (victor == Character ? TargetContainer : SelfContainer)!.Items);
                     }
                 }
 
@@ -176,8 +176,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     victor.MoneyPouch.Add(removedCoins);
                 }
 
-                victor.Inventory.Items.AddRange(SelfContainer);
-                victor.Inventory.Items.AddRange(TargetContainer);
+                victor.Inventory.Items.AddRange(SelfContainer.Items);
+                victor.Inventory.Items.AddRange(TargetContainer.Items);
             }
         }
 

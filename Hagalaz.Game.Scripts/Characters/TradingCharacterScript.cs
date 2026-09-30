@@ -481,7 +481,7 @@ namespace Hagalaz.Game.Scripts.Characters
                         return false;
                     }
 
-                    var item = Character.Inventory[itemSlot];
+                    var item = Character.Inventory.Items[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -591,7 +591,7 @@ namespace Hagalaz.Game.Scripts.Characters
                         return false;
                     }
 
-                    var item = Target.Inventory[itemSlot];
+                    var item = Target.Inventory.Items[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -1389,10 +1389,10 @@ namespace Hagalaz.Game.Scripts.Characters
                 return;
             }
 
-            Character.Configurations.SendItems(90, false, SelfContainer, SelfContainer.Updates);
-            Character.Configurations.SendItems(90, true, TargetContainer, TargetContainer.Updates);
-            Target.Configurations.SendItems(90, false, TargetContainer, TargetContainer.Updates);
-            Target.Configurations.SendItems(90, true, SelfContainer, SelfContainer.Updates);
+            Character.Configurations.SendItems(90, false, SelfContainer.Items, SelfContainer.Updates);
+            Character.Configurations.SendItems(90, true, TargetContainer.Items, TargetContainer.Updates);
+            Target.Configurations.SendItems(90, false, TargetContainer.Items, TargetContainer.Updates);
+            Target.Configurations.SendItems(90, true, SelfContainer.Items, SelfContainer.Updates);
 
             var selfTotal = SelfContainer.CalculateTotalValue();
             var targetTotal = TargetContainer.CalculateTotalValue();
@@ -1856,13 +1856,9 @@ namespace Hagalaz.Game.Scripts.Characters
         /// <summary>
         ///     Container for holding items in trade offer interfaces.
         /// </summary>
-        public class TradeContainer : IContainer<IItem?>
+        public class TradeContainer
         {
-            public IItemContainer Items { get; }
-            public IItem? this[int index] => Items[index];
-            public int Capacity => Items.Capacity;
-            public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => Items.GetEnumerator();
-            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+            public ItemContainer Items { get; }
             /// <summary>
             ///     Contains last slots update.
             /// </summary>
@@ -1893,7 +1889,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 if (slots == null)
                 {
                     Updates.Clear();
-                    for (var i = 0; i < Capacity; i++)
+                    for (var i = 0; i < Items.Capacity; i++)
                     {
                         Updates.Add(i);
                     }

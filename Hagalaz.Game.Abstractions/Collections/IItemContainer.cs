@@ -16,7 +16,7 @@ public interface IItemContainer : IContainer<IItem?>
 
     bool Add(int slot, IItem item);
 
-    void AddAndRemoveFrom(IItemContainer source);
+    void AddAndRemoveFrom(ItemContainer source);
 
     IItem? GetById(int id);
 

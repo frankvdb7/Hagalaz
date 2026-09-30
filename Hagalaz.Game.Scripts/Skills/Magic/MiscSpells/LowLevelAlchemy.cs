@@ -54,7 +54,7 @@ namespace Hagalaz.Game.Scripts.Skills.Magic.MiscSpells
             }
 
             var coins = _itemBuilder.Create().WithId(995).WithCount(item.ItemDefinition.LowAlchemyValue).Build();
-            if (!_caster.Inventory.Items.HasSpaceFor(coins) && !_caster.MoneyPouch.Items.HasSpaceFor(coins))
+            if (!_caster.Inventory.Items.HasSpaceFor(coins) && !_caster.MoneyPouch.HasSpaceForCoins(coins.Count))
             {
                 _caster.SendChatMessage(GameStrings.InventoryFull);
                 return false;

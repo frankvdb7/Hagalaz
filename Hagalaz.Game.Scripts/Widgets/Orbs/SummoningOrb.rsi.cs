@@ -406,7 +406,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
                     return false;
                 }
 
-                var item = Owner.Inventory[itemUsedOnSlot];
+                var item = Owner.Inventory.Items[itemUsedOnSlot];
                 if (item == null || item.Id != itemUsedOnId)
                 {
                     return false;

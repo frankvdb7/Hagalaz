@@ -33,9 +33,9 @@ public sealed class CharacterItemTransferTests
         Assert.IsTrue(bank.DepositFromInventory(item, 3, out var deposited));
 
         Assert.AreEqual(3, deposited!.Count);
-        Assert.AreEqual(2, inventory[0]!.Count);
+        Assert.AreEqual(2, inventory.Items[0]!.Count);
         Assert.AreEqual(3, bank.Items.GetCountById(101));
-        CollectionAssert.AreEqual(new long[] { 11, 22 }, bank[0]!.ExtraData);
+        CollectionAssert.AreEqual(new long[] { 11, 22 }, bank.Items[0]!.ExtraData);
     }
 
     [TestMethod]
@@ -55,7 +55,7 @@ public sealed class CharacterItemTransferTests
         Assert.AreEqual(2, deposited.Count);
         Assert.AreEqual(2, inventory.Items.GetCountById(201));
         Assert.AreEqual(2, bank.Items.GetCountById(101));
-        CollectionAssert.AreEqual(new long[] { 7, 9 }, bank[0]!.ExtraData);
+        CollectionAssert.AreEqual(new long[] { 7, 9 }, bank.Items[0]!.ExtraData);
     }
 
     [TestMethod]
@@ -75,7 +75,7 @@ public sealed class CharacterItemTransferTests
         Assert.AreEqual(201, withdrawn!.Id);
         Assert.AreEqual(3, inventory.Items.GetCountById(201));
         Assert.AreEqual(2, bank.Items.GetCountById(101));
-        CollectionAssert.AreEqual(new long[] { 11, 22 }, inventory[0]!.ExtraData);
+        CollectionAssert.AreEqual(new long[] { 11, 22 }, inventory.Items[0]!.ExtraData);
     }
 
     [TestMethod]
@@ -114,7 +114,7 @@ public sealed class CharacterItemTransferTests
         item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ =>
         {
             Assert.IsNull(equipment[EquipmentSlot.Hat]);
-            Assert.AreSame(item, bank[0]);
+            Assert.AreSame(item, bank.Items[0]);
             callbackSawCommittedStorage = true;
         });
         var eventManager = Substitute.For<IEventManager>();
@@ -189,7 +189,7 @@ public sealed class CharacterItemTransferTests
 
         Assert.AreEqual(2, inventory.Items.GetCountById(101));
         Assert.AreEqual(3, stock.Items.GetCountById(101));
-        CollectionAssert.AreEqual(new long[] { 11, 22 }, stock[0]!.ExtraData);
+        CollectionAssert.AreEqual(new long[] { 11, 22 }, stock.Items[0]!.ExtraData);
         Assert.AreEqual(6, moneyPouch.Count);
     }
 
@@ -208,7 +208,7 @@ public sealed class CharacterItemTransferTests
 
         Assert.AreEqual(0, inventory.Items.GetCountById(201));
         Assert.AreEqual(5, stock.Items.GetCountById(101));
-        CollectionAssert.AreEqual(new long[] { 11, 22 }, stock[0]!.ExtraData);
+        CollectionAssert.AreEqual(new long[] { 11, 22 }, stock.Items[0]!.ExtraData);
         Assert.AreEqual(10, moneyPouch.Count);
     }
 
@@ -226,7 +226,7 @@ public sealed class CharacterItemTransferTests
         Assert.AreEqual(2, inventory.Items.GetCountById(101));
         Assert.AreEqual(3, familiar.Items.GetCountById(101));
 
-        var familiarItem = familiar[0]!;
+        var familiarItem = familiar.Items[0]!;
         Assert.IsTrue(familiar.WithdrawFromFamiliarInventory(familiarItem, 2));
         Assert.AreEqual(4, inventory.Items.GetCountById(101));
         Assert.AreEqual(1, familiar.Items.GetCountById(101));
@@ -292,7 +292,7 @@ public sealed class CharacterItemTransferTests
 
         Assert.IsTrue(callbackSawCommittedStorage());
         Assert.IsTrue(publicationSawEquipmentEffect);
-        Assert.IsNull(inventory[0]);
+        Assert.IsNull(inventory.Items[0]);
         Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is InventoryChangedEvent));
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
@@ -334,7 +334,7 @@ public sealed class CharacterItemTransferTests
         item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ =>
         {
             Assert.IsNull(equipment[EquipmentSlot.Hat]);
-            Assert.AreSame(item, inventory[0]);
+            Assert.AreSame(item, inventory.Items[0]);
             callbackSawCommittedStorage = true;
         });
         var eventManager = Substitute.For<IEventManager>();
