@@ -6,7 +6,7 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Collections;
 
 /// <summary>Implements the generic item-container contract over composed storage.</summary>
-public sealed class ItemContainer : ITradeItemContainer, IItemContainerStorageOwner
+public sealed class ItemContainer : IItemContainer, IItemContainerStorageOwner
 {
     private readonly ItemContainerStorage _storage;
     private readonly Action<HashSet<int>?>? _publishChanges;
@@ -60,6 +60,13 @@ public sealed class ItemContainer : ITradeItemContainer, IItemContainerStorageOw
         return removed;
     }
 
+    public bool TryRemoveExact(IItem item, int preferredSlot = -1)
+    {
+        if (!_storage.TryRemoveExact(item, preferredSlot, out var changedSlots)) return false;
+        PublishChanges(changedSlots);
+        return true;
+    }
+
     public void Replace(int slot, IItem item)
     {
         _storage.Replace(slot, item);
@@ -103,26 +110,6 @@ public sealed class ItemContainer : ITradeItemContainer, IItemContainerStorageOw
     {
         if (_storage.Clear() && update) PublishChanges(null);
     }
-
-    public bool AddRangeForTrade(IEnumerable<IItem?> items)
-    {
-        if (!TryAddRangeForTradeStorage(items, out var changedSlots)) return false;
-        PublishChanges(changedSlots);
-        return true;
-    }
-
-    public bool TryAddRangeForTradeStorage(IEnumerable<IItem?> items, out HashSet<int> changedSlots) =>
-        _storage.TryAddRange(items, out changedSlots);
-
-    public bool RemoveForTrade(IItem item, int preferredSlot = -1)
-    {
-        if (!TryRemoveForTradeStorage(item, preferredSlot, out var changedSlots)) return false;
-        PublishChanges(changedSlots);
-        return true;
-    }
-
-    public bool TryRemoveForTradeStorage(IItem item, int preferredSlot, out HashSet<int> changedSlots) =>
-        _storage.TryRemoveExact(item, preferredSlot, out changedSlots);
 
     void IItemContainerStorageOwner.PublishChanges(HashSet<int>? changedSlots) => PublishChanges(changedSlots);
 

@@ -107,7 +107,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             public int Capacity => Items.Capacity;
             public IEnumerator<IItem?> GetEnumerator() => Items.GetEnumerator();
             IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-            public bool RemoveExact(IItem item) => Items.TryRemoveForTradeStorage(item, -1, out _);
+            public bool RemoveExact(IItem item) => Items.TryRemoveExact(item);
         }
         /// <summary>
         ///     Contains inventory interface.

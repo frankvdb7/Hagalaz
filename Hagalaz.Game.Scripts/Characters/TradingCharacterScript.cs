@@ -1858,7 +1858,7 @@ namespace Hagalaz.Game.Scripts.Characters
         /// </summary>
         public class TradeContainer : IContainer<IItem?>
         {
-            public ITradeItemContainer Items { get; }
+            public IItemContainer Items { get; }
             public IItem? this[int index] => Items[index];
             public int Capacity => Items.Capacity;
             public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => Items.GetEnumerator();

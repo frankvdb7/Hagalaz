@@ -23,7 +23,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
         private readonly ItemContainer _items;
-        public ITradeItemContainer Items => _items;
+        public IItemContainer Items => _items;
         public IItem? this[int index] => _items[index];
         public int Capacity => _items.Capacity;
         public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => _items.GetEnumerator();

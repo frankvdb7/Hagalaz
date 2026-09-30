@@ -50,31 +50,26 @@
         int Remove(int count);
 
         /// <summary>
-        /// Adds coins using the pouch's normal overflow rules as one checked trade operation.
+        /// Adds exactly the requested coins using normal pouch overflow rules.
         /// </summary>
-        bool AddForTrade(int count);
-
-        /// <summary>
-        /// Removes coins using the pouch's normal underflow rules as one checked trade operation.
-        /// </summary>
-        bool RemoveForTrade(int count);
+        bool TryAddExact(int count);
 
         /// <summary>
         /// Adds coins to the pouch and, if needed, Inventory without publishing changes.
         /// </summary>
-        bool TryAddForTradeStorage(int count, out int pouchChangeCount,
+        bool TryAddExactStorage(int count, out int pouchChangeCount,
             out System.Collections.Generic.HashSet<int> inventoryChangedSlots);
 
         /// <summary>
         /// Removes coins from the pouch and, if needed, Inventory without publishing changes.
         /// </summary>
-        bool TryRemoveForTradeStorage(int count, out int pouchChangeCount,
+        bool TryRemoveExactStorage(int count, out int pouchChangeCount,
             out System.Collections.Generic.HashSet<int> inventoryChangedSlots);
 
         /// <summary>
-        /// Publishes a completed checked pouch change and its player message.
+        /// Publishes a committed pouch change and its player message.
         /// </summary>
-        void PublishTradeChanges(int pouchChangeCount);
+        void PublishChanges(int pouchChangeCount);
 
         /// <summary>
         /// Removes exactly the requested number of coins from the pouch and inventory, if available.

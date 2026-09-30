@@ -16,24 +16,24 @@ internal static class TradeExchange
 {
     private const int CoinsItemId = 995;
 
-    public static bool TryExchange(ICharacter first, ITradeItemContainer firstOffer, ICharacter second,
-        ITradeItemContainer secondOffer, IItemBuilder itemBuilder) =>
+    public static bool TryExchange(ICharacter first, IItemContainer firstOffer, ICharacter second,
+        IItemContainer secondOffer, IItemBuilder itemBuilder) =>
         TryCompleteTrade(first, firstOffer, second, secondOffer, itemBuilder);
 
-    public static bool TryRefund(ICharacter first, ITradeItemContainer firstOffer, ICharacter second,
-        ITradeItemContainer secondOffer, IItemBuilder itemBuilder) =>
+    public static bool TryRefund(ICharacter first, IItemContainer firstOffer, ICharacter second,
+        IItemContainer secondOffer, IItemBuilder itemBuilder) =>
         TryRefundTrade(first, firstOffer, second, secondOffer, itemBuilder);
 
-    internal static bool TryCompleteTrade(ICharacter first, ITradeItemContainer firstOffer, ICharacter second,
-        ITradeItemContainer secondOffer, IItemBuilder itemBuilder) =>
+    internal static bool TryCompleteTrade(ICharacter first, IItemContainer firstOffer, ICharacter second,
+        IItemContainer secondOffer, IItemBuilder itemBuilder) =>
         TryExchangeOffers(first, firstOffer, second, secondOffer, secondOffer, firstOffer, itemBuilder);
 
-    internal static bool TryRefundTrade(ICharacter first, ITradeItemContainer firstOffer, ICharacter second,
-        ITradeItemContainer secondOffer, IItemBuilder itemBuilder) =>
+    internal static bool TryRefundTrade(ICharacter first, IItemContainer firstOffer, ICharacter second,
+        IItemContainer secondOffer, IItemBuilder itemBuilder) =>
         TryExchangeOffers(first, firstOffer, second, secondOffer, firstOffer, secondOffer, itemBuilder);
 
-    private static bool TryExchangeOffers(ICharacter first, ITradeItemContainer firstOffer, ICharacter second,
-        ITradeItemContainer secondOffer, ITradeItemContainer itemsForFirst, ITradeItemContainer itemsForSecond,
+    private static bool TryExchangeOffers(ICharacter first, IItemContainer firstOffer, ICharacter second,
+        IItemContainer secondOffer, IItemContainer itemsForFirst, IItemContainer itemsForSecond,
         IItemBuilder itemBuilder)
     {
         var changes = CreateChanges();
@@ -70,8 +70,8 @@ internal static class TradeExchange
     /// Moves untouched escrow to the existing recovery containers. This is used
     /// only when cancellation cannot return value during forced destruction.
     /// </summary>
-    internal static bool TryConserveEscrow(ICharacter first, ITradeItemContainer firstOffer, ICharacter second,
-        ITradeItemContainer secondOffer)
+    internal static bool TryConserveEscrow(ICharacter first, IItemContainer firstOffer, ICharacter second,
+        IItemContainer secondOffer)
     {
         var containers = new List<ItemContainerStorage>();
         AddContainer(containers, firstOffer);
@@ -99,7 +99,7 @@ internal static class TradeExchange
             HashSet<int> secondChangedSlots = [];
             var failed = false;
             if (firstDestination != null && firstItems.Length > 0 &&
-                !firstDestination.TryAddRangeForTradeStorage(firstItems, out firstChangedSlots))
+                !GetStorage(firstDestination).TryAddRange(firstItems, out firstChangedSlots))
             {
                 RestoreSnapshotsStorage(conservationSnapshots);
                 restoreSnapshots = conservationSnapshots;
@@ -107,7 +107,7 @@ internal static class TradeExchange
             }
 
             if (!failed && secondDestination != null && secondItems.Length > 0 &&
-                !secondDestination.TryAddRangeForTradeStorage(secondItems, out secondChangedSlots))
+                !GetStorage(secondDestination).TryAddRange(secondItems, out secondChangedSlots))
             {
                 RestoreSnapshotsStorage(conservationSnapshots);
                 restoreSnapshots = conservationSnapshots;
@@ -138,7 +138,7 @@ internal static class TradeExchange
         return true;
     }
 
-    internal static bool TryOfferMoneyFromPouch(ICharacter character, ITradeItemContainer offer, IItem coins)
+    internal static bool TryOfferMoneyFromPouch(ICharacter character, IItemContainer offer, IItem coins)
     {
         if (coins.Count <= 0)
         {
@@ -156,12 +156,12 @@ internal static class TradeExchange
             }
 
             var snapshots = CaptureSnapshots(offer, character.Inventory.Items, character.MoneyPouch.Items);
-            if (!offer.TryAddRangeForTradeStorage([coins], out var offerSlots))
+            if (!GetStorage(offer).TryAddRange([coins], out var offerSlots))
             {
                 return false;
             }
 
-            if (!character.MoneyPouch.TryRemoveForTradeStorage(coins.Count, out var pouchChangeCount,
+            if (!character.MoneyPouch.TryRemoveExactStorage(coins.Count, out var pouchChangeCount,
                     out var inventorySlots))
             {
                 RestoreSnapshotsStorage(snapshots);
@@ -178,7 +178,7 @@ internal static class TradeExchange
         return FinishMoneyPouchTransfer(changes, pouchMessages, restoreSnapshots);
     }
 
-    internal static bool TryReturnMoneyToPouch(ICharacter character, ITradeItemContainer offer, IItem coins,
+    internal static bool TryReturnMoneyToPouch(ICharacter character, IItemContainer offer, IItem coins,
         int preferredSlot)
     {
         var changes = CreateChanges();
@@ -187,12 +187,12 @@ internal static class TradeExchange
         using (AcquireLocks(GetContainers(offer, offer, character, character)))
         {
             var snapshots = CaptureSnapshots(offer, character.Inventory.Items, character.MoneyPouch.Items);
-            if (!offer.TryRemoveForTradeStorage(coins, preferredSlot, out var offerSlots))
+            if (!GetStorage(offer).TryRemoveExact(coins, preferredSlot, out var offerSlots))
             {
                 return false;
             }
 
-            if (!character.MoneyPouch.TryAddForTradeStorage(coins.Count, out var pouchChangeCount,
+            if (!character.MoneyPouch.TryAddExactStorage(coins.Count, out var pouchChangeCount,
                     out var inventorySlots))
             {
                 RestoreSnapshotsStorage(snapshots);
@@ -231,7 +231,7 @@ internal static class TradeExchange
         var nonCoinItems = items.Where(item => item.Id != CoinsItemId).ToArray();
         if (nonCoinItems.Length > 0)
         {
-            if (!character.Inventory.Items.TryAddRangeForTradeStorage(nonCoinItems, out var inventorySlots))
+            if (!GetStorage(character.Inventory.Items).TryAddRange(nonCoinItems, out var inventorySlots))
             {
                 return false;
             }
@@ -245,7 +245,7 @@ internal static class TradeExchange
             return true;
         }
 
-        if (coinCount > int.MaxValue || !character.MoneyPouch.TryAddForTradeStorage((int)coinCount,
+        if (coinCount > int.MaxValue || !character.MoneyPouch.TryAddExactStorage((int)coinCount,
                 out var pouchChangeCount, out var coinInventorySlots))
         {
             return false;
@@ -280,7 +280,7 @@ internal static class TradeExchange
         return character.Inventory.Items.HasSpaceForRange(recipientItems);
     }
 
-    private static ITradeItemContainer? GetRecoveryContainer(ICharacter character, IReadOnlyList<IItem> items)
+    private static IItemContainer? GetRecoveryContainer(ICharacter character, IReadOnlyList<IItem> items)
     {
         if (items.Count == 0)
         {
@@ -372,7 +372,7 @@ internal static class TradeExchange
     {
         foreach (var (pouch, changeCount) in changes)
         {
-            pouch.PublishTradeChanges(changeCount);
+            pouch.PublishChanges(changeCount);
         }
     }
 
@@ -390,7 +390,7 @@ internal static class TradeExchange
         return slots;
     }
 
-    private static List<ItemContainerStorage> GetContainers(ITradeItemContainer firstOffer, ITradeItemContainer secondOffer,
+    private static List<ItemContainerStorage> GetContainers(IItemContainer firstOffer, IItemContainer secondOffer,
         ICharacter first, ICharacter second)
     {
         var containers = new List<ItemContainerStorage>();
@@ -411,6 +411,9 @@ internal static class TradeExchange
             containers.Add(provider.Storage);
         }
     }
+
+    private static ItemContainerStorage GetStorage(IItemContainer container) =>
+        ((IItemContainerStorageOwner)container).Storage;
 
     private static LockScope AcquireLocks(IEnumerable<ItemContainerStorage> containers) =>
         new(containers.OrderBy(storage => storage.MutationOrder));

@@ -22,6 +22,8 @@ public interface IItemContainer : IContainer<IItem?>
 
     int Remove(IItem item, int preferredSlot = -1, bool update = true);
 
+    bool TryRemoveExact(IItem item, int preferredSlot = -1);
+
     void Replace(int slot, IItem item);
 
     void Swap(int fromSlot, int toSlot);

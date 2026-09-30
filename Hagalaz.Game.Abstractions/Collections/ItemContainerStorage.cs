@@ -405,7 +405,7 @@ namespace Hagalaz.Game.Abstractions.Collections
 
         /// <summary>
         /// Removes a complete requested quantity using the exact-removal behavior
-        /// used by checked trade removal and cross-container transfer.
+        /// used by exact removal and cross-container transfer.
         /// </summary>
         public bool TryRemoveExact(IItem item, int preferredSlot, out HashSet<int> slotsToUpdate)
         {
@@ -415,7 +415,7 @@ namespace Hagalaz.Game.Abstractions.Collections
 
         /// <summary>
         /// Removes a complete requested quantity using the exact-removal behavior
-        /// used by checked trade removal and cross-container transfer.
+        /// used by exact removal and cross-container transfer.
         /// </summary>
         public bool TryRemoveExact(IItem item, int count, int preferredSlot, out HashSet<int> slotsToUpdate)
         {

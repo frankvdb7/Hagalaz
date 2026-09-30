@@ -89,19 +89,19 @@ public sealed class MoneyPouchContainerTests
     }
 
     [TestMethod]
-    public void AddForTrade_PublishesOnlyAfterPouchAndInventoryReachFinalState()
+    public void TryAddExact_PublishesOnlyAfterPouchAndInventoryReachFinalState()
     {
         var scenario = CreateScenario(pouchCoins: int.MaxValue - 1, inventoryCoins: 0);
         AssertTradeStoragePublishesAfterFinalState(scenario, 2, int.MaxValue - 1, int.MaxValue, 1,
-            static (pouch, count) => pouch.AddForTrade(count));
+            static (pouch, count) => pouch.TryAddExact(count));
     }
 
     [TestMethod]
-    public void RemoveForTrade_PublishesOnlyAfterPouchAndInventoryReachFinalState()
+    public void TryRemoveExact_PublishesOnlyAfterPouchAndInventoryReachFinalState()
     {
         var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
         AssertTradeStoragePublishesAfterFinalState(scenario, 12, 10, 0, 3,
-            static (pouch, count) => pouch.RemoveForTrade(count));
+            static (pouch, count) => pouch.TryRemoveExact(count));
     }
 
     private static void AssertTradeStoragePublishesAfterFinalState(MoneyPouchScenario scenario, int movedCoins,

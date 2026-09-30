@@ -9,7 +9,7 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// </summary>
     public interface IBankContainer : IContainer<IItem?>
     {
-        ITradeItemContainer Items { get; }
+        IItemContainer Items { get; }
 
         /// <summary>
         /// Deposits the contents of the player's money pouch into the bank.

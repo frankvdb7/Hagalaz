@@ -172,11 +172,11 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
-    public void ItemContainer_AddRangeForTrade_UsesCheckedStorageOperation()
+    public void ItemContainer_AddRange_UsesGenericStorageOperation()
     {
         var container = new ItemContainer(StorageType.Normal, 4);
 
-        var added = container.AddRangeForTrade([new TestItem(995, 10, stackable: true)]);
+        var added = container.AddRange([new TestItem(995, 10, stackable: true)]);
 
         added.Should().BeTrue();
         container.GetCountById(995).Should().Be(10);
@@ -672,14 +672,14 @@ public sealed class TradeExchangeTests
             var overflow = count - pouchCount;
             return overflow == 0 || _overflowInventory.Items.Add(new TestItem(995, overflow, stackable: true));
         }
-        public bool AddForTrade(int count)
+        public bool TryAddExact(int count)
         {
-            if (!TryAddForTradeStorage(count, out var change, out var slots)) return false;
+            if (!TryAddExactStorage(count, out var change, out var slots)) return false;
             if (slots.Count > 0) ((IItemContainerStorageOwner)_overflowInventory.Items).PublishChanges(slots);
-            PublishTradeChanges(change);
+            PublishChanges(change);
             return true;
         }
-        public bool TryAddForTradeStorage(int count, out int pouchChangeCount, out HashSet<int> inventoryChangedSlots)
+        public bool TryAddExactStorage(int count, out int pouchChangeCount, out HashSet<int> inventoryChangedSlots)
         {
             pouchChangeCount = 0; inventoryChangedSlots = [];
             if (FailNextStorageAdd) { FailNextStorageAdd = false; return false; }
@@ -689,7 +689,7 @@ public sealed class TradeExchangeTests
             if (overflow > 0 && !_overflowInventory.Items.HasSpaceFor(new TestItem(995, overflow, stackable: true))) return false;
             var itemsBefore = Storage.ToArray(); var previousCount = itemsBefore[0]?.Count ?? 0;
             if (pouchCount > 0 && !Storage.TryAddRange([new TestItem(995, pouchCount, stackable: true)], out _)) return false;
-            if (overflow > 0 && !_overflowInventory.Items.TryAddRangeForTradeStorage([new TestItem(995, overflow, stackable: true)], out inventoryChangedSlots))
+            if (overflow > 0 && !((IItemContainerStorageOwner)_overflowInventory.Items).Storage.TryAddRange([new TestItem(995, overflow, stackable: true)], out inventoryChangedSlots))
             {
                 if (itemsBefore[0] != null) itemsBefore[0]!.Count = previousCount;
                 Storage.ReplaceState(itemsBefore); return false;
@@ -704,13 +704,13 @@ public sealed class TradeExchangeTests
             var remaining = count - removed;
             return remaining <= 0 ? removed : removed + _overflowInventory.Items.Remove(new TestItem(995, remaining, stackable: true));
         }
-        public bool RemoveForTrade(int count)
+        public bool TryRemoveExact(int count)
         {
-            if (!TryRemoveForTradeStorage(count, out var change, out var slots)) return false;
+            if (!TryRemoveExactStorage(count, out var change, out var slots)) return false;
             if (slots.Count > 0) ((IItemContainerStorageOwner)_overflowInventory.Items).PublishChanges(slots);
-            PublishTradeChanges(change); return true;
+            PublishChanges(change); return true;
         }
-        public bool TryRemoveForTradeStorage(int count, out int pouchChangeCount, out HashSet<int> inventoryChangedSlots)
+        public bool TryRemoveExactStorage(int count, out int pouchChangeCount, out HashSet<int> inventoryChangedSlots)
         {
             pouchChangeCount = 0; inventoryChangedSlots = [];
             if (count <= 0) return false;
@@ -718,15 +718,14 @@ public sealed class TradeExchangeTests
             if (overflow > _overflowInventory.Items.GetCountById(995)) return false;
             var itemsBefore = Storage.ToArray(); var previousCount = itemsBefore[0]?.Count ?? 0;
             if (pouchCount > 0 && !Storage.TryRemoveExact(new TestItem(995, pouchCount, stackable: true), pouchCount, -1, out _)) return false;
-            if (overflow > 0 && !_overflowInventory.Items.TryRemoveForTradeStorage(new TestItem(995, overflow, stackable: true), -1, out inventoryChangedSlots))
+            if (overflow > 0 && !((IItemContainerStorageOwner)_overflowInventory.Items).Storage.TryRemoveExact(new TestItem(995, overflow, stackable: true), -1, out inventoryChangedSlots))
             {
                 if (itemsBefore[0] != null) itemsBefore[0]!.Count = previousCount;
                 Storage.ReplaceState(itemsBefore); return false;
             }
             pouchChangeCount = -count; return true;
         }
-        public bool TryRemoveExact(int count) => RemoveForTrade(count);
-        public void PublishTradeChanges(int pouchChangeCount) => OnUpdate();
+        public void PublishChanges(int pouchChangeCount) => OnUpdate();
     }
     private sealed class TestItem : IItem
     {

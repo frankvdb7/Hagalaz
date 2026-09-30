@@ -408,7 +408,7 @@ public sealed class CharacterItemTransferTests
     }
     private static Func<bool> ObserveEquippedState(
         ICharacter owner,
-        ITradeItemContainer inventory,
+        IItemContainer inventory,
         EquipmentContainer equipment,
         IItem item)
     {

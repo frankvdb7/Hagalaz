@@ -1716,7 +1716,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     /// </summary>
     public class DuelContainer : IContainer<IItem?>
     {
-        public ITradeItemContainer Items { get; }
+        public IItemContainer Items { get; }
         public IItem? this[int index] => Items[index];
         public int Capacity => Items.Capacity;
         public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => Items.GetEnumerator();

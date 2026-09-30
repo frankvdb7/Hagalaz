@@ -44,12 +44,34 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public void TryRemoveForTradeStorage_NullItem_ThrowsArgumentNullException()
+        public void TryRemoveExact_NullItem_ThrowsArgumentNullException()
         {
             var container = new TestableItemContainer(StorageType.Normal, 2);
 
             Assert.ThrowsExactly<ArgumentNullException>(() =>
-                container.Items.TryRemoveForTradeStorage(null!, -1, out _));
+                ((IItemContainerStorageOwner)container.Items).Storage.TryRemoveExact(null!, -1, out _));
+        }
+
+        [TestMethod]
+        public void TryRemoveExact_InsufficientQuantityLeavesContainerUnchanged()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+            var item = CreateItem(1, 2, stackable: true);
+            Assert.IsTrue(container.Items.Add(0, item));
+            var updates = container.UpdateCount;
+            var enumerator = container.Items.GetEnumerator();
+
+            Assert.IsFalse(container.Items.TryRemoveExact(CreateItem(1, 3, stackable: true), 0));
+
+            Assert.AreSame(item, container.Items[0]);
+            Assert.AreEqual(2, item.Count);
+            Assert.AreEqual(updates, container.UpdateCount);
+            Assert.IsTrue(enumerator.MoveNext());
+
+            container.PublicationHandler = _ => Assert.IsNull(container.Items[0]);
+            Assert.IsTrue(container.Items.TryRemoveExact(CreateItem(1, 2, stackable: true), 0));
+            Assert.IsNull(container.Items[0]);
+            Assert.AreEqual(updates + 1, container.UpdateCount);
         }
 
         private class TestItem : IItem
@@ -1432,7 +1454,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public void AddRangeForTrade_DestinationFull_LeavesContentsRevisionAndNotificationsUnchanged()
+        public void AddRange_DestinationFull_LeavesContentsRevisionAndNotificationsUnchanged()
         {
             var container = new TestableItemContainer(StorageType.Normal, 1);
             container.Items.Add(CreateItem(1, 1));
@@ -1440,7 +1462,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var updates = container.UpdateCount;
             var enumerator = container.Items.GetEnumerator();
 
-            Assert.IsFalse(container.Items.AddRangeForTrade([CreateItem(2, 1)]));
+            Assert.IsFalse(container.Items.AddRange([CreateItem(2, 1)]));
 
             Assert.AreSame(original, container.Items[0]);
             Assert.AreEqual(1, container.Items[0]!.Id);

@@ -9,7 +9,7 @@ Before this change, `BaseItemContainer` owned slot state and mutation algorithms
 **Goals:**
 
 - Keep `ItemContainerStorage` as the single implementation of slot and mutation mechanics. Add one concrete `ItemContainer` that implements the generic container contracts and composes that storage.
-- Keep `IItemContainer`, `ITradeItemContainer`, and `IItemContainerStorageOwner` as contract-only interfaces. Domain containers compose `ItemContainer` and expose its generic contract through `Items`; they retain domain-specific operations and publication callbacks. The broader #439 decision about which operations should remain on `IItemContainer` is deferred.
+- Keep `IItemContainer` and `IItemContainerStorageOwner` as contract-only interfaces. Trade consumes the same generic mutation and transfer boundary as other callers and is not a capability of ordinary containers. Domain containers compose `ItemContainer` and expose it through `IItemContainer`; they retain domain-specific operations and publication callbacks. The broader #439 decision about which operations should remain on `IItemContainer` is deferred.
 - Keep `TradeExchange` as the owner of trade-specific settlement and multi-container restoration.
 
 **Non-Goals:**
@@ -21,7 +21,7 @@ Before this change, `BaseItemContainer` owned slot state and mutation algorithms
 
 ### One concrete storage, plus a narrow transfer boundary
 
-Create one public sealed `ItemContainerStorage` and one public sealed `ItemContainer` in Abstractions. `ItemContainer` implements `IItemContainer` and `ITradeItemContainer` once, delegates mutation mechanics to its composed storage, and invokes an optional `Action<HashSet<int>?>` after successful mutations. It also implements `IItemContainerStorageOwner`; its publication implementation invokes the same callback so cross-container commits notify the composed owner. Domain classes do not implement the generic container contract or expose raw storage.
+Create one public sealed `ItemContainerStorage` and one public sealed `ItemContainer` in Abstractions. `ItemContainer` implements only `IItemContainer` and `IItemContainerStorageOwner`, delegates mutation mechanics to its composed storage, and invokes an optional `Action<HashSet<int>?>` after successful mutations. Its publication implementation invokes the same callback so cross-container commits notify the composed owner. Domain classes do not implement the generic container contract or expose raw storage. `IItemContainer` includes neutral exact-removal semantics so shop payment and trade settlement share one generic operation.
 
 ### Store methods mutate and return changed slots
 
@@ -33,7 +33,7 @@ Move the existing #437 plan/simulate/commit algorithm into a storage-to-storage 
 
 ### Domain containers own operation delegation and publication
 
-Each normal domain container owns one `ItemContainer` and exposes it as `IItemContainer` or `ITradeItemContainer` through its domain `Items` property. Generic behavior and checked generic trade operations live once on `ItemContainer`; storage algorithms remain on `ItemContainerStorage`. `ItemContainerTransfer` remains the shared cross-container coordinator. The gameplay interfaces do not expose raw storage or `OnUpdate`. Composition must not be replaced by default-interface implementation inheritance; item-container interfaces define contracts only. Do not add a forwarding base class, extension implementation layer, storage interface hierarchy, or generated forwarding code.
+Each normal domain container owns one `ItemContainer` and exposes it as `IItemContainer` through its domain `Items` property. Generic behavior lives once on `ItemContainer`; storage algorithms remain on `ItemContainerStorage`. `ItemContainerTransfer` remains the shared cross-container coordinator. `TradeExchange` is a consumer of this generic boundary, not an item-container capability: it acquires the existing storage locks in stable order and stages exact storage operations directly, snapshots affected stores, restores them on failure, and publishes only after the transaction commits. Pouch staging methods, where required by this transaction boundary, use domain-neutral exact names. The gameplay interfaces do not expose raw storage or `OnUpdate`. Composition must not be replaced by default-interface implementation inheritance; item-container interfaces define contracts only. Do not add a forwarding base class, extension implementation layer, storage interface hierarchy, or generated forwarding code.
 
 Domain hydration code maps persisted DTOs to physical `(slot, item)` entries and calls one narrow `ItemContainerStorage.RestoreItems` operation. Storage validates capacity bounds, duplicate slots, item null/count rules and replaces state only after the complete input is valid. Normal restored counts remain positive; MoneyPouch independently validates its coin-995 entry at physical slot zero and allows count zero. A GameWorld hydration mapper shares DTO projection and construction without moving DTO knowledge into storage.
 

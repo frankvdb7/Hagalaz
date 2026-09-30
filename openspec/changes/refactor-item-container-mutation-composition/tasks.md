@@ -29,7 +29,7 @@
 ## 6. Trade settlement
 
 - [x] 6.1 Migrate the trade offer container and inheritance-based trade fixtures to direct storage composition while preserving its UI and acceptance revision semantics; verify offer revision tests.
-- [x] 6.2 Migrate `TradeExchange` lock ordering, snapshots, restoration and storage-only trade mutations to `ItemContainerStorage`; verify settlement, refund, escrow, pouch movement, rollback, publication and lock-release regressions.
+- [x] 6.2 Keep `TradeExchange` as a consumer of generic storage operations under its existing ordered locks; preserve snapshots, restoration, pouch movement, publication and lock-release behavior without trade-specific item-container APIs.
 - [x] 6.3 Remove `BaseItemContainer.cs` and `TradeItemContainer.cs`; verify all production/test containers compose storage and no replacement implementation base exists.
 
 ## 7. Integration and review
@@ -37,8 +37,8 @@
 - [x] 7.1 Review the cumulative diff for one slot owner/one mutation algorithm, callback and publication order, exact persistence slots and only the minimum #439 API cleanup required for composition; run focused Abstractions, GameWorld and Scripts test projects.
 - [x] 7.2 Run the affected solution build, strict OpenSpec validation, local repository-configured jscpd base comparison, and `git diff --check`; record exact commands and results.
 - [ ] 7.3 Eliminate every new clone pair relative to the pull-request base and obtain a passing repository `fail-on-new-clones` result with zero new pairs. Local jscpd 5.3.2 comparison against base `75e18b9975c58b209018662a2617fb9b8b285883` reports 38 new pairs (733 duplicated lines); the zero-new-clones gate remains open.
-- [x] 7.4 Preserve interface dispatch for domain-specialized operations, restore the complete checked-trade contract, name the storage owner accurately, and audit GameWorld global imports.
-- [x] 7.5 Add concrete `ItemContainer` as the single `IItemContainer`/`ITradeItemContainer` implementation over `ItemContainerStorage`, including committed-change publication callback.
+- [x] 7.4 Preserve interface dispatch for domain-specialized operations, name the storage owner accurately, and audit GameWorld global imports.
+- [x] 7.5 Keep concrete `ItemContainer` as the sole `IItemContainer` implementation over `ItemContainerStorage`, including generic exact removal and committed-change publication callback; remove `ITradeItemContainer`.
 - [x] 7.6 Migrate production domain containers and script-local containers to compose `ItemContainer`; expose narrow `Items` contracts, remove copied generic forwarding, and retain domain-specific operations/callbacks.
-- [x] 7.7 Migrate trade settlement and tests to use composed `Items`; preserve checked trade behavior, MoneyPouch semantics, Equipment callback order, restoration, and shop zero-count behavior.
-- [ ] 7.8 Run focused projects, complete solution tests, build, strict OpenSpec validation, spec validation, diff check, and jscpd zero-new-clones gate. Focused and full solution tests, solution build, both strict validations, and `git diff --check` pass; completion is held by task 7.3's 38 new jscpd pairs.
+- [x] 7.7 Migrate trade settlement and tests to consume generic exact storage operations; preserve MoneyPouch semantics, Equipment callback order, restoration, and shop zero-count behavior.
+- [ ] 7.8 Run focused projects, complete solution tests, build, strict OpenSpec validation, spec validation, diff check, and jscpd zero-new-clones gate. Build, focused Abstractions/GameWorld/Scripts/Extensions tests, strict OpenSpec validations, and `git diff --check` pass. The full solution test command has 23 Docker-dependent integration failures because the Docker named pipe is unavailable; jscpd reports 38 new pairs, so both gates remain open.

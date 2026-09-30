@@ -49,7 +49,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
         private sealed class TestInventory(int capacity) : IInventoryContainer
         {
-            public ITradeItemContainer Items { get; } = new ItemContainer(StorageType.Normal, capacity);
+            public IItemContainer Items { get; } = new ItemContainer(StorageType.Normal, capacity);
             public IItem? this[int index] => Items[index];
             public int Capacity => Items.Capacity;
             public IEnumerator<IItem?> GetEnumerator() => Items.GetEnumerator();

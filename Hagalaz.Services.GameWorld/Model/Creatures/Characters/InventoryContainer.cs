@@ -24,7 +24,7 @@ public class InventoryContainer : IInventoryContainer,
     private readonly IGroundItemBuilder _groundItemBuilder;
     private readonly IItemBuilder _itemBuilder;
     private readonly ItemContainer _items;
-    public ITradeItemContainer Items => _items;
+    public IItemContainer Items => _items;
     public IItem? this[int index] => _items[index];
     public int Capacity => _items.Capacity;
     public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => _items.GetEnumerator();

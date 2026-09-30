@@ -226,7 +226,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
                 var paid = _shop.CurrencyId == 995
                     ? viewer.MoneyPouch.TryRemoveExact((int)cost)
-                    : viewer.Inventory.Items.RemoveForTrade(
+                    : viewer.Inventory.Items.TryRemoveExact(
                         _itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)cost).Build());
 
                 if (!paid)
