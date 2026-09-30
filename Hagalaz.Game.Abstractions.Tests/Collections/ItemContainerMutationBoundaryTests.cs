@@ -6,17 +6,17 @@ using NSubstitute;
 namespace Hagalaz.Game.Abstractions.Tests.Collections;
 
 [TestClass]
-public sealed class ItemContainerTransferTests
+public sealed class ItemContainerMutationBoundaryTests
 {
     [TestMethod]
     public void TryTransferStorage_MovesExactQuantityAndReturnsChangedSlots()
     {
-        var source = new ItemContainerStorage(StorageType.Normal, 2);
-        var destination = new ItemContainerStorage(StorageType.Normal, 2);
+        var source = new ItemContainer(StorageType.Normal, 2);
+        var destination = new ItemContainer(StorageType.Normal, 2);
         var item = new TestItem(10, 7);
-        Assert.IsTrue(source.TryAdd(item, out _));
+        Assert.IsTrue(source.Add(item));
 
-        Assert.IsTrue(ItemContainerStorage.TryTransfer(source, destination, item, 7, 0, -1, null,
+        Assert.IsTrue(source.Mutations.TryTransferToStorage(destination.Mutations, item, 7, 0, -1, null,
             out var sourceSlots, out var destinationSlots));
 
         Assert.AreEqual(0, source.TakenSlots);
@@ -29,14 +29,14 @@ public sealed class ItemContainerTransferTests
     [TestMethod]
     public void TryTransferStorage_FailureLeavesBothStoragesUnchanged()
     {
-        var source = new ItemContainerStorage(StorageType.Normal, 2);
-        var destination = new ItemContainerStorage(StorageType.Normal, 1);
+        var source = new ItemContainer(StorageType.Normal, 2);
+        var destination = new ItemContainer(StorageType.Normal, 1);
         var item = new TestItem(10, 2);
         var blockingItem = new TestItem(11, 1);
-        Assert.IsTrue(source.TryAdd(item, out _));
-        Assert.IsTrue(destination.TryAdd(blockingItem, out _));
+        Assert.IsTrue(source.Add(item));
+        Assert.IsTrue(destination.Add(blockingItem));
 
-        Assert.IsFalse(ItemContainerStorage.TryTransfer(source, destination, item, 2, 0, -1, null,
+        Assert.IsFalse(source.Mutations.TryTransferToStorage(destination.Mutations, item, 2, 0, -1, null,
             out var sourceSlots, out var destinationSlots));
 
         Assert.AreSame(item, source[0]);

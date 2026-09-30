@@ -34,8 +34,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         private readonly IItemBuilder _itemBuilder;
         private readonly IEventManager _eventManager;
         private readonly ItemContainer _items;
-        public IItemContainer Items => _items;
-        private ItemContainerStorage Storage => ((IItemContainerStorageOwner)_items).Storage;
+        public ItemContainer Items => _items;
+        private ItemContainerStorage Storage => _items.Storage;
 
         /// <summary>
         /// The original stock of the shop.
@@ -141,7 +141,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 return false;
             }
 
-            if (!ItemContainerTransfer.TryTransfer((IItemContainerStorageOwner)viewer.Inventory.Items, (IItemContainerStorageOwner)_items, item, count, slot,
+            if (!viewer.Inventory.Items.Mutations.TryTransferTo(_items.Mutations, item, count, slot,
                     destinationItem: transformed ? sold : null))
             {
                 return false;

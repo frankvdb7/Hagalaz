@@ -57,14 +57,16 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <summary>
         /// Adds coins to the pouch and, if needed, Inventory without publishing changes.
         /// </summary>
-        bool TryAddExactStorage(int count, out int pouchChangeCount,
+        bool TryAddExactStorage(ItemContainerTransaction transaction, int count, out int pouchChangeCount,
             out System.Collections.Generic.HashSet<int> inventoryChangedSlots);
 
         /// <summary>
         /// Removes coins from the pouch and, if needed, Inventory without publishing changes.
         /// </summary>
-        bool TryRemoveExactStorage(int count, out int pouchChangeCount,
+        bool TryRemoveExactStorage(ItemContainerTransaction transaction, int count, out int pouchChangeCount,
             out System.Collections.Generic.HashSet<int> inventoryChangedSlots);
+
+        void IncludeIn(ItemContainerTransaction transaction);
 
         /// <summary>
         /// Publishes a committed pouch change and its player message.

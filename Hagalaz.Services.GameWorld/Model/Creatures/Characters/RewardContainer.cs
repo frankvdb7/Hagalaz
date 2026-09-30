@@ -23,7 +23,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
         private readonly ItemContainer _items;
-        public IItemContainer Items => _items;
+        public ItemContainer Items => _items;
 
         public RewardContainer(ICharacter owner, IItemBuilder itemBuilder)
         {
@@ -79,8 +79,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 toRemove.Count = count;
             }
 
-            if (!ItemContainerTransfer.TryTransfer((IItemContainerStorageOwner)_items,
-                    (IItemContainerStorageOwner)_owner.Inventory.Items, item, count, slot))
+            if (!_items.Mutations.TryTransferTo(_owner.Inventory.Items.Mutations, item, count, slot))
             {
                 return -1;
             }
@@ -97,12 +96,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> rewards)
         {
-            ((IItemContainerStorageOwner)Items).Storage.RestoreItems(rewards.Select(entry => entry.ToStorageEntry(_itemBuilder)));
+            Items.Storage.RestoreItems(rewards.Select(entry => entry.ToStorageEntry(_itemBuilder)));
         }
 
         public IReadOnlyList<HydratedItemDto> Dehydrate()
         {
-            return ((IItemContainerStorageOwner)Items).Storage.ToHydratedItems();
+            return Items.Storage.ToHydratedItems();
         }
     }
 }

@@ -20,7 +20,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IItemBuilder _itemBuilder;
 
         private readonly ItemContainer _items;
-        public IItemContainer Items => _items;
+        public ItemContainer Items => _items;
 
         /// <summary>
         /// Contstructs a container for character banks.
@@ -88,14 +88,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="deposited">Pointer to item which was deposited into bank. Can be null.</param>
         /// <param name="container"></param>
         /// <returns>If depositing was sucessfull.</returns>
-        public bool DepositFromFamiliar(IItem item, int count, [NotNullWhen(true)] out IItem? deposited, IItemContainer container)
+        public bool DepositFromFamiliar(IItem item, int count, [NotNullWhen(true)] out IItem? deposited, ItemContainer container)
         {
-            if (container is not IItemContainerStorageOwner source)
-            {
-                deposited = null;
-                return false;
-            }
-
             var slot = container.GetInstanceSlot(item);
             if (slot == -1 || count <= 0)
             {
@@ -111,7 +105,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = CreateDepositItem(item, count, out var transformed);
-            if (ItemContainerTransfer.TryTransfer(source, (IItemContainerStorageOwner)_items, item, count, slot,
+            if (container.Mutations.TryTransferTo(_items.Mutations, item, count, slot,
                     destinationItem: transformed ? deposited : null))
             {
                 return true;
@@ -158,18 +152,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            var fullyRemoved = count == equippedItem.Count;
             deposited = CreateDepositItem(equippedItem, count, out var transformed);
-            if (ItemContainerTransfer.TryTransferStorage((IItemContainerStorageOwner)_owner.Equipment, (IItemContainerStorageOwner)_items, equippedItem, count, (int)slot, -1,
-                    transformed ? deposited : null, out var equipmentSlots, out var bankSlots))
+            if (_owner.Equipment.TryMoveTo(_items, equippedItem, count, slot,
+                    transformed ? deposited : null))
             {
-                if (fullyRemoved)
-                {
-                    equippedItem.EquipmentScript.OnUnequipped(equippedItem, _owner);
-                }
-
-                ((IItemContainerStorageOwner)_owner.Equipment).PublishChanges(equipmentSlots);
-                OnUpdate(bankSlots);
                 return true;
             }
 
@@ -203,7 +189,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = CreateDepositItem(item, count, out var transformed);
-            if (ItemContainerTransfer.TryTransfer((IItemContainerStorageOwner)_owner.Inventory.Items, (IItemContainerStorageOwner)_items, item, count, slot,
+            if (_owner.Inventory.Items.Mutations.TryTransferTo(_items.Mutations, item, count, slot,
                     destinationItem: transformed ? deposited : null))
             {
                 return true;
@@ -294,7 +280,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             withdrawed.Count = count;
-            if (!ItemContainerTransfer.TryTransfer((IItemContainerStorageOwner)_items, (IItemContainerStorageOwner)_owner.Inventory.Items, item, count, slot,
+            if (!_items.Mutations.TryTransferTo(_owner.Inventory.Items.Mutations, item, count, slot,
                     destinationItem: transformed ? withdrawed : null))
             {
                 _owner.SendChatMessage(GameStrings.InventoryFull);
@@ -309,12 +295,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> bank)
         {
-            ((IItemContainerStorageOwner)Items).Storage.RestoreItems(bank.Select(entry => entry.ToStorageEntry(_itemBuilder)));
+            Items.Storage.RestoreItems(bank.Select(entry => entry.ToStorageEntry(_itemBuilder)));
         }
 
         public IReadOnlyList<HydratedItemDto> Dehydrate()
         {
-            return ((IItemContainerStorageOwner)Items).Storage.ToHydratedItems();
+            return Items.Storage.ToHydratedItems();
         }
 
         private IItem CreateDepositItem(IItem item, int count, out bool transformed)

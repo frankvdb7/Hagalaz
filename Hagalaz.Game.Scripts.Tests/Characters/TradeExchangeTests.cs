@@ -35,7 +35,7 @@ public sealed class TradeExchangeTests
         firstOffer.Items.Add(new TestItem(101, 1)).Should().BeTrue();
         secondOffer.Items.Add(new TestItem(995, 250, stackable: true)).Should().BeTrue();
 
-        var result = TradeExchange.TryExchange(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder());
+        var result = TradeExchange.TryCompleteTrade(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder());
 
         result.Should().BeTrue();
         first.MoneyPouch.Count.Should().Be(250);
@@ -56,7 +56,7 @@ public sealed class TradeExchangeTests
         var secondOffer = new ComposedTestContainer(StorageType.Normal, 14);
         firstOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
 
-        var result = TradeExchange.TryExchange(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder());
+        var result = TradeExchange.TryCompleteTrade(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder());
 
         result.Should().BeFalse();
         firstInventory.Items.TakenSlots.Should().Be(0);
@@ -96,7 +96,7 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
-    public void TryCompleteTrade_WhenLaterPouchMutationFails_RestoresEarlierPouchMutationBeforePublication()
+    public void TryCompleteTrade_WhenLaterPouchMutationFails_RestoresStateWithoutPublication()
     {
         var firstInventory = new ComposedTestContainer(4);
         var secondInventory = new ComposedTestContainer(4);
@@ -108,21 +108,20 @@ public sealed class TradeExchangeTests
         var secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
         firstOffer.Items.Add(new TestItem(995, 5, stackable: true)).Should().BeTrue();
         secondOffer.Items.Add(new TestItem(995, 7, stackable: true)).Should().BeTrue();
-        var restoredStateWasPublished = false;
+        var publicationOccurred = false;
         firstInventory.OnUpdateAction = () =>
         {
-            Monitor.IsEntered(firstInventory.MutationLock).Should().BeFalse();
-            secondInventory.Items.GetCountById(995).Should().Be(0);
-            firstMoneyPouch.Count.Should().Be(0);
-            secondMoneyPouch.Count.Should().Be(0);
-            firstOffer.Items.GetCountById(995).Should().Be(5);
-            secondOffer.Items.GetCountById(995).Should().Be(7);
-            restoredStateWasPublished = true;
+            publicationOccurred = true;
         };
 
         TradeExchange.TryCompleteTrade(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder()).Should().BeFalse();
 
-        restoredStateWasPublished.Should().BeTrue();
+        publicationOccurred.Should().BeFalse();
+        secondInventory.Items.GetCountById(995).Should().Be(0);
+        firstMoneyPouch.Count.Should().Be(0);
+        secondMoneyPouch.Count.Should().Be(0);
+        firstOffer.Items.GetCountById(995).Should().Be(5);
+        secondOffer.Items.GetCountById(995).Should().Be(7);
     }
 
     [TestMethod]
@@ -221,7 +220,7 @@ public sealed class TradeExchangeTests
         var secondOffer = new ComposedTestContainer(StorageType.Normal, 14);
         secondOffer.Items.Add(new TestItem(995, 2, stackable: true)).Should().BeTrue();
 
-        var result = TradeExchange.TryExchange(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder());
+        var result = TradeExchange.TryCompleteTrade(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder());
 
         result.Should().BeTrue();
         firstMoneyPouch.Count.Should().Be(int.MaxValue);
@@ -243,7 +242,7 @@ public sealed class TradeExchangeTests
         secondOffer.Items.Add(new TestItem(101, 1)).Should().BeTrue();
         secondOffer.Items.Add(new TestItem(995, 1, stackable: true)).Should().BeTrue();
 
-        var result = TradeExchange.TryExchange(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder());
+        var result = TradeExchange.TryCompleteTrade(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder());
 
         result.Should().BeFalse();
         firstInventory.Items.GetCountById(101).Should().Be(0);
@@ -266,8 +265,8 @@ public sealed class TradeExchangeTests
         secondOffer.Items.Add(new TestItem(101, 1)).Should().BeTrue();
         secondOffer.Items.Add(new TestItem(102, 2)).Should().BeTrue();
 
-        TradeExchange.TryExchange(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder()).Should().BeFalse();
-        TradeExchange.TryRefund(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder()).Should().BeTrue();
+        TradeExchange.TryCompleteTrade(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder()).Should().BeFalse();
+        TradeExchange.TryRefundTrade(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder()).Should().BeTrue();
 
         firstInventory.Items.GetCountById(101).Should().Be(0);
         secondInventory.Items.GetCountById(101).Should().Be(1);
@@ -293,7 +292,7 @@ public sealed class TradeExchangeTests
         secondOffer.Items.Add(new TestItem(101, 1)).Should().BeTrue();
         var firstInventoryUpdatesBeforeExchange = firstInventory.UpdateCount;
 
-        TradeExchange.TryExchange(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder()).Should().BeFalse();
+        TradeExchange.TryCompleteTrade(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder()).Should().BeFalse();
         firstInventory.UpdateCount.Should().Be(firstInventoryUpdatesBeforeExchange);
         firstInventory.Items.TakenSlots.Should().Be(0);
         secondInventory.Items.GetCountById(100).Should().Be(1);
@@ -303,7 +302,7 @@ public sealed class TradeExchangeTests
         secondOffer.Items.GetCountById(101).Should().Be(1);
 
         secondInventory.Items.Remove(capacityItem).Should().Be(1);
-        TradeExchange.TryRefund(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder()).Should().BeTrue();
+        TradeExchange.TryRefundTrade(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder()).Should().BeTrue();
 
         firstInventory.Items.GetCountById(101).Should().Be(0);
         secondInventory.Items.GetCountById(101).Should().Be(1);
@@ -323,7 +322,7 @@ public sealed class TradeExchangeTests
         firstOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
         secondOffer.Items.Add(new TestItem(995, 125, stackable: true)).Should().BeTrue();
 
-        var result = TradeExchange.TryRefund(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder());
+        var result = TradeExchange.TryRefundTrade(first, firstOffer.Items, second, secondOffer.Items, CreateItemBuilder());
 
         result.Should().BeTrue();
         firstInventory.Items.GetCountById(100).Should().Be(1);
@@ -648,20 +647,17 @@ public sealed class TradeExchangeTests
     private static object? GetProperty(object target, string name) =>
         target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(target);
 
-    private sealed class TestMoneyPouch : ComposedTestContainer, IMoneyPouchContainer, IItemContainerStorageOwner
+    private sealed class TestMoneyPouch : ComposedTestContainer, IMoneyPouchContainer
     {
-        private ItemContainerStorage Storage => ((IItemContainerStorageOwner)Items).Storage;
-        ItemContainerStorage IItemContainerStorageOwner.Storage => Storage;
-        void IItemContainerStorageOwner.PublishChanges(HashSet<int>? changedSlots) => OnUpdate(changedSlots);
         private readonly IInventoryContainer _overflowInventory;
         public bool FailNextStorageAdd { get; set; }
-        public TestMoneyPouch(IInventoryContainer overflowInventory) : base(StorageType.AlwaysStack, 1, 0)
+        public TestMoneyPouch(IInventoryContainer overflowInventory) : base(StorageType.AlwaysStack, 1, 0, publishItemChanges: false)
         {
             _overflowInventory = overflowInventory;
-            Storage.ReplaceState([new TestItem(995, 0, stackable: true)]);
+            Items.Storage.ReplaceState([new TestItem(995, 0, stackable: true)]);
         }
         public string Examine => Count.ToString();
-        public int Count => Storage[0]?.Count ?? 0;
+        public int Count => Items[0]?.Count ?? 0;
         public bool HasSpaceForCoins(int count) => count > 0 && (long)Count + count <= int.MaxValue;
         public bool Contains(int id) => Items.Contains(id);
         public bool Contains(int id, int count) => Items.Contains(id, count);
@@ -676,12 +672,14 @@ public sealed class TradeExchangeTests
         }
         public bool TryAddExact(int count)
         {
-            if (!TryAddExactStorage(count, out var change, out var slots)) return false;
-            if (slots.Count > 0) ((IItemContainerStorageOwner)_overflowInventory.Items).PublishChanges(slots);
+            var transaction = new ItemContainerTransaction();
+            IncludeIn(transaction);
+            var change = 0;
+            if (!transaction.TryExecute(tx => TryAddExactStorage(tx, count, out change, out _))) return false;
             PublishChanges(change);
             return true;
         }
-        public bool TryAddExactStorage(int count, out int pouchChangeCount, out HashSet<int> inventoryChangedSlots)
+        public bool TryAddExactStorage(ItemContainerTransaction transaction, int count, out int pouchChangeCount, out HashSet<int> inventoryChangedSlots)
         {
             pouchChangeCount = 0; inventoryChangedSlots = [];
             if (FailNextStorageAdd) { FailNextStorageAdd = false; return false; }
@@ -689,14 +687,15 @@ public sealed class TradeExchangeTests
             var pouchCount = Math.Min(int.MaxValue - Count, count);
             var overflow = count - pouchCount;
             if (overflow > 0 && !_overflowInventory.Items.HasSpaceFor(new TestItem(995, overflow, stackable: true))) return false;
-            var itemsBefore = Storage.ToArray(); var previousCount = itemsBefore[0]?.Count ?? 0;
-            if (pouchCount > 0 && !Storage.TryAddRange([new TestItem(995, pouchCount, stackable: true)], out _)) return false;
-            if (overflow > 0 && !((IItemContainerStorageOwner)_overflowInventory.Items).Storage.TryAddRange([new TestItem(995, overflow, stackable: true)], out inventoryChangedSlots))
-            {
-                if (itemsBefore[0] != null) itemsBefore[0]!.Count = previousCount;
-                Storage.ReplaceState(itemsBefore); return false;
-            }
+            if (pouchCount > 0 && !transaction.TryAddRange(Items.Mutations, [new TestItem(995, pouchCount, stackable: true)])) return false;
+            if (overflow > 0 && !transaction.TryAddRange(_overflowInventory.Items.Mutations,
+                    [new TestItem(995, overflow, stackable: true)], out inventoryChangedSlots)) return false;
             pouchChangeCount = pouchCount; return true;
+        }
+        public void IncludeIn(ItemContainerTransaction transaction)
+        {
+            transaction.Include(Items.Mutations);
+            transaction.Include(_overflowInventory.Items.Mutations);
         }
         public bool AddFromInventory(int count) => false;
         public bool MoveToInventory(int count) => false;
@@ -708,23 +707,21 @@ public sealed class TradeExchangeTests
         }
         public bool TryRemoveExact(int count)
         {
-            if (!TryRemoveExactStorage(count, out var change, out var slots)) return false;
-            if (slots.Count > 0) ((IItemContainerStorageOwner)_overflowInventory.Items).PublishChanges(slots);
+            var transaction = new ItemContainerTransaction();
+            IncludeIn(transaction);
+            var change = 0;
+            if (!transaction.TryExecute(tx => TryRemoveExactStorage(tx, count, out change, out _))) return false;
             PublishChanges(change); return true;
         }
-        public bool TryRemoveExactStorage(int count, out int pouchChangeCount, out HashSet<int> inventoryChangedSlots)
+        public bool TryRemoveExactStorage(ItemContainerTransaction transaction, int count, out int pouchChangeCount, out HashSet<int> inventoryChangedSlots)
         {
             pouchChangeCount = 0; inventoryChangedSlots = [];
             if (count <= 0) return false;
             var pouchCount = Math.Min(Count, count); var overflow = count - pouchCount;
             if (overflow > _overflowInventory.Items.GetCountById(995)) return false;
-            var itemsBefore = Storage.ToArray(); var previousCount = itemsBefore[0]?.Count ?? 0;
-            if (pouchCount > 0 && !Storage.TryRemoveExact(new TestItem(995, pouchCount, stackable: true), pouchCount, -1, out _)) return false;
-            if (overflow > 0 && !((IItemContainerStorageOwner)_overflowInventory.Items).Storage.TryRemoveExact(new TestItem(995, overflow, stackable: true), -1, out inventoryChangedSlots))
-            {
-                if (itemsBefore[0] != null) itemsBefore[0]!.Count = previousCount;
-                Storage.ReplaceState(itemsBefore); return false;
-            }
+            if (pouchCount > 0 && !transaction.TryRemoveExact(Items.Mutations, new TestItem(995, pouchCount, stackable: true), 0)) return false;
+            if (overflow > 0 && !transaction.TryRemoveExact(_overflowInventory.Items.Mutations,
+                    new TestItem(995, overflow, stackable: true), -1, out inventoryChangedSlots)) return false;
             pouchChangeCount = -count; return true;
         }
         public void PublishChanges(int pouchChangeCount) => OnUpdate();

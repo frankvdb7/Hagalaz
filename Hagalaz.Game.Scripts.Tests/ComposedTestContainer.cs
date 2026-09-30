@@ -7,16 +7,14 @@ namespace Hagalaz.Game.Scripts.Tests;
 internal class ComposedTestContainer : IInventoryContainer, IRewardContainer
 {
     public ItemContainer Items { get; }
-    IItemContainer IInventoryContainer.Items => Items;
-    IItemContainer IRewardContainer.Items => Items;
     public Action? OnUpdateAction { get; set; }
     public int UpdateCount { get; private set; }
-    public object MutationLock => ((IItemContainerStorageOwner)Items).Storage.MutationLock;
-    public long MutationOrder => ((IItemContainerStorageOwner)Items).Storage.MutationOrder;
+    public object MutationLock => Items.Storage.MutationLock;
+    public long MutationOrder => Items.Storage.MutationOrder;
 
     public ComposedTestContainer(int capacity) : this(StorageType.Normal, capacity) { }
-    public ComposedTestContainer(StorageType type, int capacity, int countToResetTo = -1) =>
-        Items = new ItemContainer(type, capacity, OnUpdate, countToResetTo);
+    public ComposedTestContainer(StorageType type, int capacity, int countToResetTo = -1, bool publishItemChanges = true) =>
+        Items = new ItemContainer(type, capacity, publishItemChanges ? OnUpdate : null, countToResetTo);
 
     public static IItem CreateTestItem(int id, int count = 1)
     {

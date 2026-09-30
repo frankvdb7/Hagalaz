@@ -24,7 +24,7 @@ public class InventoryContainer : IInventoryContainer,
     private readonly IGroundItemBuilder _groundItemBuilder;
     private readonly IItemBuilder _itemBuilder;
     private readonly ItemContainer _items;
-    public IItemContainer Items => _items;
+    public ItemContainer Items => _items;
 
     public InventoryContainer(ICharacter owner, int capacity, IMapRegionService mapRegionService,
         IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder)
@@ -47,12 +47,12 @@ public class InventoryContainer : IInventoryContainer,
 
     public void Hydrate(IReadOnlyList<HydratedItemDto> inventory)
     {
-        ((IItemContainerStorageOwner)Items).Storage.RestoreItems(inventory.Select(entry => entry.ToStorageEntry(_itemBuilder)));
+        Items.Storage.RestoreItems(inventory.Select(entry => entry.ToStorageEntry(_itemBuilder)));
     }
 
     public IReadOnlyList<HydratedItemDto> Dehydrate()
     {
-        var entries = ((IItemContainerStorageOwner)Items).Storage.Select((item, slot) => (item, slot)).Where(entry => entry.item != null).ToArray();
+        var entries = Items.Storage.Select((item, slot) => (item, slot)).Where(entry => entry.item != null).ToArray();
         return entries.Select(entry => new HydratedItemDto(entry.item!.Id, entry.item.Count, entry.slot,
             entry.item.SerializeExtraData())).ToArray();
     }

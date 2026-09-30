@@ -108,8 +108,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 }
 
-                ItemContainerTransfer.AddAndRemoveFrom((IItemContainerStorageOwner)Owner.Inventory.Items,
-                    (IItemContainerStorageOwner)bob.Inventory.Items);
+                Owner.Inventory.Items.Mutations.AddAndRemoveFrom(bob.Inventory.Items.Mutations);
                 return true;
             });
 

@@ -29,7 +29,7 @@ public sealed class MoneyPouchContainerTests
 
         foreach (var containerInterface in ordinaryInterfaces)
         {
-            Assert.AreEqual(typeof(IItemContainer), containerInterface.GetProperty("Items")?.PropertyType,
+            Assert.AreEqual(typeof(ItemContainer), containerInterface.GetProperty("Items")?.PropertyType,
                 containerInterface.Name);
         }
 
@@ -38,8 +38,6 @@ public sealed class MoneyPouchContainerTests
         Assert.IsNull(typeof(IMoneyPouchContainer).GetProperty("Items"));
         Assert.IsFalse(typeof(IItemContainer).GetMethods().SelectMany(method => method.GetParameters())
             .Any(parameter => parameter.ParameterType == typeof(ItemContainer)));
-        Assert.IsFalse(ordinaryInterfaces.Any(containerInterface =>
-            typeof(IItemContainerStorageOwner).IsAssignableFrom(containerInterface)));
     }
 
     [TestMethod]
@@ -137,8 +135,6 @@ public sealed class MoneyPouchContainerTests
         scenario.Owner.EventManager.Returns(eventManager);
         scenario.Inventory.OnUpdateAction = () =>
         {
-            Assert.IsFalse(Monitor.IsEntered(((IItemContainerStorageOwner)scenario.Inventory.Items).Storage.MutationLock));
-            Assert.IsFalse(Monitor.IsEntered(((IItemContainerStorageOwner)scenario.MoneyPouch).Storage.MutationLock));
             Assert.AreEqual(expectedPouchCount, scenario.MoneyPouch.Count);
             Assert.AreEqual(expectedInventoryCoins, scenario.Inventory.Items.GetCountById(CoinId));
         };
@@ -148,8 +144,6 @@ public sealed class MoneyPouchContainerTests
             .Do(call =>
             {
                 var changedEvent = call.Arg<MoneyPouchChangedEvent>();
-                Assert.IsFalse(Monitor.IsEntered(((IItemContainerStorageOwner)scenario.Inventory.Items).Storage.MutationLock));
-                Assert.IsFalse(Monitor.IsEntered(((IItemContainerStorageOwner)scenario.MoneyPouch).Storage.MutationLock));
                 Assert.AreEqual(previousPouchCount, changedEvent.PreviousCount);
                 Assert.AreEqual(expectedPouchCount, changedEvent.Count);
                 Assert.AreEqual(expectedInventoryCoins, scenario.Inventory.Items.GetCountById(CoinId));

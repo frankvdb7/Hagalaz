@@ -8,7 +8,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public partial class MoneyPouchContainer : IMoneyPouchContainer, IItemContainerStorageOwner, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public partial class MoneyPouchContainer : IMoneyPouchContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
@@ -18,8 +18,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private readonly IItemBuilder _itemBuilder;
         private readonly ItemContainerStorage _storage;
-        ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
-        void IItemContainerStorageOwner.PublishChanges(HashSet<int>? changedSlots) => OnUpdate();
+        private readonly ItemContainerMutationBoundary _mutations;
 
         public bool HasSpaceForCoins(int count) => count > 0 && (long)Count + count <= int.MaxValue;
 
@@ -58,6 +57,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _itemBuilder = itemBuilder;
             var coins = _itemBuilder.Create().WithId(995).WithCount(0).Build();
             _storage = new ItemContainerStorage(StorageType.Normal, [coins], 1, 0);
+            _mutations = new ItemContainerMutationBoundary(_storage, null);
         }
 
         /// <summary>
@@ -94,33 +94,25 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public bool TryAddExact(int count)
         {
-            if (!TryAddExactStorage(count, out var pouchChangeCount, out var inventorySlots))
+            var transaction = new ItemContainerTransaction();
+            IncludeIn(transaction);
+            var pouchChangeCount = 0;
+            if (!transaction.TryExecute(tx => TryAddExactStorage(tx, count, out pouchChangeCount, out _)))
             {
                 return false;
             }
-
-            if (inventorySlots.Count > 0)
-            {
-                ((IItemContainerStorageOwner)_owner.Inventory.Items).PublishChanges(inventorySlots);
-            }
-
             PublishChanges(pouchChangeCount);
             return true;
         }
 
-        public bool TryAddExactStorage(int count, out int pouchChangeCount,
+        public bool TryAddExactStorage(ItemContainerTransaction transaction, int count, out int pouchChangeCount,
             out HashSet<int> inventoryChangedSlots)
         {
-            var changedSlots = new HashSet<int>();
-            var changeCount = 0;
-            var succeeded = ExecuteWithInventoryBoundary(() =>
-                TryAddExactStorageCore(count, out changeCount, out changedSlots));
-            pouchChangeCount = changeCount;
-            inventoryChangedSlots = changedSlots;
-            return succeeded;
+            ArgumentNullException.ThrowIfNull(transaction);
+            return TryAddExactStorageCore(transaction, count, out pouchChangeCount, out inventoryChangedSlots);
         }
 
-        private bool TryAddExactStorageCore(int count, out int pouchChangeCount,
+        private bool TryAddExactStorageCore(ItemContainerTransaction transaction, int count, out int pouchChangeCount,
             out HashSet<int> inventoryChangedSlots)
         {
             pouchChangeCount = 0;
@@ -140,20 +132,22 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             _previousCount = Count;
+            HashSet<int> pouchSlots = [];
             if (pouchCount > 0 && !_storage.TryAddRange(
-                    [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()], out _))
+                    [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()], out pouchSlots))
             {
                 RestoreStorageState(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
                 return false;
             }
 
-            if (inventoryCount > 0 && !((IItemContainerStorageOwner)_owner.Inventory.Items).Storage.TryAddRange(
+            if (inventoryCount > 0 && !transaction.TryAddRange(_owner.Inventory.Items.Mutations,
                     [_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()], out inventoryChangedSlots))
             {
                 RestoreStorageState(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
                 return false;
             }
 
+            if (pouchSlots.Count > 0) transaction.RecordChangedSlots(_mutations, pouchSlots);
             pouchChangeCount = pouchCount;
             return true;
         }
@@ -190,36 +184,28 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public bool TryRemoveExact(int count)
         {
-            if (!TryRemoveExactStorage(count, out var pouchChangeCount, out var inventorySlots))
+            var transaction = new ItemContainerTransaction();
+            IncludeIn(transaction);
+            var pouchChangeCount = 0;
+            if (!transaction.TryExecute(tx => TryRemoveExactStorage(tx, count, out pouchChangeCount, out _)))
             {
                 return false;
             }
-
-            if (inventorySlots.Count > 0)
-            {
-                ((IItemContainerStorageOwner)_owner.Inventory.Items).PublishChanges(inventorySlots);
-            }
-
-            PublishChanges(pouchChangeCount);
+            PublishChanges(-count);
             return true;
         }
 
         /// <summary>
         /// Stages an exact coin removal without publishing pouch or inventory updates.
         /// </summary>
-        public bool TryRemoveExactStorage(int count, out int pouchChangeCount,
+        public bool TryRemoveExactStorage(ItemContainerTransaction transaction, int count, out int pouchChangeCount,
             out HashSet<int> inventoryChangedSlots)
         {
-            var changedSlots = new HashSet<int>();
-            var changeCount = 0;
-            var succeeded = ExecuteWithInventoryBoundary(() =>
-                TryRemoveExactStorageCore(count, out changeCount, out changedSlots));
-            pouchChangeCount = changeCount;
-            inventoryChangedSlots = changedSlots;
-            return succeeded;
+            ArgumentNullException.ThrowIfNull(transaction);
+            return TryRemoveExactStorageCore(transaction, count, out pouchChangeCount, out inventoryChangedSlots);
         }
 
-        private bool TryRemoveExactStorageCore(int count, out int pouchChangeCount,
+        private bool TryRemoveExactStorageCore(ItemContainerTransaction transaction, int count, out int pouchChangeCount,
             out HashSet<int> inventoryChangedSlots)
         {
             pouchChangeCount = 0;
@@ -238,20 +224,22 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             _previousCount = Count;
+            HashSet<int> pouchSlots = [];
             if (pouchCount > 0 && !_storage.TryRemoveExact(
-                    _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), pouchCount, 0, out _))
+                    _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), pouchCount, 0, out pouchSlots))
             {
                 RestoreStorageState(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
                 return false;
             }
 
-            if (inventoryCount > 0 && !((IItemContainerStorageOwner)_owner.Inventory.Items).Storage.TryRemoveExact(
+            if (inventoryCount > 0 && !transaction.TryRemoveExact(_owner.Inventory.Items.Mutations,
                     _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build(), -1, out inventoryChangedSlots))
             {
                 RestoreStorageState(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
                 return false;
             }
 
+            if (pouchSlots.Count > 0) transaction.RecordChangedSlots(_mutations, pouchSlots);
             pouchChangeCount = -count;
             return true;
         }
@@ -262,22 +250,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             OnUpdate();
         }
 
-        private bool ExecuteWithInventoryBoundary(Func<bool> operation)
+        public void IncludeIn(ItemContainerTransaction transaction)
         {
-            if (_owner.Inventory.Items is not IItemContainerStorageOwner provider)
-            {
-                return false;
-            }
-
-            var pouchStorage = _storage;
-            var inventoryStorage = provider.Storage;
-            var first = pouchStorage.MutationOrder <= inventoryStorage.MutationOrder ? pouchStorage : inventoryStorage;
-            var second = ReferenceEquals(first, pouchStorage) ? inventoryStorage : pouchStorage;
-            lock (first.MutationLock)
-            lock (second.MutationLock)
-            {
-                return operation();
-            }
+            ArgumentNullException.ThrowIfNull(transaction);
+            transaction.Include(_mutations);
+            transaction.Include(_owner.Inventory.Items.Mutations);
         }
 
         private (IItem?[] Items, int[] Counts, int PreviousCount) CaptureStorageState()

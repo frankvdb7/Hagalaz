@@ -230,8 +230,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                         return false;
                     }
 
-                    ItemContainerTransfer.AddAndRemoveFrom((IItemContainerStorageOwner)Owner.Inventory.Items,
-                        (IItemContainerStorageOwner)bob.Inventory.Items);
+                    Owner.Inventory.Items.Mutations.AddAndRemoveFrom(bob.Inventory.Items.Mutations);
                     return true;
                 });
 

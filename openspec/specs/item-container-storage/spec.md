@@ -7,7 +7,7 @@ Defines the ownership boundary and correctness guarantees for item storage share
 ## Requirements
 
 ### Requirement: Containers compose one authoritative item store
-Storage mechanics MUST be composed rather than inherited. `BaseItemContainer`, `TradeItemContainer`, `ITradeItemContainer`, and `ItemContainerExtensions` MUST be removed. One concrete `ItemContainer` MUST implement only `IItemContainer` and `IItemContainerStorageOwner` and compose one `ItemContainerStorage`. Ordinary domain implementations MUST own a concrete `ItemContainer`; ordinary domain interfaces MUST expose it as `IItemContainer Items`, never as concrete `ItemContainer`. They MUST NOT copy the generic container forwarding API or expose trade-named operations. Equipment and MoneyPouch MUST compose `ItemContainerStorage` directly and MUST NOT expose a generic `Items` property. Equipment MUST itself remain a read-only `IContainer<IItem?>`. Trade is a consumer of the generic synchronous mutation/transfer boundary and MUST NOT be modeled as a capability inherited or implemented by ordinary item containers. Inventory, bank, reward and other generic domain containers MUST NOT expose trade-specific mutation contracts merely because trade can move items through them. `IItemContainer` MUST NOT reference concrete `ItemContainer`; bulk movement MUST belong to `ItemContainerTransfer`. Domain-facing interfaces MUST NOT inherit or expose `IItemContainerStorageOwner`, raw storage, or equipment publication methods. `IItemContainer` and `IItemContainerStorageOwner` MUST contain declarations only. `ItemContainerTransfer` MUST accept the storage-owner capability directly instead of probing arbitrary `IItemContainer` implementations. Composition MUST NOT be replaced by default-interface implementation inheritance; item-container interfaces define contracts only. `ItemContainerStorage` MUST own low-level slot and mutation mechanics and MUST NOT depend on character, trade, equipment, shop, UI, or persistence behavior. `ItemContainer` MUST invoke an optional simple publication callback only after committed generic mutations. Domain containers MUST retain ownership of specialized gameplay callbacks and orchestration. `IItemContainerStorageOwner` MUST expose only the storage and minimum publication operation needed by cross-container transfer coordination. Exact removal MUST be available through a neutral generic operation. Any staged MoneyPouch mutation APIs needed by transaction coordination MUST use domain-neutral exact-operation names.
+Storage mechanics MUST be composed rather than inherited. `BaseItemContainer`, `TradeItemContainer`, `ITradeItemContainer`, `ItemContainerExtensions`, generic forwarding wrappers, `IItemContainerStorageOwner`, and `ItemContainerTransfer` MUST be removed. One concrete `ItemContainer` MUST implement `IItemContainer` and compose one `ItemContainerStorage` and one `ItemContainerMutationBoundary`, exposed as `Mutations`. Ordinary domain implementations and interfaces MUST own/expose concrete `ItemContainer Items`; they MUST NOT copy generic forwarding operations. Equipment and MoneyPouch MUST compose storage directly with private mutation boundaries and MUST NOT expose generic `Items` or their boundaries. Equipment MUST itself remain a read-only `IContainer<IItem?>`. TradeOffer, Duel, and Price Checker MUST compose the concrete `ItemContainer` where generic behavior is required. `IItemContainer` MUST NOT reference concrete `ItemContainer`; bulk movement MUST NOT be part of its contract. Two-container mutations MUST use instance methods on `ItemContainerMutationBoundary`; multi-container mutations MUST use a short-lived `ItemContainerTransaction`. No runtime cast may be required to recover storage infrastructure. `ItemContainerStorage` MUST own low-level slot and mutation mechanics and MUST NOT depend on character, trade, equipment, shop, UI, or persistence behavior. The mutation boundary MUST own deterministic two-container lock ordering and post-commit publication; the transaction MUST own deterministic multi-container lock ordering, rollback, and post-commit publication. Domain containers MUST retain ownership of specialized gameplay callbacks and orchestration. Exact removal MUST be available through a neutral generic operation. MoneyPouch staging MUST participate through a narrow domain-owned path without exposing its boundary.
 
 #### Scenario: Domain mutation publishes committed slots
 - **WHEN** a domain container successfully adds, removes, replaces, moves, swaps, sorts, clears, or restores items
@@ -25,7 +25,7 @@ Storage mechanics MUST be composed rather than inherited. `BaseItemContainer`, `
 - **THEN** storage throws the established exception category and retains all previous slots, counts, and revision
 
 ### Requirement: Cross-container transfers commit both stores atomically
-An exact cross-container transfer MUST operate storage-to-storage. It MUST validate and plan source removal and destination insertion before changing either store. It MUST lock distinct stores in stable order, commit both stores together, advance each storage revision once, and return changed slots for domain publication.
+An exact cross-container transfer MUST operate storage-to-storage. Its `ItemContainerMutationBoundary` MUST validate and plan source removal and destination insertion before changing either store, acquire distinct locks in stable order, call the single low-level `ItemContainerStorage` transfer algorithm, commit both stores together, advance each storage revision once, and publish changed slots only after success.
 
 #### Scenario: Exact transfer succeeds
 - **WHEN** the source has the requested quantity and the destination can accept the exact result
@@ -40,7 +40,7 @@ An exact cross-container transfer MUST operate storage-to-storage. It MUST valid
 - **THEN** both operations acquire store locks in the same stable order and complete without lock-order deadlock
 
 ### Requirement: Storage and trade revisions have distinct purposes
-Storage MUST own synchronization and its mutation revision, which invalidates active enumerators after committed storage changes. `TradeExchange` MUST lock composed storage boundaries. A trade offer's acceptance `Revision` MUST remain domain-owned and MUST advance according to its existing publication semantics, independently of storage revision.
+Storage MUST own its mutation revision, which invalidates active enumerators after committed storage changes. `ItemContainerMutationBoundary` and `ItemContainerTransaction` MUST own lock ordering; TradeExchange MUST use a short-lived transaction rather than acquire storage locks directly. A trade offer's acceptance `Revision` MUST remain domain-owned and MUST advance according to its existing publication semantics, independently of storage revision.
 
 #### Scenario: Storage mutation invalidates enumeration
 - **WHEN** storage changes after an enumerator is created
@@ -49,6 +49,17 @@ Storage MUST own synchronization and its mutation revision, which invalidates ac
 #### Scenario: Trade publication invalidates acceptance
 - **WHEN** a trade offer publishes a content update
 - **THEN** its acceptance revision advances independently of the storage enumeration revision
+
+### Requirement: Multi-container mutations use an instance transaction
+`ItemContainerTransaction` MUST coordinate explicit mutation boundaries as a concrete short-lived object. It MUST deduplicate participants, acquire locks in deterministic storage order, preserve snapshot and rollback semantics, release locks before publication, and publish only committed changes. It MUST NOT introduce interfaces, ambient state, asynchronous work, service lookup, or distributed transactions. Special-domain boundaries MUST remain private and participate only through a narrow domain-owned operation.
+
+#### Scenario: Failed settlement restores every participant
+- **WHEN** settlement fails after one or more staged mutations
+- **THEN** every participant returns to its pre-transaction state and no partial settlement is published
+
+#### Scenario: Successful settlement publishes after unlocking
+- **WHEN** every staged mutation succeeds
+- **THEN** all storage commits, locks are released, and changed domains receive post-commit publication
 
 ### Requirement: Domain-specific empty-count semantics remain explicit
 Storage MUST support removing depleted slots or retaining the item at a configured reset count. Money pouch and shop containers MUST retain their own domain behavior when using a zero reset count.

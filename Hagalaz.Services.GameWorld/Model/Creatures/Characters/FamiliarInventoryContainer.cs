@@ -24,7 +24,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ICharacter _owner;
         private readonly IItemBuilder _itemBuilder;
         private readonly ItemContainer _items;
-        public IItemContainer Items => _items;
+        public ItemContainer Items => _items;
 
         /// <summary>
         /// Constructs a container for character inventories.
@@ -58,8 +58,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            if (ItemContainerTransfer.TryTransfer((IItemContainerStorageOwner)_owner.Inventory.Items,
-                    (IItemContainerStorageOwner)_items, item, count, slot))
+            if (_owner.Inventory.Items.Mutations.TryTransferTo(_items.Mutations, item, count, slot))
             {
                 return true;
             }
@@ -86,8 +85,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            if (ItemContainerTransfer.TryTransfer((IItemContainerStorageOwner)_items,
-                    (IItemContainerStorageOwner)_owner.Inventory.Items, item, count, slot))
+            if (_items.Mutations.TryTransferTo(_owner.Inventory.Items.Mutations, item, count, slot))
             {
                 return true;
             }
@@ -104,12 +102,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(IReadOnlyList<HydratedItem> inventory)
         {
-            ((IItemContainerStorageOwner)Items).Storage.RestoreItems(inventory.Select(entry => (entry.SlotId,
+            Items.Storage.RestoreItems(inventory.Select(entry => (entry.SlotId,
                 _itemBuilder.Create().WithId(entry.ItemId).WithCount(entry.Count)
                     .WithExtraData(entry.ExtraData ?? string.Empty).Build())));
         }
 
-        public IReadOnlyList<HydratedItem> Dehydrate() => ((IItemContainerStorageOwner)Items).Storage.Select((item, slot) => (item, slot)).Where(x => x.item != null)
+        public IReadOnlyList<HydratedItem> Dehydrate() => Items.Storage.Select((item, slot) => (item, slot)).Where(x => x.item != null)
             .Select(entry => new HydratedItem(entry.item!.Id, entry.item.Count, entry.slot, entry.item.SerializeExtraData()))
             .ToArray();
     }

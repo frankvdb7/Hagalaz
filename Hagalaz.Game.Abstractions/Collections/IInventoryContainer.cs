@@ -7,7 +7,7 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// </summary>
     public interface IInventoryContainer
     {
-        IItemContainer Items { get; }
+        ItemContainer Items { get; }
 
         /// <summary>
         /// Drops a specific item from the inventory onto the ground.

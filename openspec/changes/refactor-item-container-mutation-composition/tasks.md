@@ -57,3 +57,14 @@
 - [x] 9.2 Move Equipment and MoneyPouch to direct `ItemContainerStorage` ownership and remove their generic `Items` view; keep Equipment's read-only container projection and domain callbacks.
 - [x] 9.3 Remove `AddAndRemoveFrom(ItemContainer)` from `IItemContainer`, route bulk movement through `ItemContainerTransfer`, and remove equipment publication from `IEquipmentContainer`.
 - [x] 9.4 Preserve MoneyPouch presentation by sending a fixed one-slot item list from `Count`; add interface-shape assertions and run focused project validation.
+
+## 10. Instance mutation boundaries and transactions
+
+- [x] 10.1 Add concrete `ItemContainerMutationBoundary` and make `ItemContainer` own/expose it alongside private storage; move normal two-container locking, transfer, staged transfer, and publication onto the boundary without duplicating the storage algorithm.
+- [x] 10.2 Delete `IItemContainerStorageOwner` and `ItemContainerTransfer`; change ordinary domain interfaces and properties to concrete `ItemContainer Items`, and migrate generic transfer/bulk-move callers to instance boundaries.
+- [x] 10.3 Give Equipment a private mutation boundary and domain-owned transfer operation; preserve equip/unequip callbacks, changed-slot publication, failure atomicity, and callback order.
+- [x] 10.4 Give MoneyPouch a private mutation boundary; route exact pouch/inventory mutations through boundaries and retain a narrow safe participation path for TradeExchange.
+- [x] 10.5 Add concrete short-lived `ItemContainerTransaction` for deterministic multi-boundary locking, snapshots, rollback, and post-commit publication; refactor TradeExchange and escrow recovery to use it without direct storage access.
+- [x] 10.6 Keep raw storage access within storage-owning types and transaction infrastructure; migrate hydration, persistence tests, and all callers without infrastructure-recovery casts.
+- [x] 10.7 Add/update boundary, transaction, Equipment, MoneyPouch, and Trade regression tests for exact mutation, publication, lock ordering, rollback, and final state.
+- [x] 10.8 Audit repository-wide references and update current/delta OpenSpec wording; run focused tests, solution build, strict and current spec validation, and `git diff --check`. Do not run jscpd in this pass.

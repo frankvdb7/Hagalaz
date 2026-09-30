@@ -7,7 +7,7 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// </summary>
     public interface IRewardContainer
     {
-        IItemContainer Items { get; }
+        ItemContainer Items { get; }
 
         /// <summary>
         /// Claims a specific item from the reward container, moving it to the player's inventory or bank.

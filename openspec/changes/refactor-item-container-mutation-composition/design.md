@@ -9,8 +9,8 @@ Before this change, `BaseItemContainer` owned slot state and mutation algorithms
 **Goals:**
 
 - Keep `ItemContainerStorage` as the single implementation of slot and mutation mechanics. Add one concrete `ItemContainer` that implements the generic container contracts and composes that storage.
-- Keep `IItemContainer` as a contract-only interface and `ItemContainer` as its sole implementation. Ordinary domain implementations own `ItemContainer`, while their interfaces expose `IItemContainer Items`; they do not implement `IContainer` or forward the component's generic surface. Equipment and MoneyPouch own `ItemContainerStorage` directly and expose no generic `Items` property; Equipment itself remains a read-only `IContainer<IItem?>`. Special-domain mutation stays behind domain APIs. `IItemContainer` has no concrete `ItemContainer` dependency, bulk movement belongs to `ItemContainerTransfer`, and equipment publication stays private. The broader #439 decision about which operations should remain on `IItemContainer` is deferred.
-- Keep `TradeExchange` as the owner of trade-specific settlement and multi-container restoration.
+- Keep `IItemContainer` as a contract-only interface and `ItemContainer` as its sole implementation. Ordinary domain implementations own `ItemContainer`, and their interfaces expose concrete `ItemContainer Items`; they do not implement `IContainer` or forward the component's generic surface. Equipment and MoneyPouch own `ItemContainerStorage` and a private `ItemContainerMutationBoundary`, expose no generic `Items` property, and Equipment itself remains a read-only `IContainer<IItem?>`. The broader #439 decision about which operations should remain on `IItemContainer` is deferred.
+- Keep `TradeExchange` as the owner of trade-specific settlement and compose `ItemContainerTransaction` for multi-boundary locking, rollback and post-commit publication.
 
 **Non-Goals:**
 
@@ -19,27 +19,27 @@ Before this change, `BaseItemContainer` owned slot state and mutation algorithms
 
 ## Decisions
 
-### One concrete storage, plus a narrow transfer boundary
+### One concrete storage and an owned mutation boundary
 
-Create one public sealed `ItemContainerStorage` and one public sealed `ItemContainer` in Abstractions. `ItemContainer` implements only `IItemContainer` and `IItemContainerStorageOwner`, delegates mutation mechanics to its composed storage, and invokes an optional `Action<HashSet<int>?>` after successful mutations. Its publication implementation invokes the same callback so cross-container commits notify the composed owner. Domain classes do not implement the generic container contract or expose raw storage. `IItemContainer` includes neutral exact-removal semantics so shop payment and trade settlement share one generic operation.
+`ItemContainer` composes `ItemContainerStorage` and a public sealed `ItemContainerMutationBoundary`. The boundary owns exactly one storage reference and its optional publication callback. It provides instance-based `TryTransferTo` and an internal no-publication transfer for domain-owned callback ordering. It has no interface, inheritance, gameplay dependencies, service lookup, or static state. `ItemContainer` exposes `Mutations` but no raw storage; ordinary domain ownership properties expose concrete `ItemContainer Items`. Special domains keep their boundaries private. `IItemContainer` includes neutral exact-removal semantics so shop payment and trade settlement share one generic operation.
 
 ### Store methods mutate and return changed slots
 
 Move add, remove, exact removal, range insertion, replace/move/swap/sort/clear, exact-state replacement, queries, and version-aware enumeration into storage. Mutators return changed slots rather than invoking domain code. `AddRange` applies the existing simulation against a cloned slot state and commits only after full validation, eliminating trade-only rollback around a partial apply.
 
-### Transfer planning belongs to storage
+### Two-boundary mutation belongs to the boundary instance
 
-Move the existing #437 plan/simulate/commit algorithm into a storage-to-storage static operation. `ItemContainerTransfer` resolves provider stores and publishes updates after a successful commit; its storage-only entry point returns slot sets so equipment can run domain callbacks before publication. Bulk `AddAndRemoveFrom` behavior belongs to the coordinator, not the `IItemContainer` contract, and retains its per-source-slot exact-transfer behavior.
+Move the existing #437 plan/simulate/commit algorithm behind `ItemContainerMutationBoundary.TryTransferTo`. The boundary acquires storage locks in stable order, calls the single low-level `ItemContainerStorage.TryTransfer` algorithm, then publishes each side after success. The internal staged form returns exact changed-slot sets without publishing for Equipment. Delete `ItemContainerTransfer` and `IItemContainerStorageOwner`; callers must hold or receive boundaries and must not recover them by casts. Bulk `AddAndRemoveFrom` behavior belongs on a boundary-aware composition path, not `IItemContainer`, and retains its per-source-slot exact-transfer behavior.
 
 ### Domain containers own operation delegation and publication
 
-Each ordinary domain container owns one concrete `ItemContainer`, exposed through an `IItemContainer Items` interface property. It does not also implement `IContainer` or forward indexer, capacity, enumeration, mutation, or query members. Generic behavior lives once on `ItemContainer`; storage algorithms remain on `ItemContainerStorage`. Equipment and MoneyPouch own `ItemContainerStorage` directly, expose their domain operations only, and do not expose `Items`; Equipment itself remains a read-only `IContainer<IItem?>`. TradeOffer, Duel, and Price Checker retain only domain state and compose `ItemContainer`; `GenericContainer` and script-local generic forwarding wrappers are removed. `ItemContainerTransfer` remains the shared cross-container coordinator. `IItemContainer` does not depend on concrete `ItemContainer`, and bulk transfer is not a generic container member. `TradeExchange` is a consumer of this generic boundary, not an item-container capability: it acquires the existing storage locks in stable order and stages exact storage operations directly, snapshots affected stores, restores them on failure, and publishes only after the transaction commits. Pouch staging methods, where required by this transaction boundary, use domain-neutral exact names. Gameplay interfaces do not expose raw storage, storage-owner capability, or equipment publication. Composition must not be replaced by default-interface implementation inheritance; item-container interfaces define contracts only. Do not add a forwarding base class, extension implementation layer, storage interface hierarchy, or generated forwarding code.
+Each ordinary domain container owns one concrete `ItemContainer`, exposed as `ItemContainer Items` on its domain interface. It does not also implement `IContainer` or forward indexer, capacity, enumeration, mutation, or query members. Generic behavior lives once on `ItemContainer`; storage algorithms remain on `ItemContainerStorage`. Equipment and MoneyPouch own storage and private mutation boundaries, expose domain operations only, and do not expose `Items`; Equipment itself remains a read-only `IContainer<IItem?>` and exposes a named operation to publish its final state after a larger character operation. TradeOffer, Duel, and Price Checker retain only domain state and compose `ItemContainer`; `GenericContainer` and script-local generic forwarding wrappers are removed. `IItemContainer` does not depend on concrete `ItemContainer`, and bulk transfer is not a generic container member. `TradeExchange` composes a short-lived `ItemContainerTransaction` over participating boundaries; the transaction acquires deterministic locks, snapshots and rolls back enlisted storage, and publishes committed boundary changes after releasing locks. Pouch staging participates through narrow MoneyPouch-owned operations without exposing its boundary. Gameplay interfaces do not expose raw storage or special-domain boundaries. Composition must not be replaced by default-interface implementation inheritance; item-container interfaces define contracts only. Do not add a forwarding base class, extension implementation layer, storage interface hierarchy, or generated forwarding code.
 
 Domain hydration code maps persisted DTOs to physical `(slot, item)` entries and calls one narrow `ItemContainerStorage.RestoreItems` operation. Storage validates capacity bounds, duplicate slots, item null/count rules and replaces state only after the complete input is valid. Normal restored counts remain positive; MoneyPouch independently validates its coin-995 entry at physical slot zero and allows count zero. A GameWorld hydration mapper shares DTO projection and construction without moving DTO knowledge into storage.
 
-### Trade settlement locks stores directly
+### Trade settlement composes a short-lived transaction
 
-`TradeExchange` resolves all participants' stores, deduplicates by store identity, orders by `MutationOrder`, and acquires `MutationLock` in that order. Snapshot records keep both the domain container for publication and storage for state capture/restoration. Settlement, escrow, pouch overflow and event/message sequencing remain local to trade/pouch domain code.
+`ItemContainerTransaction` receives participant boundaries, deduplicates and orders their stores by `MutationOrder`, and owns the lock/snapshot/rollback lifecycle. `TradeExchange` performs the existing domain-specific settlement decisions through transaction operations and keeps escrow, pouch overflow and event/message sequencing in trade/pouch domain code. It does not access raw storage or reproduce lock ordering. Special MoneyPouch participation is mediated by its narrow staging operations rather than by exposing its boundary.
 
 ### Zero-count and equipment rules stay at their owners
 
@@ -55,12 +55,13 @@ Storage accepts a simple `countToResetTo` constructor option. MoneyPouch seeds a
 
 ## Migration Plan
 
-1. Keep slot state, mutation mechanics, revision/enumeration, lock/order, and transfer planning/commit in `ItemContainerStorage`; replace base-class transfer with `ItemContainerTransfer` and provider lookup.
-2. Add `ItemContainer` as the sole generic contract implementation composed over `ItemContainerStorage`; publish committed mutations through a simple optional callback.
-3. Migrate all production containers and script-local temporary containers to compose `ItemContainer`. Migrate trade participants and `TradeExchange` together so every participant uses the same storage boundary.
-4. Replace inheritance-based test fixtures with composed test containers and split core tests into storage and transfer suites; add focused ShopStock and Equipment characterization.
-5. Delete both old base classes and verify no source/test references or replacement implementation base remain.
-6. Run focused and affected test suites, solution build, strict OpenSpec validation, repository duplication/quality gate, and diff checks.
-7. Audit all item-container interfaces and consumers to ensure contracts contain declarations only, generic dispatch flows through the composed component, special domain behavior remains intact, and the complete branch introduces no new clone pairs.
+1. Keep slot state, mutation mechanics, revision/enumeration, lock/order, and transfer planning/commit in `ItemContainerStorage`; add an instance `ItemContainerMutationBoundary` and remove owner-capability/static coordination.
+2. Add `ItemContainer` as the sole generic contract implementation composed over storage and its public mutation boundary; publish committed mutations through a simple optional callback.
+3. Migrate ordinary domain interfaces to expose concrete `ItemContainer Items`; migrate special domains to private boundaries and domain-safe operations.
+4. Add `ItemContainerTransaction` and migrate TradeExchange to compose it without raw storage access or runtime infrastructure casts.
+5. Replace inheritance-based test fixtures with composed test containers and split core tests into storage, boundary, and transaction suites; add focused ShopStock and Equipment characterization.
+6. Delete both old base classes and verify no source/test references or replacement implementation base remain.
+7. Run focused and affected test suites, solution build, strict OpenSpec validation, and diff checks. Clone cleanup remains a later pass.
+8. Audit all item-container interfaces and consumers to ensure contracts contain declarations only, generic dispatch flows through the composed component, special domain behavior remains intact, and the complete branch introduces no infrastructure casts.
 
 Rollback is a source revert; there is no data or protocol migration.

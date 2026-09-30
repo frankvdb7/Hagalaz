@@ -6,12 +6,13 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Collections;
 
 /// <summary>Implements the generic item-container contract over composed storage.</summary>
-public sealed class ItemContainer : IItemContainer, IItemContainerStorageOwner
+public sealed class ItemContainer : IItemContainer
 {
     private readonly ItemContainerStorage _storage;
     private readonly Action<HashSet<int>?>? _publishChanges;
 
-    ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
+    internal ItemContainerStorage Storage => _storage;
+    public ItemContainerMutationBoundary Mutations { get; }
 
     public StorageType Type => _storage.Type;
     public int Capacity => _storage.Capacity;
@@ -24,6 +25,7 @@ public sealed class ItemContainer : IItemContainer, IItemContainerStorageOwner
     {
         _storage = new ItemContainerStorage(type, capacity, countToResetTo);
         _publishChanges = publishChanges;
+        Mutations = new ItemContainerMutationBoundary(_storage, _publishChanges);
     }
 
     public ItemContainer(StorageType type, IEnumerable<IItem> items, int capacity,
@@ -31,6 +33,7 @@ public sealed class ItemContainer : IItemContainer, IItemContainerStorageOwner
     {
         _storage = new ItemContainerStorage(type, items, capacity, countToResetTo);
         _publishChanges = publishChanges;
+        Mutations = new ItemContainerMutationBoundary(_storage, _publishChanges);
     }
 
     public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
@@ -109,8 +112,6 @@ public sealed class ItemContainer : IItemContainer, IItemContainerStorageOwner
     {
         if (_storage.Clear() && update) PublishChanges(null);
     }
-
-    void IItemContainerStorageOwner.PublishChanges(HashSet<int>? changedSlots) => PublishChanges(changedSlots);
 
     private void PublishChanges(HashSet<int>? changedSlots) => _publishChanges?.Invoke(changedSlots);
 }

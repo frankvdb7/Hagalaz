@@ -164,8 +164,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
                     return false;
                 }
 
-                ItemContainerTransfer.AddAndRemoveFrom((IItemContainerStorageOwner)Owner.Inventory.Items,
-                    (IItemContainerStorageOwner)bob.Inventory.Items);
+                Owner.Inventory.Items.Mutations.AddAndRemoveFrom(bob.Inventory.Items.Mutations);
                 return true;
             });
 
@@ -297,8 +296,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
                     return false;
                 }
 
-                ItemContainerTransfer.AddAndRemoveFrom((IItemContainerStorageOwner)Owner.Inventory.Items,
-                    (IItemContainerStorageOwner)bob.Inventory.Items);
+                Owner.Inventory.Items.Mutations.AddAndRemoveFrom(bob.Inventory.Items.Mutations);
                 return true;
             });
 

@@ -37,12 +37,12 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <summary>
         /// Synchronization boundary used by operations that mutate multiple stores.
         /// </summary>
-        public object MutationLock => _mutationLock;
+        internal object MutationLock => _mutationLock;
 
         /// <summary>
         /// Stable order for acquiring more than one container mutation boundary.
         /// </summary>
-        public long MutationOrder => _mutationOrder;
+        internal long MutationOrder => _mutationOrder;
 
         /// <summary>
         /// Gets the item at the specified index in the container.
@@ -127,7 +127,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>Atomically transfers an exact quantity between two stores.</summary>
-        public static bool TryTransfer(
+        internal static bool TryTransfer(
             ItemContainerStorage source,
             ItemContainerStorage destination,
             IItem item,
@@ -157,15 +157,8 @@ namespace Hagalaz.Game.Abstractions.Collections
                 return false;
             }
 
-            var transferred = false;
-
-            WithOrderedMutationLocks(source, destination, () =>
-            {
-                transferred = TryTransferLocked(source, destination, item, count,
-                    preferredSourceSlot, destinationSlot, destinationItem, changedSourceSlots, changedDestinationSlots);
-            });
-
-            return transferred;
+            return TryTransferLocked(source, destination, item, count,
+                preferredSourceSlot, destinationSlot, destinationItem, changedSourceSlots, changedDestinationSlots);
         }
 
         private static bool TryTransferLocked(
@@ -522,27 +515,6 @@ namespace Hagalaz.Game.Abstractions.Collections
 
             targetItems[slot] = item;
             return true;
-        }
-
-        private static void WithOrderedMutationLocks(ItemContainerStorage firstContainer, ItemContainerStorage secondContainer, Action mutation)
-        {
-            if (ReferenceEquals(firstContainer, secondContainer))
-            {
-                lock (firstContainer._mutationLock)
-                {
-                    mutation();
-                }
-
-                return;
-            }
-
-            var first = firstContainer._mutationOrder < secondContainer._mutationOrder ? firstContainer : secondContainer;
-            var second = ReferenceEquals(first, firstContainer) ? secondContainer : firstContainer;
-            lock (first._mutationLock)
-            lock (second._mutationLock)
-            {
-                mutation();
-            }
         }
 
         /// <summary>
