@@ -298,8 +298,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (_storage.Clear() && update) PublishChanges(null);
         }
 
-        public void CompleteDeathCleanup() => PublishChanges(null);
-
         private void PublishChanges(HashSet<EquipmentSlot>? slots = null)
         {
             _owner.Appearance.DrawCharacter();

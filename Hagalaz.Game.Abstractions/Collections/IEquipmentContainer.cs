@@ -82,9 +82,5 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="update">If set to <c>true</c>, an update callback is invoked.</param>
         void Clear(bool update);
-
-        /// <summary>Completes the deferred equipment update at the end of character death cleanup.</summary>
-        void CompleteDeathCleanup();
-
     }
 }

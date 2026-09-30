@@ -33,13 +33,34 @@ Move the existing #437 plan/simulate/commit algorithm behind `ItemContainerMutat
 
 ### Domain containers own operation delegation and publication
 
-Each ordinary domain container owns one concrete `ItemContainer`, exposed as `IItemContainer Items` on its domain interface. It does not also implement `IContainer` or forward indexer, capacity, enumeration, mutation, or query members. Generic behavior lives once on `ItemContainer`; storage algorithms remain on `ItemContainerStorage`. Equipment and MoneyPouch own storage and private mutation boundaries, expose domain operations only, and do not expose `Items`; Equipment itself remains a read-only `IContainer<IItem?>` and exposes only named domain actions such as completion of death cleanup. TradeOffer, Duel, and Price Checker retain only domain state and compose `ItemContainer`; `GenericContainer` and script-local generic forwarding wrappers are removed. `IItemContainer` does not depend on concrete `ItemContainer`, and bulk transfer is not a generic container member. `TradeExchange` composes a short-lived `ItemContainerTransaction` over `IItemContainerMutationBoundary` participants through `IItemContainerTransaction`; the transaction acquires deterministic locks, snapshots and rolls back enlisted storage, and publishes committed boundary changes after releasing locks. Pouch staging participates through semantic MoneyPouch operations and transaction callbacks without exposing its boundary. Gameplay interfaces do not expose raw storage or special-domain boundaries. Composition must not be replaced by default-interface implementation inheritance; item-container interfaces define contracts only. Do not add a forwarding base class, extension implementation layer, storage interface hierarchy, or generated forwarding code.
+Each ordinary domain container owns one concrete `ItemContainer`, exposed as `IItemContainer Items` on its domain interface. It does not also implement `IContainer` or forward indexer, capacity, enumeration, mutation, or query members. Generic behavior lives once on `ItemContainer`; storage algorithms remain on `ItemContainerStorage`. Equipment and MoneyPouch own storage and private mutation boundaries, expose domain operations only, and do not expose `Items`; Equipment itself remains a read-only `IContainer<IItem?>` with no publication-only escape hatch. TradeOffer, Duel, and Price Checker retain only domain state and compose `ItemContainer`; `GenericContainer` and script-local generic forwarding wrappers are removed. `IItemContainer` does not depend on concrete `ItemContainer`, and bulk transfer is not a generic container member. `TradeExchange` composes a short-lived `ItemContainerTransaction` over `IItemContainerMutationBoundary` participants through `IItemContainerTransaction`; the transaction acquires deterministic locks, snapshots and rolls back enlisted storage, and publishes committed boundary changes after releasing locks. Pouch staging participates through semantic MoneyPouch operations and transaction callbacks without exposing its boundary. Gameplay interfaces do not expose raw storage or special-domain boundaries. Composition must not be replaced by default-interface implementation inheritance; item-container interfaces define contracts only. Do not add a forwarding base class, extension implementation layer, storage interface hierarchy, or generated forwarding code.
 
 Domain hydration code maps persisted DTOs to physical `(slot, item)` entries and calls one narrow `ItemContainerStorage.RestoreItems` operation. Storage validates capacity bounds, duplicate slots, item null/count rules and replaces state only after the complete input is valid. Normal restored counts remain positive; MoneyPouch independently validates its coin-995 entry at physical slot zero and allows count zero. A GameWorld hydration mapper shares DTO projection and construction without moving DTO knowledge into storage.
 
 ### Trade settlement composes a short-lived transaction
 
 `ItemContainerTransaction` implements `IItemContainerTransaction`, receives interface-typed participants, deduplicates and orders their stores by `MutationOrder`, and owns the lock/snapshot/rollback lifecycle. `TradeExchange` performs the existing domain-specific settlement decisions through the transaction interface and keeps escrow, pouch overflow and event/message sequencing in trade/pouch domain code. It does not access raw storage or reproduce lock ordering. Special MoneyPouch participation is mediated by semantic exact-add/exact-remove staging operations and `OnCommitted` callbacks rather than by exposing its boundary or manual publication.
+
+### Trade orchestration is a composed collaborator
+
+`TradingCharacterScript` owns its two `TradeContainer` offers and composes one concrete `TradeExchange` with the injected `IItemBuilder`:
+
+```text
+TradingCharacterScript
+    |
+    +-- TradeContainer SelfContainer
+    +-- TradeContainer TargetContainer
+    +-- TradeExchange
+            +-- IItemBuilder
+            +-- creates ItemContainerTransaction per operation
+            +-- collaborates through IItemContainer,
+                IItemContainerMutationBoundary,
+                IItemContainerTransaction, and IMoneyPouchContainer
+```
+
+`TradeExchange` is a concrete composed collaborator, not a global/static service. It coordinates trade decisions, recipient preflight, escrow settlement, and recovery. `ItemContainerTransaction`, the mutation boundaries, and MoneyPouch retain ownership of locking, snapshots, rollback, generic publication, and pouch post-commit behavior. Trade-session state remains on `TradingCharacterScript` and its session model.
+
+Death processing defers the actual equipment `Clear(true)` mutation until after inventory restoration and ground-item creation. That mutation naturally publishes the final equipment state; no publication-only completion method is needed on `IEquipmentContainer`.
 
 ### Zero-count and equipment rules stay at their owners
 

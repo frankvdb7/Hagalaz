@@ -75,5 +75,11 @@
 - [x] 11.2 Change ordinary domain item properties and peer operations to `IItemContainer`; audit Equipment and MoneyPouch so their storage and concrete boundaries remain private.
 - [x] 11.3 Route direct and multi-container transfers through the same transaction lock/snapshot/rollback path, with interface-typed participants and no implementation recovery casts.
 - [x] 11.4 Replace MoneyPouch infrastructure leaks with semantic staging over `IItemContainerTransaction` and success-only post-commit callbacks; migrate TradeExchange generic signatures.
-- [x] 11.5 Replace `PublishCurrentState` with the domain-specific death cleanup completion operation while retaining death update ordering; add interface, publication, rollback, and staging regression tests.
+- [x] 11.5 Keep publication-only methods off `IEquipmentContainer`; preserve death update ordering by deferring the final equipment clear until character death processing is ready to publish.
 - [x] 11.6 Audit all domain-facing interfaces and infrastructure casts; run the four focused test projects, solution build, strict change/spec validation, and `git diff --check`. Do not run jscpd.
+
+## 12. Compose trade orchestration
+
+- [x] 12.1 Convert `TradeExchange` from static orchestration to a concrete instance collaborator that owns `IItemBuilder`, then compose it from `TradingCharacterScript` and migrate production and test call sites without adding a service or interface.
+- [x] 12.2 Replace the death-cleanup publication escape hatch with a natural Equipment mutation at the end of death cleanup; preserve the final update order and cover script-level trade composition with a behavior test.
+- [x] 12.3 Specify composed trade orchestration and its abstraction/ownership boundaries, then run focused suites, solution build, strict OpenSpec validation, and `git diff --check`; leave jscpd work open.

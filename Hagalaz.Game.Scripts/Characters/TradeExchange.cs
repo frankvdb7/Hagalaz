@@ -9,21 +9,27 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Scripts.Characters;
 
 /// <summary>Performs the checked terminal operations of a trade.</summary>
-internal static class TradeExchange
+internal sealed class TradeExchange
 {
     private const int CoinsItemId = 995;
+    private readonly IItemBuilder _itemBuilder;
 
-    public static bool TryCompleteTrade(ICharacter first, IItemContainer firstOffer, ICharacter second,
-        IItemContainer secondOffer, IItemBuilder itemBuilder) =>
-        TryExchangeOffers(first, firstOffer, second, secondOffer, secondOffer, firstOffer, itemBuilder);
+    public TradeExchange(IItemBuilder itemBuilder)
+    {
+        ArgumentNullException.ThrowIfNull(itemBuilder);
+        _itemBuilder = itemBuilder;
+    }
 
-    public static bool TryRefundTrade(ICharacter first, IItemContainer firstOffer, ICharacter second,
-        IItemContainer secondOffer, IItemBuilder itemBuilder) =>
-        TryExchangeOffers(first, firstOffer, second, secondOffer, firstOffer, secondOffer, itemBuilder);
+    public bool TryCompleteTrade(ICharacter first, IItemContainer firstOffer, ICharacter second,
+        IItemContainer secondOffer) =>
+        TryExchangeOffers(first, firstOffer, second, secondOffer, secondOffer, firstOffer);
 
-    private static bool TryExchangeOffers(ICharacter first, IItemContainer firstOffer, ICharacter second,
-        IItemContainer secondOffer, IItemContainer itemsForFirst, IItemContainer itemsForSecond,
-        IItemBuilder itemBuilder)
+    public bool TryRefundTrade(ICharacter first, IItemContainer firstOffer, ICharacter second,
+        IItemContainer secondOffer) =>
+        TryExchangeOffers(first, firstOffer, second, secondOffer, firstOffer, secondOffer);
+
+    private bool TryExchangeOffers(ICharacter first, IItemContainer firstOffer, ICharacter second,
+        IItemContainer secondOffer, IItemContainer itemsForFirst, IItemContainer itemsForSecond)
     {
         var transaction = new ItemContainerTransaction(firstOffer.Mutations, secondOffer.Mutations,
             first.Inventory.Items.Mutations, second.Inventory.Items.Mutations);
@@ -32,9 +38,9 @@ internal static class TradeExchange
 
         var succeeded = transaction.TryExecute(tx =>
         {
-            var firstItems = SnapshotItems(itemsForFirst);
-            var secondItems = SnapshotItems(itemsForSecond);
-            if (!CanReceive(first, firstItems, itemBuilder) || !CanReceive(second, secondItems, itemBuilder))
+            var firstItems = CloneOfferedItems(itemsForFirst);
+            var secondItems = CloneOfferedItems(itemsForSecond);
+            if (!CanReceive(first, firstItems) || !CanReceive(second, secondItems))
             {
                 return false;
             }
@@ -53,7 +59,7 @@ internal static class TradeExchange
     }
 
     /// <summary>Moves untouched escrow to existing recovery containers during forced destruction.</summary>
-    internal static bool TryConserveEscrow(ICharacter first, IItemContainer firstOffer, ICharacter second,
+    internal bool TryConserveEscrow(ICharacter first, IItemContainer firstOffer, ICharacter second,
         IItemContainer secondOffer)
     {
         var transaction = new ItemContainerTransaction(firstOffer.Mutations, secondOffer.Mutations);
@@ -64,8 +70,8 @@ internal static class TradeExchange
 
         return transaction.TryExecute(tx =>
         {
-            var firstItems = SnapshotItems(firstOffer);
-            var secondItems = SnapshotItems(secondOffer);
+            var firstItems = CloneOfferedItems(firstOffer);
+            var secondItems = CloneOfferedItems(secondOffer);
             var firstDestination = GetRecoveryContainer(first, firstItems);
             var secondDestination = GetRecoveryContainer(second, secondItems);
             if ((firstItems.Length > 0 && firstDestination == null) ||
@@ -92,7 +98,7 @@ internal static class TradeExchange
         });
     }
 
-    internal static bool TryOfferMoneyFromPouch(ICharacter character, IItemContainer offer, IItem coins)
+    internal bool TryOfferMoneyFromPouch(ICharacter character, IItemContainer offer, IItem coins)
     {
         if (coins.Count <= 0) return false;
 
@@ -112,7 +118,7 @@ internal static class TradeExchange
         return succeeded;
     }
 
-    internal static bool TryReturnMoneyToPouch(ICharacter character, IItemContainer offer, IItem coins,
+    internal bool TryReturnMoneyToPouch(ICharacter character, IItemContainer offer, IItem coins,
         int preferredSlot)
     {
         var transaction = new ItemContainerTransaction(offer.Mutations);
@@ -126,7 +132,7 @@ internal static class TradeExchange
         return succeeded;
     }
 
-    private static bool Receive(ICharacter character, IReadOnlyList<IItem> items, IItemContainerTransaction transaction)
+    private bool Receive(ICharacter character, IReadOnlyList<IItem> items, IItemContainerTransaction transaction)
     {
         var nonCoinItems = items.Where(item => item.Id != CoinsItemId).ToArray();
         if (nonCoinItems.Length > 0 && !transaction.TryAddRange(character.Inventory.Items.Mutations, nonCoinItems))
@@ -144,7 +150,7 @@ internal static class TradeExchange
         return true;
     }
 
-    private static bool CanReceive(ICharacter character, IReadOnlyList<IItem> items, IItemBuilder itemBuilder)
+    private bool CanReceive(ICharacter character, IReadOnlyList<IItem> items)
     {
         var nonCoinItems = items.Where(item => item.Id != CoinsItemId).ToArray();
         var coinCount = items.Where(item => item.Id == CoinsItemId).Sum(item => (long)item.Count);
@@ -155,14 +161,14 @@ internal static class TradeExchange
         var recipientItems = nonCoinItems;
         if (inventoryCoins > 0)
         {
-            recipientItems = nonCoinItems.Append(itemBuilder.Create().WithId(CoinsItemId)
+            recipientItems = nonCoinItems.Append(_itemBuilder.Create().WithId(CoinsItemId)
                 .WithCount((int)inventoryCoins).Build()).ToArray();
         }
 
         return character.Inventory.Items.HasSpaceForRange(recipientItems);
     }
 
-    private static IItemContainer? GetRecoveryContainer(ICharacter character, IReadOnlyList<IItem> items)
+    private IItemContainer? GetRecoveryContainer(ICharacter character, IReadOnlyList<IItem> items)
     {
         if (items.Count == 0) return character.Rewards?.Items;
         if (character.Rewards != null && character.Rewards.Items.HasSpaceForRange(items))
@@ -173,10 +179,10 @@ internal static class TradeExchange
         return character.Bank != null && character.Bank.Items.HasSpaceForRange(items) ? character.Bank.Items : null;
     }
 
-    private static IItem[] SnapshotItems(IItemContainer container) =>
+    private IItem[] CloneOfferedItems(IItemContainer container) =>
         container.OfType<IItem>().Select(item => item.Clone()).ToArray();
 
-    private static void AddRecoveryBoundary(IItemContainerTransaction transaction, IItemContainer? container)
+    private void AddRecoveryBoundary(IItemContainerTransaction transaction, IItemContainer? container)
     {
         if (container != null) transaction.Include(container.Mutations);
     }

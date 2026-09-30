@@ -23,6 +23,7 @@ namespace Hagalaz.Game.Scripts.Characters
     public class TradingCharacterScript : CharacterScriptBase, IDefaultCharacterScript
     {
         private readonly IItemBuilder _itemBuilder;
+        private readonly TradeExchange _tradeExchange;
         private TradeSessionState? _tradeSession;
         private TradeSessionState? _linkedTradeSession;
 
@@ -142,6 +143,7 @@ namespace Hagalaz.Game.Scripts.Characters
             SelfContainer = new TradeContainer();
             TargetContainer = new TradeContainer();
             _itemBuilder = itemBuilder;
+            _tradeExchange = new TradeExchange(itemBuilder);
         }
 
         /// <summary>
@@ -1163,7 +1165,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 var toRemove = item.Clone();
                 toRemove.Count = count;
 
-                if (!TradeExchange.TryReturnMoneyToPouch(character, offer, toRemove, preferredSlot))
+                if (!_tradeExchange.TryReturnMoneyToPouch(character, offer, toRemove, preferredSlot))
                     return false;
 
                 RefreshTradeOfferScreenLocked(session);
@@ -1195,7 +1197,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     return false;
                 }
 
-                if (TradeExchange.TryOfferMoneyFromPouch(character, offer, coinOffer))
+                if (_tradeExchange.TryOfferMoneyFromPouch(character, offer, coinOffer))
                 {
                     RefreshTradeOfferScreenLocked(session);
                     ProcessTradeChangeLocked(session, self, false);
@@ -1667,10 +1669,10 @@ namespace Hagalaz.Game.Scripts.Characters
                     return;
                 }
 
-                if (!TradeExchange.TryRefundTrade(Character, SelfContainer.Items, session.Target, TargetContainer.Items, _itemBuilder))
+                if (!_tradeExchange.TryRefundTrade(Character, SelfContainer.Items, session.Target, TargetContainer.Items))
                 {
                     if (forceConservation &&
-                        TradeExchange.TryConserveEscrow(
+                        _tradeExchange.TryConserveEscrow(
                             Character,
                             SelfContainer.Items,
                             session.Target,
@@ -1722,7 +1724,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 var exchanged = false;
                 try
                 {
-                    exchanged = TradeExchange.TryCompleteTrade(Character, SelfContainer.Items, target, TargetContainer.Items, _itemBuilder);
+                    exchanged = _tradeExchange.TryCompleteTrade(Character, SelfContainer.Items, target, TargetContainer.Items);
                 }
                 finally
                 {
