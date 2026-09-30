@@ -82,12 +82,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return false;
                 }
 
-                if (!TryMoveFromInventoryToSlot(item, slot, equipSlot, out var inventorySlots, out var equipmentSlots))
+                if (!TryMoveFromInventoryToSlot(item, slot, equipSlot, null))
                 {
                     return false;
                 }
 
-                PublishEquipmentMove(inventorySlots, equipmentSlots);
                 return true;
             }
 
@@ -95,13 +94,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 if (equipItem == null)
                 {
-                    if (!TryMoveFromInventoryToSlot(item, slot, equipSlot, out var inventorySlots, out var equipmentSlots))
+                    if (!TryMoveFromInventoryToSlot(item, slot, equipSlot, () => item.EquipmentScript.OnEquipped(item, _owner)))
                     {
                         return false;
                     }
 
-                    item.EquipmentScript.OnEquipped(item, _owner);
-                    PublishEquipmentMove(inventorySlots, equipmentSlots);
                     return true;
                 }
 
@@ -125,13 +122,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var equippedShield = this[EquipmentSlot.Shield];
             if (equippedWeapon == null && equippedShield == null)
             {
-                if (!TryMoveFromInventoryToSlot(item, slot, equipSlot, out var inventorySlots, out var equipmentSlots))
+                if (!TryMoveFromInventoryToSlot(item, slot, equipSlot, () => item.EquipmentScript.OnEquipped(item, _owner)))
                 {
                     return false;
                 }
 
-                item.EquipmentScript.OnEquipped(item, _owner);
-                PublishEquipmentMove(inventorySlots, equipmentSlots);
                 return true;
             }
 
@@ -228,36 +223,37 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool Add(EquipmentSlot slot, IItem item)
         {
             if (!_storage.TryAdd((int)slot, item, out var slots)) return false;
-            _mutations.PublishChanges(slots);
+            PublishChanges(slots.Select(slot => (EquipmentSlot)slot).ToHashSet());
             return true;
         }
 
         private bool TryMoveFromInventoryToSlot(IItem item, int inventorySlot, EquipmentSlot equipmentSlot,
-            out HashSet<int> inventorySlots, out HashSet<int> equipmentSlots) =>
-            _owner.Inventory.Items.Mutations.TryTransferToStorage(_mutations, item, item.Count, inventorySlot,
-                (int)equipmentSlot, null, out inventorySlots, out equipmentSlots);
-
-        private void PublishEquipmentMove(HashSet<int> inventorySlots, HashSet<int> equipmentSlots)
+            Action? afterCommit)
         {
-            _owner.Inventory.Items.Mutations.PublishChanges(inventorySlots);
-            _mutations.PublishChanges(equipmentSlots);
+            var inventoryBoundary = _owner.Inventory.Items.Mutations;
+            var transaction = new ItemContainerTransaction(inventoryBoundary, _mutations);
+            return transaction.TryExecute(tx =>
+            {
+                if (!tx.TryTransfer(inventoryBoundary, _mutations, item, item.Count, inventorySlot,
+                        (int)equipmentSlot)) return false;
+                if (afterCommit != null) transaction.OnCommittedBeforePublish(afterCommit);
+                return true;
+            });
         }
 
-        public bool TryMoveTo(ItemContainer destination, IItem item, int count, EquipmentSlot slot,
+        public bool TryMoveTo(IItemContainer destination, IItem item, int count, EquipmentSlot slot,
             IItem? destinationItem = null)
         {
             if (count <= 0 || this[slot] is not { } equippedItem || !ReferenceEquals(equippedItem, item)) return false;
             var fullyRemoved = count == equippedItem.Count;
-            if (!_mutations.TryTransferToStorage(destination.Mutations, equippedItem, count, (int)slot, -1,
-                    destinationItem, out var equipmentSlots, out var destinationSlots))
+            var transaction = new ItemContainerTransaction(_mutations, destination.Mutations);
+            return transaction.TryExecute(tx =>
             {
-                return false;
-            }
-
-            if (fullyRemoved) equippedItem.EquipmentScript.OnUnequipped(equippedItem, _owner);
-            _mutations.PublishChanges(equipmentSlots);
-            destination.Mutations.PublishChanges(destinationSlots);
-            return true;
+                if (!tx.TryTransfer(_mutations, destination.Mutations, equippedItem, count, (int)slot, -1,
+                        destinationItem)) return false;
+                if (fullyRemoved) transaction.OnCommittedBeforePublish(() => equippedItem.EquipmentScript.OnUnequipped(equippedItem, _owner));
+                return true;
+            });
         }
 
         public void Replace(EquipmentSlot slot, IItem item)
@@ -302,7 +298,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (_storage.Clear() && update) PublishChanges(null);
         }
 
-        public void PublishCurrentState() => PublishChanges(null);
+        public void CompleteDeathCleanup() => PublishChanges(null);
 
         private void PublishChanges(HashSet<EquipmentSlot>? slots = null)
         {
@@ -336,15 +332,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 destinationSlot = toInventorySlot;
             }
 
-            if (!_mutations.TryTransferToStorage(_owner.Inventory.Items.Mutations, item, item.Count, (int)slot, destinationSlot, null,
-                    out var equipmentSlots, out var inventorySlots))
+            var inventoryBoundary = _owner.Inventory.Items.Mutations;
+            var transaction = new ItemContainerTransaction(inventoryBoundary, _mutations);
+            var succeeded = transaction.TryExecute(tx =>
+            {
+                if (!tx.TryTransfer(_mutations, inventoryBoundary, item, item.Count, (int)slot, destinationSlot))
+                    return false;
+                transaction.OnCommittedBeforePublish(() => item.EquipmentScript.OnUnequipped(item, _owner));
+                return true;
+            });
+            if (!succeeded)
             {
                 _owner.SendChatMessage("Not enough space in your inventory.");
                 return false;
             }
-
-            item.EquipmentScript.OnUnequipped(item, _owner);
-            PublishEquipmentMove(inventorySlots, equipmentSlots);
             return true;
         }
 

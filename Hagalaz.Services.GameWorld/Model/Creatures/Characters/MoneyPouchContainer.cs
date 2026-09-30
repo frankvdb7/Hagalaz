@@ -95,28 +95,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool TryAddExact(int count)
         {
             var transaction = new ItemContainerTransaction();
-            IncludeIn(transaction);
-            var pouchChangeCount = 0;
-            if (!transaction.TryExecute(tx => TryAddExactStorage(tx, count, out pouchChangeCount, out _)))
-            {
-                return false;
-            }
-            PublishChanges(pouchChangeCount);
-            return true;
+            EnlistIn(transaction);
+            return transaction.TryExecute(tx => TryStageAddExact(tx, count));
         }
 
-        public bool TryAddExactStorage(ItemContainerTransaction transaction, int count, out int pouchChangeCount,
-            out HashSet<int> inventoryChangedSlots)
+        public bool TryStageAddExact(IItemContainerTransaction transaction, int count)
         {
             ArgumentNullException.ThrowIfNull(transaction);
-            return TryAddExactStorageCore(transaction, count, out pouchChangeCount, out inventoryChangedSlots);
+            return TryStageExactAddCore(transaction, count);
         }
 
-        private bool TryAddExactStorageCore(ItemContainerTransaction transaction, int count, out int pouchChangeCount,
-            out HashSet<int> inventoryChangedSlots)
+        private bool TryStageExactAddCore(IItemContainerTransaction transaction, int count)
         {
-            pouchChangeCount = 0;
-            inventoryChangedSlots = [];
             if (count <= 0)
             {
                 return false;
@@ -131,7 +121,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            _previousCount = Count;
+            var previousCount = Count;
             HashSet<int> pouchSlots = [];
             if (pouchCount > 0 && !_storage.TryAddRange(
                     [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()], out pouchSlots))
@@ -141,14 +131,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             if (inventoryCount > 0 && !transaction.TryAddRange(_owner.Inventory.Items.Mutations,
-                    [_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()], out inventoryChangedSlots))
+                    [_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()]))
             {
                 RestoreStorageState(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
                 return false;
             }
 
             if (pouchSlots.Count > 0) transaction.RecordChangedSlots(_mutations, pouchSlots);
-            pouchChangeCount = pouchCount;
+            if (pouchCount > 0) transaction.OnCommitted(() =>
+            {
+                _previousCount = previousCount;
+                PublishChanges(pouchCount);
+            });
             return true;
         }
 
@@ -185,31 +179,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool TryRemoveExact(int count)
         {
             var transaction = new ItemContainerTransaction();
-            IncludeIn(transaction);
-            var pouchChangeCount = 0;
-            if (!transaction.TryExecute(tx => TryRemoveExactStorage(tx, count, out pouchChangeCount, out _)))
-            {
-                return false;
-            }
-            PublishChanges(-count);
-            return true;
+            EnlistIn(transaction);
+            return transaction.TryExecute(tx => TryStageRemoveExact(tx, count));
         }
 
         /// <summary>
         /// Stages an exact coin removal without publishing pouch or inventory updates.
         /// </summary>
-        public bool TryRemoveExactStorage(ItemContainerTransaction transaction, int count, out int pouchChangeCount,
-            out HashSet<int> inventoryChangedSlots)
+        public bool TryStageRemoveExact(IItemContainerTransaction transaction, int count)
         {
             ArgumentNullException.ThrowIfNull(transaction);
-            return TryRemoveExactStorageCore(transaction, count, out pouchChangeCount, out inventoryChangedSlots);
+            return TryStageExactRemoveCore(transaction, count);
         }
 
-        private bool TryRemoveExactStorageCore(ItemContainerTransaction transaction, int count, out int pouchChangeCount,
-            out HashSet<int> inventoryChangedSlots)
+        private bool TryStageExactRemoveCore(IItemContainerTransaction transaction, int count)
         {
-            pouchChangeCount = 0;
-            inventoryChangedSlots = [];
             if (count <= 0)
             {
                 return false;
@@ -223,7 +207,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            _previousCount = Count;
+            var previousCount = Count;
             HashSet<int> pouchSlots = [];
             if (pouchCount > 0 && !_storage.TryRemoveExact(
                     _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), pouchCount, 0, out pouchSlots))
@@ -233,24 +217,28 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             if (inventoryCount > 0 && !transaction.TryRemoveExact(_owner.Inventory.Items.Mutations,
-                    _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build(), -1, out inventoryChangedSlots))
+                    _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
             {
                 RestoreStorageState(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
                 return false;
             }
 
             if (pouchSlots.Count > 0) transaction.RecordChangedSlots(_mutations, pouchSlots);
-            pouchChangeCount = -count;
+            transaction.OnCommitted(() =>
+            {
+                _previousCount = previousCount;
+                PublishChanges(-count);
+            });
             return true;
         }
 
-        public void PublishChanges(int pouchChangeCount)
+        private void PublishChanges(int pouchChangeCount)
         {
             SendMoneyPouchChangedMessage(pouchChangeCount);
             OnUpdate();
         }
 
-        public void IncludeIn(ItemContainerTransaction transaction)
+        public void EnlistIn(IItemContainerTransaction transaction)
         {
             ArgumentNullException.ThrowIfNull(transaction);
             transaction.Include(_mutations);

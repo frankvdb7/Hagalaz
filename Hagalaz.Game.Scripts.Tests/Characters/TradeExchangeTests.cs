@@ -654,7 +654,7 @@ public sealed class TradeExchangeTests
         public TestMoneyPouch(IInventoryContainer overflowInventory) : base(StorageType.AlwaysStack, 1, 0, publishItemChanges: false)
         {
             _overflowInventory = overflowInventory;
-            Items.Storage.ReplaceState([new TestItem(995, 0, stackable: true)]);
+            Container.Storage.ReplaceState([new TestItem(995, 0, stackable: true)]);
         }
         public string Examine => Count.ToString();
         public int Count => Items[0]?.Count ?? 0;
@@ -673,15 +673,11 @@ public sealed class TradeExchangeTests
         public bool TryAddExact(int count)
         {
             var transaction = new ItemContainerTransaction();
-            IncludeIn(transaction);
-            var change = 0;
-            if (!transaction.TryExecute(tx => TryAddExactStorage(tx, count, out change, out _))) return false;
-            PublishChanges(change);
-            return true;
+            EnlistIn(transaction);
+            return transaction.TryExecute(tx => TryStageAddExact(tx, count));
         }
-        public bool TryAddExactStorage(ItemContainerTransaction transaction, int count, out int pouchChangeCount, out HashSet<int> inventoryChangedSlots)
+        public bool TryStageAddExact(IItemContainerTransaction transaction, int count)
         {
-            pouchChangeCount = 0; inventoryChangedSlots = [];
             if (FailNextStorageAdd) { FailNextStorageAdd = false; return false; }
             if (count <= 0) return false;
             var pouchCount = Math.Min(int.MaxValue - Count, count);
@@ -689,10 +685,11 @@ public sealed class TradeExchangeTests
             if (overflow > 0 && !_overflowInventory.Items.HasSpaceFor(new TestItem(995, overflow, stackable: true))) return false;
             if (pouchCount > 0 && !transaction.TryAddRange(Items.Mutations, [new TestItem(995, pouchCount, stackable: true)])) return false;
             if (overflow > 0 && !transaction.TryAddRange(_overflowInventory.Items.Mutations,
-                    [new TestItem(995, overflow, stackable: true)], out inventoryChangedSlots)) return false;
-            pouchChangeCount = pouchCount; return true;
+                    [new TestItem(995, overflow, stackable: true)])) return false;
+            if (pouchCount > 0) transaction.OnCommitted(() => OnUpdate());
+            return true;
         }
-        public void IncludeIn(ItemContainerTransaction transaction)
+        public void EnlistIn(IItemContainerTransaction transaction)
         {
             transaction.Include(Items.Mutations);
             transaction.Include(_overflowInventory.Items.Mutations);
@@ -708,23 +705,20 @@ public sealed class TradeExchangeTests
         public bool TryRemoveExact(int count)
         {
             var transaction = new ItemContainerTransaction();
-            IncludeIn(transaction);
-            var change = 0;
-            if (!transaction.TryExecute(tx => TryRemoveExactStorage(tx, count, out change, out _))) return false;
-            PublishChanges(change); return true;
+            EnlistIn(transaction);
+            return transaction.TryExecute(tx => TryStageRemoveExact(tx, count));
         }
-        public bool TryRemoveExactStorage(ItemContainerTransaction transaction, int count, out int pouchChangeCount, out HashSet<int> inventoryChangedSlots)
+        public bool TryStageRemoveExact(IItemContainerTransaction transaction, int count)
         {
-            pouchChangeCount = 0; inventoryChangedSlots = [];
             if (count <= 0) return false;
             var pouchCount = Math.Min(Count, count); var overflow = count - pouchCount;
             if (overflow > _overflowInventory.Items.GetCountById(995)) return false;
             if (pouchCount > 0 && !transaction.TryRemoveExact(Items.Mutations, new TestItem(995, pouchCount, stackable: true), 0)) return false;
             if (overflow > 0 && !transaction.TryRemoveExact(_overflowInventory.Items.Mutations,
-                    new TestItem(995, overflow, stackable: true), -1, out inventoryChangedSlots)) return false;
-            pouchChangeCount = -count; return true;
+                    new TestItem(995, overflow, stackable: true), -1)) return false;
+            transaction.OnCommitted(() => OnUpdate());
+            return true;
         }
-        public void PublishChanges(int pouchChangeCount) => OnUpdate();
     }
     private sealed class TestItem : IItem
     {

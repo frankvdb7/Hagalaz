@@ -54,24 +54,11 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         bool TryAddExact(int count);
 
-        /// <summary>
-        /// Adds coins to the pouch and, if needed, Inventory without publishing changes.
-        /// </summary>
-        bool TryAddExactStorage(ItemContainerTransaction transaction, int count, out int pouchChangeCount,
-            out System.Collections.Generic.HashSet<int> inventoryChangedSlots);
+        void EnlistIn(IItemContainerTransaction transaction);
 
-        /// <summary>
-        /// Removes coins from the pouch and, if needed, Inventory without publishing changes.
-        /// </summary>
-        bool TryRemoveExactStorage(ItemContainerTransaction transaction, int count, out int pouchChangeCount,
-            out System.Collections.Generic.HashSet<int> inventoryChangedSlots);
+        bool TryStageAddExact(IItemContainerTransaction transaction, int count);
 
-        void IncludeIn(ItemContainerTransaction transaction);
-
-        /// <summary>
-        /// Publishes a committed pouch change and its player message.
-        /// </summary>
-        void PublishChanges(int pouchChangeCount);
+        bool TryStageRemoveExact(IItemContainerTransaction transaction, int count);
 
         /// <summary>
         /// Removes exactly the requested number of coins from the pouch and inventory, if available.

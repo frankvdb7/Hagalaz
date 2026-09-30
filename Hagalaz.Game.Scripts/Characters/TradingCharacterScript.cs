@@ -1858,7 +1858,7 @@ namespace Hagalaz.Game.Scripts.Characters
         /// </summary>
         public class TradeContainer
         {
-            public ItemContainer Items { get; }
+            public IItemContainer Items { get; }
             /// <summary>
             ///     Contains last slots update.
             /// </summary>

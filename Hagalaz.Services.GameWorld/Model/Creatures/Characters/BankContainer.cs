@@ -20,7 +20,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IItemBuilder _itemBuilder;
 
         private readonly ItemContainer _items;
-        public ItemContainer Items => _items;
+        public IItemContainer Items => _items;
 
         /// <summary>
         /// Contstructs a container for character banks.
@@ -88,7 +88,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="deposited">Pointer to item which was deposited into bank. Can be null.</param>
         /// <param name="container"></param>
         /// <returns>If depositing was sucessfull.</returns>
-        public bool DepositFromFamiliar(IItem item, int count, [NotNullWhen(true)] out IItem? deposited, ItemContainer container)
+        public bool DepositFromFamiliar(IItem item, int count, [NotNullWhen(true)] out IItem? deposited, IItemContainer container)
         {
             var slot = container.GetInstanceSlot(item);
             if (slot == -1 || count <= 0)
@@ -295,12 +295,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> bank)
         {
-            Items.Storage.RestoreItems(bank.Select(entry => entry.ToStorageEntry(_itemBuilder)));
+            _items.Storage.RestoreItems(bank.Select(entry => entry.ToStorageEntry(_itemBuilder)));
         }
 
         public IReadOnlyList<HydratedItemDto> Dehydrate()
         {
-            return Items.Storage.ToHydratedItems();
+            return _items.Storage.ToHydratedItems();
         }
 
         private IItem CreateDepositItem(IItem item, int count, out bool transformed)

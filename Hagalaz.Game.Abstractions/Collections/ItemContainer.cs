@@ -10,9 +10,10 @@ public sealed class ItemContainer : IItemContainer
 {
     private readonly ItemContainerStorage _storage;
     private readonly Action<HashSet<int>?>? _publishChanges;
+    private readonly ItemContainerMutationBoundary _mutations;
 
     internal ItemContainerStorage Storage => _storage;
-    public ItemContainerMutationBoundary Mutations { get; }
+    public IItemContainerMutationBoundary Mutations => _mutations;
 
     public StorageType Type => _storage.Type;
     public int Capacity => _storage.Capacity;
@@ -25,7 +26,7 @@ public sealed class ItemContainer : IItemContainer
     {
         _storage = new ItemContainerStorage(type, capacity, countToResetTo);
         _publishChanges = publishChanges;
-        Mutations = new ItemContainerMutationBoundary(_storage, _publishChanges);
+        _mutations = new ItemContainerMutationBoundary(_storage, _publishChanges);
     }
 
     public ItemContainer(StorageType type, IEnumerable<IItem> items, int capacity,
@@ -33,7 +34,7 @@ public sealed class ItemContainer : IItemContainer
     {
         _storage = new ItemContainerStorage(type, items, capacity, countToResetTo);
         _publishChanges = publishChanges;
-        Mutations = new ItemContainerMutationBoundary(_storage, _publishChanges);
+        _mutations = new ItemContainerMutationBoundary(_storage, _publishChanges);
     }
 
     public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();

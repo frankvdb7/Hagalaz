@@ -37,7 +37,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         bool UnEquipItem(IItem item, int toInventorySlot = -1);
 
         /// <summary>Moves equipped items to another ordinary item container, preserving equipment callbacks.</summary>
-        bool TryMoveTo(ItemContainer destination, IItem item, int count, EquipmentSlot slot, IItem? destinationItem = null);
+        bool TryMoveTo(IItemContainer destination, IItem item, int count, EquipmentSlot slot, IItem? destinationItem = null);
 
         /// <summary>
         /// Gets the equipment slot of a specific item instance currently worn by the character.
@@ -83,8 +83,8 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="update">If set to <c>true</c>, an update callback is invoked.</param>
         void Clear(bool update);
 
-        /// <summary>Publishes the current equipment state after a larger domain operation commits.</summary>
-        void PublishCurrentState();
+        /// <summary>Completes the deferred equipment update at the end of character death cleanup.</summary>
+        void CompleteDeathCleanup();
 
     }
 }

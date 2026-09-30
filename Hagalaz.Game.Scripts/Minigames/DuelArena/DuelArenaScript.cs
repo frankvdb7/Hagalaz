@@ -1716,7 +1716,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     /// </summary>
     public class DuelContainer
     {
-        public ItemContainer Items { get; }
+        public IItemContainer Items { get; }
         /// <summary>
         ///     Contains last slots update.
         /// </summary>

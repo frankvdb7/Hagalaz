@@ -34,7 +34,7 @@
 
 ## 7. Integration and review
 
-- [ ] 7.1 Review the cumulative diff for one slot owner/one mutation algorithm, callback and publication order, exact persistence slots, and no copied generic container implementations; run focused Abstractions, GameWorld, Scripts and Extensions test projects.
+- [x] 7.1 Review the cumulative diff for one slot owner/one mutation algorithm, callback and publication order, exact persistence slots, and no copied generic container implementations; run focused Abstractions, GameWorld, Scripts and Extensions test projects.
 - [ ] 7.2 Run the affected solution build, strict OpenSpec validation, local repository-configured jscpd base comparison, and `git diff --check`; record exact commands and results.
 - [ ] 7.3 Eliminate every new clone pair relative to the pull-request base and obtain a passing repository `fail-on-new-clones` result with zero new pairs. Local jscpd 5.3.2 comparison against base `75e18b9975c58b209018662a2617fb9b8b285883` began at 38 new pairs; after generic-wrapper composition the current report is 43 new pairs, so the zero-new-clones gate remains open.
 - [x] 7.4 Preserve interface dispatch for domain-specialized operations, name the storage owner accurately, and audit GameWorld global imports.
@@ -61,10 +61,19 @@
 ## 10. Instance mutation boundaries and transactions
 
 - [x] 10.1 Add concrete `ItemContainerMutationBoundary` and make `ItemContainer` own/expose it alongside private storage; move normal two-container locking, transfer, staged transfer, and publication onto the boundary without duplicating the storage algorithm.
-- [x] 10.2 Delete `IItemContainerStorageOwner` and `ItemContainerTransfer`; change ordinary domain interfaces and properties to concrete `ItemContainer Items`, and migrate generic transfer/bulk-move callers to instance boundaries.
+- [x] 10.2 Delete `IItemContainerStorageOwner` and `ItemContainerTransfer`; change ordinary domain interfaces and properties to `IItemContainer Items`, and migrate generic transfer/bulk-move callers to interface-typed instance boundaries.
 - [x] 10.3 Give Equipment a private mutation boundary and domain-owned transfer operation; preserve equip/unequip callbacks, changed-slot publication, failure atomicity, and callback order.
 - [x] 10.4 Give MoneyPouch a private mutation boundary; route exact pouch/inventory mutations through boundaries and retain a narrow safe participation path for TradeExchange.
 - [x] 10.5 Add concrete short-lived `ItemContainerTransaction` for deterministic multi-boundary locking, snapshots, rollback, and post-commit publication; refactor TradeExchange and escrow recovery to use it without direct storage access.
 - [x] 10.6 Keep raw storage access within storage-owning types and transaction infrastructure; migrate hydration, persistence tests, and all callers without infrastructure-recovery casts.
 - [x] 10.7 Add/update boundary, transaction, Equipment, MoneyPouch, and Trade regression tests for exact mutation, publication, lock ordering, rollback, and final state.
 - [x] 10.8 Audit repository-wide references and update current/delta OpenSpec wording; run focused tests, solution build, strict and current spec validation, and `git diff --check`. Do not run jscpd in this pass.
+
+## 11. Interface-typed composition follow-up
+
+- [x] 11.1 Add declaration-only `IItemContainerMutationBoundary` and `IItemContainerTransaction`; expose only the boundary abstraction from `IItemContainer`, with concrete enlistment confined to the internal infrastructure bridge.
+- [x] 11.2 Change ordinary domain item properties and peer operations to `IItemContainer`; audit Equipment and MoneyPouch so their storage and concrete boundaries remain private.
+- [x] 11.3 Route direct and multi-container transfers through the same transaction lock/snapshot/rollback path, with interface-typed participants and no implementation recovery casts.
+- [x] 11.4 Replace MoneyPouch infrastructure leaks with semantic staging over `IItemContainerTransaction` and success-only post-commit callbacks; migrate TradeExchange generic signatures.
+- [x] 11.5 Replace `PublishCurrentState` with the domain-specific death cleanup completion operation while retaining death update ordering; add interface, publication, rollback, and staging regression tests.
+- [x] 11.6 Audit all domain-facing interfaces and infrastructure casts; run the four focused test projects, solution build, strict change/spec validation, and `git diff --check`. Do not run jscpd.

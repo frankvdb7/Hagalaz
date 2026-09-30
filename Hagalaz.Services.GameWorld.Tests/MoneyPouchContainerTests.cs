@@ -29,13 +29,17 @@ public sealed class MoneyPouchContainerTests
 
         foreach (var containerInterface in ordinaryInterfaces)
         {
-            Assert.AreEqual(typeof(ItemContainer), containerInterface.GetProperty("Items")?.PropertyType,
+            Assert.AreEqual(typeof(IItemContainer), containerInterface.GetProperty("Items")?.PropertyType,
                 containerInterface.Name);
         }
 
         Assert.IsNull(typeof(IEquipmentContainer).GetProperty("Items"));
         Assert.IsNull(typeof(IEquipmentContainer).GetMethod("OnUpdate"));
         Assert.IsNull(typeof(IMoneyPouchContainer).GetProperty("Items"));
+        Assert.IsNull(typeof(IEquipmentContainer).GetMethod("PublishCurrentState"));
+        Assert.IsFalse(typeof(IMoneyPouchContainer).GetMethods().Any(method =>
+            method.Name.Contains("Storage") || method.Name == "PublishChanges" ||
+            method.GetParameters().Any(parameter => parameter.ParameterType == typeof(ItemContainerTransaction))));
         Assert.IsFalse(typeof(IItemContainer).GetMethods().SelectMany(method => method.GetParameters())
             .Any(parameter => parameter.ParameterType == typeof(ItemContainer)));
     }

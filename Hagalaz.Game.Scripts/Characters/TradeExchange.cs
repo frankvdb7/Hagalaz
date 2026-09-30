@@ -13,23 +13,22 @@ internal static class TradeExchange
 {
     private const int CoinsItemId = 995;
 
-    public static bool TryCompleteTrade(ICharacter first, ItemContainer firstOffer, ICharacter second,
-        ItemContainer secondOffer, IItemBuilder itemBuilder) =>
+    public static bool TryCompleteTrade(ICharacter first, IItemContainer firstOffer, ICharacter second,
+        IItemContainer secondOffer, IItemBuilder itemBuilder) =>
         TryExchangeOffers(first, firstOffer, second, secondOffer, secondOffer, firstOffer, itemBuilder);
 
-    public static bool TryRefundTrade(ICharacter first, ItemContainer firstOffer, ICharacter second,
-        ItemContainer secondOffer, IItemBuilder itemBuilder) =>
+    public static bool TryRefundTrade(ICharacter first, IItemContainer firstOffer, ICharacter second,
+        IItemContainer secondOffer, IItemBuilder itemBuilder) =>
         TryExchangeOffers(first, firstOffer, second, secondOffer, firstOffer, secondOffer, itemBuilder);
 
-    private static bool TryExchangeOffers(ICharacter first, ItemContainer firstOffer, ICharacter second,
-        ItemContainer secondOffer, ItemContainer itemsForFirst, ItemContainer itemsForSecond,
+    private static bool TryExchangeOffers(ICharacter first, IItemContainer firstOffer, ICharacter second,
+        IItemContainer secondOffer, IItemContainer itemsForFirst, IItemContainer itemsForSecond,
         IItemBuilder itemBuilder)
     {
         var transaction = new ItemContainerTransaction(firstOffer.Mutations, secondOffer.Mutations,
             first.Inventory.Items.Mutations, second.Inventory.Items.Mutations);
-        first.MoneyPouch.IncludeIn(transaction);
-        second.MoneyPouch.IncludeIn(transaction);
-        var pouchMessages = new List<(IMoneyPouchContainer Pouch, int ChangeCount)>();
+        first.MoneyPouch.EnlistIn(transaction);
+        second.MoneyPouch.EnlistIn(transaction);
 
         var succeeded = transaction.TryExecute(tx =>
         {
@@ -40,7 +39,7 @@ internal static class TradeExchange
                 return false;
             }
 
-            if (!Receive(first, firstItems, tx, pouchMessages) || !Receive(second, secondItems, tx, pouchMessages))
+            if (!Receive(first, firstItems, tx) || !Receive(second, secondItems, tx))
             {
                 return false;
             }
@@ -50,14 +49,12 @@ internal static class TradeExchange
             return true;
         });
 
-        if (!succeeded) return false;
-        PublishPouchMessages(pouchMessages);
-        return true;
+        return succeeded;
     }
 
     /// <summary>Moves untouched escrow to existing recovery containers during forced destruction.</summary>
-    internal static bool TryConserveEscrow(ICharacter first, ItemContainer firstOffer, ICharacter second,
-        ItemContainer secondOffer)
+    internal static bool TryConserveEscrow(ICharacter first, IItemContainer firstOffer, ICharacter second,
+        IItemContainer secondOffer)
     {
         var transaction = new ItemContainerTransaction(firstOffer.Mutations, secondOffer.Mutations);
         AddRecoveryBoundary(transaction, first.Rewards?.Items);
@@ -95,13 +92,12 @@ internal static class TradeExchange
         });
     }
 
-    internal static bool TryOfferMoneyFromPouch(ICharacter character, ItemContainer offer, IItem coins)
+    internal static bool TryOfferMoneyFromPouch(ICharacter character, IItemContainer offer, IItem coins)
     {
         if (coins.Count <= 0) return false;
 
         var transaction = new ItemContainerTransaction(offer.Mutations);
-        character.MoneyPouch.IncludeIn(transaction);
-        var pouchChangeCount = 0;
+        character.MoneyPouch.EnlistIn(transaction);
         var succeeded = transaction.TryExecute(tx =>
         {
             if (!character.MoneyPouch.Contains(CoinsItemId, coins.Count) || !offer.HasSpaceFor(coins) ||
@@ -110,31 +106,27 @@ internal static class TradeExchange
                 return false;
             }
 
-            return character.MoneyPouch.TryRemoveExactStorage(tx, coins.Count, out pouchChangeCount, out _);
+            return character.MoneyPouch.TryStageRemoveExact(tx, coins.Count);
         });
 
-        if (succeeded) character.MoneyPouch.PublishChanges(pouchChangeCount);
         return succeeded;
     }
 
-    internal static bool TryReturnMoneyToPouch(ICharacter character, ItemContainer offer, IItem coins,
+    internal static bool TryReturnMoneyToPouch(ICharacter character, IItemContainer offer, IItem coins,
         int preferredSlot)
     {
         var transaction = new ItemContainerTransaction(offer.Mutations);
-        character.MoneyPouch.IncludeIn(transaction);
-        var pouchChangeCount = 0;
+        character.MoneyPouch.EnlistIn(transaction);
         var succeeded = transaction.TryExecute(tx =>
         {
             if (!tx.TryRemoveExact(offer.Mutations, coins, preferredSlot)) return false;
-            return character.MoneyPouch.TryAddExactStorage(tx, coins.Count, out pouchChangeCount, out _);
+            return character.MoneyPouch.TryStageAddExact(tx, coins.Count);
         });
 
-        if (succeeded) character.MoneyPouch.PublishChanges(pouchChangeCount);
         return succeeded;
     }
 
-    private static bool Receive(ICharacter character, IReadOnlyList<IItem> items, ItemContainerTransaction transaction,
-        ICollection<(IMoneyPouchContainer Pouch, int ChangeCount)> pouchMessages)
+    private static bool Receive(ICharacter character, IReadOnlyList<IItem> items, IItemContainerTransaction transaction)
     {
         var nonCoinItems = items.Where(item => item.Id != CoinsItemId).ToArray();
         if (nonCoinItems.Length > 0 && !transaction.TryAddRange(character.Inventory.Items.Mutations, nonCoinItems))
@@ -144,13 +136,11 @@ internal static class TradeExchange
 
         var coinCount = items.Where(item => item.Id == CoinsItemId).Sum(item => (long)item.Count);
         if (coinCount <= 0) return true;
-        if (coinCount > int.MaxValue || !character.MoneyPouch.TryAddExactStorage(transaction, (int)coinCount,
-                out var pouchChangeCount, out _))
+        if (coinCount > int.MaxValue || !character.MoneyPouch.TryStageAddExact(transaction, (int)coinCount))
         {
             return false;
         }
 
-        pouchMessages.Add((character.MoneyPouch, pouchChangeCount));
         return true;
     }
 
@@ -172,7 +162,7 @@ internal static class TradeExchange
         return character.Inventory.Items.HasSpaceForRange(recipientItems);
     }
 
-    private static ItemContainer? GetRecoveryContainer(ICharacter character, IReadOnlyList<IItem> items)
+    private static IItemContainer? GetRecoveryContainer(ICharacter character, IReadOnlyList<IItem> items)
     {
         if (items.Count == 0) return character.Rewards?.Items;
         if (character.Rewards != null && character.Rewards.Items.HasSpaceForRange(items))
@@ -183,16 +173,12 @@ internal static class TradeExchange
         return character.Bank != null && character.Bank.Items.HasSpaceForRange(items) ? character.Bank.Items : null;
     }
 
-    private static IItem[] SnapshotItems(ItemContainer container) =>
+    private static IItem[] SnapshotItems(IItemContainer container) =>
         container.OfType<IItem>().Select(item => item.Clone()).ToArray();
 
-    private static void AddRecoveryBoundary(ItemContainerTransaction transaction, ItemContainer? container)
+    private static void AddRecoveryBoundary(IItemContainerTransaction transaction, IItemContainer? container)
     {
         if (container != null) transaction.Include(container.Mutations);
     }
 
-    private static void PublishPouchMessages(IEnumerable<(IMoneyPouchContainer Pouch, int ChangeCount)> changes)
-    {
-        foreach (var (pouch, changeCount) in changes) pouch.PublishChanges(changeCount);
-    }
 }

@@ -34,7 +34,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         private readonly IItemBuilder _itemBuilder;
         private readonly IEventManager _eventManager;
         private readonly ItemContainer _items;
-        public ItemContainer Items => _items;
+        public IItemContainer Items => _items;
         private ItemContainerStorage Storage => _items.Storage;
 
         /// <summary>

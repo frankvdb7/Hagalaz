@@ -7,7 +7,7 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// </summary>
     public interface IFamiliarInventoryContainer
     {
-        ItemContainer Items { get; }
+        IItemContainer Items { get; }
 
         /// <summary>
         /// Deposits a specific item from the player's inventory into the familiar's inventory.

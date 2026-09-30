@@ -27,7 +27,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             ///     Contains owner of this class.
             /// </summary>
             private readonly ICharacter _owner;
-            public ItemContainer Items { get; }
+            public IItemContainer Items { get; }
 
             /// <summary>
             ///     Construct's new instance.

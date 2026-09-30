@@ -6,6 +6,8 @@ namespace Hagalaz.Game.Abstractions.Collections;
 /// <summary>Describes the operations and shape of an item container.</summary>
 public interface IItemContainer : IContainer<IItem?>
 {
+    IItemContainerMutationBoundary Mutations { get; }
+
     StorageType Type { get; }
 
     int FreeSlots { get; }

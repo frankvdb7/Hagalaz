@@ -23,7 +23,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
         private readonly ItemContainer _items;
-        public ItemContainer Items => _items;
+        public IItemContainer Items => _items;
 
         public RewardContainer(ICharacter owner, IItemBuilder itemBuilder)
         {
@@ -96,12 +96,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> rewards)
         {
-            Items.Storage.RestoreItems(rewards.Select(entry => entry.ToStorageEntry(_itemBuilder)));
+            _items.Storage.RestoreItems(rewards.Select(entry => entry.ToStorageEntry(_itemBuilder)));
         }
 
         public IReadOnlyList<HydratedItemDto> Dehydrate()
         {
-            return Items.Storage.ToHydratedItems();
+            return _items.Storage.ToHydratedItems();
         }
     }
 }
