@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
@@ -16,6 +17,30 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class MoneyPouchContainerTests
 {
     private const int CoinId = 995;
+
+    [TestMethod]
+    public void ContainerInterfaces_ExposeOnlyTheirIntendedItemCapabilities()
+    {
+        var ordinaryInterfaces = new[]
+        {
+            typeof(IInventoryContainer), typeof(IBankContainer), typeof(IRewardContainer),
+            typeof(IFamiliarInventoryContainer), typeof(IShopStockContainer)
+        };
+
+        foreach (var containerInterface in ordinaryInterfaces)
+        {
+            Assert.AreEqual(typeof(IItemContainer), containerInterface.GetProperty("Items")?.PropertyType,
+                containerInterface.Name);
+        }
+
+        Assert.IsNull(typeof(IEquipmentContainer).GetProperty("Items"));
+        Assert.IsNull(typeof(IEquipmentContainer).GetMethod("OnUpdate"));
+        Assert.IsNull(typeof(IMoneyPouchContainer).GetProperty("Items"));
+        Assert.IsFalse(typeof(IItemContainer).GetMethods().SelectMany(method => method.GetParameters())
+            .Any(parameter => parameter.ParameterType == typeof(ItemContainer)));
+        Assert.IsFalse(ordinaryInterfaces.Any(containerInterface =>
+            typeof(IItemContainerStorageOwner).IsAssignableFrom(containerInterface)));
+    }
 
     [TestMethod]
     public void Contains_WhenPouchCoinsSatisfyRequest_ReturnsTrue()
@@ -52,10 +77,10 @@ public sealed class MoneyPouchContainerTests
     {
         var scenario = CreateScenario(pouchCoins: 25, inventoryCoins: 75);
         IMoneyPouchContainer pouch = scenario.MoneyPouch;
-        IContainer<IItem?> itemContainer = scenario.MoneyPouch.Items;
 
         Assert.IsTrue(pouch.Contains(CoinId, 100));
-        Assert.AreEqual(25, itemContainer[0]!.Count);
+        Assert.AreEqual(25, pouch.Count);
+        Assert.IsNull(typeof(IMoneyPouchContainer).GetProperty("Items"));
     }
 
     [TestMethod]

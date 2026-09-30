@@ -48,8 +48,9 @@ internal static class TradeExchange
                 return false;
             }
 
-            var recipientSnapshots = CaptureSnapshots(first.Inventory.Items, (IItemContainerStorageOwner)first.MoneyPouch,
-                second.Inventory.Items, (IItemContainerStorageOwner)second.MoneyPouch);
+            var recipientSnapshots = CaptureSnapshots((IItemContainerStorageOwner)first.Inventory.Items,
+                (IItemContainerStorageOwner)first.MoneyPouch, (IItemContainerStorageOwner)second.Inventory.Items,
+                (IItemContainerStorageOwner)second.MoneyPouch);
             if (!Receive(first, firstItems, changes, pouchMessages) || !Receive(second, secondItems, changes, pouchMessages))
             {
                 RestoreSnapshotsStorage(recipientSnapshots);
@@ -77,10 +78,10 @@ internal static class TradeExchange
         var containers = new List<ItemContainerStorage>();
         AddContainer(containers, firstOffer);
         AddContainer(containers, secondOffer);
-        AddContainer(containers, first.Rewards?.Items);
-        AddContainer(containers, first.Bank?.Items);
-        AddContainer(containers, second.Rewards?.Items);
-        AddContainer(containers, second.Bank?.Items);
+        AddContainer(containers, (IItemContainerStorageOwner?)first.Rewards?.Items);
+        AddContainer(containers, (IItemContainerStorageOwner?)first.Bank?.Items);
+        AddContainer(containers, (IItemContainerStorageOwner?)second.Rewards?.Items);
+        AddContainer(containers, (IItemContainerStorageOwner?)second.Bank?.Items);
         var changes = CreateChanges();
         List<ContainerSnapshot>? restoreSnapshots = null;
         using (AcquireLocks(containers))
@@ -95,12 +96,13 @@ internal static class TradeExchange
                 return false;
             }
 
-            var conservationSnapshots = CaptureSnapshots(firstOffer, secondOffer, firstDestination, secondDestination);
+            var conservationSnapshots = CaptureSnapshots(firstOffer, secondOffer,
+                (IItemContainerStorageOwner?)firstDestination, (IItemContainerStorageOwner?)secondDestination);
             HashSet<int> firstChangedSlots = [];
             HashSet<int> secondChangedSlots = [];
             var failed = false;
             if (firstDestination != null && firstItems.Length > 0 &&
-                !GetStorage(firstDestination).TryAddRange(firstItems, out firstChangedSlots))
+                !GetStorage((IItemContainerStorageOwner)firstDestination).TryAddRange(firstItems, out firstChangedSlots))
             {
                 RestoreSnapshotsStorage(conservationSnapshots);
                 restoreSnapshots = conservationSnapshots;
@@ -108,7 +110,7 @@ internal static class TradeExchange
             }
 
             if (!failed && secondDestination != null && secondItems.Length > 0 &&
-                !GetStorage(secondDestination).TryAddRange(secondItems, out secondChangedSlots))
+                !GetStorage((IItemContainerStorageOwner)secondDestination).TryAddRange(secondItems, out secondChangedSlots))
             {
                 RestoreSnapshotsStorage(conservationSnapshots);
                 restoreSnapshots = conservationSnapshots;
@@ -118,9 +120,9 @@ internal static class TradeExchange
             if (!failed)
             {
                 if (firstDestination != null && firstItems.Length > 0)
-                    RecordChangedSlots(changes, firstDestination, firstChangedSlots);
+                    RecordChangedSlots(changes, (IItemContainerStorageOwner)firstDestination, firstChangedSlots);
                 if (secondDestination != null && secondItems.Length > 0)
-                    RecordChangedSlots(changes, secondDestination, secondChangedSlots);
+                    RecordChangedSlots(changes, (IItemContainerStorageOwner)secondDestination, secondChangedSlots);
 
                 RecordChangedSlots(changes, firstOffer, GetOccupiedSlots(firstOffer));
                 RecordChangedSlots(changes, secondOffer, GetOccupiedSlots(secondOffer));
@@ -156,7 +158,8 @@ internal static class TradeExchange
                 return false;
             }
 
-            var snapshots = CaptureSnapshots(offer, character.Inventory.Items, (IItemContainerStorageOwner)character.MoneyPouch);
+            var snapshots = CaptureSnapshots(offer, (IItemContainerStorageOwner)character.Inventory.Items,
+                (IItemContainerStorageOwner)character.MoneyPouch);
             if (!GetStorage(offer).TryAddRange([coins], out var offerSlots))
             {
                 return false;
@@ -171,7 +174,7 @@ internal static class TradeExchange
             else
             {
                 RecordChangedSlots(changes, offer, offerSlots);
-                RecordChangedSlots(changes, character.Inventory.Items, inventorySlots);
+                RecordChangedSlots(changes, (IItemContainerStorageOwner)character.Inventory.Items, inventorySlots);
                 pouchMessages.Add((character.MoneyPouch, pouchChangeCount));
             }
         }
@@ -187,7 +190,8 @@ internal static class TradeExchange
         List<ContainerSnapshot>? restoreSnapshots = null;
         using (AcquireLocks(GetContainers(offer, offer, character, character)))
         {
-            var snapshots = CaptureSnapshots(offer, character.Inventory.Items, (IItemContainerStorageOwner)character.MoneyPouch);
+            var snapshots = CaptureSnapshots(offer, (IItemContainerStorageOwner)character.Inventory.Items,
+                (IItemContainerStorageOwner)character.MoneyPouch);
             if (!GetStorage(offer).TryRemoveExact(coins, preferredSlot, out var offerSlots))
             {
                 return false;
@@ -202,7 +206,7 @@ internal static class TradeExchange
             else
             {
                 RecordChangedSlots(changes, offer, offerSlots);
-                RecordChangedSlots(changes, character.Inventory.Items, inventorySlots);
+                RecordChangedSlots(changes, (IItemContainerStorageOwner)character.Inventory.Items, inventorySlots);
                 pouchMessages.Add((character.MoneyPouch, pouchChangeCount));
             }
         }
@@ -232,12 +236,12 @@ internal static class TradeExchange
         var nonCoinItems = items.Where(item => item.Id != CoinsItemId).ToArray();
         if (nonCoinItems.Length > 0)
         {
-            if (!GetStorage(character.Inventory.Items).TryAddRange(nonCoinItems, out var inventorySlots))
+            if (!GetStorage((IItemContainerStorageOwner)character.Inventory.Items).TryAddRange(nonCoinItems, out var inventorySlots))
             {
                 return false;
             }
 
-            RecordChangedSlots(changes, character.Inventory.Items, inventorySlots);
+            RecordChangedSlots(changes, (IItemContainerStorageOwner)character.Inventory.Items, inventorySlots);
         }
 
         var coinCount = items.Where(item => item.Id == CoinsItemId).Sum(item => (long)item.Count);
@@ -252,7 +256,7 @@ internal static class TradeExchange
             return false;
         }
 
-        RecordChangedSlots(changes, character.Inventory.Items, coinInventorySlots);
+        RecordChangedSlots(changes, (IItemContainerStorageOwner)character.Inventory.Items, coinInventorySlots);
         pouchMessages.Add((character.MoneyPouch, pouchChangeCount));
         return true;
     }
@@ -281,7 +285,7 @@ internal static class TradeExchange
         return character.Inventory.Items.HasSpaceForRange(recipientItems);
     }
 
-    private static ItemContainer? GetRecoveryContainer(ICharacter character, IReadOnlyList<IItem> items)
+    private static IItemContainer? GetRecoveryContainer(ICharacter character, IReadOnlyList<IItem> items)
     {
         if (items.Count == 0)
         {
@@ -397,8 +401,8 @@ internal static class TradeExchange
         var containers = new List<ItemContainerStorage>();
         AddContainer(containers, firstOffer);
         AddContainer(containers, secondOffer);
-        AddContainer(containers, first.Inventory.Items);
-        AddContainer(containers, second.Inventory.Items);
+        AddContainer(containers, (IItemContainerStorageOwner)first.Inventory.Items);
+        AddContainer(containers, (IItemContainerStorageOwner)second.Inventory.Items);
         AddContainer(containers, (IItemContainerStorageOwner)first.MoneyPouch);
         AddContainer(containers, (IItemContainerStorageOwner)second.MoneyPouch);
         return containers;

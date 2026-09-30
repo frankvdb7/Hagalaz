@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Builders.Widget;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model.Events;
@@ -20,10 +21,11 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
     public class ShopScreenScript : WidgetScript
     {
         public ShopScreenScript(
-            ICharacterContextAccessor characterContextAccessor, IItemService itemService, IEventManager eventManager,
+            ICharacterContextAccessor characterContextAccessor, IItemService itemService, IItemBuilder itemBuilder, IEventManager eventManager,
             IWidgetOptionBuilder widgetOptionBuilder) : base(characterContextAccessor)
         {
             _itemRepository = itemService;
+            _itemBuilder = itemBuilder;
             _eventManager = eventManager;
             _widgetOptionBuilder = widgetOptionBuilder;
         }
@@ -72,6 +74,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
         ///     The item manager
         /// </summary>
         private readonly IItemService _itemRepository;
+        private readonly IItemBuilder _itemBuilder;
 
         private readonly IEventManager _eventManager;
         private readonly IWidgetOptionBuilder _widgetOptionBuilder;
@@ -551,7 +554,8 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
         /// <summary>
         ///     Refreshes the money pouch.
         /// </summary>
-        private void RefreshMoneyPouch() => Owner.Configurations.SendItems(623, false, Owner.MoneyPouch.Items);
+        private void RefreshMoneyPouch() => Owner.Configurations.SendItems(623, false,
+            new[] { _itemBuilder.Create().WithId(995).WithCount(Owner.MoneyPouch.Count).Build() });
 
         /// <summary>
         ///     Happens when interface is closed for character.

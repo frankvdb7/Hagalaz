@@ -50,7 +50,6 @@ public sealed class ItemContainer : IItemContainer, IItemContainerStorageOwner
         return true;
     }
 
-    public void AddAndRemoveFrom(ItemContainer source) => ItemContainerTransfer.AddAndRemoveFrom(this, source);
     public IItem? GetById(int id) => _storage.GetById(id);
 
     public int Remove(IItem item, int preferredSlot = -1, bool update = true)

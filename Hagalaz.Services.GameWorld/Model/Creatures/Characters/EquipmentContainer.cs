@@ -27,16 +27,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         private readonly ICharacter _owner;
         private readonly IItemBuilder _itemBuilder;
-        private readonly ItemContainer _items;
-        private ItemContainerStorage Storage => ((IItemContainerStorageOwner)_items).Storage;
-        public IContainer<IItem?> Items => _items;
-        ItemContainerStorage IItemContainerStorageOwner.Storage => Storage;
+        private readonly ItemContainerStorage _storage;
+        ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
         void IItemContainerStorageOwner.PublishChanges(HashSet<int>? changedSlots) =>
-            ((IItemContainerStorageOwner)_items).PublishChanges(changedSlots);
-        public int Capacity => _items.Capacity;
-        public int FreeSlots => _items.FreeSlots;
-        public IItem? this[int index] => _items[index];
-        public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => _items.GetEnumerator();
+            PublishChanges(changedSlots?.Select(slot => (EquipmentSlot)slot).ToHashSet());
+        public int Capacity => _storage.Capacity;
+        public int FreeSlots => _storage.FreeSlots;
+        public IItem? this[int index] => _storage[index];
+        public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 
         /// <summary>
@@ -44,7 +42,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <param name="index">The index.</param>
         /// <returns>Returns the Item object.</returns>
-        public IItem? this[EquipmentSlot index] => _items[(int)index];
+        public IItem? this[EquipmentSlot index] => _storage[(int)index];
 
         /// <summary>
         /// Constructs a container for character equipment.
@@ -54,15 +52,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public EquipmentContainer(ICharacter owner, int capacity, IItemBuilder itemBuilder)
         {
             (_owner, _itemBuilder) = (owner, itemBuilder);
-            _items = new ItemContainer(StorageType.Normal, capacity,
-                slots => OnUpdate(slots?.Select(slot => (EquipmentSlot)slot).ToHashSet()));
+            _storage = new ItemContainerStorage(StorageType.Normal, capacity);
         }
-
-        /// <summary>
-        /// Called when multiple items from specified slot(s) have changed.
-        /// </summary>
-        /// <param name="slots">The slots.</param>
-        public void OnUpdate(HashSet<int>? slots = null) => OnUpdate(slots?.Select(s => (EquipmentSlot)s).ToHashSet());
 
         /// <summary>
         /// Equips item to this character.
@@ -236,28 +227,28 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public bool Add(EquipmentSlot slot, IItem item)
         {
-            if (!Storage.TryAdd((int)slot, item, out var slots)) return false;
-            OnUpdate(slots);
+            if (!_storage.TryAdd((int)slot, item, out var slots)) return false;
+            PublishChanges(slots?.Select(changedSlot => (EquipmentSlot)changedSlot).ToHashSet());
             return true;
         }
 
         private bool TryMoveFromInventoryToSlot(IItem item, int inventorySlot, EquipmentSlot equipmentSlot,
             out HashSet<int> inventorySlots, out HashSet<int> equipmentSlots) =>
-            ItemContainerTransfer.TryTransferStorage(_owner.Inventory.Items, _items, item, item.Count, inventorySlot, (int)equipmentSlot, null,
+            ItemContainerTransfer.TryTransferStorage((IItemContainerStorageOwner)_owner.Inventory.Items, this, item, item.Count, inventorySlot, (int)equipmentSlot, null,
                 out inventorySlots, out equipmentSlots);
 
         private void PublishEquipmentMove(HashSet<int> inventorySlots, HashSet<int> equipmentSlots)
         {
             ((IItemContainerStorageOwner)_owner.Inventory.Items).PublishChanges(inventorySlots);
-            OnUpdate(equipmentSlots);
+            PublishChanges(equipmentSlots?.Select(slot => (EquipmentSlot)slot).ToHashSet());
         }
 
         public void Replace(EquipmentSlot slot, IItem item)
         {
             var itemSlot = (int)slot;
-            var oldItem = Storage[itemSlot];
-            Storage.Replace(itemSlot, item);
-            OnUpdate([itemSlot]);
+            var oldItem = _storage[itemSlot];
+            _storage.Replace(itemSlot, item);
+            PublishChanges([slot]);
             oldItem?.EquipmentScript.OnUnequipped(oldItem, _owner);
             item.EquipmentScript.OnEquipped(item, _owner);
         }
@@ -269,8 +260,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 preferredSlot = GetInstanceSlot(item);
             }
             var preferredSlotIndex = (int)preferredSlot;
-            var removed = Storage.Remove(item, preferredSlotIndex, out var changedSlots);
-            if (removed > 0 && update) OnUpdate(changedSlots);
+            var removed = _storage.Remove(item, preferredSlotIndex, out var changedSlots);
+            if (removed > 0 && update) PublishChanges(changedSlots?.Select(changedSlot => (EquipmentSlot)changedSlot).ToHashSet());
             if (removed <= 0)
             {
                 return removed;
@@ -287,14 +278,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Clear(bool update)
         {
-            foreach (var item in Storage.ToArray())
+            foreach (var item in _storage.ToArray())
             {
                 item?.EquipmentScript.OnUnequipped(item, _owner);
             }
-            if (Storage.Clear() && update) OnUpdate((HashSet<EquipmentSlot>?)null);
+            if (_storage.Clear() && update) PublishChanges(null);
         }
 
-        public void OnUpdate(HashSet<EquipmentSlot>? slots = null)
+        private void PublishChanges(HashSet<EquipmentSlot>? slots = null)
         {
             _owner.Appearance.DrawCharacter();
             _owner.Statistics.CalculateBonuses();
@@ -326,7 +317,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 destinationSlot = toInventorySlot;
             }
 
-            if (!ItemContainerTransfer.TryTransferStorage(_items, _owner.Inventory.Items, item, item.Count, (int)slot, destinationSlot, null,
+            if (!ItemContainerTransfer.TryTransferStorage(this, (IItemContainerStorageOwner)_owner.Inventory.Items, item, item.Count, (int)slot, destinationSlot, null,
                     out var equipmentSlots, out var inventorySlots))
             {
                 _owner.SendChatMessage("Not enough space in your inventory.");
@@ -338,18 +329,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             return true;
         }
 
-        public EquipmentSlot GetInstanceSlot(IItem instance) => (EquipmentSlot)Storage.GetInstanceSlot(instance);
-        public IItem? GetById(int id) => Storage.GetById(id);
+        public EquipmentSlot GetInstanceSlot(IItem instance) => (EquipmentSlot)_storage.GetInstanceSlot(instance);
+        public IItem? GetById(int id) => _storage.GetById(id);
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> equipment)
         {
             var items = equipment.Select(entry => entry.ToStorageEntry(_itemBuilder)).ToArray();
-            Storage.RestoreItems(items);
+            _storage.RestoreItems(items);
             _owner.Statistics.CalculateBonuses();
             foreach (var (_, item) in items) item.EquipmentScript.OnEquipped(item, _owner);
         }
 
-        public IReadOnlyList<HydratedItemDto> Dehydrate() => Storage.Select((item, slot) => (item, slot)).Where(x => x.item != null)
+        public IReadOnlyList<HydratedItemDto> Dehydrate() => _storage.Select((item, slot) => (item, slot)).Where(x => x.item != null)
             .Select(entry => new HydratedItemDto(entry.item!.Id, entry.item.Count, entry.slot, entry.item.SerializeExtraData()))
             .ToArray();
     }

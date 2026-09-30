@@ -651,7 +651,6 @@ public sealed class TradeExchangeTests
     private sealed class TestMoneyPouch : ComposedTestContainer, IMoneyPouchContainer, IItemContainerStorageOwner
     {
         private ItemContainerStorage Storage => ((IItemContainerStorageOwner)Items).Storage;
-        IContainer<IItem?> IMoneyPouchContainer.Items => Items;
         ItemContainerStorage IItemContainerStorageOwner.Storage => Storage;
         void IItemContainerStorageOwner.PublishChanges(HashSet<int>? changedSlots) => OnUpdate(changedSlots);
         private readonly IInventoryContainer _overflowInventory;

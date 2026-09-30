@@ -22,13 +22,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contstructs a container for character ingame mail.
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
-    public ItemContainer Items { get; }
+        private readonly ItemContainer _items;
+        public IItemContainer Items => _items;
 
         public RewardContainer(ICharacter owner, IItemBuilder itemBuilder)
         {
             _owner = owner;
             _itemBuilder = itemBuilder;
-            Items = new ItemContainer(StorageType.AlwaysStack, byte.MaxValue, OnUpdate);
+            _items = new ItemContainer(StorageType.AlwaysStack, byte.MaxValue, OnUpdate);
         }
 
         /// <summary>
@@ -78,7 +79,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 toRemove.Count = count;
             }
 
-            if (!ItemContainerTransfer.TryTransfer(Items, _owner.Inventory.Items, item, count, slot))
+            if (!ItemContainerTransfer.TryTransfer((IItemContainerStorageOwner)_items,
+                    (IItemContainerStorageOwner)_owner.Inventory.Items, item, count, slot))
             {
                 return -1;
             }

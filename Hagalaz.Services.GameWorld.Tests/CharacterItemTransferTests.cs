@@ -146,7 +146,7 @@ public sealed class CharacterItemTransferTests
         scenario.Owner.Equipment.Returns(equipment);
         var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
         equipment.Add(EquipmentSlot.Hat, item);
-        var container = equipment.Items;
+        var container = equipment;
         var callbackObservedEquippedItem = false;
         item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ =>
         {

@@ -19,7 +19,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ICharacter _owner;
         private readonly IItemBuilder _itemBuilder;
 
-    public ItemContainer Items { get; }
+        private readonly ItemContainer _items;
+        public IItemContainer Items => _items;
 
         /// <summary>
         /// Contstructs a container for character banks.
@@ -30,7 +31,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             _owner = owner;
             _itemBuilder = itemBuilder;
-            Items = new ItemContainer(StorageType.AlwaysStack, capacity, OnUpdate);
+            _items = new ItemContainer(StorageType.AlwaysStack, capacity, OnUpdate);
         }
 
         /// <summary>
@@ -87,8 +88,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="deposited">Pointer to item which was deposited into bank. Can be null.</param>
         /// <param name="container"></param>
         /// <returns>If depositing was sucessfull.</returns>
-        public bool DepositFromFamiliar(IItem item, int count, [NotNullWhen(true)] out IItem? deposited, ItemContainer container)
+        public bool DepositFromFamiliar(IItem item, int count, [NotNullWhen(true)] out IItem? deposited, IItemContainer container)
         {
+            if (container is not IItemContainerStorageOwner source)
+            {
+                deposited = null;
+                return false;
+            }
+
             var slot = container.GetInstanceSlot(item);
             if (slot == -1 || count <= 0)
             {
@@ -104,7 +111,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = CreateDepositItem(item, count, out var transformed);
-            if (ItemContainerTransfer.TryTransfer(container, Items, item, count, slot,
+            if (ItemContainerTransfer.TryTransfer(source, (IItemContainerStorageOwner)_items, item, count, slot,
                     destinationItem: transformed ? deposited : null))
             {
                 return true;
@@ -137,7 +144,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            var equipmentContainer = _owner.Equipment.Items;
+            var equipmentContainer = _owner.Equipment;
             if (equipmentContainer[(int)slot] is not { } equippedItem)
             {
                 deposited = null;
@@ -153,7 +160,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             var fullyRemoved = count == equippedItem.Count;
             deposited = CreateDepositItem(equippedItem, count, out var transformed);
-            if (ItemContainerTransfer.TryTransferStorage((IItemContainerStorageOwner)_owner.Equipment, Items, equippedItem, count, (int)slot, -1,
+            if (ItemContainerTransfer.TryTransferStorage((IItemContainerStorageOwner)_owner.Equipment, (IItemContainerStorageOwner)_items, equippedItem, count, (int)slot, -1,
                     transformed ? deposited : null, out var equipmentSlots, out var bankSlots))
             {
                 if (fullyRemoved)
@@ -196,7 +203,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = CreateDepositItem(item, count, out var transformed);
-            if (ItemContainerTransfer.TryTransfer(_owner.Inventory.Items, Items, item, count, slot,
+            if (ItemContainerTransfer.TryTransfer((IItemContainerStorageOwner)_owner.Inventory.Items, (IItemContainerStorageOwner)_items, item, count, slot,
                     destinationItem: transformed ? deposited : null))
             {
                 return true;
@@ -287,7 +294,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             withdrawed.Count = count;
-            if (!ItemContainerTransfer.TryTransfer(Items, _owner.Inventory.Items, item, count, slot,
+            if (!ItemContainerTransfer.TryTransfer((IItemContainerStorageOwner)_items, (IItemContainerStorageOwner)_owner.Inventory.Items, item, count, slot,
                     destinationItem: transformed ? withdrawed : null))
             {
                 _owner.SendChatMessage(GameStrings.InventoryFull);

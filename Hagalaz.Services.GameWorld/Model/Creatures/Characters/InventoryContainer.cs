@@ -23,14 +23,15 @@ public class InventoryContainer : IInventoryContainer,
     private readonly IMapRegionService _mapRegionService;
     private readonly IGroundItemBuilder _groundItemBuilder;
     private readonly IItemBuilder _itemBuilder;
-    public ItemContainer Items { get; }
+    private readonly ItemContainer _items;
+    public IItemContainer Items => _items;
 
     public InventoryContainer(ICharacter owner, int capacity, IMapRegionService mapRegionService,
         IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder)
     {
         (_owner, _mapRegionService, _groundItemBuilder, _itemBuilder) =
             (owner, mapRegionService, groundItemBuilder, itemBuilder);
-        Items = new ItemContainer(StorageType.Normal, capacity, OnUpdate);
+        _items = new ItemContainer(StorageType.Normal, capacity, OnUpdate);
     }
 
     public void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new InventoryChangedEvent(_owner, slots));

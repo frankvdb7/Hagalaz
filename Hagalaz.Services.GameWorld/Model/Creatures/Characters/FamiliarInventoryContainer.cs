@@ -23,7 +23,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         private readonly ICharacter _owner;
         private readonly IItemBuilder _itemBuilder;
-    public ItemContainer Items { get; }
+        private readonly ItemContainer _items;
+        public IItemContainer Items => _items;
 
         /// <summary>
         /// Constructs a container for character inventories.
@@ -34,7 +35,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public FamiliarInventoryContainer(ICharacter owner, StorageType type, int capacity, IItemBuilder itemBuilder)
         {
             (_owner, _itemBuilder) = (owner, itemBuilder);
-            Items = new ItemContainer(type, capacity, OnUpdate);
+            _items = new ItemContainer(type, capacity, OnUpdate);
         }
 
         /// <summary>
@@ -57,7 +58,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            if (ItemContainerTransfer.TryTransfer(_owner.Inventory.Items, Items, item, count, slot))
+            if (ItemContainerTransfer.TryTransfer((IItemContainerStorageOwner)_owner.Inventory.Items,
+                    (IItemContainerStorageOwner)_items, item, count, slot))
             {
                 return true;
             }
@@ -84,7 +86,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            if (ItemContainerTransfer.TryTransfer(Items, _owner.Inventory.Items, item, count, slot))
+            if (ItemContainerTransfer.TryTransfer((IItemContainerStorageOwner)_items,
+                    (IItemContainerStorageOwner)_owner.Inventory.Items, item, count, slot))
             {
                 return true;
             }

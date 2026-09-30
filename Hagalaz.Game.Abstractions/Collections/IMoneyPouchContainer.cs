@@ -1,5 +1,3 @@
-using Hagalaz.Game.Abstractions.Model.Items;
-
 namespace Hagalaz.Game.Abstractions.Collections
 {
     /// <summary>
@@ -7,8 +5,6 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// </summary>
     public interface IMoneyPouchContainer
     {
-        IContainer<IItem?> Items { get; }
-
         bool HasSpaceForCoins(int count);
 
         bool Contains(int id);

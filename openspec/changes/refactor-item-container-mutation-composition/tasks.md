@@ -50,3 +50,10 @@
 - [x] 8.3 Replace test fixtures that reproduce generic container behavior with real `ItemContainer` instances and callback assertions; keep only genuine domain-specific fakes.
 - [x] 8.4 Ensure ordinary wrappers do not implement `IItemContainerStorageOwner`; keep storage ownership on the composed `ItemContainer` and preserve specialized MoneyPouch/Equipment boundaries.
 - [ ] 8.5 Reclassify every remaining clone pair after composition cleanup and remove only duplications with a clear shared owner; retain domain-specific code where abstraction would worsen the design.
+
+## 9. Domain contract consistency
+
+- [x] 9.1 Expose ordinary domain components as `IItemContainer Items` while keeping concrete `ItemContainer` ownership private to implementations.
+- [x] 9.2 Move Equipment and MoneyPouch to direct `ItemContainerStorage` ownership and remove their generic `Items` view; keep Equipment's read-only container projection and domain callbacks.
+- [x] 9.3 Remove `AddAndRemoveFrom(ItemContainer)` from `IItemContainer`, route bulk movement through `ItemContainerTransfer`, and remove equipment publication from `IEquipmentContainer`.
+- [x] 9.4 Preserve MoneyPouch presentation by sending a fixed one-slot item list from `Count`; add interface-shape assertions and run focused project validation.

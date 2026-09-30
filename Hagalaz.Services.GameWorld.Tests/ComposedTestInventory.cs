@@ -6,6 +6,7 @@ namespace Hagalaz.Services.GameWorld.Tests;
 internal sealed class ComposedTestInventory : IInventoryContainer
 {
     public ItemContainer Items { get; }
+    IItemContainer IInventoryContainer.Items => Items;
     public Action? OnUpdateAction { get; set; }
 
     public ComposedTestInventory(int capacity) =>

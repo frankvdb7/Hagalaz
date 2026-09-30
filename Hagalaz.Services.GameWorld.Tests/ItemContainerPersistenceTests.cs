@@ -87,7 +87,7 @@ public sealed class ItemContainerPersistenceTests
     public void EquipmentRoundTrip_PreservesSemanticSlotsAndGaps()
     {
         using var scenario = new Scenario();
-        AssertRoundTrip(() => new EquipmentContainer(scenario.Owner, 15, scenario.Builder), container => container.Items,
+        AssertRoundTrip(() => new EquipmentContainer(scenario.Owner, 15, scenario.Builder), container => container,
             [new(101, 1, (int)EquipmentSlot.Hat, null), new(102, 1, (int)EquipmentSlot.Weapon, null),
                 new(103, 1, (int)EquipmentSlot.Shield, null), new(104, 1, (int)EquipmentSlot.Ring, null)]);
     }
@@ -129,7 +129,7 @@ public sealed class ItemContainerPersistenceTests
         var restored = new MoneyPouchContainer(scenario.Owner, scenario.Builder);
         restored.Hydrate(saved);
         Assert.AreEqual(0, restored.Count);
-        Assert.AreEqual(995, restored.Items[0]!.Id);
+        Assert.AreEqual(995, ((IItemContainerStorageOwner)restored).Storage[0]!.Id);
     }
 
     [TestMethod]
@@ -142,8 +142,8 @@ public sealed class ItemContainerPersistenceTests
         container.Hydrate([]);
 
         Assert.AreEqual(0, container.Count);
-        Assert.IsNotNull(container.Items[0]);
-        Assert.AreEqual(995, container.Items[0]!.Id);
+        Assert.IsNotNull(((IItemContainerStorageOwner)container).Storage[0]);
+        Assert.AreEqual(995, ((IItemContainerStorageOwner)container).Storage[0]!.Id);
         var saved = container.Dehydrate();
         Assert.HasCount(1, saved);
         Assert.AreEqual(new HydratedItemDto(995, 0, 0, null), saved[0]);
@@ -159,7 +159,7 @@ public sealed class ItemContainerPersistenceTests
         Assert.ThrowsExactly<ArgumentException>(() => container.Hydrate([new HydratedItemDto(101, 5, 0, null)]));
 
         Assert.AreEqual(25, container.Count);
-        Assert.AreEqual(995, container.Items[0]!.Id);
+        Assert.AreEqual(995, ((IItemContainerStorageOwner)container).Storage[0]!.Id);
     }
 
     [TestMethod]
@@ -253,7 +253,7 @@ public sealed class ItemContainerPersistenceTests
             [new HydratedItemDto(995, 5, invalidSlot, null)]));
 
         Assert.AreEqual(25, container.Count);
-        Assert.AreEqual(995, container.Items[0]!.Id);
+        Assert.AreEqual(995, ((IItemContainerStorageOwner)container).Storage[0]!.Id);
     }
 
     [TestMethod]
@@ -267,7 +267,7 @@ public sealed class ItemContainerPersistenceTests
             [new HydratedItemDto(995, -1, 0, null)]));
 
         Assert.AreEqual(25, container.Count);
-        Assert.AreEqual(995, container.Items[0]!.Id);
+        Assert.AreEqual(995, ((IItemContainerStorageOwner)container).Storage[0]!.Id);
     }
 
     [TestMethod]
@@ -281,7 +281,7 @@ public sealed class ItemContainerPersistenceTests
             [new HydratedItemDto(995, 1, 0, null), new HydratedItemDto(995, 2, 0, null)]));
 
         Assert.AreEqual(25, container.Count);
-        Assert.AreEqual(995, container.Items[0]!.Id);
+        Assert.AreEqual(995, ((IItemContainerStorageOwner)container).Storage[0]!.Id);
     }
 
     [TestMethod]
@@ -359,7 +359,7 @@ public sealed class ItemContainerPersistenceTests
             case "Equipment":
             {
                 var container = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
-                return new(((IItemContainerStorageOwner)container.Items).Storage, entries =>
+                return new(((IItemContainerStorageOwner)container).Storage, entries =>
                     container.Hydrate(entries.Select(entry => new HydratedItemDto(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
             }
             default:

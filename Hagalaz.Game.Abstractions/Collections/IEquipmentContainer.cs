@@ -7,10 +7,8 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// <summary>
     /// Defines the contract for a character's equipment container, which manages the items a character is currently wearing.
     /// </summary>
-    public interface IEquipmentContainer : IEnumerable<IItem?>, IEnumerable, IContainer<IItem?>
+    public interface IEquipmentContainer : IContainer<IItem?>
     {
-        IContainer<IItem?> Items { get; }
-
         /// <summary>
         /// Gets the number of empty equipment slots.
         /// </summary>
@@ -82,10 +80,5 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="update">If set to <c>true</c>, an update callback is invoked.</param>
         void Clear(bool update);
 
-        /// <summary>
-        /// A callback method invoked when the equipment container's contents are updated.
-        /// </summary>
-        /// <param name="slots">A hash set of the specific equipment slots that were changed. If null, a full update is assumed.</param>
-        void OnUpdate(HashSet<EquipmentSlot>? slots = null);
     }
 }

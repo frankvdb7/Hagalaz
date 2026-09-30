@@ -1114,7 +1114,8 @@ namespace Hagalaz.Game.Scripts.Characters
                     return false;
                 }
 
-                if (ItemContainerTransfer.TryTransfer(character.Inventory.Items, offer, item, count, preferredSlot))
+                if (ItemContainerTransfer.TryTransfer((IItemContainerStorageOwner)character.Inventory.Items,
+                        (IItemContainerStorageOwner)offer, item, count, preferredSlot))
                 {
                     RefreshTradeOfferScreenLocked(session);
                     ProcessTradeChangeLocked(session, self, false);
@@ -1150,7 +1151,8 @@ namespace Hagalaz.Game.Scripts.Characters
 
                 if (item.Id != 995)
                 {
-                    if (!ItemContainerTransfer.TryTransfer(offer, character.Inventory.Items, item, count, preferredSlot))
+                    if (!ItemContainerTransfer.TryTransfer((IItemContainerStorageOwner)offer,
+                            (IItemContainerStorageOwner)character.Inventory.Items, item, count, preferredSlot))
                     {
                         return false;
                     }

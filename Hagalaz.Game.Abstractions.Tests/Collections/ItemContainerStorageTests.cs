@@ -317,7 +317,8 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             source.Items.Add(item);
 
             // Act
-            destination.Items.AddAndRemoveFrom(source.Items);
+            ItemContainerTransfer.AddAndRemoveFrom((IItemContainerStorageOwner)destination.Items,
+                (IItemContainerStorageOwner)source.Items);
 
             // Assert
             Assert.AreEqual(0, source.Items.TakenSlots);
@@ -1015,7 +1016,8 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             destination.Items.Add(CreateItem(2, 1));
 
             // Act
-            destination.Items.AddAndRemoveFrom(source.Items);
+            ItemContainerTransfer.AddAndRemoveFrom((IItemContainerStorageOwner)destination.Items,
+                (IItemContainerStorageOwner)source.Items);
 
             // Assert
             Assert.AreEqual(1, source.Items.TakenSlots);
@@ -1033,7 +1035,8 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             destination.Items.Add(CreateItem(1, int.MaxValue, stackable: true));
 
             // Act
-            destination.Items.AddAndRemoveFrom(source.Items);
+            ItemContainerTransfer.AddAndRemoveFrom((IItemContainerStorageOwner)destination.Items,
+                (IItemContainerStorageOwner)source.Items);
 
             // Assert
             Assert.AreEqual(1, source.Items.TakenSlots);
@@ -1155,7 +1158,8 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             destination.Items.Add(CreateItem(1, int.MaxValue - 5, stackable: true));
 
             // Act
-            destination.Items.AddAndRemoveFrom(source.Items);
+            ItemContainerTransfer.AddAndRemoveFrom((IItemContainerStorageOwner)destination.Items,
+                (IItemContainerStorageOwner)source.Items);
 
             // Assert
             Assert.AreEqual(1, source.Items.TakenSlots);

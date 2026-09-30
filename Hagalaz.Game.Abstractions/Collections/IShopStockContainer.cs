@@ -9,7 +9,7 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// </summary>
     public interface IShopStockContainer
     {
-        ItemContainer Items { get; }
+        IItemContainer Items { get; }
 
         /// <summary>
         /// Resets the shop's stock to its default state. This is typically called periodically

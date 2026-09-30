@@ -50,6 +50,7 @@ namespace Hagalaz.Game.Extensions.Tests
         private sealed class TestInventory(int capacity) : IInventoryContainer
         {
             public ItemContainer Items { get; } = new ItemContainer(StorageType.Normal, capacity);
+            IItemContainer IInventoryContainer.Items => Items;
             public bool DropItem(IItem item) => false;
         }
 

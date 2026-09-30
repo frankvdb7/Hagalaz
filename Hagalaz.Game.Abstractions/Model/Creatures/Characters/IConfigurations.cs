@@ -47,6 +47,9 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// <param name="container">The server-side container whose items should be sent.</param>
         /// <param name="slots">An optional set of specific slots to update; if null, the entire container is sent.</param>
         void SendItems(int containerId, bool split, IContainer<IItem?> container, HashSet<int>? slots = null);
+
+        /// <summary>Sends a fixed item list as a client item container.</summary>
+        void SendItems(int containerId, bool split, IReadOnlyList<IItem?> items);
         /// <summary>
         /// Sends a configuration update for the minimap.
         /// </summary>

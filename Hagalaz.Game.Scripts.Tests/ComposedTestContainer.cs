@@ -7,6 +7,8 @@ namespace Hagalaz.Game.Scripts.Tests;
 internal class ComposedTestContainer : IInventoryContainer, IRewardContainer
 {
     public ItemContainer Items { get; }
+    IItemContainer IInventoryContainer.Items => Items;
+    IItemContainer IRewardContainer.Items => Items;
     public Action? OnUpdateAction { get; set; }
     public int UpdateCount { get; private set; }
     public object MutationLock => ((IItemContainerStorageOwner)Items).Storage.MutationLock;

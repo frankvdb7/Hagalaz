@@ -17,12 +17,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ICharacter _owner;
 
         private readonly IItemBuilder _itemBuilder;
-        private readonly ItemContainer _items;
-        private ItemContainerStorage Storage => ((IItemContainerStorageOwner)_items).Storage;
-        public IContainer<IItem?> Items => _items;
-        ItemContainerStorage IItemContainerStorageOwner.Storage => Storage;
-        void IItemContainerStorageOwner.PublishChanges(HashSet<int>? changedSlots) =>
-            ((IItemContainerStorageOwner)_items).PublishChanges(changedSlots);
+        private readonly ItemContainerStorage _storage;
+        ItemContainerStorage IItemContainerStorageOwner.Storage => _storage;
+        void IItemContainerStorageOwner.PublishChanges(HashSet<int>? changedSlots) => OnUpdate();
 
         public bool HasSpaceForCoins(int count) => count > 0 && (long)Count + count <= int.MaxValue;
 
@@ -34,7 +31,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Contains the money count.
         /// </summary>
-        public int Count => _items[0]!.Count;
+        public int Count => _storage[0]!.Count;
 
         /// <summary>
         /// Gets the examine.
@@ -60,7 +57,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _owner = owner;
             _itemBuilder = itemBuilder;
             var coins = _itemBuilder.Create().WithId(995).WithCount(0).Build();
-            _items = new ItemContainer(StorageType.Normal, [coins], 1, OnUpdate, 0);
+            _storage = new ItemContainerStorage(StorageType.Normal, [coins], 1, 0);
         }
 
         /// <summary>
@@ -78,7 +75,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 {
                     _previousCount = Count;
                     SendMoneyPouchChangedMessage(remainingSpace);
-                    _items.Add(_itemBuilder.Create().WithId(995).WithCount(remainingSpace).Build());
+                    TryAddToPouch(_itemBuilder.Create().WithId(995).WithCount(remainingSpace).Build());
                 }
 
                 var inventoryCount = count - remainingSpace;
@@ -87,7 +84,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             _previousCount = Count;
             SendMoneyPouchChangedMessage(count);
-            return _items.Add(_itemBuilder.Create().WithId(995).WithCount(count).Build());
+            return TryAddToPouch(_itemBuilder.Create().WithId(995).WithCount(count).Build());
         }
 
         /// <summary>
@@ -143,7 +140,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             _previousCount = Count;
-            if (pouchCount > 0 && !Storage.TryAddRange(
+            if (pouchCount > 0 && !_storage.TryAddRange(
                     [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()], out _))
             {
                 RestoreStorageState(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
@@ -175,7 +172,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 if (remaining > inventoryCount) remaining = inventoryCount;
                 _previousCount = Count;
                 var removed = 0;
-                if (Count > 0) removed += _items.Remove(_itemBuilder.Create().WithId(995).WithCount(Count).Build(), 0);
+                if (Count > 0) removed += RemoveFromPouch(_itemBuilder.Create().WithId(995).WithCount(Count).Build(), 0);
                 if (remaining > 0) removed += _owner.Inventory.Items.Remove(_itemBuilder.Create().WithId(995).WithCount(remaining).Build());
                 SendMoneyPouchChangedMessage(-removed);
                 return removed;
@@ -183,7 +180,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             _previousCount = Count;
             SendMoneyPouchChangedMessage(-count);
-            return _items.Remove(_itemBuilder.Create().WithId(995).WithCount(count).Build(), 0);
+            return RemoveFromPouch(_itemBuilder.Create().WithId(995).WithCount(count).Build(), 0);
         }
 
         /// <summary>
@@ -241,7 +238,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             _previousCount = Count;
-            if (pouchCount > 0 && !Storage.TryRemoveExact(
+            if (pouchCount > 0 && !_storage.TryRemoveExact(
                     _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), pouchCount, 0, out _))
             {
                 RestoreStorageState(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
@@ -272,7 +269,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            var pouchStorage = Storage;
+            var pouchStorage = _storage;
             var inventoryStorage = provider.Storage;
             var first = pouchStorage.MutationOrder <= inventoryStorage.MutationOrder ? pouchStorage : inventoryStorage;
             var second = ReferenceEquals(first, pouchStorage) ? inventoryStorage : pouchStorage;
@@ -285,7 +282,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private (IItem?[] Items, int[] Counts, int PreviousCount) CaptureStorageState()
         {
-            var items = Storage.ToArray();
+            var items = _storage.ToArray();
             var counts = items.Select(item => item?.Count ?? 0).ToArray();
             return (items, counts, _previousCount);
         }
@@ -300,7 +297,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
             }
 
-            Storage.ReplaceState(items);
+            _storage.ReplaceState(items);
             _previousCount = previousCount;
         }
 
@@ -352,13 +349,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            var removed = _items.Remove(remove, 0);
+            var removed = RemoveFromPouch(remove, 0);
             if (removed <= 0) return false;
             var add = _itemBuilder.Create().WithId(995).WithCount(removed).Build();
             if (!_owner.Inventory.Items.Add(add))
             {
                 _owner.SendChatMessage(GameStrings.InventoryFull);
-                _items.Add(add);
+                TryAddToPouch(add);
                 return false;
             }
 
@@ -382,10 +379,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return availableCoins >= count;
             }
 
-            return !_items.Contains(id, count) && _owner.Inventory.Items.Contains(id, count);
+            return !_storage.Contains(id, count) && _owner.Inventory.Items.Contains(id, count);
         }
 
-        public bool Contains(int id) => _items.Contains(id);
+        public bool Contains(int id) => _storage.Contains(id);
 
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
@@ -418,11 +415,25 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 : moneyPouch.Select(entry => (entry.SlotId,
                     _itemBuilder.Create().WithId(995).WithCount(entry.Count)
                         .WithExtraData(entry.ExtraData ?? string.Empty).Build())).ToArray();
-            Storage.RestoreItems(items, allowZeroCount: true);
+            _storage.RestoreItems(items, allowZeroCount: true);
         }
 
-        public IReadOnlyList<HydratedItemDto> Dehydrate() => new[] { _items[0]! }
+        public IReadOnlyList<HydratedItemDto> Dehydrate() => new[] { _storage[0]! }
             .Select((item, slot) => new HydratedItemDto(item.Id, item.Count, slot, item.SerializeExtraData()))
             .ToArray();
+
+        private bool TryAddToPouch(IItem item)
+        {
+            if (!_storage.TryAdd(item, out _)) return false;
+            OnUpdate();
+            return true;
+        }
+
+        private int RemoveFromPouch(IItem item, int preferredSlot)
+        {
+            var removed = _storage.Remove(item, preferredSlot, out _);
+            if (removed > 0) OnUpdate();
+            return removed;
+        }
     }
 }
