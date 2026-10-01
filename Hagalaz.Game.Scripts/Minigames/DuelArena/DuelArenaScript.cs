@@ -27,6 +27,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     {
         private readonly IHintIconBuilder _hintIconBuilder;
         private readonly IItemBuilder _itemBuilder;
+        private readonly DuelStakeExchange _stakeExchange;
 
         /// <summary>
         /// </summary>
@@ -158,6 +159,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         {
             _hintIconBuilder = hintIconBuilder;
             _itemBuilder = itemBuilder;
+            _stakeExchange = new DuelStakeExchange(itemBuilder);
         }
 
         /// <summary>
@@ -578,15 +580,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                                 return;
                             }
 
-                            var cnt = Character.Inventory.Items.Remove(rem);
-                            if (cnt <= 0)
+                            if (!_stakeExchange.TryStakeInventoryItem(Character, SelfContainer.Items, item, rem.Count, itemSlot))
                             {
                                 return;
                             }
-
-                            var add = item.Clone();
-                            add.Count = cnt;
-                            SelfContainer.Items.Add(add);
                             RefreshDuelStakeScreen();
                             ProcessDuelStakeChange(true, false);
                         };
@@ -614,15 +611,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return false;
                         }
 
-                        count = Character.Inventory.Items.Remove(toRemove, itemSlot);
-                        if (count <= 0)
+                        if (!_stakeExchange.TryStakeInventoryItem(Character, SelfContainer.Items, item, count, itemSlot))
                         {
                             return false;
                         }
 
-                        var toAdd = item.Clone();
-                        toAdd.Count = count;
-                        SelfContainer.Items.Add(toAdd);
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(true, false);
                     }
@@ -698,15 +691,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                                 return;
                             }
 
-                            var cnt = Target.Inventory.Items.Remove(rem);
-                            if (cnt <= 0)
+                            if (!_stakeExchange.TryStakeInventoryItem(Target, TargetContainer.Items, item, rem.Count, itemSlot))
                             {
                                 return;
                             }
-
-                            var add = item.Clone();
-                            add.Count = cnt;
-                            TargetContainer.Items.Add(add);
                             RefreshDuelStakeScreen();
                             ProcessDuelStakeChange(false, false);
                         };
@@ -734,15 +722,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return false;
                         }
 
-                        count = Target.Inventory.Items.Remove(toRemove, itemSlot);
-                        if (count <= 0)
+                        if (!_stakeExchange.TryStakeInventoryItem(Target, TargetContainer.Items, item, count, itemSlot))
                         {
                             return false;
                         }
 
-                        var toAdd = item.Clone();
-                        toAdd.Count = count;
-                        TargetContainer.Items.Add(toAdd);
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(false, false);
                     }
@@ -780,13 +764,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        amt = Character.MoneyPouch.Remove(amt);
-                        if (amt <= 0)
+                        if (!_stakeExchange.TryStakePouchCoins(Character, SelfContainer.Items, amt))
                         {
                             return;
                         }
 
-                        SelfContainer.Items.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(true, false);
                     };
@@ -824,13 +806,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        amt = Target.MoneyPouch.Remove(amt);
-                        if (amt <= 0)
+                        if (!_stakeExchange.TryStakePouchCoins(Target, TargetContainer.Items, amt))
                         {
                             return;
                         }
 
-                        TargetContainer.Items.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(false, false);
                     };
@@ -895,22 +875,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                             var rem = item.Clone();
                             rem.Count = amt > max ? max : amt;
-                            var cnt = SelfContainer.Items.Remove(rem, itemSlot);
-                            if (cnt <= 0)
-                            {
-                                return;
-                            }
-
-                            var add = item.Clone();
-                            add.Count = cnt;
-                            if (add.Id == 995)
-                            {
-                                Character.MoneyPouch.Add(cnt);
-                            }
-                            else
-                            {
-                                Character.Inventory.Items.Add(add);
-                            }
+                            var returned = rem.Id == 995
+                                ? _stakeExchange.TryReturnCoinsToPouch(Character, SelfContainer.Items, rem, itemSlot)
+                                : _stakeExchange.TryReturnItemToInventory(Character, SelfContainer.Items, rem, rem.Count, itemSlot);
+                            if (!returned) return;
 
                             RefreshDuelStakeScreen();
                             ProcessDuelStakeChange(true, true);
@@ -933,22 +901,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         var toRemove = item.Clone();
                         toRemove.Count = count;
-                        count = SelfContainer.Items.Remove(toRemove, itemSlot);
-                        if (count <= 0)
-                        {
-                            return false;
-                        }
-
-                        var toAdd = item.Clone();
-                        toAdd.Count = count;
-                        if (toAdd.Id == 995)
-                        {
-                            Character.MoneyPouch.Add(count);
-                        }
-                        else
-                        {
-                            Character.Inventory.Items.Add(toAdd);
-                        }
+                        var returned = toRemove.Id == 995
+                            ? _stakeExchange.TryReturnCoinsToPouch(Character, SelfContainer.Items, toRemove, itemSlot)
+                            : _stakeExchange.TryReturnItemToInventory(Character, SelfContainer.Items, toRemove, toRemove.Count, itemSlot);
+                        if (!returned) return false;
 
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(true, true);
@@ -1013,22 +969,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                             var rem = item.Clone();
                             rem.Count = amt > max ? max : amt;
-                            var cnt = TargetContainer.Items.Remove(rem, itemSlot);
-                            if (cnt <= 0)
-                            {
-                                return;
-                            }
-
-                            var add = item.Clone();
-                            add.Count = cnt;
-                            if (add.Id == 995)
-                            {
-                                Target.MoneyPouch.Add(cnt);
-                            }
-                            else
-                            {
-                                Target.Inventory.Items.Add(add);
-                            }
+                            var returned = rem.Id == 995
+                                ? _stakeExchange.TryReturnCoinsToPouch(Target, TargetContainer.Items, rem, itemSlot)
+                                : _stakeExchange.TryReturnItemToInventory(Target, TargetContainer.Items, rem, rem.Count, itemSlot);
+                            if (!returned) return;
 
                             RefreshDuelStakeScreen();
                             ProcessDuelStakeChange(false, true);
@@ -1051,22 +995,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         var toRemove = item.Clone();
                         toRemove.Count = count;
-                        count = TargetContainer.Items.Remove(toRemove, itemSlot);
-                        if (count <= 0)
-                        {
-                            return false;
-                        }
-
-                        var toAdd = item.Clone();
-                        toAdd.Count = count;
-                        if (toAdd.Id == 995)
-                        {
-                            Target.MoneyPouch.Add(count);
-                        }
-                        else
-                        {
-                            Target.Inventory.Items.Add(toAdd);
-                        }
+                        var returned = toRemove.Id == 995
+                            ? _stakeExchange.TryReturnCoinsToPouch(Target, TargetContainer.Items, toRemove, itemSlot)
+                            : _stakeExchange.TryReturnItemToInventory(Target, TargetContainer.Items, toRemove, toRemove.Count, itemSlot);
+                        if (!returned) return false;
 
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(false, true);
@@ -1488,47 +1420,14 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return;
             }
 
+            if (SelfContainer != null && Target != null && TargetContainer != null &&
+                !_stakeExchange.TryRefundBoth(Character, SelfContainer.Items, Target, TargetContainer.Items))
+            {
+                return;
+            }
+
             DuelSession = false;
             CloseInterfaces();
-            if (SelfContainer != null && SelfContainer.Items.TakenSlots > 0)
-            {
-                for (var i = 0; i < SelfContainer.Items.Capacity; i++)
-                {
-                    if (SelfContainer.Items[i] == null)
-                    {
-                        continue;
-                    }
-
-                    if (SelfContainer.Items[i].Id == 995)
-                    {
-                        Character.MoneyPouch.Add(SelfContainer.Items[i].Count);
-                    }
-                    else
-                    {
-                        Character.Inventory.Items.Add(SelfContainer.Items[i]);
-                    }
-                }
-            }
-
-            if (Target != null && TargetContainer != null && TargetContainer.Items.TakenSlots > 0)
-            {
-                for (var i = 0; i < TargetContainer.Items.Capacity; i++)
-                {
-                    if (TargetContainer.Items[i] == null)
-                    {
-                        continue;
-                    }
-
-                    if (TargetContainer.Items[i].Id == 995)
-                    {
-                        Target.MoneyPouch.Add(TargetContainer.Items[i].Count);
-                    }
-                    else
-                    {
-                        Target.Inventory.Items.Add(TargetContainer.Items[i]);
-                    }
-                }
-            }
 
             Stage = DuelStage.Request;
             IsStaking = false;

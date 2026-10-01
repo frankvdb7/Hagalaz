@@ -37,14 +37,59 @@ An exact cross-container transfer MUST enter through `IItemContainerMutationBoun
 - **THEN** both operations acquire store locks in the same stable order and complete without lock-order deadlock
 
 ### Requirement: Multi-container mutations use an instance transaction
-`ItemContainerTransaction` MUST be a concrete short-lived coordinator implementing `IItemContainerTransaction` over explicit `IItemContainerMutationBoundary` participants. It MUST own execution, participant coordination, deterministic locking, snapshot capture, rollback, changed-slot tracking, and post-commit publication. `IItemContainerTransaction.Include` MUST support participant enlistment before execution. Its storage-staging methods and `OnCommitted` MUST be used only inside the operation callback passed to concrete `ItemContainerTransaction.TryExecute`. The interface MUST NOT expose transaction execution or changed-slot bookkeeping. Domain containers MUST NOT mutate enlisted storage independently and report changed slots afterward; every staged storage mutation MUST pass through the active transaction. It MUST deduplicate participants, preserve existing snapshot and rollback semantics, release locks before publication, and publish only committed changes. It MUST NOT introduce ambient state, asynchronous work, service lookup, or distributed transaction behavior. Special-domain boundaries MUST remain private and participate only through a narrow domain-owned operation.
+`ItemContainerTransaction` MUST be a concrete short-lived coordinator implementing `IItemContainerTransaction` over explicit `IItemContainerMutationBoundary` participants. It MUST own execution, participant coordination, deterministic locking, snapshot capture, rollback during the locked reversible phase, changed-slot tracking, and post-commit publication. `IItemContainerTransaction.Include` MUST support participant enlistment before execution. Its storage-staging methods and `OnCommitted` MUST be used only inside the operation callback passed to concrete `ItemContainerTransaction.TryExecute`. The interface MUST NOT expose transaction execution or changed-slot bookkeeping. Domain containers MUST NOT mutate enlisted storage independently and report changed slots afterward; every staged storage mutation MUST pass through the active transaction. It MUST deduplicate participants, preserve existing snapshot and rollback semantics, and release locks before post-commit work. Once a successful operation callback returns and participant locks are released, storage MUST be considered committed and MUST NOT be rolled back or reported as a false result because of later callback or publication failure. The transaction MUST attempt every registered pre-publication callback, every changed participant publisher in participant-registration order, and every `OnCommitted` callback exactly once and in that order. One post-commit exception MUST be rethrown with its original stack after all actions are attempted; multiple exceptions MUST be reported together in an `AggregateException`. It MUST NOT introduce ambient state, asynchronous work, service lookup, or distributed transaction behavior. Special-domain boundaries MUST remain private and participate only through a narrow domain-owned operation.
 
 #### Scenario: A transaction participant receives a staging context
 - **WHEN** a domain participant receives `IItemContainerTransaction` inside the `TryExecute` operation callback
 - **THEN** it can stage item changes and register post-commit effects, while participant enlistment through `Include` remains available only before execution
 
 ### Requirement: MoneyPouch uses one transaction rollback owner
-MoneyPouch exact additions and removals MUST stage both pouch and inventory storage through the same active `ItemContainerTransaction`. MoneyPouch MUST keep coin, sentinel, balance, message, and event semantics in its domain implementation, register post-commit effects through `OnCommitted`, and MUST NOT snapshot or restore its storage as a second rollback mechanism.
+MoneyPouch additions, removals, inventory transfers, and transfers to/from bank, shop, or duel stake MUST coordinate every affected pouch and inventory storage through one `ItemContainerTransaction`. Exact staged additions and removals MUST remain the single implementation of pouch overflow/underflow rules. MoneyPouch MUST keep coin, sentinel, balance, message, and event semantics in its domain implementation, register committed effects through `OnCommitted`, and MUST NOT mutate either store independently, compensate with a second mutation, or snapshot/restore its storage as another rollback mechanism. Existing partial-count behavior for `Remove`, `AddFromInventory`, and `MoveToInventory` MUST remain.
+
+#### Scenario: Pouch overflow cannot partially commit
+- **WHEN** an addition must overflow into inventory but inventory cannot accept the overflow
+- **THEN** neither pouch nor inventory changes and no committed pouch message or event is emitted
+
+#### Scenario: Pouch removal spans both stores atomically
+- **WHEN** a requested partial removal is available across pouch and inventory
+- **THEN** the actual amount is removed from both through one transaction, or neither store changes
+
+#### Scenario: A later participant rejects a staged pouch mutation
+- **WHEN** pouch and inventory mutations are staged but a later participant rejects its operation
+- **THEN** transaction rollback restores both stores and no pouch message or event is published
+
+### Requirement: Economic ownership changes use one transaction owner
+Bank deposits from MoneyPouch, shop purchases and sales, and duel stake, return, and cancellation refund MUST stage all affected containers through `ItemContainerTransaction` or a two-container mutation boundary. They MUST NOT use independent remove/add operations with compensating mutation. Existing domain policy for capacity, amount clamping, prices, messages, and stock normalization MUST remain in its owning domain method.
+
+#### Scenario: Shop payment and item delivery are atomic
+- **WHEN** either payment or item delivery fails during a shop purchase or sale
+- **THEN** every participating inventory, pouch, and shop store retains its pre-operation state and no purchase event is emitted
+
+#### Scenario: Bank deposit from pouch is atomic
+- **WHEN** bank storage cannot accept a staged pouch deposit
+- **THEN** bank and pouch remain unchanged and no committed bank or pouch publication occurs
+
+#### Scenario: Duel cancellation refund is atomic
+- **WHEN** either player's stake cannot be refunded
+- **THEN** both stake containers and both players' destination stores retain their pre-refund state
+
+### Requirement: Duel stake mutations use a composed domain collaborator
+`DuelArenaScript` MUST compose one concrete `DuelStakeExchange` for inventory/pouch stake, return, and cancellation-refund mutations. `DuelStakeExchange` MUST use mutation boundaries for simple exact two-container transfers and `ItemContainerTransaction` when MoneyPouch or both players participate. It MUST NOT own duel UI or session state and MUST NOT have a new interface or service registration.
+
+#### Scenario: Duel cancellation cannot discard escrow
+- **WHEN** a combined refund of both stake containers fails
+- **THEN** neither stake container is cleared and duel scripts/session teardown do not proceed
+
+#### Scenario: Duel stake transfer fails
+- **WHEN** a stake transfer cannot accept the exact requested item quantity
+- **THEN** neither source nor destination storage changes or publishes a committed mutation
+
+### Requirement: Equipment replacement preflights unequip permission
+Before the first mutation for an equipment replacement, `EquipmentContainer` MUST identify every conflicting equipped item and require `CanUnEquipItem` to succeed for each. On rejection it MUST leave inventory and equipment unchanged and invoke no equip/unequip callbacks. After successful preflight, it MUST preserve existing `IEquipmentScript.UnEquipItem` command behavior, including custom and interactive behavior; it MUST NOT replace those commands with generic transaction infrastructure.
+
+#### Scenario: A later conflicting item rejects replacement
+- **WHEN** one conflicting equipped item permits unequipping and a later conflict rejects it
+- **THEN** the incoming item and all existing equipment remain unchanged and no mutation publication or equipment callback occurs
 
 #### Scenario: A later participant rejects a staged pouch mutation
 - **WHEN** pouch and inventory changes have been staged but a later participant rejects its operation

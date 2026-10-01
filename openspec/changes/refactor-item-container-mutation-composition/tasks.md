@@ -90,3 +90,9 @@
 - [x] 13.2 Move partial familiar withdrawal into `IFamiliarInventoryContainer.WithdrawAvailableToInventory`, migrate all callers, and verify all-fit, partial-fit, no-fit, and once-per-container publication behavior.
 - [x] 13.3 Stage MoneyPouch and inventory storage through the same transaction, delete its redundant snapshot/restore path, and verify rollback suppresses domain effects.
 - [x] 13.4 Narrow storage and mutation-boundary concrete visibility; reconcile proposal, design, delta, current spec, historical task notes, and final ownership requirements. Run focused and full validation except deferred jscpd work.
+- [x] 13.5 Make post-commit processing irreversible, exhaustive, deterministically ordered, and exception-preserving; add regressions for publisher, callback, aggregate, and pre-publication failures.
+- [x] 13.6 Route MoneyPouch Add/Remove/AddFromInventory/MoveToInventory and BankContainer.DepositFromMoneyPouch through a single transaction; remove unused direct-storage pouch helpers and cover rollback/publication behavior.
+- [x] 13.7 Make ShopStockContainer buy/sell economic mutations atomic, defer ShopItemBoughtEvent until commit, preserve shop policy/sorting, and cover pouch and inventory currency failures.
+- [x] 13.8 Add concrete DuelStakeExchange, migrate every duel inventory/pouch stake and return path, make both-player cancellation refunds atomic, and preserve escrow/session state on refund failure.
+- [x] 13.9 Preflight all conflicting equipment unequip permissions before mutation while preserving custom UnEquipItem command behavior; add rejection regressions.
+- [x] 13.10 Reconcile proposal, design, tasks, delta and current specs for accepted requirements; run focused suites, solution build, strict OpenSpec validation, full serial tests, and diff checks without jscpd.

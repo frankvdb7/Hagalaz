@@ -22,11 +22,11 @@ Before this change, item storage algorithms, synchronization and revision tracki
 
 ### Modified Capabilities
 
-None. The change is an internal architecture refactor; existing gameplay behavior remains unchanged.
+- `item-container-storage`: Defines transaction point-of-no-return and exhaustive post-commit work, atomic MoneyPouch/bank/shop/duel economic mutations, composed duel stake operations, and equipment replacement preflight while preserving domain policy.
 
 ## Impact
 
-Affected projects are `Hagalaz.Game.Abstractions`, `Hagalaz.Services.GameWorld`, `Hagalaz.Game.Scripts`, and their test projects. No package, persistence schema, protocol or successful-operation gameplay behavior changes are intended. Failed multi-container transactions restore state without publishing rollback notifications because no transaction committed. `IItemContainer` retains normal operations plus neutral exact removal, but no longer owns publication; no trade-specific item-container interface or operation remains.
+Affected projects are `Hagalaz.Game.Abstractions`, `Hagalaz.Services.GameWorld`, `Hagalaz.Game.Scripts`, and their test projects. No package, persistence schema, or protocol changes are intended. Existing amount, capacity, price, message, partial-count, and custom equipment-command policies remain domain-owned while the named cross-container operations become atomic or preflighted. Failed reversible transactions restore state without publishing rollback notifications. Once a successful operation callback returns and participant locks are released, storage is committed; post-commit failures do not roll it back and all remaining post-commit actions are attempted. `IItemContainer` retains normal operations plus neutral exact removal, but no longer owns publication; no trade-specific item-container interface or operation remains.
 
 ## Scope Boundary
 
@@ -47,8 +47,13 @@ Do not redesign constructor semantics globally, change item mutability, or broad
 - Domain containers own events, UI publication, messages, persistence projection and equipment behavior.
 - Exact transfer and multi-container mutation use `ItemContainerTransaction` for deterministic lock ordering, snapshots, rollback, and publication; offer acceptance revision remains separate from storage revision.
 - `ItemContainerTransaction` owns execution and changed-slot bookkeeping. `IItemContainerTransaction.Include` enlists participants before execution; storage-staging methods and `OnCommitted` are used inside the callback passed to concrete `TryExecute`. Domain storage changes are staged through that transaction. MoneyPouch stages pouch and inventory storage in the same transaction.
+- Post-commit work runs after unlocking in this order: every pre-publication callback, every changed participant publisher in enlistment order, then every `OnCommitted` callback. Each action is attempted once. One failure is rethrown with its original stack; multiple failures are aggregated. Rollback is limited to the locked reversible phase.
+- MoneyPouch Add/Remove/AddFromInventory/MoveToInventory, bank deposit from pouch, shop buy/sell, and duel stake/unstake/refund use one mutation boundary or transaction for each economic ownership change. Existing amount, capacity, messaging, and partial-count policies remain domain-owned.
+- Duel stake movement is composed through a concrete `DuelStakeExchange`; it owns no duel UI/session state. Cancellation retains both stake containers and the active session if a combined refund cannot commit.
+- Equipment replacement preflights every conflicting item's `CanUnEquipItem` permission before the first mutation and preserves the existing custom `UnEquipItem` command behavior.
 - Generic mutation infrastructure exposes exact transfer but no partial bulk movement. `FamiliarInventoryContainer.WithdrawAvailableToInventory` owns the partial-success policy: each item is attempted, fitting items move together, and items that do not fit remain in familiar storage.
 - Concrete `ItemContainerStorage` and `ItemContainerMutationBoundary` remain assembly-internal; cross-assembly gameplay composition uses their public contracts.
 - Trade is a consumer of the generic synchronous mutation/transfer boundary and MUST NOT be modeled as a capability inherited or implemented by ordinary item containers. Inventory, bank, reward and other generic domain containers MUST NOT expose trade-specific mutation contracts merely because trade can move items through them.
 - No `ITradeItemContainer`, trade-specific item-container operation, or trade-named MoneyPouch API remains. Exact staged pouch operations are domain-neutral and used only where the settlement transaction boundary requires them.
+- Do not add a generic transaction factory/context, transfer shortcut, shop transaction, or `DuelStakeExchange` interface. UI orchestration delegates domain mutations; only complex multi-container flows construct `ItemContainerTransaction`.
 - Existing and requested regression suites pass, strict OpenSpec validation passes, and the complete diff passes `git diff --check`. jscpd duplication cleanup is a separate follow-up.

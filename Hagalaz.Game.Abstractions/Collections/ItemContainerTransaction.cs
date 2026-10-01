@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using Hagalaz.Game.Abstractions.Model.Items;
 
 namespace Hagalaz.Game.Abstractions.Collections;
@@ -72,13 +73,48 @@ public sealed class ItemContainerTransaction : IItemContainerTransaction
             return false;
         }
 
-        foreach (var callback in _beforePublish) callback();
-        foreach (var (participant, slots) in _changed)
+        List<Exception>? postCommitExceptions = null;
+        foreach (var callback in _beforePublish)
         {
-            participant.PublishChanges?.Invoke(slots);
+            TryPostCommitAction(callback, ref postCommitExceptions);
         }
-        foreach (var callback in _committed) callback();
+
+        foreach (var participant in _participants)
+        {
+            if (_changed.TryGetValue(participant, out var slots) && participant.PublishChanges is { } publishChanges)
+            {
+                TryPostCommitAction(() => publishChanges(slots), ref postCommitExceptions);
+            }
+        }
+
+        foreach (var callback in _committed)
+        {
+            TryPostCommitAction(callback, ref postCommitExceptions);
+        }
+
+        if (postCommitExceptions is { Count: 1 })
+        {
+            ExceptionDispatchInfo.Capture(postCommitExceptions[0]).Throw();
+        }
+
+        if (postCommitExceptions is { Count: > 1 })
+        {
+            throw new AggregateException("Multiple post-commit item-container actions failed.", postCommitExceptions);
+        }
+
         return true;
+    }
+
+    private static void TryPostCommitAction(Action action, ref List<Exception>? exceptions)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception exception)
+        {
+            (exceptions ??= []).Add(exception);
+        }
     }
 
     public bool TryAddRange(IItemContainerMutationBoundary boundary, IEnumerable<IItem?> items)

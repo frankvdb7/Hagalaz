@@ -50,6 +50,10 @@ Storage MUST own its mutation revision, which invalidates active enumerators aft
 - **WHEN** a trade offer publishes a content update
 - **THEN** its acceptance revision advances independently of the storage enumeration revision
 
+#### Scenario: Post-commit failures do not change transaction outcome
+- **WHEN** the operation callback succeeds and transaction locks are released
+- **THEN** the transaction remains committed, attempts all pre-publication callbacks, changed participant publishers in registration order, and committed callbacks exactly once, then rethrows one captured exception or aggregates multiple exceptions
+
 ### Requirement: Multi-container mutations use an instance transaction
 `ItemContainerTransaction` MUST coordinate explicit mutation boundaries as a concrete short-lived object implementing `IItemContainerTransaction`. It MUST own transaction execution, deduplicate participants, acquire locks in deterministic storage order, capture snapshots, own rollback and changed-slot tracking, release locks before publication, and publish only committed changes. `IItemContainerTransaction.Include` MUST support participant enlistment before execution. Its storage-staging methods and `OnCommitted` MUST be used only during the operation callback passed to concrete `ItemContainerTransaction.TryExecute`. The interface MUST NOT expose transaction execution or changed-slot bookkeeping. Domain participants MUST stage all enlisted storage changes through the active transaction instead of mutating storage independently and reporting changed slots afterward. It MUST NOT introduce ambient state, asynchronous work, service lookup, or distributed transactions. Special-domain boundaries MUST remain private and participate only through a narrow domain-owned operation.
 
@@ -104,3 +108,36 @@ Equipment callbacks, trade settlement publication, inventory/bank/reward events,
 #### Scenario: Trade consumes generic container operations
 - **WHEN** TradeExchange stages item mutations for settlement
 - **THEN** it uses generic storage operations under its deterministic storage locks and publishes through domain owners only after commit
+
+### Requirement: MoneyPouch and economic flows use one transaction owner
+MoneyPouch additions, removals, inventory transfers, bank deposits, shop purchases and sales, and duel stake, return, and cancellation refunds MUST stage all affected storage through one `ItemContainerTransaction` or exact two-container mutation boundary. A failed operation MUST leave every participant unchanged. Existing amount clamping, prices, messages, callbacks, and stock normalization MUST remain owned by their domain operations. MoneyPouch MUST retain its slot-zero coin sentinel and partial `Remove`, `AddFromInventory`, and `MoveToInventory` behavior.
+
+#### Scenario: Pouch overflow cannot partially commit
+- **WHEN** a pouch addition overflows but inventory cannot accept the overflow
+- **THEN** pouch and inventory remain unchanged and no committed pouch message or event is emitted
+
+#### Scenario: Bank deposit from pouch is rejected
+- **WHEN** bank storage cannot accept a staged deposit
+- **THEN** bank and pouch remain unchanged
+
+#### Scenario: Shop payment or delivery fails
+- **WHEN** a shop purchase or sale cannot stage every payment, item, or payout change
+- **THEN** inventory, pouch, and shop storage remain unchanged and no purchase event is emitted
+
+#### Scenario: Duel cancellation refund fails
+- **WHEN** either player's stake cannot be returned
+- **THEN** both stake containers and both players' destination stores remain unchanged and the duel session remains active
+
+### Requirement: Duel stake mutations use a composed domain collaborator
+`DuelArenaScript` MUST compose one concrete `DuelStakeExchange` for item and pouch staking, return, and cancellation refund. The collaborator MUST use exact mutation-boundary transfers for simple items and one `ItemContainerTransaction` for pouch or two-player refund operations. It MUST NOT own UI or session state or require an interface or service registration.
+
+#### Scenario: Duel stake transfer fails
+- **WHEN** the stake or destination cannot accept the exact transfer
+- **THEN** source and destination remain unchanged and the script does not publish a stake change
+
+### Requirement: Equipment replacement preflights all conflicts
+Before its first mutation, `EquipmentContainer` MUST identify all conflicting equipped items and require `CanUnEquipItem` to succeed for each. Rejection MUST leave equipment and inventory unchanged and invoke no equip or unequip callback. On success, the existing `UnEquipItem` commands MUST still run to preserve custom and interactive behavior.
+
+#### Scenario: A later conflict rejects replacement
+- **WHEN** an earlier conflicting item allows unequipping but a later conflict rejects it
+- **THEN** equipment and inventory remain unchanged and no mutation publication or callback occurs

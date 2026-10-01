@@ -14,6 +14,7 @@ internal sealed class Scenario : IDisposable
 {
         private readonly ServiceProvider _services;
         private readonly Dictionary<int, IItemDefinition> _itemDefinitions = [];
+        private readonly Dictionary<int, IEquipmentDefinition> _equipmentDefinitions = [];
 
         public ICharacter Owner { get; } = Substitute.For<ICharacter>();
         public IItemBuilder Builder { get; }
@@ -40,7 +41,11 @@ internal sealed class Scenario : IDisposable
                 return _itemDefinitions.TryGetValue(id, out var definition) ? definition : DefaultItemDefinition;
             });
             var equipmentService = Substitute.For<IEquipmentService>();
-            equipmentService.FindEquipmentDefinitionById(Arg.Any<int>()).Returns(DefaultEquipmentDefinition);
+            equipmentService.FindEquipmentDefinitionById(Arg.Any<int>()).Returns(callInfo =>
+            {
+                var id = callInfo.Arg<int>();
+                return _equipmentDefinitions.TryGetValue(id, out var definition) ? definition : DefaultEquipmentDefinition;
+            });
             var itemProvider = Substitute.For<IItemScriptProvider>();
             itemProvider.FindItemScriptById(Arg.Any<int>()).Returns(itemScript);
             var equipmentProvider = Substitute.For<IEquipmentScriptProvider>();
@@ -58,6 +63,8 @@ internal sealed class Scenario : IDisposable
         }
 
         public void DefineItem(int id, IItemDefinition definition) => _itemDefinitions[id] = definition;
+
+        public void DefineEquipment(int id, IEquipmentDefinition definition) => _equipmentDefinitions[id] = definition;
 
         private static IItemDefinition CreateDefinition(bool stackable, bool noted = false, int noteId = -1)
         {

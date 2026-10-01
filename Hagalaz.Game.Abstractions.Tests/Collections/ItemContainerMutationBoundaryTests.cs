@@ -105,6 +105,131 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
+    public void Transaction_PostCommitPublisherFailureDoesNotRollbackAndAttemptsLaterActions()
+    {
+        var originalException = new InvalidOperationException("Source publisher failed.");
+        var sourcePublisherCalls = 0;
+        var destinationPublisherCalls = 0;
+        var committedCallbackCalls = 0;
+        var throwOnSourcePublish = false;
+        var source = new ItemContainer(StorageType.Normal, 2, _ =>
+        {
+            sourcePublisherCalls++;
+            if (throwOnSourcePublish) throw originalException;
+        });
+        var destination = new ItemContainer(StorageType.Normal, 2, _ => destinationPublisherCalls++);
+        var item = new TestItem(24, 3);
+        Assert.IsTrue(source.Add(item));
+        sourcePublisherCalls = 0;
+        throwOnSourcePublish = true;
+        var transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
+
+        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => transaction.TryExecute(tx =>
+        {
+            Assert.IsTrue(tx.TryTransfer(source.Mutations, destination.Mutations, item, 3, 0));
+            tx.OnCommitted(() => committedCallbackCalls++);
+            return true;
+        }));
+
+        Assert.AreSame(originalException, thrown);
+        Assert.IsNull(source[0]);
+        Assert.AreSame(item, destination[0]);
+        Assert.AreEqual(1, sourcePublisherCalls);
+        Assert.AreEqual(1, destinationPublisherCalls);
+        Assert.AreEqual(1, committedCallbackCalls);
+    }
+
+    [TestMethod]
+    public void Transaction_PostCommitActionsRunInPhaseAndParticipantRegistrationOrder()
+    {
+        var order = new List<string>();
+        var source = new ItemContainer(StorageType.Normal, 2, _ => order.Add("source publisher"));
+        var destination = new ItemContainer(StorageType.Normal, 2, _ => order.Add("destination publisher"));
+        var transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
+
+        Assert.IsTrue(transaction.TryExecute(tx =>
+        {
+            Assert.IsTrue(tx.TryAddRange(destination.Mutations, [new TestItem(25, 1)]));
+            Assert.IsTrue(tx.TryAddRange(source.Mutations, [new TestItem(26, 1)]));
+            transaction.OnCommittedBeforePublish(() => order.Add("before"));
+            tx.OnCommitted(() => order.Add("committed"));
+            return true;
+        }));
+
+        CollectionAssert.AreEqual(new[] { "before", "source publisher", "destination publisher", "committed" }, order);
+    }
+
+    [TestMethod]
+    public void Transaction_PostCommitCallbackFailureStillRunsLaterCallbacks()
+    {
+        var firstException = new InvalidOperationException("First callback failed.");
+        var secondCallbackRan = false;
+        var container = new ItemContainer(StorageType.Normal, 2);
+        var transaction = new ItemContainerTransaction(container.Mutations);
+
+        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => transaction.TryExecute(tx =>
+        {
+            Assert.IsTrue(tx.TryAddRange(container.Mutations, [new TestItem(27, 1)]));
+            tx.OnCommitted(() => throw firstException);
+            tx.OnCommitted(() => secondCallbackRan = true);
+            return true;
+        }));
+
+        Assert.AreSame(firstException, thrown);
+        Assert.AreEqual(1, container.TakenSlots);
+        Assert.IsTrue(secondCallbackRan);
+    }
+
+    [TestMethod]
+    public void Transaction_MultiplePostCommitFailuresAreAggregatedAfterAllActionsRun()
+    {
+        var beforeException = new InvalidOperationException("Before publish failed.");
+        var publisherException = new InvalidOperationException("Publisher failed.");
+        var committedException = new InvalidOperationException("Committed callback failed.");
+        var committedCallbackRan = false;
+        var container = new ItemContainer(StorageType.Normal, 2, _ => throw publisherException);
+        var transaction = new ItemContainerTransaction(container.Mutations);
+
+        var thrown = Assert.ThrowsExactly<AggregateException>(() => transaction.TryExecute(tx =>
+        {
+            Assert.IsTrue(tx.TryAddRange(container.Mutations, [new TestItem(28, 1)]));
+            transaction.OnCommittedBeforePublish(() => throw beforeException);
+            tx.OnCommitted(() => throw committedException);
+            tx.OnCommitted(() => committedCallbackRan = true);
+            return true;
+        }));
+
+        StringAssert.StartsWith(thrown.Message, "Multiple post-commit item-container actions failed.");
+        CollectionAssert.AreEqual(new Exception[] { beforeException, publisherException, committedException },
+            thrown.InnerExceptions.ToArray());
+        Assert.AreEqual(1, container.TakenSlots);
+        Assert.IsTrue(committedCallbackRan);
+    }
+
+    [TestMethod]
+    public void Transaction_BeforePublishFailureStillPublishesAndRunsCommittedCallbacks()
+    {
+        var beforeException = new InvalidOperationException("Before publish failed.");
+        var publisherCalls = 0;
+        var committedCallbackCalls = 0;
+        var container = new ItemContainer(StorageType.Normal, 2, _ => publisherCalls++);
+        var transaction = new ItemContainerTransaction(container.Mutations);
+
+        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => transaction.TryExecute(tx =>
+        {
+            Assert.IsTrue(tx.TryAddRange(container.Mutations, [new TestItem(29, 1)]));
+            transaction.OnCommittedBeforePublish(() => throw beforeException);
+            tx.OnCommitted(() => committedCallbackCalls++);
+            return true;
+        }));
+
+        Assert.AreSame(beforeException, thrown);
+        Assert.AreEqual(1, container.TakenSlots);
+        Assert.AreEqual(1, publisherCalls);
+        Assert.AreEqual(1, committedCallbackCalls);
+    }
+
+    [TestMethod]
     public void Transaction_PublicShapeSeparatesExecutionFromStagingAndKeepsChangedSlotsPrivate()
     {
         var container = new ItemContainer(StorageType.Normal, 2);

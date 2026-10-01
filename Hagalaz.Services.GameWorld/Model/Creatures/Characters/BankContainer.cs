@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics.CodeAnalysis;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Services.GameWorld.Logic.Characters;
@@ -47,36 +48,34 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public bool DepositFromMoneyPouch([NotNullWhen(true)] out IItem? deposited)
         {
-            var count = _owner.MoneyPouch.Count;
-            if (count <= 0)
+            IItem? stagedCoins = null;
+            var bankRejected = false;
+            var transaction = new ItemContainerTransaction(_items.Mutations);
+            _owner.MoneyPouch.EnlistIn(transaction);
+            var succeeded = transaction.TryExecute(tx =>
             {
-                deposited = null;
-                return false;
-            }
+                var count = _owner.MoneyPouch.Count;
+                if (count <= 0) return false;
 
-            deposited = _itemBuilder.Create().WithId(995).WithCount(count).Build();
-            if (!Items.HasSpaceFor(deposited))
+                stagedCoins = _itemBuilder.Create().WithId(995).WithCount(count).Build();
+                if (!_owner.MoneyPouch.TryStageRemoveExact(tx, count)) return false;
+                if (!tx.TryAddRange(_items.Mutations, [stagedCoins]))
+                {
+                    bankRejected = true;
+                    return false;
+                }
+
+                return true;
+            });
+
+            if (!succeeded && bankRejected)
             {
                 _owner.SendChatMessage("Not enough space in your bank.");
-                deposited = null;
-                return false;
+                stagedCoins = null;
             }
 
-            var removed = _owner.MoneyPouch.Remove(count);
-            if (removed <= 0)
-            {
-                deposited = null;
-                return false;
-            }
-
-            deposited.Count = removed;
-            if (Items.Add(deposited))
-            {
-                return true;
-            }
-
-            deposited = null;
-            return false;
+            deposited = succeeded ? stagedCoins : null;
+            return succeeded;
 
         }
 

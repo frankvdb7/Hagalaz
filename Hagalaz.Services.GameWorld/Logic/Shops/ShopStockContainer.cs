@@ -141,15 +141,24 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 return false;
             }
 
-            if (!viewer.Inventory.Items.Mutations.TryTransferTo(_items.Mutations, item, count, slot,
-                    destinationItem: transformed ? sold : null))
-            {
-                return false;
-            }
+            var transaction = new ItemContainerTransaction(viewer.Inventory.Items.Mutations, _items.Mutations);
+            if (_shop.CurrencyId == 995) viewer.MoneyPouch.EnlistIn(transaction);
+            var payout = _shop.CurrencyId == 995
+                ? null
+                : _itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)currencyCount).Build();
 
-            return viewer.MoneyPouch.Contains(_shop.CurrencyId)
-                ? viewer.MoneyPouch.Add((int)currencyCount)
-                : viewer.Inventory.Items.Add(_itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)currencyCount).Build());
+            return transaction.TryExecute(tx =>
+            {
+                if (!tx.TryTransfer(viewer.Inventory.Items.Mutations, _items.Mutations, item, count, slot,
+                        destinationItem: transformed ? sold : null))
+                {
+                    return false;
+                }
+
+                return _shop.CurrencyId == 995
+                    ? viewer.MoneyPouch.TryStageAddExact(tx, (int)currencyCount)
+                    : tx.TryAddRange(viewer.Inventory.Items.Mutations, [payout!]);
+            });
         }
 
         /// <summary>
@@ -220,31 +229,59 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                     return false;
                 }
 
-                var paid = _shop.CurrencyId == 995
-                    ? viewer.MoneyPouch.TryRemoveExact((int)cost)
-                    : viewer.Inventory.Items.TryRemoveExact(
-                        _itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)cost).Build());
-
-                if (!paid)
+                var hasCurrency = _shop.CurrencyId == 995
+                    ? viewer.MoneyPouch.Contains(995, (int)cost)
+                    : viewer.Inventory.Items.Contains(_shop.CurrencyId, (int)cost);
+                if (!hasCurrency)
                 {
                     viewer.SendChatMessage("You don't have enough " + _itemRepository.FindItemDefinitionById(_shop.CurrencyId).Name.ToLower() + "!");
                     return false;
                 }
             }
 
-            if (_originalStock.Any(it => it.Id == item.Id))
+            var originalStock = _originalStock.Any(it => it.Id == item.Id);
+            var transaction = new ItemContainerTransaction(_items.Mutations, viewer.Inventory.Items.Mutations);
+            if (_shop.CurrencyId == 995) viewer.MoneyPouch.EnlistIn(transaction);
+
+            var paymentRejected = false;
+            var succeeded = transaction.TryExecute(tx =>
             {
-                Items.Remove(toRemove, slot);
-            }
-            else
+                if (cost > 0)
+                {
+                    var paid = _shop.CurrencyId == 995
+                        ? viewer.MoneyPouch.TryStageRemoveExact(tx, (int)cost)
+                        : tx.TryRemoveExact(viewer.Inventory.Items.Mutations,
+                            _itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)cost).Build());
+                    if (!paid)
+                    {
+                        paymentRejected = true;
+                        return false;
+                    }
+                }
+
+                if (!tx.TryTransfer(_items.Mutations, viewer.Inventory.Items.Mutations, item, count, slot))
+                {
+                    return false;
+                }
+
+                if (!originalStock)
+                {
+                    tx.OnCommitted(() =>
+                    {
+                        if (Items[slot] == null) Items.Sort();
+                    });
+                }
+
+                tx.OnCommitted(() => _eventManager.SendEvent(new ShopItemBoughtEvent(viewer, _shop, toRemove)));
+                return true;
+            });
+
+            if (!succeeded && paymentRejected)
             {
-                Items.Remove(toRemove, slot);
-                if (Items[slot] == null) Items.Sort();
+                viewer.SendChatMessage("You don't have enough " + _itemRepository.FindItemDefinitionById(_shop.CurrencyId).Name.ToLower() + "!");
             }
 
-            viewer.Inventory.Items.Add(toRemove);
-            _eventManager.SendEvent(new ShopItemBoughtEvent(viewer, _shop, toRemove));
-            return true;
+            return succeeded;
         }
 
         /// <summary>

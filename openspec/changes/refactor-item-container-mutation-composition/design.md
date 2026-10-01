@@ -15,7 +15,7 @@ Before this change, `BaseItemContainer` owned slot state and mutation algorithms
 **Non-Goals:**
 
 - Redesign constructor semantics, item mutability, or the remaining broad low-level state replacement API. The minimum #439 overlap removes `OnUpdate` from `IItemContainer` and delegates its common operations to composed storage rather than inherited algorithms; it does not decide which operations should eventually leave that interface.
-- Redesign item mutability, shop transaction behavior, or trade acceptance rules.
+- Redesign item mutability or trade acceptance rules.
 
 ## Decisions
 
@@ -40,6 +40,14 @@ Domain hydration code maps persisted DTOs to physical `(slot, item)` entries and
 ### Trade settlement composes a short-lived transaction
 
 `ItemContainerTransaction` implements `IItemContainerTransaction`, receives interface-typed participants, deduplicates and orders their stores by `MutationOrder`, and owns execution, locking, snapshots, rollback, changed-slot tracking, and publication. `TryExecute` exists only on the concrete transaction; `IItemContainerTransaction.Include` enlists participants before execution, while callbacks receive the interface for storage staging and `OnCommitted` registration during execution. `RecordChangedSlots` is private transaction bookkeeping. `TradeExchange` performs domain-specific settlement through the transaction interface and keeps escrow, pouch overflow, and event/message sequencing in trade/pouch domain code. MoneyPouch stages pouch and inventory mutations through the same active transaction and registers its domain effects with `OnCommitted`; it does not snapshot or restore pouch storage itself.
+
+The operation callback is the reversible phase and runs while every participant lock is held. A false result or exception restores changed storage and skips all post-commit actions. If it returns true, all locks are released and storage is committed. Post-commit work then attempts every pre-publication callback, every changed participant publisher in participant-registration order, and every `OnCommitted` callback, in that order. Each action is attempted exactly once. One captured exception is rethrown with `ExceptionDispatchInfo`; multiple captured exceptions are reported in an `AggregateException`. Post-commit failure never rolls back committed storage or turns success into a false result.
+
+MoneyPouch domain operations keep their current amount and presentation rules but stage pouch and inventory changes through the same transaction. `BankContainer.DepositFromMoneyPouch`, shop buy/sell, and duel stake/unstake/refund similarly stage every economic participant together. A simple exact two-container move uses `Mutations.TryTransferTo`; multi-container domain work remains owned by its domain method or concrete composed collaborator.
+
+`DuelArenaScript` composes one concrete `DuelStakeExchange` for inventory/pouch staking, unstaking, and cancellation refunds. The collaborator owns no UI or duel-session state. A failed two-player cancellation refund leaves both stake containers and the live session intact.
+
+Equipment replacement identifies all conflicting equipped items and checks every `CanUnEquipItem` permission before removing the incoming item or invoking an unequip command. After preflight it preserves the existing `UnEquipItem` command calls, including custom/interactive behavior. This is a safe-failure preflight, not a generic transaction redesign of equipment commands.
 
 The familiar partial withdrawal operation belongs to `IFamiliarInventoryContainer`/`FamiliarInventoryContainer`. One transaction attempts each familiar item; individual failures do not abort other transfers, and items that do not fit remain in the familiar container. Successful changes publish once per affected container after commit.
 

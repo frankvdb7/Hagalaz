@@ -67,24 +67,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public bool Add(int count)
         {
-            var totalCount = (ulong)count + (ulong)Count;
-            if (totalCount > int.MaxValue)
-            {
-                var remainingSpace = int.MaxValue - Count;
-                if (remainingSpace > 0)
-                {
-                    _previousCount = Count;
-                    SendMoneyPouchChangedMessage(remainingSpace);
-                    TryAddToPouch(_itemBuilder.Create().WithId(995).WithCount(remainingSpace).Build());
-                }
-
-                var inventoryCount = count - remainingSpace;
-                return count <= 0 || _owner.Inventory.Items.Add(_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build());
-            }
-
-            _previousCount = Count;
-            SendMoneyPouchChangedMessage(count);
-            return TryAddToPouch(_itemBuilder.Create().WithId(995).WithCount(count).Build());
+            return TryAddExact(count);
         }
 
         /// <summary>
@@ -148,22 +131,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public int Remove(int count)
         {
-            if (count > Count)
-            {
-                var remaining = count - Count;
-                var inventoryCount = _owner.Inventory.Items.GetCountById(995);
-                if (remaining > inventoryCount) remaining = inventoryCount;
-                _previousCount = Count;
-                var removed = 0;
-                if (Count > 0) removed += RemoveFromPouch(_itemBuilder.Create().WithId(995).WithCount(Count).Build(), 0);
-                if (remaining > 0) removed += _owner.Inventory.Items.Remove(_itemBuilder.Create().WithId(995).WithCount(remaining).Build());
-                SendMoneyPouchChangedMessage(-removed);
-                return removed;
-            }
-
-            _previousCount = Count;
-            SendMoneyPouchChangedMessage(-count);
-            return RemoveFromPouch(_itemBuilder.Create().WithId(995).WithCount(count).Build(), 0);
+            if (count <= 0) return 0;
+            var amount = (int)Math.Min((long)count, (long)Count + _owner.Inventory.Items.GetCountById(995));
+            return amount > 0 && TryRemoveExact(amount) ? amount : 0;
         }
 
         /// <summary>
@@ -255,17 +225,23 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public bool AddFromInventory(int count)
         {
-            var totalCount = (ulong)count + (ulong)Count;
-            if (totalCount > int.MaxValue)
+            if (count <= 0) return false;
+
+            var remainingSpace = int.MaxValue - Count;
+            if (count > remainingSpace)
             {
-                count = int.MaxValue - Count;
                 _owner.SendChatMessage(GameStrings.MoneyPouchFull);
             }
 
-            if (count <= 0) return false;
-            var remove = _itemBuilder.Create().WithId(995).WithCount(count).Build();
-            var removed = _owner.Inventory.Items.Remove(remove);
-            return removed > 0 && Add(removed);
+            var transferCount = Math.Min(count, Math.Min(remainingSpace, _owner.Inventory.Items.GetCountById(995)));
+            if (transferCount <= 0) return false;
+
+            var transaction = new ItemContainerTransaction(_owner.Inventory.Items.Mutations);
+            EnlistIn(transaction);
+            return transaction.TryExecute(tx =>
+                tx.TryRemoveExact(_owner.Inventory.Items.Mutations,
+                    _itemBuilder.Create().WithId(995).WithCount(transferCount).Build()) &&
+                TryStageAddExact(tx, transferCount));
         }
 
         /// <summary>
@@ -275,26 +251,27 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public bool MoveToInventory(int count)
         {
-            _previousCount = Count;
-            var remove = _itemBuilder.Create().WithId(995).WithCount(count).Build();
-            if (!_owner.Inventory.Items.HasSpaceFor(remove))
-            {
-                _owner.SendChatMessage(GameStrings.InventoryFull);
-                return false;
-            }
+            if (count <= 0) return false;
+            var transferCount = Math.Min(count, Count);
+            if (transferCount <= 0) return false;
 
-            var removed = RemoveFromPouch(remove, 0);
-            if (removed <= 0) return false;
-            var add = _itemBuilder.Create().WithId(995).WithCount(removed).Build();
-            if (!_owner.Inventory.Items.Add(add))
+            var inventoryRejected = false;
+            var transaction = new ItemContainerTransaction(_owner.Inventory.Items.Mutations);
+            EnlistIn(transaction);
+            var succeeded = transaction.TryExecute(tx =>
             {
-                _owner.SendChatMessage(GameStrings.InventoryFull);
-                TryAddToPouch(add);
-                return false;
-            }
+                if (!tx.TryAddRange(_owner.Inventory.Items.Mutations,
+                        [_itemBuilder.Create().WithId(995).WithCount(transferCount).Build()]))
+                {
+                    inventoryRejected = true;
+                    return false;
+                }
 
-            SendMoneyPouchChangedMessage(-removed);
-            return true;
+                return TryStageRemoveExact(tx, transferCount);
+            });
+
+            if (!succeeded && inventoryRejected) _owner.SendChatMessage(GameStrings.InventoryFull);
+            return succeeded;
         }
 
         /// <summary>
@@ -356,18 +333,5 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             .Select((item, slot) => new HydratedItemDto(item.Id, item.Count, slot, item.SerializeExtraData()))
             .ToArray();
 
-        private bool TryAddToPouch(IItem item)
-        {
-            if (!_storage.TryAdd(item, out _)) return false;
-            OnUpdate();
-            return true;
-        }
-
-        private int RemoveFromPouch(IItem item, int preferredSlot)
-        {
-            var removed = _storage.Remove(item, preferredSlot, out _);
-            if (removed > 0) OnUpdate();
-            return removed;
-        }
     }
 }

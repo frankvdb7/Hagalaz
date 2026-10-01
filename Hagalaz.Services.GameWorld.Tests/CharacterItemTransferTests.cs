@@ -39,6 +39,29 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
+    public void BankDepositFromMoneyPouch_WhenBankCannotAcceptCoins_LeavesBothStoresUnchanged()
+    {
+        using var scenario = new Scenario();
+        var inventory = CreateInventory(scenario, 4);
+        scenario.Owner.Inventory.Returns(inventory);
+        var moneyPouch = new MoneyPouchContainer(scenario.Owner, scenario.Builder);
+        scenario.Owner.MoneyPouch.Returns(moneyPouch);
+        Assert.IsTrue(moneyPouch.Add(5));
+        var bank = new BankContainer(scenario.Owner, 2, scenario.Builder);
+        Assert.IsTrue(bank.Items.Add(scenario.Builder.Create().WithId(995).WithCount(int.MaxValue).Build()));
+        var events = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(events);
+
+        Assert.IsFalse(bank.DepositFromMoneyPouch(out var deposited));
+
+        Assert.IsNull(deposited);
+        Assert.AreEqual(5, moneyPouch.Count);
+        Assert.AreEqual(int.MaxValue, bank.Items.GetCountById(995));
+        events.DidNotReceive().SendEvent(Arg.Any<BankChangedEvent>());
+        events.DidNotReceive().SendEvent(Arg.Any<MoneyPouchChangedEvent>());
+    }
+
+    [TestMethod]
     public void BankDepositFromInventory_UnnotesIntoBankAndRetainsExtraData()
     {
         using var scenario = new Scenario();
@@ -338,6 +361,83 @@ public sealed class CharacterItemTransferTests
         Assert.IsTrue(equipment.EquipItem(item));
 
         Assert.IsTrue(callbackSawCommittedStorage());
+    }
+
+    [TestMethod]
+    public void EquipItem_TwoHandedReplacementPreflightsEveryConflictingItemBeforeMutation()
+    {
+        using var scenario = new Scenario();
+        var inventory = CreateInventory(scenario, 4);
+        scenario.Owner.Inventory.Returns(inventory);
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        scenario.Owner.Equipment.Returns(equipment);
+        var weaponDefinition = Substitute.For<IEquipmentDefinition>();
+        weaponDefinition.Slot.Returns(EquipmentSlot.Weapon);
+        scenario.DefineEquipment(101, weaponDefinition);
+        var shieldDefinition = Substitute.For<IEquipmentDefinition>();
+        shieldDefinition.Slot.Returns(EquipmentSlot.Shield);
+        scenario.DefineEquipment(102, shieldDefinition);
+        var incomingDefinition = Substitute.For<IEquipmentDefinition>();
+        incomingDefinition.Slot.Returns(EquipmentSlot.Weapon);
+        incomingDefinition.Type.Returns(EquipmentType.TwoHanded);
+        scenario.DefineEquipment(103, incomingDefinition);
+        var weapon = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        var shield = scenario.Builder.Create().WithId(102).WithCount(1).Build();
+        var incoming = scenario.Builder.Create().WithId(103).WithCount(1).Build();
+        Assert.IsTrue(equipment.Add(EquipmentSlot.Weapon, weapon));
+        Assert.IsTrue(equipment.Add(EquipmentSlot.Shield, shield));
+        Assert.IsTrue(inventory.Items.Add(incoming));
+        eventManager.ClearReceivedCalls();
+        incoming.EquipmentScript.CanEquipItem(incoming, scenario.Owner).Returns(true);
+        weapon.EquipmentScript.CanUnEquipItem(weapon, scenario.Owner).Returns(true);
+        shield.EquipmentScript.CanUnEquipItem(shield, scenario.Owner).Returns(false);
+
+        Assert.IsFalse(equipment.EquipItem(incoming));
+
+        Assert.AreSame(incoming, inventory.Items[0]);
+        Assert.AreSame(weapon, equipment[EquipmentSlot.Weapon]);
+        Assert.AreSame(shield, equipment[EquipmentSlot.Shield]);
+        weapon.EquipmentScript.Received(1).CanUnEquipItem(weapon, scenario.Owner);
+        shield.EquipmentScript.Received(1).CanUnEquipItem(shield, scenario.Owner);
+        weapon.EquipmentScript.DidNotReceive().UnEquipItem(weapon, scenario.Owner, Arg.Any<int>());
+        shield.EquipmentScript.DidNotReceive().UnEquipItem(shield, scenario.Owner, Arg.Any<int>());
+        incoming.EquipmentScript.DidNotReceive().OnEquipped(incoming, scenario.Owner);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+    }
+
+    [TestMethod]
+    public void EquipItem_SingleSlotReplacementPreflightRejectsWithoutMutation()
+    {
+        using var scenario = new Scenario();
+        var inventory = CreateInventory(scenario, 2);
+        scenario.Owner.Inventory.Returns(inventory);
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        scenario.Owner.Equipment.Returns(equipment);
+        var equippedDefinition = Substitute.For<IEquipmentDefinition>();
+        equippedDefinition.Slot.Returns(EquipmentSlot.Hat);
+        scenario.DefineEquipment(101, equippedDefinition);
+        var incomingDefinition = Substitute.For<IEquipmentDefinition>();
+        incomingDefinition.Slot.Returns(EquipmentSlot.Hat);
+        scenario.DefineEquipment(102, incomingDefinition);
+        var equipped = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        var incoming = scenario.Builder.Create().WithId(102).WithCount(1).Build();
+        Assert.IsTrue(equipment.Add(EquipmentSlot.Hat, equipped));
+        Assert.IsTrue(inventory.Items.Add(incoming));
+        eventManager.ClearReceivedCalls();
+        incoming.EquipmentScript.CanEquipItem(incoming, scenario.Owner).Returns(true);
+        equipped.EquipmentScript.CanUnEquipItem(equipped, scenario.Owner).Returns(false);
+
+        Assert.IsFalse(equipment.EquipItem(incoming));
+
+        Assert.AreSame(incoming, inventory.Items[0]);
+        Assert.AreSame(equipped, equipment[EquipmentSlot.Hat]);
+        equipped.EquipmentScript.DidNotReceive().UnEquipItem(equipped, scenario.Owner, Arg.Any<int>());
+        incoming.EquipmentScript.DidNotReceive().OnEquipped(incoming, scenario.Owner);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
     }
 
     [TestMethod]

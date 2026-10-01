@@ -102,7 +102,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return true;
                 }
 
-            if (_owner.Inventory.Items.Remove(item, slot) <= 0)
+                if (!equipItem.EquipmentScript.CanUnEquipItem(equipItem, _owner))
+                {
+                    return false;
+                }
+
+                if (_owner.Inventory.Items.Remove(item, slot) <= 0)
                 {
                     return false;
                 }
@@ -130,17 +135,28 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return true;
             }
 
-            if (_owner.Inventory.Items.Remove(item, slot) <= 0)
-            {
-                return false;
-            }
-
             var needsWeaponUnequip = equippedWeapon != null && (equipSlot == EquipmentSlot.Weapon ||
                                                                 equipSlot == EquipmentSlot.Shield &&
                                                                 equippedWeapon.EquipmentDefinition.Type == EquipmentType.TwoHanded);
             var needsShieldUnequip = equipSlot == EquipmentSlot.Shield
                 ? equippedShield != null
                 : equippedShield != null && item.EquipmentDefinition.Type == EquipmentType.TwoHanded;
+
+            if (needsWeaponUnequip && !equippedWeapon!.EquipmentScript.CanUnEquipItem(equippedWeapon, _owner))
+            {
+                return false;
+            }
+
+            if (needsShieldUnequip && !equippedShield!.EquipmentScript.CanUnEquipItem(equippedShield, _owner))
+            {
+                return false;
+            }
+
+            if (_owner.Inventory.Items.Remove(item, slot) <= 0)
+            {
+                return false;
+            }
+
             var needsFreeSlots = 0;
             if (needsWeaponUnequip)
             {

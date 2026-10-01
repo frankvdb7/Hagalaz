@@ -7,6 +7,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events;
+using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Services.GameWorld.Logic.Shops;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -139,6 +140,35 @@ public sealed class ShopStockContainerTests
     }
 
     [TestMethod]
+    public void BuyFromShop_WhenPaymentStagesButInventoryRejects_RollsBackPaymentAndStock()
+    {
+        var scenario = CreateScenario(cost: 5, pouchCoins: 5, inventoryCapacity: 1);
+        Assert.IsTrue(scenario.Inventory.Items.Add(new ComposedTestItem(3000, 1, stackable: false)));
+
+        Assert.IsFalse(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+
+        Assert.AreEqual(5, scenario.MoneyPouch.Count);
+        Assert.AreEqual(1, scenario.Stock.Items.GetCountById(ItemId));
+        scenario.ShopEvents.DidNotReceive().SendEvent(Arg.Any<ShopItemBoughtEvent>());
+    }
+
+    [TestMethod]
+    public void SellFromInventory_WhenPouchOverflowCannotFit_RollsBackSoldItemAndStock()
+    {
+        var scenario = CreateScenario(cost: 2, pouchCoins: int.MaxValue - 1, inventoryCapacity: 2);
+        var item = new ComposedTestItem(ItemId, 2, stackable: true);
+        item.ItemScript.CanSellItem(item, scenario.Character).Returns(true);
+        Assert.IsTrue(scenario.Inventory.Items.Add(item));
+        Assert.IsTrue(scenario.Inventory.Items.Add(new ComposedTestItem(3000, 1, stackable: false)));
+
+        Assert.IsFalse(scenario.Stock.SellFromInventory(scenario.Character, item, 1));
+
+        Assert.AreEqual(2, scenario.Inventory.Items.GetCountById(ItemId));
+        Assert.AreEqual(1, scenario.Stock.Items.GetCountById(ItemId));
+        Assert.AreEqual(int.MaxValue - 1, scenario.MoneyPouch.Count);
+    }
+
+    [TestMethod]
     public void NormalizeStock_RestocksDepletedOriginalItem()
     {
         var scenario = CreateScenario(cost: 0);
@@ -173,9 +203,10 @@ public sealed class ShopStockContainerTests
         int currencyId = CoinId,
         int pouchCoins = 0,
         int inventoryCurrency = 0,
-        bool sampleStock = false)
+        bool sampleStock = false,
+        int inventoryCapacity = 10)
     {
-        var inventory = new ComposedTestInventory(10);
+        var inventory = new ComposedTestInventory(inventoryCapacity);
         if (inventoryCurrency > 0)
         {
             Assert.IsTrue(inventory.Items.Add(new ComposedTestItem(currencyId, inventoryCurrency, stackable: true)));
@@ -198,6 +229,7 @@ public sealed class ShopStockContainerTests
         shop.CurrencyId.Returns(currencyId);
         shop.GeneralStore.Returns(true);
         shop.GetBuyValue(Arg.Any<IItem>()).Returns(cost);
+        shop.GetSellValue(Arg.Any<IItem>()).Returns(cost);
 
         var itemService = Substitute.For<IItemService>();
         var currencyDefinition = Substitute.For<IItemDefinition>();
@@ -205,6 +237,7 @@ public sealed class ShopStockContainerTests
         itemService.FindItemDefinitionById(currencyId).Returns(currencyDefinition);
 
         var stockItem = new ComposedTestItem(ItemId, 1, stackable: true);
+        var shopEvents = Substitute.For<IEventManager>();
         var stock = new ShopStockContainer(
             shop,
             itemService,
@@ -213,9 +246,9 @@ public sealed class ShopStockContainerTests
             StorageType.AlwaysStack,
             1,
             [stockItem],
-            Substitute.For<IEventManager>());
+            shopEvents);
 
-        return new ShopScenario(character, inventory, moneyPouch, stock, stockItem);
+        return new ShopScenario(character, inventory, moneyPouch, stock, stockItem, shopEvents);
     }
 
     private static int GetTotalCoins(ShopScenario scenario) =>
@@ -226,7 +259,8 @@ public sealed class ShopStockContainerTests
         IInventoryContainer Inventory,
         IMoneyPouchContainer MoneyPouch,
         IShopStockContainer Stock,
-        IItem StockItem);
+        IItem StockItem,
+        IEventManager ShopEvents);
 
 
 }
