@@ -46,6 +46,13 @@ Storage MUST own its mutation revision, which invalidates active enumerators aft
 - **WHEN** storage changes after an enumerator is created
 - **THEN** the enumerator detects the storage revision mismatch
 
+#### Scenario: Failed transaction restores storage revision
+- **GIVEN** enumerators exist before a multi-container transaction begins
+- **WHEN** the transaction stages one or more storage changes but later rolls back
+- **THEN** every participant's slots, item identities, counts, and mutation revision are restored
+- **AND** the pre-existing enumerators remain valid
+- **AND** no participant publishes a committed mutation or runs a committed callback
+
 #### Scenario: Trade publication invalidates acceptance
 - **WHEN** a trade offer publishes a content update
 - **THEN** its acceptance revision advances independently of the storage enumeration revision

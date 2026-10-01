@@ -29,6 +29,9 @@ namespace Hagalaz.Game.Abstractions.Collections
 
         private int _version;
 
+        /// <summary>The current mutation revision, captured by transactions while holding this storage's lock.</summary>
+        internal int MutationRevision => _version;
+
         /// <summary>
         /// Advances the storage revision after a mutation commits.
         /// </summary>
@@ -1150,6 +1153,31 @@ namespace Hagalaz.Game.Abstractions.Collections
             {
                 Items = (IItem?[])items.Clone();
                 AdvanceRevision();
+            }
+        }
+
+        /// <summary>Restores a transaction snapshot without treating rollback as a committed mutation.</summary>
+        internal void RestoreTransactionState(IItem?[] items, int[] counts, int mutationRevision)
+        {
+            ArgumentNullException.ThrowIfNull(items);
+            ArgumentNullException.ThrowIfNull(counts);
+            if (items.Length != Capacity)
+            {
+                throw new ArgumentException("Item storage length must equal container capacity.", nameof(items));
+            }
+            if (counts.Length != Capacity)
+            {
+                throw new ArgumentException("Item count snapshot length must equal container capacity.", nameof(counts));
+            }
+
+            lock (_mutationLock)
+            {
+                for (var slot = 0; slot < items.Length; slot++)
+                {
+                    if (items[slot] is { } item) item.Count = counts[slot];
+                }
+                Items = (IItem?[])items.Clone();
+                _version = mutationRevision;
             }
         }
 

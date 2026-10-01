@@ -960,6 +960,21 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
+        public void ReplaceState_InvalidatesExistingEnumerator()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+            container.Items.Add(CreateItem(1, 1));
+            var enumerator = container.Items.GetEnumerator();
+            var replacement = new IItem?[container.Items.Capacity];
+            replacement[1] = CreateItem(2, 1);
+
+            container.Storage.ReplaceState(replacement);
+
+            Assert.ThrowsExactly<InvalidOperationException>(() => enumerator.MoveNext());
+            Assert.AreEqual(2, container.Items[1]!.Id);
+        }
+
+        [TestMethod]
         public void ReplaceState_WithInvalidLength_RejectsInputAndKeepsCapacitySizedStorage()
         {
             var container = new TestableItemContainer(StorageType.Normal, 10);

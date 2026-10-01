@@ -97,3 +97,4 @@
 - [x] 13.9 Preflight all conflicting equipment unequip permissions before mutation; retain custom UnEquipItem command behavior for non-weapon/shield replacements and add rejection regressions.
 - [x] 13.10 Reconcile proposal, design, tasks, delta and current specs for accepted requirements; run focused suites, solution build, strict OpenSpec validation, full serial tests, and diff checks without jscpd.
 - [x] 13.11 Make Weapon/Shield conflict replacement one atomic transaction with internal exact-slot insertion and ordered post-commit callbacks; retain the non-weapon command path, add rollback/success/publisher-failure regressions, reconcile proposal/design/delta/current spec, and run the requested validation without jscpd.
+- [x] 13.12 Capture and restore each storage mutation revision with its transaction snapshot; verify false-result and exception rollback preserve pre-existing enumerators while successful mutations still invalidate them.

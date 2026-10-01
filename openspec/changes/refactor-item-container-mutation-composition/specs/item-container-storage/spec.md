@@ -43,6 +43,13 @@ An exact cross-container transfer MUST enter through `IItemContainerMutationBoun
 - **WHEN** a domain participant receives `IItemContainerTransaction` inside the `TryExecute` operation callback
 - **THEN** it can stage item changes and register post-commit effects, while participant enlistment through `Include` remains available only before execution
 
+#### Scenario: Failed transaction restores storage revision
+- **GIVEN** an enumerator exists before a multi-container transaction begins
+- **WHEN** the transaction stages one or more storage changes but later rolls back
+- **THEN** all participant storage contents, item identities, counts, and mutation revisions are restored
+- **AND** the pre-existing enumerator remains valid
+- **AND** no participant publishes a committed mutation or runs a committed callback
+
 ### Requirement: MoneyPouch uses one transaction rollback owner
 MoneyPouch additions, removals, inventory transfers, and transfers to/from bank, shop, or duel stake MUST coordinate every affected pouch and inventory storage through one `ItemContainerTransaction`. Exact staged additions and removals MUST remain the single implementation of pouch overflow/underflow rules. MoneyPouch MUST keep coin, sentinel, balance, message, and event semantics in its domain implementation, register committed effects through `OnCommitted`, and MUST NOT mutate either store independently, compensate with a second mutation, or snapshot/restore its storage as another rollback mechanism. Existing partial-count behavior for `Remove`, `AddFromInventory`, and `MoveToInventory` MUST remain.
 

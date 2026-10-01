@@ -206,18 +206,14 @@ public sealed class ItemContainerTransaction : IItemContainerTransaction
     {
         var items = participant.Storage.ToArray();
         var counts = items.Select(item => item?.Count ?? 0).ToArray();
-        return new StorageSnapshot(participant, items, counts);
+        return new StorageSnapshot(participant, items, counts, participant.Storage.MutationRevision);
     }
 
     private void RestoreChanged(IEnumerable<StorageSnapshot> snapshots)
     {
         foreach (var snapshot in snapshots.Where(snapshot => _changed.ContainsKey(snapshot.Participant)))
         {
-            for (var slot = 0; slot < snapshot.Items.Length; slot++)
-            {
-                if (snapshot.Items[slot] != null) snapshot.Items[slot]!.Count = snapshot.Counts[slot];
-            }
-            snapshot.Participant.Storage.ReplaceState(snapshot.Items);
+            snapshot.Participant.Storage.RestoreTransactionState(snapshot.Items, snapshot.Counts, snapshot.MutationRevision);
         }
         _changed.Clear();
         _beforePublish.Clear();
@@ -238,5 +234,5 @@ public sealed class ItemContainerTransaction : IItemContainerTransaction
 
     private sealed record Participant(IItemContainerMutationBoundary Boundary, ItemContainerStorage Storage,
         Action<HashSet<int>?>? PublishChanges);
-    private sealed record StorageSnapshot(Participant Participant, IItem?[] Items, int[] Counts);
+    private sealed record StorageSnapshot(Participant Participant, IItem?[] Items, int[] Counts, int MutationRevision);
 }
