@@ -74,7 +74,7 @@ Death processing defers the actual equipment `Clear(true)` mutation until after 
 
 ### Zero-count and equipment rules stay at their owners
 
-Storage accepts a simple `countToResetTo` constructor option. MoneyPouch seeds and validates its coin sentinel; ShopStock retains original-stock and normalization behavior. Equipment keeps semantic slot mapping and equipment callbacks. It uses storage-only transfer, then runs callbacks, then publishes inventory/equipment updates in the established order.
+Storage accepts a simple `countToResetTo` constructor option. MoneyPouch seeds and validates its coin sentinel; ShopStock retains original-stock and normalization behavior. Equipment keeps semantic slot mapping and equipment callbacks. For Weapon/Shield conflicts, `EquipmentContainer` preflights every `CanUnEquipItem`, then stages incoming exact removal, outgoing transfers, and exact-slot equipment insertion in one transaction. The transaction's internal concrete `TryAddAt` stages the incoming instance without widening `IItemContainerTransaction`. After commit and unlock, callbacks run in weapon unequip, shield unequip, weapon profile/special-attack, incoming equip order before inventory/equipment publication. It does not run the conflicting items' `UnEquipItem` commands in this path. Other occupied equipment slots keep their existing command behavior.
 
 ## Risks / Trade-offs
 

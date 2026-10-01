@@ -125,6 +125,15 @@ public sealed class ItemContainerTransaction : IItemContainerTransaction
         return true;
     }
 
+    internal bool TryAddAt(IItemContainerMutationBoundary boundary, int slot, IItem item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        var participant = EnsureParticipant(boundary);
+        if (!participant.Storage.TryAdd(slot, item, out var changedSlots)) return false;
+        RecordChangedSlots(boundary, changedSlots);
+        return true;
+    }
+
     public bool TryRemoveExact(IItemContainerMutationBoundary boundary, IItem item, int preferredSlot = -1)
     {
         var participant = EnsureParticipant(boundary);

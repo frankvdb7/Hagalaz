@@ -3,7 +3,10 @@ using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.Shops;
+using Hagalaz.Game.Abstractions.Mediator;
+using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
@@ -408,6 +411,123 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
+    public void EquipItem_TwoConflictsThatCannotBothFitRollsBackEveryStorageChange()
+    {
+        using var scenario = new Scenario();
+        var setup = CreateWeaponShieldReplacementSetup(scenario, inventoryCapacity: 1);
+        setup.Weapon.EquipmentScript.CanUnEquipItem(setup.Weapon, scenario.Owner).Returns(true);
+        setup.Shield.EquipmentScript.CanUnEquipItem(setup.Shield, scenario.Owner).Returns(true);
+
+        Assert.IsFalse(setup.Equipment.EquipItem(setup.Incoming));
+
+        Assert.AreSame(setup.Incoming, setup.Inventory.Items[0]);
+        Assert.AreSame(setup.Weapon, setup.Equipment[EquipmentSlot.Weapon]);
+        Assert.AreSame(setup.Shield, setup.Equipment[EquipmentSlot.Shield]);
+        setup.Weapon.EquipmentScript.DidNotReceive().OnUnequipped(setup.Weapon, scenario.Owner);
+        setup.Shield.EquipmentScript.DidNotReceive().OnUnequipped(setup.Shield, scenario.Owner);
+        setup.Incoming.EquipmentScript.DidNotReceive().OnEquipped(setup.Incoming, scenario.Owner);
+        scenario.Owner.EventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+    }
+
+    [TestMethod]
+    public void EquipItem_TwoConflictsCommitStorageBeforeOrderedLifecycleCallbacks()
+    {
+        using var scenario = new Scenario();
+        var setup = CreateWeaponShieldReplacementSetup(scenario, inventoryCapacity: 3);
+        var callbackOrder = new List<string>();
+        var publicationFollowedCallbacks = false;
+        var mediator = scenario.Owner.Mediator;
+        mediator.When(bus => bus.Publish(Arg.Any<ProfileSetBoolAction>())).Do(_ => callbackOrder.Add("profile"));
+        scenario.Owner.EventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(_ =>
+            publicationFollowedCallbacks |= callbackOrder.Count == 4);
+        setup.Weapon.EquipmentScript.When(script => script.OnUnequipped(setup.Weapon, scenario.Owner)).Do(_ =>
+        {
+            Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Weapon]);
+            Assert.IsNull(setup.Equipment[EquipmentSlot.Shield]);
+            Assert.AreSame(setup.Weapon, setup.Inventory.Items[0]);
+            callbackOrder.Add("weapon");
+        });
+        setup.Shield.EquipmentScript.When(script => script.OnUnequipped(setup.Shield, scenario.Owner)).Do(_ =>
+        {
+            Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Weapon]);
+            Assert.IsNull(setup.Equipment[EquipmentSlot.Shield]);
+            Assert.AreSame(setup.Shield, setup.Inventory.Items[1]);
+            callbackOrder.Add("shield");
+        });
+        setup.Incoming.EquipmentScript.When(script => script.OnEquipped(setup.Incoming, scenario.Owner)).Do(_ =>
+        {
+            Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Weapon]);
+            Assert.AreSame(setup.Weapon, setup.Inventory.Items[0]);
+            Assert.AreSame(setup.Shield, setup.Inventory.Items[1]);
+            callbackOrder.Add("incoming");
+        });
+        setup.Weapon.EquipmentScript.CanUnEquipItem(setup.Weapon, scenario.Owner).Returns(true);
+        setup.Shield.EquipmentScript.CanUnEquipItem(setup.Shield, scenario.Owner).Returns(true);
+
+        Assert.IsTrue(setup.Equipment.EquipItem(setup.Incoming));
+
+        CollectionAssert.AreEqual(new[] { "weapon", "shield", "profile", "incoming" }, callbackOrder);
+        Assert.IsTrue(publicationFollowedCallbacks);
+        Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Weapon]);
+        Assert.AreSame(setup.Weapon, setup.Inventory.Items[0]);
+        Assert.AreSame(setup.Shield, setup.Inventory.Items[1]);
+    }
+
+    [TestMethod]
+    public void EquipItem_TwoConflictPublisherFailureLeavesCommittedStateAndRunsCallbacks()
+    {
+        using var scenario = new Scenario();
+        var setup = CreateWeaponShieldReplacementSetup(scenario, inventoryCapacity: 3);
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        var callbacks = new List<string>();
+        setup.Weapon.EquipmentScript.When(script => script.OnUnequipped(setup.Weapon, scenario.Owner)).Do(_ => callbacks.Add("weapon"));
+        setup.Shield.EquipmentScript.When(script => script.OnUnequipped(setup.Shield, scenario.Owner)).Do(_ => callbacks.Add("shield"));
+        setup.Incoming.EquipmentScript.When(script => script.OnEquipped(setup.Incoming, scenario.Owner)).Do(_ => callbacks.Add("incoming"));
+        setup.Weapon.EquipmentScript.CanUnEquipItem(setup.Weapon, scenario.Owner).Returns(true);
+        setup.Shield.EquipmentScript.CanUnEquipItem(setup.Shield, scenario.Owner).Returns(true);
+        eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
+        {
+            if (call.Arg<IEvent>() is InventoryChangedEvent)
+                throw new InvalidOperationException("Controlled inventory publication failure.");
+        });
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
+
+        CollectionAssert.AreEqual(new[] { "weapon", "shield", "incoming" }, callbacks);
+        Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Weapon]);
+        Assert.IsNull(setup.Equipment[EquipmentSlot.Shield]);
+        Assert.AreSame(setup.Weapon, setup.Inventory.Items[0]);
+        Assert.AreSame(setup.Shield, setup.Inventory.Items[1]);
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+    }
+
+    [TestMethod]
+    public void EquipItem_NonWeaponReplacementStillInvokesAndHonorsUnequipCommand()
+    {
+        using var scenario = new Scenario();
+        var inventory = CreateInventory(scenario, 2);
+        scenario.Owner.Inventory.Returns(inventory);
+        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        scenario.Owner.Equipment.Returns(equipment);
+        scenario.DefaultEquipmentDefinition.Slot.Returns(EquipmentSlot.Hat);
+        var equipped = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        var incoming = scenario.Builder.Create().WithId(102).WithCount(1).Build();
+        Assert.IsTrue(equipment.Add(EquipmentSlot.Hat, equipped));
+        Assert.IsTrue(inventory.Items.Add(incoming));
+        incoming.EquipmentScript.CanEquipItem(incoming, scenario.Owner).Returns(true);
+        equipped.EquipmentScript.CanUnEquipItem(equipped, scenario.Owner).Returns(true);
+        equipped.EquipmentScript.UnEquipItem(equipped, scenario.Owner, 0).Returns(false);
+
+        Assert.IsFalse(equipment.EquipItem(incoming));
+
+        Assert.AreSame(incoming, inventory.Items[0]);
+        Assert.AreSame(equipped, equipment[EquipmentSlot.Hat]);
+        equipped.EquipmentScript.Received(1).UnEquipItem(equipped, scenario.Owner, 0);
+        incoming.EquipmentScript.DidNotReceive().OnEquipped(incoming, scenario.Owner);
+    }
+
+    [TestMethod]
     public void EquipItem_SingleSlotReplacementPreflightRejectsWithoutMutation()
     {
         using var scenario = new Scenario();
@@ -582,6 +702,45 @@ public sealed class CharacterItemTransferTests
         item.EquipmentScript.CanEquipItem(item, scenario.Owner).Returns(true);
         return (inventory, equipment, item);
     }
+
+    private static (InventoryContainer Inventory, EquipmentContainer Equipment, IItem Weapon, IItem Shield, IItem Incoming)
+        CreateWeaponShieldReplacementSetup(Scenario scenario, int inventoryCapacity)
+    {
+        var inventory = CreateInventory(scenario, inventoryCapacity);
+        scenario.Owner.Inventory.Returns(inventory);
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        scenario.Owner.Mediator.Returns(Substitute.For<IGameMediator>());
+        var profile = Substitute.For<IProfile>();
+        profile.GetValue<int>(Arg.Any<string>()).Returns(0);
+        scenario.Owner.Profile.Returns(profile);
+        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        scenario.Owner.Equipment.Returns(equipment);
+
+        var weaponDefinition = Substitute.For<IEquipmentDefinition>();
+        weaponDefinition.Slot.Returns(EquipmentSlot.Weapon);
+        weaponDefinition.AttackStyleIDs.Returns(Array.Empty<AttackStyle>());
+        scenario.DefineEquipment(101, weaponDefinition);
+        var shieldDefinition = Substitute.For<IEquipmentDefinition>();
+        shieldDefinition.Slot.Returns(EquipmentSlot.Shield);
+        scenario.DefineEquipment(102, shieldDefinition);
+        var incomingDefinition = Substitute.For<IEquipmentDefinition>();
+        incomingDefinition.Slot.Returns(EquipmentSlot.Weapon);
+        incomingDefinition.Type.Returns(EquipmentType.TwoHanded);
+        incomingDefinition.AttackStyleIDs.Returns(Array.Empty<AttackStyle>());
+        scenario.DefineEquipment(103, incomingDefinition);
+
+        var weapon = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        var shield = scenario.Builder.Create().WithId(102).WithCount(1).Build();
+        var incoming = scenario.Builder.Create().WithId(103).WithCount(1).Build();
+        Assert.IsTrue(equipment.Add(EquipmentSlot.Weapon, weapon));
+        Assert.IsTrue(equipment.Add(EquipmentSlot.Shield, shield));
+        Assert.IsTrue(inventory.Items.Add(incoming));
+        incoming.EquipmentScript.CanEquipItem(incoming, scenario.Owner).Returns(true);
+        eventManager.ClearReceivedCalls();
+        return (inventory, equipment, weapon, shield, incoming);
+    }
+
     private static Func<bool> ObserveEquippedState(
         ICharacter owner,
         IItemContainer inventory,

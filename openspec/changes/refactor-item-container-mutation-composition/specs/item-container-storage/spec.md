@@ -85,11 +85,26 @@ Bank deposits from MoneyPouch, shop purchases and sales, and duel stake, return,
 - **THEN** neither source nor destination storage changes or publishes a committed mutation
 
 ### Requirement: Equipment replacement preflights unequip permission
-Before the first mutation for an equipment replacement, `EquipmentContainer` MUST identify every conflicting equipped item and require `CanUnEquipItem` to succeed for each. On rejection it MUST leave inventory and equipment unchanged and invoke no equip/unequip callbacks. After successful preflight, it MUST preserve existing `IEquipmentScript.UnEquipItem` command behavior, including custom and interactive behavior; it MUST NOT replace those commands with generic transaction infrastructure.
+Before the first mutation for an equipment replacement, `EquipmentContainer` MUST identify every conflicting equipped item and require `CanUnEquipItem` to succeed for each. On rejection it MUST leave inventory and equipment unchanged and invoke no equip/unequip callbacks. For occupied replacement slots other than Weapon and Shield, successful preflight MUST preserve existing `IEquipmentScript.UnEquipItem` command behavior, including custom and interactive behavior.
 
 #### Scenario: A later conflicting item rejects replacement
 - **WHEN** one conflicting equipped item permits unequipping and a later conflict rejects it
 - **THEN** the incoming item and all existing equipment remain unchanged and no mutation publication or equipment callback occurs
+
+### Requirement: Weapon and shield replacement uses one exact storage transaction
+After weapon/shield conflict preflight succeeds, `EquipmentContainer` MUST stage exact removal of the incoming inventory item, transfers of the conflicting weapon and shield to inventory, and exact-slot insertion of the same incoming instance into equipment through one `ItemContainerTransaction`. Exact-slot insertion MUST be an internal concrete transaction operation and MUST NOT widen `IItemContainerTransaction`. Any staging failure MUST roll back all storage changes without callbacks or publication. This path MUST NOT invoke `IEquipmentScript.UnEquipItem` commands. On commit, it MUST run the weapon `OnUnequipped`, shield `OnUnequipped`, weapon profile/special-attack logic when applicable, and incoming `OnEquipped` callbacks in that order after unlocking and before participant publication.
+
+#### Scenario: A later weapon or shield transfer cannot fit
+- **WHEN** conflict preflight succeeds but a later conflicting item cannot fit in inventory
+- **THEN** inventory and equipment remain unchanged and no lifecycle callback or publication occurs
+
+#### Scenario: Weapon and shield replacement succeeds
+- **WHEN** all required storage operations can be staged
+- **THEN** the final storage contains both outgoing instances in inventory and the original incoming instance in equipment before callbacks and publication
+
+#### Scenario: Publication fails after a successful replacement
+- **WHEN** a participant publisher throws after commit
+- **THEN** storage stays committed and all lifecycle callbacks and remaining publishers are attempted
 
 #### Scenario: A later participant rejects a staged pouch mutation
 - **WHEN** pouch and inventory changes have been staged but a later participant rejects its operation

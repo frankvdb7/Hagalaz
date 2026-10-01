@@ -94,5 +94,6 @@
 - [x] 13.6 Route MoneyPouch Add/Remove/AddFromInventory/MoveToInventory and BankContainer.DepositFromMoneyPouch through a single transaction; remove unused direct-storage pouch helpers and cover rollback/publication behavior.
 - [x] 13.7 Make ShopStockContainer buy/sell economic mutations atomic, defer ShopItemBoughtEvent until commit, preserve shop policy/sorting, and cover pouch and inventory currency failures.
 - [x] 13.8 Add concrete DuelStakeExchange, migrate every duel inventory/pouch stake and return path, make both-player cancellation refunds atomic, and preserve escrow/session state on refund failure.
-- [x] 13.9 Preflight all conflicting equipment unequip permissions before mutation while preserving custom UnEquipItem command behavior; add rejection regressions.
+- [x] 13.9 Preflight all conflicting equipment unequip permissions before mutation; retain custom UnEquipItem command behavior for non-weapon/shield replacements and add rejection regressions.
 - [x] 13.10 Reconcile proposal, design, tasks, delta and current specs for accepted requirements; run focused suites, solution build, strict OpenSpec validation, full serial tests, and diff checks without jscpd.
+- [x] 13.11 Make Weapon/Shield conflict replacement one atomic transaction with internal exact-slot insertion and ordered post-commit callbacks; retain the non-weapon command path, add rollback/success/publisher-failure regressions, reconcile proposal/design/delta/current spec, and run the requested validation without jscpd.

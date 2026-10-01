@@ -152,88 +152,68 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            if (_owner.Inventory.Items.Remove(item, slot) <= 0)
+            var inventoryBoundary = _owner.Inventory.Items.Mutations;
+            var transaction = new ItemContainerTransaction(inventoryBoundary, _mutations);
+            var inventoryCapacityRejected = false;
+            var succeeded = transaction.TryExecute(tx =>
             {
+                if (!tx.TryRemoveExact(inventoryBoundary, item, slot)) return false;
+
+                if (needsWeaponUnequip && !tx.TryTransfer(_mutations, inventoryBoundary, equippedWeapon!,
+                        equippedWeapon!.Count, (int)EquipmentSlot.Weapon, slot))
+                {
+                    inventoryCapacityRejected = true;
+                    return false;
+                }
+
+                if (needsShieldUnequip && !tx.TryTransfer(_mutations, inventoryBoundary, equippedShield!,
+                        equippedShield!.Count, (int)EquipmentSlot.Shield))
+                {
+                    inventoryCapacityRejected = true;
+                    return false;
+                }
+
+                if (!transaction.TryAddAt(_mutations, (int)equipSlot, item)) return false;
+
+                if (needsWeaponUnequip)
+                    transaction.OnCommittedBeforePublish(() => equippedWeapon!.EquipmentScript.OnUnequipped(equippedWeapon, _owner));
+                if (needsShieldUnequip)
+                    transaction.OnCommittedBeforePublish(() => equippedShield!.EquipmentScript.OnUnequipped(equippedShield, _owner));
+                if (needsWeaponUnequip)
+                    transaction.OnCommittedBeforePublish(() => UpdateWeaponProfileAfterUnequip(equippedWeapon!, item));
+                transaction.OnCommittedBeforePublish(() => item.EquipmentScript.OnEquipped(item, _owner));
+                return true;
+            });
+
+            if (!succeeded)
+            {
+                if (inventoryCapacityRejected)
+                {
+                    _owner.SendChatMessage("Not enough space in your inventory.");
+                }
                 return false;
             }
 
-            var needsFreeSlots = 0;
-            if (needsWeaponUnequip)
+            return true;
+        }
+
+        private void UpdateWeaponProfileAfterUnequip(IItem equippedWeapon, IItem incomingItem)
+        {
+            _owner.Mediator.Publish(new ProfileSetBoolAction(ProfileConstants.CombatSettingsSpecialAttack, false)); // reset the special bar
+            var attackStyle = _owner.Profile.GetValue<int>(ProfileConstants.CombatSettingsAttackStyleOptionId);
+            if (attackStyle < equippedWeapon.EquipmentDefinition.AttackStyleIDs.Length &&
+                equippedWeapon.EquipmentDefinition.AttackStyleIDs[attackStyle] == AttackStyle.MeleeDefensive)
             {
-                if (!_owner.Inventory.Items.HasSpaceFor(equippedWeapon!))
+                for (var styleId = 0; styleId < 4; styleId++)
                 {
-                    _owner.SendChatMessage("Not enough space in your inventory.");
-                    _owner.Inventory.Items.Add(slot, item);
-                    return false;
-                }
-
-                if (!equippedWeapon!.ItemDefinition.Stackable && !equippedWeapon.ItemDefinition.Noted && _owner.Inventory.Items.Type != StorageType.AlwaysStack)
-                    needsFreeSlots++;
-            }
-
-            if (needsShieldUnequip)
-            {
-                if (!_owner.Inventory.Items.HasSpaceFor(equippedShield!))
-                {
-                    _owner.SendChatMessage("Not enough space in your inventory.");
-                    _owner.Inventory.Items.Add(slot, item);
-                    return false;
-                }
-
-                if (!equippedShield!.ItemDefinition.Stackable && !equippedShield.ItemDefinition.Noted && _owner.Inventory.Items.Type != StorageType.AlwaysStack)
-                    needsFreeSlots++;
-            }
-
-            if (_owner.Inventory.Items.FreeSlots < needsFreeSlots)
-            {
-                _owner.SendChatMessage("Not enough space in your inventory.");
-                _owner.Inventory.Items.Add(slot, item);
-                return false;
-            }
-
-            if (needsWeaponUnequip)
-            {
-                if (!equippedWeapon!.EquipmentScript.UnEquipItem(equippedWeapon, _owner, slot))
-                {
-                    _owner.SendChatMessage("System error. [" + equippedWeapon.Id + "," + equippedWeapon.Count + "]");
-                    _owner.Inventory.Items.Add(slot, item);
-                    return false;
-                }
-            }
-
-            if (needsShieldUnequip)
-            {
-                if (!equippedShield!.EquipmentScript.UnEquipItem(equippedShield, _owner, slot))
-                {
-                    _owner.SendChatMessage("System error. [" + equippedShield.Id + "," + equippedShield.Count + "]");
-                    _owner.Inventory.Items.Add(slot, item);
-                    return false;
-                }
-            }
-
-            if (needsWeaponUnequip)
-            {
-                _owner.Mediator.Publish(new ProfileSetBoolAction(ProfileConstants.CombatSettingsSpecialAttack, false)); // reset the special bar
-                if (_owner.Profile.GetValue<int>(ProfileConstants.CombatSettingsAttackStyleOptionId) <
-                    equippedWeapon!.EquipmentDefinition.AttackStyleIDs.Length &&
-                    equippedWeapon.EquipmentDefinition.AttackStyleIDs[_owner.Profile.GetValue<int>(ProfileConstants.CombatSettingsAttackStyleOptionId)] ==
-                    AttackStyle.MeleeDefensive)
-                {
-                    for (var styleId = 0; styleId < 4; styleId++)
+                    var style = incomingItem.EquipmentDefinition.AttackStyleIDs[styleId];
+                    if (style == AttackStyle.MeleeDefensive || style == AttackStyle.RangedLongRange)
                     {
-                        var style = item.EquipmentDefinition.AttackStyleIDs[styleId];
-                        if (style == AttackStyle.MeleeDefensive || style == AttackStyle.RangedLongRange)
-                        {
-                            _owner.Mediator.Publish(new ProfileSetIntAction(ProfileConstants.CombatSettingsAttackStyleOptionId, styleId));
-                            break;
-                        }
+                        _owner.Mediator.Publish(new ProfileSetIntAction(ProfileConstants.CombatSettingsAttackStyleOptionId, styleId));
+                        break;
                     }
                 }
             }
-
-            Add(equipSlot, item);
-            item.EquipmentScript.OnEquipped(item, _owner);
-            return true;
         }
 
         public bool Add(EquipmentSlot slot, IItem item)

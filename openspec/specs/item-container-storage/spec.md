@@ -135,9 +135,24 @@ MoneyPouch additions, removals, inventory transfers, bank deposits, shop purchas
 - **WHEN** the stake or destination cannot accept the exact transfer
 - **THEN** source and destination remain unchanged and the script does not publish a stake change
 
-### Requirement: Equipment replacement preflights all conflicts
-Before its first mutation, `EquipmentContainer` MUST identify all conflicting equipped items and require `CanUnEquipItem` to succeed for each. Rejection MUST leave equipment and inventory unchanged and invoke no equip or unequip callback. On success, the existing `UnEquipItem` commands MUST still run to preserve custom and interactive behavior.
+### Requirement: Equipment replacement preserves command behavior outside weapon and shield conflicts
+Before its first mutation, `EquipmentContainer` MUST identify all conflicting equipped items and require `CanUnEquipItem` to succeed for each. Rejection MUST leave equipment and inventory unchanged and invoke no equip or unequip callback. For occupied replacement slots other than Weapon and Shield, a successful preflight MUST preserve the existing `UnEquipItem` command behavior, including custom and interactive behavior.
 
 #### Scenario: A later conflict rejects replacement
 - **WHEN** an earlier conflicting item allows unequipping but a later conflict rejects it
 - **THEN** equipment and inventory remain unchanged and no mutation publication or callback occurs
+
+### Requirement: Weapon and shield replacement commits conflicting items atomically
+After all required `CanUnEquipItem` checks succeed, Weapon and Shield replacement MUST remove the incoming inventory item, move each conflicting equipped item into inventory, and place the same incoming item instance in its equipment slot within one `ItemContainerTransaction`. If any staged storage operation fails, inventory and equipment MUST be restored unchanged and no lifecycle callback or mutation publication may occur. A successful replacement MUST NOT invoke conflicting items' `UnEquipItem` commands. After commit and unlock, it MUST run `OnUnequipped` for a conflicting weapon, then a conflicting shield, then weapon profile/special-attack logic when a weapon is removed, then the incoming item's `OnEquipped`, all before participant publication.
+
+#### Scenario: A second conflicting item cannot fit
+- **WHEN** Weapon and Shield are both displaced but inventory can accept only one of them
+- **THEN** the incoming item and both equipped items remain in their original slots and no lifecycle callback or mutation publication occurs
+
+#### Scenario: A weapon and shield are displaced successfully
+- **WHEN** both conflicting items fit after the incoming item leaves inventory
+- **THEN** both original item instances are in inventory, the same incoming instance occupies its equipment slot, and lifecycle callbacks run in the specified order after commit and before publication
+
+#### Scenario: A participant publisher throws after replacement commit
+- **WHEN** replacement storage commits and a participant publisher throws
+- **THEN** committed storage remains in place, all registered lifecycle callbacks have run, and remaining participant publishers are still attempted

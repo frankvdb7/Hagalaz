@@ -259,6 +259,36 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
+    public void Transaction_TryAddAtIsInternalExactSlotStagingAndLeavesRejectedStateUnchanged()
+    {
+        var updates = 0;
+        var container = new ItemContainer(StorageType.Normal, 2, _ => updates++);
+        var existing = new TestItem(20, 1);
+        var incoming = new TestItem(21, 1);
+        Assert.IsTrue(container.Add(0, existing));
+        updates = 0;
+        var transaction = new ItemContainerTransaction(container.Mutations);
+
+        Assert.ThrowsExactly<System.InvalidOperationException>(() => transaction.TryAddAt(container.Mutations, 1, incoming));
+        Assert.IsTrue(transaction.TryExecute(_ => transaction.TryAddAt(container.Mutations, 1, incoming)));
+
+        Assert.AreSame(existing, container[0]);
+        Assert.AreSame(incoming, container[1]);
+        Assert.AreEqual(1, updates);
+        Assert.IsFalse(typeof(IItemContainerTransaction).GetMethod("TryAddAt") is not null);
+        var method = typeof(ItemContainerTransaction).GetMethod("TryAddAt", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(method);
+        Assert.IsTrue(method!.IsAssembly);
+
+        var rejected = new ItemContainerTransaction(container.Mutations);
+        Assert.IsFalse(rejected.TryExecute(_ => rejected.TryAddAt(container.Mutations, 0, new TestItem(22, 1))));
+
+        Assert.AreSame(existing, container[0]);
+        Assert.AreSame(incoming, container[1]);
+        Assert.AreEqual(1, updates);
+    }
+
+    [TestMethod]
     public void MutationBoundary_DoesNotExposeStorageOrLocks()
     {
         var boundaryType = typeof(ItemContainerMutationBoundary);
