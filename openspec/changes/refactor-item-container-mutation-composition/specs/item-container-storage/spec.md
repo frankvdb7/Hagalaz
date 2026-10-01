@@ -50,6 +50,14 @@ An exact cross-container transfer MUST enter through `IItemContainerMutationBoun
 - **AND** the pre-existing enumerator remains valid
 - **AND** no participant publishes a committed mutation or runs a committed callback
 
+#### Scenario: Empty bulk addition is not a mutation
+- **GIVEN** an item container and an enumerator created before the operation
+- **WHEN** `TryAddRange` receives no effective items, including an empty range or a range containing only null entries
+- **THEN** the operation succeeds with no changed slots
+- **AND** storage contents and mutation revision remain unchanged
+- **AND** the existing enumerator remains valid
+- **AND** no participant mutation publication occurs
+
 ### Requirement: MoneyPouch uses one transaction rollback owner
 MoneyPouch additions, removals, inventory transfers, and transfers to/from bank, shop, or duel stake MUST coordinate every affected pouch and inventory storage through one `ItemContainerTransaction`. Exact staged additions and removals MUST remain the single implementation of pouch overflow/underflow rules. MoneyPouch MUST keep coin, sentinel, balance, message, and event semantics in its domain implementation, register committed effects through `OnCommitted`, and MUST NOT mutate either store independently, compensate with a second mutation, or snapshot/restore its storage as another rollback mechanism. Existing partial-count behavior for `Remove`, `AddFromInventory`, and `MoveToInventory` MUST remain.
 

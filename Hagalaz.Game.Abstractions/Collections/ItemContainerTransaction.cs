@@ -168,6 +168,8 @@ public sealed class ItemContainerTransaction : IItemContainerTransaction
 
     private void RecordChangedSlots(IItemContainerMutationBoundary boundary, IEnumerable<int> slots)
     {
+        if (slots is ICollection<int> { Count: 0 }) return;
+
         var participant = EnsureParticipant(boundary);
         if (_changed.TryGetValue(participant, out var changedSlots))
         {

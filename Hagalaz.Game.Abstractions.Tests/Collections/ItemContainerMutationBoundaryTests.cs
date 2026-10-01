@@ -211,6 +211,55 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
+    public void Transaction_EmptyRangeDoesNotPublishButStillRunsCommittedCallback()
+    {
+        var publications = 0;
+        var committedCallbacks = 0;
+        var container = new ItemContainer(StorageType.Normal, 2, _ => publications++);
+        var existing = new TestItem(31, 2);
+        Assert.IsTrue(container.Add(existing));
+        publications = 0;
+        var enumerator = container.GetEnumerator();
+        var transaction = new ItemContainerTransaction(container.Mutations);
+
+        var result = transaction.TryExecute(tx =>
+        {
+            Assert.IsTrue(tx.TryAddRange(container.Mutations, System.Array.Empty<IItem?>()));
+            tx.OnCommitted(() => committedCallbacks++);
+            return true;
+        });
+
+        Assert.IsTrue(result);
+        Assert.AreEqual(0, publications);
+        Assert.AreEqual(1, committedCallbacks);
+        Assert.AreSame(existing, container[0]);
+        Assert.AreEqual(2, existing.Count);
+        Assert.IsTrue(enumerator.MoveNext());
+        Assert.AreSame(existing, enumerator.Current);
+    }
+
+    [TestMethod]
+    public void Transaction_RealRangeMutationInvalidatesEnumeratorPublishesAndRunsCallback()
+    {
+        var publications = 0;
+        var committedCallbacks = 0;
+        var container = new ItemContainer(StorageType.Normal, 2, _ => publications++);
+        var enumerator = container.GetEnumerator();
+        var transaction = new ItemContainerTransaction(container.Mutations);
+
+        Assert.IsTrue(transaction.TryExecute(tx =>
+        {
+            Assert.IsTrue(tx.TryAddRange(container.Mutations, [new TestItem(32, 1)]));
+            tx.OnCommitted(() => committedCallbacks++);
+            return true;
+        }));
+
+        Assert.AreEqual(1, publications);
+        Assert.AreEqual(1, committedCallbacks);
+        Assert.ThrowsExactly<System.InvalidOperationException>(() => enumerator.MoveNext());
+    }
+
+    [TestMethod]
     public void Transaction_OnCommittedRunsAfterCommittedBoundaryPublication()
     {
         var publicationOrder = new List<string>();

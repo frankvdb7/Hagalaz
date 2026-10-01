@@ -89,7 +89,7 @@ public sealed class ItemContainer : IItemContainer
     public bool AddRange(IEnumerable<IItem?> items)
     {
         if (!_storage.TryAddRange(items, out var changedSlots)) return false;
-        PublishChanges(changedSlots);
+        if (changedSlots.Count > 0) PublishChanges(changedSlots);
         return true;
     }
 

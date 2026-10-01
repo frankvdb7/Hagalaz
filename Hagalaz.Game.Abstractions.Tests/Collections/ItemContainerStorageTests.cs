@@ -574,6 +574,80 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
+        public void TryAddRange_EmptyRangePreservesEnumeratorAndStorage()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+            var existing = CreateItem(1, 3, stackable: true);
+            Assert.IsTrue(container.Items.Add(existing));
+            var enumerator = container.Storage.GetEnumerator();
+            var revision = container.Storage.MutationRevision;
+
+            var result = container.Storage.TryAddRange(Array.Empty<IItem?>(), out var changedSlots);
+
+            Assert.IsTrue(result);
+            Assert.IsEmpty(changedSlots);
+            Assert.AreEqual(revision, container.Storage.MutationRevision);
+            Assert.AreSame(existing, container.Storage[0]);
+            Assert.AreEqual(3, existing.Count);
+            Assert.IsTrue(enumerator.MoveNext());
+            Assert.AreSame(existing, enumerator.Current);
+        }
+
+        [TestMethod]
+        public void TryAddRange_AllNullItems_DoesNotAdvanceRevision()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+            var existing = CreateItem(1, 3, stackable: true);
+            Assert.IsTrue(container.Items.Add(existing));
+            var enumerator = container.Storage.GetEnumerator();
+            var revision = container.Storage.MutationRevision;
+
+            var result = container.Storage.TryAddRange(new IItem?[] { null, null }, out var changedSlots);
+
+            Assert.IsTrue(result);
+            Assert.IsEmpty(changedSlots);
+            Assert.AreEqual(revision, container.Storage.MutationRevision);
+            Assert.AreSame(existing, container.Storage[0]);
+            Assert.AreEqual(3, existing.Count);
+            Assert.IsTrue(enumerator.MoveNext());
+            Assert.AreSame(existing, enumerator.Current);
+        }
+
+        [TestMethod]
+        public void TryAddRange_RealMutationAdvancesRevisionAndInvalidatesEnumerator()
+        {
+            var storage = new ItemContainerStorage(StorageType.Normal, 2);
+            var enumerator = storage.GetEnumerator();
+            var revision = storage.MutationRevision;
+
+            Assert.IsTrue(storage.TryAddRange([CreateItem(1, 1)], out var changedSlots));
+
+            Assert.IsNotEmpty(changedSlots);
+            Assert.AreEqual(revision + 1, storage.MutationRevision);
+            Assert.ThrowsExactly<InvalidOperationException>(() => enumerator.MoveNext());
+        }
+
+        [TestMethod]
+        public void ItemContainer_AddRangeEmptyRangeDoesNotPublishOrInvalidateEnumerator()
+        {
+            var publications = 0;
+            var container = new ItemContainer(StorageType.Normal, 2, _ => publications++);
+            var existing = CreateItem(1, 3, stackable: true);
+            Assert.IsTrue(container.Add(existing));
+            publications = 0;
+            var enumerator = container.GetEnumerator();
+
+            var result = container.AddRange(Array.Empty<IItem?>());
+
+            Assert.IsTrue(result);
+            Assert.AreEqual(0, publications);
+            Assert.AreSame(existing, container[0]);
+            Assert.AreEqual(3, existing.Count);
+            Assert.IsTrue(enumerator.MoveNext());
+            Assert.AreSame(existing, enumerator.Current);
+        }
+
+        [TestMethod]
         public void AddRange_NonStackableItems_ClonesEachInstanceIntoOneCountSlots()
         {
             var storage = new ItemContainerStorage(StorageType.Normal, 2);

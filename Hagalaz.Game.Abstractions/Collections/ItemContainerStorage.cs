@@ -676,6 +676,11 @@ namespace Hagalaz.Game.Abstractions.Collections
                     return false;
                 }
 
+                if (slotsToUpdate.Count == 0)
+                {
+                    return true;
+                }
+
                 var committedItems = (IItem?[])Items.Clone();
                 for (var slot = 0; slot < simulatedItems.Length; slot++)
                 {

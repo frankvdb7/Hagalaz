@@ -46,6 +46,14 @@ Storage MUST own its mutation revision, which invalidates active enumerators aft
 - **WHEN** storage changes after an enumerator is created
 - **THEN** the enumerator detects the storage revision mismatch
 
+#### Scenario: Empty bulk addition is not a mutation
+- **GIVEN** an item container and an enumerator created before the operation
+- **WHEN** `TryAddRange` receives no effective items, including an empty range or a range containing only null entries
+- **THEN** the operation succeeds with no changed slots
+- **AND** storage contents and mutation revision remain unchanged
+- **AND** the existing enumerator remains valid
+- **AND** no participant mutation publication occurs
+
 #### Scenario: Failed transaction restores storage revision
 - **GIVEN** enumerators exist before a multi-container transaction begins
 - **WHEN** the transaction stages one or more storage changes but later rolls back
