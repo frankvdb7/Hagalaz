@@ -15,6 +15,21 @@ Defines the ownership boundary and correctness guarantees for item storage share
 - **WHEN** the expected item instance no longer occupies the requested slot
 - **THEN** replacement returns false without changing storage, publishing an equipment update, or running lifecycle callbacks
 
+### Requirement: Equipment publishes only after lifecycle effects
+Direct equipment restoration, replacement, full removal, and clearing MUST publish committed equipment state only after all required equipment lifecycle effects have been attempted. Storage MUST commit before lifecycle callbacks run. Clearing MUST remove all equipped items before callbacks and attempt `OnUnequipped` for every previously equipped item. Post-commit lifecycle or publication failures MUST NOT roll back committed storage. Every post-commit action MUST be attempted; one failure MUST preserve and rethrow the original exception, while multiple failures MUST be aggregated.
+
+#### Scenario: Equipment replacement callbacks precede publication
+- **WHEN** an expected equipped item is replaced
+- **THEN** storage contains the replacement before `OnUnequipped` and `OnEquipped`, and publication follows both callback attempts
+
+#### Scenario: Full equipment removal callback precedes publication
+- **WHEN** an equipped item is fully removed
+- **THEN** storage no longer contains it before `OnUnequipped`, and publication follows the callback attempt
+
+#### Scenario: Equipment clear exhausts callbacks after storage clear
+- **WHEN** equipment containing one or more items is cleared
+- **THEN** storage is empty before callbacks, every prior item's `OnUnequipped` is attempted, and publication follows all callback attempts
+
 ### Requirement: MoneyPouch separates gameplay and mutation capabilities
 `IMoneyPouchContainer` MUST expose normal coin-domain operations separately from transaction staging. Transaction participation MUST be available through `IMoneyPouchMutationBoundary` exposed by `MoneyPouch.Mutations`. The primary MoneyPouch API MUST NOT expose generic item-ID `Contains` operations or staging methods directly.
 

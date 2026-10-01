@@ -53,15 +53,106 @@ public sealed class CharacterItemTransferTests
         var order = new List<string>();
         eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
         {
-            if (call.Arg<IEvent>() is EquipmentChangedEvent) order.Add("publish");
+            if (call.Arg<IEvent>() is EquipmentChangedEvent)
+            {
+                Assert.AreSame(replacement, equipment[EquipmentSlot.Hat]);
+                CollectionAssert.AreEqual(new[] { "unequip", "equip" }, order);
+                order.Add("publish");
+            }
         });
-        current.EquipmentScript.When(script => script.OnUnequipped(current, scenario.Owner)).Do(_ => order.Add("unequip"));
-        replacement.EquipmentScript.When(script => script.OnEquipped(replacement, scenario.Owner)).Do(_ => order.Add("equip"));
+        current.EquipmentScript.When(script => script.OnUnequipped(current, scenario.Owner)).Do(_ =>
+        {
+            Assert.AreSame(replacement, equipment[EquipmentSlot.Hat]);
+            order.Add("unequip");
+        });
+        replacement.EquipmentScript.When(script => script.OnEquipped(replacement, scenario.Owner)).Do(_ =>
+        {
+            Assert.AreSame(replacement, equipment[EquipmentSlot.Hat]);
+            order.Add("equip");
+        });
 
         Assert.IsTrue(equipment.TryReplaceEquippedItem(EquipmentSlot.Hat, current, replacement));
 
         Assert.AreSame(replacement, equipment[EquipmentSlot.Hat]);
-        CollectionAssert.AreEqual(new[] { "publish", "unequip", "equip" }, order);
+        CollectionAssert.AreEqual(new[] { "unequip", "equip", "publish" }, order);
+    }
+
+    [TestMethod]
+    public void TryReplaceEquippedItem_WhenOldCallbackThrows_AttemptsRemainingActionsAndPreservesStorage()
+    {
+        using var scenario = new Scenario();
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        var current = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        var replacement = scenario.Builder.Create().WithId(102).WithCount(1).Build();
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, current));
+        eventManager.ClearReceivedCalls();
+        var failure = new InvalidOperationException("old unequip failed");
+        var order = new List<string>();
+        current.EquipmentScript.When(script => script.OnUnequipped(current, scenario.Owner)).Do(_ =>
+        {
+            Assert.AreSame(replacement, equipment[EquipmentSlot.Hat]);
+            order.Add("unequip");
+            throw failure;
+        });
+        replacement.EquipmentScript.When(script => script.OnEquipped(replacement, scenario.Owner)).Do(_ =>
+        {
+            Assert.AreSame(replacement, equipment[EquipmentSlot.Hat]);
+            order.Add("equip");
+        });
+        eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
+        {
+            if (call.Arg<IEvent>() is EquipmentChangedEvent) order.Add("publish");
+        });
+
+        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            equipment.TryReplaceEquippedItem(EquipmentSlot.Hat, current, replacement));
+
+        Assert.AreSame(failure, thrown);
+        Assert.AreSame(replacement, equipment[EquipmentSlot.Hat]);
+        CollectionAssert.AreEqual(new[] { "unequip", "equip", "publish" }, order);
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+    }
+
+    [TestMethod]
+    public void TryReplaceEquippedItem_WhenBothCallbacksThrow_AggregatesFailuresAfterPublication()
+    {
+        using var scenario = new Scenario();
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        var current = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        var replacement = scenario.Builder.Create().WithId(102).WithCount(1).Build();
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, current));
+        eventManager.ClearReceivedCalls();
+        var unequipFailure = new InvalidOperationException("old unequip failed");
+        var equipFailure = new InvalidOperationException("new equip failed");
+        var order = new List<string>();
+        current.EquipmentScript.When(script => script.OnUnequipped(current, scenario.Owner)).Do(_ =>
+        {
+            order.Add("unequip");
+            throw unequipFailure;
+        });
+        replacement.EquipmentScript.When(script => script.OnEquipped(replacement, scenario.Owner)).Do(_ =>
+        {
+            order.Add("equip");
+            throw equipFailure;
+        });
+        eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
+        {
+            if (call.Arg<IEvent>() is EquipmentChangedEvent) order.Add("publish");
+        });
+
+        var thrown = Assert.ThrowsExactly<AggregateException>(() =>
+            equipment.TryReplaceEquippedItem(EquipmentSlot.Hat, current, replacement));
+
+        Assert.AreSame(unequipFailure, thrown.InnerExceptions[0]);
+        Assert.AreSame(equipFailure, thrown.InnerExceptions[1]);
+        Assert.AreEqual(2, thrown.InnerExceptions.Count);
+        Assert.AreSame(replacement, equipment[EquipmentSlot.Hat]);
+        CollectionAssert.AreEqual(new[] { "unequip", "equip", "publish" }, order);
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
     }
 
     [TestMethod]
@@ -83,6 +174,103 @@ public sealed class CharacterItemTransferTests
         current.EquipmentScript.DidNotReceive().OnUnequipped(current, scenario.Owner);
         replacement.EquipmentScript.DidNotReceive().OnEquipped(replacement, scenario.Owner);
         eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+    }
+
+    [TestMethod]
+    public void RemoveEquippedItem_FullRemovalRunsLifecycleBeforePublication()
+    {
+        using var scenario = new Scenario();
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item));
+        eventManager.ClearReceivedCalls();
+        var order = new List<string>();
+        item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ =>
+        {
+            Assert.IsNull(equipment[EquipmentSlot.Hat]);
+            order.Add("unequip");
+        });
+        eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
+        {
+            if (call.Arg<IEvent>() is EquipmentChangedEvent)
+            {
+                CollectionAssert.AreEqual(new[] { "unequip" }, order);
+                order.Add("publish");
+            }
+        });
+
+        var removed = equipment.RemoveEquippedItem(item, EquipmentSlot.Hat);
+
+        Assert.AreEqual(1, removed);
+        Assert.IsNull(equipment[EquipmentSlot.Hat]);
+        CollectionAssert.AreEqual(new[] { "unequip", "publish" }, order);
+    }
+
+    [TestMethod]
+    public void RemoveEquippedItem_WhenUnequipCallbackThrows_StillPublishesAndKeepsStorageRemoved()
+    {
+        using var scenario = new Scenario();
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item));
+        eventManager.ClearReceivedCalls();
+        var failure = new InvalidOperationException("unequip failed");
+        var order = new List<string>();
+        item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ =>
+        {
+            Assert.IsNull(equipment[EquipmentSlot.Hat]);
+            order.Add("unequip");
+            throw failure;
+        });
+        eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
+        {
+            if (call.Arg<IEvent>() is EquipmentChangedEvent) order.Add("publish");
+        });
+
+        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            equipment.RemoveEquippedItem(item, EquipmentSlot.Hat));
+
+        Assert.AreSame(failure, thrown);
+        Assert.IsNull(equipment[EquipmentSlot.Hat]);
+        CollectionAssert.AreEqual(new[] { "unequip", "publish" }, order);
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+    }
+
+    [TestMethod]
+    public void RemoveEquippedItem_PartialRemovalPublishesWithoutUnequipping()
+    {
+        using var scenario = new Scenario();
+        scenario.DefineItem(101, stackable: true);
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        var item = scenario.Builder.Create().WithId(101).WithCount(5).Build();
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item));
+        eventManager.ClearReceivedCalls();
+        var partial = item.Clone();
+        partial.Count = 2;
+        var published = false;
+        eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
+        {
+            if (call.Arg<IEvent>() is EquipmentChangedEvent)
+            {
+                Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
+                Assert.AreEqual(3, item.Count);
+                published = true;
+            }
+        });
+
+        var removed = equipment.RemoveEquippedItem(partial, EquipmentSlot.Hat);
+
+        Assert.AreEqual(2, removed);
+        Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
+        Assert.AreEqual(3, item.Count);
+        Assert.IsTrue(published);
+        item.EquipmentScript.DidNotReceive().OnUnequipped(item, scenario.Owner);
     }
 
     [TestMethod]
@@ -227,39 +415,82 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    public void ClearEquipment_RunsDomainCallbacksBeforePublication()
+    public void ClearEquipment_ClearsStorageBeforeDomainCallbacksAndPublication()
     {
         using var scenario = new Scenario();
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
         var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
         scenario.Owner.Equipment.Returns(equipment);
         var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
         equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item);
-        var container = equipment;
-        var callbackObservedEquippedItem = false;
+        eventManager.ClearReceivedCalls();
+        var order = new List<string>();
         item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ =>
         {
-            Assert.AreSame(item, container[(int)EquipmentSlot.Hat]);
-            callbackObservedEquippedItem = true;
+            Assert.IsNull(equipment[EquipmentSlot.Hat]);
+            order.Add("unequip");
         });
-        var eventManager = Substitute.For<IEventManager>();
-        scenario.Owner.EventManager.Returns(eventManager);
-        var publicationObservedClearedStorageAfterCallback = false;
         eventManager
             .When(manager => manager.SendEvent(Arg.Any<IEvent>()))
             .Do(call =>
             {
                 if (call.Arg<IEvent>() is EquipmentChangedEvent)
                 {
-                    publicationObservedClearedStorageAfterCallback = callbackObservedEquippedItem &&
-                        container[(int)EquipmentSlot.Hat] is null;
+                    Assert.IsNull(equipment[EquipmentSlot.Hat]);
+                    CollectionAssert.AreEqual(new[] { "unequip" }, order);
+                    order.Add("publish");
                 }
             });
 
         equipment.ClearEquipment();
 
-        Assert.IsTrue(callbackObservedEquippedItem);
-        Assert.IsTrue(publicationObservedClearedStorageAfterCallback);
-        Assert.IsNull(container[(int)EquipmentSlot.Hat]);
+        Assert.IsNull(equipment[EquipmentSlot.Hat]);
+        CollectionAssert.AreEqual(new[] { "unequip", "publish" }, order);
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+    }
+
+    [TestMethod]
+    public void ClearEquipment_WhenCallbackThrows_AttemptsEveryCallbackAndPublication()
+    {
+        using var scenario = new Scenario();
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        var first = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        var second = scenario.Builder.Create().WithId(102).WithCount(1).Build();
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, first));
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Amulet, second));
+        eventManager.ClearReceivedCalls();
+        var failure = new InvalidOperationException("first unequip failed");
+        var order = new List<string>();
+        first.EquipmentScript.When(script => script.OnUnequipped(first, scenario.Owner)).Do(_ =>
+        {
+            Assert.IsNull(equipment[EquipmentSlot.Hat]);
+            Assert.IsNull(equipment[EquipmentSlot.Amulet]);
+            order.Add("first");
+            throw failure;
+        });
+        second.EquipmentScript.When(script => script.OnUnequipped(second, scenario.Owner)).Do(_ =>
+        {
+            Assert.IsNull(equipment[EquipmentSlot.Hat]);
+            Assert.IsNull(equipment[EquipmentSlot.Amulet]);
+            order.Add("second");
+        });
+        eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
+        {
+            if (call.Arg<IEvent>() is EquipmentChangedEvent)
+            {
+                CollectionAssert.AreEqual(new[] { "first", "second" }, order);
+                order.Add("publish");
+            }
+        });
+
+        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => equipment.ClearEquipment());
+
+        Assert.AreSame(failure, thrown);
+        Assert.IsTrue(equipment.All(item => item == null));
+        CollectionAssert.AreEqual(new[] { "first", "second", "publish" }, order);
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
     }
 

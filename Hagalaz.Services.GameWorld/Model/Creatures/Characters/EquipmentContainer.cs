@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
@@ -274,9 +275,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 _storage.Replace(itemSlot, replacement);
             }
 
-            PublishChanges([slot]);
-            expectedItem.EquipmentScript.OnUnequipped(expectedItem, _owner);
-            replacement.EquipmentScript.OnEquipped(replacement, _owner);
+            RunPostCommitActions(
+                () => expectedItem.EquipmentScript.OnUnequipped(expectedItem, _owner),
+                () => replacement.EquipmentScript.OnEquipped(replacement, _owner),
+                () => PublishChanges([slot]));
             return true;
         }
 
@@ -287,29 +289,79 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 preferredSlot = GetInstanceSlot(item);
             }
             var preferredSlotIndex = (int)preferredSlot;
-            var removed = _storage.Remove(item, preferredSlotIndex, out var changedSlots);
-            if (removed > 0) PublishChanges(changedSlots?.Select(changedSlot => (EquipmentSlot)changedSlot).ToHashSet());
+            IItem? equippedItem = null;
+            int removed;
+            HashSet<int> changedSlots;
+            bool fullyRemoved;
+            lock (_storage.MutationLock)
+            {
+                if ((uint)preferredSlotIndex < (uint)_storage.Capacity)
+                {
+                    equippedItem = _storage[preferredSlotIndex];
+                }
+
+                removed = _storage.Remove(item, preferredSlotIndex, out changedSlots);
+                fullyRemoved = equippedItem != null &&
+                               !ReferenceEquals(equippedItem, _storage[preferredSlotIndex]);
+            }
             if (removed <= 0)
             {
                 return removed;
             }
 
-            if (removed != item.Count)
+            var equipmentChanges = changedSlots.Select(changedSlot => (EquipmentSlot)changedSlot).ToHashSet();
+            if (!fullyRemoved)
             {
+                PublishChanges(equipmentChanges);
                 return removed;
             }
 
-            item.EquipmentScript.OnUnequipped(item, _owner);
+            RunPostCommitActions(
+                () => equippedItem!.EquipmentScript.OnUnequipped(equippedItem, _owner),
+                () => PublishChanges(equipmentChanges));
             return removed;
         }
 
         public void ClearEquipment()
         {
-            foreach (var item in _storage.ToArray())
+            IItem[] equippedItems;
+            bool cleared;
+            lock (_storage.MutationLock)
             {
-                item?.EquipmentScript.OnUnequipped(item, _owner);
+                equippedItems = _storage.ToArray().Where(item => item != null).Cast<IItem>().ToArray();
+                cleared = _storage.Clear();
             }
-            if (_storage.Clear()) PublishChanges(null);
+            if (!cleared) return;
+
+            RunPostCommitActions(equippedItems
+                .Select<IItem, Action>(item => () => item.EquipmentScript.OnUnequipped(item, _owner))
+                .Append(() => PublishChanges(null))
+                .ToArray());
+        }
+
+        private static void RunPostCommitActions(params Action[] actions)
+        {
+            List<Exception>? exceptions = null;
+            foreach (var action in actions)
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception exception)
+                {
+                    (exceptions ??= []).Add(exception);
+                }
+            }
+
+            if (exceptions is { Count: 1 })
+            {
+                ExceptionDispatchInfo.Capture(exceptions[0]).Throw();
+            }
+            else if (exceptions is { Count: > 1 })
+            {
+                throw new AggregateException("Multiple post-commit equipment actions failed.", exceptions);
+            }
         }
 
         private void PublishChanges(HashSet<EquipmentSlot>? slots = null)
