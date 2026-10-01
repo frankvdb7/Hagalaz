@@ -66,7 +66,7 @@ public sealed class ItemContainerMutationBoundaryTests
         Assert.IsTrue(source.Add(item));
         sourcePublished = 0;
 
-        IItemContainerTransaction transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
+        var transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
         Assert.IsFalse(transaction.TryExecute(tx =>
         {
             Assert.IsTrue(tx.TryTransfer(source.Mutations, destination.Mutations, item, 3, 0));
@@ -91,7 +91,7 @@ public sealed class ItemContainerMutationBoundaryTests
         var item = new TestItem(21, 1);
         Assert.IsTrue(source.Add(item));
         publicationOrder.Clear();
-        IItemContainerTransaction transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
+        var transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
 
         Assert.IsTrue(transaction.TryExecute(tx =>
         {
@@ -101,6 +101,29 @@ public sealed class ItemContainerMutationBoundaryTests
         }));
 
         CollectionAssert.AreEqual(new[] { "source", "destination", "domain" }, publicationOrder);
+    }
+
+    [TestMethod]
+    public void Transaction_ContextExposesStagingButNotExecutionOrChangeBookkeeping()
+    {
+        var container = new ItemContainer(StorageType.Normal, 2);
+        var transaction = new ItemContainerTransaction(container.Mutations);
+        var contextType = typeof(IItemContainerTransaction);
+
+        Assert.IsNull(contextType.GetMethod("TryExecute"));
+        Assert.IsNull(contextType.GetMethod("RecordChangedSlots"));
+        Assert.IsNull(contextType.GetMethod("RecordFullChange"));
+        Assert.IsNull(contextType.GetMethod("TransferAll"));
+        Assert.IsFalse(contextType.GetMethods().Any(method => method.GetParameters()
+            .Any(parameter => parameter.ParameterType.IsByRef)));
+
+        Assert.IsTrue(transaction.TryExecute(tx =>
+        {
+            Assert.IsTrue(tx.TryAddRange(container.Mutations, [new TestItem(23, 1)]));
+            tx.OnCommitted(() => { });
+            return true;
+        }));
+        Assert.AreEqual(1, container.TakenSlots);
     }
 
     [TestMethod]
@@ -114,7 +137,7 @@ public sealed class ItemContainerMutationBoundaryTests
         var item = new TestItem(22, 5);
         Assert.IsTrue(source.Add(item));
         sourcePublished = 0;
-        IItemContainerTransaction transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
+        var transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
 
         Assert.ThrowsExactly<System.InvalidOperationException>(() => transaction.TryExecute(tx =>
         {

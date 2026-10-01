@@ -233,6 +233,82 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
+    public void FamiliarInventory_WithdrawAvailableToInventory_MovesAllFittingItemsInOnePublication()
+    {
+        using var scenario = new Scenario();
+        scenario.DefineItem(101, stackable: false);
+        scenario.DefineItem(102, stackable: false);
+        var inventory = CreateInventory(scenario, 2);
+        scenario.Owner.Inventory.Returns(inventory);
+        var familiar = new FamiliarInventoryContainer(scenario.Owner, StorageType.Normal, 2, scenario.Builder);
+        Assert.IsTrue(familiar.Items.Add(scenario.Builder.Create().WithId(101).WithCount(1).Build()));
+        Assert.IsTrue(familiar.Items.Add(scenario.Builder.Create().WithId(102).WithCount(1).Build()));
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        eventManager.ClearReceivedCalls();
+
+        familiar.WithdrawAvailableToInventory();
+
+        Assert.AreEqual(0, familiar.Items.TakenSlots);
+        Assert.AreEqual(1, inventory.Items.GetCountById(101));
+        Assert.AreEqual(1, inventory.Items.GetCountById(102));
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is FamiliarInventoryChangedEvent));
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is InventoryChangedEvent));
+    }
+
+    [TestMethod]
+    public void FamiliarInventory_WithdrawAvailableToInventory_MovesFittingItemsAndRetainsTheRest()
+    {
+        using var scenario = new Scenario();
+        scenario.DefineItem(101, stackable: false);
+        scenario.DefineItem(102, stackable: false);
+        scenario.DefineItem(103, stackable: false);
+        var inventory = CreateInventory(scenario, 3);
+        scenario.Owner.Inventory.Returns(inventory);
+        Assert.IsTrue(inventory.Items.Add(scenario.Builder.Create().WithId(199).WithCount(1).Build()));
+        var familiar = new FamiliarInventoryContainer(scenario.Owner, StorageType.Normal, 3, scenario.Builder);
+        Assert.IsTrue(familiar.Items.Add(scenario.Builder.Create().WithId(101).WithCount(1).Build()));
+        Assert.IsTrue(familiar.Items.Add(scenario.Builder.Create().WithId(102).WithCount(1).Build()));
+        Assert.IsTrue(familiar.Items.Add(scenario.Builder.Create().WithId(103).WithCount(1).Build()));
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        eventManager.ClearReceivedCalls();
+
+        familiar.WithdrawAvailableToInventory();
+
+        Assert.AreEqual(1, familiar.Items.TakenSlots);
+        Assert.AreEqual(1, familiar.Items.GetCountById(103));
+        Assert.AreEqual(1, inventory.Items.GetCountById(199));
+        Assert.AreEqual(1, inventory.Items.GetCountById(101));
+        Assert.AreEqual(1, inventory.Items.GetCountById(102));
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is FamiliarInventoryChangedEvent));
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is InventoryChangedEvent));
+    }
+
+    [TestMethod]
+    public void FamiliarInventory_WithdrawAvailableToInventory_WhenNothingFitsLeavesStateAndPublishesNothing()
+    {
+        using var scenario = new Scenario();
+        scenario.DefineItem(101, stackable: false);
+        var inventory = CreateInventory(scenario, 1);
+        scenario.Owner.Inventory.Returns(inventory);
+        Assert.IsTrue(inventory.Items.Add(scenario.Builder.Create().WithId(199).WithCount(1).Build()));
+        var familiar = new FamiliarInventoryContainer(scenario.Owner, StorageType.Normal, 1, scenario.Builder);
+        var familiarItem = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        Assert.IsTrue(familiar.Items.Add(familiarItem));
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        eventManager.ClearReceivedCalls();
+
+        familiar.WithdrawAvailableToInventory();
+
+        Assert.AreEqual(familiarItem.Id, familiar.Items[0]?.Id);
+        Assert.AreEqual(1, familiar.Items[0]?.Count);
+        Assert.AreEqual(1, inventory.Items.GetCountById(199));
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+    }
+
+    [TestMethod]
     public void RewardClaim_TransfersOnlyTheNonStackableQuantityThatFits()
     {
         using var scenario = new Scenario();

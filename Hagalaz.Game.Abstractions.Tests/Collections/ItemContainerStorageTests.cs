@@ -308,25 +308,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public void AddAndRemoveFrom_TransferAll_Success()
-        {
-            // Arrange
-            var source = new TestableItemContainer(StorageType.Normal, 5);
-            var destination = new TestableItemContainer(StorageType.Normal, 5);
-            var item = CreateItem(1, 1);
-            source.Items.Add(item);
-
-            // Act
-            destination.Items.Mutations.AddAndRemoveFrom(source.Items.Mutations);
-
-            // Assert
-            Assert.AreEqual(0, source.Items.TakenSlots);
-            Assert.AreEqual(1, destination.Items.TakenSlots);
-            Assert.IsTrue(item.Equals(destination.Items[0]));
-        }
-
-        [TestMethod]
-        public void AddAndRemoveFrom_TransferPartialStack_Success()
+        public void Remove_PartialStack_UpdatesOnlyTheRequestedQuantity()
         {
             // Arrange
             var source = new TestableItemContainer(StorageType.Normal, 5);
@@ -1005,41 +987,6 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.AreEqual(container.Items.Capacity, container.Storage.ToArray().Length);
         }
 
-        [TestMethod]
-        public void AddAndRemoveFrom_DestinationFull_TransfersNothing()
-        {
-            // Arrange
-            var source = new TestableItemContainer(StorageType.Normal, 5);
-            source.Items.Add(CreateItem(1, 1));
-            var destination = new TestableItemContainer(StorageType.Normal, 1);
-            destination.Items.Add(CreateItem(2, 1));
-
-            // Act
-            destination.Items.Mutations.AddAndRemoveFrom(source.Items.Mutations);
-
-            // Assert
-            Assert.AreEqual(1, source.Items.TakenSlots);
-            Assert.AreEqual(1, destination.Items.TakenSlots);
-            Assert.AreEqual(2, destination.Items[0]!.Id);
-        }
-
-        [TestMethod]
-        public void AddAndRemoveFrom_StackOverflow_TransfersNothing()
-        {
-            // Arrange
-            var source = new TestableItemContainer(StorageType.Normal, 5);
-            source.Items.Add(CreateItem(1, 1, stackable: true));
-            var destination = new TestableItemContainer(StorageType.Normal, 5);
-            destination.Items.Add(CreateItem(1, int.MaxValue, stackable: true));
-
-            // Act
-            destination.Items.Mutations.AddAndRemoveFrom(source.Items.Mutations);
-
-            // Assert
-            Assert.AreEqual(1, source.Items.TakenSlots);
-            Assert.AreEqual(int.MaxValue, destination.Items[0]!.Count);
-        }
-
                                         [TestMethod]
         public void Constructor_WithIEnumerable_InitializesCorrectly()
         {
@@ -1142,25 +1089,6 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.HasCount(10, array);
             Assert.IsNotNull(array[0]);
             Assert.AreEqual(1, array[0].Id);
-        }
-
-        [TestMethod]
-        public void AddAndRemoveFrom_IntegerOverflow_DoesNotRemoveFromSource()
-        {
-            // Arrange
-            var source = new TestableItemContainer(StorageType.Normal, 5);
-            source.Items.Add(CreateItem(1, 10, stackable: true));
-
-            var destination = new TestableItemContainer(StorageType.Normal, 5);
-            destination.Items.Add(CreateItem(1, int.MaxValue - 5, stackable: true));
-
-            // Act
-            destination.Items.Mutations.AddAndRemoveFrom(source.Items.Mutations);
-
-            // Assert
-            Assert.AreEqual(1, source.Items.TakenSlots);
-            Assert.AreEqual(10, source.Items[0].Count);
-            Assert.AreEqual(int.MaxValue - 5, destination.Items[0].Count);
         }
 
         [TestMethod]

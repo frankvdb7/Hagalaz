@@ -112,7 +112,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            var snapshot = CaptureStorageState();
             var pouchCount = Math.Min(count, int.MaxValue - Count);
             var inventoryCount = count - pouchCount;
             if (inventoryCount > 0 && !_owner.Inventory.Items.HasSpaceFor(
@@ -122,22 +121,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             var previousCount = Count;
-            HashSet<int> pouchSlots = [];
-            if (pouchCount > 0 && !_storage.TryAddRange(
-                    [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()], out pouchSlots))
+            if (pouchCount > 0 && !transaction.TryAddRange(_mutations,
+                    [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()]))
             {
-                RestoreStorageState(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
                 return false;
             }
 
             if (inventoryCount > 0 && !transaction.TryAddRange(_owner.Inventory.Items.Mutations,
                     [_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()]))
             {
-                RestoreStorageState(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
                 return false;
             }
 
-            if (pouchSlots.Count > 0) transaction.RecordChangedSlots(_mutations, pouchSlots);
             if (pouchCount > 0) transaction.OnCommitted(() =>
             {
                 _previousCount = previousCount;
@@ -199,7 +194,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            var snapshot = CaptureStorageState();
             var pouchCount = Math.Min(count, Count);
             var inventoryCount = count - pouchCount;
             if (inventoryCount > _owner.Inventory.Items.GetCountById(995))
@@ -208,22 +202,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             var previousCount = Count;
-            HashSet<int> pouchSlots = [];
-            if (pouchCount > 0 && !_storage.TryRemoveExact(
-                    _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), pouchCount, 0, out pouchSlots))
+            if (pouchCount > 0 && !transaction.TryRemoveExact(_mutations,
+                    _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0))
             {
-                RestoreStorageState(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
                 return false;
             }
 
             if (inventoryCount > 0 && !transaction.TryRemoveExact(_owner.Inventory.Items.Mutations,
                     _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
             {
-                RestoreStorageState(snapshot.Items, snapshot.Counts, snapshot.PreviousCount);
                 return false;
             }
 
-            if (pouchSlots.Count > 0) transaction.RecordChangedSlots(_mutations, pouchSlots);
             transaction.OnCommitted(() =>
             {
                 _previousCount = previousCount;
@@ -243,27 +233,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             ArgumentNullException.ThrowIfNull(transaction);
             transaction.Include(_mutations);
             transaction.Include(_owner.Inventory.Items.Mutations);
-        }
-
-        private (IItem?[] Items, int[] Counts, int PreviousCount) CaptureStorageState()
-        {
-            var items = _storage.ToArray();
-            var counts = items.Select(item => item?.Count ?? 0).ToArray();
-            return (items, counts, _previousCount);
-        }
-
-        private void RestoreStorageState(IItem?[] items, IReadOnlyList<int> counts, int previousCount)
-        {
-            for (var i = 0; i < items.Length; i++)
-            {
-                if (items[i] != null)
-                {
-                    items[i]!.Count = counts[i];
-                }
-            }
-
-            _storage.ReplaceState(items);
-            _previousCount = previousCount;
         }
 
         /// <summary>

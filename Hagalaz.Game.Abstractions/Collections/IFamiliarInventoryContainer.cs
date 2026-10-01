@@ -24,5 +24,11 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="count">The number of items to withdraw.</param>
         /// <returns><c>true</c> if the withdrawal was successful; otherwise, <c>false</c>.</returns>
         bool WithdrawFromFamiliarInventory(IItem item, int count);
+
+        /// <summary>
+        /// Moves every familiar item that fits into the owner's inventory in one transaction.
+        /// Items that do not fit remain in the familiar inventory.
+        /// </summary>
+        void WithdrawAvailableToInventory();
     }
 }

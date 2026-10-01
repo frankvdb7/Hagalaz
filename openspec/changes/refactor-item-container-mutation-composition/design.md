@@ -27,9 +27,9 @@ Before this change, `BaseItemContainer` owned slot state and mutation algorithms
 
 Move add, remove, exact removal, range insertion, replace/move/swap/sort/clear, exact-state replacement, queries, and version-aware enumeration into storage. Mutators return changed slots rather than invoking domain code. `AddRange` applies the existing simulation against a cloned slot state and commits only after full validation, eliminating trade-only rollback around a partial apply.
 
-### Two-boundary mutation belongs to the boundary instance
+### Exact transfer enters through a boundary and uses one transaction owner
 
-Move the existing #437 plan/simulate/commit algorithm behind `ItemContainerMutationBoundary.TryTransferTo`. The boundary acquires storage locks in stable order, calls the single low-level `ItemContainerStorage.TryTransfer` algorithm, then publishes each side after success. The internal staged form returns exact changed-slot sets without publishing for Equipment. Delete `ItemContainerTransfer` and `IItemContainerStorageOwner`; callers must hold or receive boundaries and must not recover them by casts. Bulk `AddAndRemoveFrom` behavior belongs on a boundary-aware composition path, not `IItemContainer`, and retains its per-source-slot exact-transfer behavior.
+Exact transfer enters through `IItemContainerMutationBoundary.TryTransferTo`, which creates a short-lived `ItemContainerTransaction`. The transaction alone acquires storage locks in stable order, calls the low-level `ItemContainerStorage.TryTransfer` algorithm, and publishes committed changes after unlocking. Equipment uses the concrete transaction's internal pre-publication callback to preserve its callback order. Delete `ItemContainerTransfer` and `IItemContainerStorageOwner`; callers receive boundaries and do not recover them by casts. Generic mutation infrastructure has no bulk-transfer policy. `FamiliarInventoryContainer.WithdrawAvailableToInventory` owns its partial-success policy and tries every source item in one transaction, leaving items that do not fit.
 
 ### Domain containers own operation delegation and publication
 
@@ -39,7 +39,9 @@ Domain hydration code maps persisted DTOs to physical `(slot, item)` entries and
 
 ### Trade settlement composes a short-lived transaction
 
-`ItemContainerTransaction` implements `IItemContainerTransaction`, receives interface-typed participants, deduplicates and orders their stores by `MutationOrder`, and owns the lock/snapshot/rollback lifecycle. `TradeExchange` performs the existing domain-specific settlement decisions through the transaction interface and keeps escrow, pouch overflow and event/message sequencing in trade/pouch domain code. It does not access raw storage or reproduce lock ordering. Special MoneyPouch participation is mediated by semantic exact-add/exact-remove staging operations and `OnCommitted` callbacks rather than by exposing its boundary or manual publication.
+`ItemContainerTransaction` implements `IItemContainerTransaction`, receives interface-typed participants, deduplicates and orders their stores by `MutationOrder`, and owns execution, locking, snapshots, rollback, changed-slot tracking, and publication. `TryExecute` exists only on the concrete transaction; callbacks receive the narrower active `IItemContainerTransaction` staging context. `RecordChangedSlots` is private transaction bookkeeping. `TradeExchange` performs domain-specific settlement through the transaction interface and keeps escrow, pouch overflow, and event/message sequencing in trade/pouch domain code. MoneyPouch stages pouch and inventory mutations through the same active transaction and registers its domain effects with `OnCommitted`; it does not snapshot or restore pouch storage itself.
+
+The familiar partial withdrawal operation belongs to `IFamiliarInventoryContainer`/`FamiliarInventoryContainer`. One transaction attempts each familiar item; individual failures do not abort other transfers, and items that do not fit remain in the familiar container. Successful changes publish once per affected container after commit.
 
 ### Trade orchestration is a composed collaborator
 
@@ -78,7 +80,7 @@ Storage accepts a simple `countToResetTo` constructor option. MoneyPouch seeds a
 
 1. Keep slot state, mutation mechanics, revision/enumeration, lock/order, and transfer planning/commit in `ItemContainerStorage`; add an instance `ItemContainerMutationBoundary` and remove owner-capability/static coordination.
 2. Add `ItemContainer` as the sole generic contract implementation composed over storage and its public mutation boundary; publish committed mutations through a simple optional callback.
-3. Migrate ordinary domain interfaces to expose concrete `ItemContainer Items`; migrate special domains to private boundaries and domain-safe operations.
+3. Migrate ordinary domain interfaces to expose `IItemContainer Items` while implementations privately own concrete `ItemContainer`; migrate special domains to private boundaries and domain-safe operations.
 4. Add `ItemContainerTransaction` and migrate TradeExchange to compose it without raw storage access or runtime infrastructure casts.
 5. Replace inheritance-based test fixtures with composed test containers and split core tests into storage, boundary, and transaction suites; add focused ShopStock and Equipment characterization.
 6. Delete both old base classes and verify no source/test references or replacement implementation base remain.

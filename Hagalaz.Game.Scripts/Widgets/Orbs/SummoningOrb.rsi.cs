@@ -164,7 +164,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
                     return false;
                 }
 
-                Owner.Inventory.Items.Mutations.AddAndRemoveFrom(bob.Inventory.Items.Mutations);
+                bob.Inventory.WithdrawAvailableToInventory();
                 return true;
             });
 
@@ -296,7 +296,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
                     return false;
                 }
 
-                Owner.Inventory.Items.Mutations.AddAndRemoveFrom(bob.Inventory.Items.Mutations);
+                bob.Inventory.WithdrawAvailableToInventory();
                 return true;
             });
 

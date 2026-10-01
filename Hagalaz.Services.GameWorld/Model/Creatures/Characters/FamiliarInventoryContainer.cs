@@ -94,6 +94,25 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             return false;
         }
 
+        public void WithdrawAvailableToInventory()
+        {
+            var inventoryItems = _owner.Inventory.Items;
+            var transaction = new ItemContainerTransaction(_items.Mutations, inventoryItems.Mutations);
+            transaction.TryExecute(tx =>
+            {
+                var familiarItems = _items.Select((item, slot) => (item, slot))
+                    .Where(entry => entry.item is { Count: > 0 })
+                    .ToArray();
+
+                foreach (var (item, slot) in familiarItems)
+                {
+                    tx.TryTransfer(_items.Mutations, inventoryItems.Mutations, item!, item!.Count, slot);
+                }
+
+                return true;
+            });
+        }
+
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>

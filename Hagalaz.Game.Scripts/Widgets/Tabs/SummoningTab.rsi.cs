@@ -108,7 +108,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 }
 
-                Owner.Inventory.Items.Mutations.AddAndRemoveFrom(bob.Inventory.Items.Mutations);
+                bob.Inventory.WithdrawAvailableToInventory();
                 return true;
             });
 

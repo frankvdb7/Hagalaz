@@ -3,8 +3,8 @@
 ## 1. Storage core and transfer boundary
 
 - [x] 1.1 Implement `ItemContainerStorage` as the sole owner of slots, mutation algorithms, revision/enumeration, reset-count handling, exact restoration, and stable mutation locking; port core mutation cases into `ItemContainerStorageTests` and run the Abstractions test project.
-- [x] 1.2 Move storage-to-storage plan/commit logic into `ItemContainerStorage.TryTransfer`, add `IItemContainerStorageOwner` and `ItemContainerTransfer`, and verify exact transfer, publication, exceptions, sentinel movement, and lock ordering in `ItemContainerTransferTests`.
-- [x] 1.3 Move `AddAndRemoveFrom` coordination to `ItemContainerTransfer`, preserve its current per-slot/partial behavior, and verify existing and new boundary cases in Abstractions tests.
+- [x] 1.2 (Temporary migration implementation; `IItemContainerStorageOwner` and `ItemContainerTransfer` were removed by task 10.2.) Move storage-to-storage plan/commit logic into `ItemContainerStorage.TryTransfer`, add `IItemContainerStorageOwner` and `ItemContainerTransfer`, and verify exact transfer, publication, exceptions, sentinel movement, and lock ordering in `ItemContainerTransferTests`.
+- [x] 1.3 (Temporary generic partial-bulk implementation; removed by task 13.2 and replaced with familiar-owned policy.) Move `AddAndRemoveFrom` coordination to `ItemContainerTransfer`, preserve its current per-slot/partial behavior, and verify existing and new boundary cases in Abstractions tests.
 
 ## 2. Simple and temporary containers
 
@@ -61,7 +61,7 @@
 ## 10. Instance mutation boundaries and transactions
 
 - [x] 10.1 Add concrete `ItemContainerMutationBoundary` and make `ItemContainer` own/expose it alongside private storage; move normal two-container locking, transfer, staged transfer, and publication onto the boundary without duplicating the storage algorithm.
-- [x] 10.2 Delete `IItemContainerStorageOwner` and `ItemContainerTransfer`; change ordinary domain interfaces and properties to `IItemContainer Items`, and migrate generic transfer/bulk-move callers to interface-typed instance boundaries.
+- [x] 10.2 Delete `IItemContainerStorageOwner` and `ItemContainerTransfer`; change ordinary domain interfaces and properties to `IItemContainer Items`, and migrate transfer callers to interface-typed instance boundaries.
 - [x] 10.3 Give Equipment a private mutation boundary and domain-owned transfer operation; preserve equip/unequip callbacks, changed-slot publication, failure atomicity, and callback order.
 - [x] 10.4 Give MoneyPouch a private mutation boundary; route exact pouch/inventory mutations through boundaries and retain a narrow safe participation path for TradeExchange.
 - [x] 10.5 Add concrete short-lived `ItemContainerTransaction` for deterministic multi-boundary locking, snapshots, rollback, and post-commit publication; refactor TradeExchange and escrow recovery to use it without direct storage access.
@@ -83,3 +83,10 @@
 - [x] 12.1 Convert `TradeExchange` from static orchestration to a concrete instance collaborator that owns `IItemBuilder`, then compose it from `TradingCharacterScript` and migrate production and test call sites without adding a service or interface.
 - [x] 12.2 Replace the death-cleanup publication escape hatch with a natural Equipment mutation at the end of death cleanup; preserve the final update order and cover script-level trade composition with a behavior test.
 - [x] 12.3 Specify composed trade orchestration and its abstraction/ownership boundaries, then run focused suites, solution build, strict OpenSpec validation, and `git diff --check`; leave jscpd work open.
+
+## 13. Final transaction and familiar ownership tightening
+
+- [x] 13.1 Keep `TryExecute` on concrete `ItemContainerTransaction`; narrow `IItemContainerTransaction` to active staging, make changed-slot bookkeeping private, and remove unused changed-slot outputs and generic bulk-transfer APIs.
+- [x] 13.2 Move partial familiar withdrawal into `IFamiliarInventoryContainer.WithdrawAvailableToInventory`, migrate all callers, and verify all-fit, partial-fit, no-fit, and once-per-container publication behavior.
+- [x] 13.3 Stage MoneyPouch and inventory storage through the same transaction, delete its redundant snapshot/restore path, and verify rollback suppresses domain effects.
+- [x] 13.4 Narrow storage and mutation-boundary concrete visibility; reconcile proposal, design, delta, current spec, historical task notes, and final ownership requirements. Run focused and full validation except deferred jscpd work.

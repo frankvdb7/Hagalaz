@@ -121,17 +121,6 @@ public sealed class ItemContainerTransaction : IItemContainerTransaction
         return true;
     }
 
-    public void TransferAll(IItemContainerMutationBoundary source, IItemContainerMutationBoundary destination)
-    {
-        var sourceParticipant = EnsureParticipant(source);
-        EnsureParticipant(destination);
-        for (var slot = 0; slot < sourceParticipant.Storage.Capacity; slot++)
-        {
-            var item = sourceParticipant.Storage[slot];
-            if (item is { Count: > 0 }) TryTransfer(source, destination, item, item.Count, slot);
-        }
-    }
-
     public bool Clear(IItemContainerMutationBoundary boundary)
     {
         var participant = EnsureParticipant(boundary);
@@ -140,7 +129,7 @@ public sealed class ItemContainerTransaction : IItemContainerTransaction
         return true;
     }
 
-    public void RecordChangedSlots(IItemContainerMutationBoundary boundary, IEnumerable<int> slots)
+    private void RecordChangedSlots(IItemContainerMutationBoundary boundary, IEnumerable<int> slots)
     {
         var participant = EnsureParticipant(boundary);
         if (_changed.TryGetValue(participant, out var changedSlots))
@@ -153,8 +142,6 @@ public sealed class ItemContainerTransaction : IItemContainerTransaction
         }
     }
 
-    public void RecordFullChange(IItemContainerMutationBoundary boundary) => _changed[EnsureParticipant(boundary)] = null;
-
     public void OnCommitted(Action action)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -163,7 +150,7 @@ public sealed class ItemContainerTransaction : IItemContainerTransaction
     }
 
     /// <summary>Registers a domain callback that must run after unlocking and before participant publication.</summary>
-    public void OnCommittedBeforePublish(Action action)
+    internal void OnCommittedBeforePublish(Action action)
     {
         ArgumentNullException.ThrowIfNull(action);
         if (!_executing) throw new InvalidOperationException("Callbacks can be registered only while executing the transaction.");

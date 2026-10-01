@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Items;
 
 namespace Hagalaz.Game.Abstractions.Collections;
 
 /// <summary>Coordinates mutations and publication for one owned item storage.</summary>
-public sealed class ItemContainerMutationBoundary : IItemContainerMutationBoundary
+internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoundary
 {
     private readonly ItemContainerStorage _storage;
     private readonly Action<HashSet<int>?>? _publishChanges;
@@ -38,17 +37,4 @@ public sealed class ItemContainerMutationBoundary : IItemContainerMutationBounda
     void IItemContainerMutationBoundary.Enlist(ItemContainerTransaction transaction) =>
         transaction.RegisterParticipant(this, _storage, _publishChanges);
 
-    /// <summary>Moves all occupied source slots using exact transfers.</summary>
-    public void AddAndRemoveFrom(IItemContainerMutationBoundary source)
-    {
-        ArgumentNullException.ThrowIfNull(source);
-        if (ReferenceEquals(this, source)) return;
-
-        var transaction = new ItemContainerTransaction(this, source);
-        transaction.TryExecute(tx =>
-        {
-            tx.TransferAll(source, this);
-            return true;
-        });
-    }
 }

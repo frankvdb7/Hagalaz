@@ -9,8 +9,6 @@ public interface IItemContainerMutationBoundary
     bool TryTransferTo(IItemContainerMutationBoundary destination, IItem item, int count,
         int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null);
 
-    void AddAndRemoveFrom(IItemContainerMutationBoundary source);
-
     // Internal bridge: implementations enlist their owned storage and publisher with the transaction.
     internal void Enlist(ItemContainerTransaction transaction);
 }

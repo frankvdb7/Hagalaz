@@ -131,6 +131,36 @@ public sealed class MoneyPouchContainerTests
             static (pouch, count) => pouch.TryRemoveExact(count));
     }
 
+    [TestMethod]
+    public void TryAddExact_RollsBackPouchAndInventoryWhenLaterParticipantRejects()
+    {
+        var scenario = CreateScenario(pouchCoins: int.MaxValue - 2, inventoryCoins: 10);
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        scenario.Owner.ClearReceivedCalls();
+        var inventoryUpdates = 0;
+        scenario.Inventory.OnUpdateAction = () => inventoryUpdates++;
+
+        var fullContainer = new ItemContainer(StorageType.Normal, 1);
+        Assert.IsTrue(fullContainer.Add(new ComposedTestItem(123, 1, stackable: false)));
+        var transaction = new ItemContainerTransaction();
+        scenario.MoneyPouch.EnlistIn(transaction);
+        transaction.Include(fullContainer.Mutations);
+
+        Assert.IsFalse(transaction.TryExecute(tx =>
+        {
+            Assert.IsTrue(scenario.MoneyPouch.TryStageAddExact(tx, 4));
+            return tx.TryAddRange(fullContainer.Mutations, [new ComposedTestItem(124, 1, stackable: false)]);
+        }));
+
+        Assert.AreEqual(int.MaxValue - 2, scenario.MoneyPouch.Count);
+        Assert.AreEqual(10, scenario.Inventory.Items.GetCountById(CoinId));
+        Assert.AreEqual(1, fullContainer.TakenSlots);
+        Assert.AreEqual(0, inventoryUpdates);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<MoneyPouchChangedEvent>());
+        scenario.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
+    }
+
     private static void AssertTradeStoragePublishesAfterFinalState(MoneyPouchScenario scenario, int movedCoins,
         int previousPouchCount, int expectedPouchCount, int expectedInventoryCoins,
         Func<IMoneyPouchContainer, int, bool> operation)
