@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -104,18 +105,24 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
-    public void Transaction_ContextExposesStagingButNotExecutionOrChangeBookkeeping()
+    public void Transaction_PublicShapeSeparatesExecutionFromStagingAndKeepsChangedSlotsPrivate()
     {
         var container = new ItemContainer(StorageType.Normal, 2);
         var transaction = new ItemContainerTransaction(container.Mutations);
         var contextType = typeof(IItemContainerTransaction);
+        var transactionType = typeof(ItemContainerTransaction);
 
         Assert.IsNull(contextType.GetMethod("TryExecute"));
+        Assert.IsNotNull(transactionType.GetMethod("TryExecute"));
         Assert.IsNull(contextType.GetMethod("RecordChangedSlots"));
         Assert.IsNull(contextType.GetMethod("RecordFullChange"));
         Assert.IsNull(contextType.GetMethod("TransferAll"));
         Assert.IsFalse(contextType.GetMethods().Any(method => method.GetParameters()
             .Any(parameter => parameter.ParameterType.IsByRef)));
+        Assert.AreEqual(1, transactionType.GetMethods().Count(method => method.Name == "TryAddRange"));
+        Assert.AreEqual(1, transactionType.GetMethods().Count(method => method.Name == "TryRemoveExact"));
+        Assert.IsFalse(transactionType.GetMethods().Where(method => method.Name is "TryAddRange" or "TryRemoveExact")
+            .Any(method => method.GetParameters().Any(parameter => parameter.ParameterType.IsByRef)));
 
         Assert.IsTrue(transaction.TryExecute(tx =>
         {
@@ -124,6 +131,16 @@ public sealed class ItemContainerMutationBoundaryTests
             return true;
         }));
         Assert.AreEqual(1, container.TakenSlots);
+    }
+
+    [TestMethod]
+    public void MutationBoundary_DoesNotExposeStorageOrLocks()
+    {
+        var boundaryType = typeof(ItemContainerMutationBoundary);
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+        Assert.IsNull(boundaryType.GetProperty("Storage", flags));
+        Assert.IsNull(boundaryType.GetProperty("MutationLock", flags));
     }
 
     [TestMethod]

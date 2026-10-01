@@ -81,26 +81,18 @@ public sealed class ItemContainerTransaction : IItemContainerTransaction
         return true;
     }
 
-    public bool TryAddRange(IItemContainerMutationBoundary boundary, IEnumerable<IItem?> items) =>
-        TryAddRange(boundary, items, out _);
-
-    public bool TryAddRange(IItemContainerMutationBoundary boundary, IEnumerable<IItem?> items,
-        out HashSet<int> changedSlots)
+    public bool TryAddRange(IItemContainerMutationBoundary boundary, IEnumerable<IItem?> items)
     {
         var participant = EnsureParticipant(boundary);
-        if (!participant.Storage.TryAddRange(items, out changedSlots)) return false;
+        if (!participant.Storage.TryAddRange(items, out var changedSlots)) return false;
         RecordChangedSlots(boundary, changedSlots);
         return true;
     }
 
-    public bool TryRemoveExact(IItemContainerMutationBoundary boundary, IItem item, int preferredSlot = -1) =>
-        TryRemoveExact(boundary, item, preferredSlot, out _);
-
-    public bool TryRemoveExact(IItemContainerMutationBoundary boundary, IItem item, int preferredSlot,
-        out HashSet<int> changedSlots)
+    public bool TryRemoveExact(IItemContainerMutationBoundary boundary, IItem item, int preferredSlot = -1)
     {
         var participant = EnsureParticipant(boundary);
-        if (!participant.Storage.TryRemoveExact(item, preferredSlot, out changedSlots)) return false;
+        if (!participant.Storage.TryRemoveExact(item, preferredSlot, out var changedSlots)) return false;
         RecordChangedSlots(boundary, changedSlots);
         return true;
     }

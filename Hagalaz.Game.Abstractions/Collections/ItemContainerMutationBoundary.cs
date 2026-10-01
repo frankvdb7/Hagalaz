@@ -10,8 +10,6 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
     private readonly ItemContainerStorage _storage;
     private readonly Action<HashSet<int>?>? _publishChanges;
 
-    internal ItemContainerStorage Storage => _storage;
-
     internal ItemContainerMutationBoundary(ItemContainerStorage storage, Action<HashSet<int>?>? publishChanges)
     {
         ArgumentNullException.ThrowIfNull(storage);
