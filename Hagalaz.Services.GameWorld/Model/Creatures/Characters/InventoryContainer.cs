@@ -47,12 +47,12 @@ public class InventoryContainer : IInventoryContainer,
 
     public void Hydrate(IReadOnlyList<HydratedItemDto> inventory)
     {
-        _items.Storage.RestoreItems(inventory.Select(entry => entry.ToStorageEntry(_itemBuilder)));
+        _items.RestoreItems(inventory.Select(entry => entry.ToStorageEntry(_itemBuilder)));
     }
 
     public IReadOnlyList<HydratedItemDto> Dehydrate()
     {
-        var entries = _items.Storage.Select((item, slot) => (item, slot)).Where(entry => entry.item != null).ToArray();
+        var entries = _items.Select((item, slot) => (item, slot)).Where(entry => entry.item != null).ToArray();
         return entries.Select(entry => new HydratedItemDto(entry.item!.Id, entry.item.Count, entry.slot,
             entry.item.SerializeExtraData())).ToArray();
     }

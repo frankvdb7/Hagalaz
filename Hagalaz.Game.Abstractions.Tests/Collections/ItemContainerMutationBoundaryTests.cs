@@ -475,6 +475,31 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
+    public void ItemContainer_KeepsRawStorageAndStateHelpersInternal()
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var type = typeof(ItemContainer);
+
+        Assert.IsNull(type.GetProperty("Storage", flags));
+        foreach (var name in new[] { "RestoreItems", "SnapshotItems", "ReplaceState", "CountToResetTo", "ExecuteUnderMutationLock" })
+        {
+            var member = (System.Reflection.MemberInfo?)type.GetMethod(name, flags) ?? type.GetProperty(name, flags);
+            Assert.IsNotNull(member, name);
+            if (member is System.Reflection.MethodInfo method)
+            {
+                Assert.IsTrue(method.IsAssembly, name);
+                Assert.IsFalse(method.IsPublic, name);
+            }
+            else
+            {
+                var getter = ((System.Reflection.PropertyInfo)member!).GetGetMethod(true)!;
+                Assert.IsTrue(getter.IsAssembly, name);
+                Assert.IsFalse(getter.IsPublic, name);
+            }
+        }
+    }
+
+    [TestMethod]
     public void Transaction_InterfaceTypedParticipantsRollbackAndSuppressCallbacksWhenOperationThrows()
     {
         var sourcePublished = 0;
@@ -554,7 +579,7 @@ public sealed class ItemContainerMutationBoundaryTests
         Assert.IsFalse(typeof(IEquipmentContainer).GetProperty("Items") is not null);
         Assert.IsFalse(typeof(IEquipmentContainer).GetProperty("Mutations") is not null);
         Assert.IsFalse(typeof(IMoneyPouchContainer).GetProperty("Items") is not null);
-        Assert.IsFalse(typeof(IMoneyPouchContainer).GetProperty("Mutations") is not null);
+        Assert.AreEqual(typeof(IMoneyPouchMutationBoundary), typeof(IMoneyPouchContainer).GetProperty("Mutations")!.PropertyType);
     }
 
     private sealed class TestItem : IItem

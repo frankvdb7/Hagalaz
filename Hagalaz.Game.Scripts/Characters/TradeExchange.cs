@@ -33,8 +33,8 @@ internal sealed class TradeExchange
     {
         var transaction = new ItemContainerTransaction(firstOffer.Mutations, secondOffer.Mutations,
             first.Inventory.Items.Mutations, second.Inventory.Items.Mutations);
-        first.MoneyPouch.EnlistIn(transaction);
-        second.MoneyPouch.EnlistIn(transaction);
+        first.MoneyPouch.Mutations.EnlistIn(transaction);
+        second.MoneyPouch.Mutations.EnlistIn(transaction);
 
         var succeeded = transaction.TryExecute(tx =>
         {
@@ -103,16 +103,16 @@ internal sealed class TradeExchange
         if (coins.Count <= 0) return false;
 
         var transaction = new ItemContainerTransaction(offer.Mutations);
-        character.MoneyPouch.EnlistIn(transaction);
+        character.MoneyPouch.Mutations.EnlistIn(transaction);
         var succeeded = transaction.TryExecute(tx =>
         {
-            if (!character.MoneyPouch.Contains(CoinsItemId, coins.Count) || !offer.HasSpaceFor(coins) ||
+            if (!character.MoneyPouch.HasCoins(coins.Count) || !offer.HasSpaceFor(coins) ||
                 !tx.TryAddRange(offer.Mutations, [coins]))
             {
                 return false;
             }
 
-            return character.MoneyPouch.TryStageRemoveExact(tx, coins.Count);
+            return character.MoneyPouch.Mutations.TryStageRemoveExact(tx, coins.Count);
         });
 
         return succeeded;
@@ -122,11 +122,11 @@ internal sealed class TradeExchange
         int preferredSlot)
     {
         var transaction = new ItemContainerTransaction(offer.Mutations);
-        character.MoneyPouch.EnlistIn(transaction);
+        character.MoneyPouch.Mutations.EnlistIn(transaction);
         var succeeded = transaction.TryExecute(tx =>
         {
             if (!tx.TryRemoveExact(offer.Mutations, coins, preferredSlot)) return false;
-            return character.MoneyPouch.TryStageAddExact(tx, coins.Count);
+            return character.MoneyPouch.Mutations.TryStageAddExact(tx, coins.Count);
         });
 
         return succeeded;
@@ -142,7 +142,7 @@ internal sealed class TradeExchange
 
         var coinCount = items.Where(item => item.Id == CoinsItemId).Sum(item => (long)item.Count);
         if (coinCount <= 0) return true;
-        if (coinCount > int.MaxValue || !character.MoneyPouch.TryStageAddExact(transaction, (int)coinCount))
+        if (coinCount > int.MaxValue || !character.MoneyPouch.Mutations.TryStageAddExact(transaction, (int)coinCount))
         {
             return false;
         }

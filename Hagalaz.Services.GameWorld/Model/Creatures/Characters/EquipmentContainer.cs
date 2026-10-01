@@ -118,7 +118,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return false;
                 }
 
-                Add(equipSlot, item);
+                if (_storage.TryAdd((int)equipSlot, item, out var changedSlots))
+                {
+                    PublishChanges(changedSlots.Select(changedSlot => (EquipmentSlot)changedSlot).ToHashSet());
+                }
+
                 item.EquipmentScript.OnEquipped(item, _owner);
                 return true;
             }
@@ -216,8 +220,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
         }
 
-        public bool Add(EquipmentSlot slot, IItem item)
+        /// <summary>Restores an already-equipped item without running equip lifecycle callbacks.</summary>
+        public bool TryRestoreEquippedItem(EquipmentSlot slot, IItem item)
         {
+            ArgumentNullException.ThrowIfNull(item);
             if (!_storage.TryAdd((int)slot, item, out var slots)) return false;
             PublishChanges(slots.Select(slot => (EquipmentSlot)slot).ToHashSet());
             return true;
@@ -252,17 +258,29 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             });
         }
 
-        public void Replace(EquipmentSlot slot, IItem item)
+        public bool TryReplaceEquippedItem(EquipmentSlot slot, IItem expectedItem, IItem replacement)
         {
+            ArgumentNullException.ThrowIfNull(expectedItem);
+            ArgumentNullException.ThrowIfNull(replacement);
             var itemSlot = (int)slot;
-            var oldItem = _storage[itemSlot];
-            _storage.Replace(itemSlot, item);
+            if (!Enum.IsDefined(slot) || (uint)itemSlot >= (uint)_storage.Capacity)
+            {
+                throw new ArgumentOutOfRangeException(nameof(slot));
+            }
+
+            lock (_storage.MutationLock)
+            {
+                if (!ReferenceEquals(_storage[itemSlot], expectedItem)) return false;
+                _storage.Replace(itemSlot, replacement);
+            }
+
             PublishChanges([slot]);
-            oldItem?.EquipmentScript.OnUnequipped(oldItem, _owner);
-            item.EquipmentScript.OnEquipped(item, _owner);
+            expectedItem.EquipmentScript.OnUnequipped(expectedItem, _owner);
+            replacement.EquipmentScript.OnEquipped(replacement, _owner);
+            return true;
         }
 
-        public int Remove(IItem item, EquipmentSlot preferredSlot = EquipmentSlot.NoSlot, bool update = true)
+        public int RemoveEquippedItem(IItem item, EquipmentSlot preferredSlot = EquipmentSlot.NoSlot)
         {
             if (preferredSlot == EquipmentSlot.NoSlot)
             {
@@ -270,7 +288,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
             var preferredSlotIndex = (int)preferredSlot;
             var removed = _storage.Remove(item, preferredSlotIndex, out var changedSlots);
-            if (removed > 0 && update) PublishChanges(changedSlots?.Select(changedSlot => (EquipmentSlot)changedSlot).ToHashSet());
+            if (removed > 0) PublishChanges(changedSlots?.Select(changedSlot => (EquipmentSlot)changedSlot).ToHashSet());
             if (removed <= 0)
             {
                 return removed;
@@ -285,13 +303,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             return removed;
         }
 
-        public void Clear(bool update)
+        public void ClearEquipment()
         {
             foreach (var item in _storage.ToArray())
             {
                 item?.EquipmentScript.OnUnequipped(item, _owner);
             }
-            if (_storage.Clear() && update) PublishChanges(null);
+            if (_storage.Clear()) PublishChanges(null);
         }
 
         private void PublishChanges(HashSet<EquipmentSlot>? slots = null)

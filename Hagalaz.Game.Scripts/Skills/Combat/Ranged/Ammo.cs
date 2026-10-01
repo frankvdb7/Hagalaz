@@ -43,7 +43,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged
             var removal = ammoItem.Clone();
             removal.Count = amount;
 
-            if (character.Equipment.Remove(removal, slot) < amount)
+            if (character.Equipment.RemoveEquippedItem(removal, slot) < amount)
             {
                 return false;
             }
@@ -73,7 +73,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged
                 {
                     if (pickupChance > 0.0 && RandomStatic.Generator.NextDouble() <= pickupChance)
                     {
-                        character.Equipment.Add(slot, removal);
+                        character.Equipment.TryRestoreEquippedItem(slot, removal);
                     }
                     else
                     {

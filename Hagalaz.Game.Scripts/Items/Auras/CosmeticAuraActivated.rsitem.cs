@@ -46,7 +46,8 @@ namespace Hagalaz.Game.Scripts.Items.Auras
                 return;
             }
             var itemBuilder = character.ServiceProvider.GetRequiredService<IItemBuilder>();
-            character.Equipment.Replace(slot, itemBuilder.Create().WithId(aura.Id + 16).WithCount(aura.Count).Build());
+            character.Equipment.TryReplaceEquippedItem(slot, aura,
+                itemBuilder.Create().WithId(aura.Id + 16).WithCount(aura.Count).Build());
         }
     }
 }

@@ -5,11 +5,11 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// </summary>
     public interface IMoneyPouchContainer
     {
+        IMoneyPouchMutationBoundary Mutations { get; }
+
         bool HasSpaceForCoins(int count);
 
-        bool Contains(int id);
-
-        bool Contains(int id, int count);
+        bool HasCoins(int count);
 
         /// <summary>
         /// Gets the "Examine" text for the money pouch, which typically displays the total number of coins.
@@ -53,12 +53,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// Adds exactly the requested coins using normal pouch overflow rules.
         /// </summary>
         bool TryAddExact(int count);
-
-        void EnlistIn(IItemContainerTransaction transaction);
-
-        bool TryStageAddExact(IItemContainerTransaction transaction, int count);
-
-        bool TryStageRemoveExact(IItemContainerTransaction transaction, int count);
 
         /// <summary>
         /// Removes exactly the requested number of coins from the pouch and inventory, if available.

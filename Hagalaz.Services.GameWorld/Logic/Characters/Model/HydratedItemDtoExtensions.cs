@@ -1,6 +1,6 @@
+using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 
@@ -12,8 +12,8 @@ internal static class HydratedItemDtoExtensions
         (entry.SlotId, itemBuilder.Create().WithId(entry.ItemId).WithCount(entry.Count)
             .WithExtraData(entry.ExtraData ?? string.Empty).Build());
 
-    public static HydratedItemDto[] ToHydratedItems(this ItemContainerStorage storage) =>
-        storage.Select((item, slot) => (item, slot)).Where(entry => entry.item != null)
+    public static HydratedItemDto[] ToHydratedItems(this IEnumerable<IItem?> items) =>
+        items.Select((item, slot) => (item, slot)).Where(entry => entry.item != null)
             .Select(entry => new HydratedItemDto(entry.item!.Id, entry.item.Count, entry.slot,
                 entry.item.SerializeExtraData())).ToArray();
 }

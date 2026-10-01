@@ -39,7 +39,7 @@ internal sealed class DuelStakeExchange
         if (count <= 0) return false;
 
         var transaction = new ItemContainerTransaction(stake.Mutations);
-        character.MoneyPouch.EnlistIn(transaction);
+        character.MoneyPouch.Mutations.EnlistIn(transaction);
         return transaction.TryExecute(tx =>
         {
             var transferCount = (int)Math.Min(count,
@@ -48,7 +48,7 @@ internal sealed class DuelStakeExchange
 
             var coins = _itemBuilder.Create().WithId(CoinsItemId).WithCount(transferCount).Build();
             return tx.TryAddRange(stake.Mutations, [coins]) &&
-                   character.MoneyPouch.TryStageRemoveExact(tx, transferCount);
+                   character.MoneyPouch.Mutations.TryStageRemoveExact(tx, transferCount);
         });
     }
 
@@ -59,10 +59,10 @@ internal sealed class DuelStakeExchange
         int preferredSourceSlot)
     {
         var transaction = new ItemContainerTransaction(stake.Mutations);
-        character.MoneyPouch.EnlistIn(transaction);
+        character.MoneyPouch.Mutations.EnlistIn(transaction);
         return transaction.TryExecute(tx =>
             tx.TryRemoveExact(stake.Mutations, coins, preferredSourceSlot) &&
-            character.MoneyPouch.TryStageAddExact(tx, coins.Count));
+            character.MoneyPouch.Mutations.TryStageAddExact(tx, coins.Count));
     }
 
     public bool TryRefundBoth(
@@ -76,8 +76,8 @@ internal sealed class DuelStakeExchange
             secondStake.Mutations,
             first.Inventory.Items.Mutations,
             second.Inventory.Items.Mutations);
-        first.MoneyPouch.EnlistIn(transaction);
-        second.MoneyPouch.EnlistIn(transaction);
+        first.MoneyPouch.Mutations.EnlistIn(transaction);
+        second.MoneyPouch.Mutations.EnlistIn(transaction);
 
         return transaction.TryExecute(tx =>
             RefundStake(tx, first, firstStake) && RefundStake(tx, second, secondStake));
@@ -95,7 +95,7 @@ internal sealed class DuelStakeExchange
             if (item.Id == CoinsItemId)
             {
                 if (!transaction.TryRemoveExact(stake.Mutations, item, slot) ||
-                    !owner.MoneyPouch.TryStageAddExact(transaction, count))
+                    !owner.MoneyPouch.Mutations.TryStageAddExact(transaction, count))
                 {
                     return false;
                 }

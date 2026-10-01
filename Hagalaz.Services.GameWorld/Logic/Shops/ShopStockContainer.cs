@@ -35,7 +35,6 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         private readonly IEventManager _eventManager;
         private readonly ItemContainer _items;
         public IItemContainer Items => _items;
-        private ItemContainerStorage Storage => _items.Storage;
 
         /// <summary>
         /// The original stock of the shop.
@@ -81,7 +80,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
         public void SetItems(IItem[] items, bool update)
         {
-            Storage.ReplaceState(items);
+            _items.ReplaceState(items);
             if (update) OnUpdate();
         }
 
@@ -122,7 +121,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 sold = item.Clone(count);
             }
 
-            if (!sold.ItemScript.CanSellItem(sold, viewer) || !_shop.GeneralStore && !Storage.Contains(sold))
+            if (!sold.ItemScript.CanSellItem(sold, viewer) || !_shop.GeneralStore && _items.GetSlotByItem(sold) == -1)
             {
                 viewer.SendChatMessage("You cannot sell this item.");
                 return false;
@@ -142,7 +141,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             }
 
             var transaction = new ItemContainerTransaction(viewer.Inventory.Items.Mutations, _items.Mutations);
-            if (_shop.CurrencyId == 995) viewer.MoneyPouch.EnlistIn(transaction);
+            if (_shop.CurrencyId == 995) viewer.MoneyPouch.Mutations.EnlistIn(transaction);
             var payout = _shop.CurrencyId == 995
                 ? null
                 : _itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)currencyCount).Build();
@@ -156,7 +155,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 }
 
                 return _shop.CurrencyId == 995
-                    ? viewer.MoneyPouch.TryStageAddExact(tx, (int)currencyCount)
+                    ? viewer.MoneyPouch.Mutations.TryStageAddExact(tx, (int)currencyCount)
                     : tx.TryAddRange(viewer.Inventory.Items.Mutations, [payout!]);
             });
         }
@@ -230,7 +229,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 }
 
                 var hasCurrency = _shop.CurrencyId == 995
-                    ? viewer.MoneyPouch.Contains(995, (int)cost)
+                    ? viewer.MoneyPouch.HasCoins((int)cost)
                     : viewer.Inventory.Items.Contains(_shop.CurrencyId, (int)cost);
                 if (!hasCurrency)
                 {
@@ -241,7 +240,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
             var originalStock = _originalStock.Any(it => it.Id == item.Id);
             var transaction = new ItemContainerTransaction(_items.Mutations, viewer.Inventory.Items.Mutations);
-            if (_shop.CurrencyId == 995) viewer.MoneyPouch.EnlistIn(transaction);
+            if (_shop.CurrencyId == 995) viewer.MoneyPouch.Mutations.EnlistIn(transaction);
 
             var paymentRejected = false;
             var succeeded = transaction.TryExecute(tx =>
@@ -249,7 +248,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 if (cost > 0)
                 {
                     var paid = _shop.CurrencyId == 995
-                        ? viewer.MoneyPouch.TryStageRemoveExact(tx, (int)cost)
+                        ? viewer.MoneyPouch.Mutations.TryStageRemoveExact(tx, (int)cost)
                         : tx.TryRemoveExact(viewer.Inventory.Items.Mutations,
                             _itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)cost).Build());
                     if (!paid)
@@ -291,9 +290,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         {
             var changedSlots = new HashSet<int>();
             var shouldSort = false;
-            lock (Storage.MutationLock)
+            _items.ExecuteUnderMutationLock(() =>
             {
-                var items = Storage.ToArray();
+                var items = _items.SnapshotItems();
                 // This uses the full capacity, because we don't know if items were added.
                 for (var i = 0; i < Items.Capacity; i++)
                 {
@@ -314,13 +313,13 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                         changedSlots.Add(i);
                         if (item.Count <= 0)
                         {
-                            if (Storage.CountToResetTo == -1)
+                            if (_items.CountToResetTo == -1)
                             {
                                 items[i] = null;
                             }
                             else
                             {
-                                item.Count = Storage.CountToResetTo;
+                                item.Count = _items.CountToResetTo;
                             }
 
                             shouldSort = true;
@@ -346,9 +345,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
                 if (changedSlots.Count > 0)
                 {
-                    Storage.ReplaceState(items);
+                    _items.ReplaceState(items);
                 }
-            }
+            });
 
             if (changedSlots.Count > 0)
             {

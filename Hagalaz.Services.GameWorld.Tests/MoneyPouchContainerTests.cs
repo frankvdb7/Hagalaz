@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
@@ -36,6 +37,19 @@ public sealed class MoneyPouchContainerTests
         Assert.IsNull(typeof(IEquipmentContainer).GetProperty("Items"));
         Assert.IsNull(typeof(IEquipmentContainer).GetMethod("OnUpdate"));
         Assert.IsNull(typeof(IMoneyPouchContainer).GetProperty("Items"));
+        Assert.IsNotNull(typeof(IMoneyPouchContainer).GetProperty("Mutations"));
+        Assert.IsNull(typeof(IMoneyPouchContainer).GetMethod("Contains"));
+        Assert.IsNull(typeof(IMoneyPouchContainer).GetMethod("EnlistIn"));
+        Assert.IsNull(typeof(IMoneyPouchContainer).GetMethod("TryStageAddExact"));
+        Assert.IsNull(typeof(IMoneyPouchContainer).GetMethod("TryStageRemoveExact"));
+        Assert.AreEqual(typeof(IMoneyPouchMutationBoundary), typeof(IMoneyPouchContainer).GetProperty("Mutations")!.PropertyType);
+        var boundaryMethods = typeof(IMoneyPouchMutationBoundary).GetMethods();
+        Assert.AreEqual(3, boundaryMethods.Length);
+        CollectionAssert.AreEquivalent(new[] { "EnlistIn", "TryStageAddExact", "TryStageRemoveExact" },
+            boundaryMethods.Select(method => method.Name).ToArray());
+        Assert.IsNull(typeof(MoneyPouchContainer).GetMethod("EnlistIn", BindingFlags.Instance | BindingFlags.Public));
+        Assert.IsNull(typeof(MoneyPouchContainer).GetMethod("TryStageAddExact", BindingFlags.Instance | BindingFlags.Public));
+        Assert.IsNull(typeof(MoneyPouchContainer).GetMethod("TryStageRemoveExact", BindingFlags.Instance | BindingFlags.Public));
         Assert.IsNull(typeof(IEquipmentContainer).GetMethod("PublishCurrentState"));
         Assert.IsFalse(typeof(IMoneyPouchContainer).GetMethods().Any(method =>
             method.Name.Contains("Storage") || method.Name == "PublishChanges" ||
@@ -45,72 +59,73 @@ public sealed class MoneyPouchContainerTests
     }
 
     [TestMethod]
-    public void Contains_WhenPouchCoinsSatisfyRequest_ReturnsTrue()
+    public void HasCoins_WhenPouchCoinsSatisfyRequest_ReturnsTrue()
     {
         var scenario = CreateScenario(pouchCoins: 100, inventoryCoins: 0);
 
-        var result = scenario.MoneyPouch.Contains(CoinId, 100);
+        var result = scenario.MoneyPouch.HasCoins(100);
 
         Assert.IsTrue(result);
     }
 
     [TestMethod]
-    public void Contains_WhenInventoryCoinsSatisfyRequestWithEmptyPouch_ReturnsTrue()
+    public void HasCoins_WhenInventoryCoinsSatisfyRequestWithEmptyPouch_ReturnsTrue()
     {
         var scenario = CreateScenario(pouchCoins: 0, inventoryCoins: 100);
 
-        var result = scenario.MoneyPouch.Contains(CoinId, 100);
+        var result = scenario.MoneyPouch.HasCoins(100);
 
         Assert.IsTrue(result);
+        Assert.IsFalse(scenario.MoneyPouch.HasCoins(101));
     }
 
     [TestMethod]
-    public void Contains_WhenPouchAndInventoryCoinsTogetherSatisfyRequest_ReturnsTrue()
+    public void HasCoins_WhenPouchAndInventoryCoinsTogetherSatisfyRequest_ReturnsTrue()
     {
-        var scenario = CreateScenario(pouchCoins: 40, inventoryCoins: 60);
+        var scenario = CreateScenario(pouchCoins: 60, inventoryCoins: 40);
 
-        var result = scenario.MoneyPouch.Contains(CoinId, 100);
+        var result = scenario.MoneyPouch.HasCoins(100);
 
         Assert.IsTrue(result);
     }
 
     [TestMethod]
-    public void Contains_WhenCalledThroughMoneyPouchInterface_IncludesInventoryCoins()
+    public void HasCoins_WhenCalledThroughMoneyPouchInterface_IncludesInventoryCoins()
     {
         var scenario = CreateScenario(pouchCoins: 25, inventoryCoins: 75);
         IMoneyPouchContainer pouch = scenario.MoneyPouch;
 
-        Assert.IsTrue(pouch.Contains(CoinId, 100));
+        Assert.IsTrue(pouch.HasCoins(100));
         Assert.AreEqual(25, pouch.Count);
         Assert.IsNull(typeof(IMoneyPouchContainer).GetProperty("Items"));
     }
 
     [TestMethod]
-    public void Contains_WhenCombinedCoinBalanceIsInsufficient_ReturnsFalse()
+    public void HasCoins_WhenCombinedCoinBalanceIsInsufficient_ReturnsFalse()
     {
-        var scenario = CreateScenario(pouchCoins: 40, inventoryCoins: 59);
+        var scenario = CreateScenario(pouchCoins: 60, inventoryCoins: 39);
 
-        var result = scenario.MoneyPouch.Contains(CoinId, 100);
+        var result = scenario.MoneyPouch.HasCoins(100);
 
         Assert.IsFalse(result);
     }
 
     [TestMethod]
-    public void Contains_WhenRequestEqualsCombinedCoinBalance_ReturnsTrue()
+    public void HasCoins_WhenRequestEqualsCombinedCoinBalance_ReturnsTrue()
     {
-        var scenario = CreateScenario(pouchCoins: 40, inventoryCoins: 60);
+        var scenario = CreateScenario(pouchCoins: 60, inventoryCoins: 40);
 
-        var result = scenario.MoneyPouch.Contains(CoinId, 100);
+        var result = scenario.MoneyPouch.HasCoins(100);
 
         Assert.IsTrue(result);
     }
 
     [TestMethod]
-    public void Contains_WhenCombinedCoinBalanceExceedsIntMaxValue_DoesNotOverflow()
+    public void HasCoins_WhenCombinedCoinBalanceExceedsIntMaxValue_DoesNotOverflow()
     {
         var scenario = CreateScenario(pouchCoins: 1_500_000_000, inventoryCoins: 1_500_000_000);
 
-        var result = scenario.MoneyPouch.Contains(CoinId, int.MaxValue);
+        var result = scenario.MoneyPouch.HasCoins(int.MaxValue);
 
         Assert.IsTrue(result);
     }
@@ -131,6 +146,16 @@ public sealed class MoneyPouchContainerTests
             static (pouch, count) => pouch.TryRemoveExact(count));
     }
 
+    [DataTestMethod]
+    [DataRow(0)]
+    [DataRow(-1)]
+    public void HasCoins_NonPositiveCount_ReturnsFalse(int count)
+    {
+        var scenario = CreateScenario(pouchCoins: 100, inventoryCoins: 100);
+
+        Assert.IsFalse(scenario.MoneyPouch.HasCoins(count));
+    }
+
     [TestMethod]
     public void TryAddExact_RollsBackPouchAndInventoryWhenLaterParticipantRejects()
     {
@@ -144,12 +169,12 @@ public sealed class MoneyPouchContainerTests
         var fullContainer = new ItemContainer(StorageType.Normal, 1);
         Assert.IsTrue(fullContainer.Add(new ComposedTestItem(123, 1, stackable: false)));
         var transaction = new ItemContainerTransaction();
-        scenario.MoneyPouch.EnlistIn(transaction);
+        scenario.MoneyPouch.Mutations.EnlistIn(transaction);
         transaction.Include(fullContainer.Mutations);
 
         Assert.IsFalse(transaction.TryExecute(tx =>
         {
-            Assert.IsTrue(scenario.MoneyPouch.TryStageAddExact(tx, 4));
+            Assert.IsTrue(scenario.MoneyPouch.Mutations.TryStageAddExact(tx, 4));
             return tx.TryAddRange(fullContainer.Mutations, [new ComposedTestItem(124, 1, stackable: false)]);
         }));
 

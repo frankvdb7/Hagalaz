@@ -51,14 +51,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             IItem? stagedCoins = null;
             var bankRejected = false;
             var transaction = new ItemContainerTransaction(_items.Mutations);
-            _owner.MoneyPouch.EnlistIn(transaction);
+            _owner.MoneyPouch.Mutations.EnlistIn(transaction);
             var succeeded = transaction.TryExecute(tx =>
             {
                 var count = _owner.MoneyPouch.Count;
                 if (count <= 0) return false;
 
                 stagedCoins = _itemBuilder.Create().WithId(995).WithCount(count).Build();
-                if (!_owner.MoneyPouch.TryStageRemoveExact(tx, count)) return false;
+                if (!_owner.MoneyPouch.Mutations.TryStageRemoveExact(tx, count)) return false;
                 if (!tx.TryAddRange(_items.Mutations, [stagedCoins]))
                 {
                     bankRejected = true;
@@ -294,12 +294,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> bank)
         {
-            _items.Storage.RestoreItems(bank.Select(entry => entry.ToStorageEntry(_itemBuilder)));
+            _items.RestoreItems(bank.Select(entry => entry.ToStorageEntry(_itemBuilder)));
         }
 
         public IReadOnlyList<HydratedItemDto> Dehydrate()
         {
-            return _items.Storage.ToHydratedItems();
+            return _items.ToHydratedItems();
         }
 
         private IItem CreateDepositItem(IItem item, int count, out bool transformed)

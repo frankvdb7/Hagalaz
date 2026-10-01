@@ -1,6 +1,7 @@
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Items;
 using NSubstitute;
+using System.Threading.Tasks;
 
 namespace Hagalaz.Game.Scripts.Tests;
 
@@ -11,8 +12,11 @@ internal class ComposedTestContainer : IInventoryContainer, IRewardContainer
     public IItemContainer Items => _items;
     public Action? OnUpdateAction { get; set; }
     public int UpdateCount { get; private set; }
-    public object MutationLock => _items.Storage.MutationLock;
-    public long MutationOrder => _items.Storage.MutationOrder;
+    public bool CanAcquireMutationLockFromOtherThread()
+    {
+        var acquisition = Task.Run(() => _items.ExecuteUnderMutationLock(static () => { }));
+        return acquisition.Wait(TimeSpan.FromSeconds(1));
+    }
 
     public ComposedTestContainer(int capacity) : this(StorageType.Normal, capacity) { }
     public ComposedTestContainer(StorageType type, int capacity, int countToResetTo = -1, bool publishItemChanges = true) =>

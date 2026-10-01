@@ -96,12 +96,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> rewards)
         {
-            _items.Storage.RestoreItems(rewards.Select(entry => entry.ToStorageEntry(_itemBuilder)));
+            _items.RestoreItems(rewards.Select(entry => entry.ToStorageEntry(_itemBuilder)));
         }
 
         public IReadOnlyList<HydratedItemDto> Dehydrate()
         {
-            return _items.Storage.ToHydratedItems();
+            return _items.ToHydratedItems();
         }
     }
 }

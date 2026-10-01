@@ -164,7 +164,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue
                 {
                     if (Owner.Statistics.LevelForExperience(SkillID) >= 99)
                     {
-                        if (Owner.MoneyPouch.Contains(995, 99000))
+                        if (Owner.MoneyPouch.HasCoins(99000))
                         {
                             var removed = Owner.MoneyPouch.Remove(99000);
                             if (removed > 0 && Owner.Inventory.Items.FreeSlots >= 2)

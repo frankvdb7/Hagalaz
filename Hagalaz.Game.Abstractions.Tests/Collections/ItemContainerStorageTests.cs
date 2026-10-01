@@ -17,7 +17,6 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         private class TestableItemContainer
         {
             public ItemContainer Items { get; }
-            public ItemContainerStorage Storage => Items.Storage;
             public int UpdateCount { get; private set; }
             public bool ThrowOnPublication { get; set; }
             public Action<HashSet<int>?>? PublicationHandler { get; set; }
@@ -31,7 +30,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             {
                 Items = new ItemContainer(type, items, capacity);
             }
-            public void SetItems(IItem[] items, bool update) { Storage.ReplaceState(items); if (update) OnUpdate(); }
+            public void SetItems(IItem[] items, bool update) { Items.ReplaceState(items); if (update) OnUpdate(); }
             public void OnUpdate(HashSet<int>? slots = null)
             {
                 UpdateCount++;
@@ -49,7 +48,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var container = new TestableItemContainer(StorageType.Normal, 2);
 
             Assert.ThrowsExactly<ArgumentNullException>(() =>
-                container.Items.Storage.TryRemoveExact(null!, -1, out _));
+                container.Items.TryRemoveExact(null!, -1));
         }
 
         [TestMethod]
@@ -576,18 +575,18 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         [TestMethod]
         public void TryAddRange_EmptyRangePreservesEnumeratorAndStorage()
         {
-            var container = new TestableItemContainer(StorageType.Normal, 2);
+            var storage = new ItemContainerStorage(StorageType.Normal, 2);
             var existing = CreateItem(1, 3, stackable: true);
-            Assert.IsTrue(container.Items.Add(existing));
-            var enumerator = container.Storage.GetEnumerator();
-            var revision = container.Storage.MutationRevision;
+            Assert.IsTrue(storage.TryAdd(existing, out _));
+            var enumerator = storage.GetEnumerator();
+            var revision = storage.MutationRevision;
 
-            var result = container.Storage.TryAddRange(Array.Empty<IItem?>(), out var changedSlots);
+            var result = storage.TryAddRange(Array.Empty<IItem?>(), out var changedSlots);
 
             Assert.IsTrue(result);
             Assert.IsEmpty(changedSlots);
-            Assert.AreEqual(revision, container.Storage.MutationRevision);
-            Assert.AreSame(existing, container.Storage[0]);
+            Assert.AreEqual(revision, storage.MutationRevision);
+            Assert.AreSame(existing, storage[0]);
             Assert.AreEqual(3, existing.Count);
             Assert.IsTrue(enumerator.MoveNext());
             Assert.AreSame(existing, enumerator.Current);
@@ -596,18 +595,18 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         [TestMethod]
         public void TryAddRange_AllNullItems_DoesNotAdvanceRevision()
         {
-            var container = new TestableItemContainer(StorageType.Normal, 2);
+            var storage = new ItemContainerStorage(StorageType.Normal, 2);
             var existing = CreateItem(1, 3, stackable: true);
-            Assert.IsTrue(container.Items.Add(existing));
-            var enumerator = container.Storage.GetEnumerator();
-            var revision = container.Storage.MutationRevision;
+            Assert.IsTrue(storage.TryAdd(existing, out _));
+            var enumerator = storage.GetEnumerator();
+            var revision = storage.MutationRevision;
 
-            var result = container.Storage.TryAddRange(new IItem?[] { null, null }, out var changedSlots);
+            var result = storage.TryAddRange(new IItem?[] { null, null }, out var changedSlots);
 
             Assert.IsTrue(result);
             Assert.IsEmpty(changedSlots);
-            Assert.AreEqual(revision, container.Storage.MutationRevision);
-            Assert.AreSame(existing, container.Storage[0]);
+            Assert.AreEqual(revision, storage.MutationRevision);
+            Assert.AreSame(existing, storage[0]);
             Assert.AreEqual(3, existing.Count);
             Assert.IsTrue(enumerator.MoveNext());
             Assert.AreSame(existing, enumerator.Current);
@@ -906,10 +905,10 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             using var proceed = new ManualResetEventSlim();
             using var finished = new ManualResetEventSlim();
 
-            Task mutation;
-            bool startedInTime;
-            bool finishedWhileLocked;
-            lock (container.Storage.MutationLock)
+            Task mutation = Task.CompletedTask;
+            var startedInTime = false;
+            var finishedWhileLocked = false;
+            container.Items.ExecuteUnderMutationLock(() =>
             {
                 mutation = Task.Run(() =>
                 {
@@ -928,7 +927,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                 startedInTime = started.Wait(TimeSpan.FromSeconds(1));
                 proceed.Set();
                 finishedWhileLocked = finished.Wait(TimeSpan.FromMilliseconds(100));
-            }
+            });
 
             Assert.IsTrue(startedInTime);
             Assert.IsFalse(finishedWhileLocked);
@@ -1025,7 +1024,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             newItems[1] = CreateItem(11, 1);
 
             // Act
-            container.Storage.ReplaceState(newItems);
+            container.Items.ReplaceState(newItems);
 
             // Assert
             Assert.AreEqual(2, container.Items.TakenSlots);
@@ -1042,7 +1041,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var replacement = new IItem?[container.Items.Capacity];
             replacement[1] = CreateItem(2, 1);
 
-            container.Storage.ReplaceState(replacement);
+            container.Items.ReplaceState(replacement);
 
             Assert.ThrowsExactly<InvalidOperationException>(() => enumerator.MoveNext());
             Assert.AreEqual(2, container.Items[1]!.Id);
@@ -1054,9 +1053,9 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var container = new TestableItemContainer(StorageType.Normal, 10);
             container.Items.Add(CreateItem(1, 1));
 
-            Assert.ThrowsExactly<ArgumentException>(() => container.Storage.ReplaceState([CreateItem(2, 1)]));
+            Assert.ThrowsExactly<ArgumentException>(() => container.Items.ReplaceState([CreateItem(2, 1)]));
 
-            Assert.AreEqual(container.Items.Capacity, container.Storage.ToArray().Length);
+            Assert.AreEqual(container.Items.Capacity, container.Items.SnapshotItems().Length);
             Assert.AreEqual(1, container.Items[0]!.Id);
         }
 
@@ -1066,14 +1065,14 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var items = new IItem[container.Items.Capacity];
             items[5] = CreateItem(10, 1);
-            container.Storage.ReplaceState(items);
+            container.Items.ReplaceState(items);
 
             items[5] = CreateItem(11, 1);
             items[2] = CreateItem(12, 1);
 
             Assert.AreEqual(10, container.Items[5]!.Id);
             Assert.IsNull(container.Items[2]);
-            Assert.AreEqual(container.Items.Capacity, container.Storage.ToArray().Length);
+            Assert.AreEqual(container.Items.Capacity, container.Items.SnapshotItems().Length);
         }
 
                                         [TestMethod]
@@ -1172,7 +1171,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             container.Items.Add(item);
 
             // Act
-            var array = container.Storage.ToArray();
+            var array = container.Items.SnapshotItems();
 
             // Assert
             Assert.HasCount(10, array);
@@ -1312,7 +1311,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         public void TryTransfer_NonStackableQuantity_PreservesMovedInstancesAndExtraData()
         {
             var source = new TestableItemContainer(StorageType.Normal, 2);
-            source.Storage.ReplaceState(
+            source.Items.ReplaceState(
             [
                 CreateItem(1, 1, extraData: [17]),
                 CreateItem(1, 1, extraData: [17])
@@ -1335,7 +1334,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         public void TryTransfer_SameIdDifferentExtraDataCannotSatisfyExactQuantity()
         {
             var source = new TestableItemContainer(StorageType.Normal, 2);
-            source.Storage.ReplaceState(
+            source.Items.ReplaceState(
             [
                 CreateItem(1, 1, extraData: [17]),
                 CreateItem(1, 1, extraData: [29])
@@ -1361,7 +1360,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         public void TryTransfer_PreferredSlots_UsesSourceFirstAndExplicitDestinationSlot()
         {
             var source = new TestableItemContainer(StorageType.Normal, 2);
-            source.Storage.ReplaceState(
+            source.Items.ReplaceState(
             [
                 CreateItem(1, 3, stackable: true),
                 CreateItem(1, 5, stackable: true)

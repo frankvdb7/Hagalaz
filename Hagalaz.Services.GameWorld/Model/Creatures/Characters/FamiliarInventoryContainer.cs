@@ -121,12 +121,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(IReadOnlyList<HydratedItem> inventory)
         {
-            _items.Storage.RestoreItems(inventory.Select(entry => (entry.SlotId,
+            _items.RestoreItems(inventory.Select(entry => (entry.SlotId,
                 _itemBuilder.Create().WithId(entry.ItemId).WithCount(entry.Count)
                     .WithExtraData(entry.ExtraData ?? string.Empty).Build())));
         }
 
-        public IReadOnlyList<HydratedItem> Dehydrate() => _items.Storage.Select((item, slot) => (item, slot)).Where(x => x.item != null)
+        public IReadOnlyList<HydratedItem> Dehydrate() => _items.Select((item, slot) => (item, slot)).Where(x => x.item != null)
             .Select(entry => new HydratedItem(entry.item!.Id, entry.item.Count, entry.slot, entry.item.SerializeExtraData()))
             .ToArray();
     }

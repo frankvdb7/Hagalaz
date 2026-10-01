@@ -78,9 +78,10 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                         .WithCount(jewelry.Count)
                         .Build();
                     if (equipment)
-                        character.Equipment.Replace((EquipmentSlot)slot, newItem);
-                    else
-                        character.Inventory.Items.Replace(slot, newItem);
+                    {
+                        if (!character.Equipment.TryReplaceEquippedItem((EquipmentSlot)slot, jewelry, newItem)) return false;
+                    }
+                    else character.Inventory.Items.Replace(slot, newItem);
 
                     var nameArray = jewelry.Name.Split('(');
                     int.TryParse(nameArray[1].Replace("(", "").Replace(")", ""), out var charges);
@@ -118,7 +119,9 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                     if (jewelry.Id == 3867)
                     {
                         if (equipment)
-                            character.Equipment.Remove(jewelry, EquipmentSlot.Amulet);
+                        {
+                            if (character.Equipment.RemoveEquippedItem(jewelry, EquipmentSlot.Amulet) <= 0) return false;
+                        }
                         else
                             character.Inventory.Items.Remove(jewelry, slot);
                         character.SendChatMessage("Your " + jewelry.Name + " has been depleted of all its charges.");
@@ -130,10 +133,12 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                             .WithId(jewelry.Id + 2)
                             .WithCount(jewelry.Count)
                             .Build();
-                        if (equipment)
-                            character.Equipment.Replace((EquipmentSlot)slot, newItem);
+                        if (equipment && !character.Equipment.TryReplaceEquippedItem((EquipmentSlot)slot, jewelry, newItem))
+                            return false;
                         else
-                            character.Inventory.Items.Replace(slot, newItem);
+                        {
+                            if (!equipment) character.Inventory.Items.Replace(slot, newItem);
+                        }
                     }
 
                     var nameArray = jewelry.Name.Split('(');
@@ -174,10 +179,12 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                         .WithId(jewelry.Id + 2)
                         .WithCount(jewelry.Count)
                         .Build();
-                    if (equipment)
-                        character.Equipment.Replace((EquipmentSlot)slot, newItem);
+                    if (equipment && !character.Equipment.TryReplaceEquippedItem((EquipmentSlot)slot, jewelry, newItem))
+                        return false;
                     else
-                        character.Inventory.Items.Replace(slot, newItem);
+                    {
+                        if (!equipment) character.Inventory.Items.Replace(slot, newItem);
+                    }
                     var nameArray = jewelry.Name.Split('(');
                     int.TryParse(nameArray[1].Replace("(", "").Replace(")", ""), out var charges);
                     if (charges != -1)
@@ -215,19 +222,25 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                     int.TryParse(nameArray[1].Replace("(", "").Replace(")", ""), out var charges);
                     if (charges != 1)
                     {
-                        character.SendChatMessage("Your " + nameArray[0] + " has " + (charges - 1) + " charges remaining.");
                         var newItem = character.ServiceProvider.GetRequiredService<IItemBuilder>()
                             .Create()
                             .WithId(jewelry.Id + 1)
                             .WithCount(jewelry.Count)
                             .Build();
-                        if (equipment) character.Equipment.Replace((EquipmentSlot)slot, newItem);
+                        if (equipment)
+                        {
+                            if (!character.Equipment.TryReplaceEquippedItem((EquipmentSlot)slot, jewelry, newItem)) return false;
+                        }
                         else character.Inventory.Items.Replace(slot, newItem);
+                        character.SendChatMessage("Your " + nameArray[0] + " has " + (charges - 1) + " charges remaining.");
                     }
                     else
                     {
                         character.SendChatMessage("Your " + nameArray[0] + " has been depleted of all its charges.");
-                        if (equipment) character.Equipment.Remove(jewelry, (EquipmentSlot)slot);
+                        if (equipment)
+                        {
+                            if (character.Equipment.RemoveEquippedItem(jewelry, (EquipmentSlot)slot) <= 0) return false;
+                        }
                         else character.Inventory.Items.Remove(jewelry, slot);
                     }
 

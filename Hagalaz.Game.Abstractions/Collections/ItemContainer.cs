@@ -12,8 +12,9 @@ public sealed class ItemContainer : IItemContainer
     private readonly Action<HashSet<int>?>? _publishChanges;
     private readonly ItemContainerMutationBoundary _mutations;
 
-    internal ItemContainerStorage Storage => _storage;
     public IItemContainerMutationBoundary Mutations => _mutations;
+
+    internal int CountToResetTo => _storage.CountToResetTo;
 
     public StorageType Type => _storage.Type;
     public int Capacity => _storage.Capacity;
@@ -91,6 +92,23 @@ public sealed class ItemContainer : IItemContainer
         if (!_storage.TryAddRange(items, out var changedSlots)) return false;
         if (changedSlots.Count > 0) PublishChanges(changedSlots);
         return true;
+    }
+
+    internal void RestoreItems(IEnumerable<(int Slot, IItem Item)> items, bool allowZeroCount = false) =>
+        _storage.RestoreItems(items, allowZeroCount);
+
+    internal IItem?[] SnapshotItems() => _storage.ToArray();
+
+    internal void ReplaceState(IItem?[] items) => _storage.ReplaceState(items);
+
+    internal void ExecuteUnderMutationLock(Action action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        lock (_storage.MutationLock)
+        {
+            action();
+        }
     }
 
     public bool Contains(int id, int count) => _storage.Contains(id, count);

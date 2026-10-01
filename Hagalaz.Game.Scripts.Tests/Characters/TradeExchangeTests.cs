@@ -80,9 +80,9 @@ public sealed class TradeExchangeTests
         var firstPublicationSawFinalState = false;
         firstInventory.OnUpdateAction = () =>
         {
-            Monitor.IsEntered(firstInventory.MutationLock).Should().BeFalse();
-            Monitor.IsEntered(firstMoneyPouch.MutationLock).Should().BeFalse();
-            Monitor.IsEntered(secondMoneyPouch.MutationLock).Should().BeFalse();
+            firstInventory.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
+            firstMoneyPouch.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
+            secondMoneyPouch.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
             firstInventory.Items.GetCountById(101).Should().Be(1);
             secondInventory.Items.GetCountById(100).Should().Be(1);
             firstOffer.Items.TakenSlots.Should().Be(0);
@@ -135,9 +135,9 @@ public sealed class TradeExchangeTests
         var publicationSawFinalState = false;
         offer.OnUpdateAction = () =>
         {
-            Monitor.IsEntered(offer.MutationLock).Should().BeFalse();
-            Monitor.IsEntered(moneyPouch.MutationLock).Should().BeFalse();
-            Monitor.IsEntered(inventory.MutationLock).Should().BeFalse();
+            offer.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
+            moneyPouch.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
+            inventory.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
             offer.Items.GetCountById(995).Should().Be(25);
             moneyPouch.Count.Should().Be(0);
             inventory.Items.GetCountById(995).Should().Be(0);
@@ -193,9 +193,9 @@ public sealed class TradeExchangeTests
         var publicationSawFinalState = false;
         offer.OnUpdateAction = () =>
         {
-            Monitor.IsEntered(offer.MutationLock).Should().BeFalse();
-            Monitor.IsEntered(moneyPouch.MutationLock).Should().BeFalse();
-            Monitor.IsEntered(inventory.MutationLock).Should().BeFalse();
+            offer.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
+            moneyPouch.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
+            inventory.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
             offer.Items.GetCountById(995).Should().Be(0);
             moneyPouch.Count.Should().Be(int.MaxValue);
             inventory.Items.GetCountById(995).Should().Be(5);
@@ -665,20 +665,20 @@ public sealed class TradeExchangeTests
     private static object? GetProperty(object target, string name) =>
         target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(target);
 
-    private sealed class TestMoneyPouch : ComposedTestContainer, IMoneyPouchContainer
+    private sealed class TestMoneyPouch : ComposedTestContainer, IMoneyPouchContainer, IMoneyPouchMutationBoundary
     {
         private readonly IInventoryContainer _overflowInventory;
+        public IMoneyPouchMutationBoundary Mutations => this;
         public bool FailNextStorageAdd { get; set; }
         public TestMoneyPouch(IInventoryContainer overflowInventory) : base(StorageType.AlwaysStack, 1, 0, publishItemChanges: false)
         {
             _overflowInventory = overflowInventory;
-            Container.Storage.ReplaceState([new TestItem(995, 0, stackable: true)]);
+            Container.ReplaceState([new TestItem(995, 0, stackable: true)]);
         }
         public string Examine => Count.ToString();
         public int Count => Items[0]?.Count ?? 0;
         public bool HasSpaceForCoins(int count) => count > 0 && (long)Count + count <= int.MaxValue;
-        public bool Contains(int id) => Items.Contains(id);
-        public bool Contains(int id, int count) => Items.Contains(id, count);
+        public bool HasCoins(int count) => count > 0 && (long)Count + _overflowInventory.Items.GetCountById(995) >= count;
 
         public bool Add(int count)
         {
@@ -691,10 +691,10 @@ public sealed class TradeExchangeTests
         public bool TryAddExact(int count)
         {
             var transaction = new ItemContainerTransaction();
-            EnlistIn(transaction);
-            return transaction.TryExecute(tx => TryStageAddExact(tx, count));
+            Mutations.EnlistIn(transaction);
+            return transaction.TryExecute(tx => Mutations.TryStageAddExact(tx, count));
         }
-        public bool TryStageAddExact(IItemContainerTransaction transaction, int count)
+        bool IMoneyPouchMutationBoundary.TryStageAddExact(IItemContainerTransaction transaction, int count)
         {
             if (FailNextStorageAdd) { FailNextStorageAdd = false; return false; }
             if (count <= 0) return false;
@@ -707,7 +707,7 @@ public sealed class TradeExchangeTests
             if (pouchCount > 0) transaction.OnCommitted(() => OnUpdate());
             return true;
         }
-        public void EnlistIn(IItemContainerTransaction transaction)
+        void IMoneyPouchMutationBoundary.EnlistIn(IItemContainerTransaction transaction)
         {
             transaction.Include(Items.Mutations);
             transaction.Include(_overflowInventory.Items.Mutations);
@@ -723,10 +723,10 @@ public sealed class TradeExchangeTests
         public bool TryRemoveExact(int count)
         {
             var transaction = new ItemContainerTransaction();
-            EnlistIn(transaction);
-            return transaction.TryExecute(tx => TryStageRemoveExact(tx, count));
+            Mutations.EnlistIn(transaction);
+            return transaction.TryExecute(tx => Mutations.TryStageRemoveExact(tx, count));
         }
-        public bool TryStageRemoveExact(IItemContainerTransaction transaction, int count)
+        bool IMoneyPouchMutationBoundary.TryStageRemoveExact(IItemContainerTransaction transaction, int count)
         {
             if (count <= 0) return false;
             var pouchCount = Math.Min(Count, count); var overflow = count - pouchCount;
