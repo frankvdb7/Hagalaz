@@ -60,6 +60,34 @@ public sealed class CraftingProductNamingTests
         Assert.AreEqual(string.Empty, dialogue.ProductNamingCallback(400));
     }
 
+    [TestMethod]
+    public async Task CutGemProductName_UsesMarkupForSatisfiedAndUnsatisfiedRequirements()
+    {
+        var inventory = new ComposedTestContainer(2);
+        var uncut = ComposedTestContainer.CreateTestItem(1623);
+        inventory.SetItem(0, uncut);
+        var gem = new GemDto
+        {
+            UncutGemID = 1623,
+            CutGemID = 1607,
+            AnimationID = 886,
+            RequiredLevel = 20,
+            CraftingExperience = 50
+        };
+        var crafting = Substitute.For<ICraftingService>();
+        crafting.FindGemByResourceID(1623).Returns(Task.FromResult<GemDto?>(gem));
+        var itemService = Substitute.For<IItemService>();
+        var cutGemDefinition = CreateDefinition("Cut sapphire");
+        itemService.FindItemDefinitionById(1607).Returns(cutGemDefinition);
+        var (character, dialogue) = CreateCharacter(inventory, crafting, itemService, craftingLevel: 20);
+
+        await new CraftingSkillService(CreateItemBuilder()).TryCutGem(character, uncut);
+
+        Assert.AreEqual("Cut sapphire", dialogue.ProductNamingCallback(1607));
+        inventory.Items.Remove(uncut, 0);
+        Assert.AreEqual("<col=FF0000>Cut sapphire</col>", dialogue.ProductNamingCallback(1607));
+    }
+
     private static (ICharacter Character, InteractiveDialogueScript Dialogue) CreateCharacter(
         ComposedTestContainer inventory, ICraftingService craftingService, IItemService itemService, int craftingLevel)
     {

@@ -16,10 +16,132 @@ public sealed class TradeInteractionRegressionTests
     [TestMethod]
     public void SelfAndTargetOfferHandlers_MoveItemsFromTheirOwnInventories()
     {
+        var session = CreateSession(20, 20);
+
+        Assert.IsTrue(session.SelfOffer!(0, ComponentClickType.Option2Click, session.SelfItem.Id, 0));
+        Assert.IsTrue(session.TargetOffer!(0, ComponentClickType.Option3Click, session.TargetItem.Id, 0));
+        Assert.IsTrue(session.SelfOfferedItems!(32, ComponentClickType.LeftClick, session.SelfItem.Id, 0));
+        Assert.IsTrue(session.TargetOfferedItems!(32, ComponentClickType.Option2Click, session.TargetItem.Id, 0));
+
+        Assert.AreEqual(16, session.SelfInventory.Items.GetCountById(session.SelfItem.Id));
+        Assert.AreEqual(4, session.SelfScript.SelfContainer.Items.GetCountById(session.SelfItem.Id));
+        Assert.AreEqual(15, session.TargetInventory.Items.GetCountById(session.TargetItem.Id));
+        Assert.AreEqual(5, session.SelfScript.TargetContainer.Items.GetCountById(session.TargetItem.Id));
+        Assert.AreEqual(0, session.TargetScript.SelfContainer.Items.TakenSlots);
+    }
+
+    [DataTestMethod]
+    [DataRow(ComponentClickType.LeftClick, 1)]
+    [DataRow(ComponentClickType.Option2Click, 5)]
+    [DataRow(ComponentClickType.Option3Click, 10)]
+    [DataRow(ComponentClickType.Option4Click, 20)]
+    public void OfferHandler_UsesExpectedPresetAmount(ComponentClickType clickType, int expected)
+    {
+        var session = CreateSession(20, 20);
+
+        Assert.IsTrue(session.SelfOffer!(0, clickType, session.SelfItem.Id, 0));
+
+        Assert.AreEqual(expected, session.SelfScript.SelfContainer.Items.GetCountById(session.SelfItem.Id));
+        Assert.AreEqual(20 - expected, session.SelfInventory.Items.GetCountById(session.SelfItem.Id));
+        Assert.AreEqual(0, session.TargetScript.SelfContainer.Items.GetCountById(session.SelfItem.Id));
+    }
+
+    [DataTestMethod]
+    [DataRow(ComponentClickType.LeftClick, 1)]
+    [DataRow(ComponentClickType.Option2Click, 5)]
+    [DataRow(ComponentClickType.Option3Click, 10)]
+    [DataRow(ComponentClickType.Option4Click, 20)]
+    public void RemoveOfferHandler_UsesExpectedPresetAmount(ComponentClickType clickType, int expected)
+    {
+        var session = CreateSession(20, 20);
+        session.SelfOffer!(0, ComponentClickType.Option4Click, session.SelfItem.Id, 0);
+
+        Assert.IsTrue(session.SelfOfferedItems!(32, clickType, session.SelfItem.Id, 0));
+
+        Assert.AreEqual(20 - expected, session.SelfScript.SelfContainer.Items.GetCountById(session.SelfItem.Id));
+        Assert.AreEqual(expected, session.SelfInventory.Items.GetCountById(session.SelfItem.Id));
+        Assert.AreEqual(0, session.TargetInventory.Items.GetCountById(session.SelfItem.Id));
+    }
+
+    [TestMethod]
+    public void OfferX_UsesOwnerBoundedInputAndRejectsStaleCallback()
+    {
+        var session = CreateSession(20, 20);
+        Assert.IsTrue(session.TargetOffer!(0, ComponentClickType.Option5Click, session.TargetItem.Id, 0));
+        var staleHandler = session.Target.Widgets.IntInputHandler!;
+        Assert.IsTrue(session.TargetOffer(0, ComponentClickType.Option5Click, session.TargetItem.Id, 0));
+        var activeHandler = session.Target.Widgets.IntInputHandler!;
+
+        staleHandler(7);
+        Assert.AreEqual(0, session.SelfScript.TargetContainer.Items.TakenSlots);
+        Assert.AreSame(activeHandler, session.Target.Widgets.IntInputHandler);
+
+        activeHandler(50);
+        Assert.AreEqual(20, session.SelfScript.TargetContainer.Items.GetCountById(session.TargetItem.Id));
+        Assert.AreEqual(0, session.TargetInventory.Items.GetCountById(session.TargetItem.Id));
+        Assert.IsNull(session.Target.Widgets.IntInputHandler);
+    }
+
+    [DataTestMethod]
+    [DataRow(0)]
+    [DataRow(-4)]
+    public void OfferX_NonpositiveInputDoesNotTransfer(int amount)
+    {
+        var session = CreateSession(20, 20);
+        Assert.IsTrue(session.SelfOffer!(0, ComponentClickType.Option5Click, session.SelfItem.Id, 0));
+
+        session.Self.Widgets.IntInputHandler!(amount);
+
+        Assert.AreEqual(20, session.SelfInventory.Items.GetCountById(session.SelfItem.Id));
+        Assert.AreEqual(0, session.SelfScript.SelfContainer.Items.TakenSlots);
+    }
+
+    [TestMethod]
+    public void RemoveOfferX_UsesCorrectCharacterAndBoundsAmount()
+    {
+        var session = CreateSession(20, 20);
+        session.SelfOffer!(0, ComponentClickType.Option4Click, session.SelfItem.Id, 0);
+        Assert.IsTrue(session.SelfOfferedItems!(32, ComponentClickType.Option5Click, session.SelfItem.Id, 0));
+
+        session.Self.Widgets.IntInputHandler!(50);
+
+        Assert.AreEqual(20, session.SelfInventory.Items.GetCountById(session.SelfItem.Id));
+        Assert.AreEqual(0, session.SelfScript.SelfContainer.Items.GetCountById(session.SelfItem.Id));
+        Assert.IsNull(session.Self.Widgets.IntInputHandler);
+    }
+
+    [DataTestMethod]
+    [DataRow(0)]
+    [DataRow(-2)]
+    public void RemoveOfferX_NonpositiveInputDoesNotTransfer(int amount)
+    {
+        var session = CreateSession(20, 20);
+        session.SelfOffer!(0, ComponentClickType.Option4Click, session.SelfItem.Id, 0);
+        Assert.IsTrue(session.SelfOfferedItems!(32, ComponentClickType.Option5Click, session.SelfItem.Id, 0));
+
+        session.Self.Widgets.IntInputHandler!(amount);
+
+        Assert.AreEqual(0, session.SelfInventory.Items.GetCountById(session.SelfItem.Id));
+        Assert.AreEqual(20, session.SelfScript.SelfContainer.Items.GetCountById(session.SelfItem.Id));
+        Assert.IsNull(session.Self.Widgets.IntInputHandler);
+    }
+
+    [TestMethod]
+    public void OfferHandler_AfterTradeSessionIsCancelledDoesNotMutate()
+    {
+        var session = CreateSession(20, 20);
+        session.SelfScript.CancelTradeSession();
+
+        Assert.IsFalse(session.SelfOffer!(0, ComponentClickType.Option4Click, session.SelfItem.Id, 0));
+        Assert.AreEqual(20, session.SelfInventory.Items.GetCountById(session.SelfItem.Id));
+    }
+
+    private static TradeSession CreateSession(int selfCount, int targetCount)
+    {
         var selfInventory = new ComposedTestContainer(4);
         var targetInventory = new ComposedTestContainer(4);
-        var selfItem = CreateTradeableItem(100, 20);
-        var targetItem = CreateTradeableItem(101, 20);
+        var selfItem = CreateTradeableItem(100, selfCount);
+        var targetItem = CreateTradeableItem(101, targetCount);
         selfInventory.SetItem(0, selfItem);
         targetInventory.SetItem(0, targetItem);
         var selfWidgets = CreateWidgets(out var selfInterface, out var selfOverlay);
@@ -44,20 +166,15 @@ public sealed class TradeInteractionRegressionTests
             .Do(call => selfOfferedItems = call.ArgAt<OnComponentClick>(1));
         targetInterface.When(x => x.AttachClickHandler(32, Arg.Any<OnComponentClick>()))
             .Do(call => targetOfferedItems = call.ArgAt<OnComponentClick>(1));
-
         selfScript.StartTradeSession(target);
-
-        Assert.IsTrue(selfOffer!(0, ComponentClickType.Option2Click, selfItem.Id, 0));
-        Assert.IsTrue(targetOffer!(0, ComponentClickType.Option3Click, targetItem.Id, 0));
-        Assert.IsTrue(selfOfferedItems!(32, ComponentClickType.LeftClick, selfItem.Id, 0));
-        Assert.IsTrue(targetOfferedItems!(32, ComponentClickType.Option2Click, targetItem.Id, 0));
-
-        Assert.AreEqual(16, selfInventory.Items.GetCountById(selfItem.Id));
-        Assert.AreEqual(4, selfScript.SelfContainer.Items.GetCountById(selfItem.Id));
-        Assert.AreEqual(15, targetInventory.Items.GetCountById(targetItem.Id));
-        Assert.AreEqual(5, selfScript.TargetContainer.Items.GetCountById(targetItem.Id));
-        Assert.AreEqual(0, targetScript.SelfContainer.Items.TakenSlots);
+        return new TradeSession(selfInventory, targetInventory, selfItem, targetItem, self, target, selfScript,
+            targetScript, selfOffer, targetOffer, selfOfferedItems, targetOfferedItems);
     }
+
+    private sealed record TradeSession(ComposedTestContainer SelfInventory, ComposedTestContainer TargetInventory,
+        IItem SelfItem, IItem TargetItem, ICharacter Self, ICharacter Target, TradingCharacterScript SelfScript,
+        TradingCharacterScript TargetScript, OnComponentClick? SelfOffer, OnComponentClick? TargetOffer,
+        OnComponentClick? SelfOfferedItems, OnComponentClick? TargetOfferedItems);
 
     private static ICharacter CreateCharacter(string name, ComposedTestContainer inventory, IWidgetContainer widgets,
         out ICharacterContextAccessor accessor)

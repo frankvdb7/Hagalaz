@@ -736,8 +736,8 @@ namespace Hagalaz.Game.Scripts.Characters
             OnIntInput handler = null;
             handler = amount =>
             {
-                character.Widgets.IntInputHandler = null;
                 if ((self ? SelfIntInputHandler : TargetIntInputHandler) != handler) return;
+                character.Widgets.IntInputHandler = null;
                 if (self) SelfIntInputHandler = null;
                 else TargetIntInputHandler = null;
                 if (amount > 0) onAmount(amount);

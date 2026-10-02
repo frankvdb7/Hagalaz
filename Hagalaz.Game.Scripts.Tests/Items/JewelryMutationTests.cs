@@ -67,6 +67,55 @@ public sealed class JewelryMutationTests
     }
 
     [TestMethod]
+    public void DepletedEquippedSlayingRing_IsRemovedFromItsExactEquipmentSlot()
+    {
+        var ring = new JewelryTestItem(2150, 1, "Ring of slaying (1)");
+        var inventory = new ComposedTestContainer(2);
+        var equipment = Substitute.For<IEquipmentContainer>();
+        equipment.Capacity.Returns(14);
+        var slot = (int)EquipmentSlot.Ring;
+        var items = new IItem?[equipment.Capacity];
+        items[slot] = ring;
+        equipment[slot].Returns(ring);
+        equipment.GetEnumerator().Returns(_ => items.AsEnumerable().GetEnumerator());
+        equipment.RemoveEquippedItem(ring, EquipmentSlot.Ring).Returns(_ =>
+        {
+            items[slot] = null;
+            return 1;
+        });
+        var character = CreateCharacter(inventory, equipment);
+
+        Jewelry.TeleportRingOfSlaying(character, ring, equipment: true, Jewelry.RingOfSlayingTeleports[0]);
+
+        equipment.Received(1).RemoveEquippedItem(ring, EquipmentSlot.Ring);
+        Assert.IsNull(items[slot]);
+        character.Received(1).SendChatMessage("Your Ring of slaying  has been depleted of all its charges.");
+        equipment.DidNotReceive().TryReplaceEquippedItem(Arg.Any<EquipmentSlot>(), Arg.Any<IItem>(), Arg.Any<IItem>());
+    }
+
+    [TestMethod]
+    public void DepletedEquippedSlayingRing_StaleInstanceDoesNotRemoveOrReportSuccess()
+    {
+        var current = new JewelryTestItem(2150, 1, "Ring of slaying (1)");
+        var stale = new JewelryTestItem(2150, 1, "Ring of slaying (1)");
+        var inventory = new ComposedTestContainer(2);
+        var equipment = Substitute.For<IEquipmentContainer>();
+        equipment.Capacity.Returns(14);
+        var slot = (int)EquipmentSlot.Ring;
+        var items = new IItem?[equipment.Capacity];
+        items[slot] = current;
+        equipment[slot].Returns(current);
+        equipment.GetEnumerator().Returns(_ => items.AsEnumerable().GetEnumerator());
+        var character = CreateCharacter(inventory, equipment);
+
+        Jewelry.TeleportRingOfSlaying(character, stale, equipment: true, Jewelry.RingOfSlayingTeleports[0]);
+
+        Assert.AreSame(current, items[slot]);
+        equipment.DidNotReceive().RemoveEquippedItem(Arg.Any<IItem>(), Arg.Any<EquipmentSlot>());
+        character.DidNotReceive().SendChatMessage(Arg.Is<string>(message => message.Contains("depleted")));
+    }
+
+    [TestMethod]
     public void StaleJewelryInstance_DoesNotReplaceAnotherItemWithTheSameId()
     {
         var inventory = new ComposedTestContainer(2);

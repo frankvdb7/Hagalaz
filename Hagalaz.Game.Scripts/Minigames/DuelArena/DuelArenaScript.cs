@@ -1035,8 +1035,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         private void CompleteDuelAmountInput(bool self, ICharacter character, int amount, OnIntInput handler,
             Action<int> onAmount)
         {
-            character.Widgets.IntInputHandler = null;
             if ((self ? SelfIntInputHandler : TargetIntInputHandler) != handler) return;
+            character.Widgets.IntInputHandler = null;
             if (self) SelfIntInputHandler = null;
             else TargetIntInputHandler = null;
             if (amount <= 0) return;
