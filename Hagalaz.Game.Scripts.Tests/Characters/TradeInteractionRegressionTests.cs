@@ -1,10 +1,12 @@
 using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Characters;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
@@ -127,6 +129,57 @@ public sealed class TradeInteractionRegressionTests
     }
 
     [TestMethod]
+    public void SelfMoneyPouchX_StaleCallbackPreservesNewHandlerAndCurrentCallbackOffersCoins()
+    {
+        var session = CreateSession(20, 20);
+        Assert.IsTrue(session.SelfPouch!(53, ComponentClickType.LeftClick, 0, 0));
+        var staleHandler = session.Self.Widgets.IntInputHandler!;
+        Assert.IsTrue(session.SelfPouch(53, ComponentClickType.LeftClick, 0, 0));
+        var activeHandler = session.Self.Widgets.IntInputHandler!;
+
+        staleHandler(7);
+
+        Assert.AreSame(activeHandler, session.Self.Widgets.IntInputHandler);
+        Assert.AreEqual(0, session.SelfScript.SelfContainer.Items.GetCountById(995));
+        activeHandler(25);
+
+        Assert.AreEqual(75, session.Self.MoneyPouch.Count);
+        Assert.AreEqual(25, session.SelfScript.SelfContainer.Items.GetCountById(995));
+        session.Self.Configurations.Received(2).SendIntegerInput(
+            "Your money pouch currently contains 100 coins.<br>How many would you like to offer?");
+        Assert.IsNull(session.Self.Widgets.IntInputHandler);
+    }
+
+    [DataTestMethod]
+    [DataRow(0)]
+    [DataRow(-1)]
+    public void SelfMoneyPouchX_NonpositiveAmountDoesNotOfferCoins(int amount)
+    {
+        var session = CreateSession(20, 20);
+        Assert.IsTrue(session.SelfPouch!(53, ComponentClickType.LeftClick, 0, 0));
+
+        session.Self.Widgets.IntInputHandler!(amount);
+
+        Assert.AreEqual(100, session.Self.MoneyPouch.Count);
+        Assert.AreEqual(0, session.SelfScript.SelfContainer.Items.GetCountById(995));
+    }
+
+    [TestMethod]
+    public void TargetMoneyPouchX_UsesTargetHandlerAndPouch()
+    {
+        var session = CreateSession(20, 20);
+        Assert.IsTrue(session.TargetPouch!(53, ComponentClickType.LeftClick, 0, 0));
+        var targetHandler = session.Target.Widgets.IntInputHandler!;
+
+        targetHandler(20);
+
+        Assert.AreEqual(80, session.Target.MoneyPouch.Count);
+        Assert.AreEqual(20, session.SelfScript.TargetContainer.Items.GetCountById(995));
+        Assert.AreEqual(100, session.Self.MoneyPouch.Count);
+        Assert.IsNull(session.Target.Widgets.IntInputHandler);
+    }
+
+    [TestMethod]
     public void OfferHandler_AfterTradeSessionIsCancelledDoesNotMutate()
     {
         var session = CreateSession(20, 20);
@@ -148,6 +201,10 @@ public sealed class TradeInteractionRegressionTests
         var targetWidgets = CreateWidgets(out var targetInterface, out var targetOverlay);
         var self = CreateCharacter("self", selfInventory, selfWidgets, out var selfAccessor);
         var target = CreateCharacter("target", targetInventory, targetWidgets, out var targetAccessor);
+        var selfMoneyPouch = CreateMoneyPouch(self);
+        var targetMoneyPouch = CreateMoneyPouch(target);
+        self.MoneyPouch.Returns(selfMoneyPouch);
+        target.MoneyPouch.Returns(targetMoneyPouch);
         var selfScript = new TradingCharacterScript(selfAccessor, CreateItemBuilder());
         var targetScript = new TradingCharacterScript(targetAccessor, CreateItemBuilder());
         self.GetScript<TradingCharacterScript>().Returns(selfScript);
@@ -158,6 +215,8 @@ public sealed class TradeInteractionRegressionTests
         OnComponentClick? targetOffer = null;
         OnComponentClick? selfOfferedItems = null;
         OnComponentClick? targetOfferedItems = null;
+        OnComponentClick? selfPouch = null;
+        OnComponentClick? targetPouch = null;
         selfOverlay.When(x => x.AttachClickHandler(0, Arg.Any<OnComponentClick>()))
             .Do(call => selfOffer = call.ArgAt<OnComponentClick>(1));
         targetOverlay.When(x => x.AttachClickHandler(0, Arg.Any<OnComponentClick>()))
@@ -166,15 +225,27 @@ public sealed class TradeInteractionRegressionTests
             .Do(call => selfOfferedItems = call.ArgAt<OnComponentClick>(1));
         targetInterface.When(x => x.AttachClickHandler(32, Arg.Any<OnComponentClick>()))
             .Do(call => targetOfferedItems = call.ArgAt<OnComponentClick>(1));
+        selfInterface.When(x => x.AttachClickHandler(53, Arg.Any<OnComponentClick>()))
+            .Do(call => selfPouch = call.ArgAt<OnComponentClick>(1));
+        targetInterface.When(x => x.AttachClickHandler(53, Arg.Any<OnComponentClick>()))
+            .Do(call => targetPouch = call.ArgAt<OnComponentClick>(1));
         selfScript.StartTradeSession(target);
         return new TradeSession(selfInventory, targetInventory, selfItem, targetItem, self, target, selfScript,
-            targetScript, selfOffer, targetOffer, selfOfferedItems, targetOfferedItems);
+            targetScript, selfOffer, targetOffer, selfOfferedItems, targetOfferedItems, selfPouch, targetPouch);
+    }
+
+    private static MoneyPouchContainer CreateMoneyPouch(ICharacter character)
+    {
+        var pouch = new MoneyPouchContainer(character, CreateItemBuilder());
+        Assert.IsTrue(pouch.Add(100));
+        return pouch;
     }
 
     private sealed record TradeSession(ComposedTestContainer SelfInventory, ComposedTestContainer TargetInventory,
         IItem SelfItem, IItem TargetItem, ICharacter Self, ICharacter Target, TradingCharacterScript SelfScript,
         TradingCharacterScript TargetScript, OnComponentClick? SelfOffer, OnComponentClick? TargetOffer,
-        OnComponentClick? SelfOfferedItems, OnComponentClick? TargetOfferedItems);
+        OnComponentClick? SelfOfferedItems, OnComponentClick? TargetOfferedItems, OnComponentClick? SelfPouch,
+        OnComponentClick? TargetPouch);
 
     private static ICharacter CreateCharacter(string name, ComposedTestContainer inventory, IWidgetContainer widgets,
         out ICharacterContextAccessor accessor)
@@ -184,6 +255,7 @@ public sealed class TradeInteractionRegressionTests
         character.Inventory.Returns(inventory);
         character.Widgets.Returns(widgets);
         character.Configurations.Returns(Substitute.For<IConfigurations>());
+        character.EventManager.Returns(Substitute.For<IEventManager>());
         var context = Substitute.For<ICharacterContext>();
         context.Character.Returns(character);
         accessor = Substitute.For<ICharacterContextAccessor>();
@@ -216,7 +288,7 @@ public sealed class TradeInteractionRegressionTests
     private static IItem CreateTradeableItem(int id, int count)
         => new TradeableItem(id, count);
 
-    private static IItemBuilder CreateItemBuilder() => new TestItemBuilder(ComposedTestContainer.CreateTestItem);
+    private static IItemBuilder CreateItemBuilder() => new TestItemBuilder((id, count) => CreateTradeableItem(id, count));
 
     private sealed class TradeableItem(int id, int count) : IItem
     {

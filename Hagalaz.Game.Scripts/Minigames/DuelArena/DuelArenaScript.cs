@@ -530,21 +530,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return false;
                     }
 
-                    OnIntInput handler = null;
-                    handler = amt =>
+                    RequestDuelAmountInput(true, "Please enter the amount to stake:", amt =>
                     {
-                        Character.Widgets.IntInputHandler = null;
-                        if (SelfIntInputHandler != handler)
-                        {
-                            return;
-                        }
-
-                        SelfIntInputHandler = null;
-                        if (amt <= 0)
-                        {
-                            return;
-                        }
-
                         if (!SelfContainer.Items.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(amt).Build()))
                         {
                             Character.SendChatMessage("The stake is full.");
@@ -558,9 +545,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(true, false);
-                    };
-                    SelfIntInputHandler = Character.Widgets.IntInputHandler = handler;
-                    Character.Configurations.SendIntegerInput("Please enter the amount to stake:");
+                    });
                     return true;
                 });
 
@@ -572,21 +557,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return false;
                     }
 
-                    OnIntInput handler = null;
-                    handler = amt =>
+                    RequestDuelAmountInput(false, "Please enter the amount to stake:", amt =>
                     {
-                        Target.Widgets.IntInputHandler = null;
-                        if (TargetIntInputHandler != handler)
-                        {
-                            return;
-                        }
-
-                        TargetIntInputHandler = null;
-                        if (amt <= 0)
-                        {
-                            return;
-                        }
-
                         if (!TargetContainer.Items.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(amt).Build()))
                         {
                             Target.SendChatMessage("The stake is full.");
@@ -600,9 +572,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(false, false);
-                    };
-                    TargetIntInputHandler = Target.Widgets.IntInputHandler = handler;
-                    Target.Configurations.SendIntegerInput("Please enter the amount to stake:");
+                    });
                     return true;
                 });
 

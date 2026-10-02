@@ -16,7 +16,7 @@ public sealed class RopeCallerRegressionTests
     [TestMethod]
     public void Hole_WithRopeConsumesItAndInstallsGodWarsHoleState()
     {
-        var (character, inventory, rope, builder) = CreateCharacterWithRope();
+        var (character, inventory, _, builder) = CreateCharacterWithRope();
         var script = new Hole(builder);
         script.Initialize(CreateGameObject());
 
@@ -30,7 +30,7 @@ public sealed class RopeCallerRegressionTests
     [TestMethod]
     public void FirstRockDown_WithRopeConsumesItAndInstallsSaradominState()
     {
-        var (character, inventory, rope, builder) = CreateCharacterWithRope();
+        var (character, inventory, _, builder) = CreateCharacterWithRope();
         var script = new FirstRockDown(builder);
         script.Initialize(CreateGameObject());
 

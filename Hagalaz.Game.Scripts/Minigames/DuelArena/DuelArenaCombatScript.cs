@@ -143,7 +143,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     //victoryInterface.SetOptions(14, 0, 27, (0x2 | 0x400)); // allow clicking of 2 right click options + auto examine option ( last ))
                     //victor.Configurations.SendCS2Script(158, new object[] { (1365 << 16 | 14), 130, 3, 3, 1, -1, "Value", "", "", "", "" });
 
-                    victor.Configurations.SendItems(136, false, (victor == Character ? TargetContainer : SelfContainer)!.Items);
+                    victor.Configurations.SendItems(136, false, (ReferenceEquals(victor, Character) ? TargetContainer : SelfContainer)!.Items);
                 }
 
                 if (!loserDestroyed)
@@ -154,7 +154,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         // loseInterface.SetOptions(14, 0, 27, (0x2 | 0x400)); // allow clicking of 2 right click options + auto examine option ( last ))
                         //loser.Configurations.SendCS2Script(158, new object[] { (1365 << 16 | 14), 130, 3, 3, 1, -1, "Value", "", "", "", "" });
 
-                        loser.Configurations.SendItems(136, false, (victor == Character ? TargetContainer : SelfContainer)!.Items);
+                        loser.Configurations.SendItems(136, false, (ReferenceEquals(victor, Character) ? TargetContainer : SelfContainer)!.Items);
                     }
                 }
 

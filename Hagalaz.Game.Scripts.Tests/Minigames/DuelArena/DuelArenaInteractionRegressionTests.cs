@@ -14,6 +14,7 @@ using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Minigames.DuelArena;
 using Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
@@ -151,6 +152,74 @@ public sealed class DuelArenaInteractionRegressionTests
     }
 
     [TestMethod]
+    public void SelfMoneyPouchX_StaleInputPreservesNewHandlerAndCurrentInputStakesCoins()
+    {
+        var duel = CreateDuel(20, 20, selfPouchCoins: 100);
+        Assert.IsTrue(duel.SelfPouch!(8, ComponentClickType.LeftClick, 0, 0));
+        var staleHandler = duel.Self.Widgets.IntInputHandler!;
+        Assert.IsTrue(duel.SelfPouch(8, ComponentClickType.LeftClick, 0, 0));
+        var activeHandler = duel.Self.Widgets.IntInputHandler!;
+
+        staleHandler(7);
+
+        Assert.AreSame(activeHandler, duel.Self.Widgets.IntInputHandler);
+        Assert.AreEqual(0, duel.SelfStakeContainer.GetCountById(995));
+        activeHandler(40);
+
+        Assert.AreEqual(60, duel.Self.MoneyPouch.Count);
+        Assert.AreEqual(40, duel.SelfStakeContainer.GetCountById(995));
+        Assert.AreEqual(0, duel.TargetStakeContainer.GetCountById(995));
+        Assert.IsNull(duel.Self.Widgets.IntInputHandler);
+    }
+
+    [TestMethod]
+    public void TargetMoneyPouchX_UsesTargetHandlerAndStake()
+    {
+        var duel = CreateDuel(20, 20, targetPouchCoins: 60);
+        var selfHandler = duel.Self.Widgets.IntInputHandler;
+        Assert.IsTrue(duel.TargetPouch!(8, ComponentClickType.LeftClick, 0, 0));
+        var targetHandler = duel.Target.Widgets.IntInputHandler!;
+        Assert.AreSame(selfHandler, duel.Self.Widgets.IntInputHandler);
+
+        targetHandler(15);
+
+        Assert.AreEqual(45, duel.Target.MoneyPouch.Count);
+        Assert.AreEqual(15, duel.TargetStakeContainer.GetCountById(995));
+        Assert.AreEqual(0, duel.SelfStakeContainer.GetCountById(995));
+    }
+
+    [DataTestMethod]
+    [DataRow(0)]
+    [DataRow(-1)]
+    public void SelfMoneyPouchX_NonpositiveInputDoesNotStake(int amount)
+    {
+        var duel = CreateDuel(20, 20, selfPouchCoins: 100);
+        Assert.IsTrue(duel.SelfPouch!(8, ComponentClickType.LeftClick, 0, 0));
+
+        duel.Self.Widgets.IntInputHandler!(amount);
+
+        Assert.AreEqual(100, duel.Self.MoneyPouch.Count);
+        Assert.AreEqual(0, duel.SelfStakeContainer.GetCountById(995));
+    }
+
+    [TestMethod]
+    public void SelfMoneyPouchX_WhenStakeIsFullKeepsCoinsInPouchAndReportsCurrentMessage()
+    {
+        var duel = CreateDuel(20, 20, selfPouchCoins: 100);
+        for (var slot = 0; slot < 9; slot++)
+        {
+            Assert.IsTrue(duel.SelfStakeContainer.Add(CreateItem(300 + slot, 1)));
+        }
+        Assert.IsTrue(duel.SelfPouch!(8, ComponentClickType.LeftClick, 0, 0));
+
+        duel.Self.Widgets.IntInputHandler!(5);
+
+        Assert.AreEqual(100, duel.Self.MoneyPouch.Count);
+        Assert.AreEqual(0, duel.SelfStakeContainer.GetCountById(995));
+        duel.Self.Received(1).SendChatMessage("The stake is full.");
+    }
+
+    [TestMethod]
     public void StakeHandler_RejectsStaleSlotAndItemId()
     {
         var duel = CreateDuel(20, 20);
@@ -193,7 +262,7 @@ public sealed class DuelArenaInteractionRegressionTests
     }
 
     private static DuelHarness CreateDuel(int selfCount, int targetCount, bool selfTradeable = true,
-        int additionalSelfItems = 0)
+        int additionalSelfItems = 0, int selfPouchCoins = 0, int targetPouchCoins = 0)
     {
         var selfInventory = new ComposedTestContainer(16);
         var targetInventory = new ComposedTestContainer(16);
@@ -214,6 +283,10 @@ public sealed class DuelArenaInteractionRegressionTests
             task => selfReachTask = task);
         var target = CreateCharacter("target", targetInventory, targetWidgets, targetScreen, targetOverlay,
             out var targetAccessor, task => targetReachTask = task);
+        var selfMoneyPouch = CreateMoneyPouch(self, selfPouchCoins);
+        var targetMoneyPouch = CreateMoneyPouch(target, targetPouchCoins);
+        self.MoneyPouch.Returns(targetMoneyPouch);
+        target.MoneyPouch.Returns(selfMoneyPouch);
         self.Viewport.VisibleCreatures.Returns([target]);
         target.Viewport.VisibleCreatures.Returns([self]);
         var selfScript = new DuelArenaScript(selfAccessor, Substitute.For<IHintIconBuilder>(), CreateItemBuilder());
@@ -237,6 +310,8 @@ public sealed class DuelArenaInteractionRegressionTests
         OnComponentClick? targetStake = null;
         OnComponentClick? selfUnstake = null;
         OnComponentClick? targetUnstake = null;
+        OnComponentClick? selfPouch = null;
+        OnComponentClick? targetPouch = null;
         targetOverlay.When(x => x.AttachClickHandler(0, Arg.Any<OnComponentClick>()))
             .Do(call => selfStake = call.ArgAt<OnComponentClick>(1));
         selfOverlay.When(x => x.AttachClickHandler(0, Arg.Any<OnComponentClick>()))
@@ -245,6 +320,10 @@ public sealed class DuelArenaInteractionRegressionTests
             .Do(call => selfUnstake = call.ArgAt<OnComponentClick>(1));
         selfScreen.When(x => x.AttachClickHandler(7, Arg.Any<OnComponentClick>()))
             .Do(call => targetUnstake = call.ArgAt<OnComponentClick>(1));
+        targetScreen.When(x => x.AttachClickHandler(8, Arg.Any<OnComponentClick>()))
+            .Do(call => selfPouch = call.ArgAt<OnComponentClick>(1));
+        selfScreen.When(x => x.AttachClickHandler(8, Arg.Any<OnComponentClick>()))
+            .Do(call => targetPouch = call.ArgAt<OnComponentClick>(1));
 
         CharacterOptionClicked? selfChallenge = null;
         CharacterOptionClicked? targetChallenge = null;
@@ -263,7 +342,15 @@ public sealed class DuelArenaInteractionRegressionTests
         targetReachTask!.Tick();
 
         return new DuelHarness(target, self, targetInventory, selfInventory, targetItem, selfItem, targetScript,
-            targetStakeContainer!, selfStakeContainer!, selfStake, targetStake, selfUnstake, targetUnstake);
+            targetStakeContainer!, selfStakeContainer!, selfStake, targetStake, selfUnstake, targetUnstake,
+            selfPouch, targetPouch);
+    }
+
+    private static MoneyPouchContainer CreateMoneyPouch(ICharacter character, int coins)
+    {
+        var pouch = new MoneyPouchContainer(character, CreateItemBuilder());
+        if (coins > 0) Assert.IsTrue(pouch.Add(coins));
+        return pouch;
     }
 
     private static ICharacter CreateCharacter(string name, ComposedTestContainer inventory, IWidgetContainer widgets,
@@ -352,5 +439,5 @@ public sealed class DuelArenaInteractionRegressionTests
         ComposedTestContainer TargetInventory, IItem SelfItem, IItem TargetItem, DuelArenaScript SessionScript,
         IItemContainer SelfStakeContainer, IItemContainer TargetStakeContainer,
         OnComponentClick? SelfStake, OnComponentClick? TargetStake, OnComponentClick? SelfUnstake,
-        OnComponentClick? TargetUnstake);
+        OnComponentClick? TargetUnstake, OnComponentClick? SelfPouch, OnComponentClick? TargetPouch);
 }

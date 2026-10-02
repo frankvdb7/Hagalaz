@@ -28,8 +28,9 @@ public sealed class PrayerLookupTests
         var result = await Hagalaz.Game.Scripts.Skills.Prayer.Prayer.FindAvailableItem(character, item, prayerService, CancellationToken.None);
 
         Assert.IsNotNull(result);
-        Assert.AreSame(definition, result.Value.Definition);
-        Assert.AreEqual(0, result.Value.Slot);
+        var available = result!.Value;
+        Assert.AreSame(definition, available.Definition);
+        Assert.AreEqual(0, available.Slot);
     }
 
     [TestMethod]

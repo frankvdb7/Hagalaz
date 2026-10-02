@@ -506,25 +506,9 @@ namespace Hagalaz.Game.Scripts.Characters
                         return false;
                     }
 
-                    OnIntInput handler = null;
-                    handler = amt =>
-                    {
-                        Character.Widgets.IntInputHandler = null;
-                        if (SelfIntInputHandler != handler)
-                        {
-                            return;
-                        }
-
-                        SelfIntInputHandler = null;
-                        if (amt <= 0)
-                        {
-                            return;
-                        }
-
-                        TryOfferMoney(true, amt);
-                    };
-                    SelfIntInputHandler = Character.Widgets.IntInputHandler = handler;
-                    Character.Configurations.SendIntegerInput(Character.MoneyPouch.Examine + "<br>How many would you like to offer?");
+                    RequestTradeAmountInput(true,
+                        Character.MoneyPouch.Examine + "<br>How many would you like to offer?",
+                        amount => TryOfferMoney(true, amount));
                     return true;
                 });
 
@@ -536,25 +520,9 @@ namespace Hagalaz.Game.Scripts.Characters
                         return false;
                     }
 
-                    OnIntInput handler = null;
-                    handler = amt =>
-                    {
-                        Target.Widgets.IntInputHandler = null;
-                        if (TargetIntInputHandler != handler)
-                        {
-                            return;
-                        }
-
-                        TargetIntInputHandler = null;
-                        if (amt <= 0)
-                        {
-                            return;
-                        }
-
-                        TryOfferMoney(false, amt);
-                    };
-                    TargetIntInputHandler = Target.Widgets.IntInputHandler = handler;
-                    Target.Configurations.SendIntegerInput(Target.MoneyPouch.Examine + "<br>How many would you like to offer?");
+                    RequestTradeAmountInput(false,
+                        Target.MoneyPouch.Examine + "<br>How many would you like to offer?",
+                        amount => TryOfferMoney(false, amount));
                     return true;
                 });
 
