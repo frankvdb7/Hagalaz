@@ -1,8 +1,11 @@
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Scripts.Dialogues.Generic;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
@@ -11,6 +14,23 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
 {
     public static class Prayer
     {
+        internal static async Task<(PrayerDto Definition, int Slot)?> FindAvailableItem(
+            ICharacter character,
+            IItem item,
+            IPrayerService prayerService,
+            CancellationToken cancellationToken)
+        {
+            var definition = await prayerService.FindById(item.Id);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (definition == null)
+            {
+                return null;
+            }
+
+            var slot = character.Inventory.Items.GetInstanceSlot(item);
+            return slot == -1 ? null : (definition, slot);
+        }
+
         public static bool UseOnAltar(ICharacter character, IItem item, IGameObject altar, IPrayerService prayerService)
         {
             if (character.HasState<BuryingBonesState>())

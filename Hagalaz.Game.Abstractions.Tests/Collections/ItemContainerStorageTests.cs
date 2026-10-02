@@ -575,25 +575,16 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         [TestMethod]
         public void TryAddRange_EmptyRangePreservesEnumeratorAndStorage()
         {
-            var storage = new ItemContainerStorage(StorageType.Normal, 2);
-            var existing = CreateItem(1, 3, stackable: true);
-            Assert.IsTrue(storage.TryAdd(existing, out _));
-            var enumerator = storage.GetEnumerator();
-            var revision = storage.MutationRevision;
-
-            var result = storage.TryAddRange(Array.Empty<IItem?>(), out var changedSlots);
-
-            Assert.IsTrue(result);
-            Assert.IsEmpty(changedSlots);
-            Assert.AreEqual(revision, storage.MutationRevision);
-            Assert.AreSame(existing, storage[0]);
-            Assert.AreEqual(3, existing.Count);
-            Assert.IsTrue(enumerator.MoveNext());
-            Assert.AreSame(existing, enumerator.Current);
+            AssertNoOpAddRangePreservesStorage(Array.Empty<IItem?>());
         }
 
         [TestMethod]
         public void TryAddRange_AllNullItems_DoesNotAdvanceRevision()
+        {
+            AssertNoOpAddRangePreservesStorage(new IItem?[] { null, null });
+        }
+
+        private void AssertNoOpAddRangePreservesStorage(IItem?[] incoming)
         {
             var storage = new ItemContainerStorage(StorageType.Normal, 2);
             var existing = CreateItem(1, 3, stackable: true);
@@ -601,7 +592,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var enumerator = storage.GetEnumerator();
             var revision = storage.MutationRevision;
 
-            var result = storage.TryAddRange(new IItem?[] { null, null }, out var changedSlots);
+            var result = storage.TryAddRange(incoming, out var changedSlots);
 
             Assert.IsTrue(result);
             Assert.IsEmpty(changedSlots);

@@ -3,6 +3,7 @@ using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Hagalaz.Game.Scripts.Widgets;
 
 namespace Hagalaz.Game.Scripts.Widgets.Bank
 {
@@ -28,31 +29,10 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
             InterfaceInstance.AttachClickHandler(17,
                 (componentID, type, itemID, slot) =>
                 {
-                    if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
-                    {
-                        return false;
-                    }
+                    if (!ItemWidgetOperations.TryGetItem(Owner.Inventory.Items, itemID, slot, out var item)) return false;
 
-                    var item = Owner.Inventory.Items[slot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
-
-                    var amount = 0;
-                    if (type == ComponentClickType.LeftClick)
-                    {
-                        amount = 1;
-                    }
-                    else if (type == ComponentClickType.Option2Click)
-                    {
-                        amount = 5;
-                    }
-                    else if (type == ComponentClickType.Option3Click)
-                    {
-                        amount = 10;
-                    }
-                    else if (type == ComponentClickType.Option4Click)
+                    var amount = ItemWidgetOperations.GetCommonAmount(type);
+                    if (amount == 0 && type == ComponentClickType.Option4Click)
                     {
                         _depositXHandler = Owner.Widgets.IntInputHandler = value =>
                         {

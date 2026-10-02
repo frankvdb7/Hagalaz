@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Hagalaz.Collections.Extensions;
@@ -514,225 +515,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             SelfOverlay.AttachClickHandler(0,
                 (componentID, clickType, itemID, itemSlot) =>
-                {
-                    if (itemSlot < 0 || itemSlot >= Character.Inventory.Items.Capacity)
-                    {
-                        return false;
-                    }
-
-                    var item = Character.Inventory.Items[itemSlot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
-
-                    if (!item.ItemScript.CanTradeItem(item, Character))
-                    {
-                        Character.SendChatMessage("You can't trade this item.");
-                        return false;
-                    }
-
-                    var count = 0;
-                    var max = Character.Inventory.Items.GetCount(item);
-                    if (max <= 0)
-                    {
-                        return false;
-                    }
-
-                    if (clickType == ComponentClickType.LeftClick)
-                    {
-                        count = 1;
-                    }
-                    else if (clickType == ComponentClickType.Option2Click)
-                    {
-                        count = 5;
-                    }
-                    else if (clickType == ComponentClickType.Option3Click)
-                    {
-                        count = 10;
-                    }
-                    else if (clickType == ComponentClickType.Option4Click)
-                    {
-                        count = max;
-                    }
-                    else if (clickType == ComponentClickType.Option5Click)
-                    {
-                        OnIntInput handler = null;
-                        handler = amt =>
-                        {
-                            Character.Widgets.IntInputHandler = null;
-                            if (SelfIntInputHandler != handler)
-                            {
-                                return;
-                            }
-
-                            SelfIntInputHandler = null;
-                            if (amt <= 0)
-                            {
-                                return;
-                            }
-
-                            var rem = item.Clone();
-                            rem.Count = amt > max ? max : amt;
-                            if (!SelfContainer.Items.HasSpaceFor(rem))
-                            {
-                                Character.SendChatMessage("The stake is full.");
-                                return;
-                            }
-
-                            if (!_stakeExchange.TryStakeInventoryItem(Character, SelfContainer.Items, item, rem.Count, itemSlot))
-                            {
-                                return;
-                            }
-                            RefreshDuelStakeScreen();
-                            ProcessDuelStakeChange(true, false);
-                        };
-                        SelfIntInputHandler = Character.Widgets.IntInputHandler = handler;
-                        Character.Configurations.SendIntegerInput("Please enter the amount to stake:");
-                        return true;
-                    }
-                    else if (clickType == ComponentClickType.Option10Click) // examine
-                    {
-                        Character.SendChatMessage(item.ItemScript.GetExamine(item));
-                    }
-
-                    if (count > 0)
-                    {
-                        if (count > max)
-                        {
-                            count = max;
-                        }
-
-                        var toRemove = item.Clone();
-                        toRemove.Count = count;
-                        if (!SelfContainer.Items.HasSpaceFor(toRemove))
-                        {
-                            Character.SendChatMessage("The stake is full.");
-                            return false;
-                        }
-
-                        if (!_stakeExchange.TryStakeInventoryItem(Character, SelfContainer.Items, item, count, itemSlot))
-                        {
-                            return false;
-                        }
-
-                        RefreshDuelStakeScreen();
-                        ProcessDuelStakeChange(true, false);
-                    }
-
-                    return true;
-                });
+                    HandleInventoryStakeClick(true, clickType, itemID, itemSlot));
 
             TargetOverlay.AttachClickHandler(0,
                 (componentID, clickType, itemID, itemSlot) =>
-                {
-                    if (itemSlot < 0 || itemSlot >= Target.Inventory.Items.Capacity)
-                    {
-                        return false;
-                    }
-
-                    var item = Target.Inventory.Items[itemSlot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
-
-                    if (!item.ItemScript.CanTradeItem(item, Target))
-                    {
-                        Target.SendChatMessage("You can't stake this item.");
-                        return false;
-                    }
-
-                    var count = 0;
-                    var max = Target.Inventory.Items.GetCount(item);
-                    if (max <= 0)
-                    {
-                        return false;
-                    }
-
-                    if (clickType == ComponentClickType.LeftClick)
-                    {
-                        count = 1;
-                    }
-                    else if (clickType == ComponentClickType.Option2Click)
-                    {
-                        count = 5;
-                    }
-                    else if (clickType == ComponentClickType.Option3Click)
-                    {
-                        count = 10;
-                    }
-                    else if (clickType == ComponentClickType.Option4Click)
-                    {
-                        count = max;
-                    }
-                    else if (clickType == ComponentClickType.Option5Click)
-                    {
-                        OnIntInput handler = null;
-                        handler = amt =>
-                        {
-                            Target.Widgets.IntInputHandler = null;
-                            if (TargetIntInputHandler != handler)
-                            {
-                                return;
-                            }
-
-                            TargetIntInputHandler = null;
-                            if (amt <= 0)
-                            {
-                                return;
-                            }
-
-                            var rem = item.Clone();
-                            rem.Count = amt > max ? max : amt;
-                            if (!TargetContainer.Items.HasSpaceFor(rem))
-                            {
-                                Target.SendChatMessage("The stake is full.");
-                                return;
-                            }
-
-                            if (!_stakeExchange.TryStakeInventoryItem(Target, TargetContainer.Items, item, rem.Count, itemSlot))
-                            {
-                                return;
-                            }
-                            RefreshDuelStakeScreen();
-                            ProcessDuelStakeChange(false, false);
-                        };
-                        TargetIntInputHandler = Target.Widgets.IntInputHandler = handler;
-                        Target.Configurations.SendIntegerInput("Please enter the amount to stake:");
-                        return true;
-                    }
-                    else if (clickType == ComponentClickType.Option10Click) // examine
-                    {
-                        Target.SendChatMessage(item.ItemScript.GetExamine(item));
-                    }
-
-                    if (count > 0)
-                    {
-                        if (count > max)
-                        {
-                            count = max;
-                        }
-
-                        var toRemove = item.Clone();
-                        toRemove.Count = count;
-                        if (!TargetContainer.Items.HasSpaceFor(toRemove))
-                        {
-                            Target.SendChatMessage("The stake is full.");
-                            return false;
-                        }
-
-                        if (!_stakeExchange.TryStakeInventoryItem(Target, TargetContainer.Items, item, count, itemSlot))
-                        {
-                            return false;
-                        }
-
-                        RefreshDuelStakeScreen();
-                        ProcessDuelStakeChange(false, false);
-                    }
-
-                    return true;
-                });
+                    HandleInventoryStakeClick(false, clickType, itemID, itemSlot));
 
             // money pouch
             SelfInterface.AttachClickHandler(8,
@@ -821,191 +608,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             SelfInterface.AttachClickHandler(7,
                 (componentID, clickType, itemID, itemSlot) =>
-                {
-                    if (itemSlot < 0 || itemSlot >= SelfContainer.Items.Capacity)
-                    {
-                        return false;
-                    }
-
-                    var item = SelfContainer.Items[itemSlot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
-
-                    var count = 0;
-                    var max = SelfContainer.Items.GetCount(item);
-                    if (max <= 0)
-                    {
-                        return false;
-                    }
-
-                    if (clickType == ComponentClickType.LeftClick)
-                    {
-                        count = 1;
-                    }
-                    else if (clickType == ComponentClickType.Option2Click)
-                    {
-                        count = 5;
-                    }
-                    else if (clickType == ComponentClickType.Option3Click)
-                    {
-                        count = 10;
-                    }
-                    else if (clickType == ComponentClickType.Option4Click)
-                    {
-                        count = max;
-                    }
-                    else if (clickType == ComponentClickType.Option5Click)
-                    {
-                        OnIntInput handler = null;
-                        handler = amt =>
-                        {
-                            Character.Widgets.IntInputHandler = null;
-                            if (SelfIntInputHandler != handler)
-                            {
-                                return;
-                            }
-
-                            SelfIntInputHandler = null;
-                            if (amt <= 0)
-                            {
-                                return;
-                            }
-
-                            var rem = item.Clone();
-                            rem.Count = amt > max ? max : amt;
-                            var returned = rem.Id == 995
-                                ? _stakeExchange.TryReturnCoinsToPouch(Character, SelfContainer.Items, rem, itemSlot)
-                                : _stakeExchange.TryReturnItemToInventory(Character, SelfContainer.Items, rem, rem.Count, itemSlot);
-                            if (!returned) return;
-
-                            RefreshDuelStakeScreen();
-                            ProcessDuelStakeChange(true, true);
-                        };
-                        SelfIntInputHandler = Character.Widgets.IntInputHandler = handler;
-                        Character.Configurations.SendIntegerInput("Please enter the amount to remove:");
-                        return true;
-                    }
-                    else if (clickType == ComponentClickType.Option10Click)
-                    {
-                        Character.SendChatMessage(item.ItemScript.GetExamine(item));
-                    }
-
-                    if (count > 0)
-                    {
-                        if (count > max)
-                        {
-                            count = max;
-                        }
-
-                        var toRemove = item.Clone();
-                        toRemove.Count = count;
-                        var returned = toRemove.Id == 995
-                            ? _stakeExchange.TryReturnCoinsToPouch(Character, SelfContainer.Items, toRemove, itemSlot)
-                            : _stakeExchange.TryReturnItemToInventory(Character, SelfContainer.Items, toRemove, toRemove.Count, itemSlot);
-                        if (!returned) return false;
-
-                        RefreshDuelStakeScreen();
-                        ProcessDuelStakeChange(true, true);
-                    }
-
-                    return true;
-                });
+                    HandleStakedItemClick(true, clickType, itemID, itemSlot));
 
             TargetInterface.AttachClickHandler(7,
                 (componentID, clickType, itemID, itemSlot) =>
-                {
-                    if (itemSlot < 0 || itemSlot >= TargetContainer.Items.Capacity)
-                    {
-                        return false;
-                    }
-
-                    var item = TargetContainer.Items[itemSlot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
-
-                    var count = 0;
-                    var max = TargetContainer.Items.GetCount(item);
-                    if (max <= 0)
-                    {
-                        return false;
-                    }
-
-                    if (clickType == ComponentClickType.LeftClick)
-                    {
-                        count = 1;
-                    }
-                    else if (clickType == ComponentClickType.Option2Click)
-                    {
-                        count = 5;
-                    }
-                    else if (clickType == ComponentClickType.Option3Click)
-                    {
-                        count = 10;
-                    }
-                    else if (clickType == ComponentClickType.Option4Click)
-                    {
-                        count = max;
-                    }
-                    else if (clickType == ComponentClickType.Option5Click)
-                    {
-                        OnIntInput handler = null;
-                        handler = amt =>
-                        {
-                            Target.Widgets.IntInputHandler = null;
-                            if (TargetIntInputHandler != handler)
-                            {
-                                return;
-                            }
-
-                            TargetIntInputHandler = null;
-                            if (amt <= 0)
-                            {
-                                return;
-                            }
-
-                            var rem = item.Clone();
-                            rem.Count = amt > max ? max : amt;
-                            var returned = rem.Id == 995
-                                ? _stakeExchange.TryReturnCoinsToPouch(Target, TargetContainer.Items, rem, itemSlot)
-                                : _stakeExchange.TryReturnItemToInventory(Target, TargetContainer.Items, rem, rem.Count, itemSlot);
-                            if (!returned) return;
-
-                            RefreshDuelStakeScreen();
-                            ProcessDuelStakeChange(false, true);
-                        };
-                        TargetIntInputHandler = Target.Widgets.IntInputHandler = handler;
-                        Target.Configurations.SendIntegerInput("Please enter the amount to remove:");
-                        return true;
-                    }
-                    else if (clickType == ComponentClickType.Option10Click)
-                    {
-                        Target.SendChatMessage(item.ItemScript.GetExamine(item));
-                    }
-
-                    if (count > 0)
-                    {
-                        if (count > max)
-                        {
-                            count = max;
-                        }
-
-                        var toRemove = item.Clone();
-                        toRemove.Count = count;
-                        var returned = toRemove.Id == 995
-                            ? _stakeExchange.TryReturnCoinsToPouch(Target, TargetContainer.Items, toRemove, itemSlot)
-                            : _stakeExchange.TryReturnItemToInventory(Target, TargetContainer.Items, toRemove, toRemove.Count, itemSlot);
-                        if (!returned) return false;
-
-                        RefreshDuelStakeScreen();
-                        ProcessDuelStakeChange(false, true);
-                    }
-
-                    return true;
-                });
+                    HandleStakedItemClick(false, clickType, itemID, itemSlot));
         }
 
         /// <summary>
@@ -1293,6 +900,149 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// <summary>
         ///     Starts the duel combat stage.
         /// </summary>
+        private bool HandleInventoryStakeClick(bool self, ComponentClickType clickType, int itemID, int itemSlot)
+        {
+            var character = self ? Character : Target;
+            var container = self ? SelfContainer : TargetContainer;
+            var inventory = character.Inventory.Items;
+            if (itemSlot < 0 || itemSlot >= inventory.Capacity) return false;
+
+            var item = inventory[itemSlot];
+            if (item == null || item.Id != itemID) return false;
+            if (!item.ItemScript.CanTradeItem(item, character))
+            {
+                character.SendChatMessage(self ? "You can't trade this item." : "You can't stake this item.");
+                return false;
+            }
+
+            var max = inventory.GetCount(item);
+            if (max <= 0) return false;
+
+            if (clickType == ComponentClickType.Option5Click)
+            {
+                RequestDuelAmountInput(self, "Please enter the amount to stake:", amount =>
+                {
+                    var requested = item.Clone();
+                    requested.Count = Math.Min(amount, max);
+                    if (!container.Items.HasSpaceFor(requested))
+                    {
+                        character.SendChatMessage("The stake is full.");
+                        return;
+                    }
+
+                    if (!_stakeExchange.TryStakeInventoryItem(character, container.Items, item, requested.Count, itemSlot)) return;
+                    RefreshDuelStakeScreen();
+                    ProcessDuelStakeChange(self, false);
+                });
+                return true;
+            }
+
+            if (clickType == ComponentClickType.Option10Click)
+            {
+                character.SendChatMessage(item.ItemScript.GetExamine(item));
+                return true;
+            }
+
+            var count = clickType switch
+            {
+                ComponentClickType.LeftClick => 1,
+                ComponentClickType.Option2Click => 5,
+                ComponentClickType.Option3Click => 10,
+                ComponentClickType.Option4Click => max,
+                _ => 0
+            };
+            if (count <= 0) return true;
+
+            var toRemove = item.Clone();
+            toRemove.Count = Math.Min(count, max);
+            if (!container.Items.HasSpaceFor(toRemove))
+            {
+                character.SendChatMessage("The stake is full.");
+                return false;
+            }
+
+            if (!_stakeExchange.TryStakeInventoryItem(character, container.Items, item, toRemove.Count, itemSlot)) return false;
+            RefreshDuelStakeScreen();
+            ProcessDuelStakeChange(self, false);
+            return true;
+        }
+
+        private bool HandleStakedItemClick(bool self, ComponentClickType clickType, int itemID, int itemSlot)
+        {
+            var character = self ? Character : Target;
+            var container = self ? SelfContainer : TargetContainer;
+            if (itemSlot < 0 || itemSlot >= container.Items.Capacity) return false;
+
+            var item = container.Items[itemSlot];
+            if (item == null || item.Id != itemID) return false;
+            var max = container.Items.GetCount(item);
+            if (max <= 0) return false;
+
+            if (clickType == ComponentClickType.Option5Click)
+            {
+                RequestDuelAmountInput(self, "Please enter the amount to remove:", amount =>
+                {
+                    var requested = item.Clone();
+                    requested.Count = Math.Min(amount, max);
+                    var returned = requested.Id == 995
+                        ? _stakeExchange.TryReturnCoinsToPouch(character, container.Items, requested, itemSlot)
+                        : _stakeExchange.TryReturnItemToInventory(character, container.Items, requested, requested.Count, itemSlot);
+                    if (!returned) return;
+
+                    RefreshDuelStakeScreen();
+                    ProcessDuelStakeChange(self, true);
+                });
+                return true;
+            }
+
+            if (clickType == ComponentClickType.Option10Click)
+            {
+                character.SendChatMessage(item.ItemScript.GetExamine(item));
+            }
+
+            var count = clickType switch
+            {
+                ComponentClickType.LeftClick => 1,
+                ComponentClickType.Option2Click => 5,
+                ComponentClickType.Option3Click => 10,
+                ComponentClickType.Option4Click => max,
+                _ => 0
+            };
+            if (count <= 0) return true;
+
+            var toRemove = item.Clone();
+            toRemove.Count = Math.Min(count, max);
+            var success = toRemove.Id == 995
+                ? _stakeExchange.TryReturnCoinsToPouch(character, container.Items, toRemove, itemSlot)
+                : _stakeExchange.TryReturnItemToInventory(character, container.Items, toRemove, toRemove.Count, itemSlot);
+            if (!success) return false;
+
+            RefreshDuelStakeScreen();
+            ProcessDuelStakeChange(self, true);
+            return true;
+        }
+
+        private void RequestDuelAmountInput(bool self, string message, Action<int> onAmount)
+        {
+            var character = self ? Character : Target;
+            OnIntInput handler = null;
+            handler = amount => CompleteDuelAmountInput(self, character, amount, handler, onAmount);
+            if (self) SelfIntInputHandler = Character.Widgets.IntInputHandler = handler;
+            else TargetIntInputHandler = Target.Widgets.IntInputHandler = handler;
+            character.Configurations.SendIntegerInput(message);
+        }
+
+        private void CompleteDuelAmountInput(bool self, ICharacter character, int amount, OnIntInput handler,
+            Action<int> onAmount)
+        {
+            character.Widgets.IntInputHandler = null;
+            if ((self ? SelfIntInputHandler : TargetIntInputHandler) != handler) return;
+            if (self) SelfIntInputHandler = null;
+            else TargetIntInputHandler = null;
+            if (amount <= 0) return;
+            onAmount(amount);
+        }
+
         private void StartDuelCombatStage()
         {
             if (!DuelSession || Stage != DuelStage.Second)

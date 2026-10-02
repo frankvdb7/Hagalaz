@@ -120,45 +120,13 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <returns></returns>
         private bool HandleClick(JewelryDto definition, ComponentClickType type)
         {
-            if (Owner.Statistics.GetSkillLevel(StatisticsConstants.Crafting) < definition.RequiredLevel)
-            {
-                Owner.SendChatMessage("You need a crafting level of " + definition.RequiredLevel + " to create that.");
-                return false;
-            }
-
-            var count = 0;
-            if (type == ComponentClickType.LeftClick)
-            {
-                count = 1;
-            }
-            else if (type == ComponentClickType.Option2Click)
-            {
-                count = 5;
-            }
-            else if (type == ComponentClickType.Option3Click)
-            {
-                count = Math.Min(Owner.Inventory.Items.GetCountById(definition.ResourceID), Owner.Inventory.Items.GetCountById(CraftingSkillService.GoldBar));
-            }
-            else if (type == ComponentClickType.Option4Click)
-            {
-                _jewelryXHandler = Owner.Widgets.IntInputHandler = value =>
-                {
-                    _jewelryXHandler = Owner.Widgets.IntInputHandler = null;
-                    if (value <= 0)
-                    {
-                        Owner.SendChatMessage("Value can't be negative.");
-                    }
-                    else
-                    {
-                        Start(definition, count);
-                    }
-                };
-                Owner.Configurations.SendIntegerInput("Please enter the amount to make:");
-                return true;
-            }
-
-            Start(definition, count);
-            return true;
+            return CraftingItemScreenOperations.HandleMakeClick(
+                Owner,
+                definition.RequiredLevel,
+                type,
+                () => Math.Min(Owner.Inventory.Items.GetCountById(definition.ResourceID), Owner.Inventory.Items.GetCountById(CraftingSkillService.GoldBar)),
+                count => Start(definition, count),
+                handler => _jewelryXHandler = Owner.Widgets.IntInputHandler = handler);
         }
 
         /// <summary>

@@ -251,17 +251,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 var builder = new StringBuilder();
                 var hasRequirements = character.Inventory.Items.Contains(SoftClayId)
                                       && character.Statistics.GetSkillLevel(StatisticsConstants.Crafting) >= definition.RequiredLevel;
-                if (!hasRequirements)
-                {
-                    builder.Append("<col=FF0000>");
-                }
-
-                builder.Append(itemManager.FindItemDefinitionById(productID).Name);
-                if (!hasRequirements)
-                {
-                    builder.Append("</col>");
-                }
-
+                AppendProductName(builder, itemManager, productID, hasRequirements);
                 return builder.ToString();
             };
 
@@ -365,17 +355,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 var builder = new StringBuilder();
                 var hasRequirements = character.Inventory.Items.Contains(definition.UncutGemID)
                                       && character.Statistics.GetSkillLevel(StatisticsConstants.Crafting) >= definition.RequiredLevel;
-                if (!hasRequirements)
-                {
-                    builder.Append("<col=FF0000>");
-                }
-
-                builder.Append(itemManager.FindItemDefinitionById(productID).Name);
-                if (!hasRequirements)
-                {
-                    builder.Append("</col>");
-                }
-
+                AppendProductName(builder, itemManager, productID, hasRequirements);
                 return builder.ToString();
             };
             var resCount = character.Inventory.Items.GetCountById(definition.UncutGemID);
@@ -504,17 +484,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 var builder = new StringBuilder();
                 var hasRequirements = character.Inventory.Items.Contains(definition.ResourceID, definition.RequiredResourceCount)
                                       && character.Statistics.GetSkillLevel(StatisticsConstants.Crafting) >= definition.RequiredLevel;
-                if (!hasRequirements)
-                {
-                    builder.Append("<col=FF0000>");
-                }
-
-                builder.Append(itemManager.FindItemDefinitionById(productID).Name);
-                if (!hasRequirements)
-                {
-                    builder.Append("</col>");
-                }
-
+                AppendProductName(builder, itemManager, productID, hasRequirements);
                 return builder.ToString();
             };
             var resCount = character.Inventory.Items.GetCountById(resource.Id);
@@ -601,6 +571,20 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <param name="definition">The definition.</param>
         /// <param name="count">The count.</param>
         /// <returns></returns>
+        private static void AppendProductName(StringBuilder builder, IItemService itemManager, int productID, bool hasRequirements)
+        {
+            if (!hasRequirements)
+            {
+                builder.Append("<col=FF0000>");
+            }
+
+            builder.Append(itemManager.FindItemDefinitionById(productID).Name);
+            if (!hasRequirements)
+            {
+                builder.Append("</col>");
+            }
+        }
+
         private bool Tan(ICharacter character, TanDto? definition, int count)
         {
             if (definition == null)

@@ -13,6 +13,7 @@ using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Widgets.EquipmentTab;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
+using Hagalaz.Game.Scripts.Widgets;
 
 namespace Hagalaz.Game.Scripts.Widgets.Bank
 {
@@ -122,35 +123,10 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
             _inventoryInterface.AttachClickHandler(0,
                 (componentID, type, itemID, slot) =>
                 {
-                    if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
-                    {
-                        return false;
-                    }
+                    if (!ItemWidgetOperations.TryGetItem(Owner.Inventory.Items, itemID, slot, out var item)) return false;
 
-                    var item = Owner.Inventory.Items[slot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
-
-                    var amount = 0;
-                    if (type == ComponentClickType.LeftClick)
-                    {
-                        amount = 1;
-                    }
-                    else if (type == ComponentClickType.Option2Click)
-                    {
-                        amount = 5;
-                    }
-                    else if (type == ComponentClickType.Option3Click)
-                    {
-                        amount = 10;
-                    }
-                    else if (type == ComponentClickType.Option4Click)
-                    {
-                        amount = Owner.Profile.GetValue(ProfileConstants.BankSettingsOptionX, ProfileConstants.BankSettingsOptionXDefault);
-                    }
-                    else if (type == ComponentClickType.Option5Click)
+                    var hasPresetAmount = TryGetBankAmount(type, out var amount);
+                    if (!hasPresetAmount && type == ComponentClickType.Option5Click)
                     {
                         _bankXHandler = Owner.Widgets.IntInputHandler = value =>
                         {
@@ -173,15 +149,15 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                         Owner.Configurations.SendIntegerInput("Please enter the amount to deposit:");
                         return true;
                     }
-                    else if (type == ComponentClickType.Option6Click)
+                    else if (!hasPresetAmount && type == ComponentClickType.Option6Click)
                     {
                         amount = Owner.Inventory.Items.GetCount(item);
                     }
-                    else if (type == ComponentClickType.Option10Click)
+                    else if (!hasPresetAmount && type == ComponentClickType.Option10Click)
                     {
                         Owner.SendChatMessage(item.ItemScript.GetExamine(item));
                     }
-                    else
+                    else if (!hasPresetAmount)
                     {
                         return false;
                     }
@@ -201,35 +177,10 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
             InterfaceInstance.AttachClickHandler(95,
                 (componentID, type, itemID, slot) =>
                 {
-                    if (slot < 0 || slot >= Owner.Bank.Items.Capacity)
-                    {
-                        return false;
-                    }
+                    if (!ItemWidgetOperations.TryGetItem(Owner.Bank.Items, itemID, slot, out var item)) return false;
 
-                    var item = Owner.Bank.Items[slot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
-
-                    var amount = 0;
-                    if (type == ComponentClickType.LeftClick)
-                    {
-                        amount = 1;
-                    }
-                    else if (type == ComponentClickType.Option2Click)
-                    {
-                        amount = 5;
-                    }
-                    else if (type == ComponentClickType.Option3Click)
-                    {
-                        amount = 10;
-                    }
-                    else if (type == ComponentClickType.Option4Click)
-                    {
-                        amount = Owner.Profile.GetValue(ProfileConstants.BankSettingsOptionX, ProfileConstants.BankSettingsOptionXDefault);
-                    }
-                    else if (type == ComponentClickType.Option5Click)
+                    var hasPresetAmount = TryGetBankAmount(type, out var amount);
+                    if (!hasPresetAmount && type == ComponentClickType.Option5Click)
                     {
                         _bankXHandler = Owner.Widgets.IntInputHandler = value =>
                         {
@@ -250,19 +201,19 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                         Owner.Configurations.SendIntegerInput("Please enter the amount to withdraw:");
                         return true;
                     }
-                    else if (type == ComponentClickType.Option6Click)
+                    else if (!hasPresetAmount && type == ComponentClickType.Option6Click)
                     {
                         amount = Owner.Bank.Items.GetCount(item);
                     }
-                    else if (type == ComponentClickType.Option7Click)
+                    else if (!hasPresetAmount && type == ComponentClickType.Option7Click)
                     {
                         amount = Owner.Bank.Items.GetCount(item) - 1 >= 0 ? Owner.Bank.Items.GetCount(item) - 1 : 0;
                     }
-                    else if (type == ComponentClickType.Option10Click)
+                    else if (!hasPresetAmount && type == ComponentClickType.Option10Click)
                     {
                         Owner.SendChatMessage(item.ItemScript.GetExamine(item));
                     }
-                    else
+                    else if (!hasPresetAmount)
                     {
                         return false;
                     }
@@ -615,6 +566,28 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
         /// <param name="tab"></param>
         /// <param name="slot"></param>
         /// <returns></returns>
+        private bool TryGetBankAmount(ComponentClickType type, out int amount)
+        {
+            switch (type)
+            {
+                case ComponentClickType.LeftClick:
+                    amount = 1;
+                    return true;
+                case ComponentClickType.Option2Click:
+                    amount = 5;
+                    return true;
+                case ComponentClickType.Option3Click:
+                    amount = 10;
+                    return true;
+                case ComponentClickType.Option4Click:
+                    amount = Owner.Profile.GetValue(ProfileConstants.BankSettingsOptionX, ProfileConstants.BankSettingsOptionXDefault);
+                    return true;
+                default:
+                    amount = 0;
+                    return false;
+            }
+        }
+
         private void InsertNewDepositIntoTab(IItem deposited, int takenSlotsBefore)
         {
             if (_currentTabId == 8 || Owner.Bank.Items.TakenSlots <= takenSlotsBefore)

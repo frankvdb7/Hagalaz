@@ -27,9 +27,7 @@ public sealed class CharacterItemTransferTests
     public void TryRestoreEquippedItem_PublishesWithoutRunningOnEquipped()
     {
         using var scenario = new Scenario();
-        var eventManager = Substitute.For<IEventManager>();
-        scenario.Owner.EventManager.Returns(eventManager);
-        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        var (equipment, eventManager) = CreateEquipmentScenario(scenario);
         var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
 
         Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item));
@@ -43,13 +41,7 @@ public sealed class CharacterItemTransferTests
     public void TryReplaceEquippedItem_ReplacesExpectedInstanceAndPreservesLifecycleOrder()
     {
         using var scenario = new Scenario();
-        var eventManager = Substitute.For<IEventManager>();
-        scenario.Owner.EventManager.Returns(eventManager);
-        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
-        var current = scenario.Builder.Create().WithId(101).WithCount(1).Build();
-        var replacement = scenario.Builder.Create().WithId(102).WithCount(1).Build();
-        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, current));
-        eventManager.ClearReceivedCalls();
+        var (equipment, eventManager, current, replacement) = CreateReplacementScenario(scenario);
         var order = new List<string>();
         eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
         {
@@ -81,13 +73,7 @@ public sealed class CharacterItemTransferTests
     public void TryReplaceEquippedItem_WhenOldCallbackThrows_AttemptsRemainingActionsAndPreservesStorage()
     {
         using var scenario = new Scenario();
-        var eventManager = Substitute.For<IEventManager>();
-        scenario.Owner.EventManager.Returns(eventManager);
-        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
-        var current = scenario.Builder.Create().WithId(101).WithCount(1).Build();
-        var replacement = scenario.Builder.Create().WithId(102).WithCount(1).Build();
-        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, current));
-        eventManager.ClearReceivedCalls();
+        var (equipment, eventManager, current, replacement) = CreateReplacementScenario(scenario);
         var failure = new InvalidOperationException("old unequip failed");
         var order = new List<string>();
         current.EquipmentScript.When(script => script.OnUnequipped(current, scenario.Owner)).Do(_ =>
@@ -119,13 +105,7 @@ public sealed class CharacterItemTransferTests
     public void TryReplaceEquippedItem_WhenBothCallbacksThrow_AggregatesFailuresAfterPublication()
     {
         using var scenario = new Scenario();
-        var eventManager = Substitute.For<IEventManager>();
-        scenario.Owner.EventManager.Returns(eventManager);
-        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
-        var current = scenario.Builder.Create().WithId(101).WithCount(1).Build();
-        var replacement = scenario.Builder.Create().WithId(102).WithCount(1).Build();
-        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, current));
-        eventManager.ClearReceivedCalls();
+        var (equipment, eventManager, current, replacement) = CreateReplacementScenario(scenario);
         var unequipFailure = new InvalidOperationException("old unequip failed");
         var equipFailure = new InvalidOperationException("new equip failed");
         var order = new List<string>();
@@ -186,20 +166,7 @@ public sealed class CharacterItemTransferTests
         var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
         Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item));
         eventManager.ClearReceivedCalls();
-        var order = new List<string>();
-        item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ =>
-        {
-            Assert.IsNull(equipment[EquipmentSlot.Hat]);
-            order.Add("unequip");
-        });
-        eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
-        {
-            if (call.Arg<IEvent>() is EquipmentChangedEvent)
-            {
-                CollectionAssert.AreEqual(new[] { "unequip" }, order);
-                order.Add("publish");
-            }
-        });
+        var order = ObserveUnequipBeforePublication(eventManager, equipment, item, scenario.Owner);
 
         var removed = equipment.RemoveEquippedItem(item, EquipmentSlot.Hat);
 
@@ -396,15 +363,11 @@ public sealed class CharacterItemTransferTests
         var eventManager = Substitute.For<IEventManager>();
         scenario.Owner.EventManager.Returns(eventManager);
         var publicationSawEquipmentEffect = false;
-        eventManager
-            .When(manager => manager.SendEvent(Arg.Any<IEvent>()))
-            .Do(call =>
-            {
-                if (call.Arg<IEvent>() is BankChangedEvent or EquipmentChangedEvent)
-                {
-                    publicationSawEquipmentEffect = callbackSawCommittedStorage;
-                }
-            });
+        TrackPublicationAfterCallback(
+            eventManager,
+            gameEvent => gameEvent is BankChangedEvent or EquipmentChangedEvent,
+            () => callbackSawCommittedStorage,
+            observed => publicationSawEquipmentEffect = observed);
 
         Assert.IsTrue(bank.DepositFromEquipment(item, 1, out _));
 
@@ -425,23 +388,7 @@ public sealed class CharacterItemTransferTests
         var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
         equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item);
         eventManager.ClearReceivedCalls();
-        var order = new List<string>();
-        item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ =>
-        {
-            Assert.IsNull(equipment[EquipmentSlot.Hat]);
-            order.Add("unequip");
-        });
-        eventManager
-            .When(manager => manager.SendEvent(Arg.Any<IEvent>()))
-            .Do(call =>
-            {
-                if (call.Arg<IEvent>() is EquipmentChangedEvent)
-                {
-                    Assert.IsNull(equipment[EquipmentSlot.Hat]);
-                    CollectionAssert.AreEqual(new[] { "unequip" }, order);
-                    order.Add("publish");
-                }
-            });
+        var order = ObserveUnequipBeforePublication(eventManager, equipment, item, scenario.Owner);
 
         equipment.ClearEquipment();
 
@@ -929,15 +876,11 @@ public sealed class CharacterItemTransferTests
         var eventManager = Substitute.For<IEventManager>();
         scenario.Owner.EventManager.Returns(eventManager);
         var publicationSawEquipmentEffect = false;
-        eventManager
-            .When(manager => manager.SendEvent(Arg.Any<IEvent>()))
-            .Do(call =>
-            {
-                if (call.Arg<IEvent>() is InventoryChangedEvent or EquipmentChangedEvent)
-                {
-                    publicationSawEquipmentEffect = callbackSawCommittedStorage;
-                }
-            });
+        TrackPublicationAfterCallback(
+            eventManager,
+            gameEvent => gameEvent is InventoryChangedEvent or EquipmentChangedEvent,
+            () => callbackSawCommittedStorage,
+            observed => publicationSawEquipmentEffect = observed);
 
         Assert.IsTrue(equipment.UnEquipItem(item));
 
@@ -965,6 +908,63 @@ public sealed class CharacterItemTransferTests
     private static InventoryContainer CreateInventory(Scenario scenario, int capacity) =>
         new(scenario.Owner, capacity, Substitute.For<IMapRegionService>(),
             Substitute.For<IGroundItemBuilder>(), scenario.Builder);
+
+    private static List<string> ObserveUnequipBeforePublication(
+        IEventManager eventManager,
+        EquipmentContainer equipment,
+        IItem item,
+        ICharacter owner)
+    {
+        var order = new List<string>();
+        item.EquipmentScript.When(script => script.OnUnequipped(item, owner)).Do(_ =>
+        {
+            Assert.IsNull(equipment[EquipmentSlot.Hat]);
+            order.Add("unequip");
+        });
+        eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
+        {
+            if (call.Arg<IEvent>() is EquipmentChangedEvent)
+            {
+                Assert.IsNull(equipment[EquipmentSlot.Hat]);
+                CollectionAssert.AreEqual(new[] { "unequip" }, order);
+                order.Add("publish");
+            }
+        });
+        return order;
+    }
+
+    private static void TrackPublicationAfterCallback(
+        IEventManager eventManager,
+        Func<IEvent, bool> isRelevantPublication,
+        Func<bool> callbackCompleted,
+        Action<bool> observePublication)
+    {
+        eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
+        {
+            if (isRelevantPublication(call.Arg<IEvent>()))
+            {
+                observePublication(callbackCompleted());
+            }
+        });
+    }
+
+    private static (EquipmentContainer Equipment, IEventManager EventManager) CreateEquipmentScenario(Scenario scenario)
+    {
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        return (new EquipmentContainer(scenario.Owner, 15, scenario.Builder), eventManager);
+    }
+
+    private static (EquipmentContainer Equipment, IEventManager EventManager, IItem Current, IItem Replacement)
+        CreateReplacementScenario(Scenario scenario)
+    {
+        var (equipment, eventManager) = CreateEquipmentScenario(scenario);
+        var current = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        var replacement = scenario.Builder.Create().WithId(102).WithCount(1).Build();
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, current));
+        eventManager.ClearReceivedCalls();
+        return (equipment, eventManager, current, replacement);
+    }
 
     private static (InventoryContainer Inventory, ShopStockContainer Stock, IMoneyPouchContainer MoneyPouch)
         CreateShopScenario(Scenario scenario)

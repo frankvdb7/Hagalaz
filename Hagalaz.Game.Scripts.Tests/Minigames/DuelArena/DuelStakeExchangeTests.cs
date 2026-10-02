@@ -128,7 +128,7 @@ public sealed class DuelStakeExchangeTests
         var character = Substitute.For<ICharacter>();
         character.Inventory.Returns(inventory);
         character.EventManager.Returns(Substitute.For<IEventManager>());
-        var itemBuilder = new TestItemBuilder();
+        var itemBuilder = new TestItemBuilder((id, count) => new TestItem(id, count, stackable: id == 995));
         var pouch = new MoneyPouchContainer(character, itemBuilder);
         if (pouchCoins > 0) Assert.IsTrue(pouch.Add(pouchCoins));
         character.MoneyPouch.Returns(pouch);
@@ -138,17 +138,6 @@ public sealed class DuelStakeExchangeTests
 
     private sealed record Scenario(ICharacter Character, ItemContainer InventoryItems, MoneyPouchContainer Pouch,
         ItemContainer Stake, DuelStakeExchange Exchange);
-
-    private sealed class TestItemBuilder : IItemBuilder, IItemId, IItemOptional
-    {
-        private int _id;
-        private int _count = 1;
-        public IItemId Create() => this;
-        public IItemOptional WithId(int id) { _id = id; return this; }
-        public IItemOptional WithCount(int count) { _count = count; return this; }
-        public IItemOptional WithExtraData(string data) => this;
-        public IItem Build() => new TestItem(_id, _count, stackable: _id == 995);
-    }
 
     private sealed class TestItem : IItem
     {

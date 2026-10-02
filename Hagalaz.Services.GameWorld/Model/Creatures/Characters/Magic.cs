@@ -82,22 +82,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public bool CheckRunes(RuneType[] types, int[] runeAmounts)
         {
-            // Prevent the rune amounts instance of being edited.
-            var amounts = new int[runeAmounts.Length];
-            runeAmounts.CopyTo(amounts, 0);
-
-            var weapon = _owner.Equipment[EquipmentSlot.Weapon];
-
-            if (weapon != null)
-            {
-                for (var i = 0; i < types.Length; i++)
-                {
-                    if (HasInfiniteRunes(types[i], weapon))
-                    {
-                        amounts[i] = 0;
-                    }
-                }
-            }
+            var amounts = GetEffectiveRuneAmounts(types, runeAmounts);
 
             for (var i = 0; i < _owner.Inventory.Items.Capacity; i++)
             {
@@ -218,22 +203,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="runeAmounts">The rune amounts.</param>
         public void RemoveRunes(RuneType[] types, int[] runeAmounts)
         {
-            // Prevent the rune amounts instance of being edited.
-            var amounts = new int[runeAmounts.Length];
-            runeAmounts.CopyTo(amounts, 0);
-
-            var weapon = _owner.Equipment[EquipmentSlot.Weapon];
-
-            if (weapon != null)
-            {
-                for (var i = 0; i < types.Length; i++)
-                {
-                    if (HasInfiniteRunes(types[i], weapon))
-                    {
-                        amounts[i] = 0;
-                    }
-                }
-            }
+            var amounts = GetEffectiveRuneAmounts(types, runeAmounts);
 
             for (var slot = 0; slot < _owner.Inventory.Items.Capacity; slot++)
             {
@@ -283,6 +253,27 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             _owner.SendChatMessage("Your magic level is not high enough for this spell.");
             return false;
+        }
+
+        private int[] GetEffectiveRuneAmounts(RuneType[] types, int[] runeAmounts)
+        {
+            // Prevent the rune amounts instance of being edited.
+            var amounts = new int[runeAmounts.Length];
+            runeAmounts.CopyTo(amounts, 0);
+
+            var weapon = _owner.Equipment[EquipmentSlot.Weapon];
+            if (weapon != null)
+            {
+                for (var i = 0; i < types.Length; i++)
+                {
+                    if (HasInfiniteRunes(types[i], weapon))
+                    {
+                        amounts[i] = 0;
+                    }
+                }
+            }
+
+            return amounts;
         }
     }
 }

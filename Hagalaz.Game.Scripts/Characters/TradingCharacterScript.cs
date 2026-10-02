@@ -477,508 +477,26 @@ namespace Hagalaz.Game.Scripts.Characters
 
             SelfOverlay.AttachClickHandler(0,
                 (componentID, clickType, itemID, itemSlot) =>
-                {
-                    if (itemSlot < 0 || itemSlot >= Character.Inventory.Items.Capacity)
-                    {
-                        return false;
-                    }
-
-                    var item = Character.Inventory.Items[itemSlot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
-
-                    if (!item.ItemScript.CanTradeItem(item, Character))
-                    {
-                        Character.SendChatMessage("You can't trade this item.");
-                        return false;
-                    }
-
-                    if (clickType == ComponentClickType.LeftClick || clickType == ComponentClickType.Option2Click ||
-                        clickType == ComponentClickType.Option3Click || clickType == ComponentClickType.Option4Click ||
-                        clickType == ComponentClickType.Option5Click)
-                    {
-                        var count = 1;
-                        var max = Character.Inventory.Items.GetCount(item);
-                        if (max <= 0)
-                        {
-                            return false;
-                        }
-
-                        if (clickType == ComponentClickType.Option2Click)
-                        {
-                            count = 5;
-                        }
-                        else if (clickType == ComponentClickType.Option3Click)
-                        {
-                            count = 10;
-                        }
-                        else if (clickType == ComponentClickType.Option4Click)
-                        {
-                            count = max;
-                        }
-                        else if (clickType == ComponentClickType.Option5Click)
-                        {
-                            OnIntInput handler = null;
-                            handler = amt =>
-                            {
-                                Character.Widgets.IntInputHandler = null;
-                                if (SelfIntInputHandler != handler)
-                                {
-                                    return;
-                                }
-
-                                SelfIntInputHandler = null;
-                                if (amt <= 0)
-                                {
-                                    return;
-                                }
-
-                                TryOfferInventoryItem(true, item, amt > max ? max : amt, -1);
-                            };
-                            SelfIntInputHandler = Character.Widgets.IntInputHandler = handler;
-                            Character.Configurations.SendIntegerInput("Please enter the amount to offer:");
-                            return true;
-                        }
-
-                        if (count > 0)
-                        {
-                            if (count > max)
-                            {
-                                count = max;
-                            }
-
-                            if (!TryOfferInventoryItem(true, item, count, itemSlot))
-                            {
-                                return false;
-                            }
-                        }
-                    }
-                    else if (clickType == ComponentClickType.Option6Click) // value
-                    {
-                        var count = item.Count;
-                        if (count == 1)
-                        {
-                            Character.SendChatMessage(item.Name + ": market price is " +
-                                                      (item.ItemDefinition.TradeValue == 1 ? "one coin." : item.ItemDefinition.TradeValue + " coins."));
-                        }
-                        else
-                        {
-                            Character.SendChatMessage(item.Name + ": market price is " + item.ItemDefinition.TradeValue + " coins each (" +
-                                                      item.ItemDefinition.TradeValue * (long)count + " coins for " + count + ")");
-                        }
-
-                        return true;
-                    }
-                    else if (clickType == ComponentClickType.Option7Click) // lend
-                    {
-                        Character.SendChatMessage("Not yet implemented.");
-                        return true;
-                    }
-                    else if (clickType == ComponentClickType.Option10Click) // examine
-                    {
-                        Character.SendChatMessage(item.ItemScript.GetExamine(item));
-                        return true;
-                    }
-
-                    return true;
-                });
+                    HandleInventoryOfferClick(true, clickType, itemID, itemSlot));
 
             TargetOverlay.AttachClickHandler(0,
                 (componentID, clickType, itemID, itemSlot) =>
-                {
-                    if (itemSlot < 0 || itemSlot >= Target.Inventory.Items.Capacity)
-                    {
-                        return false;
-                    }
-
-                    var item = Target.Inventory.Items[itemSlot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
-
-                    if (!item.ItemScript.CanTradeItem(item, Target))
-                    {
-                        Target.SendChatMessage("You can't trade this item.");
-                        return false;
-                    }
-
-                    if (clickType == ComponentClickType.LeftClick || clickType == ComponentClickType.Option2Click ||
-                        clickType == ComponentClickType.Option3Click || clickType == ComponentClickType.Option4Click ||
-                        clickType == ComponentClickType.Option5Click)
-                    {
-                        var count = 1;
-                        var max = Target.Inventory.Items.GetCount(item);
-                        if (max <= 0)
-                        {
-                            return false;
-                        }
-
-                        if (clickType == ComponentClickType.Option2Click)
-                        {
-                            count = 5;
-                        }
-                        else if (clickType == ComponentClickType.Option3Click)
-                        {
-                            count = 10;
-                        }
-                        else if (clickType == ComponentClickType.Option4Click)
-                        {
-                            count = max;
-                        }
-                        else if (clickType == ComponentClickType.Option5Click)
-                        {
-                            OnIntInput handler = null;
-                            handler = amt =>
-                            {
-                                Target.Widgets.IntInputHandler = null;
-                                if (TargetIntInputHandler != handler)
-                                {
-                                    return;
-                                }
-
-                                TargetIntInputHandler = null;
-                                if (amt <= 0)
-                                {
-                                    return;
-                                }
-
-                                TryOfferInventoryItem(false, item, amt > max ? max : amt, -1);
-                            };
-                            TargetIntInputHandler = Target.Widgets.IntInputHandler = handler;
-                            Target.Configurations.SendIntegerInput("Please enter the amount to offer:");
-                            return true;
-                        }
-
-                        if (count > 0)
-                        {
-                            if (count > max)
-                            {
-                                count = max;
-                            }
-
-                            if (!TryOfferInventoryItem(false, item, count, itemSlot))
-                            {
-                                return false;
-                            }
-                        }
-                    }
-                    else if (clickType == ComponentClickType.Option6Click) // value
-                    {
-                        var count = item.Count;
-                        if (count == 1)
-                        {
-                            Target.SendChatMessage(item.Name + ": market price is " +
-                                                   (item.ItemDefinition.TradeValue == 1 ? "one coin." : item.ItemDefinition.TradeValue + " coins."));
-                        }
-                        else
-                        {
-                            Target.SendChatMessage(item.Name + ": market price is " + item.ItemDefinition.TradeValue + " coins each (" +
-                                                   item.ItemDefinition.TradeValue * (long)count + " coins for " + count + ")");
-                        }
-
-                        return true;
-                    }
-                    else if (clickType == ComponentClickType.Option7Click) // lend
-                    {
-                        Target.SendChatMessage("Not yet implemented.");
-                        return true;
-                    }
-                    else if (clickType == ComponentClickType.Option10Click) // examine
-                    {
-                        Target.SendChatMessage(item.ItemScript.GetExamine(item));
-                        return true;
-                    }
-
-                    return true;
-                });
+                    HandleInventoryOfferClick(false, clickType, itemID, itemSlot));
 
             SelfInterface.AttachClickHandler(32,
                 (componentID, clickType, itemID, itemSlot) =>
-                {
-                    if (itemSlot < 0 || itemSlot >= SelfContainer.Items.Capacity)
-                    {
-                        return false;
-                    }
-
-                    var item = SelfContainer.Items[itemSlot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
-
-                    if (clickType == ComponentClickType.LeftClick || clickType == ComponentClickType.Option2Click ||
-                        clickType == ComponentClickType.Option3Click || clickType == ComponentClickType.Option4Click ||
-                        clickType == ComponentClickType.Option5Click)
-                    {
-                        var count = 0;
-                        var max = SelfContainer.Items.GetCount(item);
-                        if (max <= 0)
-                        {
-                            return false;
-                        }
-
-                        if (clickType == ComponentClickType.LeftClick)
-                        {
-                            count = 1;
-                        }
-                        else if (clickType == ComponentClickType.Option2Click)
-                        {
-                            count = 5;
-                        }
-                        else if (clickType == ComponentClickType.Option3Click)
-                        {
-                            count = 10;
-                        }
-                        else if (clickType == ComponentClickType.Option4Click)
-                        {
-                            count = max;
-                        }
-                        else if (clickType == ComponentClickType.Option5Click)
-                        {
-                            OnIntInput handler = null;
-                            handler = amt =>
-                            {
-                                Character.Widgets.IntInputHandler = null;
-                                if (SelfIntInputHandler != handler)
-                                {
-                                    return;
-                                }
-
-                                SelfIntInputHandler = null;
-                                if (amt <= 0)
-                                {
-                                    return;
-                                }
-
-                                TryRemoveOfferedItem(true, item, amt > max ? max : amt, itemSlot);
-                            };
-                            SelfIntInputHandler = Character.Widgets.IntInputHandler = handler;
-                            Character.Configurations.SendIntegerInput("Please enter the amount to remove:");
-                            return true;
-                        }
-
-                        if (count > 0)
-                        {
-                            if (count > max)
-                            {
-                                count = max;
-                            }
-
-                            if (!TryRemoveOfferedItem(true, item, count, itemSlot))
-                            {
-                                return false;
-                            }
-                        }
-                    }
-                    else if (clickType == ComponentClickType.Option6Click) // value
-                    {
-                        var count = item.Count;
-                        if (count == 1)
-                        {
-                            Character.SendChatMessage(item.Name + ": market price is " +
-                                                      (item.ItemDefinition.TradeValue == 1 ? "one coin." : item.ItemDefinition.TradeValue + " coins."));
-                        }
-                        else
-                        {
-                            Character.SendChatMessage(item.Name + ": market price is " + item.ItemDefinition.TradeValue + " coins each (" +
-                                                      item.ItemDefinition.TradeValue * (long)count + " coins for " + count + ")");
-                        }
-
-                        return true;
-                    }
-                    else if (clickType == ComponentClickType.Option10Click) // examine
-                    {
-                        Character.SendChatMessage(item.ItemScript.GetExamine(item));
-                        return true;
-                    }
-
-                    return true;
-                });
+                    HandleOfferedItemClick(true, clickType, itemID, itemSlot));
             TargetInterface.AttachClickHandler(32,
                 (componentID, clickType, itemID, itemSlot) =>
-                {
-                    if (itemSlot < 0 || itemSlot >= TargetContainer.Items.Capacity)
-                    {
-                        return false;
-                    }
-
-                    var item = TargetContainer.Items[itemSlot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
-
-                    if (clickType == ComponentClickType.LeftClick || clickType == ComponentClickType.Option2Click ||
-                        clickType == ComponentClickType.Option3Click || clickType == ComponentClickType.Option4Click ||
-                        clickType == ComponentClickType.Option5Click)
-                    {
-                        var count = 0;
-                        var max = TargetContainer.Items.GetCount(item);
-                        if (max <= 0)
-                        {
-                            return false;
-                        }
-
-                        if (clickType == ComponentClickType.LeftClick)
-                        {
-                            count = 1;
-                        }
-                        else if (clickType == ComponentClickType.Option2Click)
-                        {
-                            count = 5;
-                        }
-                        else if (clickType == ComponentClickType.Option3Click)
-                        {
-                            count = 10;
-                        }
-                        else if (clickType == ComponentClickType.Option4Click)
-                        {
-                            count = max;
-                        }
-                        else if (clickType == ComponentClickType.Option5Click)
-                        {
-                            OnIntInput handler = null;
-                            handler = amt =>
-                            {
-                                Target.Widgets.IntInputHandler = null;
-                                if (TargetIntInputHandler != handler)
-                                {
-                                    return;
-                                }
-
-                                TargetIntInputHandler = null;
-                                if (amt <= 0)
-                                {
-                                    return;
-                                }
-
-                                TryRemoveOfferedItem(false, item, amt > max ? max : amt, itemSlot);
-                            };
-                            TargetIntInputHandler = Target.Widgets.IntInputHandler = handler;
-                            Target.Configurations.SendIntegerInput("Please enter the amount to remove:");
-                            return true;
-                        }
-
-                        if (count > 0)
-                        {
-                            if (count > max)
-                            {
-                                count = max;
-                            }
-
-                            if (!TryRemoveOfferedItem(false, item, count, itemSlot))
-                            {
-                                return false;
-                            }
-                        }
-                    }
-                    else if (clickType == ComponentClickType.Option6Click) // value
-                    {
-                        var count = item.Count;
-                        if (count == 1)
-                        {
-                            Target.SendChatMessage(item.Name + ": market price is " +
-                                                   (item.ItemDefinition.TradeValue == 1 ? "one coin." : item.ItemDefinition.TradeValue + " coins."));
-                        }
-                        else
-                        {
-                            Target.SendChatMessage(item.Name + ": market price is " + item.ItemDefinition.TradeValue + " coins each (" +
-                                                   item.ItemDefinition.TradeValue * (long)count + " coins for " + count + ")");
-                        }
-
-                        return true;
-                    }
-                    else if (clickType == ComponentClickType.Option10Click) // examine
-                    {
-                        Target.SendChatMessage(item.ItemScript.GetExamine(item));
-                        return true;
-                    }
-
-                    return true;
-                });
+                    HandleOfferedItemClick(false, clickType, itemID, itemSlot));
 
             SelfInterface.AttachClickHandler(35,
                 (componentID, clickType, itemID, itemSlot) =>
-                {
-                    if (itemSlot < 0 || itemSlot >= TargetContainer.Items.Capacity)
-                    {
-                        return false;
-                    }
-
-                    var item = TargetContainer.Items[itemSlot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
-
-                    if (clickType == ComponentClickType.LeftClick) // value
-                    {
-                        var count = item.Count;
-                        if (count == 1)
-                        {
-                            Character.SendChatMessage(item.Name + ": market price is " +
-                                                      (item.ItemDefinition.TradeValue == 1 ? "one coin." : item.ItemDefinition.TradeValue + " coins."));
-                        }
-                        else
-                        {
-                            Character.SendChatMessage(item.Name + ": market price is " + item.ItemDefinition.TradeValue + " coins each (" +
-                                                      item.ItemDefinition.TradeValue * (long)count + " coins for " + count + ")");
-                        }
-
-                        return true;
-                    }
-
-                    if (clickType == ComponentClickType.Option10Click) // examine
-                    {
-                        Character.SendChatMessage(item.ItemScript.GetExamine(item));
-                        return true;
-                    }
-
-                    return true;
-                });
+                    HandleOtherOfferClick(true, clickType, itemID, itemSlot));
 
             TargetInterface.AttachClickHandler(35,
                 (componentID, clickType, itemID, itemSlot) =>
-                {
-                    if (itemSlot < 0 || itemSlot >= SelfContainer.Items.Capacity)
-                    {
-                        return false;
-                    }
-
-                    var item = SelfContainer.Items[itemSlot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
-
-                    if (clickType == ComponentClickType.LeftClick) // value
-                    {
-                        var count = item.Count;
-                        if (count == 1)
-                        {
-                            Target.SendChatMessage(item.Name + ": market price is " +
-                                                   (item.ItemDefinition.TradeValue == 1 ? "one coin." : item.ItemDefinition.TradeValue + " coins."));
-                        }
-                        else
-                        {
-                            Target.SendChatMessage(item.Name + ": market price is " + item.ItemDefinition.TradeValue + " coins each (" +
-                                                   item.ItemDefinition.TradeValue * (long)count + " coins for " + count + ")");
-                        }
-
-                        return true;
-                    }
-
-                    if (clickType == ComponentClickType.Option10Click) // examine
-                    {
-                        Target.SendChatMessage(item.ItemScript.GetExamine(item));
-                        return true;
-                    }
-
-                    return true;
-                });
+                    HandleOtherOfferClick(false, clickType, itemID, itemSlot));
 
             SelfInterface.AttachClickHandler(53,
                 (componentID, clickType, extraData1, extraData2) =>
@@ -1093,69 +611,177 @@ namespace Hagalaz.Game.Scripts.Characters
         }
 
 
-        private bool TryOfferInventoryItem(bool self, IItem item, int requestedCount, int preferredSlot)
+        private bool HandleInventoryOfferClick(bool self, ComponentClickType clickType, int itemID, int itemSlot)
         {
-            var session = _tradeSession;
-            if (session == null)
+            var character = self ? Character : Target;
+            var inventory = character.Inventory.Items;
+            if (itemSlot < 0 || itemSlot >= inventory.Capacity) return false;
+
+            var item = inventory[itemSlot];
+            if (item == null || item.Id != itemID) return false;
+            if (!item.ItemScript.CanTradeItem(item, character))
             {
+                character.SendChatMessage("You can't trade this item.");
                 return false;
             }
 
-            lock (session.Gate)
+            if (clickType is ComponentClickType.LeftClick or ComponentClickType.Option2Click or
+                ComponentClickType.Option3Click or ComponentClickType.Option4Click or ComponentClickType.Option5Click)
             {
-                if (!IsActiveSession(session))
-                {
-                    return false;
-                }
+                var max = inventory.GetCount(item);
+                if (max <= 0) return false;
 
-                var character = self ? Character : session.Target;
-                var offer = (self ? SelfContainer : TargetContainer).Items;
-                var count = Math.Min(requestedCount, character.Inventory.Items.GetCount(item));
-                if (count <= 0)
+                if (clickType == ComponentClickType.Option5Click)
                 {
-                    return false;
-                }
-
-                if (character.Inventory.Items.Mutations.TryTransferTo(offer.Mutations, item, count, preferredSlot))
-                {
-                    RefreshTradeOfferScreenLocked(session);
-                    ProcessTradeChangeLocked(session, self, false);
+                    RequestTradeAmountInput(self, "Please enter the amount to offer:",
+                        amount => TryOfferInventoryItem(self, item, Math.Min(amount, max), -1));
                     return true;
                 }
 
-                return false;
+                var count = GetPresetAmount(clickType, max);
+                if (count > 0 && !TryOfferInventoryItem(self, item, Math.Min(count, max), itemSlot)) return false;
             }
+            else if (clickType == ComponentClickType.Option6Click)
+            {
+                character.SendChatMessage(GetMarketPriceMessage(item));
+                return true;
+            }
+            else if (clickType == ComponentClickType.Option7Click)
+            {
+                character.SendChatMessage("Not yet implemented.");
+                return true;
+            }
+            else if (clickType == ComponentClickType.Option10Click)
+            {
+                character.SendChatMessage(item.ItemScript.GetExamine(item));
+                return true;
+            }
+
+            return true;
+        }
+
+        private bool HandleOfferedItemClick(bool self, ComponentClickType clickType, int itemID, int itemSlot)
+        {
+            var character = self ? Character : Target;
+            var offer = (self ? SelfContainer : TargetContainer).Items;
+            if (itemSlot < 0 || itemSlot >= offer.Capacity) return false;
+
+            var item = offer[itemSlot];
+            if (item == null || item.Id != itemID) return false;
+            if (clickType is ComponentClickType.LeftClick or ComponentClickType.Option2Click or
+                ComponentClickType.Option3Click or ComponentClickType.Option4Click or ComponentClickType.Option5Click)
+            {
+                var max = offer.GetCount(item);
+                if (max <= 0) return false;
+
+                if (clickType == ComponentClickType.Option5Click)
+                {
+                    RequestTradeAmountInput(self, "Please enter the amount to remove:",
+                        amount => TryRemoveOfferedItem(self, item, Math.Min(amount, max), itemSlot));
+                    return true;
+                }
+
+                var count = GetPresetAmount(clickType, max);
+                if (count > 0 && !TryRemoveOfferedItem(self, item, Math.Min(count, max), itemSlot)) return false;
+            }
+            else if (clickType == ComponentClickType.Option6Click)
+            {
+                character.SendChatMessage(GetMarketPriceMessage(item));
+                return true;
+            }
+            else if (clickType == ComponentClickType.Option10Click)
+            {
+                character.SendChatMessage(item.ItemScript.GetExamine(item));
+                return true;
+            }
+
+            return true;
+        }
+
+        private bool HandleOtherOfferClick(bool self, ComponentClickType clickType, int itemID, int itemSlot)
+        {
+            var character = self ? Character : Target;
+            var offer = (self ? TargetContainer : SelfContainer).Items;
+            if (itemSlot < 0 || itemSlot >= offer.Capacity) return false;
+
+            var item = offer[itemSlot];
+            if (item == null || item.Id != itemID) return false;
+            if (clickType == ComponentClickType.LeftClick)
+            {
+                character.SendChatMessage(GetMarketPriceMessage(item));
+                return true;
+            }
+
+            if (clickType == ComponentClickType.Option10Click)
+            {
+                character.SendChatMessage(item.ItemScript.GetExamine(item));
+                return true;
+            }
+
+            return true;
+        }
+
+        private static int GetPresetAmount(ComponentClickType clickType, int max) => clickType switch
+        {
+            ComponentClickType.LeftClick => 1,
+            ComponentClickType.Option2Click => 5,
+            ComponentClickType.Option3Click => 10,
+            ComponentClickType.Option4Click => max,
+            _ => 0
+        };
+
+        private void RequestTradeAmountInput(bool self, string message, Action<int> onAmount)
+        {
+            var character = self ? Character : Target;
+            OnIntInput handler = null;
+            handler = amount =>
+            {
+                character.Widgets.IntInputHandler = null;
+                if ((self ? SelfIntInputHandler : TargetIntInputHandler) != handler) return;
+                if (self) SelfIntInputHandler = null;
+                else TargetIntInputHandler = null;
+                if (amount > 0) onAmount(amount);
+            };
+
+            if (self) SelfIntInputHandler = Character.Widgets.IntInputHandler = handler;
+            else TargetIntInputHandler = Target.Widgets.IntInputHandler = handler;
+            character.Configurations.SendIntegerInput(message);
+        }
+
+        private static string GetMarketPriceMessage(IItem item)
+        {
+            var count = item.Count;
+            var value = item.ItemDefinition.TradeValue;
+            return count == 1
+                ? item.Name + ": market price is " + (value == 1 ? "one coin." : value + " coins.")
+                : item.Name + ": market price is " + value + " coins each (" + value * (long)count + " coins for " + count + ")";
+        }
+
+        private bool TryOfferInventoryItem(bool self, IItem item, int requestedCount, int preferredSlot)
+        {
+            return TryWithActiveTradeSession(self, (session, character, offer) =>
+            {
+                var count = Math.Min(requestedCount, character.Inventory.Items.GetCount(item));
+                if (count <= 0 || !character.Inventory.Items.Mutations.TryTransferTo(
+                        offer.Mutations, item, count, preferredSlot)) return false;
+
+                RefreshTradeOfferScreenLocked(session);
+                ProcessTradeChangeLocked(session, self, false);
+                return true;
+            });
         }
 
         private bool TryRemoveOfferedItem(bool self, IItem item, int requestedCount, int preferredSlot)
         {
-            var session = _tradeSession;
-            if (session == null)
+            return TryWithActiveTradeSession(self, (session, character, offer) =>
             {
-                return false;
-            }
-
-            lock (session.Gate)
-            {
-                if (!IsActiveSession(session))
-                {
-                    return false;
-                }
-
-                var character = self ? Character : session.Target;
-                var offer = (self ? SelfContainer : TargetContainer).Items;
                 var count = Math.Min(requestedCount, offer.GetCount(item));
-                if (count <= 0)
-                {
-                    return false;
-                }
+                if (count <= 0) return false;
 
                 if (item.Id != 995)
                 {
                     if (!offer.Mutations.TryTransferTo(character.Inventory.Items.Mutations, item, count, preferredSlot))
-                    {
                         return false;
-                    }
 
                     RefreshTradeOfferScreenLocked(session);
                     ProcessTradeChangeLocked(session, self, false);
@@ -1165,12 +791,25 @@ namespace Hagalaz.Game.Scripts.Characters
                 var toRemove = item.Clone();
                 toRemove.Count = count;
 
-                if (!_tradeExchange.TryReturnMoneyToPouch(character, offer, toRemove, preferredSlot))
-                    return false;
+                if (!_tradeExchange.TryReturnMoneyToPouch(character, offer, toRemove, preferredSlot)) return false;
 
                 RefreshTradeOfferScreenLocked(session);
                 ProcessTradeChangeLocked(session, self, true);
                 return true;
+            });
+        }
+
+        private bool TryWithActiveTradeSession(bool self,
+            Func<TradeSessionState, ICharacter, IItemContainer, bool> operation)
+        {
+            var session = _tradeSession;
+            if (session == null) return false;
+
+            lock (session.Gate)
+            {
+                if (!IsActiveSession(session)) return false;
+                return operation(session, self ? Character : session.Target,
+                    (self ? SelfContainer : TargetContainer).Items);
             }
         }
 

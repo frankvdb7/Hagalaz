@@ -12,6 +12,7 @@ using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Utilities;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
+using Hagalaz.Game.Scripts.Widgets;
 
 namespace Hagalaz.Game.Scripts.Widgets.Shop
 {
@@ -171,16 +172,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
             _inventoryInterface.AttachClickHandler(0,
                 (componentID, type, itemID, slot) =>
                 {
-                    if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
-                    {
-                        return false;
-                    }
-
-                    var item = Owner.Inventory.Items[slot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
+                    if (!ItemWidgetOperations.TryGetItem(Owner.Inventory.Items, itemID, slot, out var item)) return false;
 
                     var amount = 0;
                     switch (type)

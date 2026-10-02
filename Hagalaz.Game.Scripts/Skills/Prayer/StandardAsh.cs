@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -60,18 +60,9 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
                 return;
             }
 
-            var definition = await _prayerService.FindById(item.Id);
-            cancellationToken.ThrowIfCancellationRequested();
-            if (definition == null)
-            {
-                return;
-            }
-
-            var slot = character.Inventory.Items.GetInstanceSlot(item);
-            if (slot == -1)
-            {
-                return;
-            }
+            var availableItem = await Prayer.FindAvailableItem(character, item, _prayerService, cancellationToken);
+            if (availableItem == null) return;
+            var (definition, slot) = availableItem.Value;
 
             character.Interrupt(this);
             character.QueueAnimation(Animation.Create(827)); //TODO - Find scatter anim and graphic

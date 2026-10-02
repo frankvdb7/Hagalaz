@@ -11,6 +11,7 @@ using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Hagalaz.Game.Scripts.Widgets;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Widgets.Tabs
@@ -79,16 +80,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
             InterfaceInstance.AttachUseOnObjectHandler(0, (componentID, usedOn, forceRun, itemId, slot) =>
             {
-                if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
-                {
-                    return false;
-                }
-
-                var used = Owner.Inventory.Items[slot];
-                if (used == null || used.Id != itemId)
-                {
-                    return false;
-                }
+                if (!ItemWidgetOperations.TryGetItem(Owner.Inventory.Items, itemId, slot, out var used)) return false;
 
                 Owner.ForceRunMovementType(forceRun);
                 var targetHandle = usedOn.Handle;
@@ -127,16 +119,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
             InterfaceInstance.AttachUseOnGroundItemHandler(0, (componentID, usedOn, forceRun, itemId, slot) =>
             {
-                if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
-                {
-                    return false;
-                }
-
-                var used = Owner.Inventory.Items[slot];
-                if (used == null || used.Id != itemId)
-                {
-                    return false;
-                }
+                if (!ItemWidgetOperations.TryGetItem(Owner.Inventory.Items, itemId, slot, out var used)) return false;
 
                 Owner.ForceRunMovementType(forceRun);
                 var targetHandle = usedOn.Handle;
@@ -214,16 +197,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
             InterfaceInstance.AttachUseOnCreatureHandler(0, (componentID, usedOn, forceRun, itemId, slot) =>
             {
-                if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
-                {
-                    return false;
-                }
-
-                var used = Owner.Inventory.Items[slot];
-                if (used == null || used.Id != itemId)
-                {
-                    return false;
-                }
+                if (!ItemWidgetOperations.TryGetItem(Owner.Inventory.Items, itemId, slot, out var used)) return false;
 
                 Owner.ForceRunMovementType(forceRun);
                 var task = new CreatureReachTask(Owner, usedOn.Handle, success =>

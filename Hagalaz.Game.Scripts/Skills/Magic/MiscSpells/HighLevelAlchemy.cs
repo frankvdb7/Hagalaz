@@ -3,8 +3,6 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Resources;
-using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Skills.Magic.MiscSpells
 {
@@ -37,47 +35,8 @@ namespace Hagalaz.Game.Scripts.Skills.Magic.MiscSpells
         /// <returns></returns>
         public bool Cast(IItem item)
         {
-            if (_caster.HasState<AlchingState>())
-            {
-                return false;
-            }
-
-            if (!CheckRequirements(_caster))
-            {
-                return false;
-            }
-
-            var slot = _caster.Inventory.Items.GetInstanceSlot(item);
-            if (slot == -1)
-            {
-                return false;
-            }
-
-            var coins = _itemBuilder.Create().WithId(995).WithCount(item.ItemDefinition.HighAlchemyValue).Build();
-            if (!_caster.Inventory.Items.HasSpaceFor(coins) && !_caster.MoneyPouch.HasSpaceForCoins(coins.Count))
-            {
-                _caster.SendChatMessage(GameStrings.InventoryFull);
-                return false;
-            }
-
-            RemoveRequirements(_caster);
-            var removed = _caster.Inventory.Items.Remove(_itemBuilder.Create().WithId(item.Id).WithCount(1).Build(), slot);
-            if (removed <= 0)
-            {
-                return true;
-            }
-
-            if (!_caster.Inventory.Items.Add(coins))
-            {
-                return true;
-            }
-
-            _caster.QueueAnimation(Animation.Create(713));
-            _caster.QueueGraphic(Graphic.Create(113));
-            _caster.Statistics.AddExperience(StatisticsConstants.Magic, 65);
-            _caster.Configurations.SendGlobalCs2Int(168, 7); // set active tab.
-            _caster.AddState(new AlchingState { TicksLeft = 2 });
-            return true;
+            return AlchemyOperations.Cast(_caster, item, _itemBuilder, item.ItemDefinition.HighAlchemyValue, 713, 113, 65,
+                () => CheckRequirements(_caster), () => RemoveRequirements(_caster));
         }
 
         /// <summary>

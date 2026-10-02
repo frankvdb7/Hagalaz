@@ -5,6 +5,7 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Hagalaz.Game.Scripts.Widgets;
 
 namespace Hagalaz.Game.Scripts.Skills.Summoning
 {
@@ -87,16 +88,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
             _inventoryInterface.AttachClickHandler(0,
                 (componentID, type, itemID, slot) =>
                 {
-                    if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
-                    {
-                        return false;
-                    }
-
-                    var item = Owner.Inventory.Items[slot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
+                    if (!ItemWidgetOperations.TryGetItem(Owner.Inventory.Items, itemID, slot, out var item)) return false;
 
                     if (Owner.FamiliarScript is not BobFamiliarScriptBase bob)
                     {
@@ -162,16 +154,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                         return false;
                     }
 
-                    if (slot < 0 || slot >= bob.Inventory.Items.Capacity)
-                    {
-                        return false;
-                    }
-
-                    var item = bob.Inventory.Items[slot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
+                    if (!ItemWidgetOperations.TryGetItem(bob.Inventory.Items, itemID, slot, out var item)) return false;
 
                     var amount = 0;
                     if (type == ComponentClickType.LeftClick)

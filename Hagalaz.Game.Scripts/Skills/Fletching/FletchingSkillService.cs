@@ -302,29 +302,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         {
             return productIndex =>
             {
-                var resource = character.Inventory.Items.GetById(definition.ResourceID);
-                if (resource == null)
-                {
-                    return true;
-                }
-
-                var resourceSlot = character.Inventory.Items.GetInstanceSlot(resource);
-                if (resourceSlot == -1)
-                {
-                    return true;
-                }
-
-                var tool = character.Inventory.Items.GetById(definition.ToolId);
-                if (tool == null)
-                {
-                    return true;
-                }
-
-                var toolSlot = character.Inventory.Items.GetInstanceSlot(tool);
-                if (toolSlot == -1)
-                {
-                    return true;
-                }
+                if (!TryGetFletchingItems(character, definition, out var resource, out var resourceSlot, out var tool, out var toolSlot)) return true;
 
                 var removed = character.Inventory.Items.Remove(resource, resourceSlot);
                 if (removed <= 0)
@@ -404,29 +382,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         {
             return productIndex =>
             {
-                var resource = character.Inventory.Items.GetById(definition.ResourceID);
-                if (resource == null)
-                {
-                    return true;
-                }
-
-                var resourceSlot = character.Inventory.Items.GetInstanceSlot(resource);
-                if (resourceSlot == -1)
-                {
-                    return true;
-                }
-
-                var tool = character.Inventory.Items.GetById(definition.ToolId);
-                if (tool == null)
-                {
-                    return true;
-                }
-
-                var toolSlot = character.Inventory.Items.GetInstanceSlot(tool);
-                if (toolSlot == -1)
-                {
-                    return true;
-                }
+                if (!TryGetFletchingItems(character, definition, out var resource, out var resourceSlot, out var tool, out var toolSlot)) return true;
 
                 var amount = definition.ProductAmounts[productIndex];
 
@@ -525,23 +481,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         {
             return productIndex =>
             {
-                var resource = character.Inventory.Items.GetById(definition.ResourceID);
-                if (resource == null)
-                {
-                    return true;
-                }
-
-                var resourceSlot = character.Inventory.Items.GetInstanceSlot(resource);
-                if (resourceSlot == -1)
-                {
-                    return true;
-                }
-
-                var tool = character.Inventory.Items.GetById(definition.ToolId);
-                if (tool == null)
-                {
-                    return true;
-                }
+                if (!TryGetFletchingItems(character, definition, out var resource, out var resourceSlot, out var tool, out _)) return true;
 
                 var amount = definition.ProductAmounts[productIndex];
 
@@ -557,6 +497,41 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                 character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex] * amount);
                 return false;
             };
+        }
+
+        private static bool TryGetFletchingItems(
+            ICharacter character,
+            FletchingDefinition definition,
+            out IItem resource,
+            out int resourceSlot,
+            out IItem tool,
+            out int toolSlot)
+        {
+            resource = character.Inventory.Items.GetById(definition.ResourceID)!;
+            if (resource == null)
+            {
+                tool = null!;
+                resourceSlot = toolSlot = -1;
+                return false;
+            }
+
+            resourceSlot = character.Inventory.Items.GetInstanceSlot(resource);
+            if (resourceSlot == -1)
+            {
+                tool = null!;
+                toolSlot = -1;
+                return false;
+            }
+
+            tool = character.Inventory.Items.GetById(definition.ToolId)!;
+            if (tool == null)
+            {
+                toolSlot = -1;
+                return false;
+            }
+
+            toolSlot = character.Inventory.Items.GetInstanceSlot(tool);
+            return toolSlot != -1;
         }
 
         /// <summary>
