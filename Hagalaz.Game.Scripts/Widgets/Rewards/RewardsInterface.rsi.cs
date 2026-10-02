@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
@@ -52,11 +52,11 @@ namespace Hagalaz.Game.Scripts.Widgets.Rewards
         public override void OnOpen()
         {
             Owner.Configurations.SendCs2Script(150, [(InterfaceInstance.Id << 16) | 16, 90, 8, 35, 0, -1, "Claim", "Claim-X", "", "", "", "", "", "", ""]);
-            InterfaceInstance.SetOptions(16, 0, (ushort)Owner.Rewards.Capacity, 0x2 | 0x4); // allow 2 options
+            InterfaceInstance.SetOptions(16, 0, (ushort)Owner.Rewards.Items.Capacity, 0x2 | 0x4); // allow 2 options
             InterfaceInstance.DrawString(15, "Rewards Container");
             InterfaceInstance.DrawString(17, "Click or right click on an item to claim your reward!<br><col=FF0000>Warning: You can not refund an item once you claim it!</col>");
             InterfaceInstance.SetVisible(19, false); // disable the collect sprite
-            if (Owner.Rewards.TakenSlots <= 48)
+            if (Owner.Rewards.Items.TakenSlots <= 48)
             {
                 InterfaceInstance.SetVisible(18, false); // disable scroll bar
             }
@@ -71,12 +71,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Rewards
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
-                    if (slot < 0 || slot >= Owner.Rewards.Capacity)
+                    if (slot < 0 || slot >= Owner.Rewards.Items.Capacity)
                     {
                         return false;
                     }
 
-                    var item = Owner.Rewards[slot];
+                    var item = Owner.Rewards.Items[slot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -107,7 +107,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Rewards
                             Owner.SendChatMessage("Amount must be greater than 0.");
                         }
 
-                        var item = Owner.Rewards[slot];
+                        var item = Owner.Rewards.Items[slot];
                         if (item == null || item.Id != itemID)
                         {
                             return;
@@ -139,6 +139,6 @@ namespace Hagalaz.Game.Scripts.Widgets.Rewards
         ///     Refreshes the rewards.
         /// </summary>
         /// <param name="changedSlots">The changed slots.</param>
-        public void RefreshRewards(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(90, false, Owner.Rewards, changedSlots);
+        public void RefreshRewards(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(90, false, Owner.Rewards.Items, changedSlots);
     }
 }

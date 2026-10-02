@@ -112,8 +112,8 @@ namespace Hagalaz.Game.Scripts.Equipment.Degraded
                 return;
             }
 
+            if (_character.Equipment.RemoveEquippedItem(_item, slot) <= 0) return;
             _character.SendChatMessage("Your " + _item.Name + " crumbles into dust.");
-            _character.Equipment.Remove(_item, slot);
         }
     }
 }

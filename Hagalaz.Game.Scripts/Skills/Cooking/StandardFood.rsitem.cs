@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -62,7 +62,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
                 return;
             }
 
-            var slot = character.Inventory.GetInstanceSlot(item);
+            var slot = character.Inventory.Items.GetInstanceSlot(item);
             if (slot == -1)
             {
                 return;
@@ -70,11 +70,11 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
 
             if (definition.LeftItemId != -1)
             {
-                character.Inventory.Replace(slot, _itemBuilder.Create().WithId(definition.LeftItemId).Build());
+                character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(definition.LeftItemId).Build());
             }
             else
             {
-                character.Inventory.Remove(item, slot);
+                character.Inventory.Items.Remove(item, slot);
             }
 
             character.AddState(new EatingState { TicksLeft = definition.EatingTime - 1, OnRemovedCallback = () => character.SendChatMessage("It restores some life points.") });

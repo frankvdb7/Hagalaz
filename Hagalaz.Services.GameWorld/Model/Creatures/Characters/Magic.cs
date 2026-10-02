@@ -82,26 +82,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public bool CheckRunes(RuneType[] types, int[] runeAmounts)
         {
-            // Prevent the rune amounts instance of being edited.
-            var amounts = new int[runeAmounts.Length];
-            runeAmounts.CopyTo(amounts, 0);
+            var amounts = GetEffectiveRuneAmounts(types, runeAmounts);
 
-            var weapon = _owner.Equipment[EquipmentSlot.Weapon];
-
-            if (weapon != null)
+            for (var i = 0; i < _owner.Inventory.Items.Capacity; i++)
             {
-                for (var i = 0; i < types.Length; i++)
-                {
-                    if (HasInfiniteRunes(types[i], weapon))
-                    {
-                        amounts[i] = 0;
-                    }
-                }
-            }
-
-            for (var i = 0; i < _owner.Inventory.Capacity; i++)
-            {
-                var item = _owner.Inventory[i];
+                var item = _owner.Inventory.Items[i];
                 if (item == null)
                     continue;
 
@@ -218,26 +203,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="runeAmounts">The rune amounts.</param>
         public void RemoveRunes(RuneType[] types, int[] runeAmounts)
         {
-            // Prevent the rune amounts instance of being edited.
-            var amounts = new int[runeAmounts.Length];
-            runeAmounts.CopyTo(amounts, 0);
+            var amounts = GetEffectiveRuneAmounts(types, runeAmounts);
 
-            var weapon = _owner.Equipment[EquipmentSlot.Weapon];
-
-            if (weapon != null)
+            for (var slot = 0; slot < _owner.Inventory.Items.Capacity; slot++)
             {
-                for (var i = 0; i < types.Length; i++)
-                {
-                    if (HasInfiniteRunes(types[i], weapon))
-                    {
-                        amounts[i] = 0;
-                    }
-                }
-            }
-
-            for (var slot = 0; slot < _owner.Inventory.Capacity; slot++)
-            {
-                var item = _owner.Inventory[slot];
+                var item = _owner.Inventory.Items[slot];
                 if (item == null)
                     continue;
 
@@ -256,13 +226,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                         var newItem = item.Clone();
                         newItem.Count = item.Count - amounts[a];
                         item = newItem;
-                        _owner.Inventory.Replace(slot, newItem);
+                        _owner.Inventory.Items.Replace(slot, newItem);
                         amounts[a] = 0;
                     }
                     else
                     {
                         amounts[a] -= item.Count;
-                        _owner.Inventory.Remove(item, slot);
+                        _owner.Inventory.Items.Remove(item, slot);
                         break;
                     }
                 }
@@ -283,6 +253,27 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             _owner.SendChatMessage("Your magic level is not high enough for this spell.");
             return false;
+        }
+
+        private int[] GetEffectiveRuneAmounts(RuneType[] types, int[] runeAmounts)
+        {
+            // Prevent the rune amounts instance of being edited.
+            var amounts = new int[runeAmounts.Length];
+            runeAmounts.CopyTo(amounts, 0);
+
+            var weapon = _owner.Equipment[EquipmentSlot.Weapon];
+            if (weapon != null)
+            {
+                for (var i = 0; i < types.Length; i++)
+                {
+                    if (HasInfiniteRunes(types[i], weapon))
+                    {
+                        amounts[i] = 0;
+                    }
+                }
+            }
+
+            return amounts;
         }
     }
 }

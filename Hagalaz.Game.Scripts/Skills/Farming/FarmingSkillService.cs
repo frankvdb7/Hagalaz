@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -89,7 +89,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
         /// <param name="objID">The object identifier.</param>
         private void HandlePatchRaking(ICharacter character, IFarmingPatch? patch, int objID)
         {
-            if (!character.Inventory.Contains(5341))
+            if (!character.Inventory.Items.Contains(5341))
             {
                 character.SendChatMessage("You need a rake to get rid of the weeds.");
                 return;
@@ -205,7 +205,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
         /// <param name="patch">The patch.</param>
         private void HandlePatchHarvest(ICharacter character, IFarmingPatch patch)
         {
-            if (!character.Inventory.Contains(_spadeID))
+            if (!character.Inventory.Items.Contains(_spadeID))
             {
                 character.SendChatMessage("You need a spade to harvest your crops.");
                 return;
@@ -251,7 +251,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
         /// <param name="patch">The patch.</param>
         private void HandlePatchClear(ICharacter character, IFarmingPatch patch)
         {
-            if (!character.Inventory.Contains(_spadeID))
+            if (!character.Inventory.Items.Contains(_spadeID))
             {
                 character.SendChatMessage("You need a spade to clear this " + patch.PatchDefinition.Type.ToString().ToLower() + " patch.");
                 return;
@@ -367,7 +367,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
                 return;
             }
 
-            if (!character.Inventory.Contains(5343))
+            if (!character.Inventory.Items.Contains(5343))
             {
                 character.SendChatMessage("You need a seed dibber in order to plant " + item.Name.ToLower() + "s.");
                 return;
@@ -380,7 +380,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
             }
 
             var count = patch.PatchDefinition.Type == PatchType.Allotment || patch.PatchDefinition.Type == PatchType.Hop ? 3 : 1;
-            if (!character.Inventory.Contains(item.Id, count))
+            if (!character.Inventory.Items.Contains(item.Id, count))
             {
                 character.SendChatMessage("You need at least " + count + " x " + item.Name.ToLower() + "s in order to plant in the " +
                                           patch.PatchDefinition.Type.ToString().ToLower() + " patch.");
@@ -390,7 +390,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
             character.QueueAnimation(Animation.Create(2291));
             character.SendChatMessage("You plant the " + item.Name.ToLower() + " in the " + patch.PatchDefinition.Type.ToString().ToLower() + " patch.");
             character.Statistics.AddExperience(StatisticsConstants.Farming, seed.PlantingExperience);
-            character.Inventory.Remove(_itemBuilder.Create().WithId(item.Id).WithCount(count).Build());
+            character.Inventory.Items.Remove(_itemBuilder.Create().WithId(item.Id).WithCount(count).Build());
             patch.Plant(seed);
         }
 
@@ -438,7 +438,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
             patch.AddCondition(PatchCondition.Watered);
             character.QueueTask(new RsTask(() =>
                 {
-                    var slot = character.Inventory.GetInstanceSlot(item);
+                    var slot = character.Inventory.Items.GetInstanceSlot(item);
                     if (slot == -1)
                     {
                         return;
@@ -450,7 +450,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
                         newItemID = 5331;
                     }
 
-                    character.Inventory.Replace(slot, _itemBuilder.Create().WithId(newItemID).Build());
+                    character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(newItemID).Build());
                     patch.Refresh();
                 },
                 2));
@@ -487,13 +487,13 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
             patch.AddCondition(item.Id == 6032 ? PatchCondition.Fertilized : PatchCondition.SuperFertilized);
             character.QueueTask(new RsTask(() =>
                 {
-                    var slot = character.Inventory.GetInstanceSlot(item);
+                    var slot = character.Inventory.Items.GetInstanceSlot(item);
                     if (slot == -1)
                     {
                         return;
                     }
 
-                    character.Inventory.Replace(slot, _itemBuilder.Create().WithId(_emptyBucketID).Build());
+                    character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(_emptyBucketID).Build());
                     character.Statistics.AddExperience(StatisticsConstants.Farming, item.Id == 6032 ? 18 : 26);
                     patch.Refresh();
                 },
@@ -529,7 +529,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
             }
 
             var cureID = GetCureItemID(patch.PatchDefinition.Type);
-            if (!character.Inventory.Contains(cureID))
+            if (!character.Inventory.Items.Contains(cureID))
             {
                 character.SendChatMessage("You need a " + itemRepository.FindItemDefinitionById(cureID).Name.ToLower() + " in order to cure this patch.");
                 return;
@@ -552,14 +552,14 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
                     if (cureID == 6036) // plant cure
                     {
                         var slot = item != null
-                            ? character.Inventory.GetInstanceSlot(item)
-                            : character.Inventory.GetSlotByItem(_itemBuilder.Create().WithId(cureID).Build());
+                            ? character.Inventory.Items.GetInstanceSlot(item)
+                            : character.Inventory.Items.GetSlotByItem(_itemBuilder.Create().WithId(cureID).Build());
                         if (slot == -1)
                         {
                             return;
                         }
 
-                        character.Inventory.Replace(slot, _itemBuilder.Create().WithId(229).Build());
+                        character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(229).Build());
                     }
 
                     character.SendChatMessage("The plants in this patch has been restored to its natural health.");

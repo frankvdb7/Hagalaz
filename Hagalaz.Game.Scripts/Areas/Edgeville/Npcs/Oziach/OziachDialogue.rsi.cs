@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Model.Widgets;
@@ -89,14 +89,14 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Oziach
             AttachDialogueContinueClickHandler(4,
                 (extraData1, extraData2) =>
                 {
-                    if (Owner.MoneyPouch.Contains(995, 1200000) && Owner.Inventory.Contains(11286, 1) && Owner.Inventory.Contains(1540, 1))
+                    if (Owner.MoneyPouch.HasCoins(1200000) && Owner.Inventory.Items.Contains(11286, 1) && Owner.Inventory.Items.Contains(1540, 1))
                     {
-                        var removed = Owner.Inventory.Remove(_itemBuilder.Create().WithId(11286).Build());
-                        removed += Owner.Inventory.Remove(_itemBuilder.Create().WithId(1540).Build());
+                        var removed = Owner.Inventory.Items.Remove(_itemBuilder.Create().WithId(11286).Build());
+                        removed += Owner.Inventory.Items.Remove(_itemBuilder.Create().WithId(1540).Build());
                         removed += Owner.MoneyPouch.Remove(1250000);
                         if (removed >= 3)
                         {
-                            Owner.Inventory.Add(_itemBuilder.Create().WithId(11284).Build()); // the not-charged version. the charged version is 11283
+                            Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(11284).Build()); // the not-charged version. the charged version is 11283
                         }
 
                         StandardNpcDialogue(TalkingTo,

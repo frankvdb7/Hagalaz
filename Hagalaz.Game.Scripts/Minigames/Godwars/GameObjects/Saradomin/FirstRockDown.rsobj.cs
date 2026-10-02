@@ -38,16 +38,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
                     clicker.Interrupt(this);
                     if (!clicker.HasState<HasSaradominFirstRockRopeState>())
                     {
-                        if (!clicker.Inventory.Contains(954))
-                        {
-                            clicker.SendChatMessage("You need a rope in order to climb down here.");
-                            return;
-                        }
-
-                        clicker.QueueAnimation(Animation.Create(827));
-                        clicker.AddState(new HasSaradominFirstRockRopeState());
-                        clicker.Inventory.Remove(_itemBuilder.Create().WithId(954).Build());
-                        ShowRope(clicker);
+                        RopeOperations.AddRope(clicker, _itemBuilder, new HasSaradominFirstRockRopeState(), Owner.Definition.VarpBitFileId);
                         return;
                     }
 

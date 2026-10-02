@@ -1,4 +1,4 @@
-﻿using Hagalaz.Configuration;
+using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -69,7 +69,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                         return false;
                     }
 
-                    if (Owner.Inventory.Add(_itemBuilder.Create().WithId(13281).Build()))
+                    if (Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(13281).Build()))
                     {
                         _mediator.Publish(new ProfileIncrementIntAction(ProfileConstants.SlayerRewardPoints, 75));
                     }
@@ -87,10 +87,10 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
 
                     var deathRune = _itemBuilder.Create().WithId(560).Build();
                     var mindRune = _itemBuilder.Create().WithId(558).WithCount(4).Build();
-                    if (Owner.Inventory.HasSpaceForRange([deathRune, mindRune]))
+                    if (Owner.Inventory.Items.HasSpaceForRange([deathRune, mindRune]))
                     {
-                        Owner.Inventory.Add(deathRune);
-                        Owner.Inventory.Add(mindRune);
+                        Owner.Inventory.Items.Add(deathRune);
+                        Owner.Inventory.Items.Add(mindRune);
                         _mediator.Publish(new ProfileIncrementIntAction(ProfileConstants.SlayerRewardPoints, 35));
                     }
                     else
@@ -110,7 +110,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                         return false;
                     }
 
-                    if (Owner.Inventory.Add(_itemBuilder.Create().WithId(13280).WithCount(250).Build()))
+                    if (Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(13280).WithCount(250).Build()))
                     {
                         _mediator.Publish(new ProfileIncrementIntAction(ProfileConstants.SlayerRewardPoints, 35));
                     }
@@ -126,7 +126,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                         return false;
                     }
 
-                    if (Owner.Inventory.Add(_itemBuilder.Create().WithId(4160).WithCount(250).Build()))
+                    if (Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(4160).WithCount(250).Build()))
                     {
                         _mediator.Publish(new ProfileIncrementIntAction(ProfileConstants.SlayerRewardPoints, 35));
                     }

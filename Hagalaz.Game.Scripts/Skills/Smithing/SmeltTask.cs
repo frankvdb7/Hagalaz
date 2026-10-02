@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -78,7 +78,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                 var ores = Definition.SmeltDefinition.RequiredOres;
                 foreach (var ore in ores)
                 {
-                    if (Performer.Inventory.Contains(ore.Id, ore.Count))
+                    if (Performer.Inventory.Items.Contains(ore.Id, ore.Count))
                     {
                         continue;
                     }
@@ -99,7 +99,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
             {
                 SmeltCount++;
                 var ores = Definition.SmeltDefinition.RequiredOres;
-                var removed = ores.Sum(ore => Performer.Inventory.Remove(_itemBuilder.Create().WithId(ore.Id).WithCount(ore.Count).Build()));
+                var removed = ores.Sum(ore => Performer.Inventory.Items.Remove(_itemBuilder.Create().WithId(ore.Id).WithCount(ore.Count).Build()));
 
                 if (removed <= 0)
                 {
@@ -111,7 +111,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                 {
                     Performer.SendChatMessage("You retrieve a bar of " +
                                               _itemService.FindItemDefinitionById(Definition.BarID).Name.ToLower().Replace(" bar", "") + ".");
-                    Performer.Inventory.Add(_itemBuilder.Create().WithId(Definition.BarID).Build());
+                    Performer.Inventory.Items.Add(_itemBuilder.Create().WithId(Definition.BarID).Build());
                     Performer.Statistics.AddExperience(StatisticsConstants.Smithing, Definition.SmeltDefinition.SmithingExperience);
                 }
                 else

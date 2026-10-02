@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
@@ -48,7 +48,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
                 return false;
             }
 
-            if (character.Inventory.GetInstanceSlot(item) == -1)
+            if (character.Inventory.Items.GetInstanceSlot(item) == -1)
             {
                 return false;
             }
@@ -71,7 +71,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
                 return true;
             };
 
-            var count = character.Inventory.GetCountById(definition.ItemId);
+            var count = character.Inventory.Items.GetCountById(definition.ItemId);
             dialogue.SetMaxCount(count, false);
             dialogue.SetCurrentCount(count, false);
 

@@ -18,18 +18,7 @@ namespace Hagalaz.Game.Scripts.Items.Auras
         /// <param name="character">The character.</param>
         public override void ItemClickedInEquipment(ComponentClickType clickType, IItem aura, ICharacter character)
         {
-            if (clickType == ComponentClickType.Option2Click)
-            {
-                ToggleAura(character, aura);
-                return;
-            }
-
-            if (clickType == ComponentClickType.Option4Click)
-            {
-                aura.EquipmentScript.UnEquipItem(aura, character);
-                return;
-            }
-
+            if (CosmeticAuraOperations.TryHandleEquipmentClick(clickType, aura, character, 16)) return;
             base.ItemClickedInEquipment(clickType, aura, character);
         }
 
@@ -40,13 +29,7 @@ namespace Hagalaz.Game.Scripts.Items.Auras
         /// <param name="aura">The aura.</param>
         public void ToggleAura(ICharacter character, IItem aura)
         {
-            var slot = character.Equipment.GetInstanceSlot(aura);
-            if (slot == EquipmentSlot.NoSlot)
-            {
-                return;
-            }
-            var itemBuilder = character.ServiceProvider.GetRequiredService<IItemBuilder>();
-            character.Equipment.Replace(slot, itemBuilder.Create().WithId(aura.Id + 16).WithCount(aura.Count).Build());
+            CosmeticAuraOperations.ToggleAura(character, aura, 16);
         }
     }
 }

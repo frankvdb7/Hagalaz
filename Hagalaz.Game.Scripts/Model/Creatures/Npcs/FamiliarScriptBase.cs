@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Logic.Characters.Model;
 using Hagalaz.Game.Abstractions.Logic.Dehydrations;
@@ -220,13 +220,13 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// </summary>
         public void RenewFamiliar()
         {
-            if (!Summoner.Inventory.Contains(Definition.PouchId, 1))
+            if (!Summoner.Inventory.Items.Contains(Definition.PouchId, 1))
             {
                 Summoner.SendChatMessage("You do not have the required pouch to renew this familiar!");
                 return;
             }
 
-            Summoner.Inventory.Remove(_itemBuilder.Create().WithId(Definition.PouchId).Build());
+            Summoner.Inventory.Items.Remove(_itemBuilder.Create().WithId(Definition.PouchId).Build());
             ResetTimer();
             Summoner.SendChatMessage("Your familiar has been renewed.");
         }
@@ -417,7 +417,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                 return false;
             }
 
-            var scroll = Summoner.Inventory.FirstOrDefault(i => i?.Id == Definition.ScrollId);
+            var scroll = Summoner.Inventory.Items.FirstOrDefault(i => i?.Id == Definition.ScrollId);
             if (scroll != null)
             {
                 return true;
@@ -455,7 +455,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// <param name="target">The target.</param>
         public virtual void PerformSpecialMove(IRuneObject target)
         {
-            if (Summoner.Inventory.Remove(_itemBuilder.Create().WithId(Definition.ScrollId).Build()) >= 1)
+            if (Summoner.Inventory.Items.Remove(_itemBuilder.Create().WithId(Definition.ScrollId).Build()) >= 1)
             {
                 DrainSpecialMovePoints(GetRequiredSpecialMovePoints());
                 SetUsingSpecialMove(false);

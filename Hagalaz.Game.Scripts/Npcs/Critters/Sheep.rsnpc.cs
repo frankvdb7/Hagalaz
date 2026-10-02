@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Audio;
+using Hagalaz.Game.Abstractions.Builders.Audio;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -56,11 +56,11 @@ namespace Hagalaz.Game.Scripts.Npcs.Critters
                 }
                 else
                 {
-                    if (clicker.Inventory.Contains(1735))
+                    if (clicker.Inventory.Items.Contains(1735))
                     {
                         _audioBuilder.Create().AsSound().WithId(761).Build().PlayFor(clicker);
                         clicker.QueueAnimation(Animation.Create(893));
-                        clicker.Inventory.Add(_itemBuilder.Create().WithId(1737).Build());
+                        clicker.Inventory.Items.Add(_itemBuilder.Create().WithId(1737).Build());
                         clicker.SendChatMessage("You shear the sheep of its fleece.");
                         Owner.Appearance.Transform(5149);
                         Owner.QueueTask(new RsTask(() =>

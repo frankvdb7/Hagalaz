@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Widgets;
@@ -164,10 +164,10 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue
                 {
                     if (Owner.Statistics.LevelForExperience(SkillID) >= 99)
                     {
-                        if (Owner.MoneyPouch.Contains(995, 99000))
+                        if (Owner.MoneyPouch.HasCoins(99000))
                         {
                             var removed = Owner.MoneyPouch.Remove(99000);
-                            if (removed > 0 && Owner.Inventory.FreeSlots >= 2)
+                            if (removed > 0 && Owner.Inventory.Items.FreeSlots >= 2)
                             {
                                 var hasTwo99 = false;
                                 for (var skill = 0; !hasTwo99 && skill < NpcStatisticsConstants.SkillsCount; skill++)
@@ -183,8 +183,8 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue
                                     }
                                 }
 
-                                Owner.Inventory.Add(_itemBuilder.Create().WithId(hasTwo99 ? TSkillCapes[SkillID] : _skillCapes[SkillID]).Build());
-                                Owner.Inventory.Add(_itemBuilder.Create().WithId(_skillCapes[SkillID] + 2).Build());
+                                Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(hasTwo99 ? TSkillCapes[SkillID] : _skillCapes[SkillID]).Build());
+                                Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(_skillCapes[SkillID] + 2).Build());
                                 StandardNpcDialogue(TalkingTo,
                                     DialogueAnimations.CalmTalk,
                                     "Congratulations! You have just bought a " + StatisticsConstants.SkillNames[SkillID] + " Skill Cape " +

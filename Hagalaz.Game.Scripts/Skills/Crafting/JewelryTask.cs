@@ -73,7 +73,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
 
             if (TickCount == 1 || TickCount % 6 == 0)
             {
-                if (!Performer.Inventory.Contains(CraftingSkillService.GoldBar))
+                if (!Performer.Inventory.Items.Contains(CraftingSkillService.GoldBar))
                 {
                     Performer.SendChatMessage("You do not have any more " + _itemService.FindItemDefinitionById(CraftingSkillService.GoldBar).Name +
                                               " that you can use.");
@@ -81,7 +81,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                     return;
                 }
 
-                if (!Performer.Inventory.Contains(Definition.ResourceID))
+                if (!Performer.Inventory.Items.Contains(Definition.ResourceID))
                 {
                     Performer.SendChatMessage("You do not have any more " + _itemService.FindItemDefinitionById(Definition.ResourceID).Name +
                                               " that you can use.");
@@ -99,10 +99,10 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
             }
 
             MakeCount++;
-            var removed = Performer.Inventory.Remove(_itemBuilder.Create().WithId(Definition.ResourceID).Build());
+            var removed = Performer.Inventory.Items.Remove(_itemBuilder.Create().WithId(Definition.ResourceID).Build());
             if (CraftingSkillService.GoldBar != Definition.ResourceID)
             {
-                removed += Performer.Inventory.Remove(_itemBuilder.Create().WithId(CraftingSkillService.GoldBar).Build());
+                removed += Performer.Inventory.Items.Remove(_itemBuilder.Create().WithId(CraftingSkillService.GoldBar).Build());
             }
 
             if (removed <= 0)
@@ -111,7 +111,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 return;
             }
 
-            Performer.Inventory.Add(_itemBuilder.Create().WithId(Definition.ProductID).Build());
+            Performer.Inventory.Items.Add(_itemBuilder.Create().WithId(Definition.ProductID).Build());
 
             if (Definition.ResourceID == CraftingSkillService.GoldBar)
             {

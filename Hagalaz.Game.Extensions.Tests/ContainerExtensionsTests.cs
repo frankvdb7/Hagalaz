@@ -27,12 +27,38 @@ namespace Hagalaz.Game.Extensions.Tests
         private IItemOptional _itemOptional = null!;
         private ILootGenerator _lootGenerator = null!;
 
+        private void UseInventory(int capacity)
+        {
+            _inventory = new TestInventory(capacity);
+            _character.Inventory.Returns(_inventory);
+        }
+
+        private static IItem CreateItem(int id)
+        {
+            var item = Substitute.For<IItem>();
+            item.Id.Returns(id);
+            item.Count.Returns(1);
+            var definition = Substitute.For<IItemDefinition>();
+            definition.Stackable.Returns(true);
+            item.ItemDefinition.Returns(definition);
+            item.Clone().Returns(item);
+            item.Clone(Arg.Any<int>()).Returns(item);
+            item.Equals(Arg.Any<IItem>(), Arg.Any<bool>()).Returns(call => ReferenceEquals(item, call.ArgAt<IItem>(0)));
+            return item;
+        }
+
+        private sealed class TestInventory(int capacity) : IInventoryContainer
+        {
+            public IItemContainer Items { get; } = new ItemContainer(StorageType.Normal, capacity);
+            public bool DropItem(IItem item) => false;
+        }
+
         [TestInitialize]
         public void Initialize()
         {
             var serviceProvider = Substitute.For<IServiceProvider>();
             _character = Substitute.For<ICharacter>();
-            _inventory = Substitute.For<IInventoryContainer>();
+            _inventory = new TestInventory(2);
             _groundItemBuilder = Substitute.For<IGroundItemBuilder>();
             _groundItemOnGround = Substitute.For<IGroundItemOnGround>();
             _groundItemLocation = Substitute.For<IGroundItemLocation>();
@@ -66,14 +92,14 @@ namespace Hagalaz.Game.Extensions.Tests
         public void TryAddItems_WithSpaceInInventory_ShouldAddAllItems()
         {
             // Arrange
-            var items = new List<IItem> { Substitute.For<IItem>(), Substitute.For<IItem>() };
-            _inventory.Add(Arg.Any<IItem>()).Returns(true);
+            var items = new List<IItem> { CreateItem(1), CreateItem(2) };
+            UseInventory(2);
 
             // Act
             _inventory.TryAddItems(_character, items, out var addedItems);
 
             // Assert
-            _inventory.Received(2).Add(Arg.Any<IItem>());
+            Assert.AreEqual(2, _inventory.Items.TakenSlots);
             _groundItemOptional.DidNotReceive().Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(items, addedItems.ToList());
@@ -83,14 +109,14 @@ namespace Hagalaz.Game.Extensions.Tests
         public void TryAddItems_WithFullInventory_ShouldDropAllItems()
         {
             // Arrange
-            var items = new List<IItem> { Substitute.For<IItem>(), Substitute.For<IItem>() };
-            _inventory.Add(Arg.Any<IItem>()).Returns(false);
+            var items = new List<IItem> { CreateItem(1), CreateItem(2) };
+            UseInventory(0);
 
             // Act
             _inventory.TryAddItems(_character, items, out var addedItems);
 
             // Assert
-            _inventory.Received(2).Add(Arg.Any<IItem>());
+            Assert.AreEqual(0, _inventory.Items.TakenSlots);
             _groundItemOptional.Received(2).Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(items, addedItems.ToList());
@@ -100,14 +126,14 @@ namespace Hagalaz.Game.Extensions.Tests
         public void TryAddItems_WithPartialSpaceInInventory_ShouldAddAndDropItems()
         {
             // Arrange
-            var items = new List<IItem> { Substitute.For<IItem>(), Substitute.For<IItem>() };
-            _inventory.Add(Arg.Any<IItem>()).Returns(true, false);
+            var items = new List<IItem> { CreateItem(1), CreateItem(2) };
+            UseInventory(1);
 
             // Act
             _inventory.TryAddItems(_character, items, out var addedItems);
 
             // Assert
-            _inventory.Received(2).Add(Arg.Any<IItem>());
+            Assert.AreEqual(1, _inventory.Items.TakenSlots);
             _groundItemOptional.Received(1).Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(items, addedItems.ToList());
@@ -118,8 +144,8 @@ namespace Hagalaz.Game.Extensions.Tests
         {
             // Arrange
             var items = new List<(int, int)> { (1, 1), (2, 1) };
-            var builtItems = new List<IItem> { Substitute.For<IItem>(), Substitute.For<IItem>() };
-            _inventory.Add(Arg.Any<IItem>()).Returns(true);
+            var builtItems = new List<IItem> { CreateItem(1), CreateItem(2) };
+            UseInventory(2);
             _itemOptional.Build().Returns(builtItems[0], builtItems[1]);
 
             // Act
@@ -127,7 +153,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
             // Assert
             _itemOptional.Received(2).Build();
-            _inventory.Received(2).Add(Arg.Any<IItem>());
+            Assert.AreEqual(2, _inventory.Items.TakenSlots);
             _groundItemOptional.DidNotReceive().Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(builtItems, addedItems.ToList());
@@ -138,8 +164,8 @@ namespace Hagalaz.Game.Extensions.Tests
         {
             // Arrange
             var items = new List<(int, int)> { (1, 1), (2, 1) };
-            var builtItems = new List<IItem> { Substitute.For<IItem>(), Substitute.For<IItem>() };
-            _inventory.Add(Arg.Any<IItem>()).Returns(false);
+            var builtItems = new List<IItem> { CreateItem(1), CreateItem(2) };
+            UseInventory(0);
             _itemOptional.Build().Returns(builtItems[0], builtItems[1]);
 
             // Act
@@ -147,7 +173,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
             // Assert
             _itemOptional.Received(2).Build();
-            _inventory.Received(2).Add(Arg.Any<IItem>());
+            Assert.AreEqual(0, _inventory.Items.TakenSlots);
             _groundItemOptional.Received(2).Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(builtItems, addedItems.ToList());
@@ -158,8 +184,8 @@ namespace Hagalaz.Game.Extensions.Tests
         {
             // Arrange
             var items = new List<(int, int)> { (1, 1), (2, 1) };
-            var builtItems = new List<IItem> { Substitute.For<IItem>(), Substitute.For<IItem>() };
-            _inventory.Add(Arg.Any<IItem>()).Returns(true, false);
+            var builtItems = new List<IItem> { CreateItem(1), CreateItem(2) };
+            UseInventory(1);
             _itemOptional.Build().Returns(builtItems[0], builtItems.Last());
 
             // Act
@@ -167,7 +193,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
             // Assert
             _itemOptional.Received(2).Build();
-            _inventory.Received(2).Add(Arg.Any<IItem>());
+            Assert.AreEqual(1, _inventory.Items.TakenSlots);
             _groundItemOptional.Received(1).Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(builtItems, addedItems.ToList());
@@ -181,9 +207,9 @@ namespace Hagalaz.Game.Extensions.Tests
             var lootItem = Substitute.For<ILootItem>();
             lootItem.Id.Returns(1);
             var lootResults = new List<LootResult<ILootItem>> { new LootResult<ILootItem>(lootItem, 1) };
-            var builtItem = Substitute.For<IItem>();
+            var builtItem = CreateItem(1);
             _lootGenerator.GenerateLoot<ILootItem>(Arg.Any<CharacterLootParams>()).Returns(lootResults);
-            _inventory.Add(Arg.Any<IItem>()).Returns(true);
+            UseInventory(1);
             _itemOptional.Build().Returns(builtItem);
 
             // Act
@@ -191,7 +217,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
             // Assert
             _lootGenerator.Received(1).GenerateLoot<ILootItem>(Arg.Any<CharacterLootParams>());
-            _inventory.Received(1).Add(Arg.Any<IItem>());
+            Assert.AreEqual(1, _inventory.Items.TakenSlots);
             _groundItemOptional.DidNotReceive().Spawn();
             Assert.AreEqual(1, addedItems.Count());
             Assert.AreEqual(builtItem, addedItems.First());
@@ -205,9 +231,9 @@ namespace Hagalaz.Game.Extensions.Tests
             var lootItem = Substitute.For<ILootItem>();
             lootItem.Id.Returns(1);
             var lootResults = new List<LootResult<ILootItem>> { new LootResult<ILootItem>(lootItem, 1) };
-            var builtItem = Substitute.For<IItem>();
+            var builtItem = CreateItem(1);
             _lootGenerator.GenerateLoot<ILootItem>(Arg.Any<CharacterLootParams>()).Returns(lootResults);
-            _inventory.Add(Arg.Any<IItem>()).Returns(false);
+            UseInventory(0);
             _itemOptional.Build().Returns(builtItem);
 
             // Act
@@ -215,7 +241,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
             // Assert
             _lootGenerator.Received(1).GenerateLoot<ILootItem>(Arg.Any<CharacterLootParams>());
-            _inventory.Received(1).Add(Arg.Any<IItem>());
+            Assert.AreEqual(0, _inventory.Items.TakenSlots);
             _groundItemOptional.Received(1).Spawn();
             Assert.AreEqual(1, addedItems.Count());
             Assert.AreEqual(builtItem, addedItems.First());
@@ -228,15 +254,15 @@ namespace Hagalaz.Game.Extensions.Tests
             var lootItem = Substitute.For<ILootItem>();
             lootItem.Id.Returns(1);
             var lootResults = new List<LootResult<ILootItem>> { new LootResult<ILootItem>(lootItem, 1) };
-            var builtItem = Substitute.For<IItem>();
-            _inventory.Add(Arg.Any<IItem>()).Returns(true);
+            var builtItem = CreateItem(1);
+            UseInventory(1);
             _itemOptional.Build().Returns(builtItem);
 
             // Act
             _inventory.TryAddLoot(_character, lootResults, out var addedItems);
 
             // Assert
-            _inventory.Received(1).Add(Arg.Any<IItem>());
+            Assert.AreEqual(1, _inventory.Items.TakenSlots);
             _groundItemOptional.DidNotReceive().Spawn();
             Assert.AreEqual(1, addedItems.Count());
             Assert.AreEqual(builtItem, addedItems.First());
@@ -249,15 +275,15 @@ namespace Hagalaz.Game.Extensions.Tests
             var lootItem = Substitute.For<ILootItem>();
             lootItem.Id.Returns(1);
             var lootResults = new List<LootResult<ILootItem>> { new LootResult<ILootItem>(lootItem, 1) };
-            var builtItem = Substitute.For<IItem>();
-            _inventory.Add(Arg.Any<IItem>()).Returns(false);
+            var builtItem = CreateItem(1);
+            UseInventory(0);
             _itemOptional.Build().Returns(builtItem);
 
             // Act
             _inventory.TryAddLoot(_character, lootResults, out var addedItems);
 
             // Assert
-            _inventory.Received(1).Add(Arg.Any<IItem>());
+            Assert.AreEqual(0, _inventory.Items.TakenSlots);
             _groundItemOptional.Received(1).Spawn();
             Assert.AreEqual(1, addedItems.Count());
             Assert.AreEqual(builtItem, addedItems.First());
@@ -272,15 +298,15 @@ namespace Hagalaz.Game.Extensions.Tests
             var lootItem2 = Substitute.For<ILootItem>();
             lootItem2.Id.Returns(2);
             var lootResults = new List<LootResult<ILootItem>> { new LootResult<ILootItem>(lootItem1, 1), new LootResult<ILootItem>(lootItem2, 1) };
-            var builtItems = new List<IItem> { Substitute.For<IItem>(), Substitute.For<IItem>() };
-            _inventory.Add(Arg.Any<IItem>()).Returns(true, false);
+            var builtItems = new List<IItem> { CreateItem(1), CreateItem(2) };
+            UseInventory(1);
             _itemOptional.Build().Returns(builtItems[0], builtItems[1]);
 
             // Act
             _inventory.TryAddLoot(_character, lootResults, out var addedItems);
 
             // Assert
-            _inventory.Received(2).Add(Arg.Any<IItem>());
+            Assert.AreEqual(1, _inventory.Items.TakenSlots);
             _groundItemOptional.Received(1).Spawn();
             Assert.AreEqual(2, addedItems.Count());
             CollectionAssert.AreEquivalent(builtItems, addedItems.ToList());

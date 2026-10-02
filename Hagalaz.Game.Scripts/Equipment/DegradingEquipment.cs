@@ -67,7 +67,11 @@ namespace Hagalaz.Game.Scripts.Equipment
                     return;
                 }
 
-                character.Equipment.Replace(slot, itemBuilder.Create().WithId(degradedItemID).WithCount(item.Count).Build());
+                if (!character.Equipment.TryReplaceEquippedItem(slot, item,
+                        itemBuilder.Create().WithId(degradedItemID).WithCount(item.Count).Build()))
+                {
+                    return;
+                }
                 character.SendChatMessage("Your " + name + " degraded.");
 
                 item.ExtraData[0] = GetDegrationTicks(item);
@@ -81,7 +85,7 @@ namespace Hagalaz.Game.Scripts.Equipment
                     return;
                 }
 
-                character.Equipment.Remove(item, slot);
+                if (character.Equipment.RemoveEquippedItem(item, slot) <= 0) return;
                 character.SendChatMessage("Your " + name + " crumbles into dust.");
             }
         }

@@ -11,6 +11,7 @@ using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Hagalaz.Game.Scripts.Widgets;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Widgets.Tabs
@@ -36,12 +37,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             InterfaceInstance.SetOptions(0, 28, 55, 2097152);
             InterfaceInstance.AttachClickHandler(0, (component, type, itemID, slot) =>
             {
-                if (slot < 0 || slot >= Owner.Inventory.Capacity)
+                if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
                 {
                     return false;
                 }
 
-                var item = Owner.Inventory[slot];
+                var item = Owner.Inventory.Items[slot];
                 if (item == null || item.Id != itemID)
                 {
                     return false;
@@ -62,33 +63,24 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 }
 
-                if (fromSlot < 0 || fromSlot >= Owner.Inventory.Capacity)
+                if (fromSlot < 0 || fromSlot >= Owner.Inventory.Items.Capacity)
                 {
                     return false;
                 }
 
                 toSlot -= 28;
-                if (toSlot < 0 || toSlot >= Owner.Inventory.Capacity)
+                if (toSlot < 0 || toSlot >= Owner.Inventory.Items.Capacity)
                 {
                     return false;
                 }
 
-                Owner.Inventory.Swap(fromSlot, toSlot);
+                Owner.Inventory.Items.Swap(fromSlot, toSlot);
                 return true;
             });
 
             InterfaceInstance.AttachUseOnObjectHandler(0, (componentID, usedOn, forceRun, itemId, slot) =>
             {
-                if (slot < 0 || slot >= Owner.Inventory.Capacity)
-                {
-                    return false;
-                }
-
-                var used = Owner.Inventory[slot];
-                if (used == null || used.Id != itemId)
-                {
-                    return false;
-                }
+                if (!ItemWidgetOperations.TryGetItem(Owner.Inventory.Items, itemId, slot, out var used)) return false;
 
                 Owner.ForceRunMovementType(forceRun);
                 var targetHandle = usedOn.Handle;
@@ -127,16 +119,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
             InterfaceInstance.AttachUseOnGroundItemHandler(0, (componentID, usedOn, forceRun, itemId, slot) =>
             {
-                if (slot < 0 || slot >= Owner.Inventory.Capacity)
-                {
-                    return false;
-                }
-
-                var used = Owner.Inventory[slot];
-                if (used == null || used.Id != itemId)
-                {
-                    return false;
-                }
+                if (!ItemWidgetOperations.TryGetItem(Owner.Inventory.Items, itemId, slot, out var used)) return false;
 
                 Owner.ForceRunMovementType(forceRun);
                 var targetHandle = usedOn.Handle;
@@ -168,7 +151,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
             InterfaceInstance.AttachUseOnComponentHandler(0, (componentID, usedWithID, usedWithSlot, usedID, usedSlot) =>
             {
-                if (usedWithSlot < 0 || usedWithSlot >= Owner.Inventory.Capacity || usedSlot < 0 || usedSlot >= Owner.Inventory.Capacity)
+                if (usedWithSlot < 0 || usedWithSlot >= Owner.Inventory.Items.Capacity || usedSlot < 0 || usedSlot >= Owner.Inventory.Items.Capacity)
                 {
                     return false;
                 }
@@ -178,13 +161,13 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 }
 
-                var usedWith = Owner.Inventory[usedWithSlot];
+                var usedWith = Owner.Inventory.Items[usedWithSlot];
                 if (usedWith == null || usedWith.Id != usedWithID)
                 {
                     return false;
                 }
 
-                var used = Owner.Inventory[usedSlot];
+                var used = Owner.Inventory.Items[usedSlot];
                 if (used == null || used.Id != usedID)
                 {
                     return false;
@@ -214,16 +197,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
             InterfaceInstance.AttachUseOnCreatureHandler(0, (componentID, usedOn, forceRun, itemId, slot) =>
             {
-                if (slot < 0 || slot >= Owner.Inventory.Capacity)
-                {
-                    return false;
-                }
-
-                var used = Owner.Inventory[slot];
-                if (used == null || used.Id != itemId)
-                {
-                    return false;
-                }
+                if (!ItemWidgetOperations.TryGetItem(Owner.Inventory.Items, itemId, slot, out var used)) return false;
 
                 Owner.ForceRunMovementType(forceRun);
                 var task = new CreatureReachTask(Owner, usedOn.Handle, success =>
@@ -297,7 +271,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         ///     Refreshes the inventory.
         /// </summary>
         /// <param name="changedSlots">The changed slots.</param>
-        public void RefreshInventory(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(93, false, Owner.Inventory, changedSlots);
+        public void RefreshInventory(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(93, false, Owner.Inventory.Items, changedSlots);
 
         /// <summary>
         ///     Happens when interface is closed for character.

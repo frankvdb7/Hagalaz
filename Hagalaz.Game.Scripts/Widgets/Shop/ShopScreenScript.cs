@@ -1,5 +1,6 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Builders.Widget;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model.Events;
@@ -11,6 +12,7 @@ using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Utilities;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
+using Hagalaz.Game.Scripts.Widgets;
 
 namespace Hagalaz.Game.Scripts.Widgets.Shop
 {
@@ -20,10 +22,11 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
     public class ShopScreenScript : WidgetScript
     {
         public ShopScreenScript(
-            ICharacterContextAccessor characterContextAccessor, IItemService itemService, IEventManager eventManager,
+            ICharacterContextAccessor characterContextAccessor, IItemService itemService, IItemBuilder itemBuilder, IEventManager eventManager,
             IWidgetOptionBuilder widgetOptionBuilder) : base(characterContextAccessor)
         {
             _itemRepository = itemService;
+            _itemBuilder = itemBuilder;
             _eventManager = eventManager;
             _widgetOptionBuilder = widgetOptionBuilder;
         }
@@ -72,6 +75,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
         ///     The item manager
         /// </summary>
         private readonly IItemService _itemRepository;
+        private readonly IItemBuilder _itemBuilder;
 
         private readonly IEventManager _eventManager;
         private readonly IWidgetOptionBuilder _widgetOptionBuilder;
@@ -103,7 +107,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
         /// </summary>
         public void Setup()
         {
-            var containsSampleItems = Owner.CurrentShop!.SampleStockContainer.Any();
+            var containsSampleItems = Owner.CurrentShop!.SampleStockContainer.Items.Any();
             Owner.Configurations.SendStandardConfiguration(118, 3); // cached container id, varies in capacity
             Owner.Configurations.SendStandardConfiguration(1496, containsSampleItems ? 553 : -1); // Sample stock container
             Owner.Configurations.SendStandardConfiguration(532, Owner.CurrentShop.CurrencyId); // currency
@@ -114,7 +118,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
 
             InterfaceInstance.SetOptions(20,
                 0,
-                Owner.CurrentShop.MainStockContainer.Capacity * 6,
+                Owner.CurrentShop.MainStockContainer.Items.Capacity * 6,
                 _widgetOptionBuilder.SetRightClickOptions(9, true).Value);
 
             Owner.Configurations.SendCs2Script(149,
@@ -168,16 +172,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
             _inventoryInterface.AttachClickHandler(0,
                 (componentID, type, itemID, slot) =>
                 {
-                    if (slot < 0 || slot >= Owner.Inventory.Capacity)
-                    {
-                        return false;
-                    }
-
-                    var item = Owner.Inventory[slot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
+                    if (!ItemWidgetOperations.TryGetItem(Owner.Inventory.Items, itemID, slot, out var item)) return false;
 
                     var amount = 0;
                     switch (type)
@@ -205,12 +200,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
 
             bool BuyScreenHandler(int componentID, ComponentClickType type, int itemID, int slot)
             {
-                if (slot < 0 || slot >= Owner.CurrentShop.MainStockContainer.Capacity)
+                if (slot < 0 || slot >= Owner.CurrentShop.MainStockContainer.Items.Capacity)
                 {
                     return false;
                 }
 
-                var item = Owner.CurrentShop.MainStockContainer[slot];
+                var item = Owner.CurrentShop.MainStockContainer.Items[slot];
                 if (item == null)
                 {
                     return false;
@@ -241,12 +236,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
 
             bool SellScreenHandler(int componentID, ComponentClickType type, int itemID, int slot)
             {
-                if (slot < 0 || slot >= Owner.Inventory.Capacity)
+                if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
                 {
                     return false;
                 }
 
-                var item = Owner.Inventory[slot];
+                var item = Owner.Inventory.Items[slot];
                 if (item == null)
                 {
                     return false;
@@ -279,12 +274,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
             InterfaceInstance.AttachClickHandler(21,
                 (componentID, type, itemID, slot) =>
                 {
-                    if (slot < 0 || slot >= Owner.CurrentShop.SampleStockContainer.Capacity)
+                    if (slot < 0 || slot >= Owner.CurrentShop.SampleStockContainer.Items.Capacity)
                     {
                         return false;
                     }
 
-                    var item = Owner.CurrentShop.SampleStockContainer[slot];
+                    var item = Owner.CurrentShop.SampleStockContainer.Items[slot];
                     if (item == null)
                     {
                         return false;
@@ -534,24 +529,25 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
         ///     Refreshes the sample stock.
         /// </summary>
         /// <param name="changedSlots">The changed slots.</param>
-        private void RefreshSampleStock(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(553, false, Owner.CurrentShop.SampleStockContainer, changedSlots);
+        private void RefreshSampleStock(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(553, false, Owner.CurrentShop.SampleStockContainer.Items, changedSlots);
 
         /// <summary>
         ///     Refreshes the main stock.
         /// </summary>
         /// <param name="changedSlots">The changed slots.</param>
-        private void RefreshMainStock(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(3, false, Owner.CurrentShop.MainStockContainer, changedSlots);
+        private void RefreshMainStock(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(3, false, Owner.CurrentShop.MainStockContainer.Items, changedSlots);
 
         /// <summary>
         ///     Refreshes the inventory.
         /// </summary>
         /// <param name="changedSlots">The changed slots.</param>
-        private void RefreshInventory(HashSet<int>? changedSlots) => Owner.Configurations.SendItems(93, false, Owner.Inventory, changedSlots);
+        private void RefreshInventory(HashSet<int>? changedSlots) => Owner.Configurations.SendItems(93, false, Owner.Inventory.Items, changedSlots);
 
         /// <summary>
         ///     Refreshes the money pouch.
         /// </summary>
-        private void RefreshMoneyPouch() => Owner.Configurations.SendItems(623, false, Owner.MoneyPouch);
+        private void RefreshMoneyPouch() => Owner.Configurations.SendItems(623, false,
+            new[] { _itemBuilder.Create().WithId(995).WithCount(Owner.MoneyPouch.Count).Build() });
 
         /// <summary>
         ///     Happens when interface is closed for character.

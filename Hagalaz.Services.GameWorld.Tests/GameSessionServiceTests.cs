@@ -96,7 +96,12 @@ public sealed class GameSessionServiceTests
         Assert.IsTrue(await store.TryAdd(retainedSession));
         blockConnectionRead = true;
 
-        var moveTask = Task.Run(async () => await store.TryMoveToPendingAbort(retainedSession));
+        var moveTask = Task.Factory.StartNew(
+                async () => await store.TryMoveToPendingAbort(retainedSession),
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default)
+            .Unwrap();
         await connectionReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
         var addTask = store.TryAdd(replacementSession).AsTask();

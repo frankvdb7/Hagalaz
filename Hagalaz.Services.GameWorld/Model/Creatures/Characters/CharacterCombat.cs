@@ -135,13 +135,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             //database.ExecuteAsync(new ActivityLogQuery(characterKiller.MasterId, "Player Kill", "I have defeated " + _character.DisplayName + " in combat."));
 
             var itemsOnDeath = _character.GetItemsOnDeathData();
-            foreach (var equipment in _character.Equipment)
-            {
-                equipment?.EquipmentScript.OnUnequipped(equipment, _character); // make sure that any effects 'onequip', are removed by 'unequiping' them.
-            }
-
-            _character.Inventory.Clear(false);
-            _character.Equipment.Clear(false);
+            _character.Inventory.Items.Clear(false);
 
             var groundItemOwner = _character;
             if (characterKiller != null)
@@ -165,10 +159,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 .WithLocation(Owner.Location)
                 .WithOwner(groundItemOwner)
                 .Build();
-                _mapRegionService.AddGroundItem(bones);
-            _character.Inventory.AddRange(itemsOnDeath.keptItems);
-            _character.Inventory.OnUpdate();
-            _character.Equipment.OnUpdate();
+            _mapRegionService.AddGroundItem(bones);
+            _character.Inventory.Items.AddRange(itemsOnDeath.keptItems);
+            _character.Equipment.ClearEquipment();
         }
 
         /// <summary>

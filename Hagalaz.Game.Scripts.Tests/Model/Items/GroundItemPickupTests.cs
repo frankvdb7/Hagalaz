@@ -25,15 +25,18 @@ public sealed class GroundItemPickupTests
     {
         var regionService = Substitute.For<IMapRegionService>();
         var region = CreateRegion(regionService);
-        var item = Substitute.For<IItem>();
+        var item = ComposedTestContainer.CreateTestItem(1);
         var groundItem = new GroundItem(item, Location.Create(10, 10), null, 0, 100, regionService);
-        var inventory = Substitute.For<IInventoryContainer>();
+        var inventory = new ComposedTestContainer(28);
         var character = Substitute.For<ICharacter>();
         var clone = Substitute.For<IItem>();
+        item.Count.Returns(1);
+        clone.Count.Returns(1);
+        item.ItemDefinition.Returns(Substitute.For<IItemDefinition>());
+        clone.ItemDefinition.Returns(Substitute.For<IItemDefinition>());
         item.Clone().Returns(clone);
+        clone.Clone().Returns(clone);
         character.Inventory.Returns(inventory);
-        inventory.HasSpaceFor(item).Returns(true);
-        inventory.Add(clone).Returns(true);
         regionService.FindMapRegion(groundItem.Location.RegionId, groundItem.Location.Dimension).Returns(region);
         regionService.RemoveGroundItem(groundItem).Returns(_ => region.Remove(groundItem));
         region.Add(groundItem);
@@ -45,26 +48,25 @@ public sealed class GroundItemPickupTests
 
         Assert.IsTrue(firstResult);
         Assert.IsFalse(secondResult);
-        inventory.Received(1).Add(clone);
+        Assert.AreEqual(0, inventory.Items.GetInstanceSlot(clone));
         Assert.IsEmpty(region.FindAllGroundItems());
     }
 
     [TestMethod]
     public void TakeItem_WhenInventoryIsFull_LeavesGroundItemAvailable()
     {
-        var item = Substitute.For<IItem>();
+        var item = ComposedTestContainer.CreateTestItem(1);
         var groundItem = Substitute.For<IGroundItem>();
-        var inventory = Substitute.For<IInventoryContainer>();
+        var inventory = new ComposedTestContainer(0);
         var character = Substitute.For<ICharacter>();
         groundItem.ItemOnGround.Returns(item);
         character.Inventory.Returns(inventory);
-        inventory.HasSpaceFor(item).Returns(false);
 
         var result = new DefaultItemScript().TakeItem(groundItem, character);
 
         Assert.IsFalse(result);
         groundItem.DidNotReceive().Despawn();
-        inventory.DidNotReceive().Add(Arg.Any<IItem>());
+        Assert.AreEqual(0, inventory.Items.TakenSlots);
     }
 
     private static MapRegion CreateRegion(IMapRegionService regionService)

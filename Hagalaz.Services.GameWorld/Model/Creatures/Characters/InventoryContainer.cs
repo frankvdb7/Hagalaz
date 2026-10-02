@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Item;
@@ -10,68 +12,48 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
+using Hagalaz.Services.GameWorld.Logic.Characters;
 
-namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
+namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters;
+
+public class InventoryContainer : IInventoryContainer,
+    IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
 {
-    /// <summary>
-    /// Class InventoryContainer
-    /// </summary>
-    public class InventoryContainer : TradeItemContainer, IInventoryContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
-        IDehydratable<IReadOnlyList<HydratedItemDto>>
+    private readonly ICharacter _owner;
+    private readonly IMapRegionService _mapRegionService;
+    private readonly IGroundItemBuilder _groundItemBuilder;
+    private readonly IItemBuilder _itemBuilder;
+    private readonly ItemContainer _items;
+    public IItemContainer Items => _items;
+
+    public InventoryContainer(ICharacter owner, int capacity, IMapRegionService mapRegionService,
+        IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder)
     {
-        /// <summary>
-        /// Instance of the character who owns this container.
-        /// </summary>
-        private readonly ICharacter _owner;
-        private readonly IMapRegionService _mapRegionService;
-        private readonly IGroundItemBuilder _groundItemBuilder;
-        private readonly IItemBuilder _itemBuilder;
+        (_owner, _mapRegionService, _groundItemBuilder, _itemBuilder) =
+            (owner, mapRegionService, groundItemBuilder, itemBuilder);
+        _items = new ItemContainer(StorageType.Normal, capacity, OnUpdate);
+    }
 
-        /// <summary>
-        /// Contstructs a container for character inventories.
-        /// </summary>
-        /// <param name="owner">The owner of the container.</param>
-        /// <param name="capacity">The capacity of the container.</param>
-        public InventoryContainer(
-            ICharacter owner,
-            int capacity,
-            IMapRegionService mapRegionService,
-            IGroundItemBuilder groundItemBuilder,
-            IItemBuilder itemBuilder)
-            : base(StorageType.Normal, capacity) =>
-            (_owner, _mapRegionService, _groundItemBuilder, _itemBuilder) = (owner, mapRegionService, groundItemBuilder, itemBuilder);
+    public void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new InventoryChangedEvent(_owner, slots));
 
-        /// <summary>
-        /// Called when multiple items from specified slot(s) have changed.
-        /// </summary>
-        /// <param name="slots">The slots.</param>
-        public override void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new InventoryChangedEvent(_owner, slots));
+    public bool DropItem(IItem item)
+    {
+        var slot = Items.GetInstanceSlot(item);
+        if (slot == -1 || Items.Remove(item, slot) < item.Count) return false;
+        var groundItem = _groundItemBuilder.Create().WithItem(item).WithLocation(_owner.Location).WithOwner(_owner).Build();
+        _mapRegionService.AddGroundItem(groundItem);
+        return true;
+    }
 
-        /// <summary>
-        /// Drop's specific item.
-        /// </summary>
-        /// <param name="item">Item which should be droped.</param>
-        /// <returns>If item was droped successfully.</returns>
-        public bool DropItem(IItem item)
-        {
-            var slot = GetInstanceSlot(item);
-            if (slot == -1) return false;
-            if (Remove(item, slot) < item.Count) return false;
-            var groundItem = _groundItemBuilder.Create()
-                .WithItem(item)
-                .WithLocation(_owner.Location)
-                .WithOwner(_owner)
-                .Build();
-            _mapRegionService.AddGroundItem(groundItem); // we spawn it with this method, as the container was normally stacked.
-            return true;
-        }
+    public void Hydrate(IReadOnlyList<HydratedItemDto> inventory)
+    {
+        _items.RestoreItems(inventory.Select(entry => entry.ToStorageEntry(_itemBuilder)));
+    }
 
-        public void Hydrate(IReadOnlyList<HydratedItemDto> inventory) => RestoreItems(inventory.Select(item =>
-            (item.SlotId, _itemBuilder.Create().WithId(item.ItemId).WithCount(item.Count)
-                .WithExtraData(item.ExtraData ?? string.Empty).Build())));
-
-        public IReadOnlyList<HydratedItemDto> Dehydrate() => EnumerateOccupiedSlots()
-            .Select(entry => new HydratedItemDto(entry.Item.Id, entry.Item.Count, entry.Slot, entry.Item.SerializeExtraData()))
-            .ToArray();
+    public IReadOnlyList<HydratedItemDto> Dehydrate()
+    {
+        var entries = _items.Select((item, slot) => (item, slot)).Where(entry => entry.item != null).ToArray();
+        return entries.Select(entry => new HydratedItemDto(entry.item!.Id, entry.item.Count, entry.slot,
+            entry.item.SerializeExtraData())).ToArray();
     }
 }

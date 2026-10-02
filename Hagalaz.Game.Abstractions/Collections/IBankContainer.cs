@@ -4,11 +4,12 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Collections
 {
     /// <summary>
-    /// Defines the contract for a player's bank container, extending the base <see cref="IItemContainer"/>
-    /// with methods specific to bank operations like depositing from other containers and withdrawing.
+    /// Defines the contract for a player's bank operations and its generic item-container component.
     /// </summary>
-    public interface IBankContainer : ITradeItemContainer
+    public interface IBankContainer
     {
+        IItemContainer Items { get; }
+
         /// <summary>
         /// Deposits the contents of the player's money pouch into the bank.
         /// </summary>

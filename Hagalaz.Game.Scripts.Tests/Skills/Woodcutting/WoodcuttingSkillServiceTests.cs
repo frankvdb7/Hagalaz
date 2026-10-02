@@ -107,8 +107,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
         {
             // Arrange
             var character = Substitute.For<ICharacter>();
-            var inventory = Substitute.For<IInventoryContainer>();
-            inventory.FreeSlots.Returns(0);
+            var inventory = new ComposedTestContainer(0);
             character.Inventory.Returns(inventory);
             character.Statistics.GetSkillLevel(Arg.Any<int>()).Returns(99);
 
@@ -221,8 +220,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             var character = Substitute.For<ICharacter>();
             character.ServiceProvider.Returns(_serviceProvider);
 
-            var inventory = Substitute.For<IInventoryContainer>();
-            inventory.FreeSlots.Returns(1);
+            var inventory = new ComposedTestContainer(1);
             character.Inventory.Returns(inventory);
 
             // Since TryAddLoot is an extension method, we can't mock it directly.
@@ -283,8 +281,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             character.ServiceProvider.Returns(_serviceProvider);
             character.Statistics.GetSkillLevel(Arg.Any<int>()).Returns(99);
 
-            var inventory = Substitute.For<IInventoryContainer>();
-            inventory.FreeSlots.Returns(1);
+            var inventory = new ComposedTestContainer(1);
             character.Inventory.Returns(inventory);
             _lootGenerator.GenerateLoot<ILootItem>(Arg.Any<CharacterLootParams>()).Returns([]);
 

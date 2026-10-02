@@ -113,6 +113,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
         }
 
+        public void SendItems(int containerId, bool split, IReadOnlyList<IItem?> items) =>
+            _owner.Session.SendMessage(new DrawItemContainerMessage
+            {
+                Id = containerId,
+                Split = split,
+                Items = items,
+                Capacity = items.Count
+            });
+
 
         /// <summary>
         /// Send's minimap configuration.

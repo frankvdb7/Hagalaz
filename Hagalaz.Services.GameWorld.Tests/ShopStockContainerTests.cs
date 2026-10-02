@@ -7,6 +7,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events;
+using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Services.GameWorld.Logic.Shops;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -29,7 +30,7 @@ public sealed class ShopStockContainerTests
 
         Assert.IsFalse(result);
         Assert.AreEqual(1, scenario.MoneyPouch.Count);
-        Assert.AreEqual(0, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -42,7 +43,7 @@ public sealed class ShopStockContainerTests
 
         Assert.IsFalse(result);
         Assert.AreEqual(cost - 1, scenario.MoneyPouch.Count);
-        Assert.AreEqual(0, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -55,7 +56,7 @@ public sealed class ShopStockContainerTests
 
         Assert.IsTrue(result);
         Assert.AreEqual(0, GetTotalCoins(scenario));
-        Assert.AreEqual(1, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -68,7 +69,7 @@ public sealed class ShopStockContainerTests
 
         Assert.IsTrue(result);
         Assert.AreEqual(1, GetTotalCoins(scenario));
-        Assert.AreEqual(1, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -81,7 +82,7 @@ public sealed class ShopStockContainerTests
 
         Assert.IsTrue(result);
         Assert.AreEqual(0, GetTotalCoins(scenario));
-        Assert.AreEqual(1, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -94,8 +95,8 @@ public sealed class ShopStockContainerTests
 
         Assert.IsFalse(result);
         Assert.AreEqual(4_000, scenario.MoneyPouch.Count);
-        Assert.AreEqual(5_999, scenario.Inventory.GetCountById(CoinId));
-        Assert.AreEqual(0, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(5_999, scenario.Inventory.Items.GetCountById(CoinId));
+        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -107,7 +108,7 @@ public sealed class ShopStockContainerTests
 
         Assert.IsTrue(result);
         Assert.AreEqual(0, GetTotalCoins(scenario));
-        Assert.AreEqual(1, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -120,8 +121,8 @@ public sealed class ShopStockContainerTests
         var result = scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1);
 
         Assert.IsTrue(result);
-        Assert.AreEqual(0, scenario.Inventory.GetCountById(currencyId));
-        Assert.AreEqual(1, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(currencyId));
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
     }
 
     [TestMethod]
@@ -134,8 +135,67 @@ public sealed class ShopStockContainerTests
         var result = scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1);
 
         Assert.IsFalse(result);
-        Assert.AreEqual(cost - 1, scenario.Inventory.GetCountById(currencyId));
-        Assert.AreEqual(0, scenario.Inventory.GetCountById(ItemId));
+        Assert.AreEqual(cost - 1, scenario.Inventory.Items.GetCountById(currencyId));
+        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(ItemId));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenPaymentStagesButInventoryRejects_RollsBackPaymentAndStock()
+    {
+        var scenario = CreateScenario(cost: 5, pouchCoins: 5, inventoryCapacity: 1);
+        Assert.IsTrue(scenario.Inventory.Items.Add(new ComposedTestItem(3000, 1, stackable: false)));
+
+        Assert.IsFalse(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+
+        Assert.AreEqual(5, scenario.MoneyPouch.Count);
+        Assert.AreEqual(1, scenario.Stock.Items.GetCountById(ItemId));
+        scenario.ShopEvents.DidNotReceive().SendEvent(Arg.Any<ShopItemBoughtEvent>());
+    }
+
+    [TestMethod]
+    public void SellFromInventory_WhenPouchOverflowCannotFit_RollsBackSoldItemAndStock()
+    {
+        var scenario = CreateScenario(cost: 2, pouchCoins: int.MaxValue - 1, inventoryCapacity: 2);
+        var item = new ComposedTestItem(ItemId, 2, stackable: true);
+        item.ItemScript.CanSellItem(item, scenario.Character).Returns(true);
+        Assert.IsTrue(scenario.Inventory.Items.Add(item));
+        Assert.IsTrue(scenario.Inventory.Items.Add(new ComposedTestItem(3000, 1, stackable: false)));
+
+        Assert.IsFalse(scenario.Stock.SellFromInventory(scenario.Character, item, 1));
+
+        Assert.AreEqual(2, scenario.Inventory.Items.GetCountById(ItemId));
+        Assert.AreEqual(1, scenario.Stock.Items.GetCountById(ItemId));
+        Assert.AreEqual(int.MaxValue - 1, scenario.MoneyPouch.Count);
+    }
+
+    [TestMethod]
+    public void NormalizeStock_RestocksDepletedOriginalItem()
+    {
+        var scenario = CreateScenario(cost: 0);
+        var depletedOriginal = scenario.StockItem.Clone(0);
+        var replacement = new IItem[scenario.Stock.Items.Capacity];
+        replacement[0] = depletedOriginal;
+        scenario.Stock.SetItems(replacement, update: false);
+
+        scenario.Stock.NormalizeStock();
+
+        Assert.AreSame(depletedOriginal, scenario.Stock.Items[0]);
+        Assert.AreEqual(1, scenario.Stock.Items[0]!.Count);
+    }
+
+    [TestMethod]
+    public void NormalizeStock_RetainsDepletedPlayerStockAtZeroCount()
+    {
+        var scenario = CreateScenario(cost: 0);
+        var playerStock = new ComposedTestItem(2001, 1, stackable: true);
+        var replacement = new IItem[scenario.Stock.Items.Capacity];
+        replacement[0] = playerStock;
+        scenario.Stock.SetItems(replacement, update: false);
+
+        scenario.Stock.NormalizeStock();
+
+        Assert.AreSame(playerStock, scenario.Stock.Items[0]);
+        Assert.AreEqual(0, scenario.Stock.Items[0]!.Count);
     }
 
     private static ShopScenario CreateScenario(
@@ -143,19 +203,20 @@ public sealed class ShopStockContainerTests
         int currencyId = CoinId,
         int pouchCoins = 0,
         int inventoryCurrency = 0,
-        bool sampleStock = false)
+        bool sampleStock = false,
+        int inventoryCapacity = 10)
     {
-        var inventory = new TestInventory(10);
+        var inventory = new ComposedTestInventory(inventoryCapacity);
         if (inventoryCurrency > 0)
         {
-            Assert.IsTrue(inventory.Add(new TestItem(currencyId, inventoryCurrency, stackable: true)));
+            Assert.IsTrue(inventory.Items.Add(new ComposedTestItem(currencyId, inventoryCurrency, stackable: true)));
         }
 
         var character = Substitute.For<ICharacter>();
         character.Inventory.Returns(inventory);
         character.EventManager.Returns(Substitute.For<IEventManager>());
 
-        var itemBuilder = new TestItemBuilder();
+        var itemBuilder = new ComposedTestItemBuilder();
         var moneyPouch = new MoneyPouchContainer(character, itemBuilder);
         if (pouchCoins > 0)
         {
@@ -168,13 +229,15 @@ public sealed class ShopStockContainerTests
         shop.CurrencyId.Returns(currencyId);
         shop.GeneralStore.Returns(true);
         shop.GetBuyValue(Arg.Any<IItem>()).Returns(cost);
+        shop.GetSellValue(Arg.Any<IItem>()).Returns(cost);
 
         var itemService = Substitute.For<IItemService>();
         var currencyDefinition = Substitute.For<IItemDefinition>();
         currencyDefinition.Name.Returns(currencyId == CoinId ? "Coins" : "Tokens");
         itemService.FindItemDefinitionById(currencyId).Returns(currencyDefinition);
 
-        var stockItem = new TestItem(ItemId, 1, stackable: true);
+        var stockItem = new ComposedTestItem(ItemId, 1, stackable: true);
+        var shopEvents = Substitute.For<IEventManager>();
         var stock = new ShopStockContainer(
             shop,
             itemService,
@@ -183,103 +246,21 @@ public sealed class ShopStockContainerTests
             StorageType.AlwaysStack,
             1,
             [stockItem],
-            Substitute.For<IEventManager>());
+            shopEvents);
 
-        return new ShopScenario(character, inventory, moneyPouch, stock, stockItem);
+        return new ShopScenario(character, inventory, moneyPouch, stock, stockItem, shopEvents);
     }
 
     private static int GetTotalCoins(ShopScenario scenario) =>
-        scenario.MoneyPouch.Count + scenario.Inventory.GetCountById(CoinId);
+        scenario.MoneyPouch.Count + scenario.Inventory.Items.GetCountById(CoinId);
 
     private sealed record ShopScenario(
         ICharacter Character,
         IInventoryContainer Inventory,
         IMoneyPouchContainer MoneyPouch,
         IShopStockContainer Stock,
-        IItem StockItem);
+        IItem StockItem,
+        IEventManager ShopEvents);
 
-    private sealed class TestInventory : TestItemContainer, IInventoryContainer
-    {
-        public TestInventory(int capacity) : base(StorageType.Normal, capacity) { }
 
-        public bool DropItem(IItem item) => false;
-    }
-
-    private class TestItemContainer : TradeItemContainer
-    {
-        protected TestItemContainer(StorageType type, int capacity) : base(type, capacity) { }
-
-        public override void OnUpdate(HashSet<int>? slots = null) { }
-    }
-
-    private sealed class TestItemBuilder : IItemBuilder, IItemId, IItemOptional
-    {
-        private int _id;
-        private int _count = 1;
-
-        public IItemId Create() => this;
-
-        public IItemOptional WithId(int id)
-        {
-            _id = id;
-            return this;
-        }
-
-        public IItemOptional WithCount(int count)
-        {
-            _count = count;
-            return this;
-        }
-
-        public IItemOptional WithExtraData(string data) => this;
-
-        public IItem Build() => new TestItem(_id, _count, stackable: true);
-    }
-
-    private sealed class TestItem : IItem
-    {
-        public int Id { get; }
-        public int Count { get; set; }
-        public string Name => $"Test item {Id}";
-        public IItemDefinition ItemDefinition { get; }
-        public IEquipmentDefinition EquipmentDefinition { get; } = Substitute.For<IEquipmentDefinition>();
-        public IItemScript ItemScript { get; }
-        public IEquipmentScript EquipmentScript { get; } = Substitute.For<IEquipmentScript>();
-        public long[] ExtraData => [];
-
-        public TestItem(int id, int count, bool stackable)
-        {
-            Id = id;
-            Count = count;
-            ItemDefinition = Substitute.For<IItemDefinition>();
-            ItemDefinition.Stackable.Returns(stackable);
-            ItemDefinition.Noted.Returns(false);
-
-            ItemScript = Substitute.For<IItemScript>();
-            ItemScript.CanBuyItem(Arg.Any<IItem>(), Arg.Any<ICharacter>()).Returns(true);
-            ItemScript.CanStackItem(Arg.Any<IItem>(), Arg.Any<IItem>(), Arg.Any<bool>()).Returns(callInfo =>
-            {
-                var left = callInfo.ArgAt<IItem>(0);
-                var right = callInfo.ArgAt<IItem>(1);
-                return callInfo.ArgAt<bool>(2) || left.Id == right.Id && left.ItemDefinition.Stackable;
-            });
-        }
-
-        private TestItem(int id, int count, IItemDefinition definition, IItemScript script)
-        {
-            Id = id;
-            Count = count;
-            ItemDefinition = definition;
-            ItemScript = script;
-        }
-
-        public IItem Clone() => new TestItem(Id, Count, ItemDefinition, ItemScript);
-
-        public IItem Clone(int newCount) => new TestItem(Id, newCount, ItemDefinition, ItemScript);
-
-        public bool Equals(IItem otherItem, bool ignoreCount = true) =>
-            otherItem != null && Id == otherItem.Id && (ignoreCount || Count == otherItem.Count);
-
-        public string? SerializeExtraData() => null;
-    }
 }

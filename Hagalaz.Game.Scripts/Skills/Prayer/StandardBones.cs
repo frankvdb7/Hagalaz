@@ -59,18 +59,9 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
                 return;
             }
 
-            var definition = await _prayerService.FindById(item.Id);
-            cancellationToken.ThrowIfCancellationRequested();
-            if (definition == null)
-            {
-                return;
-            }
-
-            var slot = character.Inventory.GetInstanceSlot(item);
-            if (slot == -1)
-            {
-                return;
-            }
+            var availableItem = await Prayer.FindAvailableItem(character, item, _prayerService, cancellationToken);
+            if (availableItem == null) return;
+            var (definition, slot) = availableItem.Value;
 
             character.Interrupt(this);
             character.SendChatMessage("You dig a hole in the ground.");
@@ -87,7 +78,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
         /// <param name="slot">The slot.</param>
         private static void OnRemovedCallBack(ICharacter character, IItem toRemove, PrayerDto definition, int slot)
         {
-            var removed = character.Inventory.Remove(toRemove, slot);
+            var removed = character.Inventory.Items.Remove(toRemove, slot);
             if (removed <= 0)
             {
                 return;

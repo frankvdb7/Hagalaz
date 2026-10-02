@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -136,7 +136,7 @@ namespace Hagalaz.Game.Scripts.Model.Items
         {
             if (!CanTakeItem(item, character))
                 return false;
-            if (!character.Inventory.HasSpaceFor(item.ItemOnGround))
+            if (!character.Inventory.Items.HasSpaceFor(item.ItemOnGround))
             {
                 character.SendChatMessage(GameStrings.InventoryFull);
                 return false;
@@ -148,7 +148,7 @@ namespace Hagalaz.Game.Scripts.Model.Items
                 return false;
             }
 
-            if (!character.Inventory.Add(item.ItemOnGround.Clone()))
+            if (!character.Inventory.Items.Add(item.ItemOnGround.Clone()))
                 return false;
             return true;
         }

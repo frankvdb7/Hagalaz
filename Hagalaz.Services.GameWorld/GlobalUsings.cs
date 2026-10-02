@@ -1,0 +1,9 @@
+global using System;
+global using System.Collections.Generic;
+global using Hagalaz.Game.Abstractions.Builders.Item;
+global using Hagalaz.Game.Abstractions.Collections;
+global using Hagalaz.Game.Abstractions.Logic.Dehydrations;
+global using Hagalaz.Game.Abstractions.Logic.Hydrations;
+global using Hagalaz.Game.Common.Events.Character;
+global using Hagalaz.Game.Resources;
+global using Hagalaz.Services.GameWorld.Logic.Characters.Model;

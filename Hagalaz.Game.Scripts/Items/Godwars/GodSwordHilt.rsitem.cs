@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Scripts.Model.Items;
@@ -28,87 +28,16 @@ namespace Hagalaz.Game.Scripts.Items.Godwars
         /// </returns>
         public override bool UseItemOnItem(IItem used, IItem usedWith, ICharacter character)
         {
-            if (used.Id == 11702 && usedWith.Id == 11690 || usedWith.Id == 11702 && used.Id == 11690)
+            var resultId = (used.Id, usedWith.Id) switch
             {
-                // Armadyl Godsword
-                var usedSlot = character.Inventory.GetInstanceSlot(used);
-                if (usedSlot == -1)
-                {
-                    return false;
-                }
+                (11702, 11690) or (11690, 11702) => 11694,
+                (11708, 11690) or (11690, 11708) => 11700,
+                (11706, 11690) or (11690, 11706) => 11698,
+                (11704, 11690) or (11690, 11704) => 11696,
+                _ => 0
+            };
 
-                var usedWithSlot = character.Inventory.GetInstanceSlot(usedWith);
-                if (usedWithSlot == -1)
-                {
-                    return false;
-                }
-
-                character.Inventory.Remove(used, usedSlot);
-                character.Inventory.Replace(usedWithSlot, _itemBuilder.Create().WithId(11694).Build());
-                return true;
-            }
-
-            if (used.Id == 11708 && usedWith.Id == 11690 || usedWith.Id == 11708 && used.Id == 11690)
-            {
-                // Zamorak Godsword
-                var usedSlot = character.Inventory.GetInstanceSlot(used);
-                if (usedSlot == -1)
-                {
-                    return false;
-                }
-
-                var usedWithSlot = character.Inventory.GetInstanceSlot(usedWith);
-                if (usedWithSlot == -1)
-                {
-                    return false;
-                }
-
-                character.Inventory.Remove(used, usedSlot);
-                character.Inventory.Replace(usedWithSlot, _itemBuilder.Create().WithId(11700).Build());
-                return true;
-            }
-
-            if (used.Id == 11706 && usedWith.Id == 11690 || usedWith.Id == 11706 && used.Id == 11690)
-            {
-                // Saradomin Godsword
-                var usedSlot = character.Inventory.GetInstanceSlot(used);
-                if (usedSlot == -1)
-                {
-                    return false;
-                }
-
-                var usedWithSlot = character.Inventory.GetInstanceSlot(usedWith);
-                if (usedWithSlot == -1)
-                {
-                    return false;
-                }
-
-                character.Inventory.Remove(used, usedSlot);
-                character.Inventory.Replace(usedWithSlot, _itemBuilder.Create().WithId(11698).Build());
-                return true;
-            }
-
-            if (used.Id == 11704 && usedWith.Id == 11690 || usedWith.Id == 11704 && used.Id == 11690)
-            {
-                // Bandos Godsword
-                var usedSlot = character.Inventory.GetInstanceSlot(used);
-                if (usedSlot == -1)
-                {
-                    return false;
-                }
-
-                var usedWithSlot = character.Inventory.GetInstanceSlot(usedWith);
-                if (usedWithSlot == -1)
-                {
-                    return false;
-                }
-
-                character.Inventory.Remove(used, usedSlot);
-                character.Inventory.Replace(usedWithSlot, _itemBuilder.Create().WithId(11696).Build());
-                return true;
-            }
-
-            return false;
+            return resultId != 0 && GodSwordAssembly.TryAssemble(_itemBuilder, used, usedWith, character, resultId);
         }
     }
 }

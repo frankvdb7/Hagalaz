@@ -1,21 +1,14 @@
-﻿using System.Collections.Generic;
 using System.Linq;
-using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Logic.Dehydrations;
-using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Resources;
-using Hagalaz.Services.GameWorld.Logic.Characters.Model;
+using Hagalaz.Services.GameWorld.Logic.Characters;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
     /// <summary>
     /// 
     /// </summary>
-    public class RewardContainer : TradeItemContainer, IRewardContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public partial class RewardContainer : IRewardContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
@@ -29,11 +22,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contstructs a container for character ingame mail.
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
+        private readonly ItemContainer _items;
+        public IItemContainer Items => _items;
+
         public RewardContainer(ICharacter owner, IItemBuilder itemBuilder)
-            : base(StorageType.AlwaysStack, byte.MaxValue)
         {
             _owner = owner;
             _itemBuilder = itemBuilder;
+            _items = new ItemContainer(StorageType.AlwaysStack, byte.MaxValue, OnUpdate);
         }
 
         /// <summary>
@@ -44,7 +40,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public int Claim(IItem item, int count)
         {
-            var slot = GetInstanceSlot(item);
+            var slot = Items.GetInstanceSlot(item);
             if (slot == -1 || count <= 0) return -1;
             var toRemove = item.Clone();
             if (toRemove.Count < count) count = toRemove.Count;
@@ -54,9 +50,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var needSlots = 0;
             if (stack)
             {
-                if (_owner.Inventory.GetSlotByItem(toRemove) != -1)
+                if (_owner.Inventory.Items.GetSlotByItem(toRemove) != -1)
                 {
-                    var total = _owner.Inventory.GetCount(toRemove) + (long)count;
+                    var total = _owner.Inventory.Items.GetCount(toRemove) + (long)count;
                     if (total > int.MaxValue)
                     {
                         return -1;
@@ -71,7 +67,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             int freeSlots;
-            if ((freeSlots = _owner.Inventory.FreeSlots) < needSlots)
+            if ((freeSlots = _owner.Inventory.Items.FreeSlots) < needSlots)
             {
                 _owner.SendChatMessage(GameStrings.InventoryFull);
                 if (stack || freeSlots <= 0) // we can't do anything since decreasing item count won't decrease needSlots.
@@ -83,12 +79,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 toRemove.Count = count;
             }
 
-            if (!BaseItemContainer.TryTransfer(this, _owner.Inventory, item, count, slot))
+            if (!_items.Mutations.TryTransferTo(_owner.Inventory.Items.Mutations, item, count, slot))
             {
                 return -1;
             }
 
-            Sort();
+            Items.Sort();
             return count;
         }
 
@@ -96,14 +92,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
         /// <param name="slots">The slots.</param>
-        public override void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new RewardsChangedEvent(_owner, slots));
+        public void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new RewardsChangedEvent(_owner, slots));
 
-        public void Hydrate(IReadOnlyList<HydratedItemDto> rewards) => RestoreItems(rewards.Select(item =>
-            (item.SlotId, _itemBuilder.Create().WithId(item.ItemId).WithCount(item.Count)
-                .WithExtraData(item.ExtraData ?? string.Empty).Build())));
+        public void Hydrate(IReadOnlyList<HydratedItemDto> rewards)
+        {
+            _items.RestoreItems(rewards.Select(entry => entry.ToStorageEntry(_itemBuilder)));
+        }
 
-        public IReadOnlyList<HydratedItemDto> Dehydrate() => EnumerateOccupiedSlots()
-            .Select(entry => new HydratedItemDto(entry.Item.Id, entry.Item.Count, entry.Slot, entry.Item.SerializeExtraData()))
-            .ToArray();
+        public IReadOnlyList<HydratedItemDto> Dehydrate()
+        {
+            return _items.ToHydratedItems();
+        }
     }
 }

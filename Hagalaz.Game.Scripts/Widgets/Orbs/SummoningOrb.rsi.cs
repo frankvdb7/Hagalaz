@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Mediator;
+using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Widgets;
@@ -164,7 +164,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
                     return false;
                 }
 
-                Owner.Inventory.AddAndRemoveFrom(bob.Inventory);
+                bob.Inventory.WithdrawAvailableToInventory();
                 return true;
             });
 
@@ -296,7 +296,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
                     return false;
                 }
 
-                Owner.Inventory.AddAndRemoveFrom(bob.Inventory);
+                bob.Inventory.WithdrawAvailableToInventory();
                 return true;
             });
 
@@ -401,12 +401,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
                     return false;
                 }
 
-                if (itemUsedOnSlot < 0 || itemUsedOnSlot >= Owner.Inventory.Capacity)
+                if (itemUsedOnSlot < 0 || itemUsedOnSlot >= Owner.Inventory.Items.Capacity)
                 {
                     return false;
                 }
 
-                var item = Owner.Inventory[itemUsedOnSlot];
+                var item = Owner.Inventory.Items[itemUsedOnSlot];
                 if (item == null || item.Id != itemUsedOnId)
                 {
                     return false;

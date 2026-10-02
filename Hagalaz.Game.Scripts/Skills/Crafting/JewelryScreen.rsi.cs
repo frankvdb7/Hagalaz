@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
@@ -42,7 +42,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// </summary>
         public override void OnOpen()
         {
-            if (Owner.Inventory.Contains(CraftingSkillService.RingMoldId))
+            if (Owner.Inventory.Items.Contains(CraftingSkillService.RingMoldId))
             {
 
                 var rings = _craftingService.FindAllJewelry(JewelryDto.JewelryType.Ring).Result;
@@ -50,7 +50,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 foreach (var ring in rings)
                 {
                     var ringId = CraftingSkillService.NoRingId;
-                    if (Owner.Inventory.Contains(ring.ResourceID))
+                    if (Owner.Inventory.Items.Contains(ring.ResourceID))
                     {
                         ringId = ring.ProductID;
                         InterfaceInstance.AttachClickHandler(ring.ChildID + 1, (componentID, type, extra1, extra2) => HandleClick(ring, type));
@@ -60,14 +60,14 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 }
             }
 
-            if (Owner.Inventory.Contains(CraftingSkillService.NecklaceMouldId))
+            if (Owner.Inventory.Items.Contains(CraftingSkillService.NecklaceMouldId))
             {
                 var necklaces = _craftingService.FindAllJewelry(JewelryDto.JewelryType.Necklace).Result;
                 InterfaceInstance.DrawString(22, string.Empty);
                 foreach (var necklace in necklaces)
                 {
                     var necklaceId = CraftingSkillService.NoNecklaceId;
-                    if (Owner.Inventory.Contains(necklace.ResourceID))
+                    if (Owner.Inventory.Items.Contains(necklace.ResourceID))
                     {
                         necklaceId = necklace.ProductID;
                         InterfaceInstance.AttachClickHandler(necklace.ChildID + 1, (componentID, type, extra1, extra2) => HandleClick(necklace, type));
@@ -77,14 +77,14 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 }
             }
 
-            if (Owner.Inventory.Contains(CraftingSkillService.AmuletMouldId))
+            if (Owner.Inventory.Items.Contains(CraftingSkillService.AmuletMouldId))
             {
                 var amulets = _craftingService.FindAllJewelry(JewelryDto.JewelryType.Amulet).Result;
                 InterfaceInstance.DrawString(66, string.Empty);
                 foreach(var amulet in amulets)
                 {
                     var amuletId = CraftingSkillService.NoAmuletId;
-                    if (Owner.Inventory.Contains(amulet.ResourceID))
+                    if (Owner.Inventory.Items.Contains(amulet.ResourceID))
                     {
                         amuletId = amulet.ProductID;
                         InterfaceInstance.AttachClickHandler(amulet.ChildID + 1, (componentID, type, extra1, extra2) => HandleClick(amulet, type));
@@ -94,14 +94,14 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 }
             }
 
-            if (Owner.Inventory.Contains(CraftingSkillService.BraceletMouldId))
+            if (Owner.Inventory.Items.Contains(CraftingSkillService.BraceletMouldId))
             {
                 var bracelets = _craftingService.FindAllJewelry(JewelryDto.JewelryType.Bracelet).Result;
                 InterfaceInstance.DrawString(51, string.Empty);
                 foreach (var bracelet in bracelets)
                 {
                     var braceletId = CraftingSkillService.NoBraceletId;
-                    if (Owner.Inventory.Contains(bracelet.ResourceID))
+                    if (Owner.Inventory.Items.Contains(bracelet.ResourceID))
                     {
                         braceletId = bracelet.ProductID;
                         InterfaceInstance.AttachClickHandler(bracelet.ChildID + 1, (componentID, type, extra1, extra2) => HandleClick(bracelet, type));
@@ -120,45 +120,13 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <returns></returns>
         private bool HandleClick(JewelryDto definition, ComponentClickType type)
         {
-            if (Owner.Statistics.GetSkillLevel(StatisticsConstants.Crafting) < definition.RequiredLevel)
-            {
-                Owner.SendChatMessage("You need a crafting level of " + definition.RequiredLevel + " to create that.");
-                return false;
-            }
-
-            var count = 0;
-            if (type == ComponentClickType.LeftClick)
-            {
-                count = 1;
-            }
-            else if (type == ComponentClickType.Option2Click)
-            {
-                count = 5;
-            }
-            else if (type == ComponentClickType.Option3Click)
-            {
-                count = Math.Min(Owner.Inventory.GetCountById(definition.ResourceID), Owner.Inventory.GetCountById(CraftingSkillService.GoldBar));
-            }
-            else if (type == ComponentClickType.Option4Click)
-            {
-                _jewelryXHandler = Owner.Widgets.IntInputHandler = value =>
-                {
-                    _jewelryXHandler = Owner.Widgets.IntInputHandler = null;
-                    if (value <= 0)
-                    {
-                        Owner.SendChatMessage("Value can't be negative.");
-                    }
-                    else
-                    {
-                        Start(definition, count);
-                    }
-                };
-                Owner.Configurations.SendIntegerInput("Please enter the amount to make:");
-                return true;
-            }
-
-            Start(definition, count);
-            return true;
+            return CraftingItemScreenOperations.HandleMakeClick(
+                Owner,
+                definition.RequiredLevel,
+                type,
+                () => Math.Min(Owner.Inventory.Items.GetCountById(definition.ResourceID), Owner.Inventory.Items.GetCountById(CraftingSkillService.GoldBar)),
+                count => Start(definition, count),
+                handler => _jewelryXHandler = Owner.Widgets.IntInputHandler = handler);
         }
 
         /// <summary>

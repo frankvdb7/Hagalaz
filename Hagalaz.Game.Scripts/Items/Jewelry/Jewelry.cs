@@ -1,4 +1,4 @@
-﻿using Hagalaz.Collections.Extensions;
+using Hagalaz.Collections.Extensions;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
@@ -65,9 +65,7 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                 teleport.TeleportDistance,
                 () =>
                 {
-                    IContainer<IItem?> items = equipment ? character.Equipment : character.Inventory;
-                    var slot = items.IndexOf(i => i == jewelry);
-                    if (slot == -1)
+                    if (!TryGetJewelrySlot(character, jewelry, equipment, out var slot))
                     {
                         return false;
                     }
@@ -77,21 +75,8 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                         .WithId(jewelry.Id - 2)
                         .WithCount(jewelry.Count)
                         .Build();
-                    if (equipment)
-                        character.Equipment.Replace((EquipmentSlot)slot, newItem);
-                    else
-                        character.Inventory.Replace(slot, newItem);
-
-                    var nameArray = jewelry.Name.Split('(');
-                    int.TryParse(nameArray[1].Replace("(", "").Replace(")", ""), out var charges);
-                    if (charges != -1)
-                    {
-                        character.SendChatMessage("Your " + nameArray[0] + " has " + (charges - 1) + " charges remaining.");
-                    }
-                    else
-                    {
-                        character.SendChatMessage("Your " + nameArray[0] + " has been depleted of all its charges.");
-                    }
+                    if (!TryReplaceJewelry(character, jewelry, equipment, slot, newItem)) return false;
+                    SendJewelryChargeMessage(character, jewelry);
 
                     return true;
                 }).PerformTeleport(character);
@@ -108,9 +93,7 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                 teleport.TeleportDistance,
                 () =>
                 {
-                    IContainer<IItem?> items = equipment ? character.Equipment : character.Inventory;
-                    var slot = items.IndexOf(i => i == jewelry);
-                    if (slot == -1)
+                    if (!TryGetJewelrySlot(character, jewelry, equipment, out var slot))
                     {
                         return false;
                     }
@@ -118,9 +101,10 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                     if (jewelry.Id == 3867)
                     {
                         if (equipment)
-                            character.Equipment.Remove(jewelry, EquipmentSlot.Amulet);
-                        else
-                            character.Inventory.Remove(jewelry, slot);
+                        {
+                            if (character.Equipment.RemoveEquippedItem(jewelry, EquipmentSlot.Amulet) <= 0) return false;
+                        }
+                        else character.Inventory.Items.Remove(jewelry, slot);
                         character.SendChatMessage("Your " + jewelry.Name + " has been depleted of all its charges.");
                     }
                     else
@@ -130,22 +114,10 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                             .WithId(jewelry.Id + 2)
                             .WithCount(jewelry.Count)
                             .Build();
-                        if (equipment)
-                            character.Equipment.Replace((EquipmentSlot)slot, newItem);
-                        else
-                            character.Inventory.Replace(slot, newItem);
+                        if (!TryReplaceJewelry(character, jewelry, equipment, slot, newItem)) return false;
                     }
 
-                    var nameArray = jewelry.Name.Split('(');
-                    int.TryParse(nameArray[1].Replace("(", "").Replace(")", ""), out var charges);
-                    if (charges != -1)
-                    {
-                        character.SendChatMessage("Your " + nameArray[0] + " has " + (charges - 1) + " charges remaining.");
-                    }
-                    else
-                    {
-                        character.SendChatMessage("Your " + nameArray[0] + " has been depleted of all its charges.");
-                    }
+                    SendJewelryChargeMessage(character, jewelry);
 
                     return true;
                 }).PerformTeleport(character);
@@ -162,9 +134,7 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                 teleport.TeleportDistance,
                 () =>
                 {
-                    IContainer<IItem?> items = equipment ? character.Equipment : character.Inventory;
-                    var slot = items.IndexOf(i => i == jewelry);
-                    if (slot == -1)
+                    if (!TryGetJewelrySlot(character, jewelry, equipment, out var slot))
                     {
                         return false;
                     }
@@ -174,20 +144,8 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                         .WithId(jewelry.Id + 2)
                         .WithCount(jewelry.Count)
                         .Build();
-                    if (equipment)
-                        character.Equipment.Replace((EquipmentSlot)slot, newItem);
-                    else
-                        character.Inventory.Replace(slot, newItem);
-                    var nameArray = jewelry.Name.Split('(');
-                    int.TryParse(nameArray[1].Replace("(", "").Replace(")", ""), out var charges);
-                    if (charges != -1)
-                    {
-                        character.SendChatMessage("Your " + nameArray[0] + " has " + (charges - 1) + " charges remaining.");
-                    }
-                    else
-                    {
-                        character.SendChatMessage("Your " + nameArray[0] + " has been depleted of all its charges.");
-                    }
+                    if (!TryReplaceJewelry(character, jewelry, equipment, slot, newItem)) return false;
+                    SendJewelryChargeMessage(character, jewelry);
 
                     return true;
                 }).PerformTeleport(character);
@@ -204,34 +162,73 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                 teleport.TeleportDistance,
                 () =>
                 {
-                    IContainer<IItem?> items = equipment ? character.Equipment : character.Inventory;
-                    var slot = items.IndexOf(i => i == jewelry);
-                    if (slot == -1)
+                    if (!TryGetJewelrySlot(character, jewelry, equipment, out var slot))
                     {
                         return false;
                     }
 
                     var nameArray = jewelry.Name.Split('(');
-                    int.TryParse(nameArray[1].Replace("(", "").Replace(")", ""), out var charges);
+                    var charges = GetJewelryCharges(jewelry);
                     if (charges != 1)
                     {
-                        character.SendChatMessage("Your " + nameArray[0] + " has " + (charges - 1) + " charges remaining.");
                         var newItem = character.ServiceProvider.GetRequiredService<IItemBuilder>()
                             .Create()
                             .WithId(jewelry.Id + 1)
                             .WithCount(jewelry.Count)
                             .Build();
-                        if (equipment) character.Equipment.Replace((EquipmentSlot)slot, newItem);
-                        else character.Inventory.Replace(slot, newItem);
+                        if (!TryReplaceJewelry(character, jewelry, equipment, slot, newItem)) return false;
+                        character.SendChatMessage("Your " + nameArray[0] + " has " + (charges - 1) + " charges remaining.");
                     }
                     else
                     {
                         character.SendChatMessage("Your " + nameArray[0] + " has been depleted of all its charges.");
-                        if (equipment) character.Equipment.Remove(jewelry, (EquipmentSlot)slot);
-                        else character.Inventory.Remove(jewelry, slot);
+                        if (equipment)
+                        {
+                            if (character.Equipment.RemoveEquippedItem(jewelry, (EquipmentSlot)slot) <= 0) return false;
+                        }
+                        else character.Inventory.Items.Remove(jewelry, slot);
                     }
 
                     return true;
                 }).PerformTeleport(character);
+
+        private static bool TryGetJewelrySlot(ICharacter character, IItem jewelry, bool equipment, out int slot)
+        {
+            IContainer<IItem?> items = equipment ? character.Equipment : character.Inventory.Items;
+            slot = items.IndexOf(item => ReferenceEquals(item, jewelry));
+            return slot >= 0;
+        }
+
+        private static bool TryReplaceJewelry(ICharacter character, IItem jewelry, bool equipment, int slot, IItem replacement)
+        {
+            if (equipment)
+            {
+                return character.Equipment.TryReplaceEquippedItem((EquipmentSlot)slot, jewelry, replacement);
+            }
+
+            character.Inventory.Items.Replace(slot, replacement);
+            return true;
+        }
+
+        private static int GetJewelryCharges(IItem jewelry)
+        {
+            var nameArray = jewelry.Name.Split('(');
+            int.TryParse(nameArray[1].Replace("(", "").Replace(")", ""), out var charges);
+            return charges;
+        }
+
+        private static void SendJewelryChargeMessage(ICharacter character, IItem jewelry)
+        {
+            var nameArray = jewelry.Name.Split('(');
+            var charges = GetJewelryCharges(jewelry);
+            if (charges != -1)
+            {
+                character.SendChatMessage("Your " + nameArray[0] + " has " + (charges - 1) + " charges remaining.");
+            }
+            else
+            {
+                character.SendChatMessage("Your " + nameArray[0] + " has been depleted of all its charges.");
+            }
+        }
     }
 }

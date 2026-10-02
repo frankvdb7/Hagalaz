@@ -16,13 +16,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public class FamiliarInventoryContainer : BaseItemContainer, IFamiliarInventoryContainer, IHydratable<IReadOnlyList<HydratedItem>>, IDehydratable<IReadOnlyList<HydratedItem>>
+    public partial class FamiliarInventoryContainer : IFamiliarInventoryContainer, IHydratable<IReadOnlyList<HydratedItem>>, IDehydratable<IReadOnlyList<HydratedItem>>
     {
         /// <summary>
         /// Instance of the character who owns this container.
         /// </summary>
         private readonly ICharacter _owner;
         private readonly IItemBuilder _itemBuilder;
+        private readonly ItemContainer _items;
+        public IItemContainer Items => _items;
 
         /// <summary>
         /// Constructs a container for character inventories.
@@ -31,8 +33,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="type">The type of container.</param>
         /// <param name="capacity">The capacity of the container.</param>
         public FamiliarInventoryContainer(ICharacter owner, StorageType type, int capacity, IItemBuilder itemBuilder)
-            : base(type, capacity) =>
+        {
             (_owner, _itemBuilder) = (owner, itemBuilder);
+            _items = new ItemContainer(type, capacity, OnUpdate);
+        }
 
         /// <summary>
         /// Deposit's specific item into familiars inventory.
@@ -44,17 +48,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </returns>
         public bool DepositFromInventory(IItem item, int count)
         {
-            var slot = _owner.Inventory.GetInstanceSlot(item);
+            var slot = _owner.Inventory.Items.GetInstanceSlot(item);
             if (slot == -1 || count <= 0)
                 return false;
 
-            count = Math.Min(count, _owner.Inventory.GetCount(item));
+            count = Math.Min(count, _owner.Inventory.Items.GetCount(item));
             if (count <= 0)
             {
                 return false;
             }
 
-            if (BaseItemContainer.TryTransfer(_owner.Inventory, this, item, count, slot))
+            if (_owner.Inventory.Items.Mutations.TryTransferTo(_items.Mutations, item, count, slot))
             {
                 return true;
             }
@@ -71,17 +75,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public bool WithdrawFromFamiliarInventory(IItem item, int count)
         {
-            var slot = GetInstanceSlot(item);
+            var slot = Items.GetInstanceSlot(item);
             if (slot == -1 || count <= 0)
                 return false;
 
-            count = Math.Min(count, GetCount(item));
+            count = Math.Min(count, Items.GetCount(item));
             if (count <= 0)
             {
                 return false;
             }
 
-            if (BaseItemContainer.TryTransfer(this, _owner.Inventory, item, count, slot))
+            if (_items.Mutations.TryTransferTo(_owner.Inventory.Items.Mutations, item, count, slot))
             {
                 return true;
             }
@@ -90,18 +94,40 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             return false;
         }
 
+        public void WithdrawAvailableToInventory()
+        {
+            var inventoryItems = _owner.Inventory.Items;
+            var transaction = new ItemContainerTransaction(_items.Mutations, inventoryItems.Mutations);
+            transaction.TryExecute(tx =>
+            {
+                var familiarItems = _items.Select((item, slot) => (item, slot))
+                    .Where(entry => entry.item is { Count: > 0 })
+                    .ToArray();
+
+                foreach (var (item, slot) in familiarItems)
+                {
+                    tx.TryTransfer(_items.Mutations, inventoryItems.Mutations, item!, item!.Count, slot);
+                }
+
+                return true;
+            });
+        }
+
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
         /// <param name="slots">The slots.</param>
-        public override void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new FamiliarInventoryChangedEvent(_owner, slots));
+        public void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new FamiliarInventoryChangedEvent(_owner, slots));
 
-        public void Hydrate(IReadOnlyList<HydratedItem> inventory) => RestoreItems(inventory.Select(item =>
-            (item.SlotId, _itemBuilder.Create().WithId(item.ItemId).WithCount(item.Count)
-                .WithExtraData(item.ExtraData ?? string.Empty).Build())));
+        public void Hydrate(IReadOnlyList<HydratedItem> inventory)
+        {
+            _items.RestoreItems(inventory.Select(entry => (entry.SlotId,
+                _itemBuilder.Create().WithId(entry.ItemId).WithCount(entry.Count)
+                    .WithExtraData(entry.ExtraData ?? string.Empty).Build())));
+        }
 
-        public IReadOnlyList<HydratedItem> Dehydrate() => EnumerateOccupiedSlots()
-            .Select(entry => new HydratedItem(entry.Item.Id, entry.Item.Count, entry.Slot, entry.Item.SerializeExtraData()))
+        public IReadOnlyList<HydratedItem> Dehydrate() => _items.Select((item, slot) => (item, slot)).Where(x => x.item != null)
+            .Select(entry => new HydratedItem(entry.item!.Id, entry.item.Count, entry.slot, entry.item.SerializeExtraData()))
             .ToArray();
     }
 }

@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Region;
+using Hagalaz.Game.Abstractions.Builders.Region;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
@@ -101,7 +101,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
                 PerformAnimation();
                 OfferCount++;
 
-                var item = Performer.Inventory.GetById(Definition.ItemId);
+                var item = Performer.Inventory.Items.GetById(Definition.ItemId);
                 if (item == null)
                 {
                     Performer.SendChatMessage("You do not have any offerings left.");
@@ -109,13 +109,13 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
                     return;
                 }
 
-                var slot = Performer.Inventory.GetInstanceSlot(item);
+                var slot = Performer.Inventory.Items.GetInstanceSlot(item);
                 if (slot == -1)
                 {
                     return;
                 }
 
-                var removed = Performer.Inventory.Remove(item, slot);
+                var removed = Performer.Inventory.Items.Remove(item, slot);
                 if (removed <= 0)
                 {
                     return;

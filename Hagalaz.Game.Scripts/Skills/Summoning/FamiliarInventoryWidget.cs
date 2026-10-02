@@ -1,10 +1,11 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Hagalaz.Game.Scripts.Widgets;
 
 namespace Hagalaz.Game.Scripts.Skills.Summoning
 {
@@ -87,16 +88,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
             _inventoryInterface.AttachClickHandler(0,
                 (componentID, type, itemID, slot) =>
                 {
-                    if (slot < 0 || slot >= Owner.Inventory.Capacity)
-                    {
-                        return false;
-                    }
-
-                    var item = Owner.Inventory[slot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
+                    if (!ItemWidgetOperations.TryGetItem(Owner.Inventory.Items, itemID, slot, out var item)) return false;
 
                     if (Owner.FamiliarScript is not BobFamiliarScriptBase bob)
                     {
@@ -118,7 +110,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                     }
                     else if (type == ComponentClickType.Option5Click)
                     {
-                        amount = Owner.Inventory.GetCount(item);
+                        amount = Owner.Inventory.Items.GetCount(item);
                     }
                     else if (type == ComponentClickType.Option4Click)
                     {
@@ -162,16 +154,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                         return false;
                     }
 
-                    if (slot < 0 || slot >= bob.Inventory.Capacity)
-                    {
-                        return false;
-                    }
-
-                    var item = bob.Inventory[slot];
-                    if (item == null || item.Id != itemID)
-                    {
-                        return false;
-                    }
+                    if (!ItemWidgetOperations.TryGetItem(bob.Inventory.Items, itemID, slot, out var item)) return false;
 
                     var amount = 0;
                     if (type == ComponentClickType.LeftClick)
@@ -188,7 +171,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                     }
                     else if (type == ComponentClickType.Option5Click)
                     {
-                        amount = bob.Inventory.GetCount(item);
+                        amount = bob.Inventory.Items.GetCount(item);
                     }
                     else if (type == ComponentClickType.Option4Click)
                     {
@@ -230,7 +213,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                         return false;
                     }
 
-                    Owner.Inventory.AddAndRemoveFrom(bob.Inventory);
+                    bob.Inventory.WithdrawAvailableToInventory();
                     return true;
                 });
 
@@ -248,14 +231,14 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                 return;
             }
 
-            Owner.Configurations.SendItems(30, false, bob.Inventory, changedSlots);
+            Owner.Configurations.SendItems(30, false, bob.Inventory.Items, changedSlots);
         }
 
         /// <summary>
         ///     Refreshe's inventory.
         /// </summary>
         /// <param name="changedSlots"></param>
-        public void RefreshInventory(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(90, false, Owner.Inventory, changedSlots);
+        public void RefreshInventory(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(90, false, Owner.Inventory.Items, changedSlots);
 
         /// <summary>
         ///     Happens when interface is closed for character.

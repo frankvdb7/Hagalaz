@@ -5,8 +5,10 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// <summary>
     /// Defines the contract for a reward container, which holds items that a player has earned but not yet claimed (e.g., from a quest or minigame).
     /// </summary>
-    public interface IRewardContainer : ITradeItemContainer
+    public interface IRewardContainer
     {
+        IItemContainer Items { get; }
+
         /// <summary>
         /// Claims a specific item from the reward container, moving it to the player's inventory or bank.
         /// </summary>

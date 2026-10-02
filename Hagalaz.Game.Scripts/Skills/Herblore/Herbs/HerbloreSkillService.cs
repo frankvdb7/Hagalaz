@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
@@ -58,7 +58,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                 return true;
             };
 
-            var count = character.Inventory.GetCountById(herb.GrimyHerbId);
+            var count = character.Inventory.Items.GetCountById(herb.GrimyHerbId);
             dialogue.SetMaxCount(count, false);
             dialogue.SetCurrentCount(count, false);
 
@@ -109,10 +109,10 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                 return true;
             }
 
-            var resourceCount = character.Inventory.GetCountById(herb.Id);
+            var resourceCount = character.Inventory.Items.GetCountById(herb.Id);
             foreach (var t in HerbloreConstants.OverloadPotions)
             {
-                var characterCount = character.Inventory.GetCountById(t);
+                var characterCount = character.Inventory.Items.GetCountById(t);
                 if (characterCount > 0 && characterCount < resourceCount)
                 {
                     resourceCount = characterCount;
@@ -129,7 +129,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                     3,
                     () =>
                     {
-                        var slot = character.Inventory.GetInstanceSlot(herb);
+                        var slot = character.Inventory.Items.GetInstanceSlot(herb);
                         if (slot == -1)
                         {
                             return true;
@@ -137,7 +137,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
 
                         foreach (var t in HerbloreConstants.OverloadPotions)
                         {
-                            if (character.Inventory.Contains(t))
+                            if (character.Inventory.Items.Contains(t))
                             {
                                 continue;
                             }
@@ -148,10 +148,10 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
 
                         foreach (var t in HerbloreConstants.OverloadPotions)
                         {
-                            character.Inventory.Remove(_itemBuilder.Create().WithId(t).Build());
+                            character.Inventory.Items.Remove(_itemBuilder.Create().WithId(t).Build());
                         }
 
-                        character.Inventory.Replace(slot, _itemBuilder.Create().WithId(15333).Build());
+                        character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(15333).Build());
                         character.QueueAnimation(Animation.Create(HerbloreConstants.MakePotionAnimation));
                         character.Statistics.AddExperience(StatisticsConstants.Herblore, 1000);
                         return false;
@@ -190,35 +190,35 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                     2,
                     () =>
                     {
-                        var inventoryResource = character.Inventory.GetById(ingredient.Id);
+                        var inventoryResource = character.Inventory.Items.GetById(ingredient.Id);
                         if (inventoryResource == null)
                         {
                             return true;
                         }
 
-                        var inventoryVail = character.Inventory.GetById(vial.Id);
+                        var inventoryVail = character.Inventory.Items.GetById(vial.Id);
                         if (inventoryVail == null)
                         {
                             return true;
                         }
 
-                        var itemSlot = character.Inventory.GetSlotByItem(inventoryResource);
+                        var itemSlot = character.Inventory.Items.GetSlotByItem(inventoryResource);
                         if (itemSlot == -1)
                         {
                             return true;
                         }
 
-                        var vialSlot = character.Inventory.GetSlotByItem(inventoryVail);
+                        var vialSlot = character.Inventory.Items.GetSlotByItem(inventoryVail);
                         if (vialSlot == -1)
                         {
                             return true;
                         }
 
-                        character.Inventory.Remove(inventoryResource.Id == HerbloreConstants.Grenwallspikes
+                        character.Inventory.Items.Remove(inventoryResource.Id == HerbloreConstants.Grenwallspikes
                                 ? _itemBuilder.Create().WithId(HerbloreConstants.Grenwallspikes).WithCount(5).Build()
                                 : inventoryResource,
                             itemSlot);
-                        character.Inventory.Replace(vialSlot,
+                        character.Inventory.Items.Replace(vialSlot,
                             _itemBuilder.Create().WithId(makeUnfinished ? potion.UnfinishedPotionId : potion.PotionId).Build());
                         character.QueueAnimation(Animation.Create(HerbloreConstants.MakePotionAnimation));
                         if (!makeUnfinished)
@@ -230,7 +230,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                     }));
                 return true;
             };
-            var resCount = character.Inventory.GetCountById(ingredient.Id);
+            var resCount = character.Inventory.Items.GetCountById(ingredient.Id);
             dialogue.SetMaxCount(resCount, false);
             dialogue.SetCurrentCount(resCount, false);
 

@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Scripts.Model.Items;
@@ -49,13 +49,13 @@ namespace Hagalaz.Game.Scripts.Items.Weapons
             int colourSlot;
             if (whipIsUsedItem)
             {
-                whipSlot = character.Inventory.GetInstanceSlot(used);
-                colourSlot = character.Inventory.GetInstanceSlot(usedWith);
+                whipSlot = character.Inventory.Items.GetInstanceSlot(used);
+                colourSlot = character.Inventory.Items.GetInstanceSlot(usedWith);
             }
             else
             {
-                whipSlot = character.Inventory.GetInstanceSlot(usedWith);
-                colourSlot = character.Inventory.GetInstanceSlot(used);
+                whipSlot = character.Inventory.Items.GetInstanceSlot(usedWith);
+                colourSlot = character.Inventory.Items.GetInstanceSlot(used);
             }
 
             if (whipSlot == -1 || colourSlot == -1)
@@ -63,10 +63,10 @@ namespace Hagalaz.Game.Scripts.Items.Weapons
                 return false;
             }
 
-            var removed = character.Inventory.Remove(whipIsUsedItem ? usedWith : used, colourSlot);
+            var removed = character.Inventory.Items.Remove(whipIsUsedItem ? usedWith : used, colourSlot);
             if (removed > 0)
             {
-                character.Inventory.Replace(whipSlot, colouredItem);
+                character.Inventory.Items.Replace(whipSlot, colouredItem);
                 return true;
             }
 

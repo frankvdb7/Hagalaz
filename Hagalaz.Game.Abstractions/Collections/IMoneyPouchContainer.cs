@@ -1,10 +1,16 @@
-﻿namespace Hagalaz.Game.Abstractions.Collections
+namespace Hagalaz.Game.Abstractions.Collections
 {
     /// <summary>
     /// Defines the contract for a player's money pouch, a special container that holds coins separately from the main inventory.
     /// </summary>
-    public interface IMoneyPouchContainer : IItemContainer
+    public interface IMoneyPouchContainer
     {
+        IMoneyPouchMutationBoundary Mutations { get; }
+
+        bool HasSpaceForCoins(int count);
+
+        bool HasCoins(int count);
+
         /// <summary>
         /// Gets the "Examine" text for the money pouch, which typically displays the total number of coins.
         /// </summary>
@@ -44,31 +50,9 @@
         int Remove(int count);
 
         /// <summary>
-        /// Adds coins using the pouch's normal overflow rules as one checked trade operation.
+        /// Adds exactly the requested coins using normal pouch overflow rules.
         /// </summary>
-        bool AddForTrade(int count);
-
-        /// <summary>
-        /// Removes coins using the pouch's normal underflow rules as one checked trade operation.
-        /// </summary>
-        bool RemoveForTrade(int count);
-
-        /// <summary>
-        /// Adds coins to the pouch and, if needed, Inventory without publishing changes.
-        /// </summary>
-        bool TryAddForTradeStorage(int count, out int pouchChangeCount,
-            out System.Collections.Generic.HashSet<int> inventoryChangedSlots);
-
-        /// <summary>
-        /// Removes coins from the pouch and, if needed, Inventory without publishing changes.
-        /// </summary>
-        bool TryRemoveForTradeStorage(int count, out int pouchChangeCount,
-            out System.Collections.Generic.HashSet<int> inventoryChangedSlots);
-
-        /// <summary>
-        /// Publishes a completed checked pouch change and its player message.
-        /// </summary>
-        void PublishTradeChanges(int pouchChangeCount);
+        bool TryAddExact(int count);
 
         /// <summary>
         /// Removes exactly the requested number of coins from the pouch and inventory, if available.

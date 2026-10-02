@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.HintIcon;
+using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -143,7 +143,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     //victoryInterface.SetOptions(14, 0, 27, (0x2 | 0x400)); // allow clicking of 2 right click options + auto examine option ( last ))
                     //victor.Configurations.SendCS2Script(158, new object[] { (1365 << 16 | 14), 130, 3, 3, 1, -1, "Value", "", "", "", "" });
 
-                    victor.Configurations.SendItems(136, false, victor == Character ? TargetContainer : SelfContainer);
+                    victor.Configurations.SendItems(136, false, (ReferenceEquals(victor, Character) ? TargetContainer : SelfContainer)!.Items);
                 }
 
                 if (!loserDestroyed)
@@ -154,21 +154,21 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         // loseInterface.SetOptions(14, 0, 27, (0x2 | 0x400)); // allow clicking of 2 right click options + auto examine option ( last ))
                         //loser.Configurations.SendCS2Script(158, new object[] { (1365 << 16 | 14), 130, 3, 3, 1, -1, "Value", "", "", "", "" });
 
-                        loser.Configurations.SendItems(136, false, victor == Character ? TargetContainer : SelfContainer);
+                        loser.Configurations.SendItems(136, false, (ReferenceEquals(victor, Character) ? TargetContainer : SelfContainer)!.Items);
                     }
                 }
 
                 var removedCoins = 0;
-                var coins = SelfContainer.GetById(995);
+                var coins = SelfContainer.Items.GetById(995);
                 if (coins != null)
                 {
-                    removedCoins += SelfContainer.Remove(coins);
+                    removedCoins += SelfContainer.Items.Remove(coins);
                 }
 
-                coins = TargetContainer.GetById(995);
+                coins = TargetContainer.Items.GetById(995);
                 if (coins != null)
                 {
-                    removedCoins += TargetContainer.Remove(coins);
+                    removedCoins += TargetContainer.Items.Remove(coins);
                 }
 
                 if (removedCoins > 0)
@@ -176,8 +176,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     victor.MoneyPouch.Add(removedCoins);
                 }
 
-                victor.Inventory.AddRange(SelfContainer);
-                victor.Inventory.AddRange(TargetContainer);
+                victor.Inventory.Items.AddRange(SelfContainer.Items);
+                victor.Inventory.Items.AddRange(TargetContainer.Items);
             }
         }
 

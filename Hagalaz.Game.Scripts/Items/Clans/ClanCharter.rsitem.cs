@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Request;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -74,7 +74,7 @@ namespace Hagalaz.Game.Scripts.Items.Clans
 
             if (character.EventManager.SendEvent(new AllowClanInviteEvent(usedOn)))
             {
-                if (usedOn.Inventory.Contains(20707))
+                if (usedOn.Inventory.Items.Contains(20707))
                 {
                     usedOn.SendChatMessage(character.DisplayName + " has attempted to add you to a clan charter, but you are also carrying a charter."
                                                                  + " If you wish to be recruited by them, please remove your charter.");

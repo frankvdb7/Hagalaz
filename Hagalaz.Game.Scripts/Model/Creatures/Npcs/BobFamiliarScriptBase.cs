@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
@@ -69,9 +69,9 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// <param name="newOwner">The new owner, can be null.</param>
         private void DropAllItems(ICreature newOwner)
         {
-            for (var i = 0; i < Inventory.Capacity; i++)
+            for (var i = 0; i < Inventory.Items.Capacity; i++)
             {
-                var it = Inventory[i];
+                var it = Inventory.Items[i];
                 if (it == null)
                 {
                     continue;
@@ -97,7 +97,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                         .Spawn();
                 }
 
-                Inventory.Remove(it, i, false);
+                Inventory.Items.Remove(it, i, false);
             }
         }
 

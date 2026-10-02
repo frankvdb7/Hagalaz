@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -55,11 +55,11 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
             }
 
             bool usingPureEssence;
-            if (character.Inventory.Contains(RunecraftingConstants.RuneEssence))
+            if (character.Inventory.Items.Contains(RunecraftingConstants.RuneEssence))
             {
                 usingPureEssence = false;
             }
-            else if (character.Inventory.Contains(RunecraftingConstants.PureEssence))
+            else if (character.Inventory.Items.Contains(RunecraftingConstants.PureEssence))
             {
                 usingPureEssence = true;
             }
@@ -84,9 +84,9 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
                 }
             }
 
-            var removed = character.Inventory.Remove(_itemBuilder.Create()
+            var removed = character.Inventory.Items.Remove(_itemBuilder.Create()
                 .WithId(usingPureEssence ? RunecraftingConstants.PureEssence : RunecraftingConstants.RuneEssence)
-                .WithCount(character.Inventory.GetCountById(usingPureEssence ? RunecraftingConstants.PureEssence : RunecraftingConstants.RuneEssence))
+                .WithCount(character.Inventory.Items.GetCountById(usingPureEssence ? RunecraftingConstants.PureEssence : RunecraftingConstants.RuneEssence))
                 .Build());
             if (removed <= 0)
             {
@@ -97,7 +97,7 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
             character.QueueGraphic(Graphic.Create(186));
 
             var runes = _itemBuilder.Create().WithId(definition.RuneId).WithCount(removed * Runecrafting.GetMultiplier(character, definition)).Build();
-            character.Inventory.Add(runes);
+            character.Inventory.Items.Add(runes);
             character.Statistics.AddExperience(StatisticsConstants.Runecrafting, definition.Experience * removed);
             character.SendChatMessage("You bind the temple's power into " + runes.Name + "s.");
         }

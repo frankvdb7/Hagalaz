@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Scripts.Model.Items;
@@ -28,84 +28,19 @@ namespace Hagalaz.Game.Scripts.Items.Godwars
         /// </returns>
         public override bool UseItemOnItem(IItem used, IItem usedWith, ICharacter character)
         {
-            if (used.Id == 11710 && usedWith.Id == 11692 || usedWith.Id == 11710 && used.Id == 11692 ||
-                used.Id == 11712 && usedWith.Id == 11688 || usedWith.Id == 11712 && used.Id == 11688 ||
-                used.Id == 11714 && usedWith.Id == 11686 || usedWith.Id == 11714 && used.Id == 11686)
+            var resultId = (used.Id, usedWith.Id) switch
             {
-                var usedSlot = character.Inventory.GetInstanceSlot(used);
-                if (usedSlot == -1)
-                {
-                    return false;
-                }
+                (11710, 11692) or (11692, 11710) => 11690,
+                (11712, 11688) or (11688, 11712) => 11690,
+                (11714, 11686) or (11686, 11714) => 11690,
+                (11712, 11714) or (11714, 11712) => 11692,
+                (11710, 11712) or (11712, 11710) => 11686,
+                (11710, 11714) => 11688,
+                _ => 0
+            };
 
-                var usedWithSlot = character.Inventory.GetInstanceSlot(usedWith);
-                if (usedWithSlot == -1)
-                {
-                    return false;
-                }
-
-                character.Inventory.Remove(used, usedSlot);
-                character.Inventory.Replace(usedWithSlot, _itemBuilder.Create().WithId(11690).Build());
+            if (resultId != 0 && GodSwordAssembly.TryAssemble(_itemBuilder, used, usedWith, character, resultId))
                 return true;
-            }
-
-            if (used.Id == 11712 && usedWith.Id == 11714 || usedWith.Id == 11712 && used.Id == 11714)
-            {
-                var usedSlot = character.Inventory.GetInstanceSlot(used);
-                if (usedSlot == -1)
-                {
-                    return false;
-                }
-
-                var usedWithSlot = character.Inventory.GetInstanceSlot(usedWith);
-                if (usedWithSlot == -1)
-                {
-                    return false;
-                }
-
-                character.Inventory.Remove(used, usedSlot);
-                character.Inventory.Replace(usedWithSlot, _itemBuilder.Create().WithId(11692).Build());
-                return true;
-            }
-
-            if (used.Id == 11710 && usedWith.Id == 11712 || usedWith.Id == 11710 && used.Id == 11712)
-            {
-                var usedSlot = character.Inventory.GetInstanceSlot(used);
-                if (usedSlot == -1)
-                {
-                    return false;
-                }
-
-                var usedWithSlot = character.Inventory.GetInstanceSlot(usedWith);
-                if (usedWithSlot == -1)
-                {
-                    return false;
-                }
-
-                character.Inventory.Remove(used, usedSlot);
-                character.Inventory.Replace(usedWithSlot, _itemBuilder.Create().WithId(11686).Build());
-                return true;
-            }
-
-            if (used.Id == 11710 && usedWith.Id == 11714 || usedWith.Id == 11710 && usedWith.Id == 11714)
-            {
-                var usedSlot = character.Inventory.GetInstanceSlot(used);
-                if (usedSlot == -1)
-                {
-                    return false;
-                }
-
-                var usedWithSlot = character.Inventory.GetInstanceSlot(usedWith);
-                if (usedWithSlot == -1)
-                {
-                    return false;
-                }
-
-                character.Inventory.Remove(used, usedSlot);
-                character.Inventory.Replace(usedWithSlot, _itemBuilder.Create().WithId(11688).Build());
-                return true;
-            }
-
             return base.UseItemOnItem(used, usedWith, character);
         }
     }

@@ -35,7 +35,8 @@ public sealed class SummoningSkillServiceTests
         character.ServiceProvider.Returns(new ServiceCollection()
             .AddSingleton<ISummoningService>(summoningService)
             .BuildServiceProvider());
-        character.Inventory.Returns(Substitute.For<IInventoryContainer>());
+        var inventory = new ComposedTestContainer(28);
+        character.Inventory.Returns(inventory);
         character.Statistics.Returns(Substitute.For<ICharacterStatistics>());
 
         var service = new SummoningSkillService(
@@ -58,7 +59,7 @@ public sealed class SummoningSkillServiceTests
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => summonTask);
 
         character.DidNotReceive().AttachFamiliar(Arg.Any<IFamiliarScript>());
-        character.Inventory.DidNotReceive().Remove(Arg.Any<IItem>(), Arg.Any<int>(), Arg.Any<bool>());
+        Assert.AreEqual(0, inventory.Items.TakenSlots);
         character.Statistics.DidNotReceive().DamageSkill(Arg.Any<int>(), Arg.Any<int>());
         character.Statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
     }

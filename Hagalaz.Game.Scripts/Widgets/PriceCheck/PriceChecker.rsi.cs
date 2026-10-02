@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -8,6 +9,7 @@ using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Hagalaz.Game.Scripts.Items;
 
 namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
 {
@@ -19,26 +21,31 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
         /// <summary>
         ///     Price checker interface container.
         /// </summary>
-        private class PriceCheckerInterfaceContainer : BaseItemContainer
+        private class PriceCheckerInterfaceContainer
         {
             /// <summary>
             ///     Contains owner of this class.
             /// </summary>
             private readonly ICharacter _owner;
+            public IItemContainer Items { get; }
 
             /// <summary>
             ///     Construct's new instance.
             /// </summary>
             /// <param name="owner"></param>
-            public PriceCheckerInterfaceContainer(ICharacter owner) : base(StorageType.AlwaysStack, owner.Inventory.Capacity) => _owner = owner;
+            public PriceCheckerInterfaceContainer(ICharacter owner)
+            {
+                _owner = owner;
+                Items = new ItemContainer(StorageType.AlwaysStack, owner.Inventory.Items.Capacity, OnUpdate);
+            }
 
             /// <summary>
             ///     Happens when container is updated.
             /// </summary>
             /// <param name="slots"></param>
-            public override void OnUpdate(HashSet<int>? slots = null)
+            public void OnUpdate(HashSet<int>? slots = null)
             {
-                _owner.Configurations.SendItems(90, false, this, slots);
+                _owner.Configurations.SendItems(90, false, Items, slots);
                 RefreshPrices(slots);
             }
 
@@ -46,27 +53,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             ///     Calculate's total value of this container.
             /// </summary>
             /// <returns></returns>
-            public long CalculateTotalValue()
-            {
-                long total = 0;
-                for (var slot = 0; slot < Capacity; slot++)
-                {
-                    var item = this[slot];
-                    if (item == null)
-                    {
-                        continue;
-                    }
-
-                    if ((ulong)total + (ulong)item.ItemDefinition.TradeValue * (ulong)item.Count > int.MaxValue)
-                    {
-                        return -1;
-                    }
-
-                    total += item.ItemDefinition.TradeValue * item.Count;
-                }
-
-                return total;
-            }
+            public long CalculateTotalValue() => ItemContainerTradeValue.Calculate(Items);
 
 
             /// <summary>
@@ -79,11 +66,11 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
 
                 if (slots == null)
                 {
-                    for (var i = 0; i < Capacity; i++)
+                    for (var i = 0; i < Items.Capacity; i++)
                     {
-                        if (this[i] != null)
+                        if (Items[i] != null)
                         {
-                            _owner.Configurations.SendGlobalCs2Int(700 + i, this[i]!.ItemDefinition.TradeValue);
+                            _owner.Configurations.SendGlobalCs2Int(700 + i, Items[i]!.ItemDefinition.TradeValue);
                         }
                         else
                         {
@@ -95,9 +82,9 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                 {
                     foreach (var i in slots)
                     {
-                        if (this[i] != null)
+                        if (Items[i] != null)
                         {
-                            _owner.Configurations.SendGlobalCs2Int((short)(700 + i), this[i]!.ItemDefinition.TradeValue);
+                            _owner.Configurations.SendGlobalCs2Int((short)(700 + i), Items[i]!.ItemDefinition.TradeValue);
                         }
                         else
                         {
@@ -106,21 +93,6 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                     }
                 }
             }
-        }
-
-        private sealed class ProjectedInventoryContainer : BaseItemContainer
-        {
-            public ProjectedInventoryContainer(int capacity) : base(StorageType.Normal, capacity) { }
-
-            public bool RemoveExact(IItem item, int count)
-            {
-                lock (ContainerMutationLock)
-                {
-                    return TryRemoveExactCore(item, count, -1, out _);
-                }
-            }
-
-            public override void OnUpdate(HashSet<int>? slots = null) { }
         }
 
         /// <summary>
@@ -183,12 +155,12 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             // Component attachment for inventory (for ability to add items to price check interface).
             inventoryInterface.AttachClickHandler(0, (componentID, clickType, itemID, slot) =>
             {
-                if (slot < 0 || slot >= Owner.Inventory.Capacity)
+                if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
                 {
                     return false;
                 }
 
-                var item = Owner.Inventory[slot];
+                var item = Owner.Inventory.Items[slot];
                 if (item == null || item.Id != itemID)
                 {
                     return false;
@@ -215,7 +187,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                 }
                 else if (clickType == ComponentClickType.Option4Click)
                 {
-                    amount = Owner.Inventory.GetCount(item);
+                    amount = Owner.Inventory.Items.GetCount(item);
                 }
                 else if (clickType == ComponentClickType.Option5Click)
                 {
@@ -251,12 +223,12 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                     return false;
                 }
 
-                if (slot < 0 || slot >= priceCheckInterface.Capacity)
+                if (slot < 0 || slot >= priceCheckInterface.Items.Capacity)
                 {
                     return false;
                 }
 
-                var item = priceCheckInterface[slot];
+                var item = priceCheckInterface.Items[slot];
                 if (item == null || item.Id != itemID)
                 {
                     return false;
@@ -277,7 +249,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                 }
                 else if (clickType == ComponentClickType.Option4Click)
                 {
-                    amount = priceCheckInterface.GetCount(item);
+                    amount = priceCheckInterface.Items.GetCount(item);
                 }
                 else if (clickType == ComponentClickType.Option5Click)
                 {
@@ -329,7 +301,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
 
             _inventoryInterface = null;
             _priceCheckInterface = null;
-            Owner.Configurations.SendItems(93, false, Owner.Inventory);
+            Owner.Configurations.SendItems(93, false, Owner.Inventory.Items);
         }
 
         /// <summary>
@@ -348,9 +320,9 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                 return false;
             }
 
-            var available = Owner.Inventory.GetCount(item) - priceCheckInterface.GetCount(item);
+            var available = Owner.Inventory.Items.GetCount(item) - priceCheckInterface.Items.GetCount(item);
             var count = Math.Min(amount, available);
-            if (count <= 0 || !priceCheckInterface.Add(item.Clone(count)))
+            if (count <= 0 || !priceCheckInterface.Items.Add(item.Clone(count)))
             {
                 return false;
             }
@@ -375,8 +347,8 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                 return false;
             }
 
-            var count = Math.Min(amount, priceCheckInterface.GetCount(item));
-            if (count <= 0 || priceCheckInterface.Remove(item.Clone(count)) != count)
+            var count = Math.Min(amount, priceCheckInterface.Items.GetCount(item));
+            if (count <= 0 || priceCheckInterface.Items.Remove(item.Clone(count)) != count)
             {
                 return false;
             }
@@ -394,17 +366,17 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             }
 
             var changed = false;
-            for (var slot = 0; slot < priceCheckInterface.Capacity; slot++)
+            for (var slot = 0; slot < priceCheckInterface.Items.Capacity; slot++)
             {
-                if (priceCheckInterface[slot] is not { } selected)
+                if (priceCheckInterface.Items[slot] is not { } selected)
                 {
                     continue;
                 }
 
-                var actual = Owner.Inventory.GetCount(selected);
+                var actual = Owner.Inventory.Items.GetCount(selected);
                 if (selected.Count > actual)
                 {
-                    priceCheckInterface.Remove(selected.Clone(selected.Count - actual), slot, update: false);
+                    priceCheckInterface.Items.Remove(selected.Clone(selected.Count - actual), slot, update: false);
                     changed = true;
                 }
             }
@@ -437,20 +409,20 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                 return;
             }
 
-            var projected = new ProjectedInventoryContainer(Owner.Inventory.Capacity);
-            for (var slot = 0; slot < Owner.Inventory.Capacity; slot++)
+            var projected = new ItemContainer(StorageType.Normal, Owner.Inventory.Items.Capacity);
+            for (var slot = 0; slot < Owner.Inventory.Items.Capacity; slot++)
             {
-                if (Owner.Inventory[slot] is { } item)
+                if (Owner.Inventory.Items[slot] is { } item)
                 {
                     projected.Replace(slot, item.Clone());
                 }
             }
 
-            for (var slot = 0; slot < priceCheckInterface.Capacity; slot++)
+            for (var slot = 0; slot < priceCheckInterface.Items.Capacity; slot++)
             {
-                if (priceCheckInterface[slot] is { } selected)
+                if (priceCheckInterface.Items[slot] is { } selected)
                 {
-                    projected.RemoveExact(selected, selected.Count);
+                    projected.TryRemoveExact(selected);
                 }
             }
 

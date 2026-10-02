@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Builders.HitSplat;
+using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -119,7 +119,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
         private double GetSuccessFactor()
         {
             var factor = 0.15;
-            if (_owner.Inventory.Contains(5560))
+            if (_owner.Inventory.Items.Contains(5560))
             {
                 factor += 0.05;
             }

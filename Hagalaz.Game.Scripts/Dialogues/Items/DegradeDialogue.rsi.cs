@@ -48,14 +48,18 @@ namespace Hagalaz.Game.Scripts.Dialogues.Items
                     return false;
                 }
 
-                Owner.Widgets.CloseChatboxOverlay();
                 var slot = Owner.Equipment.GetInstanceSlot(_toDegrade);
                 if (slot == EquipmentSlot.NoSlot)
                 {
                     return false;
                 }
                 var itemBuilder = Owner.ServiceProvider.GetRequiredService<IItemBuilder>();
-                Owner.Equipment.Replace(slot, itemBuilder.Create().WithId(_toDegrade.Id + 2).WithCount(_toDegrade.Count).Build());
+                if (!Owner.Equipment.TryReplaceEquippedItem(slot, _toDegrade,
+                        itemBuilder.Create().WithId(_toDegrade.Id + 2).WithCount(_toDegrade.Count).Build()))
+                {
+                    return false;
+                }
+                Owner.Widgets.CloseChatboxOverlay();
                 return true;
 
             });

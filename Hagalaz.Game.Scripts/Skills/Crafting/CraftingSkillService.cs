@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
@@ -134,7 +134,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 }
 
                 var builder = new StringBuilder();
-                var hasRequirements = character.Inventory.Contains(definition.FormedProductID)
+                var hasRequirements = character.Inventory.Items.Contains(definition.FormedProductID)
                                       && character.Statistics.GetSkillLevel(StatisticsConstants.Crafting) >= definition.RequiredLevel;
                 if (!hasRequirements)
                 {
@@ -149,8 +149,8 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
 
                 return builder.ToString();
             };
-            dialogue.SetMaxCount(character.Inventory.Capacity, false);
-            dialogue.SetCurrentCount(character.Inventory.Capacity, false);
+            dialogue.SetMaxCount(character.Inventory.Items.Capacity, false);
+            dialogue.SetCurrentCount(character.Inventory.Items.Capacity, false);
             InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
         }
 
@@ -188,7 +188,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
 
                     if (task.TickCount == 1 || task.TickCount % 6 == 0)
                     {
-                        if (!character.Inventory.Contains(definition.FormedProductID))
+                        if (!character.Inventory.Items.Contains(definition.FormedProductID))
                         {
                             character.SendChatMessage("You need " + itemRepository.FindItemDefinitionById(definition.FormedProductID).Name.ToLower() +
                                                       " to create a " + itemRepository.FindItemDefinitionById(definition.BakedProductID).Name.ToLower() + ".");
@@ -203,21 +203,21 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                     if (task.TickCount % 3 == 0)
                     {
                         task.CurrentMakeCount++;
-                        var resource = character.Inventory.GetById(definition.FormedProductID);
+                        var resource = character.Inventory.Items.GetById(definition.FormedProductID);
                         if (resource == null)
                         {
                             task.Cancel();
                             return;
                         }
 
-                        var slot = character.Inventory.GetInstanceSlot(resource);
+                        var slot = character.Inventory.Items.GetInstanceSlot(resource);
                         if (slot == -1)
                         {
                             task.Cancel();
                             return;
                         }
 
-                        character.Inventory.Replace(slot, _itemBuilder.Create().WithId(definition.BakedProductID).Build());
+                        character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(definition.BakedProductID).Build());
                         character.Statistics.AddExperience(StatisticsConstants.Crafting, definition.BakeExperience);
                     }
                 });
@@ -249,23 +249,13 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 }
 
                 var builder = new StringBuilder();
-                var hasRequirements = character.Inventory.Contains(SoftClayId)
+                var hasRequirements = character.Inventory.Items.Contains(SoftClayId)
                                       && character.Statistics.GetSkillLevel(StatisticsConstants.Crafting) >= definition.RequiredLevel;
-                if (!hasRequirements)
-                {
-                    builder.Append("<col=FF0000>");
-                }
-
-                builder.Append(itemManager.FindItemDefinitionById(productID).Name);
-                if (!hasRequirements)
-                {
-                    builder.Append("</col>");
-                }
-
+                AppendProductName(builder, itemManager, productID, hasRequirements);
                 return builder.ToString();
             };
 
-            var resCount = character.Inventory.GetCountById(SoftClayId);
+            var resCount = character.Inventory.Items.GetCountById(SoftClayId);
             dialogue.SetMaxCount(resCount, false);
             dialogue.SetCurrentCount(resCount, false);
             InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
@@ -305,7 +295,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
 
                     if (task.TickCount == 1 || task.TickCount % 6 == 0)
                     {
-                        if (!character.Inventory.Contains(SoftClayId))
+                        if (!character.Inventory.Items.Contains(SoftClayId))
                         {
                             character.SendChatMessage("You need " + itemRepository.FindItemDefinitionById(SoftClayId).Name.ToLower() + " to create a " +
                                                       itemRepository.FindItemDefinitionById(definition.FormedProductID).Name.ToLower() + ".");
@@ -320,21 +310,21 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                     if (task.TickCount % 3 == 0)
                     {
                         task.CurrentMakeCount++;
-                        var resource = character.Inventory.GetById(SoftClayId);
+                        var resource = character.Inventory.Items.GetById(SoftClayId);
                         if (resource == null)
                         {
                             task.Cancel();
                             return;
                         }
 
-                        var slot = character.Inventory.GetInstanceSlot(resource);
+                        var slot = character.Inventory.Items.GetInstanceSlot(resource);
                         if (slot == -1)
                         {
                             task.Cancel();
                             return;
                         }
 
-                        character.Inventory.Replace(slot, _itemBuilder.Create().WithId(definition.FormedProductID).Build());
+                        character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(definition.FormedProductID).Build());
                         character.Statistics.AddExperience(StatisticsConstants.Crafting, definition.FormExperience);
                     }
                 });
@@ -363,22 +353,12 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
             dialogue.ProductNamingCallback = productID =>
             {
                 var builder = new StringBuilder();
-                var hasRequirements = character.Inventory.Contains(definition.UncutGemID)
+                var hasRequirements = character.Inventory.Items.Contains(definition.UncutGemID)
                                       && character.Statistics.GetSkillLevel(StatisticsConstants.Crafting) >= definition.RequiredLevel;
-                if (!hasRequirements)
-                {
-                    builder.Append("<col=FF0000>");
-                }
-
-                builder.Append(itemManager.FindItemDefinitionById(productID).Name);
-                if (!hasRequirements)
-                {
-                    builder.Append("</col>");
-                }
-
+                AppendProductName(builder, itemManager, productID, hasRequirements);
                 return builder.ToString();
             };
-            var resCount = character.Inventory.GetCountById(definition.UncutGemID);
+            var resCount = character.Inventory.Items.GetCountById(definition.UncutGemID);
             dialogue.SetMaxCount(resCount, false);
             dialogue.SetCurrentCount(resCount, false);
             return InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
@@ -428,7 +408,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 }
 
                 var builder = new StringBuilder();
-                var hasRequirements = character.Inventory.Contains(definition.ResourceID)
+                var hasRequirements = character.Inventory.Items.Contains(definition.ResourceID)
                                       && character.Statistics.GetSkillLevel(StatisticsConstants.Crafting) >= definition.RequiredLevel;
                 if (!hasRequirements)
                 {
@@ -445,8 +425,8 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 builder.Append('(').Append(itemManager.FindItemDefinitionById(definition.ResourceID).Name).Append(')');
                 return builder.ToString();
             };
-            dialogue.SetMaxCount(character.Inventory.Capacity, false);
-            dialogue.SetCurrentCount(character.Inventory.Capacity, false);
+            dialogue.SetMaxCount(character.Inventory.Items.Capacity, false);
+            dialogue.SetCurrentCount(character.Inventory.Items.Capacity, false);
             InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
         }
 
@@ -502,22 +482,12 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 }
 
                 var builder = new StringBuilder();
-                var hasRequirements = character.Inventory.Contains(definition.ResourceID, definition.RequiredResourceCount)
+                var hasRequirements = character.Inventory.Items.Contains(definition.ResourceID, definition.RequiredResourceCount)
                                       && character.Statistics.GetSkillLevel(StatisticsConstants.Crafting) >= definition.RequiredLevel;
-                if (!hasRequirements)
-                {
-                    builder.Append("<col=FF0000>");
-                }
-
-                builder.Append(itemManager.FindItemDefinitionById(productID).Name);
-                if (!hasRequirements)
-                {
-                    builder.Append("</col>");
-                }
-
+                AppendProductName(builder, itemManager, productID, hasRequirements);
                 return builder.ToString();
             };
-            var resCount = character.Inventory.GetCountById(resource.Id);
+            var resCount = character.Inventory.Items.GetCountById(resource.Id);
             dialogue.SetMaxCount(resCount, false);
             dialogue.SetCurrentCount(resCount, false);
             return InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
@@ -573,7 +543,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 }
 
                 var builder = new StringBuilder();
-                var hasResource = character.Inventory.Contains(definition.ResourceID);
+                var hasResource = character.Inventory.Items.Contains(definition.ResourceID);
                 if (!hasResource)
                 {
                     builder.Append("<col=FF0000>");
@@ -589,8 +559,8 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 builder.Append('(').Append(definition.BasePrice).Append(" coins)");
                 return builder.ToString();
             };
-            dialogue.SetMaxCount(character.Inventory.Capacity, false);
-            dialogue.SetCurrentCount(character.Inventory.Capacity, false);
+            dialogue.SetMaxCount(character.Inventory.Items.Capacity, false);
+            dialogue.SetCurrentCount(character.Inventory.Items.Capacity, false);
             InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
         }
 
@@ -601,6 +571,20 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <param name="definition">The definition.</param>
         /// <param name="count">The count.</param>
         /// <returns></returns>
+        private static void AppendProductName(StringBuilder builder, IItemService itemManager, int productID, bool hasRequirements)
+        {
+            if (!hasRequirements)
+            {
+                builder.Append("<col=FF0000>");
+            }
+
+            builder.Append(itemManager.FindItemDefinitionById(productID).Name);
+            if (!hasRequirements)
+            {
+                builder.Append("</col>");
+            }
+        }
+
         private bool Tan(ICharacter character, TanDto? definition, int count)
         {
             if (definition == null)
@@ -609,7 +593,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
             }
 
             var resource = _itemBuilder.Create().WithId(definition.ResourceID).Build();
-            if (count <= 0 || character.Inventory.GetCountById(definition.ResourceID) <= 0)
+            if (count <= 0 || character.Inventory.Items.GetCountById(definition.ResourceID) <= 0)
             {
                 character.SendChatMessage("You need " + resource.Name + " in order to tan this item.");
                 return false;
@@ -623,14 +607,14 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
 
             var coinRemoved = character.MoneyPouch.Remove((int)coinCount);
             var tannedCount = coinRemoved / definition.BasePrice;
-            var removedCount = character.Inventory.Remove(_itemBuilder.Create().WithId(definition.ResourceID).WithCount(tannedCount).Build());
+            var removedCount = character.Inventory.Items.Remove(_itemBuilder.Create().WithId(definition.ResourceID).WithCount(tannedCount).Build());
             if (removedCount <= 0)
             {
                 return false;
             }
 
             var product = _itemBuilder.Create().WithId(definition.ProductID).WithCount(removedCount).Build();
-            character.Inventory.Add(product);
+            character.Inventory.Items.Add(product);
             character.SendChatMessage("The tanner tans " + removedCount + " " + product.Name.ToLower() + "s for you.");
             return true;
         }
