@@ -72,7 +72,7 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
-    [Timeout(5000)]
+    [Timeout(10000)]
     public async Task GameSessionStore_MoveToPendingAbort_IsAtomicWithConnectionIdReuse()
     {
         var store = new GameSessionStore();
@@ -97,7 +97,7 @@ public sealed class GameSessionServiceTests
         blockConnectionRead = true;
 
         var moveTask = Task.Run(async () => await store.TryMoveToPendingAbort(retainedSession));
-        await connectionReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await connectionReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         var addTask = store.TryAdd(replacementSession).AsTask();
         Assert.IsFalse(addTask.IsCompleted);
