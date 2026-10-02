@@ -188,6 +188,22 @@ public sealed class DuelArenaInteractionRegressionTests
         Assert.AreEqual(0, duel.SelfStakeContainer.GetCountById(995));
     }
 
+    [TestMethod]
+    public void SelfMoneyPouchX_WhenPouchIsShort_UsesSelfInventoryCoins()
+    {
+        var duel = CreateDuel(20, 20, selfPouchCoins: 5);
+        Assert.IsTrue(duel.SelfInventory.Items.Add(CreateItem(995, 10)));
+        Assert.IsTrue(duel.SelfPouch!(8, ComponentClickType.LeftClick, 0, 0));
+
+        duel.Self.Widgets.IntInputHandler!(10);
+
+        Assert.AreEqual(0, duel.Self.MoneyPouch.Count);
+        Assert.AreEqual(5, duel.SelfInventory.Items.GetCountById(995));
+        Assert.AreEqual(0, duel.TargetInventory.Items.GetCountById(995));
+        Assert.AreEqual(20, duel.TargetInventory.Items.GetCountById(duel.TargetItem.Id));
+        Assert.AreEqual(10, duel.SelfStakeContainer.GetCountById(995));
+    }
+
     [DataTestMethod]
     [DataRow(0)]
     [DataRow(-1)]
@@ -283,10 +299,12 @@ public sealed class DuelArenaInteractionRegressionTests
             task => selfReachTask = task);
         var target = CreateCharacter("target", targetInventory, targetWidgets, targetScreen, targetOverlay,
             out var targetAccessor, task => targetReachTask = task);
-        var selfMoneyPouch = CreateMoneyPouch(self, selfPouchCoins);
-        var targetMoneyPouch = CreateMoneyPouch(target, targetPouchCoins);
-        self.MoneyPouch.Returns(targetMoneyPouch);
-        target.MoneyPouch.Returns(selfMoneyPouch);
+        // The active script is backed by `target`, which becomes logical Self below.
+        // Seed each owner-bound pouch for its logical role, but return it only to its owner.
+        var pouchOwnedByInitialSelf = CreateMoneyPouch(self, targetPouchCoins);
+        var pouchOwnedByInitialTarget = CreateMoneyPouch(target, selfPouchCoins);
+        self.MoneyPouch.Returns(pouchOwnedByInitialSelf);
+        target.MoneyPouch.Returns(pouchOwnedByInitialTarget);
         self.Viewport.VisibleCreatures.Returns([target]);
         target.Viewport.VisibleCreatures.Returns([self]);
         var selfScript = new DuelArenaScript(selfAccessor, Substitute.For<IHintIconBuilder>(), CreateItemBuilder());

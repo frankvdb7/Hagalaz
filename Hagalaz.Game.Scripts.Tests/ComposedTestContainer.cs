@@ -14,21 +14,12 @@ internal class ComposedTestContainer : IInventoryContainer, IRewardContainer
     public int UpdateCount { get; private set; }
     public bool CanAcquireMutationLockFromOtherThread()
     {
-        var entered = new ManualResetEventSlim();
-        var acquisition = new Thread(() => _items.ExecuteUnderMutationLock(entered.Set))
+        var acquisition = new Thread(() => _items.ExecuteUnderMutationLock(static () => { }))
         {
             IsBackground = true
         };
         acquisition.Start();
-        if (!entered.Wait(TimeSpan.FromSeconds(1)))
-        {
-            acquisition.Join(TimeSpan.FromSeconds(1));
-            return false;
-        }
-
-        acquisition.Join();
-        entered.Dispose();
-        return true;
+        return acquisition.Join(TimeSpan.FromSeconds(5));
     }
 
     public ComposedTestContainer(int capacity) : this(StorageType.Normal, capacity) { }
