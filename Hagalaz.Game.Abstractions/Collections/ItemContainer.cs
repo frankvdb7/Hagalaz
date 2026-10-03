@@ -9,7 +9,6 @@ namespace Hagalaz.Game.Abstractions.Collections;
 public sealed class ItemContainer : IItemContainer
 {
     private readonly ItemContainerStorage _storage;
-    private readonly Action<HashSet<int>?>? _publishChanges;
     private readonly ItemContainerMutationBoundary _mutations;
 
     public IItemContainerMutationBoundary Mutations => _mutations;
@@ -26,16 +25,14 @@ public sealed class ItemContainer : IItemContainer
         int countToResetTo = -1)
     {
         _storage = new ItemContainerStorage(type, capacity, countToResetTo);
-        _publishChanges = publishChanges;
-        _mutations = new ItemContainerMutationBoundary(_storage, _publishChanges);
+        _mutations = new ItemContainerMutationBoundary(_storage, publishChanges);
     }
 
     public ItemContainer(StorageType type, IEnumerable<IItem> items, int capacity,
         Action<HashSet<int>?>? publishChanges = null, int countToResetTo = -1)
     {
         _storage = new ItemContainerStorage(type, items, capacity, countToResetTo);
-        _publishChanges = publishChanges;
-        _mutations = new ItemContainerMutationBoundary(_storage, _publishChanges);
+        _mutations = new ItemContainerMutationBoundary(_storage, publishChanges);
     }
 
     public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
@@ -105,6 +102,7 @@ public sealed class ItemContainer : IItemContainer
     {
         ArgumentNullException.ThrowIfNull(action);
 
+        _storage.EnsureMutationAccess();
         lock (_storage.MutationLock)
         {
             action();
@@ -132,5 +130,5 @@ public sealed class ItemContainer : IItemContainer
         if (_storage.Clear() && update) PublishChanges(null);
     }
 
-    private void PublishChanges(HashSet<int>? changedSlots) => _publishChanges?.Invoke(changedSlots);
+    private void PublishChanges(HashSet<int>? changedSlots) => _mutations.NotifyChanges(changedSlots);
 }

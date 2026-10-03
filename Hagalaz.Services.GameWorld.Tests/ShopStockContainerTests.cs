@@ -92,6 +92,79 @@ public sealed class ShopStockContainerTests
     }
 
     [TestMethod]
+    public void BuyFromShop_PublishesStockInventoryPouchAndBoughtEventInExistingOrder()
+    {
+        var scenario = CreateScenario(cost: 5, pouchCoins: 5);
+        var order = new List<string>();
+        scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopStockChangedEvent>())).Do(_ =>
+        {
+            foreach (var boundary in ((IItemContainerTransactionParticipantInternal)scenario.MoneyPouch.Mutations).Boundaries)
+            {
+                Assert.IsNull(boundary.Storage.Transaction);
+                Assert.IsFalse(System.Threading.Monitor.IsEntered(boundary.Storage.MutationLock));
+            }
+            Assert.AreEqual(0, scenario.MoneyPouch.Count);
+            Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
+            order.Add("stock");
+        });
+        scenario.Inventory.OnUpdateAction = () => order.Add("inventory");
+        scenario.Character.EventManager.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>())).Do(_ => order.Add("pouch"));
+        scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopItemBoughtEvent>())).Do(_ => order.Add("bought"));
+
+        Assert.IsTrue(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+
+        CollectionAssert.AreEqual(new[] { "stock", "inventory", "pouch", "bought" }, order);
+    }
+
+    [TestMethod]
+    public void BuyFromShop_StockPublicationFailureSkipsInventoryPouchAndBoughtEvent()
+    {
+        var scenario = CreateScenario(cost: 5, pouchCoins: 5);
+        var original = new InvalidOperationException("Stock publication failed.");
+        var order = new List<string>();
+        scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopStockChangedEvent>())).Do(_ =>
+        {
+            order.Add("stock");
+            throw original;
+        });
+        scenario.Inventory.OnUpdateAction = () => order.Add("inventory");
+        scenario.Character.EventManager.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>())).Do(_ => order.Add("pouch"));
+        scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopItemBoughtEvent>())).Do(_ => order.Add("bought"));
+
+        Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() =>
+            scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1)));
+
+        CollectionAssert.AreEqual(new[] { "stock" }, order);
+        Assert.AreEqual(0, scenario.MoneyPouch.Count);
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
+        Assert.AreEqual(0, scenario.Stock.Items.GetCountById(ItemId));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_PouchPublicationFailurePreservesEarlierUpdatesAndSkipsBoughtEvent()
+    {
+        var scenario = CreateScenario(cost: 5, pouchCoins: 5);
+        var original = new InvalidOperationException("Pouch publication failed.");
+        var order = new List<string>();
+        scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopStockChangedEvent>())).Do(_ => order.Add("stock"));
+        scenario.Inventory.OnUpdateAction = () => order.Add("inventory");
+        scenario.Character.EventManager.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>())).Do(_ =>
+        {
+            order.Add("pouch");
+            throw original;
+        });
+        scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopItemBoughtEvent>())).Do(_ => order.Add("bought"));
+
+        Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() =>
+            scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1)));
+
+        CollectionAssert.AreEqual(new[] { "stock", "inventory", "pouch" }, order);
+        Assert.AreEqual(0, scenario.MoneyPouch.Count);
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
+        Assert.AreEqual(0, scenario.Stock.Items.GetCountById(ItemId));
+    }
+
+    [TestMethod]
     public void BuyFromShop_WhenCoinsAreSplitBetweenPouchAndInventory_RemovesExactCost()
     {
         const int cost = 10_000;

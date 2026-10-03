@@ -8,7 +8,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public partial class MoneyPouchContainer : IMoneyPouchContainer, IMoneyPouchMutationBoundary,
+    public partial class MoneyPouchContainer : IMoneyPouchContainer, IItemContainerTransactionParticipantInternal,
         IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
@@ -21,7 +21,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ItemContainerStorage _storage;
         private readonly ItemContainerMutationBoundary _storageMutations;
 
-        public IMoneyPouchMutationBoundary Mutations => this;
+        public IItemContainerTransactionParticipant Mutations => this;
+
+        IReadOnlyList<ItemContainerMutationBoundary> IItemContainerTransactionParticipantInternal.Boundaries =>
+            [_storageMutations, (ItemContainerMutationBoundary)_owner.Inventory.Items.Mutations];
 
         public bool HasSpaceForCoins(int count) => count > 0 && (long)Count + count <= int.MaxValue;
 
@@ -82,25 +85,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public bool TryAddExact(int count)
         {
-            var transaction = new ItemContainerTransaction();
-            Mutations.EnlistIn(transaction);
-            MoneyPouchChange? change = null;
-            var committed = transaction.TryCommit(tx => (change = Mutations.StageAddExact(tx, count)) != null);
-            MoneyPouchChange.PublishChanges(transaction, change);
-            return committed;
+            using var transaction = ItemContainerTransaction.BeginIfNeeded(Mutations);
+            if (!AddExactCore(count)) return false;
+            transaction?.Commit();
+            return true;
         }
 
-        MoneyPouchChange? IMoneyPouchMutationBoundary.StageAddExact(IItemContainerTransaction transaction, int count)
-        {
-            ArgumentNullException.ThrowIfNull(transaction);
-            return StageExactAddCore(transaction, count);
-        }
-
-        private MoneyPouchChange? StageExactAddCore(IItemContainerTransaction transaction, int count)
+        private bool AddExactCore(int count)
         {
             if (count <= 0)
             {
-                return null;
+                return false;
             }
 
             var pouchCount = Math.Min(count, int.MaxValue - Count);
@@ -108,23 +103,24 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (inventoryCount > 0 && !_owner.Inventory.Items.HasSpaceFor(
                     _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
             {
-                return null;
+                return false;
             }
 
             var previousCount = Count;
-            if (pouchCount > 0 && !transaction.TryAddRange(_storageMutations,
-                    [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()]))
+            if (pouchCount > 0 && !_storage.TryAddRange(
+                    [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()], out _))
             {
-                return null;
+                return false;
             }
 
-            if (inventoryCount > 0 && !transaction.TryAddRange(_owner.Inventory.Items.Mutations,
+            if (inventoryCount > 0 && !_owner.Inventory.Items.AddRange(
                     [_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()]))
             {
-                return null;
+                return false;
             }
 
-            return new MoneyPouchChange(this, previousCount, pouchCount);
+            if (pouchCount != 0) DeferChange(previousCount, pouchCount);
+            return true;
         }
 
         /// <summary>
@@ -146,70 +142,54 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public bool TryRemoveExact(int count)
         {
-            var transaction = new ItemContainerTransaction();
-            Mutations.EnlistIn(transaction);
-            MoneyPouchChange? change = null;
-            var committed = transaction.TryCommit(tx => (change = Mutations.StageRemoveExact(tx, count)) != null);
-            MoneyPouchChange.PublishChanges(transaction, change);
-            return committed;
+            using var transaction = ItemContainerTransaction.BeginIfNeeded(Mutations);
+            if (!RemoveExactCore(count)) return false;
+            transaction?.Commit();
+            return true;
         }
 
-        /// <summary>
-        /// Stages an exact coin removal without publishing pouch or inventory updates.
-        /// </summary>
-        MoneyPouchChange? IMoneyPouchMutationBoundary.StageRemoveExact(IItemContainerTransaction transaction, int count)
-        {
-            ArgumentNullException.ThrowIfNull(transaction);
-            return StageExactRemoveCore(transaction, count);
-        }
-
-        private MoneyPouchChange? StageExactRemoveCore(IItemContainerTransaction transaction, int count)
+        private bool RemoveExactCore(int count)
         {
             if (count <= 0)
             {
-                return null;
+                return false;
             }
 
             var pouchCount = Math.Min(count, Count);
             var inventoryCount = count - pouchCount;
             if (inventoryCount > _owner.Inventory.Items.GetCountById(995))
             {
-                return null;
+                return false;
             }
 
             var previousCount = Count;
-            if (pouchCount > 0 && !transaction.TryRemoveExact(_storageMutations,
-                    _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0))
+            if (pouchCount > 0 && !_storage.TryRemoveExact(
+                    _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0, out _))
             {
-                return null;
+                return false;
             }
 
-            if (inventoryCount > 0 && !transaction.TryRemoveExact(_owner.Inventory.Items.Mutations,
+            if (inventoryCount > 0 && !_owner.Inventory.Items.TryRemoveExact(
                     _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
             {
-                return null;
+                return false;
             }
 
-            return new MoneyPouchChange(this, previousCount, -count);
+            DeferChange(previousCount, -count);
+            return true;
         }
 
-        void IMoneyPouchMutationBoundary.PublishChange(int previousCount, int changeCount)
-        {
-            _previousCount = previousCount;
-            PublishChanges(changeCount);
-        }
+        private void DeferChange(int previousCount, int changeCount) =>
+            _storageMutations.DeferPouchNotification(() =>
+            {
+                _previousCount = previousCount;
+                PublishChanges(changeCount);
+            });
 
         private void PublishChanges(int pouchChangeCount)
         {
             SendMoneyPouchChangedMessage(pouchChangeCount);
             OnUpdate();
-        }
-
-        void IMoneyPouchMutationBoundary.EnlistIn(IItemContainerTransaction transaction)
-        {
-            ArgumentNullException.ThrowIfNull(transaction);
-            transaction.Include(_storageMutations);
-            transaction.Include(_owner.Inventory.Items.Mutations);
         }
 
         /// <summary>
@@ -243,15 +223,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var transferCount = Math.Min(count, Math.Min(remainingSpace, _owner.Inventory.Items.GetCountById(995)));
             if (transferCount <= 0) return false;
 
-            var transaction = new ItemContainerTransaction(_owner.Inventory.Items.Mutations);
-            Mutations.EnlistIn(transaction);
-            MoneyPouchChange? change = null;
-            var committed = transaction.TryCommit(tx =>
-                tx.TryRemoveExact(_owner.Inventory.Items.Mutations,
-                    _itemBuilder.Create().WithId(995).WithCount(transferCount).Build()) &&
-                (change = StageExactAddCore(tx, transferCount)) != null);
-            MoneyPouchChange.PublishChanges(transaction, change);
-            return committed;
+            using var transaction = ItemContainerTransaction.BeginIfNeeded(_owner.Inventory.Items.Mutations, Mutations);
+            if (!_owner.Inventory.Items.TryRemoveExact(
+                    _itemBuilder.Create().WithId(995).WithCount(transferCount).Build()) ||
+                !AddExactCore(transferCount)) return false;
+            transaction?.Commit();
+            return true;
         }
 
         /// <summary>
@@ -265,25 +242,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var transferCount = Math.Min(count, Count);
             if (transferCount <= 0) return false;
 
-            var inventoryRejected = false;
-            var transaction = new ItemContainerTransaction(_owner.Inventory.Items.Mutations);
-            Mutations.EnlistIn(transaction);
-            MoneyPouchChange? change = null;
-            var succeeded = transaction.TryCommit(tx =>
+            using var transaction = ItemContainerTransaction.BeginIfNeeded(_owner.Inventory.Items.Mutations, Mutations);
+            if (!_owner.Inventory.Items.AddRange([_itemBuilder.Create().WithId(995).WithCount(transferCount).Build()]))
             {
-                if (!tx.TryAddRange(_owner.Inventory.Items.Mutations,
-                        [_itemBuilder.Create().WithId(995).WithCount(transferCount).Build()]))
-                {
-                    inventoryRejected = true;
-                    return false;
-                }
-
-                return (change = StageExactRemoveCore(tx, transferCount)) != null;
-            });
-
-            if (!succeeded && inventoryRejected) _owner.SendChatMessage(GameStrings.InventoryFull);
-            MoneyPouchChange.PublishChanges(transaction, change);
-            return succeeded;
+                transaction?.Dispose();
+                _owner.SendChatMessage(GameStrings.InventoryFull);
+                return false;
+            }
+            if (!RemoveExactCore(transferCount)) return false;
+            transaction?.Commit();
+            return true;
         }
 
         /// <summary>

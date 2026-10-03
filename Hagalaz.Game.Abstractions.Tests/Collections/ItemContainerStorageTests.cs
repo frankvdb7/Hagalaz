@@ -1436,25 +1436,33 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public async Task TryTransfer_OppositeDirectionsCompleteWithoutDeadlock()
+        public async Task TryTransfer_OppositeDirectionRejectsForeignActiveScopeAndSucceedsAfterRelease()
         {
             var left = new TestableItemContainer(StorageType.Normal, 2);
             var right = new TestableItemContainer(StorageType.Normal, 2);
-            left.Items.Add(CreateItem(1, 1));
-            right.Items.Add(CreateItem(2, 1));
+            Assert.IsTrue(left.Items.Add(CreateItem(1, 1)));
+            Assert.IsTrue(right.Items.Add(CreateItem(2, 1)));
             var leftItem = left.Items[0]!;
             var rightItem = right.Items[0]!;
-            using var start = new Barrier(2);
-
-            var leftToRight = Task.Run(() => start.SignalAndWait(TimeSpan.FromSeconds(5)) &&
-                left.Items.Mutations.TryTransferTo(right.Items.Mutations, leftItem, 1));
-            var rightToLeft = Task.Run(() => start.SignalAndWait(TimeSpan.FromSeconds(5)) &&
-                right.Items.Mutations.TryTransferTo(left.Items.Mutations, rightItem, 1));
-
-            var results = await Task.WhenAll(leftToRight, rightToLeft).WaitAsync(TimeSpan.FromSeconds(5));
-
-            Assert.IsTrue(results[0]);
-            Assert.IsTrue(results[1]);
+            using var entered = new ManualResetEventSlim();
+            using var release = new ManualResetEventSlim();
+            var leftToRight = Task.Run(() =>
+            {
+                using var transaction = ItemContainerTransaction.Begin(left.Items.Mutations, right.Items.Mutations);
+                entered.Set();
+                Assert.IsTrue(release.Wait(TimeSpan.FromSeconds(5)));
+                Assert.IsTrue(left.Items.Mutations.TryTransferTo(right.Items.Mutations, leftItem, 1));
+                transaction.Commit();
+            });
+            try
+            {
+                Assert.IsTrue(entered.Wait(TimeSpan.FromSeconds(5)));
+                await Task.Run(() => Assert.ThrowsExactly<InvalidOperationException>(() =>
+                    right.Items.Mutations.TryTransferTo(left.Items.Mutations, rightItem, 1))).WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            finally { release.Set(); }
+            await leftToRight.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.IsTrue(right.Items.Mutations.TryTransferTo(left.Items.Mutations, rightItem, 1));
             Assert.AreEqual(1, left.Items.GetCountById(2));
             Assert.AreEqual(1, right.Items.GetCountById(1));
             Assert.AreEqual(2, left.Items.TakenSlots + right.Items.TakenSlots);

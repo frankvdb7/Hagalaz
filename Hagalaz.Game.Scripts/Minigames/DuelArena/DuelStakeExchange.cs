@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
@@ -39,21 +38,14 @@ internal sealed class DuelStakeExchange
     {
         if (count <= 0) return false;
 
-        var transaction = new ItemContainerTransaction(stake.Mutations);
-        character.MoneyPouch.Mutations.EnlistIn(transaction);
-        MoneyPouchChange? change = null;
-        var committed = transaction.TryCommit(tx =>
-        {
-            var transferCount = (int)Math.Min(count,
-                (long)character.MoneyPouch.Count + character.Inventory.Items.GetCountById(CoinsItemId));
-            if (transferCount <= 0) return false;
-
-            var coins = _itemBuilder.Create().WithId(CoinsItemId).WithCount(transferCount).Build();
-            return tx.TryAddRange(stake.Mutations, [coins]) &&
-                   (change = character.MoneyPouch.Mutations.StageRemoveExact(tx, transferCount)) != null;
-        });
-        MoneyPouchChange.PublishChanges(transaction, change);
-        return committed;
+        using var transaction = ItemContainerTransaction.Begin(stake.Mutations, character.MoneyPouch.Mutations);
+        var transferCount = (int)Math.Min(count,
+            (long)character.MoneyPouch.Count + character.Inventory.Items.GetCountById(CoinsItemId));
+        if (transferCount <= 0) return false;
+        var coins = _itemBuilder.Create().WithId(CoinsItemId).WithCount(transferCount).Build();
+        if (!stake.Add(coins) || !character.MoneyPouch.TryRemoveExact(transferCount)) return false;
+        transaction.Commit();
+        return true;
     }
 
     public bool TryReturnCoinsToPouch(
@@ -62,14 +54,11 @@ internal sealed class DuelStakeExchange
         IItem coins,
         int preferredSourceSlot)
     {
-        var transaction = new ItemContainerTransaction(stake.Mutations);
-        character.MoneyPouch.Mutations.EnlistIn(transaction);
-        MoneyPouchChange? change = null;
-        var committed = transaction.TryCommit(tx =>
-            tx.TryRemoveExact(stake.Mutations, coins, preferredSourceSlot) &&
-            (change = character.MoneyPouch.Mutations.StageAddExact(tx, coins.Count)) != null);
-        MoneyPouchChange.PublishChanges(transaction, change);
-        return committed;
+        using var transaction = ItemContainerTransaction.Begin(stake.Mutations, character.MoneyPouch.Mutations);
+        var count = coins.Count;
+        if (!stake.TryRemoveExact(coins, preferredSourceSlot) || !character.MoneyPouch.TryAddExact(count)) return false;
+        transaction.Commit();
+        return true;
     }
 
     public bool TryRefundBoth(
@@ -78,23 +67,15 @@ internal sealed class DuelStakeExchange
         ICharacter second,
         IItemContainer secondStake)
     {
-        var transaction = new ItemContainerTransaction(
-            firstStake.Mutations,
-            secondStake.Mutations,
-            first.Inventory.Items.Mutations,
-            second.Inventory.Items.Mutations);
-        first.MoneyPouch.Mutations.EnlistIn(transaction);
-        second.MoneyPouch.Mutations.EnlistIn(transaction);
-
-        var changes = new List<MoneyPouchChange?>();
-        var committed = transaction.TryCommit(tx =>
-            RefundStake(tx, first, firstStake, changes) && RefundStake(tx, second, secondStake, changes));
-        MoneyPouchChange.PublishChanges(transaction, changes.ToArray());
-        return committed;
+        using var transaction = ItemContainerTransaction.Begin(firstStake.Mutations, secondStake.Mutations,
+            first.Inventory.Items.Mutations, second.Inventory.Items.Mutations,
+            first.MoneyPouch.Mutations, second.MoneyPouch.Mutations);
+        if (!RefundStake(first, firstStake) || !RefundStake(second, secondStake)) return false;
+        transaction.Commit();
+        return true;
     }
 
-    private static bool RefundStake(IItemContainerTransaction transaction, ICharacter owner, IItemContainer stake,
-        List<MoneyPouchChange?> changes)
+    private static bool RefundStake(ICharacter owner, IItemContainer stake)
     {
         var entries = stake.Select((item, slot) => (item, slot))
             .Where(entry => entry.item != null)
@@ -105,12 +86,9 @@ internal sealed class DuelStakeExchange
         {
             if (item.Id == CoinsItemId)
             {
-                if (!transaction.TryRemoveExact(stake.Mutations, item, slot)) return false;
-                var change = owner.MoneyPouch.Mutations.StageAddExact(transaction, count);
-                if (change == null) return false;
-                changes.Add(change);
+                if (!stake.TryRemoveExact(item, slot) || !owner.MoneyPouch.TryAddExact(count)) return false;
             }
-            else if (!transaction.TryTransfer(stake.Mutations, owner.Inventory.Items.Mutations, item, count, slot))
+            else if (!stake.Mutations.TryTransferTo(owner.Inventory.Items.Mutations, item, count, slot))
             {
                 return false;
             }

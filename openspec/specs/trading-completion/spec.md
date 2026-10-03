@@ -63,8 +63,7 @@ Cancellation MUST return each offer to its owner exactly once and become termina
 - **THEN** the existing recovery container receives the escrow and the session reaches terminal cleanup
 
 ### Requirement: Committed trade operations reach a terminal state
-
-Once completion storage commits, the trade MUST become completed before publication and clean up exactly once in `finally`, even if post-commit publication fails. Once refund or forced recovery storage commits, the trade MUST become cancelled before publication and clean up exactly once in `finally`, even if post-commit publication fails. Such publication failures MUST NOT make committed value eligible for another completion or refund. The original publication exception MUST propagate directly without being stored in the trade result.
+Trade completion, refund, and recovery MUST perform checked domain mutations under their existing session gate and one disposable transaction. After successful mutation and immediately before Commit, the owner MUST assign Completed or Cancelled without an intervening external action. Commit MUST make storage irreversible before automatic publication. Existing finally cleanup MUST run exactly once even when post-commit publication throws. Such failures MUST NOT make committed value eligible for another completion or refund, and the original publication exception MUST propagate without a transaction result or public committed-state query. Unsuccessful attempts MUST dispose before refund or recovery starts.
 
 #### Scenario: Completion publication fails after commit
 - **WHEN** recipient credit and escrow clearing commit but a participant publication throws

@@ -5,7 +5,7 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// </summary>
     public interface IMoneyPouchContainer
     {
-        IMoneyPouchMutationBoundary Mutations { get; }
+        IItemContainerTransactionParticipant Mutations { get; }
 
         bool HasSpaceForCoins(int count);
 

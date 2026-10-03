@@ -5,10 +5,19 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Collections;
 
 /// <summary>Coordinates mutations and publication for one owned item storage.</summary>
-internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoundary
+internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoundary, IItemContainerTransactionParticipantInternal
 {
     private readonly ItemContainerStorage _storage;
     private readonly Action<HashSet<int>?>? _publishChanges;
+
+    internal ItemContainerStorage Storage => _storage;
+    IReadOnlyList<ItemContainerMutationBoundary> IItemContainerTransactionParticipantInternal.Boundaries => [this];
+
+    internal void EnsureUnbound()
+    {
+        if (_storage.Transaction != null)
+            throw new InvalidOperationException("This operation requires storage outside an active transaction.");
+    }
 
     internal ItemContainerMutationBoundary(ItemContainerStorage storage, Action<HashSet<int>?>? publishChanges)
     {
@@ -27,14 +36,33 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
         IItem? destinationItem = null)
     {
         ArgumentNullException.ThrowIfNull(destination);
-        var transaction = new ItemContainerTransaction(this, destination);
-        if (!transaction.TryCommit(tx => tx.TryTransfer(this, destination, item, count,
-                preferredSourceSlot, destinationSlot, destinationItem))) return false;
-        transaction.PublishChanges();
+        if (destination is not ItemContainerMutationBoundary target)
+            throw new ArgumentException("Unsupported mutation boundary.", nameof(destination));
+        using var transaction = ItemContainerTransaction.BeginIfNeeded(this, target);
+        if (!ItemContainerStorage.TryTransfer(_storage, target._storage, item, count,
+                preferredSourceSlot, destinationSlot, destinationItem, out var sourceSlots, out var destinationSlots)) return false;
+        NotifyChanges(sourceSlots);
+        target.NotifyChanges(destinationSlots);
+        transaction?.Commit();
         return true;
     }
 
-    void IItemContainerMutationBoundary.Enlist(ItemContainerTransaction transaction) =>
-        transaction.RegisterParticipant(this, _storage, _publishChanges);
+    internal void NotifyChanges(HashSet<int>? slots)
+    {
+        if (_storage.Transaction is { } transaction) transaction.RecordChanges(_storage, slots);
+        else PublishCommittedChanges(slots);
+    }
+
+    internal void PublishCommittedChanges(HashSet<int>? slots) => _publishChanges?.Invoke(slots);
+
+    internal void DeferBeforePublication(Action hook)
+    {
+        if (_storage.Transaction is { } transaction) transaction.DeferBeforePublication(hook);
+        else hook();
+    }
+
+    internal void DeferPouchNotification(Action notification) =>
+        (_storage.Transaction ?? throw new InvalidOperationException("Pouch notification requires an active transaction."))
+        .DeferPouchNotification(notification);
 
 }

@@ -48,38 +48,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public bool DepositFromMoneyPouch([NotNullWhen(true)] out IItem? deposited)
         {
-            IItem? stagedCoins = null;
-            var bankRejected = false;
-            var transaction = new ItemContainerTransaction(_items.Mutations);
-            _owner.MoneyPouch.Mutations.EnlistIn(transaction);
-            MoneyPouchChange? change = null;
-            var succeeded = transaction.TryCommit(tx =>
+            deposited = null;
+            using var transaction = ItemContainerTransaction.BeginIfNeeded(_items.Mutations, _owner.MoneyPouch.Mutations);
+            var count = _owner.MoneyPouch.Count;
+            if (count <= 0) return false;
+            var coins = _itemBuilder.Create().WithId(995).WithCount(count).Build();
+            if (!_owner.MoneyPouch.TryRemoveExact(count)) return false;
+            if (!_items.Add(coins))
             {
-                var count = _owner.MoneyPouch.Count;
-                if (count <= 0) return false;
-
-                stagedCoins = _itemBuilder.Create().WithId(995).WithCount(count).Build();
-                change = _owner.MoneyPouch.Mutations.StageRemoveExact(tx, count);
-                if (change == null) return false;
-                if (!tx.TryAddRange(_items.Mutations, [stagedCoins]))
-                {
-                    bankRejected = true;
-                    return false;
-                }
-
-                return true;
-            });
-
-            if (!succeeded && bankRejected)
-            {
+                transaction?.Dispose();
                 _owner.SendChatMessage("Not enough space in your bank.");
-                stagedCoins = null;
+                return false;
             }
-
-            MoneyPouchChange.PublishChanges(transaction, change);
-            deposited = succeeded ? stagedCoins : null;
-            return succeeded;
-
+            transaction?.Commit();
+            deposited = coins;
+            return true;
         }
 
         /// <summary>
