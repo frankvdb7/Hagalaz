@@ -20,4 +20,4 @@
 
 - [x] 4.1 Resolve pouch inventory contributions through the existing internal participant bridge; test unsupported/malformed inventory rejection before locks, composite contributions, aliases and publication order (AC1, AC4, AC6, AC7).
 - [x] 4.2 Remove the reported terminal trade test clone with private setup/assertion helpers and guarantee test disposal on exceptional paths (AC2, AC7).
-- [ ] 4.3 Review the complete PR and validate focused suites, solution build, the full CI test command, strict OpenSpec, the pinned duplication gate against the actual PR base, diff cleanliness and final-head hosted CI/CodeQL (AC1–7).
+- [x] 4.3 Review the complete PR and validate focused suites, solution build, the full CI test command, strict OpenSpec, the pinned duplication gate against the actual PR base, diff cleanliness and final-head hosted CI/CodeQL (AC1–7).

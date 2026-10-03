@@ -14,7 +14,11 @@ Focused tests used positional `dotnet test <project> --no-restore` commands and 
 
 The exact CI command, `dotnet test --no-build --no-restore -p:TestingPlatformCommandLineArguments="--report-trx --coverage --coverage-output-format cobertura"`, completed locally with 3,159 passed, 14 failed and four skipped. All failures were five-second timeouts in authentication, sign-out and rate-limiter tests. The same complete scope with `-m:1` passed all 27 assemblies: 3,173 passed, zero failed and four skipped. GameWorld also passed independently. Solution-wide parallel test timeouts are recorded as a validation follow-up; no unrelated test or CI behavior was changed.
 
-Hosted validation of the review fixes is pending. The earlier hosted build run ended with worker termination/cancellation and is not successful test evidence. A live gameplay client was not exercised.
+The review implementation commit `4ab268e634a34c9152c3067150d7fa3d1c18823a` passed [hosted CI run 37124157820](https://github.com/frankvdb7/Hagalaz/actions/runs/37124157820): the exact full CI test command completed all 27 assemblies with 3,173 passed, zero failed and four skipped; the build reported 541 warnings and zero errors. Duplication, OpenSpec and frontend checks also passed. The earlier hosted run that ended with worker termination/cancellation is not successful test evidence. A live gameplay client was not exercised.
+
+[CodeQL run 37124157729](https://github.com/frankvdb7/Hagalaz/actions/runs/37124157729) passed C#, Actions and JavaScript/TypeScript analysis for the same implementation head. The PR merge analysis `ddbb0b391504fc37b992474a7c80ccaa3a9a8ef5` has seven informational C# notes, zero warning/error findings and zero analysis errors; Actions and JavaScript/TypeScript have zero findings. The four prior test lifetime/unused-variable warnings are fixed. Five broad-catch notes remain deliberately: transaction cleanup/restoration and owned hook completion must attempt subsequent work after arbitrary failures, and the thread test helper must report arbitrary assertion failures back to its owner. Two LINQ filtering suggestions remain informational; the direct loops preserve readable publication and recovery ordering. No alert suppression or baseline change was added.
+
+The final documentation commit is checked separately on the PR before handoff; its results are reported in the handoff rather than recording a self-referential commit here.
 
 ## PR #516 review evidence
 
