@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -8,7 +9,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public partial class MoneyPouchContainer : IMoneyPouchContainer, IItemContainerTransactionParticipantInternal,
+    public partial class MoneyPouchContainer : IMoneyPouchContainer, IItemContainerTransactionParticipantInternal, IItemContainerCompletionOwner,
         IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
@@ -20,6 +21,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IItemBuilder _itemBuilder;
         private readonly ItemContainerStorage _storage;
         private readonly ItemContainerMutationBoundary _storageMutations;
+        private readonly ConcurrentDictionary<ItemContainerTransaction, Queue<MoneyPouchChange>> _pendingChanges = new();
+        private readonly record struct MoneyPouchChange(int Order, int PreviousCount, int ChangeCount);
 
         public IItemContainerTransactionParticipant Mutations => this;
 
@@ -75,7 +78,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _itemBuilder = itemBuilder;
             var coins = _itemBuilder.Create().WithId(995).WithCount(0).Build();
             _storage = new ItemContainerStorage(StorageType.Normal, [coins], 1, 0);
-            _storageMutations = new ItemContainerMutationBoundary(_storage, null);
+            _storageMutations = new ItemContainerMutationBoundary(_storage, null, this);
         }
 
         /// <summary>
@@ -189,12 +192,22 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             return true;
         }
 
-        private void DeferChange(int previousCount, int changeCount) =>
-            _storageMutations.DeferAfterPublication(() =>
-            {
-                _previousCount = previousCount;
-                PublishChanges(changeCount);
-            });
+        private void DeferChange(int previousCount, int changeCount)
+        {
+            var transaction = _storage.Transaction ?? throw new InvalidOperationException("Pouch changes require an active transaction.");
+            var changes = _pendingChanges.GetOrAdd(transaction, _ => new Queue<MoneyPouchChange>());
+            changes.Enqueue(new MoneyPouchChange(transaction.NextCompletionOrder(), previousCount, changeCount));
+        }
+
+        void IItemContainerCompletionOwner.DiscardDeferredCompletion(ItemContainerTransaction transaction) => _pendingChanges.TryRemove(transaction, out _);
+        void IItemContainerCompletionOwner.CompleteBeforePublication(ItemContainerTransaction transaction, int order) { }
+        void IItemContainerCompletionOwner.CompleteAfterPublication(ItemContainerTransaction transaction, int order)
+        {
+            if (!_pendingChanges.TryGetValue(transaction, out var changes) || !changes.TryPeek(out var change) || change.Order != order) return;
+            changes.Dequeue(); // Consume before any observable code; a failure is never retried.
+            _previousCount = change.PreviousCount;
+            PublishChanges(change.ChangeCount);
+        }
 
         private void PublishChanges(int pouchChangeCount)
         {

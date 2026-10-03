@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Abstractions.Collections;
 internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoundary, IItemContainerTransactionParticipantInternal
 {
     private readonly ItemContainerStorage _storage;
+    private readonly IItemContainerCompletionOwner? _completion;
     private readonly Action<HashSet<int>?>? _publishChanges;
 
     internal ItemContainerStorage Storage => _storage;
@@ -19,11 +20,12 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
             throw new InvalidOperationException("This operation requires storage outside an active transaction.");
     }
 
-    internal ItemContainerMutationBoundary(ItemContainerStorage storage, Action<HashSet<int>?>? publishChanges)
+    internal ItemContainerMutationBoundary(ItemContainerStorage storage, Action<HashSet<int>?>? publishChanges, IItemContainerCompletionOwner? completion = null)
     {
         ArgumentNullException.ThrowIfNull(storage);
         _storage = storage;
         _publishChanges = publishChanges;
+        _completion = completion;
     }
 
     /// <summary>Transfers an exact quantity to another boundary and publishes both committed sides.</summary>
@@ -55,14 +57,7 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
 
     internal void PublishCommittedChanges(HashSet<int>? slots) => _publishChanges?.Invoke(slots);
 
-    internal void DeferBeforePublication(Action hook)
-    {
-        if (_storage.Transaction is { } transaction) transaction.DeferBeforePublication(hook);
-        else hook();
-    }
-
-    internal void DeferAfterPublication(Action action) =>
-        (_storage.Transaction ?? throw new InvalidOperationException("After-publication action requires an active transaction."))
-        .DeferAfterPublication(action);
-
+    internal void DiscardDeferredCompletion(ItemContainerTransaction transaction) => _completion?.DiscardDeferredCompletion(transaction);
+    internal void CompleteBeforePublication(ItemContainerTransaction transaction, int order) => _completion?.CompleteBeforePublication(transaction, order);
+    internal void CompleteAfterPublication(ItemContainerTransaction transaction, int order) => _completion?.CompleteAfterPublication(transaction, order);
 }

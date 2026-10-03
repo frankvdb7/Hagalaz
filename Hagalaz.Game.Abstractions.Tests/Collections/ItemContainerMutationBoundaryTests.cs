@@ -118,19 +118,19 @@ public sealed class ItemContainerMutationBoundaryTests
         using var transaction = ItemContainerTransaction.Begin(second.Mutations, first.Mutations, second.Mutations);
         Assert.IsTrue(first.Add(new TestItem(23, 1)));
         Assert.IsTrue(second.Add(new TestItem(24, 1)));
-        Boundary(first).DeferBeforePublication(() =>
+        Completion(first).Before(() =>
         {
             AssertUnboundAndUnlocked(first, second);
             order.Add("hook");
         });
-        Boundary(first).DeferAfterPublication(() =>
+        Completion(first).After(() =>
         {
             AssertUnboundAndUnlocked(first, second);
             Assert.AreEqual(1, first.TakenSlots);
             Assert.AreEqual(1, second.TakenSlots);
             order.Add("after1");
         });
-        Boundary(second).DeferAfterPublication(() => order.Add("after2"));
+        Completion(second).After(() => order.Add("after2"));
         Assert.AreEqual(0, order.Count);
         transaction.Commit();
         transaction.Dispose();
@@ -229,7 +229,7 @@ public sealed class ItemContainerMutationBoundaryTests
         using var transaction = ItemContainerTransaction.Begin(first.Mutations, second.Mutations);
         Assert.IsTrue(first.Add(new TestItem(33, 1)));
         Assert.IsTrue(second.Add(new TestItem(34, 1)));
-        Boundary(first).DeferAfterPublication(() => calls.Add("after"));
+        Completion(first).After(() => calls.Add("after"));
         var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
         Assert.AreSame(original, thrown);
         transaction.Dispose();
@@ -252,8 +252,8 @@ public sealed class ItemContainerMutationBoundaryTests
         Assert.IsTrue(first.Add(new TestItem(35, 1)));
         Assert.IsTrue(second.Add(new TestItem(36, 1)));
         Assert.IsTrue(third.Add(new TestItem(37, 1)));
-        Boundary(first).DeferAfterPublication(() => calls.Add("after1"));
-        Boundary(second).DeferAfterPublication(() => calls.Add("after2"));
+        Completion(first).After(() => calls.Add("after1"));
+        Completion(second).After(() => calls.Add("after2"));
         Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
         CollectionAssert.AreEqual(new[] { "first", "second" }, calls);
         transaction.Dispose();
@@ -271,9 +271,9 @@ public sealed class ItemContainerMutationBoundaryTests
         var container = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("container"));
         using var transaction = ItemContainerTransaction.Begin(container.Mutations);
         Assert.IsTrue(container.Add(new TestItem(37, 1)));
-        Boundary(container).DeferAfterPublication(() => calls.Add("after1"));
-        Boundary(container).DeferAfterPublication(() => { AssertUnboundAndUnlocked(container); calls.Add("after2"); throw original; });
-        Boundary(container).DeferAfterPublication(() => calls.Add("after3"));
+        Completion(container).After(() => calls.Add("after1"));
+        Completion(container).After(() => { AssertUnboundAndUnlocked(container); calls.Add("after2"); throw original; });
+        Completion(container).After(() => calls.Add("after3"));
         Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
         transaction.Dispose();
         Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
@@ -289,8 +289,8 @@ public sealed class ItemContainerMutationBoundaryTests
         var container = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("container"));
         using var transaction = ItemContainerTransaction.Begin(container.Mutations);
         Assert.IsTrue(container.Add(new TestItem(38, 1)));
-        Boundary(container).DeferBeforePublication(() => { AssertUnboundAndUnlocked(container); calls.Add("hook"); throw original; });
-        Boundary(container).DeferAfterPublication(() => calls.Add("after"));
+        Completion(container).Before(() => { AssertUnboundAndUnlocked(container); calls.Add("hook"); throw original; });
+        Completion(container).After(() => calls.Add("after"));
         Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
         transaction.Dispose();
         Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
@@ -306,7 +306,7 @@ public sealed class ItemContainerMutationBoundaryTests
         var container = new ItemContainer(StorageType.Normal, 1, _ => throw publicationFailure);
         using var transaction = ItemContainerTransaction.Begin(container.Mutations);
         Assert.IsTrue(container.Add(new TestItem(39, 1)));
-        Boundary(container).DeferBeforePublication(() => throw hookFailure);
+        Completion(container).Before(() => throw hookFailure);
         var thrown = Assert.ThrowsExactly<AggregateException>(() => transaction.Commit());
         CollectionAssert.AreEqual(new Exception[] { hookFailure, publicationFailure }, thrown.InnerExceptions.ToArray());
         Assert.IsNotNull(hookFailure.StackTrace);
@@ -539,7 +539,7 @@ public sealed class ItemContainerMutationBoundaryTests
         using var transaction = ItemContainerTransaction.Begin(container.Mutations);
         Assert.IsTrue(container.Add(new TestItem(47, 1)));
         foreach (var failure in hookFailures)
-            Boundary(container).DeferBeforePublication(() => { AssertUnboundAndUnlocked(container); throw failure; });
+            Completion(container).Before(() => { AssertUnboundAndUnlocked(container); throw failure; });
         var thrown = Assert.ThrowsExactly<AggregateException>(() => transaction.Commit());
         var expected = publicationFails ? hookFailures.Cast<Exception>().Append(publicationFailure).ToArray() : hookFailures;
         CollectionAssert.AreEqual(expected, thrown.InnerExceptions.ToArray());
@@ -575,6 +575,47 @@ public sealed class ItemContainerMutationBoundaryTests
             Assert.IsNotNull(method, name);
             Assert.IsTrue(method.IsAssembly, name);
         }
+    }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ItemContainer, TestCompletionOwner> CompletionOwners = new();
+    private static TestCompletionOwner Completion(ItemContainer container) => CompletionOwners.GetValue(container, key =>
+    {
+        var owner = new TestCompletionOwner(Boundary(key));
+        typeof(ItemContainerMutationBoundary).GetField("_completion", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Boundary(key), owner);
+        return owner;
+    });
+
+    private sealed class TestCompletionOwner(ItemContainerMutationBoundary boundary) : IItemContainerCompletionOwner
+    {
+        private readonly Dictionary<ItemContainerTransaction, Dictionary<int, Action>> _before = [];
+        private readonly Dictionary<ItemContainerTransaction, Dictionary<int, Action>> _after = [];
+        internal void Before(Action effect) => Add(_before, effect);
+        internal void After(Action effect) => Add(_after, effect);
+        private void Add(Dictionary<ItemContainerTransaction, Dictionary<int, Action>> pending, Action effect)
+        {
+            var transaction = boundary.Storage.Transaction!;
+            if (!pending.TryGetValue(transaction, out var effects)) pending.Add(transaction, effects = []);
+            effects.Add(transaction.NextCompletionOrder(), effect);
+        }
+        public void DiscardDeferredCompletion(ItemContainerTransaction transaction) { _before.Remove(transaction); _after.Remove(transaction); }
+        public void CompleteBeforePublication(ItemContainerTransaction transaction, int order)
+        {
+            if (_before.TryGetValue(transaction, out var effects) && effects.Remove(order, out var effect)) effect();
+        }
+        public void CompleteAfterPublication(ItemContainerTransaction transaction, int order)
+        {
+            if (_after.TryGetValue(transaction, out var effects) && effects.Remove(order, out var effect)) effect();
+        }
+    }
+
+    [TestMethod]
+    public void Transaction_StoresNoExecutableCallbacksOrCallbackCollections()
+    {
+        static bool ContainsDelegate(Type type) => typeof(Delegate).IsAssignableFrom(type) ||
+            type.HasElementType && ContainsDelegate(type.GetElementType()!) ||
+            type.IsGenericType && type.GetGenericArguments().Any(ContainsDelegate);
+        foreach (var field in typeof(ItemContainerTransaction).GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
+            Assert.IsFalse(ContainsDelegate(field.FieldType), $"Executable callback field: {field.Name}");
     }
 
     private static ItemContainerMutationBoundary Boundary(ItemContainer container) => (ItemContainerMutationBoundary)container.Mutations;

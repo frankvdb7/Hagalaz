@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,7 +21,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// Class EquipmentContainer
     /// </summary>
-    public partial class EquipmentContainer : IEquipmentContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public partial class EquipmentContainer : IEquipmentContainer, IItemContainerCompletionOwner, IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
@@ -30,6 +31,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IItemBuilder _itemBuilder;
         private readonly ItemContainerStorage _storage;
         private readonly ItemContainerMutationBoundary _mutations;
+        private readonly ConcurrentDictionary<ItemContainerTransaction, Queue<EquipmentCompletion>> _pendingCompletion = new();
+        private enum EquipmentEffectKind { Equipped, Unequipped, WeaponProfile }
+        private readonly record struct EquipmentEffect(EquipmentEffectKind Kind, IItem Item, IItem? Incoming = null);
+        private readonly record struct EquipmentCompletion(int Order, EquipmentEffect[] Effects);
         public int Capacity => _storage.Capacity;
         public int FreeSlots => _storage.FreeSlots;
         public IItem? this[int index] => _storage[index];
@@ -53,7 +58,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             (_owner, _itemBuilder) = (owner, itemBuilder);
             _storage = new ItemContainerStorage(StorageType.Normal, capacity);
             _mutations = new ItemContainerMutationBoundary(_storage,
-                slots => PublishCommittedChanges(slots?.Select(slot => (EquipmentSlot)slot).ToHashSet()));
+                slots => PublishCommittedChanges(slots?.Select(slot => (EquipmentSlot)slot).ToHashSet()), this);
         }
 
         /// <summary>
@@ -97,7 +102,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 {
                     using var transaction = ItemContainerTransaction.BeginIfNeeded(_owner.Inventory.Items.Mutations, _mutations);
                     if (!MoveFromInventoryToSlot(item, slot, equipSlot)) return false;
-                    _mutations.DeferBeforePublication(() => item.EquipmentScript.OnEquipped(item, _owner));
+                    CompleteEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Equipped, item));
                     transaction?.Commit();
                     return true;
                 }
@@ -136,7 +141,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 using var transaction = ItemContainerTransaction.BeginIfNeeded(_owner.Inventory.Items.Mutations, _mutations);
                 if (!MoveFromInventoryToSlot(item, slot, equipSlot)) return false;
-                _mutations.DeferBeforePublication(() => item.EquipmentScript.OnEquipped(item, _owner));
+                CompleteEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Equipped, item));
                 transaction?.Commit();
                 return true;
             }
@@ -183,11 +188,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
             if (!_storage.TryAdd((int)equipSlot, item, out var incomingSlots)) return false;
             _mutations.NotifyChanges(incomingSlots);
-            _mutations.DeferBeforePublication(() => RunPostCommitActions(
-                () => { if (needsWeaponUnequip) equippedWeapon!.EquipmentScript.OnUnequipped(equippedWeapon, _owner); },
-                () => { if (needsShieldUnequip) equippedShield!.EquipmentScript.OnUnequipped(equippedShield, _owner); },
-                () => { if (needsWeaponUnequip) UpdateWeaponProfileAfterUnequip(equippedWeapon!, item); },
-                () => item.EquipmentScript.OnEquipped(item, _owner)));
+            var effects = new List<EquipmentEffect>();
+            if (needsWeaponUnequip) effects.Add(new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedWeapon!));
+            if (needsShieldUnequip) effects.Add(new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedShield!));
+            if (needsWeaponUnequip) effects.Add(new EquipmentEffect(EquipmentEffectKind.WeaponProfile, equippedWeapon!, item));
+            effects.Add(new EquipmentEffect(EquipmentEffectKind.Equipped, item));
+            CompleteEquipmentEffects(effects.ToArray());
             replacementTransaction?.Commit();
             return true;
         }
@@ -230,7 +236,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var fullyRemoved = count == equippedItem.Count;
             using var transaction = ItemContainerTransaction.BeginIfNeeded(_mutations, destination.Mutations);
             if (!_mutations.TryTransferTo(destination.Mutations, equippedItem, count, (int)slot, -1, destinationItem)) return false;
-            if (fullyRemoved) _mutations.DeferBeforePublication(() => equippedItem.EquipmentScript.OnUnequipped(equippedItem, _owner));
+            if (fullyRemoved) CompleteEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem));
             transaction?.Commit();
             return true;
         }
@@ -253,8 +259,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             CompleteEquipmentChange([slot],
-                () => expectedItem.EquipmentScript.OnUnequipped(expectedItem, _owner),
-                () => replacement.EquipmentScript.OnEquipped(replacement, _owner));
+                new EquipmentEffect(EquipmentEffectKind.Unequipped, expectedItem),
+                new EquipmentEffect(EquipmentEffectKind.Equipped, replacement));
             return true;
         }
 
@@ -294,7 +300,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             CompleteEquipmentChange(equipmentChanges,
-                () => equippedItem!.EquipmentScript.OnUnequipped(equippedItem, _owner));
+                new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem!));
             return removed;
         }
 
@@ -311,18 +317,49 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (!cleared) return;
 
             CompleteEquipmentChange(null, equippedItems
-                .Select<IItem, Action>(item => () => item.EquipmentScript.OnUnequipped(item, _owner)).ToArray());
+                .Select(item => new EquipmentEffect(EquipmentEffectKind.Unequipped, item)).ToArray());
         }
 
-        private void CompleteEquipmentChange(HashSet<EquipmentSlot>? slots, params Action[] hooks)
+        private void CompleteEquipmentChange(HashSet<EquipmentSlot>? slots, params EquipmentEffect[] effects)
         {
             if (_storage.Transaction != null)
             {
-                _mutations.DeferBeforePublication(() => RunPostCommitActions(hooks));
+                CompleteEquipmentEffects(effects);
                 PublishChanges(slots);
             }
-            else RunPostCommitActions(hooks.Append(() => PublishChanges(slots)).ToArray());
+            else RunPostCommitActions(effects.Select(ToAction).Append(() => PublishChanges(slots)).ToArray());
         }
+
+        // Equipment owns these small lifecycle batches; the transaction cannot schedule arbitrary work.
+        private void CompleteEquipmentEffects(params EquipmentEffect[] effects)
+        {
+            if (_storage.Transaction is not { } transaction)
+            {
+                RunPostCommitActions(effects.Select(ToAction).ToArray());
+                return;
+            }
+            var pending = _pendingCompletion.GetOrAdd(transaction, _ => new Queue<EquipmentCompletion>());
+            pending.Enqueue(new EquipmentCompletion(transaction.NextCompletionOrder(), effects));
+        }
+
+        void IItemContainerCompletionOwner.DiscardDeferredCompletion(ItemContainerTransaction transaction) => _pendingCompletion.TryRemove(transaction, out _);
+        void IItemContainerCompletionOwner.CompleteAfterPublication(ItemContainerTransaction transaction, int order) { }
+        void IItemContainerCompletionOwner.CompleteBeforePublication(ItemContainerTransaction transaction, int order)
+        {
+            if (!_pendingCompletion.TryGetValue(transaction, out var pending) || !pending.TryPeek(out var completion) || completion.Order != order) return;
+            pending.Dequeue();
+            RunPostCommitActions(completion.Effects.Select(ToAction).ToArray());
+        }
+
+        private Action ToAction(EquipmentEffect effect) => () =>
+        {
+            switch (effect.Kind)
+            {
+                case EquipmentEffectKind.Equipped: effect.Item.EquipmentScript.OnEquipped(effect.Item, _owner); break;
+                case EquipmentEffectKind.Unequipped: effect.Item.EquipmentScript.OnUnequipped(effect.Item, _owner); break;
+                case EquipmentEffectKind.WeaponProfile: UpdateWeaponProfileAfterUnequip(effect.Item, effect.Incoming!); break;
+            }
+        };
 
         private static void RunPostCommitActions(params Action[] actions)
         {
@@ -397,7 +434,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
                 return false;
             }
-            _mutations.DeferBeforePublication(() => item.EquipmentScript.OnUnequipped(item, _owner));
+            CompleteEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Unequipped, item));
             transaction?.Commit();
             return true;
         }

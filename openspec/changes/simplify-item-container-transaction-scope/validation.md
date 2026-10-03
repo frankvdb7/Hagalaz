@@ -70,3 +70,26 @@ The correction commit `63483aef150373db4b49d367f89f2734e2b3735d` passed [hosted 
 - Existing hook/flat-aggregation, ownership/contention and real MoneyPouch inventory-before-message/event and failure-skipping assertions remain. Trade pouch fixtures use the renamed internal gateway; domain assertion bodies remain unchanged.
 
 Local validation passed 32 focused transaction cases, 298 Abstractions, 1,282 GameWorld and 335 Scripts tests. The exact full CI test command passed all 27 assemblies with 3,184 passed, zero failed and four skipped. Solution build: 73 warnings, zero errors. Strict OpenSpec: 73 active items and four archives passed. Pinned jscpd against the actual PR base: 2,288 C# files, 502 historical pairs and zero new pairs. Diff whitespace checks passed; repository searches find no old registration/list name and no pouch terminology in ItemContainerTransaction code or XML docs. Hosted results for the pushed refactor head are reported in the PR description and final handoff, so recording them does not create an additional head to validate.
+
+## Fixed owner completion review
+
+The transaction and mutation boundary no longer register or store arbitrary deferred callbacks. A fixed internal owner contract provides discard, before-publication and after-publication completion. Equipment keeps ordered item/profile facts in owned batches; MoneyPouch keeps previous-count/change-count facts. Scope-keyed BCL collections isolate pending facts across post-unlock reentrant or contending scopes. One integer ordinal in the transaction preserves interleaved mutation order without retaining executable work. The small boundary scan deliberately avoids a generic completion scheduler.
+
+| Requirement | Regression evidence |
+| --- | --- |
+| No executable transaction fields | Transaction_StoresNoExecutableCallbacksOrCallbackCollections |
+| Rollback clears equipment and pouch state; later scope has no stale effects | Dispose_EquipmentAndPouchEffectsAreDiscardedWithoutLeakingIntoLaterScope |
+| Multiple equipment operations and aliases complete once before publication | Commit_MultipleEquipmentMutationsCompleteOnceBeforePublicationDespiteAliases |
+| Equipment ordering, attempt-all, original flat failures | EquipItem_HookAndPublisherFailuresPreserveBothAfterAttemptingOwnedHooks |
+| Interleaved pouch data retains previous-count/message semantics independently of participant order | Commit_MultiplePouchChangesKeepMutationOrderAcrossOwnersAndAliases |
+| Inventory before pouch message/event; aliases publish once | Commit_PouchCompositeAndInventoryAliasPublishInventoryOnceBeforePouch |
+| Container failure skips/discards pouch completion, including later scope | TryRemoveExact_WhenInventoryPublisherThrows_KeepsCommittedStorageAndSkipsPouchPublication |
+| Pouch failure skips later changes without retry or stale effects | Commit_PouchFailureSkipsLaterChangesAndDiscardsThemBeforeNextScope |
+| Reentrant scopes keep separate pending facts | Commit_ReentrantPouchMutationCannotConsumeOuterScopePendingChanges |
+| Fixed stages still run after unlock; commit/dispose idempotence and ordered first failure | Commit_PublishesOnceAfterUnlockAndMakesStoragePermanent; Commit_LaterContainerFailurePreservesEarlierPublicationAndSkipsLaterContainersAndActions; Commit_AfterPublicationFailureStopsLaterActionsAfterContainerPublication |
+
+Focused transaction tests: 33 passed. Focused equipment/pouch tests: 71 passed. Full Abstractions suite: 299 passed; GameWorld: 1,287 passed on an unchanged independent rerun; Scripts: 335 passed. The initial GameWorld invocation had 14 five-second authentication/rate-limiter timeouts, retained separately in the local validation logs. No unrelated timeout or test configuration was changed.
+
+The fixed completion contract has exactly three operations and is internal. Its production owners are equipment and pouch only. The transaction field list is thread id, boundaries, lock order, snapshots, changed slots, completion count, acquired-lock count and state. There is no executable-work collection or wrapper. The public API and all issue #347 trade/session ownership remain unchanged. Existing eager-reader and preflight gameplay-validation limitations remain unchanged; no live gameplay client was exercised.
+
+Final local solution build: zero errors and 73 warnings. The exact CI command `dotnet test --no-build --no-restore -p:TestingPlatformCommandLineArguments="--report-trx --coverage --coverage-output-format cobertura"` completed all 27 assemblies with 3,190 passed, zero failed and four skipped. Strict OpenSpec passed the change, all 73 active items and four archives. Pinned jscpd 5.3.2 against PR base `9c9f8622305d18ca05fa7099848a0cdb01cf09b6` reported 502 historical clone pairs and zero new pairs. Diff checks passed. No baseline or suppression changed. Hosted CI/CodeQL must be checked against the final pushed head and recorded in the PR description and handoff.

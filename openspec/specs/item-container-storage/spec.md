@@ -113,7 +113,7 @@ Storage MUST own its mutation revision, which invalidates active enumerators aft
 - **THEN** its ordinary mutations participate without obtaining a public transaction context or acquiring additional locks
 
 ### Requirement: MoneyPouch uses one transaction rollback owner
-MoneyPouch exact additions and removals MUST mutate both pouch and inventory storage through the same active scope. Coin, slot-zero sentinel, balance, message, and event rules remain owned by MoneyPouch. Its captured notification facts MUST be owned by the scope and published automatically after commit and unlock, and MoneyPouch MUST NOT snapshot and restore pouch storage as a separate rollback mechanism.
+MoneyPouch exact additions and removals MUST mutate both pouch and inventory storage through the same active scope. Coin, slot-zero sentinel, balance, message, and event rules remain owned by MoneyPouch. Its captured notification facts MUST be owned by MoneyPouch and associated with the scope and published automatically after commit and unlock, and MoneyPouch MUST NOT snapshot and restore pouch storage as a separate rollback mechanism.
 
 #### Scenario: A later participant rejects a staged pouch mutation
 - **WHEN** pouch and inventory mutations are staged but a later participant rejects its operation
@@ -273,16 +273,28 @@ Standalone helpers MUST create a transaction when none of their required storage
 - **THEN** that storage is locked and snapshotted once without duplicating or reordering publication
 
 ### Requirement: Automatic ordered transaction completion
-Commit MUST perform automatic completion after unlock without a separate caller publication call. Post-commit hooks MUST precede normal container publication and domain-owned batches MUST retain their existing failure policy. Container publishers MUST retain existing observable order independently of lock order; the first failure MUST skip later container publishers and all after-publication actions. Deferred after-publication actions MUST execute in registration order only after normal container publication, with storage irreversible and locks released. Their first failure MUST stop later actions. The transaction MUST store only actions; domains MUST own the captured facts and effects. A single failure MUST preserve its original exception; multiple hook failures and an independent publication failure MUST survive as original leaf exceptions in one flat AggregateException. Validation determining mutation eligibility MUST remain before commit.
+Commit MUST perform automatic completion after unlock without a separate caller publication call. Fixed pre-publication domain completion MUST precede normal container publication and domain-owned batches MUST retain their existing failure policy. Container publishers MUST retain existing observable order independently of lock order; the first failure MUST skip later container publishers and all post-publication domain completion. Fixed post-publication domain completion MUST execute in mutation order only after normal container publication, with storage irreversible and locks released. Its first failure MUST stop later completion. The transaction MUST NOT store executable domain callbacks or offer callback registration. Repository-owned mutation boundaries MUST invoke fixed owner completion stages. Domains MUST own pending completion data keyed by the originating scope, and discard it on rollback or unsuccessful completion without observable effects. A single failure MUST preserve its original exception; multiple hook failures and an independent publication failure MUST survive as original leaf exceptions in one flat AggregateException. Validation determining mutation eligibility MUST remain before commit.
 
 #### Scenario: Container publication fails
 - **WHEN** a container publisher throws
-- **THEN** later containers and all after-publication actions are skipped and storage stays committed
+- **THEN** later containers and all post-publication domain completion are skipped and storage stays committed
 
-#### Scenario: An after-publication action fails
-- **WHEN** an after-publication action throws after all container publication
-- **THEN** earlier actions remain observable, later actions are skipped and storage stays committed
+#### Scenario: Post-publication domain completion fails
+- **WHEN** post-publication domain completion throws after all container publication
+- **THEN** earlier completion remains observable, later completion is skipped and storage stays committed
 
 #### Scenario: Equipment hooks and publication both fail
 - **WHEN** an equipment-owned hook batch and normal publication both throw
 - **THEN** required equipment hooks have been attempted and AggregateException retains both original failures
+
+#### Scenario: Rollback discards owner completion
+- **WHEN** equipment and pouch mutations record pending effects but the scope is disposed without commit
+- **THEN** storage is restored, pending owner facts are discarded without observable effects, and a later unrelated scope executes none of those effects
+
+#### Scenario: Multiple mutations retain order across owners
+- **WHEN** one scope records interleaved equipment or pouch mutations, including aliased participants
+- **THEN** completion executes each pending operation once in mutation order independently of participant and lock order
+
+#### Scenario: Completion starts another scope
+- **WHEN** post-unlock domain completion synchronously starts a new scope on the same owner
+- **THEN** pending facts remain associated with their originating scope and neither scope consumes or discards the other's facts

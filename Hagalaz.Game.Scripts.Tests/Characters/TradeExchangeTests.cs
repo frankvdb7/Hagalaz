@@ -877,9 +877,10 @@ public sealed class TradeExchangeTests
     private static object? GetProperty(object target, string name) =>
         target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(target);
 
-    private sealed class TestMoneyPouch : ComposedTestContainer, IMoneyPouchContainer, IItemContainerTransactionParticipantInternal
+    private sealed class TestMoneyPouch : ComposedTestContainer, IMoneyPouchContainer, IItemContainerTransactionParticipantInternal, IItemContainerCompletionOwner
     {
         private readonly IInventoryContainer _overflowInventory;
+        private readonly Dictionary<ItemContainerTransaction, HashSet<int>> _pendingUpdates = [];
         public IItemContainerTransactionParticipant Mutations => this;
         IReadOnlyList<ItemContainerMutationBoundary> IItemContainerTransactionParticipantInternal.Boundaries =>
             [(ItemContainerMutationBoundary)Items.Mutations, (ItemContainerMutationBoundary)_overflowInventory.Items.Mutations];
@@ -887,7 +888,20 @@ public sealed class TradeExchangeTests
         public TestMoneyPouch(IInventoryContainer overflowInventory) : base(StorageType.AlwaysStack, 1, 0, publishItemChanges: false)
         {
             _overflowInventory = overflowInventory;
+            typeof(ItemContainerMutationBoundary).GetField("_completion", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Items.Mutations, this);
             Container.ReplaceState([new TestItem(995, 0, stackable: true)]);
+        }
+        private void RecordUpdate()
+        {
+            var transaction = ((ItemContainerMutationBoundary)Items.Mutations).Storage.Transaction!;
+            if (!_pendingUpdates.TryGetValue(transaction, out var orders)) _pendingUpdates.Add(transaction, orders = []);
+            orders.Add(transaction.NextCompletionOrder());
+        }
+        public void DiscardDeferredCompletion(ItemContainerTransaction transaction) => _pendingUpdates.Remove(transaction);
+        public void CompleteBeforePublication(ItemContainerTransaction transaction, int order) { }
+        public void CompleteAfterPublication(ItemContainerTransaction transaction, int order)
+        {
+            if (_pendingUpdates.TryGetValue(transaction, out var orders) && orders.Remove(order)) OnUpdate();
         }
         public string Examine => Count.ToString();
         public int Count => Items[0]?.Count ?? 0;
@@ -912,7 +926,7 @@ public sealed class TradeExchangeTests
             if (overflow > 0 && !_overflowInventory.Items.HasSpaceFor(new TestItem(995, overflow, stackable: true))) return false;
             if (pouchCount > 0 && !Items.AddRange([new TestItem(995, pouchCount, stackable: true)])) return false;
             if (overflow > 0 && !_overflowInventory.Items.AddRange([new TestItem(995, overflow, stackable: true)])) return false;
-            if (pouchCount > 0) ((ItemContainerMutationBoundary)Items.Mutations).DeferAfterPublication(() => OnUpdate());
+            if (pouchCount > 0) RecordUpdate();
             transaction?.Commit();
             return true;
         }
@@ -932,7 +946,7 @@ public sealed class TradeExchangeTests
             if (overflow > _overflowInventory.Items.GetCountById(995)) return false;
             if (pouchCount > 0 && !Items.TryRemoveExact(new TestItem(995, pouchCount, stackable: true), 0)) return false;
             if (overflow > 0 && !_overflowInventory.Items.TryRemoveExact(new TestItem(995, overflow, stackable: true))) return false;
-            ((ItemContainerMutationBoundary)Items.Mutations).DeferAfterPublication(() => OnUpdate());
+            RecordUpdate();
             transaction?.Commit();
             return true;
         }

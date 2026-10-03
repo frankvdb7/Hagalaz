@@ -34,3 +34,11 @@
 - [x] 6.3 Run focused and full regression suites, build, strict OpenSpec, duplication and diff checks; record local validation evidence (AC1â€“7).
 
 After pushing this refactor, verify hosted CI and CodeQL against that exact head. Record their results in the PR description and final handoff, without a documentation-only commit that would invalidate the referenced head.
+
+## 7. Fixed owner completion
+
+- [x] 7.1 Remove transaction/boundary callback queues and registration, delegate fixed completion to owner state, preserve ordering and discard on every exit (AC2–5).
+- [x] 7.2 Migrate equipment and pouch to owned pending data and test fixtures to fixed completion; add reflection, multiple mutation, alias, rollback/stale-effect and failure regressions (AC2–5, AC7).
+- [x] 7.3 Run focused tests, all three suites, solution build, exact CI test command, strict OpenSpec, duplication and diff checks; record local evidence and review cumulative scope (AC1–7).
+
+Verify final pushed-head hosted CI and CodeQL and report their results in the PR description and final handoff.

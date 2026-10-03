@@ -161,6 +161,11 @@ public sealed class MoneyPouchContainerTests
         Assert.AreEqual(3, scenario.Inventory.Items.GetCountById(CoinId));
         scenario.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
         eventManager.DidNotReceive().SendEvent(Arg.Any<MoneyPouchChangedEvent>());
+        scenario.Inventory.OnUpdateAction = null;
+        using var fresh = ItemContainerTransaction.Begin(scenario.MoneyPouch.Mutations);
+        fresh.Commit();
+        scenario.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
+        eventManager.DidNotReceive().SendEvent(Arg.Any<MoneyPouchChangedEvent>());
     }
 
     [DataTestMethod]
@@ -498,6 +503,110 @@ public sealed class MoneyPouchContainerTests
         CollectionAssert.AreEqual(new[] { "inventory", "message", "pouch" }, order);
         Assert.AreEqual(int.MaxValue, scenario.MoneyPouch.Count);
         Assert.AreEqual(7, scenario.Inventory.Items.GetCountById(CoinId));
+    }
+
+    [TestMethod]
+    public void Commit_MultiplePouchChangesKeepMutationOrderAcrossOwnersAndAliases()
+    {
+        var first = CreateScenario(10, 0);
+        var second = CreateScenario(20, 0);
+        var order = new List<string>();
+        void Observe(MoneyPouchScenario scenario, string name)
+        {
+            scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(call => order.Add(name + ":" + call.ArgAt<string>(0)));
+            var events = Substitute.For<IEventManager>();
+            scenario.Owner.EventManager.Returns(events);
+            events.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>())).Do(call =>
+            {
+                var change = call.Arg<MoneyPouchChangedEvent>();
+                order.Add($"{name}:{change.PreviousCount}->{change.Count}");
+            });
+        }
+        Observe(first, "first");
+        Observe(second, "second");
+        using var transaction = ItemContainerTransaction.Begin(second.MoneyPouch.Mutations,
+            first.MoneyPouch.Mutations, first.Inventory.Items.Mutations, first.MoneyPouch.Mutations);
+        Assert.IsTrue(first.MoneyPouch.TryAddExact(3));
+        Assert.IsTrue(second.MoneyPouch.TryAddExact(4));
+        Assert.IsTrue(first.MoneyPouch.TryRemoveExact(1));
+        Assert.AreEqual(0, order.Count);
+        transaction.Commit();
+        transaction.Dispose();
+        transaction.Dispose();
+        CollectionAssert.AreEqual(new[]
+        {
+            "first:3 coins have been added to your money pouch.", "first:10->12",
+            "second:4 coins have been added to your money pouch.", "second:20->24",
+            "first:1 coins have been removed from your money pouch.", "first:13->12"
+        }, order);
+        using var fresh = ItemContainerTransaction.Begin(first.MoneyPouch.Mutations, second.MoneyPouch.Mutations);
+        fresh.Commit();
+        Assert.AreEqual(6, order.Count);
+    }
+
+    [TestMethod]
+    public void Commit_PouchFailureSkipsLaterChangesAndDiscardsThemBeforeNextScope()
+    {
+        var first = CreateScenario(10, 0);
+        var second = CreateScenario(20, 0);
+        var events = Substitute.For<IEventManager>();
+        first.Owner.EventManager.Returns(events);
+        second.Owner.EventManager.Returns(events);
+        first.Owner.ClearReceivedCalls();
+        second.Owner.ClearReceivedCalls();
+        var failure = new InvalidOperationException("pouch message failed");
+        first.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(_ => throw failure);
+        using var transaction = ItemContainerTransaction.Begin(second.MoneyPouch.Mutations, first.MoneyPouch.Mutations);
+        Assert.IsTrue(first.MoneyPouch.TryAddExact(1));
+        Assert.IsTrue(second.MoneyPouch.TryAddExact(2));
+        Assert.IsTrue(first.MoneyPouch.TryAddExact(3));
+        Assert.AreSame(failure, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
+        transaction.Dispose();
+        Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
+        Assert.AreEqual(14, first.MoneyPouch.Count);
+        Assert.AreEqual(22, second.MoneyPouch.Count);
+        first.Owner.Received(1).SendChatMessage(Arg.Any<string>());
+        second.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
+        events.DidNotReceive().SendEvent(Arg.Any<MoneyPouchChangedEvent>());
+        using var fresh = ItemContainerTransaction.Begin(first.MoneyPouch.Mutations, second.MoneyPouch.Mutations);
+        fresh.Commit();
+        first.Owner.Received(1).SendChatMessage(Arg.Any<string>());
+        second.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
+        events.DidNotReceive().SendEvent(Arg.Any<MoneyPouchChangedEvent>());
+    }
+
+    [TestMethod]
+    public void Commit_ReentrantPouchMutationCannotConsumeOuterScopePendingChanges()
+    {
+        var scenario = CreateScenario(10, 0);
+        var messages = new List<string>();
+        var changes = new List<(int Previous, int Count)>();
+        var events = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(events);
+        events.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>())).Do(call =>
+        {
+            var change = call.Arg<MoneyPouchChangedEvent>();
+            changes.Add((change.PreviousCount, change.Count));
+        });
+        scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(call =>
+        {
+            messages.Add(call.ArgAt<string>(0));
+            if (messages.Count == 1) Assert.IsTrue(scenario.MoneyPouch.TryAddExact(4));
+        });
+        using var transaction = ItemContainerTransaction.Begin(scenario.MoneyPouch.Mutations);
+        Assert.IsTrue(scenario.MoneyPouch.TryAddExact(1));
+        Assert.IsTrue(scenario.MoneyPouch.TryAddExact(2));
+        transaction.Commit();
+        Assert.AreEqual(17, scenario.MoneyPouch.Count);
+        CollectionAssert.AreEqual(new[]
+        {
+            "1 coins have been added to your money pouch.", "4 coins have been added to your money pouch.",
+            "2 coins have been added to your money pouch."
+        }, messages);
+        CollectionAssert.AreEqual(new[] { (13, 17), (11, 17) }, changes);
+        using var fresh = ItemContainerTransaction.Begin(scenario.MoneyPouch.Mutations);
+        fresh.Commit();
+        Assert.AreEqual(3, messages.Count);
     }
 
     private sealed class AdvertisedCoinCountContainer(ItemContainer inner) : IItemContainer

@@ -1039,6 +1039,66 @@ public sealed class CharacterItemTransferTests
         Assert.AreEqual(0, inventory.Items.GetCountById(101));
         Assert.AreEqual(1, inventory.Items.GetCountById(102));
     }
+    [TestMethod]
+    public void Dispose_EquipmentAndPouchEffectsAreDiscardedWithoutLeakingIntoLaterScope()
+    {
+        using var scenario = new Scenario();
+        var (equipment, events, current, replacement) = CreateReplacementScenario(scenario);
+        var inventory = CreateInventory(scenario, 4);
+        scenario.Owner.Inventory.Returns(inventory);
+        var pouch = new MoneyPouchContainer(scenario.Owner, new ComposedTestItemBuilder());
+        Assert.IsTrue(pouch.TryAddExact(10));
+        scenario.Owner.ClearReceivedCalls();
+        events.ClearReceivedCalls();
+        var boundary = (ItemContainerMutationBoundary)typeof(EquipmentContainer)
+            .GetField("_mutations", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(equipment)!;
+        using (ItemContainerTransaction.Begin(boundary, pouch.Mutations, inventory.Items.Mutations))
+        {
+            Assert.IsTrue(equipment.TryReplaceEquippedItem(EquipmentSlot.Hat, current, replacement));
+            Assert.IsTrue(pouch.TryAddExact(2));
+            Assert.IsTrue(pouch.MoveToInventory(3));
+            Assert.AreSame(replacement, equipment[EquipmentSlot.Hat]);
+            Assert.AreEqual(9, pouch.Count);
+            Assert.AreEqual(3, inventory.Items.GetCountById(995));
+        }
+        Assert.AreSame(current, equipment[EquipmentSlot.Hat]);
+        Assert.AreEqual(10, pouch.Count);
+        Assert.AreEqual(0, inventory.Items.GetCountById(995));
+        using (var fresh = ItemContainerTransaction.Begin(pouch.Mutations, boundary)) fresh.Commit();
+        current.EquipmentScript.DidNotReceive().OnUnequipped(current, scenario.Owner);
+        replacement.EquipmentScript.DidNotReceive().OnEquipped(replacement, scenario.Owner);
+        scenario.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
+        events.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+    }
+
+    [TestMethod]
+    public void Commit_MultipleEquipmentMutationsCompleteOnceBeforePublicationDespiteAliases()
+    {
+        using var scenario = new Scenario();
+        var (equipment, events, current, replacement) = CreateReplacementScenario(scenario);
+        var finalItem = scenario.Builder.Create().WithId(103).WithCount(1).Build();
+        var order = new List<string>();
+        current.EquipmentScript.When(script => script.OnUnequipped(current, scenario.Owner)).Do(_ => order.Add("old unequip"));
+        replacement.EquipmentScript.When(script => script.OnEquipped(replacement, scenario.Owner)).Do(_ => order.Add("middle equip"));
+        replacement.EquipmentScript.When(script => script.OnUnequipped(replacement, scenario.Owner)).Do(_ => order.Add("middle unequip"));
+        finalItem.EquipmentScript.When(script => script.OnEquipped(finalItem, scenario.Owner)).Do(_ => order.Add("final equip"));
+        events.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(_ => order.Add("publish"));
+        var boundary = (ItemContainerMutationBoundary)typeof(EquipmentContainer)
+            .GetField("_mutations", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(equipment)!;
+        using var transaction = ItemContainerTransaction.Begin(boundary, boundary);
+        Assert.IsTrue(equipment.TryReplaceEquippedItem(EquipmentSlot.Hat, current, replacement));
+        Assert.IsTrue(equipment.TryReplaceEquippedItem(EquipmentSlot.Hat, replacement, finalItem));
+        Assert.AreEqual(0, order.Count);
+        transaction.Commit();
+        transaction.Dispose();
+        transaction.Dispose();
+        CollectionAssert.AreEqual(new[] { "old unequip", "middle equip", "middle unequip", "final equip", "publish" }, order);
+        Assert.AreSame(finalItem, equipment[EquipmentSlot.Hat]);
+        using var fresh = ItemContainerTransaction.Begin(boundary);
+        fresh.Commit();
+        Assert.AreEqual(5, order.Count);
+    }
+
     private static InventoryContainer CreateInventory(Scenario scenario, int capacity) =>
         new(scenario.Owner, capacity, Substitute.For<IMapRegionService>(),
             Substitute.For<IGroundItemBuilder>(), scenario.Builder);
