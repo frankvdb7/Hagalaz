@@ -14,7 +14,7 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
     internal ItemContainerStorage Storage => _storage;
     IReadOnlyList<ItemContainerMutationBoundary> IItemContainerTransactionParticipantInternal.Boundaries => [this];
 
-    internal void EnsureUnbound()
+    public void EnsureOutsideTransaction()
     {
         if (_storage.Transaction != null)
             throw new InvalidOperationException("This operation requires storage outside an active transaction.");

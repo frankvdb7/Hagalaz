@@ -451,6 +451,11 @@ public sealed class MoneyPouchContainerTests
         : IItemContainerMutationBoundary, IItemContainerTransactionParticipantInternal
     {
         public IReadOnlyList<ItemContainerMutationBoundary> Boundaries => boundaries;
+        public void EnsureOutsideTransaction()
+        {
+            foreach (var boundary in boundaries) boundary.EnsureOutsideTransaction();
+        }
+
         public bool TryTransferTo(IItemContainerMutationBoundary destination, IItem item, int count,
             int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null) =>
             throw new NotSupportedException();

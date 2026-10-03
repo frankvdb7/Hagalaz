@@ -109,8 +109,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
 
                 // Custom unequip commands may open interactive UI and must remain outside mutation scopes.
-                _mutations.EnsureUnbound();
-                ((ItemContainerMutationBoundary)_owner.Inventory.Items.Mutations).EnsureUnbound();
+                _mutations.EnsureOutsideTransaction();
+                _owner.Inventory.Items.Mutations.EnsureOutsideTransaction();
                 if (_owner.Inventory.Items.Remove(item, slot) <= 0)
                 {
                     return false;

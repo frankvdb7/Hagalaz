@@ -5,6 +5,10 @@ namespace Hagalaz.Game.Abstractions.Collections;
 /// <summary>Provides instance-based mutation coordination for one item-container storage.</summary>
 public interface IItemContainerMutationBoundary : IItemContainerTransactionParticipant
 {
+    /// <summary>Ensures the storage is not part of an active item-container transaction.</summary>
+    /// <exception cref="InvalidOperationException">The storage belongs to an active transaction.</exception>
+    void EnsureOutsideTransaction();
+
     bool TryTransferTo(IItemContainerMutationBoundary destination, IItem item, int count,
         int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null);
 }

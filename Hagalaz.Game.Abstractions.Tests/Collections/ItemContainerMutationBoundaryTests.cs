@@ -58,6 +58,45 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
+    public void EnsureOutsideTransaction_WhenStorageIsUnbound_ReturnsWithoutMutation()
+    {
+        var container = new ItemContainer(StorageType.Normal, 1);
+        var item = new TestItem(9, 2);
+        Assert.IsTrue(container.Add(item));
+        IItemContainerMutationBoundary boundary = container.Mutations;
+        var storage = Boundary(container).Storage;
+        var revision = storage.MutationRevision;
+
+        boundary.EnsureOutsideTransaction();
+
+        Assert.AreSame(item, container[0]);
+        Assert.AreEqual(2, item.Count);
+        Assert.AreEqual(revision, storage.MutationRevision);
+        Assert.IsNull(storage.Transaction);
+    }
+
+    [TestMethod]
+    public void EnsureOutsideTransaction_WhenStorageIsBound_ThrowsWithoutChangingTransaction()
+    {
+        var container = new ItemContainer(StorageType.Normal, 1);
+        var item = new TestItem(9, 2);
+        Assert.IsTrue(container.Add(item));
+        IItemContainerMutationBoundary boundary = container.Mutations;
+        var storage = Boundary(container).Storage;
+        var revision = storage.MutationRevision;
+        using var transaction = ItemContainerTransaction.Begin(boundary);
+
+        Assert.ThrowsExactly<InvalidOperationException>(boundary.EnsureOutsideTransaction);
+
+        Assert.AreSame(transaction, storage.Transaction);
+        Assert.AreSame(item, container[0]);
+        Assert.AreEqual(2, item.Count);
+        Assert.AreEqual(revision, storage.MutationRevision);
+        transaction.Commit();
+        Assert.IsNull(storage.Transaction);
+    }
+
+    [TestMethod]
     public void Dispose_WithoutCommitRestoresReferencesCountsAndRevisionsOfAllStorage()
     {
         var publications = 0;
@@ -827,6 +866,11 @@ public sealed class ItemContainerMutationBoundaryTests
         }
 
         Assert.AreEqual(typeof(IItemContainerMutationBoundary), typeof(IItemContainer).GetProperty("Mutations")!.PropertyType);
+        var mutationBoundary = typeof(IItemContainerMutationBoundary);
+        Assert.IsNotNull(mutationBoundary.GetMethod(nameof(IItemContainerMutationBoundary.EnsureOutsideTransaction)));
+        Assert.IsNull(mutationBoundary.GetMethod("EnsureUnbound"));
+        Assert.IsNull(mutationBoundary.GetProperty("Transaction"));
+        Assert.IsNull(mutationBoundary.GetProperty("IsBound"));
         Assert.IsFalse(typeof(IEquipmentContainer).GetInterfaces().Contains(typeof(IContainer<IItem?>)));
         Assert.AreEqual(typeof(IReadOnlyItemContainer), typeof(IEquipmentContainer).GetProperty("Items")!.PropertyType);
         Assert.IsNotNull(typeof(IEquipmentContainer).GetProperty("Item", [typeof(EquipmentSlot)]));
