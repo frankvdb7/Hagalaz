@@ -44,6 +44,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Deposits from money pouch.
         /// </summary>
+        /// <remarks>Inside an enclosing item transaction, rejection leaves rollback and failure messaging to its owner.</remarks>
         /// <param name="deposited">The deposited.</param>
         /// <returns></returns>
         public bool DepositFromMoneyPouch([NotNullWhen(true)] out IItem? deposited)
@@ -56,8 +57,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (!_owner.MoneyPouch.TryRemoveExact(count)) return false;
             if (!_items.Add(coins))
             {
-                transaction?.Dispose();
-                _owner.SendChatMessage("Not enough space in your bank.");
+                // A joining helper leaves failure reporting to the outer operation after it unlocks.
+                if (transaction != null)
+                {
+                    transaction.Dispose();
+                    _owner.SendChatMessage("Not enough space in your bank.");
+                }
                 return false;
             }
             transaction?.Commit();

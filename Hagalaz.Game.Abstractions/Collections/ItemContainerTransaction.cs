@@ -7,8 +7,13 @@ using Hagalaz.Game.Abstractions.Model.Items;
 
 namespace Hagalaz.Game.Abstractions.Collections;
 
-/// <summary>A synchronous atomic mutation scope. Dispose without Commit restores captured storage.</summary>
-/// <remarks>Begin, mutations, Commit and Dispose must run on the originating thread.</remarks>
+/// <summary>Coordinates synchronous atomic item-container mutations, rollback, and deferred publication.</summary>
+/// <remarks>
+/// Mutations affect live storage eagerly; unsynchronized readers are not isolated from them.
+/// Dispose without Commit restores captured storage. Begin, mutations, Commit and Dispose must run
+/// on the originating thread. Do not cross await boundaries or transfer a scope to another thread.
+/// Independent scopes on other threads serialize through the participating storage locks.
+/// </remarks>
 public sealed class ItemContainerTransaction : IDisposable
 {
     private readonly int _threadId = Environment.CurrentManagedThreadId;
@@ -29,14 +34,15 @@ public sealed class ItemContainerTransaction : IDisposable
 
     /// <summary>Resolves every participant, acquires ordered locks and captures rollback state before binding the scope.</summary>
     /// <exception cref="ArgumentException">Participants are empty, unsupported, or contribute invalid storage.</exception>
-    /// <exception cref="InvalidOperationException">A participant is already transaction-bound.</exception>
+    /// <exception cref="InvalidOperationException">A participant already belongs to a scope on the current thread.</exception>
     public static ItemContainerTransaction Begin(params IItemContainerTransactionParticipant[] participants)
         => BeginResolved(Resolve(participants));
 
     private static ItemContainerTransaction BeginResolved(ItemContainerMutationBoundary[] boundaries)
     {
         foreach (var boundary in boundaries)
-            boundary.EnsureUnbound();
+            if (boundary.Storage.Transaction is { IsOwnedByCurrentThread: true })
+                throw new InvalidOperationException("Storage already belongs to a transaction on this thread.");
 
         var transaction = new ItemContainerTransaction(boundaries);
         try
@@ -56,10 +62,10 @@ public sealed class ItemContainerTransaction : IDisposable
             foreach (var storage in transaction._lockOrder) storage.Transaction = transaction;
             return transaction;
         }
-        catch
+        catch (Exception constructionFailure)
         {
-            try { transaction.ReleaseResources(); }
-            finally { transaction._snapshots.Clear(); }
+            transaction._snapshots.Clear();
+            transaction.ReleaseResources([constructionFailure]);
             throw;
         }
     }
@@ -69,7 +75,7 @@ public sealed class ItemContainerTransaction : IDisposable
     /// Mutations already affect storage under locks; Commit discards rollback ability rather than applying staged data.
     /// Hook or publication failures propagate after storage has permanently committed. Dispose cannot undo that state,
     /// and another Commit cannot retry completion. A container publication failure skips later containers and all pouch
-    /// notifications. Independent hook and publication failures are retained in an AggregateException.
+    /// notifications. Multiple independent hook and publication failures are retained in a flat AggregateException.
     /// </remarks>
     public void Commit()
     {
@@ -78,13 +84,13 @@ public sealed class ItemContainerTransaction : IDisposable
         _snapshots.Clear();
         ReleaseResources(); // No external completion may run until every transaction lock is released.
 
-        Exception? hookFailure = null;
+        List<Exception>? failures = null;
         foreach (var hook in _hooks)
         {
             try { hook(); }
             catch (Exception exception)
             {
-                hookFailure = hookFailure == null ? exception : new AggregateException(hookFailure, exception);
+                (failures ??= []).Add(exception);
             }
         }
         try
@@ -93,11 +99,11 @@ public sealed class ItemContainerTransaction : IDisposable
                 if (_changed.TryGetValue(boundary.Storage, out var slots)) boundary.PublishCommittedChanges(slots);
             foreach (var notification in _pouchNotifications) notification();
         }
-        catch (Exception publicationFailure) when (hookFailure != null)
+        catch (Exception publicationFailure)
         {
-            throw new AggregateException(hookFailure, publicationFailure);
+            (failures ??= []).Add(publicationFailure);
         }
-        if (hookFailure != null) ExceptionDispatchInfo.Capture(hookFailure).Throw();
+        ThrowFailures(failures);
         _state = TransactionState.Completed;
     }
 
@@ -107,28 +113,28 @@ public sealed class ItemContainerTransaction : IDisposable
         EnsureThread();
         if (_state != TransactionState.Active) return;
         _state = TransactionState.Disposed;
+        List<Exception>? failures = null;
         try
         {
-            List<Exception>? failures = null;
             foreach (var snapshot in _snapshots)
             {
                 try { snapshot.Storage.RestoreTransactionState(snapshot.Items, snapshot.Counts, snapshot.Revision); }
                 catch (Exception exception) { (failures ??= []).Add(exception); }
             }
-            ThrowFailures(failures);
         }
         finally
         {
             _snapshots.Clear();
-            ReleaseResources();
+            ReleaseResources(failures);
         }
     }
 
-    // A joining helper owns a disposable scope only if none of its required storage is bound.
+    // Only current-thread bindings are joinable. Other owners serialize through ordered locks.
     internal static ItemContainerTransaction? BeginIfNeeded(params IItemContainerTransactionParticipant[] participants)
     {
         var boundaries = Resolve(participants);
-        var active = boundaries.Select(boundary => boundary.Storage.Transaction).FirstOrDefault(transaction => transaction != null);
+        var active = boundaries.Select(boundary => boundary.Storage.Transaction)
+            .FirstOrDefault(transaction => transaction is { IsOwnedByCurrentThread: true });
         if (active == null) return BeginResolved(boundaries);
         active.EnsureActive();
         if (boundaries.Any(boundary => !ReferenceEquals(boundary.Storage.Transaction, active)))
@@ -148,6 +154,8 @@ public sealed class ItemContainerTransaction : IDisposable
     internal void DeferBeforePublication(Action hook) { EnsureActive(); _hooks.Add(hook); }
     internal void DeferPouchNotification(Action notification) { EnsureActive(); _pouchNotifications.Add(notification); }
 
+    internal bool IsOwnedByCurrentThread => Environment.CurrentManagedThreadId == _threadId;
+
     internal void EnsureActive()
     {
         EnsureThread();
@@ -156,13 +164,12 @@ public sealed class ItemContainerTransaction : IDisposable
 
     private void EnsureThread()
     {
-        if (Environment.CurrentManagedThreadId != _threadId)
+        if (!IsOwnedByCurrentThread)
             throw new InvalidOperationException("Transaction use must occur on its originating thread.");
     }
 
-    private void ReleaseResources()
+    private void ReleaseResources(List<Exception>? failures = null)
     {
-        List<Exception>? failures = null;
         for (var index = _lockOrder.Length - 1; index >= 0; index--)
         {
             var storage = _lockOrder[index];
@@ -181,7 +188,10 @@ public sealed class ItemContainerTransaction : IDisposable
     private static void ThrowFailures(List<Exception>? failures)
     {
         if (failures is { Count: 1 }) ExceptionDispatchInfo.Capture(failures[0]).Throw();
-        if (failures is { Count: > 1 }) throw new AggregateException(failures);
+        if (failures is { Count: > 1 })
+            throw new AggregateException(failures.SelectMany(failure => failure is AggregateException aggregate
+                ? aggregate.Flatten().InnerExceptions.AsEnumerable()
+                : [failure]));
     }
 
     private static ItemContainerMutationBoundary[] Resolve(IItemContainerTransactionParticipant[] participants)

@@ -244,6 +244,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Moves to inventory.
         /// </summary>
+        /// <remarks>Inside an enclosing item transaction, rejection leaves rollback and failure messaging to its owner.</remarks>
         /// <param name="count">The count.</param>
         /// <returns></returns>
         public bool MoveToInventory(int count)
@@ -255,8 +256,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             using var transaction = ItemContainerTransaction.BeginIfNeeded(_owner.Inventory.Items.Mutations, Mutations);
             if (!_owner.Inventory.Items.AddRange([_itemBuilder.Create().WithId(995).WithCount(transferCount).Build()]))
             {
-                transaction?.Dispose();
-                _owner.SendChatMessage(GameStrings.InventoryFull);
+                if (transaction != null)
+                {
+                    transaction.Dispose();
+                    _owner.SendChatMessage(GameStrings.InventoryFull);
+                }
                 return false;
             }
             if (!RemoveExactCore(transferCount)) return false;

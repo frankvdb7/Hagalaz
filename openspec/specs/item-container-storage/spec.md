@@ -73,7 +73,7 @@ An exact cross-container transfer MUST enter through `IItemContainerMutationBoun
 
 #### Scenario: Opposite transfers acquire locks consistently
 - **WHEN** two operations transfer in opposite directions between the same stores
-- **THEN** scopes acquire store locks in the same stable order; a helper encountering an active scope on another thread rejects misuse without waiting for its locks, and may run after that scope completes
+- **THEN** scopes acquire store locks in the same stable order; an independent helper encountering a scope on another thread waits for its locks and proceeds after that scope unbinds and unlocks
 
 ### Requirement: Storage and trade revisions have distinct purposes
 Storage MUST own its mutation revision, which invalidates active enumerators after committed storage changes. `ItemContainerTransaction` MUST own lock ordering; `ItemContainerMutationBoundary.TryTransferTo` MUST use a short-lived scope or participate in an existing complete scope. Trade session owners MUST establish scopes around TradeExchange operations rather than acquire storage locks directly. A trade offer's acceptance `Revision` MUST remain domain-owned and MUST advance according to its existing publication semantics, independently of storage revision.
@@ -106,7 +106,7 @@ Storage MUST own its mutation revision, which invalidates active enumerators aft
 - **THEN** the transaction remains committed and runs changed participant publishers at most once in registration order, stopping at the first exception and propagating it directly
 
 ### Requirement: Multi-container mutations use an instance transaction
-`ItemContainerTransaction` MUST provide one disposable atomic scope around existing synchronous domain operations. Every participant MUST be supplied before Begin, and storage aliases MUST be deduplicated without changing first-seen publication order. It MUST own ordered locks, snapshots, rollback and deferred publication. Domain operations MUST retain item semantics; no public mutation methods, dynamic enlistment, separate unit of work, committed-state query, publication call, or ambient joining API may be required. Internal storage participation MUST reject incomplete, conflicting or wrong-thread use. Async, nested and distributed transaction support MUST NOT be introduced.
+`ItemContainerTransaction` MUST provide one disposable atomic scope around existing synchronous domain operations. Every participant MUST be supplied before Begin, and storage aliases MUST be deduplicated without changing first-seen publication order. It MUST own ordered locks, snapshots, rollback and deferred publication. Domain operations MUST retain item semantics; no public mutation methods, dynamic enlistment, separate unit of work, committed-state query, publication call, or ambient joining API may be required. Internal storage participation MUST reject incomplete or conflicting current-thread enlistment and wrong-thread use of the same scope. Async, nested and distributed transaction support MUST NOT be introduced.
 
 #### Scenario: A transaction participant receives a staging context
 - **WHEN** an existing domain operation runs inside an active scope containing all its required storage
@@ -254,7 +254,11 @@ An item transaction MUST expose Begin, Commit, and Dispose, with every participa
 - **THEN** committed storage remains permanent, all transaction locks have been released, disposal is inert, and commit cannot retry completion
 
 ### Requirement: Complete same-scope participation
-Standalone helpers MUST create a transaction only when none of their required storage is transaction-bound. If any required storage is bound, all required storage MUST belong to the same originating-thread transaction. Partial enlistment, conflicting transactions, nested participation, and wrong-thread lifecycle use MUST throw InvalidOperationException without acquiring missing locks or creating another transaction. Participant aliases MUST be deduplicated independently from first-seen publication order.
+Standalone helpers MUST create a transaction when none of their required storage belongs to a current-thread scope. Bindings owned by another thread MUST serialize through deterministic storage locks. If any required storage belongs to a current-thread scope, all required storage MUST belong to that same transaction. Partial enlistment, conflicting current-thread transactions, explicit nested Begin, and wrong-thread use of the same transaction MUST throw InvalidOperationException without acquiring missing locks or creating another transaction. Participant aliases MUST be deduplicated independently from first-seen publication order.
+
+#### Scenario: Independent overlapping scopes contend
+- **WHEN** another thread owns any required storage and the current thread owns none of it
+- **THEN** Begin and standalone helpers wait on deterministic storage locks and succeed after commit or rollback releases them, without joining the foreign scope
 
 #### Scenario: A helper requires missing storage
 - **WHEN** an outer scope includes A but a helper requires A and B
@@ -269,7 +273,7 @@ Standalone helpers MUST create a transaction only when none of their required st
 - **THEN** that storage is locked and snapshotted once without duplicating or reordering publication
 
 ### Requirement: Automatic ordered transaction completion
-Commit MUST perform automatic completion after unlock without a separate caller publication call. Domain-owned hook batches MUST retain their existing failure policy. Container publishers MUST retain existing observable order independently of lock order; the first failure MUST skip later container publishers and all pouch publication. Pouch notifications MUST retain captured amounts and previous counts and stop at their first failure. A single failure MUST preserve its original exception; independent hook and publication failures MUST survive as the original exception objects in AggregateException. Validation determining mutation eligibility MUST remain before commit.
+Commit MUST perform automatic completion after unlock without a separate caller publication call. Domain-owned hook batches MUST retain their existing failure policy. Container publishers MUST retain existing observable order independently of lock order; the first failure MUST skip later container publishers and all pouch publication. Pouch notifications MUST retain captured amounts and previous counts and stop at their first failure. A single failure MUST preserve its original exception; multiple hook failures and an independent publication failure MUST survive as original leaf exceptions in one flat AggregateException. Validation determining mutation eligibility MUST remain before commit.
 
 #### Scenario: Container publication fails
 - **WHEN** a container publisher throws

@@ -1436,7 +1436,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public async Task TryTransfer_OppositeDirectionRejectsForeignActiveScopeAndSucceedsAfterRelease()
+        public async Task TryTransfer_OppositeDirectionWaitsForForeignActiveScopeAndSucceedsAfterRelease()
         {
             var left = new TestableItemContainer(StorageType.Normal, 2);
             var right = new TestableItemContainer(StorageType.Normal, 2);
@@ -1446,6 +1446,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var rightItem = right.Items[0]!;
             using var entered = new ManualResetEventSlim();
             using var release = new ManualResetEventSlim();
+            using var attempted = new ManualResetEventSlim();
             var leftToRight = Task.Run(() =>
             {
                 using var transaction = ItemContainerTransaction.Begin(left.Items.Mutations, right.Items.Mutations);
@@ -1454,15 +1455,23 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                 Assert.IsTrue(left.Items.Mutations.TryTransferTo(right.Items.Mutations, leftItem, 1));
                 transaction.Commit();
             });
+            Task<bool>? rightToLeft = null;
             try
             {
                 Assert.IsTrue(entered.Wait(TimeSpan.FromSeconds(5)));
-                await Task.Run(() => Assert.ThrowsExactly<InvalidOperationException>(() =>
-                    right.Items.Mutations.TryTransferTo(left.Items.Mutations, rightItem, 1))).WaitAsync(TimeSpan.FromSeconds(5));
+                rightToLeft = Task.Run(() =>
+                {
+                    attempted.Set();
+                    return right.Items.Mutations.TryTransferTo(left.Items.Mutations, rightItem, 1);
+                });
+                Assert.IsTrue(attempted.Wait(TimeSpan.FromSeconds(5)));
+                Assert.IsFalse(((IAsyncResult)rightToLeft).AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(100)),
+                    "An independent helper must wait for the foreign scope.");
             }
             finally { release.Set(); }
             await leftToRight.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.IsTrue(right.Items.Mutations.TryTransferTo(left.Items.Mutations, rightItem, 1));
+            Assert.IsNotNull(rightToLeft);
+            Assert.IsTrue(await rightToLeft.WaitAsync(TimeSpan.FromSeconds(5)));
             Assert.AreEqual(1, left.Items.GetCountById(2));
             Assert.AreEqual(1, right.Items.GetCountById(1));
             Assert.AreEqual(2, left.Items.TakenSlots + right.Items.TakenSlots);

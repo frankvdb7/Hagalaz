@@ -59,6 +59,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Equips item to this character.
         /// </summary>
+        /// <remarks>Capacity rejection in an enclosing item transaction leaves rollback and failure messaging to its owner.
+        /// Script eligibility checks remain synchronous domain validation and can have their own side effects.</remarks>
         /// <param name="item">Item in inventory.</param>
         /// <returns>True if item was equipped sucessfully.</returns>
         public bool EquipItem(IItem item)
@@ -162,15 +164,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (needsWeaponUnequip && !_mutations.TryTransferTo(inventoryBoundary, equippedWeapon!,
                     equippedWeapon!.Count, (int)EquipmentSlot.Weapon, slot))
             {
-                replacementTransaction?.Dispose();
-                _owner.SendChatMessage("Not enough space in your inventory.");
+                if (replacementTransaction != null)
+                {
+                    replacementTransaction.Dispose();
+                    _owner.SendChatMessage("Not enough space in your inventory.");
+                }
                 return false;
             }
             if (needsShieldUnequip && !_mutations.TryTransferTo(inventoryBoundary, equippedShield!,
                     equippedShield!.Count, (int)EquipmentSlot.Shield))
             {
-                replacementTransaction?.Dispose();
-                _owner.SendChatMessage("Not enough space in your inventory.");
+                if (replacementTransaction != null)
+                {
+                    replacementTransaction.Dispose();
+                    _owner.SendChatMessage("Not enough space in your inventory.");
+                }
                 return false;
             }
             if (!_storage.TryAdd((int)equipSlot, item, out var incomingSlots)) return false;
@@ -354,6 +362,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// UnEquips item to this character.
         /// </summary>
+        /// <remarks>Capacity rejection in an enclosing item transaction leaves rollback and failure messaging to its owner.
+        /// Script eligibility checks remain synchronous domain validation and can have their own side effects.</remarks>
         /// <param name="item">The item.</param>
         /// <param name="toInventorySlot">To inventory slot.</param>
         /// <returns>True if item was unequipped sucessfully.</returns>
@@ -380,8 +390,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             using var transaction = ItemContainerTransaction.BeginIfNeeded(inventoryBoundary, _mutations);
             if (!_mutations.TryTransferTo(inventoryBoundary, item, item.Count, (int)slot, destinationSlot))
             {
-                transaction?.Dispose();
-                _owner.SendChatMessage("Not enough space in your inventory.");
+                if (transaction != null)
+                {
+                    transaction.Dispose();
+                    _owner.SendChatMessage("Not enough space in your inventory.");
+                }
                 return false;
             }
             _mutations.DeferBeforePublication(() => item.EquipmentScript.OnUnequipped(item, _owner));

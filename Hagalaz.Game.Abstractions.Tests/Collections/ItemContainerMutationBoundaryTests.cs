@@ -433,7 +433,7 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
-    public void Scope_WrongThreadCommitDisposeMutationAndTransferRejectWithoutEndingScope()
+    public void Scope_WrongThreadCommitDisposeAndMutationRejectWithoutEndingScope()
     {
         var first = new ItemContainer(StorageType.Normal, 2);
         var second = new ItemContainer(StorageType.Normal, 2);
@@ -445,7 +445,6 @@ public sealed class ItemContainerMutationBoundaryTests
             Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
             Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Dispose());
             Assert.ThrowsExactly<InvalidOperationException>(() => first.Add(new TestItem(46, 1)));
-            Assert.ThrowsExactly<InvalidOperationException>(() => first.Mutations.TryTransferTo(second.Mutations, item, 1));
         });
         Assert.AreSame(transaction, Boundary(first).Storage.Transaction);
         Assert.AreSame(item, first[0]);
@@ -453,6 +452,90 @@ public sealed class ItemContainerMutationBoundaryTests
         Assert.AreEqual(0, second.TakenSlots);
         transaction.Commit();
         OnOtherThread(() => Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Dispose()));
+    }
+
+    [TestMethod]
+    [DataRow(false, false)]
+    [DataRow(false, true)]
+    [DataRow(true, false)]
+    [DataRow(true, true)]
+    public void Begin_IndependentContenderWaitsForSameOrOverlappingStorage(bool overlapping, bool commit)
+    {
+        var first = new ItemContainer(StorageType.Normal, 1);
+        var second = new ItemContainer(StorageType.Normal, 1);
+        var third = new ItemContainer(StorageType.Normal, 1);
+        using var attempted = new ManualResetEventSlim();
+        using var completed = new ManualResetEventSlim();
+        using var owner = ItemContainerTransaction.Begin(first.Mutations, second.Mutations);
+        var required = overlapping
+            ? new[] { Boundary(third), Boundary(second) }
+            : new[] { Boundary(first) };
+        var participant = new CompositeParticipant(required) { OnResolve = attempted.Set };
+        Exception? failure = null;
+        var worker = new Thread(() =>
+        {
+            try
+            {
+                using var contender = ItemContainerTransaction.Begin(participant);
+                var lockOrder = (ItemContainerStorage[])typeof(ItemContainerTransaction)
+                    .GetField("_lockOrder", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(contender)!;
+                CollectionAssert.AreEqual(required.Select(boundary => boundary.Storage)
+                    .OrderBy(storage => storage.MutationOrder).ToArray(), lockOrder);
+                foreach (var storage in lockOrder)
+                {
+                    Assert.IsTrue(Monitor.IsEntered(storage.MutationLock));
+                    Assert.AreSame(contender, storage.Transaction);
+                }
+                contender.Commit();
+            }
+            catch (Exception exception) { failure = exception; }
+            finally { completed.Set(); }
+        }) { IsBackground = true };
+        worker.Start();
+        try
+        {
+            Assert.IsTrue(attempted.Wait(TimeSpan.FromSeconds(5)), "The contender must resolve its participants.");
+            Assert.IsFalse(completed.Wait(TimeSpan.FromMilliseconds(100)),
+                "The contender must wait, rather than reject the foreign binding or bypass its lock.");
+            Assert.AreSame(owner, Boundary(second).Storage.Transaction);
+        }
+        finally
+        {
+            if (commit) owner.Commit();
+            else owner.Dispose();
+        }
+        Assert.IsTrue(worker.Join(TimeSpan.FromSeconds(5)), "Ordered overlapping scopes must not deadlock.");
+        if (failure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+        AssertUnboundAndUnlocked(first, second, third);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Commit_MultipleHookFailuresAreFlatAndRetainOriginalExceptions(bool publicationFails)
+    {
+        var hookFailures = Enumerable.Range(0, 3).Select(index => new InvalidOperationException($"Hook {index}")).ToArray();
+        var publicationFailure = new InvalidOperationException("Publisher failed.");
+        var calls = 0;
+        var container = new ItemContainer(StorageType.Normal, 1, _ =>
+        {
+            calls++;
+            if (publicationFails) throw publicationFailure;
+        });
+        using var transaction = ItemContainerTransaction.Begin(container.Mutations);
+        Assert.IsTrue(container.Add(new TestItem(47, 1)));
+        foreach (var failure in hookFailures)
+            Boundary(container).DeferBeforePublication(() => { AssertUnboundAndUnlocked(container); throw failure; });
+        var thrown = Assert.ThrowsExactly<AggregateException>(() => transaction.Commit());
+        var expected = publicationFails ? hookFailures.Cast<Exception>().Append(publicationFailure).ToArray() : hookFailures;
+        CollectionAssert.AreEqual(expected, thrown.InnerExceptions.ToArray());
+        Assert.IsTrue(thrown.InnerExceptions.All(exception => exception.StackTrace != null));
+        transaction.Dispose();
+        transaction.Dispose();
+        Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
+        Assert.AreEqual(1, calls);
+        Assert.AreEqual(1, container.TakenSlots);
+        AssertUnboundAndUnlocked(container);
     }
 
     [TestMethod]
