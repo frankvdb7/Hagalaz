@@ -245,18 +245,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public bool MoveToInventory(int count)
         {
-            using var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, Mutations);
-            if (!TryMoveToInventoryCore(count, out var inventoryFull))
+            var inventoryFull = false;
+            using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, Mutations))
             {
-                if (inventoryFull)
+                if (TryMoveToInventoryCore(count, out inventoryFull))
                 {
-                    transaction.Dispose();
-                    _owner.SendChatMessage(GameStrings.InventoryFull);
+                    transaction.Commit();
+                    return true;
                 }
-                return false;
             }
-            transaction.Commit();
-            return true;
+            if (inventoryFull) _owner.SendChatMessage(GameStrings.InventoryFull);
+            return false;
         }
 
         private bool TryMoveToInventoryCore(int count, out bool inventoryFull)

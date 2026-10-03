@@ -97,7 +97,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 {
                     using var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, _mutations);
                     if (!MoveFromInventoryToSlot(item, slot, equipSlot)) return false;
-                    CompleteEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Equipped, item));
+                    DeferEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Equipped, item));
                     transaction.Commit();
                     return true;
                 }
@@ -136,7 +136,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 using var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, _mutations);
                 if (!MoveFromInventoryToSlot(item, slot, equipSlot)) return false;
-                CompleteEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Equipped, item));
+                DeferEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Equipped, item));
                 transaction.Commit();
                 return true;
             }
@@ -159,32 +159,36 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             var inventoryBoundary = _owner.Inventory.Items.Mutations;
-            using var replacementTransaction = ItemContainerTransaction.Begin(inventoryBoundary, _mutations);
-            if (!inventoryBoundary.TryRemoveExact(item, slot)) return false;
-            if (needsWeaponUnequip && !_mutations.TryTransferTo(inventoryBoundary, equippedWeapon!,
-                    equippedWeapon!.Count, (int)EquipmentSlot.Weapon, slot))
+            var inventoryFull = false;
+            using (var replacementTransaction = ItemContainerTransaction.Begin(inventoryBoundary, _mutations))
             {
-                replacementTransaction.Dispose();
-                _owner.SendChatMessage("Not enough space in your inventory.");
-                return false;
+                if (!inventoryBoundary.TryRemoveExact(item, slot)) return false;
+                if (needsWeaponUnequip && !_mutations.TryTransferTo(inventoryBoundary, equippedWeapon!,
+                        equippedWeapon!.Count, (int)EquipmentSlot.Weapon, slot))
+                {
+                    inventoryFull = true;
+                }
+                if (!inventoryFull && needsShieldUnequip && !_mutations.TryTransferTo(inventoryBoundary, equippedShield!,
+                        equippedShield!.Count, (int)EquipmentSlot.Shield))
+                {
+                    inventoryFull = true;
+                }
+                if (!inventoryFull)
+                {
+                    if (!_storage.TryAdd((int)equipSlot, item, out var incomingSlots)) return false;
+                    _mutations.NotifyChanges(incomingSlots);
+                    var effects = new List<EquipmentEffect>();
+                    if (needsWeaponUnequip) effects.Add(new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedWeapon!));
+                    if (needsShieldUnequip) effects.Add(new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedShield!));
+                    if (needsWeaponUnequip) effects.Add(new EquipmentEffect(EquipmentEffectKind.WeaponProfile, equippedWeapon!, item));
+                    effects.Add(new EquipmentEffect(EquipmentEffectKind.Equipped, item));
+                    DeferEquipmentEffects(effects.ToArray());
+                    replacementTransaction.Commit();
+                    return true;
+                }
             }
-            if (needsShieldUnequip && !_mutations.TryTransferTo(inventoryBoundary, equippedShield!,
-                    equippedShield!.Count, (int)EquipmentSlot.Shield))
-            {
-                replacementTransaction.Dispose();
-                _owner.SendChatMessage("Not enough space in your inventory.");
-                return false;
-            }
-            if (!_storage.TryAdd((int)equipSlot, item, out var incomingSlots)) return false;
-            _mutations.NotifyChanges(incomingSlots);
-            var effects = new List<EquipmentEffect>();
-            if (needsWeaponUnequip) effects.Add(new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedWeapon!));
-            if (needsShieldUnequip) effects.Add(new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedShield!));
-            if (needsWeaponUnequip) effects.Add(new EquipmentEffect(EquipmentEffectKind.WeaponProfile, equippedWeapon!, item));
-            effects.Add(new EquipmentEffect(EquipmentEffectKind.Equipped, item));
-            CompleteEquipmentEffects(effects.ToArray());
-            replacementTransaction.Commit();
-            return true;
+            _owner.SendChatMessage("Not enough space in your inventory.");
+            return false;
         }
 
         private void UpdateWeaponProfileAfterUnequip(IItem equippedWeapon, IItem incomingItem)
@@ -210,6 +214,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool TryRestoreEquippedItem(EquipmentSlot slot, IItem item)
         {
             ArgumentNullException.ThrowIfNull(item);
+            _mutations.EnsureOutsideTransaction();
             if (!_storage.TryAdd((int)slot, item, out var slots)) return false;
             PublishChanges(slots.Select(slot => (EquipmentSlot)slot).ToHashSet());
             return true;
@@ -225,7 +230,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var fullyRemoved = count == equippedItem.Count;
             using var transaction = ItemContainerTransaction.Begin(_mutations, destination.Mutations);
             if (!_mutations.TryTransferTo(destination.Mutations, equippedItem, count, (int)slot, -1, destinationItem)) return false;
-            if (fullyRemoved) CompleteEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem));
+            if (fullyRemoved) DeferEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem));
             transaction.Commit();
             return true;
         }
@@ -240,6 +245,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 throw new ArgumentOutOfRangeException(nameof(slot));
             }
 
+            _mutations.EnsureOutsideTransaction();
             _storage.EnsureMutationAccess();
             lock (_storage.MutationLock)
             {
@@ -255,6 +261,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public int RemoveEquippedItem(IItem item, EquipmentSlot preferredSlot = EquipmentSlot.NoSlot)
         {
+            _mutations.EnsureOutsideTransaction();
             if (preferredSlot == EquipmentSlot.NoSlot)
             {
                 preferredSlot = GetInstanceSlot(item);
@@ -295,6 +302,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void ClearEquipment()
         {
+            _mutations.EnsureOutsideTransaction();
             IItem[] equippedItems;
             bool cleared;
             _storage.EnsureMutationAccess();
@@ -313,28 +321,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private void CompleteEquipmentChange(HashSet<EquipmentSlot>? slots, params EquipmentEffect[] effects)
         {
-            if (_storage.Transaction != null)
-            {
-                CompleteEquipmentEffects(effects);
-                PublishChanges(slots);
-            }
-            else
-            {
-                var failures = ExecuteEquipmentEffects(effects);
-                try { PublishChanges(slots); }
-                catch (Exception exception) { (failures ??= []).Add(exception); }
-                ThrowEquipmentFailures(failures);
-            }
+            var failures = ExecuteEquipmentEffects(effects);
+            try { PublishChanges(slots); }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
+            ThrowEquipmentFailures(failures);
         }
 
         // Equipment owns these small lifecycle batches; the transaction cannot schedule arbitrary work.
-        private void CompleteEquipmentEffects(params EquipmentEffect[] effects)
+        private void DeferEquipmentEffects(params EquipmentEffect[] effects)
         {
-            if (_storage.Transaction is not { } transaction)
-            {
-                ThrowEquipmentFailures(ExecuteEquipmentEffects(effects));
-                return;
-            }
+            var transaction = _storage.Transaction
+                ?? throw new InvalidOperationException("Equipment effects require an active item-container transaction.");
+            transaction.EnsureActive();
             var pending = _pendingCompletion.GetOrAdd(transaction, _ => new Queue<EquipmentCompletion>());
             pending.Enqueue(new EquipmentCompletion(transaction.NextCompletionOrder(), effects));
         }
@@ -432,16 +430,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             var inventoryBoundary = _owner.Inventory.Items.Mutations;
-            using var transaction = ItemContainerTransaction.Begin(inventoryBoundary, _mutations);
-            if (!_mutations.TryTransferTo(inventoryBoundary, item, item.Count, (int)slot, destinationSlot))
+            using (var transaction = ItemContainerTransaction.Begin(inventoryBoundary, _mutations))
             {
-                transaction.Dispose();
-                _owner.SendChatMessage("Not enough space in your inventory.");
-                return false;
+                if (_mutations.TryTransferTo(inventoryBoundary, item, item.Count, (int)slot, destinationSlot))
+                {
+                    DeferEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Unequipped, item));
+                    transaction.Commit();
+                    return true;
+                }
             }
-            CompleteEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Unequipped, item));
-            transaction.Commit();
-            return true;
+            _owner.SendChatMessage("Not enough space in your inventory.");
+            return false;
         }
 
         public EquipmentSlot GetInstanceSlot(IItem instance) => (EquipmentSlot)_storage.GetInstanceSlot(instance);

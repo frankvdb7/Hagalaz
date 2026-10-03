@@ -49,20 +49,26 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool DepositFromMoneyPouch([NotNullWhen(true)] out IItem? deposited)
         {
             deposited = null;
-            using var transaction = ItemContainerTransaction.Begin(_items.Mutations, _owner.MoneyPouch.Mutations);
-            var count = _owner.MoneyPouch.Count;
-            if (count <= 0) return false;
-            var coins = _itemBuilder.Create().WithId(995).WithCount(count).Build();
-            if (!_owner.MoneyPouch.Mutations.TryRemoveExact(count)) return false;
-            if (!_items.Mutations.TryAdd(coins))
+            var bankFull = false;
+            using (var transaction = ItemContainerTransaction.Begin(_items.Mutations, _owner.MoneyPouch.Mutations))
             {
-                transaction.Dispose();
-                _owner.SendChatMessage("Not enough space in your bank.");
-                return false;
+                var count = _owner.MoneyPouch.Count;
+                if (count <= 0) return false;
+                var coins = _itemBuilder.Create().WithId(995).WithCount(count).Build();
+                if (!_owner.MoneyPouch.Mutations.TryRemoveExact(count)) return false;
+                if (!_items.Mutations.TryAdd(coins))
+                {
+                    bankFull = true;
+                }
+                else
+                {
+                    transaction.Commit();
+                    deposited = coins;
+                    return true;
+                }
             }
-            transaction.Commit();
-            deposited = coins;
-            return true;
+            if (bankFull) _owner.SendChatMessage("Not enough space in your bank.");
+            return false;
         }
 
         /// <summary>
@@ -90,15 +96,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = CreateDepositItem(item, count, out var transformed);
-            using var transaction = ItemContainerTransaction.Begin(container.Mutations, _items.Mutations);
-            if (container.Mutations.TryTransferTo(_items.Mutations, item, count, slot,
-                    destinationItem: transformed ? deposited : null))
+            using (var transaction = ItemContainerTransaction.Begin(container.Mutations, _items.Mutations))
             {
-                transaction.Commit();
-                return true;
+                if (container.Mutations.TryTransferTo(_items.Mutations, item, count, slot,
+                        destinationItem: transformed ? deposited : null))
+                {
+                    transaction.Commit();
+                    return true;
+                }
             }
 
-            transaction.Dispose();
             _owner.SendChatMessage("Not enough space in your bank.");
             deposited = null;
             return false;
@@ -177,15 +184,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = CreateDepositItem(item, count, out var transformed);
-            using var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, _items.Mutations);
-            if (_owner.Inventory.Items.Mutations.TryTransferTo(_items.Mutations, item, count, slot,
-                    destinationItem: transformed ? deposited : null))
+            using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, _items.Mutations))
             {
-                transaction.Commit();
-                return true;
+                if (_owner.Inventory.Items.Mutations.TryTransferTo(_items.Mutations, item, count, slot,
+                        destinationItem: transformed ? deposited : null))
+                {
+                    transaction.Commit();
+                    return true;
+                }
             }
 
-            transaction.Dispose();
             _owner.SendChatMessage("Not enough space in your bank.");
             deposited = null;
             return false;
@@ -271,19 +279,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             withdrawed.Count = count;
-            using var transaction = ItemContainerTransaction.Begin(_items.Mutations, _owner.Inventory.Items.Mutations);
-            if (!_items.Mutations.TryTransferTo(_owner.Inventory.Items.Mutations, item, count, slot,
-                    destinationItem: transformed ? withdrawed : null))
+            using (var transaction = ItemContainerTransaction.Begin(_items.Mutations, _owner.Inventory.Items.Mutations))
             {
-                transaction.Dispose();
-                _owner.SendChatMessage(GameStrings.InventoryFull);
-                withdrawed = null;
-                return false;
+                if (_items.Mutations.TryTransferTo(_owner.Inventory.Items.Mutations, item, count, slot,
+                        destinationItem: transformed ? withdrawed : null))
+                {
+                    _items.Mutations.Sort();
+                    transaction.Commit();
+                    return true;
+                }
             }
 
-            _items.Mutations.Sort();
-            transaction.Commit();
-            return true;
+            _owner.SendChatMessage(GameStrings.InventoryFull);
+            withdrawed = null;
+            return false;
 
         }
 

@@ -109,3 +109,10 @@
 - [x] 14.3 Split MoneyPouch gameplay and mutation capabilities, validate complete pouch/inventory enlistment, and publish captured immutable change facts.
 - [x] 14.4 Add regressions for facade rejection, inactive/partial participation, standalone pouch nesting, immutable reentrant pouch events, and retain equipment behavior without reflection-based delegate inspection.
 - [x] 14.5 Reconcile active OpenSpec proposal/design/delta/current spec, then run focused tests, solution build, strict OpenSpec validation, full diff audit, and `git diff --check`.
+
+## 15. Focused cleanup at PR review
+
+- [x] 15.1 Make standalone Equipment semantic mutations reject enlisted storage, keep explicit transaction workflows on private typed completion facts, and remove tests that depended on standalone methods joining an external transaction.
+- [x] 15.2 Discard pending completion facts even when Commit resource release fails, while skipping observable completion and publication; assess whether the existing release mechanism offers a safe deterministic failure-injection point.
+- [x] 15.3 Replace production manual `Dispose()` calls with lexical scopes while preserving rollback-before-message ordering, and remove the unused Equipment boundary test variable.
+- [x] 15.4 Update the current and delta specifications and run the requested local validation without pushing or changing the remote PR.

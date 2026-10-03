@@ -109,7 +109,7 @@ public sealed class ItemContainerTransaction : IDisposable
         }
         finally
         {
-            if (resourcesReleased) DiscardPendingCompletion(ref failures);
+            DiscardPendingCompletion(ref failures);
         }
         ThrowFailures(failures);
         _state = TransactionState.Completed;

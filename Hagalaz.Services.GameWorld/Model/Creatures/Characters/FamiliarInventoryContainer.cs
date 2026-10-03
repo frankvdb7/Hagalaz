@@ -58,14 +58,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            using var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, _items.Mutations);
-            if (_owner.Inventory.Items.Mutations.TryTransferTo(_items.Mutations, item, count, slot))
+            using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, _items.Mutations))
             {
-                transaction.Commit();
-                return true;
+                if (_owner.Inventory.Items.Mutations.TryTransferTo(_items.Mutations, item, count, slot))
+                {
+                    transaction.Commit();
+                    return true;
+                }
             }
 
-            transaction.Dispose();
             _owner.SendChatMessage(GameStrings.FamiliarInventoryFull);
             return false;
         }
@@ -88,14 +89,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            using var transaction = ItemContainerTransaction.Begin(_items.Mutations, _owner.Inventory.Items.Mutations);
-            if (_items.Mutations.TryTransferTo(_owner.Inventory.Items.Mutations, item, count, slot))
+            using (var transaction = ItemContainerTransaction.Begin(_items.Mutations, _owner.Inventory.Items.Mutations))
             {
-                transaction.Commit();
-                return true;
+                if (_items.Mutations.TryTransferTo(_owner.Inventory.Items.Mutations, item, count, slot))
+                {
+                    transaction.Commit();
+                    return true;
+                }
             }
 
-            transaction.Dispose();
             _owner.SendChatMessage(GameStrings.InventoryFull);
             return false;
         }
