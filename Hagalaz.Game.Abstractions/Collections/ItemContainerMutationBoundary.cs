@@ -20,6 +20,51 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
             throw new InvalidOperationException("This operation requires storage outside an active transaction.");
     }
 
+    public bool TryAdd(IItem item)
+    {
+        EnsureActiveTransaction();
+        if (!_storage.TryAdd(item, out var changedSlots)) return false;
+        NotifyChanges(changedSlots);
+        return true;
+    }
+
+    public bool TryAddRange(IEnumerable<IItem?> items)
+    {
+        EnsureActiveTransaction();
+        if (!_storage.TryAddRange(items, out var changedSlots)) return false;
+        if (changedSlots.Count > 0) NotifyChanges(changedSlots);
+        return true;
+    }
+
+    public bool TryRemoveExact(IItem item, int preferredSlot = -1)
+    {
+        EnsureActiveTransaction();
+        if (!_storage.TryRemoveExact(item, preferredSlot, out var changedSlots)) return false;
+        NotifyChanges(changedSlots);
+        return true;
+    }
+
+    public void Sort()
+    {
+        EnsureActiveTransaction();
+        _storage.Sort();
+        NotifyChanges(null);
+    }
+
+    public void Clear()
+    {
+        EnsureActiveTransaction();
+        if (_storage.Clear()) NotifyChanges(null);
+    }
+
+    private ItemContainerTransaction EnsureActiveTransaction()
+    {
+        var transaction = _storage.Transaction
+            ?? throw new InvalidOperationException("Storage must belong to an active transaction.");
+        transaction.EnsureActive();
+        return transaction;
+    }
+
     internal ItemContainerMutationBoundary(ItemContainerStorage storage, Action<HashSet<int>?>? publishChanges, IItemContainerCompletionOwner? completion = null)
     {
         ArgumentNullException.ThrowIfNull(storage);
@@ -40,6 +85,9 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
         ArgumentNullException.ThrowIfNull(destination);
         if (destination is not ItemContainerMutationBoundary target)
             throw new ArgumentException("Unsupported mutation boundary.", nameof(destination));
+        var transaction = EnsureActiveTransaction();
+        if (!ReferenceEquals(transaction, target.EnsureActiveTransaction()))
+            throw new InvalidOperationException("Both storage boundaries must belong to the same active transaction.");
         if (!_storage.TryTransferTo(target._storage, item, count,
                 preferredSourceSlot, destinationSlot, destinationItem, out var sourceSlots, out var destinationSlots)) return false;
         NotifyChanges(sourceSlots);

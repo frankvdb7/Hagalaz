@@ -100,6 +100,83 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
+    public void OrdinaryMutations_RejectTransactionBoundStorageWithoutChangingTheScope()
+    {
+        var publications = 0;
+        var container = new ItemContainer(StorageType.Normal, 3, _ => publications++);
+        var item = new TestItem(12, 2);
+        Assert.IsTrue(container.Add(item));
+        publications = 0;
+        var storage = Boundary(container).Storage;
+        using var transaction = ItemContainerTransaction.Begin(container.Mutations);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => container.Add(new TestItem(13, 1)));
+        Assert.ThrowsExactly<InvalidOperationException>(() => container.AddRange([new TestItem(14, 1)]));
+        Assert.ThrowsExactly<InvalidOperationException>(() => container.TryRemoveExact(item));
+        Assert.ThrowsExactly<InvalidOperationException>(() => container.Clear(update: true));
+        Assert.ThrowsExactly<InvalidOperationException>(container.Sort);
+
+        Assert.AreSame(transaction, storage.Transaction);
+        Assert.AreSame(item, container[0]);
+        Assert.AreEqual(2, item.Count);
+        Assert.AreEqual(0, publications);
+        transaction.Commit();
+        Assert.AreSame(item, container[0]);
+    }
+
+    [TestMethod]
+    public void MutationOperations_RequireAnActiveTransaction()
+    {
+        var container = new ItemContainer(StorageType.Normal, 2);
+        var item = new TestItem(13, 1);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => container.Mutations.TryAdd(item));
+        Assert.ThrowsExactly<InvalidOperationException>(() => container.Mutations.TryAddRange([item]));
+        Assert.ThrowsExactly<InvalidOperationException>(() => container.Mutations.TryRemoveExact(item));
+        Assert.ThrowsExactly<InvalidOperationException>(container.Mutations.Sort);
+        Assert.ThrowsExactly<InvalidOperationException>(container.Mutations.Clear);
+
+        Assert.AreEqual(0, container.TakenSlots);
+        Assert.AreEqual(1, item.Count);
+    }
+
+    [TestMethod]
+    public void MutationOperations_CommitOnceAndRollbackOnDispose()
+    {
+        var publications = 0;
+        var container = new ItemContainer(StorageType.Normal, 3, _ => publications++);
+        var first = new TestItem(14, 1);
+        var second = new TestItem(15, 1);
+
+        using (ItemContainerTransaction.Begin(container.Mutations))
+        {
+            Assert.IsTrue(container.Mutations.TryAddRange([first, second]));
+            Assert.AreEqual(0, publications);
+        }
+        Assert.AreEqual(0, container.TakenSlots);
+        Assert.AreEqual(0, publications);
+
+        using (var transaction = ItemContainerTransaction.Begin(container.Mutations))
+        {
+            Assert.IsTrue(container.Mutations.TryAddRange([first, second]));
+            container.Mutations.Sort();
+            transaction.Commit();
+            transaction.Dispose();
+        }
+        Assert.AreEqual(2, container.TakenSlots);
+        Assert.AreEqual(1, publications);
+
+        using (var transaction = ItemContainerTransaction.Begin(container.Mutations))
+        {
+            Assert.IsTrue(container.Mutations.TryRemoveExact(first));
+            container.Mutations.Clear();
+            transaction.Commit();
+        }
+        Assert.AreEqual(0, container.TakenSlots);
+        Assert.AreEqual(2, publications);
+    }
+
+    [TestMethod]
     public void Dispose_WithoutCommitRestoresReferencesCountsAndRevisionsOfAllStorage()
     {
         var publications = 0;
@@ -115,7 +192,7 @@ public sealed class ItemContainerMutationBoundaryTests
         using (ItemContainerTransaction.Begin(source.Mutations, destination.Mutations))
         {
             Assert.IsTrue(source.Mutations.TryTransferTo(destination.Mutations, item, 3, 0));
-            source.Clear(update: false); // Rollback must include mutations which intentionally suppress notification.
+            source.Mutations.Clear();
             Assert.AreEqual(7, existing.Count);
             Assert.AreEqual(0, publications);
         }
@@ -158,8 +235,8 @@ public sealed class ItemContainerMutationBoundaryTests
         var first = new ItemContainer(StorageType.Normal, 2, _ => order.Add("first"));
         var second = new ItemContainer(StorageType.Normal, 2, _ => order.Add("second"));
         using var transaction = ItemContainerTransaction.Begin(second.Mutations, first.Mutations, second.Mutations);
-        Assert.IsTrue(first.Add(new TestItem(23, 1)));
-        Assert.IsTrue(second.Add(new TestItem(24, 1)));
+        Assert.IsTrue(first.Mutations.TryAdd(new TestItem(23, 1)));
+        Assert.IsTrue(second.Mutations.TryAdd(new TestItem(24, 1)));
         Completion(first).Before(() =>
         {
             AssertUnboundAndUnlocked(first, second);
@@ -189,7 +266,7 @@ public sealed class ItemContainerMutationBoundaryTests
     {
         var container = new ItemContainer(StorageType.Normal, 1);
         using var transaction = ItemContainerTransaction.Begin(container.Mutations);
-        Assert.IsTrue(container.Add(new TestItem(25, 1)));
+        Assert.IsTrue(container.Mutations.TryAdd(new TestItem(25, 1)));
         transaction.Dispose();
         transaction.Dispose();
         Assert.IsNull(container[0]);
@@ -204,17 +281,17 @@ public sealed class ItemContainerMutationBoundaryTests
         var container = new ItemContainer(StorageType.Normal, 3, slots => updates.Add(slots));
         using (var transaction = ItemContainerTransaction.Begin(container.Mutations))
         {
-            Assert.IsTrue(container.Add(0, new TestItem(26, 1)));
-            Assert.IsTrue(container.Add(2, new TestItem(27, 1)));
+            Assert.IsTrue(container.Mutations.TryAdd(new TestItem(26, 1)));
+            Assert.IsTrue(container.Mutations.TryAdd(new TestItem(27, 1)));
             Assert.AreEqual(0, updates.Count);
             transaction.Commit();
         }
-        CollectionAssert.AreEquivalent(new[] { 0, 2 }, updates.Single()!.ToArray());
+        CollectionAssert.AreEquivalent(new[] { 0, 1 }, updates.Single()!.ToArray());
         updates.Clear();
         using (var transaction = ItemContainerTransaction.Begin(container.Mutations))
         {
-            container.Clear(true);
-            Assert.IsTrue(container.Add(0, new TestItem(28, 1)));
+            container.Mutations.Clear();
+            Assert.IsTrue(container.Mutations.TryAdd(new TestItem(28, 1)));
             transaction.Commit();
         }
         Assert.AreEqual(1, updates.Count);
@@ -231,7 +308,7 @@ public sealed class ItemContainerMutationBoundaryTests
         publications = 0;
         var enumerator = container.GetEnumerator();
         using var transaction = ItemContainerTransaction.Begin(container.Mutations);
-        Assert.IsTrue(container.AddRange(Array.Empty<IItem?>()));
+        Assert.IsTrue(container.Mutations.TryAddRange(Array.Empty<IItem?>()));
         transaction.Commit();
         Assert.AreEqual(0, publications);
         Assert.IsTrue(enumerator.MoveNext());
@@ -269,8 +346,8 @@ public sealed class ItemContainerMutationBoundaryTests
         });
         second = new ItemContainer(StorageType.Normal, 2, _ => calls.Add("second"));
         using var transaction = ItemContainerTransaction.Begin(first.Mutations, second.Mutations);
-        Assert.IsTrue(first.Add(new TestItem(33, 1)));
-        Assert.IsTrue(second.Add(new TestItem(34, 1)));
+        Assert.IsTrue(first.Mutations.TryAdd(new TestItem(33, 1)));
+        Assert.IsTrue(second.Mutations.TryAdd(new TestItem(34, 1)));
         Completion(first).After(() => calls.Add("after"));
         var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
         Assert.AreSame(original, thrown);
@@ -291,9 +368,9 @@ public sealed class ItemContainerMutationBoundaryTests
         var second = new ItemContainer(StorageType.Normal, 1, _ => { calls.Add("second"); throw original; });
         var third = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("third"));
         using var transaction = ItemContainerTransaction.Begin(first.Mutations, second.Mutations, third.Mutations);
-        Assert.IsTrue(first.Add(new TestItem(35, 1)));
-        Assert.IsTrue(second.Add(new TestItem(36, 1)));
-        Assert.IsTrue(third.Add(new TestItem(37, 1)));
+        Assert.IsTrue(first.Mutations.TryAdd(new TestItem(35, 1)));
+        Assert.IsTrue(second.Mutations.TryAdd(new TestItem(36, 1)));
+        Assert.IsTrue(third.Mutations.TryAdd(new TestItem(37, 1)));
         Completion(first).After(() => calls.Add("after1"));
         Completion(second).After(() => calls.Add("after2"));
         Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
@@ -312,7 +389,7 @@ public sealed class ItemContainerMutationBoundaryTests
         var original = new InvalidOperationException("After-publication action failed.");
         var container = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("container"));
         using var transaction = ItemContainerTransaction.Begin(container.Mutations);
-        Assert.IsTrue(container.Add(new TestItem(37, 1)));
+        Assert.IsTrue(container.Mutations.TryAdd(new TestItem(37, 1)));
         Completion(container).After(() => calls.Add("after1"));
         Completion(container).After(() => { AssertUnboundAndUnlocked(container); calls.Add("after2"); throw original; });
         Completion(container).After(() => calls.Add("after3"));
@@ -330,7 +407,7 @@ public sealed class ItemContainerMutationBoundaryTests
         var original = new InvalidOperationException("Hook failed.");
         var container = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("container"));
         using var transaction = ItemContainerTransaction.Begin(container.Mutations);
-        Assert.IsTrue(container.Add(new TestItem(38, 1)));
+        Assert.IsTrue(container.Mutations.TryAdd(new TestItem(38, 1)));
         Completion(container).Before(() => { AssertUnboundAndUnlocked(container); calls.Add("hook"); throw original; });
         Completion(container).After(() => calls.Add("after"));
         Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
@@ -347,7 +424,7 @@ public sealed class ItemContainerMutationBoundaryTests
         var publicationFailure = new InvalidOperationException("Publisher failed.");
         var container = new ItemContainer(StorageType.Normal, 1, _ => throw publicationFailure);
         using var transaction = ItemContainerTransaction.Begin(container.Mutations);
-        Assert.IsTrue(container.Add(new TestItem(39, 1)));
+        Assert.IsTrue(container.Mutations.TryAdd(new TestItem(39, 1)));
         Completion(container).Before(() => throw hookFailure);
         var thrown = Assert.ThrowsExactly<AggregateException>(() => transaction.Commit());
         CollectionAssert.AreEqual(new Exception[] { hookFailure, publicationFailure }, thrown.InnerExceptions.ToArray());
@@ -448,8 +525,8 @@ public sealed class ItemContainerMutationBoundaryTests
         using var transaction = ItemContainerTransaction.Begin(first.Mutations, composite, composite, second.Mutations);
         Assert.AreEqual(1, reads);
         item.OnCountRead = null;
-        first.Clear(true);
-        Assert.IsTrue(second.Add(item));
+        first.Mutations.Clear();
+        Assert.IsTrue(second.Mutations.TryAdd(item));
         transaction.Commit();
         CollectionAssert.AreEqual(new[] { "first", "second" }, calls);
         AssertUnboundAndUnlocked(first, second);
@@ -696,7 +773,7 @@ public sealed class ItemContainerMutationBoundaryTests
             if (publicationFails) throw publicationFailure;
         });
         using var transaction = ItemContainerTransaction.Begin(container.Mutations);
-        Assert.IsTrue(container.Add(new TestItem(47, 1)));
+        Assert.IsTrue(container.Mutations.TryAdd(new TestItem(47, 1)));
         foreach (var failure in hookFailures)
             Completion(container).Before(() => { AssertUnboundAndUnlocked(container); throw failure; });
         var thrown = Assert.ThrowsExactly<AggregateException>(() => transaction.Commit());
@@ -870,7 +947,7 @@ public sealed class ItemContainerMutationBoundaryTests
         Assert.AreEqual(typeof(IReadOnlyItemContainer), typeof(IEquipmentContainer).GetProperty("Items")!.PropertyType);
         Assert.IsFalse(typeof(IEquipmentContainer).GetProperty("Mutations") is not null);
         Assert.IsFalse(typeof(IMoneyPouchContainer).GetProperty("Items") is not null);
-        Assert.AreEqual(typeof(IItemContainerTransactionParticipant), typeof(IMoneyPouchContainer).GetProperty("Mutations")!.PropertyType);
+        Assert.AreEqual(typeof(IMoneyPouchMutationBoundary), typeof(IMoneyPouchContainer).GetProperty("Mutations")!.PropertyType);
     }
 
     [TestMethod]

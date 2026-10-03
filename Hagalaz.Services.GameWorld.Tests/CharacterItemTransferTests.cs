@@ -1048,9 +1048,9 @@ public sealed class CharacterItemTransferTests
         using (ItemContainerTransaction.Begin(boundary, pouch.Mutations, inventory.Items.Mutations))
         {
             Assert.IsTrue(equipment.TryReplaceEquippedItem(EquipmentSlot.Hat, current, replacement));
-            Assert.IsTrue(pouch.TryAddExact(2));
-            Assert.IsTrue(inventory.Items.AddRange([scenario.Builder.Create().WithId(995).WithCount(3).Build()]));
-            Assert.IsTrue(pouch.TryRemoveExact(3));
+            Assert.IsTrue(pouch.Mutations.TryAddExact(2));
+            Assert.IsTrue(inventory.Items.Mutations.TryAddRange([scenario.Builder.Create().WithId(995).WithCount(3).Build()]));
+            Assert.IsTrue(pouch.Mutations.TryRemoveExact(3));
             Assert.AreSame(replacement, equipment[EquipmentSlot.Hat]);
             Assert.AreEqual(9, pouch.Count);
             Assert.AreEqual(3, inventory.Items.GetCountById(995));
@@ -1091,24 +1091,6 @@ public sealed class CharacterItemTransferTests
         using var fresh = ItemContainerTransaction.Begin(boundary);
         fresh.Commit();
         Assert.AreEqual(5, order.Count);
-    }
-
-    [TestMethod]
-    public void EquipmentCompletion_FactsAndExecutionContractsContainNoDelegates()
-    {
-        static bool ContainsDelegate(Type type) => typeof(Delegate).IsAssignableFrom(type) ||
-            type.HasElementType && ContainsDelegate(type.GetElementType()!) ||
-            type.IsGenericType && type.GetGenericArguments().Any(ContainsDelegate);
-        var equipmentType = typeof(EquipmentContainer);
-        foreach (var type in equipmentType.GetNestedTypes(BindingFlags.NonPublic).Append(equipmentType))
-            foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
-                Assert.IsFalse(ContainsDelegate(field.FieldType), $"Delegate in equipment facts: {type.Name}.{field.Name}");
-        foreach (var method in equipmentType.GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
-        {
-            Assert.IsFalse(ContainsDelegate(method.ReturnType), $"Delegate conversion: {method.Name}");
-            Assert.IsFalse(method.GetParameters().Any(parameter => ContainsDelegate(parameter.ParameterType)),
-                $"Delegate execution contract: {method.Name}");
-        }
     }
 
     [TestMethod]

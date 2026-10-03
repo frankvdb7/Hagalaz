@@ -53,7 +53,7 @@ internal sealed class DuelStakeExchange
             (long)character.MoneyPouch.Count + character.Inventory.Items.GetCountById(CoinsItemId));
         if (transferCount <= 0) return false;
         var coins = _itemBuilder.Create().WithId(CoinsItemId).WithCount(transferCount).Build();
-        if (!stake.Add(coins) || !character.MoneyPouch.TryRemoveExact(transferCount)) return false;
+        if (!stake.Mutations.TryAdd(coins) || !character.MoneyPouch.Mutations.TryRemoveExact(transferCount)) return false;
         transaction.Commit();
         return true;
     }
@@ -66,7 +66,7 @@ internal sealed class DuelStakeExchange
     {
         using var transaction = ItemContainerTransaction.Begin(stake.Mutations, character.MoneyPouch.Mutations);
         var count = coins.Count;
-        if (!stake.TryRemoveExact(coins, preferredSourceSlot) || !character.MoneyPouch.TryAddExact(count)) return false;
+        if (!stake.Mutations.TryRemoveExact(coins, preferredSourceSlot) || !character.MoneyPouch.Mutations.TryAddExact(count)) return false;
         transaction.Commit();
         return true;
     }
@@ -96,7 +96,7 @@ internal sealed class DuelStakeExchange
         {
             if (item.Id == CoinsItemId)
             {
-                if (!stake.TryRemoveExact(item, slot) || !owner.MoneyPouch.TryAddExact(count)) return false;
+                if (!stake.Mutations.TryRemoveExact(item, slot) || !owner.MoneyPouch.Mutations.TryAddExact(count)) return false;
             }
             else if (!stake.Mutations.TryTransferTo(owner.Inventory.Items.Mutations, item, count, slot))
             {

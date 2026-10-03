@@ -86,7 +86,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return -1;
             }
 
-            Items.Sort();
+            _items.Mutations.Sort();
             transaction.Commit();
             return count;
         }

@@ -83,20 +83,25 @@ public sealed class ItemContainerTransaction : IDisposable
         _state = TransactionState.Committed;
         _snapshots.Clear();
         List<Exception>? failures = null;
+        var resourcesReleased = false;
+        try { ReleaseResources(); resourcesReleased = true; }
+        catch (Exception cleanupFailure) { (failures ??= []).Add(cleanupFailure); }
         try
         {
-            ReleaseResources(); // Every lock must be released before any owner completion.
-            // Ordinals preserve mutation order across owners; executable work stays with each owner.
-            for (var order = 0; order < _completionCount; order++)
+            if (resourcesReleased)
+            {
+                // Ordinals preserve mutation order across owners; executable work stays with each owner.
+                for (var order = 0; order < _completionCount; order++)
+                    foreach (var boundary in _boundaries)
+                    {
+                        try { boundary.CompleteBeforePublication(this, order); }
+                        catch (Exception exception) { (failures ??= []).Add(exception); }
+                    }
                 foreach (var boundary in _boundaries)
-                {
-                    try { boundary.CompleteBeforePublication(this, order); }
-                    catch (Exception exception) { (failures ??= []).Add(exception); }
-                }
-            foreach (var boundary in _boundaries)
-                if (_changed.TryGetValue(boundary.Storage, out var slots)) boundary.PublishCommittedChanges(slots);
-            for (var order = 0; order < _completionCount; order++)
-                foreach (var boundary in _boundaries) boundary.CompleteAfterPublication(this, order);
+                    if (_changed.TryGetValue(boundary.Storage, out var slots)) boundary.PublishCommittedChanges(slots);
+                for (var order = 0; order < _completionCount; order++)
+                    foreach (var boundary in _boundaries) boundary.CompleteAfterPublication(this, order);
+            }
         }
         catch (Exception completionFailure)
         {
@@ -104,7 +109,7 @@ public sealed class ItemContainerTransaction : IDisposable
         }
         finally
         {
-            DiscardPendingCompletion(ref failures);
+            if (resourcesReleased) DiscardPendingCompletion(ref failures);
         }
         ThrowFailures(failures);
         _state = TransactionState.Completed;

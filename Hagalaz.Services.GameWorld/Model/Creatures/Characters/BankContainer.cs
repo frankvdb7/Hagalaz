@@ -53,8 +53,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var count = _owner.MoneyPouch.Count;
             if (count <= 0) return false;
             var coins = _itemBuilder.Create().WithId(995).WithCount(count).Build();
-            if (!_owner.MoneyPouch.TryRemoveExact(count)) return false;
-            if (!_items.Add(coins))
+            if (!_owner.MoneyPouch.Mutations.TryRemoveExact(count)) return false;
+            if (!_items.Mutations.TryAdd(coins))
             {
                 transaction.Dispose();
                 _owner.SendChatMessage("Not enough space in your bank.");
@@ -281,7 +281,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            Items.Sort();
+            _items.Mutations.Sort();
             transaction.Commit();
             return true;
 

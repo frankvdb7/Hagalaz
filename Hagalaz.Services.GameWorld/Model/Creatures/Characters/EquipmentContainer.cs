@@ -160,7 +160,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             var inventoryBoundary = _owner.Inventory.Items.Mutations;
             using var replacementTransaction = ItemContainerTransaction.Begin(inventoryBoundary, _mutations);
-            if (!_owner.Inventory.Items.TryRemoveExact(item, slot)) return false;
+            if (!inventoryBoundary.TryRemoveExact(item, slot)) return false;
             if (needsWeaponUnequip && !_mutations.TryTransferTo(inventoryBoundary, equippedWeapon!,
                     equippedWeapon!.Count, (int)EquipmentSlot.Weapon, slot))
             {
