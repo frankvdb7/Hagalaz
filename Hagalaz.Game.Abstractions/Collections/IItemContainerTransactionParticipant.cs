@@ -14,7 +14,7 @@ internal interface IItemContainerTransactionParticipantInternal : IItemContainer
 // Fixed owner behavior only; no callback registration or public lifecycle SPI.
 internal interface IItemContainerCompletionOwner
 {
-    void DiscardDeferredCompletion(ItemContainerTransaction transaction);
+    void DiscardPendingCompletion(ItemContainerTransaction transaction);
     void CompleteBeforePublication(ItemContainerTransaction transaction, int order);
     void CompleteAfterPublication(ItemContainerTransaction transaction, int order);
 }

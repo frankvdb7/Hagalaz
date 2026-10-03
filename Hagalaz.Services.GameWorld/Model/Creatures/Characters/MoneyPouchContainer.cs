@@ -199,7 +199,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             changes.Enqueue(new MoneyPouchChange(transaction.NextCompletionOrder(), previousCount, changeCount));
         }
 
-        void IItemContainerCompletionOwner.DiscardDeferredCompletion(ItemContainerTransaction transaction) => _pendingChanges.TryRemove(transaction, out _);
+        void IItemContainerCompletionOwner.DiscardPendingCompletion(ItemContainerTransaction transaction) => _pendingChanges.TryRemove(transaction, out _);
         void IItemContainerCompletionOwner.CompleteBeforePublication(ItemContainerTransaction transaction, int order) { }
         void IItemContainerCompletionOwner.CompleteAfterPublication(ItemContainerTransaction transaction, int order)
         {

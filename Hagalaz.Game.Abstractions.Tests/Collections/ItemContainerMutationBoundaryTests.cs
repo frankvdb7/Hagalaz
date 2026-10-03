@@ -597,7 +597,7 @@ public sealed class ItemContainerMutationBoundaryTests
             if (!pending.TryGetValue(transaction, out var effects)) pending.Add(transaction, effects = []);
             effects.Add(transaction.NextCompletionOrder(), effect);
         }
-        public void DiscardDeferredCompletion(ItemContainerTransaction transaction) { _before.Remove(transaction); _after.Remove(transaction); }
+        public void DiscardPendingCompletion(ItemContainerTransaction transaction) { _before.Remove(transaction); _after.Remove(transaction); }
         public void CompleteBeforePublication(ItemContainerTransaction transaction, int order)
         {
             if (_before.TryGetValue(transaction, out var effects) && effects.Remove(order, out var effect)) effect();

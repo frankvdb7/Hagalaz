@@ -104,7 +104,7 @@ public sealed class ItemContainerTransaction : IDisposable
         }
         finally
         {
-            DiscardDeferredCompletion(ref failures);
+            DiscardPendingCompletion(ref failures);
         }
         ThrowFailures(failures);
         _state = TransactionState.Completed;
@@ -128,7 +128,7 @@ public sealed class ItemContainerTransaction : IDisposable
         finally
         {
             _snapshots.Clear();
-            DiscardDeferredCompletion(ref failures);
+            DiscardPendingCompletion(ref failures);
             ReleaseResources(failures);
         }
     }
@@ -158,11 +158,11 @@ public sealed class ItemContainerTransaction : IDisposable
     // A domain records this ordinal with its own pending facts, never executable work in the scope.
     internal int NextCompletionOrder() { EnsureActive(); return _completionCount++; }
 
-    private void DiscardDeferredCompletion(ref List<Exception>? failures)
+    private void DiscardPendingCompletion(ref List<Exception>? failures)
     {
         foreach (var boundary in _boundaries)
         {
-            try { boundary.DiscardDeferredCompletion(this); }
+            try { boundary.DiscardPendingCompletion(this); }
             catch (Exception exception) { (failures ??= []).Add(exception); }
         }
     }

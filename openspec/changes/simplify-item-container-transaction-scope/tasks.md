@@ -42,3 +42,11 @@ After pushing this refactor, verify hosted CI and CodeQL against that exact head
 - [x] 7.3 Run focused tests, all three suites, solution build, exact CI test command, strict OpenSpec, duplication and diff checks; record local evidence and review cumulative scope (AC1–7).
 
 Verify final pushed-head hosted CI and CodeQL and report their results in the PR description and final handoff.
+
+## 8. Direct typed equipment execution
+
+- [x] 8.1 Replace delegate conversion with direct typed equipment execution and explicit standalone publication; mechanically rename discard without changing transaction mechanics (AC2-5, AC7).
+- [x] 8.2 Add focused regressions for delegate-free pending facts, standalone and committed attempt-all/failure ordering, and no stale committed effects (AC3-5, AC7).
+- [x] 8.3 Run the three suites, solution build, exact CI command, strict OpenSpec, duplication and diff checks; record local evidence (AC1-7).
+
+Per the user's current instruction, do not commit, push or monitor hosted checks automatically. Hosted validation of these local changes remains pending until a push is requested.

@@ -110,17 +110,7 @@ public sealed class CharacterItemTransferTests
         var (equipment, eventManager, current, replacement) = CreateReplacementScenario(scenario);
         var unequipFailure = new InvalidOperationException("old unequip failed");
         var equipFailure = new InvalidOperationException("new equip failed");
-        var order = new List<string>();
-        current.EquipmentScript.When(script => script.OnUnequipped(current, scenario.Owner)).Do(_ =>
-        {
-            order.Add("unequip");
-            throw unequipFailure;
-        });
-        replacement.EquipmentScript.When(script => script.OnEquipped(replacement, scenario.Owner)).Do(_ =>
-        {
-            order.Add("equip");
-            throw equipFailure;
-        });
+        var order = ObserveFailingReplacementEffects(scenario.Owner, current, replacement, unequipFailure, equipFailure);
         eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
         {
             if (call.Arg<IEvent>() is EquipmentChangedEvent) order.Add("publish");
@@ -1097,6 +1087,82 @@ public sealed class CharacterItemTransferTests
         using var fresh = ItemContainerTransaction.Begin(boundary);
         fresh.Commit();
         Assert.AreEqual(5, order.Count);
+    }
+
+    [TestMethod]
+    public void EquipmentCompletion_FactsAndExecutionContractsContainNoDelegates()
+    {
+        static bool ContainsDelegate(Type type) => typeof(Delegate).IsAssignableFrom(type) ||
+            type.HasElementType && ContainsDelegate(type.GetElementType()!) ||
+            type.IsGenericType && type.GetGenericArguments().Any(ContainsDelegate);
+        var equipmentType = typeof(EquipmentContainer);
+        foreach (var type in equipmentType.GetNestedTypes(BindingFlags.NonPublic).Append(equipmentType))
+            foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
+                Assert.IsFalse(ContainsDelegate(field.FieldType), $"Delegate in equipment facts: {type.Name}.{field.Name}");
+        foreach (var method in equipmentType.GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+        {
+            Assert.IsFalse(ContainsDelegate(method.ReturnType), $"Delegate conversion: {method.Name}");
+            Assert.IsFalse(method.GetParameters().Any(parameter => ContainsDelegate(parameter.ParameterType)),
+                $"Delegate execution contract: {method.Name}");
+        }
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void EquipmentCompletion_AttemptsEffectsAndPublicationRetainsFlatFailuresAndNeverRetries(bool transactional)
+    {
+        using var scenario = new Scenario();
+        var (equipment, events, current, replacement) = CreateReplacementScenario(scenario);
+        var firstFailure = new InvalidOperationException("first unequip failure");
+        var secondFailure = new InvalidOperationException("second unequip failure");
+        var unequipFailure = new AggregateException(firstFailure, secondFailure);
+        var equipFailure = new InvalidOperationException("equip failure");
+        var publicationFailure = new InvalidOperationException("publication failure");
+        var order = ObserveFailingReplacementEffects(scenario.Owner, current, replacement, unequipFailure, equipFailure);
+        events.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(_ =>
+        {
+            order.Add("publication");
+            throw publicationFailure;
+        });
+        var boundary = (ItemContainerMutationBoundary)typeof(EquipmentContainer)
+            .GetField("_mutations", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(equipment)!;
+        using var transaction = transactional ? ItemContainerTransaction.Begin(boundary) : null;
+        var thrown = Assert.ThrowsExactly<AggregateException>(() =>
+        {
+            Assert.IsTrue(equipment.TryReplaceEquippedItem(EquipmentSlot.Hat, current, replacement));
+            transaction?.Commit();
+        });
+        CollectionAssert.AreEqual(new[] { "unequip", "equip", "publication" }, order);
+        CollectionAssert.AreEqual(new Exception[] { firstFailure, secondFailure, equipFailure, publicationFailure },
+            thrown.InnerExceptions.ToArray());
+        Assert.IsNotNull(unequipFailure.StackTrace);
+        Assert.IsNotNull(equipFailure.StackTrace);
+        Assert.IsNotNull(publicationFailure.StackTrace);
+        Assert.AreSame(replacement, equipment[EquipmentSlot.Hat]);
+        transaction?.Dispose();
+        transaction?.Dispose();
+        if (transaction != null) Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
+        using var fresh = ItemContainerTransaction.Begin(boundary);
+        fresh.Commit();
+        CollectionAssert.AreEqual(new[] { "unequip", "equip", "publication" }, order);
+    }
+
+    private static List<string> ObserveFailingReplacementEffects(ICharacter owner, IItem current, IItem replacement,
+        Exception unequipFailure, Exception equipFailure)
+    {
+        var order = new List<string>();
+        current.EquipmentScript.When(script => script.OnUnequipped(current, owner)).Do(_ =>
+        {
+            order.Add("unequip");
+            throw unequipFailure;
+        });
+        replacement.EquipmentScript.When(script => script.OnEquipped(replacement, owner)).Do(_ =>
+        {
+            order.Add("equip");
+            throw equipFailure;
+        });
+        return order;
     }
 
     private static InventoryContainer CreateInventory(Scenario scenario, int capacity) =>

@@ -897,7 +897,7 @@ public sealed class TradeExchangeTests
             if (!_pendingUpdates.TryGetValue(transaction, out var orders)) _pendingUpdates.Add(transaction, orders = []);
             orders.Add(transaction.NextCompletionOrder());
         }
-        public void DiscardDeferredCompletion(ItemContainerTransaction transaction) => _pendingUpdates.Remove(transaction);
+        public void DiscardPendingCompletion(ItemContainerTransaction transaction) => _pendingUpdates.Remove(transaction);
         public void CompleteBeforePublication(ItemContainerTransaction transaction, int order) { }
         public void CompleteAfterPublication(ItemContainerTransaction transaction, int order)
         {

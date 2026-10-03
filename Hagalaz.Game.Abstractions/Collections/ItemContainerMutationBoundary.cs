@@ -57,7 +57,7 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
 
     internal void PublishCommittedChanges(HashSet<int>? slots) => _publishChanges?.Invoke(slots);
 
-    internal void DiscardDeferredCompletion(ItemContainerTransaction transaction) => _completion?.DiscardDeferredCompletion(transaction);
+    internal void DiscardPendingCompletion(ItemContainerTransaction transaction) => _completion?.DiscardPendingCompletion(transaction);
     internal void CompleteBeforePublication(ItemContainerTransaction transaction, int order) => _completion?.CompleteBeforePublication(transaction, order);
     internal void CompleteAfterPublication(ItemContainerTransaction transaction, int order) => _completion?.CompleteAfterPublication(transaction, order);
 }

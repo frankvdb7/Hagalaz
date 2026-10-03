@@ -316,8 +316,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
             if (!cleared) return;
 
-            CompleteEquipmentChange(null, equippedItems
-                .Select(item => new EquipmentEffect(EquipmentEffectKind.Unequipped, item)).ToArray());
+            var effects = new EquipmentEffect[equippedItems.Length];
+            for (var index = 0; index < equippedItems.Length; index++)
+                effects[index] = new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItems[index]);
+            CompleteEquipmentChange(null, effects);
         }
 
         private void CompleteEquipmentChange(HashSet<EquipmentSlot>? slots, params EquipmentEffect[] effects)
@@ -327,7 +329,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 CompleteEquipmentEffects(effects);
                 PublishChanges(slots);
             }
-            else RunPostCommitActions(effects.Select(ToAction).Append(() => PublishChanges(slots)).ToArray());
+            else
+            {
+                var failures = ExecuteEquipmentEffects(effects);
+                try { PublishChanges(slots); }
+                catch (Exception exception) { (failures ??= []).Add(exception); }
+                ThrowEquipmentFailures(failures);
+            }
         }
 
         // Equipment owns these small lifecycle batches; the transaction cannot schedule arbitrary work.
@@ -335,40 +343,41 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             if (_storage.Transaction is not { } transaction)
             {
-                RunPostCommitActions(effects.Select(ToAction).ToArray());
+                ThrowEquipmentFailures(ExecuteEquipmentEffects(effects));
                 return;
             }
             var pending = _pendingCompletion.GetOrAdd(transaction, _ => new Queue<EquipmentCompletion>());
             pending.Enqueue(new EquipmentCompletion(transaction.NextCompletionOrder(), effects));
         }
 
-        void IItemContainerCompletionOwner.DiscardDeferredCompletion(ItemContainerTransaction transaction) => _pendingCompletion.TryRemove(transaction, out _);
+        void IItemContainerCompletionOwner.DiscardPendingCompletion(ItemContainerTransaction transaction) => _pendingCompletion.TryRemove(transaction, out _);
         void IItemContainerCompletionOwner.CompleteAfterPublication(ItemContainerTransaction transaction, int order) { }
         void IItemContainerCompletionOwner.CompleteBeforePublication(ItemContainerTransaction transaction, int order)
         {
             if (!_pendingCompletion.TryGetValue(transaction, out var pending) || !pending.TryPeek(out var completion) || completion.Order != order) return;
             pending.Dequeue();
-            RunPostCommitActions(completion.Effects.Select(ToAction).ToArray());
+            ThrowEquipmentFailures(ExecuteEquipmentEffects(completion.Effects));
         }
 
-        private Action ToAction(EquipmentEffect effect) => () =>
+        private void ExecuteEquipmentEffect(EquipmentEffect effect)
         {
             switch (effect.Kind)
             {
                 case EquipmentEffectKind.Equipped: effect.Item.EquipmentScript.OnEquipped(effect.Item, _owner); break;
                 case EquipmentEffectKind.Unequipped: effect.Item.EquipmentScript.OnUnequipped(effect.Item, _owner); break;
                 case EquipmentEffectKind.WeaponProfile: UpdateWeaponProfileAfterUnequip(effect.Item, effect.Incoming!); break;
+                default: throw new ArgumentOutOfRangeException(nameof(effect), effect.Kind, "Unknown equipment effect.");
             }
-        };
+        }
 
-        private static void RunPostCommitActions(params Action[] actions)
+        private List<Exception>? ExecuteEquipmentEffects(EquipmentEffect[] effects)
         {
             List<Exception>? exceptions = null;
-            foreach (var action in actions)
+            foreach (var effect in effects)
             {
                 try
                 {
-                    action();
+                    ExecuteEquipmentEffect(effect);
                 }
                 catch (Exception exception)
                 {
@@ -376,13 +385,24 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
             }
 
+            return exceptions;
+        }
+
+        private static void ThrowEquipmentFailures(List<Exception>? exceptions)
+        {
             if (exceptions is { Count: 1 })
             {
                 ExceptionDispatchInfo.Capture(exceptions[0]).Throw();
             }
             else if (exceptions is { Count: > 1 })
             {
-                throw new AggregateException("Multiple post-commit equipment actions failed.", exceptions);
+                var failures = new List<Exception>();
+                foreach (var exception in exceptions)
+                {
+                    if (exception is AggregateException aggregate) failures.AddRange(aggregate.Flatten().InnerExceptions);
+                    else failures.Add(exception);
+                }
+                throw new AggregateException("Multiple post-commit equipment actions failed.", failures);
             }
         }
 
