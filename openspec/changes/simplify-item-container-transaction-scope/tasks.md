@@ -26,4 +26,4 @@
 - [x] 5.1 Distinguish current-thread joining/nesting from independent cross-thread lock contention; add same/overlapping storage and helper regressions without sleeps (AC1, AC2, AC6).
 - [x] 5.2 Review joining helper failure side effects, preserve standalone messages outside owned locks, and document validation boundaries that cannot become pure without domain redesign (AC3, AC7).
 - [x] 5.3 Flatten completion failures, preserve primary construction/rollback failures during cleanup, and document eager-reader isolation and thread limits (AC2, AC3, AC5).
-- [ ] 5.4 Run focused tests first, all three regression suites, build, full CI tests, strict OpenSpec, duplication and diff gates; inspect hosted CI and CodeQL for the updated PR head (AC1–7).
+- [x] 5.4 Run focused tests first, all three regression suites, build, full CI tests, strict OpenSpec, duplication and diff gates; inspect hosted CI and CodeQL for the updated PR head (AC1–7).
