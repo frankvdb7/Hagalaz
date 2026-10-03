@@ -23,8 +23,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public IItemContainerTransactionParticipant Mutations => this;
 
-        IReadOnlyList<ItemContainerMutationBoundary> IItemContainerTransactionParticipantInternal.Boundaries =>
-            [_storageMutations, (ItemContainerMutationBoundary)_owner.Inventory.Items.Mutations];
+        IReadOnlyList<ItemContainerMutationBoundary> IItemContainerTransactionParticipantInternal.Boundaries
+        {
+            get
+            {
+                if (_owner.Inventory.Items.Mutations is not IItemContainerTransactionParticipantInternal inventory)
+                    throw new ArgumentException("Use the participant provided by a container's Mutations property.", "participants");
+                var boundaries = inventory.Boundaries;
+                if (boundaries == null || boundaries.Count == 0)
+                    throw new ArgumentException("The inventory participant must contribute storage.", "participants");
+                return [_storageMutations, .. boundaries];
+            }
+        }
 
         public bool HasSpaceForCoins(int count) => count > 0 && (long)Count + count <= int.MaxValue;
 

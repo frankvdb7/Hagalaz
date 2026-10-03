@@ -70,7 +70,7 @@ public sealed class ItemContainerMutationBoundaryTests
         publications = 0;
         var sourceEnumerator = source.GetEnumerator();
         var destinationEnumerator = destination.GetEnumerator();
-        using (var transaction = ItemContainerTransaction.Begin(source.Mutations, destination.Mutations))
+        using (ItemContainerTransaction.Begin(source.Mutations, destination.Mutations))
         {
             Assert.IsTrue(source.Mutations.TryTransferTo(destination.Mutations, item, 3, 0));
             source.Clear(update: false); // Rollback must include mutations which intentionally suppress notification.
@@ -138,7 +138,7 @@ public sealed class ItemContainerMutationBoundaryTests
     public void Dispose_TwiceIsInertAndCommitAfterDisposalIsInvalid()
     {
         var container = new ItemContainer(StorageType.Normal, 1);
-        var transaction = ItemContainerTransaction.Begin(container.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(container.Mutations);
         Assert.IsTrue(container.Add(new TestItem(25, 1)));
         transaction.Dispose();
         transaction.Dispose();

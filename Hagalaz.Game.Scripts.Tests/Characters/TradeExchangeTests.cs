@@ -411,9 +411,7 @@ public sealed class TradeExchangeTests
 
         firstInventory.Items.GetCountById(101).Should().Be(1);
         secondInventory.Items.GetCountById(100).Should().Be(1);
-        firstOffer.Items.TakenSlots.Should().Be(0);
-        secondOffer.Items.TakenSlots.Should().Be(0);
-        script.TradeSession.Should().BeFalse();
+        AssertTradeClosed(script, firstOffer.Items, secondOffer.Items);
     }
 
     [TestMethod]
@@ -422,13 +420,7 @@ public sealed class TradeExchangeTests
         var (firstInventory, secondInventory, _, _, script) = CreatePreparedTradeScenario();
         var firstOffer = script.SelfContainer;
         var secondOffer = script.TargetContainer;
-        var publicationException = new InvalidOperationException("publication failed");
-        var session = GetField(script, "_tradeSession")!;
-        firstInventory.OnUpdateAction = () =>
-        {
-            GetProperty(session, "State")!.ToString().Should().Be("Completed");
-            throw publicationException;
-        };
+        var publicationException = FailPublicationInTerminalState(firstInventory, script, "Completed");
 
         Action finish = script.FinishTradeSession;
         finish.Should().Throw<InvalidOperationException>().Which.Should().BeSameAs(publicationException);
@@ -469,9 +461,7 @@ public sealed class TradeExchangeTests
         firstMoneyPouch.Count.Should().Be(3);
         firstInventory.Items.GetCountById(101).Should().Be(1);
         secondInventory.Items.GetCountById(100).Should().Be(1);
-        firstOffer.Items.TakenSlots.Should().Be(0);
-        secondOffer.Items.TakenSlots.Should().Be(0);
-        script.TradeSession.Should().BeFalse();
+        AssertTradeClosed(script, firstOffer.Items, secondOffer.Items);
     }
 
     [TestMethod]
@@ -480,13 +470,7 @@ public sealed class TradeExchangeTests
         var (firstInventory, secondInventory, _, _, script) = CreatePreparedTradeScenario();
         var firstOffer = script.SelfContainer;
         var secondOffer = script.TargetContainer;
-        var publicationException = new InvalidOperationException("publication failed");
-        var session = GetField(script, "_tradeSession")!;
-        firstInventory.OnUpdateAction = () =>
-        {
-            GetProperty(session, "State")!.ToString().Should().Be("Cancelled");
-            throw publicationException;
-        };
+        var publicationException = FailPublicationInTerminalState(firstInventory, script, "Cancelled");
 
         Action cancel = script.CancelTradeSession;
         cancel.Should().Throw<InvalidOperationException>().Which.Should().BeSameAs(publicationException);
@@ -515,13 +499,7 @@ public sealed class TradeExchangeTests
         var firstOffer = script.SelfContainer;
         var secondOffer = script.TargetContainer;
 
-        var publicationException = new InvalidOperationException("publication failed");
-        var session = GetField(script, "_tradeSession")!;
-        firstRewards.OnUpdateAction = () =>
-        {
-            GetProperty(session, "State")!.ToString().Should().Be("Cancelled");
-            throw publicationException;
-        };
+        var publicationException = FailPublicationInTerminalState(firstRewards, script, "Cancelled");
 
         Action destroy = script.OnDestroy;
         destroy.Should().Throw<InvalidOperationException>().Which.Should().BeSameAs(publicationException);
@@ -795,6 +773,26 @@ public sealed class TradeExchangeTests
         SetProperty(script, "SelfAcceptedContainerRevision", firstOffer.Revision);
         SetProperty(script, "TargetAcceptedContainerRevision", secondOffer.Revision);
         return script;
+    }
+
+    private static InvalidOperationException FailPublicationInTerminalState(ComposedTestContainer publisher,
+        TradingCharacterScript script, string expectedState)
+    {
+        var exception = new InvalidOperationException("publication failed");
+        var session = GetField(script, "_tradeSession")!;
+        publisher.OnUpdateAction = () =>
+        {
+            GetProperty(session, "State")!.ToString().Should().Be(expectedState);
+            throw exception;
+        };
+        return exception;
+    }
+
+    private static void AssertTradeClosed(TradingCharacterScript script, IItemContainer firstOffer, IItemContainer secondOffer)
+    {
+        firstOffer.TakenSlots.Should().Be(0);
+        secondOffer.TakenSlots.Should().Be(0);
+        script.TradeSession.Should().BeFalse();
     }
 
     private static int TotalCount(int itemId, params IItemContainer[] containers) =>

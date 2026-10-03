@@ -19,7 +19,7 @@
 ## 4. Integration verification
 
 - [x] 4.1 Run focused abstraction, script, and GameWorld suites and the solution build; sync and validate the current specs, validate this change strictly, and review the cumulative diff for scope and duplicate lifecycle paths.
-- [ ] 4.2 Run the pinned PR-only jscpd baseline gate against the pull request base and verify it reports no new clone pairs.
+- [x] 4.2 Run the pinned PR-only jscpd baseline gate against the pull request base and verify it reports no new clone pairs.
 
 ## Validation record after publication simplification
 
@@ -29,4 +29,4 @@
 - `dotnet build Hagalaz.sln --no-restore`: succeeded with 6 warnings and 0 errors on the final build.
 - Current storage and trading-completion specs are synced; strict change validation and all 4 current specs passed.
 - Cumulative diff, production callers, obsolete APIs, publication ordering, rollback, and ownership reviewed; `git diff --check` passed. Transaction, pouch, shop, and trade publication contain no captured or aggregated exceptions; the first publication failure propagates directly and committed trade cleanup runs in `finally`.
-- The pinned jscpd gate remains pending: it runs for a pull request against that pull request's base SHA. This local branch has no pull request yet.
+- PR #516 review: pinned jscpd 5.3.2 passed against actual PR base `9c9f8622305d18ca05fa7099848a0cdb01cf09b6` with zero new clone pairs. The approved transaction API in this historical change was superseded by `simplify-item-container-transaction-scope`; its trade lifecycle guarantees remain in force.
