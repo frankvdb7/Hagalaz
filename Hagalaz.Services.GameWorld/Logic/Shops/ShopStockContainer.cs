@@ -146,7 +146,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 ? null
                 : _itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)currencyCount).Build();
 
-            return transaction.TryExecute(tx =>
+            MoneyPouchChange? payoutChange = null;
+            var committed = transaction.TryCommit(tx =>
             {
                 if (!tx.TryTransfer(viewer.Inventory.Items.Mutations, _items.Mutations, item, count, slot,
                         destinationItem: transformed ? sold : null))
@@ -155,9 +156,11 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 }
 
                 return _shop.CurrencyId == 995
-                    ? viewer.MoneyPouch.Mutations.TryStageAddExact(tx, (int)currencyCount)
+                    ? (payoutChange = viewer.MoneyPouch.Mutations.StageAddExact(tx, (int)currencyCount)) != null
                     : tx.TryAddRange(viewer.Inventory.Items.Mutations, [payout!]);
             });
+            MoneyPouchChange.PublishChanges(transaction, payoutChange);
+            return committed;
         }
 
         /// <summary>
@@ -243,12 +246,13 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             if (_shop.CurrencyId == 995) viewer.MoneyPouch.Mutations.EnlistIn(transaction);
 
             var paymentRejected = false;
-            var succeeded = transaction.TryExecute(tx =>
+            MoneyPouchChange? paymentChange = null;
+            var succeeded = transaction.TryCommit(tx =>
             {
                 if (cost > 0)
                 {
                     var paid = _shop.CurrencyId == 995
-                        ? viewer.MoneyPouch.Mutations.TryStageRemoveExact(tx, (int)cost)
+                        ? (paymentChange = viewer.MoneyPouch.Mutations.StageRemoveExact(tx, (int)cost)) != null
                         : tx.TryRemoveExact(viewer.Inventory.Items.Mutations,
                             _itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)cost).Build());
                     if (!paid)
@@ -263,15 +267,6 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                     return false;
                 }
 
-                if (!originalStock)
-                {
-                    tx.OnCommitted(() =>
-                    {
-                        if (Items[slot] == null) Items.Sort();
-                    });
-                }
-
-                tx.OnCommitted(() => _eventManager.SendEvent(new ShopItemBoughtEvent(viewer, _shop, toRemove)));
                 return true;
             });
 
@@ -280,6 +275,12 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 viewer.SendChatMessage("You don't have enough " + _itemRepository.FindItemDefinitionById(_shop.CurrencyId).Name.ToLower() + "!");
             }
 
+            if (succeeded)
+            {
+                MoneyPouchChange.PublishChanges(transaction, paymentChange);
+                if (!originalStock && Items[slot] == null) Items.Sort();
+                _eventManager.SendEvent(new ShopItemBoughtEvent(viewer, _shop, toRemove));
+            }
             return succeeded;
         }
 

@@ -5,7 +5,9 @@ public interface IMoneyPouchMutationBoundary
 {
     void EnlistIn(IItemContainerTransaction transaction);
 
-    bool TryStageAddExact(IItemContainerTransaction transaction, int count);
+    MoneyPouchChange? StageAddExact(IItemContainerTransaction transaction, int count);
 
-    bool TryStageRemoveExact(IItemContainerTransaction transaction, int count);
+    MoneyPouchChange? StageRemoveExact(IItemContainerTransaction transaction, int count);
+
+    internal void PublishChange(int previousCount, int changeCount);
 }

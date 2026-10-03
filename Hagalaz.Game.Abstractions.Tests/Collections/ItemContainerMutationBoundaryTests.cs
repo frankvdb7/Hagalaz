@@ -56,11 +56,10 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
-    public void Transaction_InterfaceTypedParticipantsRollbackWithoutPublishingOrRunningCallbacks()
+    public void Transaction_InterfaceTypedParticipantsRollbackWithoutPublishing()
     {
         var sourcePublished = 0;
         var destinationPublished = 0;
-        var callbackRan = false;
         var source = new ItemContainer(StorageType.Normal, 2, _ => sourcePublished++);
         var destination = new ItemContainer(StorageType.Normal, 2, _ => destinationPublished++);
         var item = new TestItem(20, 3);
@@ -68,19 +67,19 @@ public sealed class ItemContainerMutationBoundaryTests
         sourcePublished = 0;
 
         var transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
-        Assert.IsFalse(transaction.TryExecute(tx =>
+        Assert.IsFalse(transaction.TryCommit(tx =>
         {
             Assert.IsTrue(tx.TryTransfer(source.Mutations, destination.Mutations, item, 3, 0));
-            tx.OnCommitted(() => callbackRan = true);
             return false;
         }));
+        Assert.IsFalse(transaction.Committed);
+        Assert.IsFalse(transaction.PublishChanges());
 
         Assert.AreSame(item, source[0]);
         Assert.AreEqual(3, source[0]!.Count);
         Assert.IsNull(destination[0]);
         Assert.AreEqual(0, sourcePublished);
         Assert.AreEqual(0, destinationPublished);
-        Assert.IsFalse(callbackRan);
     }
 
     [TestMethod]
@@ -100,19 +99,17 @@ public sealed class ItemContainerMutationBoundaryTests
         destinationPublished = 0;
         var sourceEnumerator = source.GetEnumerator();
         var destinationEnumerator = destination.GetEnumerator();
-        var beforePublishCallbackRan = false;
-        var committedCallbackRan = false;
         var transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
 
-        var result = transaction.TryExecute(tx =>
+        var result = transaction.TryCommit(tx =>
         {
             Assert.IsTrue(tx.TryTransfer(source.Mutations, destination.Mutations, sourceItem, sourceItem.Count, 0));
-            transaction.OnCommittedBeforePublish(() => beforePublishCallbackRan = true);
-            tx.OnCommitted(() => committedCallbackRan = true);
             return false;
         });
 
         Assert.IsFalse(result);
+        Assert.IsFalse(transaction.Committed);
+        Assert.IsFalse(transaction.PublishChanges());
         Assert.AreSame(sourceItem, source[0]);
         Assert.AreEqual(5, sourceItem.Count);
         Assert.AreSame(secondSourceItem, source[1]);
@@ -122,8 +119,6 @@ public sealed class ItemContainerMutationBoundaryTests
         Assert.IsNull(destination[1]);
         Assert.AreEqual(0, sourcePublished);
         Assert.AreEqual(0, destinationPublished);
-        Assert.IsFalse(beforePublishCallbackRan);
-        Assert.IsFalse(committedCallbackRan);
 
         Assert.IsTrue(sourceEnumerator.MoveNext());
         Assert.AreSame(sourceItem, sourceEnumerator.Current);
@@ -156,20 +151,18 @@ public sealed class ItemContainerMutationBoundaryTests
         destinationPublished = 0;
         var sourceEnumerator = source.GetEnumerator();
         var destinationEnumerator = destination.GetEnumerator();
-        var beforePublishCallbackRan = false;
-        var committedCallbackRan = false;
         var originalException = new System.InvalidOperationException("Abort after staging.");
         var transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
 
-        var thrown = Assert.ThrowsExactly<System.InvalidOperationException>(() => transaction.TryExecute(tx =>
+        var thrown = Assert.ThrowsExactly<System.InvalidOperationException>(() => transaction.TryCommit(tx =>
         {
             Assert.IsTrue(tx.TryTransfer(source.Mutations, destination.Mutations, item, item.Count, 0));
-            transaction.OnCommittedBeforePublish(() => beforePublishCallbackRan = true);
-            tx.OnCommitted(() => committedCallbackRan = true);
             throw originalException;
         }));
 
         Assert.AreSame(originalException, thrown);
+        Assert.IsFalse(transaction.Committed);
+        Assert.IsFalse(transaction.PublishChanges());
         Assert.AreSame(item, source[0]);
         Assert.AreEqual(5, item.Count);
         Assert.AreSame(destinationItem, destination[0]);
@@ -177,8 +170,6 @@ public sealed class ItemContainerMutationBoundaryTests
         Assert.IsNull(destination[1]);
         Assert.AreEqual(0, sourcePublished);
         Assert.AreEqual(0, destinationPublished);
-        Assert.IsFalse(beforePublishCallbackRan);
-        Assert.IsFalse(committedCallbackRan);
         Assert.IsTrue(sourceEnumerator.MoveNext());
         Assert.AreSame(item, sourceEnumerator.Current);
         Assert.IsTrue(sourceEnumerator.MoveNext());
@@ -202,7 +193,7 @@ public sealed class ItemContainerMutationBoundaryTests
         var destinationEnumerator = destination.GetEnumerator();
         var transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
 
-        Assert.IsTrue(transaction.TryExecute(tx => tx.TryTransfer(source.Mutations, destination.Mutations, item, 1, 0)));
+        Assert.IsTrue(transaction.TryCommit(tx => tx.TryTransfer(source.Mutations, destination.Mutations, item, 1, 0)));
 
         Assert.ThrowsExactly<System.InvalidOperationException>(() => sourceEnumerator.MoveNext());
         Assert.ThrowsExactly<System.InvalidOperationException>(() => destinationEnumerator.MoveNext());
@@ -211,10 +202,9 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
-    public void Transaction_EmptyRangeDoesNotPublishButStillRunsCommittedCallback()
+    public void Transaction_EmptyRangeCommitsWithoutPublishingOrInvalidatingEnumerator()
     {
         var publications = 0;
-        var committedCallbacks = 0;
         var container = new ItemContainer(StorageType.Normal, 2, _ => publications++);
         var existing = new TestItem(31, 2);
         Assert.IsTrue(container.Add(existing));
@@ -222,16 +212,16 @@ public sealed class ItemContainerMutationBoundaryTests
         var enumerator = container.GetEnumerator();
         var transaction = new ItemContainerTransaction(container.Mutations);
 
-        var result = transaction.TryExecute(tx =>
+        var result = transaction.TryCommit(tx =>
         {
             Assert.IsTrue(tx.TryAddRange(container.Mutations, System.Array.Empty<IItem?>()));
-            tx.OnCommitted(() => committedCallbacks++);
             return true;
         });
 
         Assert.IsTrue(result);
+        Assert.IsTrue(transaction.Committed);
+        Assert.IsTrue(transaction.PublishChanges());
         Assert.AreEqual(0, publications);
-        Assert.AreEqual(1, committedCallbacks);
         Assert.AreSame(existing, container[0]);
         Assert.AreEqual(2, existing.Count);
         Assert.IsTrue(enumerator.MoveNext());
@@ -239,170 +229,106 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
-    public void Transaction_RealRangeMutationInvalidatesEnumeratorPublishesAndRunsCallback()
+    public void Transaction_RealRangeMutationInvalidatesEnumeratorAndPublishesExplicitly()
     {
         var publications = 0;
-        var committedCallbacks = 0;
         var container = new ItemContainer(StorageType.Normal, 2, _ => publications++);
         var enumerator = container.GetEnumerator();
         var transaction = new ItemContainerTransaction(container.Mutations);
 
-        Assert.IsTrue(transaction.TryExecute(tx =>
+        Assert.IsTrue(transaction.TryCommit(tx =>
         {
             Assert.IsTrue(tx.TryAddRange(container.Mutations, [new TestItem(32, 1)]));
-            tx.OnCommitted(() => committedCallbacks++);
             return true;
         }));
 
+        Assert.AreEqual(0, publications);
+        Assert.IsTrue(transaction.PublishChanges());
         Assert.AreEqual(1, publications);
-        Assert.AreEqual(1, committedCallbacks);
         Assert.ThrowsExactly<System.InvalidOperationException>(() => enumerator.MoveNext());
     }
 
     [TestMethod]
-    public void Transaction_OnCommittedRunsAfterCommittedBoundaryPublication()
-    {
-        var publicationOrder = new List<string>();
-        var source = new ItemContainer(StorageType.Normal, 2, _ => publicationOrder.Add("source"));
-        var destination = new ItemContainer(StorageType.Normal, 2, _ => publicationOrder.Add("destination"));
-        var item = new TestItem(21, 1);
-        Assert.IsTrue(source.Add(item));
-        publicationOrder.Clear();
-        var transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
-
-        Assert.IsTrue(transaction.TryExecute(tx =>
-        {
-            Assert.IsTrue(tx.TryTransfer(source.Mutations, destination.Mutations, item, 1, 0));
-            tx.OnCommitted(() => publicationOrder.Add("domain"));
-            return true;
-        }));
-
-        CollectionAssert.AreEqual(new[] { "source", "destination", "domain" }, publicationOrder);
-    }
-
-    [TestMethod]
-    public void Transaction_PostCommitPublisherFailureDoesNotRollbackAndAttemptsLaterActions()
-    {
-        var originalException = new InvalidOperationException("Source publisher failed.");
-        var sourcePublisherCalls = 0;
-        var destinationPublisherCalls = 0;
-        var committedCallbackCalls = 0;
-        var throwOnSourcePublish = false;
-        var source = new ItemContainer(StorageType.Normal, 2, _ =>
-        {
-            sourcePublisherCalls++;
-            if (throwOnSourcePublish) throw originalException;
-        });
-        var destination = new ItemContainer(StorageType.Normal, 2, _ => destinationPublisherCalls++);
-        var item = new TestItem(24, 3);
-        Assert.IsTrue(source.Add(item));
-        sourcePublisherCalls = 0;
-        throwOnSourcePublish = true;
-        var transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
-
-        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => transaction.TryExecute(tx =>
-        {
-            Assert.IsTrue(tx.TryTransfer(source.Mutations, destination.Mutations, item, 3, 0));
-            tx.OnCommitted(() => committedCallbackCalls++);
-            return true;
-        }));
-
-        Assert.AreSame(originalException, thrown);
-        Assert.IsNull(source[0]);
-        Assert.AreSame(item, destination[0]);
-        Assert.AreEqual(1, sourcePublisherCalls);
-        Assert.AreEqual(1, destinationPublisherCalls);
-        Assert.AreEqual(1, committedCallbackCalls);
-    }
-
-    [TestMethod]
-    public void Transaction_PostCommitActionsRunInPhaseAndParticipantRegistrationOrder()
+    public void Transaction_CommitAndPublicationAreSeparateAndPublishOnceInParticipantOrder()
     {
         var order = new List<string>();
-        var source = new ItemContainer(StorageType.Normal, 2, _ => order.Add("source publisher"));
-        var destination = new ItemContainer(StorageType.Normal, 2, _ => order.Add("destination publisher"));
+        var source = new ItemContainer(StorageType.Normal, 2, _ => order.Add("source"));
+        var destination = new ItemContainer(StorageType.Normal, 2, _ => order.Add("destination"));
+        var item = new TestItem(21, 1);
+        Assert.IsTrue(source.Add(item));
+        order.Clear();
         var transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
 
-        Assert.IsTrue(transaction.TryExecute(tx =>
-        {
-            Assert.IsTrue(tx.TryAddRange(destination.Mutations, [new TestItem(25, 1)]));
-            Assert.IsTrue(tx.TryAddRange(source.Mutations, [new TestItem(26, 1)]));
-            transaction.OnCommittedBeforePublish(() => order.Add("before"));
-            tx.OnCommitted(() => order.Add("committed"));
-            return true;
-        }));
+        Assert.IsFalse(transaction.Committed);
+        Assert.IsFalse(transaction.PublishChanges());
+        Assert.IsTrue(transaction.TryCommit(tx => tx.TryTransfer(source.Mutations, destination.Mutations, item, 1, 0)));
+        Assert.IsTrue(transaction.Committed);
+        Assert.IsNull(source[0]);
+        Assert.AreSame(item, destination[0]);
+        Assert.AreEqual(0, order.Count);
 
-        CollectionAssert.AreEqual(new[] { "before", "source publisher", "destination publisher", "committed" }, order);
+        Assert.IsTrue(transaction.PublishChanges());
+        CollectionAssert.AreEqual(new[] { "source", "destination" }, order);
+        Assert.IsFalse(transaction.PublishChanges());
+        CollectionAssert.AreEqual(new[] { "source", "destination" }, order);
     }
 
     [TestMethod]
-    public void Transaction_PostCommitCallbackFailureStillRunsLaterCallbacks()
+    public void Transaction_PublisherFailureKeepsCommittedStorageAndStopsLaterPublishers()
     {
-        var firstException = new InvalidOperationException("First callback failed.");
-        var secondCallbackRan = false;
-        var container = new ItemContainer(StorageType.Normal, 2);
-        var transaction = new ItemContainerTransaction(container.Mutations);
-
-        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => transaction.TryExecute(tx =>
+        var publicationException = new InvalidOperationException("Source publisher failed.");
+        var sourceCalls = 0;
+        var destinationCalls = 0;
+        var failPublication = false;
+        var source = new ItemContainer(StorageType.Normal, 2, _ =>
         {
-            Assert.IsTrue(tx.TryAddRange(container.Mutations, [new TestItem(27, 1)]));
-            tx.OnCommitted(() => throw firstException);
-            tx.OnCommitted(() => secondCallbackRan = true);
-            return true;
-        }));
+            sourceCalls++;
+            if (failPublication) throw publicationException;
+        });
+        var destination = new ItemContainer(StorageType.Normal, 2, _ => destinationCalls++);
+        var item = new TestItem(24, 3);
+        Assert.IsTrue(source.Add(item));
+        sourceCalls = 0;
+        failPublication = true;
+        var transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
+        Assert.IsTrue(transaction.TryCommit(tx => tx.TryTransfer(source.Mutations, destination.Mutations, item, 3, 0)));
 
-        Assert.AreSame(firstException, thrown);
-        Assert.AreEqual(1, container.TakenSlots);
-        Assert.IsTrue(secondCallbackRan);
+        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => transaction.PublishChanges());
+
+        Assert.AreSame(publicationException, thrown);
+        Assert.IsTrue(transaction.Committed);
+        Assert.IsNull(source[0]);
+        Assert.AreSame(item, destination[0]);
+        Assert.AreEqual(1, sourceCalls);
+        Assert.AreEqual(0, destinationCalls);
+        Assert.IsFalse(transaction.PublishChanges());
+        Assert.AreEqual(1, sourceCalls);
+        Assert.AreEqual(0, destinationCalls);
     }
 
     [TestMethod]
-    public void Transaction_MultiplePostCommitFailuresAreAggregatedAfterAllActionsRun()
+    public void Transaction_LaterPublisherFailurePreservesEarlierPublicationAndCommittedStorage()
     {
-        var beforeException = new InvalidOperationException("Before publish failed.");
-        var publisherException = new InvalidOperationException("Publisher failed.");
-        var committedException = new InvalidOperationException("Committed callback failed.");
-        var committedCallbackRan = false;
-        var container = new ItemContainer(StorageType.Normal, 2, _ => throw publisherException);
-        var transaction = new ItemContainerTransaction(container.Mutations);
-
-        var thrown = Assert.ThrowsExactly<AggregateException>(() => transaction.TryExecute(tx =>
+        var secondFailure = new InvalidOperationException("Second publisher failed.");
+        var calls = new List<string>();
+        var first = new ItemContainer(StorageType.Normal, 2, _ => calls.Add("first"));
+        var second = new ItemContainer(StorageType.Normal, 2, _ =>
         {
-            Assert.IsTrue(tx.TryAddRange(container.Mutations, [new TestItem(28, 1)]));
-            transaction.OnCommittedBeforePublish(() => throw beforeException);
-            tx.OnCommitted(() => throw committedException);
-            tx.OnCommitted(() => committedCallbackRan = true);
-            return true;
-        }));
+            calls.Add("second");
+            throw secondFailure;
+        });
+        var transaction = new ItemContainerTransaction(first.Mutations, second.Mutations);
+        Assert.IsTrue(transaction.TryCommit(tx =>
+            tx.TryAddRange(first.Mutations, [new TestItem(25, 1)]) &&
+            tx.TryAddRange(second.Mutations, [new TestItem(26, 1)])));
 
-        StringAssert.StartsWith(thrown.Message, "Multiple post-commit item-container actions failed.");
-        CollectionAssert.AreEqual(new Exception[] { beforeException, publisherException, committedException },
-            thrown.InnerExceptions.ToArray());
-        Assert.AreEqual(1, container.TakenSlots);
-        Assert.IsTrue(committedCallbackRan);
-    }
+        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => transaction.PublishChanges());
 
-    [TestMethod]
-    public void Transaction_BeforePublishFailureStillPublishesAndRunsCommittedCallbacks()
-    {
-        var beforeException = new InvalidOperationException("Before publish failed.");
-        var publisherCalls = 0;
-        var committedCallbackCalls = 0;
-        var container = new ItemContainer(StorageType.Normal, 2, _ => publisherCalls++);
-        var transaction = new ItemContainerTransaction(container.Mutations);
-
-        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => transaction.TryExecute(tx =>
-        {
-            Assert.IsTrue(tx.TryAddRange(container.Mutations, [new TestItem(29, 1)]));
-            transaction.OnCommittedBeforePublish(() => throw beforeException);
-            tx.OnCommitted(() => committedCallbackCalls++);
-            return true;
-        }));
-
-        Assert.AreSame(beforeException, thrown);
-        Assert.AreEqual(1, container.TakenSlots);
-        Assert.AreEqual(1, publisherCalls);
-        Assert.AreEqual(1, committedCallbackCalls);
+        CollectionAssert.AreEqual(new[] { "first", "second" }, calls);
+        Assert.AreSame(secondFailure, thrown);
+        Assert.IsTrue(transaction.Committed);
+        Assert.AreEqual(1, first.TakenSlots);
+        Assert.AreEqual(1, second.TakenSlots);
     }
 
     [TestMethod]
@@ -413,8 +339,12 @@ public sealed class ItemContainerMutationBoundaryTests
         var contextType = typeof(IItemContainerTransaction);
         var transactionType = typeof(ItemContainerTransaction);
 
-        Assert.IsNull(contextType.GetMethod("TryExecute"));
-        Assert.IsNotNull(transactionType.GetMethod("TryExecute"));
+        Assert.IsNull(contextType.GetMethod("TryCommit"));
+        Assert.AreEqual(1, transactionType.GetMethods().Count(method => method.Name == "TryCommit"));
+        Assert.AreEqual(1, transactionType.GetMethods().Count(method => method.Name == "PublishChanges"));
+        Assert.IsNull(contextType.GetMethod("OnCommitted"));
+        Assert.IsNull(transactionType.GetMethod("OnCommitted", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
+        Assert.IsNull(transactionType.GetMethod("OnCommittedBeforePublish", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
         Assert.IsNull(contextType.GetMethod("RecordChangedSlots"));
         Assert.IsNull(contextType.GetMethod("RecordFullChange"));
         Assert.IsNull(contextType.GetMethod("TransferAll"));
@@ -425,10 +355,9 @@ public sealed class ItemContainerMutationBoundaryTests
         Assert.IsFalse(transactionType.GetMethods().Where(method => method.Name is "TryAddRange" or "TryRemoveExact")
             .Any(method => method.GetParameters().Any(parameter => parameter.ParameterType.IsByRef)));
 
-        Assert.IsTrue(transaction.TryExecute(tx =>
+        Assert.IsTrue(transaction.TryCommit(tx =>
         {
             Assert.IsTrue(tx.TryAddRange(container.Mutations, [new TestItem(23, 1)]));
-            tx.OnCommitted(() => { });
             return true;
         }));
         Assert.AreEqual(1, container.TakenSlots);
@@ -446,7 +375,8 @@ public sealed class ItemContainerMutationBoundaryTests
         var transaction = new ItemContainerTransaction(container.Mutations);
 
         Assert.ThrowsExactly<System.InvalidOperationException>(() => transaction.TryAddAt(container.Mutations, 1, incoming));
-        Assert.IsTrue(transaction.TryExecute(_ => transaction.TryAddAt(container.Mutations, 1, incoming)));
+        Assert.IsTrue(transaction.TryCommit(_ => transaction.TryAddAt(container.Mutations, 1, incoming)));
+        Assert.IsTrue(transaction.PublishChanges());
 
         Assert.AreSame(existing, container[0]);
         Assert.AreSame(incoming, container[1]);
@@ -457,7 +387,7 @@ public sealed class ItemContainerMutationBoundaryTests
         Assert.IsTrue(method!.IsAssembly);
 
         var rejected = new ItemContainerTransaction(container.Mutations);
-        Assert.IsFalse(rejected.TryExecute(_ => rejected.TryAddAt(container.Mutations, 0, new TestItem(22, 1))));
+        Assert.IsFalse(rejected.TryCommit(_ => rejected.TryAddAt(container.Mutations, 0, new TestItem(22, 1))));
 
         Assert.AreSame(existing, container[0]);
         Assert.AreSame(incoming, container[1]);
@@ -500,11 +430,10 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
-    public void Transaction_InterfaceTypedParticipantsRollbackAndSuppressCallbacksWhenOperationThrows()
+    public void Transaction_InterfaceTypedParticipantsRollbackWithoutPublishingWhenOperationThrows()
     {
         var sourcePublished = 0;
         var destinationPublished = 0;
-        var callbackRan = false;
         var source = new ItemContainer(StorageType.Normal, 2, _ => sourcePublished++);
         var destination = new ItemContainer(StorageType.Normal, 2, _ => destinationPublished++);
         var item = new TestItem(22, 5);
@@ -512,19 +441,19 @@ public sealed class ItemContainerMutationBoundaryTests
         sourcePublished = 0;
         var transaction = new ItemContainerTransaction(source.Mutations, destination.Mutations);
 
-        Assert.ThrowsExactly<System.InvalidOperationException>(() => transaction.TryExecute(tx =>
+        Assert.ThrowsExactly<System.InvalidOperationException>(() => transaction.TryCommit(tx =>
         {
             Assert.IsTrue(tx.TryTransfer(source.Mutations, destination.Mutations, item, 5, 0));
-            tx.OnCommitted(() => callbackRan = true);
             throw new System.InvalidOperationException("Abort staged transaction.");
         }));
+        Assert.IsFalse(transaction.Committed);
+        Assert.IsFalse(transaction.PublishChanges());
 
         Assert.AreSame(item, source[0]);
         Assert.AreEqual(5, source[0]!.Count);
         Assert.IsNull(destination[0]);
         Assert.AreEqual(0, sourcePublished);
         Assert.AreEqual(0, destinationPublished);
-        Assert.IsFalse(callbackRan);
     }
 
     [TestMethod]

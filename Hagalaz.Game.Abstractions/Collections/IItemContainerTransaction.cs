@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model.Items;
 
@@ -13,5 +12,4 @@ public interface IItemContainerTransaction
     bool TryTransfer(IItemContainerMutationBoundary source, IItemContainerMutationBoundary destination, IItem item,
         int count, int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null);
     bool Clear(IItemContainerMutationBoundary boundary);
-    void OnCommitted(Action action);
 }

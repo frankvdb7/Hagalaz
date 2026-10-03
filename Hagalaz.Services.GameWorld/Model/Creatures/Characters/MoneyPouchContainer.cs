@@ -84,20 +84,23 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             var transaction = new ItemContainerTransaction();
             Mutations.EnlistIn(transaction);
-            return transaction.TryExecute(tx => Mutations.TryStageAddExact(tx, count));
+            MoneyPouchChange? change = null;
+            var committed = transaction.TryCommit(tx => (change = Mutations.StageAddExact(tx, count)) != null);
+            MoneyPouchChange.PublishChanges(transaction, change);
+            return committed;
         }
 
-        bool IMoneyPouchMutationBoundary.TryStageAddExact(IItemContainerTransaction transaction, int count)
+        MoneyPouchChange? IMoneyPouchMutationBoundary.StageAddExact(IItemContainerTransaction transaction, int count)
         {
             ArgumentNullException.ThrowIfNull(transaction);
-            return TryStageExactAddCore(transaction, count);
+            return StageExactAddCore(transaction, count);
         }
 
-        private bool TryStageExactAddCore(IItemContainerTransaction transaction, int count)
+        private MoneyPouchChange? StageExactAddCore(IItemContainerTransaction transaction, int count)
         {
             if (count <= 0)
             {
-                return false;
+                return null;
             }
 
             var pouchCount = Math.Min(count, int.MaxValue - Count);
@@ -105,28 +108,23 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (inventoryCount > 0 && !_owner.Inventory.Items.HasSpaceFor(
                     _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
             {
-                return false;
+                return null;
             }
 
             var previousCount = Count;
             if (pouchCount > 0 && !transaction.TryAddRange(_storageMutations,
                     [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()]))
             {
-                return false;
+                return null;
             }
 
             if (inventoryCount > 0 && !transaction.TryAddRange(_owner.Inventory.Items.Mutations,
                     [_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()]))
             {
-                return false;
+                return null;
             }
 
-            if (pouchCount > 0) transaction.OnCommitted(() =>
-            {
-                _previousCount = previousCount;
-                PublishChanges(pouchCount);
-            });
-            return true;
+            return new MoneyPouchChange(this, previousCount, pouchCount);
         }
 
         /// <summary>
@@ -150,51 +148,55 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             var transaction = new ItemContainerTransaction();
             Mutations.EnlistIn(transaction);
-            return transaction.TryExecute(tx => Mutations.TryStageRemoveExact(tx, count));
+            MoneyPouchChange? change = null;
+            var committed = transaction.TryCommit(tx => (change = Mutations.StageRemoveExact(tx, count)) != null);
+            MoneyPouchChange.PublishChanges(transaction, change);
+            return committed;
         }
 
         /// <summary>
         /// Stages an exact coin removal without publishing pouch or inventory updates.
         /// </summary>
-        bool IMoneyPouchMutationBoundary.TryStageRemoveExact(IItemContainerTransaction transaction, int count)
+        MoneyPouchChange? IMoneyPouchMutationBoundary.StageRemoveExact(IItemContainerTransaction transaction, int count)
         {
             ArgumentNullException.ThrowIfNull(transaction);
-            return TryStageExactRemoveCore(transaction, count);
+            return StageExactRemoveCore(transaction, count);
         }
 
-        private bool TryStageExactRemoveCore(IItemContainerTransaction transaction, int count)
+        private MoneyPouchChange? StageExactRemoveCore(IItemContainerTransaction transaction, int count)
         {
             if (count <= 0)
             {
-                return false;
+                return null;
             }
 
             var pouchCount = Math.Min(count, Count);
             var inventoryCount = count - pouchCount;
             if (inventoryCount > _owner.Inventory.Items.GetCountById(995))
             {
-                return false;
+                return null;
             }
 
             var previousCount = Count;
             if (pouchCount > 0 && !transaction.TryRemoveExact(_storageMutations,
                     _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0))
             {
-                return false;
+                return null;
             }
 
             if (inventoryCount > 0 && !transaction.TryRemoveExact(_owner.Inventory.Items.Mutations,
                     _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
             {
-                return false;
+                return null;
             }
 
-            transaction.OnCommitted(() =>
-            {
-                _previousCount = previousCount;
-                PublishChanges(-count);
-            });
-            return true;
+            return new MoneyPouchChange(this, previousCount, -count);
+        }
+
+        void IMoneyPouchMutationBoundary.PublishChange(int previousCount, int changeCount)
+        {
+            _previousCount = previousCount;
+            PublishChanges(changeCount);
         }
 
         private void PublishChanges(int pouchChangeCount)
@@ -243,10 +245,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             var transaction = new ItemContainerTransaction(_owner.Inventory.Items.Mutations);
             Mutations.EnlistIn(transaction);
-            return transaction.TryExecute(tx =>
+            MoneyPouchChange? change = null;
+            var committed = transaction.TryCommit(tx =>
                 tx.TryRemoveExact(_owner.Inventory.Items.Mutations,
                     _itemBuilder.Create().WithId(995).WithCount(transferCount).Build()) &&
-                TryStageExactAddCore(tx, transferCount));
+                (change = StageExactAddCore(tx, transferCount)) != null);
+            MoneyPouchChange.PublishChanges(transaction, change);
+            return committed;
         }
 
         /// <summary>
@@ -263,7 +268,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var inventoryRejected = false;
             var transaction = new ItemContainerTransaction(_owner.Inventory.Items.Mutations);
             Mutations.EnlistIn(transaction);
-            var succeeded = transaction.TryExecute(tx =>
+            MoneyPouchChange? change = null;
+            var succeeded = transaction.TryCommit(tx =>
             {
                 if (!tx.TryAddRange(_owner.Inventory.Items.Mutations,
                         [_itemBuilder.Create().WithId(995).WithCount(transferCount).Build()]))
@@ -272,10 +278,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return false;
                 }
 
-                return TryStageExactRemoveCore(tx, transferCount);
+                return (change = StageExactRemoveCore(tx, transferCount)) != null;
             });
 
             if (!succeeded && inventoryRejected) _owner.SendChatMessage(GameStrings.InventoryFull);
+            MoneyPouchChange.PublishChanges(transaction, change);
             return succeeded;
         }
 

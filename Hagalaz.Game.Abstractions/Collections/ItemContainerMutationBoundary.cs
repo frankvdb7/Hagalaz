@@ -28,8 +28,10 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
     {
         ArgumentNullException.ThrowIfNull(destination);
         var transaction = new ItemContainerTransaction(this, destination);
-        return transaction.TryExecute(tx => tx.TryTransfer(this, destination, item, count,
-            preferredSourceSlot, destinationSlot, destinationItem));
+        if (!transaction.TryCommit(tx => tx.TryTransfer(this, destination, item, count,
+                preferredSourceSlot, destinationSlot, destinationItem))) return false;
+        transaction.PublishChanges();
+        return true;
     }
 
     void IItemContainerMutationBoundary.Enlist(ItemContainerTransaction transaction) =>

@@ -98,7 +98,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             var inventoryItems = _owner.Inventory.Items;
             var transaction = new ItemContainerTransaction(_items.Mutations, inventoryItems.Mutations);
-            transaction.TryExecute(tx =>
+            transaction.TryCommit(tx =>
             {
                 var familiarItems = _items.Select((item, slot) => (item, slot))
                     .Where(entry => entry.item is { Count: > 0 })
@@ -111,6 +111,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
                 return true;
             });
+            transaction.PublishChanges();
         }
 
         /// <summary>

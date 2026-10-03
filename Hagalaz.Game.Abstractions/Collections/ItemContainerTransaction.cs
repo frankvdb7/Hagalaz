@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.ExceptionServices;
 using Hagalaz.Game.Abstractions.Model.Items;
 
 namespace Hagalaz.Game.Abstractions.Collections;
@@ -11,10 +10,11 @@ public sealed class ItemContainerTransaction : IItemContainerTransaction
 {
     private readonly List<Participant> _participants = [];
     private readonly Dictionary<Participant, HashSet<int>?> _changed = new(ReferenceEqualityComparer.Instance);
-    private readonly List<Action> _beforePublish = [];
-    private readonly List<Action> _committed = [];
     private bool _executed;
     private bool _executing;
+    private bool _published;
+
+    public bool Committed { get; private set; }
 
     public ItemContainerTransaction(params IItemContainerMutationBoundary[] boundaries)
     {
@@ -38,7 +38,8 @@ public sealed class ItemContainerTransaction : IItemContainerTransaction
         }
     }
 
-    public bool TryExecute(Func<IItemContainerTransaction, bool> operation)
+    /// <summary>Commits storage under ordered locks without publishing changes or running domain effects.</summary>
+    public bool TryCommit(Func<IItemContainerTransaction, bool> operation)
     {
         ArgumentNullException.ThrowIfNull(operation);
         if (_executed) throw new InvalidOperationException("A transaction can execute only once.");
@@ -67,54 +68,24 @@ public sealed class ItemContainerTransaction : IItemContainerTransaction
             }
         });
 
-        if (!succeeded)
-        {
-            _committed.Clear();
-            return false;
-        }
+        Committed = succeeded;
+        return succeeded;
+    }
 
-        List<Exception>? postCommitExceptions = null;
-        foreach (var callback in _beforePublish)
-        {
-            TryPostCommitAction(callback, ref postCommitExceptions);
-        }
-
+    /// <summary>Publishes committed changes once after unlock, stopping at the first publisher exception.</summary>
+    public bool PublishChanges()
+    {
+        if (!Committed || _published) return false;
+        _published = true;
         foreach (var participant in _participants)
         {
             if (_changed.TryGetValue(participant, out var slots) && participant.PublishChanges is { } publishChanges)
             {
-                TryPostCommitAction(() => publishChanges(slots), ref postCommitExceptions);
+                publishChanges(slots);
             }
         }
 
-        foreach (var callback in _committed)
-        {
-            TryPostCommitAction(callback, ref postCommitExceptions);
-        }
-
-        if (postCommitExceptions is { Count: 1 })
-        {
-            ExceptionDispatchInfo.Capture(postCommitExceptions[0]).Throw();
-        }
-
-        if (postCommitExceptions is { Count: > 1 })
-        {
-            throw new AggregateException("Multiple post-commit item-container actions failed.", postCommitExceptions);
-        }
-
         return true;
-    }
-
-    private static void TryPostCommitAction(Action action, ref List<Exception>? exceptions)
-    {
-        try
-        {
-            action();
-        }
-        catch (Exception exception)
-        {
-            (exceptions ??= []).Add(exception);
-        }
     }
 
     public bool TryAddRange(IItemContainerMutationBoundary boundary, IEnumerable<IItem?> items)
@@ -181,21 +152,6 @@ public sealed class ItemContainerTransaction : IItemContainerTransaction
         }
     }
 
-    public void OnCommitted(Action action)
-    {
-        ArgumentNullException.ThrowIfNull(action);
-        if (!_executing) throw new InvalidOperationException("Callbacks can be registered only while executing the transaction.");
-        _committed.Add(action);
-    }
-
-    /// <summary>Registers a domain callback that must run after unlocking and before participant publication.</summary>
-    internal void OnCommittedBeforePublish(Action action)
-    {
-        ArgumentNullException.ThrowIfNull(action);
-        if (!_executing) throw new InvalidOperationException("Callbacks can be registered only while executing the transaction.");
-        _beforePublish.Add(action);
-    }
-
     private Participant EnsureParticipant(IItemContainerMutationBoundary boundary)
     {
         ArgumentNullException.ThrowIfNull(boundary);
@@ -218,8 +174,6 @@ public sealed class ItemContainerTransaction : IItemContainerTransaction
             snapshot.Participant.Storage.RestoreTransactionState(snapshot.Items, snapshot.Counts, snapshot.MutationRevision);
         }
         _changed.Clear();
-        _beforePublish.Clear();
-        _committed.Clear();
     }
 
     private static void WithLocks(IEnumerable<Participant> participants, Action operation)

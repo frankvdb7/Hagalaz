@@ -73,6 +73,25 @@ public sealed class ShopStockContainerTests
     }
 
     [TestMethod]
+    public void BuyFromShop_WhenInventoryPublisherThrows_KeepsCommittedStorageAndSkipsLaterEffects()
+    {
+        var scenario = CreateScenario(cost: 5, pouchCoins: 5);
+        var publicationException = new InvalidOperationException("Inventory publisher failed.");
+        scenario.Inventory.OnUpdateAction = () => throw publicationException;
+
+        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+
+        Assert.AreSame(publicationException, thrown);
+        Assert.AreEqual(0, scenario.MoneyPouch.Count);
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
+        Assert.AreEqual(0, scenario.Stock.Items.GetCountById(ItemId));
+        scenario.Character.EventManager.DidNotReceive().SendEvent(Arg.Is<MoneyPouchChangedEvent>(change =>
+            change.PreviousCount == 5 && change.Count == 0));
+        scenario.ShopEvents.DidNotReceive().SendEvent(Arg.Any<ShopItemBoughtEvent>());
+    }
+
+    [TestMethod]
     public void BuyFromShop_WhenCoinsAreSplitBetweenPouchAndInventory_RemovesExactCost()
     {
         const int cost = 10_000;
@@ -256,7 +275,7 @@ public sealed class ShopStockContainerTests
 
     private sealed record ShopScenario(
         ICharacter Character,
-        IInventoryContainer Inventory,
+        ComposedTestInventory Inventory,
         IMoneyPouchContainer MoneyPouch,
         IShopStockContainer Stock,
         IItem StockItem,

@@ -52,13 +52,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var bankRejected = false;
             var transaction = new ItemContainerTransaction(_items.Mutations);
             _owner.MoneyPouch.Mutations.EnlistIn(transaction);
-            var succeeded = transaction.TryExecute(tx =>
+            MoneyPouchChange? change = null;
+            var succeeded = transaction.TryCommit(tx =>
             {
                 var count = _owner.MoneyPouch.Count;
                 if (count <= 0) return false;
 
                 stagedCoins = _itemBuilder.Create().WithId(995).WithCount(count).Build();
-                if (!_owner.MoneyPouch.Mutations.TryStageRemoveExact(tx, count)) return false;
+                change = _owner.MoneyPouch.Mutations.StageRemoveExact(tx, count);
+                if (change == null) return false;
                 if (!tx.TryAddRange(_items.Mutations, [stagedCoins]))
                 {
                     bankRejected = true;
@@ -74,6 +76,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 stagedCoins = null;
             }
 
+            MoneyPouchChange.PublishChanges(transaction, change);
             deposited = succeeded ? stagedCoins : null;
             return succeeded;
 

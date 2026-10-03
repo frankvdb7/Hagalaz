@@ -739,7 +739,7 @@ public sealed class CharacterItemTransferTests
         Assert.IsNull(setup.Equipment[EquipmentSlot.Shield]);
         Assert.AreSame(setup.Weapon, setup.Inventory.Items[0]);
         Assert.AreSame(setup.Shield, setup.Inventory.Items[1]);
-        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+        eventManager.DidNotReceive().SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
     }
 
     [TestMethod]

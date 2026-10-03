@@ -40,16 +40,16 @@ public sealed class MoneyPouchContainerTests
         Assert.IsNotNull(typeof(IMoneyPouchContainer).GetProperty("Mutations"));
         Assert.IsNull(typeof(IMoneyPouchContainer).GetMethod("Contains"));
         Assert.IsNull(typeof(IMoneyPouchContainer).GetMethod("EnlistIn"));
-        Assert.IsNull(typeof(IMoneyPouchContainer).GetMethod("TryStageAddExact"));
-        Assert.IsNull(typeof(IMoneyPouchContainer).GetMethod("TryStageRemoveExact"));
+        Assert.IsNull(typeof(IMoneyPouchContainer).GetMethod("StageAddExact"));
+        Assert.IsNull(typeof(IMoneyPouchContainer).GetMethod("StageRemoveExact"));
         Assert.AreEqual(typeof(IMoneyPouchMutationBoundary), typeof(IMoneyPouchContainer).GetProperty("Mutations")!.PropertyType);
         var boundaryMethods = typeof(IMoneyPouchMutationBoundary).GetMethods();
         Assert.AreEqual(3, boundaryMethods.Length);
-        CollectionAssert.AreEquivalent(new[] { "EnlistIn", "TryStageAddExact", "TryStageRemoveExact" },
+        CollectionAssert.AreEquivalent(new[] { "EnlistIn", "StageAddExact", "StageRemoveExact" },
             boundaryMethods.Select(method => method.Name).ToArray());
         Assert.IsNull(typeof(MoneyPouchContainer).GetMethod("EnlistIn", BindingFlags.Instance | BindingFlags.Public));
-        Assert.IsNull(typeof(MoneyPouchContainer).GetMethod("TryStageAddExact", BindingFlags.Instance | BindingFlags.Public));
-        Assert.IsNull(typeof(MoneyPouchContainer).GetMethod("TryStageRemoveExact", BindingFlags.Instance | BindingFlags.Public));
+        Assert.IsNull(typeof(MoneyPouchContainer).GetMethod("StageAddExact", BindingFlags.Instance | BindingFlags.Public));
+        Assert.IsNull(typeof(MoneyPouchContainer).GetMethod("StageRemoveExact", BindingFlags.Instance | BindingFlags.Public));
         Assert.IsNull(typeof(IEquipmentContainer).GetMethod("PublishCurrentState"));
         Assert.IsFalse(typeof(IMoneyPouchContainer).GetMethods().Any(method =>
             method.Name.Contains("Storage") || method.Name == "PublishChanges" ||
@@ -146,6 +146,25 @@ public sealed class MoneyPouchContainerTests
             static (pouch, count) => pouch.TryRemoveExact(count));
     }
 
+    [TestMethod]
+    public void TryRemoveExact_WhenInventoryPublisherThrows_KeepsCommittedStorageAndSkipsPouchPublication()
+    {
+        var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        scenario.Owner.ClearReceivedCalls();
+        var publicationException = new InvalidOperationException("Inventory publisher failed.");
+        scenario.Inventory.OnUpdateAction = () => throw publicationException;
+
+        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => scenario.MoneyPouch.TryRemoveExact(12));
+
+        Assert.AreSame(publicationException, thrown);
+        Assert.AreEqual(0, scenario.MoneyPouch.Count);
+        Assert.AreEqual(3, scenario.Inventory.Items.GetCountById(CoinId));
+        scenario.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
+        eventManager.DidNotReceive().SendEvent(Arg.Any<MoneyPouchChangedEvent>());
+    }
+
     [DataTestMethod]
     [DataRow(0)]
     [DataRow(-1)]
@@ -172,11 +191,14 @@ public sealed class MoneyPouchContainerTests
         scenario.MoneyPouch.Mutations.EnlistIn(transaction);
         transaction.Include(fullContainer.Mutations);
 
-        Assert.IsFalse(transaction.TryExecute(tx =>
+        MoneyPouchChange? change = null;
+        Assert.IsFalse(transaction.TryCommit(tx =>
         {
-            Assert.IsTrue(scenario.MoneyPouch.Mutations.TryStageAddExact(tx, 4));
+            change = scenario.MoneyPouch.Mutations.StageAddExact(tx, 4);
+            Assert.IsNotNull(change);
             return tx.TryAddRange(fullContainer.Mutations, [new ComposedTestItem(124, 1, stackable: false)]);
         }));
+        MoneyPouchChange.PublishChanges(transaction, change);
 
         Assert.AreEqual(int.MaxValue - 2, scenario.MoneyPouch.Count);
         Assert.AreEqual(10, scenario.Inventory.Items.GetCountById(CoinId));

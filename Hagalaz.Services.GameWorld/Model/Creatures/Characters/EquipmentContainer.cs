@@ -83,11 +83,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return false;
                 }
 
-                if (!TryMoveFromInventoryToSlot(item, slot, equipSlot, null))
-                {
-                    return false;
-                }
-
+                var move = MoveFromInventoryToSlot(item, slot, equipSlot);
+                if (!move.Committed) return false;
+                move.PublishChanges();
                 return true;
             }
 
@@ -95,11 +93,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 if (equipItem == null)
                 {
-                    if (!TryMoveFromInventoryToSlot(item, slot, equipSlot, () => item.EquipmentScript.OnEquipped(item, _owner)))
-                    {
-                        return false;
-                    }
-
+                    var move = MoveFromInventoryToSlot(item, slot, equipSlot);
+                    if (!move.Committed) return false;
+                    RunPostCommitActions(() => item.EquipmentScript.OnEquipped(item, _owner),
+                        () => move.PublishChanges());
                     return true;
                 }
 
@@ -132,11 +129,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var equippedShield = this[EquipmentSlot.Shield];
             if (equippedWeapon == null && equippedShield == null)
             {
-                if (!TryMoveFromInventoryToSlot(item, slot, equipSlot, () => item.EquipmentScript.OnEquipped(item, _owner)))
-                {
-                    return false;
-                }
-
+                var move = MoveFromInventoryToSlot(item, slot, equipSlot);
+                if (!move.Committed) return false;
+                RunPostCommitActions(() => item.EquipmentScript.OnEquipped(item, _owner),
+                    () => move.PublishChanges());
                 return true;
             }
 
@@ -160,7 +156,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var inventoryBoundary = _owner.Inventory.Items.Mutations;
             var transaction = new ItemContainerTransaction(inventoryBoundary, _mutations);
             var inventoryCapacityRejected = false;
-            var succeeded = transaction.TryExecute(tx =>
+            var succeeded = transaction.TryCommit(tx =>
             {
                 if (!tx.TryRemoveExact(inventoryBoundary, item, slot)) return false;
 
@@ -180,13 +176,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
                 if (!transaction.TryAddAt(_mutations, (int)equipSlot, item)) return false;
 
-                if (needsWeaponUnequip)
-                    transaction.OnCommittedBeforePublish(() => equippedWeapon!.EquipmentScript.OnUnequipped(equippedWeapon, _owner));
-                if (needsShieldUnequip)
-                    transaction.OnCommittedBeforePublish(() => equippedShield!.EquipmentScript.OnUnequipped(equippedShield, _owner));
-                if (needsWeaponUnequip)
-                    transaction.OnCommittedBeforePublish(() => UpdateWeaponProfileAfterUnequip(equippedWeapon!, item));
-                transaction.OnCommittedBeforePublish(() => item.EquipmentScript.OnEquipped(item, _owner));
                 return true;
             });
 
@@ -199,6 +188,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
+            RunPostCommitActions(
+                () => { if (needsWeaponUnequip) equippedWeapon!.EquipmentScript.OnUnequipped(equippedWeapon, _owner); },
+                () => { if (needsShieldUnequip) equippedShield!.EquipmentScript.OnUnequipped(equippedShield, _owner); },
+                () => { if (needsWeaponUnequip) UpdateWeaponProfileAfterUnequip(equippedWeapon!, item); },
+                () => item.EquipmentScript.OnEquipped(item, _owner),
+                () => transaction.PublishChanges());
             return true;
         }
 
@@ -230,18 +225,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             return true;
         }
 
-        private bool TryMoveFromInventoryToSlot(IItem item, int inventorySlot, EquipmentSlot equipmentSlot,
-            Action? afterCommit)
+        private ItemContainerTransaction MoveFromInventoryToSlot(IItem item, int inventorySlot, EquipmentSlot equipmentSlot)
         {
             var inventoryBoundary = _owner.Inventory.Items.Mutations;
             var transaction = new ItemContainerTransaction(inventoryBoundary, _mutations);
-            return transaction.TryExecute(tx =>
-            {
-                if (!tx.TryTransfer(inventoryBoundary, _mutations, item, item.Count, inventorySlot,
-                        (int)equipmentSlot)) return false;
-                if (afterCommit != null) transaction.OnCommittedBeforePublish(afterCommit);
-                return true;
-            });
+            transaction.TryCommit(tx => tx.TryTransfer(inventoryBoundary, _mutations, item, item.Count, inventorySlot,
+                (int)equipmentSlot));
+            return transaction;
         }
 
         public bool TryMoveTo(IItemContainer destination, IItem item, int count, EquipmentSlot slot,
@@ -250,13 +240,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (count <= 0 || this[slot] is not { } equippedItem || !ReferenceEquals(equippedItem, item)) return false;
             var fullyRemoved = count == equippedItem.Count;
             var transaction = new ItemContainerTransaction(_mutations, destination.Mutations);
-            return transaction.TryExecute(tx =>
-            {
-                if (!tx.TryTransfer(_mutations, destination.Mutations, equippedItem, count, (int)slot, -1,
-                        destinationItem)) return false;
-                if (fullyRemoved) transaction.OnCommittedBeforePublish(() => equippedItem.EquipmentScript.OnUnequipped(equippedItem, _owner));
-                return true;
-            });
+            if (!transaction.TryCommit(tx => tx.TryTransfer(_mutations, destination.Mutations, equippedItem, count,
+                    (int)slot, -1, destinationItem))) return false;
+            RunPostCommitActions(
+                () => { if (fullyRemoved) equippedItem.EquipmentScript.OnUnequipped(equippedItem, _owner); },
+                () => transaction.PublishChanges());
+            return true;
         }
 
         public bool TryReplaceEquippedItem(EquipmentSlot slot, IItem expectedItem, IItem replacement)
@@ -398,18 +387,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             var inventoryBoundary = _owner.Inventory.Items.Mutations;
             var transaction = new ItemContainerTransaction(inventoryBoundary, _mutations);
-            var succeeded = transaction.TryExecute(tx =>
-            {
-                if (!tx.TryTransfer(_mutations, inventoryBoundary, item, item.Count, (int)slot, destinationSlot))
-                    return false;
-                transaction.OnCommittedBeforePublish(() => item.EquipmentScript.OnUnequipped(item, _owner));
-                return true;
-            });
+            var succeeded = transaction.TryCommit(tx =>
+                tx.TryTransfer(_mutations, inventoryBoundary, item, item.Count, (int)slot, destinationSlot));
             if (!succeeded)
             {
                 _owner.SendChatMessage("Not enough space in your inventory.");
                 return false;
             }
+            RunPostCommitActions(() => item.EquipmentScript.OnUnequipped(item, _owner),
+                () => transaction.PublishChanges());
             return true;
         }
 
