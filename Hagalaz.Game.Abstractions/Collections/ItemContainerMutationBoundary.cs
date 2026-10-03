@@ -5,19 +5,75 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Collections;
 
 /// <summary>Coordinates mutations and publication for one owned item storage.</summary>
-internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoundary
+internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoundary, IItemContainerTransactionParticipantInternal
 {
     private readonly ItemContainerStorage _storage;
+    private readonly IItemContainerCompletionOwner? _completion;
     private readonly Action<HashSet<int>?>? _publishChanges;
 
-    internal ItemContainerMutationBoundary(ItemContainerStorage storage, Action<HashSet<int>?>? publishChanges)
+    internal ItemContainerStorage Storage => _storage;
+    IReadOnlyList<ItemContainerMutationBoundary> IItemContainerTransactionParticipantInternal.Boundaries => [this];
+
+    public void EnsureOutsideTransaction()
+    {
+        if (_storage.Transaction != null)
+            throw new InvalidOperationException("This operation requires storage outside an active transaction.");
+    }
+
+    public bool TryAdd(IItem item)
+    {
+        EnsureActiveTransaction();
+        if (!_storage.TryAdd(item, out var changedSlots)) return false;
+        NotifyChanges(changedSlots);
+        return true;
+    }
+
+    public bool TryAddRange(IEnumerable<IItem?> items)
+    {
+        EnsureActiveTransaction();
+        if (!_storage.TryAddRange(items, out var changedSlots)) return false;
+        if (changedSlots.Count > 0) NotifyChanges(changedSlots);
+        return true;
+    }
+
+    public bool TryRemoveExact(IItem item, int preferredSlot = -1)
+    {
+        EnsureActiveTransaction();
+        if (!_storage.TryRemoveExact(item, preferredSlot, out var changedSlots)) return false;
+        NotifyChanges(changedSlots);
+        return true;
+    }
+
+    public void Sort()
+    {
+        EnsureActiveTransaction();
+        _storage.Sort();
+        NotifyChanges(null);
+    }
+
+    public void Clear()
+    {
+        EnsureActiveTransaction();
+        if (_storage.Clear()) NotifyChanges(null);
+    }
+
+    private ItemContainerTransaction EnsureActiveTransaction()
+    {
+        var transaction = _storage.Transaction
+            ?? throw new InvalidOperationException("Storage must belong to an active transaction.");
+        transaction.EnsureActive();
+        return transaction;
+    }
+
+    internal ItemContainerMutationBoundary(ItemContainerStorage storage, Action<HashSet<int>?>? publishChanges, IItemContainerCompletionOwner? completion = null)
     {
         ArgumentNullException.ThrowIfNull(storage);
         _storage = storage;
         _publishChanges = publishChanges;
+        _completion = completion;
     }
 
-    /// <summary>Transfers an exact quantity to another boundary and publishes both committed sides.</summary>
+    /// <summary>Transfers an exact quantity between boundaries already enlisted in one caller-owned transaction.</summary>
     public bool TryTransferTo(
         IItemContainerMutationBoundary destination,
         IItem item,
@@ -27,12 +83,27 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
         IItem? destinationItem = null)
     {
         ArgumentNullException.ThrowIfNull(destination);
-        var transaction = new ItemContainerTransaction(this, destination);
-        return transaction.TryExecute(tx => tx.TryTransfer(this, destination, item, count,
-            preferredSourceSlot, destinationSlot, destinationItem));
+        if (destination is not ItemContainerMutationBoundary target)
+            throw new ArgumentException("Unsupported mutation boundary.", nameof(destination));
+        var transaction = EnsureActiveTransaction();
+        if (!ReferenceEquals(transaction, target.EnsureActiveTransaction()))
+            throw new InvalidOperationException("Both storage boundaries must belong to the same active transaction.");
+        if (!_storage.TryTransferTo(target._storage, item, count,
+                preferredSourceSlot, destinationSlot, destinationItem, out var sourceSlots, out var destinationSlots)) return false;
+        NotifyChanges(sourceSlots);
+        target.NotifyChanges(destinationSlots);
+        return true;
     }
 
-    void IItemContainerMutationBoundary.Enlist(ItemContainerTransaction transaction) =>
-        transaction.RegisterParticipant(this, _storage, _publishChanges);
+    internal void NotifyChanges(HashSet<int>? slots)
+    {
+        if (_storage.Transaction is { } transaction) transaction.RecordChanges(_storage, slots);
+        else PublishCommittedChanges(slots);
+    }
 
+    internal void PublishCommittedChanges(HashSet<int>? slots) => _publishChanges?.Invoke(slots);
+
+    internal void DiscardPendingCompletion(ItemContainerTransaction transaction) => _completion?.DiscardPendingCompletion(transaction);
+    internal void CompleteBeforePublication(ItemContainerTransaction transaction, int order) => _completion?.CompleteBeforePublication(transaction, order);
+    internal void CompleteAfterPublication(ItemContainerTransaction transaction, int order) => _completion?.CompleteAfterPublication(transaction, order);
 }

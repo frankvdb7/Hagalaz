@@ -9,7 +9,6 @@ namespace Hagalaz.Game.Abstractions.Collections;
 public sealed class ItemContainer : IItemContainer
 {
     private readonly ItemContainerStorage _storage;
-    private readonly Action<HashSet<int>?>? _publishChanges;
     private readonly ItemContainerMutationBoundary _mutations;
 
     public IItemContainerMutationBoundary Mutations => _mutations;
@@ -26,16 +25,14 @@ public sealed class ItemContainer : IItemContainer
         int countToResetTo = -1)
     {
         _storage = new ItemContainerStorage(type, capacity, countToResetTo);
-        _publishChanges = publishChanges;
-        _mutations = new ItemContainerMutationBoundary(_storage, _publishChanges);
+        _mutations = new ItemContainerMutationBoundary(_storage, publishChanges);
     }
 
     public ItemContainer(StorageType type, IEnumerable<IItem> items, int capacity,
         Action<HashSet<int>?>? publishChanges = null, int countToResetTo = -1)
     {
         _storage = new ItemContainerStorage(type, items, capacity, countToResetTo);
-        _publishChanges = publishChanges;
-        _mutations = new ItemContainerMutationBoundary(_storage, _publishChanges);
+        _mutations = new ItemContainerMutationBoundary(_storage, publishChanges);
     }
 
     public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
@@ -43,6 +40,7 @@ public sealed class ItemContainer : IItemContainer
 
     public bool Add(IItem item)
     {
+        _mutations.EnsureOutsideTransaction();
         if (!_storage.TryAdd(item, out var changedSlots)) return false;
         PublishChanges(changedSlots);
         return true;
@@ -50,6 +48,7 @@ public sealed class ItemContainer : IItemContainer
 
     public bool Add(int slot, IItem item)
     {
+        _mutations.EnsureOutsideTransaction();
         if (!_storage.TryAdd(slot, item, out var changedSlots)) return false;
         PublishChanges(changedSlots);
         return true;
@@ -59,6 +58,7 @@ public sealed class ItemContainer : IItemContainer
 
     public int Remove(IItem item, int preferredSlot = -1, bool update = true)
     {
+        _mutations.EnsureOutsideTransaction();
         var removed = _storage.Remove(item, preferredSlot, out var changedSlots);
         if (removed > 0 && update) PublishChanges(changedSlots);
         return removed;
@@ -66,6 +66,7 @@ public sealed class ItemContainer : IItemContainer
 
     public bool TryRemoveExact(IItem item, int preferredSlot = -1)
     {
+        _mutations.EnsureOutsideTransaction();
         if (!_storage.TryRemoveExact(item, preferredSlot, out var changedSlots)) return false;
         PublishChanges(changedSlots);
         return true;
@@ -73,22 +74,26 @@ public sealed class ItemContainer : IItemContainer
 
     public void Replace(int slot, IItem item)
     {
+        _mutations.EnsureOutsideTransaction();
         _storage.Replace(slot, item);
         PublishChanges([slot]);
     }
 
     public void Swap(int fromSlot, int toSlot)
     {
+        _mutations.EnsureOutsideTransaction();
         if (_storage.Swap(fromSlot, toSlot)) PublishChanges([fromSlot, toSlot]);
     }
 
     public void Move(int fromSlot, int toSlot)
     {
+        _mutations.EnsureOutsideTransaction();
         if (_storage.Move(fromSlot, toSlot)) PublishChanges(null);
     }
 
     public bool AddRange(IEnumerable<IItem?> items)
     {
+        _mutations.EnsureOutsideTransaction();
         if (!_storage.TryAddRange(items, out var changedSlots)) return false;
         if (changedSlots.Count > 0) PublishChanges(changedSlots);
         return true;
@@ -105,6 +110,7 @@ public sealed class ItemContainer : IItemContainer
     {
         ArgumentNullException.ThrowIfNull(action);
 
+        _storage.EnsureMutationAccess();
         lock (_storage.MutationLock)
         {
             action();
@@ -119,6 +125,7 @@ public sealed class ItemContainer : IItemContainer
 
     public void Sort()
     {
+        _mutations.EnsureOutsideTransaction();
         _storage.Sort();
         PublishChanges(null);
     }
@@ -129,8 +136,9 @@ public sealed class ItemContainer : IItemContainer
 
     public void Clear(bool update)
     {
+        _mutations.EnsureOutsideTransaction();
         if (_storage.Clear() && update) PublishChanges(null);
     }
 
-    private void PublishChanges(HashSet<int>? changedSlots) => _publishChanges?.Invoke(changedSlots);
+    private void PublishChanges(HashSet<int>? changedSlots) => _mutations.NotifyChanges(changedSlots);
 }

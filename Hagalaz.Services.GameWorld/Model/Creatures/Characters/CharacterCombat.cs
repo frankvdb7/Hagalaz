@@ -378,7 +378,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             if (IsDead) return -1;
 
-            foreach (var item in _character.Equipment)
+            foreach (var item in _character.Equipment.Items)
             {
                 item?.EquipmentScript.OnIncomingAttack(item, _character, attacker, damageType, damage, delay);
             }
@@ -717,7 +717,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             if (_character.HasState<TurmoilState>()) _character.Statistics.SetTurmoilBonuses(target);
 
-            foreach (var item in _character.Equipment)
+            foreach (var item in _character.Equipment.Items)
             {
                 item?.EquipmentScript.OnAttackPerformed(item, _character, target);
             }
@@ -1390,7 +1390,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns>Amount of damage remains after defence.</returns>
         public int PerformDefence(ICreature attacker, DamageType damageType, int damage)
         {
-            foreach (var item in _character.Equipment)
+            foreach (var item in _character.Equipment.Items)
             {
                 item?.EquipmentScript.OnAttack(item, _character, attacker, damageType, ref damage);
             }

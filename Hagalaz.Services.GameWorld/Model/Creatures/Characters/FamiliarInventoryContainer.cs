@@ -58,11 +58,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
+            using var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, _items.Mutations);
             if (_owner.Inventory.Items.Mutations.TryTransferTo(_items.Mutations, item, count, slot))
             {
+                transaction.Commit();
                 return true;
             }
 
+            transaction.Dispose();
             _owner.SendChatMessage(GameStrings.FamiliarInventoryFull);
             return false;
         }
@@ -85,11 +88,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
+            using var transaction = ItemContainerTransaction.Begin(_items.Mutations, _owner.Inventory.Items.Mutations);
             if (_items.Mutations.TryTransferTo(_owner.Inventory.Items.Mutations, item, count, slot))
             {
+                transaction.Commit();
                 return true;
             }
 
+            transaction.Dispose();
             _owner.SendChatMessage(GameStrings.InventoryFull);
             return false;
         }
@@ -97,20 +103,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public void WithdrawAvailableToInventory()
         {
             var inventoryItems = _owner.Inventory.Items;
-            var transaction = new ItemContainerTransaction(_items.Mutations, inventoryItems.Mutations);
-            transaction.TryExecute(tx =>
-            {
-                var familiarItems = _items.Select((item, slot) => (item, slot))
-                    .Where(entry => entry.item is { Count: > 0 })
-                    .ToArray();
-
-                foreach (var (item, slot) in familiarItems)
-                {
-                    tx.TryTransfer(_items.Mutations, inventoryItems.Mutations, item!, item!.Count, slot);
-                }
-
-                return true;
-            });
+            using var transaction = ItemContainerTransaction.Begin(_items.Mutations, inventoryItems.Mutations);
+            var familiarItems = _items.Select((item, slot) => (item, slot))
+                .Where(entry => entry.item is { Count: > 0 }).ToArray();
+            foreach (var (item, slot) in familiarItems)
+                _items.Mutations.TryTransferTo(inventoryItems.Mutations, item!, item!.Count, slot);
+            transaction.Commit();
         }
 
         /// <summary>

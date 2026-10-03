@@ -56,7 +56,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
 
             InterfaceInstance.AttachClickHandler(9, (component, type, itemID, slot) =>
             {
-                if (slot < 0 || slot >= Owner.Equipment.Capacity)
+                if (slot < 0 || slot >= Owner.Equipment.Items.Capacity)
                 {
                     return false;
                 }

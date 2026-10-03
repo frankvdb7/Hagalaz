@@ -1,3 +1,5 @@
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -189,6 +191,77 @@ public sealed class TradeInteractionRegressionTests
         Assert.AreEqual(20, session.SelfInventory.Items.GetCountById(session.SelfItem.Id));
     }
 
+    [TestMethod]
+    public async Task FinalAcceptHandlers_ConcurrentCallbacksExchangeOnceAndStaleCallbackCannotAffectNextTrade()
+    {
+        var session = CreateSession(1, 1);
+        Assert.IsTrue(session.SelfOffer!(0, ComponentClickType.Option4Click, session.SelfItem.Id, 0));
+        Assert.IsTrue(session.TargetOffer!(0, ComponentClickType.Option4Click, session.TargetItem.Id, 0));
+
+        Assert.IsTrue(session.Handlers.SelfOfferAccept!(18, ComponentClickType.LeftClick, 0, 0));
+        Assert.IsTrue(session.Handlers.TargetOfferAccept!(18, ComponentClickType.LeftClick, 0, 0));
+
+        var selfFinalAccept = session.Handlers.SelfFinalAccept!;
+        var targetFinalAccept = session.Handlers.TargetFinalAccept!;
+        using var start = new Barrier(3);
+        var selfAccept = Task.Run(() =>
+        {
+            start.SignalAndWait();
+            selfFinalAccept(21, ComponentClickType.LeftClick, 0, 0);
+        });
+        var targetAccept = Task.Run(() =>
+        {
+            start.SignalAndWait();
+            targetFinalAccept(21, ComponentClickType.LeftClick, 0, 0);
+        });
+
+        start.SignalAndWait();
+        await Task.WhenAll(selfAccept, targetAccept);
+
+        Assert.AreEqual(1, session.SelfInventory.Items.GetCountById(session.TargetItem.Id));
+        Assert.AreEqual(1, session.TargetInventory.Items.GetCountById(session.SelfItem.Id));
+        Assert.IsFalse(session.SelfScript.TradeSession);
+
+        selfFinalAccept(21, ComponentClickType.LeftClick, 0, 0);
+        targetFinalAccept(21, ComponentClickType.LeftClick, 0, 0);
+        Assert.AreEqual(1, session.SelfInventory.Items.GetCountById(session.TargetItem.Id));
+        Assert.AreEqual(1, session.TargetInventory.Items.GetCountById(session.SelfItem.Id));
+
+        session.SelfScript.StartTradeSession(session.Target);
+        selfFinalAccept(21, ComponentClickType.LeftClick, 0, 0);
+        Assert.IsTrue(session.SelfScript.TradeSession);
+        Assert.IsFalse(session.SelfScript.SelfAccepted);
+        Assert.IsFalse(session.SelfScript.TargetAccepted);
+        Assert.AreEqual(0, session.SelfScript.SelfContainer.Items.TakenSlots);
+        Assert.AreEqual(0, session.SelfScript.TargetContainer.Items.TakenSlots);
+    }
+
+    [TestMethod]
+    public void FinalAccept_WhenExchangeAndRefundCannotFit_ResetsConfirmationUiAndPreservesEscrow()
+    {
+        var session = CreateSession(1, 1);
+        Assert.IsTrue(session.SelfOffer!(0, ComponentClickType.Option4Click, session.SelfItem.Id, 0));
+        Assert.IsTrue(session.TargetOffer!(0, ComponentClickType.Option4Click, session.TargetItem.Id, 0));
+        for (var itemId = 200; itemId < 204; itemId++)
+        {
+            Assert.IsTrue(session.SelfInventory.Items.Add(ComposedTestContainer.CreateTestItem(itemId)));
+            Assert.IsTrue(session.TargetInventory.Items.Add(ComposedTestContainer.CreateTestItem(itemId + 10)));
+        }
+
+        Assert.IsTrue(session.Handlers.SelfOfferAccept!(18, ComponentClickType.LeftClick, 0, 0));
+        Assert.IsTrue(session.Handlers.TargetOfferAccept!(18, ComponentClickType.LeftClick, 0, 0));
+        Assert.IsTrue(session.Handlers.SelfFinalAccept!(21, ComponentClickType.LeftClick, 0, 0));
+        Assert.IsTrue(session.Handlers.TargetFinalAccept!(21, ComponentClickType.LeftClick, 0, 0));
+
+        Assert.IsTrue(session.SelfScript.TradeSession);
+        Assert.IsFalse(session.SelfScript.SelfAccepted);
+        Assert.IsFalse(session.SelfScript.TargetAccepted);
+        Assert.AreEqual(1, session.SelfScript.SelfContainer.Items.GetCountById(session.SelfItem.Id));
+        Assert.AreEqual(1, session.SelfScript.TargetContainer.Items.GetCountById(session.TargetItem.Id));
+        session.Self.Widgets.GetOpenWidget(334)!.Received().DrawString(34, "Are you sure you want to make this trade?");
+        session.Target.Widgets.GetOpenWidget(334)!.Received().DrawString(34, "Are you sure you want to make this trade?");
+    }
+
     private static TradeSession CreateSession(int selfCount, int targetCount)
     {
         var selfInventory = new ComposedTestContainer(4);
@@ -197,8 +270,8 @@ public sealed class TradeInteractionRegressionTests
         var targetItem = CreateTradeableItem(101, targetCount);
         selfInventory.SetItem(0, selfItem);
         targetInventory.SetItem(0, targetItem);
-        var selfWidgets = CreateWidgets(out var selfInterface, out var selfOverlay);
-        var targetWidgets = CreateWidgets(out var targetInterface, out var targetOverlay);
+        var selfWidgets = CreateWidgets(out var selfInterface, out var selfOverlay, out var selfConfirmationInterface);
+        var targetWidgets = CreateWidgets(out var targetInterface, out var targetOverlay, out var targetConfirmationInterface);
         var self = CreateCharacter("self", selfInventory, selfWidgets, out var selfAccessor);
         var target = CreateCharacter("target", targetInventory, targetWidgets, out var targetAccessor);
         var selfMoneyPouch = CreateMoneyPouch(self);
@@ -209,8 +282,9 @@ public sealed class TradeInteractionRegressionTests
         var targetScript = new TradingCharacterScript(targetAccessor, CreateItemBuilder());
         self.GetScript<TradingCharacterScript>().Returns(selfScript);
         target.GetScript<TradingCharacterScript>().Returns(targetScript);
-        ConfigureScripts(self, selfAccessor);
-        ConfigureScripts(target, targetAccessor);
+        ConfigureScripts(self, selfAccessor, selfInterface, selfConfirmationInterface);
+        ConfigureScripts(target, targetAccessor, targetInterface, targetConfirmationInterface);
+        var handlers = new TradeClickHandlers();
         OnComponentClick? selfOffer = null;
         OnComponentClick? targetOffer = null;
         OnComponentClick? selfOfferedItems = null;
@@ -229,9 +303,17 @@ public sealed class TradeInteractionRegressionTests
             .Do(call => selfPouch = call.ArgAt<OnComponentClick>(1));
         targetInterface.When(x => x.AttachClickHandler(53, Arg.Any<OnComponentClick>()))
             .Do(call => targetPouch = call.ArgAt<OnComponentClick>(1));
+        selfInterface.When(x => x.AttachClickHandler(18, Arg.Any<OnComponentClick>()))
+            .Do(call => handlers.SelfOfferAccept = call.ArgAt<OnComponentClick>(1));
+        targetInterface.When(x => x.AttachClickHandler(18, Arg.Any<OnComponentClick>()))
+            .Do(call => handlers.TargetOfferAccept = call.ArgAt<OnComponentClick>(1));
+        selfConfirmationInterface.When(x => x.AttachClickHandler(21, Arg.Any<OnComponentClick>()))
+            .Do(call => handlers.SelfFinalAccept = call.ArgAt<OnComponentClick>(1));
+        targetConfirmationInterface.When(x => x.AttachClickHandler(21, Arg.Any<OnComponentClick>()))
+            .Do(call => handlers.TargetFinalAccept = call.ArgAt<OnComponentClick>(1));
         selfScript.StartTradeSession(target);
         return new TradeSession(selfInventory, targetInventory, selfItem, targetItem, self, target, selfScript,
-            targetScript, selfOffer, targetOffer, selfOfferedItems, targetOfferedItems, selfPouch, targetPouch);
+            targetScript, selfOffer, targetOffer, selfOfferedItems, targetOfferedItems, selfPouch, targetPouch, handlers);
     }
 
     private static MoneyPouchContainer CreateMoneyPouch(ICharacter character)
@@ -245,7 +327,15 @@ public sealed class TradeInteractionRegressionTests
         IItem SelfItem, IItem TargetItem, ICharacter Self, ICharacter Target, TradingCharacterScript SelfScript,
         TradingCharacterScript TargetScript, OnComponentClick? SelfOffer, OnComponentClick? TargetOffer,
         OnComponentClick? SelfOfferedItems, OnComponentClick? TargetOfferedItems, OnComponentClick? SelfPouch,
-        OnComponentClick? TargetPouch);
+        OnComponentClick? TargetPouch, TradeClickHandlers Handlers);
+
+    private sealed class TradeClickHandlers
+    {
+        public OnComponentClick? SelfOfferAccept { get; set; }
+        public OnComponentClick? TargetOfferAccept { get; set; }
+        public OnComponentClick? SelfFinalAccept { get; set; }
+        public OnComponentClick? TargetFinalAccept { get; set; }
+    }
 
     private static ICharacter CreateCharacter(string name, ComposedTestContainer inventory, IWidgetContainer widgets,
         out ICharacterContextAccessor accessor)
@@ -263,26 +353,42 @@ public sealed class TradeInteractionRegressionTests
         return character;
     }
 
-    private static IWidgetContainer CreateWidgets(out IWidget tradeInterface, out IWidget inventoryOverlay)
+    private static IWidgetContainer CreateWidgets(out IWidget tradeInterface, out IWidget inventoryOverlay,
+        out IWidget confirmationInterface)
     {
         var widgets = Substitute.For<IWidgetContainer>();
-        tradeInterface = Substitute.For<IWidget>();
-        inventoryOverlay = Substitute.For<IWidget>();
+        var offerWidget = Substitute.For<IWidget>();
+        var overlayWidget = Substitute.For<IWidget>();
+        var confirmWidget = Substitute.For<IWidget>();
+        tradeInterface = offerWidget;
+        inventoryOverlay = overlayWidget;
+        confirmationInterface = confirmWidget;
+        offerWidget.Id.Returns(335);
+        overlayWidget.Id.Returns(336);
+        confirmWidget.Id.Returns(334);
         widgets.OpenWidget(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IWidgetScript>(), Arg.Any<bool>()).Returns(true);
         widgets.OpenInventoryOverlay(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IWidgetScript>()).Returns(true);
-        widgets.GetOpenWidget(335).Returns(tradeInterface);
-        widgets.GetOpenWidget(336).Returns(inventoryOverlay);
+        widgets.GetOpenWidget(Arg.Any<int>()).Returns(call => call.ArgAt<int>(0) switch
+        {
+            335 => offerWidget,
+            336 => overlayWidget,
+            334 => confirmWidget,
+            _ => null
+        });
         return widgets;
     }
 
-    private static void ConfigureScripts(ICharacter character, ICharacterContextAccessor accessor)
+    private static void ConfigureScripts(ICharacter character, ICharacterContextAccessor accessor,
+        IWidget offerWidget, IWidget confirmationWidget)
     {
-        var tradeInterface = new TradingCharacterScript.TradeInterfaceScript(accessor);
+        var tradeScript = new TradingCharacterScript.TradeInterfaceScript(accessor);
         var defaultWidget = new DefaultWidgetScript(accessor);
         var provider = Substitute.For<IServiceProvider>();
-        provider.GetService(typeof(TradingCharacterScript.TradeInterfaceScript)).Returns(tradeInterface);
+        provider.GetService(typeof(TradingCharacterScript.TradeInterfaceScript)).Returns(tradeScript);
         provider.GetService(typeof(DefaultWidgetScript)).Returns(defaultWidget);
         character.ServiceProvider.Returns(provider);
+        offerWidget.Script.Returns(tradeScript);
+        confirmationWidget.Script.Returns(tradeScript);
     }
 
     private static IItem CreateTradeableItem(int id, int count)

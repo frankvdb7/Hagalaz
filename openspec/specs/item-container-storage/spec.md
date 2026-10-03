@@ -29,7 +29,7 @@ Direct equipment restoration, replacement, full removal, and clearing MUST publi
 - **THEN** storage is empty before callbacks, every prior item's `OnUnequipped` is attempted, and publication follows all callback attempts
 
 ### Requirement: MoneyPouch separates gameplay and mutation capabilities
-`IMoneyPouchContainer` MUST expose normal coin-domain operations separately from transaction staging. Transaction participation MUST be available through `IMoneyPouchMutationBoundary` exposed by `MoneyPouch.Mutations`. The primary MoneyPouch API MUST NOT expose generic item-ID `Contains` operations or staging methods directly.
+`IMoneyPouchContainer` MUST expose standalone coin-domain operations. `TryAddExact` and `TryRemoveExact` MUST always own a transaction over pouch and inventory storage. `IMoneyPouchMutationBoundary`, exposed by `IMoneyPouchContainer.Mutations`, MUST provide only transaction-participating `TryAddExact` and `TryRemoveExact` operations. Those operations MUST require pouch and every inventory storage contribution in the same active caller-owned transaction. The primary MoneyPouch API MUST NOT expose generic item-ID `Contains` or caller-managed publication receipts.
 
 #### Scenario: MoneyPouch coin availability is domain-specific
 - **WHEN** a caller checks whether a character has a positive coin amount
@@ -43,7 +43,7 @@ Ordinary domain owners that compose `ItemContainer` MUST NOT recover or access i
 - **THEN** it uses narrow `ItemContainer` operations and does not obtain raw storage
 
 ### Requirement: Containers compose one authoritative item store
-Storage mechanics MUST be composed rather than inherited. `BaseItemContainer`, `TradeItemContainer`, `ITradeItemContainer`, `ItemContainerExtensions`, generic forwarding wrappers, `IItemContainerStorageOwner`, and `ItemContainerTransfer` MUST be removed. One concrete `ItemContainer` MUST implement `IItemContainer` and privately compose one `ItemContainerStorage` and one `ItemContainerMutationBoundary`, exposed as `IItemContainerMutationBoundary Mutations`. Ordinary domain implementations privately own concrete `ItemContainer`; ordinary domain interfaces MUST expose `IItemContainer Items` and MUST NOT copy generic forwarding operations. Equipment and MoneyPouch MUST compose storage directly with private mutation boundaries and MUST NOT expose generic `Items` or their boundaries. Equipment MUST itself remain a read-only `IContainer<IItem?>`. TradeOffer, Duel, and Price Checker MUST compose the concrete `ItemContainer` where generic behavior is required. `IItemContainer` MUST NOT reference concrete `ItemContainer`; bulk movement MUST NOT be part of its contract. Exact and multi-container mutations MUST use `ItemContainerTransaction` through `IItemContainerMutationBoundary` participants. No runtime cast may be required to recover storage infrastructure. `ItemContainerStorage` MUST own low-level slot and mutation mechanics and MUST NOT depend on character, trade, equipment, shop, UI, or persistence behavior. `ItemContainerTransaction` MUST own deterministic lock ordering, snapshots, rollback, changed-slot tracking, and post-commit publication. Domain containers MUST retain ownership of specialized gameplay callbacks and orchestration. Exact removal MUST be available through a neutral generic operation. MoneyPouch MUST stage pouch and inventory mutations through the same transaction using the dedicated `IMoneyPouchMutationBoundary`; it MUST NOT expose the concrete storage boundary or keep a separate rollback path. Concrete storage and mutation-boundary implementations SHOULD remain assembly-internal implementation details where friend-assembly access is sufficient.
+Storage mechanics MUST be composed rather than inherited. `BaseItemContainer`, `TradeItemContainer`, `ITradeItemContainer`, `ItemContainerExtensions`, generic forwarding wrappers, `IItemContainerStorageOwner`, and `ItemContainerTransfer` MUST be removed. One concrete `ItemContainer` MUST implement `IItemContainer` and privately compose one `ItemContainerStorage` and one `ItemContainerMutationBoundary`, exposed as `IItemContainerMutationBoundary Mutations`. Ordinary domain implementations privately own concrete `ItemContainer`; ordinary domain interfaces MUST expose `IItemContainer Items` and MUST NOT copy generic forwarding operations. Equipment and MoneyPouch MUST compose storage directly with private mutation boundaries and MUST NOT expose generic `Items` or raw storage boundaries. `IEquipmentContainer` MUST compose `IReadOnlyItemContainer Items` and MUST NOT expose generic mutation. TradeOffer, Duel, and Price Checker MUST compose the concrete `ItemContainer` where generic behavior is required. `IItemContainer` MUST NOT reference concrete `ItemContainer`; bulk movement MUST NOT be part of its contract. Transaction participation MUST be explicit through `.Mutations`; ordinary `IItemContainer` mutation methods MUST reject storage bound to an active transaction. Exact and multi-container mutations MUST use `ItemContainerTransaction` through opaque participants obtained from `.Mutations`. Domain callers MUST NOT cast containers to recover storage infrastructure. `ItemContainerStorage` MUST own low-level slot and mutation mechanics and MUST NOT depend on character, trade, equipment, shop, UI, or persistence behavior. `ItemContainerTransaction` MUST own deterministic lock ordering, snapshots, rollback, changed-slot tracking, and post-commit publication. Domain containers MUST retain ownership of specialized gameplay callbacks and orchestration. Exact removal MUST be available through a neutral generic operation. MoneyPouch MUST perform pouch and inventory mutations through the same scope, with its participant contributing both storage boundaries; it MUST NOT expose the concrete storage boundary or keep a separate rollback path. Concrete storage and mutation-boundary implementations MUST remain internal; Scripts MUST use public domain mutation capabilities without friend-assembly access.
 
 #### Scenario: Domain mutation publishes committed slots
 - **WHEN** a domain container successfully adds, removes, replaces, moves, swaps, sorts, clears, or restores items
@@ -61,22 +61,26 @@ Storage mechanics MUST be composed rather than inherited. `BaseItemContainer`, `
 - **THEN** storage throws the established exception category and retains all previous slots, counts, and revision
 
 ### Requirement: Cross-container transfers commit both stores atomically
-An exact cross-container transfer MUST enter through `IItemContainerMutationBoundary` and use `ItemContainerTransaction` to validate and plan source removal and destination insertion before changing either store, acquire distinct locks in stable order, call the single low-level `ItemContainerStorage` transfer algorithm, commit both stores together, advance each storage revision once, and publish changed slots only after success.
+An exact cross-container transfer MUST enter through `IItemContainerMutationBoundary` and use the one caller-owned `ItemContainerTransaction` to validate and plan source removal and destination insertion before changing either store, acquire distinct locks in stable order, call the single low-level `ItemContainerStorage` transfer algorithm, advance each storage revision once, and publish changed slots only after successful commit. The transfer boundary MUST NOT create or commit a transaction. A standalone domain owner MUST supply both boundaries before mutation; a composable operation MUST use the existing transaction only when both boundaries belong to it.
 
 #### Scenario: Exact transfer succeeds
-- **WHEN** the source has the requested quantity and the destination can accept the exact result
+- **WHEN** the caller enlists source and destination, the source has the requested quantity, the destination can accept the exact result, and the caller commits
 - **THEN** both stores commit the transfer before either domain container publishes an update
 
 #### Scenario: Transfer fails validation
 - **WHEN** the source quantity is insufficient or the destination cannot accept the result
 - **THEN** neither store changes and neither container publishes a committed mutation
 
+#### Scenario: Storage transfer requires one active transaction
+- **WHEN** the transfer boundary is called without both boundaries enlisted in one active transaction, or the low-level source storage transfer primitive is called without a transaction shared by source and destination or from a thread other than the transaction owner
+- **THEN** it throws before either store changes
+
 #### Scenario: Opposite transfers acquire locks consistently
 - **WHEN** two operations transfer in opposite directions between the same stores
-- **THEN** both operations acquire store locks in the same stable order and complete without lock-order deadlock
+- **THEN** their owner scopes acquire store locks in the same stable order, and an independent scope waits until the current scope releases its locks
 
 ### Requirement: Storage and trade revisions have distinct purposes
-Storage MUST own its mutation revision, which invalidates active enumerators after committed storage changes. `ItemContainerTransaction` MUST own lock ordering; `ItemContainerMutationBoundary.TryTransferTo` MUST delegate exact transfers to a short-lived transaction. TradeExchange MUST use a short-lived transaction rather than acquire storage locks directly. A trade offer's acceptance `Revision` MUST remain domain-owned and MUST advance according to its existing publication semantics, independently of storage revision.
+Storage MUST own its mutation revision, which invalidates active enumerators after committed storage changes. `ItemContainerTransaction` MUST own lock ordering; `ItemContainerMutationBoundary.TryTransferTo` MUST require an existing caller-owned scope containing both boundaries. Trade session owners MUST establish scopes around TradeExchange operations rather than acquire storage locks directly. A trade offer's acceptance `Revision` MUST remain domain-owned and MUST advance according to its existing publication semantics, independently of storage revision.
 
 #### Scenario: Storage mutation invalidates enumeration
 - **WHEN** storage changes after an enumerator is created
@@ -95,25 +99,49 @@ Storage MUST own its mutation revision, which invalidates active enumerators aft
 - **WHEN** the transaction stages one or more storage changes but later rolls back
 - **THEN** every participant's slots, item identities, counts, and mutation revision are restored
 - **AND** the pre-existing enumerators remain valid
-- **AND** no participant publishes a committed mutation or runs a committed callback
+- **AND** no participant publishes a committed mutation or runs a committed domain effect
 
 #### Scenario: Trade publication invalidates acceptance
 - **WHEN** a trade offer publishes a content update
 - **THEN** its acceptance revision advances independently of the storage enumeration revision
 
 #### Scenario: Post-commit failures do not change transaction outcome
-- **WHEN** the operation callback succeeds and transaction locks are released
-- **THEN** the transaction remains committed, attempts all pre-publication callbacks, changed participant publishers in registration order, and committed callbacks exactly once, then rethrows one captured exception or aggregates multiple exceptions
+- **WHEN** mutations succeed and Commit reaches publication after releasing transaction locks
+- **THEN** the transaction remains committed and runs changed participant publishers at most once in registration order, stopping at the first exception and propagating it directly
 
 ### Requirement: Multi-container mutations use an instance transaction
-`ItemContainerTransaction` MUST coordinate explicit mutation boundaries as a concrete short-lived object implementing `IItemContainerTransaction`. It MUST own transaction execution, deduplicate participants, acquire locks in deterministic storage order, capture snapshots, own rollback and changed-slot tracking, release locks before publication, and publish only committed changes. `IItemContainerTransaction.Include` MUST support participant enlistment before execution. Its storage-staging methods and `OnCommitted` MUST be used only during the operation callback passed to concrete `ItemContainerTransaction.TryExecute`. The interface MUST NOT expose transaction execution or changed-slot bookkeeping. Domain participants MUST stage all enlisted storage changes through the active transaction instead of mutating storage independently and reporting changed slots afterward. It MUST NOT introduce ambient state, asynchronous work, service lookup, or distributed transactions. Special-domain boundaries MUST remain private and participate only through a narrow domain-owned operation.
+`ItemContainerTransaction` MUST provide one disposable atomic scope around existing synchronous domain operations. Every participant MUST be supplied before Begin, and storage aliases MUST be deduplicated without changing first-seen publication order. It MUST own ordered locks, snapshots, rollback and deferred publication. Domain operations MUST retain item semantics; the transaction MUST NOT own item operations. Transaction participation MUST be explicit through mutation-boundary methods. Ordinary `IItemContainer` methods and standalone domain methods MUST keep standalone behavior and MUST reject when their storage is transaction-bound; they MUST NOT inspect hidden bindings to select participation behavior. Internal mutation-boundary validation MUST reject missing or conflicting enlistment and wrong-thread use before mutation. No dynamic enlistment, separate unit of work, committed-state query, publication call, or ambient joining API may be required. Async, nested and distributed transaction support MUST NOT be introduced.
 
-#### Scenario: A transaction participant receives a staging context
-- **WHEN** a domain participant receives `IItemContainerTransaction` inside the `TryExecute` operation callback
-- **THEN** it can stage item changes and register post-commit effects, while participant enlistment through `Include` remains available only before execution
+#### Scenario: A transaction participant uses explicit mutation capabilities
+- **WHEN** a caller begins one transaction with every required participant and performs domain mutations
+- **THEN** each transaction-participating mutation is called through `.Mutations` and uses that scope without acquiring additional locks
+
+#### Scenario: A cross-storage mutation has no owner scope
+- **WHEN** a caller attempts a cross-storage mutation without an active transaction containing both boundaries
+- **THEN** the operation throws before changing either storage
+
+#### Scenario: A helper requires missing storage
+- **WHEN** a scope includes A but a composable operation requires A and B
+- **THEN** the operation throws without acquiring or mutating B, and A remains bound to its existing scope
+
+#### Scenario: Storage belongs to different scopes
+- **WHEN** an operation requires storage bound to different active transactions
+- **THEN** it throws without mutation or nested transaction creation
+
+#### Scenario: Standalone pouch operation owns its transaction
+- **WHEN** a public standalone `MoneyPouch.TryAddExact` or `TryRemoveExact` operation is called
+- **THEN** it always begins a new transaction, and a nested call fails through the ordinary `Begin` rule
+
+#### Scenario: Standalone item-container mutation rejects an enlisted store
+- **WHEN** an ordinary `IItemContainer` mutation is called for storage enlisted in an active transaction
+- **THEN** it throws before mutation and leaves the caller-owned transaction active
+
+#### Scenario: A composite participant aliases storage
+- **WHEN** ordinary and composite participants contribute the same storage
+- **THEN** storage is locked and snapshotted once and participant publication order remains first-seen order
 
 ### Requirement: MoneyPouch uses one transaction rollback owner
-MoneyPouch exact additions and removals MUST stage both pouch and inventory storage through the same active transaction. Coin, slot-zero sentinel, balance, message, and event rules remain owned by MoneyPouch. Its committed domain effects MUST use `OnCommitted`, and MoneyPouch MUST NOT snapshot and restore pouch storage as a separate rollback mechanism.
+MoneyPouch exact additions and removals MUST mutate both pouch and inventory storage through the same active scope. Coin, slot-zero sentinel, balance, message, and event rules remain owned by MoneyPouch. Its captured notification facts MUST be owned by MoneyPouch and associated with the scope and published automatically after commit and unlock, and MoneyPouch MUST NOT snapshot and restore pouch storage as a separate rollback mechanism.
 
 #### Scenario: A later participant rejects a staged pouch mutation
 - **WHEN** pouch and inventory mutations are staged but a later participant rejects its operation
@@ -158,7 +186,7 @@ Equipment callbacks, trade settlement publication, inventory/bank/reward events,
 
 #### Scenario: Trade consumes generic container operations
 - **WHEN** TradeExchange stages item mutations for settlement
-- **THEN** it uses generic storage operations under its deterministic storage locks and publishes through domain owners only after commit
+- **THEN** it uses existing container operations under the session-owned scope's deterministic storage locks and publishes through domain owners only after commit
 
 ### Requirement: MoneyPouch and economic flows use one transaction owner
 MoneyPouch additions, removals, inventory transfers, bank deposits, shop purchases and sales, and duel stake, return, and cancellation refunds MUST stage all affected storage through one `ItemContainerTransaction` or exact two-container mutation boundary. A failed operation MUST leave every participant unchanged. Existing amount clamping, prices, messages, callbacks, and stock normalization MUST remain owned by their domain operations. MoneyPouch MUST retain its slot-zero coin sentinel and partial `Remove`, `AddFromInventory`, and `MoveToInventory` behavior.
@@ -206,4 +234,137 @@ After all required `CanUnEquipItem` checks succeed, Weapon and Shield replacemen
 
 #### Scenario: A participant publisher throws after replacement commit
 - **WHEN** replacement storage commits and a participant publisher throws
-- **THEN** committed storage remains in place, all registered lifecycle callbacks have run, and remaining participant publishers are still attempted
+- **THEN** committed storage remains in place, all required lifecycle effects have been attempted, and later participant publishers are skipped
+
+### Requirement: Transaction commit includes publication
+A transaction MUST expose Begin, Commit, and Dispose as its public lifecycle. Dispose without commit MUST restore all enlisted storage and revisions; Commit MUST declare current storage irreversible, release bindings and locks, then perform domain hooks and automatic publication. Callers MUST NOT require a separate publication step or committed-state query. Each changed container MUST publish once in existing observable order, independent of lock order. Completion failures MUST leave committed storage irreversible and MUST NOT be retried by Commit or Dispose.
+
+#### Scenario: Storage commits before publication
+- **WHEN** all staged mutations succeed
+- **THEN** storage becomes irreversible before Commit releases locks and invokes deferred domain effects and publication
+
+#### Scenario: Staging fails
+- **WHEN** a scope exits without Commit after domain rejection or a mutation exception
+- **THEN** disposal restores every enlisted store and revision, and emits no effects
+
+#### Scenario: A participant publisher fails
+- **WHEN** one participant throws during publication
+- **THEN** later participants are skipped, storage remains committed, the original exception propagates directly, and another Commit is invalid and Dispose emits nothing
+
+### Requirement: Automatic economic publication preserves domain behavior
+MoneyPouch MUST internally record immutable notification facts containing the previous count, new count, and domain-visible change amount for automatic publication after container publishers. Callers MUST NOT manage notification receipts. Messages MUST use the captured change amount, then events MUST use the captured previous and new counts; publication MUST NOT reconstruct events from live pouch state. An inventory-only pouch addition MUST NOT publish a pouch effect. Equipment MUST own its ordered lifecycle/profile hook batch and retain attempt-all behavior after storage becomes irreversible and locks are released. Equipment MUST execute typed completion facts directly without converting them to executable delegate arrays. For standalone equipment changes, lifecycle effects and normal publication MUST be attempted explicitly before retained failures are surfaced. Normal container publication MUST stop at its first failure, skipping later containers and all pouch publication; pouch publication MUST stop at its first failure. A single failure MUST preserve the original exception; independent hook and publication failures MUST preserve both original exceptions in AggregateException. Shop purchases MUST sort stock and send the purchase event only after Commit finishes publication.
+
+#### Scenario: Multiple pouch mutations retain their own facts
+- **WHEN** a transaction changes pouch count from 10 to 13 and then from 13 to 12
+- **THEN** the first publication sends the +3 message and event 10 to 13, and the second sends the -1 message and event 13 to 12
+
+#### Scenario: Reentrant pouch mutation preserves captured events
+- **WHEN** a pouch publication starts another transaction before the earlier event is sent
+- **THEN** each event reports its originating mutation's captured previous and new counts, regardless of current live pouch state
+
+#### Scenario: Equipment lifecycle fails after commit
+- **WHEN** an equipment lifecycle effect throws after storage commits
+- **THEN** later required lifecycle effects and transaction publication are still attempted under the equipment owner's existing cleanup policy and storage is not rolled back
+
+#### Scenario: Shop publication fails after purchase commit
+- **WHEN** container or pouch publication throws after a purchase commits
+- **THEN** later stock sorting and the purchase event are skipped, storage remains committed, and the original publication exception propagates directly
+
+### Requirement: Disposable atomic mutation scope
+An item transaction MUST expose Begin, Commit, and Dispose, with every participant resolved and validated before locking. It MUST capture all snapshots before establishing originating-thread bindings. Construction failure MUST remove bindings, release all acquired locks, leave storage unchanged, and publish nothing. Dispose without commit MUST restore all captured references, counts, and revisions. Commit MUST declare already-mutated storage irreversible before dropping snapshots, removing bindings, releasing locks, and executing callbacks. Cleanup MUST attempt every owned resource; callbacks MUST NOT execute while a transaction lock remains intentionally held. Repeated owner-thread disposal MUST be inert and repeated commit MUST NOT retry publication.
+
+#### Scenario: Construction fails during snapshot capture
+- **WHEN** snapshot capture throws after locks have been acquired
+- **THEN** all acquired locks are released, no binding survives, and storage and publication remain unchanged
+
+#### Scenario: Mutation scope exits without commit
+- **WHEN** an early return, exception, or cancellation exits an active scope
+- **THEN** disposal restores every participant and emits no deferred effect
+
+#### Scenario: Completion throws after commit
+- **WHEN** a hook or publisher throws after the irreversible transition
+- **THEN** committed storage remains permanent, all transaction locks have been released, disposal is inert, and commit cannot retry completion
+
+### Requirement: Complete same-scope participation
+Every transaction MUST have one explicit owner. A transaction begin on storage already bound to a current-thread transaction MUST throw. A composable mutation operation MUST be called through `.Mutations`, require all of its storage in the one caller-owned transaction, and MUST NOT create a nested transaction or acquire missing storage. Standalone domain operations MUST always own a new transaction and MUST NOT inspect hidden bindings to select behavior. Ordinary `IItemContainer` mutation methods MUST reject transaction-bound storage before mutation. Bindings owned by another thread MUST serialize through deterministic storage locks. Partial enlistment, conflicting transactions, nested Begin, and wrong-thread use MUST throw `InvalidOperationException` before mutation. Participant aliases MUST be deduplicated independently from first-seen publication order.
+
+#### Scenario: Independent overlapping scopes contend
+- **WHEN** another thread owns any required storage and the current thread owns none of it
+- **THEN** Begin waits on deterministic storage locks and proceeds after the other scope completes
+
+#### Scenario: Nested Begin is rejected
+- **WHEN** the current thread begins a transaction for storage already enlisted in its active transaction
+- **THEN** Begin throws and leaves the existing scope unchanged
+
+#### Scenario: A helper requires missing storage
+- **WHEN** a composable operation requires A and B but the caller's scope includes only A
+- **THEN** it throws without locking or mutating B, and A remains bound to the original scope
+
+#### Scenario: A standalone pouch method rejects nested ownership
+- **WHEN** public `TryAddExact` or `TryRemoveExact` is called while a transaction already includes the pouch
+- **THEN** it attempts a new Begin and fails without changing either scope or storage
+
+#### Scenario: A pouch mutation capability requires complete participation
+- **WHEN** `Mutations.TryAddExact` or `Mutations.TryRemoveExact` runs
+- **THEN** it succeeds only when pouch storage and every inventory storage contribution belong to the same active transaction
+
+#### Scenario: Ordinary item-container methods stay standalone
+- **WHEN** an ordinary item-container mutation is called for storage already enlisted in a transaction
+- **THEN** it throws before mutation and leaves the transaction active
+
+#### Scenario: Storage belongs to different scopes
+- **WHEN** required storage belongs to different active transactions
+- **THEN** the operation throws without mutation or nested transaction creation
+
+#### Scenario: A composite participant aliases storage
+- **WHEN** two participants contribute the same underlying storage
+- **THEN** that storage is locked and snapshotted once without changing participant publication order
+
+### Requirement: Automatic ordered transaction completion
+Commit MUST perform automatic completion after unlock without a separate caller publication call. Fixed pre-publication domain completion MUST precede normal container publication and domain-owned batches MUST retain their existing failure policy. Container publishers MUST retain existing observable order independently of lock order; the first failure MUST skip later container publishers and all post-publication domain completion. Fixed post-publication domain completion MUST execute in mutation order only after normal container publication, with storage irreversible and locks released. Its first failure MUST stop later completion. The transaction MUST NOT store executable domain callbacks or offer callback registration. Repository-owned mutation boundaries MUST invoke fixed owner completion stages. Domains MUST own pending completion data keyed by the originating scope, and discard it on rollback or unsuccessful completion without observable effects. A single failure MUST preserve its original exception; multiple hook failures and an independent publication failure MUST survive as original leaf exceptions in one flat AggregateException. Validation determining mutation eligibility MUST remain before commit.
+
+#### Scenario: Container publication fails
+- **WHEN** a container publisher throws
+- **THEN** later containers and all post-publication domain completion are skipped and storage stays committed
+
+#### Scenario: Post-publication domain completion fails
+- **WHEN** post-publication domain completion throws after all container publication
+- **THEN** earlier completion remains observable, later completion is skipped and storage stays committed
+
+#### Scenario: Equipment hooks and publication both fail
+- **WHEN** an equipment-owned hook batch and normal publication both throw
+- **THEN** required equipment hooks have been attempted and AggregateException retains both original failures
+
+#### Scenario: Rollback discards owner completion
+- **WHEN** equipment and pouch mutations record pending effects but the scope is disposed without commit
+- **THEN** storage is restored, pending owner facts are discarded without observable effects, and a later unrelated scope executes none of those effects
+
+#### Scenario: Multiple mutations retain order across owners
+- **WHEN** one scope records interleaved equipment or pouch mutations, including aliased participants
+- **THEN** completion executes each pending operation once in mutation order independently of participant and lock order
+
+#### Scenario: Completion starts another scope
+- **WHEN** post-unlock domain completion synchronously starts a new scope on the same owner
+- **THEN** pending facts remain associated with their originating scope and neither scope consumes or discards the other's facts
+
+### Requirement: Read-only item access is an explicit capability
+`IReadOnlyItemContainer` MUST expose indexed/enumerable item reads and item-specific queries without mutation or transaction participation. `IItemContainer` MUST inherit this capability and retain mutation members. `IEquipmentContainer` MUST compose an `IReadOnlyItemContainer Items` view and retain its equipment-slot indexer and semantic operations.
+
+#### Scenario: Equipment exposes only a read-only composed view
+- **WHEN** a caller accesses equipment through `IEquipmentContainer`
+- **THEN** generic item reads and queries are available through `Items`, equipment-slot reads remain available through the `EquipmentSlot` indexer, and no generic mutation or transaction capability is exposed
+
+#### Scenario: Equipment read view reflects its storage
+- **WHEN** equipment contains an item
+- **THEN** the read-only view reports the same capacity, slots, enumeration, ID lookup, counts, and containment as the equipment storage
+
+### Requirement: Mutation boundaries expose an outside-transaction guard
+A mutation boundary MUST provide a semantic operation that succeeds when its storage is outside an active transaction and throws `InvalidOperationException` when the storage is bound to an active transaction. The check MUST NOT mutate storage or change transaction lifecycle.
+
+#### Scenario: Guard accepts storage outside a transaction
+- **WHEN** the boundary's storage is not bound to an active transaction
+- **THEN** the outside-transaction guard returns normally without changing storage
+
+#### Scenario: Guard rejects transaction-bound storage
+- **WHEN** the boundary's storage belongs to an active transaction
+- **THEN** the guard throws `InvalidOperationException` and leaves storage and the active transaction unchanged

@@ -1,11 +1,9 @@
 namespace Hagalaz.Game.Abstractions.Collections;
 
-/// <summary>Provides coin-pouch participation in an item-container transaction.</summary>
-public interface IMoneyPouchMutationBoundary
+/// <summary>Provides explicit money-pouch mutations inside an already-owned item-container transaction.</summary>
+public interface IMoneyPouchMutationBoundary : IItemContainerTransactionParticipant
 {
-    void EnlistIn(IItemContainerTransaction transaction);
+    bool TryAddExact(int count);
 
-    bool TryStageAddExact(IItemContainerTransaction transaction, int count);
-
-    bool TryStageRemoveExact(IItemContainerTransaction transaction, int count);
+    bool TryRemoveExact(int count);
 }

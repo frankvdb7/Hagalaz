@@ -7,12 +7,12 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// <summary>
     /// Defines the contract for a character's equipment container, which manages the items a character is currently wearing.
     /// </summary>
-    public interface IEquipmentContainer : IContainer<IItem?>
+    public interface IEquipmentContainer
     {
         /// <summary>
-        /// Gets the number of empty equipment slots.
+        /// Gets read-only indexed and enumerable access to equipped items.
         /// </summary>
-        int FreeSlots { get; }
+        IReadOnlyItemContainer Items { get; }
 
         /// <summary>
         /// Gets the item in the specified equipment slot.
@@ -54,13 +54,6 @@ namespace Hagalaz.Game.Abstractions.Collections
 
         /// <summary>Removes an equipped item and publishes the resulting equipment change.</summary>
         int RemoveEquippedItem(IItem item, EquipmentSlot preferredSlot = EquipmentSlot.NoSlot);
-
-        /// <summary>
-        /// Gets the first equipped item that matches the specified ID.
-        /// </summary>
-        /// <param name="id">The item ID to search for.</param>
-        /// <returns>The first equipped <see cref="IItem"/> instance with the given ID, or <c>null</c> if not found.</returns>
-        IItem? GetById(int id);
 
         /// <summary>Unequips every current item, clears equipment, and publishes once when storage changes.</summary>
         void ClearEquipment();
