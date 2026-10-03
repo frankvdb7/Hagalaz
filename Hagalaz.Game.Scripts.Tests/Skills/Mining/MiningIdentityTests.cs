@@ -237,7 +237,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Mining
             miningService.FindRockLootById(1).Returns(Task.FromResult<ILootTable?>(Substitute.For<ILootTable>()));
             characterStore.CountAsync().Returns(ValueTask.FromResult(0));
 
-            equipment.GetById(pickaxe.ItemId).Returns(Substitute.For<IItem>());
+            equipment.Items.GetById(pickaxe.ItemId).Returns(Substitute.For<IItem>());
             statistics.GetSkillLevel(StatisticsConstants.Mining).Returns(99);
             character.Inventory.Returns(inventory);
             character.Equipment.Returns(equipment);

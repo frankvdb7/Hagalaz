@@ -50,3 +50,9 @@ Verify final pushed-head hosted CI and CodeQL and report their results in the PR
 - [x] 8.3 Run the three suites, solution build, exact CI command, strict OpenSpec, duplication and diff checks; record local evidence (AC1-7).
 
 Per the user's current instruction, do not commit, push or monitor hosted checks automatically. Hosted validation of these local changes remains pending until a push is requested.
+
+## 9. Source-owned transfer primitive
+
+- [x] 9.1 Replace the static storage transfer entry point with a source-storage instance method and move source/destination-dependent helpers to their natural owners (AC1, AC2).
+- [x] 9.2 Enforce shared active transaction identity at the storage primitive and add direct tests for missing, different, wrong-thread and same-transaction rollback behavior (AC2, AC3).
+- [x] 9.3 Run the three regression suites, solution build, strict OpenSpec, duplication and diff checks; retain all existing transfer behavior (AC1-3).

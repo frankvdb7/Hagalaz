@@ -129,7 +129,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             var equipmentContainer = _owner.Equipment;
-            if (equipmentContainer[(int)slot] is not { } equippedItem)
+            if (equipmentContainer[slot] is not { } equippedItem)
             {
                 deposited = null;
                 return false;

@@ -41,7 +41,7 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
         if (destination is not ItemContainerMutationBoundary target)
             throw new ArgumentException("Unsupported mutation boundary.", nameof(destination));
         using var transaction = ItemContainerTransaction.BeginIfNeeded(this, target);
-        if (!ItemContainerStorage.TryTransfer(_storage, target._storage, item, count,
+        if (!_storage.TryTransferTo(target._storage, item, count,
                 preferredSourceSlot, destinationSlot, destinationItem, out var sourceSlots, out var destinationSlots)) return false;
         NotifyChanges(sourceSlots);
         target.NotifyChanges(destinationSlots);

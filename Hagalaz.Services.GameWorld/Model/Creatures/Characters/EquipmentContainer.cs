@@ -31,16 +31,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IItemBuilder _itemBuilder;
         private readonly ItemContainerStorage _storage;
         private readonly ItemContainerMutationBoundary _mutations;
+        public IReadOnlyItemContainer Items { get; }
         private readonly ConcurrentDictionary<ItemContainerTransaction, Queue<EquipmentCompletion>> _pendingCompletion = new();
         private enum EquipmentEffectKind { Equipped, Unequipped, WeaponProfile }
         private readonly record struct EquipmentEffect(EquipmentEffectKind Kind, IItem Item, IItem? Incoming = null);
         private readonly record struct EquipmentCompletion(int Order, EquipmentEffect[] Effects);
-        public int Capacity => _storage.Capacity;
-        public int FreeSlots => _storage.FreeSlots;
-        public IItem? this[int index] => _storage[index];
-        public System.Collections.Generic.IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
-
         /// <summary>
         /// Gets the item by the specified array index.
         /// </summary>
@@ -57,6 +52,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             (_owner, _itemBuilder) = (owner, itemBuilder);
             _storage = new ItemContainerStorage(StorageType.Normal, capacity);
+            Items = new ReadOnlyItemContainer(_storage);
             _mutations = new ItemContainerMutationBoundary(_storage,
                 slots => PublishCommittedChanges(slots?.Select(slot => (EquipmentSlot)slot).ToHashSet()), this);
         }
@@ -460,8 +456,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         }
 
         public EquipmentSlot GetInstanceSlot(IItem instance) => (EquipmentSlot)_storage.GetInstanceSlot(instance);
-        public IItem? GetById(int id) => _storage.GetById(id);
-
         public void Hydrate(IReadOnlyList<HydratedItemDto> equipment)
         {
             var items = equipment.Select(entry => entry.ToStorageEntry(_itemBuilder)).ToArray();

@@ -308,7 +308,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
             InterfaceInstance.AttachClickHandler(37,
                 (componentID, type, extra1, extra2) =>
                 {
-                    foreach (var item in Owner.Equipment)
+                    foreach (var item in Owner.Equipment.Items)
                     {
                         if (item == null)
                         {

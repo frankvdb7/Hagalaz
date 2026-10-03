@@ -447,6 +447,108 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
+    public void StorageTransfer_WithoutTransactionRejectsBeforeMutation()
+    {
+        var source = new ItemContainer(StorageType.Normal, 1);
+        var destination = new ItemContainer(StorageType.Normal, 1);
+        var item = new TestItem(48, 1);
+        Assert.IsTrue(source.Add(item));
+        var sourceStorage = Boundary(source).Storage;
+        var destinationStorage = Boundary(destination).Storage;
+        var sourceRevision = sourceStorage.MutationRevision;
+        var destinationRevision = destinationStorage.MutationRevision;
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => sourceStorage.TryTransferTo(
+            destinationStorage, item, 1, 0, -1, null, out _, out _));
+
+        Assert.AreSame(item, source[0]);
+        Assert.IsNull(destination[0]);
+        Assert.AreEqual(sourceRevision, sourceStorage.MutationRevision);
+        Assert.AreEqual(destinationRevision, destinationStorage.MutationRevision);
+        AssertUnboundAndUnlocked(source, destination);
+    }
+
+    [TestMethod]
+    public void StorageTransfer_DifferentActiveTransactionsRejectBeforeMutation()
+    {
+        var source = new ItemContainer(StorageType.Normal, 1);
+        var destination = new ItemContainer(StorageType.Normal, 1);
+        var item = new TestItem(49, 1);
+        Assert.IsTrue(source.Add(item));
+        var sourceStorage = Boundary(source).Storage;
+        var destinationStorage = Boundary(destination).Storage;
+        var sourceRevision = sourceStorage.MutationRevision;
+        var destinationRevision = destinationStorage.MutationRevision;
+        using var sourceTransaction = ItemContainerTransaction.Begin(source.Mutations);
+        using var destinationTransaction = ItemContainerTransaction.Begin(destination.Mutations);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => sourceStorage.TryTransferTo(
+            destinationStorage, item, 1, 0, -1, null, out _, out _));
+
+        Assert.AreSame(sourceTransaction, sourceStorage.Transaction);
+        Assert.AreSame(destinationTransaction, destinationStorage.Transaction);
+        Assert.AreSame(item, source[0]);
+        Assert.IsNull(destination[0]);
+        Assert.AreEqual(sourceRevision, sourceStorage.MutationRevision);
+        Assert.AreEqual(destinationRevision, destinationStorage.MutationRevision);
+    }
+
+    [TestMethod]
+    public void StorageTransfer_SameTransactionReportsSlotsAndDisposeRestoresState()
+    {
+        var source = new ItemContainer(StorageType.Normal, 1);
+        var destination = new ItemContainer(StorageType.Normal, 1);
+        var item = new TestItem(50, 4);
+        Assert.IsTrue(source.Add(item));
+        var sourceStorage = Boundary(source).Storage;
+        var destinationStorage = Boundary(destination).Storage;
+        var sourceRevision = sourceStorage.MutationRevision;
+        var destinationRevision = destinationStorage.MutationRevision;
+
+        using (ItemContainerTransaction.Begin(source.Mutations, destination.Mutations))
+        {
+            Assert.IsTrue(sourceStorage.TryTransferTo(destinationStorage, item, 4, 0, -1, null,
+                out var sourceSlots, out var destinationSlots));
+
+            Assert.IsTrue(sourceSlots.SetEquals([0]));
+            Assert.IsTrue(destinationSlots.SetEquals([0]));
+            Assert.IsNull(source[0]);
+            Assert.AreSame(item, destination[0]);
+            Assert.AreEqual(4, destination[0]!.Count);
+            Assert.AreEqual(sourceRevision + 1, sourceStorage.MutationRevision);
+            Assert.AreEqual(destinationRevision + 1, destinationStorage.MutationRevision);
+        }
+
+        Assert.AreSame(item, source[0]);
+        Assert.AreEqual(4, source[0]!.Count);
+        Assert.IsNull(destination[0]);
+        Assert.AreEqual(sourceRevision, sourceStorage.MutationRevision);
+        Assert.AreEqual(destinationRevision, destinationStorage.MutationRevision);
+    }
+
+    [TestMethod]
+    public void StorageTransfer_WrongThreadRejectsWithoutEndingTransaction()
+    {
+        var source = new ItemContainer(StorageType.Normal, 1);
+        var destination = new ItemContainer(StorageType.Normal, 1);
+        var item = new TestItem(51, 1);
+        Assert.IsTrue(source.Add(item));
+        var sourceStorage = Boundary(source).Storage;
+        var destinationStorage = Boundary(destination).Storage;
+        using var transaction = ItemContainerTransaction.Begin(source.Mutations, destination.Mutations);
+
+        OnOtherThread(() => Assert.ThrowsExactly<InvalidOperationException>(() => sourceStorage.TryTransferTo(
+            destinationStorage, item, 1, 0, -1, null, out _, out _)));
+
+        Assert.AreSame(transaction, sourceStorage.Transaction);
+        Assert.AreSame(transaction, destinationStorage.Transaction);
+        Assert.AreSame(item, source[0]);
+        Assert.IsNull(destination[0]);
+        transaction.Dispose();
+        AssertUnboundAndUnlocked(source, destination);
+    }
+
+    [TestMethod]
     public void Scope_WrongThreadCommitDisposeAndMutationRejectWithoutEndingScope()
     {
         var first = new ItemContainer(StorageType.Normal, 2);
@@ -706,10 +808,31 @@ public sealed class ItemContainerMutationBoundaryTests
             }
         }
 
-        Assert.IsFalse(typeof(IEquipmentContainer).GetProperty("Items") is not null);
+        Assert.AreEqual(typeof(IReadOnlyItemContainer), typeof(IEquipmentContainer).GetProperty("Items")!.PropertyType);
         Assert.IsFalse(typeof(IEquipmentContainer).GetProperty("Mutations") is not null);
         Assert.IsFalse(typeof(IMoneyPouchContainer).GetProperty("Items") is not null);
         Assert.AreEqual(typeof(IItemContainerTransactionParticipant), typeof(IMoneyPouchContainer).GetProperty("Mutations")!.PropertyType);
+    }
+
+    [TestMethod]
+    public void ContainerInterfacesSeparateReadOnlyAndMutationCapabilities()
+    {
+        Assert.IsTrue(typeof(IReadOnlyItemContainer).GetInterfaces().Contains(typeof(IContainer<IItem?>)));
+        Assert.IsTrue(typeof(IItemContainer).GetInterfaces().Contains(typeof(IReadOnlyItemContainer)));
+
+        var readOnlyMembers = typeof(IReadOnlyItemContainer).GetMethods().Select(method => method.Name).ToHashSet();
+        foreach (var mutationMember in new[] { "Add", "Remove", "TryRemoveExact", "Replace", "Swap", "Move", "AddRange", "Sort", "Clear", "get_Mutations" })
+        {
+            Assert.IsFalse(readOnlyMembers.Contains(mutationMember), mutationMember);
+        }
+
+        Assert.AreEqual(typeof(IItemContainerMutationBoundary), typeof(IItemContainer).GetProperty("Mutations")!.PropertyType);
+        Assert.IsFalse(typeof(IEquipmentContainer).GetInterfaces().Contains(typeof(IContainer<IItem?>)));
+        Assert.AreEqual(typeof(IReadOnlyItemContainer), typeof(IEquipmentContainer).GetProperty("Items")!.PropertyType);
+        Assert.IsNotNull(typeof(IEquipmentContainer).GetProperty("Item", [typeof(EquipmentSlot)]));
+        Assert.IsNull(typeof(IEquipmentContainer).GetProperty("Item", [typeof(int)]));
+        Assert.IsFalse(typeof(IEquipmentContainer).GetProperty("Mutations") is not null);
+        Assert.IsFalse(typeof(IEquipmentContainer).GetProperties().Any(property => property.PropertyType == typeof(IItemContainer)));
     }
 
     private sealed class TestItem : IItem

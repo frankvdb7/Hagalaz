@@ -26,6 +26,38 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class CharacterItemTransferTests
 {
     [TestMethod]
+    public void EquipmentItems_ReadOnlyViewReflectsEquipmentStorage()
+    {
+        using var scenario = new Scenario();
+        var (equipment, _) = CreateEquipmentScenario(scenario);
+        IEquipmentContainer equipmentContract = equipment;
+        IReadOnlyItemContainer items = equipmentContract.Items;
+        var item = scenario.Builder.Create().WithId(100).WithCount(3).Build();
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item));
+
+        Assert.AreEqual(15, items.Capacity);
+        Assert.AreEqual(14, items.FreeSlots);
+        Assert.AreEqual(1, items.TakenSlots);
+        Assert.AreSame(item, items[(int)EquipmentSlot.Hat]);
+        Assert.AreSame(item, items.GetById(item.Id));
+        Assert.AreEqual(3, items.GetCount(item));
+        Assert.AreEqual(3, items.GetCountById(item.Id));
+        Assert.AreEqual((int)EquipmentSlot.Hat, items.GetInstanceSlot(item));
+        Assert.AreEqual((int)EquipmentSlot.Hat, items.GetSlotByItem(item));
+        Assert.IsTrue(items.Contains(item.Id));
+        Assert.IsTrue(items.Contains(item.Id, 3));
+
+        var enumeratedItems = 0;
+        foreach (var equippedItem in items)
+        {
+            if (equippedItem != null) enumeratedItems++;
+        }
+
+        Assert.AreEqual(1, enumeratedItems);
+        Assert.IsFalse(items is IItemContainer);
+    }
+
+    [TestMethod]
     public void TryRestoreEquippedItem_PublishesWithoutRunningOnEquipped()
     {
         using var scenario = new Scenario();
@@ -451,7 +483,7 @@ public sealed class CharacterItemTransferTests
         var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => equipment.ClearEquipment());
 
         Assert.AreSame(failure, thrown);
-        Assert.IsTrue(equipment.All(item => item == null));
+        Assert.IsTrue(equipment.Items.All(item => item == null));
         CollectionAssert.AreEqual(new[] { "first", "second", "publish" }, order);
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
     }

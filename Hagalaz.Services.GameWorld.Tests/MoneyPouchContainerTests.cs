@@ -35,7 +35,8 @@ public sealed class MoneyPouchContainerTests
                 containerInterface.Name);
         }
 
-        Assert.IsNull(typeof(IEquipmentContainer).GetProperty("Items"));
+        Assert.AreEqual(typeof(IReadOnlyItemContainer), typeof(IEquipmentContainer).GetProperty("Items")!.PropertyType);
+        Assert.IsNull(typeof(IEquipmentContainer).GetProperty("Item", [typeof(int)]));
         Assert.IsNull(typeof(IEquipmentContainer).GetMethod("OnUpdate"));
         Assert.IsNull(typeof(IMoneyPouchContainer).GetProperty("Items"));
         Assert.IsNotNull(typeof(IMoneyPouchContainer).GetProperty("Mutations"));

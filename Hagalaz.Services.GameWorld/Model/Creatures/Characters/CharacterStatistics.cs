@@ -1004,7 +1004,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public void CalculateBonuses()
         {
             Bonuses.Reset();
-            foreach (var item in _owner.Equipment.OfType<IItem>())
+            foreach (var item in _owner.Equipment.Items.OfType<IItem>())
             {
                 Bonuses.Add(item.EquipmentDefinition.Bonuses);
             }

@@ -155,7 +155,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             Session.SendMessage(sound.ToMessage());
             EventManager.SendEvent(new CreatureDiedEvent(this));
             Movement.Lock(true); // reset the movement and lock the character
-            foreach (var item in Equipment)
+            foreach (var item in Equipment.Items)
             {
                 item?.EquipmentScript.OnDeath(item, this);
             }
@@ -219,10 +219,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var protectedItems = new List<int>(); // automatically keep
             var destroyedItems = new List<int>();
             var droppedItems = new List<int>();
-            var totalCapacity = Inventory.Items.Capacity + Equipment.Capacity;
+            var totalCapacity = Inventory.Items.Capacity + Equipment.Items.Capacity;
             for (var slot = 0; slot < totalCapacity; slot++)
             {
-                var item = slot >= Equipment.Capacity ? Inventory.Items[slot - Equipment.Capacity] : Equipment[(EquipmentSlot)slot];
+                var item = slot >= Equipment.Items.Capacity ? Inventory.Items[slot - Equipment.Items.Capacity] : Equipment[(EquipmentSlot)slot];
                 if (item == null) continue;
                 var degradeType = item.ItemDefinition.DegradeType;
                 if (degradeType == DegradeType.ProtectedItem && !Area.IsPvP)
@@ -235,13 +235,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             droppedItems.Sort(Comparer<int>.Create((x, y) =>
             {
-                var ix = x >= Equipment.Capacity ? Inventory.Items[x - Equipment.Capacity - 1] : Equipment[(EquipmentSlot)(x - 1)];
+                var ix = x >= Equipment.Items.Capacity ? Inventory.Items[x - Equipment.Items.Capacity - 1] : Equipment[(EquipmentSlot)(x - 1)];
                 if (ix == null)
                 {
                     return 0;
                 }
 
-                var iy = y >= Equipment.Capacity ? Inventory.Items[y - Equipment.Capacity - 1] : Equipment[(EquipmentSlot)(y - 1)];
+                var iy = y >= Equipment.Items.Capacity ? Inventory.Items[y - Equipment.Items.Capacity - 1] : Equipment[(EquipmentSlot)(y - 1)];
                 if (iy == null)
                 {
                     return 0;
@@ -287,7 +287,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public (IItem[] droppedItems, IItem[] keptItems) GetItemsOnDeathData(
             (List<int> protectedItems, List<int> destroyedItems, List<int> droppedItems, List<int> keptItems) slotData)
         {
-            IItem? slotItemConverter(int s) => s >= Equipment.Capacity ? Inventory.Items[s - Equipment.Capacity - 1] : Equipment[(EquipmentSlot)(s - 1)];
+            IItem? slotItemConverter(int s) => s >= Equipment.Items.Capacity ? Inventory.Items[s - Equipment.Items.Capacity - 1] : Equipment[(EquipmentSlot)(s - 1)];
             List<IItem> droppedItems = slotData.droppedItems.Select(slotItemConverter).ToList()!;
             var protectedItems = slotData.protectedItems.Select(slotItemConverter).OfType<IItem>();
             var keptItems = slotData.keptItems.Select((s) =>

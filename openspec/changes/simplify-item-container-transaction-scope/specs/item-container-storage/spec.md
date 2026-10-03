@@ -105,6 +105,10 @@ An exact cross-container transfer MUST enter through `IItemContainerMutationBoun
 - **WHEN** two operations transfer in opposite directions between the same stores
 - **THEN** scopes acquire store locks in the same stable order; an independent helper encountering a scope on another thread waits for its locks and proceeds after that scope unbinds and unlocks
 
+#### Scenario: Storage transfer requires one active transaction
+- **WHEN** the low-level source storage transfer primitive is called without a transaction shared by source and destination, or from a thread other than the transaction owner
+- **THEN** it rejects the misuse before planning or changing storage, and a valid shared transaction retains ownership for rollback or commit
+
 
 ### Requirement: Storage and trade revisions have distinct purposes
 Storage MUST own its mutation revision, which invalidates active enumerators after committed storage changes. `ItemContainerTransaction` MUST own lock ordering; `ItemContainerMutationBoundary.TryTransferTo` MUST use a short-lived scope or participate in an existing complete scope. Trade session owners MUST establish scopes around TradeExchange operations rather than acquire storage locks directly. A trade offer's acceptance `Revision` MUST remain domain-owned and MUST advance according to its existing publication semantics, independently of storage revision.

@@ -90,7 +90,7 @@ public sealed class ItemContainerPersistenceTests
     public void EquipmentRoundTrip_PreservesSemanticSlotsAndGaps()
     {
         using var scenario = new Scenario();
-        AssertRoundTrip(() => new EquipmentContainer(scenario.Owner, 15, scenario.Builder), container => container,
+        AssertRoundTrip(() => new EquipmentContainer(scenario.Owner, 15, scenario.Builder), container => container.Items,
             [new(101, 1, (int)EquipmentSlot.Hat, null), new(102, 1, (int)EquipmentSlot.Weapon, null),
                 new(103, 1, (int)EquipmentSlot.Shield, null), new(104, 1, (int)EquipmentSlot.Ring, null)]);
     }
@@ -360,7 +360,7 @@ public sealed class ItemContainerPersistenceTests
             case "Equipment":
             {
                 var container = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
-                return new(container, entries =>
+                return new(container.Items, entries =>
                     container.Hydrate(entries.Select(entry => new HydratedItemDto(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
             }
             default:
