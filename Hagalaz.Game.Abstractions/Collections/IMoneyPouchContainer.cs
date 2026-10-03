@@ -52,11 +52,19 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <summary>
         /// Adds exactly the requested coins using normal pouch overflow rules.
         /// </summary>
+        /// <remarks>
+        /// When called inside an active transaction, the transaction must include the pouch and inventory storage.
+        /// Otherwise this operation owns its transaction.
+        /// </remarks>
         bool TryAddExact(int count);
 
         /// <summary>
         /// Removes exactly the requested number of coins from the pouch and inventory, if available.
         /// </summary>
+        /// <remarks>
+        /// When called inside an active transaction, the transaction must include the pouch and inventory storage.
+        /// Otherwise this operation owns its transaction.
+        /// </remarks>
         bool TryRemoveExact(int count);
     }
 }

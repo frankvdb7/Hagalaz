@@ -283,9 +283,7 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public void BankDepositFromMoneyPouch_WhenBankCannotAcceptCoins_LeavesBothStoresUnchanged(bool joined)
+    public void BankDepositFromMoneyPouch_WhenBankCannotAcceptCoins_LeavesBothStoresUnchanged()
     {
         using var scenario = new Scenario();
         var inventory = CreateInventory(scenario, 4);
@@ -310,18 +308,10 @@ public sealed class CharacterItemTransferTests
                 Assert.IsFalse(Monitor.IsEntered(boundary.Storage.MutationLock));
             }
         });
-        using var outer = joined ? ItemContainerTransaction.Begin(bank.Items.Mutations, moneyPouch.Mutations) : null;
-
         Assert.IsFalse(bank.DepositFromMoneyPouch(out var deposited));
 
         Assert.IsNull(deposited);
-        if (joined)
-        {
-            Assert.AreSame(outer, bankStorage.Transaction);
-            scenario.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
-            outer!.Dispose();
-        }
-        else scenario.Owner.Received(1).SendChatMessage("Not enough space in your bank.");
+        scenario.Owner.Received(1).SendChatMessage("Not enough space in your bank.");
         Assert.AreEqual(5, moneyPouch.Count);
         Assert.AreEqual(int.MaxValue, bank.Items.GetCountById(995));
         events.DidNotReceive().SendEvent(Arg.Any<BankChangedEvent>());
@@ -698,9 +688,7 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public void EquipItem_TwoConflictsThatCannotBothFitRollsBackEveryStorageChange(bool joined)
+    public void EquipItem_TwoConflictsThatCannotBothFitRollsBackEveryStorageChange()
     {
         using var scenario = new Scenario();
         var setup = CreateWeaponShieldReplacementSetup(scenario, inventoryCapacity: 1);
@@ -709,17 +697,9 @@ public sealed class CharacterItemTransferTests
         scenario.Owner.ClearReceivedCalls();
         var equipmentBoundary = (ItemContainerMutationBoundary)typeof(EquipmentContainer)
             .GetField("_mutations", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(setup.Equipment)!;
-        using var outer = joined ? ItemContainerTransaction.Begin(setup.Inventory.Items.Mutations, equipmentBoundary) : null;
-
         Assert.IsFalse(setup.Equipment.EquipItem(setup.Incoming));
 
-        if (joined)
-        {
-            Assert.AreSame(outer, equipmentBoundary.Storage.Transaction);
-            scenario.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
-            outer!.Dispose();
-        }
-        else scenario.Owner.Received(1).SendChatMessage("Not enough space in your inventory.");
+        scenario.Owner.Received(1).SendChatMessage("Not enough space in your inventory.");
         Assert.AreSame(setup.Incoming, setup.Inventory.Items[0]);
         Assert.AreSame(setup.Weapon, setup.Equipment[EquipmentSlot.Weapon]);
         Assert.AreSame(setup.Shield, setup.Equipment[EquipmentSlot.Shield]);
@@ -971,9 +951,7 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public void UnEquipItem_InventoryFullLeavesEquipmentWithoutUnequippedCallback(bool joined)
+    public void UnEquipItem_InventoryFullLeavesEquipmentWithoutUnequippedCallback()
     {
         using var scenario = new Scenario();
         var inventory = CreateInventory(scenario, 1);
@@ -996,16 +974,9 @@ public sealed class CharacterItemTransferTests
             Assert.IsNull(inventoryStorage.Transaction);
             Assert.IsFalse(Monitor.IsEntered(inventoryStorage.MutationLock));
         });
-        using var outer = joined ? ItemContainerTransaction.Begin(inventory.Items.Mutations, equipmentBoundary) : null;
-
         Assert.IsFalse(equipment.UnEquipItem(item));
 
-        if (joined)
-        {
-            Assert.AreSame(outer, equipmentBoundary.Storage.Transaction);
-            scenario.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
-        }
-        else scenario.Owner.Received(1).SendChatMessage("Not enough space in your inventory.");
+        scenario.Owner.Received(1).SendChatMessage("Not enough space in your inventory.");
         Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
         Assert.AreEqual(1, inventory.Items.GetCountById(102));
         item.EquipmentScript.DidNotReceive().OnUnequipped(item, scenario.Owner);
@@ -1078,7 +1049,8 @@ public sealed class CharacterItemTransferTests
         {
             Assert.IsTrue(equipment.TryReplaceEquippedItem(EquipmentSlot.Hat, current, replacement));
             Assert.IsTrue(pouch.TryAddExact(2));
-            Assert.IsTrue(pouch.MoveToInventory(3));
+            Assert.IsTrue(inventory.Items.AddRange([scenario.Builder.Create().WithId(995).WithCount(3).Build()]));
+            Assert.IsTrue(pouch.TryRemoveExact(3));
             Assert.AreSame(replacement, equipment[EquipmentSlot.Hat]);
             Assert.AreEqual(9, pouch.Count);
             Assert.AreEqual(3, inventory.Items.GetCountById(995));

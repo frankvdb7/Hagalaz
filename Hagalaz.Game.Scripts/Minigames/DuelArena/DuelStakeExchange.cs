@@ -23,16 +23,26 @@ internal sealed class DuelStakeExchange
         IItemContainer stake,
         IItem item,
         int count,
-        int preferredSourceSlot) =>
-        character.Inventory.Items.Mutations.TryTransferTo(stake.Mutations, item, count, preferredSourceSlot);
+        int preferredSourceSlot)
+    {
+        using var transaction = ItemContainerTransaction.Begin(character.Inventory.Items.Mutations, stake.Mutations);
+        if (!character.Inventory.Items.Mutations.TryTransferTo(stake.Mutations, item, count, preferredSourceSlot)) return false;
+        transaction.Commit();
+        return true;
+    }
 
     public bool TryReturnItemToInventory(
         ICharacter character,
         IItemContainer stake,
         IItem item,
         int count,
-        int preferredSourceSlot) =>
-        stake.Mutations.TryTransferTo(character.Inventory.Items.Mutations, item, count, preferredSourceSlot);
+        int preferredSourceSlot)
+    {
+        using var transaction = ItemContainerTransaction.Begin(stake.Mutations, character.Inventory.Items.Mutations);
+        if (!stake.Mutations.TryTransferTo(character.Inventory.Items.Mutations, item, count, preferredSourceSlot)) return false;
+        transaction.Commit();
+        return true;
+    }
 
     public bool TryStakePouchCoins(ICharacter character, IItemContainer stake, int count)
     {

@@ -28,7 +28,7 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
         _completion = completion;
     }
 
-    /// <summary>Transfers an exact quantity to another boundary and publishes both committed sides.</summary>
+    /// <summary>Transfers an exact quantity between boundaries already enlisted in one caller-owned transaction.</summary>
     public bool TryTransferTo(
         IItemContainerMutationBoundary destination,
         IItem item,
@@ -40,12 +40,10 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
         ArgumentNullException.ThrowIfNull(destination);
         if (destination is not ItemContainerMutationBoundary target)
             throw new ArgumentException("Unsupported mutation boundary.", nameof(destination));
-        using var transaction = ItemContainerTransaction.BeginIfNeeded(this, target);
         if (!_storage.TryTransferTo(target._storage, item, count,
                 preferredSourceSlot, destinationSlot, destinationItem, out var sourceSlots, out var destinationSlots)) return false;
         NotifyChanges(sourceSlots);
         target.NotifyChanges(destinationSlots);
-        transaction?.Commit();
         return true;
     }
 

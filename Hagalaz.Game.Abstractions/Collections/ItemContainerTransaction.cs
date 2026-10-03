@@ -133,19 +133,6 @@ public sealed class ItemContainerTransaction : IDisposable
         }
     }
 
-    // Only current-thread bindings are joinable. Other owners serialize through ordered locks.
-    internal static ItemContainerTransaction? BeginIfNeeded(params IItemContainerTransactionParticipant[] participants)
-    {
-        var boundaries = Resolve(participants);
-        var active = boundaries.Select(boundary => boundary.Storage.Transaction)
-            .FirstOrDefault(transaction => transaction is { IsOwnedByCurrentThread: true });
-        if (active == null) return BeginResolved(boundaries);
-        active.EnsureActive();
-        if (boundaries.Any(boundary => !ReferenceEquals(boundary.Storage.Transaction, active)))
-            throw new InvalidOperationException("Every required storage must belong to the same transaction.");
-        return null;
-    }
-
     internal void RecordChanges(ItemContainerStorage storage, HashSet<int>? slots)
     {
         EnsureActive();

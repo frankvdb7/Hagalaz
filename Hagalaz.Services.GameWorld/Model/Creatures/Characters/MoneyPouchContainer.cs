@@ -98,9 +98,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public bool TryAddExact(int count)
         {
-            using var transaction = ItemContainerTransaction.BeginIfNeeded(Mutations);
+            if (GetCurrentTransaction() is not null) return AddExactCore(count);
+
+            using var transaction = ItemContainerTransaction.Begin(Mutations);
             if (!AddExactCore(count)) return false;
-            transaction?.Commit();
+            transaction.Commit();
             return true;
         }
 
@@ -155,9 +157,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public bool TryRemoveExact(int count)
         {
-            using var transaction = ItemContainerTransaction.BeginIfNeeded(Mutations);
+            if (GetCurrentTransaction() is not null) return RemoveExactCore(count);
+
+            using var transaction = ItemContainerTransaction.Begin(Mutations);
             if (!RemoveExactCore(count)) return false;
-            transaction?.Commit();
+            transaction.Commit();
             return true;
         }
 
@@ -246,39 +250,66 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var transferCount = Math.Min(count, Math.Min(remainingSpace, _owner.Inventory.Items.GetCountById(995)));
             if (transferCount <= 0) return false;
 
-            using var transaction = ItemContainerTransaction.BeginIfNeeded(_owner.Inventory.Items.Mutations, Mutations);
+            using var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, Mutations);
             if (!_owner.Inventory.Items.TryRemoveExact(
                     _itemBuilder.Create().WithId(995).WithCount(transferCount).Build()) ||
                 !AddExactCore(transferCount)) return false;
-            transaction?.Commit();
+            transaction.Commit();
             return true;
         }
 
         /// <summary>
         /// Moves to inventory.
         /// </summary>
-        /// <remarks>Inside an enclosing item transaction, rejection leaves rollback and failure messaging to its owner.</remarks>
         /// <param name="count">The count.</param>
         /// <returns></returns>
         public bool MoveToInventory(int count)
         {
-            if (count <= 0) return false;
-            var transferCount = Math.Min(count, Count);
-            if (transferCount <= 0) return false;
-
-            using var transaction = ItemContainerTransaction.BeginIfNeeded(_owner.Inventory.Items.Mutations, Mutations);
-            if (!_owner.Inventory.Items.AddRange([_itemBuilder.Create().WithId(995).WithCount(transferCount).Build()]))
+            using var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, Mutations);
+            if (!TryMoveToInventoryCore(count, out var inventoryFull))
             {
-                if (transaction != null)
+                if (inventoryFull)
                 {
                     transaction.Dispose();
                     _owner.SendChatMessage(GameStrings.InventoryFull);
                 }
                 return false;
             }
-            if (!RemoveExactCore(transferCount)) return false;
-            transaction?.Commit();
+            transaction.Commit();
             return true;
+        }
+
+        private ItemContainerTransaction? GetCurrentTransaction()
+        {
+            var boundaries = ((IItemContainerTransactionParticipantInternal)this).Boundaries;
+            var transactions = boundaries
+                .Select(boundary => boundary.Storage.Transaction)
+                .OfType<ItemContainerTransaction>()
+                .Distinct()
+                .ToArray();
+            if (transactions.Length > 1)
+                throw new InvalidOperationException("Pouch storage belongs to different active transactions.");
+            if (transactions.Length == 0 || !transactions[0]!.IsOwnedByCurrentThread) return null;
+
+            var transaction = transactions[0]!;
+            transaction.EnsureActive();
+            if (boundaries.Any(boundary => !ReferenceEquals(boundary.Storage.Transaction, transaction)))
+                throw new InvalidOperationException("The active transaction must include every pouch storage boundary.");
+            return transaction;
+        }
+
+        private bool TryMoveToInventoryCore(int count, out bool inventoryFull)
+        {
+            inventoryFull = false;
+            if (count <= 0) return false;
+            var transferCount = Math.Min(count, Count);
+            if (transferCount <= 0) return false;
+            if (!_owner.Inventory.Items.AddRange([_itemBuilder.Create().WithId(995).WithCount(transferCount).Build()]))
+            {
+                inventoryFull = true;
+                return false;
+            }
+            return RemoveExactCore(transferCount);
         }
 
         /// <summary>

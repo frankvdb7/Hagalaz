@@ -730,9 +730,12 @@ namespace Hagalaz.Game.Scripts.Characters
             return TryWithActiveTradeSession(self, (session, character, offer) =>
             {
                 var count = Math.Min(requestedCount, character.Inventory.Items.GetCount(item));
-                if (count <= 0 || !character.Inventory.Items.Mutations.TryTransferTo(
+                if (count <= 0) return false;
+                using var transaction = ItemContainerTransaction.Begin(character.Inventory.Items.Mutations, offer.Mutations);
+                if (!character.Inventory.Items.Mutations.TryTransferTo(
                         offer.Mutations, item, count, preferredSlot)) return false;
 
+                transaction.Commit();
                 RefreshTradeOfferScreenLocked(session);
                 ProcessTradeChangeLocked(session, self, false);
                 return true;
@@ -748,9 +751,11 @@ namespace Hagalaz.Game.Scripts.Characters
 
                 if (item.Id != 995)
                 {
+                    using var transaction = ItemContainerTransaction.Begin(offer.Mutations, character.Inventory.Items.Mutations);
                     if (!offer.Mutations.TryTransferTo(character.Inventory.Items.Mutations, item, count, preferredSlot))
                         return false;
 
+                    transaction.Commit();
                     RefreshTradeOfferScreenLocked(session);
                     ProcessTradeChangeLocked(session, self, false);
                     return true;

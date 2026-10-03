@@ -918,7 +918,15 @@ public sealed class TradeExchangeTests
         }
         public bool TryAddExact(int count)
         {
-            using var transaction = ItemContainerTransaction.BeginIfNeeded(Mutations);
+            if (GetCurrentTransaction() is not null) return AddExact(count);
+
+            using var transaction = ItemContainerTransaction.Begin(Mutations);
+            if (!AddExact(count)) return false;
+            transaction.Commit();
+            return true;
+        }
+        private bool AddExact(int count)
+        {
             if (FailNextStorageAdd) { FailNextStorageAdd = false; return false; }
             if (count <= 0) return false;
             var pouchCount = Math.Min(int.MaxValue - Count, count);
@@ -927,7 +935,6 @@ public sealed class TradeExchangeTests
             if (pouchCount > 0 && !Items.AddRange([new TestItem(995, pouchCount, stackable: true)])) return false;
             if (overflow > 0 && !_overflowInventory.Items.AddRange([new TestItem(995, overflow, stackable: true)])) return false;
             if (pouchCount > 0) RecordUpdate();
-            transaction?.Commit();
             return true;
         }
         public bool AddFromInventory(int count) => false;
@@ -940,15 +947,37 @@ public sealed class TradeExchangeTests
         }
         public bool TryRemoveExact(int count)
         {
-            using var transaction = ItemContainerTransaction.BeginIfNeeded(Mutations);
+            if (GetCurrentTransaction() is not null) return RemoveExact(count);
+
+            using var transaction = ItemContainerTransaction.Begin(Mutations);
+            if (!RemoveExact(count)) return false;
+            transaction.Commit();
+            return true;
+        }
+        private bool RemoveExact(int count)
+        {
             if (count <= 0) return false;
             var pouchCount = Math.Min(Count, count); var overflow = count - pouchCount;
             if (overflow > _overflowInventory.Items.GetCountById(995)) return false;
             if (pouchCount > 0 && !Items.TryRemoveExact(new TestItem(995, pouchCount, stackable: true), 0)) return false;
             if (overflow > 0 && !_overflowInventory.Items.TryRemoveExact(new TestItem(995, overflow, stackable: true))) return false;
             RecordUpdate();
-            transaction?.Commit();
             return true;
+        }
+
+        private ItemContainerTransaction? GetCurrentTransaction()
+        {
+            var boundaries = ((IItemContainerTransactionParticipantInternal)this).Boundaries;
+            var pouchTransaction = boundaries[0].Storage.Transaction;
+            var inventoryTransaction = boundaries[1].Storage.Transaction;
+            var transaction = pouchTransaction?.IsOwnedByCurrentThread == true
+                ? pouchTransaction
+                : inventoryTransaction?.IsOwnedByCurrentThread == true ? inventoryTransaction : null;
+            if (transaction == null) return null;
+            transaction.EnsureActive();
+            if (!ReferenceEquals(pouchTransaction, transaction) || !ReferenceEquals(inventoryTransaction, transaction))
+                throw new InvalidOperationException("The active transaction must include every pouch storage boundary.");
+            return transaction;
         }
     }
     private sealed class TestItem : IItem

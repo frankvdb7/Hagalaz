@@ -25,7 +25,9 @@ public sealed class ItemContainerMutationBoundaryTests
 
         IItemContainerMutationBoundary sourceBoundary = source.Mutations;
         IItemContainerMutationBoundary destinationBoundary = destination.Mutations;
+        using var transaction = ItemContainerTransaction.Begin(source.Mutations, destination.Mutations);
         Assert.IsTrue(sourceBoundary.TryTransferTo(destinationBoundary, item, 7, 0));
+        transaction.Commit();
 
         Assert.AreEqual(0, source.TakenSlots);
         Assert.AreSame(item, destination[0]);
@@ -48,6 +50,7 @@ public sealed class ItemContainerMutationBoundaryTests
 
         IItemContainerMutationBoundary sourceBoundary = source.Mutations;
         IItemContainerMutationBoundary destinationBoundary = destination.Mutations;
+        using var transaction = ItemContainerTransaction.Begin(source.Mutations, destination.Mutations);
         Assert.IsFalse(sourceBoundary.TryTransferTo(destinationBoundary, item, 2, 0));
 
         Assert.AreSame(item, source[0]);
@@ -486,6 +489,21 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
+    public void Transfer_WithoutTransactionRejectsBeforeMutation()
+    {
+        var source = new ItemContainer(StorageType.Normal, 1);
+        var destination = new ItemContainer(StorageType.Normal, 1);
+        var item = new TestItem(42, 1);
+        Assert.IsTrue(source.Add(item));
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => source.Mutations.TryTransferTo(destination.Mutations, item, 1));
+
+        Assert.AreSame(item, source[0]);
+        Assert.IsNull(destination[0]);
+        AssertUnboundAndUnlocked(source, destination);
+    }
+
+    [TestMethod]
     public void StorageTransfer_WithoutTransactionRejectsBeforeMutation()
     {
         var source = new ItemContainer(StorageType.Normal, 1);
@@ -810,7 +828,9 @@ public sealed class ItemContainerMutationBoundaryTests
         var item = new TestItem(30, 4);
         Assert.IsTrue(inventory.Items.Add(item));
 
+        using var transaction = ItemContainerTransaction.Begin(inventory.Items.Mutations, bank.Items.Mutations);
         Assert.IsTrue(inventory.Items.Mutations.TryTransferTo(bank.Items.Mutations, item, 4, 0));
+        transaction.Commit();
 
         Assert.IsNull(inventory.Items[0]);
         Assert.AreSame(item, bank.Items[0]);

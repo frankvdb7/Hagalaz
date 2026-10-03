@@ -60,8 +60,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Equips item to this character.
         /// </summary>
-        /// <remarks>Capacity rejection in an enclosing item transaction leaves rollback and failure messaging to its owner.
-        /// Script eligibility checks remain synchronous domain validation and can have their own side effects.</remarks>
+        /// <remarks>Script eligibility checks remain synchronous domain validation and can have their own side effects.</remarks>
         /// <param name="item">Item in inventory.</param>
         /// <returns>True if item was equipped sucessfully.</returns>
         public bool EquipItem(IItem item)
@@ -86,9 +85,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return false;
                 }
 
-                using var transaction = ItemContainerTransaction.BeginIfNeeded(_owner.Inventory.Items.Mutations, _mutations);
+                using var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, _mutations);
                 if (!MoveFromInventoryToSlot(item, slot, equipSlot)) return false;
-                transaction?.Commit();
+                transaction.Commit();
                 return true;
             }
 
@@ -96,10 +95,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 if (equipItem == null)
                 {
-                    using var transaction = ItemContainerTransaction.BeginIfNeeded(_owner.Inventory.Items.Mutations, _mutations);
+                    using var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, _mutations);
                     if (!MoveFromInventoryToSlot(item, slot, equipSlot)) return false;
                     CompleteEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Equipped, item));
-                    transaction?.Commit();
+                    transaction.Commit();
                     return true;
                 }
 
@@ -135,10 +134,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var equippedShield = this[EquipmentSlot.Shield];
             if (equippedWeapon == null && equippedShield == null)
             {
-                using var transaction = ItemContainerTransaction.BeginIfNeeded(_owner.Inventory.Items.Mutations, _mutations);
+                using var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, _mutations);
                 if (!MoveFromInventoryToSlot(item, slot, equipSlot)) return false;
                 CompleteEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Equipped, item));
-                transaction?.Commit();
+                transaction.Commit();
                 return true;
             }
 
@@ -160,26 +159,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             var inventoryBoundary = _owner.Inventory.Items.Mutations;
-            using var replacementTransaction = ItemContainerTransaction.BeginIfNeeded(inventoryBoundary, _mutations);
+            using var replacementTransaction = ItemContainerTransaction.Begin(inventoryBoundary, _mutations);
             if (!_owner.Inventory.Items.TryRemoveExact(item, slot)) return false;
             if (needsWeaponUnequip && !_mutations.TryTransferTo(inventoryBoundary, equippedWeapon!,
                     equippedWeapon!.Count, (int)EquipmentSlot.Weapon, slot))
             {
-                if (replacementTransaction != null)
-                {
-                    replacementTransaction.Dispose();
-                    _owner.SendChatMessage("Not enough space in your inventory.");
-                }
+                replacementTransaction.Dispose();
+                _owner.SendChatMessage("Not enough space in your inventory.");
                 return false;
             }
             if (needsShieldUnequip && !_mutations.TryTransferTo(inventoryBoundary, equippedShield!,
                     equippedShield!.Count, (int)EquipmentSlot.Shield))
             {
-                if (replacementTransaction != null)
-                {
-                    replacementTransaction.Dispose();
-                    _owner.SendChatMessage("Not enough space in your inventory.");
-                }
+                replacementTransaction.Dispose();
+                _owner.SendChatMessage("Not enough space in your inventory.");
                 return false;
             }
             if (!_storage.TryAdd((int)equipSlot, item, out var incomingSlots)) return false;
@@ -190,7 +183,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (needsWeaponUnequip) effects.Add(new EquipmentEffect(EquipmentEffectKind.WeaponProfile, equippedWeapon!, item));
             effects.Add(new EquipmentEffect(EquipmentEffectKind.Equipped, item));
             CompleteEquipmentEffects(effects.ToArray());
-            replacementTransaction?.Commit();
+            replacementTransaction.Commit();
             return true;
         }
 
@@ -230,10 +223,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             if (count <= 0 || this[slot] is not { } equippedItem || !ReferenceEquals(equippedItem, item)) return false;
             var fullyRemoved = count == equippedItem.Count;
-            using var transaction = ItemContainerTransaction.BeginIfNeeded(_mutations, destination.Mutations);
+            using var transaction = ItemContainerTransaction.Begin(_mutations, destination.Mutations);
             if (!_mutations.TryTransferTo(destination.Mutations, equippedItem, count, (int)slot, -1, destinationItem)) return false;
             if (fullyRemoved) CompleteEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem));
-            transaction?.Commit();
+            transaction.Commit();
             return true;
         }
 
@@ -415,8 +408,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// UnEquips item to this character.
         /// </summary>
-        /// <remarks>Capacity rejection in an enclosing item transaction leaves rollback and failure messaging to its owner.
-        /// Script eligibility checks remain synchronous domain validation and can have their own side effects.</remarks>
+        /// <remarks>Script eligibility checks remain synchronous domain validation and can have their own side effects.</remarks>
         /// <param name="item">The item.</param>
         /// <param name="toInventorySlot">To inventory slot.</param>
         /// <returns>True if item was unequipped sucessfully.</returns>
@@ -440,18 +432,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             var inventoryBoundary = _owner.Inventory.Items.Mutations;
-            using var transaction = ItemContainerTransaction.BeginIfNeeded(inventoryBoundary, _mutations);
+            using var transaction = ItemContainerTransaction.Begin(inventoryBoundary, _mutations);
             if (!_mutations.TryTransferTo(inventoryBoundary, item, item.Count, (int)slot, destinationSlot))
             {
-                if (transaction != null)
-                {
-                    transaction.Dispose();
-                    _owner.SendChatMessage("Not enough space in your inventory.");
-                }
+                transaction.Dispose();
+                _owner.SendChatMessage("Not enough space in your inventory.");
                 return false;
             }
             CompleteEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Unequipped, item));
-            transaction?.Commit();
+            transaction.Commit();
             return true;
         }
 
