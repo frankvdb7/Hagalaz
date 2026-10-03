@@ -519,6 +519,7 @@ public sealed class MoneyPouchContainerTests
             events.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>())).Do(call =>
             {
                 var change = call.Arg<MoneyPouchChangedEvent>();
+                Assert.IsNotNull(change);
                 order.Add($"{name}:{change.PreviousCount}->{change.Count}");
             });
         }
@@ -586,6 +587,7 @@ public sealed class MoneyPouchContainerTests
         events.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>())).Do(call =>
         {
             var change = call.Arg<MoneyPouchChangedEvent>();
+            Assert.IsNotNull(change);
             changes.Add((change.PreviousCount, change.Count));
         });
         scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(call =>
