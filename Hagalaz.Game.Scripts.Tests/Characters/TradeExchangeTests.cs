@@ -912,7 +912,7 @@ public sealed class TradeExchangeTests
             if (overflow > 0 && !_overflowInventory.Items.HasSpaceFor(new TestItem(995, overflow, stackable: true))) return false;
             if (pouchCount > 0 && !Items.AddRange([new TestItem(995, pouchCount, stackable: true)])) return false;
             if (overflow > 0 && !_overflowInventory.Items.AddRange([new TestItem(995, overflow, stackable: true)])) return false;
-            if (pouchCount > 0) ((ItemContainerMutationBoundary)Items.Mutations).DeferPouchNotification(() => OnUpdate());
+            if (pouchCount > 0) ((ItemContainerMutationBoundary)Items.Mutations).DeferAfterPublication(() => OnUpdate());
             transaction?.Commit();
             return true;
         }
@@ -932,7 +932,7 @@ public sealed class TradeExchangeTests
             if (overflow > _overflowInventory.Items.GetCountById(995)) return false;
             if (pouchCount > 0 && !Items.TryRemoveExact(new TestItem(995, pouchCount, stackable: true), 0)) return false;
             if (overflow > 0 && !_overflowInventory.Items.TryRemoveExact(new TestItem(995, overflow, stackable: true))) return false;
-            ((ItemContainerMutationBoundary)Items.Mutations).DeferPouchNotification(() => OnUpdate());
+            ((ItemContainerMutationBoundary)Items.Mutations).DeferAfterPublication(() => OnUpdate());
             transaction?.Commit();
             return true;
         }

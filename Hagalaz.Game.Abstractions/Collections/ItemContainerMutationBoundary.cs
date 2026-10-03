@@ -61,8 +61,8 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
         else hook();
     }
 
-    internal void DeferPouchNotification(Action notification) =>
-        (_storage.Transaction ?? throw new InvalidOperationException("Pouch notification requires an active transaction."))
-        .DeferPouchNotification(notification);
+    internal void DeferAfterPublication(Action action) =>
+        (_storage.Transaction ?? throw new InvalidOperationException("After-publication action requires an active transaction."))
+        .DeferAfterPublication(action);
 
 }

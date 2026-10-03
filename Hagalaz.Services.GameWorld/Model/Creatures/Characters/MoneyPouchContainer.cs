@@ -190,7 +190,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         }
 
         private void DeferChange(int previousCount, int changeCount) =>
-            _storageMutations.DeferPouchNotification(() =>
+            _storageMutations.DeferAfterPublication(() =>
             {
                 _previousCount = previousCount;
                 PublishChanges(changeCount);

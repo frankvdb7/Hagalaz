@@ -273,15 +273,15 @@ Standalone helpers MUST create a transaction when none of their required storage
 - **THEN** that storage is locked and snapshotted once without duplicating or reordering publication
 
 ### Requirement: Automatic ordered transaction completion
-Commit MUST perform automatic completion after unlock without a separate caller publication call. Domain-owned hook batches MUST retain their existing failure policy. Container publishers MUST retain existing observable order independently of lock order; the first failure MUST skip later container publishers and all pouch publication. Pouch notifications MUST retain captured amounts and previous counts and stop at their first failure. A single failure MUST preserve its original exception; multiple hook failures and an independent publication failure MUST survive as original leaf exceptions in one flat AggregateException. Validation determining mutation eligibility MUST remain before commit.
+Commit MUST perform automatic completion after unlock without a separate caller publication call. Post-commit hooks MUST precede normal container publication and domain-owned batches MUST retain their existing failure policy. Container publishers MUST retain existing observable order independently of lock order; the first failure MUST skip later container publishers and all after-publication actions. Deferred after-publication actions MUST execute in registration order only after normal container publication, with storage irreversible and locks released. Their first failure MUST stop later actions. The transaction MUST store only actions; domains MUST own the captured facts and effects. A single failure MUST preserve its original exception; multiple hook failures and an independent publication failure MUST survive as original leaf exceptions in one flat AggregateException. Validation determining mutation eligibility MUST remain before commit.
 
 #### Scenario: Container publication fails
 - **WHEN** a container publisher throws
-- **THEN** later containers and all pouch publishers are skipped and storage stays committed
+- **THEN** later containers and all after-publication actions are skipped and storage stays committed
 
-#### Scenario: Pouch publication fails
-- **WHEN** a pouch publisher throws after container publication
-- **THEN** later pouch publishers are skipped and storage stays committed
+#### Scenario: An after-publication action fails
+- **WHEN** an after-publication action throws after all container publication
+- **THEN** earlier actions remain observable, later actions are skipped and storage stays committed
 
 #### Scenario: Equipment hooks and publication both fail
 - **WHEN** an equipment-owned hook batch and normal publication both throw

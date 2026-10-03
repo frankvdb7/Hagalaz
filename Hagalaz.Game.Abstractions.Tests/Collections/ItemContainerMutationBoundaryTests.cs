@@ -123,12 +123,20 @@ public sealed class ItemContainerMutationBoundaryTests
             AssertUnboundAndUnlocked(first, second);
             order.Add("hook");
         });
+        Boundary(first).DeferAfterPublication(() =>
+        {
+            AssertUnboundAndUnlocked(first, second);
+            Assert.AreEqual(1, first.TakenSlots);
+            Assert.AreEqual(1, second.TakenSlots);
+            order.Add("after1");
+        });
+        Boundary(second).DeferAfterPublication(() => order.Add("after2"));
         Assert.AreEqual(0, order.Count);
         transaction.Commit();
         transaction.Dispose();
         transaction.Dispose();
         Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
-        CollectionAssert.AreEqual(new[] { "hook", "second", "first" }, order);
+        CollectionAssert.AreEqual(new[] { "hook", "second", "first", "after1", "after2" }, order);
         Assert.AreEqual(1, first.TakenSlots);
         Assert.AreEqual(1, second.TakenSlots);
         AssertUnboundAndUnlocked(first, second);
@@ -205,7 +213,7 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
-    public void Commit_ContainerFailureStopsLaterContainersAndAllPouchesWithoutRetryOrRollback()
+    public void Commit_ContainerFailureStopsLaterContainersAndAllAfterPublicationActionsWithoutRetryOrRollback()
     {
         var original = new InvalidOperationException("Publisher failed.");
         var calls = new List<string>();
@@ -221,7 +229,7 @@ public sealed class ItemContainerMutationBoundaryTests
         using var transaction = ItemContainerTransaction.Begin(first.Mutations, second.Mutations);
         Assert.IsTrue(first.Add(new TestItem(33, 1)));
         Assert.IsTrue(second.Add(new TestItem(34, 1)));
-        Boundary(first).DeferPouchNotification(() => calls.Add("pouch"));
+        Boundary(first).DeferAfterPublication(() => calls.Add("after"));
         var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
         Assert.AreSame(original, thrown);
         transaction.Dispose();
@@ -233,37 +241,43 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
-    public void Commit_LaterContainerFailurePreservesEarlierPublicationAndSkipsPouches()
+    public void Commit_LaterContainerFailurePreservesEarlierPublicationAndSkipsLaterContainersAndActions()
     {
         var original = new InvalidOperationException("Second failed.");
         var calls = new List<string>();
         var first = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("first"));
         var second = new ItemContainer(StorageType.Normal, 1, _ => { calls.Add("second"); throw original; });
-        using var transaction = ItemContainerTransaction.Begin(first.Mutations, second.Mutations);
+        var third = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("third"));
+        using var transaction = ItemContainerTransaction.Begin(first.Mutations, second.Mutations, third.Mutations);
         Assert.IsTrue(first.Add(new TestItem(35, 1)));
         Assert.IsTrue(second.Add(new TestItem(36, 1)));
-        Boundary(first).DeferPouchNotification(() => calls.Add("pouch"));
+        Assert.IsTrue(third.Add(new TestItem(37, 1)));
+        Boundary(first).DeferAfterPublication(() => calls.Add("after1"));
+        Boundary(second).DeferAfterPublication(() => calls.Add("after2"));
         Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
         CollectionAssert.AreEqual(new[] { "first", "second" }, calls);
         transaction.Dispose();
         Assert.AreEqual(1, first.TakenSlots);
         Assert.AreEqual(1, second.TakenSlots);
+        Assert.AreEqual(1, third.TakenSlots);
+        AssertUnboundAndUnlocked(first, second, third);
     }
 
     [TestMethod]
-    public void Commit_PouchFailureStopsLaterPouchesAfterContainerPublication()
+    public void Commit_AfterPublicationFailureStopsLaterActionsAfterContainerPublication()
     {
         var calls = new List<string>();
-        var original = new InvalidOperationException("Pouch failed.");
+        var original = new InvalidOperationException("After-publication action failed.");
         var container = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("container"));
         using var transaction = ItemContainerTransaction.Begin(container.Mutations);
         Assert.IsTrue(container.Add(new TestItem(37, 1)));
-        Boundary(container).DeferPouchNotification(() => { AssertUnboundAndUnlocked(container); calls.Add("pouch1"); throw original; });
-        Boundary(container).DeferPouchNotification(() => calls.Add("pouch2"));
+        Boundary(container).DeferAfterPublication(() => calls.Add("after1"));
+        Boundary(container).DeferAfterPublication(() => { AssertUnboundAndUnlocked(container); calls.Add("after2"); throw original; });
+        Boundary(container).DeferAfterPublication(() => calls.Add("after3"));
         Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
         transaction.Dispose();
         Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
-        CollectionAssert.AreEqual(new[] { "container", "pouch1" }, calls);
+        CollectionAssert.AreEqual(new[] { "container", "after1", "after2" }, calls);
         Assert.AreEqual(1, container.TakenSlots);
     }
 
@@ -276,11 +290,11 @@ public sealed class ItemContainerMutationBoundaryTests
         using var transaction = ItemContainerTransaction.Begin(container.Mutations);
         Assert.IsTrue(container.Add(new TestItem(38, 1)));
         Boundary(container).DeferBeforePublication(() => { AssertUnboundAndUnlocked(container); calls.Add("hook"); throw original; });
-        Boundary(container).DeferPouchNotification(() => calls.Add("pouch"));
+        Boundary(container).DeferAfterPublication(() => calls.Add("after"));
         Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
         transaction.Dispose();
         Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
-        CollectionAssert.AreEqual(new[] { "hook", "container", "pouch" }, calls);
+        CollectionAssert.AreEqual(new[] { "hook", "container", "after" }, calls);
         Assert.AreEqual(1, container.TakenSlots);
     }
 

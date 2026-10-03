@@ -32,7 +32,7 @@ Abstractions, existing economic callers, and their tests change together. No dep
 1. Begin validates all arguments/contributions before locking; a construction failure leaves no bindings, locks, mutations, or publication.
 2. Early return and mutation exceptions restore all enlisted references, counts, and revisions on disposal; disposal is idempotent and thread-affine.
 3. Commit marks storage irreversible before dropping snapshots and best-effort unbinding/unlocking every participant; no callback executes while a lock remains intentionally held.
-4. Successful commit publishes once in existing observable order independently of lock order. Container failure skips later containers and all pouch publication; pouch failure skips later pouch publishers.
+4. Successful commit publishes once in existing observable order independently of lock order. Container failure skips later containers and all after-publication actions; action failure skips later actions in registration order.
 5. Equipment retains owned hook ordering and attempt-all behavior; hook and publication failures survive together as original exceptions in AggregateException.
 6. Helpers join only when all required storage belongs to the same originating-thread transaction; partial/conflicting current-thread participation never creates a scope or acquires missing locks. Independent operations on another thread wait through deterministic storage locks.
 7. Existing pouch overflow, equipment/shop behavior, and all issue #347 terminal, retry, stale-callback, and race guarantees remain intact.

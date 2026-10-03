@@ -21,8 +21,8 @@ public sealed class ItemContainerTransaction : IDisposable
     private readonly ItemContainerStorage[] _lockOrder;
     private readonly List<StorageSnapshot> _snapshots = [];
     private readonly Dictionary<ItemContainerStorage, HashSet<int>?> _changed = [];
-    private readonly List<Action> _hooks = [];
-    private readonly List<Action> _pouchNotifications = [];
+    private readonly List<Action> _postCommitHooks = [];
+    private readonly List<Action> _afterPublicationActions = [];
     private int _locksAcquired;
     private TransactionState _state;
 
@@ -74,8 +74,9 @@ public sealed class ItemContainerTransaction : IDisposable
     /// <remarks>
     /// Mutations already affect storage under locks; Commit discards rollback ability rather than applying staged data.
     /// Hook or publication failures propagate after storage has permanently committed. Dispose cannot undo that state,
-    /// and another Commit cannot retry completion. A container publication failure skips later containers and all pouch
-    /// notifications. Multiple independent hook and publication failures are retained in a flat AggregateException.
+    /// and another Commit cannot retry completion. Hooks run before container publication; after-publication actions
+    /// follow in registration order. Container failure skips later containers and all after-publication actions.
+    /// An after-publication failure skips later actions. Multiple independent failures are retained in a flat AggregateException.
     /// </remarks>
     public void Commit()
     {
@@ -85,7 +86,7 @@ public sealed class ItemContainerTransaction : IDisposable
         ReleaseResources(); // No external completion may run until every transaction lock is released.
 
         List<Exception>? failures = null;
-        foreach (var hook in _hooks)
+        foreach (var hook in _postCommitHooks)
         {
             try { hook(); }
             catch (Exception exception)
@@ -97,7 +98,7 @@ public sealed class ItemContainerTransaction : IDisposable
         {
             foreach (var boundary in _boundaries)
                 if (_changed.TryGetValue(boundary.Storage, out var slots)) boundary.PublishCommittedChanges(slots);
-            foreach (var notification in _pouchNotifications) notification();
+            foreach (var action in _afterPublicationActions) action();
         }
         catch (Exception publicationFailure)
         {
@@ -151,8 +152,11 @@ public sealed class ItemContainerTransaction : IDisposable
         else _changed.Add(storage, new HashSet<int>(slots));
     }
 
-    internal void DeferBeforePublication(Action hook) { EnsureActive(); _hooks.Add(hook); }
-    internal void DeferPouchNotification(Action notification) { EnsureActive(); _pouchNotifications.Add(notification); }
+    internal void DeferBeforePublication(Action hook) { EnsureActive(); _postCommitHooks.Add(hook); }
+
+    /// <summary>Registers an action after container publication, with irreversible storage and released locks.</summary>
+    /// <remarks>Actions run in registration order, stopping at the first failure. Container failure skips them entirely.</remarks>
+    internal void DeferAfterPublication(Action action) { EnsureActive(); _afterPublicationActions.Add(action); }
 
     internal bool IsOwnedByCurrentThread => Environment.CurrentManagedThreadId == _threadId;
 

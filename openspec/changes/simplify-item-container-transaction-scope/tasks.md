@@ -27,3 +27,10 @@
 - [x] 5.2 Review joining helper failure side effects, preserve standalone messages outside owned locks, and document validation boundaries that cannot become pure without domain redesign (AC3, AC7).
 - [x] 5.3 Flatten completion failures, preserve primary construction/rollback failures during cleanup, and document eager-reader isolation and thread limits (AC2, AC3, AC5).
 - [x] 5.4 Run focused tests first, all three regression suites, build, full CI tests, strict OpenSpec, duplication and diff gates; inspect hosted CI and CodeQL for the updated PR head (AC1–7).
+## 6. Domain-neutral after-publication actions
+
+- [x] 6.1 Rename the internal after-publication list/gateway, migrate pouch and test callers, and describe completion ordering in domain-neutral terms without changing control flow or public APIs (AC3–5, AC7).
+- [x] 6.2 Verify hook/container/action ordering, container-failure skipping and middle-action failure; retain real pouch publication-order regressions (AC3–5, AC7).
+- [x] 6.3 Run focused and full regression suites, build, strict OpenSpec, duplication and diff checks; record local validation evidence (AC1–7).
+
+After pushing this refactor, verify hosted CI and CodeQL against that exact head. Record their results in the PR description and final handoff, without a documentation-only commit that would invalidate the referenced head.
