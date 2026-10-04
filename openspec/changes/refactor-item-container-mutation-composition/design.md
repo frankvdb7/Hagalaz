@@ -9,7 +9,7 @@ Before this change, `BaseItemContainer` owned slot state and mutation algorithms
 **Goals:**
 
 - Keep `ItemContainerStorage` as the single implementation of slot and mutation mechanics. Add one concrete `ItemContainer` that implements the generic container contracts and composes that storage.
-- Keep `IItemContainer` as a contract-only interface and `ItemContainer` as its sole implementation. Ordinary domain implementations privately own `ItemContainer`, and their interfaces expose `IItemContainer Items`; they do not implement `IContainer` or forward the component's generic surface. `IItemContainer` exposes `IItemContainerMutationBoundary`, while `ItemContainer` privately owns its concrete boundary. Equipment and MoneyPouch own `ItemContainerStorage` and private boundaries, expose no generic `Items` property; `IEquipmentContainer` composes `IReadOnlyItemContainer Items`. Transaction participation is explicit through `.Mutations`. Ordinary `IItemContainer` and standalone MoneyPouch operations do not inspect hidden transaction state or join an existing scope.
+- Keep `IItemContainer` as a contract-only interface and `ItemContainer` as its sole production implementation. Ordinary domain implementations privately own `ItemContainer`, and their interfaces expose `IItemContainer Items`; they do not implement `IContainer` or forward the component's generic surface. `IItemContainer.Mutations` exposes only an opaque transaction participant, while ordinary mutation and transfer operations are members of `IItemContainer`. Equipment and MoneyPouch own `ItemContainerStorage` and private boundaries, expose no generic `Items` property; `IEquipmentContainer` composes `IReadOnlyItemContainer Items`. Transaction participation is explicit through `.Mutations`. Ordinary container mutations participate automatically only for explicitly enlisted storage.
 - Keep `TradeExchange` as the owner of trade-specific settlement and compose `ItemContainerTransaction` for multi-boundary locking, rollback and post-commit publication.
 
 **Non-Goals:**
@@ -21,7 +21,7 @@ Before this change, `BaseItemContainer` owned slot state and mutation algorithms
 
 ### One concrete storage and an owned mutation boundary
 
-`ItemContainer` composes `ItemContainerStorage` and a private concrete `ItemContainerMutationBoundary`, exposed through `IItemContainerMutationBoundary`. The boundary owns one storage reference and its optional publication callback. Transfer and other boundary mutations require a caller-owned active transaction containing the storage. Ordinary facade mutations call `EnsureOutsideTransaction` and reject bound storage. Its internal enlistment bridge registers storage and publication with `ItemContainerTransaction` without exposing either. Ordinary domain interfaces expose `IItemContainer Items`; implementations privately own concrete components. Special domains keep their concrete boundaries private. `IItemContainer` includes neutral exact-removal semantics so shop payment and trade settlement share one generic operation.
+`ItemContainer` composes `ItemContainerStorage` and a private concrete mutation boundary exposed publicly only through the opaque transaction participant. Its internal boundary owns one storage reference and its optional publication callback. Transfer requires a caller-owned active transaction containing source and destination storage; it is invoked through `IItemContainer.TryTransferTo`. Ordinary facade mutations automatically use bound storage and its deferred publication path. The internal enlistment bridge registers storage and publication with `ItemContainerTransaction` without exposing either. Ordinary domain interfaces expose `IItemContainer Items`; implementations privately own concrete components. Special domains keep their concrete boundaries private. `IItemContainer` includes neutral exact-removal semantics so shop payment and trade settlement share one generic operation.
 
 ### Store methods mutate and return changed slots
 
@@ -29,7 +29,7 @@ Move add, remove, exact removal, range insertion, replace/move/swap/sort/clear, 
 
 ### Exact transfer enters through a boundary and uses one transaction owner
 
-Exact transfer enters through `IItemContainerMutationBoundary.TryTransferTo` inside an already-owned `ItemContainerTransaction`. The transaction alone acquires storage locks in stable order, calls the low-level `ItemContainerStorage.TryTransfer` algorithm, and publishes committed changes after unlocking. Equipment owns its lifecycle completion. Delete `ItemContainerTransfer` and `IItemContainerStorageOwner`; callers receive boundaries and do not recover them by casts. Generic mutation infrastructure has no bulk-transfer policy. `FamiliarInventoryContainer.WithdrawAvailableToInventory` owns its partial-success policy and tries every source item in one transaction, leaving items that do not fit.
+Exact transfer enters through `IItemContainer.TryTransferTo` inside an already-owned `ItemContainerTransaction`. The transaction alone acquires storage locks in stable order, calls the low-level `ItemContainerStorage.TryTransferTo` algorithm, and publishes committed changes after unlocking. Equipment owns its lifecycle completion and uses an internal boundary bridge for equipment transfers. Delete `ItemContainerTransfer` and `IItemContainerStorageOwner`; callers do not receive storage boundaries. Generic mutation infrastructure has no bulk-transfer policy. `FamiliarInventoryContainer.WithdrawAvailableToInventory` owns its partial-success policy and tries every source item in one transaction, leaving items that do not fit.
 
 ### Domain containers own operation delegation and publication
 
@@ -66,7 +66,7 @@ TradingCharacterScript
             +-- IItemBuilder
             +-- creates ItemContainerTransaction per operation
             +-- collaborates through IItemContainer,
-                IItemContainerMutationBoundary, and IMoneyPouchContainer
+                IItemContainerTransactionParticipant, and IMoneyPouchContainer
 ```
 
 `TradeExchange` is a concrete composed collaborator, not a global/static service. It coordinates trade decisions, recipient preflight, escrow settlement, and recovery. `ItemContainerTransaction`, the mutation boundaries, and MoneyPouch retain ownership of locking, snapshots, rollback, generic publication, and pouch post-commit behavior. Trade-session state remains on `TradingCharacterScript` and its session model.

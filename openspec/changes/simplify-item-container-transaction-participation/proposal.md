@@ -7,7 +7,7 @@ Ordinary container mutations currently use a separate `.Mutations` operation sur
 ## What Changes
 
 - Make `ItemContainerTransaction.Begin(...)` the explicit source of storage membership; ordinary mutations on enlisted storage participate automatically and defer publication through the existing storage notification path.
-- Keep ordinary mutations on `IItemContainer`; retain only `TryTransferTo` on `IItemContainerMutationBoundary`.
+- Keep ordinary mutations and atomic `TryTransferTo` on `IItemContainer`; expose `.Mutations` only as an opaque transaction participant.
 - Make MoneyPouch exact operations use their normal public methods, joining a complete existing transaction or owning a transaction when all required storage is unbound.
 - Allow simple Equipment storage mutations to participate in an existing scope and defer lifecycle effects through existing completion ownership.
 - Migrate callers, replace rejection tests with automatic-participation tests, and update the item-container behavior specification.

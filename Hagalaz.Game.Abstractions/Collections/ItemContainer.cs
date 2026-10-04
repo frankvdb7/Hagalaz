@@ -11,7 +11,7 @@ public sealed class ItemContainer : IItemContainer
     private readonly ItemContainerStorage _storage;
     private readonly ItemContainerMutationBoundary _mutations;
 
-    public IItemContainerMutationBoundary Mutations => _mutations;
+    public IItemContainerTransactionParticipant Mutations => _mutations;
 
     internal int CountToResetTo => _storage.CountToResetTo;
 
@@ -67,6 +67,26 @@ public sealed class ItemContainer : IItemContainer
         PublishChanges(changedSlots);
         return true;
     }
+
+    public bool TryTransferTo(IItemContainer destination, IItem item, int count,
+        int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        ArgumentNullException.ThrowIfNull(item);
+        if (destination is not ItemContainer target)
+            throw new ArgumentException("Transfers require the ItemContainer implementation.", nameof(destination));
+
+        return _mutations.TryTransferTo(target._mutations, item, count,
+            preferredSourceSlot, destinationSlot, destinationItem);
+    }
+
+    internal bool TryTransferTo(ItemContainerMutationBoundary destination, IItem item, int count,
+        int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null) =>
+        _mutations.TryTransferTo(destination, item, count, preferredSourceSlot, destinationSlot, destinationItem);
+
+    internal bool TryTransferFrom(ItemContainerMutationBoundary source, IItem item, int count,
+        int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null) =>
+        source.TryTransferTo(_mutations, item, count, preferredSourceSlot, destinationSlot, destinationItem);
 
     public void Replace(int slot, IItem item)
     {

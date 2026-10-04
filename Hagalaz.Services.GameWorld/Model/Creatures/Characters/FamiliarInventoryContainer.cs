@@ -60,7 +60,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, _items.Mutations))
             {
-                if (_owner.Inventory.Items.Mutations.TryTransferTo(_items.Mutations, item, count, slot))
+                if (_owner.Inventory.Items.TryTransferTo(_items, item, count, slot))
                 {
                     transaction.Commit();
                     return true;
@@ -91,7 +91,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             using (var transaction = ItemContainerTransaction.Begin(_items.Mutations, _owner.Inventory.Items.Mutations))
             {
-                if (_items.Mutations.TryTransferTo(_owner.Inventory.Items.Mutations, item, count, slot))
+                if (_items.TryTransferTo(_owner.Inventory.Items, item, count, slot))
                 {
                     transaction.Commit();
                     return true;
@@ -109,7 +109,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var familiarItems = _items.Select((item, slot) => (item, slot))
                 .Where(entry => entry.item is { Count: > 0 }).ToArray();
             foreach (var (item, slot) in familiarItems)
-                _items.Mutations.TryTransferTo(inventoryItems.Mutations, item!, item!.Count, slot);
+                _items.TryTransferTo(inventoryItems, item!, item!.Count, slot);
             transaction.Commit();
         }
 

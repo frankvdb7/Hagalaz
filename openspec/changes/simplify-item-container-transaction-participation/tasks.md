@@ -2,7 +2,7 @@
 
 - [x] 1. Simplify ordinary item-container participation
   - [x] 1.1 Remove `EnsureOutsideTransaction` from the boundary contract, implementation, and ordinary `ItemContainer` operations; retain low-level mutation access and automatic change notification.
-  - [x] 1.2 Reduce `IItemContainerMutationBoundary` and its implementation to participant plumbing and `TryTransferTo`.
+  - [x] 1.2 Keep the internal mutation boundary as transaction infrastructure, expose only the opaque participant through `.Mutations`, and move ordinary transfer to `IItemContainer.TryTransferTo`.
   - [x] 1.3 Migrate ordinary mutation calls in Trade, Duel, Bank, Shop, Reward, Familiar, Equipment, MoneyPouch, and fixtures to normal container APIs; preserve transfer calls and transaction participant lists.
 - [x] 2. Align MoneyPouch and Equipment participation
   - [x] 2.1 Replace the public MoneyPouch mutation boundary with opaque participant exposure and make public exact operations participate in complete active scopes or own a scope when unbound.
@@ -15,3 +15,9 @@
 - [x] 4. Validate the refactor
   - [x] 4.1 Run Abstractions, GameWorld, and Scripts test projects plus the full solution build.
   - [x] 4.2 Run strict OpenSpec validation, jscpd, and `git diff --check`; report exact local results and leave all work uncommitted.
+- [x] 5. Move atomic transfer to the container API
+  - [x] 5.1 Make `.Mutations` opaque and add `IItemContainer.TryTransferTo`, delegating to the existing atomic storage algorithm.
+  - [x] 5.2 Keep a narrow internal transfer bridge for Equipment and migrate Bank, Familiar, Reward, Shop, Trade, and Duel callers.
+  - [x] 5.3 Migrate transfer tests and wrappers to the public container operation; retain transaction misuse, identity, transformed-item, sentinel, revision, and publication coverage.
+  - [x] 5.4 Reconcile canonical and active OpenSpec deltas, including the previously failing composition change.
+  - [x] 5.5 Run requested test projects, build, strict OpenSpec, jscpd, and `git diff --check`; leave changes local.

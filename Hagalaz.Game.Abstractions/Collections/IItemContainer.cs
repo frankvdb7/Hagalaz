@@ -6,7 +6,7 @@ namespace Hagalaz.Game.Abstractions.Collections;
 /// <summary>Describes the operations and shape of an item container.</summary>
 public interface IItemContainer : IReadOnlyItemContainer
 {
-    IItemContainerMutationBoundary Mutations { get; }
+    IItemContainerTransactionParticipant Mutations { get; }
 
     StorageType Type { get; }
 
@@ -17,6 +17,17 @@ public interface IItemContainer : IReadOnlyItemContainer
     int Remove(IItem item, int preferredSlot = -1, bool update = true);
 
     bool TryRemoveExact(IItem item, int preferredSlot = -1);
+
+    /// <summary>
+    /// Transfers an exact quantity to another item container using the active transaction that already contains both containers.
+    /// This method does not create a transaction or enlist the destination.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">The destination or item is null.</exception>
+    /// <exception cref="ArgumentException">The destination is not a supported item container implementation.</exception>
+    /// <exception cref="InvalidOperationException">Source and destination do not belong to the same active current-thread transaction.</exception>
+    /// <returns><see langword="true"/> when the transfer succeeds; otherwise, no transfer is performed.</returns>
+    bool TryTransferTo(IItemContainer destination, IItem item, int count,
+        int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null);
 
     void Replace(int slot, IItem item);
 

@@ -80,7 +80,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             using var transaction = ItemContainerTransaction.Begin(_items.Mutations, _owner.Inventory.Items.Mutations);
-            if (!_items.Mutations.TryTransferTo(_owner.Inventory.Items.Mutations, item, count, slot))
+            if (!_items.TryTransferTo(_owner.Inventory.Items, item, count, slot))
             {
                 return -1;
             }

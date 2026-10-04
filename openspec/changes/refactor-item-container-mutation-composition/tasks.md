@@ -71,7 +71,7 @@
 
 ## 11. Interface-typed composition follow-up
 
-- [x] 11.1 Add declaration-only `IItemContainerMutationBoundary` and `IItemContainerTransaction`; expose only the boundary abstraction from `IItemContainer`, with concrete enlistment confined to the internal infrastructure bridge.
+- [x] 11.1 Add the opaque transaction participant and `IItemContainerTransaction`; expose only the participant from `IItemContainer`, with concrete enlistment confined to the internal infrastructure bridge.
 - [x] 11.2 Change ordinary domain item properties and peer operations to `IItemContainer`; audit Equipment and MoneyPouch so their storage and concrete boundaries remain private.
 - [x] 11.3 Route direct and multi-container transfers through the same transaction lock/snapshot/rollback path, with interface-typed participants and no implementation recovery casts.
 - [x] 11.4 Replace MoneyPouch infrastructure leaks with semantic staging over `IItemContainerTransaction` and success-only post-commit callbacks; migrate TradeExchange generic signatures.

@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Complete same-scope participation
-Transaction membership MUST be established explicitly by supplying every storage participant to `ItemContainerTransaction.Begin(...)` before locks are acquired. Once storage is enlisted, its ordinary `IItemContainer` mutations MUST participate in that transaction: mutations update storage under the active scope and change publication is deferred until commit. Mutations against storage not supplied to `Begin(...)` MUST remain standalone and MUST NOT be dynamically enlisted. Ordinary mutation methods MUST NOT create, commit, or dynamically join a transaction. Bound storage MUST record changes through its active transaction, while unbound storage MUST publish immediately. `.Mutations` MUST expose the opaque transaction participant and atomic cross-container `TryTransferTo` operation; it MUST NOT duplicate ordinary add, range-add, remove, sort, or clear methods.
+Transaction membership MUST be established explicitly by supplying every storage participant to `ItemContainerTransaction.Begin(...)` before locks are acquired. Once storage is enlisted, ordinary `IItemContainer` mutations MUST participate automatically; storage not supplied to Begin MUST remain standalone and MUST NOT be dynamically enlisted. Ordinary mutation methods MUST NOT create, commit, or dynamically join transactions. Bound storage MUST record changes through its active transaction, while unbound storage MUST publish immediately. `IItemContainer.Mutations` MUST expose only the opaque transaction participant used by `Begin(...)`.
 
 #### Scenario: Independent overlapping scopes contend
 - **WHEN** another thread owns any required storage and the current thread owns none of it
@@ -60,6 +60,29 @@ Transaction membership MUST be established explicitly by supplying every storage
 - **WHEN** A and B are mutated and the transaction is disposed without commit
 - **THEN** A is restored and publishes nothing
 - **AND** B retains its mutation and publishes normally
+
+### Requirement: Cross-container transfers commit both stores atomically
+`IItemContainer.TryTransferTo(...)` MUST perform the existing atomic transfer algorithm between two ordinary item containers whose storage is already enlisted in the same active current-thread transaction. It MUST NOT create a transaction or dynamically enlist the destination. The operation MUST validate and plan both storage changes before mutation, update each storage revision once on success, and defer both publications through the caller-owned transaction. A valid transfer rejection MUST return false without mutating either storage or recording publication.
+
+#### Scenario: Exact transfer succeeds
+- **WHEN** the caller enlists source and destination, the source has the requested quantity, the destination can accept the exact result, and the caller commits
+- **THEN** both stores commit the transfer before either domain container publishes an update
+
+#### Scenario: Transfer fails validation
+- **WHEN** the source quantity is insufficient or the destination cannot accept the result
+- **THEN** neither store changes and neither container publishes a committed mutation
+
+#### Scenario: Storage transfer requires one active transaction
+- **WHEN** the operation is called without both storages enlisted in one active transaction, or the low-level storage transfer is called from another thread
+- **THEN** it throws before either store changes
+
+#### Scenario: Opposite transfers acquire locks consistently
+- **WHEN** two operations transfer in opposite directions between the same stores
+- **THEN** their owner scopes acquire storage locks in the same deterministic order
+
+#### Scenario: Transfer is exposed by the container
+- **WHEN** a caller inspects the public `IItemContainer` contract
+- **THEN** it finds `TryTransferTo(...)` there and the opaque `.Mutations` participant exposes no transfer operation
 
 ### Requirement: MoneyPouch separates gameplay operations from opaque participation
 `IMoneyPouchContainer.Mutations` MUST expose an opaque `IItemContainerTransactionParticipant`. The MoneyPouch participant MUST contribute pouch storage and every required inventory storage. `TryAddExact` and `TryRemoveExact` MUST own a transaction when none of their required storage is bound; when all required storage belongs to the same active current-thread transaction they MUST participate in that scope; partial or conflicting enlistment MUST fail before mutation. Exact pouch methods MUST remain on `IMoneyPouchContainer`, not its opaque participant.

@@ -342,7 +342,7 @@ public sealed class MoneyPouchContainerTests
         var boundaries = ((IItemContainerTransactionParticipantInternal)scenario.MoneyPouch.Mutations).Boundaries;
         var inventory = Substitute.For<IInventoryContainer>();
         var items = Substitute.For<IItemContainer>();
-        var unsupported = Substitute.For<IItemContainerMutationBoundary>();
+        var unsupported = Substitute.For<IItemContainerTransactionParticipant>();
         var resolutions = 0;
         items.Mutations.Returns(_ =>
         {
@@ -441,12 +441,9 @@ public sealed class MoneyPouchContainerTests
     }
 
     private sealed class InventoryParticipant(IReadOnlyList<ItemContainerMutationBoundary> boundaries)
-        : IItemContainerMutationBoundary, IItemContainerTransactionParticipantInternal
+        : IItemContainerTransactionParticipant, IItemContainerTransactionParticipantInternal
     {
         public IReadOnlyList<ItemContainerMutationBoundary> Boundaries => boundaries;
-        public bool TryTransferTo(IItemContainerMutationBoundary destination, IItem item, int count,
-            int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null) =>
-            throw new NotSupportedException();
     }
 
     [TestMethod]
@@ -638,7 +635,7 @@ public sealed class MoneyPouchContainerTests
 
     private sealed class AdvertisedCoinCountContainer(ItemContainer inner) : IItemContainer
     {
-        public IItemContainerMutationBoundary Mutations => inner.Mutations;
+        public IItemContainerTransactionParticipant Mutations => inner.Mutations;
         public StorageType Type => inner.Type;
         public int Capacity => inner.Capacity;
         public int FreeSlots => inner.FreeSlots;
@@ -651,6 +648,9 @@ public sealed class MoneyPouchContainerTests
         public IItem? GetById(int id) => inner.GetById(id);
         public int Remove(IItem item, int preferredSlot = -1, bool update = true) => inner.Remove(item, preferredSlot, update);
         public bool TryRemoveExact(IItem item, int preferredSlot = -1) => inner.TryRemoveExact(item, preferredSlot);
+        public bool TryTransferTo(IItemContainer destination, IItem item, int count,
+            int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null) =>
+            inner.TryTransferTo(destination, item, count, preferredSourceSlot, destinationSlot, destinationItem);
         public void Replace(int slot, IItem item) => inner.Replace(slot, item);
         public void Swap(int fromSlot, int toSlot) => inner.Swap(fromSlot, toSlot);
         public void Move(int fromSlot, int toSlot) => inner.Move(fromSlot, toSlot);

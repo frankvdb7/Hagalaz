@@ -156,17 +156,19 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            var inventoryBoundary = _owner.Inventory.Items.Mutations;
+            var inventoryItems = _owner.Inventory.Items as ItemContainer
+                ?? throw new InvalidOperationException("Equipment transfers require the ItemContainer implementation.");
+            var inventoryBoundary = inventoryItems.Mutations;
             var inventoryFull = false;
             using (var replacementTransaction = ItemContainerTransaction.Begin(inventoryBoundary, _mutations))
             {
                 if (!_owner.Inventory.Items.TryRemoveExact(item, slot)) return false;
-                if (needsWeaponUnequip && !_mutations.TryTransferTo(inventoryBoundary, equippedWeapon!,
+                if (needsWeaponUnequip && !inventoryItems.TryTransferFrom(_mutations, equippedWeapon!,
                         equippedWeapon!.Count, (int)EquipmentSlot.Weapon, slot))
                 {
                     inventoryFull = true;
                 }
-                if (!inventoryFull && needsShieldUnequip && !_mutations.TryTransferTo(inventoryBoundary, equippedShield!,
+                if (!inventoryFull && needsShieldUnequip && !inventoryItems.TryTransferFrom(_mutations, equippedShield!,
                         equippedShield!.Count, (int)EquipmentSlot.Shield))
                 {
                     inventoryFull = true;
@@ -218,15 +220,19 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         }
 
         private bool MoveFromInventoryToSlot(IItem item, int inventorySlot, EquipmentSlot equipmentSlot) =>
-            _owner.Inventory.Items.Mutations.TryTransferTo(_mutations, item, item.Count, inventorySlot, (int)equipmentSlot);
+            _owner.Inventory.Items is ItemContainer inventoryItems
+                ? inventoryItems.TryTransferTo(_mutations, item, item.Count, inventorySlot, (int)equipmentSlot)
+                : throw new InvalidOperationException("Equipment transfers require the ItemContainer implementation.");
 
         public bool TryMoveTo(IItemContainer destination, IItem item, int count, EquipmentSlot slot,
             IItem? destinationItem = null)
         {
             if (count <= 0 || this[slot] is not { } equippedItem || !ReferenceEquals(equippedItem, item)) return false;
+            if (destination is not ItemContainer target)
+                throw new ArgumentException("Transfers require the ItemContainer implementation.", nameof(destination));
             var fullyRemoved = count == equippedItem.Count;
-            using var transaction = ItemContainerTransaction.Begin(_mutations, destination.Mutations);
-            if (!_mutations.TryTransferTo(destination.Mutations, equippedItem, count, (int)slot, -1, destinationItem)) return false;
+            using var transaction = ItemContainerTransaction.Begin(_mutations, target.Mutations);
+            if (!target.TryTransferFrom(_mutations, equippedItem, count, (int)slot, -1, destinationItem)) return false;
             if (fullyRemoved) DeferEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem));
             transaction.Commit();
             return true;
@@ -430,10 +436,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 destinationSlot = toInventorySlot;
             }
 
-            var inventoryBoundary = _owner.Inventory.Items.Mutations;
+            var inventoryItems = _owner.Inventory.Items as ItemContainer
+                ?? throw new InvalidOperationException("Equipment transfers require the ItemContainer implementation.");
+            var inventoryBoundary = inventoryItems.Mutations;
             using (var transaction = ItemContainerTransaction.Begin(inventoryBoundary, _mutations))
             {
-                if (_mutations.TryTransferTo(inventoryBoundary, item, item.Count, (int)slot, destinationSlot))
+                if (inventoryItems.TryTransferFrom(_mutations, item, item.Count, (int)slot, destinationSlot))
                 {
                     DeferEquipmentEffects(new EquipmentEffect(EquipmentEffectKind.Unequipped, item));
                     transaction.Commit();

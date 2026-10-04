@@ -732,8 +732,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 var count = Math.Min(requestedCount, character.Inventory.Items.GetCount(item));
                 if (count <= 0) return false;
                 using var transaction = ItemContainerTransaction.Begin(character.Inventory.Items.Mutations, offer.Mutations);
-                if (!character.Inventory.Items.Mutations.TryTransferTo(
-                        offer.Mutations, item, count, preferredSlot)) return false;
+                if (!character.Inventory.Items.TryTransferTo(offer, item, count, preferredSlot)) return false;
 
                 transaction.Commit();
                 RefreshTradeOfferScreenLocked(session);
@@ -752,7 +751,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 if (item.Id != 995)
                 {
                     using var transaction = ItemContainerTransaction.Begin(offer.Mutations, character.Inventory.Items.Mutations);
-                    if (!offer.Mutations.TryTransferTo(character.Inventory.Items.Mutations, item, count, preferredSlot))
+                    if (!offer.TryTransferTo(character.Inventory.Items, item, count, preferredSlot))
                         return false;
 
                     transaction.Commit();

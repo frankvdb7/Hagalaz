@@ -5,7 +5,7 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Collections;
 
 /// <summary>Coordinates mutations and publication for one owned item storage.</summary>
-internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoundary, IItemContainerTransactionParticipantInternal
+internal sealed class ItemContainerMutationBoundary : IItemContainerTransactionParticipantInternal
 {
     private readonly ItemContainerStorage _storage;
     private readonly IItemContainerCompletionOwner? _completion;
@@ -30,9 +30,9 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
         _completion = completion;
     }
 
-    /// <summary>Transfers an exact quantity between boundaries already enlisted in one caller-owned transaction.</summary>
-    public bool TryTransferTo(
-        IItemContainerMutationBoundary destination,
+    /// <summary>Transfers an exact quantity between storage boundaries already enlisted in one caller-owned transaction.</summary>
+    internal bool TryTransferTo(
+        ItemContainerMutationBoundary destination,
         IItem item,
         int count,
         int preferredSourceSlot = -1,
@@ -40,15 +40,13 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
         IItem? destinationItem = null)
     {
         ArgumentNullException.ThrowIfNull(destination);
-        if (destination is not ItemContainerMutationBoundary target)
-            throw new ArgumentException("Unsupported mutation boundary.", nameof(destination));
         var transaction = EnsureActiveTransaction();
-        if (!ReferenceEquals(transaction, target.EnsureActiveTransaction()))
+        if (!ReferenceEquals(transaction, destination.EnsureActiveTransaction()))
             throw new InvalidOperationException("Both storage boundaries must belong to the same active transaction.");
-        if (!_storage.TryTransferTo(target._storage, item, count,
+        if (!_storage.TryTransferTo(destination._storage, item, count,
                 preferredSourceSlot, destinationSlot, destinationItem, out var sourceSlots, out var destinationSlots)) return false;
         NotifyChanges(sourceSlots);
-        target.NotifyChanges(destinationSlots);
+        destination.NotifyChanges(destinationSlots);
         return true;
     }
 

@@ -11,10 +11,10 @@ using NSubstitute;
 namespace Hagalaz.Game.Abstractions.Tests.Collections;
 
 [TestClass]
-public sealed class ItemContainerMutationBoundaryTests
+public sealed class ItemContainerTransferTests
 {
     [TestMethod]
-    public void TryTransferTo_InterfaceTypedBoundariesMoveExactQuantityAndPublishAfterCommit()
+    public void TryTransferTo_InterfaceTypedContainersMoveExactQuantityAndPublishAfterCommit()
     {
         var sourceUpdates = 0;
         var destinationUpdates = 0;
@@ -23,10 +23,8 @@ public sealed class ItemContainerMutationBoundaryTests
         var item = new TestItem(10, 7);
         Assert.IsTrue(source.Add(item));
 
-        IItemContainerMutationBoundary sourceBoundary = source.Mutations;
-        IItemContainerMutationBoundary destinationBoundary = destination.Mutations;
         using var transaction = ItemContainerTransaction.Begin(source.Mutations, destination.Mutations);
-        Assert.IsTrue(sourceBoundary.TryTransferTo(destinationBoundary, item, 7, 0));
+        Assert.IsTrue(source.TryTransferTo(destination, item, 7, 0));
         transaction.Commit();
 
         Assert.AreEqual(0, source.TakenSlots);
@@ -37,7 +35,7 @@ public sealed class ItemContainerMutationBoundaryTests
     }
 
     [TestMethod]
-    public void TryTransferTo_InterfaceTypedBoundariesLeaveBothStoragesUnchangedOnFailure()
+    public void TryTransferTo_InterfaceTypedContainersLeaveBothStoragesUnchangedOnFailure()
     {
         var sourceUpdates = 0;
         var destinationUpdates = 0;
@@ -48,10 +46,8 @@ public sealed class ItemContainerMutationBoundaryTests
         Assert.IsTrue(source.Add(item));
         Assert.IsTrue(destination.Add(blockingItem));
 
-        IItemContainerMutationBoundary sourceBoundary = source.Mutations;
-        IItemContainerMutationBoundary destinationBoundary = destination.Mutations;
         using var transaction = ItemContainerTransaction.Begin(source.Mutations, destination.Mutations);
-        Assert.IsFalse(sourceBoundary.TryTransferTo(destinationBoundary, item, 2, 0));
+        Assert.IsFalse(source.TryTransferTo(destination, item, 2, 0));
 
         Assert.AreSame(item, source[0]);
         Assert.AreEqual(2, source[0]!.Count);
@@ -136,7 +132,7 @@ public sealed class ItemContainerMutationBoundaryTests
         var destinationEnumerator = destination.GetEnumerator();
         using (ItemContainerTransaction.Begin(source.Mutations, destination.Mutations))
         {
-            Assert.IsTrue(source.Mutations.TryTransferTo(destination.Mutations, item, 3, 0));
+            Assert.IsTrue(source.TryTransferTo(destination, item, 3, 0));
             source.Clear(true);
             Assert.AreEqual(7, existing.Count);
             Assert.AreEqual(0, publications);
@@ -163,7 +159,7 @@ public sealed class ItemContainerMutationBoundaryTests
         var thrown = Assert.ThrowsExactly<InvalidOperationException>(() =>
         {
             using var transaction = ItemContainerTransaction.Begin(source.Mutations, destination.Mutations);
-            Assert.IsTrue(source.Mutations.TryTransferTo(destination.Mutations, item, 5));
+            Assert.IsTrue(source.TryTransferTo(destination, item, 5));
             throw original;
         });
         Assert.AreSame(original, thrown);
@@ -270,7 +266,7 @@ public sealed class ItemContainerMutationBoundaryTests
         var sourceEnumerator = source.GetEnumerator();
         var destinationEnumerator = destination.GetEnumerator();
         using var transaction = ItemContainerTransaction.Begin(source.Mutations, destination.Mutations);
-        Assert.IsTrue(source.Mutations.TryTransferTo(destination.Mutations, item, 1));
+        Assert.IsTrue(source.TryTransferTo(destination, item, 1));
         transaction.Commit();
         Assert.ThrowsExactly<InvalidOperationException>(() => sourceEnumerator.MoveNext());
         Assert.ThrowsExactly<InvalidOperationException>(() => destinationEnumerator.MoveNext());
@@ -485,7 +481,7 @@ public sealed class ItemContainerMutationBoundaryTests
         var item = new TestItem(43, 1);
         Assert.IsTrue(first.Add(item));
         using var transaction = ItemContainerTransaction.Begin(first.Mutations);
-        Assert.ThrowsExactly<InvalidOperationException>(() => first.Mutations.TryTransferTo(second.Mutations, item, 1));
+        Assert.ThrowsExactly<InvalidOperationException>(() => first.TryTransferTo(second, item, 1));
         Assert.AreSame(transaction, Boundary(first).Storage.Transaction);
         Assert.AreSame(item, first[0]);
         Assert.IsNull(second[0]);
@@ -503,7 +499,7 @@ public sealed class ItemContainerMutationBoundaryTests
         Assert.IsTrue(first.Add(item));
         using var firstScope = ItemContainerTransaction.Begin(first.Mutations);
         using var secondScope = ItemContainerTransaction.Begin(second.Mutations);
-        Assert.ThrowsExactly<InvalidOperationException>(() => first.Mutations.TryTransferTo(second.Mutations, item, 1));
+        Assert.ThrowsExactly<InvalidOperationException>(() => first.TryTransferTo(second, item, 1));
         Assert.AreSame(firstScope, Boundary(first).Storage.Transaction);
         Assert.AreSame(secondScope, Boundary(second).Storage.Transaction);
         Assert.AreSame(item, first[0]);
@@ -518,7 +514,7 @@ public sealed class ItemContainerMutationBoundaryTests
         var item = new TestItem(42, 1);
         Assert.IsTrue(source.Add(item));
 
-        Assert.ThrowsExactly<InvalidOperationException>(() => source.Mutations.TryTransferTo(destination.Mutations, item, 1));
+        Assert.ThrowsExactly<InvalidOperationException>(() => source.TryTransferTo(destination, item, 1));
 
         Assert.AreSame(item, source[0]);
         Assert.IsNull(destination[0]);
@@ -741,8 +737,7 @@ public sealed class ItemContainerMutationBoundaryTests
         Assert.AreEqual(0, typeof(ItemContainerTransaction).GetConstructors().Length);
         Assert.AreEqual(0, typeof(ItemContainerTransaction).GetProperties().Length);
         Assert.AreEqual(0, typeof(IItemContainerTransactionParticipant).GetMembers().Length);
-        Assert.IsNull(typeof(IItemContainerMutationBoundary).GetProperty("Storage"));
-        Assert.IsNull(typeof(IItemContainerMutationBoundary).GetProperty("MutationLock"));
+        Assert.IsNull(typeof(IItemContainer).Assembly.GetType("Hagalaz.Game.Abstractions.Collections.IItemContainerMutationBoundary"));
     }
 
     [TestMethod]
@@ -851,7 +846,7 @@ public sealed class ItemContainerMutationBoundaryTests
         Assert.IsTrue(inventory.Items.Add(item));
 
         using var transaction = ItemContainerTransaction.Begin(inventory.Items.Mutations, bank.Items.Mutations);
-        Assert.IsTrue(inventory.Items.Mutations.TryTransferTo(bank.Items.Mutations, item, 4, 0));
+        Assert.IsTrue(inventory.Items.TryTransferTo(bank.Items, item, 4, 0));
         transaction.Commit();
 
         Assert.IsNull(inventory.Items[0]);
@@ -871,7 +866,7 @@ public sealed class ItemContainerMutationBoundaryTests
             Assert.AreEqual(typeof(IItemContainer), contract.GetProperty("Items")!.PropertyType, contract.Name);
         }
 
-        Assert.AreEqual(typeof(IItemContainerMutationBoundary), typeof(IItemContainer).GetProperty("Mutations")!.PropertyType);
+        Assert.AreEqual(typeof(IItemContainerTransactionParticipant), typeof(IItemContainer).GetProperty("Mutations")!.PropertyType);
         var domainContracts = ordinaryContainers.Concat([typeof(IEquipmentContainer), typeof(IMoneyPouchContainer)]);
         foreach (var contract in domainContracts)
         {
@@ -907,16 +902,14 @@ public sealed class ItemContainerMutationBoundaryTests
             Assert.IsFalse(readOnlyMembers.Contains(mutationMember), mutationMember);
         }
 
-        Assert.AreEqual(typeof(IItemContainerMutationBoundary), typeof(IItemContainer).GetProperty("Mutations")!.PropertyType);
-        var mutationBoundary = typeof(IItemContainerMutationBoundary);
-        Assert.IsNotNull(mutationBoundary.GetMethod(nameof(IItemContainerMutationBoundary.TryTransferTo)));
+        Assert.AreEqual(typeof(IItemContainerTransactionParticipant), typeof(IItemContainer).GetProperty("Mutations")!.PropertyType);
+        Assert.IsNotNull(typeof(IItemContainer).GetMethod(nameof(IItemContainer.TryTransferTo)));
+        Assert.IsNull(typeof(IItemContainer).Assembly.GetType("Hagalaz.Game.Abstractions.Collections.IItemContainerMutationBoundary"));
         foreach (var method in new[] { "TryAdd", "TryAddRange", "TryRemoveExact", "Sort", "Clear", "EnsureOutsideTransaction" })
         {
-            Assert.IsNull(mutationBoundary.GetMethod(method), method);
+            Assert.IsNull(typeof(IItemContainerTransactionParticipant).GetMethod(method), method);
         }
-        Assert.IsNull(mutationBoundary.GetMethod("EnsureUnbound"));
-        Assert.IsNull(mutationBoundary.GetProperty("Transaction"));
-        Assert.IsNull(mutationBoundary.GetProperty("IsBound"));
+        Assert.IsNull(typeof(IItemContainerTransactionParticipant).GetMethod("EnsureUnbound"));
         Assert.IsFalse(typeof(IEquipmentContainer).GetInterfaces().Contains(typeof(IContainer<IItem?>)));
         Assert.AreEqual(typeof(IReadOnlyItemContainer), typeof(IEquipmentContainer).GetProperty("Items")!.PropertyType);
         Assert.IsNotNull(typeof(IEquipmentContainer).GetProperty("Item", [typeof(EquipmentSlot)]));

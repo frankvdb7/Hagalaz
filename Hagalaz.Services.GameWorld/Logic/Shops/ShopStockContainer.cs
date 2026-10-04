@@ -144,7 +144,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 ? [viewer.Inventory.Items.Mutations, _items.Mutations, viewer.MoneyPouch.Mutations]
                 : [viewer.Inventory.Items.Mutations, _items.Mutations];
             using var transaction = ItemContainerTransaction.Begin(participants);
-            if (!viewer.Inventory.Items.Mutations.TryTransferTo(_items.Mutations, item, count, slot,
+            if (!viewer.Inventory.Items.TryTransferTo(_items, item, count, slot,
                     destinationItem: transformed ? sold : null)) return false;
             var paid = _shop.CurrencyId == 995
                 ? viewer.MoneyPouch.TryAddExact((int)currencyCount)
@@ -249,7 +249,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 }
                 if (!insufficientCurrency)
                 {
-                    if (!_items.Mutations.TryTransferTo(viewer.Inventory.Items.Mutations, item, count, slot)) return false;
+                    if (!_items.TryTransferTo(viewer.Inventory.Items, item, count, slot)) return false;
                     transaction.Commit();
                 }
             }

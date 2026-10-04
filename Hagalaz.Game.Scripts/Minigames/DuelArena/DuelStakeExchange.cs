@@ -26,7 +26,7 @@ internal sealed class DuelStakeExchange
         int preferredSourceSlot)
     {
         using var transaction = ItemContainerTransaction.Begin(character.Inventory.Items.Mutations, stake.Mutations);
-        if (!character.Inventory.Items.Mutations.TryTransferTo(stake.Mutations, item, count, preferredSourceSlot)) return false;
+        if (!character.Inventory.Items.TryTransferTo(stake, item, count, preferredSourceSlot)) return false;
         transaction.Commit();
         return true;
     }
@@ -39,7 +39,7 @@ internal sealed class DuelStakeExchange
         int preferredSourceSlot)
     {
         using var transaction = ItemContainerTransaction.Begin(stake.Mutations, character.Inventory.Items.Mutations);
-        if (!stake.Mutations.TryTransferTo(character.Inventory.Items.Mutations, item, count, preferredSourceSlot)) return false;
+        if (!stake.TryTransferTo(character.Inventory.Items, item, count, preferredSourceSlot)) return false;
         transaction.Commit();
         return true;
     }
@@ -98,7 +98,7 @@ internal sealed class DuelStakeExchange
             {
                 if (!stake.TryRemoveExact(item, slot) || !owner.MoneyPouch.TryAddExact(count)) return false;
             }
-            else if (!stake.Mutations.TryTransferTo(owner.Inventory.Items.Mutations, item, count, slot))
+            else if (!stake.TryTransferTo(owner.Inventory.Items, item, count, slot))
             {
                 return false;
             }

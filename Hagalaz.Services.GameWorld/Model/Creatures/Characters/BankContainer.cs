@@ -98,7 +98,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             deposited = CreateDepositItem(item, count, out var transformed);
             using (var transaction = ItemContainerTransaction.Begin(container.Mutations, _items.Mutations))
             {
-                if (container.Mutations.TryTransferTo(_items.Mutations, item, count, slot,
+                if (container.TryTransferTo(_items, item, count, slot,
                         destinationItem: transformed ? deposited : null))
                 {
                     transaction.Commit();
@@ -186,7 +186,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             deposited = CreateDepositItem(item, count, out var transformed);
             using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, _items.Mutations))
             {
-                if (_owner.Inventory.Items.Mutations.TryTransferTo(_items.Mutations, item, count, slot,
+                if (_owner.Inventory.Items.TryTransferTo(_items, item, count, slot,
                         destinationItem: transformed ? deposited : null))
                 {
                     transaction.Commit();
@@ -281,7 +281,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             withdrawed.Count = count;
             using (var transaction = ItemContainerTransaction.Begin(_items.Mutations, _owner.Inventory.Items.Mutations))
             {
-                if (_items.Mutations.TryTransferTo(_owner.Inventory.Items.Mutations, item, count, slot,
+                if (_items.TryTransferTo(_owner.Inventory.Items, item, count, slot,
                         destinationItem: transformed ? withdrawed : null))
                 {
                     _items.Sort();

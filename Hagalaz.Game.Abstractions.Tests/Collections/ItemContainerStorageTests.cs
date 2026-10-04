@@ -1394,8 +1394,8 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.IsFalse(Transfer(container.Items, container.Items, item!, 1));
             using (ItemContainerTransaction.Begin(container.Items.Mutations, destination.Items.Mutations))
             {
-                Assert.IsFalse(container.Items.Mutations.TryTransferTo(destination.Items.Mutations, item!, 0));
-                Assert.IsFalse(container.Items.Mutations.TryTransferTo(destination.Items.Mutations, item!, -1));
+                Assert.IsFalse(container.Items.TryTransferTo(destination.Items, item!, 0));
+                Assert.IsFalse(container.Items.TryTransferTo(destination.Items, item!, -1));
             }
 
             Assert.AreSame(item, container.Items[0]);
@@ -1456,7 +1456,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                 using var transaction = ItemContainerTransaction.Begin(left.Items.Mutations, right.Items.Mutations);
                 entered.Set();
                 Assert.IsTrue(release.Wait(TimeSpan.FromSeconds(5)));
-                Assert.IsTrue(left.Items.Mutations.TryTransferTo(right.Items.Mutations, leftItem, 1));
+                Assert.IsTrue(left.Items.TryTransferTo(right.Items, leftItem, 1));
                 transaction.Commit();
             });
             Task<bool>? rightToLeft = null;
@@ -1484,7 +1484,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         private static bool Transfer(ItemContainer source, ItemContainer destination, IItem item, int count, int preferredSourceSlot = -1, int destinationSlot = -1)
         {
             using var transaction = ItemContainerTransaction.Begin(source.Mutations, destination.Mutations);
-            if (!source.Mutations.TryTransferTo(destination.Mutations, item, count, preferredSourceSlot, destinationSlot)) return false;
+            if (!source.TryTransferTo(destination, item, count, preferredSourceSlot, destinationSlot)) return false;
             transaction.Commit();
             return true;
         }
