@@ -833,8 +833,8 @@ public sealed class CharacterItemTransferTests
             var equipmentStorage = (ItemContainerStorage)typeof(EquipmentContainer)
                 .GetField("_storage", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(setup.Equipment)!;
             Assert.IsFalse(Monitor.IsEntered(equipmentStorage.MutationLock));
-            Assert.IsNull(equipmentStorage.Transaction);
-            Assert.IsNull(Boundary(setup.Inventory.Items).Storage.Transaction);
+            Assert.IsNotNull(equipmentStorage.Transaction);
+            Assert.AreSame(equipmentStorage.Transaction, Boundary(setup.Inventory.Items).Storage.Transaction);
             callbacks.Add("weapon");
             throw hookFailure;
         });

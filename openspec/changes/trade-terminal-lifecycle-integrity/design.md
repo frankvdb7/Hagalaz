@@ -2,7 +2,7 @@
 
 ## Context
 
-See proposal.md for the remaining issue scope and transaction API decisions. `TradingCharacterScript` owns one shared session state and gate. `ItemContainerTransaction.Commit()` makes the already-mutated storage irreversible, releases bindings and locks, then runs transaction-owned domain completion and automatic publication. Equipment retains its domain-owned hook policy; pouch notices follow container publication; shop events follow a successful commit.
+See proposal.md for the remaining issue scope and transaction API decisions. `TradingCharacterScript` owns one shared session state and gate. `ItemContainerTransaction.Commit()` makes the already-mutated storage irreversible, releases mutation locks while retaining scope bindings, then runs transaction-owned domain completion and automatic publication before releasing the scope. Equipment retains its domain-owned hook policy; pouch notices follow container publication; shop events follow a successful commit.
 
 ## Goals / Non-Goals
 
@@ -22,7 +22,7 @@ See proposal.md for the remaining issue scope and transaction API decisions. `Tr
 
 ## Decisions
 
-1. **Keep commit and publication in one public operation.** `ItemContainerTransaction.Commit()` declares the already-mutated storage irreversible, removes bindings, releases locks, and then runs automatic completion and publication. Callers do not query committed state or invoke a separate publication method. A completion or publication exception propagates after storage is irreversible, and neither `Commit()` nor `Dispose()` retries or rolls back that storage.
+1. **Keep commit and publication in one public operation.** `ItemContainerTransaction.Commit()` declares the already-mutated storage irreversible, releases mutation locks while retaining scope bindings, and then runs automatic completion and publication. It clears bindings and wakes waiting overlapping scopes after pending completion cleanup. Callers do not query committed state or invoke a separate publication method. A completion or publication exception propagates after storage is irreversible, and neither `Commit()` nor `Dispose()` retries or rolls back that storage.
 
 2. **Keep pouch publication data with MoneyPouch.** MoneyPouch records the immutable facts required to publish its messages and events after container publishers. Callers do not receive or manage publication receipts, and transaction infrastructure does not become a generic event bus.
 

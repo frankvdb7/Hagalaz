@@ -588,6 +588,7 @@ public sealed class MoneyPouchContainerTests
         var scenario = CreateScenario(10, 0);
         var messages = new List<string>();
         var changes = new List<(int Previous, int Count)>();
+        var reentrantMutationRejected = false;
         var events = Substitute.For<IEventManager>();
         scenario.Owner.EventManager.Returns(events);
         events.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>())).Do(call =>
@@ -599,22 +600,26 @@ public sealed class MoneyPouchContainerTests
         scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(call =>
         {
             messages.Add(call.ArgAt<string>(0));
-            if (messages.Count == 1) Assert.IsTrue(scenario.MoneyPouch.TryAddExact(4));
+            if (messages.Count == 1)
+            {
+                Assert.ThrowsExactly<InvalidOperationException>(() => scenario.MoneyPouch.TryAddExact(4));
+                reentrantMutationRejected = true;
+            }
         });
         using var transaction = ItemContainerTransaction.Begin(scenario.MoneyPouch);
         Assert.IsTrue(scenario.MoneyPouch.TryAddExact(1));
         Assert.IsTrue(scenario.MoneyPouch.TryAddExact(2));
         transaction.Commit();
-        Assert.AreEqual(17, scenario.MoneyPouch.Count);
+        Assert.IsTrue(reentrantMutationRejected);
+        Assert.AreEqual(13, scenario.MoneyPouch.Count);
         CollectionAssert.AreEqual(new[]
         {
-            "1 coins have been added to your money pouch.", "4 coins have been added to your money pouch.",
-            "2 coins have been added to your money pouch."
+            "1 coins have been added to your money pouch.", "2 coins have been added to your money pouch."
         }, messages);
-        CollectionAssert.AreEqual(new[] { (13, 17), (10, 11), (11, 13) }, changes);
+        CollectionAssert.AreEqual(new[] { (10, 11), (11, 13) }, changes);
         using var fresh = ItemContainerTransaction.Begin(scenario.MoneyPouch);
         fresh.Commit();
-        Assert.AreEqual(3, messages.Count);
+        Assert.AreEqual(2, messages.Count);
     }
 
     private sealed class AdvertisedCoinCountContainer(

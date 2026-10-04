@@ -197,12 +197,12 @@ public sealed class ItemContainerTransferTests
         Assert.IsTrue(second.Add(new TestItem(24, 1)));
         Completion(first).Before(() =>
         {
-            AssertUnboundAndUnlocked(first, second);
+            AssertScopeBoundAndUnlocked(transaction, first, second);
             order.Add("hook");
         });
         Completion(first).After(() =>
         {
-            AssertUnboundAndUnlocked(first, second);
+            AssertScopeBoundAndUnlocked(transaction, first, second);
             Assert.AreEqual(1, first.TakenSlots);
             Assert.AreEqual(1, second.TakenSlots);
             order.Add("after1");
@@ -296,14 +296,16 @@ public sealed class ItemContainerTransferTests
         var calls = new List<string>();
         ItemContainer? first = null;
         ItemContainer? second = null;
+        ItemContainerTransaction? committing = null;
         first = new ItemContainer(StorageType.Normal, 2, _ =>
         {
-            AssertUnboundAndUnlocked(first!, second!);
+            AssertScopeBoundAndUnlocked(committing!, first!, second!);
             calls.Add("first");
             throw original;
         });
         second = new ItemContainer(StorageType.Normal, 2, _ => calls.Add("second"));
         using var transaction = ItemContainerTransaction.Begin(first, second);
+        committing = transaction;
         Assert.IsTrue(first.Add(new TestItem(33, 1)));
         Assert.IsTrue(second.Add(new TestItem(34, 1)));
         Completion(first).After(() => calls.Add("after"));
@@ -349,7 +351,7 @@ public sealed class ItemContainerTransferTests
         using var transaction = ItemContainerTransaction.Begin(container);
         Assert.IsTrue(container.Add(new TestItem(37, 1)));
         Completion(container).After(() => calls.Add("after1"));
-        Completion(container).After(() => { AssertUnboundAndUnlocked(container); calls.Add("after2"); throw original; });
+        Completion(container).After(() => { AssertScopeBoundAndUnlocked(transaction, container); calls.Add("after2"); throw original; });
         Completion(container).After(() => calls.Add("after3"));
         Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
         transaction.Dispose();
@@ -366,7 +368,7 @@ public sealed class ItemContainerTransferTests
         var container = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("container"));
         using var transaction = ItemContainerTransaction.Begin(container);
         Assert.IsTrue(container.Add(new TestItem(38, 1)));
-        Completion(container).Before(() => { AssertUnboundAndUnlocked(container); calls.Add("hook"); throw original; });
+        Completion(container).Before(() => { AssertScopeBoundAndUnlocked(transaction, container); calls.Add("hook"); throw original; });
         Completion(container).After(() => calls.Add("after"));
         Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
         transaction.Dispose();
@@ -663,6 +665,186 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Commit_ForeignBeginWaitsUntilPublicationFinishesAndCannotSeeLaterMutation(bool publicationFails)
+    {
+        using var publicationStarted = new ManualResetEventSlim();
+        using var finishPublication = new ManualResetEventSlim();
+        using var contenderAttempted = new ManualResetEventSlim();
+        using var contenderEntered = new ManualResetEventSlim();
+        var itemA = new TestItem(140, 1);
+        var itemB = new TestItem(141, 1);
+        var original = new InvalidOperationException("Publisher failure.");
+        ItemContainer? container = null;
+        ItemContainerTransaction? committing = null;
+        var publications = 0;
+        container = new ItemContainer(StorageType.Normal, 2, _ =>
+        {
+            AssertScopeBoundAndUnlocked(committing!, container!);
+            if (Interlocked.Increment(ref publications) != 1) return;
+            Assert.AreSame(itemA, container![0]);
+            Assert.IsNull(container[1]);
+            publicationStarted.Set();
+            Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5)), "Publication must be released by the test.");
+            Assert.IsFalse(contenderEntered.IsSet, "The later transaction must not enter before publication returns.");
+            Assert.AreSame(itemA, container![0]);
+            Assert.IsNull(container[1]);
+            if (publicationFails) throw original;
+        });
+
+        Exception? firstFailure = null;
+        var first = new Thread(() =>
+        {
+            try
+            {
+                using var transaction = ItemContainerTransaction.Begin(container);
+                committing = transaction;
+                Assert.IsTrue(container.Add(itemA));
+                transaction.Commit();
+            }
+            catch (Exception exception) { firstFailure = exception; }
+        }) { IsBackground = true };
+        first.Start();
+        Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)), "The first scope must reach publication.");
+
+        Exception? secondFailure = null;
+        var second = new Thread(() =>
+        {
+            try
+            {
+                contenderAttempted.Set();
+                using var transaction = ItemContainerTransaction.Begin(container);
+                committing = transaction;
+                contenderEntered.Set();
+                Assert.IsTrue(container.Add(itemB));
+                transaction.Commit();
+            }
+            catch (Exception exception) { secondFailure = exception; }
+        }) { IsBackground = true };
+        second.Start();
+        try
+        {
+            Assert.IsTrue(contenderAttempted.Wait(TimeSpan.FromSeconds(5)));
+            Assert.IsFalse(contenderEntered.Wait(TimeSpan.FromMilliseconds(100)), "The foreign scope must wait through publication.");
+            Assert.AreSame(itemA, container[0]);
+            Assert.IsNull(container[1]);
+        }
+        finally { finishPublication.Set(); }
+
+        Assert.IsTrue(first.Join(TimeSpan.FromSeconds(5)), "The committing scope must finish publication.");
+        Assert.IsTrue(second.Join(TimeSpan.FromSeconds(5)), "The waiting scope must proceed after release.");
+        if (publicationFails) Assert.AreSame(original, firstFailure);
+        else if (firstFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(firstFailure).Throw();
+        if (secondFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(secondFailure).Throw();
+        Assert.IsTrue(contenderEntered.IsSet);
+        Assert.AreSame(itemA, container[0]);
+        Assert.AreSame(itemB, container[1]);
+        Assert.AreEqual(2, publications, "The first publication must run once, even when it throws.");
+        AssertUnboundAndUnlocked(container);
+    }
+
+    [TestMethod]
+    public void Commit_PublicationRejectsSameThreadReentrancyButAllowsDisjointScope()
+    {
+        ItemContainer? container = null;
+        ItemContainerTransaction? committing = null;
+        var publicationCount = 0;
+        container = new ItemContainer(StorageType.Normal, 2, _ =>
+        {
+            AssertScopeBoundAndUnlocked(committing!, container!);
+            if (Interlocked.Increment(ref publicationCount) != 1) return;
+            Assert.ThrowsExactly<InvalidOperationException>(() => ItemContainerTransaction.Begin(container!));
+            Assert.ThrowsExactly<InvalidOperationException>(() => container!.Add(new TestItem(145, 1)));
+            var unrelated = new ItemContainer(StorageType.Normal, 1);
+            using var disjoint = ItemContainerTransaction.Begin(unrelated);
+            Assert.IsTrue(unrelated.Add(new TestItem(146, 1)));
+            disjoint.Commit();
+            Assert.AreEqual(1, container!.TakenSlots);
+        });
+        using (var transaction = ItemContainerTransaction.Begin(container!))
+        {
+            committing = transaction;
+            Assert.IsTrue(container!.Add(new TestItem(144, 1)));
+            transaction.Commit();
+        }
+        Assert.AreEqual(1, container!.TakenSlots);
+        using var later = ItemContainerTransaction.Begin(container!);
+        committing = later;
+        Assert.IsTrue(container!.Add(new TestItem(147, 1)));
+        later.Commit();
+        Assert.AreEqual(2, container!.TakenSlots);
+        AssertUnboundAndUnlocked(container);
+    }
+
+    [TestMethod]
+    public void Commit_MultiStorageForeignScopeWaitsAndUsesDeterministicLockOrder()
+    {
+        using var publicationStarted = new ManualResetEventSlim();
+        using var finishPublication = new ManualResetEventSlim();
+        using var contenderAttempted = new ManualResetEventSlim();
+        using var contenderEntered = new ManualResetEventSlim();
+        var prefix = new ItemContainer(StorageType.Normal, 1);
+        var ownerOnly = new ItemContainer(StorageType.Normal, 1);
+        ItemContainerTransaction? committing = null;
+        ItemContainer? shared = null;
+        shared = new ItemContainer(StorageType.Normal, 1, _ =>
+        {
+            AssertScopeBoundAndUnlocked(committing!, shared!, ownerOnly);
+            publicationStarted.Set();
+            Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5)));
+            Assert.IsFalse(contenderEntered.IsSet);
+        });
+        var owner = new CompositeParticipant([Boundary(shared), Boundary(ownerOnly)]);
+        var contender = new CompositeParticipant([Boundary(prefix), Boundary(shared)]);
+        Exception? ownerFailure = null;
+        var first = new Thread(() =>
+        {
+            try
+            {
+                using var transaction = ItemContainerTransaction.Begin(owner);
+                committing = transaction;
+                Assert.IsTrue(shared.Add(new TestItem(148, 1)));
+                Assert.IsTrue(ownerOnly.Add(new TestItem(149, 1)));
+                transaction.Commit();
+            }
+            catch (Exception exception) { ownerFailure = exception; }
+        }) { IsBackground = true };
+        first.Start();
+        Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
+
+        Exception? contenderFailure = null;
+        var second = new Thread(() =>
+        {
+            try
+            {
+                contenderAttempted.Set();
+                using var transaction = ItemContainerTransaction.Begin(contender);
+                var order = (ItemContainerStorage[])typeof(ItemContainerTransaction)
+                    .GetField("_lockOrder", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(transaction)!;
+                CollectionAssert.AreEqual(new[] { Boundary(prefix).Storage, Boundary(shared).Storage }, order);
+                foreach (var storage in order) Assert.IsTrue(Monitor.IsEntered(storage.MutationLock));
+                contenderEntered.Set();
+                transaction.Commit();
+            }
+            catch (Exception exception) { contenderFailure = exception; }
+        }) { IsBackground = true };
+        second.Start();
+        try
+        {
+            Assert.IsTrue(contenderAttempted.Wait(TimeSpan.FromSeconds(5)));
+            Assert.IsFalse(contenderEntered.Wait(TimeSpan.FromMilliseconds(100)));
+        }
+        finally { finishPublication.Set(); }
+        Assert.IsTrue(first.Join(TimeSpan.FromSeconds(5)), "The first scope must release the complete set.");
+        Assert.IsTrue(second.Join(TimeSpan.FromSeconds(5)), "The overlapping scope must not deadlock during teardown.");
+        if (ownerFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ownerFailure).Throw();
+        if (contenderFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(contenderFailure).Throw();
+        Assert.IsTrue(contenderEntered.IsSet);
+        AssertUnboundAndUnlocked(prefix, shared, ownerOnly);
+    }
+
+    [TestMethod]
     [DataRow(false, false)]
     [DataRow(false, true)]
     [DataRow(true, false)]
@@ -733,7 +915,7 @@ public sealed class ItemContainerTransferTests
         using var transaction = ItemContainerTransaction.Begin(container);
         Assert.IsTrue(container.Add(new TestItem(47, 1)));
         foreach (var failure in hookFailures)
-            Completion(container).Before(() => { AssertUnboundAndUnlocked(container); throw failure; });
+            Completion(container).Before(() => { AssertScopeBoundAndUnlocked(transaction, container); throw failure; });
         var thrown = Assert.ThrowsExactly<AggregateException>(() => transaction.Commit());
         var expected = publicationFails ? hookFailures.Cast<Exception>().Append(publicationFailure).ToArray() : hookFailures;
         CollectionAssert.AreEqual(expected, thrown.InnerExceptions.ToArray());
@@ -820,6 +1002,23 @@ public sealed class ItemContainerTransferTests
         {
             Assert.IsNull(Boundary(container).Storage.Transaction);
             var storage = Boundary(container).Storage;
+            Assert.IsFalse(Monitor.IsEntered(storage.MutationLock));
+            var acquired = false;
+            OnOtherThread(() =>
+            {
+                acquired = Monitor.TryEnter(storage.MutationLock);
+                if (acquired) Monitor.Exit(storage.MutationLock);
+            });
+            Assert.IsTrue(acquired);
+        }
+    }
+
+    private static void AssertScopeBoundAndUnlocked(ItemContainerTransaction transaction, params ItemContainer[] containers)
+    {
+        foreach (var container in containers)
+        {
+            var storage = Boundary(container).Storage;
+            Assert.AreSame(transaction, storage.Transaction);
             Assert.IsFalse(Monitor.IsEntered(storage.MutationLock));
             var acquired = false;
             OnOtherThread(() =>

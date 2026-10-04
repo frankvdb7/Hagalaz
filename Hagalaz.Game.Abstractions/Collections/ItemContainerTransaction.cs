@@ -9,10 +9,12 @@ namespace Hagalaz.Game.Abstractions.Collections;
 
 /// <summary>Coordinates synchronous atomic item-container mutations, rollback, and deferred publication.</summary>
 /// <remarks>
-/// Mutations affect live storage eagerly; unsynchronized readers are not isolated from them.
-/// Dispose without Commit restores captured storage. Begin, mutations, Commit and Dispose must run
-/// on the originating thread. Do not cross await boundaries or transfer a scope to another thread.
-/// Independent scopes on other threads serialize through the participating storage locks.
+/// This is a synchronous scope. Begin acquires and binds all participating storage; mutations affect live
+/// storage eagerly while the Active scope owns its mutation locks. Commit makes storage irreversible and
+/// releases mutation locks before committed completion and publication, while storage remains bound to
+/// this scope until that work finishes. Foreign overlapping scopes wait; same-thread reentrant overlap is
+/// rejected. Dispose without Commit restores storage before releasing the scope. Begin, mutations, Commit,
+/// and Dispose must run on the originating thread. Do not cross await boundaries.
 /// </remarks>
 public sealed class ItemContainerTransaction : IDisposable
 {
@@ -59,11 +61,37 @@ public sealed class ItemContainerTransaction : IDisposable
         var transaction = new ItemContainerTransaction(boundaries);
         try
         {
-            foreach (var storage in transaction._lockOrder)
+            while (true)
             {
-                Monitor.Enter(storage.MutationLock);
-                transaction._locksAcquired++;
-                if (storage.Transaction != null) throw new InvalidOperationException("Storage already belongs to a transaction.");
+                var retry = false;
+                foreach (var storage in transaction._lockOrder)
+                {
+                    Monitor.Enter(storage.MutationLock);
+                    transaction._locksAcquired++;
+                    if (storage.Transaction is not { } owner) continue;
+                    if (owner.IsOwnedByCurrentThread)
+                        throw new InvalidOperationException("Storage already belongs to a transaction on this thread.");
+
+                    // Do not retain a lock prefix while waiting: the owner reacquires its ordered set to
+                    // release the committed scope, so a retained prefix could deadlock scope teardown.
+                    List<Exception>? releaseFailures = null;
+                    transaction.ReleaseMutationLocks(ref releaseFailures);
+                    ThrowFailures(releaseFailures);
+                    Monitor.Enter(storage.MutationLock);
+                    try
+                    {
+                        while (storage.Transaction is { } currentOwner)
+                        {
+                            if (currentOwner.IsOwnedByCurrentThread)
+                                throw new InvalidOperationException("Storage already belongs to a transaction on this thread.");
+                            Monitor.Wait(storage.MutationLock);
+                        }
+                    }
+                    finally { Monitor.Exit(storage.MutationLock); }
+                    retry = true;
+                    break;
+                }
+                if (!retry) break;
             }
             foreach (var storage in transaction._lockOrder)
             {
@@ -77,18 +105,19 @@ public sealed class ItemContainerTransaction : IDisposable
         catch (Exception constructionFailure)
         {
             transaction._snapshots.Clear();
-            transaction.ReleaseResources([constructionFailure]);
+            transaction.ReleaseUncommittedResources([constructionFailure]);
             throw;
         }
     }
 
-    /// <summary>Declares the current storage irreversible, unlocks, and performs fixed owner completion and publication once.</summary>
+    /// <summary>Declares live storage irreversible, releases mutation locks, performs committed completion/publication, and releases the scope.</summary>
     /// <remarks>
-    /// Mutations already affect storage under locks; Commit discards rollback ability rather than applying staged data.
-    /// Hook or publication failures propagate after storage has permanently committed. Dispose cannot undo that state,
-    /// and another Commit cannot retry completion. Fixed domain completion runs before and after container publication in mutation order.
-    /// Container failure skips later containers and all post-publication completion.
-    /// A post-publication failure skips later completion. Multiple independent failures are retained in a flat AggregateException.
+    /// Mutations already affect live storage under locks; Commit discards rollback ability rather than applying staged data.
+    /// Callbacks run after mutation locks are released but before storage scope bindings are released. Hook or publication
+    /// failures propagate after storage has permanently committed. Dispose cannot undo that state, and another Commit
+    /// cannot retry completion. Fixed domain completion runs before and after container publication in mutation order.
+    /// Container failure skips later containers and all post-publication completion. A post-publication failure skips later
+    /// completion. Multiple independent failures are retained in a flat AggregateException.
     /// </remarks>
     public void Commit()
     {
@@ -96,9 +125,7 @@ public sealed class ItemContainerTransaction : IDisposable
         _state = TransactionState.Committed;
         _snapshots.Clear();
         List<Exception>? failures = null;
-        var resourcesReleased = false;
-        try { ReleaseResources(); resourcesReleased = true; }
-        catch (Exception cleanupFailure) { (failures ??= []).Add(cleanupFailure); }
+        var resourcesReleased = ReleaseMutationLocks(ref failures);
         try
         {
             if (resourcesReleased)
@@ -123,9 +150,10 @@ public sealed class ItemContainerTransaction : IDisposable
         finally
         {
             DiscardPendingCompletion(ref failures);
+            ReleaseCommittedScopeBindings(ref failures);
+            _state = TransactionState.Completed;
         }
         ThrowFailures(failures);
-        _state = TransactionState.Completed;
     }
 
     /// <summary>Restores all captured storage if still active; disposal after commit or disposal is inert.</summary>
@@ -147,8 +175,10 @@ public sealed class ItemContainerTransaction : IDisposable
         {
             _snapshots.Clear();
             DiscardPendingCompletion(ref failures);
-            ReleaseResources(failures);
+            ClearScopeBindingsAndPulse(ref failures);
+            ReleaseMutationLocks(ref failures);
         }
+        ThrowFailures(failures);
     }
 
     internal void RecordChanges(ItemContainerStorage storage, HashSet<int>? slots)
@@ -186,21 +216,82 @@ public sealed class ItemContainerTransaction : IDisposable
             throw new InvalidOperationException("Transaction use must occur on its originating thread.");
     }
 
-    private void ReleaseResources(List<Exception>? failures = null)
+    private bool ReleaseMutationLocks(ref List<Exception>? failures)
     {
-        for (var index = _lockOrder.Length - 1; index >= 0; index--)
-        {
-            var storage = _lockOrder[index];
-            try { if (ReferenceEquals(storage.Transaction, this)) storage.Transaction = null; }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
-        }
+        var succeeded = true;
         while (_locksAcquired > 0)
         {
             var storage = _lockOrder[--_locksAcquired];
             try { Monitor.Exit(storage.MutationLock); }
+            catch (Exception exception) { succeeded = false; (failures ??= []).Add(exception); }
+        }
+        return succeeded;
+    }
+
+    private void ReleaseUncommittedResources(List<Exception>? failures = null)
+    {
+        ClearScopeBindingsAndPulse(ref failures);
+        ReleaseMutationLocks(ref failures);
+        ThrowFailures(failures);
+    }
+
+    private void ClearScopeBindingsAndPulse(ref List<Exception>? failures)
+    {
+        for (var index = _lockOrder.Length - 1; index >= 0; index--)
+        {
+            var storage = _lockOrder[index];
+            try
+            {
+                if (ReferenceEquals(storage.Transaction, this)) storage.Transaction = null;
+                if (Monitor.IsEntered(storage.MutationLock)) Monitor.PulseAll(storage.MutationLock);
+            }
             catch (Exception exception) { (failures ??= []).Add(exception); }
         }
-        ThrowFailures(failures);
+    }
+
+    private void ReleaseCommittedScopeBindings(ref List<Exception>? failures)
+    {
+        var acquired = new List<ItemContainerStorage>(_lockOrder.Length);
+        foreach (var storage in _lockOrder)
+        {
+            try
+            {
+                Monitor.Enter(storage.MutationLock);
+                acquired.Add(storage);
+            }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
+        }
+
+        // The normal path holds the full set, so the scope is released atomically. If an unexpected
+        // monitor failure occurs, still make a best-effort attempt to clear and wake every other store.
+        foreach (var storage in _lockOrder)
+        {
+            if (acquired.Contains(storage)) continue;
+            try { if (ReferenceEquals(storage.Transaction, this)) storage.Transaction = null; }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
+            try
+            {
+                Monitor.Enter(storage.MutationLock);
+                try { Monitor.PulseAll(storage.MutationLock); }
+                finally { Monitor.Exit(storage.MutationLock); }
+            }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
+        }
+
+        foreach (var storage in acquired)
+        {
+            try
+            {
+                if (ReferenceEquals(storage.Transaction, this)) storage.Transaction = null;
+                Monitor.PulseAll(storage.MutationLock);
+            }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
+        }
+        for (var index = acquired.Count - 1; index >= 0; index--)
+        {
+            try { Monitor.Exit(acquired[index].MutationLock); }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
+        }
     }
 
     private static void ThrowFailures(List<Exception>? failures)
