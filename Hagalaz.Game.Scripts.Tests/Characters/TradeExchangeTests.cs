@@ -882,7 +882,7 @@ public sealed class TradeExchangeTests
         private readonly IInventoryContainer _overflowInventory;
         private readonly Dictionary<ItemContainerTransaction, HashSet<int>> _pendingUpdates = [];
         private readonly PouchMutationBoundary _mutations;
-        public IMoneyPouchMutationBoundary Mutations => _mutations;
+        public IItemContainerTransactionParticipant Mutations => _mutations;
         public bool FailNextStorageAdd { get; set; }
         public TestMoneyPouch(IInventoryContainer overflowInventory) : base(StorageType.AlwaysStack, 1, 0, publishItemChanges: false)
         {
@@ -914,8 +914,10 @@ public sealed class TradeExchangeTests
         }
         public bool TryAddExact(int count)
         {
+            if (IsParticipatingInCompleteTransaction()) return AddExact(count);
+
             using var transaction = ItemContainerTransaction.Begin(Mutations);
-            if (!Mutations.TryAddExact(count)) return false;
+            if (!AddExact(count)) return false;
             transaction.Commit();
             return true;
         }
@@ -926,8 +928,8 @@ public sealed class TradeExchangeTests
             var pouchCount = Math.Min(int.MaxValue - Count, count);
             var overflow = count - pouchCount;
             if (overflow > 0 && !_overflowInventory.Items.HasSpaceFor(new TestItem(995, overflow, stackable: true))) return false;
-            if (pouchCount > 0 && !Items.Mutations.TryAddRange([new TestItem(995, pouchCount, stackable: true)])) return false;
-            if (overflow > 0 && !_overflowInventory.Items.Mutations.TryAddRange([new TestItem(995, overflow, stackable: true)])) return false;
+            if (pouchCount > 0 && !Items.AddRange([new TestItem(995, pouchCount, stackable: true)])) return false;
+            if (overflow > 0 && !_overflowInventory.Items.AddRange([new TestItem(995, overflow, stackable: true)])) return false;
             if (pouchCount > 0) RecordUpdate();
             return true;
         }
@@ -941,8 +943,10 @@ public sealed class TradeExchangeTests
         }
         public bool TryRemoveExact(int count)
         {
+            if (IsParticipatingInCompleteTransaction()) return RemoveExact(count);
+
             using var transaction = ItemContainerTransaction.Begin(Mutations);
-            if (!Mutations.TryRemoveExact(count)) return false;
+            if (!RemoveExact(count)) return false;
             transaction.Commit();
             return true;
         }
@@ -951,40 +955,45 @@ public sealed class TradeExchangeTests
             if (count <= 0) return false;
             var pouchCount = Math.Min(Count, count); var overflow = count - pouchCount;
             if (overflow > _overflowInventory.Items.GetCountById(995)) return false;
-            if (pouchCount > 0 && !Items.Mutations.TryRemoveExact(new TestItem(995, pouchCount, stackable: true), 0)) return false;
-            if (overflow > 0 && !_overflowInventory.Items.Mutations.TryRemoveExact(new TestItem(995, overflow, stackable: true))) return false;
+            if (pouchCount > 0 && !Items.TryRemoveExact(new TestItem(995, pouchCount, stackable: true), 0)) return false;
+            if (overflow > 0 && !_overflowInventory.Items.TryRemoveExact(new TestItem(995, overflow, stackable: true))) return false;
             RecordUpdate();
             return true;
         }
 
-        private sealed class PouchMutationBoundary(TestMoneyPouch owner) : IMoneyPouchMutationBoundary,
+        private bool IsParticipatingInCompleteTransaction()
+        {
+            ItemContainerTransaction? transaction = null;
+            var unbound = 0;
+            foreach (var boundary in _mutations.Boundaries)
+            {
+                var current = boundary.Storage.Transaction;
+                if (current == null)
+                {
+                    unbound++;
+                    continue;
+                }
+
+                if (transaction == null) transaction = current;
+                else if (!ReferenceEquals(transaction, current))
+                    throw new InvalidOperationException("Pouch storage belongs to different transactions.");
+            }
+
+            if (transaction == null) return false;
+            if (unbound != 0)
+                throw new InvalidOperationException("Every pouch storage boundary must belong to the same transaction.");
+
+            transaction.EnsureActive();
+            return true;
+        }
+
+        private sealed class PouchMutationBoundary(TestMoneyPouch owner) : IItemContainerTransactionParticipant,
             IItemContainerTransactionParticipantInternal
         {
             public IReadOnlyList<ItemContainerMutationBoundary> Boundaries =>
                 [(ItemContainerMutationBoundary)owner.Items.Mutations,
                     (ItemContainerMutationBoundary)owner._overflowInventory.Items.Mutations];
 
-            public bool TryAddExact(int count)
-            {
-                EnsureCompleteTransaction();
-                return owner.AddExact(count);
-            }
-
-            public bool TryRemoveExact(int count)
-            {
-                EnsureCompleteTransaction();
-                return owner.RemoveExact(count);
-            }
-
-            private void EnsureCompleteTransaction()
-            {
-                var boundaries = Boundaries;
-                var transaction = boundaries[0].Storage.Transaction
-                    ?? throw new InvalidOperationException("Pouch storage must belong to an active transaction.");
-                transaction.EnsureActive();
-                if (boundaries.Any(boundary => !ReferenceEquals(boundary.Storage.Transaction, transaction)))
-                    throw new InvalidOperationException("The active transaction must include every pouch storage boundary.");
-            }
         }
     }
     private sealed class TestItem : IItem

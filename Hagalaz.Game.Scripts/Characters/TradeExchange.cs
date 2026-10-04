@@ -35,8 +35,8 @@ internal sealed class TradeExchange
         var secondItems = CloneOfferedItems(itemsForSecond);
         if (!CanReceive(first, firstItems) || !CanReceive(second, secondItems)) return false;
         if (!Receive(first, firstItems) || !Receive(second, secondItems)) return false;
-        firstOffer.Mutations.Clear();
-        secondOffer.Mutations.Clear();
+        firstOffer.Clear(true);
+        secondOffer.Clear(true);
         return true;
     }
 
@@ -50,10 +50,10 @@ internal sealed class TradeExchange
         var secondDestination = GetRecoveryContainer(second, secondItems);
         if ((firstItems.Length > 0 && firstDestination == null) ||
             (secondItems.Length > 0 && secondDestination == null)) return false;
-        if (firstDestination != null && firstItems.Length > 0 && !firstDestination.Mutations.TryAddRange(firstItems)) return false;
-        if (secondDestination != null && secondItems.Length > 0 && !secondDestination.Mutations.TryAddRange(secondItems)) return false;
-        firstOffer.Mutations.Clear();
-        secondOffer.Mutations.Clear();
+        if (firstDestination != null && firstItems.Length > 0 && !firstDestination.AddRange(firstItems)) return false;
+        if (secondDestination != null && secondItems.Length > 0 && !secondDestination.AddRange(secondItems)) return false;
+        firstOffer.Clear(true);
+        secondOffer.Clear(true);
         return true;
     }
 
@@ -62,8 +62,8 @@ internal sealed class TradeExchange
         if (coins.Count <= 0) return false;
 
         using var transaction = ItemContainerTransaction.Begin(offer.Mutations, character.MoneyPouch.Mutations);
-        if (!character.MoneyPouch.HasCoins(coins.Count) || !offer.HasSpaceFor(coins) || !offer.Mutations.TryAdd(coins) ||
-            !character.MoneyPouch.Mutations.TryRemoveExact(coins.Count)) return false;
+        if (!character.MoneyPouch.HasCoins(coins.Count) || !offer.HasSpaceFor(coins) || !offer.Add(coins) ||
+            !character.MoneyPouch.TryRemoveExact(coins.Count)) return false;
         transaction.Commit();
         return true;
     }
@@ -72,7 +72,7 @@ internal sealed class TradeExchange
     {
         using var transaction = ItemContainerTransaction.Begin(offer.Mutations, character.MoneyPouch.Mutations);
         var count = coins.Count;
-        if (!offer.Mutations.TryRemoveExact(coins, preferredSlot) || !character.MoneyPouch.Mutations.TryAddExact(count)) return false;
+        if (!offer.TryRemoveExact(coins, preferredSlot) || !character.MoneyPouch.TryAddExact(count)) return false;
         transaction.Commit();
         return true;
     }
@@ -80,10 +80,10 @@ internal sealed class TradeExchange
     private bool Receive(ICharacter character, IReadOnlyList<IItem> items)
     {
         var nonCoinItems = items.Where(item => item.Id != CoinsItemId).ToArray();
-        if (nonCoinItems.Length > 0 && !character.Inventory.Items.Mutations.TryAddRange(nonCoinItems)) return false;
+        if (nonCoinItems.Length > 0 && !character.Inventory.Items.AddRange(nonCoinItems)) return false;
         var coinCount = items.Where(item => item.Id == CoinsItemId).Sum(item => (long)item.Count);
         if (coinCount <= 0) return true;
-        return coinCount <= int.MaxValue && character.MoneyPouch.Mutations.TryAddExact((int)coinCount);
+        return coinCount <= int.MaxValue && character.MoneyPouch.TryAddExact((int)coinCount);
     }
 
     private bool CanReceive(ICharacter character, IReadOnlyList<IItem> items)

@@ -108,8 +108,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
 
                 // Custom unequip commands may open interactive UI and must remain outside mutation scopes.
-                _mutations.EnsureOutsideTransaction();
-                _owner.Inventory.Items.Mutations.EnsureOutsideTransaction();
                 if (_owner.Inventory.Items.Remove(item, slot) <= 0)
                 {
                     return false;
@@ -162,7 +160,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var inventoryFull = false;
             using (var replacementTransaction = ItemContainerTransaction.Begin(inventoryBoundary, _mutations))
             {
-                if (!inventoryBoundary.TryRemoveExact(item, slot)) return false;
+                if (!_owner.Inventory.Items.TryRemoveExact(item, slot)) return false;
                 if (needsWeaponUnequip && !_mutations.TryTransferTo(inventoryBoundary, equippedWeapon!,
                         equippedWeapon!.Count, (int)EquipmentSlot.Weapon, slot))
                 {
@@ -214,7 +212,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool TryRestoreEquippedItem(EquipmentSlot slot, IItem item)
         {
             ArgumentNullException.ThrowIfNull(item);
-            _mutations.EnsureOutsideTransaction();
             if (!_storage.TryAdd((int)slot, item, out var slots)) return false;
             PublishChanges(slots.Select(slot => (EquipmentSlot)slot).ToHashSet());
             return true;
@@ -245,7 +242,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 throw new ArgumentOutOfRangeException(nameof(slot));
             }
 
-            _mutations.EnsureOutsideTransaction();
             _storage.EnsureMutationAccess();
             lock (_storage.MutationLock)
             {
@@ -261,7 +257,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public int RemoveEquippedItem(IItem item, EquipmentSlot preferredSlot = EquipmentSlot.NoSlot)
         {
-            _mutations.EnsureOutsideTransaction();
             if (preferredSlot == EquipmentSlot.NoSlot)
             {
                 preferredSlot = GetInstanceSlot(item);
@@ -302,7 +297,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void ClearEquipment()
         {
-            _mutations.EnsureOutsideTransaction();
             IItem[] equippedItems;
             bool cleared;
             _storage.EnsureMutationAccess();
@@ -321,6 +315,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private void CompleteEquipmentChange(HashSet<EquipmentSlot>? slots, params EquipmentEffect[] effects)
         {
+            if (_storage.Transaction != null)
+            {
+                DeferEquipmentEffects(effects);
+                PublishChanges(slots);
+                return;
+            }
+
             var failures = ExecuteEquipmentEffects(effects);
             try { PublishChanges(slots); }
             catch (Exception exception) { (failures ??= []).Add(exception); }

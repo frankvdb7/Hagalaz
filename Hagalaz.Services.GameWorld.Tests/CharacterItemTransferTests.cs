@@ -72,7 +72,7 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    public void StandaloneEquipmentMutations_RejectTransactionBoundStorageBeforeChangingAnything()
+    public void EquipmentSimpleMutations_ParticipateInEnlistedScopeAndDeferCompletion()
     {
         using var scenario = new Scenario();
         var (equipment, eventManager) = CreateEquipmentScenario(scenario);
@@ -84,15 +84,12 @@ public sealed class CharacterItemTransferTests
         var boundary = GetEquipmentBoundary(equipment);
         using var transaction = ItemContainerTransaction.Begin(boundary);
 
-        Assert.ThrowsExactly<InvalidOperationException>(() =>
-            equipment.TryRestoreEquippedItem(EquipmentSlot.Amulet, restored));
-        Assert.ThrowsExactly<InvalidOperationException>(() =>
-            equipment.TryReplaceEquippedItem(EquipmentSlot.Hat, current, replacement));
-        Assert.ThrowsExactly<InvalidOperationException>(() =>
-            equipment.RemoveEquippedItem(current, EquipmentSlot.Hat));
-        Assert.ThrowsExactly<InvalidOperationException>(equipment.ClearEquipment);
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Amulet, restored));
+        Assert.IsTrue(equipment.TryReplaceEquippedItem(EquipmentSlot.Hat, current, replacement));
+        Assert.AreEqual(1, equipment.RemoveEquippedItem(replacement, EquipmentSlot.Hat));
+        equipment.ClearEquipment();
 
-        Assert.AreSame(current, equipment[EquipmentSlot.Hat]);
+        Assert.IsNull(equipment[EquipmentSlot.Hat]);
         Assert.IsNull(equipment[EquipmentSlot.Amulet]);
         Assert.AreSame(transaction, boundary.Storage.Transaction);
         current.EquipmentScript.DidNotReceive().OnUnequipped(current, scenario.Owner);
@@ -101,7 +98,11 @@ public sealed class CharacterItemTransferTests
         eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
 
         transaction.Commit();
-        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+        current.EquipmentScript.Received(1).OnUnequipped(current, scenario.Owner);
+        replacement.EquipmentScript.Received(1).OnEquipped(replacement, scenario.Owner);
+        replacement.EquipmentScript.Received(1).OnUnequipped(replacement, scenario.Owner);
+        restored.EquipmentScript.Received(1).OnUnequipped(restored, scenario.Owner);
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
     }
 
     [TestMethod]
@@ -905,13 +906,6 @@ public sealed class CharacterItemTransferTests
         equipped.EquipmentScript.Received(1).UnEquipItem(equipped, scenario.Owner, 0);
         incoming.EquipmentScript.DidNotReceive().OnEquipped(incoming, scenario.Owner);
 
-        using var transaction = ItemContainerTransaction.Begin(inventory.Items.Mutations);
-        Assert.ThrowsExactly<InvalidOperationException>(() => equipment.EquipItem(incoming));
-        Assert.AreSame(transaction, ((ItemContainerMutationBoundary)inventory.Items.Mutations).Storage.Transaction);
-        Assert.AreSame(incoming, inventory.Items[0]);
-        Assert.AreSame(equipped, equipment[EquipmentSlot.Hat]);
-        Assert.AreEqual(2, publications);
-        equipped.EquipmentScript.Received(1).UnEquipItem(equipped, scenario.Owner, 0);
     }
 
     [TestMethod]
@@ -1074,9 +1068,9 @@ public sealed class CharacterItemTransferTests
         scenario.Owner.ClearReceivedCalls();
         using (ItemContainerTransaction.Begin(pouch.Mutations, inventory.Items.Mutations))
         {
-            Assert.IsTrue(pouch.Mutations.TryAddExact(2));
-            Assert.IsTrue(inventory.Items.Mutations.TryAddRange([scenario.Builder.Create().WithId(995).WithCount(3).Build()]));
-            Assert.IsTrue(pouch.Mutations.TryRemoveExact(3));
+            Assert.IsTrue(pouch.TryAddExact(2));
+            Assert.IsTrue(inventory.Items.AddRange([scenario.Builder.Create().WithId(995).WithCount(3).Build()]));
+            Assert.IsTrue(pouch.TryRemoveExact(3));
             Assert.AreEqual(9, pouch.Count);
             Assert.AreEqual(3, inventory.Items.GetCountById(995));
         }

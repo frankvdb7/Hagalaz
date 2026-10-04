@@ -55,8 +55,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 var count = _owner.MoneyPouch.Count;
                 if (count <= 0) return false;
                 var coins = _itemBuilder.Create().WithId(995).WithCount(count).Build();
-                if (!_owner.MoneyPouch.Mutations.TryRemoveExact(count)) return false;
-                if (!_items.Mutations.TryAdd(coins))
+                if (!_owner.MoneyPouch.TryRemoveExact(count)) return false;
+                if (!_items.Add(coins))
                 {
                     bankFull = true;
                 }
@@ -284,7 +284,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 if (_items.Mutations.TryTransferTo(_owner.Inventory.Items.Mutations, item, count, slot,
                         destinationItem: transformed ? withdrawed : null))
                 {
-                    _items.Mutations.Sort();
+                    _items.Sort();
                     transaction.Commit();
                     return true;
                 }

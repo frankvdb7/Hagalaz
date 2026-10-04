@@ -11,52 +11,6 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
     private readonly IItemContainerCompletionOwner? _completion;
     private readonly Action<HashSet<int>?>? _publishChanges;
 
-    internal ItemContainerStorage Storage => _storage;
-    IReadOnlyList<ItemContainerMutationBoundary> IItemContainerTransactionParticipantInternal.Boundaries => [this];
-
-    public void EnsureOutsideTransaction()
-    {
-        if (_storage.Transaction != null)
-            throw new InvalidOperationException("This operation requires storage outside an active transaction.");
-    }
-
-    public bool TryAdd(IItem item)
-    {
-        EnsureActiveTransaction();
-        if (!_storage.TryAdd(item, out var changedSlots)) return false;
-        NotifyChanges(changedSlots);
-        return true;
-    }
-
-    public bool TryAddRange(IEnumerable<IItem?> items)
-    {
-        EnsureActiveTransaction();
-        if (!_storage.TryAddRange(items, out var changedSlots)) return false;
-        if (changedSlots.Count > 0) NotifyChanges(changedSlots);
-        return true;
-    }
-
-    public bool TryRemoveExact(IItem item, int preferredSlot = -1)
-    {
-        EnsureActiveTransaction();
-        if (!_storage.TryRemoveExact(item, preferredSlot, out var changedSlots)) return false;
-        NotifyChanges(changedSlots);
-        return true;
-    }
-
-    public void Sort()
-    {
-        EnsureActiveTransaction();
-        _storage.Sort();
-        NotifyChanges(null);
-    }
-
-    public void Clear()
-    {
-        EnsureActiveTransaction();
-        if (_storage.Clear()) NotifyChanges(null);
-    }
-
     private ItemContainerTransaction EnsureActiveTransaction()
     {
         var transaction = _storage.Transaction
@@ -64,6 +18,9 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerMutationBoun
         transaction.EnsureActive();
         return transaction;
     }
+
+    internal ItemContainerStorage Storage => _storage;
+    IReadOnlyList<ItemContainerMutationBoundary> IItemContainerTransactionParticipantInternal.Boundaries => [this];
 
     internal ItemContainerMutationBoundary(ItemContainerStorage storage, Action<HashSet<int>?>? publishChanges, IItemContainerCompletionOwner? completion = null)
     {
