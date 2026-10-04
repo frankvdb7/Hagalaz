@@ -5,7 +5,7 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Collections;
 
 /// <summary>Coordinates mutations and publication for one owned item storage.</summary>
-internal sealed class ItemContainerMutationBoundary : IItemContainerTransactionParticipantInternal
+internal sealed class ItemContainerMutationBoundary
 {
     private readonly ItemContainerStorage _storage;
     private readonly IItemContainerCompletionOwner? _completion;
@@ -20,8 +20,6 @@ internal sealed class ItemContainerMutationBoundary : IItemContainerTransactionP
     }
 
     internal ItemContainerStorage Storage => _storage;
-    IReadOnlyList<ItemContainerMutationBoundary> IItemContainerTransactionParticipantInternal.Boundaries => [this];
-
     internal ItemContainerMutationBoundary(ItemContainerStorage storage, Action<HashSet<int>?>? publishChanges, IItemContainerCompletionOwner? completion = null)
     {
         ArgumentNullException.ThrowIfNull(storage);

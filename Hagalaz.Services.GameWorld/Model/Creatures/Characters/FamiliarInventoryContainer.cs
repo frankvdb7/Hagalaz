@@ -58,7 +58,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, _items.Mutations))
+            using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items, _items))
             {
                 if (_owner.Inventory.Items.TryTransferTo(_items, item, count, slot))
                 {
@@ -89,7 +89,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            using (var transaction = ItemContainerTransaction.Begin(_items.Mutations, _owner.Inventory.Items.Mutations))
+            using (var transaction = ItemContainerTransaction.Begin(_items, _owner.Inventory.Items))
             {
                 if (_items.TryTransferTo(_owner.Inventory.Items, item, count, slot))
                 {
@@ -105,7 +105,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public void WithdrawAvailableToInventory()
         {
             var inventoryItems = _owner.Inventory.Items;
-            using var transaction = ItemContainerTransaction.Begin(_items.Mutations, inventoryItems.Mutations);
+            using var transaction = ItemContainerTransaction.Begin(_items, inventoryItems);
             var familiarItems = _items.Select((item, slot) => (item, slot))
                 .Where(entry => entry.item is { Count: > 0 }).ToArray();
             foreach (var (item, slot) in familiarItems)

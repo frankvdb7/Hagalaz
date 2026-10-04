@@ -1,5 +1,7 @@
 # Tasks
 
+> Historical task entries record intermediate implementations. The final approved contract is direct aggregate enlistment through `IItemTransactional`, with storage resolved only through internal `IItemTransactionSource`; public mutation-participant properties are not part of the current API.
+
 ## 1. Storage core and transfer boundary
 
 - [x] 1.1 Implement `ItemContainerStorage` as the sole owner of slots, mutation algorithms, revision/enumeration, reset-count handling, exact restoration, and stable mutation locking; port core mutation cases into `ItemContainerStorageTests` and run the Abstractions test project.
@@ -71,7 +73,7 @@
 
 ## 11. Interface-typed composition follow-up
 
-- [x] 11.1 Add the opaque transaction participant and `IItemContainerTransaction`; expose only the participant from `IItemContainer`, with concrete enlistment confined to the internal infrastructure bridge.
+- [x] 11.1 Add the public IItemTransactional marker and `IItemContainerTransaction`; expose only the participant from `IItemContainer`, with concrete enlistment confined to the internal infrastructure bridge.
 - [x] 11.2 Change ordinary domain item properties and peer operations to `IItemContainer`; audit Equipment and MoneyPouch so their storage and concrete boundaries remain private.
 - [x] 11.3 Route direct and multi-container transfers through the same transaction lock/snapshot/rollback path, with interface-typed participants and no implementation recovery casts.
 - [x] 11.4 Replace MoneyPouch infrastructure leaks with semantic staging over `IItemContainerTransaction` and success-only post-commit callbacks; migrate TradeExchange generic signatures.
@@ -99,13 +101,13 @@
 - [x] 13.11 Make Weapon/Shield conflict replacement one atomic transaction with internal exact-slot insertion and ordered post-commit callbacks; retain the non-weapon command path, add rollback/success/publisher-failure regressions, reconcile proposal/design/delta/current spec, and run the requested validation without jscpd.
 - [x] 13.12 Capture and restore each storage mutation revision with its transaction snapshot; verify false-result and exception rollback preserve pre-existing enumerators while successful mutations still invalidate them.
 - [x] 13.13 Treat empty or all-null `TryAddRange` as a successful no-op without revision changes, publication, or transaction change tracking; preserve callbacks and committed range mutation behavior, with focused tests and validation.
-- [x] 13.14 Harden the Equipment mutation API, split MoneyPouch staging behind `IMoneyPouchMutationBoundary`, and remove raw `ItemContainer.Storage` access through narrow internal operations; add boundary regressions and validate without jscpd.
+- [x] 13.14 Harden the Equipment mutation API, split MoneyPouch staging behind `IItemTransactionSource`, and remove raw `ItemContainer.Storage` access through narrow internal operations; add boundary regressions and validate without jscpd.
 - [x] 13.15 Commit Equipment replacement, full-removal, and clear storage before lifecycle callbacks; exhaustively attempt callbacks and publication after commit, preserving single errors and aggregating multiple failures. Add focused ordering/failure regressions and validate the updated requirement.
 
 ## 14. Explicit mutation-boundary participation
 
 - [x] 14.1 Add only the generic mutation-boundary operations needed by production callers, and make ordinary `ItemContainer` mutation methods reject storage enlisted in a transaction.
-- [x] 14.2 Migrate transaction-composed Trade, Duel, Bank, Shop, Reward, Familiar, and Equipment paths to `.Mutations`; keep standalone domain methods responsible for their own transaction.
+- [x] 14.2 Migrate transaction-composed Trade, Duel, Bank, Shop, Reward, Familiar, and Equipment paths to direct aggregate enlistment through `IItemTransactional`; keep standalone domain methods responsible for their own transaction.
 - [x] 14.3 Split MoneyPouch gameplay and mutation capabilities, validate complete pouch/inventory enlistment, and publish captured immutable change facts.
 - [x] 14.4 Add regressions for facade rejection, inactive/partial participation, standalone pouch nesting, immutable reentrant pouch events, and retain equipment behavior without reflection-based delegate inspection.
 - [x] 14.5 Reconcile active OpenSpec proposal/design/delta/current spec, then run focused tests, solution build, strict OpenSpec validation, full diff audit, and `git diff --check`.

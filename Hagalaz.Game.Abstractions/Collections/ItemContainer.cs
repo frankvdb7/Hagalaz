@@ -6,12 +6,12 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Collections;
 
 /// <summary>Implements the generic item-container contract over composed storage.</summary>
-public sealed class ItemContainer : IItemContainer
+public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 {
     private readonly ItemContainerStorage _storage;
     private readonly ItemContainerMutationBoundary _mutations;
 
-    public IItemContainerTransactionParticipant Mutations => _mutations;
+    IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries => [_mutations];
 
     internal int CountToResetTo => _storage.CountToResetTo;
 
@@ -73,20 +73,10 @@ public sealed class ItemContainer : IItemContainer
     {
         ArgumentNullException.ThrowIfNull(destination);
         ArgumentNullException.ThrowIfNull(item);
-        if (destination is not ItemContainer target)
-            throw new ArgumentException("Transfers require the ItemContainer implementation.", nameof(destination));
-
-        return _mutations.TryTransferTo(target._mutations, item, count,
+        var destinationBoundary = ItemContainerTransaction.ResolveSingleBoundary(destination);
+        return _mutations.TryTransferTo(destinationBoundary, item, count,
             preferredSourceSlot, destinationSlot, destinationItem);
     }
-
-    internal bool TryTransferTo(ItemContainerMutationBoundary destination, IItem item, int count,
-        int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null) =>
-        _mutations.TryTransferTo(destination, item, count, preferredSourceSlot, destinationSlot, destinationItem);
-
-    internal bool TryTransferFrom(ItemContainerMutationBoundary source, IItem item, int count,
-        int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null) =>
-        source.TryTransferTo(_mutations, item, count, preferredSourceSlot, destinationSlot, destinationItem);
 
     public void Replace(int slot, IItem item)
     {

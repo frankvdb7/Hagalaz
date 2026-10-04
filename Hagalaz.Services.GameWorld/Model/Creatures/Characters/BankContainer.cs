@@ -50,7 +50,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             deposited = null;
             var bankFull = false;
-            using (var transaction = ItemContainerTransaction.Begin(_items.Mutations, _owner.MoneyPouch.Mutations))
+            using (var transaction = ItemContainerTransaction.Begin(_items, _owner.MoneyPouch))
             {
                 var count = _owner.MoneyPouch.Count;
                 if (count <= 0) return false;
@@ -96,7 +96,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = CreateDepositItem(item, count, out var transformed);
-            using (var transaction = ItemContainerTransaction.Begin(container.Mutations, _items.Mutations))
+            using (var transaction = ItemContainerTransaction.Begin(container, _items))
             {
                 if (container.TryTransferTo(_items, item, count, slot,
                         destinationItem: transformed ? deposited : null))
@@ -184,7 +184,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = CreateDepositItem(item, count, out var transformed);
-            using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, _items.Mutations))
+            using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items, _items))
             {
                 if (_owner.Inventory.Items.TryTransferTo(_items, item, count, slot,
                         destinationItem: transformed ? deposited : null))
@@ -279,7 +279,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             withdrawed.Count = count;
-            using (var transaction = ItemContainerTransaction.Begin(_items.Mutations, _owner.Inventory.Items.Mutations))
+            using (var transaction = ItemContainerTransaction.Begin(_items, _owner.Inventory.Items))
             {
                 if (_items.TryTransferTo(_owner.Inventory.Items, item, count, slot,
                         destinationItem: transformed ? withdrawed : null))

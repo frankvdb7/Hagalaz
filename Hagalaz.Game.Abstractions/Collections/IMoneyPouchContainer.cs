@@ -3,10 +3,8 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// <summary>
     /// Defines the contract for a player's money pouch, a special container that holds coins separately from the main inventory.
     /// </summary>
-    public interface IMoneyPouchContainer
+    public interface IMoneyPouchContainer : IItemTransactional
     {
-        IItemContainerTransactionParticipant Mutations { get; }
-
         bool HasSpaceForCoins(int count);
 
         bool HasCoins(int count);

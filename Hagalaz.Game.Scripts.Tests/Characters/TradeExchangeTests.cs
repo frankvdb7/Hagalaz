@@ -800,8 +800,8 @@ public sealed class TradeExchangeTests
 
     private static bool TryCompleteTrade(ICharacter first, IItemContainer firstOffer, ICharacter second, IItemContainer secondOffer)
     {
-        using var transaction = ItemContainerTransaction.Begin(firstOffer.Mutations, secondOffer.Mutations,
-            first.Inventory.Items.Mutations, second.Inventory.Items.Mutations, first.MoneyPouch.Mutations, second.MoneyPouch.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(firstOffer, secondOffer,
+            first.Inventory.Items, second.Inventory.Items, first.MoneyPouch, second.MoneyPouch);
         if (!CreateTradeExchange().TryStageCompletion(first, firstOffer, second, secondOffer)) return false;
         transaction.Commit();
         return true;
@@ -809,8 +809,8 @@ public sealed class TradeExchangeTests
 
     private static bool TryRefundTrade(ICharacter first, IItemContainer firstOffer, ICharacter second, IItemContainer secondOffer)
     {
-        using var transaction = ItemContainerTransaction.Begin(firstOffer.Mutations, secondOffer.Mutations,
-            first.Inventory.Items.Mutations, second.Inventory.Items.Mutations, first.MoneyPouch.Mutations, second.MoneyPouch.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(firstOffer, secondOffer,
+            first.Inventory.Items, second.Inventory.Items, first.MoneyPouch, second.MoneyPouch);
         if (!CreateTradeExchange().TryStageRefund(first, firstOffer, second, secondOffer)) return false;
         transaction.Commit();
         return true;
@@ -818,9 +818,9 @@ public sealed class TradeExchangeTests
 
     private static bool TryRecoverTrade(ICharacter first, IItemContainer firstOffer, ICharacter second, IItemContainer secondOffer)
     {
-        var participants = new System.Collections.Generic.List<IItemContainerTransactionParticipant> { firstOffer.Mutations, secondOffer.Mutations };
+        var participants = new System.Collections.Generic.List<IItemTransactional> { firstOffer, secondOffer };
         foreach (var container in new[] { first.Rewards?.Items, first.Bank?.Items, second.Rewards?.Items, second.Bank?.Items })
-            if (container != null) participants.Add(container.Mutations);
+            if (container != null) participants.Add(container);
         using var transaction = ItemContainerTransaction.Begin(participants.ToArray());
         if (!CreateTradeExchange().TryStageEscrowRecovery(first, firstOffer, second, secondOffer)) return false;
         transaction.Commit();
@@ -877,23 +877,24 @@ public sealed class TradeExchangeTests
     private static object? GetProperty(object target, string name) =>
         target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(target);
 
-    private sealed class TestMoneyPouch : ComposedTestContainer, IMoneyPouchContainer, IItemContainerCompletionOwner
+    private sealed class TestMoneyPouch : ComposedTestContainer, IMoneyPouchContainer, IItemTransactionSource, IItemContainerCompletionOwner
     {
         private readonly IInventoryContainer _overflowInventory;
         private readonly Dictionary<ItemContainerTransaction, HashSet<int>> _pendingUpdates = [];
-        private readonly PouchMutationBoundary _mutations;
-        public IItemContainerTransactionParticipant Mutations => _mutations;
+        IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries =>
+            [((IItemTransactionSource)Container).Boundaries[0],
+                ((IItemTransactionSource)_overflowInventory.Items).Boundaries[0]];
         public bool FailNextStorageAdd { get; set; }
         public TestMoneyPouch(IInventoryContainer overflowInventory) : base(StorageType.AlwaysStack, 1, 0, publishItemChanges: false)
         {
             _overflowInventory = overflowInventory;
-            _mutations = new PouchMutationBoundary(this);
-            typeof(ItemContainerMutationBoundary).GetField("_completion", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Items.Mutations, this);
+            typeof(ItemContainerMutationBoundary).GetField("_completion", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(((IItemTransactionSource)Container).Boundaries[0], this);
             Container.ReplaceState([new TestItem(995, 0, stackable: true)]);
         }
         private void RecordUpdate()
         {
-            var transaction = ((ItemContainerMutationBoundary)Items.Mutations).Storage.Transaction!;
+            var transaction = ((IItemTransactionSource)Container).Boundaries[0].Storage.Transaction!;
             if (!_pendingUpdates.TryGetValue(transaction, out var orders)) _pendingUpdates.Add(transaction, orders = []);
             orders.Add(transaction.NextCompletionOrder());
         }
@@ -916,7 +917,7 @@ public sealed class TradeExchangeTests
         {
             if (IsParticipatingInCompleteTransaction()) return AddExact(count);
 
-            using var transaction = ItemContainerTransaction.Begin(Mutations);
+            using var transaction = ItemContainerTransaction.Begin(this);
             if (!AddExact(count)) return false;
             transaction.Commit();
             return true;
@@ -945,7 +946,7 @@ public sealed class TradeExchangeTests
         {
             if (IsParticipatingInCompleteTransaction()) return RemoveExact(count);
 
-            using var transaction = ItemContainerTransaction.Begin(Mutations);
+            using var transaction = ItemContainerTransaction.Begin(this);
             if (!RemoveExact(count)) return false;
             transaction.Commit();
             return true;
@@ -965,7 +966,7 @@ public sealed class TradeExchangeTests
         {
             ItemContainerTransaction? transaction = null;
             var unbound = 0;
-            foreach (var boundary in _mutations.Boundaries)
+            foreach (var boundary in ((IItemTransactionSource)this).Boundaries)
             {
                 var current = boundary.Storage.Transaction;
                 if (current == null)
@@ -987,14 +988,6 @@ public sealed class TradeExchangeTests
             return true;
         }
 
-        private sealed class PouchMutationBoundary(TestMoneyPouch owner) : IItemContainerTransactionParticipant,
-            IItemContainerTransactionParticipantInternal
-        {
-            public IReadOnlyList<ItemContainerMutationBoundary> Boundaries =>
-                [(ItemContainerMutationBoundary)owner.Items.Mutations,
-                    (ItemContainerMutationBoundary)owner._overflowInventory.Items.Mutations];
-
-        }
     }
     private sealed class TestItem : IItem
     {

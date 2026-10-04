@@ -34,8 +34,21 @@ public sealed class ItemContainerTransaction : IDisposable
     /// <summary>Resolves every participant, acquires ordered locks and captures rollback state before binding the scope.</summary>
     /// <exception cref="ArgumentException">Participants are empty, unsupported, or contribute invalid storage.</exception>
     /// <exception cref="InvalidOperationException">A participant already belongs to a scope on the current thread.</exception>
-    public static ItemContainerTransaction Begin(params IItemContainerTransactionParticipant[] participants)
+    public static ItemContainerTransaction Begin(params IItemTransactional[] participants)
         => BeginResolved(Resolve(participants));
+
+    internal static ItemContainerMutationBoundary ResolveSingleBoundary(IItemTransactional participant)
+    {
+        ArgumentNullException.ThrowIfNull(participant);
+        if (participant is not IItemTransactionSource source)
+            throw new ArgumentException("Unsupported item transaction participant.", nameof(participant));
+
+        var boundaries = source.Boundaries;
+        if (boundaries == null || boundaries.Count != 1 || boundaries[0] == null)
+            throw new ArgumentException("This operation requires exactly one item storage.", nameof(participant));
+
+        return boundaries[0];
+    }
 
     private static ItemContainerTransaction BeginResolved(ItemContainerMutationBoundary[] boundaries)
     {
@@ -199,20 +212,20 @@ public sealed class ItemContainerTransaction : IDisposable
                 : [failure]));
     }
 
-    private static ItemContainerMutationBoundary[] Resolve(IItemContainerTransactionParticipant[] participants)
+    private static ItemContainerMutationBoundary[] Resolve(IItemTransactional[] participants)
     {
         ArgumentNullException.ThrowIfNull(participants);
         if (participants.Length == 0) throw new ArgumentException("At least one participant is required.", nameof(participants));
-        var seen = new HashSet<IItemContainerTransactionParticipant>(ReferenceEqualityComparer.Instance);
+        var seen = new HashSet<IItemTransactional>(ReferenceEqualityComparer.Instance);
         var storages = new HashSet<ItemContainerStorage>();
         var boundaries = new List<ItemContainerMutationBoundary>();
         foreach (var participant in participants)
         {
             ArgumentNullException.ThrowIfNull(participant);
             if (!seen.Add(participant)) continue;
-            if (participant is not IItemContainerTransactionParticipantInternal implementation)
-                throw new ArgumentException("Use the participant provided by a container's Mutations property.", nameof(participants));
-            var contributions = implementation.Boundaries;
+            if (participant is not IItemTransactionSource source)
+                throw new ArgumentException("Use an item-transactional object provided by the item-container domain.", nameof(participants));
+            var contributions = source.Boundaries;
             if (contributions == null || contributions.Count == 0)
                 throw new ArgumentException("A participant must contribute storage.", nameof(participants));
             foreach (var boundary in contributions)

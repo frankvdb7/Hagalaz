@@ -79,7 +79,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 toRemove.Count = count;
             }
 
-            using var transaction = ItemContainerTransaction.Begin(_items.Mutations, _owner.Inventory.Items.Mutations);
+            using var transaction = ItemContainerTransaction.Begin(_items, _owner.Inventory.Items);
             if (!_items.TryTransferTo(_owner.Inventory.Items, item, count, slot))
             {
                 return -1;

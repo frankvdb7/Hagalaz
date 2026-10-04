@@ -25,7 +25,7 @@ internal sealed class DuelStakeExchange
         int count,
         int preferredSourceSlot)
     {
-        using var transaction = ItemContainerTransaction.Begin(character.Inventory.Items.Mutations, stake.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(character.Inventory.Items, stake);
         if (!character.Inventory.Items.TryTransferTo(stake, item, count, preferredSourceSlot)) return false;
         transaction.Commit();
         return true;
@@ -38,7 +38,7 @@ internal sealed class DuelStakeExchange
         int count,
         int preferredSourceSlot)
     {
-        using var transaction = ItemContainerTransaction.Begin(stake.Mutations, character.Inventory.Items.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(stake, character.Inventory.Items);
         if (!stake.TryTransferTo(character.Inventory.Items, item, count, preferredSourceSlot)) return false;
         transaction.Commit();
         return true;
@@ -48,7 +48,7 @@ internal sealed class DuelStakeExchange
     {
         if (count <= 0) return false;
 
-        using var transaction = ItemContainerTransaction.Begin(stake.Mutations, character.MoneyPouch.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(stake, character.MoneyPouch);
         var transferCount = (int)Math.Min(count,
             (long)character.MoneyPouch.Count + character.Inventory.Items.GetCountById(CoinsItemId));
         if (transferCount <= 0) return false;
@@ -64,7 +64,7 @@ internal sealed class DuelStakeExchange
         IItem coins,
         int preferredSourceSlot)
     {
-        using var transaction = ItemContainerTransaction.Begin(stake.Mutations, character.MoneyPouch.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(stake, character.MoneyPouch);
         var count = coins.Count;
         if (!stake.TryRemoveExact(coins, preferredSourceSlot) || !character.MoneyPouch.TryAddExact(count)) return false;
         transaction.Commit();
@@ -77,9 +77,9 @@ internal sealed class DuelStakeExchange
         ICharacter second,
         IItemContainer secondStake)
     {
-        using var transaction = ItemContainerTransaction.Begin(firstStake.Mutations, secondStake.Mutations,
-            first.Inventory.Items.Mutations, second.Inventory.Items.Mutations,
-            first.MoneyPouch.Mutations, second.MoneyPouch.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(firstStake, secondStake,
+            first.Inventory.Items, second.Inventory.Items,
+            first.MoneyPouch, second.MoneyPouch);
         if (!RefundStake(first, firstStake) || !RefundStake(second, secondStake)) return false;
         transaction.Commit();
         return true;

@@ -98,7 +98,7 @@ public sealed class ShopStockContainerTests
         var order = new List<string>();
         scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopStockChangedEvent>())).Do(_ =>
         {
-            foreach (var boundary in ((IItemContainerTransactionParticipantInternal)scenario.MoneyPouch.Mutations).Boundaries)
+            foreach (var boundary in ((IItemTransactionSource)scenario.MoneyPouch).Boundaries)
             {
                 Assert.IsNull(boundary.Storage.Transaction);
                 Assert.IsFalse(System.Threading.Monitor.IsEntered(boundary.Storage.MutationLock));

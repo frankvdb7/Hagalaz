@@ -731,7 +731,7 @@ namespace Hagalaz.Game.Scripts.Characters
             {
                 var count = Math.Min(requestedCount, character.Inventory.Items.GetCount(item));
                 if (count <= 0) return false;
-                using var transaction = ItemContainerTransaction.Begin(character.Inventory.Items.Mutations, offer.Mutations);
+                using var transaction = ItemContainerTransaction.Begin(character.Inventory.Items, offer);
                 if (!character.Inventory.Items.TryTransferTo(offer, item, count, preferredSlot)) return false;
 
                 transaction.Commit();
@@ -750,7 +750,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
                 if (item.Id != 995)
                 {
-                    using var transaction = ItemContainerTransaction.Begin(offer.Mutations, character.Inventory.Items.Mutations);
+                    using var transaction = ItemContainerTransaction.Begin(offer, character.Inventory.Items);
                     if (!offer.TryTransferTo(character.Inventory.Items, item, count, preferredSlot))
                         return false;
 
@@ -1284,10 +1284,10 @@ namespace Hagalaz.Game.Scripts.Characters
 
                 try
                 {
-                    using (var transaction = ItemContainerTransaction.Begin(SelfContainer.Items.Mutations,
-                               TargetContainer.Items.Mutations, Character.Inventory.Items.Mutations,
-                               session.Target.Inventory.Items.Mutations, Character.MoneyPouch.Mutations,
-                               session.Target.MoneyPouch.Mutations))
+                    using (var transaction = ItemContainerTransaction.Begin(SelfContainer.Items,
+                               TargetContainer.Items, Character.Inventory.Items,
+                               session.Target.Inventory.Items, Character.MoneyPouch,
+                               session.Target.MoneyPouch))
                     {
                         if (_tradeExchange.TryStageRefund(Character, SelfContainer.Items, session.Target, TargetContainer.Items))
                         {
@@ -1297,12 +1297,12 @@ namespace Hagalaz.Game.Scripts.Characters
                     }
                     if (session.State != TradeState.Cancelled && forceConservation)
                     {
-                        var participants = new List<IItemContainerTransactionParticipant>
-                            { SelfContainer.Items.Mutations, TargetContainer.Items.Mutations };
-                        if (Character.Rewards?.Items is { } firstRewards) participants.Add(firstRewards.Mutations);
-                        if (Character.Bank?.Items is { } firstBank) participants.Add(firstBank.Mutations);
-                        if (session.Target.Rewards?.Items is { } secondRewards) participants.Add(secondRewards.Mutations);
-                        if (session.Target.Bank?.Items is { } secondBank) participants.Add(secondBank.Mutations);
+                        var participants = new List<IItemTransactional>
+                            { SelfContainer.Items, TargetContainer.Items };
+                        if (Character.Rewards?.Items is { } firstRewards) participants.Add(firstRewards);
+                        if (Character.Bank?.Items is { } firstBank) participants.Add(firstBank);
+                        if (session.Target.Rewards?.Items is { } secondRewards) participants.Add(secondRewards);
+                        if (session.Target.Bank?.Items is { } secondBank) participants.Add(secondBank);
                         using var transaction = ItemContainerTransaction.Begin(participants.ToArray());
                         if (_tradeExchange.TryStageEscrowRecovery(Character, SelfContainer.Items, session.Target, TargetContainer.Items))
                         {
@@ -1353,9 +1353,9 @@ namespace Hagalaz.Game.Scripts.Characters
                 var target = session.Target;
                 try
                 {
-                    using (var transaction = ItemContainerTransaction.Begin(SelfContainer.Items.Mutations,
-                               TargetContainer.Items.Mutations, Character.Inventory.Items.Mutations,
-                               target.Inventory.Items.Mutations, Character.MoneyPouch.Mutations, target.MoneyPouch.Mutations))
+                    using (var transaction = ItemContainerTransaction.Begin(SelfContainer.Items,
+                               TargetContainer.Items, Character.Inventory.Items,
+                               target.Inventory.Items, Character.MoneyPouch, target.MoneyPouch))
                     {
                         if (_tradeExchange.TryStageCompletion(Character, SelfContainer.Items, target, TargetContainer.Items))
                         {

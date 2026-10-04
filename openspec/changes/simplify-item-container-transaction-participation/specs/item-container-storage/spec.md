@@ -1,118 +1,42 @@
+# Spec Delta
+
 ## MODIFIED Requirements
 
-### Requirement: Complete same-scope participation
-Transaction membership MUST be established explicitly by supplying every storage participant to `ItemContainerTransaction.Begin(...)` before locks are acquired. Once storage is enlisted, ordinary `IItemContainer` mutations MUST participate automatically; storage not supplied to Begin MUST remain standalone and MUST NOT be dynamically enlisted. Ordinary mutation methods MUST NOT create, commit, or dynamically join transactions. Bound storage MUST record changes through its active transaction, while unbound storage MUST publish immediately. `IItemContainer.Mutations` MUST expose only the opaque transaction participant used by `Begin(...)`.
+### Requirement: Transaction membership uses aggregate capabilities
+`IItemContainer` and `IMoneyPouchContainer` MUST inherit the empty public `IItemTransactional` marker. Neither interface MUST expose a public `Mutations` property or mutation boundary. `ItemContainerTransaction.Begin(...)` MUST accept `params IItemTransactional[]` and callers MUST pass participating domain aggregates directly. Repository implementations MUST resolve contributions through the internal `IItemTransactionSource`; unsupported external marker implementations MUST fail clearly before any storage is locked. `ItemContainer` MUST contribute its single boundary, and MoneyPouch MUST contribute its own storage and each required inventory storage. Contribution resolution MUST validate before locking, deduplicate storage aliases, preserve first-seen participant order for publication, and retain deterministic lock ordering independently.
 
-#### Scenario: Independent overlapping scopes contend
-- **WHEN** another thread owns any required storage and the current thread owns none of it
-- **THEN** Begin waits on deterministic storage locks and proceeds after the other scope completes
+#### Scenario: Callers enlist aggregates directly
+- **WHEN** a caller opens a transaction for ordinary containers and a MoneyPouch
+- **THEN** it passes the `IItemContainer` and `IMoneyPouchContainer` instances directly to `Begin(...)`
 
-#### Scenario: Nested Begin is rejected
-- **WHEN** the current thread begins a transaction for storage already enlisted in its active transaction
-- **THEN** Begin throws and leaves the existing scope unchanged
+#### Scenario: Unsupported marker implementation is rejected before locking
+- **WHEN** `Begin(...)` receives an external `IItemTransactional` that is not a repository transaction source
+- **THEN** it throws an argument exception before acquiring storage locks or mutating storage
 
-#### Scenario: A helper requires missing storage
-- **WHEN** a composable operation requires A and B but the caller's scope includes only A
-- **THEN** it throws without locking or mutating B, and A remains bound to the original scope
+#### Scenario: Composite participant aliases storage
+- **WHEN** a MoneyPouch and another participant contribute the same underlying storage
+- **THEN** that storage is locked and snapshotted once while participant publication order remains first-seen order
 
-#### Scenario: A MoneyPouch method rejects partial participation
-- **WHEN** public `TryAddExact` or `TryRemoveExact` is called while only some required pouch or inventory storage is enlisted
-- **THEN** it fails before changing either scope or storage
+### Requirement: Cross-container transfers resolve destination capability internally
+`IItemContainer.TryTransferTo(...)` MUST perform the existing atomic transfer algorithm between ordinary item containers whose storage is already enlisted in the same active current-thread transaction. Destination storage MUST be resolved through the internal `IItemTransactionSource` contract without requiring a concrete `ItemContainer`. A destination MUST contribute exactly one storage boundary. The transfer MUST NOT create a transaction or dynamically enlist missing storage. It MUST validate and plan both changes before mutation, update each storage revision once on success, and defer publication through the caller-owned transaction. A valid transfer rejection MUST return false without mutating either storage.
 
-#### Scenario: A MoneyPouch method rejects conflicting scopes
-- **WHEN** required pouch and inventory storage belong to different active transactions
-- **THEN** it fails before changing either scope or storage
+#### Scenario: Interface decorator supplies transfer storage
+- **WHEN** the destination is exposed through an `IItemContainer` decorator backed by an internal transaction source
+- **THEN** `TryTransferTo(...)` transfers using the contributed boundary without a concrete `ItemContainer` cast
 
-#### Scenario: Opaque pouch participant contributes all required storage
-- **WHEN** a transaction begins with the MoneyPouch `Mutations` participant
-- **THEN** pouch storage and every inventory storage contribution are enlisted together
+#### Scenario: Transfer rejects missing enlistment
+- **WHEN** source and destination are not both enlisted in the same active transaction
+- **THEN** the operation throws before either storage changes
 
-#### Scenario: Ordinary item-container methods participate when enlisted
-- **WHEN** an ordinary item-container mutation is called for storage already enlisted in a transaction
-- **THEN** it changes that storage and defers publication until the transaction commits
+### Requirement: MoneyPouch exact operations preserve complete-scope behavior
+MoneyPouch exact operations MUST own a transaction when all required pouch and inventory storage is unbound, participate when all required storage belongs to the same active current-thread transaction, and reject partial or conflicting enlistment before mutation. Their public domain methods MUST retain the existing coin, overflow, sentinel, and notification behavior.
 
-#### Scenario: An unenlisted item-container remains standalone
-- **WHEN** a transaction includes A but not independent container B, and both containers are mutated
-- **THEN** disposal restores A without publication while B retains its mutation and publishes normally
-
-#### Scenario: Storage belongs to different scopes
-- **WHEN** required storage belongs to different active transactions
-- **THEN** the operation throws without mutation or nested transaction creation
-
-#### Scenario: A composite participant aliases storage
-- **WHEN** two participants contribute the same underlying storage
-- **THEN** that storage is locked and snapshotted once without changing participant publication order
-
-#### Scenario: Enlisted ordinary mutation publishes after commit
-- **GIVEN** a transaction begins with a container's mutation participant
-- **WHEN** the container is changed through its ordinary mutation API
-- **THEN** storage changes immediately and publication is deferred
-- **AND** commit publishes the change once after transaction locks are released
-
-#### Scenario: Enlisted ordinary mutation rolls back on disposal
-- **GIVEN** a transaction begins with a container's mutation participant
-- **WHEN** the container is changed through its ordinary mutation API and the transaction is disposed without commit
-- **THEN** storage is restored to its snapshot and no change is published
-
-#### Scenario: Unenlisted mutation remains outside another transaction
-- **GIVEN** A and B are independent containers
-- **AND** a transaction begins with only A's mutation participant
-- **WHEN** A and B are mutated and the transaction is disposed without commit
-- **THEN** A is restored and publishes nothing
-- **AND** B retains its mutation and publishes normally
-
-### Requirement: Cross-container transfers commit both stores atomically
-`IItemContainer.TryTransferTo(...)` MUST perform the existing atomic transfer algorithm between two ordinary item containers whose storage is already enlisted in the same active current-thread transaction. It MUST NOT create a transaction or dynamically enlist the destination. The operation MUST validate and plan both storage changes before mutation, update each storage revision once on success, and defer both publications through the caller-owned transaction. A valid transfer rejection MUST return false without mutating either storage or recording publication.
-
-#### Scenario: Exact transfer succeeds
-- **WHEN** the caller enlists source and destination, the source has the requested quantity, the destination can accept the exact result, and the caller commits
-- **THEN** both stores commit the transfer before either domain container publishes an update
-
-#### Scenario: Transfer fails validation
-- **WHEN** the source quantity is insufficient or the destination cannot accept the result
-- **THEN** neither store changes and neither container publishes a committed mutation
-
-#### Scenario: Storage transfer requires one active transaction
-- **WHEN** the operation is called without both storages enlisted in one active transaction, or the low-level storage transfer is called from another thread
-- **THEN** it throws before either store changes
-
-#### Scenario: Opposite transfers acquire locks consistently
-- **WHEN** two operations transfer in opposite directions between the same stores
-- **THEN** their owner scopes acquire storage locks in the same deterministic order
-
-#### Scenario: Transfer is exposed by the container
-- **WHEN** a caller inspects the public `IItemContainer` contract
-- **THEN** it finds `TryTransferTo(...)` there and the opaque `.Mutations` participant exposes no transfer operation
-
-### Requirement: MoneyPouch separates gameplay operations from opaque participation
-`IMoneyPouchContainer.Mutations` MUST expose an opaque `IItemContainerTransactionParticipant`. The MoneyPouch participant MUST contribute pouch storage and every required inventory storage. `TryAddExact` and `TryRemoveExact` MUST own a transaction when none of their required storage is bound; when all required storage belongs to the same active current-thread transaction they MUST participate in that scope; partial or conflicting enlistment MUST fail before mutation. Exact pouch methods MUST remain on `IMoneyPouchContainer`, not its opaque participant.
-
-#### Scenario: MoneyPouch coin availability is domain-specific
-- **WHEN** a caller checks whether a character has a positive coin amount
-- **THEN** `HasCoins` compares the request against pouch coins and inventory coin item `995` using overflow-safe addition
-
-#### Scenario: Exact MoneyPouch operation participates in complete scope
-- **GIVEN** a transaction includes the pouch and all inventory storage contributions
-- **WHEN** a public MoneyPouch exact operation is called
-- **THEN** it changes enlisted storage without creating or committing another transaction
+#### Scenario: Exact MoneyPouch operation participates in a complete scope
+- **GIVEN** a transaction includes the MoneyPouch aggregate and all of its inventory storage
+- **WHEN** a public exact pouch operation is called
+- **THEN** it mutates within that scope without creating another transaction
 
 #### Scenario: Exact MoneyPouch operation rejects partial enlistment
-- **GIVEN** only some pouch-required storage is enlisted
-- **WHEN** a public MoneyPouch exact operation is called
+- **GIVEN** only some required pouch or inventory storage is enlisted
+- **WHEN** a public exact pouch operation is called
 - **THEN** it throws before changing pouch or inventory state
-
-### Requirement: Equipment exposes semantic mutation operations
-Equipment storage mutations performed by `TryRestoreEquippedItem`, `TryReplaceEquippedItem`, `RemoveEquippedItem`, and `ClearEquipment` MUST participate when Equipment storage is already enlisted. Typed lifecycle completion MUST be deferred through the owning transaction for enlisted storage; otherwise lifecycle completion and publication occur immediately. Operations without lifecycle effects MUST use normal change publication, which defers automatically when enlisted.
-
-#### Scenario: Stale equipment replacement is rejected
-- **WHEN** the expected item instance no longer occupies the requested slot
-- **THEN** replacement returns false without changing storage, publishing an equipment update, or running lifecycle callbacks
-
-#### Scenario: Equipment storage mutation participates in an active scope
-- **WHEN** restoration, replacement, removal, or clearing is called while Equipment storage belongs to an active transaction
-- **THEN** the storage mutation participates in that transaction, with lifecycle completion and publication deferred until commit
-
-#### Scenario: Equipment replacement joins enlisted storage
-- **GIVEN** Equipment storage is enlisted in a transaction
-- **WHEN** an item is replaced through the simple Equipment operation
-- **THEN** storage changes within that transaction and lifecycle/publication completion waits for commit

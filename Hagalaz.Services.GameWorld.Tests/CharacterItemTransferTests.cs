@@ -82,7 +82,7 @@ public sealed class CharacterItemTransferTests
         Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, current));
         eventManager.ClearReceivedCalls();
         var boundary = GetEquipmentBoundary(equipment);
-        using var transaction = ItemContainerTransaction.Begin(boundary);
+        using var transaction = ItemContainerTransaction.Begin(equipment);
 
         Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Amulet, restored));
         Assert.IsTrue(equipment.TryReplaceEquippedItem(EquipmentSlot.Hat, current, replacement));
@@ -330,8 +330,8 @@ public sealed class CharacterItemTransferTests
         var events = Substitute.For<IEventManager>();
         scenario.Owner.EventManager.Returns(events);
         scenario.Owner.ClearReceivedCalls();
-        var bankStorage = ((ItemContainerMutationBoundary)bank.Items.Mutations).Storage;
-        var pouchStorages = ((IItemContainerTransactionParticipantInternal)moneyPouch.Mutations).Boundaries;
+        var bankStorage = Boundary(bank.Items).Storage;
+        var pouchStorages = ((IItemTransactionSource)moneyPouch).Boundaries;
         scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(_ =>
         {
             Assert.IsNull(bankStorage.Transaction);
@@ -834,7 +834,7 @@ public sealed class CharacterItemTransferTests
                 .GetField("_storage", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(setup.Equipment)!;
             Assert.IsFalse(Monitor.IsEntered(equipmentStorage.MutationLock));
             Assert.IsNull(equipmentStorage.Transaction);
-            Assert.IsNull(((ItemContainerMutationBoundary)setup.Inventory.Items.Mutations).Storage.Transaction);
+            Assert.IsNull(Boundary(setup.Inventory.Items).Storage.Transaction);
             callbacks.Add("weapon");
             throw hookFailure;
         });
@@ -894,7 +894,7 @@ public sealed class CharacterItemTransferTests
                 .GetField("_storage", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(equipment)!;
             Assert.IsNull(storage.Transaction);
             Assert.IsFalse(Monitor.IsEntered(storage.MutationLock));
-            Assert.IsNull(((ItemContainerMutationBoundary)inventory.Items.Mutations).Storage.Transaction);
+            Assert.IsNull(Boundary(inventory.Items).Storage.Transaction);
             return false;
         });
 
@@ -991,7 +991,7 @@ public sealed class CharacterItemTransferTests
         scenario.Owner.ClearReceivedCalls();
         var equipmentBoundary = (ItemContainerMutationBoundary)typeof(EquipmentContainer)
             .GetField("_mutations", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(equipment)!;
-        var inventoryStorage = ((ItemContainerMutationBoundary)inventory.Items.Mutations).Storage;
+        var inventoryStorage = Boundary(inventory.Items).Storage;
         scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(_ =>
         {
             Assert.IsNull(equipmentBoundary.Storage.Transaction);
@@ -1066,7 +1066,7 @@ public sealed class CharacterItemTransferTests
         var pouch = new MoneyPouchContainer(scenario.Owner, new ComposedTestItemBuilder());
         Assert.IsTrue(pouch.TryAddExact(10));
         scenario.Owner.ClearReceivedCalls();
-        using (ItemContainerTransaction.Begin(pouch.Mutations, inventory.Items.Mutations))
+        using (ItemContainerTransaction.Begin(pouch, inventory.Items))
         {
             Assert.IsTrue(pouch.TryAddExact(2));
             Assert.IsTrue(inventory.Items.AddRange([scenario.Builder.Create().WithId(995).WithCount(3).Build()]));
@@ -1076,7 +1076,7 @@ public sealed class CharacterItemTransferTests
         }
         Assert.AreEqual(10, pouch.Count);
         Assert.AreEqual(0, inventory.Items.GetCountById(995));
-        using (var fresh = ItemContainerTransaction.Begin(pouch.Mutations)) fresh.Commit();
+        using (var fresh = ItemContainerTransaction.Begin(pouch)) fresh.Commit();
         scenario.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
     }
 
@@ -1174,6 +1174,9 @@ public sealed class CharacterItemTransferTests
         scenario.Owner.EventManager.Returns(eventManager);
         return (new EquipmentContainer(scenario.Owner, 15, scenario.Builder), eventManager);
     }
+
+    private static ItemContainerMutationBoundary Boundary(IItemTransactional participant) =>
+        ((IItemTransactionSource)participant).Boundaries.Single();
 
     private static ItemContainerMutationBoundary GetEquipmentBoundary(EquipmentContainer equipment) =>
         (ItemContainerMutationBoundary)typeof(EquipmentContainer)

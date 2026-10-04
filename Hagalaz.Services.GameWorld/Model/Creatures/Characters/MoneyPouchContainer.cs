@@ -9,7 +9,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public partial class MoneyPouchContainer : IMoneyPouchContainer, IItemContainerCompletionOwner,
+    public partial class MoneyPouchContainer : IMoneyPouchContainer, IItemTransactionSource, IItemContainerCompletionOwner,
         IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
@@ -21,11 +21,23 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IItemBuilder _itemBuilder;
         private readonly ItemContainerStorage _storage;
         private readonly ItemContainerMutationBoundary _storageMutations;
-        private readonly MutationBoundary _mutations;
         private readonly ConcurrentDictionary<ItemContainerTransaction, Queue<MoneyPouchChange>> _pendingChanges = new();
         private readonly record struct MoneyPouchChange(int Order, int PreviousCount, int NewCount, int ChangeCount);
 
-        public IItemContainerTransactionParticipant Mutations => _mutations;
+        IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries
+        {
+            get
+            {
+                if (_owner.Inventory.Items is not IItemTransactionSource inventory)
+                    throw new ArgumentException("The inventory must be an item-transactional domain object.", "participants");
+                var boundaries = inventory.Boundaries;
+                if (boundaries == null || boundaries.Count == 0)
+                    throw new ArgumentException("The inventory participant must contribute storage.", "participants");
+                if (boundaries.Any(boundary => boundary == null))
+                    throw new ArgumentException("The inventory participant contributed a null boundary.", "participants");
+                return [_storageMutations, .. boundaries];
+            }
+        }
 
         public bool HasSpaceForCoins(int count) => count > 0 && (long)Count + count <= int.MaxValue;
 
@@ -62,7 +74,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var coins = _itemBuilder.Create().WithId(995).WithCount(0).Build();
             _storage = new ItemContainerStorage(StorageType.Normal, [coins], 1, 0);
             _storageMutations = new ItemContainerMutationBoundary(_storage, null, this);
-            _mutations = new MutationBoundary(this);
         }
 
         /// <summary>
@@ -84,7 +95,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             if (IsParticipatingInCompleteTransaction()) return AddExactCore(count);
 
-            using var transaction = ItemContainerTransaction.Begin(Mutations);
+            using var transaction = ItemContainerTransaction.Begin(this);
             if (!AddExactCore(count)) return false;
             transaction.Commit();
             return true;
@@ -143,7 +154,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             if (IsParticipatingInCompleteTransaction()) return RemoveExactCore(count);
 
-            using var transaction = ItemContainerTransaction.Begin(Mutations);
+            using var transaction = ItemContainerTransaction.Begin(this);
             if (!RemoveExactCore(count)) return false;
             transaction.Commit();
             return true;
@@ -200,7 +211,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             ItemContainerTransaction? transaction = null;
             var unbound = 0;
-            foreach (var boundary in _mutations.Boundaries)
+            foreach (var boundary in ((IItemTransactionSource)this).Boundaries)
             {
                 var current = boundary.Storage.Transaction;
                 if (current == null)
@@ -265,7 +276,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var transferCount = Math.Min(count, Math.Min(remainingSpace, _owner.Inventory.Items.GetCountById(995)));
             if (transferCount <= 0) return false;
 
-            using var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, Mutations);
+            using var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items, this);
             if (!_owner.Inventory.Items.TryRemoveExact(
                     _itemBuilder.Create().WithId(995).WithCount(transferCount).Build()) ||
                 !TryAddExact(transferCount)) return false;
@@ -281,7 +292,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool MoveToInventory(int count)
         {
             var inventoryFull = false;
-            using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items.Mutations, Mutations))
+            using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items, this))
             {
                 if (TryMoveToInventoryCore(count, out inventoryFull))
                 {
@@ -334,24 +345,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public IReadOnlyList<HydratedItemDto> Dehydrate() => new[] { _storage[0]! }
             .Select((item, slot) => new HydratedItemDto(item.Id, item.Count, slot, item.SerializeExtraData()))
             .ToArray();
-
-        private sealed class MutationBoundary(MoneyPouchContainer owner) : IItemContainerTransactionParticipant,
-            IItemContainerTransactionParticipantInternal
-        {
-            public IReadOnlyList<ItemContainerMutationBoundary> Boundaries
-            {
-                get
-                {
-                    if (owner._owner.Inventory.Items.Mutations is not IItemContainerTransactionParticipantInternal inventory)
-                        throw new ArgumentException("Use the participant provided by a container's Mutations property.", "participants");
-                    var boundaries = inventory.Boundaries;
-                    if (boundaries is null || boundaries.Count == 0)
-                        throw new ArgumentException("The inventory participant must contribute storage.", "participants");
-                    return [owner._storageMutations, .. boundaries];
-                }
-            }
-
-        }
 
     }
 }

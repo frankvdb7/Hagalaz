@@ -61,7 +61,7 @@ internal sealed class TradeExchange
     {
         if (coins.Count <= 0) return false;
 
-        using var transaction = ItemContainerTransaction.Begin(offer.Mutations, character.MoneyPouch.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(offer, character.MoneyPouch);
         if (!character.MoneyPouch.HasCoins(coins.Count) || !offer.HasSpaceFor(coins) || !offer.Add(coins) ||
             !character.MoneyPouch.TryRemoveExact(coins.Count)) return false;
         transaction.Commit();
@@ -70,7 +70,7 @@ internal sealed class TradeExchange
 
     internal bool TryReturnMoneyToPouch(ICharacter character, IItemContainer offer, IItem coins, int preferredSlot)
     {
-        using var transaction = ItemContainerTransaction.Begin(offer.Mutations, character.MoneyPouch.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(offer, character.MoneyPouch);
         var count = coins.Count;
         if (!offer.TryRemoveExact(coins, preferredSlot) || !character.MoneyPouch.TryAddExact(count)) return false;
         transaction.Commit();

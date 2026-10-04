@@ -4,10 +4,8 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Collections;
 
 /// <summary>Describes the operations and shape of an item container.</summary>
-public interface IItemContainer : IReadOnlyItemContainer
+public interface IItemContainer : IReadOnlyItemContainer, IItemTransactional
 {
-    IItemContainerTransactionParticipant Mutations { get; }
-
     StorageType Type { get; }
 
     bool Add(IItem item);
@@ -23,7 +21,7 @@ public interface IItemContainer : IReadOnlyItemContainer
     /// This method does not create a transaction or enlist the destination.
     /// </summary>
     /// <exception cref="ArgumentNullException">The destination or item is null.</exception>
-    /// <exception cref="ArgumentException">The destination is not a supported item container implementation.</exception>
+    /// <exception cref="ArgumentException">The destination is not a supported transaction source or does not contribute exactly one storage boundary.</exception>
     /// <exception cref="InvalidOperationException">Source and destination do not belong to the same active current-thread transaction.</exception>
     /// <returns><see langword="true"/> when the transfer succeeds; otherwise, no transfer is performed.</returns>
     bool TryTransferTo(IItemContainer destination, IItem item, int count,

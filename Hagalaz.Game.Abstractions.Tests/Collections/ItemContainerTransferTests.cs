@@ -23,7 +23,7 @@ public sealed class ItemContainerTransferTests
         var item = new TestItem(10, 7);
         Assert.IsTrue(source.Add(item));
 
-        using var transaction = ItemContainerTransaction.Begin(source.Mutations, destination.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(source, destination);
         Assert.IsTrue(source.TryTransferTo(destination, item, 7, 0));
         transaction.Commit();
 
@@ -46,7 +46,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsTrue(source.Add(item));
         Assert.IsTrue(destination.Add(blockingItem));
 
-        using var transaction = ItemContainerTransaction.Begin(source.Mutations, destination.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(source, destination);
         Assert.IsFalse(source.TryTransferTo(destination, item, 2, 0));
 
         Assert.AreSame(item, source[0]);
@@ -57,6 +57,23 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
+    public void TryTransferTo_ResolvesBoundaryFromContainerDecorator()
+    {
+        var source = new ItemContainer(StorageType.Normal, 2);
+        var destination = new ItemContainer(StorageType.Normal, 2);
+        var decoratedDestination = new ItemContainerDecorator(destination);
+        var item = new TestItem(9, 2);
+        Assert.IsTrue(source.Add(item));
+
+        using var transaction = ItemContainerTransaction.Begin(source, decoratedDestination);
+        Assert.IsTrue(source.TryTransferTo(decoratedDestination, item, 2, 0));
+        transaction.Commit();
+
+        Assert.IsNull(source[0]);
+        Assert.AreSame(item, destination[0]);
+    }
+
+    [TestMethod]
     public void OrdinaryMutations_ParticipateAutomaticallyAndRollbackOrPublishOnCommit()
     {
         var publications = 0;
@@ -64,7 +81,7 @@ public sealed class ItemContainerTransferTests
         var first = new TestItem(14, 1);
         var second = new TestItem(15, 1);
 
-        using (ItemContainerTransaction.Begin(container.Mutations))
+        using (ItemContainerTransaction.Begin(container))
         {
             Assert.IsTrue(container.Add(first));
             Assert.IsTrue(container.AddRange([second]));
@@ -74,7 +91,7 @@ public sealed class ItemContainerTransferTests
         Assert.AreEqual(0, container.TakenSlots);
         Assert.AreEqual(0, publications);
 
-        using (var transaction = ItemContainerTransaction.Begin(container.Mutations))
+        using (var transaction = ItemContainerTransaction.Begin(container))
         {
             Assert.IsTrue(container.AddRange([first, second]));
             container.Sort();
@@ -84,7 +101,7 @@ public sealed class ItemContainerTransferTests
         Assert.AreEqual(2, container.TakenSlots);
         Assert.AreEqual(1, publications);
 
-        using (var transaction = ItemContainerTransaction.Begin(container.Mutations))
+        using (var transaction = ItemContainerTransaction.Begin(container))
         {
             Assert.IsTrue(container.TryRemoveExact(first));
             container.Clear(true);
@@ -103,7 +120,7 @@ public sealed class ItemContainerTransferTests
         var second = new ItemContainer(StorageType.Normal, 2, _ => secondPublications++);
         var firstItem = new TestItem(16, 1);
         var secondItem = new TestItem(17, 1);
-        using (ItemContainerTransaction.Begin(first.Mutations))
+        using (ItemContainerTransaction.Begin(first))
         {
             Assert.IsTrue(first.Add(firstItem));
             Assert.IsTrue(second.Add(secondItem));
@@ -130,7 +147,7 @@ public sealed class ItemContainerTransferTests
         publications = 0;
         var sourceEnumerator = source.GetEnumerator();
         var destinationEnumerator = destination.GetEnumerator();
-        using (ItemContainerTransaction.Begin(source.Mutations, destination.Mutations))
+        using (ItemContainerTransaction.Begin(source, destination))
         {
             Assert.IsTrue(source.TryTransferTo(destination, item, 3, 0));
             source.Clear(true);
@@ -158,7 +175,7 @@ public sealed class ItemContainerTransferTests
         var original = new InvalidOperationException("Abort mutation.");
         var thrown = Assert.ThrowsExactly<InvalidOperationException>(() =>
         {
-            using var transaction = ItemContainerTransaction.Begin(source.Mutations, destination.Mutations);
+            using var transaction = ItemContainerTransaction.Begin(source, destination);
             Assert.IsTrue(source.TryTransferTo(destination, item, 5));
             throw original;
         });
@@ -175,7 +192,7 @@ public sealed class ItemContainerTransferTests
         var order = new List<string>();
         var first = new ItemContainer(StorageType.Normal, 2, _ => order.Add("first"));
         var second = new ItemContainer(StorageType.Normal, 2, _ => order.Add("second"));
-        using var transaction = ItemContainerTransaction.Begin(second.Mutations, first.Mutations, second.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(second, first, second);
         Assert.IsTrue(first.Add(new TestItem(23, 1)));
         Assert.IsTrue(second.Add(new TestItem(24, 1)));
         Completion(first).Before(() =>
@@ -206,7 +223,7 @@ public sealed class ItemContainerTransferTests
     public void Dispose_TwiceIsInertAndCommitAfterDisposalIsInvalid()
     {
         var container = new ItemContainer(StorageType.Normal, 1);
-        using var transaction = ItemContainerTransaction.Begin(container.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(container);
         Assert.IsTrue(container.Add(new TestItem(25, 1)));
         transaction.Dispose();
         transaction.Dispose();
@@ -220,7 +237,7 @@ public sealed class ItemContainerTransferTests
     {
         var updates = new List<HashSet<int>?>();
         var container = new ItemContainer(StorageType.Normal, 3, slots => updates.Add(slots));
-        using (var transaction = ItemContainerTransaction.Begin(container.Mutations))
+        using (var transaction = ItemContainerTransaction.Begin(container))
         {
             Assert.IsTrue(container.Add(new TestItem(26, 1)));
             Assert.IsTrue(container.Add(new TestItem(27, 1)));
@@ -229,7 +246,7 @@ public sealed class ItemContainerTransferTests
         }
         CollectionAssert.AreEquivalent(new[] { 0, 1 }, updates.Single()!.ToArray());
         updates.Clear();
-        using (var transaction = ItemContainerTransaction.Begin(container.Mutations))
+        using (var transaction = ItemContainerTransaction.Begin(container))
         {
             container.Clear(true);
             Assert.IsTrue(container.Add(new TestItem(28, 1)));
@@ -248,7 +265,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsTrue(container.Add(existing));
         publications = 0;
         var enumerator = container.GetEnumerator();
-        using var transaction = ItemContainerTransaction.Begin(container.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(container);
         Assert.IsTrue(container.AddRange(Array.Empty<IItem?>()));
         transaction.Commit();
         Assert.AreEqual(0, publications);
@@ -265,7 +282,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsTrue(source.Add(item));
         var sourceEnumerator = source.GetEnumerator();
         var destinationEnumerator = destination.GetEnumerator();
-        using var transaction = ItemContainerTransaction.Begin(source.Mutations, destination.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(source, destination);
         Assert.IsTrue(source.TryTransferTo(destination, item, 1));
         transaction.Commit();
         Assert.ThrowsExactly<InvalidOperationException>(() => sourceEnumerator.MoveNext());
@@ -286,7 +303,7 @@ public sealed class ItemContainerTransferTests
             throw original;
         });
         second = new ItemContainer(StorageType.Normal, 2, _ => calls.Add("second"));
-        using var transaction = ItemContainerTransaction.Begin(first.Mutations, second.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(first, second);
         Assert.IsTrue(first.Add(new TestItem(33, 1)));
         Assert.IsTrue(second.Add(new TestItem(34, 1)));
         Completion(first).After(() => calls.Add("after"));
@@ -308,7 +325,7 @@ public sealed class ItemContainerTransferTests
         var first = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("first"));
         var second = new ItemContainer(StorageType.Normal, 1, _ => { calls.Add("second"); throw original; });
         var third = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("third"));
-        using var transaction = ItemContainerTransaction.Begin(first.Mutations, second.Mutations, third.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(first, second, third);
         Assert.IsTrue(first.Add(new TestItem(35, 1)));
         Assert.IsTrue(second.Add(new TestItem(36, 1)));
         Assert.IsTrue(third.Add(new TestItem(37, 1)));
@@ -329,7 +346,7 @@ public sealed class ItemContainerTransferTests
         var calls = new List<string>();
         var original = new InvalidOperationException("After-publication action failed.");
         var container = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("container"));
-        using var transaction = ItemContainerTransaction.Begin(container.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(container);
         Assert.IsTrue(container.Add(new TestItem(37, 1)));
         Completion(container).After(() => calls.Add("after1"));
         Completion(container).After(() => { AssertUnboundAndUnlocked(container); calls.Add("after2"); throw original; });
@@ -347,7 +364,7 @@ public sealed class ItemContainerTransferTests
         var calls = new List<string>();
         var original = new InvalidOperationException("Hook failed.");
         var container = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("container"));
-        using var transaction = ItemContainerTransaction.Begin(container.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(container);
         Assert.IsTrue(container.Add(new TestItem(38, 1)));
         Completion(container).Before(() => { AssertUnboundAndUnlocked(container); calls.Add("hook"); throw original; });
         Completion(container).After(() => calls.Add("after"));
@@ -364,7 +381,7 @@ public sealed class ItemContainerTransferTests
         var hookFailure = new InvalidOperationException("Hook failed.");
         var publicationFailure = new InvalidOperationException("Publisher failed.");
         var container = new ItemContainer(StorageType.Normal, 1, _ => throw publicationFailure);
-        using var transaction = ItemContainerTransaction.Begin(container.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(container);
         Assert.IsTrue(container.Add(new TestItem(39, 1)));
         Completion(container).Before(() => throw hookFailure);
         var thrown = Assert.ThrowsExactly<AggregateException>(() => transaction.Commit());
@@ -382,12 +399,12 @@ public sealed class ItemContainerTransferTests
         var container = new ItemContainer(StorageType.Normal, 1);
         Assert.ThrowsExactly<ArgumentNullException>(() => ItemContainerTransaction.Begin(null!));
         Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin());
-        Assert.ThrowsExactly<ArgumentNullException>(() => ItemContainerTransaction.Begin(container.Mutations, null!));
-        Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin(container.Mutations, new ExternalParticipant()));
-        Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin(container.Mutations, new CompositeParticipant([])));
-        Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin(container.Mutations, new CompositeParticipant([null!])));
+        Assert.ThrowsExactly<ArgumentNullException>(() => ItemContainerTransaction.Begin(container, null!));
+        Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin(container, new ExternalParticipant()));
+        Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin(container, new CompositeParticipant([])));
+        Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin(container, new CompositeParticipant([null!])));
         AssertUnboundAndUnlocked(container);
-        using var valid = ItemContainerTransaction.Begin(container.Mutations);
+        using var valid = ItemContainerTransaction.Begin(container);
     }
 
     [TestMethod]
@@ -403,7 +420,7 @@ public sealed class ItemContainerTransferTests
                 Assert.IsNull(storage.Transaction);
             }
         };
-        Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin(container.Mutations, invalid));
+        Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin(container, invalid));
         AssertUnboundAndUnlocked(container);
     }
 
@@ -427,7 +444,7 @@ public sealed class ItemContainerTransferTests
             Assert.IsNull(Boundary(second).Storage.Transaction);
             throw original;
         };
-        Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => ItemContainerTransaction.Begin(first.Mutations, second.Mutations)));
+        Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => ItemContainerTransaction.Begin(first, second)));
         failingItem.OnCountRead = null;
         AssertUnboundAndUnlocked(first, second);
         Assert.AreSame(firstItem, first[0]);
@@ -435,7 +452,7 @@ public sealed class ItemContainerTransferTests
         Assert.AreEqual(3, firstItem.Count);
         Assert.AreEqual(4, failingItem.Count);
         Assert.AreEqual(0, calls);
-        using var fresh = ItemContainerTransaction.Begin(first.Mutations, second.Mutations);
+        using var fresh = ItemContainerTransaction.Begin(first, second);
     }
 
     [TestMethod]
@@ -443,7 +460,7 @@ public sealed class ItemContainerTransferTests
     {
         var first = new ItemContainer(StorageType.Normal, 1);
         var second = new ItemContainer(StorageType.Normal, 1);
-        using var transaction = ItemContainerTransaction.Begin(second.Mutations, first.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(second, first);
         var lockOrder = (ItemContainerStorage[])typeof(ItemContainerTransaction)
             .GetField("_lockOrder", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(transaction)!;
         CollectionAssert.AreEqual(new[] { Boundary(first).Storage, Boundary(second).Storage }, lockOrder);
@@ -463,7 +480,7 @@ public sealed class ItemContainerTransferTests
         var reads = 0;
         item.OnCountRead = () => reads++;
         var composite = new CompositeParticipant([Boundary(first), Boundary(second)]);
-        using var transaction = ItemContainerTransaction.Begin(first.Mutations, composite, composite, second.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(first, composite, composite, second);
         Assert.AreEqual(1, reads);
         item.OnCountRead = null;
         first.Clear(true);
@@ -480,13 +497,13 @@ public sealed class ItemContainerTransferTests
         var second = new ItemContainer(StorageType.Normal, 1);
         var item = new TestItem(43, 1);
         Assert.IsTrue(first.Add(item));
-        using var transaction = ItemContainerTransaction.Begin(first.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(first);
         Assert.ThrowsExactly<InvalidOperationException>(() => first.TryTransferTo(second, item, 1));
         Assert.AreSame(transaction, Boundary(first).Storage.Transaction);
         Assert.AreSame(item, first[0]);
         Assert.IsNull(second[0]);
         AssertUnboundAndUnlocked(second);
-        Assert.ThrowsExactly<InvalidOperationException>(() => ItemContainerTransaction.Begin(first.Mutations, second.Mutations));
+        Assert.ThrowsExactly<InvalidOperationException>(() => ItemContainerTransaction.Begin(first, second));
         AssertUnboundAndUnlocked(second);
     }
 
@@ -497,8 +514,8 @@ public sealed class ItemContainerTransferTests
         var second = new ItemContainer(StorageType.Normal, 1);
         var item = new TestItem(44, 1);
         Assert.IsTrue(first.Add(item));
-        using var firstScope = ItemContainerTransaction.Begin(first.Mutations);
-        using var secondScope = ItemContainerTransaction.Begin(second.Mutations);
+        using var firstScope = ItemContainerTransaction.Begin(first);
+        using var secondScope = ItemContainerTransaction.Begin(second);
         Assert.ThrowsExactly<InvalidOperationException>(() => first.TryTransferTo(second, item, 1));
         Assert.AreSame(firstScope, Boundary(first).Storage.Transaction);
         Assert.AreSame(secondScope, Boundary(second).Storage.Transaction);
@@ -554,8 +571,8 @@ public sealed class ItemContainerTransferTests
         var destinationStorage = Boundary(destination).Storage;
         var sourceRevision = sourceStorage.MutationRevision;
         var destinationRevision = destinationStorage.MutationRevision;
-        using var sourceTransaction = ItemContainerTransaction.Begin(source.Mutations);
-        using var destinationTransaction = ItemContainerTransaction.Begin(destination.Mutations);
+        using var sourceTransaction = ItemContainerTransaction.Begin(source);
+        using var destinationTransaction = ItemContainerTransaction.Begin(destination);
 
         Assert.ThrowsExactly<InvalidOperationException>(() => sourceStorage.TryTransferTo(
             destinationStorage, item, 1, 0, -1, null, out _, out _));
@@ -580,7 +597,7 @@ public sealed class ItemContainerTransferTests
         var sourceRevision = sourceStorage.MutationRevision;
         var destinationRevision = destinationStorage.MutationRevision;
 
-        using (ItemContainerTransaction.Begin(source.Mutations, destination.Mutations))
+        using (ItemContainerTransaction.Begin(source, destination))
         {
             Assert.IsTrue(sourceStorage.TryTransferTo(destinationStorage, item, 4, 0, -1, null,
                 out var sourceSlots, out var destinationSlots));
@@ -610,7 +627,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsTrue(source.Add(item));
         var sourceStorage = Boundary(source).Storage;
         var destinationStorage = Boundary(destination).Storage;
-        using var transaction = ItemContainerTransaction.Begin(source.Mutations, destination.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(source, destination);
 
         OnOtherThread(() => Assert.ThrowsExactly<InvalidOperationException>(() => sourceStorage.TryTransferTo(
             destinationStorage, item, 1, 0, -1, null, out _, out _)));
@@ -630,7 +647,7 @@ public sealed class ItemContainerTransferTests
         var second = new ItemContainer(StorageType.Normal, 2);
         var item = new TestItem(45, 1);
         Assert.IsTrue(first.Add(item));
-        using var transaction = ItemContainerTransaction.Begin(first.Mutations, second.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(first, second);
         OnOtherThread(() =>
         {
             Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
@@ -657,7 +674,7 @@ public sealed class ItemContainerTransferTests
         var third = new ItemContainer(StorageType.Normal, 1);
         using var attempted = new ManualResetEventSlim();
         using var completed = new ManualResetEventSlim();
-        using var owner = ItemContainerTransaction.Begin(first.Mutations, second.Mutations);
+        using var owner = ItemContainerTransaction.Begin(first, second);
         var required = overlapping
             ? new[] { Boundary(third), Boundary(second) }
             : new[] { Boundary(first) };
@@ -713,7 +730,7 @@ public sealed class ItemContainerTransferTests
             calls++;
             if (publicationFails) throw publicationFailure;
         });
-        using var transaction = ItemContainerTransaction.Begin(container.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(container);
         Assert.IsTrue(container.Add(new TestItem(47, 1)));
         foreach (var failure in hookFailures)
             Completion(container).Before(() => { AssertUnboundAndUnlocked(container); throw failure; });
@@ -736,7 +753,7 @@ public sealed class ItemContainerTransferTests
         CollectionAssert.AreEquivalent(new[] { "Begin", "Commit", "Dispose" }, methods.Select(method => method.Name).ToArray());
         Assert.AreEqual(0, typeof(ItemContainerTransaction).GetConstructors().Length);
         Assert.AreEqual(0, typeof(ItemContainerTransaction).GetProperties().Length);
-        Assert.AreEqual(0, typeof(IItemContainerTransactionParticipant).GetMembers().Length);
+        Assert.AreEqual(0, typeof(IItemTransactional).GetMembers().Length);
         Assert.IsNull(typeof(IItemContainer).Assembly.GetType("Hagalaz.Game.Abstractions.Collections.IItemContainerMutationBoundary"));
     }
 
@@ -794,7 +811,8 @@ public sealed class ItemContainerTransferTests
             Assert.IsFalse(ContainsDelegate(field.FieldType), $"Executable callback field: {field.Name}");
     }
 
-    private static ItemContainerMutationBoundary Boundary(ItemContainer container) => (ItemContainerMutationBoundary)container.Mutations;
+    private static ItemContainerMutationBoundary Boundary(ItemContainer container) =>
+        ((IItemTransactionSource)container).Boundaries.Single();
 
     private static void AssertUnboundAndUnlocked(params ItemContainer[] containers)
     {
@@ -826,8 +844,8 @@ public sealed class ItemContainerTransferTests
         if (failure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
-    private sealed class ExternalParticipant : IItemContainerTransactionParticipant { }
-    private sealed class CompositeParticipant(IReadOnlyList<ItemContainerMutationBoundary> boundaries) : IItemContainerTransactionParticipantInternal
+    private sealed class ExternalParticipant : IItemTransactional { }
+    private sealed class CompositeParticipant(IReadOnlyList<ItemContainerMutationBoundary> boundaries) : IItemTransactionSource
     {
         public Action? OnResolve { get; init; }
         public IReadOnlyList<ItemContainerMutationBoundary> Boundaries { get { OnResolve?.Invoke(); return boundaries; } }
@@ -845,7 +863,7 @@ public sealed class ItemContainerTransferTests
         var item = new TestItem(30, 4);
         Assert.IsTrue(inventory.Items.Add(item));
 
-        using var transaction = ItemContainerTransaction.Begin(inventory.Items.Mutations, bank.Items.Mutations);
+        using var transaction = ItemContainerTransaction.Begin(inventory.Items, bank.Items);
         Assert.IsTrue(inventory.Items.TryTransferTo(bank.Items, item, 4, 0));
         transaction.Commit();
 
@@ -866,7 +884,10 @@ public sealed class ItemContainerTransferTests
             Assert.AreEqual(typeof(IItemContainer), contract.GetProperty("Items")!.PropertyType, contract.Name);
         }
 
-        Assert.AreEqual(typeof(IItemContainerTransactionParticipant), typeof(IItemContainer).GetProperty("Mutations")!.PropertyType);
+        Assert.IsTrue(typeof(IItemTransactional).IsAssignableFrom(typeof(IItemContainer)));
+        Assert.IsNull(typeof(IItemContainer).GetProperty("Mutations"));
+        Assert.IsTrue(typeof(IItemTransactional).IsAssignableFrom(typeof(IMoneyPouchContainer)));
+        Assert.IsNull(typeof(IMoneyPouchContainer).GetProperty("Mutations"));
         var domainContracts = ordinaryContainers.Concat([typeof(IEquipmentContainer), typeof(IMoneyPouchContainer)]);
         foreach (var contract in domainContracts)
         {
@@ -885,9 +906,9 @@ public sealed class ItemContainerTransferTests
         }
 
         Assert.AreEqual(typeof(IReadOnlyItemContainer), typeof(IEquipmentContainer).GetProperty("Items")!.PropertyType);
-        Assert.IsFalse(typeof(IEquipmentContainer).GetProperty("Mutations") is not null);
+        Assert.IsNull(typeof(IEquipmentContainer).GetProperty("Mutations"));
         Assert.IsFalse(typeof(IMoneyPouchContainer).GetProperty("Items") is not null);
-        Assert.AreEqual(typeof(IItemContainerTransactionParticipant), typeof(IMoneyPouchContainer).GetProperty("Mutations")!.PropertyType);
+        Assert.IsNull(typeof(IMoneyPouchContainer).GetProperty("Mutations"));
     }
 
     [TestMethod]
@@ -897,24 +918,31 @@ public sealed class ItemContainerTransferTests
         Assert.IsTrue(typeof(IItemContainer).GetInterfaces().Contains(typeof(IReadOnlyItemContainer)));
 
         var readOnlyMembers = typeof(IReadOnlyItemContainer).GetMethods().Select(method => method.Name).ToHashSet();
-        foreach (var mutationMember in new[] { "Add", "Remove", "TryRemoveExact", "Replace", "Swap", "Move", "AddRange", "Sort", "Clear", "get_Mutations" })
+        foreach (var mutationMember in new[] { "Add", "Remove", "TryRemoveExact", "Replace", "Swap", "Move", "AddRange", "Sort", "Clear" })
         {
             Assert.IsFalse(readOnlyMembers.Contains(mutationMember), mutationMember);
         }
 
-        Assert.AreEqual(typeof(IItemContainerTransactionParticipant), typeof(IItemContainer).GetProperty("Mutations")!.PropertyType);
+        Assert.IsTrue(typeof(IItemTransactional).IsAssignableFrom(typeof(IItemContainer)));
+        Assert.IsNull(typeof(IItemContainer).GetProperty("Mutations"));
+        Assert.IsFalse(typeof(IItemContainer).GetProperties().Any(property => property.Name == "Mutations"));
+        Assert.IsNull(typeof(IItemContainer).Assembly.GetType("Hagalaz.Game.Abstractions.Collections.IItemContainerTransactionParticipant"));
+        Assert.IsNull(typeof(IItemContainer).Assembly.GetType("Hagalaz.Game.Abstractions.Collections.IItemContainerTransactionParticipantInternal"));
+        Assert.IsNotNull(typeof(IItemContainer).Assembly.GetType("Hagalaz.Game.Abstractions.Collections.IItemTransactional"));
+        Assert.AreEqual(typeof(IItemTransactional[]), typeof(ItemContainerTransaction)
+            .GetMethod(nameof(ItemContainerTransaction.Begin))!.GetParameters()[0].ParameterType);
         Assert.IsNotNull(typeof(IItemContainer).GetMethod(nameof(IItemContainer.TryTransferTo)));
         Assert.IsNull(typeof(IItemContainer).Assembly.GetType("Hagalaz.Game.Abstractions.Collections.IItemContainerMutationBoundary"));
         foreach (var method in new[] { "TryAdd", "TryAddRange", "TryRemoveExact", "Sort", "Clear", "EnsureOutsideTransaction" })
         {
-            Assert.IsNull(typeof(IItemContainerTransactionParticipant).GetMethod(method), method);
+            Assert.IsNull(typeof(IItemTransactional).GetMethod(method), method);
         }
-        Assert.IsNull(typeof(IItemContainerTransactionParticipant).GetMethod("EnsureUnbound"));
+        Assert.IsNull(typeof(IItemTransactional).GetMethod("EnsureUnbound"));
         Assert.IsFalse(typeof(IEquipmentContainer).GetInterfaces().Contains(typeof(IContainer<IItem?>)));
         Assert.AreEqual(typeof(IReadOnlyItemContainer), typeof(IEquipmentContainer).GetProperty("Items")!.PropertyType);
         Assert.IsNotNull(typeof(IEquipmentContainer).GetProperty("Item", [typeof(EquipmentSlot)]));
         Assert.IsNull(typeof(IEquipmentContainer).GetProperty("Item", [typeof(int)]));
-        Assert.IsFalse(typeof(IEquipmentContainer).GetProperty("Mutations") is not null);
+        Assert.IsNull(typeof(IEquipmentContainer).GetProperty("Mutations"));
         Assert.IsFalse(typeof(IEquipmentContainer).GetProperties().Any(property => property.PropertyType == typeof(IItemContainer)));
     }
 
@@ -949,4 +977,47 @@ public sealed class ItemContainerTransferTests
             otherItem != null && Id == otherItem.Id && (ignoreCount || Count == otherItem.Count);
         public string? SerializeExtraData() => null;
     }
+
+    private sealed class ItemContainerDecorator : IItemContainer, IItemTransactionSource
+    {
+        private readonly IItemContainer _inner;
+
+        public ItemContainerDecorator(IItemContainer inner) => _inner = inner;
+
+        IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries =>
+            ((IItemTransactionSource)_inner).Boundaries;
+
+        public StorageType Type => _inner.Type;
+        public int Capacity => _inner.Capacity;
+        public int FreeSlots => _inner.FreeSlots;
+        public int TakenSlots => _inner.TakenSlots;
+        public IItem? this[int index] => _inner[index];
+        public IEnumerator<IItem?> GetEnumerator() => _inner.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        public bool Add(IItem item) => _inner.Add(item);
+        public bool Add(int slot, IItem item) => _inner.Add(slot, item);
+        public int Remove(IItem item, int preferredSlot = -1, bool update = true) => _inner.Remove(item, preferredSlot, update);
+        public bool TryRemoveExact(IItem item, int preferredSlot = -1) => _inner.TryRemoveExact(item, preferredSlot);
+        public bool TryTransferTo(IItemContainer destination, IItem item, int count, int preferredSourceSlot = -1,
+            int destinationSlot = -1, IItem? destinationItem = null) =>
+            _inner.TryTransferTo(destination, item, count, preferredSourceSlot, destinationSlot, destinationItem);
+        public void Replace(int slot, IItem item) => _inner.Replace(slot, item);
+        public void Swap(int fromSlot, int toSlot) => _inner.Swap(fromSlot, toSlot);
+        public void Move(int fromSlot, int toSlot) => _inner.Move(fromSlot, toSlot);
+        public bool AddRange(IEnumerable<IItem?> items) => _inner.AddRange(items);
+        public void Sort() => _inner.Sort();
+        public void Clear(bool update) => _inner.Clear(update);
+        public IItem? GetById(int id) => _inner.GetById(id);
+        public int GetCount(IItem item) => _inner.GetCount(item);
+        public int GetCountById(int id) => _inner.GetCountById(id);
+        public int GetInstanceSlot(IItem instance) => _inner.GetInstanceSlot(instance);
+        public int GetSlotByItem(IItem item, bool ignoreCount = true) => _inner.GetSlotByItem(item, ignoreCount);
+        public bool Contains(int id) => _inner.Contains(id);
+        public bool Contains(int id, int count) => _inner.Contains(id, count);
+        public bool HasSpaceFor(IItem item) => _inner.HasSpaceFor(item);
+        public bool HasSpaceForRange(IEnumerable<IItem?> items) => _inner.HasSpaceForRange(items);
+    }
+
+    private static ItemContainerMutationBoundary Boundary(IItemTransactional participant) =>
+        ((IItemTransactionSource)participant).Boundaries.Single();
 }

@@ -140,9 +140,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 return false;
             }
 
-            IItemContainerTransactionParticipant[] participants = _shop.CurrencyId == 995
-                ? [viewer.Inventory.Items.Mutations, _items.Mutations, viewer.MoneyPouch.Mutations]
-                : [viewer.Inventory.Items.Mutations, _items.Mutations];
+            IItemTransactional[] participants = _shop.CurrencyId == 995
+                ? [viewer.Inventory.Items, _items, viewer.MoneyPouch]
+                : [viewer.Inventory.Items, _items];
             using var transaction = ItemContainerTransaction.Begin(participants);
             if (!viewer.Inventory.Items.TryTransferTo(_items, item, count, slot,
                     destinationItem: transformed ? sold : null)) return false;
@@ -233,9 +233,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             }
 
             var originalStock = _originalStock.Any(it => it.Id == item.Id);
-            IItemContainerTransactionParticipant[] participants = _shop.CurrencyId == 995
-                ? [_items.Mutations, viewer.Inventory.Items.Mutations, viewer.MoneyPouch.Mutations]
-                : [_items.Mutations, viewer.Inventory.Items.Mutations];
+            IItemTransactional[] participants = _shop.CurrencyId == 995
+                ? [_items, viewer.Inventory.Items, viewer.MoneyPouch]
+                : [_items, viewer.Inventory.Items];
             var insufficientCurrency = false;
             using (var transaction = ItemContainerTransaction.Begin(participants))
             {
