@@ -8,7 +8,7 @@ The design therefore uses a small opt-in boundary owned by `TradeItemContainer`:
 
 1. **One owner and four states.** `TradingCharacterScript` owns `Active`, `Completing`, `Completed`, and `Cancelled`. The session gate prevents duplicate completion or cancellation. A failed completion returns to active processing and can then follow the ordinary cancellation path.
 
-2. **Lock before snapshot and validation.** `TradeExchange` gathers the two offer containers, both inventories, and both money pouches, sorts distinct participating `TradeItemContainer` instances by their stable order, and locks them synchronously. It snapshots offers and validates capacity only after the locks are held.
+2. **Use the transaction owner for terminal scopes.** `TradingCharacterScript` gathers the trade offers, both inventories, and both MoneyPouch aggregates, then begins the caller-owned transaction before asking `TradeExchange` to stage completion or refund. `ItemContainerTransaction` resolves and locks distinct storage in deterministic order and captures snapshots before mutations; `TradeExchange` does not acquire locks or own the transaction lifecycle.
 
 3. **Boolean domain operations.** `ITradeItemContainer` exposes only checked add/remove success. `IMoneyPouchContainer` exposes boolean `AddForTrade`/`RemoveForTrade`; the pouch owns its overflow and underflow rules, including inventory coins and pouch notifications. No mutation handle escapes the operation.
 

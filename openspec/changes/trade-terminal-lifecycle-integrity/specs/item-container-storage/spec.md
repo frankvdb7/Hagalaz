@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Storage and trade revisions have distinct purposes
-Storage MUST own its mutation revision, which invalidates active enumerators after committed storage changes. `ItemContainerTransaction` MUST own deterministic lock ordering; `ItemContainerMutationBoundary.TryTransferTo` MUST use boundaries enlisted in one caller-owned transaction. TradeExchange MUST run inside the enclosing transaction owned by its caller rather than acquire storage locks directly. `Commit()` MUST make storage irreversible, release transaction locks, and publish committed changes automatically. A trade offer's acceptance `Revision` MUST remain domain-owned and MUST advance according to its existing publication semantics, independently of storage revision.
+Storage MUST own its mutation revision, which invalidates active enumerators after committed storage changes. `ItemContainerTransaction` MUST own deterministic lock ordering; `ItemContainerMutationBoundary.TryTransferTo` MUST use boundaries enlisted in one caller-owned transaction. `TradingCharacterScript` MUST own terminal completion, refund, and forced recovery transaction scopes, including every required participant, and MUST set the terminal `TradeState` before `Commit()`. TradeExchange MUST stage those mutations inside the caller-owned transaction and MUST NOT begin or commit it. `Commit()` MUST make storage irreversible, release transaction locks, and publish committed changes automatically. A trade offer's acceptance `Revision` MUST remain domain-owned and MUST advance according to its existing publication semantics, independently of storage revision.
 
 #### Scenario: Storage mutation invalidates enumeration
 - **WHEN** storage changes after an enumerator is created

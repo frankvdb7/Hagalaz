@@ -50,13 +50,27 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <summary>
         /// Adds exactly the requested coins using normal pouch overflow rules.
         /// </summary>
-        /// <remarks>This standalone operation owns a transaction over the pouch and inventory storage.</remarks>
+        /// <remarks>
+        /// When none of the pouch's required storage is currently enlisted, this operation creates and owns one
+        /// <see cref="ItemContainerTransaction"/> covering the pouch and inventory storage. When every required storage
+        /// already belongs to the same active current-thread transaction, this operation participates in that
+        /// caller-owned transaction and does not commit it. When only part of the required storage is enlisted, or
+        /// required storage belongs to different transactions, this operation throws
+        /// <see cref="InvalidOperationException"/> before mutation.
+        /// </remarks>
         bool TryAddExact(int count);
 
         /// <summary>
         /// Removes exactly the requested number of coins from the pouch and inventory, if available.
         /// </summary>
-        /// <remarks>This standalone operation owns a transaction over the pouch and inventory storage.</remarks>
+        /// <remarks>
+        /// When none of the pouch's required storage is currently enlisted, this operation creates and owns one
+        /// <see cref="ItemContainerTransaction"/> covering the pouch and inventory storage. When every required storage
+        /// already belongs to the same active current-thread transaction, this operation participates in that
+        /// caller-owned transaction and does not commit it. When only part of the required storage is enlisted, or
+        /// required storage belongs to different transactions, this operation throws
+        /// <see cref="InvalidOperationException"/> before mutation.
+        /// </remarks>
         bool TryRemoveExact(int count);
     }
 }

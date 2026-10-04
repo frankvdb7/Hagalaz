@@ -2,8 +2,8 @@
 
 ## 1. Committed terminal operations
 
-- [x] 1.1 Return committed trade changes for explicit publication; set terminal state before publication and guarantee cleanup in `finally`, removing captured publication exceptions.
-- [x] 1.2 Keep the single transaction commit/publication API, rollback, and at-most-once publication while removing collection and aggregation of publisher exceptions.
+- [x] 1.1 Keep terminal transaction ownership in `TradingCharacterScript`; stage economic mutations through `TradeExchange`, set terminal state before `Commit()`, and guarantee cleanup in `finally`.
+- [x] 1.2 Keep the single transaction `Begin`/`Commit`/`Dispose` API with automatic post-unlock publication, rollback, and at-most-once completion.
 - [x] 1.3 Simplify pouch and shop publication to direct ordered calls; retain successful domain ordering and message amounts and the existing equipment lifecycle cleanup policy.
 - [x] 1.4 Update regressions for first-error publication and terminal-state-before-publication; retain committed storage, rollback, cleanup, retry, and race coverage.
 

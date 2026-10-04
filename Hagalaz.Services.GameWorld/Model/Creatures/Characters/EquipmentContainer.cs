@@ -32,7 +32,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ItemContainerStorage _storage;
         private readonly ItemContainerMutationBoundary _mutations;
         IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries => [_mutations];
-        public IReadOnlyItemContainer Items { get; }
+        public IReadOnlyItemContainer Items => _storage;
         private readonly ConcurrentDictionary<ItemContainerTransaction, Queue<EquipmentCompletion>> _pendingCompletion = new();
         private enum EquipmentEffectKind { Equipped, Unequipped, WeaponProfile }
         private readonly record struct EquipmentEffect(EquipmentEffectKind Kind, IItem Item, IItem? Incoming = null);
@@ -53,7 +53,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             (_owner, _itemBuilder) = (owner, itemBuilder);
             _storage = new ItemContainerStorage(StorageType.Normal, capacity);
-            Items = new ReadOnlyItemContainer(_storage);
             _mutations = new ItemContainerMutationBoundary(_storage,
                 slots => PublishCommittedChanges(slots?.Select(slot => (EquipmentSlot)slot).ToHashSet()), this);
         }

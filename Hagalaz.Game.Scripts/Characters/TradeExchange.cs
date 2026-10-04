@@ -20,10 +20,20 @@ internal sealed class TradeExchange
         _itemBuilder = itemBuilder;
     }
 
+    /// <summary>Stages a trade completion inside the caller-owned item-container transaction.</summary>
+    /// <remarks>
+    /// The caller must begin a transaction containing both offer containers, both player inventories, and both
+    /// MoneyPouch aggregates before calling this method. This method does not create or commit a transaction.
+    /// </remarks>
     public bool TryStageCompletion(ICharacter first, IItemContainer firstOffer, ICharacter second,
         IItemContainer secondOffer) =>
         StageOffers(first, firstOffer, second, secondOffer, secondOffer, firstOffer);
 
+    /// <summary>Stages a trade refund inside the caller-owned item-container transaction.</summary>
+    /// <remarks>
+    /// The caller must begin a transaction containing both offer containers, both player inventories, and both
+    /// MoneyPouch aggregates before calling this method. This method does not create or commit a transaction.
+    /// </remarks>
     public bool TryStageRefund(ICharacter first, IItemContainer firstOffer, ICharacter second,
         IItemContainer secondOffer) =>
         StageOffers(first, firstOffer, second, secondOffer, firstOffer, secondOffer);
@@ -40,7 +50,11 @@ internal sealed class TradeExchange
         return true;
     }
 
-    /// <summary>Moves untouched escrow to existing recovery containers during forced destruction.</summary>
+    /// <summary>Stages moving untouched escrow to recovery containers during forced destruction.</summary>
+    /// <remarks>
+    /// The caller must begin a transaction containing both offer containers and every available recovery destination
+    /// that may be selected before calling this method. This method does not create or commit a transaction.
+    /// </remarks>
     internal bool TryStageEscrowRecovery(ICharacter first, IItemContainer firstOffer, ICharacter second,
         IItemContainer secondOffer)
     {

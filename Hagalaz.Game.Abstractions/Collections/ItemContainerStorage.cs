@@ -10,7 +10,7 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// <summary>
     /// Owns fixed-capacity item slots and the shared item mutation algorithms.
     /// </summary>
-    internal sealed class ItemContainerStorage : IEnumerable<IItem?>
+    internal sealed class ItemContainerStorage : IReadOnlyItemContainer
     {
         private static long _nextMutationOrder;
         private readonly object _mutationLock = new();

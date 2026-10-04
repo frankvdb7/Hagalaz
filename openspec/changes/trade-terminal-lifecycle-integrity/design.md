@@ -2,14 +2,14 @@
 
 ## Context
 
-See proposal.md for the remaining issue scope and the user-requested transaction API simplification. `TradingCharacterScript` owns one shared session state and gate. The existing transaction combines storage commit, participant publication, and arbitrary domain callbacks, and the attempted commit-status fix added overloads. Equipment requires effects before publication; pouch notices and shop events follow participant publication.
+See proposal.md for the remaining issue scope and transaction API decisions. `TradingCharacterScript` owns one shared session state and gate. `ItemContainerTransaction.Commit()` makes the already-mutated storage irreversible, releases bindings and locks, then runs transaction-owned domain completion and automatic publication. Equipment retains its domain-owned hook policy; pouch notices follow container publication; shop events follow a successful commit.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Replace transaction commit-callback registration and execution overloads with explicit commit and publication phases, preserving existing domain effects.
-- Let the existing session owner distinguish a committed terminal storage operation from an uncommitted failure that may be retried or refunded.
+- Keep transaction completion inside one `Commit()` call, preserving existing post-unlock publication and domain effects.
+- Set the terminal trade state before `Commit()` so a publication exception cannot leave permanently committed storage in a retryable session.
 - Keep accept callbacks tied to the session that created them.
 - Leave a deliberate safe retry state when exchange and normal refund both fail.
 - Exercise the real widget callback path and lifecycle hooks with deterministic synchronization.
@@ -22,13 +22,13 @@ See proposal.md for the remaining issue scope and the user-requested transaction
 
 ## Decisions
 
-1. **Separate storage commit from publication.** `ItemContainerTransaction.TryCommit` is the sole execution method and retains deterministic locking, snapshots, staging, and rollback. Its read-only `Committed` property becomes true only after successful storage commit. `PublishChanges` runs the existing participant publishers after unlock, in order, at most once. Its first exception propagates directly and stops later publication. A failed/unexecuted transaction or repeated publication has no publication effect. Remove `OnCommitted`, `OnCommittedBeforePublish`, and all execution overloads; callers execute named domain work directly at the required phase.
+1. **Keep commit and publication in one public operation.** `ItemContainerTransaction.Commit()` declares the already-mutated storage irreversible, removes bindings, releases locks, and then runs automatic completion and publication. Callers do not query committed state or invoke a separate publication method. A completion or publication exception propagates after storage is irreversible, and neither `Commit()` nor `Dispose()` retries or rolls back that storage.
 
-2. **Keep economic publication facts with the pouch owner.** Pouch staging returns a small immutable `MoneyPouchChange` value on success, including the previous count and established message amount; null means staging failed. This value contains no arbitrary delegate. A pouch-specific publication method runs container publishers and committed pouch notices/events in order with ordinary exception propagation. This centralizes the repeated storage-plus-pouch publication sequence used by trade, duel, bank, shop, and the pouch itself without adding a generic effects framework or a second state store.
+2. **Keep pouch publication data with MoneyPouch.** MoneyPouch records the immutable facts required to publish its messages and events after container publishers. Callers do not receive or manage publication receipts, and transaction infrastructure does not become a generic event bus.
 
-3. **Publish trade only after its owner marks it terminal.** Each terminal `TradeExchange` method commits storage and returns its transaction and immutable pouch publication facts. The result exposes committed status and explicit publication, with no exception field or captured failure. The session owner marks the trade Completed or Cancelled before requesting publication and guarantees its existing cleanup through `finally`. Exceptions propagate normally. Remove callback/output overloads and retain one method per named trade operation. Pre-commit exceptions retain rollback and restore the Completing session to Active.
+3. **Let the session owner control terminal trade completion.** `TradingCharacterScript` begins each terminal transaction with every required participant, asks `TradeExchange` to stage the economic mutations, sets `Completed` or `Cancelled`, then calls `Commit()`. `TradeExchange` does not begin or commit terminal transactions and does not own session state. A pre-commit failure rolls back on disposal; a post-commit publication failure leaves storage committed and the session terminal. Existing cleanup remains in `finally`.
 
-4. **Keep equipment and shop effects in their owners.** Equipment executes its existing lifecycle methods and profile updates after commit using its existing lifecycle cleanup helper, then requests transaction publication. Shop purchasing directly publishes, sorts stock, and sends the bought event in order; an exception stops this sequence. Do not register these operations on the transaction or add a replacement callback interface.
+4. **Keep equipment and shop effects in their owners.** Equipment owns its ordered post-commit lifecycle effects and attempt-all policy before normal participant publication. Shop sorts stock and sends its bought event only after `Commit()` returns successfully; an exception stops this sequence. Do not register arbitrary callbacks on the transaction or add a replacement callback interface.
 
 5. **Keep retry state in the existing session.** When completion and ordinary refund fail, the owner clears both acceptances and accepted revisions, then refreshes the current confirmation UI. Escrow remains in its existing offer containers. No new state or recovery path is needed; future completion requires both callbacks to accept the same unchanged offer revisions again.
 
