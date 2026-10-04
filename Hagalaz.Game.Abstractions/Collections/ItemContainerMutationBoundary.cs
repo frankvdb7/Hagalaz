@@ -43,15 +43,20 @@ internal sealed class ItemContainerMutationBoundary
             throw new InvalidOperationException("Both storage boundaries must belong to the same active transaction.");
         if (!_storage.TryTransferTo(destination._storage, item, count,
                 preferredSourceSlot, destinationSlot, destinationItem, out var sourceSlots, out var destinationSlots)) return false;
-        NotifyChanges(sourceSlots);
-        destination.NotifyChanges(destinationSlots);
+        NotifyChanges(transaction, sourceSlots);
+        destination.NotifyChanges(transaction, destinationSlots);
         return true;
     }
 
-    internal void NotifyChanges(HashSet<int>? slots)
+    internal void NotifyChanges(ItemContainerTransaction? transaction, HashSet<int>? slots)
     {
-        if (_storage.Transaction is { } transaction) transaction.RecordChanges(_storage, slots);
-        else PublishCommittedChanges(slots);
+        if (transaction != null)
+        {
+            transaction.RecordChanges(_storage, slots);
+            return;
+        }
+
+        PublishCommittedChanges(slots);
     }
 
     internal void PublishCommittedChanges(HashSet<int>? slots) => _publishChanges?.Invoke(slots);

@@ -65,6 +65,118 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
+    public void TryStageCompletion_MissingOfferParticipantRejectsAndRollsBack()
+    {
+        var firstInventory = new ComposedTestContainer(4);
+        var secondInventory = new ComposedTestContainer(4);
+        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var firstOffer = new ComposedTestContainer(StorageType.Normal, 4);
+        var secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
+        firstOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
+
+        using (ItemContainerTransaction.Begin(secondOffer.Items, firstInventory.Items, secondInventory.Items,
+                   first.MoneyPouch, second.MoneyPouch))
+        {
+            var action = () => CreateTradeExchange().TryStageCompletion(first, firstOffer.Items, second, secondOffer.Items);
+            action.Should().Throw<InvalidOperationException>();
+        }
+
+        firstOffer.Items.GetCountById(100).Should().Be(1);
+        secondInventory.Items.GetCountById(100).Should().Be(0);
+    }
+
+    [TestMethod]
+    public void TryStageCompletion_MissingRecipientInventoryRejectsAndRollsBack()
+    {
+        var firstInventory = new ComposedTestContainer(4);
+        var secondInventory = new ComposedTestContainer(4);
+        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var firstOffer = new ComposedTestContainer(StorageType.Normal, 4);
+        var secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
+        secondOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
+
+        using (ItemContainerTransaction.Begin(firstOffer.Items, secondOffer.Items, secondInventory.Items, second.MoneyPouch))
+        {
+            var action = () => CreateTradeExchange().TryStageCompletion(first, firstOffer.Items, second, secondOffer.Items);
+            action.Should().Throw<InvalidOperationException>();
+        }
+
+        secondOffer.Items.GetCountById(100).Should().Be(1);
+        firstInventory.Items.GetCountById(100).Should().Be(0);
+    }
+
+    [TestMethod]
+    public void TryStageCompletion_CoinOnlyTradeRequiresMoneyPouchParticipant()
+    {
+        var firstInventory = new ComposedTestContainer(4);
+        var secondInventory = new ComposedTestContainer(4);
+        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var firstOffer = new ComposedTestContainer(StorageType.Normal, 4);
+        var secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
+        firstOffer.Items.Add(new TestItem(995, 5, stackable: true)).Should().BeTrue();
+
+        using (ItemContainerTransaction.Begin(firstOffer.Items, secondOffer.Items, firstInventory.Items, secondInventory.Items))
+        {
+            var action = () => CreateTradeExchange().TryStageCompletion(first, firstOffer.Items, second, secondOffer.Items);
+            action.Should().Throw<InvalidOperationException>();
+        }
+
+        firstOffer.Items.GetCountById(995).Should().Be(5);
+        second.MoneyPouch.Count.Should().Be(0);
+        secondInventory.Items.GetCountById(995).Should().Be(0);
+    }
+
+    [TestMethod]
+    public void TryStageRefund_MissingParticipantRejectsAndRollsBack()
+    {
+        var firstInventory = new ComposedTestContainer(4);
+        var secondInventory = new ComposedTestContainer(4);
+        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var firstOffer = new ComposedTestContainer(StorageType.Normal, 4);
+        var secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
+        firstOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
+
+        using (ItemContainerTransaction.Begin(firstOffer.Items, secondOffer.Items, secondInventory.Items, second.MoneyPouch))
+        {
+            var action = () => CreateTradeExchange().TryStageRefund(first, firstOffer.Items, second, secondOffer.Items);
+            action.Should().Throw<InvalidOperationException>();
+        }
+
+        firstOffer.Items.GetCountById(100).Should().Be(1);
+        firstInventory.Items.GetCountById(100).Should().Be(0);
+    }
+
+    [TestMethod]
+    public void TryStageEscrowRecovery_MissingSelectedDestinationRejectsAndRollsBack()
+    {
+        var firstInventory = new ComposedTestContainer(4);
+        var secondInventory = new ComposedTestContainer(4);
+        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var firstOffer = new ComposedTestContainer(StorageType.Normal, 4);
+        var secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
+        var rewardItems = new ComposedTestContainer(StorageType.Normal, 4);
+        var rewards = Substitute.For<IRewardContainer>();
+        rewards.Items.Returns(rewardItems.Items);
+        first.Rewards.Returns(rewards);
+        firstOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
+
+        using (ItemContainerTransaction.Begin(firstOffer.Items, secondOffer.Items, firstInventory.Items, secondInventory.Items,
+                   second.Rewards?.Items ?? secondInventory.Items))
+        {
+            var action = () => CreateTradeExchange().TryStageEscrowRecovery(first, firstOffer.Items, second, secondOffer.Items);
+            action.Should().Throw<InvalidOperationException>();
+        }
+
+        firstOffer.Items.GetCountById(100).Should().Be(1);
+        rewardItems.Items.GetCountById(100).Should().Be(0);
+    }
+
+    [TestMethod]
     public void CommitTrade_PublishesAfterBothRecipientsAndEscrowReachFinalState()
     {
         var firstInventory = new ComposedTestContainer(4);
@@ -922,6 +1034,15 @@ public sealed class TradeExchangeTests
             transaction.Commit();
             return true;
         }
+        public bool TryTransferCoinsFrom(IItemContainer source, IItem coins, int count, int preferredSourceSlot = -1)
+        {
+            ArgumentNullException.ThrowIfNull(source);
+            ArgumentNullException.ThrowIfNull(coins);
+            if (coins.Id != 995 || count <= 0) return false;
+            if (!IsParticipatingInCompleteTransaction(source))
+                throw new InvalidOperationException("Source, pouch, and inventory must share an active transaction.");
+            return source.TryRemoveExact(coins, preferredSourceSlot) && AddExact(count);
+        }
         private bool AddExact(int count)
         {
             if (FailNextStorageAdd) { FailNextStorageAdd = false; return false; }
@@ -962,7 +1083,7 @@ public sealed class TradeExchangeTests
             return true;
         }
 
-        private bool IsParticipatingInCompleteTransaction()
+        private bool IsParticipatingInCompleteTransaction(IItemContainer? additionalContainer = null)
         {
             ItemContainerTransaction? transaction = null;
             var unbound = 0;
@@ -978,6 +1099,16 @@ public sealed class TradeExchangeTests
                 if (transaction == null) transaction = current;
                 else if (!ReferenceEquals(transaction, current))
                     throw new InvalidOperationException("Pouch storage belongs to different transactions.");
+            }
+
+            if (additionalContainer != null)
+            {
+                var sourceBoundary = ((IItemTransactionSource)additionalContainer).Boundaries[0];
+                var current = sourceBoundary.Storage.Transaction;
+                if (current == null) unbound++;
+                else if (transaction == null) transaction = current;
+                else if (!ReferenceEquals(transaction, current))
+                    throw new InvalidOperationException("Source belongs to a different transaction.");
             }
 
             if (transaction == null) return false;

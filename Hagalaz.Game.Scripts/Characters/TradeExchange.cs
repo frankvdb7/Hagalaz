@@ -27,7 +27,7 @@ internal sealed class TradeExchange
     /// </remarks>
     public bool TryStageCompletion(ICharacter first, IItemContainer firstOffer, ICharacter second,
         IItemContainer secondOffer) =>
-        StageOffers(first, firstOffer, second, secondOffer, secondOffer, firstOffer);
+        StageOffers(first, second, secondOffer, firstOffer);
 
     /// <summary>Stages a trade refund inside the caller-owned item-container transaction.</summary>
     /// <remarks>
@@ -36,17 +36,15 @@ internal sealed class TradeExchange
     /// </remarks>
     public bool TryStageRefund(ICharacter first, IItemContainer firstOffer, ICharacter second,
         IItemContainer secondOffer) =>
-        StageOffers(first, firstOffer, second, secondOffer, firstOffer, secondOffer);
+        StageOffers(first, second, firstOffer, secondOffer);
 
-    private bool StageOffers(ICharacter first, IItemContainer firstOffer, ICharacter second,
-        IItemContainer secondOffer, IItemContainer itemsForFirst, IItemContainer itemsForSecond)
+    private bool StageOffers(ICharacter first, ICharacter second,
+        IItemContainer itemsForFirst, IItemContainer itemsForSecond)
     {
         var firstItems = CloneOfferedItems(itemsForFirst);
         var secondItems = CloneOfferedItems(itemsForSecond);
         if (!CanReceive(first, firstItems) || !CanReceive(second, secondItems)) return false;
-        if (!Receive(first, firstItems) || !Receive(second, secondItems)) return false;
-        firstOffer.Clear(true);
-        secondOffer.Clear(true);
+        if (!TransferOffer(itemsForFirst, first) || !TransferOffer(itemsForSecond, second)) return false;
         return true;
     }
 
@@ -64,10 +62,8 @@ internal sealed class TradeExchange
         var secondDestination = GetRecoveryContainer(second, secondItems);
         if ((firstItems.Length > 0 && firstDestination == null) ||
             (secondItems.Length > 0 && secondDestination == null)) return false;
-        if (firstDestination != null && firstItems.Length > 0 && !firstDestination.AddRange(firstItems)) return false;
-        if (secondDestination != null && secondItems.Length > 0 && !secondDestination.AddRange(secondItems)) return false;
-        firstOffer.Clear(true);
-        secondOffer.Clear(true);
+        if (firstDestination != null && firstItems.Length > 0 && !TransferOffer(firstOffer, firstDestination)) return false;
+        if (secondDestination != null && secondItems.Length > 0 && !TransferOffer(secondOffer, secondDestination)) return false;
         return true;
     }
 
@@ -91,13 +87,42 @@ internal sealed class TradeExchange
         return true;
     }
 
-    private bool Receive(ICharacter character, IReadOnlyList<IItem> items)
+    private bool TransferOffer(IItemContainer source, ICharacter recipient)
     {
-        var nonCoinItems = items.Where(item => item.Id != CoinsItemId).ToArray();
-        if (nonCoinItems.Length > 0 && !character.Inventory.Items.AddRange(nonCoinItems)) return false;
-        var coinCount = items.Where(item => item.Id == CoinsItemId).Sum(item => (long)item.Count);
-        if (coinCount <= 0) return true;
-        return coinCount <= int.MaxValue && character.MoneyPouch.TryAddExact((int)coinCount);
+        var offeredItems = source.Select((item, slot) => (item, slot))
+            .Where(entry => entry.item != null)
+            .Select(entry => (Item: entry.item!, entry.slot))
+            .ToArray();
+
+        foreach (var (item, slot) in offeredItems)
+        {
+            if (item.Id == CoinsItemId)
+            {
+                if (!recipient.MoneyPouch.TryTransferCoinsFrom(source, item, item.Count, slot)) return false;
+            }
+            else if (!source.TryTransferTo(recipient.Inventory.Items, item, item.Count,
+                         slot, destinationItem: item.Clone()))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TransferOffer(IItemContainer source, IItemContainer destination)
+    {
+        var offeredItems = source.Select((item, slot) => (item, slot))
+            .Where(entry => entry.item != null)
+            .Select(entry => (Item: entry.item!, entry.slot))
+            .ToArray();
+
+        foreach (var (item, slot) in offeredItems)
+        {
+            if (!source.TryTransferTo(destination, item, item.Count, slot, destinationItem: item.Clone())) return false;
+        }
+
+        return true;
     }
 
     private bool CanReceive(ICharacter character, IReadOnlyList<IItem> items)

@@ -93,32 +93,38 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public bool TryAddExact(int count)
         {
-            if (IsParticipatingInCompleteTransaction()) return AddExactCore(count);
+            if (GetCompleteTransaction() is { } transaction) return AddExactCore(count, transaction);
 
-            using var transaction = ItemContainerTransaction.Begin(this);
-            if (!AddExactCore(count)) return false;
-            transaction.Commit();
+            using var ownedTransaction = ItemContainerTransaction.Begin(this);
+            if (!AddExactCore(count, ownedTransaction)) return false;
+            ownedTransaction.Commit();
             return true;
         }
 
-        private bool AddExactCore(int count)
+        private bool AddExactCore(int count, ItemContainerTransaction transaction)
         {
-            if (count <= 0)
-            {
-                return false;
-            }
+            if (!TryPlanExactAdd(count, out var pouchCount, out var inventoryCount)) return false;
 
-            var pouchCount = Math.Min(count, int.MaxValue - Count);
-            var inventoryCount = count - pouchCount;
-            if (inventoryCount > 0 && !_owner.Inventory.Items.HasSpaceFor(
-                    _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
-            {
-                return false;
-            }
+            return ApplyExactAdd(transaction, pouchCount, inventoryCount);
+        }
 
+        private bool TryPlanExactAdd(int count, out int pouchCount, out int inventoryCount)
+        {
+            pouchCount = 0;
+            inventoryCount = 0;
+            if (count <= 0) return false;
+
+            pouchCount = Math.Min(count, int.MaxValue - Count);
+            inventoryCount = count - pouchCount;
+            return inventoryCount <= 0 || _owner.Inventory.Items.HasSpaceFor(
+                _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build());
+        }
+
+        private bool ApplyExactAdd(ItemContainerTransaction transaction, int pouchCount, int inventoryCount)
+        {
             var previousCount = Count;
             if (pouchCount > 0 && !_storage.TryAddRange(
-                    [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()], out _))
+                    [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()], out _, out _))
             {
                 return false;
             }
@@ -129,8 +135,26 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            if (pouchCount != 0) DeferChange(previousCount, Count, pouchCount);
+            if (pouchCount != 0) DeferChange(transaction, previousCount, Count, pouchCount);
             return true;
+        }
+
+        /// <inheritdoc />
+        public bool TryTransferCoinsFrom(IItemContainer source, IItem coins, int count, int preferredSourceSlot = -1)
+        {
+            ArgumentNullException.ThrowIfNull(source);
+            ArgumentNullException.ThrowIfNull(coins);
+            if (coins.Id != 995 || count <= 0) return false;
+
+            var sourceBoundary = ItemContainerTransaction.ResolveSingleBoundary(source);
+            var transaction = GetCompleteTransaction(sourceBoundary.Storage)
+                ?? throw new InvalidOperationException("Source, pouch, and inventory storage must belong to one active transaction.");
+            if (!TryPlanExactAdd(count, out var pouchCount, out var inventoryCount)) return false;
+
+            if (!sourceBoundary.Storage.TryRemoveExact(coins, count, preferredSourceSlot,
+                    out var changedSlots, out var removalTransaction)) return false;
+            sourceBoundary.NotifyChanges(removalTransaction, changedSlots);
+            return ApplyExactAdd(transaction, pouchCount, inventoryCount);
         }
 
         /// <summary>
@@ -152,15 +176,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public bool TryRemoveExact(int count)
         {
-            if (IsParticipatingInCompleteTransaction()) return RemoveExactCore(count);
+            if (GetCompleteTransaction() is { } transaction) return RemoveExactCore(count, transaction);
 
-            using var transaction = ItemContainerTransaction.Begin(this);
-            if (!RemoveExactCore(count)) return false;
-            transaction.Commit();
+            using var ownedTransaction = ItemContainerTransaction.Begin(this);
+            if (!RemoveExactCore(count, ownedTransaction)) return false;
+            ownedTransaction.Commit();
             return true;
         }
 
-        private bool RemoveExactCore(int count)
+        private bool RemoveExactCore(int count, ItemContainerTransaction transaction)
         {
             if (count <= 0)
             {
@@ -176,7 +200,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             var previousCount = Count;
             if (pouchCount > 0 && !_storage.TryRemoveExact(
-                    _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0, out _))
+                    _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0, out _, out _))
             {
                 return false;
             }
@@ -187,13 +211,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            DeferChange(previousCount, Count, -count);
+            DeferChange(transaction, previousCount, Count, -count);
             return true;
         }
 
-        private void DeferChange(int previousCount, int newCount, int changeCount)
+        private void DeferChange(ItemContainerTransaction transaction, int previousCount, int newCount, int changeCount)
         {
-            var transaction = _storage.Transaction ?? throw new InvalidOperationException("Pouch changes require an active transaction.");
             var changes = _pendingChanges.GetOrAdd(transaction, _ => new Queue<MoneyPouchChange>());
             changes.Enqueue(new MoneyPouchChange(transaction.NextCompletionOrder(), previousCount, newCount, changeCount));
         }
@@ -207,11 +230,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             PublishChange(change);
         }
 
-        private bool IsParticipatingInCompleteTransaction()
+        private ItemContainerTransaction? GetCompleteTransaction(ItemContainerStorage? additionalStorage = null)
         {
             ItemContainerTransaction? transaction = null;
             var unbound = 0;
-            foreach (var boundary in ((IItemTransactionSource)this).Boundaries)
+            var boundaries = ((IItemTransactionSource)this).Boundaries;
+            foreach (var boundary in boundaries)
             {
                 var current = boundary.Storage.Transaction;
                 if (current == null)
@@ -230,12 +254,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
             }
 
-            if (transaction == null) return false;
+            if (additionalStorage != null)
+            {
+                var current = additionalStorage.Transaction;
+                if (current == null) unbound++;
+                else if (transaction == null) transaction = current;
+                else if (!ReferenceEquals(transaction, current))
+                    throw new InvalidOperationException("Money pouch source storage belongs to a different transaction.");
+            }
+
+            if (transaction == null) return null;
             if (unbound != 0)
-                throw new InvalidOperationException("Every money pouch storage contribution must belong to the same transaction.");
+                throw new InvalidOperationException("Every required money pouch storage contribution must belong to the same transaction.");
 
             transaction.EnsureActive();
-            return true;
+            return transaction;
         }
 
         private void PublishChange(MoneyPouchChange change)

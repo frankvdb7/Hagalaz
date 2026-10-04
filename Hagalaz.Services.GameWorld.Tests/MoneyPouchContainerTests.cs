@@ -478,6 +478,128 @@ public sealed class MoneyPouchContainerTests
     }
 
     [TestMethod]
+    public void TryTransferCoinsFrom_RequiresCallerOwnedTransactionAndCompleteParticipants()
+    {
+        var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 0);
+        var source = new ItemContainer(StorageType.Normal, 2);
+        var coins = new ComposedTestItem(CoinId, 5, stackable: true);
+        Assert.IsTrue(source.Add(coins));
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 5, 0));
+        Assert.AreSame(coins, source[0]);
+        Assert.AreEqual(10, scenario.MoneyPouch.Count);
+
+        using (ItemContainerTransaction.Begin(scenario.MoneyPouch))
+        {
+            Assert.ThrowsExactly<InvalidOperationException>(() =>
+                scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 5, 0));
+        }
+
+        using (ItemContainerTransaction.Begin(source, scenario.Inventory.Items))
+        {
+            Assert.ThrowsExactly<InvalidOperationException>(() =>
+                scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 5, 0));
+        }
+
+        var pouchBoundary = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries[0];
+        using (ItemContainerTransaction.Begin(source, new SingleBoundarySource(pouchBoundary)))
+        {
+            Assert.ThrowsExactly<InvalidOperationException>(() =>
+                scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 5, 0));
+        }
+
+        using var sourceTransaction = ItemContainerTransaction.Begin(source);
+        using var pouchTransaction = ItemContainerTransaction.Begin(scenario.MoneyPouch);
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 5, 0));
+        Assert.AreSame(coins, source[0]);
+        Assert.AreEqual(10, scenario.MoneyPouch.Count);
+    }
+
+    [TestMethod]
+    public void TryTransferCoinsFrom_TransfersAndRollsBackWithinCompleteCallerScope()
+    {
+        var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 0);
+        var source = new ItemContainer(StorageType.Normal, 2);
+        var coins = new ComposedTestItem(CoinId, 5, stackable: true);
+        Assert.IsTrue(source.Add(coins));
+
+        using (ItemContainerTransaction.Begin(source, scenario.MoneyPouch))
+        {
+            Assert.IsTrue(scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 5, 0));
+            Assert.AreEqual(15, scenario.MoneyPouch.Count);
+            Assert.IsNull(source[0]);
+        }
+
+        Assert.AreSame(coins, source[0]);
+        Assert.AreEqual(10, scenario.MoneyPouch.Count);
+        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(CoinId));
+
+        using (var transaction = ItemContainerTransaction.Begin(source, scenario.MoneyPouch))
+        {
+            Assert.IsTrue(scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 5, 0));
+            transaction.Commit();
+        }
+
+        Assert.IsNull(source[0]);
+        Assert.AreEqual(15, scenario.MoneyPouch.Count);
+    }
+
+    [TestMethod]
+    public void TryTransferCoinsFrom_PreservesOverflowAndPreflightsInventoryCapacity()
+    {
+        var scenario = CreateScenario(pouchCoins: int.MaxValue - 2, inventoryCoins: 0);
+        var source = new ItemContainer(StorageType.Normal, 2);
+        var coins = new ComposedTestItem(CoinId, 5, stackable: true);
+        Assert.IsTrue(source.Add(coins));
+
+        using (var transaction = ItemContainerTransaction.Begin(source, scenario.MoneyPouch))
+        {
+            Assert.IsTrue(scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 5, 0));
+            transaction.Commit();
+        }
+
+        Assert.AreEqual(int.MaxValue, scenario.MoneyPouch.Count);
+        Assert.AreEqual(3, scenario.Inventory.Items.GetCountById(CoinId));
+
+        var fullInventory = CreateScenario(pouchCoins: int.MaxValue - 2, inventoryCoins: 0, inventoryCapacity: 1);
+        Assert.IsTrue(fullInventory.Inventory.Items.Add(new ComposedTestItem(123, 1, stackable: false)));
+        var blockedSource = new ItemContainer(StorageType.Normal, 1);
+        var blockedCoins = new ComposedTestItem(CoinId, 5, stackable: true);
+        Assert.IsTrue(blockedSource.Add(blockedCoins));
+        using (var transaction = ItemContainerTransaction.Begin(blockedSource, fullInventory.MoneyPouch))
+        {
+            Assert.IsFalse(fullInventory.MoneyPouch.TryTransferCoinsFrom(blockedSource, blockedCoins, 5, 0));
+        }
+
+        Assert.AreSame(blockedCoins, blockedSource[0]);
+        Assert.AreEqual(int.MaxValue - 2, fullInventory.MoneyPouch.Count);
+        Assert.AreEqual(0, fullInventory.Inventory.Items.GetCountById(CoinId));
+    }
+
+    [TestMethod]
+    public void TryTransferCoinsFrom_ValidatesInputsBeforeMutation()
+    {
+        var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 0);
+        var source = new ItemContainer(StorageType.Normal, 2);
+        var nonCoins = new ComposedTestItem(123, 1, stackable: false);
+        var coins = new ComposedTestItem(CoinId, 5, stackable: true);
+        Assert.IsTrue(source.Add(nonCoins));
+        Assert.IsTrue(source.Add(coins));
+        using var transaction = ItemContainerTransaction.Begin(source, scenario.MoneyPouch);
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => scenario.MoneyPouch.TryTransferCoinsFrom(null!, coins, 1));
+        Assert.ThrowsExactly<ArgumentNullException>(() => scenario.MoneyPouch.TryTransferCoinsFrom(source, null!, 1));
+        Assert.IsFalse(scenario.MoneyPouch.TryTransferCoinsFrom(source, nonCoins, 1));
+        Assert.IsFalse(scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 0));
+        Assert.IsFalse(scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, -1));
+        Assert.AreEqual(1, source.GetCountById(123));
+        Assert.AreEqual(5, source.GetCountById(CoinId));
+        Assert.AreEqual(10, scenario.MoneyPouch.Count);
+    }
+
+    [TestMethod]
     public void Commit_PouchCompositeAndInventoryAliasPublishInventoryOnceBeforePouch()
     {
         var scenario = CreateScenario(pouchCoins: int.MaxValue - 2, inventoryCoins: 5);

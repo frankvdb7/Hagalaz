@@ -6,6 +6,10 @@ An overlapping `Begin(...)` uses the existing storage monitor. If it sees a fore
 
 Rollback continues to restore snapshots while Active locks are held, discard pending facts, clear bindings, pulse waiters, and release locks. Committed completion failures retain current stop/aggregation behavior, make the transaction terminal after cleanup, and never cause rollback or retry.
 
+Each storage mutation now calls `CaptureMutationTransaction()` only while owning its mutation monitor. The captured owner travels with changed slots to the owning mutation boundary, so an intervening later binding cannot claim standalone publication. This does not retain a scope around standalone callbacks. Committed teardown reacquires all storages in `MutationOrder`; interruption is recorded and retried for the same lock until the coherent set is held, then all bindings are cleared and waiters pulsed before locks are released and failures propagated.
+
+Terminal TradeExchange staging uses `TryTransferTo(...)` for each non-coin and recovery item and the narrowly scoped `IMoneyPouchContainer.TryTransferCoinsFrom(...)` operation for offered coins. That coin operation verifies the caller-owned transaction already includes source, pouch, and all inventory contributions, preflights existing overflow rules, then removes and adds within the same scope. It never creates a transaction. `StorageSnapshot` remains shallow with respect to item metadata: it restores slots, references, counts, and revision but not arbitrary mutable `ExtraData`.
+
 ## Risks
 
 - A synchronous callback that attempts to mutate or re-enlist the same storage now fails while the committed scope owns it. Reads remain available and disjoint transactions remain independent.

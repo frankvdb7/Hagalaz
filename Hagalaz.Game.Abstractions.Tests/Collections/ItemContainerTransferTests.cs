@@ -493,6 +493,189 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
+    public void Begin_DifferentBoundariesForSameStorageRejectBeforeLocking()
+    {
+        var container = new ItemContainer(StorageType.Normal, 1);
+        var storage = Boundary(container).Storage;
+        var first = new CompositeParticipant([Boundary(container)]);
+        var secondBoundary = new ItemContainerMutationBoundary(storage, _ => Assert.Fail("Rejected participants must not publish."));
+        var second = new CompositeParticipant([secondBoundary]);
+
+        Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin(first, second));
+
+        Assert.IsNull(storage.Transaction);
+        Assert.IsFalse(Monitor.IsEntered(storage.MutationLock));
+        var acquired = false;
+        OnOtherThread(() =>
+        {
+            acquired = Monitor.TryEnter(storage.MutationLock);
+            if (acquired) Monitor.Exit(storage.MutationLock);
+        });
+        Assert.IsTrue(acquired);
+    }
+
+    [TestMethod]
+    public void Mutation_AuthorizationIsCapturedUnderLockAfterCommittedScopeBinding()
+    {
+        var ownerThreadId = Environment.CurrentManagedThreadId;
+        using var publicationEntered = new ManualResetEventSlim();
+        using var finishPublication = new ManualResetEventSlim();
+        var publicationCount = 0;
+        var container = new ItemContainer(StorageType.Normal, 2, _ =>
+        {
+            Interlocked.Increment(ref publicationCount);
+            if (Environment.CurrentManagedThreadId == ownerThreadId)
+            {
+                publicationEntered.Set();
+                Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5)));
+            }
+        });
+        var storage = Boundary(container).Storage;
+        var workerItem = new TestItem(601, 1);
+        Exception? workerFailure = null;
+        var worker = new Thread(() =>
+        {
+            try { container.Add(workerItem); }
+            catch (Exception exception) { workerFailure = exception; }
+        }) { IsBackground = true };
+
+        Monitor.Enter(storage.MutationLock);
+        ItemContainerTransaction? transaction = null;
+        try
+        {
+            worker.Start();
+            Assert.IsTrue(SpinWait.SpinUntil(
+                () => (worker.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                TimeSpan.FromSeconds(5)), "The worker must be blocked on MutationLock before Begin binds it.");
+            transaction = ItemContainerTransaction.Begin(container);
+        }
+        finally
+        {
+            Monitor.Exit(storage.MutationLock);
+        }
+
+        var releaser = new Thread(() =>
+        {
+            if (publicationEntered.Wait(TimeSpan.FromSeconds(5)))
+            {
+                worker.Join(TimeSpan.FromSeconds(5));
+            }
+            finishPublication.Set();
+        }) { IsBackground = true };
+        releaser.Start();
+
+        Assert.IsTrue(container.Add(new TestItem(600, 1)));
+        transaction!.Commit();
+
+        Assert.IsTrue(worker.Join(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(releaser.Join(TimeSpan.FromSeconds(5)));
+        Assert.IsInstanceOfType<InvalidOperationException>(workerFailure);
+        Assert.AreEqual(0, container.GetCountById(workerItem.Id));
+        Assert.AreEqual(1, publicationCount);
+        AssertUnboundAndUnlocked(container);
+    }
+
+    [TestMethod]
+    public void StandaloneMutation_PublicationUsesCapturedOwnerWhenLaterTransactionBinds()
+    {
+        var publications = 0;
+        var container = new ItemContainer(StorageType.Normal, 2, _ => Interlocked.Increment(ref publications));
+        var boundary = Boundary(container);
+        var item = new TestItem(602, 1);
+        Assert.IsTrue(boundary.Storage.TryAdd(item, out var changedSlots, out var capturedTransaction));
+        Assert.IsNull(capturedTransaction);
+
+        using var transactionBound = new ManualResetEventSlim();
+        using var allowRollback = new ManualResetEventSlim();
+        Exception? transactionFailure = null;
+        var transactionThread = new Thread(() =>
+        {
+            try
+            {
+                using var transaction = ItemContainerTransaction.Begin(container);
+                transactionBound.Set();
+                Assert.IsTrue(allowRollback.Wait(TimeSpan.FromSeconds(5)));
+            }
+            catch (Exception exception) { transactionFailure = exception; }
+        }) { IsBackground = true };
+        transactionThread.Start();
+
+        Assert.IsTrue(transactionBound.Wait(TimeSpan.FromSeconds(5)));
+        Assert.IsNotNull(boundary.Storage.Transaction);
+        boundary.NotifyChanges(capturedTransaction, changedSlots);
+        Assert.AreEqual(1, publications);
+        allowRollback.Set();
+
+        Assert.IsTrue(transactionThread.Join(TimeSpan.FromSeconds(5)));
+        if (transactionFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transactionFailure).Throw();
+        Assert.AreSame(item, container[0]);
+        Assert.AreEqual(1, publications);
+        AssertUnboundAndUnlocked(container);
+    }
+
+    [TestMethod]
+    public void Commit_InterruptedDuringScopeTeardownRetriesLockAndReleasesBinding()
+    {
+        using var publicationStarted = new ManualResetEventSlim();
+        using var finishPublication = new ManualResetEventSlim();
+        using var publicationReturned = new ManualResetEventSlim();
+        using var teardownLockHeld = new ManualResetEventSlim();
+        using var releaseTeardownLock = new ManualResetEventSlim();
+        var publicationCount = 0;
+        var container = new ItemContainer(StorageType.Normal, 1, _ =>
+        {
+            Interlocked.Increment(ref publicationCount);
+            publicationStarted.Set();
+            try { Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5))); }
+            finally { publicationReturned.Set(); }
+        });
+        var storage = Boundary(container).Storage;
+        var item = new TestItem(603, 1);
+        Exception? commitFailure = null;
+        var commitThread = new Thread(() =>
+        {
+            try
+            {
+                using var transaction = ItemContainerTransaction.Begin(container);
+                container.Add(item);
+                transaction.Commit();
+            }
+            catch (Exception exception) { commitFailure = exception; }
+        }) { IsBackground = true };
+        commitThread.Start();
+        Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
+
+        var lockHolder = new Thread(() =>
+        {
+            Monitor.Enter(storage.MutationLock);
+            try
+            {
+                teardownLockHeld.Set();
+                Assert.IsTrue(releaseTeardownLock.Wait(TimeSpan.FromSeconds(5)));
+            }
+            finally { Monitor.Exit(storage.MutationLock); }
+        }) { IsBackground = true };
+        lockHolder.Start();
+        Assert.IsTrue(teardownLockHeld.Wait(TimeSpan.FromSeconds(5)));
+        finishPublication.Set();
+        Assert.IsTrue(publicationReturned.Wait(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(SpinWait.SpinUntil(
+            () => (commitThread.ThreadState & ThreadState.WaitSleepJoin) != 0,
+            TimeSpan.FromSeconds(5)), "Commit must be waiting to reacquire MutationLock for teardown.");
+        commitThread.Interrupt();
+        releaseTeardownLock.Set();
+
+        Assert.IsTrue(commitThread.Join(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(lockHolder.Join(TimeSpan.FromSeconds(5)));
+        Assert.IsInstanceOfType<ThreadInterruptedException>(commitFailure);
+        Assert.AreSame(item, container[0]);
+        Assert.AreEqual(1, publicationCount);
+        AssertUnboundAndUnlocked(container);
+        using var fresh = ItemContainerTransaction.Begin(container);
+        fresh.Commit();
+    }
+
+    [TestMethod]
     public void Transfer_PartialEnlistmentRejectsWithoutLockingMissingStorageOrStartingNestedScope()
     {
         var first = new ItemContainer(StorageType.Normal, 1);
@@ -643,7 +826,7 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
-    public void Scope_WrongThreadCommitDisposeAndMutationRejectWithoutEndingScope()
+    public void Scope_WrongThreadCommitAndDisposeRejectWithoutEndingScope()
     {
         var first = new ItemContainer(StorageType.Normal, 2);
         var second = new ItemContainer(StorageType.Normal, 2);
@@ -654,7 +837,6 @@ public sealed class ItemContainerTransferTests
         {
             Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
             Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Dispose());
-            Assert.ThrowsExactly<InvalidOperationException>(() => first.Add(new TestItem(46, 1)));
         });
         Assert.AreSame(transaction, Boundary(first).Storage.Transaction);
         Assert.AreSame(item, first[0]);

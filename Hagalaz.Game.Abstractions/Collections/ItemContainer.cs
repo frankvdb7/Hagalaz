@@ -40,15 +40,15 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     public bool Add(IItem item)
     {
-        if (!_storage.TryAdd(item, out var changedSlots)) return false;
-        PublishChanges(changedSlots);
+        if (!_storage.TryAdd(item, out var changedSlots, out var transaction)) return false;
+        PublishChanges(transaction, changedSlots);
         return true;
     }
 
     public bool Add(int slot, IItem item)
     {
-        if (!_storage.TryAdd(slot, item, out var changedSlots)) return false;
-        PublishChanges(changedSlots);
+        if (!_storage.TryAdd(slot, item, out var changedSlots, out var transaction)) return false;
+        PublishChanges(transaction, changedSlots);
         return true;
     }
 
@@ -56,15 +56,15 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     public int Remove(IItem item, int preferredSlot = -1, bool update = true)
     {
-        var removed = _storage.Remove(item, preferredSlot, out var changedSlots);
-        if (removed > 0 && update) PublishChanges(changedSlots);
+        var removed = _storage.Remove(item, preferredSlot, out var changedSlots, out var transaction);
+        if (removed > 0 && update) PublishChanges(transaction, changedSlots);
         return removed;
     }
 
     public bool TryRemoveExact(IItem item, int preferredSlot = -1)
     {
-        if (!_storage.TryRemoveExact(item, preferredSlot, out var changedSlots)) return false;
-        PublishChanges(changedSlots);
+        if (!_storage.TryRemoveExact(item, preferredSlot, out var changedSlots, out var transaction)) return false;
+        PublishChanges(transaction, changedSlots);
         return true;
     }
 
@@ -80,24 +80,24 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     public void Replace(int slot, IItem item)
     {
-        _storage.Replace(slot, item);
-        PublishChanges([slot]);
+        _storage.Replace(slot, item, out var transaction);
+        PublishChanges(transaction, [slot]);
     }
 
     public void Swap(int fromSlot, int toSlot)
     {
-        if (_storage.Swap(fromSlot, toSlot)) PublishChanges([fromSlot, toSlot]);
+        if (_storage.Swap(fromSlot, toSlot, out var transaction)) PublishChanges(transaction, [fromSlot, toSlot]);
     }
 
     public void Move(int fromSlot, int toSlot)
     {
-        if (_storage.Move(fromSlot, toSlot)) PublishChanges(null);
+        if (_storage.Move(fromSlot, toSlot, out var transaction)) PublishChanges(transaction, null);
     }
 
     public bool AddRange(IEnumerable<IItem?> items)
     {
-        if (!_storage.TryAddRange(items, out var changedSlots)) return false;
-        if (changedSlots.Count > 0) PublishChanges(changedSlots);
+        if (!_storage.TryAddRange(items, out var changedSlots, out var transaction)) return false;
+        if (changedSlots.Count > 0) PublishChanges(transaction, changedSlots);
         return true;
     }
 
@@ -108,14 +108,15 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     internal void ReplaceState(IItem?[] items) => _storage.ReplaceState(items);
 
-    internal void ExecuteUnderMutationLock(Action action)
+    internal ItemContainerTransaction? ExecuteUnderMutationLock(Action action)
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        _storage.EnsureMutationAccess();
         lock (_storage.MutationLock)
         {
+            var transaction = _storage.CaptureMutationTransaction();
             action();
+            return transaction;
         }
     }
 
@@ -127,8 +128,8 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     public void Sort()
     {
-        _storage.Sort();
-        PublishChanges(null);
+        _storage.Sort(out var transaction);
+        PublishChanges(transaction, null);
     }
 
     public int GetSlotByItem(IItem item, bool ignoreCount = true) => _storage.GetSlotByItem(item, ignoreCount);
@@ -137,8 +138,9 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     public void Clear(bool update)
     {
-        if (_storage.Clear() && update) PublishChanges(null);
+        if (_storage.Clear(out var transaction) && update) PublishChanges(transaction, null);
     }
 
-    private void PublishChanges(HashSet<int>? changedSlots) => _mutations.NotifyChanges(changedSlots);
+    private void PublishChanges(ItemContainerTransaction? transaction, HashSet<int>? changedSlots) =>
+        _mutations.NotifyChanges(transaction, changedSlots);
 }

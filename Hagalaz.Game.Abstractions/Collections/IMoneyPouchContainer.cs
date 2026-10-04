@@ -1,3 +1,5 @@
+using Hagalaz.Game.Abstractions.Model.Items;
+
 namespace Hagalaz.Game.Abstractions.Collections
 {
     /// <summary>
@@ -59,6 +61,15 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <see cref="InvalidOperationException"/> before mutation.
         /// </remarks>
         bool TryAddExact(int count);
+
+        /// <summary>
+        /// Transfers an exact amount of coins from an already-enlisted item container into this pouch.
+        /// </summary>
+        /// <remarks>
+        /// This operation requires the source, pouch, and inventory storage to belong to the same active
+        /// caller-owned <see cref="ItemContainerTransaction"/>. It never creates a transaction.
+        /// </remarks>
+        bool TryTransferCoinsFrom(IItemContainer source, IItem coins, int count, int preferredSourceSlot = -1);
 
         /// <summary>
         /// Removes exactly the requested number of coins from the pouch and inventory, if available.

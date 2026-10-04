@@ -14,7 +14,10 @@ namespace Hagalaz.Game.Abstractions.Collections;
 /// releases mutation locks before committed completion and publication, while storage remains bound to
 /// this scope until that work finishes. Foreign overlapping scopes wait; same-thread reentrant overlap is
 /// rejected. Dispose without Commit restores storage before releasing the scope. Begin, mutations, Commit,
-/// and Dispose must run on the originating thread. Do not cross await boundaries.
+/// and Dispose must run on the originating thread. Rollback restores slot topology, item references, item
+/// counts, and storage revision; it does not deep-snapshot arbitrary mutable item metadata such as
+/// <c>ExtraData</c>. Replace an item transactionally when rollback-sensitive metadata changes. Do not cross
+/// await boundaries.
 /// </remarks>
 public sealed class ItemContainerTransaction : IDisposable
 {
@@ -125,10 +128,10 @@ public sealed class ItemContainerTransaction : IDisposable
         _state = TransactionState.Committed;
         _snapshots.Clear();
         List<Exception>? failures = null;
-        var resourcesReleased = ReleaseMutationLocks(ref failures);
+        var mutationLocksReleased = ReleaseMutationLocks(ref failures);
         try
         {
-            if (resourcesReleased)
+            if (mutationLocksReleased)
             {
                 // Ordinals preserve mutation order across owners; executable work stays with each owner.
                 for (var order = 0; order < _completionCount; order++)
@@ -251,46 +254,48 @@ public sealed class ItemContainerTransaction : IDisposable
 
     private void ReleaseCommittedScopeBindings(ref List<Exception>? failures)
     {
-        var acquired = new List<ItemContainerStorage>(_lockOrder.Length);
-        foreach (var storage in _lockOrder)
+        var acquired = 0;
+        try
         {
-            try
+            foreach (var storage in _lockOrder)
             {
-                Monitor.Enter(storage.MutationLock);
-                acquired.Add(storage);
+                EnterForCommittedScopeCleanup(storage.MutationLock, ref failures);
+                acquired++;
             }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
-        }
 
-        // The normal path holds the full set, so the scope is released atomically. If an unexpected
-        // monitor failure occurs, still make a best-effort attempt to clear and wake every other store.
-        foreach (var storage in _lockOrder)
-        {
-            if (acquired.Contains(storage)) continue;
-            try { if (ReferenceEquals(storage.Transaction, this)) storage.Transaction = null; }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
-            try
-            {
-                Monitor.Enter(storage.MutationLock);
-                try { Monitor.PulseAll(storage.MutationLock); }
-                finally { Monitor.Exit(storage.MutationLock); }
-            }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
-        }
-
-        foreach (var storage in acquired)
-        {
-            try
+            foreach (var storage in _lockOrder)
             {
                 if (ReferenceEquals(storage.Transaction, this)) storage.Transaction = null;
+            }
+
+            foreach (var storage in _lockOrder)
+            {
                 Monitor.PulseAll(storage.MutationLock);
             }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
         }
-        for (var index = acquired.Count - 1; index >= 0; index--)
+        finally
         {
-            try { Monitor.Exit(acquired[index].MutationLock); }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
+            while (acquired > 0)
+            {
+                try { Monitor.Exit(_lockOrder[--acquired].MutationLock); }
+                catch (Exception exception) { (failures ??= []).Add(exception); }
+            }
+        }
+    }
+
+    private static void EnterForCommittedScopeCleanup(object mutationLock, ref List<Exception>? failures)
+    {
+        while (true)
+        {
+            try
+            {
+                Monitor.Enter(mutationLock);
+                return;
+            }
+            catch (ThreadInterruptedException exception)
+            {
+                (failures ??= []).Add(exception);
+            }
         }
     }
 
@@ -308,7 +313,7 @@ public sealed class ItemContainerTransaction : IDisposable
         ArgumentNullException.ThrowIfNull(participants);
         if (participants.Length == 0) throw new ArgumentException("At least one participant is required.", nameof(participants));
         var seen = new HashSet<IItemTransactional>(ReferenceEqualityComparer.Instance);
-        var storages = new HashSet<ItemContainerStorage>();
+        var boundariesByStorage = new Dictionary<ItemContainerStorage, ItemContainerMutationBoundary>();
         var boundaries = new List<ItemContainerMutationBoundary>();
         foreach (var participant in participants)
         {
@@ -322,7 +327,20 @@ public sealed class ItemContainerTransaction : IDisposable
             foreach (var boundary in contributions)
             {
                 if (boundary == null) throw new ArgumentException("A participant contributed a null boundary.", nameof(participants));
-                if (storages.Add(boundary.Storage)) boundaries.Add(boundary);
+                if (boundariesByStorage.TryGetValue(boundary.Storage, out var existing))
+                {
+                    if (!ReferenceEquals(existing, boundary))
+                    {
+                        throw new ArgumentException(
+                            "Multiple transaction boundaries were contributed for the same storage.",
+                            nameof(participants));
+                    }
+
+                    continue;
+                }
+
+                boundariesByStorage.Add(boundary.Storage, boundary);
+                boundaries.Add(boundary);
             }
         }
         return boundaries.ToArray();

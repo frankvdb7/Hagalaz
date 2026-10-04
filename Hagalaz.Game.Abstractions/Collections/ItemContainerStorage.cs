@@ -31,7 +31,18 @@ namespace Hagalaz.Game.Abstractions.Collections
 
         internal volatile ItemContainerTransaction? Transaction;
 
-        internal void EnsureMutationAccess() => Transaction?.EnsureActive();
+        internal ItemContainerTransaction? CaptureMutationTransaction()
+        {
+            if (!Monitor.IsEntered(_mutationLock))
+            {
+                throw new InvalidOperationException(
+                    "Mutation transaction access must be captured while holding the storage mutation lock.");
+            }
+
+            var transaction = Transaction;
+            transaction?.EnsureActive();
+            return transaction;
+        }
 
         /// <summary>The current mutation revision, captured by transactions while holding this storage's lock.</summary>
         internal int MutationRevision => _version;
@@ -396,29 +407,32 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// Removes a complete requested quantity using the exact-removal behavior
         /// used by exact removal and cross-container transfer.
         /// </summary>
-        public bool TryRemoveExact(IItem item, int preferredSlot, out HashSet<int> slotsToUpdate)
+        public bool TryRemoveExact(IItem item, int preferredSlot, out HashSet<int> slotsToUpdate,
+            out ItemContainerTransaction? transaction)
         {
             ArgumentNullException.ThrowIfNull(item);
-            return TryRemoveExact(item, item.Count, preferredSlot, out slotsToUpdate);
+            return TryRemoveExact(item, item.Count, preferredSlot, out slotsToUpdate, out transaction);
         }
 
         /// <summary>
         /// Removes a complete requested quantity using the exact-removal behavior
         /// used by exact removal and cross-container transfer.
         /// </summary>
-        public bool TryRemoveExact(IItem item, int count, int preferredSlot, out HashSet<int> slotsToUpdate)
+        public bool TryRemoveExact(IItem item, int count, int preferredSlot, out HashSet<int> slotsToUpdate,
+            out ItemContainerTransaction? transaction)
         {
             ArgumentNullException.ThrowIfNull(item);
             slotsToUpdate = [];
+            transaction = null;
             if (count <= 0)
             {
                 return false;
             }
 
             var removals = new List<(int Slot, int Count, IItem Item)>();
-            EnsureMutationAccess();
             lock (_mutationLock)
             {
+                transaction = CaptureMutationTransaction();
                 if (!TryCreateRemovalPlan(item, count, preferredSlot, removals))
                 {
                     return false;
@@ -566,17 +580,19 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="slot">The zero-based index of the slot to add the item to.</param>
         /// <param name="item">The item to add.</param>
         /// <returns><c>true</c> if the item was successfully added; otherwise, <c>false</c>.</returns>
-        public bool TryAdd(int slot, IItem item, out HashSet<int> changedSlots)
+        public bool TryAdd(int slot, IItem item, out HashSet<int> changedSlots,
+            out ItemContainerTransaction? transaction)
         {
             changedSlots = [];
+            transaction = null;
             if (slot < 0 || slot >= Capacity)
             {
                 return false;
             }
 
-            EnsureMutationAccess();
             lock (_mutationLock)
             {
+                transaction = CaptureMutationTransaction();
                 if (!ApplyAddAt(Items, slot, item, Type == StorageType.AlwaysStack))
                 {
                     return false;
@@ -594,12 +610,14 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="item">The item to add.</param>
         /// <returns><c>true</c> if the item was successfully added; otherwise, <c>false</c>.</returns>
-        public bool TryAdd(IItem item, out HashSet<int> changedSlots)
+        public bool TryAdd(IItem item, out HashSet<int> changedSlots,
+            out ItemContainerTransaction? transaction)
         {
             changedSlots = [];
-            EnsureMutationAccess();
+            transaction = null;
             lock (_mutationLock)
             {
+                transaction = CaptureMutationTransaction();
                 var stacked = false;
                 for (var slot = 0; slot < Items.Length; slot++)
                 {
@@ -654,14 +672,16 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="newItems">The collection of items to add.</param>
         /// <returns><c>true</c> if all items were added successfully; otherwise, <c>false</c>.</returns>
-        public bool TryAddRange(IEnumerable<IItem?> newItems, out HashSet<int> slotsToUpdate)
+        public bool TryAddRange(IEnumerable<IItem?> newItems, out HashSet<int> slotsToUpdate,
+            out ItemContainerTransaction? transaction)
         {
             ArgumentNullException.ThrowIfNull(newItems);
             var incomingItems = newItems.ToArray();
             slotsToUpdate = [];
-            EnsureMutationAccess();
+            transaction = null;
             lock (_mutationLock)
             {
+                transaction = CaptureMutationTransaction();
                 var simulatedItems = Items.Select(item => item?.Clone(item.Count)).ToArray();
                 var simulatedIncoming = incomingItems.Select(item => item?.Clone(item.Count)).ToArray();
                 var slotOrigins = new int[Items.Length];
@@ -798,13 +818,15 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="item">The item to remove, including the amount to be removed.</param>
         /// <param name="preferredSlot">The preferred slot to remove from. If -1, any slot will be used.</param>
         /// <returns>The number of items actually removed.</returns>
-        public int Remove(IItem item, int preferredSlot, out HashSet<int> changedSlots)
+        public int Remove(IItem item, int preferredSlot, out HashSet<int> changedSlots,
+            out ItemContainerTransaction? transaction)
         {
             changedSlots = [];
+            transaction = null;
             int removed;
-            EnsureMutationAccess();
             lock (_mutationLock)
             {
+                transaction = CaptureMutationTransaction();
                 removed = ApplyRemove(item, preferredSlot, changedSlots);
                 if (removed > 0)
                 {
@@ -906,11 +928,12 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="slot">The zero-based index of the slot to replace.</param>
         /// <param name="item">The new item to place in the slot. This cannot be null.</param>
-        public void Replace(int slot, IItem item)
+        public void Replace(int slot, IItem item, out ItemContainerTransaction? transaction)
         {
-            EnsureMutationAccess();
+            transaction = null;
             lock (_mutationLock)
             {
+                transaction = CaptureMutationTransaction();
                 Items[slot] = item;
                 AdvanceRevision();
             }
@@ -921,11 +944,12 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="fromSlot">The slot of the item to move.</param>
         /// <param name="toSlot">The destination slot.</param>
-        public bool Move(int fromSlot, int toSlot)
+        public bool Move(int fromSlot, int toSlot, out ItemContainerTransaction? transaction)
         {
-            EnsureMutationAccess();
+            transaction = null;
             lock (_mutationLock)
             {
+                transaction = CaptureMutationTransaction();
                 if ((uint)fromSlot >= (uint)Items.Length || (uint)toSlot >= (uint)Items.Length)
                 {
                     return false;
@@ -989,11 +1013,12 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="fromSlot">The first slot to swap.</param>
         /// <param name="toSlot">The second slot to swap.</param>
-        public bool Swap(int fromSlot, int toSlot)
+        public bool Swap(int fromSlot, int toSlot, out ItemContainerTransaction? transaction)
         {
-            EnsureMutationAccess();
+            transaction = null;
             lock (_mutationLock)
             {
+                transaction = CaptureMutationTransaction();
                 var fromItem = Items[fromSlot];
                 if (fromItem == null) return false;
 
@@ -1044,11 +1069,12 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <summary>
         /// Sorts the container by moving all items to the beginning, removing any empty slots between them.
         /// </summary>
-        public void Sort()
+        public void Sort(out ItemContainerTransaction? transaction)
         {
-            EnsureMutationAccess();
+            transaction = null;
             lock (_mutationLock)
             {
+                transaction = CaptureMutationTransaction();
                 var baseWrite = 0;
                 for (var i = 0; i < Items.Length; i++)
                 {
@@ -1107,11 +1133,12 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <summary>
         /// Clears all items from the container.
         /// </summary>
-        public bool Clear()
+        public bool Clear(out ItemContainerTransaction? transaction)
         {
-            EnsureMutationAccess();
+            transaction = null;
             lock (_mutationLock)
             {
+                transaction = CaptureMutationTransaction();
                 if (Items.Length <= 0)
                 {
                     return false;
@@ -1156,9 +1183,9 @@ namespace Hagalaz.Game.Abstractions.Collections
                 throw new ArgumentException("Item storage length must equal container capacity.", nameof(items));
             }
 
-            EnsureMutationAccess();
             lock (_mutationLock)
             {
+                CaptureMutationTransaction();
                 Items = (IItem?[])items.Clone();
                 AdvanceRevision();
             }
