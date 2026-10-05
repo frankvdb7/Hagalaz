@@ -1430,8 +1430,13 @@ public sealed class ItemContainerTransferTests
     {
         foreach (var container in containers)
         {
-            Assert.IsNull(Boundary(container).Storage.Transaction);
             var storage = Boundary(container).Storage;
+            lock (storage.MutationLock)
+            {
+                Assert.IsNull(storage.Transaction);
+                Assert.IsFalse(storage.HasStandalonePublicationOwner);
+            }
+
             Assert.IsFalse(Monitor.IsEntered(storage.MutationLock));
             var acquired = false;
             OnOtherThread(() =>
@@ -1448,7 +1453,12 @@ public sealed class ItemContainerTransferTests
         foreach (var container in containers)
         {
             var storage = Boundary(container).Storage;
-            Assert.AreSame(transaction, storage.Transaction);
+            lock (storage.MutationLock)
+            {
+                Assert.AreSame(transaction, storage.Transaction);
+                Assert.IsFalse(storage.HasStandalonePublicationOwner);
+            }
+
             Assert.IsFalse(Monitor.IsEntered(storage.MutationLock));
             var acquired = false;
             OnOtherThread(() =>

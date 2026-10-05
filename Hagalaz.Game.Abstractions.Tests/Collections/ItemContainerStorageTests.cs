@@ -1038,42 +1038,52 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public void NormalMutation_UsesTradeSynchronizationBoundary()
+        public void NormalMutation_UsesStorageMutationLock()
         {
             var container = new TestableItemContainer(StorageType.Normal, 10);
             using var started = new ManualResetEventSlim();
-            using var proceed = new ManualResetEventSlim();
             using var finished = new ManualResetEventSlim();
 
-            Task mutation = Task.CompletedTask;
             var startedInTime = false;
+            var blockedOnMutationLock = false;
             var finishedWhileLocked = false;
             var boundary = ItemContainerTransaction.ResolveSingleBoundary(container.Items);
+            Exception? mutationFailure = null;
+            var mutation = new Thread(() =>
+            {
+                started.Set();
+                try
+                {
+                    container.Items.Add(CreateItem(1, 1));
+                }
+                catch (Exception exception)
+                {
+                    mutationFailure = exception;
+                }
+                finally
+                {
+                    finished.Set();
+                }
+            }) { IsBackground = true };
+
             lock (boundary.Storage.MutationLock)
             {
-                mutation = Task.Run(() =>
+                mutation.Start();
+                startedInTime = started.Wait(TimeSpan.FromSeconds(5));
+                if (startedInTime)
                 {
-                    started.Set();
-                    proceed.Wait();
-                    try
-                    {
-                        container.Items.Add(CreateItem(1, 1));
-                    }
-                    finally
-                    {
-                        finished.Set();
-                    }
-                });
-
-                startedInTime = started.Wait(TimeSpan.FromSeconds(1));
-                proceed.Set();
-                finishedWhileLocked = finished.Wait(TimeSpan.FromMilliseconds(100));
+                    blockedOnMutationLock = SpinWait.SpinUntil(
+                        () => (mutation.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                        TimeSpan.FromSeconds(5));
+                    finishedWhileLocked = finished.IsSet;
+                }
             }
 
             Assert.IsTrue(startedInTime);
+            Assert.IsTrue(blockedOnMutationLock, "The mutation must wait on the held storage lock.");
             Assert.IsFalse(finishedWhileLocked);
-            Assert.IsTrue(finished.Wait(TimeSpan.FromSeconds(1)));
-            mutation.GetAwaiter().GetResult();
+            Assert.IsTrue(mutation.Join(TimeSpan.FromSeconds(5)));
+            if (mutationFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(mutationFailure).Throw();
             Assert.AreEqual(1, container.Items.TakenSlots);
         }
 
