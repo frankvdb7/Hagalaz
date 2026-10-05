@@ -9,3 +9,4 @@
 - [x] Add focused tests for lock ownership, attribution, lock lifetime, and publication ordering; retain existing transaction/concurrency regressions.
 - [x] Update canonical OpenSpec behavior and validate the change.
 - [x] Run targeted tests, solution build, full serial suite, duplication gate, and diff checks; report local-only status without committing or pushing.
+- [x] Remove rollback restoration's reentrant lock; require caller-owned transaction lock and cover the rejection path with a focused test.

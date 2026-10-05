@@ -26,3 +26,10 @@ Every storage mutation MUST validate transaction access while holding that stora
 #### Scenario: Transaction attribution uses no ambient scope
 - **WHEN** an ordinary item-container mutation runs
 - **THEN** participation is determined from the storage binding under its lock without ambient state or transaction identity passed through the operation
+
+### Requirement: Transaction rollback restores under caller-owned locks
+Rollback restoration MUST require caller-owned mutation-lock access and MUST NOT reacquire the same lock. It is not an ordinary active mutation and MUST NOT use normal active-transaction mutation authorization. The transaction MUST retain participant locks and bindings until all snapshot restores have been attempted, then clear bindings and release locks.
+
+#### Scenario: Rollback restores while transaction owns locks
+- **WHEN** a transaction is disposed without commit
+- **THEN** it restores each snapshot while holding the participant locks, attempts every restore, and publishes nothing

@@ -406,6 +406,13 @@ Every storage mutation MUST validate transaction access while holding that stora
 - **WHEN** an ordinary item-container mutation runs
 - **THEN** participation is determined from the storage binding under its lock without ambient state or transaction identity passed through the operation
 
+### Requirement: Transaction rollback restores under caller-owned locks
+Rollback restoration MUST require caller-owned mutation-lock access and MUST NOT reacquire the same lock. It is not an ordinary active mutation and MUST NOT use normal active-transaction mutation authorization. The transaction MUST retain participant locks and bindings until all snapshot restores have been attempted, then clear bindings and release locks.
+
+#### Scenario: Rollback restores while transaction owns locks
+- **WHEN** a transaction is disposed without commit
+- **THEN** it restores each snapshot while holding the participant locks, attempts every restore, and publishes nothing
+
 ### Requirement: Read-only item access is an explicit capability
 `IReadOnlyItemContainer` MUST expose indexed/enumerable item reads and item-specific queries without mutation or transaction participation. `IItemContainer` MUST inherit this capability and retain mutation members. `IEquipmentContainer` MUST compose an `IReadOnlyItemContainer Items` view and retain its equipment-slot indexer and semantic operations.
 

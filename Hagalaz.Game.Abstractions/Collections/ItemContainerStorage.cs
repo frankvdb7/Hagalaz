@@ -1144,7 +1144,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             AdvanceRevision();
         }
 
-        /// <summary>Restores a transaction snapshot without treating rollback as a committed mutation.</summary>
+        /// <summary>Restores a transaction snapshot while the transaction owns the mutation lock.</summary>
         internal void RestoreTransactionState(IItem?[] items, int[] counts, int mutationRevision)
         {
             ArgumentNullException.ThrowIfNull(items);
@@ -1158,15 +1158,18 @@ namespace Hagalaz.Game.Abstractions.Collections
                 throw new ArgumentException("Item count snapshot length must equal container capacity.", nameof(counts));
             }
 
-            lock (_mutationLock)
+            if (!Monitor.IsEntered(_mutationLock))
             {
-                for (var slot = 0; slot < items.Length; slot++)
-                {
-                    if (items[slot] is { } item) item.Count = counts[slot];
-                }
-                Items = (IItem?[])items.Clone();
-                _version = mutationRevision;
+                throw new InvalidOperationException(
+                    "Transaction state must be restored while holding the storage mutation lock.");
             }
+
+            for (var slot = 0; slot < items.Length; slot++)
+            {
+                if (items[slot] is { } item) item.Count = counts[slot];
+            }
+            Items = (IItem?[])items.Clone();
+            _version = mutationRevision;
         }
 
         /// <summary>

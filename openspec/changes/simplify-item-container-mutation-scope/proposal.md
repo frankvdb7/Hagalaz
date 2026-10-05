@@ -8,6 +8,7 @@ Ordinary item-container mutations currently acquire the same monitor in both the
 
 - Add a narrow internal `MutationScope` owned by `ItemContainerMutationBoundary` for lock ownership, transaction attribution, and standalone publication after unlock.
 - Make ordinary storage mutators require caller-owned mutation-lock access instead of acquiring the monitor themselves.
+- Make rollback restoration require the transaction's already-owned lock without reacquiring it or using active-mutation authorization.
 - Migrate ordinary `ItemContainer`, Shop, and Equipment mutation paths to the scope; keep specialized transaction-only MoneyPouch and transfer behavior.
 - Preserve equipment completion order, transaction behavior, hydration semantics, and rollback infrastructure.
 
@@ -29,6 +30,7 @@ Affected areas are `ItemContainerStorage`, `ItemContainerMutationBoundary`, `Ite
 
 - A standalone operation enters its storage monitor once; a transaction-owned operation borrows the lock without entering or releasing it.
 - Storage mutation algorithms verify caller lock ownership and do not lock themselves.
+- Transaction rollback restores every snapshot while retaining participant locks and bindings, then clears bindings and releases locks.
 - Change attribution occurs under the lock; standalone publication occurs after unlock; failed operations publish nothing.
 - Equipment ordering and all existing transaction, MoneyPouch, transfer, hydration, and trade semantics remain unchanged.
 - Focused tests, solution build, full serial tests, strict OpenSpec validation, duplication gate, and `git diff --check` are run and reported.

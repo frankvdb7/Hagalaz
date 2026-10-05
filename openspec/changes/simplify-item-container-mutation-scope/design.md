@@ -11,7 +11,7 @@
 
 Add a small internal nested `ref struct MutationScope` created by `ItemContainerMutationBoundary.BeginMutation()`. The boundary makes one lock-ownership decision, validates access, and passes the resolved transaction into the scope. The scope records changes once. A transaction-bound scope forwards them directly to `ItemContainerTransaction.RecordChanges`; an unbound scope stores the publication slots and publishes from `Dispose()` only after releasing a lock it acquired.
 
-Ordinary `ItemContainer` methods use the scope directly and call lock-required storage algorithms. Storage methods retain `EnsureMutationAccess()` but drop their internal monitor acquisition. Transaction rollback, snapshot, binding, and teardown synchronization are unchanged.
+Ordinary `ItemContainer` methods use the scope directly and call lock-required storage algorithms. Storage methods retain `EnsureMutationAccess()` but drop their internal monitor acquisition. During rollback, the transaction retains its participant locks and bindings while attempting every snapshot restore. `RestoreTransactionState` checks `Monitor.IsEntered` directly; it does not reacquire the monitor or use active-transaction mutation authorization because rollback has already moved the transaction out of Active.
 
 Shop normalization uses an internal `ItemContainer.BeginMutation()` forwarding method so its in-place storage algorithm runs within the same scope. Hydration and restore paths are audited and use the existing transaction lock or an operation scope without recording changes.
 

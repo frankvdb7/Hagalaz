@@ -75,6 +75,28 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
+        public void RestoreTransactionState_RequiresCallerOwnedMutationLock()
+        {
+            var storage = new ItemContainerStorage(StorageType.Normal, 2);
+            var item = CreateItem(1, 1);
+            lock (storage.MutationLock)
+            {
+                Assert.IsTrue(storage.TryAdd(item, out _));
+            }
+            var storedItem = storage[0];
+            var revision = storage.MutationRevision;
+            var snapshot = new IItem?[] { CreateItem(2, 1), null };
+            var counts = new[] { 1, 0 };
+
+            Assert.ThrowsExactly<InvalidOperationException>(() =>
+                storage.RestoreTransactionState(snapshot, counts, revision + 10));
+
+            Assert.AreSame(storedItem, storage[0]);
+            Assert.AreEqual(1, storedItem!.Count);
+            Assert.AreEqual(revision, storage.MutationRevision);
+        }
+
+        [TestMethod]
         public void ItemContainerAdd_OwnsStandaloneMutationLockAndPublishesAfterUnlock()
         {
             var storageLock = (object?)null;
