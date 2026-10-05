@@ -124,7 +124,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             var previousCount = Count;
             if (pouchCount > 0 && !_storage.TryAddRange(
-                    [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()], out _, out _))
+                    [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()], out _))
             {
                 return false;
             }
@@ -152,8 +152,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (!TryPlanExactAdd(count, out var pouchCount, out var inventoryCount)) return false;
 
             if (!sourceBoundary.Storage.TryRemoveExact(coins, count, preferredSourceSlot,
-                    out var changedSlots, out var removalTransaction)) return false;
-            sourceBoundary.NotifyChanges(removalTransaction, changedSlots);
+                    out var changedSlots)) return false;
+            sourceBoundary.NotifyChanges(transaction, changedSlots);
             return ApplyExactAdd(transaction, pouchCount, inventoryCount);
         }
 
@@ -200,7 +200,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             var previousCount = Count;
             if (pouchCount > 0 && !_storage.TryRemoveExact(
-                    _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0, out _, out _))
+                    _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0, out _))
             {
                 return false;
             }

@@ -380,10 +380,10 @@ Commit MUST perform automatic completion after unlock without a separate caller 
 - **THEN** it throws `InvalidOperationException` and cannot consume or alter the committing scope's storage
 
 ### Requirement: Mutation authorization and publication attribution are captured under lock
-Every storage mutation MUST authorize access and capture its owning transaction while holding that storage's mutation lock. Storage mutation operations whose caller publishes changes MUST return that captured transaction, and publication MUST use that owner without re-reading the storage's current transaction binding after mutation. A later transaction MUST NOT acquire ownership of an earlier standalone mutation's publication. Standalone publication remains outside a retained transaction scope; this invariant guarantees attribution, not scope isolation for standalone callbacks.
+Every storage mutation MUST validate transaction access while holding that storage's mutation lock. Storage mutation methods MUST NOT expose transaction ownership as a mutation result. When publication ownership is needed, `ItemContainer` or the owning domain aggregate MUST capture the current transaction owner while holding the same lock, perform the storage mutation, release the lock, and pass that captured owner explicitly to notification. Publication MUST NOT re-read the storage's current transaction binding after mutation. A later transaction MUST NOT acquire ownership of an earlier standalone mutation's publication. Standalone publication remains outside a retained transaction scope; this invariant guarantees attribution, not scope isolation for standalone callbacks.
 
 #### Scenario: Standalone publication cannot be attributed to a later scope
-- **WHEN** a standalone mutation captures no transaction and another transaction binds the storage before its publisher runs
+- **WHEN** the owning aggregate captures no transaction for a standalone mutation and another transaction binds the storage before its publisher runs
 - **THEN** the original mutation publishes standalone and the later transaction neither records nor rolls back that mutation
 
 ### Requirement: Read-only item access is an explicit capability

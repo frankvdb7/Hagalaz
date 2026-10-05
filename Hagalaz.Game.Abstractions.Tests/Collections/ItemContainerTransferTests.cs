@@ -582,7 +582,9 @@ public sealed class ItemContainerTransferTests
         var container = new ItemContainer(StorageType.Normal, 2, _ => Interlocked.Increment(ref publications));
         var boundary = Boundary(container);
         var item = new TestItem(602, 1);
-        Assert.IsTrue(boundary.Storage.TryAdd(item, out var changedSlots, out var capturedTransaction));
+        HashSet<int> changedSlots = [];
+        var capturedTransaction = container.ExecuteUnderMutationLock(() =>
+            Assert.IsTrue(boundary.Storage.TryAdd(item, out changedSlots)));
         Assert.IsNull(capturedTransaction);
 
         using var transactionBound = new ManualResetEventSlim();

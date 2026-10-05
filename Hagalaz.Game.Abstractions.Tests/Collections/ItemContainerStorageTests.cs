@@ -5,6 +5,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using System.Collections.Generic;
 using System;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
@@ -14,6 +15,24 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
     [TestClass]
     public class ItemContainerStorageTests
     {
+        [TestMethod]
+        public void MutationMethods_DoNotReturnTransactionOwnership()
+        {
+            var transactionParameterType = typeof(ItemContainerTransaction).MakeByRefType();
+            var methods = typeof(ItemContainerStorage).GetMethods(
+                BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic |
+                BindingFlags.DeclaredOnly);
+
+            foreach (var method in methods)
+            {
+                foreach (var parameter in method.GetParameters())
+                {
+                    Assert.IsFalse(parameter.IsOut && parameter.ParameterType == transactionParameterType,
+                        $"{method.Name} exposes transaction ownership as an out parameter.");
+                }
+            }
+        }
+
         private class TestableItemContainer
         {
             public ItemContainer Items { get; }
@@ -561,9 +580,9 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var storage = new ItemContainerStorage(StorageType.AlwaysStack, 2);
             var existing = CreateItem(1, 5, stackable: true);
             var newStack = CreateItem(2, 4, stackable: true);
-            Assert.IsTrue(storage.TryAdd(existing, out _, out _));
+            Assert.IsTrue(storage.TryAdd(existing, out _));
 
-            Assert.IsTrue(storage.TryAddRange([CreateItem(1, 3, stackable: true), newStack], out var changedSlots, out _));
+            Assert.IsTrue(storage.TryAddRange([CreateItem(1, 3, stackable: true), newStack], out var changedSlots));
 
             Assert.AreSame(existing, storage[0]);
             Assert.AreEqual(8, existing.Count);
@@ -588,11 +607,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             var storage = new ItemContainerStorage(StorageType.Normal, 2);
             var existing = CreateItem(1, 3, stackable: true);
-            Assert.IsTrue(storage.TryAdd(existing, out _, out _));
+            Assert.IsTrue(storage.TryAdd(existing, out _));
             var enumerator = storage.GetEnumerator();
             var revision = storage.MutationRevision;
 
-            var result = storage.TryAddRange(incoming, out var changedSlots, out _);
+            var result = storage.TryAddRange(incoming, out var changedSlots);
 
             Assert.IsTrue(result);
             Assert.IsEmpty(changedSlots);
@@ -610,7 +629,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var enumerator = storage.GetEnumerator();
             var revision = storage.MutationRevision;
 
-            Assert.IsTrue(storage.TryAddRange([CreateItem(1, 1)], out var changedSlots, out _));
+            Assert.IsTrue(storage.TryAddRange([CreateItem(1, 1)], out var changedSlots));
 
             Assert.IsNotEmpty(changedSlots);
             Assert.AreEqual(revision + 1, storage.MutationRevision);
@@ -643,7 +662,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var storage = new ItemContainerStorage(StorageType.Normal, 2);
             var incoming = CreateItem(1, 2);
 
-            Assert.IsTrue(storage.TryAddRange([incoming], out var changedSlots, out _));
+            Assert.IsTrue(storage.TryAddRange([incoming], out var changedSlots));
 
             Assert.AreEqual(1, storage[0]!.Count);
             Assert.AreEqual(1, storage[1]!.Count);
@@ -659,12 +678,12 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             var storage = new ItemContainerStorage(StorageType.Normal, 1);
             var existing = CreateItem(1, int.MaxValue - 1, stackable: true);
-            Assert.IsTrue(storage.TryAdd(existing, out _, out _));
+            Assert.IsTrue(storage.TryAdd(existing, out _));
             var enumerator = storage.GetEnumerator();
             Assert.IsTrue(enumerator.MoveNext());
             var incoming = CreateItem(1, 2, stackable: true);
 
-            var result = storage.TryAddRange([incoming], out var changedSlots, out _);
+            var result = storage.TryAddRange([incoming], out var changedSlots);
 
             Assert.IsFalse(result);
             Assert.IsFalse(storage.HasSpaceForRange([incoming]));

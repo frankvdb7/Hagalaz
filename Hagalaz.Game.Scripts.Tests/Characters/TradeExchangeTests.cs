@@ -67,12 +67,8 @@ public sealed class TradeExchangeTests
     [TestMethod]
     public void TryStageCompletion_MissingOfferParticipantRejectsAndRollsBack()
     {
-        var firstInventory = new ComposedTestContainer(4);
-        var secondInventory = new ComposedTestContainer(4);
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
-        var firstOffer = new ComposedTestContainer(StorageType.Normal, 4);
-        var secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
+        CreateTradeParticipants(out var firstInventory, out var secondInventory, out var first, out var second,
+            out var firstOffer, out var secondOffer);
         firstOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
 
         using (ItemContainerTransaction.Begin(secondOffer.Items, firstInventory.Items, secondInventory.Items,
@@ -89,12 +85,8 @@ public sealed class TradeExchangeTests
     [TestMethod]
     public void TryStageCompletion_MissingRecipientInventoryRejectsAndRollsBack()
     {
-        var firstInventory = new ComposedTestContainer(4);
-        var secondInventory = new ComposedTestContainer(4);
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
-        var firstOffer = new ComposedTestContainer(StorageType.Normal, 4);
-        var secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
+        CreateTradeParticipants(out var firstInventory, out var secondInventory, out var first, out var second,
+            out var firstOffer, out var secondOffer);
         secondOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
 
         using (ItemContainerTransaction.Begin(firstOffer.Items, secondOffer.Items, secondInventory.Items, second.MoneyPouch))
@@ -964,6 +956,22 @@ public sealed class TradeExchangeTests
         character.Widgets.Returns(Substitute.For<IWidgetContainer>());
         character.DisplayName.Returns("Test character");
         return character;
+    }
+
+    private static void CreateTradeParticipants(
+        out ComposedTestContainer firstInventory,
+        out ComposedTestContainer secondInventory,
+        out ICharacter first,
+        out ICharacter second,
+        out ComposedTestContainer firstOffer,
+        out ComposedTestContainer secondOffer)
+    {
+        firstInventory = new ComposedTestContainer(4);
+        secondInventory = new ComposedTestContainer(4);
+        first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
+        second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        firstOffer = new ComposedTestContainer(StorageType.Normal, 4);
+        secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
     }
 
     private static RewardContainer CreateRewardContainer(ICharacter owner)
