@@ -119,12 +119,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return false;
                 }
 
-                using (var mutation = _mutations.BeginMutation())
+                HashSet<EquipmentSlot> equipmentChanges;
+                using (var mutation = _mutations.BeginDomainMutation())
                 {
                     if (!_storage.TryAdd((int)equipSlot, item, out var changedSlots)) return false;
+                    equipmentChanges = changedSlots.Select(changedSlot => (EquipmentSlot)changedSlot).ToHashSet();
                     mutation.RecordChanges(changedSlots);
                 }
-                item.EquipmentScript.OnEquipped(item, _owner);
+                CompleteStandaloneEquipmentChange(equipmentChanges,
+                    new EquipmentEffect(EquipmentEffectKind.Equipped, item));
                 return true;
             }
 

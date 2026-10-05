@@ -1081,6 +1081,100 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
+    public void EquipItem_NonWeaponReplacementRunsOnEquippedBeforePublication()
+    {
+        using var scenario = new Scenario();
+        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
+        var order = new List<string>();
+        ObserveInteractiveNonWeaponReplacementCompletion(setup, scenario.Owner, order, null, null);
+
+        Assert.IsTrue(setup.Equipment.EquipItem(setup.Incoming));
+
+        Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
+        CollectionAssert.AreEqual(new[] { "equip", "publish" }, order);
+        setup.Current.EquipmentScript.Received(1).UnEquipItem(setup.Current, scenario.Owner, 0);
+    }
+
+    [TestMethod]
+    public void EquipItem_NonWeaponReplacementOnEquippedFailureStillPublishesAndPreservesStorage()
+    {
+        using var scenario = new Scenario();
+        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
+        var failure = new InvalidOperationException("incoming equip failed");
+        var order = new List<string>();
+        ObserveInteractiveNonWeaponReplacementCompletion(setup, scenario.Owner, order, failure, null);
+
+        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
+
+        Assert.AreSame(failure, thrown);
+        Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
+        CollectionAssert.AreEqual(new[] { "equip", "publish" }, order);
+    }
+
+    [TestMethod]
+    public void EquipItem_NonWeaponReplacementPublicationFailureFollowsOnEquipped()
+    {
+        using var scenario = new Scenario();
+        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
+        var failure = new InvalidOperationException("equipment publication failed");
+        var order = new List<string>();
+        ObserveInteractiveNonWeaponReplacementCompletion(setup, scenario.Owner, order, null, failure);
+
+        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
+
+        Assert.AreSame(failure, thrown);
+        Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
+        CollectionAssert.AreEqual(new[] { "equip", "publish" }, order);
+    }
+
+    [TestMethod]
+    public void EquipItem_NonWeaponReplacementAggregatesOnEquippedAndPublicationFailures()
+    {
+        using var scenario = new Scenario();
+        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
+        var equipFailure = new InvalidOperationException("incoming equip failed");
+        var publicationFailure = new InvalidOperationException("equipment publication failed");
+        var order = new List<string>();
+        ObserveInteractiveNonWeaponReplacementCompletion(setup, scenario.Owner, order, equipFailure, publicationFailure);
+
+        var thrown = Assert.ThrowsExactly<AggregateException>(() => setup.Equipment.EquipItem(setup.Incoming));
+
+        Assert.AreSame(equipFailure, thrown.InnerExceptions[0]);
+        Assert.AreSame(publicationFailure, thrown.InnerExceptions[1]);
+        Assert.AreEqual(2, thrown.InnerExceptions.Count);
+        Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
+        CollectionAssert.AreEqual(new[] { "equip", "publish" }, order);
+    }
+
+    private static void ObserveInteractiveNonWeaponReplacementCompletion(
+        (InventoryContainer Inventory, EquipmentContainer Equipment, IEventManager EventManager,
+            IItem Current, IItem Incoming, object MutationLock) setup,
+        ICharacter owner,
+        List<string> order,
+        Exception? equipFailure,
+        Exception? publicationFailure)
+    {
+        setup.Incoming.EquipmentScript.When(script => script.OnEquipped(setup.Incoming, owner)).Do(_ =>
+        {
+            Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
+            Assert.IsFalse(Monitor.IsEntered(setup.MutationLock));
+            order.Add("equip");
+            if (equipFailure is not null) throw equipFailure;
+        });
+        setup.EventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
+        {
+            if (call.Arg<IEvent>() is EquipmentChangedEvent &&
+                ReferenceEquals(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]))
+            {
+                Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
+                Assert.IsFalse(Monitor.IsEntered(setup.MutationLock));
+                order.Add("publish");
+                if (publicationFailure is not null) throw publicationFailure;
+            }
+        });
+    }
+
+    [TestMethod]
     public void EquipmentCompletion_AttemptsEffectsAndPublicationRetainsFlatFailuresAndNeverRetries()
     {
         using var scenario = new Scenario();
@@ -1191,6 +1285,27 @@ public sealed class CharacterItemTransferTests
         Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, current));
         eventManager.ClearReceivedCalls();
         return (equipment, eventManager, current, replacement);
+    }
+
+    private static (InventoryContainer Inventory, EquipmentContainer Equipment, IEventManager EventManager,
+        IItem Current, IItem Incoming, object MutationLock) CreateInteractiveNonWeaponReplacementSetup(Scenario scenario)
+    {
+        var inventory = CreateInventory(scenario, 2);
+        scenario.Owner.Inventory.Returns(inventory);
+        var (equipment, eventManager) = CreateEquipmentScenario(scenario);
+        scenario.Owner.Equipment.Returns(equipment);
+        scenario.DefaultEquipmentDefinition.Slot.Returns(EquipmentSlot.Hat);
+        var current = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        var incoming = scenario.Builder.Create().WithId(102).WithCount(1).Build();
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, current));
+        Assert.IsTrue(inventory.Items.Add(incoming));
+        incoming.EquipmentScript.CanEquipItem(incoming, scenario.Owner).Returns(true);
+        current.EquipmentScript.CanUnEquipItem(current, scenario.Owner).Returns(true);
+        current.EquipmentScript.UnEquipItem(current, scenario.Owner, 0)
+            .Returns(_ => equipment.UnEquipItem(current, 0));
+        eventManager.ClearReceivedCalls();
+        var mutationLock = GetEquipmentBoundary(equipment).Storage.MutationLock;
+        return (inventory, equipment, eventManager, current, incoming, mutationLock);
     }
 
     private static (InventoryContainer Inventory, ShopStockContainer Stock, IMoneyPouchContainer MoneyPouch)

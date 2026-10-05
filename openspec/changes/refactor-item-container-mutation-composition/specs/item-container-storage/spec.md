@@ -47,6 +47,10 @@ Direct equipment restoration, replacement, full removal, and clearing MUST publi
 - **WHEN** an expected equipped item is replaced
 - **THEN** storage contains the replacement before `OnUnequipped` and `OnEquipped`, and publication follows both callback attempts
 
+#### Scenario: Interactive non-weapon equipment replacement callbacks precede publication
+- **WHEN** an incoming item replaces an occupied non-weapon/non-shield equipment slot through the standalone custom unequip path
+- **THEN** the incoming `OnEquipped` callback runs after storage mutation and lock release but before Equipment publication
+
 #### Scenario: Full equipment removal callback precedes publication
 - **WHEN** an equipped item is fully removed
 - **THEN** storage no longer contains it before `OnUnequipped`, and publication follows the callback attempt

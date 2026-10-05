@@ -33,3 +33,22 @@ Rollback restoration MUST require caller-owned mutation-lock access and MUST NOT
 #### Scenario: Rollback restores while transaction owns locks
 - **WHEN** a transaction is disposed without commit
 - **THEN** it restores each snapshot while holding the participant locks, attempts every restore, and publishes nothing
+
+### Requirement: Equipment publishes only after lifecycle effects
+Direct equipment restoration, replacement, full removal, and clearing MUST publish committed equipment state only after all required equipment lifecycle effects have been attempted. Storage MUST commit before lifecycle callbacks run. Clearing MUST remove all equipped items before callbacks and attempt `OnUnequipped` for every previously equipped item. Post-commit lifecycle or publication failures MUST NOT roll back committed storage. Every post-commit action MUST be attempted; one failure MUST preserve and rethrow the original exception, while multiple failures MUST be aggregated.
+
+#### Scenario: Equipment replacement callbacks precede publication
+- **WHEN** an expected equipped item is replaced
+- **THEN** storage contains the replacement before `OnUnequipped` and `OnEquipped`, and publication follows both callback attempts
+
+#### Scenario: Interactive non-weapon equipment replacement callbacks precede publication
+- **WHEN** an incoming item replaces an occupied non-weapon/non-shield equipment slot through the standalone custom unequip path
+- **THEN** the incoming `OnEquipped` callback runs after storage mutation and lock release but before Equipment publication
+
+#### Scenario: Full equipment removal callback precedes publication
+- **WHEN** an equipped item is fully removed
+- **THEN** storage no longer contains it before `OnUnequipped`, and publication follows the callback attempt
+
+#### Scenario: Equipment clear exhausts callbacks after storage clear
+- **WHEN** equipment containing one or more items is cleared
+- **THEN** storage is empty before callbacks, every prior item's `OnUnequipped` is attempted, and publication follows all callback attempts
