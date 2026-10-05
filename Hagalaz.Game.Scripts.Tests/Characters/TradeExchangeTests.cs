@@ -1010,7 +1010,8 @@ public sealed class TradeExchangeTests
             _overflowInventory = overflowInventory;
             typeof(ItemContainerMutationBoundary).GetField("_completion", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .SetValue(((IItemTransactionSource)Container).Boundaries[0], this);
-            Container.ReplaceState([new TestItem(995, 0, stackable: true)]);
+            using (var mutation = Container.BeginMutation())
+                Container.ReplaceState([new TestItem(995, 0, stackable: true)]);
         }
         private void RecordUpdate()
         {

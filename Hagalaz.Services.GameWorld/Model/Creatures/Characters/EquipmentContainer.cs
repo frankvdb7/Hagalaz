@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.ExceptionServices;
-using System.Threading;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
@@ -120,18 +119,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return false;
                 }
 
-                HashSet<int> changedSlots;
-                bool added;
-                var deferred = false;
-                lock (_storage.MutationLock)
+                using (var mutation = _mutations.BeginMutation())
                 {
-                    added = _storage.TryAdd((int)equipSlot, item, out changedSlots);
-                    if (added) deferred = _mutations.TryDeferChanges(changedSlots);
-                }
-
-                if (added && !deferred)
-                {
-                    PublishCommittedEquipmentChanges(changedSlots.Select(changedSlot => (EquipmentSlot)changedSlot).ToHashSet());
+                    if (!_storage.TryAdd((int)equipSlot, item, out var changedSlots)) return false;
+                    mutation.RecordChanges(changedSlots);
                 }
                 item.EquipmentScript.OnEquipped(item, _owner);
                 return true;
@@ -182,20 +173,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
                 if (!inventoryFull)
                 {
-                    HashSet<int> incomingSlots;
-                    lock (_storage.MutationLock)
+                    using (var mutation = _mutations.BeginMutation())
                     {
-                        if (!_storage.TryAdd((int)equipSlot, item, out incomingSlots)) return false;
+                        if (!_storage.TryAdd((int)equipSlot, item, out var incomingSlots)) return false;
                         var effects = new List<EquipmentEffect>();
                         if (needsWeaponUnequip) effects.Add(new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedWeapon!));
                         if (needsShieldUnequip) effects.Add(new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedShield!));
                         if (needsWeaponUnequip) effects.Add(new EquipmentEffect(EquipmentEffectKind.WeaponProfile, equippedWeapon!, item));
                         effects.Add(new EquipmentEffect(EquipmentEffectKind.Equipped, item));
-                        if (!TryDeferEquipmentChange(
-                                incomingSlots.Select(changedSlot => (EquipmentSlot)changedSlot).ToHashSet(), effects.ToArray()))
-                        {
-                            throw new InvalidOperationException("Equipment storage lost its transaction scope.");
-                        }
+                        DeferEquipmentEffects(replacementTransaction, effects.ToArray());
+                        mutation.RecordChanges(incomingSlots);
                     }
 
                     replacementTransaction.Commit();
@@ -229,17 +216,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool TryRestoreEquippedItem(EquipmentSlot slot, IItem item)
         {
             ArgumentNullException.ThrowIfNull(item);
-            HashSet<int> slots;
             var equipmentSlots = new HashSet<EquipmentSlot>();
-            bool deferred;
-            lock (_storage.MutationLock)
+            ItemContainerTransaction? transaction;
+            using (var mutation = _mutations.BeginDomainMutation())
             {
-                if (!_storage.TryAdd((int)slot, item, out slots)) return false;
+                if (!_storage.TryAdd((int)slot, item, out var slots)) return false;
                 foreach (var changedSlot in slots) equipmentSlots.Add((EquipmentSlot)changedSlot);
-                deferred = TryDeferEquipmentChange(equipmentSlots);
+                transaction = mutation.Transaction;
+                mutation.RecordChanges(slots);
             }
 
-            if (!deferred) CompleteStandaloneEquipmentChange(equipmentSlots);
+            if (transaction == null) CompleteStandaloneEquipmentChange(equipmentSlots);
             return true;
         }
 
@@ -270,18 +257,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 throw new ArgumentOutOfRangeException(nameof(slot));
             }
 
-            bool deferred;
             var changedSlots = new HashSet<EquipmentSlot> { slot };
-            lock (_storage.MutationLock)
+            ItemContainerTransaction? transaction;
+            using (var mutation = _mutations.BeginDomainMutation())
             {
                 if (!ReferenceEquals(_storage[itemSlot], expectedItem)) return false;
                 _storage.Replace(itemSlot, replacement);
-                deferred = TryDeferEquipmentChange(changedSlots,
-                    new EquipmentEffect(EquipmentEffectKind.Unequipped, expectedItem),
-                    new EquipmentEffect(EquipmentEffectKind.Equipped, replacement));
+                transaction = mutation.Transaction;
+                if (transaction is { } activeTransaction)
+                    DeferEquipmentEffects(activeTransaction,
+                        new EquipmentEffect(EquipmentEffectKind.Unequipped, expectedItem),
+                        new EquipmentEffect(EquipmentEffectKind.Equipped, replacement));
+                mutation.RecordChanges(changedSlots.Select(changedSlot => (int)changedSlot).ToHashSet());
             }
 
-            if (!deferred)
+            if (transaction == null)
                 CompleteStandaloneEquipmentChange(changedSlots,
                     new EquipmentEffect(EquipmentEffectKind.Unequipped, expectedItem),
                     new EquipmentEffect(EquipmentEffectKind.Equipped, replacement));
@@ -299,8 +289,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             int removed;
             HashSet<int> changedSlots;
             bool fullyRemoved;
-            var deferred = false;
-            lock (_storage.MutationLock)
+            ItemContainerTransaction? transaction;
+            using (var mutation = _mutations.BeginDomainMutation())
             {
                 if ((uint)preferredSlotIndex < (uint)_storage.Capacity)
                 {
@@ -310,13 +300,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 removed = _storage.Remove(item, preferredSlotIndex, out changedSlots);
                 fullyRemoved = equippedItem != null &&
                                !ReferenceEquals(equippedItem, _storage[preferredSlotIndex]);
+                transaction = mutation.Transaction;
                 if (removed > 0)
                 {
                     var changedEquipmentSlots = changedSlots.Select(changedSlot => (EquipmentSlot)changedSlot).ToHashSet();
-                    deferred = fullyRemoved
-                        ? TryDeferEquipmentChange(changedEquipmentSlots,
-                            new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem!))
-                        : _mutations.TryDeferChanges(changedSlots);
+                    if (fullyRemoved && transaction is { } activeTransaction)
+                        DeferEquipmentEffects(activeTransaction, new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem!));
+                    mutation.RecordChanges(changedSlots);
                 }
             }
             if (removed <= 0)
@@ -327,11 +317,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var equipmentChanges = changedSlots.Select(changedSlot => (EquipmentSlot)changedSlot).ToHashSet();
             if (!fullyRemoved)
             {
-                if (!deferred) PublishCommittedEquipmentChanges(equipmentChanges);
+                if (transaction == null) PublishCommittedEquipmentChanges(equipmentChanges);
                 return removed;
             }
 
-            if (!deferred)
+            if (transaction == null)
                 CompleteStandaloneEquipmentChange(equipmentChanges,
                     new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem!));
             return removed;
@@ -341,23 +331,26 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             IItem[] equippedItems;
             bool cleared;
-            var deferred = false;
+            ItemContainerTransaction? transaction;
             EquipmentEffect[] effects = [];
-            lock (_storage.MutationLock)
+            using (var mutation = _mutations.BeginDomainMutation())
             {
                 equippedItems = _storage.ToArray().Where(item => item != null).Cast<IItem>().ToArray();
                 cleared = _storage.Clear();
+                transaction = mutation.Transaction;
                 if (cleared)
                 {
                     effects = new EquipmentEffect[equippedItems.Length];
                     for (var index = 0; index < equippedItems.Length; index++)
                         effects[index] = new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItems[index]);
-                    deferred = TryDeferEquipmentChange(null, effects);
+                    if (transaction is { } activeTransaction)
+                        DeferEquipmentEffects(activeTransaction, effects);
+                    mutation.RecordChanges(null);
                 }
             }
             if (!cleared) return;
 
-            if (!deferred) CompleteStandaloneEquipmentChange(null, effects);
+            if (transaction == null) CompleteStandaloneEquipmentChange(null, effects);
         }
 
         private void CompleteStandaloneEquipmentChange(HashSet<EquipmentSlot>? slots,
@@ -367,23 +360,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             try { PublishCommittedEquipmentChanges(slots); }
             catch (Exception exception) { (failures ??= []).Add(exception); }
             ThrowEquipmentFailures(failures);
-        }
-
-        private bool TryDeferEquipmentChange(HashSet<EquipmentSlot>? slots, params EquipmentEffect[] effects)
-        {
-            if (!Monitor.IsEntered(_storage.MutationLock))
-            {
-                throw new InvalidOperationException(
-                    "Equipment changes must be attributed while holding the storage mutation lock.");
-            }
-
-            if (_storage.Transaction is not { } transaction) return false;
-
-            transaction.EnsureActive();
-            DeferEquipmentEffects(transaction, effects);
-            if (!_mutations.TryDeferChanges(slots?.Select(slot => (int)slot).ToHashSet()))
-                throw new InvalidOperationException("Equipment storage lost its transaction scope.");
-            return true;
         }
 
         // Equipment owns these small lifecycle batches; the transaction cannot schedule arbitrary work.
@@ -504,7 +480,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public void Hydrate(IReadOnlyList<HydratedItemDto> equipment)
         {
             var items = equipment.Select(entry => entry.ToStorageEntry(_itemBuilder)).ToArray();
-            _storage.RestoreItems(items);
+            using (var mutation = _mutations.BeginMutation())
+                _storage.RestoreItems(items);
             _owner.Statistics.CalculateBonuses();
             foreach (var (_, item) in items) item.EquipmentScript.OnEquipped(item, _owner);
         }

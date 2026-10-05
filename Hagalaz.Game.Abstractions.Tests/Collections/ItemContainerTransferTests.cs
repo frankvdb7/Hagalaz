@@ -579,17 +579,24 @@ public sealed class ItemContainerTransferTests
     public void StandaloneMutation_RemainsStandaloneWhenTransactionBindsBeforePublication()
     {
         var publications = 0;
-        var container = new ItemContainer(StorageType.Normal, 2, _ => Interlocked.Increment(ref publications));
+        using var publicationStarted = new ManualResetEventSlim();
+        using var allowPublication = new ManualResetEventSlim();
+        var container = new ItemContainer(StorageType.Normal, 2, _ =>
+        {
+            Interlocked.Increment(ref publications);
+            publicationStarted.Set();
+            Assert.IsTrue(allowPublication.Wait(TimeSpan.FromSeconds(5)));
+        });
         var boundary = Boundary(container);
         var item = new TestItem(602, 1);
-        HashSet<int> changedSlots = [];
-        var publishImmediately = false;
-        container.ExecuteUnderMutationLock(() =>
+        Exception? mutationFailure = null;
+        var mutationThread = new Thread(() =>
         {
-            Assert.IsTrue(boundary.Storage.TryAdd(item, out changedSlots));
-            publishImmediately = !boundary.TryDeferChanges(changedSlots);
-        });
-        Assert.IsTrue(publishImmediately);
+            try { Assert.IsTrue(container.Add(item)); }
+            catch (Exception exception) { mutationFailure = exception; }
+        }) { IsBackground = true };
+        mutationThread.Start();
+        Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
 
         using var transactionBound = new ManualResetEventSlim();
         using var allowRollback = new ManualResetEventSlim();
@@ -608,11 +615,12 @@ public sealed class ItemContainerTransferTests
 
         Assert.IsTrue(transactionBound.Wait(TimeSpan.FromSeconds(5)));
         Assert.IsNotNull(boundary.Storage.Transaction);
-        if (publishImmediately) boundary.PublishCommittedChanges(changedSlots);
-        Assert.AreEqual(1, publications);
         allowRollback.Set();
 
         Assert.IsTrue(transactionThread.Join(TimeSpan.FromSeconds(5)));
+        allowPublication.Set();
+        Assert.IsTrue(mutationThread.Join(TimeSpan.FromSeconds(5)));
+        if (mutationFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(mutationFailure).Throw();
         if (transactionFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transactionFailure).Throw();
         Assert.AreSame(item, container[0]);
         Assert.AreEqual(1, publications);
@@ -620,48 +628,13 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
-    public void TryDeferChanges_StandaloneReturnsFalseWithoutPublishing()
+    public void ContainerMutation_InsideTransactionDefersPublicationUntilCommit()
     {
         var publications = 0;
         var container = new ItemContainer(StorageType.Normal, 2, _ => publications++);
-        var boundary = Boundary(container);
-        var item = new TestItem(603, 1);
-        HashSet<int> changedSlots = [];
-
-        lock (boundary.Storage.MutationLock)
-        {
-            Assert.IsTrue(boundary.Storage.TryAdd(item, out changedSlots));
-            Assert.IsFalse(boundary.TryDeferChanges(changedSlots));
-            Assert.AreEqual(0, publications);
-        }
-
-        boundary.PublishCommittedChanges(changedSlots);
-        Assert.AreEqual(1, publications);
-    }
-
-    [TestMethod]
-    public void TryDeferChanges_RequiresMutationLock()
-    {
-        var boundary = Boundary(new ItemContainer(StorageType.Normal, 2));
-
-        Assert.ThrowsExactly<InvalidOperationException>(() => boundary.TryDeferChanges(null));
-    }
-
-    [TestMethod]
-    public void TryDeferChanges_ActiveTransactionDefersPublicationUntilCommit()
-    {
-        var publications = 0;
-        var container = new ItemContainer(StorageType.Normal, 2, _ => publications++);
-        var boundary = Boundary(container);
-        var item = new TestItem(604, 1);
-        HashSet<int> changedSlots = [];
         using var transaction = ItemContainerTransaction.Begin(container);
 
-        lock (boundary.Storage.MutationLock)
-        {
-            Assert.IsTrue(boundary.Storage.TryAdd(item, out changedSlots));
-            Assert.IsTrue(boundary.TryDeferChanges(changedSlots));
-        }
+        Assert.IsTrue(container.Add(new TestItem(604, 1)));
 
         Assert.AreEqual(0, publications);
         transaction.Commit();
@@ -669,22 +642,18 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
-    public void TryDeferChanges_RejectsCommittedTransactionDuringPublication()
+    public void ContainerMutation_RejectsCommittedTransactionDuringPublication()
     {
-        ItemContainerMutationBoundary? boundary = null;
         var publications = 0;
-        var container = new ItemContainer(StorageType.Normal, 2, _ =>
+        ItemContainer? container = null;
+        container = new ItemContainer(StorageType.Normal, 2, _ =>
         {
             publications++;
-            lock (boundary!.Storage.MutationLock)
-            {
-                Assert.ThrowsExactly<InvalidOperationException>(() => boundary.TryDeferChanges(null));
-            }
+            Assert.ThrowsExactly<InvalidOperationException>(() => container!.Add(new TestItem(605, 1)));
         });
-        boundary = Boundary(container);
-        using var transaction = ItemContainerTransaction.Begin(container);
+        using var transaction = ItemContainerTransaction.Begin(container!);
 
-        Assert.IsTrue(container.Add(new TestItem(605, 1)));
+        Assert.IsTrue(container!.Add(new TestItem(605, 1)));
         transaction.Commit();
 
         Assert.AreEqual(1, publications);
@@ -1203,7 +1172,7 @@ public sealed class ItemContainerTransferTests
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         Assert.IsNull(typeof(ItemContainer).GetProperty("Storage", flags));
-        foreach (var name in new[] { "RestoreItems", "SnapshotItems", "ReplaceState", "ExecuteUnderMutationLock" })
+        foreach (var name in new[] { "RestoreItems", "SnapshotItems", "ReplaceState", "BeginMutation" })
         {
             var method = typeof(ItemContainer).GetMethod(name, flags);
             Assert.IsNotNull(method, name);

@@ -153,8 +153,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (!sourceBoundary.Storage.TryRemoveExact(coins, count, preferredSourceSlot,
                     out var changedSlots)) return false;
-            if (!sourceBoundary.TryDeferChanges(changedSlots))
-                throw new InvalidOperationException("Money pouch source storage lost its transaction scope.");
+            transaction.RecordChanges(sourceBoundary.Storage, changedSlots);
             return ApplyExactAdd(transaction, pouchCount, inventoryCount);
         }
 
@@ -373,7 +372,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 : moneyPouch.Select(entry => (entry.SlotId,
                     _itemBuilder.Create().WithId(995).WithCount(entry.Count)
                         .WithExtraData(entry.ExtraData ?? string.Empty).Build())).ToArray();
-            _storage.RestoreItems(items, allowZeroCount: true);
+            using (var mutation = _storageMutations.BeginMutation())
+                _storage.RestoreItems(items, allowZeroCount: true);
         }
 
         public IReadOnlyList<HydratedItemDto> Dehydrate() => new[] { _storage[0]! }

@@ -80,8 +80,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
         public void SetItems(IItem[] items, bool update)
         {
+            using var mutation = _items.BeginMutation();
             _items.ReplaceState(items);
-            if (update) OnUpdate();
+            if (update) mutation.RecordChanges(null);
         }
 
         /// <summary>
@@ -270,8 +271,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         {
             var changedSlots = new HashSet<int>();
             var shouldSort = false;
-            var publishImmediately = false;
-            _items.ExecuteUnderMutationLock(() =>
+            using (var mutation = _items.BeginMutation())
             {
                 var items = _items.SnapshotItems();
                 // This uses the full capacity, because we don't know if items were added.
@@ -327,13 +327,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 if (changedSlots.Count > 0)
                 {
                     _items.ReplaceState(items);
-                    publishImmediately = !_items.TryDeferChanges(shouldSort ? null : changedSlots);
+                    mutation.RecordChanges(shouldSort ? null : changedSlots);
                 }
-            });
-
-            if (publishImmediately)
-            {
-                _items.PublishCommittedChanges(shouldSort ? null : changedSlots);
             }
         }
     }
