@@ -270,7 +270,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         {
             var changedSlots = new HashSet<int>();
             var shouldSort = false;
-            var transaction = _items.ExecuteUnderMutationLock(() =>
+            var publishImmediately = false;
+            _items.ExecuteUnderMutationLock(() =>
             {
                 var items = _items.SnapshotItems();
                 // This uses the full capacity, because we don't know if items were added.
@@ -326,12 +327,13 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 if (changedSlots.Count > 0)
                 {
                     _items.ReplaceState(items);
+                    publishImmediately = !_items.TryDeferChanges(shouldSort ? null : changedSlots);
                 }
             });
 
-            if (changedSlots.Count > 0)
+            if (publishImmediately)
             {
-                _items.NotifyChanges(transaction, shouldSort ? null : changedSlots);
+                _items.PublishCommittedChanges(shouldSort ? null : changedSlots);
             }
         }
     }

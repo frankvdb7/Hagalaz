@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Hagalaz.Game.Abstractions.Model.Items;
 
 namespace Hagalaz.Game.Abstractions.Collections;
@@ -43,20 +44,29 @@ internal sealed class ItemContainerMutationBoundary
             throw new InvalidOperationException("Both storage boundaries must belong to the same active transaction.");
         if (!_storage.TryTransferTo(destination._storage, item, count,
                 preferredSourceSlot, destinationSlot, destinationItem, out var sourceSlots, out var destinationSlots)) return false;
-        NotifyChanges(transaction, sourceSlots);
-        destination.NotifyChanges(transaction, destinationSlots);
+        if (!TryDeferChanges(sourceSlots))
+            throw new InvalidOperationException("Transactional source storage lost its transaction scope.");
+        if (!destination.TryDeferChanges(destinationSlots))
+            throw new InvalidOperationException("Transactional destination storage lost its transaction scope.");
         return true;
     }
 
-    internal void NotifyChanges(ItemContainerTransaction? transaction, HashSet<int>? slots)
+    internal bool TryDeferChanges(HashSet<int>? slots)
     {
-        if (transaction != null)
+        if (!Monitor.IsEntered(_storage.MutationLock))
         {
-            transaction.RecordChanges(_storage, slots);
-            return;
+            throw new InvalidOperationException(
+                "Mutation changes must be attributed while holding the storage mutation lock.");
         }
 
-        PublishCommittedChanges(slots);
+        if (_storage.Transaction is not { } transaction)
+        {
+            return false;
+        }
+
+        transaction.EnsureActive();
+        transaction.RecordChanges(_storage, slots);
+        return true;
     }
 
     internal void PublishCommittedChanges(HashSet<int>? slots) => _publishChanges?.Invoke(slots);

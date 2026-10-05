@@ -153,7 +153,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (!sourceBoundary.Storage.TryRemoveExact(coins, count, preferredSourceSlot,
                     out var changedSlots)) return false;
-            sourceBoundary.NotifyChanges(transaction, changedSlots);
+            if (!sourceBoundary.TryDeferChanges(changedSlots))
+                throw new InvalidOperationException("Money pouch source storage lost its transaction scope.");
             return ApplyExactAdd(transaction, pouchCount, inventoryCount);
         }
 

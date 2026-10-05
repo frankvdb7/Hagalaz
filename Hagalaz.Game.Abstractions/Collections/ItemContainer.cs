@@ -40,29 +40,29 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     public bool Add(IItem item)
     {
-        ItemContainerTransaction? transaction;
         HashSet<int> changedSlots;
+        bool deferred;
         lock (_storage.MutationLock)
         {
-            transaction = _storage.CaptureMutationTransaction();
             if (!_storage.TryAdd(item, out changedSlots)) return false;
+            deferred = _mutations.TryDeferChanges(changedSlots);
         }
 
-        PublishChanges(transaction, changedSlots);
+        if (!deferred) _mutations.PublishCommittedChanges(changedSlots);
         return true;
     }
 
     public bool Add(int slot, IItem item)
     {
-        ItemContainerTransaction? transaction;
         HashSet<int> changedSlots;
+        bool deferred;
         lock (_storage.MutationLock)
         {
-            transaction = _storage.CaptureMutationTransaction();
             if (!_storage.TryAdd(slot, item, out changedSlots)) return false;
+            deferred = _mutations.TryDeferChanges(changedSlots);
         }
 
-        PublishChanges(transaction, changedSlots);
+        if (!deferred) _mutations.PublishCommittedChanges(changedSlots);
         return true;
     }
 
@@ -70,30 +70,30 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     public int Remove(IItem item, int preferredSlot = -1, bool update = true)
     {
-        ItemContainerTransaction? transaction;
         HashSet<int> changedSlots;
+        var deferred = false;
         int removed;
         lock (_storage.MutationLock)
         {
-            transaction = _storage.CaptureMutationTransaction();
             removed = _storage.Remove(item, preferredSlot, out changedSlots);
+            if (removed > 0 && update) deferred = _mutations.TryDeferChanges(changedSlots);
         }
 
-        if (removed > 0 && update) PublishChanges(transaction, changedSlots);
+        if (removed > 0 && update && !deferred) _mutations.PublishCommittedChanges(changedSlots);
         return removed;
     }
 
     public bool TryRemoveExact(IItem item, int preferredSlot = -1)
     {
-        ItemContainerTransaction? transaction;
         HashSet<int> changedSlots;
+        bool deferred;
         lock (_storage.MutationLock)
         {
-            transaction = _storage.CaptureMutationTransaction();
             if (!_storage.TryRemoveExact(item, preferredSlot, out changedSlots)) return false;
+            deferred = _mutations.TryDeferChanges(changedSlots);
         }
 
-        PublishChanges(transaction, changedSlots);
+        if (!deferred) _mutations.PublishCommittedChanges(changedSlots);
         return true;
     }
 
@@ -109,53 +109,55 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     public void Replace(int slot, IItem item)
     {
-        ItemContainerTransaction? transaction;
+        var changedSlots = new HashSet<int> { slot };
+        bool deferred;
         lock (_storage.MutationLock)
         {
-            transaction = _storage.CaptureMutationTransaction();
             _storage.Replace(slot, item);
+            deferred = _mutations.TryDeferChanges(changedSlots);
         }
 
-        PublishChanges(transaction, [slot]);
+        if (!deferred) _mutations.PublishCommittedChanges(changedSlots);
     }
 
     public void Swap(int fromSlot, int toSlot)
     {
-        ItemContainerTransaction? transaction;
         bool changed;
+        var deferred = false;
+        var changedSlots = new HashSet<int> { fromSlot, toSlot };
         lock (_storage.MutationLock)
         {
-            transaction = _storage.CaptureMutationTransaction();
             changed = _storage.Swap(fromSlot, toSlot);
+            if (changed) deferred = _mutations.TryDeferChanges(changedSlots);
         }
 
-        if (changed) PublishChanges(transaction, [fromSlot, toSlot]);
+        if (changed && !deferred) _mutations.PublishCommittedChanges(changedSlots);
     }
 
     public void Move(int fromSlot, int toSlot)
     {
-        ItemContainerTransaction? transaction;
         bool changed;
+        var deferred = false;
         lock (_storage.MutationLock)
         {
-            transaction = _storage.CaptureMutationTransaction();
             changed = _storage.Move(fromSlot, toSlot);
+            if (changed) deferred = _mutations.TryDeferChanges(null);
         }
 
-        if (changed) PublishChanges(transaction, null);
+        if (changed && !deferred) _mutations.PublishCommittedChanges(null);
     }
 
     public bool AddRange(IEnumerable<IItem?> items)
     {
-        ItemContainerTransaction? transaction;
         HashSet<int> changedSlots;
+        var deferred = false;
         lock (_storage.MutationLock)
         {
-            transaction = _storage.CaptureMutationTransaction();
             if (!_storage.TryAddRange(items, out changedSlots)) return false;
+            if (changedSlots.Count > 0) deferred = _mutations.TryDeferChanges(changedSlots);
         }
 
-        if (changedSlots.Count > 0) PublishChanges(transaction, changedSlots);
+        if (changedSlots.Count > 0 && !deferred) _mutations.PublishCommittedChanges(changedSlots);
         return true;
     }
 
@@ -166,17 +168,20 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     internal void ReplaceState(IItem?[] items) => _storage.ReplaceState(items);
 
-    internal ItemContainerTransaction? ExecuteUnderMutationLock(Action action)
+    internal void ExecuteUnderMutationLock(Action action)
     {
         ArgumentNullException.ThrowIfNull(action);
 
         lock (_storage.MutationLock)
         {
-            var transaction = _storage.CaptureMutationTransaction();
+            _storage.EnsureMutationAccess();
             action();
-            return transaction;
         }
     }
+
+    internal bool TryDeferChanges(HashSet<int>? changedSlots) => _mutations.TryDeferChanges(changedSlots);
+
+    internal void PublishCommittedChanges(HashSet<int>? changedSlots) => _mutations.PublishCommittedChanges(changedSlots);
 
     public bool Contains(int id, int count) => _storage.Contains(id, count);
     public bool Contains(int id) => _storage.Contains(id);
@@ -186,14 +191,14 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     public void Sort()
     {
-        ItemContainerTransaction? transaction;
+        bool deferred;
         lock (_storage.MutationLock)
         {
-            transaction = _storage.CaptureMutationTransaction();
             _storage.Sort();
+            deferred = _mutations.TryDeferChanges(null);
         }
 
-        PublishChanges(transaction, null);
+        if (!deferred) _mutations.PublishCommittedChanges(null);
     }
 
     public int GetSlotByItem(IItem item, bool ignoreCount = true) => _storage.GetSlotByItem(item, ignoreCount);
@@ -202,20 +207,14 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     public void Clear(bool update)
     {
-        ItemContainerTransaction? transaction;
         bool changed;
+        var deferred = false;
         lock (_storage.MutationLock)
         {
-            transaction = _storage.CaptureMutationTransaction();
             changed = _storage.Clear();
+            if (changed && update) deferred = _mutations.TryDeferChanges(null);
         }
 
-        if (changed && update) PublishChanges(transaction, null);
+        if (changed && update && !deferred) _mutations.PublishCommittedChanges(null);
     }
-
-    internal void NotifyChanges(ItemContainerTransaction? transaction, HashSet<int>? changedSlots) =>
-        _mutations.NotifyChanges(transaction, changedSlots);
-
-    private void PublishChanges(ItemContainerTransaction? transaction, HashSet<int>? changedSlots) =>
-        _mutations.NotifyChanges(transaction, changedSlots);
 }

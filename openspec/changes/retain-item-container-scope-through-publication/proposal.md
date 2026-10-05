@@ -6,7 +6,7 @@
 
 ## Scope
 
-Keep the existing transaction API, participants, live storage, lock ordering, and domain-owned completion facts. Separate mutation-lock release from transaction-scope release. Retain bindings through committed completion, publication, and pending-fact cleanup; wait for foreign overlapping `Begin(...)` calls on the existing storage monitor; reject same-thread reentrant overlap. Capture mutation authorization and transaction ownership under each storage lock and carry that owner through publication. Make committed teardown interruption-safe without clearing bindings outside their locks. Require terminal trade staging to use exact operations that prove all relevant storage participates in the caller-owned scope.
+Keep the existing transaction API, participants, live storage, lock ordering, and domain-owned completion facts. Separate mutation-lock release from transaction-scope release. Retain bindings through committed completion, publication, and pending-fact cleanup; wait for foreign overlapping `Begin(...)` calls on the existing storage monitor; reject same-thread reentrant overlap. Validate mutation access and attribute changes to the resource-bound transaction under each storage lock; publish standalone changes only after unlocking. Make committed teardown interruption-safe without clearing bindings outside their locks. Require terminal trade staging to use exact operations that prove all relevant storage participates in the caller-owned scope.
 
 ## Acceptance Criteria
 
@@ -15,7 +15,7 @@ Keep the existing transaction API, participants, live storage, lock ordering, an
 - Same-thread overlapping `Begin(...)` and ordinary mutation during committed completion are rejected.
 - Scope bindings are cleared together under ordered locks, waiters are pulsed, failures never roll back committed storage, and publication is never retried.
 - Rollback restores snapshots before clearing bindings and releasing locks.
-- Mutation authorization and publication ownership are captured atomically under the storage mutation lock; later scopes cannot claim earlier standalone publication.
+- Storage validates mutation access under its lock, and the mutation boundary attributes changes to the resource-bound transaction under that same lock. Standalone publication happens only after unlocking; ordinary operations never carry transaction identity or use ambient transaction accessors.
 - Committed teardown never clears a binding without the corresponding lock, retries `ThreadInterruptedException`, and propagates it only after all bindings and locks are cleaned up.
 - MoneyPouch coin transfer and terminal TradeExchange movement require the complete caller-owned transaction and cannot open nested scopes through standalone-capable additions or clears.
 - Rollback metadata guarantees remain limited to slot topology, item references, counts, and storage revision; arbitrary `ExtraData` is not deep-copied.

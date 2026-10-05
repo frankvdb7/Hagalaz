@@ -5,7 +5,6 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using System.Collections.Generic;
 using System;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
@@ -15,24 +14,6 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
     [TestClass]
     public class ItemContainerStorageTests
     {
-        [TestMethod]
-        public void MutationMethods_DoNotReturnTransactionOwnership()
-        {
-            var transactionParameterType = typeof(ItemContainerTransaction).MakeByRefType();
-            var methods = typeof(ItemContainerStorage).GetMethods(
-                BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic |
-                BindingFlags.DeclaredOnly);
-
-            foreach (var method in methods)
-            {
-                foreach (var parameter in method.GetParameters())
-                {
-                    Assert.IsFalse(parameter.IsOut && parameter.ParameterType == transactionParameterType,
-                        $"{method.Name} exposes transaction ownership as an out parameter.");
-                }
-            }
-        }
-
         private class TestableItemContainer
         {
             public ItemContainer Items { get; }

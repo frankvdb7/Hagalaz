@@ -379,12 +379,20 @@ Commit MUST perform automatic completion after unlock without a separate caller 
 - **WHEN** committed completion attempts same-thread Begin or mutation against storage still owned by the committing scope
 - **THEN** it throws `InvalidOperationException` and cannot consume or alter the committing scope's storage
 
-### Requirement: Mutation authorization and publication attribution are captured under lock
-Every storage mutation MUST validate transaction access while holding that storage's mutation lock. Storage mutation methods MUST NOT expose transaction ownership as a mutation result. When publication ownership is needed, `ItemContainer` or the owning domain aggregate MUST capture the current transaction owner while holding the same lock, perform the storage mutation, release the lock, and pass that captured owner explicitly to notification. Publication MUST NOT re-read the storage's current transaction binding after mutation. A later transaction MUST NOT acquire ownership of an earlier standalone mutation's publication. Standalone publication remains outside a retained transaction scope; this invariant guarantees attribution, not scope isolation for standalone callbacks.
+### Requirement: Mutation authorization and attribution are resource-bound
+Every storage mutation MUST validate transaction access while holding that storage's mutation lock. Transaction attribution MUST occur while the same mutation lock is still held. The mutation boundary MUST inspect the storage's bound transaction under that lock. If an active transaction is bound, it MUST record the mutation directly into that transaction before the lock is released. If no transaction is bound, the mutation is standalone and observable publication MUST occur only after the lock is released. Ordinary item-domain operations MUST NOT transport transaction identity through mutation results, local publication parameters, ambient context, or transaction-accessor services. Publication MUST NOT re-read storage transaction ownership after the attribution decision has been made. Item-container transaction participation is resource-bound to enlisted storage; implementations MUST NOT use ambient transaction accessors such as `AsyncLocal`, `ThreadLocal`, `ThreadStatic` current-transaction state, or implicit current-scope APIs for ordinary mutation attribution.
 
-#### Scenario: Standalone publication cannot be attributed to a later scope
-- **WHEN** the owning aggregate captures no transaction for a standalone mutation and another transaction binds the storage before its publisher runs
-- **THEN** the original mutation publishes standalone and the later transaction neither records nor rolls back that mutation
+#### Scenario: Standalone mutation publishes after unlocking
+- **WHEN** a mutation boundary attributes a change while no transaction is bound
+- **THEN** it returns that the change was not deferred and the aggregate publishes only after releasing the storage lock
+
+#### Scenario: Transaction-bound mutation is recorded under lock
+- **WHEN** a mutation boundary attributes a change while an active transaction is bound
+- **THEN** it records the change before the lock is released and the aggregate does not publish standalone
+
+#### Scenario: Transaction attribution uses no ambient scope
+- **WHEN** an ordinary item-container mutation runs
+- **THEN** participation is determined from the storage binding under its lock without ambient state or transaction identity passed through the operation
 
 ### Requirement: Read-only item access is an explicit capability
 `IReadOnlyItemContainer` MUST expose indexed/enumerable item reads and item-specific queries without mutation or transaction participation. `IItemContainer` MUST inherit this capability and retain mutation members. `IEquipmentContainer` MUST compose an `IReadOnlyItemContainer Items` view and retain its equipment-slot indexer and semantic operations.

@@ -31,17 +31,15 @@ namespace Hagalaz.Game.Abstractions.Collections
 
         internal volatile ItemContainerTransaction? Transaction;
 
-        internal ItemContainerTransaction? CaptureMutationTransaction()
+        internal void EnsureMutationAccess()
         {
             if (!Monitor.IsEntered(_mutationLock))
             {
                 throw new InvalidOperationException(
-                    "Mutation transaction access must be captured while holding the storage mutation lock.");
+                    "Mutation access must be validated while holding the storage mutation lock.");
             }
 
-            var transaction = Transaction;
-            transaction?.EnsureActive();
-            return transaction;
+            Transaction?.EnsureActive();
         }
 
         /// <summary>The current mutation revision, captured by transactions while holding this storage's lock.</summary>
@@ -424,7 +422,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             var removals = new List<(int Slot, int Count, IItem Item)>();
             lock (_mutationLock)
             {
-                CaptureMutationTransaction();
+                EnsureMutationAccess();
                 if (count <= 0)
                 {
                     return false;
@@ -582,7 +580,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             changedSlots = [];
             lock (_mutationLock)
             {
-                CaptureMutationTransaction();
+                EnsureMutationAccess();
                 if (slot < 0 || slot >= Capacity)
                 {
                     return false;
@@ -610,7 +608,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             changedSlots = [];
             lock (_mutationLock)
             {
-                CaptureMutationTransaction();
+                EnsureMutationAccess();
                 var stacked = false;
                 for (var slot = 0; slot < Items.Length; slot++)
                 {
@@ -672,7 +670,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             slotsToUpdate = [];
             lock (_mutationLock)
             {
-                CaptureMutationTransaction();
+                EnsureMutationAccess();
                 var simulatedItems = Items.Select(item => item?.Clone(item.Count)).ToArray();
                 var simulatedIncoming = incomingItems.Select(item => item?.Clone(item.Count)).ToArray();
                 var slotOrigins = new int[Items.Length];
@@ -815,7 +813,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             int removed;
             lock (_mutationLock)
             {
-                CaptureMutationTransaction();
+                EnsureMutationAccess();
                 removed = ApplyRemove(item, preferredSlot, changedSlots);
                 if (removed > 0)
                 {
@@ -921,7 +919,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         {
             lock (_mutationLock)
             {
-                CaptureMutationTransaction();
+                EnsureMutationAccess();
                 Items[slot] = item;
                 AdvanceRevision();
             }
@@ -936,7 +934,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         {
             lock (_mutationLock)
             {
-                CaptureMutationTransaction();
+                EnsureMutationAccess();
                 if ((uint)fromSlot >= (uint)Items.Length || (uint)toSlot >= (uint)Items.Length)
                 {
                     return false;
@@ -1004,7 +1002,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         {
             lock (_mutationLock)
             {
-                CaptureMutationTransaction();
+                EnsureMutationAccess();
                 var fromItem = Items[fromSlot];
                 if (fromItem == null) return false;
 
@@ -1059,7 +1057,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         {
             lock (_mutationLock)
             {
-                CaptureMutationTransaction();
+                EnsureMutationAccess();
                 var baseWrite = 0;
                 for (var i = 0; i < Items.Length; i++)
                 {
@@ -1122,7 +1120,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         {
             lock (_mutationLock)
             {
-                CaptureMutationTransaction();
+                EnsureMutationAccess();
                 if (Items.Length <= 0)
                 {
                     return false;
@@ -1169,7 +1167,7 @@ namespace Hagalaz.Game.Abstractions.Collections
 
             lock (_mutationLock)
             {
-                CaptureMutationTransaction();
+                EnsureMutationAccess();
                 Items = (IItem?[])items.Clone();
                 AdvanceRevision();
             }
