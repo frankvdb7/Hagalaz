@@ -30,6 +30,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         private int _version;
 
         internal volatile ItemContainerTransaction? Transaction;
+        private int _standalonePublicationOwnerThreadId;
 
         internal void EnsureMutationAccess()
         {
@@ -39,7 +40,56 @@ namespace Hagalaz.Game.Abstractions.Collections
                     "Mutation access must be validated while holding the storage mutation lock.");
             }
 
+            if (_standalonePublicationOwnerThreadId != 0)
+            {
+                throw new InvalidOperationException("Storage is completing standalone publication.");
+            }
+
             Transaction?.EnsureActive();
+        }
+
+        internal bool HasStandalonePublicationOwner
+        {
+            get
+            {
+                EnsureMutationLockHeld();
+                return _standalonePublicationOwnerThreadId != 0;
+            }
+        }
+
+        internal bool IsStandalonePublicationOwnedByCurrentThread
+        {
+            get
+            {
+                EnsureMutationLockHeld();
+                return _standalonePublicationOwnerThreadId == Environment.CurrentManagedThreadId;
+            }
+        }
+
+        internal void ClaimStandalonePublicationOwnership()
+        {
+            EnsureMutationLockHeld();
+            if (Transaction != null)
+                throw new InvalidOperationException("Transaction-owned storage cannot claim standalone publication ownership.");
+            if (_standalonePublicationOwnerThreadId != 0)
+                throw new InvalidOperationException("Storage already has a standalone publication owner.");
+
+            _standalonePublicationOwnerThreadId = Environment.CurrentManagedThreadId;
+        }
+
+        internal void ReleaseStandalonePublicationOwnership()
+        {
+            EnsureMutationLockHeld();
+            if (_standalonePublicationOwnerThreadId != Environment.CurrentManagedThreadId)
+                throw new InvalidOperationException("Only the standalone publication owner can release storage ownership.");
+
+            _standalonePublicationOwnerThreadId = 0;
+        }
+
+        private void EnsureMutationLockHeld()
+        {
+            if (!Monitor.IsEntered(_mutationLock))
+                throw new InvalidOperationException("Publication ownership must be inspected while holding the storage mutation lock.");
         }
 
         /// <summary>The current mutation revision, captured by transactions while holding this storage's lock.</summary>

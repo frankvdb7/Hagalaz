@@ -20,8 +20,8 @@ Mutation rollback is limited to item references, counts, slot topology, and revi
 - **THEN** the failure propagates after cleanup, bindings are cleared, waiters are awakened, and a later scope can proceed without publication retry
 
 #### Scenario: Standalone publication retains mutation-time attribution
-- **WHEN** a mutation boundary attributes a change while no transaction is bound and another transaction binds storage before standalone publication
-- **THEN** the standalone change publishes after unlocking and the later transaction does not record or roll back it
+- **WHEN** a standalone mutation records changes and releases its mutation lock before publication while another thread begins an overlapping transaction
+- **THEN** the standalone publication owner prevents the transaction from binding until publication finishes, and the standalone change is published before the later transaction begins
 
 #### Scenario: Reacquisition interruption does not abandon teardown
 - **WHEN** `Thread.Interrupt()` interrupts committed teardown while it waits to reacquire a storage mutation lock

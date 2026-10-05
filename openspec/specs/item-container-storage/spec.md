@@ -18,7 +18,7 @@ Defines the ownership boundary and correctness guarantees for item storage share
 - **THEN** the storage mutation participates in that transaction, with lifecycle completion and publication deferred until commit
 
 ### Requirement: Equipment publishes only after lifecycle effects
-Direct equipment restoration, replacement, full removal, and clearing MUST publish committed equipment state only after all required equipment lifecycle effects have been attempted. Storage MUST commit before lifecycle callbacks run. Clearing MUST remove all equipped items before callbacks and attempt `OnUnequipped` for every previously equipped item. Post-commit lifecycle or publication failures MUST NOT roll back committed storage. Every post-commit action MUST be attempted; one failure MUST preserve and rethrow the original exception, while multiple failures MUST be aggregated.
+Direct equipment restoration, replacement, full removal, and clearing MUST publish committed equipment state only after all required equipment lifecycle effects have been attempted. Storage MUST commit before lifecycle callbacks run. Clearing MUST remove all equipped items before callbacks and attempt `OnUnequipped` for every previously equipped item. The interactive occupied non-weapon/non-shield replacement path MUST verify that both inventory and Equipment are available for standalone operation before removing the incoming item or invoking its custom unequip command. Post-commit lifecycle or publication failures MUST NOT roll back committed storage. Every post-commit action MUST be attempted; one failure MUST preserve and rethrow the original exception, while multiple failures MUST be aggregated.
 
 #### Scenario: Equipment replacement callbacks precede publication
 - **WHEN** an expected equipped item is replaced
@@ -27,6 +27,10 @@ Direct equipment restoration, replacement, full removal, and clearing MUST publi
 #### Scenario: Interactive non-weapon equipment replacement callbacks precede publication
 - **WHEN** an incoming item replaces an occupied non-weapon/non-shield equipment slot through the standalone custom unequip path
 - **THEN** the incoming `OnEquipped` callback runs after storage mutation and lock release but before Equipment publication
+
+#### Scenario: Interactive equipment replacement rejects existing ownership before mutation
+- **WHEN** inventory or Equipment already belongs to a transaction or standalone publication scope before interactive non-weapon replacement
+- **THEN** the operation throws before removing the incoming inventory item or invoking the custom unequip command
 
 #### Scenario: Full equipment removal callback precedes publication
 - **WHEN** an equipped item is fully removed
@@ -253,7 +257,7 @@ After all required `CanUnEquipItem` checks succeed, Weapon and Shield replacemen
 - **THEN** committed storage remains in place, all required lifecycle effects have been attempted, and later participant publishers are skipped
 
 ### Requirement: Transaction commit includes publication
-A transaction MUST expose Begin, Commit, and Dispose as its public lifecycle. `Begin(...)` MUST create one synchronous scope over every resolved storage contribution. Mutation locks MUST be held while the scope is Active. Dispose without commit MUST restore all enlisted storage and revisions before clearing bindings and releasing locks. Commit MUST declare current storage irreversible, release mutation locks before domain hooks and automatic publication, and retain storage bindings to the committing scope until committed completion/publication and pending-fact cleanup finish. A foreign overlapping `Begin(...)` MUST wait for the scope to finish; same-thread overlapping `Begin(...)` MUST be rejected. Ordinary mutation against storage bound to a Committed scope MUST be rejected. After completion/publication, bindings MUST be cleared under the ordered storage locks, waiters awakened, and the transaction made Completed. Callers MUST NOT require a separate publication step or committed-state query. Each changed container MUST publish once in existing observable order, independent of lock order. Completion failures MUST leave committed storage irreversible, release scope ownership, and MUST NOT be retried by Commit or Dispose. Transaction rollback restores slot topology, item references, item counts, and storage revision. It does not deep-snapshot arbitrary mutable `IItem` state, including `ExtraData`; callers requiring rollback of metadata MUST replace the item reference transactionally with a clone carrying the intended metadata rather than mutate rollback-sensitive metadata in place before commit.
+A transaction MUST expose Begin, Commit, and Dispose as its public lifecycle. `Begin(...)` MUST create one synchronous scope over every resolved storage contribution. Mutation locks MUST be held while the scope is Active. Dispose without commit MUST restore all enlisted storage and revisions before clearing bindings and releasing locks. Commit MUST declare current storage irreversible, release mutation locks before domain hooks and automatic publication, and retain storage bindings to the committing scope until committed completion/publication and pending-fact cleanup finish. A foreign overlapping `Begin(...)` MUST wait for the scope to finish; same-thread overlapping `Begin(...)` MUST be rejected. Ordinary mutation against storage bound to a Committed scope MUST be rejected. After completion/publication, bindings MUST be cleared under the ordered storage locks, waiters awakened, and the transaction made Completed. Releasing a mutation lock alone MUST NOT make storage available while its committed state is still being observed. Callers MUST NOT require a separate publication step or committed-state query. Each changed container MUST publish once in existing observable order, independent of lock order. Completion failures MUST leave committed storage irreversible, release scope ownership, and MUST NOT be retried by Commit or Dispose. Transaction rollback restores slot topology, item references, item counts, and storage revision. It does not deep-snapshot arbitrary mutable `IItem` state, including `ExtraData`; callers requiring rollback of metadata MUST replace the item reference transactionally with a clone carrying the intended metadata rather than mutate rollback-sensitive metadata in place before commit.
 
 #### Scenario: Storage commits before publication
 - **WHEN** all staged mutations succeed
@@ -266,6 +270,36 @@ A transaction MUST expose Begin, Commit, and Dispose as its public lifecycle. `B
 #### Scenario: A participant publisher fails
 - **WHEN** one participant throws during publication
 - **THEN** later participants are skipped, storage remains committed, the original exception propagates directly, and another Commit is invalid and Dispose emits nothing
+
+#### Scenario: Standalone publication retains mutation-time attribution
+- **WHEN** a standalone mutation records changes and releases its mutation lock before publication while another thread begins an overlapping transaction
+- **THEN** the standalone publication owner prevents the transaction from binding until publication finishes, and the standalone change is published before the later transaction begins
+
+### Requirement: Standalone publication retains storage ownership
+A standalone mutation that records changes MUST claim storage-owned publication ownership while holding the mutation lock before releasing it. That ownership MUST remain through standalone domain lifecycle effects and publication, while observable callbacks run without the mutation lock. Ordinary mutations MUST reject storage with standalone publication ownership. Explicit transaction `Begin(...)` MUST wait for a foreign standalone publication owner and reject same-thread overlap; a multi-storage Begin MUST release any acquired lock prefix before waiting and retry deterministic acquisition after ownership clears. Standalone completion MUST clear ownership and pulse waiters under the mutation lock after publication. Publication failure MUST NOT leak ownership. If cleanup lock reacquisition is interrupted, cleanup MUST retry, then surface the interruption together with any publication failure.
+
+#### Scenario: Ordinary mutation cannot change state during standalone publication
+- **WHEN** a standalone publisher is running with logical publication ownership retained
+- **THEN** same-thread and foreign ordinary mutations throw before changing storage
+
+#### Scenario: Equipment lifecycle retains standalone ownership
+- **WHEN** standalone Equipment lifecycle effects run after releasing the mutation lock and before publication
+- **THEN** an overlapping foreign transaction waits through both lifecycle effects and publication, while same-thread reentrant Begin is rejected
+
+#### Scenario: Standalone publication cleanup survives failure and interruption
+- **WHEN** publication fails or cleanup is interrupted while reacquiring the mutation lock
+- **THEN** ownership is eventually cleared under the lock, waiters are pulsed, and all independent failures are preserved
+
+### Requirement: Transaction change attribution validates storage ownership
+`ItemContainerTransaction.RecordChanges(...)` MUST accept changes only when the given storage is bound to that exact active transaction and the calling thread holds that storage's mutation lock. It MUST reject unbound, differently bound, or unlocked storage before adding change data.
+
+#### Scenario: Change attribution rejects storage outside the transaction
+- **WHEN** a transaction records changes for storage that it did not enlist
+- **THEN** it throws without binding or mutating the other storage
+
+#### Scenario: Change attribution requires the enlisted storage lock
+- **WHEN** an active transaction records changes for its enlisted storage without owning its mutation lock
+- **THEN** it throws and leaves transaction change attribution unchanged
 
 ### Requirement: Automatic economic publication preserves domain behavior
 MoneyPouch MUST internally record immutable notification facts containing the previous count, new count, and domain-visible change amount for automatic publication after container publishers. Callers MUST NOT manage notification receipts. Messages MUST use the captured change amount, then events MUST use the captured previous and new counts; publication MUST NOT reconstruct events from live pouch state. An inventory-only pouch addition MUST NOT publish a pouch effect. Equipment MUST own its ordered lifecycle/profile hook batch and retain attempt-all behavior after storage becomes irreversible and locks are released. Equipment MUST execute typed completion facts directly without converting them to executable delegate arrays. For standalone equipment changes, lifecycle effects and normal publication MUST be attempted explicitly before retained failures are surfaced. Normal container publication MUST stop at its first failure, skipping later containers and all pouch publication; pouch publication MUST stop at its first failure. A single failure MUST preserve the original exception; independent hook and publication failures MUST preserve both original exceptions in AggregateException. Shop purchases MUST sort stock and send the purchase event only after Commit finishes publication.

@@ -71,8 +71,10 @@ public sealed class ItemContainerTransaction : IDisposable
                 {
                     Monitor.Enter(storage.MutationLock);
                     transaction._locksAcquired++;
-                    if (storage.Transaction is not { } owner) continue;
-                    if (owner.IsOwnedByCurrentThread)
+                    var owner = storage.Transaction;
+                    var hasStandaloneOwner = storage.HasStandalonePublicationOwner;
+                    if (owner == null && !hasStandaloneOwner) continue;
+                    if (owner is { IsOwnedByCurrentThread: true } || storage.IsStandalonePublicationOwnedByCurrentThread)
                         throw new InvalidOperationException("Storage already belongs to a transaction on this thread.");
 
                     // Do not retain a lock prefix while waiting: the owner reacquires its ordered set to
@@ -83,9 +85,10 @@ public sealed class ItemContainerTransaction : IDisposable
                     Monitor.Enter(storage.MutationLock);
                     try
                     {
-                        while (storage.Transaction is { } currentOwner)
+                        while (storage.Transaction != null || storage.HasStandalonePublicationOwner)
                         {
-                            if (currentOwner.IsOwnedByCurrentThread)
+                            if (storage.Transaction is { IsOwnedByCurrentThread: true } ||
+                                storage.IsStandalonePublicationOwnedByCurrentThread)
                                 throw new InvalidOperationException("Storage already belongs to a transaction on this thread.");
                             Monitor.Wait(storage.MutationLock);
                         }
@@ -187,6 +190,11 @@ public sealed class ItemContainerTransaction : IDisposable
     internal void RecordChanges(ItemContainerStorage storage, HashSet<int>? slots)
     {
         EnsureActive();
+        ArgumentNullException.ThrowIfNull(storage);
+        if (!ReferenceEquals(storage.Transaction, this))
+            throw new InvalidOperationException("Changes can only be recorded for storage enlisted in this transaction.");
+        if (!Monitor.IsEntered(storage.MutationLock))
+            throw new InvalidOperationException("Changes must be recorded while holding the enlisted storage mutation lock.");
         if (slots is { Count: 0 }) return;
         if (slots == null) _changed[storage] = null;
         else if (_changed.TryGetValue(storage, out var existing)) existing?.UnionWith(slots);

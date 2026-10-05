@@ -1107,8 +1107,7 @@ public sealed class CharacterItemTransferTests
         var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
 
         Assert.AreSame(failure, thrown);
-        Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
-        CollectionAssert.AreEqual(new[] { "equip", "publish" }, order);
+        AssertInteractiveReplacementCommittedAndReleased(setup, order);
     }
 
     [TestMethod]
@@ -1123,8 +1122,7 @@ public sealed class CharacterItemTransferTests
         var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
 
         Assert.AreSame(failure, thrown);
-        Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
-        CollectionAssert.AreEqual(new[] { "equip", "publish" }, order);
+        AssertInteractiveReplacementCommittedAndReleased(setup, order);
     }
 
     [TestMethod]
@@ -1142,8 +1140,101 @@ public sealed class CharacterItemTransferTests
         Assert.AreSame(equipFailure, thrown.InnerExceptions[0]);
         Assert.AreSame(publicationFailure, thrown.InnerExceptions[1]);
         Assert.AreEqual(2, thrown.InnerExceptions.Count);
+        AssertInteractiveReplacementCommittedAndReleased(setup, order);
+    }
+
+    [TestMethod]
+    public void EquipItem_InteractiveNonWeaponReplacementRejectsEnlistedEquipmentBeforeMutation()
+    {
+        using var scenario = new Scenario();
+        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
+        AssertInteractiveReplacementRejectsExistingEnlistment(setup, scenario.Owner, setup.Equipment);
+    }
+
+    [TestMethod]
+    public void EquipItem_InteractiveNonWeaponReplacementRejectsEnlistedInventoryBeforeMutation()
+    {
+        using var scenario = new Scenario();
+        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
+        AssertInteractiveReplacementRejectsExistingEnlistment(setup, scenario.Owner, setup.Inventory.Items);
+    }
+
+    [TestMethod]
+    public void EquipItem_StandaloneOwnershipSpansLifecycleAndPublication()
+    {
+        using var scenario = new Scenario();
+        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
+        using var tryBegin = new ManualResetEventSlim();
+        using var beginAttempted = new ManualResetEventSlim();
+        using var transactionEntered = new ManualResetEventSlim();
+        using var allowTransactionToCommit = new ManualResetEventSlim();
+        using var publicationEntered = new ManualResetEventSlim();
+        using var allowPublication = new ManualResetEventSlim();
+        Exception? transactionFailure = null;
+        var transactionThread = new Thread(() =>
+        {
+            try
+            {
+                Assert.IsTrue(tryBegin.Wait(TimeSpan.FromSeconds(5)));
+                beginAttempted.Set();
+                using var transaction = ItemContainerTransaction.Begin(setup.Equipment);
+                transactionEntered.Set();
+                Assert.IsTrue(allowTransactionToCommit.Wait(TimeSpan.FromSeconds(5)));
+                transaction.Commit();
+            }
+            catch (Exception exception) { transactionFailure = exception; }
+        }) { IsBackground = true };
+        transactionThread.Start();
+
+        setup.Incoming.EquipmentScript.When(script => script.OnEquipped(setup.Incoming, scenario.Owner)).Do(_ =>
+        {
+            Assert.IsFalse(Monitor.IsEntered(setup.MutationLock));
+            Assert.ThrowsExactly<InvalidOperationException>(() => ItemContainerTransaction.Begin(setup.Equipment));
+            tryBegin.Set();
+            Assert.IsTrue(beginAttempted.Wait(TimeSpan.FromSeconds(5)));
+            Assert.IsTrue(SpinWait.SpinUntil(
+                () => (transactionThread.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                TimeSpan.FromSeconds(5)), "Begin must wait through Equipment lifecycle completion.");
+            Assert.IsFalse(transactionEntered.IsSet);
+        });
+        setup.EventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
+        {
+            if (call.Arg<IEvent>() is EquipmentChangedEvent &&
+                ReferenceEquals(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]))
+            {
+                Assert.IsFalse(Monitor.IsEntered(setup.MutationLock));
+                Assert.IsFalse(transactionEntered.IsSet);
+                publicationEntered.Set();
+                Assert.IsTrue(allowPublication.Wait(TimeSpan.FromSeconds(5)));
+            }
+        });
+
+        Exception? equipFailure = null;
+        var equipThread = new Thread(() =>
+        {
+            try { Assert.IsTrue(setup.Equipment.EquipItem(setup.Incoming)); }
+            catch (Exception exception) { equipFailure = exception; }
+        }) { IsBackground = true };
+        equipThread.Start();
+        try
+        {
+            Assert.IsTrue(publicationEntered.Wait(TimeSpan.FromSeconds(5)));
+            Assert.IsFalse(transactionEntered.IsSet);
+            allowPublication.Set();
+            Assert.IsTrue(transactionEntered.Wait(TimeSpan.FromSeconds(5)));
+            allowTransactionToCommit.Set();
+        }
+        finally
+        {
+            allowPublication.Set();
+            allowTransactionToCommit.Set();
+        }
+
+        Assert.IsTrue(equipThread.Join(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(transactionThread.Join(TimeSpan.FromSeconds(5)));
+        Assert.IsNull(equipFailure);
+        Assert.IsNull(transactionFailure);
         Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
-        CollectionAssert.AreEqual(new[] { "equip", "publish" }, order);
     }
 
     private static void ObserveInteractiveNonWeaponReplacementCompletion(
@@ -1172,6 +1263,30 @@ public sealed class CharacterItemTransferTests
                 if (publicationFailure is not null) throw publicationFailure;
             }
         });
+    }
+
+    private static void AssertInteractiveReplacementCommittedAndReleased(
+        (InventoryContainer Inventory, EquipmentContainer Equipment, IEventManager EventManager,
+            IItem Current, IItem Incoming, object MutationLock) setup,
+        List<string> order)
+    {
+        Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
+        CollectionAssert.AreEqual(new[] { "equip", "publish" }, order);
+        using var transaction = ItemContainerTransaction.Begin(setup.Equipment);
+        transaction.Commit();
+    }
+
+    private static void AssertInteractiveReplacementRejectsExistingEnlistment(
+        (InventoryContainer Inventory, EquipmentContainer Equipment, IEventManager EventManager,
+            IItem Current, IItem Incoming, object MutationLock) setup,
+        ICharacter owner,
+        IItemTransactional participant)
+    {
+        using var transaction = ItemContainerTransaction.Begin(participant);
+        Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
+        Assert.AreSame(setup.Current, setup.Equipment[EquipmentSlot.Hat]);
+        Assert.AreEqual(1, setup.Inventory.Items.GetCountById(setup.Incoming.Id));
+        setup.Current.EquipmentScript.DidNotReceive().UnEquipItem(setup.Current, owner, 0);
     }
 
     [TestMethod]

@@ -106,7 +106,7 @@
 
 ## 14. Explicit mutation-boundary participation
 
-- [x] 14.1 Add only the generic mutation-boundary operations needed by production callers, and make ordinary `ItemContainer` mutation methods reject storage enlisted in a transaction.
+- [x] 14.1 Add only the generic mutation-boundary operations needed by production callers; ordinary `ItemContainer` mutations participate in an explicitly enlisted active transaction and remain standalone when unbound.
 - [x] 14.2 Migrate transaction-composed Trade, Duel, Bank, Shop, Reward, Familiar, and Equipment paths to direct aggregate enlistment through `IItemTransactional`; keep standalone domain methods responsible for their own transaction.
 - [x] 14.3 Split MoneyPouch gameplay and mutation capabilities, validate complete pouch/inventory enlistment, and publish captured immutable change facts.
 - [x] 14.4 Add regressions for facade rejection, inactive/partial participation, standalone pouch nesting, immutable reentrant pouch events, and retain equipment behavior without reflection-based delegate inspection.

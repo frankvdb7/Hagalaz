@@ -107,6 +107,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return false;
                 }
 
+                var inventoryMutationBoundary = ItemContainerTransaction.ResolveSingleBoundary(_owner.Inventory.Items);
+                inventoryMutationBoundary.EnsureStandaloneOperation();
+                _mutations.EnsureStandaloneOperation();
+
                 // Custom unequip commands may open interactive UI and must remain outside mutation scopes.
                 if (_owner.Inventory.Items.Remove(item, slot) <= 0)
                 {

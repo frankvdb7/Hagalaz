@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using Hagalaz.Game.Abstractions.Model.Items;
 
@@ -33,6 +35,20 @@ internal sealed class ItemContainerMutationBoundary
 
     // Equipment owns standalone lifecycle effects and must run them before publication.
     internal MutationScope BeginDomainMutation() => BeginMutation(publishStandaloneOnDispose: false);
+
+    internal void EnsureStandaloneOperation()
+    {
+        Monitor.Enter(_storage.MutationLock);
+        try
+        {
+            if (_storage.Transaction != null || _storage.HasStandalonePublicationOwner)
+                throw new InvalidOperationException("This operation requires storage that is not transaction-bound or publishing.");
+        }
+        finally
+        {
+            Monitor.Exit(_storage.MutationLock);
+        }
+    }
 
     private MutationScope BeginMutation(bool publishStandaloneOnDispose)
     {
@@ -89,15 +105,16 @@ internal sealed class ItemContainerMutationBoundary
             if (!Monitor.IsEntered(_boundary._storage.MutationLock))
                 throw new InvalidOperationException("Mutation changes must be recorded while holding the storage mutation lock.");
 
-            _recorded = true;
             if (_transaction is { } transaction)
             {
                 transaction.RecordChanges(_boundary._storage, slots);
             }
             else
             {
+                _boundary._storage.ClaimStandalonePublicationOwnership();
                 _slots = slots;
             }
+            _recorded = true;
         }
 
         public void Dispose()
@@ -132,7 +149,113 @@ internal sealed class ItemContainerMutationBoundary
         return true;
     }
 
-    internal void PublishCommittedChanges(HashSet<int>? slots) => _publishChanges?.Invoke(slots);
+    internal void PublishCommittedChanges(HashSet<int>? slots)
+    {
+        List<Exception>? failures = null;
+        bool standalonePublication;
+        EnterMutationLock(ref failures);
+        try
+        {
+            if (_storage.Transaction != null)
+            {
+                if (_storage.HasStandalonePublicationOwner)
+                    throw new InvalidOperationException("Storage cannot be transaction-bound and standalone-publishing at once.");
+                standalonePublication = false;
+            }
+            else if (_storage.IsStandalonePublicationOwnedByCurrentThread)
+            {
+                standalonePublication = true;
+            }
+            else
+            {
+                throw new InvalidOperationException("Committed publication requires storage ownership.");
+            }
+        }
+        finally
+        {
+            Monitor.Exit(_storage.MutationLock);
+        }
+
+        if (!standalonePublication)
+        {
+            try { _publishChanges?.Invoke(slots); }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
+            ThrowFailures(failures);
+            return;
+        }
+
+        try
+        {
+            _publishChanges?.Invoke(slots);
+        }
+        catch (Exception exception)
+        {
+            (failures ??= []).Add(exception);
+        }
+        finally
+        {
+            ReleaseStandalonePublicationOwnership(ref failures);
+        }
+
+        ThrowFailures(failures);
+    }
+
+    private void EnterMutationLock(ref List<Exception>? failures)
+    {
+        while (true)
+        {
+            try
+            {
+                Monitor.Enter(_storage.MutationLock);
+                return;
+            }
+            catch (ThreadInterruptedException exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+        }
+    }
+
+    private void ReleaseStandalonePublicationOwnership(ref List<Exception>? failures)
+    {
+        while (true)
+        {
+            try
+            {
+                Monitor.Enter(_storage.MutationLock);
+                break;
+            }
+            catch (ThreadInterruptedException exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+        }
+
+        try
+        {
+            try { _storage.ReleaseStandalonePublicationOwnership(); }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
+
+            try { Monitor.PulseAll(_storage.MutationLock); }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
+        }
+        finally
+        {
+            try { Monitor.Exit(_storage.MutationLock); }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
+        }
+    }
+
+    private static void ThrowFailures(List<Exception>? failures)
+    {
+        if (failures is { Count: 1 }) ExceptionDispatchInfo.Capture(failures[0]).Throw();
+        if (failures is { Count: > 1 })
+        {
+            throw new AggregateException(failures.SelectMany(failure => failure is AggregateException aggregate
+                ? aggregate.Flatten().InnerExceptions.AsEnumerable()
+                : [failure]));
+        }
+    }
 
     internal void DiscardPendingCompletion(ItemContainerTransaction transaction) => _completion?.DiscardPendingCompletion(transaction);
     internal void CompleteBeforePublication(ItemContainerTransaction transaction, int order) => _completion?.CompleteBeforePublication(transaction, order);

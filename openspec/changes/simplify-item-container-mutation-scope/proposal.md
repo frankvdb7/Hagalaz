@@ -2,13 +2,15 @@
 
 ## Why
 
-Ordinary item-container mutations currently acquire the same monitor in both the aggregate and storage algorithm, and each caller carries transaction/publication branching. A single per-operation scope can own the monitor once and attribute changes before unlock while preserving the existing transaction behavior.
+Ordinary item-container mutations currently acquire the same monitor in both the aggregate and storage algorithm, and each caller carries transaction/publication branching. A single per-operation scope can own the monitor once and attribute changes before unlock while preserving the existing transaction behavior. After unlock, standalone publication also needs logical storage ownership so another transaction cannot expose uncommitted state to synchronous observers.
 
 ## What Changes
 
 - Add a narrow internal `MutationScope` owned by `ItemContainerMutationBoundary` for lock ownership, transaction attribution, and standalone publication after unlock.
 - Make ordinary storage mutators require caller-owned mutation-lock access instead of acquiring the monitor themselves.
 - Make rollback restoration require the transaction's already-owned lock without reacquiring it or using active-mutation authorization.
+- Retain lightweight storage-owned publication ownership from standalone change attribution through lifecycle/publication completion, and make explicit transaction Begin wait for that ownership.
+- Require transaction change attribution to verify exact storage binding and mutation-lock ownership; reject interactive Equipment replacement before mutation if either participating storage is already owned.
 - Migrate ordinary `ItemContainer`, Shop, and Equipment mutation paths to the scope; keep specialized transaction-only MoneyPouch and transfer behavior.
 - Preserve equipment completion order, transaction behavior, hydration semantics, and rollback infrastructure.
 
@@ -32,6 +34,8 @@ Affected areas are `ItemContainerStorage`, `ItemContainerMutationBoundary`, `Ite
 - Storage mutation algorithms verify caller lock ownership and do not lock themselves.
 - Transaction rollback restores every snapshot while retaining participant locks and bindings, then clears bindings and releases locks.
 - Change attribution occurs under the lock; standalone publication occurs after unlock; failed operations publish nothing.
+- Standalone ownership is claimed before unlock, prevents ordinary mutation and transaction binding during observer callbacks, and is cleared with waiter notification even when publication or cleanup is interrupted.
+- Transaction change attribution accepts only storage bound to that exact transaction while its lock is held; the interactive standalone Equipment path rejects existing ownership before changing inventory or invoking a custom command.
 - Equipment ordering and all existing transaction, MoneyPouch, transfer, hydration, and trade semantics remain unchanged.
 - Focused tests, solution build, full serial tests, strict OpenSpec validation, duplication gate, and `git diff --check` are run and reported.
 

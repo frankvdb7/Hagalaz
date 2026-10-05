@@ -45,6 +45,10 @@ Direct equipment restoration, replacement, full removal, and clearing MUST publi
 - **WHEN** an incoming item replaces an occupied non-weapon/non-shield equipment slot through the standalone custom unequip path
 - **THEN** the incoming `OnEquipped` callback runs after storage mutation and lock release but before Equipment publication
 
+#### Scenario: Interactive equipment replacement rejects existing ownership before mutation
+- **WHEN** inventory or Equipment already belongs to a transaction or standalone publication scope before interactive non-weapon replacement
+- **THEN** the operation throws before removing the incoming inventory item or invoking the custom unequip command
+
 #### Scenario: Full equipment removal callback precedes publication
 - **WHEN** an equipped item is fully removed
 - **THEN** storage no longer contains it before `OnUnequipped`, and publication follows the callback attempt
@@ -52,3 +56,31 @@ Direct equipment restoration, replacement, full removal, and clearing MUST publi
 #### Scenario: Equipment clear exhausts callbacks after storage clear
 - **WHEN** equipment containing one or more items is cleared
 - **THEN** storage is empty before callbacks, every prior item's `OnUnequipped` is attempted, and publication follows all callback attempts
+
+## ADDED Requirements
+
+### Requirement: Standalone publication retains storage ownership
+A standalone mutation that records changes MUST claim storage-owned publication ownership while holding the mutation lock before releasing it. That ownership MUST remain through standalone domain lifecycle effects and publication, while observable callbacks run without the mutation lock. Ordinary mutations MUST reject storage with standalone publication ownership. Explicit transaction `Begin(...)` MUST wait for a foreign standalone publication owner and reject same-thread overlap; a multi-storage Begin MUST release any acquired lock prefix before waiting and retry deterministic acquisition after ownership clears. Standalone completion MUST clear ownership and pulse waiters under the mutation lock after publication. Publication failure MUST NOT leak ownership. If cleanup lock reacquisition is interrupted, cleanup MUST retry, then surface the interruption together with any publication failure.
+
+#### Scenario: Ordinary mutation cannot change state during standalone publication
+- **WHEN** a standalone publisher is running with logical publication ownership retained
+- **THEN** same-thread and foreign ordinary mutations throw before changing storage
+
+#### Scenario: Equipment lifecycle retains standalone ownership
+- **WHEN** standalone Equipment lifecycle effects run after releasing the mutation lock and before publication
+- **THEN** an overlapping foreign transaction waits through both lifecycle effects and publication, while same-thread reentrant Begin is rejected
+
+#### Scenario: Standalone publication cleanup survives failure and interruption
+- **WHEN** publication fails or cleanup is interrupted while reacquiring the mutation lock
+- **THEN** ownership is eventually cleared under the lock, waiters are pulsed, and all independent failures are preserved
+
+### Requirement: Transaction change attribution validates storage ownership
+`ItemContainerTransaction.RecordChanges(...)` MUST accept changes only when the given storage is bound to that exact active transaction and the calling thread holds that storage's mutation lock. It MUST reject unbound, differently bound, or unlocked storage before adding change data.
+
+#### Scenario: Change attribution rejects storage outside the transaction
+- **WHEN** a transaction records changes for storage that it did not enlist
+- **THEN** it throws without binding or mutating the other storage
+
+#### Scenario: Change attribution requires the enlisted storage lock
+- **WHEN** an active transaction records changes for its enlisted storage without owning its mutation lock
+- **THEN** it throws and leaves transaction change attribution unchanged
