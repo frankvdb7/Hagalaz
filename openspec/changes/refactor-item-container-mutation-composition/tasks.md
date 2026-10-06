@@ -118,3 +118,11 @@
 - [x] 15.2 Discard pending completion facts even when Commit resource release fails, while skipping observable completion and publication; assess whether the existing release mechanism offers a safe deterministic failure-injection point.
 - [x] 15.3 Replace production manual `Dispose()` calls with lexical scopes while preserving rollback-before-message ordering, and remove the unused Equipment boundary test variable.
 - [x] 15.4 Update the current and delta specifications and run the requested local validation without pushing or changing the remote PR.
+
+## 16. Keep synchronization ownership on mutation boundaries
+
+- [x] 16.1 Move mutation lock, order, transaction binding, standalone publication ownership, and mutation authorization from storage to its owning boundary; keep storage algorithms and revision state synchronization-free.
+- [x] 16.2 Make transaction lock order, bindings, changed-slot tracking, snapshots, and rollback boundary-keyed; preserve alias rejection, rollback, publication order, and cleanup semantics.
+- [x] 16.3 Migrate ItemContainer, Equipment, and MoneyPouch direct mutation paths to boundary authorization; audit every production storage mutator call and construction site.
+- [x] 16.4 Update synchronization tests to assert boundary ownership, retain pure storage algorithm tests, rename the flaky lock test, and add a focused storage-ownership structural regression.
+- [x] 16.5 Reconcile canonical and active OpenSpec wording; run targeted tests, full serial validation, strict OpenSpec, jscpd against the PR base, and local diff checks without committing or pushing. (Full serial tests attempted; Docker-backed integration projects could not run because Docker is unavailable.)

@@ -2,11 +2,11 @@
 
 ## Problem
 
-`ItemContainerTransaction.Commit()` currently clears storage bindings when it releases mutation locks, before committed hooks and publishers run. A new transaction can therefore mutate overlapping live storage while the earlier transaction is still publishing it.
+`ItemContainerTransaction.Commit()` currently clears boundary bindings when it releases mutation locks, before committed hooks and publishers run. A new transaction can therefore mutate overlapping live storage while the earlier transaction is still publishing it.
 
 ## Scope
 
-Keep the existing transaction API, participants, live storage, lock ordering, and domain-owned completion facts. Separate mutation-lock release from transaction-scope release. Retain bindings through committed completion, publication, and pending-fact cleanup; wait for foreign overlapping `Begin(...)` calls on the existing storage monitor; reject same-thread reentrant overlap. Validate mutation access and attribute changes to the resource-bound transaction under each storage lock; publish standalone changes only after unlocking. Make committed teardown interruption-safe without clearing bindings outside their locks. Require terminal trade staging to use exact operations that prove all relevant storage participates in the caller-owned scope.
+Keep the existing transaction API, participants, live storage, boundary lock ordering, and domain-owned completion facts. Separate mutation-lock release from transaction-scope release. Retain boundary bindings through committed completion, publication, and pending-fact cleanup; wait for foreign overlapping `Begin(...)` calls on the existing boundary lock; reject same-thread reentrant overlap. Validate mutation access and attribute changes to the boundary-bound transaction under each boundary lock; publish standalone changes only after unlocking. Make committed teardown interruption-safe without clearing bindings outside their locks. Require terminal trade staging to use exact operations that prove all relevant boundaries participate in the caller-owned scope.
 
 ## Acceptance Criteria
 

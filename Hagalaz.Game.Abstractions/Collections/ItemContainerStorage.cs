@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using Hagalaz.Game.Abstractions.Model.Items;
 
 namespace Hagalaz.Game.Abstractions.Collections
@@ -12,10 +11,6 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// </summary>
     internal sealed class ItemContainerStorage : IReadOnlyItemContainer
     {
-        private static long _nextMutationOrder;
-        private readonly object _mutationLock = new();
-        private readonly long _mutationOrder = Interlocked.Increment(ref _nextMutationOrder);
-
         /// <summary>
         /// The internal array storing the item objects.
         /// </summary>
@@ -29,86 +24,14 @@ namespace Hagalaz.Game.Abstractions.Collections
 
         private int _version;
 
-        internal volatile ItemContainerTransaction? Transaction;
-        private int _standalonePublicationOwnerThreadId;
 
-        internal void EnsureMutationAccess()
-        {
-            if (!Monitor.IsEntered(_mutationLock))
-            {
-                throw new InvalidOperationException(
-                    "Mutation access must be validated while holding the storage mutation lock.");
-            }
-
-            if (_standalonePublicationOwnerThreadId != 0)
-            {
-                throw new InvalidOperationException("Storage is completing standalone publication.");
-            }
-
-            Transaction?.EnsureActive();
-        }
-
-        internal bool HasStandalonePublicationOwner
-        {
-            get
-            {
-                EnsureMutationLockHeld();
-                return _standalonePublicationOwnerThreadId != 0;
-            }
-        }
-
-        internal bool IsStandalonePublicationOwnedByCurrentThread
-        {
-            get
-            {
-                EnsureMutationLockHeld();
-                return _standalonePublicationOwnerThreadId == Environment.CurrentManagedThreadId;
-            }
-        }
-
-        internal void ClaimStandalonePublicationOwnership()
-        {
-            EnsureMutationLockHeld();
-            if (Transaction != null)
-                throw new InvalidOperationException("Transaction-owned storage cannot claim standalone publication ownership.");
-            if (_standalonePublicationOwnerThreadId != 0)
-                throw new InvalidOperationException("Storage already has a standalone publication owner.");
-
-            _standalonePublicationOwnerThreadId = Environment.CurrentManagedThreadId;
-        }
-
-        internal void ReleaseStandalonePublicationOwnership()
-        {
-            EnsureMutationLockHeld();
-            if (_standalonePublicationOwnerThreadId != Environment.CurrentManagedThreadId)
-                throw new InvalidOperationException("Only the standalone publication owner can release storage ownership.");
-
-            _standalonePublicationOwnerThreadId = 0;
-        }
-
-        private void EnsureMutationLockHeld()
-        {
-            if (!Monitor.IsEntered(_mutationLock))
-                throw new InvalidOperationException("Publication ownership must be inspected while holding the storage mutation lock.");
-        }
-
-        /// <summary>The current mutation revision, captured by transactions while holding this storage's lock.</summary>
+        /// <summary>The current storage mutation revision.</summary>
         internal int MutationRevision => _version;
 
         /// <summary>
-        /// Advances the storage revision after a mutation commits.
+        /// Advances the storage revision after an item-state mutation.
         /// </summary>
         private void AdvanceRevision() => _version++;
-
-        /// <summary>
-        /// Synchronization boundary used by operations that mutate multiple stores.
-        /// </summary>
-        internal object MutationLock => _mutationLock;
-
-        /// <summary>
-        /// Stable order for acquiring more than one container mutation boundary.
-        /// </summary>
-        internal long MutationOrder => _mutationOrder;
 
         /// <summary>
         /// Gets the item at the specified index in the container.
@@ -192,7 +115,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             }
         }
 
-        /// <summary>Transfers an exact quantity to another storage already enlisted in the same transaction.</summary>
+        /// <summary>Applies the exact item-transfer algorithm; the owning boundaries validate synchronization.</summary>
         internal bool TryTransferTo(
             ItemContainerStorage destination,
             IItem item,
@@ -205,17 +128,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         {
             ArgumentNullException.ThrowIfNull(destination);
             ArgumentNullException.ThrowIfNull(item);
-
-            if (!Monitor.IsEntered(MutationLock) || !Monitor.IsEntered(destination.MutationLock))
-                throw new InvalidOperationException("Both storage mutation locks must be held during a transfer.");
-
-            var transaction = Transaction;
-            if (transaction == null || !ReferenceEquals(destination.Transaction, transaction))
-            {
-                throw new InvalidOperationException("Both storages must belong to the same active transaction.");
-            }
-
-            transaction.EnsureActive();
 
             var changedSourceSlots = new HashSet<int>();
             var changedDestinationSlots = new HashSet<int>();
@@ -473,7 +385,6 @@ namespace Hagalaz.Game.Abstractions.Collections
             ArgumentNullException.ThrowIfNull(item);
             slotsToUpdate = [];
             var removals = new List<(int Slot, int Count, IItem Item)>();
-            EnsureMutationAccess();
             if (count <= 0)
             {
                 return false;
@@ -628,7 +539,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         public bool TryAdd(int slot, IItem item, out HashSet<int> changedSlots)
         {
             changedSlots = [];
-            EnsureMutationAccess();
             if (slot < 0 || slot >= Capacity)
             {
                 return false;
@@ -653,7 +563,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         public bool TryAdd(IItem item, out HashSet<int> changedSlots)
         {
             changedSlots = [];
-            EnsureMutationAccess();
             var stacked = false;
             for (var slot = 0; slot < Items.Length; slot++)
             {
@@ -712,7 +621,6 @@ namespace Hagalaz.Game.Abstractions.Collections
             ArgumentNullException.ThrowIfNull(newItems);
             var incomingItems = newItems.ToArray();
             slotsToUpdate = [];
-            EnsureMutationAccess();
             var simulatedItems = Items.Select(item => item?.Clone(item.Count)).ToArray();
             var simulatedIncoming = incomingItems.Select(item => item?.Clone(item.Count)).ToArray();
             var slotOrigins = new int[Items.Length];
@@ -852,7 +760,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         {
             changedSlots = [];
             int removed;
-            EnsureMutationAccess();
             removed = ApplyRemove(item, preferredSlot, changedSlots);
             if (removed > 0)
             {
@@ -955,7 +862,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="item">The new item to place in the slot. This cannot be null.</param>
         public void Replace(int slot, IItem item)
         {
-            EnsureMutationAccess();
             Items[slot] = item;
             AdvanceRevision();
         }
@@ -967,7 +873,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="toSlot">The destination slot.</param>
         public bool Move(int fromSlot, int toSlot)
         {
-            EnsureMutationAccess();
             if ((uint)fromSlot >= (uint)Items.Length || (uint)toSlot >= (uint)Items.Length)
             {
                 return false;
@@ -1032,7 +937,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="toSlot">The second slot to swap.</param>
         public bool Swap(int fromSlot, int toSlot)
         {
-            EnsureMutationAccess();
             var fromItem = Items[fromSlot];
             if (fromItem == null) return false;
 
@@ -1084,7 +988,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         public void Sort()
         {
-            EnsureMutationAccess();
             var baseWrite = 0;
             for (var i = 0; i < Items.Length; i++)
             {
@@ -1144,7 +1047,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         public bool Clear()
         {
-            EnsureMutationAccess();
             if (Items.Length <= 0)
             {
                 return false;
@@ -1160,7 +1062,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         public void RestoreItems(IEnumerable<(int Slot, IItem Item)> items, bool allowZeroCount = false)
         {
             ArgumentNullException.ThrowIfNull(items);
-            EnsureMutationAccess();
 
             var restoredItems = new IItem?[Capacity];
             foreach (var (slot, item) in items)
@@ -1189,13 +1090,12 @@ namespace Hagalaz.Game.Abstractions.Collections
                 throw new ArgumentException("Item storage length must equal container capacity.", nameof(items));
             }
 
-            EnsureMutationAccess();
             Items = (IItem?[])items.Clone();
             AdvanceRevision();
         }
 
-        /// <summary>Restores a transaction snapshot while the transaction owns the mutation lock.</summary>
-        internal void RestoreTransactionState(IItem?[] items, int[] counts, int mutationRevision)
+        /// <summary>Restores item state and revision from a rollback snapshot.</summary>
+        internal void RestoreSnapshotState(IItem?[] items, int[] counts, int mutationRevision)
         {
             ArgumentNullException.ThrowIfNull(items);
             ArgumentNullException.ThrowIfNull(counts);
@@ -1206,12 +1106,6 @@ namespace Hagalaz.Game.Abstractions.Collections
             if (counts.Length != Capacity)
             {
                 throw new ArgumentException("Item count snapshot length must equal container capacity.", nameof(counts));
-            }
-
-            if (!Monitor.IsEntered(_mutationLock))
-            {
-                throw new InvalidOperationException(
-                    "Transaction state must be restored while holding the storage mutation lock.");
             }
 
             for (var slot = 0; slot < items.Length; slot++)

@@ -308,8 +308,8 @@ public sealed class MoneyPouchContainerTests
         {
             foreach (var boundary in boundaries)
             {
-                Assert.IsNull(boundary.Storage.Transaction);
-                Assert.IsFalse(Monitor.IsEntered(boundary.Storage.MutationLock));
+                Assert.IsNull(boundary.Transaction);
+                Assert.IsFalse(Monitor.IsEntered(boundary.MutationLock));
             }
         });
         Assert.IsFalse(scenario.MoneyPouch.MoveToInventory(5));
@@ -360,8 +360,8 @@ public sealed class MoneyPouchContainerTests
         scenario.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
         foreach (var boundary in boundaries)
         {
-            Assert.IsNull(boundary.Storage.Transaction);
-            Assert.IsFalse(Monitor.IsEntered(boundary.Storage.MutationLock));
+            Assert.IsNull(boundary.Transaction);
+            Assert.IsFalse(Monitor.IsEntered(boundary.MutationLock));
         }
         scenario.Owner.Inventory.Returns(scenario.Inventory);
         using var fresh = ItemContainerTransaction.Begin(scenario.MoneyPouch);
@@ -391,8 +391,8 @@ public sealed class MoneyPouchContainerTests
         {
             foreach (var boundary in boundaries)
             {
-                Assert.AreSame(transaction, boundary.Storage.Transaction);
-                Assert.IsTrue(Monitor.IsEntered(boundary.Storage.MutationLock));
+                Assert.AreSame(transaction, boundary.Transaction);
+                Assert.IsTrue(Monitor.IsEntered(boundary.MutationLock));
             }
             Assert.IsTrue(scenario.Inventory.Items.Add(new ComposedTestItem(CoinId, 1, stackable: true)));
             Assert.IsTrue(extra.Add(new ComposedTestItem(123, 1, stackable: false)));
@@ -403,7 +403,7 @@ public sealed class MoneyPouchContainerTests
         Assert.AreEqual(10, scenario.MoneyPouch.Count);
         Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(CoinId));
         Assert.AreEqual(0, extra.TakenSlots);
-        foreach (var boundary in boundaries) Assert.IsNull(boundary.Storage.Transaction);
+        foreach (var boundary in boundaries) Assert.IsNull(boundary.Transaction);
     }
 
     [TestMethod]
@@ -424,8 +424,8 @@ public sealed class MoneyPouchContainerTests
         Assert.AreEqual(10, scenario.MoneyPouch.Count);
         foreach (var boundary in boundaries)
         {
-            Assert.IsNull(boundary.Storage.Transaction);
-            Assert.IsFalse(Monitor.IsEntered(boundary.Storage.MutationLock));
+            Assert.IsNull(boundary.Transaction);
+            Assert.IsFalse(Monitor.IsEntered(boundary.MutationLock));
         }
     }
 
@@ -438,9 +438,9 @@ public sealed class MoneyPouchContainerTests
         using var transaction = ItemContainerTransaction.Begin(scenario.Inventory.Items);
 
         Assert.ThrowsExactly<InvalidOperationException>(() => scenario.MoneyPouch.TryAddExact(2));
-        Assert.AreSame(transaction, inventoryBoundary.Storage.Transaction);
-        Assert.IsNull(pouchBoundary.Storage.Transaction);
-        Assert.IsFalse(Monitor.IsEntered(pouchBoundary.Storage.MutationLock));
+        Assert.AreSame(transaction, inventoryBoundary.Transaction);
+        Assert.IsNull(pouchBoundary.Transaction);
+        Assert.IsFalse(Monitor.IsEntered(pouchBoundary.MutationLock));
         Assert.AreEqual(10, scenario.MoneyPouch.Count);
         Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(CoinId));
     }
@@ -454,8 +454,8 @@ public sealed class MoneyPouchContainerTests
 
         Assert.ThrowsExactly<InvalidOperationException>(() => scenario.MoneyPouch.TryAddExact(2));
 
-        Assert.AreSame(transaction, boundaries[0].Storage.Transaction);
-        Assert.IsNull(boundaries[1].Storage.Transaction);
+        Assert.AreSame(transaction, boundaries[0].Transaction);
+        Assert.IsNull(boundaries[1].Transaction);
         Assert.AreEqual(10, scenario.MoneyPouch.Count);
         Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(CoinId));
     }
@@ -464,15 +464,15 @@ public sealed class MoneyPouchContainerTests
     public void TryAddExact_RejectsConflictingStorageTransactionsBeforeMutation()
     {
         var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
-        var pouchStorage = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries[0].Storage;
+        var pouchBoundary = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries[0];
         using var inventoryTransaction = ItemContainerTransaction.Begin(scenario.Inventory.Items);
         using var pouchTransaction = ItemContainerTransaction.Begin(new SingleBoundarySource(
             ((IItemTransactionSource)scenario.MoneyPouch).Boundaries[0]));
 
         Assert.ThrowsExactly<InvalidOperationException>(() => scenario.MoneyPouch.TryAddExact(2));
 
-        Assert.AreSame(inventoryTransaction, Boundary(scenario.Inventory.Items).Storage.Transaction);
-        Assert.AreSame(pouchTransaction, pouchStorage.Transaction);
+        Assert.AreSame(inventoryTransaction, Boundary(scenario.Inventory.Items).Transaction);
+        Assert.AreSame(pouchTransaction, pouchBoundary.Transaction);
         Assert.AreEqual(10, scenario.MoneyPouch.Count);
         Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(CoinId));
     }
@@ -620,7 +620,7 @@ public sealed class MoneyPouchContainerTests
         var boundaries = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries;
         Assert.AreEqual(2, boundaries.Count);
         Assert.AreSame(Boundary(scenario.Inventory.Items), boundaries[1]);
-        foreach (var boundary in boundaries) Assert.AreSame(transaction, boundary.Storage.Transaction);
+        foreach (var boundary in boundaries) Assert.AreSame(transaction, boundary.Transaction);
         Assert.IsTrue(scenario.MoneyPouch.TryAddExact(4));
         Assert.AreEqual(0, order.Count);
 

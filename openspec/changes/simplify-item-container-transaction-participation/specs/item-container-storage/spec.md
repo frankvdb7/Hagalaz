@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Transaction membership uses aggregate capabilities
-`IItemContainer` and `IMoneyPouchContainer` MUST inherit the empty public `IItemTransactional` marker. Neither interface MUST expose a public `Mutations` property or mutation boundary. `ItemContainerTransaction.Begin(...)` MUST accept `params IItemTransactional[]` and callers MUST pass participating domain aggregates directly. Repository implementations MUST resolve contributions through the internal `IItemTransactionSource`; unsupported external marker implementations MUST fail clearly before any storage is locked. `ItemContainer` MUST contribute its single boundary, and MoneyPouch MUST contribute its own storage and each required inventory storage. Contribution resolution MUST validate before locking, deduplicate storage aliases, preserve first-seen participant order for publication, and retain deterministic lock ordering independently.
+`IItemContainer` and `IMoneyPouchContainer` MUST inherit the empty public `IItemTransactional` marker. Neither interface MUST expose a public `Mutations` property or mutation boundary. `ItemContainerTransaction.Begin(...)` MUST accept `params IItemTransactional[]` and callers MUST pass participating domain aggregates directly. Repository implementations MUST resolve contributions through the internal `IItemTransactionSource`; unsupported external marker implementations MUST fail clearly before any boundary is locked. `ItemContainer` MUST contribute its single boundary, and MoneyPouch MUST contribute its own storage and each required inventory storage. Contribution resolution MUST validate before locking, deduplicate storage aliases, preserve first-seen participant order for publication, and retain deterministic lock ordering independently.
 
 #### Scenario: Callers enlist aggregates directly
 - **WHEN** a caller opens a transaction for ordinary containers and a MoneyPouch
@@ -11,11 +11,11 @@
 
 #### Scenario: Unsupported marker implementation is rejected before locking
 - **WHEN** `Begin(...)` receives an external `IItemTransactional` that is not a repository transaction source
-- **THEN** it throws an argument exception before acquiring storage locks or mutating storage
+- **THEN** it throws an argument exception before acquiring boundary locks or mutating storage
 
 #### Scenario: Composite participant aliases storage
 - **WHEN** a MoneyPouch and another participant contribute the same underlying storage
-- **THEN** that storage is locked and snapshotted once while participant publication order remains first-seen order
+- **THEN** that storage's owning boundary is locked and its state snapshotted once while participant publication order remains first-seen order
 
 ### Requirement: Cross-container transfers resolve destination capability internally
 `IItemContainer.TryTransferTo(...)` MUST perform the existing atomic transfer algorithm between ordinary item containers. When neither storage is bound, it MUST own and commit a short transaction after the exact transfer succeeds; when both storages belong to the same active current-thread transaction, it MUST participate without committing. Partial or conflicting enlistment MUST be rejected before mutation. Destination storage MUST be resolved through the internal `IItemTransactionSource` contract without requiring a concrete `ItemContainer`, and a destination MUST contribute exactly one storage boundary. It MUST NOT dynamically enlist missing storage. It MUST validate and plan both changes before mutation, update each storage revision once on success, and defer publication until the owning transaction commits. A valid transfer rejection MUST return false without mutating either storage.

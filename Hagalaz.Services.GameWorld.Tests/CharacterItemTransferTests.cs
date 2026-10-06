@@ -91,7 +91,7 @@ public sealed class CharacterItemTransferTests
 
         Assert.IsNull(equipment[EquipmentSlot.Hat]);
         Assert.IsNull(equipment[EquipmentSlot.Amulet]);
-        Assert.AreSame(transaction, boundary.Storage.Transaction);
+        Assert.AreSame(transaction, boundary.Transaction);
         current.EquipmentScript.DidNotReceive().OnUnequipped(current, scenario.Owner);
         restored.EquipmentScript.DidNotReceive().OnEquipped(restored, scenario.Owner);
         replacement.EquipmentScript.DidNotReceive().OnEquipped(replacement, scenario.Owner);
@@ -330,16 +330,16 @@ public sealed class CharacterItemTransferTests
         var events = Substitute.For<IEventManager>();
         scenario.Owner.EventManager.Returns(events);
         scenario.Owner.ClearReceivedCalls();
-        var bankStorage = Boundary(bank.Items).Storage;
+        var bankBoundary = Boundary(bank.Items);
         var pouchStorages = ((IItemTransactionSource)moneyPouch).Boundaries;
         scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(_ =>
         {
-            Assert.IsNull(bankStorage.Transaction);
-            Assert.IsFalse(Monitor.IsEntered(bankStorage.MutationLock));
+            Assert.IsNull(bankBoundary.Transaction);
+            Assert.IsFalse(Monitor.IsEntered(bankBoundary.MutationLock));
             foreach (var boundary in pouchStorages)
             {
-                Assert.IsNull(boundary.Storage.Transaction);
-                Assert.IsFalse(Monitor.IsEntered(boundary.Storage.MutationLock));
+                Assert.IsNull(boundary.Transaction);
+                Assert.IsFalse(Monitor.IsEntered(boundary.MutationLock));
             }
         });
         Assert.IsFalse(bank.DepositFromMoneyPouch(out var deposited));
@@ -830,11 +830,10 @@ public sealed class CharacterItemTransferTests
         setup.Shield.EquipmentScript.CanUnEquipItem(setup.Shield, scenario.Owner).Returns(true);
         setup.Weapon.EquipmentScript.When(script => script.OnUnequipped(setup.Weapon, scenario.Owner)).Do(_ =>
         {
-            var equipmentStorage = (ItemContainerStorage)typeof(EquipmentContainer)
-                .GetField("_storage", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(setup.Equipment)!;
-            Assert.IsFalse(Monitor.IsEntered(equipmentStorage.MutationLock));
-            Assert.IsNotNull(equipmentStorage.Transaction);
-            Assert.AreSame(equipmentStorage.Transaction, Boundary(setup.Inventory.Items).Storage.Transaction);
+            var equipmentBoundary = GetEquipmentBoundary(setup.Equipment);
+            Assert.IsFalse(Monitor.IsEntered(equipmentBoundary.MutationLock));
+            Assert.IsNotNull(equipmentBoundary.Transaction);
+            Assert.AreSame(equipmentBoundary.Transaction, Boundary(setup.Inventory.Items).Transaction);
             callbacks.Add("weapon");
             throw hookFailure;
         });
@@ -890,11 +889,10 @@ public sealed class CharacterItemTransferTests
         equipped.EquipmentScript.UnEquipItem(equipped, scenario.Owner, 0).Returns(_ =>
         {
             Assert.AreEqual(1, publications);
-            var storage = (ItemContainerStorage)typeof(EquipmentContainer)
-                .GetField("_storage", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(equipment)!;
-            Assert.IsNull(storage.Transaction);
-            Assert.IsFalse(Monitor.IsEntered(storage.MutationLock));
-            Assert.IsNull(Boundary(inventory.Items).Storage.Transaction);
+            var equipmentBoundary = GetEquipmentBoundary(equipment);
+            Assert.IsNull(equipmentBoundary.Transaction);
+            Assert.IsFalse(Monitor.IsEntered(equipmentBoundary.MutationLock));
+            Assert.IsNull(Boundary(inventory.Items).Transaction);
             return false;
         });
 
@@ -991,13 +989,13 @@ public sealed class CharacterItemTransferTests
         scenario.Owner.ClearReceivedCalls();
         var equipmentBoundary = (ItemContainerMutationBoundary)typeof(EquipmentContainer)
             .GetField("_mutations", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(equipment)!;
-        var inventoryStorage = Boundary(inventory.Items).Storage;
+        var inventoryBoundary = Boundary(inventory.Items);
         scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(_ =>
         {
-            Assert.IsNull(equipmentBoundary.Storage.Transaction);
-            Assert.IsFalse(Monitor.IsEntered(equipmentBoundary.Storage.MutationLock));
-            Assert.IsNull(inventoryStorage.Transaction);
-            Assert.IsFalse(Monitor.IsEntered(inventoryStorage.MutationLock));
+            Assert.IsNull(equipmentBoundary.Transaction);
+            Assert.IsFalse(Monitor.IsEntered(equipmentBoundary.MutationLock));
+            Assert.IsNull(inventoryBoundary.Transaction);
+            Assert.IsFalse(Monitor.IsEntered(inventoryBoundary.MutationLock));
         });
         Assert.IsFalse(equipment.UnEquipItem(item));
 
@@ -1419,7 +1417,7 @@ public sealed class CharacterItemTransferTests
         current.EquipmentScript.UnEquipItem(current, scenario.Owner, 0)
             .Returns(_ => equipment.UnEquipItem(current, 0));
         eventManager.ClearReceivedCalls();
-        var mutationLock = GetEquipmentBoundary(equipment).Storage.MutationLock;
+        var mutationLock = GetEquipmentBoundary(equipment).MutationLock;
         return (inventory, equipment, eventManager, current, incoming, mutationLock);
     }
 

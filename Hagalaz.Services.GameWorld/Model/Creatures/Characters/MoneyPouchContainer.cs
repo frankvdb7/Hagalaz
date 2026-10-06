@@ -123,6 +123,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private bool ApplyExactAdd(ItemContainerTransaction transaction, int pouchCount, int inventoryCount)
         {
             var previousCount = Count;
+            using var pouchMutation = _storageMutations.BeginMutation();
             if (pouchCount > 0 && !_storage.TryAddRange(
                     [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()], out _))
             {
@@ -147,13 +148,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (coins.Id != 995 || count <= 0) return false;
 
             var sourceBoundary = ItemContainerTransaction.ResolveSingleBoundary(source);
-            var transaction = GetCompleteTransaction(sourceBoundary.Storage)
+            var transaction = GetCompleteTransaction(sourceBoundary)
                 ?? throw new InvalidOperationException("Source, pouch, and inventory storage must belong to one active transaction.");
             if (!TryPlanExactAdd(count, out var pouchCount, out var inventoryCount)) return false;
 
+            using var sourceMutation = sourceBoundary.BeginMutation();
             if (!sourceBoundary.Storage.TryRemoveExact(coins, count, preferredSourceSlot,
                     out var changedSlots)) return false;
-            transaction.RecordChanges(sourceBoundary.Storage, changedSlots);
+            sourceMutation.RecordChanges(changedSlots);
             return ApplyExactAdd(transaction, pouchCount, inventoryCount);
         }
 
@@ -199,6 +201,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             var previousCount = Count;
+            using var pouchMutation = _storageMutations.BeginMutation();
             if (pouchCount > 0 && !_storage.TryRemoveExact(
                     _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0, out _))
             {
@@ -230,14 +233,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             PublishChange(change);
         }
 
-        private ItemContainerTransaction? GetCompleteTransaction(ItemContainerStorage? additionalStorage = null)
+        private ItemContainerTransaction? GetCompleteTransaction(ItemContainerMutationBoundary? additionalBoundary = null)
         {
             ItemContainerTransaction? transaction = null;
             var unbound = 0;
             var boundaries = ((IItemTransactionSource)this).Boundaries;
             foreach (var boundary in boundaries)
             {
-                var current = boundary.Storage.Transaction;
+                var current = boundary.Transaction;
                 if (current == null)
                 {
                     unbound++;
@@ -254,9 +257,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
             }
 
-            if (additionalStorage != null)
+            if (additionalBoundary != null)
             {
-                var current = additionalStorage.Transaction;
+                var current = additionalBoundary.Transaction;
                 if (current == null) unbound++;
                 else if (transaction == null) transaction = current;
                 else if (!ReferenceEquals(transaction, current))

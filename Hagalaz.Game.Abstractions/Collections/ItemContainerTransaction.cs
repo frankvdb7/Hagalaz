@@ -9,9 +9,9 @@ namespace Hagalaz.Game.Abstractions.Collections;
 
 /// <summary>Coordinates synchronous atomic item-container mutations, rollback, and deferred publication.</summary>
 /// <remarks>
-/// This is a synchronous scope. Begin acquires and binds all participating storage; mutations affect live
-/// storage eagerly while the Active scope owns its mutation locks. Commit makes storage irreversible and
-/// releases mutation locks before committed completion and publication, while storage remains bound to
+/// This is a synchronous scope. Begin acquires and binds all participating mutation boundaries; mutations affect live
+/// storage eagerly while the Active scope owns their locks. Commit makes storage irreversible and
+/// releases boundary locks before committed completion and publication, while boundaries remain bound to
 /// this scope until that work finishes. Foreign overlapping scopes wait; same-thread reentrant overlap is
 /// rejected. Dispose without Commit restores storage before releasing the scope. Begin, mutations, Commit,
 /// and Dispose must run on the originating thread. Rollback restores slot topology, item references, item
@@ -23,9 +23,9 @@ public sealed class ItemContainerTransaction : IDisposable
 {
     private readonly int _threadId = Environment.CurrentManagedThreadId;
     private readonly ItemContainerMutationBoundary[] _boundaries;
-    private readonly ItemContainerStorage[] _lockOrder;
+    private readonly ItemContainerMutationBoundary[] _lockOrder;
     private readonly List<StorageSnapshot> _snapshots = [];
-    private readonly Dictionary<ItemContainerStorage, HashSet<int>?> _changed = [];
+    private readonly Dictionary<ItemContainerMutationBoundary, HashSet<int>?> _changed = [];
     private int _completionCount;
     private int _locksAcquired;
     private TransactionState _state;
@@ -33,10 +33,10 @@ public sealed class ItemContainerTransaction : IDisposable
     private ItemContainerTransaction(ItemContainerMutationBoundary[] boundaries)
     {
         _boundaries = boundaries;
-        _lockOrder = boundaries.Select(boundary => boundary.Storage).OrderBy(storage => storage.MutationOrder).ToArray();
+        _lockOrder = boundaries.OrderBy(boundary => boundary.MutationOrder).ToArray();
     }
 
-    /// <summary>Resolves every participant, acquires ordered locks and captures rollback state before binding the scope.</summary>
+    /// <summary>Resolves every participant, acquires ordered boundary locks and captures rollback state before binding the scope.</summary>
     /// <exception cref="ArgumentException">Participants are empty, unsupported, or contribute invalid storage.</exception>
     /// <exception cref="InvalidOperationException">A participant already belongs to a scope on the current thread.</exception>
     public static ItemContainerTransaction Begin(params IItemTransactional[] participants)
@@ -58,7 +58,7 @@ public sealed class ItemContainerTransaction : IDisposable
     private static ItemContainerTransaction BeginResolved(ItemContainerMutationBoundary[] boundaries)
     {
         foreach (var boundary in boundaries)
-            if (boundary.Storage.Transaction is { IsOwnedByCurrentThread: true })
+            if (boundary.Transaction is { IsOwnedByCurrentThread: true })
                 throw new InvalidOperationException("Storage already belongs to a transaction on this thread.");
 
         var transaction = new ItemContainerTransaction(boundaries);
@@ -67,14 +67,14 @@ public sealed class ItemContainerTransaction : IDisposable
             while (true)
             {
                 var retry = false;
-                foreach (var storage in transaction._lockOrder)
+                foreach (var boundary in transaction._lockOrder)
                 {
-                    Monitor.Enter(storage.MutationLock);
+                    Monitor.Enter(boundary.MutationLock);
                     transaction._locksAcquired++;
-                    var owner = storage.Transaction;
-                    var hasStandaloneOwner = storage.HasStandalonePublicationOwner;
+                    var owner = boundary.Transaction;
+                    var hasStandaloneOwner = boundary.HasStandalonePublicationOwner;
                     if (owner == null && !hasStandaloneOwner) continue;
-                    if (owner is { IsOwnedByCurrentThread: true } || storage.IsStandalonePublicationOwnedByCurrentThread)
+                    if (owner is { IsOwnedByCurrentThread: true } || boundary.IsStandalonePublicationOwnedByCurrentThread)
                         throw new InvalidOperationException("Storage already belongs to a transaction on this thread.");
 
                     // Do not retain a lock prefix while waiting: the owner reacquires its ordered set to
@@ -82,30 +82,31 @@ public sealed class ItemContainerTransaction : IDisposable
                     List<Exception>? releaseFailures = null;
                     transaction.ReleaseMutationLocks(ref releaseFailures);
                     ThrowFailures(releaseFailures);
-                    Monitor.Enter(storage.MutationLock);
+                    Monitor.Enter(boundary.MutationLock);
                     try
                     {
-                        while (storage.Transaction != null || storage.HasStandalonePublicationOwner)
+                        while (boundary.Transaction != null || boundary.HasStandalonePublicationOwner)
                         {
-                            if (storage.Transaction is { IsOwnedByCurrentThread: true } ||
-                                storage.IsStandalonePublicationOwnedByCurrentThread)
+                            if (boundary.Transaction is { IsOwnedByCurrentThread: true } ||
+                                boundary.IsStandalonePublicationOwnedByCurrentThread)
                                 throw new InvalidOperationException("Storage already belongs to a transaction on this thread.");
-                            Monitor.Wait(storage.MutationLock);
+                            Monitor.Wait(boundary.MutationLock);
                         }
                     }
-                    finally { Monitor.Exit(storage.MutationLock); }
+                    finally { Monitor.Exit(boundary.MutationLock); }
                     retry = true;
                     break;
                 }
                 if (!retry) break;
             }
-            foreach (var storage in transaction._lockOrder)
+            foreach (var boundary in transaction._lockOrder)
             {
+                var storage = boundary.Storage;
                 var items = storage.ToArray();
-                transaction._snapshots.Add(new StorageSnapshot(storage, items,
+                transaction._snapshots.Add(new StorageSnapshot(boundary, items,
                     items.Select(item => item?.Count ?? 0).ToArray(), storage.MutationRevision));
             }
-            foreach (var storage in transaction._lockOrder) storage.Transaction = transaction;
+            foreach (var boundary in transaction._lockOrder) boundary.Transaction = transaction;
             return transaction;
         }
         catch (Exception constructionFailure)
@@ -116,10 +117,10 @@ public sealed class ItemContainerTransaction : IDisposable
         }
     }
 
-    /// <summary>Declares live storage irreversible, releases mutation locks, performs committed completion/publication, and releases the scope.</summary>
+    /// <summary>Declares live storage irreversible, releases boundary locks, performs committed completion/publication, and releases the scope.</summary>
     /// <remarks>
     /// Mutations already affect live storage under locks; Commit discards rollback ability rather than applying staged data.
-    /// Callbacks run after mutation locks are released but before storage scope bindings are released. Hook or publication
+    /// Callbacks run after boundary locks are released but before boundary bindings are released. Hook or publication
     /// failures propagate after storage has permanently committed. Dispose cannot undo that state, and another Commit
     /// cannot retry completion. Fixed domain completion runs before and after container publication in mutation order.
     /// Container failure skips later containers and all post-publication completion. A post-publication failure skips later
@@ -144,7 +145,7 @@ public sealed class ItemContainerTransaction : IDisposable
                         catch (Exception exception) { (failures ??= []).Add(exception); }
                     }
                 foreach (var boundary in _boundaries)
-                    if (_changed.TryGetValue(boundary.Storage, out var slots)) boundary.PublishCommittedChanges(slots);
+                    if (_changed.TryGetValue(boundary, out var slots)) boundary.PublishCommittedChanges(slots);
                 for (var order = 0; order < _completionCount; order++)
                     foreach (var boundary in _boundaries) boundary.CompleteAfterPublication(this, order);
             }
@@ -173,7 +174,7 @@ public sealed class ItemContainerTransaction : IDisposable
         {
             foreach (var snapshot in _snapshots)
             {
-                try { snapshot.Storage.RestoreTransactionState(snapshot.Items, snapshot.Counts, snapshot.Revision); }
+                try { snapshot.Boundary.RestoreTransactionState(this, snapshot.Items, snapshot.Counts, snapshot.Revision); }
                 catch (Exception exception) { (failures ??= []).Add(exception); }
             }
         }
@@ -187,18 +188,18 @@ public sealed class ItemContainerTransaction : IDisposable
         ThrowFailures(failures);
     }
 
-    internal void RecordChanges(ItemContainerStorage storage, HashSet<int>? slots)
+    internal void RecordChanges(ItemContainerMutationBoundary boundary, HashSet<int>? slots)
     {
         EnsureActive();
-        ArgumentNullException.ThrowIfNull(storage);
-        if (!ReferenceEquals(storage.Transaction, this))
-            throw new InvalidOperationException("Changes can only be recorded for storage enlisted in this transaction.");
-        if (!Monitor.IsEntered(storage.MutationLock))
-            throw new InvalidOperationException("Changes must be recorded while holding the enlisted storage mutation lock.");
+        ArgumentNullException.ThrowIfNull(boundary);
+        if (!ReferenceEquals(boundary.Transaction, this))
+            throw new InvalidOperationException("Changes can only be recorded for a boundary enlisted in this transaction.");
+        if (!boundary.IsMutationLockHeldByCurrentThread)
+            throw new InvalidOperationException("Changes must be recorded while holding the enlisted mutation boundary lock.");
         if (slots is { Count: 0 }) return;
-        if (slots == null) _changed[storage] = null;
-        else if (_changed.TryGetValue(storage, out var existing)) existing?.UnionWith(slots);
-        else _changed.Add(storage, new HashSet<int>(slots));
+        if (slots == null) _changed[boundary] = null;
+        else if (_changed.TryGetValue(boundary, out var existing)) existing?.UnionWith(slots);
+        else _changed.Add(boundary, new HashSet<int>(slots));
     }
 
     // A domain records this ordinal with its own pending facts, never executable work in the scope.
@@ -232,8 +233,8 @@ public sealed class ItemContainerTransaction : IDisposable
         var succeeded = true;
         while (_locksAcquired > 0)
         {
-            var storage = _lockOrder[--_locksAcquired];
-            try { Monitor.Exit(storage.MutationLock); }
+            var boundary = _lockOrder[--_locksAcquired];
+            try { Monitor.Exit(boundary.MutationLock); }
             catch (Exception exception) { succeeded = false; (failures ??= []).Add(exception); }
         }
         return succeeded;
@@ -250,11 +251,11 @@ public sealed class ItemContainerTransaction : IDisposable
     {
         for (var index = _lockOrder.Length - 1; index >= 0; index--)
         {
-            var storage = _lockOrder[index];
+            var boundary = _lockOrder[index];
             try
             {
-                if (ReferenceEquals(storage.Transaction, this)) storage.Transaction = null;
-                if (Monitor.IsEntered(storage.MutationLock)) Monitor.PulseAll(storage.MutationLock);
+                if (ReferenceEquals(boundary.Transaction, this)) boundary.Transaction = null;
+                if (Monitor.IsEntered(boundary.MutationLock)) Monitor.PulseAll(boundary.MutationLock);
             }
             catch (Exception exception) { (failures ??= []).Add(exception); }
         }
@@ -265,20 +266,20 @@ public sealed class ItemContainerTransaction : IDisposable
         var acquired = 0;
         try
         {
-            foreach (var storage in _lockOrder)
+            foreach (var boundary in _lockOrder)
             {
-                EnterForCommittedScopeCleanup(storage.MutationLock, ref failures);
+                EnterForCommittedScopeCleanup(boundary.MutationLock, ref failures);
                 acquired++;
             }
 
-            foreach (var storage in _lockOrder)
+            foreach (var boundary in _lockOrder)
             {
-                if (ReferenceEquals(storage.Transaction, this)) storage.Transaction = null;
+                if (ReferenceEquals(boundary.Transaction, this)) boundary.Transaction = null;
             }
 
-            foreach (var storage in _lockOrder)
+            foreach (var boundary in _lockOrder)
             {
-                Monitor.PulseAll(storage.MutationLock);
+                Monitor.PulseAll(boundary.MutationLock);
             }
         }
         finally
@@ -355,5 +356,5 @@ public sealed class ItemContainerTransaction : IDisposable
     }
 
     private enum TransactionState { Active, Committed, Completed, Disposed }
-    private sealed record StorageSnapshot(ItemContainerStorage Storage, IItem?[] Items, int[] Counts, int Revision);
+    private sealed record StorageSnapshot(ItemContainerMutationBoundary Boundary, IItem?[] Items, int[] Counts, int Revision);
 }

@@ -6,7 +6,7 @@ Before this change, item storage algorithms, synchronization and revision tracki
 
 ## What Changes
 
-- Add one `ItemContainerStorage` implementation for slots, mutations, revision, synchronization, restoration and transfer planning/commit.
+- Add one synchronization-agnostic `ItemContainerStorage` implementation for slots, mutation algorithms, revision, restoration and transfer planning/commit; keep locking, transaction binding and mutation authorization on its owning `ItemContainerMutationBoundary`.
 - Add a concrete instance-based `ItemContainerMutationBoundary` as the exact-transfer and enlistment entrypoint; use `ItemContainerTransaction` as the sole owner of locking and post-commit publication for coordinated mutations.
 - Add one concrete `ItemContainer` that implements the contract-only `IItemContainer` API by composing `ItemContainerStorage`.
 - Migrate ordinary domain containers, script objects, and test fixtures to privately own one concrete `ItemContainer`; ordinary domain interfaces expose `IItemContainer Items`. Remove generic container forwarding. Remove `BaseItemContainer`, `TradeItemContainer`, `ITradeItemContainer`, `ItemContainerExtensions`, redundant `GenericContainer`, and script-local generic forwarding wrappers.

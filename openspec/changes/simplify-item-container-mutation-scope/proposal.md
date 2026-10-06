@@ -7,10 +7,10 @@ Ordinary item-container mutations currently acquire the same monitor in both the
 ## What Changes
 
 - Add a narrow internal `MutationScope` owned by `ItemContainerMutationBoundary` for lock ownership, transaction attribution, and standalone publication after unlock.
-- Make ordinary storage mutators require caller-owned mutation-lock access instead of acquiring the monitor themselves.
-- Make rollback restoration require the transaction's already-owned lock without reacquiring it or using active-mutation authorization.
-- Retain lightweight storage-owned publication ownership from standalone change attribution through lifecycle/publication completion, and make explicit transaction Begin wait for that ownership.
-- Require transaction change attribution to verify exact storage binding and mutation-lock ownership; reject interactive Equipment replacement before mutation if either participating storage is already owned.
+- Keep ordinary storage mutators synchronization-free; `ItemContainerMutationBoundary` owns and authorizes boundary-lock access.
+- Make the boundary validate rollback ownership before restoring storage state under the transaction's already-owned lock.
+- Retain lightweight boundary-owned publication ownership from standalone change attribution through lifecycle/publication completion, and make explicit transaction Begin wait for that ownership.
+- Require transaction change attribution to verify exact boundary binding and mutation-lock ownership; reject interactive Equipment replacement before mutation if either participating boundary is already owned.
 - Migrate ordinary `ItemContainer`, Shop, and Equipment mutation paths to the scope; keep specialized transaction-only MoneyPouch and transfer behavior.
 - Preserve equipment completion order, transaction behavior, hydration semantics, and rollback infrastructure.
 
@@ -30,7 +30,7 @@ Affected areas are `ItemContainerStorage`, `ItemContainerMutationBoundary`, `Ite
 
 ## Acceptance Criteria
 
-- A standalone operation enters its storage monitor once; a transaction-owned operation borrows the lock without entering or releasing it.
+- A standalone operation enters its boundary lock once; a transaction-owned operation borrows the lock without entering or releasing it.
 - Storage mutation algorithms verify caller lock ownership and do not lock themselves.
 - Transaction rollback restores every snapshot while retaining participant locks and bindings, then clears bindings and releases locks.
 - Change attribution occurs under the lock; standalone publication occurs after unlock; failed operations publish nothing.

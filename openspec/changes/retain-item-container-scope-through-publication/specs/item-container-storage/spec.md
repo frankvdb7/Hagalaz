@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Transaction commit includes publication
-`ItemContainerTransaction.Begin(...)` MUST create one synchronous scope over all resolved storage contributions. Mutation locks MUST be held while the transaction is Active. `Commit()` MUST make eager storage mutations irreversible and release mutation locks before committed domain completion and publication while retaining each storage binding to the committing scope. A foreign overlapping `Begin(...)` MUST wait until the scope finishes; a same-thread overlapping `Begin(...)` MUST throw. Ordinary mutation of storage still bound to a Committed scope MUST be rejected. After completion/publication and non-observable pending cleanup, bindings MUST be cleared under the ordered storage locks, waiters MUST be awakened, and the transaction MUST become Completed. Publication failure MUST NOT leak scope ownership, roll back storage, or permit publication retry. Rollback MUST restore snapshots before clearing bindings and releasing mutation locks. Transaction use remains synchronous and thread-affine.
+`ItemContainerTransaction.Begin(...)` MUST create one synchronous scope over all resolved boundary contributions. Boundary mutation locks MUST be held while the transaction is Active. `Commit()` MUST make eager storage mutations irreversible and release boundary mutation locks before committed domain completion and publication while retaining each boundary binding to the committing scope. A foreign overlapping `Begin(...)` MUST wait until the scope finishes; a same-thread overlapping `Begin(...)` MUST throw. Ordinary mutation through a boundary still bound to a Committed scope MUST be rejected. After completion/publication and non-observable pending cleanup, bindings MUST be cleared under the ordered boundary locks, waiters MUST be awakened, and the transaction MUST become Completed. Publication failure MUST NOT leak scope ownership, roll back storage, or permit publication retry. Rollback MUST restore snapshots before clearing bindings and releasing boundary mutation locks. Transaction use remains synchronous and thread-affine.
 
 Mutation rollback is limited to item references, counts, slot topology, and revision; arbitrary mutable item metadata such as `ExtraData` is not deep-snapshotted.
 
@@ -24,7 +24,7 @@ Mutation rollback is limited to item references, counts, slot topology, and revi
 - **THEN** the standalone publication owner prevents the transaction from binding until publication finishes, and the standalone change is published before the later transaction begins
 
 #### Scenario: Reacquisition interruption does not abandon teardown
-- **WHEN** `Thread.Interrupt()` interrupts committed teardown while it waits to reacquire a storage mutation lock
+- **WHEN** `Thread.Interrupt()` interrupts committed teardown while it waits to reacquire a boundary mutation lock
 - **THEN** teardown records the interruption, retries that lock, clears all bindings under the complete ordered lock set, wakes waiters, and propagates the interruption after releasing locks
 
 #### Scenario: Storage commits before publication
@@ -40,11 +40,11 @@ Mutation rollback is limited to item references, counts, slot topology, and revi
 - **THEN** later participants are skipped, storage remains committed, the original exception propagates directly, and another Commit is invalid and Dispose emits nothing
 
 ### Requirement: Mutation authorization and attribution are resource-bound
-Every storage mutation MUST validate transaction access while holding that storage's mutation lock. Ordinary storage mutation algorithms MUST NOT acquire that lock themselves. One per-operation mutation scope MUST acquire the lock for standalone mutations or borrow the lock already held by the active owning transaction, and MUST release only a lock it acquired. If the current thread already owns the lock without an active transaction binding, starting an ordinary mutation scope MUST fail. The scope MUST validate the bound transaction before allowing a borrowed mutation. Successful change attribution MUST occur while the same mutation lock is still held. Transaction-owned changes MUST be recorded directly into that active transaction; standalone changes MUST be published only after the scope releases its owned lock. A scope that records no changes MUST publish nothing. Ordinary callers MUST NOT branch on deferred/immediate publication state or re-read transaction ownership after attribution. Transaction membership remains resource-bound to storage; ambient transaction accessors such as `AsyncLocal`, `ThreadLocal`, `ThreadStatic` current-transaction state, and implicit current-scope APIs are prohibited.
+Every ordinary mutation MUST be authorized by its owning boundary while holding that boundary's mutation lock. Storage mutation algorithms MUST NOT acquire locks or validate synchronization themselves. One per-operation mutation scope MUST acquire the boundary lock for standalone mutations or borrow the lock held by the active owning transaction, and MUST release only a lock it acquired. If the current thread already owns the boundary lock without an active transaction binding, starting an ordinary mutation scope MUST fail. The scope MUST validate the boundary's transaction before allowing a borrowed mutation. Successful change attribution MUST occur while the same boundary lock is still held. Transaction-owned changes MUST be recorded directly into that active transaction; standalone changes MUST be published only after the scope releases its owned lock. A scope that records no changes MUST publish nothing. Ordinary callers MUST NOT branch on deferred/immediate publication state or re-read transaction ownership after attribution. Transaction membership remains boundary-bound; ambient transaction accessors such as `AsyncLocal`, `ThreadLocal`, `ThreadStatic` current-transaction state, and implicit current-scope APIs are prohibited.
 
 #### Scenario: Standalone mutation uses one lock and publishes after unlock
 - **WHEN** an ordinary mutation runs on unbound storage and succeeds
-- **THEN** its operation scope acquires the storage lock once, attributes the change while holding it, releases it, and only then publishes
+- **THEN** its operation scope acquires the boundary lock once, attributes the change while holding it, releases it, and only then publishes
 
 #### Scenario: Transaction-owned mutation borrows its lock
 - **WHEN** an ordinary mutation runs on storage enlisted in the current thread's active transaction
@@ -55,7 +55,7 @@ Every storage mutation MUST validate transaction access while holding that stora
 - **THEN** it throws `InvalidOperationException` before changing storage
 
 #### Scenario: Manually held lock cannot imply transaction ownership
-- **WHEN** the current thread holds a storage mutation lock that has no active transaction binding and starts an ordinary mutation scope
+- **WHEN** the current thread holds a boundary mutation lock that has no active transaction binding and starts an ordinary mutation scope
 - **THEN** the scope throws without borrowing or releasing the externally owned lock
 
 #### Scenario: Unsuccessful standalone mutation publishes nothing
@@ -64,4 +64,4 @@ Every storage mutation MUST validate transaction access while holding that stora
 
 #### Scenario: Transaction attribution uses no ambient scope
 - **WHEN** an ordinary item-container mutation runs
-- **THEN** participation is determined from the storage binding under its lock without ambient state or transaction identity passed through the operation
+- **THEN** participation is determined from the boundary binding under its lock without ambient state or transaction identity passed through the operation

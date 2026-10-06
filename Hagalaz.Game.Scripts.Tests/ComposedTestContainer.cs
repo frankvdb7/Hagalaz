@@ -14,10 +14,8 @@ internal class ComposedTestContainer : IInventoryContainer, IRewardContainer
     public int UpdateCount { get; private set; }
     public bool CanAcquireMutationLockFromOtherThread()
     {
-        var storage = typeof(ItemContainer).GetField("_storage", System.Reflection.BindingFlags.Instance |
-            System.Reflection.BindingFlags.NonPublic)!.GetValue(_items)!;
-        var mutationLock = storage.GetType().GetProperty("MutationLock", System.Reflection.BindingFlags.Instance |
-            System.Reflection.BindingFlags.NonPublic)!.GetValue(storage)!;
+        var mutationBoundary = ((IItemTransactionSource)_items).Boundaries[0];
+        var mutationLock = mutationBoundary.MutationLock;
         var acquired = false;
         var acquisition = new Thread(() =>
         {

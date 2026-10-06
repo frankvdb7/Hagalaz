@@ -1015,7 +1015,7 @@ public sealed class TradeExchangeTests
         }
         private void RecordUpdate()
         {
-            var transaction = ((IItemTransactionSource)Container).Boundaries[0].Storage.Transaction!;
+            var transaction = ((IItemTransactionSource)Container).Boundaries[0].Transaction!;
             if (!_pendingUpdates.TryGetValue(transaction, out var orders)) _pendingUpdates.Add(transaction, orders = []);
             orders.Add(transaction.NextCompletionOrder());
         }
@@ -1098,7 +1098,7 @@ public sealed class TradeExchangeTests
             var unbound = 0;
             foreach (var boundary in ((IItemTransactionSource)this).Boundaries)
             {
-                var current = boundary.Storage.Transaction;
+                var current = boundary.Transaction;
                 if (current == null)
                 {
                     unbound++;
@@ -1113,7 +1113,7 @@ public sealed class TradeExchangeTests
             if (additionalContainer != null)
             {
                 var sourceBoundary = ((IItemTransactionSource)additionalContainer).Boundaries[0];
-                var current = sourceBoundary.Storage.Transaction;
+                var current = sourceBoundary.Transaction;
                 if (current == null) unbound++;
                 else if (transaction == null) transaction = current;
                 else if (!ReferenceEquals(transaction, current))
