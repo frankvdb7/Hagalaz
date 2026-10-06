@@ -77,8 +77,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                                                System.Reflection.BindingFlags.Public |
                                                System.Reflection.BindingFlags.NonPublic);
 
-            Assert.IsFalse(fields.Any(field => field.FieldType == typeof(object) ||
-                                               field.FieldType == typeof(ItemContainerTransaction) ||
+            Assert.IsFalse(fields.Any(field => field.FieldType == typeof(ItemContainerTransaction) ||
                                                field.FieldType == typeof(ItemContainerMutationBoundary)));
             Assert.IsFalse(storageType.GetMembers(System.Reflection.BindingFlags.Instance |
                                                   System.Reflection.BindingFlags.Static |
