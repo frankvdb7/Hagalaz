@@ -31,7 +31,7 @@ Affected areas are `ItemContainerStorage`, `ItemContainerMutationBoundary`, `Ite
 ## Acceptance Criteria
 
 - A standalone operation enters its boundary lock once; a transaction-owned operation borrows the lock without entering or releasing it.
-- Storage mutation algorithms verify caller lock ownership and do not lock themselves.
+- Storage mutation algorithms remain synchronization-agnostic; the owning boundary validates access while holding its mutation lock.
 - Transaction rollback restores every snapshot while retaining participant locks and bindings, then clears bindings and releases locks.
 - Change attribution occurs under the lock; standalone publication occurs after unlock; failed operations publish nothing.
 - Standalone ownership is claimed before unlock, prevents ordinary mutation and transaction binding during observer callbacks, and is cleared with waiter notification even when publication or cleanup is interrupted.

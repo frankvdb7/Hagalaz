@@ -5,7 +5,7 @@
 - [x] Add deterministic tests for publication visibility/waiting, same-thread reentrancy, publication failure cleanup, multi-storage overlap, and updated callback lock/binding expectations.
 - [x] Update canonical and active OpenSpec lifecycle requirements without changing unrelated architecture.
 - [x] Run requested build, focused and serial test suites, strict OpenSpec validation, duplication gate, and diff/status checks.
-- [x] Keep storage mutation validation under its lock and leave snapshot restoration outside normal mutation authorization.
+- [x] Keep mutation authorization on the owning boundary and leave synchronization checks out of storage algorithms and snapshot restoration.
 - [x] Use lock-required `TryDeferChanges()` for attribution; publish standalone changes after unlocking without transporting transaction identity through ordinary operations.
 - [x] Replace transaction-returning access validation with `EnsureMutationAccess()` and migrate container, shop, equipment, transfer, and pouch call sites.
 - [x] Cover standalone, active, unlocked, and committed-scope attribution; remove the reflection-based API-shape test.

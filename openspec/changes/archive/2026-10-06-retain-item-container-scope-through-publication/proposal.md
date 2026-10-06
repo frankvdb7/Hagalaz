@@ -15,7 +15,7 @@ Keep the existing transaction API, participants, live storage, boundary lock ord
 - Same-thread overlapping `Begin(...)` and ordinary mutation during committed completion are rejected.
 - Scope bindings are cleared together under ordered locks, waiters are pulsed, failures never roll back committed storage, and publication is never retried.
 - Rollback restores snapshots before clearing bindings and releasing locks.
-- Storage validates mutation access under its lock, and the mutation boundary attributes changes to the resource-bound transaction under that same lock. Standalone publication happens only after unlocking; ordinary operations never carry transaction identity or use ambient transaction accessors.
+- The mutation boundary validates mutation access and attributes changes under its lock; storage algorithms remain synchronization-agnostic. Standalone publication happens only after unlocking; ordinary operations never carry transaction identity or use ambient transaction accessors.
 - Committed teardown never clears a binding without the corresponding lock, retries `ThreadInterruptedException`, and propagates it only after all bindings and locks are cleaned up.
 - MoneyPouch coin transfer and terminal TradeExchange movement require the complete caller-owned transaction and cannot open nested scopes through standalone-capable additions or clears.
 - Rollback metadata guarantees remain limited to slot topology, item references, counts, and storage revision; arbitrary `ExtraData` is not deep-copied.

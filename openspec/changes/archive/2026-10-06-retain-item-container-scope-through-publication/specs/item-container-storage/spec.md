@@ -50,9 +50,9 @@ Every ordinary mutation MUST be authorized by its owning boundary while holding 
 - **WHEN** an ordinary mutation runs on storage enlisted in the current thread's active transaction
 - **THEN** its operation scope does not reacquire or release the transaction-owned lock and records changes into that transaction before returning
 
-#### Scenario: Mutation without caller lock is rejected
-- **WHEN** a storage mutation algorithm is called without ownership of its mutation lock
-- **THEN** it throws `InvalidOperationException` before changing storage
+#### Scenario: Storage mutation algorithms rely on boundary authorization
+- **WHEN** an internal storage mutation algorithm is called directly
+- **THEN** it applies item-state rules without checking lock ownership or transaction membership
 
 #### Scenario: Manually held lock cannot imply transaction ownership
 - **WHEN** the current thread holds a boundary mutation lock that has no active transaction binding and starts an ordinary mutation scope
