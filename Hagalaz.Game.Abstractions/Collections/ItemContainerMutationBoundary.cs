@@ -213,8 +213,6 @@ internal sealed class ItemContainerMutationBoundary
         var transaction = EnsureActiveTransaction();
         if (!ReferenceEquals(transaction, destination.EnsureActiveTransaction()))
             throw new InvalidOperationException("Both storage boundaries must belong to the same active transaction.");
-        EnsureMutationLockHeld();
-        destination.EnsureMutationLockHeld();
         if (!_storage.TryTransferTo(destination._storage, item, count,
                 preferredSourceSlot, destinationSlot, destinationItem, out var sourceSlots, out var destinationSlots)) return false;
         transaction.RecordChanges(this, sourceSlots);

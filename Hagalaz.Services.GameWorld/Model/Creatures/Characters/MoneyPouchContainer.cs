@@ -268,7 +268,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (unbound != 0)
                 throw new InvalidOperationException("Every required money pouch storage contribution must belong to the same transaction.");
 
-            transaction.EnsureActive();
+            _storageMutations.EnsureOwnedBy(transaction);
             return transaction;
         }
 

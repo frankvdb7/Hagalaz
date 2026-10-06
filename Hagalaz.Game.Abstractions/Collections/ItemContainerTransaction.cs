@@ -193,12 +193,8 @@ public sealed class ItemContainerTransaction : IDisposable
 
     internal void RecordChanges(ItemContainerMutationBoundary boundary, HashSet<int>? slots)
     {
-        EnsureActive();
         ArgumentNullException.ThrowIfNull(boundary);
-        if (!ReferenceEquals(boundary.Transaction, this))
-            throw new InvalidOperationException("Changes can only be recorded for a boundary enlisted in this transaction.");
-        if (!boundary.IsMutationLockHeldByCurrentThread)
-            throw new InvalidOperationException("Changes must be recorded while holding the enlisted mutation boundary lock.");
+        boundary.EnsureOwnedBy(this);
         if (slots is { Count: 0 }) return;
         if (slots == null) _changed[boundary] = null;
         else if (_changed.TryGetValue(boundary, out var existing)) existing?.UnionWith(slots);
