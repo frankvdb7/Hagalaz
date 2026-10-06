@@ -24,15 +24,20 @@ public sealed class ItemContainerTransaction : IDisposable
     private readonly int _threadId = Environment.CurrentManagedThreadId;
     private readonly ItemContainerMutationBoundary[] _boundaries;
     private readonly ItemContainerMutationBoundary[] _lockOrder;
+    private readonly IItemContainerCompletionOwner[] _completionOwners;
     private readonly List<StorageSnapshot> _snapshots = [];
     private readonly Dictionary<ItemContainerMutationBoundary, HashSet<int>?> _changed = [];
-    private int _completionCount;
     private int _locksAcquired;
     private TransactionState _state;
 
     private ItemContainerTransaction(ItemContainerMutationBoundary[] boundaries)
     {
         _boundaries = boundaries;
+        var seenOwners = new HashSet<IItemContainerCompletionOwner>(ReferenceEqualityComparer.Instance);
+        var completionOwners = new List<IItemContainerCompletionOwner>();
+        foreach (var boundary in boundaries)
+            if (boundary.CompletionOwner is { } owner && seenOwners.Add(owner)) completionOwners.Add(owner);
+        _completionOwners = completionOwners.ToArray();
         _lockOrder = boundaries.OrderBy(boundary => boundary.MutationOrder).ToArray();
     }
 
@@ -120,9 +125,10 @@ public sealed class ItemContainerTransaction : IDisposable
     /// <summary>Declares live storage irreversible, releases boundary locks, performs committed completion/publication, and releases the scope.</summary>
     /// <remarks>
     /// Mutations already affect live storage under locks; Commit discards rollback ability rather than applying staged data.
-    /// Callbacks run after boundary locks are released but before boundary bindings are released. Hook or publication
-    /// failures propagate after storage has permanently committed. Dispose cannot undo that state, and another Commit
-    /// cannot retry completion. Fixed domain completion runs before and after container publication in mutation order.
+    /// Completion runs after boundary locks are released but before boundary bindings are released. Completion owners
+    /// are deduplicated by reference in resolved boundary order, independently from lock and publication order. Hook or
+    /// publication failures propagate after storage has permanently committed. Dispose cannot undo that state, and
+    /// another Commit cannot retry completion.
     /// Container failure skips later containers and all post-publication completion. A post-publication failure skips later
     /// completion. Multiple independent failures are retained in a flat AggregateException.
     /// </remarks>
@@ -137,17 +143,14 @@ public sealed class ItemContainerTransaction : IDisposable
         {
             if (mutationLocksReleased)
             {
-                // Ordinals preserve mutation order across owners; executable work stays with each owner.
-                for (var order = 0; order < _completionCount; order++)
-                    foreach (var boundary in _boundaries)
-                    {
-                        try { boundary.CompleteBeforePublication(this, order); }
-                        catch (Exception exception) { (failures ??= []).Add(exception); }
-                    }
+                foreach (var owner in _completionOwners)
+                {
+                    try { owner.CompleteBeforePublication(); }
+                    catch (Exception exception) { (failures ??= []).Add(exception); }
+                }
                 foreach (var boundary in _boundaries)
                     if (_changed.TryGetValue(boundary, out var slots)) boundary.PublishCommittedChanges(slots);
-                for (var order = 0; order < _completionCount; order++)
-                    foreach (var boundary in _boundaries) boundary.CompleteAfterPublication(this, order);
+                foreach (var owner in _completionOwners) owner.CompleteAfterPublication();
             }
         }
         catch (Exception completionFailure)
@@ -202,14 +205,11 @@ public sealed class ItemContainerTransaction : IDisposable
         else _changed.Add(boundary, new HashSet<int>(slots));
     }
 
-    // A domain records this ordinal with its own pending facts, never executable work in the scope.
-    internal int NextCompletionOrder() { EnsureActive(); return _completionCount++; }
-
     private void DiscardPendingCompletion(ref List<Exception>? failures)
     {
-        foreach (var boundary in _boundaries)
+        foreach (var owner in _completionOwners)
         {
-            try { boundary.DiscardPendingCompletion(this); }
+            try { owner.DiscardPendingCompletion(); }
             catch (Exception exception) { (failures ??= []).Add(exception); }
         }
     }

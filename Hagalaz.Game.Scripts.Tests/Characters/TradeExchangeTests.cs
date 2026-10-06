@@ -1066,7 +1066,7 @@ public sealed class TradeExchangeTests
     private sealed class TestMoneyPouch : ComposedTestContainer, IMoneyPouchContainer, IItemTransactionSource, IItemContainerCompletionOwner
     {
         private readonly IInventoryContainer _overflowInventory;
-        private readonly Dictionary<ItemContainerTransaction, HashSet<int>> _pendingUpdates = [];
+        private readonly Queue<byte> _pendingUpdates = new();
         IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries =>
             [((IItemTransactionSource)Container).Boundaries[0],
                 ((IItemTransactionSource)_overflowInventory.Items).Boundaries[0]];
@@ -1081,15 +1081,19 @@ public sealed class TradeExchangeTests
         }
         private void RecordUpdate()
         {
-            var transaction = ((IItemTransactionSource)Container).Boundaries[0].Transaction!;
-            if (!_pendingUpdates.TryGetValue(transaction, out var orders)) _pendingUpdates.Add(transaction, orders = []);
-            orders.Add(transaction.NextCompletionOrder());
+            var boundary = ((IItemTransactionSource)Container).Boundaries[0];
+            var transaction = boundary.Transaction
+                ?? throw new InvalidOperationException("Pouch updates require an active item transaction.");
+            transaction.EnsureActive();
+            if (!ReferenceEquals(boundary.Transaction, transaction) || !boundary.IsMutationLockHeldByCurrentThread)
+                throw new InvalidOperationException("Pouch updates require their active transaction and mutation lock.");
+            _pendingUpdates.Enqueue(0);
         }
-        public void DiscardPendingCompletion(ItemContainerTransaction transaction) => _pendingUpdates.Remove(transaction);
-        public void CompleteBeforePublication(ItemContainerTransaction transaction, int order) { }
-        public void CompleteAfterPublication(ItemContainerTransaction transaction, int order)
+        public void DiscardPendingCompletion() => _pendingUpdates.Clear();
+        public void CompleteBeforePublication() { }
+        public void CompleteAfterPublication()
         {
-            if (_pendingUpdates.TryGetValue(transaction, out var orders) && orders.Remove(order)) OnUpdate();
+            while (_pendingUpdates.TryDequeue(out _)) OnUpdate();
         }
         public string Examine => Count.ToString();
         public int Count => Items[0]?.Count ?? 0;

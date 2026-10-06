@@ -340,6 +340,8 @@ public sealed class ItemContainerTransferTests
         var order = new List<string>();
         var first = new ItemContainer(StorageType.Normal, 2, _ => order.Add("first"));
         var second = new ItemContainer(StorageType.Normal, 2, _ => order.Add("second"));
+        Completion(first);
+        Completion(second);
         using var transaction = ItemContainerTransaction.Begin(second, first, second);
         Assert.IsTrue(first.Add(new TestItem(23, 1)));
         Assert.IsTrue(second.Add(new TestItem(24, 1)));
@@ -361,7 +363,7 @@ public sealed class ItemContainerTransferTests
         transaction.Dispose();
         transaction.Dispose();
         Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
-        CollectionAssert.AreEqual(new[] { "hook", "second", "first", "after1", "after2" }, order);
+        CollectionAssert.AreEqual(new[] { "hook", "second", "first", "after2", "after1" }, order);
         Assert.AreEqual(1, first.TakenSlots);
         Assert.AreEqual(1, second.TakenSlots);
         AssertUnboundAndUnlocked(first, second);
@@ -452,6 +454,8 @@ public sealed class ItemContainerTransferTests
             throw original;
         });
         second = new ItemContainer(StorageType.Normal, 2, _ => calls.Add("second"));
+        Completion(first);
+        Completion(second);
         using var transaction = ItemContainerTransaction.Begin(first, second);
         committing = transaction;
         Assert.IsTrue(first.Add(new TestItem(33, 1)));
@@ -475,6 +479,8 @@ public sealed class ItemContainerTransferTests
         var first = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("first"));
         var second = new ItemContainer(StorageType.Normal, 1, _ => { calls.Add("second"); throw original; });
         var third = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("third"));
+        Completion(first);
+        Completion(second);
         using var transaction = ItemContainerTransaction.Begin(first, second, third);
         Assert.IsTrue(first.Add(new TestItem(35, 1)));
         Assert.IsTrue(second.Add(new TestItem(36, 1)));
@@ -496,6 +502,7 @@ public sealed class ItemContainerTransferTests
         var calls = new List<string>();
         var original = new InvalidOperationException("After-publication action failed.");
         var container = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("container"));
+        Completion(container);
         using var transaction = ItemContainerTransaction.Begin(container);
         Assert.IsTrue(container.Add(new TestItem(37, 1)));
         Completion(container).After(() => calls.Add("after1"));
@@ -514,6 +521,7 @@ public sealed class ItemContainerTransferTests
         var calls = new List<string>();
         var original = new InvalidOperationException("Hook failed.");
         var container = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("container"));
+        Completion(container);
         using var transaction = ItemContainerTransaction.Begin(container);
         Assert.IsTrue(container.Add(new TestItem(38, 1)));
         Completion(container).Before(() => { AssertScopeBoundAndUnlocked(transaction, container); calls.Add("hook"); throw original; });
@@ -531,6 +539,7 @@ public sealed class ItemContainerTransferTests
         var hookFailure = new InvalidOperationException("Hook failed.");
         var publicationFailure = new InvalidOperationException("Publisher failed.");
         var container = new ItemContainer(StorageType.Normal, 1, _ => throw publicationFailure);
+        Completion(container);
         using var transaction = ItemContainerTransaction.Begin(container);
         Assert.IsTrue(container.Add(new TestItem(39, 1)));
         Completion(container).Before(() => throw hookFailure);
@@ -680,6 +689,24 @@ public sealed class ItemContainerTransferTests
         transaction.Commit();
         CollectionAssert.AreEqual(new[] { "first", "second" }, calls);
         AssertUnboundAndUnlocked(first, second);
+    }
+
+    [TestMethod]
+    public void Commit_AliasedBoundariesInvokeCompletionOwnerOnce()
+    {
+        var first = new ItemContainer(StorageType.Normal, 1);
+        var second = new ItemContainer(StorageType.Normal, 1);
+        var owner = Completion(first);
+        typeof(ItemContainerMutationBoundary).GetField("_completion", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(Boundary(second), owner);
+        var participant = new CompositeParticipant([Boundary(second), Boundary(first)]);
+
+        using var transaction = ItemContainerTransaction.Begin(participant);
+        transaction.Commit();
+
+        Assert.AreEqual(1, owner.BeforeCalls);
+        Assert.AreEqual(1, owner.AfterCalls);
+        Assert.AreEqual(1, owner.DiscardCalls);
     }
 
     [TestMethod]
@@ -1546,6 +1573,7 @@ public sealed class ItemContainerTransferTests
             calls++;
             if (publicationFails) throw publicationFailure;
         });
+        Completion(container);
         using var transaction = ItemContainerTransaction.Begin(container);
         Assert.IsTrue(container.Add(new TestItem(47, 1)));
         foreach (var failure in hookFailures)
@@ -1596,24 +1624,42 @@ public sealed class ItemContainerTransferTests
 
     private sealed class TestCompletionOwner(ItemContainerMutationBoundary boundary) : IItemContainerCompletionOwner
     {
-        private readonly Dictionary<ItemContainerTransaction, Dictionary<int, Action>> _before = [];
-        private readonly Dictionary<ItemContainerTransaction, Dictionary<int, Action>> _after = [];
+        private readonly Queue<Action> _before = new();
+        private readonly Queue<Action> _after = new();
+        internal int BeforeCalls { get; private set; }
+        internal int AfterCalls { get; private set; }
+        internal int DiscardCalls { get; private set; }
         internal void Before(Action effect) => Add(_before, effect);
         internal void After(Action effect) => Add(_after, effect);
-        private void Add(Dictionary<ItemContainerTransaction, Dictionary<int, Action>> pending, Action effect)
+        private void Add(Queue<Action> pending, Action effect)
         {
-            var transaction = boundary.Transaction!;
-            if (!pending.TryGetValue(transaction, out var effects)) pending.Add(transaction, effects = []);
-            effects.Add(transaction.NextCompletionOrder(), effect);
+            lock (boundary.MutationLock)
+            {
+                var transaction = boundary.Transaction
+                    ?? throw new InvalidOperationException("Completion facts require an active transaction.");
+                transaction.EnsureActive();
+                if (!ReferenceEquals(boundary.Transaction, transaction) || !boundary.IsMutationLockHeldByCurrentThread)
+                    throw new InvalidOperationException("Completion facts require their active transaction and mutation lock.");
+                pending.Enqueue(effect);
+            }
         }
-        public void DiscardPendingCompletion(ItemContainerTransaction transaction) { _before.Remove(transaction); _after.Remove(transaction); }
-        public void CompleteBeforePublication(ItemContainerTransaction transaction, int order)
+        public void DiscardPendingCompletion() { DiscardCalls++; _before.Clear(); _after.Clear(); }
+        public void CompleteBeforePublication()
         {
-            if (_before.TryGetValue(transaction, out var effects) && effects.Remove(order, out var effect)) effect();
+            BeforeCalls++;
+            List<Exception>? failures = null;
+            while (_before.TryDequeue(out var effect))
+            {
+                try { effect(); }
+                catch (Exception exception) { (failures ??= []).Add(exception); }
+            }
+            if (failures is { Count: 1 }) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failures[0]).Throw();
+            if (failures is { Count: > 1 }) throw new AggregateException(failures);
         }
-        public void CompleteAfterPublication(ItemContainerTransaction transaction, int order)
+        public void CompleteAfterPublication()
         {
-            if (_after.TryGetValue(transaction, out var effects) && effects.Remove(order, out var effect)) effect();
+            AfterCalls++;
+            while (_after.TryDequeue(out var effect)) effect();
         }
     }
 

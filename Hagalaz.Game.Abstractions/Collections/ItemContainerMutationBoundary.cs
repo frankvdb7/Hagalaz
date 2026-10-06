@@ -31,6 +31,7 @@ internal sealed class ItemContainerMutationBoundary
     internal ItemContainerStorage Storage => _storage;
     internal object MutationLock => _mutationLock;
     internal long MutationOrder => _mutationOrder;
+    internal IItemContainerCompletionOwner? CompletionOwner => _completion;
     internal ItemContainerTransaction? Transaction { get => _transaction; set => _transaction = value; }
     internal bool IsMutationLockHeldByCurrentThread => Monitor.IsEntered(_mutationLock);
 
@@ -320,7 +321,4 @@ internal sealed class ItemContainerMutationBoundary
         }
     }
 
-    internal void DiscardPendingCompletion(ItemContainerTransaction transaction) => _completion?.DiscardPendingCompletion(transaction);
-    internal void CompleteBeforePublication(ItemContainerTransaction transaction, int order) => _completion?.CompleteBeforePublication(transaction, order);
-    internal void CompleteAfterPublication(ItemContainerTransaction transaction, int order) => _completion?.CompleteAfterPublication(transaction, order);
 }

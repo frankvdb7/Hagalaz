@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -33,10 +32,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ItemContainerMutationBoundary _mutations;
         IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries => [_mutations];
         public IReadOnlyItemContainer Items => _storage;
-        private readonly ConcurrentDictionary<ItemContainerTransaction, Queue<EquipmentCompletion>> _pendingCompletion = new();
+        private readonly Queue<EquipmentCompletion> _pendingCompletion = new();
         private enum EquipmentEffectKind { Equipped, Unequipped, WeaponProfile }
         private readonly record struct EquipmentEffect(EquipmentEffectKind Kind, IItem Item, IItem? Incoming = null);
-        private readonly record struct EquipmentCompletion(int Order, EquipmentEffect[] Effects);
+        private readonly record struct EquipmentCompletion(EquipmentEffect[] Effects);
         /// <summary>
         /// Gets the item by the specified array index.
         /// </summary>
@@ -373,17 +372,24 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private void DeferEquipmentEffects(ItemContainerTransaction transaction, params EquipmentEffect[] effects)
         {
             transaction.EnsureActive();
-            var pending = _pendingCompletion.GetOrAdd(transaction, _ => new Queue<EquipmentCompletion>());
-            pending.Enqueue(new EquipmentCompletion(transaction.NextCompletionOrder(), effects));
+            using var mutation = _mutations.BeginMutation();
+            if (!ReferenceEquals(_mutations.Transaction, transaction) || !_mutations.IsMutationLockHeldByCurrentThread)
+                throw new InvalidOperationException("Equipment completion requires its active transaction and mutation lock.");
+            _pendingCompletion.Enqueue(new EquipmentCompletion(effects));
         }
 
-        void IItemContainerCompletionOwner.DiscardPendingCompletion(ItemContainerTransaction transaction) => _pendingCompletion.TryRemove(transaction, out _);
-        void IItemContainerCompletionOwner.CompleteAfterPublication(ItemContainerTransaction transaction, int order) { }
-        void IItemContainerCompletionOwner.CompleteBeforePublication(ItemContainerTransaction transaction, int order)
+        void IItemContainerCompletionOwner.DiscardPendingCompletion() => _pendingCompletion.Clear();
+        void IItemContainerCompletionOwner.CompleteAfterPublication() { }
+        void IItemContainerCompletionOwner.CompleteBeforePublication()
         {
-            if (!_pendingCompletion.TryGetValue(transaction, out var pending) || !pending.TryPeek(out var completion) || completion.Order != order) return;
-            pending.Dequeue();
-            ThrowEquipmentFailures(ExecuteEquipmentEffects(completion.Effects));
+            List<Exception>? failures = null;
+            while (_pendingCompletion.TryDequeue(out var completion))
+            {
+                var effectFailures = ExecuteEquipmentEffects(completion.Effects);
+                if (effectFailures is { Count: > 0 }) (failures ??= []).AddRange(effectFailures);
+            }
+
+            ThrowEquipmentFailures(failures);
         }
 
         private void ExecuteEquipmentEffect(EquipmentEffect effect)

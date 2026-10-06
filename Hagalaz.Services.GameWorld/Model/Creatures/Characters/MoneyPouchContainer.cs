@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -21,8 +20,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IItemBuilder _itemBuilder;
         private readonly ItemContainerStorage _storage;
         private readonly ItemContainerMutationBoundary _storageMutations;
-        private readonly ConcurrentDictionary<ItemContainerTransaction, Queue<MoneyPouchChange>> _pendingChanges = new();
-        private readonly record struct MoneyPouchChange(int Order, int PreviousCount, int NewCount, int ChangeCount);
+        private readonly Queue<MoneyPouchChange> _pendingChanges = new();
+        private readonly record struct MoneyPouchChange(int PreviousCount, int NewCount, int ChangeCount);
 
         IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries
         {
@@ -220,17 +219,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private void DeferChange(ItemContainerTransaction transaction, int previousCount, int newCount, int changeCount)
         {
-            var changes = _pendingChanges.GetOrAdd(transaction, _ => new Queue<MoneyPouchChange>());
-            changes.Enqueue(new MoneyPouchChange(transaction.NextCompletionOrder(), previousCount, newCount, changeCount));
+            transaction.EnsureActive();
+            if (!ReferenceEquals(_storageMutations.Transaction, transaction) ||
+                !_storageMutations.IsMutationLockHeldByCurrentThread)
+            {
+                throw new InvalidOperationException("Money pouch completion requires its active transaction and mutation lock.");
+            }
+            _pendingChanges.Enqueue(new MoneyPouchChange(previousCount, newCount, changeCount));
         }
 
-        void IItemContainerCompletionOwner.DiscardPendingCompletion(ItemContainerTransaction transaction) => _pendingChanges.TryRemove(transaction, out _);
-        void IItemContainerCompletionOwner.CompleteBeforePublication(ItemContainerTransaction transaction, int order) { }
-        void IItemContainerCompletionOwner.CompleteAfterPublication(ItemContainerTransaction transaction, int order)
+        void IItemContainerCompletionOwner.DiscardPendingCompletion() => _pendingChanges.Clear();
+        void IItemContainerCompletionOwner.CompleteBeforePublication() { }
+        void IItemContainerCompletionOwner.CompleteAfterPublication()
         {
-            if (!_pendingChanges.TryGetValue(transaction, out var changes) || !changes.TryPeek(out var change) || change.Order != order) return;
-            changes.Dequeue(); // Consume before any observable code; a failure is never retried.
-            PublishChange(change);
+            while (_pendingChanges.TryDequeue(out var change))
+                PublishChange(change); // Consume before observable code; a failure is never retried.
         }
 
         private ItemContainerTransaction? GetCompleteTransaction(ItemContainerMutationBoundary? additionalBoundary = null)
