@@ -4,6 +4,22 @@ Defines how an exact item quantity moves between two containers so callers never
 
 ## ADDED Requirements
 
+### Requirement: Public exact transfer owns or participates in its transaction
+
+`IItemContainer.TryTransferTo(...)` SHALL own and commit a short `ItemContainerTransaction` when neither storage participates in a current-thread transaction. When both storages already belong to the same active current-thread transaction, it SHALL participate without creating, committing, or disposing that transaction. Partial or conflicting participation SHALL be rejected before mutation. The internal `ItemContainerMutationBoundary.TryTransferTo(...)` SHALL continue to require both storages in the same active current-thread transaction.
+
+#### Scenario: Standalone transfer owns a short transaction
+- **WHEN** neither storage is bound and an exact transfer can succeed
+- **THEN** the public method commits both storage changes and publishes each changed participant once without a separate caller transaction
+
+#### Scenario: Existing transaction participates
+- **WHEN** source and destination belong to the same active current-thread transaction
+- **THEN** the transfer remains unpublished until caller commit and is restored if that transaction is disposed without commit
+
+#### Scenario: Partial or conflicting participation rejects
+- **WHEN** only one required storage is enlisted or the storages belong to different active transactions
+- **THEN** the public operation throws before mutation and does not create a nested transaction
+
 ### Requirement: Exact item transfers commit both containers or neither
 
 An exact transfer SHALL move the complete requested positive quantity from its source into its destination, or leave both containers' stored slots, counts, and revisions unchanged. A transfer to the same container or with a non-positive quantity SHALL not mutate storage.

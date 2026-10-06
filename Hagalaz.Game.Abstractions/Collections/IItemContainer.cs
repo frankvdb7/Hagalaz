@@ -17,12 +17,14 @@ public interface IItemContainer : IReadOnlyItemContainer, IItemTransactional
     bool TryRemoveExact(IItem item, int preferredSlot = -1);
 
     /// <summary>
-    /// Transfers an exact quantity to another item container using the active transaction that already contains both containers.
-    /// This method does not create a transaction or enlist the destination.
+    /// Atomically transfers an exact quantity to another item container. If neither storage is already held by the current
+    /// thread's item transaction, this operation owns and commits a short transaction over both containers. If both storages
+    /// belong to the same active current-thread transaction, this operation participates and leaves commit or rollback to its caller.
+    /// Partial or conflicting transaction participation is rejected.
     /// </summary>
     /// <exception cref="ArgumentNullException">The destination or item is null.</exception>
     /// <exception cref="ArgumentException">The destination is not a supported transaction source or does not contribute exactly one storage boundary.</exception>
-    /// <exception cref="InvalidOperationException">Source and destination do not belong to the same active current-thread transaction.</exception>
+    /// <exception cref="InvalidOperationException">The storages are only partially enlisted or belong to different transactions.</exception>
     /// <returns><see langword="true"/> when the transfer succeeds; otherwise, no transfer is performed.</returns>
     bool TryTransferTo(IItemContainer destination, IItem item, int count,
         int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null);

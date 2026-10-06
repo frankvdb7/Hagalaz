@@ -43,6 +43,8 @@ See proposal.md for motivation and scope. `BaseItemContainer` owns slot storage 
 
 11. **Reject impossible non-stackable unit expansion before cloning.** For a transfer shape that expands a quantity into per-unit non-stackable items, use existing slot and stackability facts to reject only requests that cannot fit. Do not add a quantity cap or replace the normal insertion algorithm.
 
+12. **Let the public exact transfer own only its standalone atomic boundary.** `IItemContainer.TryTransferTo(...)` resolves destination capability, then uses current-thread lock ownership to choose among owning a short transaction when neither storage is held, participating in the strict existing transaction when both are held, or rejecting partial participation. The internal mutation boundary remains transaction-required; the existing storage transfer algorithm and explicit larger domain transactions are unchanged.
+
 ## Risks / Trade-offs
 
 - [Risk] A caller that bypasses the base mutation boundary could still mutate shared item objects concurrently. → Keep storage-changing base methods under the same lock and inspect derived overrides; current GameWorld container implementations either use base storage methods or their existing ordered trade/pouch boundary.

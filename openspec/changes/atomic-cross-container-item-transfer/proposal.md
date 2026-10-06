@@ -5,6 +5,7 @@ Item movement is currently split across separate removal and insertion calls. A 
 ## What Changes
 
 - Add a synchronous exact transfer operation for two item containers. Success commits the requested quantity on both sides; failure leaves both storage states and revisions unchanged.
+- Make the public `IItemContainer.TryTransferTo(...)` self-contained for a standalone transfer, while allowing it to participate in a caller-owned transaction without committing that larger scope. Keep the internal mutation boundary transaction-required.
 - Share a deterministic lock order across normal container mutations and transfers, based on the existing trade-container ordering.
 - Preserve source item data and instances for ordinary movement, honor preferred source and destination slots, reject zero-count transfers, and retain container sentinel behavior when a source is drained.
 - Separate storage mutation from change publication for the named composed operations: trade settlement/refund/conservation, offer coin movement, paired Money Pouch and Inventory operations, and equipment movement. Complete storage first, then required equipment domain effects, then publish changes.
@@ -23,6 +24,7 @@ Item movement is currently split across separate removal and insertion calls. A 
 
 - Failed exact transfers, including capacity and stack overflow failures, leave source/destination slots, counts, and revisions unchanged and publish no updates.
 - Successful transfers preserve the exact requested quantity, stacking rules, preferred slots, item data, and source sentinel state; standalone transfers publish only after both containers commit.
+- A standalone public transfer owns its short transaction; transfers inside a common caller-owned transaction remain deferred and roll back with that transaction. Partial/conflicting transaction participation fails before mutation.
 - Concurrent opposite-direction transfers use one deterministic lock order and complete without deadlock.
 - Listed gameplay flows use the primitive without changing their intentional partial-count or equipment-callback behavior.
 - Price Checker selections are non-owning clones. Inventory remains authoritative, and closing or disconnecting cannot lose items because no authoritative item leaves Inventory.

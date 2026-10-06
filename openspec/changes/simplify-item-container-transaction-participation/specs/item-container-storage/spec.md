@@ -18,14 +18,18 @@
 - **THEN** that storage is locked and snapshotted once while participant publication order remains first-seen order
 
 ### Requirement: Cross-container transfers resolve destination capability internally
-`IItemContainer.TryTransferTo(...)` MUST perform the existing atomic transfer algorithm between ordinary item containers whose storage is already enlisted in the same active current-thread transaction. Destination storage MUST be resolved through the internal `IItemTransactionSource` contract without requiring a concrete `ItemContainer`. A destination MUST contribute exactly one storage boundary. The transfer MUST NOT create a transaction or dynamically enlist missing storage. It MUST validate and plan both changes before mutation, update each storage revision once on success, and defer publication through the caller-owned transaction. A valid transfer rejection MUST return false without mutating either storage.
+`IItemContainer.TryTransferTo(...)` MUST perform the existing atomic transfer algorithm between ordinary item containers. When neither storage is bound, it MUST own and commit a short transaction after the exact transfer succeeds; when both storages belong to the same active current-thread transaction, it MUST participate without committing. Partial or conflicting enlistment MUST be rejected before mutation. Destination storage MUST be resolved through the internal `IItemTransactionSource` contract without requiring a concrete `ItemContainer`, and a destination MUST contribute exactly one storage boundary. It MUST NOT dynamically enlist missing storage. It MUST validate and plan both changes before mutation, update each storage revision once on success, and defer publication until the owning transaction commits. A valid transfer rejection MUST return false without mutating either storage.
 
 #### Scenario: Interface decorator supplies transfer storage
 - **WHEN** the destination is exposed through an `IItemContainer` decorator backed by an internal transaction source
 - **THEN** `TryTransferTo(...)` transfers using the contributed boundary without a concrete `ItemContainer` cast
 
-#### Scenario: Transfer rejects missing enlistment
-- **WHEN** source and destination are not both enlisted in the same active transaction
+#### Scenario: Standalone transfer owns a short transaction
+- **WHEN** neither storage is bound and an exact transfer can succeed
+- **THEN** the public method commits both changes and publishes them without a separate caller transaction
+
+#### Scenario: Transfer rejects partial or conflicting enlistment
+- **WHEN** source and destination participate in different scopes or only one storage is enlisted
 - **THEN** the operation throws before either storage changes
 
 ### Requirement: MoneyPouch exact operations preserve complete-scope behavior

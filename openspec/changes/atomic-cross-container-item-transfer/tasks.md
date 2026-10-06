@@ -33,3 +33,9 @@
 - [x] 5.3 Separate paired Money Pouch and Inventory storage mutation from change publication and pouch messages
 - [x] 5.4 Run equipment domain effects after storage commit and before publication for equip and unequip operations
 - [x] 5.5 Add focused ordering and rollback regressions for trade coin movement, settlement, restoration, and equipment; validate affected project suites
+
+## 6. Public standalone transfer ownership
+
+- [x] 6.1 Make public `IItemContainer.TryTransferTo(...)` own a short transaction only when neither storage lock is held; preserve strict participation when both are held and reject partial/conflicting participation before mutation
+- [x] 6.2 Cover standalone success/failure, publication ordering and failure, existing-scope commit/rollback, partial/conflicting scopes, decorator support, reentrancy, foreign publication waiting, and strict internal boundary behavior
+- [x] 6.3 Reconcile canonical and active OpenSpec requirements, audit existing callers without removing composed scopes, and run focused/full validation plus diff/status checks without committing or pushing

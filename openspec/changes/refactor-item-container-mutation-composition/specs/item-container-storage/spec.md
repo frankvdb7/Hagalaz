@@ -71,18 +71,30 @@ Ordinary domain owners that compose `ItemContainer` MUST NOT recover or access i
 - **THEN** it uses narrow `ItemContainer` operations and does not obtain raw storage
 
 ### Requirement: Cross-container transfers commit both stores atomically
-An exact cross-container transfer MUST enter through `IItemContainer.TryTransferTo(...)` and use the one caller-owned `ItemContainerTransaction` to validate and plan source removal and destination insertion before changing either store, acquire distinct locks in stable order, call the single low-level `ItemContainerStorage` transfer algorithm, advance each storage revision once, and publish changed slots only after successful commit. The transfer method MUST NOT create or commit a transaction or dynamically enlist the destination. A standalone domain owner MUST supply both participants before mutation; a composable operation MUST use the existing transaction only when both storages belong to it.
+An exact cross-container transfer MUST enter through `IItemContainer.TryTransferTo(...)`, which owns a short `ItemContainerTransaction` when neither storage is bound and participates without committing when both storages already belong to the same active current-thread transaction. It MUST validate and plan source removal and destination insertion before changing either store, acquire distinct locks in stable order, call the single low-level `ItemContainerStorage` transfer algorithm, advance each storage revision once, and publish changed slots only after successful commit. Partial/conflicting enlistment MUST fail before mutation. It MUST NOT dynamically enlist the destination.
 
-#### Scenario: Exact transfer succeeds
-- **WHEN** the source boundary has the requested quantity and the destination can accept the exact result
-- **THEN** both stores commit before either domain container publishes an update
+#### Scenario: Standalone transfer owns a short transaction
+- **WHEN** neither storage is bound and the source has the requested quantity while the destination can accept the exact result
+- **THEN** the public operation commits both stores before either domain container publishes an update
+
+#### Scenario: Transfer participates in an existing transaction
+- **WHEN** both storages belong to the same active current-thread transaction
+- **THEN** the public operation stages the transfer without creating, committing, or disposing that transaction
+
+#### Scenario: Caller rollback restores a transfer
+- **WHEN** a transfer succeeds inside an existing transaction that is disposed without commit
+- **THEN** both stores are restored and neither container publishes a committed mutation
+
+#### Scenario: Partial or conflicting enlistment rejects
+- **WHEN** only one storage is enlisted or source and destination belong to different active transactions
+- **THEN** the public operation throws before either store changes and does not create a nested transaction
 
 #### Scenario: Transfer fails validation
 - **WHEN** the source quantity is insufficient or the destination cannot accept the result
 - **THEN** neither store changes and neither boundary publishes a committed mutation
 
-#### Scenario: Storage transfer requires one active transaction
-- **WHEN** the transfer boundary is called without both boundaries enlisted in one active transaction, or the low-level source storage transfer primitive is called without a transaction shared by source and destination or from a thread other than the transaction owner
+#### Scenario: Internal transfer boundaries require one active transaction
+- **WHEN** `ItemContainerMutationBoundary.TryTransferTo(...)` or the low-level source storage transfer primitive is called without a transaction shared by source and destination, or from a thread other than the transaction owner
 - **THEN** it throws before either store changes
 
 #### Scenario: Opposite transfers acquire locks consistently
@@ -94,7 +106,7 @@ An exact cross-container transfer MUST enter through `IItemContainer.TryTransfer
 - **THEN** it performs transfer through `IItemContainer.TryTransferTo(...)` while the aggregate itself implements only the public `IItemTransactional` marker
 
 ### Requirement: Multi-container mutations use an instance transaction
-`ItemContainerTransaction` MUST expose only `Begin`, `Commit`, and `Dispose` as its public lifecycle. It MUST accept all aggregate participants before locking, deduplicate storage aliases, lock deterministically, capture rollback snapshots, restore on uncommitted disposal, and make storage irreversible on commit. It MUST release mutation locks before committed completion/publication while retaining scope bindings until completion and pending-fact cleanup finish; foreign overlapping Begin calls wait and same-thread overlap throws. It then clears bindings under the ordered storage locks and wakes waiters. It MUST NOT expose item mutations, dynamic enlistment, transaction state, publication methods, callback registration, ambient joining, or a separate unit-of-work abstraction. Domain operations MUST own item semantics. Transaction membership is declared by passing aggregate participants directly to `Begin`. Ordinary `IItemContainer` operations automatically participate when their backing storage is enlisted and remain standalone otherwise. `IItemContainer.TryTransferTo` requires source and destination storage in the same active current-thread transaction and MUST NOT create or join another scope. MoneyPouch exact methods own a transaction when all required storage is unbound, participate when all required storage belongs to the same active transaction, and reject partial or conflicting enlistment before mutation. Publication and hooks MUST run only after all mutation locks are released. Existing rollback, publication ordering, failure propagation, and completion ownership MUST be preserved. If Commit cannot fully release mutation locks, observable completion and publication MUST NOT start, pending domain completion facts MUST still be discarded, scope ownership cleanup MUST still be attempted, and committed storage MUST remain irreversible.
+`ItemContainerTransaction` MUST expose only `Begin`, `Commit`, and `Dispose` as its public lifecycle. It MUST accept all aggregate participants before locking, deduplicate storage aliases, lock deterministically, capture rollback snapshots, restore on uncommitted disposal, and make storage irreversible on commit. It MUST release mutation locks before committed completion/publication while retaining scope bindings until completion and pending-fact cleanup finish; foreign overlapping Begin calls wait and same-thread overlap throws. It then clears bindings under the ordered storage locks and wakes waiters. It MUST NOT expose item mutations, dynamic enlistment, transaction state, publication methods, callback registration, ambient joining, or a separate unit-of-work abstraction. Domain operations MUST own item semantics. Transaction membership is declared by passing aggregate participants directly to `Begin`. Ordinary `IItemContainer` operations automatically participate when their backing storage is enlisted and remain standalone otherwise. `IItemContainer.TryTransferTo` owns a short transaction when neither storage is bound and participates without committing when both belong to the same active current-thread transaction; it rejects partial/conflicting enlistment and MUST NOT dynamically enlist missing storage. MoneyPouch exact methods own a transaction when all required storage is unbound, participate when all required storage belongs to the same active transaction, and reject partial or conflicting enlistment before mutation. Publication and hooks MUST run only after all mutation locks are released. Existing rollback, publication ordering, failure propagation, and completion ownership MUST be preserved. If Commit cannot fully release mutation locks, observable completion and publication MUST NOT start, pending domain completion facts MUST still be discarded, scope ownership cleanup MUST still be attempted, and committed storage MUST remain irreversible.
 
 #### Scenario: A transaction owns all explicit participants
 - **WHEN** a caller begins a transaction with every required participant, stages changes, and commits

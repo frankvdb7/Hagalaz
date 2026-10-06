@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 using Hagalaz.Game.Abstractions.Model.Items;
 
 namespace Hagalaz.Game.Abstractions.Collections;
@@ -78,8 +79,21 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
         ArgumentNullException.ThrowIfNull(destination);
         ArgumentNullException.ThrowIfNull(item);
         var destinationBoundary = ItemContainerTransaction.ResolveSingleBoundary(destination);
-        return _mutations.TryTransferTo(destinationBoundary, item, count,
-            preferredSourceSlot, destinationSlot, destinationItem);
+        var sourceLockHeld = Monitor.IsEntered(_storage.MutationLock);
+        var destinationLockHeld = Monitor.IsEntered(destinationBoundary.Storage.MutationLock);
+        if (sourceLockHeld != destinationLockHeld)
+            throw new InvalidOperationException("A transfer cannot partially participate in an item-container transaction.");
+
+        if (sourceLockHeld)
+            return _mutations.TryTransferTo(destinationBoundary, item, count,
+                preferredSourceSlot, destinationSlot, destinationItem);
+
+        using var transaction = ItemContainerTransaction.Begin(this, destination);
+        if (!_mutations.TryTransferTo(destinationBoundary, item, count,
+                preferredSourceSlot, destinationSlot, destinationItem)) return false;
+
+        transaction.Commit();
+        return true;
     }
 
     public void Replace(int slot, IItem item)
