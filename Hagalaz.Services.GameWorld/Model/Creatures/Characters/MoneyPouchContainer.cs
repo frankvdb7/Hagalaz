@@ -219,12 +219,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private void DeferChange(ItemContainerTransaction transaction, int previousCount, int newCount, int changeCount)
         {
-            transaction.EnsureActive();
-            if (!ReferenceEquals(_storageMutations.Transaction, transaction) ||
-                !_storageMutations.IsMutationLockHeldByCurrentThread)
-            {
-                throw new InvalidOperationException("Money pouch completion requires its active transaction and mutation lock.");
-            }
+            _storageMutations.EnsureOwnedBy(transaction);
             _pendingChanges.Enqueue(new MoneyPouchChange(previousCount, newCount, changeCount));
         }
 

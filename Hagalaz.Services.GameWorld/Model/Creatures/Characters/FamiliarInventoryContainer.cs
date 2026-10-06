@@ -58,14 +58,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items, _items))
-            {
-                if (_owner.Inventory.Items.TryTransferTo(_items, item, count, slot))
-                {
-                    transaction.Commit();
-                    return true;
-                }
-            }
+            if (_owner.Inventory.Items.TryTransferTo(_items, item, count, slot)) return true;
 
             _owner.SendChatMessage(GameStrings.FamiliarInventoryFull);
             return false;
@@ -89,14 +82,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            using (var transaction = ItemContainerTransaction.Begin(_items, _owner.Inventory.Items))
-            {
-                if (_items.TryTransferTo(_owner.Inventory.Items, item, count, slot))
-                {
-                    transaction.Commit();
-                    return true;
-                }
-            }
+            if (_items.TryTransferTo(_owner.Inventory.Items, item, count, slot)) return true;
 
             _owner.SendChatMessage(GameStrings.InventoryFull);
             return false;

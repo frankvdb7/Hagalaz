@@ -371,10 +371,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         // Equipment owns these small lifecycle batches; the transaction cannot schedule arbitrary work.
         private void DeferEquipmentEffects(ItemContainerTransaction transaction, params EquipmentEffect[] effects)
         {
-            transaction.EnsureActive();
-            using var mutation = _mutations.BeginMutation();
-            if (!ReferenceEquals(_mutations.Transaction, transaction) || !_mutations.IsMutationLockHeldByCurrentThread)
-                throw new InvalidOperationException("Equipment completion requires its active transaction and mutation lock.");
+            _mutations.EnsureOwnedBy(transaction);
             _pendingCompletion.Enqueue(new EquipmentCompletion(effects));
         }
 

@@ -35,6 +35,15 @@ internal sealed class ItemContainerMutationBoundary
     internal ItemContainerTransaction? Transaction { get => _transaction; set => _transaction = value; }
     internal bool IsMutationLockHeldByCurrentThread => Monitor.IsEntered(_mutationLock);
 
+    internal void EnsureOwnedBy(ItemContainerTransaction transaction)
+    {
+        ArgumentNullException.ThrowIfNull(transaction);
+        transaction.EnsureActive();
+        EnsureMutationLockHeld();
+        if (!ReferenceEquals(_transaction, transaction))
+            throw new InvalidOperationException("Mutation boundary must be owned by the active transaction.");
+    }
+
     private void EnsureMutationLockHeld()
     {
         if (!Monitor.IsEntered(_mutationLock))

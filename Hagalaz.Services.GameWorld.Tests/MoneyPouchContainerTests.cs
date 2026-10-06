@@ -721,7 +721,7 @@ public sealed class MoneyPouchContainerTests
         second.Owner.ClearReceivedCalls();
         var failure = new InvalidOperationException("pouch message failed");
         first.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(_ => throw failure);
-        using var transaction = ItemContainerTransaction.Begin(second.MoneyPouch, first.MoneyPouch);
+        using var transaction = ItemContainerTransaction.Begin(first.MoneyPouch, second.MoneyPouch);
         Assert.IsTrue(first.MoneyPouch.TryAddExact(1));
         Assert.IsTrue(second.MoneyPouch.TryAddExact(2));
         Assert.IsTrue(first.MoneyPouch.TryAddExact(3));
@@ -730,14 +730,16 @@ public sealed class MoneyPouchContainerTests
         Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
         Assert.AreEqual(14, first.MoneyPouch.Count);
         Assert.AreEqual(22, second.MoneyPouch.Count);
-        first.Owner.Received(1).SendChatMessage(Arg.Any<string>());
-        second.Owner.Received(1).SendChatMessage("2 coins have been added to your money pouch.");
-        CollectionAssert.AreEqual(new[] { (20, 22) }, eventChanges);
+        first.Owner.Received(1).SendChatMessage("1 coins have been added to your money pouch.");
+        first.Owner.DidNotReceive().SendChatMessage("3 coins have been added to your money pouch.");
+        second.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
+        Assert.AreEqual(0, eventChanges.Count);
         using var fresh = ItemContainerTransaction.Begin(first.MoneyPouch, second.MoneyPouch);
         fresh.Commit();
-        first.Owner.Received(1).SendChatMessage(Arg.Any<string>());
-        second.Owner.Received(1).SendChatMessage(Arg.Any<string>());
-        CollectionAssert.AreEqual(new[] { (20, 22) }, eventChanges);
+        first.Owner.Received(1).SendChatMessage("1 coins have been added to your money pouch.");
+        first.Owner.DidNotReceive().SendChatMessage("3 coins have been added to your money pouch.");
+        second.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
+        Assert.AreEqual(0, eventChanges.Count);
     }
 
     [TestMethod]
