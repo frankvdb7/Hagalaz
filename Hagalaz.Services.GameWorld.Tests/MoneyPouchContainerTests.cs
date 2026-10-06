@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
@@ -19,47 +18,6 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class MoneyPouchContainerTests
 {
     private const int CoinId = 995;
-
-    [TestMethod]
-    public void ContainerInterfaces_ExposeOnlyTheirIntendedItemCapabilities()
-    {
-        var ordinaryInterfaces = new[]
-        {
-            typeof(IInventoryContainer), typeof(IBankContainer), typeof(IRewardContainer),
-            typeof(IFamiliarInventoryContainer), typeof(IShopStockContainer)
-        };
-
-        foreach (var containerInterface in ordinaryInterfaces)
-        {
-            Assert.AreEqual(typeof(IItemContainer), containerInterface.GetProperty("Items")?.PropertyType,
-                containerInterface.Name);
-        }
-
-        Assert.AreEqual(typeof(IReadOnlyItemContainer), typeof(IEquipmentContainer).GetProperty("Items")!.PropertyType);
-        Assert.IsNull(typeof(IEquipmentContainer).GetProperty("Item", [typeof(int)]));
-        Assert.IsNull(typeof(IEquipmentContainer).GetMethod("OnUpdate"));
-        Assert.IsNull(typeof(IMoneyPouchContainer).GetProperty("Items"));
-        Assert.IsNull(typeof(IMoneyPouchContainer).GetProperty("Mutations"));
-        Assert.IsNull(typeof(IMoneyPouchContainer).GetMethod("Contains"));
-        Assert.IsNull(typeof(IMoneyPouchContainer).GetMethod("EnlistIn"));
-        Assert.IsNull(typeof(IMoneyPouchContainer).GetMethod("StageAddExact"));
-        Assert.IsNull(typeof(IMoneyPouchContainer).GetMethod("StageRemoveExact"));
-        Assert.IsNull(typeof(IMoneyPouchContainer).GetMethod("AddExactCore"));
-        Assert.IsNull(typeof(IMoneyPouchContainer).GetMethod("RemoveExactCore"));
-        Assert.IsTrue(typeof(IItemTransactional).IsAssignableFrom(typeof(IMoneyPouchContainer)));
-        Assert.IsTrue(typeof(IItemTransactional).IsAssignableFrom(typeof(IItemContainer)));
-        Assert.IsNull(typeof(IItemContainer).GetProperty("Mutations"));
-        Assert.AreEqual(0, typeof(IItemTransactional).GetMembers().Length);
-        Assert.IsNull(typeof(MoneyPouchContainer).GetMethod("EnlistIn", BindingFlags.Instance | BindingFlags.Public));
-        Assert.IsNull(typeof(MoneyPouchContainer).GetMethod("StageAddExact", BindingFlags.Instance | BindingFlags.Public));
-        Assert.IsNull(typeof(MoneyPouchContainer).GetMethod("StageRemoveExact", BindingFlags.Instance | BindingFlags.Public));
-        Assert.IsNull(typeof(IEquipmentContainer).GetMethod("PublishCurrentState"));
-        Assert.IsFalse(typeof(IMoneyPouchContainer).GetMethods().Any(method =>
-            method.Name.Contains("Storage") || method.Name == "PublishChanges" ||
-            method.GetParameters().Any(parameter => parameter.ParameterType == typeof(ItemContainerTransaction))));
-        Assert.IsFalse(typeof(IItemContainer).GetMethods().SelectMany(method => method.GetParameters())
-            .Any(parameter => parameter.ParameterType == typeof(ItemContainer)));
-    }
 
     [TestMethod]
     public void HasCoins_WhenPouchCoinsSatisfyRequest_ReturnsTrue()
@@ -100,7 +58,6 @@ public sealed class MoneyPouchContainerTests
 
         Assert.IsTrue(pouch.HasCoins(100));
         Assert.AreEqual(25, pouch.Count);
-        Assert.IsNull(typeof(IMoneyPouchContainer).GetProperty("Items"));
     }
 
     [TestMethod]

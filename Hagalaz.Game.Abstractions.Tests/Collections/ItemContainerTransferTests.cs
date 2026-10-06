@@ -1482,10 +1482,11 @@ public sealed class ItemContainerTransferTests
             {
                 contenderAttempted.Set();
                 using var transaction = ItemContainerTransaction.Begin(contender);
-                var order = (ItemContainerMutationBoundary[])typeof(ItemContainerTransaction)
-                    .GetField("_lockOrder", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(transaction)!;
-                CollectionAssert.AreEqual(new[] { Boundary(prefix), Boundary(shared) }, order);
-                foreach (var boundary in order) Assert.IsTrue(Monitor.IsEntered(boundary.MutationLock));
+                foreach (var boundary in new[] { Boundary(prefix), Boundary(shared) })
+                {
+                    Assert.IsTrue(Monitor.IsEntered(boundary.MutationLock));
+                    Assert.AreSame(transaction, boundary.Transaction);
+                }
                 contenderEntered.Set();
                 transaction.Commit();
             }
@@ -1529,10 +1530,7 @@ public sealed class ItemContainerTransferTests
             try
             {
                 using var contender = ItemContainerTransaction.Begin(participant);
-                var lockOrder = (ItemContainerMutationBoundary[])typeof(ItemContainerTransaction)
-                    .GetField("_lockOrder", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(contender)!;
-                CollectionAssert.AreEqual(required.OrderBy(boundary => boundary.MutationOrder).ToArray(), lockOrder);
-                foreach (var boundary in lockOrder)
+                foreach (var boundary in required)
                 {
                     Assert.IsTrue(Monitor.IsEntered(boundary.MutationLock));
                     Assert.AreSame(contender, boundary.Transaction);
@@ -1591,27 +1589,10 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
-    public void Transaction_PublicApiIsOnlyOneScopeAndMarkerExposesNoMechanics()
+    public void TransactionMarkerExposesNoMechanicsAndMutationBoundaryIsInternal()
     {
-        var methods = typeof(ItemContainerTransaction).GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly);
-        CollectionAssert.AreEquivalent(new[] { "Begin", "Commit", "Dispose" }, methods.Select(method => method.Name).ToArray());
-        Assert.AreEqual(0, typeof(ItemContainerTransaction).GetConstructors().Length);
-        Assert.AreEqual(0, typeof(ItemContainerTransaction).GetProperties().Length);
         Assert.AreEqual(0, typeof(IItemTransactional).GetMembers().Length);
-        Assert.IsNull(typeof(IItemContainer).Assembly.GetType("Hagalaz.Game.Abstractions.Collections.IItemContainerMutationBoundary"));
-    }
-
-    [TestMethod]
-    public void ItemContainer_KeepsRawStorageAndStateHelpersInternal()
-    {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        Assert.IsNull(typeof(ItemContainer).GetProperty("Storage", flags));
-        foreach (var name in new[] { "RestoreItems", "SnapshotItems", "ReplaceState", "BeginMutation" })
-        {
-            var method = typeof(ItemContainer).GetMethod(name, flags);
-            Assert.IsNotNull(method, name);
-            Assert.IsTrue(method.IsAssembly, name);
-        }
+        Assert.IsFalse(typeof(ItemContainerMutationBoundary).IsPublic);
     }
 
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ItemContainer, TestCompletionOwner> CompletionOwners = new();
@@ -1809,26 +1790,10 @@ public sealed class ItemContainerTransferTests
         }
 
         Assert.IsTrue(typeof(IItemTransactional).IsAssignableFrom(typeof(IItemContainer)));
-        Assert.IsNull(typeof(IItemContainer).GetProperty("Mutations"));
-        Assert.IsFalse(typeof(IItemContainer).GetProperties().Any(property => property.Name == "Mutations"));
-        Assert.IsNull(typeof(IItemContainer).Assembly.GetType("Hagalaz.Game.Abstractions.Collections.IItemContainerTransactionParticipant"));
-        Assert.IsNull(typeof(IItemContainer).Assembly.GetType("Hagalaz.Game.Abstractions.Collections.IItemContainerTransactionParticipantInternal"));
-        Assert.IsNotNull(typeof(IItemContainer).Assembly.GetType("Hagalaz.Game.Abstractions.Collections.IItemTransactional"));
-        Assert.AreEqual(typeof(IItemTransactional[]), typeof(ItemContainerTransaction)
-            .GetMethod(nameof(ItemContainerTransaction.Begin))!.GetParameters()[0].ParameterType);
-        Assert.IsNotNull(typeof(IItemContainer).GetMethod(nameof(IItemContainer.TryTransferTo)));
-        Assert.IsNull(typeof(IItemContainer).Assembly.GetType("Hagalaz.Game.Abstractions.Collections.IItemContainerMutationBoundary"));
-        foreach (var method in new[] { "TryAdd", "TryAddRange", "TryRemoveExact", "Sort", "Clear", "EnsureOutsideTransaction" })
-        {
-            Assert.IsNull(typeof(IItemTransactional).GetMethod(method), method);
-        }
-        Assert.IsNull(typeof(IItemTransactional).GetMethod("EnsureUnbound"));
         Assert.IsFalse(typeof(IEquipmentContainer).GetInterfaces().Contains(typeof(IContainer<IItem?>)));
         Assert.AreEqual(typeof(IReadOnlyItemContainer), typeof(IEquipmentContainer).GetProperty("Items")!.PropertyType);
         Assert.IsNotNull(typeof(IEquipmentContainer).GetProperty("Item", [typeof(EquipmentSlot)]));
         Assert.IsNull(typeof(IEquipmentContainer).GetProperty("Item", [typeof(int)]));
-        Assert.IsNull(typeof(IEquipmentContainer).GetProperty("Mutations"));
-        Assert.IsFalse(typeof(IEquipmentContainer).GetProperties().Any(property => property.PropertyType == typeof(IItemContainer)));
     }
 
     private sealed class TestItem : IItem

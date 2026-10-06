@@ -249,9 +249,8 @@ internal sealed class ItemContainerMutationBoundary
 
         if (!standalonePublication)
         {
-            try { _publishChanges?.Invoke(slots); }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
             ThrowFailures(failures);
+            _publishChanges?.Invoke(slots);
             return;
         }
 
