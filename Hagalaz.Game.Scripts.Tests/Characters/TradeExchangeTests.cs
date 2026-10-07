@@ -1,5 +1,4 @@
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
@@ -11,6 +10,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
+using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Characters;
 using DefaultWidgetScript = Hagalaz.Game.Scripts.Model.Widgets.DefaultWidgetScript;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
@@ -27,8 +27,8 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(14);
         var secondInventory = new ComposedTestContainer(14);
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
         var firstOffer = new ComposedTestContainer(StorageType.Normal, 14);
         var secondOffer = new ComposedTestContainer(StorageType.Normal, 14);
         firstOffer.Items.Add(new TestItem(100, 20, stackable: true)).Should().BeTrue();
@@ -50,8 +50,8 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(0);
         var secondInventory = new ComposedTestContainer(0);
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
         var firstOffer = new ComposedTestContainer(StorageType.Normal, 14);
         var secondOffer = new ComposedTestContainer(StorageType.Normal, 14);
         firstOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
@@ -71,8 +71,7 @@ public sealed class TradeExchangeTests
             out var firstOffer, out var secondOffer);
         firstOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
 
-        using (ItemContainerTransaction.Begin(secondOffer.Items, firstInventory.Items, secondInventory.Items,
-                   first.MoneyPouch, second.MoneyPouch))
+        using (ItemContainerTransaction.Begin(secondOffer.Items, first.MoneyPouch, second.MoneyPouch))
         {
             var action = () => CreateTradeExchange().TryStageCompletion(first, firstOffer.Items, second, secondOffer.Items);
             action.Should().Throw<InvalidOperationException>();
@@ -89,7 +88,7 @@ public sealed class TradeExchangeTests
             out var firstOffer, out var secondOffer);
         secondOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
 
-        using (ItemContainerTransaction.Begin(firstOffer.Items, secondOffer.Items, secondInventory.Items, second.MoneyPouch))
+        using (ItemContainerTransaction.Begin(firstOffer.Items, secondOffer.Items, second.MoneyPouch))
         {
             var action = () => CreateTradeExchange().TryStageCompletion(first, firstOffer.Items, second, secondOffer.Items);
             action.Should().Throw<InvalidOperationException>();
@@ -104,8 +103,8 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(4);
         var secondInventory = new ComposedTestContainer(4);
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
         var firstOffer = new ComposedTestContainer(StorageType.Normal, 4);
         var secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
         firstOffer.Items.Add(new TestItem(995, 5, stackable: true)).Should().BeTrue();
@@ -126,13 +125,13 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(4);
         var secondInventory = new ComposedTestContainer(4);
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
         var firstOffer = new ComposedTestContainer(StorageType.Normal, 4);
         var secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
         firstOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
 
-        using (ItemContainerTransaction.Begin(firstOffer.Items, secondOffer.Items, secondInventory.Items, second.MoneyPouch))
+        using (ItemContainerTransaction.Begin(firstOffer.Items, secondOffer.Items, second.MoneyPouch))
         {
             var action = () => CreateTradeExchange().TryStageRefund(first, firstOffer.Items, second, secondOffer.Items);
             action.Should().Throw<InvalidOperationException>();
@@ -147,8 +146,8 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(4);
         var secondInventory = new ComposedTestContainer(4);
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
         var firstOffer = new ComposedTestContainer(StorageType.Normal, 4);
         var secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
         var rewardItems = new ComposedTestContainer(StorageType.Normal, 4);
@@ -157,8 +156,7 @@ public sealed class TradeExchangeTests
         first.Rewards.Returns(rewards);
         firstOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
 
-        using (ItemContainerTransaction.Begin(firstOffer.Items, secondOffer.Items, firstInventory.Items, secondInventory.Items,
-                   second.Rewards?.Items ?? secondInventory.Items))
+        using (ItemContainerTransaction.Begin(firstOffer.Items, secondOffer.Items))
         {
             var action = () => CreateTradeExchange().TryStageEscrowRecovery(first, firstOffer.Items, second, secondOffer.Items);
             action.Should().Throw<InvalidOperationException>();
@@ -173,10 +171,8 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(4);
         var secondInventory = new ComposedTestContainer(4);
-        var firstMoneyPouch = new TestMoneyPouch(firstInventory);
-        var secondMoneyPouch = new TestMoneyPouch(secondInventory);
-        var first = CreateCharacter(firstInventory, firstMoneyPouch);
-        var second = CreateCharacter(secondInventory, secondMoneyPouch);
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
         var firstOffer = new ComposedTestContainer(StorageType.Normal, 4);
         var secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
         firstOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
@@ -185,8 +181,6 @@ public sealed class TradeExchangeTests
         firstInventory.OnUpdateAction = () =>
         {
             firstInventory.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
-            firstMoneyPouch.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
-            secondMoneyPouch.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
             firstInventory.Items.GetCountById(101).Should().Be(1);
             secondInventory.Items.GetCountById(100).Should().Be(1);
             firstOffer.Items.TakenSlots.Should().Be(0);
@@ -201,14 +195,16 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
-    public void CommitTrade_WhenLaterPouchMutationFails_RestoresStateWithoutPublication()
+    public void CommitTrade_WhenLaterPouchStorageAddFails_RestoresStateWithoutPublication()
     {
         var firstInventory = new ComposedTestContainer(4);
         var secondInventory = new ComposedTestContainer(4);
-        var firstMoneyPouch = new TestMoneyPouch(firstInventory);
-        var secondMoneyPouch = new TestMoneyPouch(secondInventory) { FailNextStorageAdd = true };
-        var first = CreateCharacter(firstInventory, firstMoneyPouch);
-        var second = CreateCharacter(secondInventory, secondMoneyPouch);
+        var failSecondPouchStorageAdd = false;
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory, moneyPouchItemBuilder: new TestItemBuilder((id, count) =>
+            new TestItem(failSecondPouchStorageAdd ? id + 1 : id, count, stackable: id == 995)));
+        var firstMoneyPouch = first.MoneyPouch;
+        var secondMoneyPouch = second.MoneyPouch;
         var firstOffer = new ComposedTestContainer(StorageType.Normal, 4);
         var secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
         firstOffer.Items.Add(new TestItem(995, 5, stackable: true)).Should().BeTrue();
@@ -218,11 +214,16 @@ public sealed class TradeExchangeTests
         {
             publicationOccurred = true;
         };
+        failSecondPouchStorageAdd = true;
 
         var result = TryCompleteTrade(first, firstOffer.Items, second, secondOffer.Items);
         result.Should().BeFalse();
 
         publicationOccurred.Should().BeFalse();
+        first.DidNotReceive().SendChatMessage(Arg.Any<string>());
+        second.DidNotReceive().SendChatMessage(Arg.Any<string>());
+        first.EventManager.DidNotReceive().SendEvent(Arg.Any<MoneyPouchChangedEvent>());
+        second.EventManager.DidNotReceive().SendEvent(Arg.Any<MoneyPouchChangedEvent>());
         secondInventory.Items.GetCountById(995).Should().Be(0);
         firstMoneyPouch.Count.Should().Be(0);
         secondMoneyPouch.Count.Should().Be(0);
@@ -234,15 +235,14 @@ public sealed class TradeExchangeTests
     public void TryOfferMoneyFromPouch_PublishesAfterPouchInventoryAndOfferStorageCommit()
     {
         var inventory = new ComposedTestContainer(4);
-        var moneyPouch = new TestMoneyPouch(inventory);
+        var character = CreateCharacter(inventory);
+        var moneyPouch = character.MoneyPouch;
         moneyPouch.Add(25).Should().BeTrue();
-        var character = CreateCharacter(inventory, moneyPouch);
         var offer = new ComposedTestContainer(StorageType.Normal, 4);
         var publicationSawFinalState = false;
         offer.OnUpdateAction = () =>
         {
             offer.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
-            moneyPouch.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
             inventory.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
             offer.Items.GetCountById(995).Should().Be(25);
             moneyPouch.Count.Should().Be(0);
@@ -260,10 +260,8 @@ public sealed class TradeExchangeTests
     {
         var inventory = new ComposedTestContainer(4);
         inventory.Items.Add(new TestItem(995, 75, stackable: true)).Should().BeTrue();
-        var character = Substitute.For<ICharacter>();
-        character.Inventory.Returns(inventory);
-        var moneyPouch = new MoneyPouchContainer(character, CreateItemBuilder());
-        character.MoneyPouch.Returns(moneyPouch);
+        var character = CreateCharacter(inventory);
+        var moneyPouch = character.MoneyPouch;
         moneyPouch.Add(25).Should().BeTrue();
         var offer = new ComposedTestContainer(StorageType.Normal, 4);
 
@@ -291,16 +289,15 @@ public sealed class TradeExchangeTests
     public void TryReturnMoneyToPouch_PublishesAfterPouchInventoryAndOfferStorageCommit()
     {
         var inventory = new ComposedTestContainer(4);
-        var moneyPouch = new TestMoneyPouch(inventory);
+        var character = CreateCharacter(inventory);
+        var moneyPouch = character.MoneyPouch;
         moneyPouch.Add(int.MaxValue - 5).Should().BeTrue();
-        var character = CreateCharacter(inventory, moneyPouch);
         var offer = new ComposedTestContainer(StorageType.Normal, 4);
         offer.Items.Add(new TestItem(995, 10, stackable: true)).Should().BeTrue();
         var publicationSawFinalState = false;
         offer.OnUpdateAction = () =>
         {
             offer.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
-            moneyPouch.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
             inventory.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
             offer.Items.GetCountById(995).Should().Be(0);
             moneyPouch.Count.Should().Be(int.MaxValue);
@@ -318,10 +315,10 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(1);
         var secondInventory = new ComposedTestContainer(1);
-        var firstMoneyPouch = new TestMoneyPouch(firstInventory);
+        var first = CreateCharacter(firstInventory);
+        var firstMoneyPouch = first.MoneyPouch;
         firstMoneyPouch.Add(int.MaxValue).Should().BeTrue();
-        var first = CreateCharacter(firstInventory, firstMoneyPouch);
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var second = CreateCharacter(secondInventory);
         var firstOffer = new ComposedTestContainer(StorageType.Normal, 14);
         var secondOffer = new ComposedTestContainer(StorageType.Normal, 14);
         secondOffer.Items.Add(new TestItem(995, 2, stackable: true)).Should().BeTrue();
@@ -338,11 +335,11 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(2);
         firstInventory.Items.Add(new TestItem(200, 1)).Should().BeTrue();
-        var firstMoneyPouch = new TestMoneyPouch(firstInventory);
+        var first = CreateCharacter(firstInventory);
+        var firstMoneyPouch = first.MoneyPouch;
         firstMoneyPouch.Add(int.MaxValue).Should().BeTrue();
-        var first = CreateCharacter(firstInventory, firstMoneyPouch);
         var secondInventory = new ComposedTestContainer(1);
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var second = CreateCharacter(secondInventory);
         var firstOffer = new ComposedTestContainer(StorageType.Normal, 14);
         var secondOffer = new ComposedTestContainer(StorageType.Normal, 14);
         secondOffer.Items.Add(new TestItem(101, 1)).Should().BeTrue();
@@ -363,8 +360,8 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(2);
         var secondInventory = new ComposedTestContainer(3);
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
         var firstOffer = new ComposedTestContainer(StorageType.Normal, 14);
         var secondOffer = new ComposedTestContainer(StorageType.Normal, 14);
         firstOffer.Items.Add(new TestItem(200, 1)).Should().BeTrue();
@@ -389,8 +386,8 @@ public sealed class TradeExchangeTests
         secondInventory.Items.Add(secondExisting).Should().BeTrue();
         var capacityItem = new TestItem(300, 1);
         secondInventory.Items.Add(capacityItem).Should().BeTrue();
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
         var firstOffer = new ComposedTestContainer(StorageType.Normal, 14);
         var secondOffer = new ComposedTestContainer(StorageType.Normal, 14);
         firstOffer.Items.Add(new TestItem(201, 1)).Should().BeTrue();
@@ -421,8 +418,8 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(1);
         var secondInventory = new ComposedTestContainer(1);
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
         var firstOffer = new ComposedTestContainer(StorageType.Normal, 14);
         var secondOffer = new ComposedTestContainer(StorageType.Normal, 14);
         firstOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
@@ -440,10 +437,8 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(14);
         var secondInventory = new ComposedTestContainer(14);
-        var firstMoneyPouch = new TestMoneyPouch(firstInventory);
-        var secondMoneyPouch = new TestMoneyPouch(secondInventory);
-        var first = CreateCharacter(firstInventory, firstMoneyPouch);
-        var second = CreateCharacter(secondInventory, secondMoneyPouch);
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
         var item = new TestItem(102, 5, stackable: true);
         item.ItemScript.CanTradeItem(item, first).Returns(true);
         firstInventory.Items.Add(item).Should().BeTrue();
@@ -461,10 +456,8 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(14);
         var secondInventory = new ComposedTestContainer(14);
-        var firstMoneyPouch = new TestMoneyPouch(firstInventory);
-        var secondMoneyPouch = new TestMoneyPouch(secondInventory);
-        var first = CreateCharacter(firstInventory, firstMoneyPouch);
-        var second = CreateCharacter(secondInventory, secondMoneyPouch);
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
 
         var trade = CreatePreparedScript(first, second);
         trade.AcceptOffers();
@@ -550,13 +543,12 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(14);
         var secondInventory = new ComposedTestContainer(14);
-        var firstMoneyPouch = new TestMoneyPouch(firstInventory)
-        {
-            OnUpdateAction = () => throw new InvalidOperationException("pouch publication failed")
-        };
-        var secondMoneyPouch = new TestMoneyPouch(secondInventory);
-        var first = CreateCharacter(firstInventory, firstMoneyPouch);
-        var second = CreateCharacter(secondInventory, secondMoneyPouch);
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
+        var firstMoneyPouch = first.MoneyPouch;
+        var publicationException = new InvalidOperationException("pouch publication failed");
+        first.When(character => character.SendChatMessage(Arg.Any<string>()))
+            .Do(_ => throw publicationException);
         var trade = CreatePreparedScript(first, second);
         var script = trade.Script;
         var firstOffer = script.SelfContainer;
@@ -564,7 +556,7 @@ public sealed class TradeExchangeTests
         secondOffer.Items.Add(new TestItem(995, 3, stackable: true)).Should().BeTrue();
 
         Action finish = trade.CompleteTrade;
-        finish.Should().Throw<InvalidOperationException>().WithMessage("pouch publication failed");
+        finish.Should().Throw<InvalidOperationException>().Which.Should().BeSameAs(publicationException);
 
         firstMoneyPouch.Count.Should().Be(3);
         firstInventory.Items.GetCountById(101).Should().Be(1);
@@ -602,8 +594,8 @@ public sealed class TradeExchangeTests
         var secondInventory = new ComposedTestContainer(0);
         var firstRewards = new ComposedTestContainer(4);
         var secondRewards = new ComposedTestContainer(4);
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory), firstRewards);
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory), secondRewards);
+        var first = CreateCharacter(firstInventory, firstRewards);
+        var second = CreateCharacter(secondInventory, secondRewards);
         var trade = CreatePreparedScript(first, second);
         var script = trade.Script;
         var firstOffer = script.SelfContainer;
@@ -643,8 +635,8 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(0);
         var secondInventory = new ComposedTestContainer(0);
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
         var firstRewards = CreateRewardContainer(first);
         var secondRewards = CreateRewardContainer(second);
         first.Rewards.Returns(firstRewards);
@@ -678,8 +670,8 @@ public sealed class TradeExchangeTests
         var secondInventory = new ComposedTestContainer(14);
         var firstRewards = new ComposedTestContainer(14);
         var secondRewards = new ComposedTestContainer(0);
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory), firstRewards);
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory), secondRewards);
+        var first = CreateCharacter(firstInventory, firstRewards);
+        var second = CreateCharacter(secondInventory, secondRewards);
         var firstOffer = new ComposedTestContainer(StorageType.Normal, 14);
         var secondOffer = new ComposedTestContainer(StorageType.Normal, 14);
         firstOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
@@ -759,10 +751,10 @@ public sealed class TradeExchangeTests
         var secondAInventory = new ComposedTestContainer(14);
         var firstBInventory = new ComposedTestContainer(14);
         var secondBInventory = new ComposedTestContainer(14);
-        var firstA = CreateCharacter(firstAInventory, new TestMoneyPouch(firstAInventory));
-        var secondA = CreateCharacter(secondAInventory, new TestMoneyPouch(secondAInventory));
-        var firstB = CreateCharacter(firstBInventory, new TestMoneyPouch(firstBInventory));
-        var secondB = CreateCharacter(secondBInventory, new TestMoneyPouch(secondBInventory));
+        var firstA = CreateCharacter(firstAInventory);
+        var secondA = CreateCharacter(secondAInventory);
+        var firstB = CreateCharacter(firstBInventory);
+        var secondB = CreateCharacter(secondBInventory);
         var tradeA = CreatePreparedScript(firstA, secondA);
         var tradeB = CreatePreparedScript(firstB, secondB);
         using var start = new Barrier(3);
@@ -793,10 +785,8 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(14);
         var secondInventory = new ComposedTestContainer(14);
-        var firstMoneyPouch = new TestMoneyPouch(firstInventory);
-        var secondMoneyPouch = new TestMoneyPouch(secondInventory);
-        var first = CreateCharacter(firstInventory, firstMoneyPouch);
-        var second = CreateCharacter(secondInventory, secondMoneyPouch);
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
         var trade = CreatePreparedScript(first, second);
         var script = trade.Script;
 
@@ -816,8 +806,8 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(0);
         var secondInventory = new ComposedTestContainer(0);
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
         var trade = CreatePreparedScript(first, second);
         var script = trade.Script;
         var firstOffer = script.SelfContainer;
@@ -844,8 +834,8 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new ComposedTestContainer(14);
         var secondInventory = new ComposedTestContainer(14);
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
         return (firstInventory, secondInventory, first, second, CreatePreparedScript(first, second));
     }
 
@@ -983,8 +973,7 @@ public sealed class TradeExchangeTests
 
     private static bool TryCompleteTrade(ICharacter first, IItemContainer firstOffer, ICharacter second, IItemContainer secondOffer)
     {
-        using var transaction = ItemContainerTransaction.Begin(firstOffer, secondOffer,
-            first.Inventory.Items, second.Inventory.Items, first.MoneyPouch, second.MoneyPouch);
+        using var transaction = ItemContainerTransaction.Begin(firstOffer, secondOffer, first.MoneyPouch, second.MoneyPouch);
         if (!CreateTradeExchange().TryStageCompletion(first, firstOffer, second, secondOffer)) return false;
         transaction.Commit();
         return true;
@@ -992,8 +981,7 @@ public sealed class TradeExchangeTests
 
     private static bool TryRefundTrade(ICharacter first, IItemContainer firstOffer, ICharacter second, IItemContainer secondOffer)
     {
-        using var transaction = ItemContainerTransaction.Begin(firstOffer, secondOffer,
-            first.Inventory.Items, second.Inventory.Items, first.MoneyPouch, second.MoneyPouch);
+        using var transaction = ItemContainerTransaction.Begin(firstOffer, secondOffer, first.MoneyPouch, second.MoneyPouch);
         if (!CreateTradeExchange().TryStageRefund(first, firstOffer, second, secondOffer)) return false;
         transaction.Commit();
         return true;
@@ -1014,12 +1002,15 @@ public sealed class TradeExchangeTests
 
     private static ICharacter CreateCharacter(
         IInventoryContainer inventory,
-        IMoneyPouchContainer moneyPouch,
         IRewardContainer? rewards = null,
-        IBankContainer? bank = null)
+        IBankContainer? bank = null,
+        IItemBuilder? moneyPouchItemBuilder = null)
     {
         var character = Substitute.For<ICharacter>();
         character.Inventory.Returns(inventory);
+        var eventManager = Substitute.For<IEventManager>();
+        character.EventManager.Returns(eventManager);
+        var moneyPouch = new MoneyPouchContainer(character, moneyPouchItemBuilder ?? CreateItemBuilder());
         character.MoneyPouch.Returns(moneyPouch);
         character.Rewards.Returns(rewards);
         character.Bank.Returns(bank);
@@ -1038,8 +1029,8 @@ public sealed class TradeExchangeTests
     {
         firstInventory = new ComposedTestContainer(4);
         secondInventory = new ComposedTestContainer(4);
-        first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        first = CreateCharacter(firstInventory);
+        second = CreateCharacter(secondInventory);
         firstOffer = new ComposedTestContainer(StorageType.Normal, 4);
         secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
     }
@@ -1062,143 +1053,6 @@ public sealed class TradeExchangeTests
         return exception;
     }
 
-    private sealed class TestMoneyPouch : ComposedTestContainer, IMoneyPouchContainer, IItemTransactionSource, IItemContainerCompletionOwner
-    {
-        private readonly IInventoryContainer _overflowInventory;
-        private readonly Queue<byte> _pendingUpdates = new();
-        IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries =>
-            [((IItemTransactionSource)Container).Boundaries[0],
-                ((IItemTransactionSource)_overflowInventory.Items).Boundaries[0]];
-        public bool FailNextStorageAdd { get; set; }
-        public TestMoneyPouch(IInventoryContainer overflowInventory) : base(StorageType.AlwaysStack, 1, 0, publishItemChanges: false)
-        {
-            _overflowInventory = overflowInventory;
-            typeof(ItemContainerMutationBoundary).GetField("_completion", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(((IItemTransactionSource)Container).Boundaries[0], this);
-            using (var mutation = Container.BeginMutation())
-                Container.ReplaceState([new TestItem(995, 0, stackable: true)]);
-        }
-        private void RecordUpdate()
-        {
-            var boundary = ((IItemTransactionSource)Container).Boundaries[0];
-            var transaction = boundary.Transaction
-                ?? throw new InvalidOperationException("Pouch updates require an active item transaction.");
-            transaction.EnsureActive();
-            if (!ReferenceEquals(boundary.Transaction, transaction) || !boundary.IsMutationLockHeldByCurrentThread)
-                throw new InvalidOperationException("Pouch updates require their active transaction and mutation lock.");
-            _pendingUpdates.Enqueue(0);
-        }
-        public void DiscardPendingCompletion() => _pendingUpdates.Clear();
-        public void CompleteBeforePublication() { }
-        public void CompleteAfterPublication()
-        {
-            while (_pendingUpdates.TryDequeue(out _)) OnUpdate();
-        }
-        public string Examine => Count.ToString();
-        public int Count => Items[0]?.Count ?? 0;
-        public bool HasSpaceForCoins(int count) => count > 0 && (long)Count + count <= int.MaxValue;
-        public bool HasCoins(int count) => count > 0 && (long)Count + _overflowInventory.Items.GetCountById(995) >= count;
-
-        public bool Add(int count)
-        {
-            return TryAddExact(count);
-        }
-        public bool TryAddExact(int count)
-        {
-            if (IsParticipatingInCompleteTransaction()) return AddExact(count);
-
-            using var transaction = ItemContainerTransaction.Begin(this);
-            if (!AddExact(count)) return false;
-            transaction.Commit();
-            return true;
-        }
-        public bool TryTransferCoinsFrom(IItemContainer source, IItem coins, int preferredSourceSlot = -1)
-        {
-            ArgumentNullException.ThrowIfNull(source);
-            ArgumentNullException.ThrowIfNull(coins);
-            var count = coins.Count;
-            if (coins.Id != 995 || count <= 0) return false;
-            if (!IsParticipatingInCompleteTransaction(source))
-                throw new InvalidOperationException("Source, pouch, and inventory must share an active transaction.");
-            return source.TryRemoveExact(coins, preferredSourceSlot) && AddExact(count);
-        }
-        private bool AddExact(int count)
-        {
-            if (FailNextStorageAdd) { FailNextStorageAdd = false; return false; }
-            if (count <= 0) return false;
-            var pouchCount = Math.Min(int.MaxValue - Count, count);
-            var overflow = count - pouchCount;
-            if (overflow > 0 && !_overflowInventory.Items.HasSpaceFor(new TestItem(995, overflow, stackable: true))) return false;
-            if (pouchCount > 0 && !Items.AddRange([new TestItem(995, pouchCount, stackable: true)])) return false;
-            if (overflow > 0 && !_overflowInventory.Items.AddRange([new TestItem(995, overflow, stackable: true)])) return false;
-            if (pouchCount > 0) RecordUpdate();
-            return true;
-        }
-        public bool AddFromInventory(int count) => false;
-        public bool MoveToInventory(int count) => false;
-        public int Remove(int count)
-        {
-            var removed = Items.Remove(new TestItem(995, count, stackable: true));
-            var remaining = count - removed;
-            return remaining <= 0 ? removed : removed + _overflowInventory.Items.Remove(new TestItem(995, remaining, stackable: true));
-        }
-        public bool TryRemoveExact(int count)
-        {
-            if (IsParticipatingInCompleteTransaction()) return RemoveExact(count);
-
-            using var transaction = ItemContainerTransaction.Begin(this);
-            if (!RemoveExact(count)) return false;
-            transaction.Commit();
-            return true;
-        }
-        private bool RemoveExact(int count)
-        {
-            if (count <= 0) return false;
-            var pouchCount = Math.Min(Count, count); var overflow = count - pouchCount;
-            if (overflow > _overflowInventory.Items.GetCountById(995)) return false;
-            if (pouchCount > 0 && !Items.TryRemoveExact(new TestItem(995, pouchCount, stackable: true), 0)) return false;
-            if (overflow > 0 && !_overflowInventory.Items.TryRemoveExact(new TestItem(995, overflow, stackable: true))) return false;
-            RecordUpdate();
-            return true;
-        }
-
-        private bool IsParticipatingInCompleteTransaction(IItemContainer? additionalContainer = null)
-        {
-            ItemContainerTransaction? transaction = null;
-            var unbound = 0;
-            foreach (var boundary in ((IItemTransactionSource)this).Boundaries)
-            {
-                var current = boundary.Transaction;
-                if (current == null)
-                {
-                    unbound++;
-                    continue;
-                }
-
-                if (transaction == null) transaction = current;
-                else if (!ReferenceEquals(transaction, current))
-                    throw new InvalidOperationException("Pouch storage belongs to different transactions.");
-            }
-
-            if (additionalContainer != null)
-            {
-                var sourceBoundary = ((IItemTransactionSource)additionalContainer).Boundaries[0];
-                var current = sourceBoundary.Transaction;
-                if (current == null) unbound++;
-                else if (transaction == null) transaction = current;
-                else if (!ReferenceEquals(transaction, current))
-                    throw new InvalidOperationException("Source belongs to a different transaction.");
-            }
-
-            if (transaction == null) return false;
-            if (unbound != 0)
-                throw new InvalidOperationException("Every pouch storage boundary must belong to the same transaction.");
-
-            transaction.EnsureActive();
-            return true;
-        }
-
-    }
     private sealed class TestItem : IItem
     {
         public int Id { get; }

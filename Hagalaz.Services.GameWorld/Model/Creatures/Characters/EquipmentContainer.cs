@@ -220,17 +220,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool TryRestoreEquippedItem(EquipmentSlot slot, IItem item)
         {
             ArgumentNullException.ThrowIfNull(item);
-            HashSet<int> equipmentSlots;
-            ItemContainerTransaction? transaction;
-            using (var mutation = _mutations.BeginDomainMutation())
-            {
-                if (!_storage.TryAdd((int)slot, item, out var slots)) return false;
-                equipmentSlots = slots;
-                transaction = mutation.Transaction;
-                mutation.RecordChanges(slots);
-            }
+            using var mutation = _mutations.BeginMutation();
+            if (!_storage.TryAdd((int)slot, item, out var slots)) return false;
 
-            if (transaction == null) CompleteStandaloneEquipmentChange(equipmentSlots);
+            mutation.RecordChanges(slots);
             return true;
         }
 

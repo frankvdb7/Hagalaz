@@ -46,15 +46,15 @@ public sealed class ItemContainerTransaction : IDisposable
     public static ItemContainerTransaction Begin(params IItemTransactional[] participants)
         => BeginResolved(Resolve(participants));
 
-    internal static ItemContainerMutationBoundary ResolveSingleBoundary(IItemTransactional participant)
+    internal static ItemContainerMutationBoundary ResolveSingleBoundary(IItemContainer container)
     {
-        ArgumentNullException.ThrowIfNull(participant);
-        if (participant is not IItemTransactionSource source)
-            throw new ArgumentException("Unsupported item transaction participant.", nameof(participant));
+        ArgumentNullException.ThrowIfNull(container);
+        if (container is not IItemTransactionSource source)
+            throw new ArgumentException("Unsupported item container.", nameof(container));
 
         var boundaries = source.Boundaries;
         if (boundaries == null || boundaries.Count != 1 || boundaries[0] == null)
-            throw new ArgumentException("This operation requires exactly one item storage.", nameof(participant));
+            throw new ArgumentException("This operation requires exactly one item storage.", nameof(container));
 
         return boundaries[0];
     }
@@ -122,10 +122,10 @@ public sealed class ItemContainerTransaction : IDisposable
     /// <summary>Declares live storage irreversible, releases boundary locks, performs committed completion/publication, and releases the scope.</summary>
     /// <remarks>
     /// Mutations already affect live storage under locks; Commit discards rollback ability rather than applying staged data.
-    /// Completion runs after boundary locks are released but before boundary bindings are released. Completion owners
-    /// are deduplicated by reference in resolved boundary order, independently from lock and publication order. Hook or
-    /// publication failures propagate after storage has permanently committed. Dispose cannot undo that state, and
-    /// another Commit cannot retry completion.
+    /// Completion runs after boundary locks are released but before boundary bindings are released. The transaction
+    /// visits each resolved boundary's completion owner once, in resolved boundary order. This order is independent of
+    /// lock and publication order. Hook or publication failures propagate after storage has permanently committed.
+    /// Dispose cannot undo that state, and another Commit cannot retry completion.
     /// Container failure skips later containers and all post-publication completion. A post-publication failure skips later
     /// completion. Multiple independent failures are retained in a flat AggregateException.
     /// </remarks>
@@ -288,13 +288,11 @@ public sealed class ItemContainerTransaction : IDisposable
     {
         ArgumentNullException.ThrowIfNull(participants);
         if (participants.Length == 0) throw new ArgumentException("At least one participant is required.", nameof(participants));
-        var seen = new HashSet<IItemTransactional>(ReferenceEqualityComparer.Instance);
         var boundariesByStorage = new Dictionary<ItemContainerStorage, ItemContainerMutationBoundary>();
         var boundaries = new List<ItemContainerMutationBoundary>();
         foreach (var participant in participants)
         {
             ArgumentNullException.ThrowIfNull(participant);
-            if (!seen.Add(participant)) continue;
             if (participant is not IItemTransactionSource source)
                 throw new ArgumentException("Use an item-transactional object provided by the item-container domain.", nameof(participants));
             var contributions = source.Boundaries;

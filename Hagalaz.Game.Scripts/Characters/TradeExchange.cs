@@ -22,8 +22,8 @@ internal sealed class TradeExchange
 
     /// <summary>Stages a trade completion inside the caller-owned item-container transaction.</summary>
     /// <remarks>
-    /// The caller must begin a transaction containing both offer containers, both player inventories, and both
-    /// MoneyPouch aggregates before calling this method. This method does not create or commit a transaction.
+    /// The caller must include both offer containers and both MoneyPouches in the transaction. Each MoneyPouch
+    /// contributes its inventory storage. This method does not create or commit a transaction.
     /// </remarks>
     public bool TryStageCompletion(ICharacter first, IItemContainer firstOffer, ICharacter second,
         IItemContainer secondOffer) =>
@@ -31,8 +31,8 @@ internal sealed class TradeExchange
 
     /// <summary>Stages a trade refund inside the caller-owned item-container transaction.</summary>
     /// <remarks>
-    /// The caller must begin a transaction containing both offer containers, both player inventories, and both
-    /// MoneyPouch aggregates before calling this method. This method does not create or commit a transaction.
+    /// The caller must include both offer containers and both MoneyPouches in the transaction. Each MoneyPouch
+    /// contributes its inventory storage. This method does not create or commit a transaction.
     /// </remarks>
     public bool TryStageRefund(ICharacter first, IItemContainer firstOffer, ICharacter second,
         IItemContainer secondOffer) =>

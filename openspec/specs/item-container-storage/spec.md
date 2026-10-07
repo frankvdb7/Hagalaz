@@ -115,15 +115,11 @@ Storage MUST own its mutation revision, which invalidates active enumerators aft
 - **THEN** storage advances its own mutation revision while the transaction orders synchronization by boundary mutation order
 
 ### Requirement: Storage is synchronization-agnostic
-`ItemContainerStorage` MUST own item state, revision, mutation algorithms, snapshot data, and rollback restoration only. It MUST NOT own a lock, deterministic mutation order, transaction binding, standalone publication ownership, synchronization authorization, or use `Monitor`. Its single owning `ItemContainerMutationBoundary` MUST own those concerns and protect that storage. Storage algorithms MUST assume the boundary has authorized the synchronous operation. `ItemContainerTransaction` MUST coordinate and order boundaries, and MUST key bindings, snapshots, rollback, and changed-slot tracking by boundary; it may access storage only for item-state data through the boundary.
+`ItemContainerStorage` MUST own item state, mutation revision, mutation algorithms, snapshots, and restoration only. It MUST NOT own synchronization or transaction state. Its owning `ItemContainerMutationBoundary` provides synchronous authorization and protection. Transactions MUST coordinate boundaries and access storage only for the item-state data those boundaries protect.
 
 #### Scenario: Storage mutation algorithms do not acquire synchronization
 - **WHEN** an internal storage algorithm mutates item state
 - **THEN** it performs item-state validation and mutation while its owning boundary provides synchronization and authorization
-
-#### Scenario: Transaction bookkeeping identifies boundaries
-- **WHEN** a transaction locks, binds, records changes, snapshots, or rolls back participants
-- **THEN** it uses mutation boundaries as synchronization identity and accesses storage only for the item-state data being protected
 
 #### Scenario: Storage mutation invalidates enumeration
 - **WHEN** storage changes after an enumerator is created
@@ -148,20 +144,12 @@ Storage MUST own its mutation revision, which invalidates active enumerators aft
 - **WHEN** a trade offer publishes a content update
 - **THEN** its acceptance revision advances independently of the storage enumeration revision
 
-#### Scenario: Post-commit failures do not change transaction outcome
-- **WHEN** mutations succeed and Commit reaches publication after releasing transaction locks
-- **THEN** the transaction remains committed and runs changed participant publishers at most once in registration order, stopping at the first exception and propagating it directly
-
-### Requirement: Multi-container mutations use an instance transaction
-`ItemContainerTransaction` MUST provide one disposable atomic scope around existing synchronous domain operations. Every participant MUST be supplied before Begin, and storage aliases MUST be deduplicated without changing first-seen publication order. It MUST own ordered locks, snapshots, rollback and deferred publication. Domain operations MUST retain item semantics; the transaction MUST NOT own item operations. Transaction membership MUST be explicit at Begin. Ordinary mutations MUST operate through normal domain/container APIs and automatically participate only when their backing storage was enlisted; they MUST NOT create, commit, or dynamically join transactions. Cross-storage transfer MUST use `source.TryTransferTo(destination, ...)` and that public operation owns and commits a short transaction when neither storage is bound, participates without committing when both belong to one active current-thread transaction, and rejects partial/conflicting enlistment before mutation. MoneyPouch exact methods MUST select a standalone scope only when every required store is unbound, participate when every required store belongs to the same active current-thread scope, and reject partial/conflicting enlistment before mutation. Internal validation MUST reject wrong-thread use before mutation. If Commit cannot fully release transaction resources, observable completion and publication MUST NOT start, pending domain completion facts MUST still be discarded as non-observable cleanup, and committed storage MUST remain irreversible. No dynamic enlistment, separate unit of work, committed-state query, publication call, or ambient transaction API may be required. Async, nested and distributed transaction support MUST NOT be introduced.
+### Requirement: Multi-container mutations use one explicit transaction
+`ItemContainerTransaction` MUST provide one synchronous atomic scope around existing domain operations. Callers MUST supply every participant needed by a multi-storage operation before Begin; operations MUST NOT dynamically enlist storage. Domain operations retain item semantics, while the transaction owns atomicity and lifecycle. Ordinary container operations MUST participate automatically when their boundary is enlisted and remain standalone otherwise. A helper with missing or differently bound required storage MUST fail before mutation. Transaction misuse, including wrong-thread use, MUST fail before mutation. The public lifecycle is Begin, Commit, and Dispose; callers MUST NOT need a separate unit of work, publication call, or committed-state query. Async, savepoint, and distributed transaction support MUST NOT be introduced.
 
 #### Scenario: Ordinary mutations use enlisted storage automatically
 - **WHEN** a caller begins one transaction with a container participant and uses ordinary container mutation methods
 - **THEN** those methods participate in the scope and use its locks without acquiring additional storage
-
-#### Scenario: A cross-storage mutation has no owner scope
-- **WHEN** a caller attempts a cross-storage mutation without an active transaction containing both boundaries
-- **THEN** the operation throws before changing either storage
 
 #### Scenario: A helper requires missing storage
 - **WHEN** a scope includes A but a composable operation requires A and B
@@ -171,28 +159,40 @@ Storage MUST own its mutation revision, which invalidates active enumerators aft
 - **WHEN** an operation requires storage bound to different active transactions
 - **THEN** it throws without mutation or nested transaction creation
 
-#### Scenario: MoneyPouch exact operation selects the existing complete scope
-- **WHEN** a public MoneyPouch exact operation is called with all required storage unbound
-- **THEN** it owns one transaction over the pouch and inventory
-- **WHEN** it is called with all required storage enlisted in the same active current-thread transaction
-- **THEN** it participates in that transaction without starting another scope
-- **WHEN** only some required storage is enlisted or required storage belongs to different transactions
-- **THEN** it throws before mutation
-
-#### Scenario: Ordinary item-container mutation participates in an enlisted store
-- **WHEN** an ordinary `IItemContainer` mutation is called for storage enlisted in an active transaction
-- **THEN** it mutates within that scope and defers publication until commit
-
 #### Scenario: A composite participant aliases storage
 - **WHEN** ordinary and composite participants contribute the same storage
 - **THEN** its owning boundary is locked and the storage state is snapshotted once while participant publication order remains first-seen order
 
+#### Scenario: An unenlisted item container remains standalone
+- **WHEN** a transaction includes A but not independent container B, and both containers are mutated
+- **THEN** disposal restores A without publication while B retains its mutation and publishes normally
+
 ### Requirement: MoneyPouch uses one transaction rollback owner
-MoneyPouch exact additions and removals MUST mutate both pouch and inventory storage through the same active scope. Coin, slot-zero sentinel, balance, message, and event rules remain owned by MoneyPouch. Its captured notification facts MUST be owned by MoneyPouch and associated with the scope and published automatically after commit and unlock, and MoneyPouch MUST NOT snapshot and restore pouch storage as a separate rollback mechanism.
+MoneyPouch MUST contribute exactly its pouch storage and its inventory item storage to a transaction. Exact additions and removals MUST mutate both through the same transaction. When neither boundary is owned by a current-thread transaction, an exact operation owns a transaction; it participates only when both boundaries belong to the same active transaction and throws before mutation on partial current-thread participation. A foreign overlap uses normal transaction contention. `TryTransferCoinsFrom(...)` MUST require its source, pouch, and inventory boundaries in one caller-owned transaction and MUST NOT create a transaction. Coin, slot-zero sentinel, and balance rules remain owned by MoneyPouch; it MUST NOT keep a separate rollback mechanism.
 
 #### Scenario: A later participant rejects a staged pouch mutation
 - **WHEN** pouch and inventory mutations are staged but a later participant rejects its operation
 - **THEN** transaction rollback restores both stores and no pouch message or event is published
+
+#### Scenario: MoneyPouch exact operations own or participate in one scope
+- **WHEN** an exact add or remove runs with neither pouch nor inventory boundary owned by a current-thread transaction
+- **THEN** MoneyPouch owns a transaction over both boundaries
+- **WHEN** both boundaries already belong to the same active current-thread transaction
+- **THEN** the operation participates without committing that transaction
+- **WHEN** only the inventory boundary is owned by a current-thread transaction
+- **THEN** the operation throws before changing pouch or inventory storage
+
+#### Scenario: Coin transfer requires a complete caller-owned scope
+- **WHEN** `TryTransferCoinsFrom(...)` is called without one transaction containing its source, pouch, and inventory boundaries
+- **THEN** it throws before mutation and creates no independent transaction
+
+#### Scenario: MoneyPouch contributes its two storage boundaries
+- **WHEN** a transaction begins with the MoneyPouch aggregate
+- **THEN** exactly the pouch storage and its inventory item storage are enlisted
+
+#### Scenario: An exact MoneyPouch operation waits for a foreign owner
+- **WHEN** another thread owns either required boundary and the current thread calls `TryAddExact` or `TryRemoveExact`
+- **THEN** the operation waits through normal Begin contention and proceeds after the foreign scope completes
 
 ### Requirement: Familiar inventory owns partial withdrawal policy
 Generic mutation infrastructure MUST NOT expose partial bulk movement through `TransferAll` or `AddAndRemoveFrom`. `IFamiliarInventoryContainer` MUST expose an operation that attempts every familiar item in one transaction, commits fitting transfers together, and leaves items that do not fit in familiar storage.
@@ -283,65 +283,115 @@ After all required `CanUnEquipItem` checks succeed, Weapon and Shield replacemen
 - **WHEN** replacement storage commits and a participant publisher throws
 - **THEN** committed storage remains in place, all required lifecycle effects have been attempted, and later participant publishers are skipped
 
-### Requirement: Transaction commit includes publication
-A transaction MUST expose Begin, Commit, and Dispose as its public lifecycle. `Begin(...)` MUST create one synchronous scope over every resolved boundary contribution. Boundary mutation locks MUST be held while the scope is Active. Dispose without commit MUST restore all enlisted storage and revisions before clearing boundary bindings and releasing locks. Commit MUST declare current storage irreversible, release boundary mutation locks before domain hooks and automatic publication, and retain boundary bindings to the committing scope until committed completion/publication and pending-fact cleanup finish. A foreign overlapping `Begin(...)` MUST wait for the scope to finish; same-thread overlapping `Begin(...)` MUST be rejected. Ordinary mutation against a boundary bound to a Committed scope MUST be rejected. After completion/publication, bindings MUST be cleared under the ordered boundary locks, waiters awakened, and the transaction made Completed. Releasing a mutation lock alone MUST NOT make storage available while its committed state is still being observed. Callers MUST NOT require a separate publication step or committed-state query. Each changed container MUST publish once in existing observable order, independent of lock order. Completion failures MUST leave committed storage irreversible, release scope ownership, and MUST NOT be retried by Commit or Dispose. Transaction rollback restores slot topology, item references, item counts, and storage revision. It does not deep-snapshot arbitrary mutable `IItem` state, including `ExtraData`; callers requiring rollback of metadata MUST replace the item reference transactionally with a clone carrying the intended metadata rather than mutate rollback-sensitive metadata in place before commit.
+### Requirement: Transaction construction and rollback preserve storage state
+`ItemContainerTransaction` MUST expose Begin, Commit, and Dispose as one synchronous atomic lifecycle. Begin MUST resolve and validate participant contributions in encounter order before locking, deduplicate repeated boundary contributions without changing resolved publication order, and reject one storage exposed through different boundaries. It MUST acquire boundary locks in deterministic order, capture snapshots, and establish bindings only after construction succeeds. A construction failure MUST release acquired locks in reverse order without changing storage or publishing. Mutations affect live storage while the scope is active. Dispose without Commit MUST attempt every snapshot restoration while retaining the transaction bindings and locks, discard pending completion facts, then clear bindings and release locks without publishing or pulsing waiters. Snapshots restore slots, item references, counts, and storage revision, but do not deep-copy mutable `IItem` state such as `ExtraData`.
 
-#### Scenario: Storage commits before publication
-- **WHEN** all staged mutations succeed
-- **THEN** storage becomes irreversible before Commit releases locks and invokes deferred domain effects and publication
+Commit MUST make the current storage state irreversible before discarding snapshots. It MUST release every mutation lock before invoking domain hooks or publishers, while retaining boundary bindings until completion and publication finish. If lock release is incomplete, callbacks MUST NOT run; pending facts are still discarded and committed storage remains irreversible. Once the scope is fully completed, bindings MUST be cleared under ordered boundary locks and waiters awakened. A foreign overlapping Begin waits until then; same-thread overlapping Begin and ordinary mutation against a committed binding are rejected. Dispose after commit is inert, and another Commit is invalid.
 
-#### Scenario: Staging fails
-- **WHEN** a scope exits without Commit after domain rejection or a mutation exception
-- **THEN** disposal restores every enlisted store and revision, and emits no effects
+#### Scenario: Construction fails during snapshot capture
+- **WHEN** snapshot capture throws after locks have been acquired
+- **THEN** all acquired locks are released, no binding survives, and storage and publication remain unchanged
 
-#### Scenario: A participant publisher fails
-- **WHEN** one participant throws during publication
-- **THEN** later participants are skipped, storage remains committed, the original exception propagates directly, and another Commit is invalid and Dispose emits nothing
+#### Scenario: Scope exits without commit
+- **WHEN** an early return, exception, or cancellation exits an active scope
+- **THEN** every participant is restored while its lock and binding are held, pending completion is discarded, and no effect is published
 
-#### Scenario: Standalone publication retains mutation-time attribution
-- **WHEN** a standalone mutation records changes and releases its mutation lock before publication while another thread begins an overlapping transaction
-- **THEN** the standalone publication owner prevents the transaction from binding until publication finishes, and the standalone change is published before the later transaction begins
+#### Scenario: Commit crosses the irreversible point before callbacks
+- **WHEN** all mutations succeed and Commit begins completion
+- **THEN** storage is irreversible and all mutation locks are released before hooks or publication run
 
-### Requirement: Standalone publication retains boundary ownership
-A standalone mutation that records changes MUST claim boundary-owned publication ownership while holding the boundary mutation lock before releasing it. That ownership MUST remain through standalone domain lifecycle effects and publication, while observable callbacks run without the boundary lock. Ordinary mutations MUST reject a boundary with standalone publication ownership. Explicit transaction `Begin(...)` MUST wait for a foreign standalone publication owner and reject same-thread overlap; a multi-boundary Begin MUST release any acquired lock prefix before waiting and retry deterministic acquisition after ownership clears. Standalone completion MUST clear ownership and pulse waiters under the boundary lock after publication. A publisher failure MUST still trigger the normal ownership-release cleanup before propagating. Synchronization invariant failures MUST propagate directly and MUST NOT be aggregated with publication failures.
+#### Scenario: Independent overlapping scopes wait
+- **WHEN** another thread owns a required boundary and the current thread owns none of the requested boundaries
+- **THEN** Begin waits until the foreign scope completes, then acquires locks in deterministic order
+
+#### Scenario: Nested Begin on an enlisted boundary is rejected
+- **WHEN** the current thread begins a transaction for storage already enlisted in its active transaction
+- **THEN** Begin throws and leaves the existing scope unchanged
+
+### Requirement: Commit completes domain effects and publication in order
+Commit MUST run pre-publication completion, changed container publication, then post-publication completion. Completion owners run once per owner-bearing resolved boundary in participant encounter and contribution order before lock sorting; each owner processes its facts in FIFO order, with no cross-owner fact-interleaving guarantee. Container publication uses its existing observable order independently of lock order; its first failure skips later container publishers and all post-publication completion. Post-publication completion runs only if container publication finishes, and its first failure skips later owners. Pending facts are discarded before bindings are released.
+
+An exception after the irreversible point leaves storage committed. A single failure propagates as its original exception; independent Equipment hook and publication failures both survive in one AggregateException. Validation needed to determine whether a mutation is allowed MUST happen before Commit. The transaction MUST NOT store executable domain callbacks or expose callback registration.
+
+#### Scenario: Container publication fails
+- **WHEN** a container publisher throws
+- **THEN** later containers and all post-publication completion are skipped, storage remains committed, and the original exception propagates
+
+#### Scenario: Post-publication completion fails
+- **WHEN** one completion owner throws after container publication succeeds
+- **THEN** earlier completion remains observable, later owners are skipped, remaining facts are discarded, and storage remains committed
+
+#### Scenario: Equipment hooks and publication both fail
+- **WHEN** an Equipment hook batch and normal publication both throw
+- **THEN** all required Equipment hooks are attempted and an AggregateException retains both original failures
+
+#### Scenario: Rollback discards owner completion
+- **WHEN** Equipment and pouch mutations record pending effects but the scope exits without Commit
+- **THEN** storage is restored, pending facts are discarded, and a later unrelated scope runs none of those effects
+
+#### Scenario: Completion owners follow resolved boundary order
+- **WHEN** participants are supplied in an order different from lock acquisition and mutation order
+- **THEN** owner-bearing resolved boundaries complete in participant encounter and contribution order
+
+#### Scenario: One owner preserves its pending fact order
+- **WHEN** one completion owner records multiple facts in a transaction
+- **THEN** that owner completes its facts in the order recorded
+
+#### Scenario: Completion starts a disjoint scope
+- **WHEN** post-unlock completion synchronously starts a scope over storage not owned by the committing transaction
+- **THEN** the disjoint scope proceeds normally
+
+#### Scenario: Completion cannot re-enter an overlapping scope
+- **WHEN** committed completion attempts same-thread Begin or mutation against storage still bound to the committing transaction
+- **THEN** it throws `InvalidOperationException` without altering the committed scope
+
+### Requirement: Mutation authorization and standalone publication belong to the boundary
+Each mutation boundary MUST authorize synchronous operations against its storage. A per-operation scope MUST acquire the boundary lock for standalone work or borrow the lock held by its active transaction, and release only a lock it acquired. A manually held lock without a transaction binding MUST NOT authorize mutation. Change attribution MUST occur under the same lock and transaction binding, and MUST reject a boundary outside the active transaction or an unlocked boundary. A scope with no changes MUST publish nothing. Transaction membership is determined from the boundary binding; ambient current-transaction state is prohibited.
+
+When a standalone mutation records changes, the boundary MUST claim publication ownership before releasing its lock. It retains that ownership through lifecycle effects and publication while callbacks run without the lock. Ordinary mutations MUST reject that boundary during publication; same-thread overlapping Begin is rejected and foreign overlapping Begin waits. A multi-boundary Begin MUST release any acquired lock prefix before waiting and retry deterministic acquisition after ownership clears. Standalone cleanup MUST clear ownership and pulse waiters under the boundary lock, including after publisher failure.
+
+#### Scenario: Standalone mutation publishes after unlocking
+- **WHEN** an ordinary mutation succeeds on unbound storage
+- **THEN** it acquires the boundary lock once, records changes and claims publication ownership under that lock, releases the lock, and publishes before an overlapping foreign transaction can bind
+
+#### Scenario: Transaction-owned mutation borrows its boundary lock
+- **WHEN** an ordinary mutation targets a boundary enlisted in the current thread's active transaction
+- **THEN** it neither reacquires nor releases the transaction-owned lock and attributes changes before returning
+
+#### Scenario: A manually held lock does not authorize mutation
+- **WHEN** the current thread holds a boundary lock without a transaction binding and starts an ordinary mutation
+- **THEN** the operation throws without borrowing or releasing the external lock
+
+#### Scenario: Change attribution requires the enlisted boundary and lock
+- **WHEN** changes are attributed for a boundary outside the active transaction or without its mutation lock
+- **THEN** attribution throws without adding change data
+
+#### Scenario: An unsuccessful standalone mutation publishes nothing
+- **WHEN** an ordinary operation returns without recording changes
+- **THEN** its lock is released without publication ownership or notification
 
 #### Scenario: Ordinary mutation cannot change state during standalone publication
-- **WHEN** a standalone publisher is running with logical publication ownership retained on its boundary
+- **WHEN** a standalone publisher runs while logical ownership remains on its boundary
 - **THEN** same-thread and foreign ordinary mutations throw before changing storage
 
 #### Scenario: Equipment lifecycle retains standalone ownership
-- **WHEN** standalone Equipment lifecycle effects run after releasing the mutation lock and before publication
-- **THEN** an overlapping foreign transaction waits through both lifecycle effects and publication, while same-thread reentrant Begin is rejected
+- **WHEN** standalone Equipment lifecycle effects run after unlock and before publication
+- **THEN** an overlapping foreign transaction waits through both phases and same-thread reentrant Begin is rejected
 
 #### Scenario: Standalone publication cleanup releases ownership after failure
-- **WHEN** the standalone publisher throws after publication ownership was claimed
-- **THEN** cleanup clears ownership and pulses waiters under the boundary lock, and the publication exception propagates
+- **WHEN** a standalone publisher throws after ownership is claimed
+- **THEN** cleanup clears ownership and pulses waiters under the boundary lock before propagating the publication exception
 
-### Requirement: Transaction change attribution validates boundary ownership
-`ItemContainerTransaction.RecordChanges(...)` MUST accept changes only when the given boundary is bound to that exact active transaction and the calling thread holds that boundary's mutation lock. It MUST reject unbound, differently bound, or unlocked boundaries before adding change data.
-
-#### Scenario: Change attribution rejects a boundary outside the transaction
-- **WHEN** a transaction records changes for a boundary that it did not enlist
-- **THEN** it throws without binding or mutating the other storage
-
-#### Scenario: Change attribution requires the enlisted boundary lock
-- **WHEN** an active transaction records changes for its enlisted boundary without owning its mutation lock
-- **THEN** it throws and leaves transaction change attribution unchanged
+#### Scenario: Mutation participation uses no ambient scope
+- **WHEN** an ordinary item-container mutation runs
+- **THEN** participation is determined from its boundary binding without ambient state or transaction identity passed through the operation
 
 ### Requirement: Automatic economic publication preserves domain behavior
-MoneyPouch MUST internally record immutable notification facts containing the previous count, new count, and domain-visible change amount for automatic publication after container publishers. Callers MUST NOT manage notification receipts. Messages MUST use the captured change amount, then events MUST use the captured previous and new counts; publication MUST NOT reconstruct events from live pouch state. An inventory-only pouch addition MUST NOT publish a pouch effect. Equipment MUST own its ordered lifecycle/profile hook batch and retain attempt-all behavior after storage becomes irreversible and locks are released. Equipment MUST execute typed completion facts directly without converting them to executable delegate arrays. For standalone equipment changes, lifecycle effects and normal publication MUST be attempted explicitly before retained failures are surfaced. Normal container publication MUST stop at its first failure, skipping later containers and all pouch publication; pouch publication MUST stop at its first failure. A single failure MUST preserve the original exception; independent hook and publication failures MUST preserve both original exceptions in AggregateException. Shop purchases MUST sort stock and send the purchase event only after Commit finishes publication.
+MoneyPouch MUST internally record immutable notification facts containing the previous count, new count, and domain-visible change amount for automatic publication after container publishers. Callers MUST NOT manage notification receipts. Messages MUST use the captured change amount, then events MUST use the captured previous and new counts; publication MUST NOT reconstruct events from live pouch state. An inventory-only pouch addition MUST NOT publish a pouch effect. Equipment MUST own its ordered lifecycle/profile hook batch, retain attempt-all behavior after storage is irreversible and locks are released, and execute typed completion facts directly. For standalone equipment changes, lifecycle effects and normal publication MUST be attempted explicitly before retained failures are surfaced. Shop purchases MUST sort stock and send the purchase event only after Commit finishes publication.
 
 #### Scenario: Multiple pouch mutations retain their own facts
 - **WHEN** a transaction changes pouch count from 10 to 13 and then from 13 to 12
 - **THEN** the first publication sends the +3 message and event 10 to 13, and the second sends the -1 message and event 13 to 12
-
-#### Scenario: Overlapping publication reentrancy is rejected
-- **WHEN** committed pouch or container publication synchronously attempts to begin or mutate an overlapping storage scope on the same thread
-- **THEN** the operation throws `InvalidOperationException` while the original committed scope remains bound, and original publication and cleanup continue according to their failure policy
-
-#### Scenario: Disjoint publication work remains independent
-- **WHEN** committed completion or publication starts a transaction over storage that does not overlap the committing scope
-- **THEN** the disjoint scope proceeds normally and pending completion facts remain associated with their originating transaction
 
 #### Scenario: Equipment lifecycle fails after commit
 - **WHEN** an equipment lifecycle effect throws after storage commits
@@ -350,137 +400,6 @@ MoneyPouch MUST internally record immutable notification facts containing the pr
 #### Scenario: Shop publication fails after purchase commit
 - **WHEN** container or pouch publication throws after a purchase commits
 - **THEN** later stock sorting and the purchase event are skipped, storage remains committed, and the original publication exception propagates directly
-
-### Requirement: Disposable atomic mutation scope
-An item transaction MUST expose Begin, Commit, and Dispose, with every participant resolved and validated before locking. It MUST capture all snapshots before establishing originating-thread boundary bindings. Construction failure MUST release acquired locks, leave storage unchanged, and publish nothing because no bindings have yet been established. Dispose without commit MUST attempt every snapshot restore while retaining participant locks and bindings, discard pending completion facts, clear bindings, and release locks; rollback MUST NOT pulse waiters because contenders cannot acquire a participant lock before bindings are cleared. Commit MUST declare already-mutated storage irreversible before dropping snapshots and releasing mutation-boundary locks; it MUST retain boundary bindings while executing callbacks, then clear bindings under the ordered boundary locks and pulse waiters. Domain completion and publication MUST NOT run unless all transaction mutation locks were released. Synchronization invariant failures MUST propagate normally and MUST NOT be aggregated with domain failures. Repeated owner-thread disposal MUST be inert and repeated commit MUST NOT retry publication.
-
-#### Scenario: Construction fails during snapshot capture
-- **WHEN** snapshot capture throws after locks have been acquired
-- **THEN** all acquired locks are released, no binding survives, and storage and publication remain unchanged
-
-#### Scenario: Mutation scope exits without commit
-- **WHEN** an early return, exception, or cancellation exits an active scope
-- **THEN** disposal restores every participant and emits no deferred effect
-
-#### Scenario: Completion throws after commit
-- **WHEN** a hook or publisher throws after the irreversible transition
-- **THEN** committed storage remains permanent, all transaction locks have been released, disposal is inert, and commit cannot retry completion
-
-### Requirement: Complete same-scope participation
-Every transaction MUST have one explicit owner. A same-thread Begin on a boundary already bound to a transaction MUST throw, while a foreign overlapping Begin MUST wait until the existing scope ends. All transaction participants MUST be supplied to Begin; ordinary operations MUST NOT dynamically enlist storage. Ordinary `IItemContainer` mutations MUST use the active scope automatically when their boundary is enlisted and MUST remain standalone when it is not. MoneyPouch exact operations MUST own a scope when the current thread owns neither its pouch nor its single inventory boundary, participate when both are owned by the same active current-thread transaction, and throw before mutation when the inventory boundary is already owned by a current-thread transaction that does not include the pouch boundary. A foreign overlap MUST be handled by the standalone `Begin` path's normal contention. `IItemContainer.TryTransferTo` MUST own and commit a short transaction when neither required boundary is bound, participate without committing when both boundaries belong to the same active current-thread transaction, and reject partial or conflicting enlistment before mutation. `IMoneyPouchContainer.TryTransferCoinsFrom` MUST require its source boundary, pouch boundary, and single inventory boundary to belong to the same active caller-owned transaction; it MUST NOT create a transaction. Partial enlistment, conflicting active scopes, nested Begin, and wrong-thread use MUST throw `InvalidOperationException` before mutation. Participant aliases MUST be deduplicated independently from first-seen publication order; two different mutation boundaries for one storage MUST be rejected before locking, while repeated contributions of the same boundary instance are valid.
-
-#### Scenario: Independent overlapping scopes contend
-- **WHEN** another thread owns any required boundary and the current thread owns none of it
-- **THEN** Begin waits on deterministic boundary locks and proceeds after the other scope completes
-
-#### Scenario: Nested Begin is rejected
-- **WHEN** the current thread begins a transaction for storage already enlisted in its active transaction
-- **THEN** Begin throws and leaves the existing scope unchanged
-
-#### Scenario: A helper requires missing storage
-- **WHEN** a composable operation requires A and B but the caller's scope includes only A
-- **THEN** it throws without locking or mutating B, and A remains bound to the original scope
-
-#### Scenario: A MoneyPouch method rejects partial participation
-- **WHEN** public `TryAddExact` or `TryRemoveExact` is called while the current thread owns the inventory boundary through a transaction that does not include the pouch
-- **THEN** it fails before changing either scope or storage
-
-#### Scenario: An exact MoneyPouch operation waits for a foreign owner
-- **WHEN** another thread owns either required boundary and the current thread calls `TryAddExact` or `TryRemoveExact`
-- **THEN** the operation uses normal Begin contention and proceeds after the foreign scope completes
-
-#### Scenario: Coin transfer requires a complete caller-owned scope
-- **WHEN** `TryTransferCoinsFrom(...)` is called without an active transaction containing its source, pouch, and inventory boundary
-- **THEN** it throws before mutation and does not create an independent transaction
-
-#### Scenario: MoneyPouch contributes its two storage boundaries
-- **WHEN** a transaction begins with the MoneyPouch aggregate
-- **THEN** exactly the pouch storage and its inventory item storage are enlisted
-
-#### Scenario: Ordinary item-container methods participate when enlisted
-- **WHEN** an ordinary item-container mutation is called for storage already enlisted in a transaction
-- **THEN** it changes that storage and defers publication until the transaction commits
-
-#### Scenario: An unenlisted item-container remains standalone
-- **WHEN** a transaction includes A but not independent container B, and both containers are mutated
-- **THEN** disposal restores A without publication while B retains its mutation and publishes normally
-
-#### Scenario: Storage belongs to different scopes
-- **WHEN** required storage belongs to different active transactions
-- **THEN** the operation throws without mutation or nested transaction creation
-
-#### Scenario: A composite participant aliases storage
-- **WHEN** two participants contribute the same underlying storage
-- **THEN** that storage's owning boundary is locked and its state snapshotted once without changing participant publication order
-
-### Requirement: Automatic ordered transaction completion
-Commit MUST perform automatic completion after unlock without a separate caller publication call. Fixed pre-publication domain completion MUST precede normal container publication and domain-owned batches MUST retain their existing failure policy. Container publishers MUST retain existing observable order independently of lock order; the first failure MUST skip later container publishers and all post-publication domain completion. Completion owners MUST be visited for each resolved boundary that has an owner, in participant encounter and contribution order before lock sorting. Owners MUST process their own pending facts in FIFO order; no cross-owner mutation-interleaving guarantee is provided. Fixed post-publication completion MUST run only after normal container publication, with storage irreversible and locks released; its first failure MUST stop later boundaries with owners. Completion facts MUST be discarded before boundary ownership is released. The transaction MUST NOT store executable domain callbacks or offer callback registration. Repository-owned mutation boundaries MUST invoke fixed owner completion stages. A single failure MUST preserve its original exception; multiple hook failures and an independent publication failure MUST survive as original leaf exceptions in one flat AggregateException. Validation determining mutation eligibility MUST remain before commit.
-
-#### Scenario: Container publication fails
-- **WHEN** a container publisher throws
-- **THEN** later containers and all post-publication domain completion are skipped and storage stays committed
-
-#### Scenario: Post-publication domain completion fails
-- **WHEN** post-publication completion for one owner throws after all container publication
-- **THEN** earlier completion remains observable, later owners are skipped, remaining facts are discarded, and storage stays committed
-
-#### Scenario: Equipment hooks and publication both fail
-- **WHEN** an equipment-owned hook batch and normal publication both throw
-- **THEN** required equipment hooks have been attempted and AggregateException retains both original failures
-
-#### Scenario: Rollback discards owner completion
-- **WHEN** equipment and pouch mutations record pending effects but the scope is disposed without commit
-- **THEN** storage is restored, pending owner facts are discarded without observable effects, and a later unrelated scope executes none of those effects
-
-#### Scenario: Completion owners follow resolved boundary order
-- **WHEN** participants are supplied in an order different from lock acquisition and mutation order
-- **THEN** the completion owners attached to resolved boundaries are visited in boundary order, independent of lock and mutation order
-
-#### Scenario: One owner preserves its pending fact order
-- **WHEN** one completion owner records multiple facts in a transaction
-- **THEN** that owner completes the facts in the order they were recorded
-
-#### Scenario: Completion starts a disjoint scope
-- **WHEN** post-unlock domain completion synchronously starts a new scope over storage not owned by the committing scope
-- **THEN** the disjoint scope proceeds normally and pending completion facts remain associated with their originating transaction
-
-#### Scenario: Completion cannot re-enter an overlapping scope
-- **WHEN** committed completion attempts same-thread Begin or mutation against storage still owned by the committing scope
-- **THEN** it throws `InvalidOperationException` and cannot consume or alter the committing scope's storage
-
-### Requirement: Mutation authorization and attribution are boundary-owned
-Every ordinary mutation MUST be authorized by its owning boundary while holding that boundary's mutation lock. Storage mutation algorithms MUST NOT acquire locks or validate synchronization themselves. One per-operation mutation scope MUST acquire the boundary lock for standalone mutations or borrow the lock already held by the active owning transaction, and MUST release only a lock it acquired. If the current thread already owns the boundary lock without an active transaction binding, starting an ordinary mutation scope MUST fail. The scope MUST validate the boundary's transaction before allowing a borrowed mutation. Successful change attribution MUST occur while the same boundary lock is still held. Transaction-owned changes MUST be recorded by boundary into that active transaction; standalone changes MUST be published only after the scope releases its owned lock. A scope that records no changes MUST publish nothing. Ordinary callers MUST NOT branch on deferred/immediate publication state or re-read transaction ownership after attribution. Transaction membership remains boundary-bound; ambient transaction accessors such as `AsyncLocal`, `ThreadLocal`, `ThreadStatic` current-transaction state, and implicit current-scope APIs are prohibited.
-
-#### Scenario: Standalone mutation uses one boundary lock and publishes after unlock
-- **WHEN** an ordinary mutation runs on unbound storage and succeeds
-- **THEN** its operation scope acquires the owning boundary lock once, attributes the change while holding it, releases it, and only then publishes
-
-#### Scenario: Transaction-owned mutation borrows its boundary lock
-- **WHEN** an ordinary mutation runs on storage whose boundary is enlisted in the current thread's active transaction
-- **THEN** its operation scope does not reacquire or release the transaction-owned lock and records changes into that transaction before returning
-
-#### Scenario: Storage algorithms do not enforce boundary ownership
-- **WHEN** an internal storage mutation algorithm is called directly
-- **THEN** it applies only item-state rules and performs no lock or transaction checks
-
-#### Scenario: Manually held boundary lock cannot imply transaction ownership
-- **WHEN** the current thread holds a boundary mutation lock that has no active transaction binding and starts an ordinary mutation scope
-- **THEN** the scope throws without borrowing or releasing the externally owned lock
-
-#### Scenario: Unsuccessful standalone mutation publishes nothing
-- **WHEN** an ordinary operation returns without recording changes
-- **THEN** its owned lock is released and no publication occurs
-
-#### Scenario: Transaction attribution uses no ambient scope
-- **WHEN** an ordinary item-container mutation runs
-- **THEN** participation is determined from the boundary binding under its lock without ambient state or transaction identity passed through the operation
-
-### Requirement: Transaction rollback restores through the owning boundary
-Rollback authorization MUST require the transaction's owning boundary lock and matching boundary binding, and MUST NOT reacquire the same lock. Storage snapshot restoration itself MUST contain no synchronization checks. It is not an ordinary active mutation and MUST NOT use normal active-transaction mutation authorization. The transaction MUST retain participant boundary locks and bindings until all snapshot restores have been attempted, then clear bindings and release locks.
-
-#### Scenario: Rollback restores while transaction owns locks
-- **WHEN** a transaction is disposed without commit
-- **THEN** it restores each snapshot while holding the participant locks, attempts every restore, and publishes nothing
 
 ### Requirement: Read-only item access is an explicit capability
 `IReadOnlyItemContainer` MUST expose indexed/enumerable item reads and item-specific queries without mutation or transaction participation. `IItemContainer` MUST inherit this capability and retain mutation members. `IEquipmentContainer` MUST compose an `IReadOnlyItemContainer Items` view and retain its equipment-slot indexer and semantic operations.
