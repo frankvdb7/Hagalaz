@@ -108,18 +108,11 @@ internal sealed class ItemContainerMutationBoundary
     // Equipment owns standalone lifecycle effects and must run them before publication.
     internal MutationScope BeginDomainMutation() => BeginMutation(publishStandaloneOnDispose: false);
 
-    internal void EnsureStandaloneOperation()
+    internal void EnsureNotOwnedByCurrentThread()
     {
-        Monitor.Enter(_mutationLock);
-        try
-        {
-            if (_transaction != null || HasStandalonePublicationOwner)
-                throw new InvalidOperationException("This operation requires storage that is not transaction-bound or publishing.");
-        }
-        finally
-        {
-            Monitor.Exit(_mutationLock);
-        }
+        if (_transaction is { IsOwnedByCurrentThread: true } ||
+            Volatile.Read(ref _standalonePublicationOwnerThreadId) == Environment.CurrentManagedThreadId)
+            throw new InvalidOperationException("This operation cannot run within a transaction or publication owned by the current thread.");
     }
 
     private MutationScope BeginMutation(bool publishStandaloneOnDispose)

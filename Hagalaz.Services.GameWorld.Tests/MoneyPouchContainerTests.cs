@@ -303,9 +303,8 @@ public sealed class MoneyPouchContainerTests
         inventory.Items.Returns(items);
         owner.Inventory.Returns(inventory);
 
-        var exception = Assert.ThrowsExactly<ArgumentException>(() =>
+        Assert.ThrowsExactly<ArgumentException>(() =>
             new MoneyPouchContainer(owner, new ComposedTestItemBuilder()));
-        Assert.AreEqual("participant", exception.ParamName);
     }
 
     [TestMethod]

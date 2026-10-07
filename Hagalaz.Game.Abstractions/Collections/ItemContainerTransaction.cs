@@ -279,9 +279,7 @@ public sealed class ItemContainerTransaction : IDisposable
     {
         if (failures is { Count: 1 }) ExceptionDispatchInfo.Capture(failures[0]).Throw();
         if (failures is { Count: > 1 })
-            throw new AggregateException(failures.SelectMany(failure => failure is AggregateException aggregate
-                ? aggregate.Flatten().InnerExceptions.AsEnumerable()
-                : [failure]));
+            throw new AggregateException(failures).Flatten();
     }
 
     private static ItemContainerMutationBoundary[] Resolve(IItemTransactional[] participants)

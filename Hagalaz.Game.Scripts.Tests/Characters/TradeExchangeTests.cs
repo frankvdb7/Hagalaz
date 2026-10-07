@@ -123,12 +123,8 @@ public sealed class TradeExchangeTests
     [TestMethod]
     public void TryStageRefund_MissingParticipantRejectsAndRollsBack()
     {
-        var firstInventory = new ComposedTestContainer(4);
-        var secondInventory = new ComposedTestContainer(4);
-        var first = CreateCharacter(firstInventory);
-        var second = CreateCharacter(secondInventory);
-        var firstOffer = new ComposedTestContainer(StorageType.Normal, 4);
-        var secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
+        CreateTradeParticipants(out var firstInventory, out var secondInventory, out var first, out var second,
+            out var firstOffer, out var secondOffer);
         firstOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
 
         using (ItemContainerTransaction.Begin(firstOffer.Items, secondOffer.Items, second.MoneyPouch))
@@ -169,12 +165,8 @@ public sealed class TradeExchangeTests
     [TestMethod]
     public void CommitTrade_PublishesAfterBothRecipientsAndEscrowReachFinalState()
     {
-        var firstInventory = new ComposedTestContainer(4);
-        var secondInventory = new ComposedTestContainer(4);
-        var first = CreateCharacter(firstInventory);
-        var second = CreateCharacter(secondInventory);
-        var firstOffer = new ComposedTestContainer(StorageType.Normal, 4);
-        var secondOffer = new ComposedTestContainer(StorageType.Normal, 4);
+        CreateTradeParticipants(out var firstInventory, out var secondInventory, out var first, out var second,
+            out var firstOffer, out var secondOffer);
         firstOffer.Items.Add(new TestItem(100, 1)).Should().BeTrue();
         secondOffer.Items.Add(new TestItem(101, 1)).Should().BeTrue();
         var firstPublicationSawFinalState = false;

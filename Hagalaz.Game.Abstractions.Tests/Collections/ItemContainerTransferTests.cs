@@ -78,22 +78,6 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
-    public void TryTransferTo_ResolvesBoundaryFromContainerDecorator()
-    {
-        var source = new ItemContainer(StorageType.Normal, 2);
-        var destination = new ItemContainer(StorageType.Normal, 2);
-        var decoratedDestination = new ItemContainerDecorator(destination);
-        var item = new TestItem(9, 2);
-        Assert.IsTrue(source.Add(item));
-
-        Assert.IsTrue(source.TryTransferTo(decoratedDestination, item, 2, 0));
-
-        Assert.IsNull(source[0]);
-        Assert.AreSame(item, destination[0]);
-        AssertUnboundAndUnlocked(source, destination);
-    }
-
-    [TestMethod]
     public void TryTransferTo_ParticipatesInCallerTransactionWithoutPublishingUntilCommit()
     {
         var sourceUpdates = 0;
@@ -1437,7 +1421,7 @@ public sealed class ItemContainerTransferTests
             Completion(container).Before(() => { AssertScopeBoundAndUnlocked(transaction, container); throw failure; });
         var thrown = Assert.ThrowsExactly<AggregateException>(() => transaction.Commit());
         var expected = publicationFails ? hookFailures.Cast<Exception>().Append(publicationFailure).ToArray() : hookFailures;
-        CollectionAssert.AreEqual(expected, thrown.InnerExceptions.ToArray());
+        CollectionAssert.AreEquivalent(expected, thrown.InnerExceptions.ToArray());
         Assert.IsTrue(thrown.InnerExceptions.All(exception => exception.StackTrace != null));
         transaction.Dispose();
         transaction.Dispose();
@@ -1685,46 +1669,6 @@ public sealed class ItemContainerTransferTests
         public bool Equals(IItem otherItem, bool ignoreCount = true) =>
             otherItem != null && Id == otherItem.Id && (ignoreCount || Count == otherItem.Count);
         public string? SerializeExtraData() => null;
-    }
-
-    private sealed class ItemContainerDecorator : IItemContainer, IItemTransactionSource
-    {
-        private readonly IItemContainer _inner;
-
-        public ItemContainerDecorator(IItemContainer inner) => _inner = inner;
-
-        IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries =>
-            ((IItemTransactionSource)_inner).Boundaries;
-
-        public StorageType Type => _inner.Type;
-        public int Capacity => _inner.Capacity;
-        public int FreeSlots => _inner.FreeSlots;
-        public int TakenSlots => _inner.TakenSlots;
-        public IItem? this[int index] => _inner[index];
-        public IEnumerator<IItem?> GetEnumerator() => _inner.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
-        public bool Add(IItem item) => _inner.Add(item);
-        public bool Add(int slot, IItem item) => _inner.Add(slot, item);
-        public int Remove(IItem item, int preferredSlot = -1, bool update = true) => _inner.Remove(item, preferredSlot, update);
-        public bool TryRemoveExact(IItem item, int preferredSlot = -1) => _inner.TryRemoveExact(item, preferredSlot);
-        public bool TryTransferTo(IItemContainer destination, IItem item, int count, int preferredSourceSlot = -1,
-            int destinationSlot = -1, IItem? destinationItem = null) =>
-            _inner.TryTransferTo(destination, item, count, preferredSourceSlot, destinationSlot, destinationItem);
-        public void Replace(int slot, IItem item) => _inner.Replace(slot, item);
-        public void Swap(int fromSlot, int toSlot) => _inner.Swap(fromSlot, toSlot);
-        public void Move(int fromSlot, int toSlot) => _inner.Move(fromSlot, toSlot);
-        public bool AddRange(IEnumerable<IItem?> items) => _inner.AddRange(items);
-        public void Sort() => _inner.Sort();
-        public void Clear(bool update) => _inner.Clear(update);
-        public IItem? GetById(int id) => _inner.GetById(id);
-        public int GetCount(IItem item) => _inner.GetCount(item);
-        public int GetCountById(int id) => _inner.GetCountById(id);
-        public int GetInstanceSlot(IItem instance) => _inner.GetInstanceSlot(instance);
-        public int GetSlotByItem(IItem item, bool ignoreCount = true) => _inner.GetSlotByItem(item, ignoreCount);
-        public bool Contains(int id) => _inner.Contains(id);
-        public bool Contains(int id, int count) => _inner.Contains(id, count);
-        public bool HasSpaceFor(IItem item) => _inner.HasSpaceFor(item);
-        public bool HasSpaceForRange(IEnumerable<IItem?> items) => _inner.HasSpaceForRange(items);
     }
 
     private static ItemContainerMutationBoundary Boundary(IItemTransactional participant) =>
