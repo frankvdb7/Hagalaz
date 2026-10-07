@@ -33,10 +33,9 @@ public sealed class ItemContainerTransaction : IDisposable
     private ItemContainerTransaction(ItemContainerMutationBoundary[] boundaries)
     {
         _boundaries = boundaries;
-        var seenOwners = new HashSet<IItemContainerCompletionOwner>(ReferenceEqualityComparer.Instance);
         var completionOwners = new List<IItemContainerCompletionOwner>();
         foreach (var boundary in boundaries)
-            if (boundary.CompletionOwner is { } owner && seenOwners.Add(owner)) completionOwners.Add(owner);
+            if (boundary.CompletionOwner is { } owner) completionOwners.Add(owner);
         _completionOwners = completionOwners.ToArray();
         _lockOrder = boundaries.OrderBy(boundary => boundary.MutationOrder).ToArray();
     }
@@ -136,7 +135,6 @@ public sealed class ItemContainerTransaction : IDisposable
         _state = TransactionState.Committed;
         _snapshots.Clear();
         List<Exception>? failures = null;
-        ThreadInterruptedException? cleanupInterruption = null;
         try
         {
             ReleaseMutationLocks();
@@ -162,12 +160,11 @@ public sealed class ItemContainerTransaction : IDisposable
             try { DiscardPendingCompletion(); }
             finally
             {
-                try { cleanupInterruption = ReleaseCommittedScopeBindings(); }
+                try { ReleaseCommittedScopeBindings(); }
                 finally { _state = TransactionState.Completed; }
             }
         }
         ThrowFailures(failures);
-        if (cleanupInterruption is not null) ExceptionDispatchInfo.Capture(cleanupInterruption).Throw();
     }
 
     /// <summary>Restores all captured storage if still active; disposal after commit or disposal is inert.</summary>
@@ -246,27 +243,15 @@ public sealed class ItemContainerTransaction : IDisposable
         }
     }
 
-    private ThreadInterruptedException? ReleaseCommittedScopeBindings()
+    private void ReleaseCommittedScopeBindings()
     {
         var acquired = 0;
-        ThreadInterruptedException? interruption = null;
         try
         {
             foreach (var boundary in _lockOrder)
             {
-                while (true)
-                {
-                    try
-                    {
-                        Monitor.Enter(boundary.MutationLock);
-                        acquired++;
-                        break;
-                    }
-                    catch (ThreadInterruptedException exception)
-                    {
-                        interruption ??= exception;
-                    }
-                }
+                Monitor.Enter(boundary.MutationLock);
+                acquired++;
             }
 
             foreach (var boundary in _lockOrder)
@@ -288,7 +273,6 @@ public sealed class ItemContainerTransaction : IDisposable
                 acquired = lockIndex;
             }
         }
-        return interruption;
     }
 
     private static void ThrowFailures(List<Exception>? failures)

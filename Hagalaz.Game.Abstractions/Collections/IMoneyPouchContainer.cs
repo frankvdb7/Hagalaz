@@ -63,13 +63,14 @@ namespace Hagalaz.Game.Abstractions.Collections
         bool TryAddExact(int count);
 
         /// <summary>
-        /// Transfers an exact amount of coins from an already-enlisted item container into this pouch.
+        /// Transfers the full coin stack represented by <paramref name="coins"/> from an already-enlisted item
+        /// container into this pouch.
         /// </summary>
         /// <remarks>
         /// This operation requires the source, pouch, and inventory storage to belong to the same active
         /// caller-owned <see cref="ItemContainerTransaction"/>. It never creates a transaction.
         /// </remarks>
-        bool TryTransferCoinsFrom(IItemContainer source, IItem coins, int count, int preferredSourceSlot = -1);
+        bool TryTransferCoinsFrom(IItemContainer source, IItem coins, int preferredSourceSlot = -1);
 
         /// <summary>
         /// Removes exactly the requested number of coins from the pouch and inventory, if available.

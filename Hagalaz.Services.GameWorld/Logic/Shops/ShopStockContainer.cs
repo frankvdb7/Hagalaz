@@ -142,7 +142,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             }
 
             IItemTransactional[] participants = _shop.CurrencyId == 995
-                ? [viewer.Inventory.Items, _items, viewer.MoneyPouch]
+                ? [viewer.MoneyPouch, _items]
                 : [viewer.Inventory.Items, _items];
             using var transaction = ItemContainerTransaction.Begin(participants);
             if (!viewer.Inventory.Items.TryTransferTo(_items, item, count, slot,
@@ -235,7 +235,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
             var originalStock = _originalStock.Any(it => it.Id == item.Id);
             IItemTransactional[] participants = _shop.CurrencyId == 995
-                ? [_items, viewer.Inventory.Items, viewer.MoneyPouch]
+                ? [_items, viewer.MoneyPouch]
                 : [_items, viewer.Inventory.Items];
             var insufficientCurrency = false;
             using (var transaction = ItemContainerTransaction.Begin(participants))

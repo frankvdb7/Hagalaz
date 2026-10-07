@@ -68,7 +68,6 @@ internal sealed class DuelStakeExchange
         IItemContainer secondStake)
     {
         using var transaction = ItemContainerTransaction.Begin(firstStake, secondStake,
-            first.Inventory.Items, second.Inventory.Items,
             first.MoneyPouch, second.MoneyPouch);
         if (!RefundStake(first, firstStake) || !RefundStake(second, secondStake)) return false;
         transaction.Commit();

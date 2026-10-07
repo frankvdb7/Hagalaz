@@ -111,8 +111,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private bool ApplyExactAdd(ItemContainerTransaction transaction, int pouchCount, int inventoryCount)
         {
+            _storageMutations.EnsureOwnedBy(transaction);
             var previousCount = Count;
-            using var pouchMutation = _storageMutations.BeginMutation();
             if (pouchCount > 0 && !_storage.TryAddRange(
                     [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()], out _))
             {
@@ -130,10 +130,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         }
 
         /// <inheritdoc />
-        public bool TryTransferCoinsFrom(IItemContainer source, IItem coins, int count, int preferredSourceSlot = -1)
+        public bool TryTransferCoinsFrom(IItemContainer source, IItem coins, int preferredSourceSlot = -1)
         {
             ArgumentNullException.ThrowIfNull(source);
             ArgumentNullException.ThrowIfNull(coins);
+            var count = coins.Count;
             if (coins.Id != 995 || count <= 0) return false;
 
             var sourceBoundary = ItemContainerTransaction.ResolveSingleBoundary(source);
@@ -141,10 +142,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 ?? throw new InvalidOperationException("Source, pouch, and inventory storage must belong to one active transaction.");
             if (!TryPlanExactAdd(count, out var pouchCount, out var inventoryCount)) return false;
 
-            using var sourceMutation = sourceBoundary.BeginMutation();
-            if (!sourceBoundary.Storage.TryRemoveExact(coins, count, preferredSourceSlot,
-                    out var changedSlots)) return false;
-            sourceMutation.RecordChanges(changedSlots);
+            if (!source.TryRemoveExact(coins, preferredSourceSlot)) return false;
             return ApplyExactAdd(transaction, pouchCount, inventoryCount);
         }
 
@@ -182,6 +180,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
+            _storageMutations.EnsureOwnedBy(transaction);
             var pouchCount = Math.Min(count, Count);
             var inventoryCount = count - pouchCount;
             if (inventoryCount > _owner.Inventory.Items.GetCountById(995))
@@ -190,7 +189,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             var previousCount = Count;
-            using var pouchMutation = _storageMutations.BeginMutation();
             if (pouchCount > 0 && !_storage.TryRemoveExact(
                     _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0, out _))
             {
@@ -273,7 +271,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var transferCount = Math.Min(count, Math.Min(remainingSpace, _owner.Inventory.Items.GetCountById(995)));
             if (transferCount <= 0) return false;
 
-            using var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items, this);
+            using var transaction = ItemContainerTransaction.Begin(this);
             if (!_owner.Inventory.Items.TryRemoveExact(
                     _itemBuilder.Create().WithId(995).WithCount(transferCount).Build()) ||
                 !TryAddExact(transferCount)) return false;
@@ -289,7 +287,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool MoveToInventory(int count)
         {
             var inventoryFull = false;
-            using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items, this))
+            using (var transaction = ItemContainerTransaction.Begin(this))
             {
                 if (TryMoveToInventoryCore(count, out inventoryFull))
                 {

@@ -10,8 +10,8 @@
 - Keep attempt-all aggregation for rollback restoration and domain completion where the contract requires preserving independent hook and publication failures.
 - On construction failure, release acquired locks and rethrow; snapshots finish before bindings are established, so no binding cleanup or pulse is needed.
 - On rollback, restore all snapshots, discard pending completion, clear bindings, and release locks without pulsing waiters; rollback retained all participant locks.
-- Keep ordered post-commit binding cleanup and waiter pulses, retrying interrupted lock acquisition and surfacing one interruption when no earlier domain failure exists.
-- Do not aggregate a cleanup interruption with an earlier standalone publication exception.
+- Keep ordered post-commit binding cleanup and waiter pulses using ordinary synchronous lock operations.
+- Remove Thread.Interrupt-specific retries, interruption accumulation, and exception-precedence behavior from item-container cleanup.
 
 ## Capabilities
 
@@ -38,7 +38,7 @@ The transaction and mutation-boundary cleanup implementations, their existing re
 - Construction failure releases acquired locks without attempting binding cleanup or pulsing waiters.
 - Rollback attempts every snapshot restore, clears transaction bindings, releases locks, and emits no publication; it does not pulse waiters.
 - Commit runs no callbacks before transaction locks are released, then clears bindings and pulses waiters before completing.
-- Cleanup interruption is retried and surfaced as one exception when it is the only failure; synchronization failures are never aggregated with domain exceptions.
+- Item-container cleanup has no Thread.Interrupt-specific recovery or exception-precedence behavior; monitor failures propagate through ordinary exception handling.
 - Existing rollback restoration and Equipment attempt-all and hook-plus-publication aggregation remain intact.
 
 ## Stop Conditions

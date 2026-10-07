@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.ExceptionServices;
 using System.Threading;
 using Hagalaz.Game.Abstractions.Model.Items;
 
@@ -224,10 +223,8 @@ internal sealed class ItemContainerMutationBoundary
 
     internal void PublishCommittedChanges(HashSet<int>? slots)
     {
-        ThreadInterruptedException? interruption = null;
         bool standalonePublication;
-        EnterMutationLock(ref interruption);
-        try
+        lock (_mutationLock)
         {
             if (_transaction != null)
             {
@@ -244,75 +241,24 @@ internal sealed class ItemContainerMutationBoundary
                 throw new InvalidOperationException("Committed publication requires storage ownership.");
             }
         }
-        finally
-        {
-            Monitor.Exit(_mutationLock);
-        }
 
         if (!standalonePublication)
         {
-            if (interruption is not null) ExceptionDispatchInfo.Capture(interruption).Throw();
             _publishChanges?.Invoke(slots);
             return;
         }
 
-        ExceptionDispatchInfo? publicationFailure = null;
         try
         {
             _publishChanges?.Invoke(slots);
         }
-        catch (Exception exception)
-        {
-            publicationFailure = ExceptionDispatchInfo.Capture(exception);
-        }
         finally
         {
-            ReleaseStandalonePublicationOwnership(ref interruption);
-        }
-
-        if (publicationFailure is not null) publicationFailure.Throw();
-        if (interruption is not null) ExceptionDispatchInfo.Capture(interruption).Throw();
-    }
-
-    private void EnterMutationLock(ref ThreadInterruptedException? interruption)
-    {
-        while (true)
-        {
-            try
+            lock (_mutationLock)
             {
-                Monitor.Enter(_mutationLock);
-                return;
+                ReleaseStandalonePublicationOwnership();
+                Monitor.PulseAll(_mutationLock);
             }
-            catch (ThreadInterruptedException exception)
-            {
-                interruption ??= exception;
-            }
-        }
-    }
-
-    private void ReleaseStandalonePublicationOwnership(ref ThreadInterruptedException? interruption)
-    {
-        while (true)
-        {
-            try
-            {
-                Monitor.Enter(_mutationLock);
-                break;
-            }
-            catch (ThreadInterruptedException exception)
-            {
-                interruption ??= exception;
-            }
-        }
-
-        try
-        {
-            ReleaseStandalonePublicationOwnership();
-            Monitor.PulseAll(_mutationLock);
-        }
-        finally
-        {
-            Monitor.Exit(_mutationLock);
         }
     }
 

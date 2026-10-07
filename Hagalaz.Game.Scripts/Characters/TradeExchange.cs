@@ -98,7 +98,7 @@ internal sealed class TradeExchange
         {
             if (item.Id == CoinsItemId)
             {
-                if (!recipient.MoneyPouch.TryTransferCoinsFrom(source, item, item.Count, slot)) return false;
+                if (!recipient.MoneyPouch.TryTransferCoinsFrom(source, item, slot)) return false;
             }
             else if (!source.TryTransferTo(recipient.Inventory.Items, item, item.Count,
                          slot, destinationItem: item.Clone()))

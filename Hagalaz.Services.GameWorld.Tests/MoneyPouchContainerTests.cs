@@ -351,38 +351,6 @@ public sealed class MoneyPouchContainerTests
     }
 
     [TestMethod]
-    public void TryAddExact_PouchOnlyTransactionRejectsMissingInventoryBoundary()
-    {
-        var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
-        var boundaries = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries;
-        using var transaction = ItemContainerTransaction.Begin(new SingleBoundarySource(boundaries[0]));
-
-        Assert.ThrowsExactly<InvalidOperationException>(() => scenario.MoneyPouch.TryAddExact(2));
-
-        Assert.AreSame(transaction, boundaries[0].Transaction);
-        Assert.IsNull(boundaries[1].Transaction);
-        Assert.AreEqual(10, scenario.MoneyPouch.Count);
-        Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(CoinId));
-    }
-
-    [TestMethod]
-    public void TryAddExact_RejectsConflictingStorageTransactionsBeforeMutation()
-    {
-        var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
-        var pouchBoundary = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries[0];
-        using var inventoryTransaction = ItemContainerTransaction.Begin(scenario.Inventory.Items);
-        using var pouchTransaction = ItemContainerTransaction.Begin(new SingleBoundarySource(
-            ((IItemTransactionSource)scenario.MoneyPouch).Boundaries[0]));
-
-        Assert.ThrowsExactly<InvalidOperationException>(() => scenario.MoneyPouch.TryAddExact(2));
-
-        Assert.AreSame(inventoryTransaction, Boundary(scenario.Inventory.Items).Transaction);
-        Assert.AreSame(pouchTransaction, pouchBoundary.Transaction);
-        Assert.AreEqual(10, scenario.MoneyPouch.Count);
-        Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(CoinId));
-    }
-
-    [TestMethod]
     public void TryAddExact_WaitsForForeignPartialScopeThenCreatesStandaloneScope()
     {
         var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
@@ -456,33 +424,26 @@ public sealed class MoneyPouchContainerTests
         Assert.IsTrue(source.Add(coins));
 
         Assert.ThrowsExactly<InvalidOperationException>(() =>
-            scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 5, 0));
+            scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, preferredSourceSlot: 0));
         Assert.AreSame(coins, source[0]);
         Assert.AreEqual(10, scenario.MoneyPouch.Count);
 
         using (ItemContainerTransaction.Begin(scenario.MoneyPouch))
         {
             Assert.ThrowsExactly<InvalidOperationException>(() =>
-                scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 5, 0));
+                scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, preferredSourceSlot: 0));
         }
 
         using (ItemContainerTransaction.Begin(source, scenario.Inventory.Items))
         {
             Assert.ThrowsExactly<InvalidOperationException>(() =>
-                scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 5, 0));
-        }
-
-        var pouchBoundary = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries[0];
-        using (ItemContainerTransaction.Begin(source, new SingleBoundarySource(pouchBoundary)))
-        {
-            Assert.ThrowsExactly<InvalidOperationException>(() =>
-                scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 5, 0));
+                scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, preferredSourceSlot: 0));
         }
 
         using var sourceTransaction = ItemContainerTransaction.Begin(source);
         using var pouchTransaction = ItemContainerTransaction.Begin(scenario.MoneyPouch);
         Assert.ThrowsExactly<InvalidOperationException>(() =>
-            scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 5, 0));
+            scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, preferredSourceSlot: 0));
         Assert.AreSame(coins, source[0]);
         Assert.AreEqual(10, scenario.MoneyPouch.Count);
     }
@@ -497,7 +458,7 @@ public sealed class MoneyPouchContainerTests
 
         using (ItemContainerTransaction.Begin(source, scenario.MoneyPouch))
         {
-            Assert.IsTrue(scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 5, 0));
+            Assert.IsTrue(scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, preferredSourceSlot: 0));
             Assert.AreEqual(15, scenario.MoneyPouch.Count);
             Assert.IsNull(source[0]);
         }
@@ -508,7 +469,7 @@ public sealed class MoneyPouchContainerTests
 
         using (var transaction = ItemContainerTransaction.Begin(source, scenario.MoneyPouch))
         {
-            Assert.IsTrue(scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 5, 0));
+            Assert.IsTrue(scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, preferredSourceSlot: 0));
             transaction.Commit();
         }
 
@@ -526,7 +487,7 @@ public sealed class MoneyPouchContainerTests
 
         using (var transaction = ItemContainerTransaction.Begin(source, scenario.MoneyPouch))
         {
-            Assert.IsTrue(scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 5, 0));
+            Assert.IsTrue(scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, preferredSourceSlot: 0));
             transaction.Commit();
         }
 
@@ -540,7 +501,7 @@ public sealed class MoneyPouchContainerTests
         Assert.IsTrue(blockedSource.Add(blockedCoins));
         using (var transaction = ItemContainerTransaction.Begin(blockedSource, fullInventory.MoneyPouch))
         {
-            Assert.IsFalse(fullInventory.MoneyPouch.TryTransferCoinsFrom(blockedSource, blockedCoins, 5, 0));
+            Assert.IsFalse(fullInventory.MoneyPouch.TryTransferCoinsFrom(blockedSource, blockedCoins, preferredSourceSlot: 0));
         }
 
         Assert.AreSame(blockedCoins, blockedSource[0]);
@@ -559,11 +520,13 @@ public sealed class MoneyPouchContainerTests
         Assert.IsTrue(source.Add(coins));
         using var transaction = ItemContainerTransaction.Begin(source, scenario.MoneyPouch);
 
-        Assert.ThrowsExactly<ArgumentNullException>(() => scenario.MoneyPouch.TryTransferCoinsFrom(null!, coins, 1));
-        Assert.ThrowsExactly<ArgumentNullException>(() => scenario.MoneyPouch.TryTransferCoinsFrom(source, null!, 1));
-        Assert.IsFalse(scenario.MoneyPouch.TryTransferCoinsFrom(source, nonCoins, 1));
-        Assert.IsFalse(scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, 0));
-        Assert.IsFalse(scenario.MoneyPouch.TryTransferCoinsFrom(source, coins, -1));
+        Assert.ThrowsExactly<ArgumentNullException>(() => scenario.MoneyPouch.TryTransferCoinsFrom(null!, coins));
+        Assert.ThrowsExactly<ArgumentNullException>(() => scenario.MoneyPouch.TryTransferCoinsFrom(source, null!));
+        Assert.IsFalse(scenario.MoneyPouch.TryTransferCoinsFrom(source, nonCoins));
+        Assert.IsFalse(scenario.MoneyPouch.TryTransferCoinsFrom(source,
+            new ComposedTestItem(CoinId, 0, stackable: true)));
+        Assert.IsFalse(scenario.MoneyPouch.TryTransferCoinsFrom(source,
+            new ComposedTestItem(CoinId, -1, stackable: true)));
         Assert.AreEqual(1, source.GetCountById(123));
         Assert.AreEqual(5, source.GetCountById(CoinId));
         Assert.AreEqual(10, scenario.MoneyPouch.Count);
@@ -785,11 +748,6 @@ public sealed class MoneyPouchContainerTests
         public bool HasSpaceFor(IItem item) => inner.HasSpaceFor(item);
         public bool HasSpaceForRange(IEnumerable<IItem?> items) => inner.HasSpaceForRange(items);
         public void Clear(bool update) => inner.Clear(update);
-    }
-
-    private sealed class SingleBoundarySource(ItemContainerMutationBoundary boundary) : IItemTransactionSource
-    {
-        public IReadOnlyList<ItemContainerMutationBoundary> Boundaries => [boundary];
     }
 
     private static ItemContainerMutationBoundary Boundary(IItemTransactional participant) =>

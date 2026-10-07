@@ -1280,9 +1280,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 try
                 {
                     using (var transaction = ItemContainerTransaction.Begin(SelfContainer.Items,
-                               TargetContainer.Items, Character.Inventory.Items,
-                               session.Target.Inventory.Items, Character.MoneyPouch,
-                               session.Target.MoneyPouch))
+                               TargetContainer.Items, Character.MoneyPouch, session.Target.MoneyPouch))
                     {
                         if (_tradeExchange.TryStageRefund(Character, SelfContainer.Items, session.Target, TargetContainer.Items))
                         {
@@ -1349,8 +1347,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 try
                 {
                     using (var transaction = ItemContainerTransaction.Begin(SelfContainer.Items,
-                               TargetContainer.Items, Character.Inventory.Items,
-                               target.Inventory.Items, Character.MoneyPouch, target.MoneyPouch))
+                               TargetContainer.Items, Character.MoneyPouch, target.MoneyPouch))
                     {
                         if (_tradeExchange.TryStageCompletion(Character, SelfContainer.Items, target, TargetContainer.Items))
                         {

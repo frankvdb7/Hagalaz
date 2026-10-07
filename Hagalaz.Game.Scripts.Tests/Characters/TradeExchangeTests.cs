@@ -1112,10 +1112,11 @@ public sealed class TradeExchangeTests
             transaction.Commit();
             return true;
         }
-        public bool TryTransferCoinsFrom(IItemContainer source, IItem coins, int count, int preferredSourceSlot = -1)
+        public bool TryTransferCoinsFrom(IItemContainer source, IItem coins, int preferredSourceSlot = -1)
         {
             ArgumentNullException.ThrowIfNull(source);
             ArgumentNullException.ThrowIfNull(coins);
+            var count = coins.Count;
             if (coins.Id != 995 || count <= 0) return false;
             if (!IsParticipatingInCompleteTransaction(source))
                 throw new InvalidOperationException("Source, pouch, and inventory must share an active transaction.");
