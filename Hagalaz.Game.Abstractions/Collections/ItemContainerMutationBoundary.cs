@@ -27,6 +27,9 @@ internal sealed class ItemContainerMutationBoundary
         return transaction;
     }
 
+    internal ItemContainerTransaction? GetCurrentThreadTransaction() =>
+        IsMutationLockHeldByCurrentThread ? EnsureActiveTransaction() : null;
+
     internal ItemContainerStorage Storage => _storage;
     internal object MutationLock => _mutationLock;
     internal long MutationOrder => _mutationOrder;

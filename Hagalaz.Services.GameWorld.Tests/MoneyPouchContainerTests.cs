@@ -295,56 +295,29 @@ public sealed class MoneyPouchContainerTests
     }
 
     [TestMethod]
-    public void Begin_PouchWithUnsupportedInventoryRejectsBeforeLockingOrMutation()
+    public void Constructor_RejectsInventoryWithoutOneItemStorageBoundary()
     {
-        var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
-        var boundaries = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries;
+        var owner = Substitute.For<ICharacter>();
         var inventory = Substitute.For<IInventoryContainer>();
         var items = Substitute.For<IItemContainer>();
         inventory.Items.Returns(items);
-        scenario.Owner.Inventory.Returns(inventory);
-        scenario.Owner.ClearReceivedCalls();
+        owner.Inventory.Returns(inventory);
 
         var exception = Assert.ThrowsExactly<ArgumentException>(() =>
-            ItemContainerTransaction.Begin(scenario.Inventory.Items, scenario.MoneyPouch));
-        Assert.AreEqual("participants", exception.ParamName);
-        StringAssert.Contains(exception.Message, "item-transactional");
-        Assert.ThrowsExactly<ArgumentException>(() => scenario.MoneyPouch.TryAddExact(2));
-
-        Assert.AreEqual(10, scenario.MoneyPouch.Count);
-        Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(CoinId));
-        items.DidNotReceive().AddRange(Arg.Any<IEnumerable<IItem?>>());
-        scenario.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
-        foreach (var boundary in boundaries)
-        {
-            Assert.IsNull(boundary.Transaction);
-            Assert.IsFalse(Monitor.IsEntered(boundary.MutationLock));
-        }
-        scenario.Owner.Inventory.Returns(scenario.Inventory);
-        using var fresh = ItemContainerTransaction.Begin(scenario.MoneyPouch);
-        Assert.IsTrue(scenario.MoneyPouch.TryAddExact(2));
+            new MoneyPouchContainer(owner, new ComposedTestItemBuilder()));
+        Assert.AreEqual("participant", exception.ParamName);
     }
 
     [TestMethod]
-    public void Begin_PouchIncludesEveryInventoryContributionAndRollsBackAllStorage()
+    public void Begin_PouchEnlistsPouchAndInventoryStorageAndRollsBackBoth()
     {
         var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
-        var extra = new ItemContainer(StorageType.Normal, 1);
-        var contributions = new[]
-        {
-            Boundary(scenario.Inventory.Items),
-            Boundary(extra)
-        };
-        var items = new AdvertisedCoinCountContainer((ItemContainer)scenario.Inventory.Items,
-            contributions, useInnerBoundaries: false);
-        var inventory = Substitute.For<IInventoryContainer>();
-        inventory.Items.Returns(items);
-        scenario.Owner.Inventory.Returns(inventory);
         var boundaries = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries;
-        Assert.AreEqual(3, boundaries.Count);
-        CollectionAssert.AreEqual(contributions, boundaries.Skip(1).ToArray());
+        Assert.AreEqual(2, boundaries.Count);
+        Assert.AreSame(Boundary(scenario.Inventory.Items), boundaries[1]);
+        Assert.AreNotSame(boundaries[0], boundaries[1]);
 
-        using (var transaction = ItemContainerTransaction.Begin(scenario.MoneyPouch, extra))
+        using (var transaction = ItemContainerTransaction.Begin(scenario.MoneyPouch))
         {
             foreach (var boundary in boundaries)
             {
@@ -352,38 +325,13 @@ public sealed class MoneyPouchContainerTests
                 Assert.IsTrue(Monitor.IsEntered(boundary.MutationLock));
             }
             Assert.IsTrue(scenario.Inventory.Items.Add(new ComposedTestItem(CoinId, 1, stackable: true)));
-            Assert.IsTrue(extra.Add(new ComposedTestItem(123, 1, stackable: false)));
             Assert.IsTrue(scenario.MoneyPouch.TryRemoveExact(2));
             Assert.AreEqual(8, scenario.MoneyPouch.Count);
         }
 
         Assert.AreEqual(10, scenario.MoneyPouch.Count);
         Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(CoinId));
-        Assert.AreEqual(0, extra.TakenSlots);
         foreach (var boundary in boundaries) Assert.IsNull(boundary.Transaction);
-    }
-
-    [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public void Begin_PouchRejectsMissingInventoryContributionsBeforeLocking(bool nullContributions)
-    {
-        var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
-        var boundaries = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries;
-        var items = new AdvertisedCoinCountContainer((ItemContainer)scenario.Inventory.Items,
-            nullContributions ? null! : [], useInnerBoundaries: false);
-        var inventory = Substitute.For<IInventoryContainer>();
-        inventory.Items.Returns(items);
-        scenario.Owner.Inventory.Returns(inventory);
-
-        Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin(scenario.MoneyPouch));
-
-        Assert.AreEqual(10, scenario.MoneyPouch.Count);
-        foreach (var boundary in boundaries)
-        {
-            Assert.IsNull(boundary.Transaction);
-            Assert.IsFalse(Monitor.IsEntered(boundary.MutationLock));
-        }
     }
 
     [TestMethod]
@@ -403,7 +351,7 @@ public sealed class MoneyPouchContainerTests
     }
 
     [TestMethod]
-    public void TryAddExact_RejectsWhenInventoryContributionIsMissing()
+    public void TryAddExact_PouchOnlyTransactionRejectsMissingInventoryBoundary()
     {
         var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
         var boundaries = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries;
@@ -431,6 +379,71 @@ public sealed class MoneyPouchContainerTests
         Assert.AreSame(inventoryTransaction, Boundary(scenario.Inventory.Items).Transaction);
         Assert.AreSame(pouchTransaction, pouchBoundary.Transaction);
         Assert.AreEqual(10, scenario.MoneyPouch.Count);
+        Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(CoinId));
+    }
+
+    [TestMethod]
+    public void TryAddExact_WaitsForForeignPartialScopeThenCreatesStandaloneScope()
+    {
+        var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
+        using var foreignScopeStarted = new ManualResetEventSlim();
+        using var releaseForeignScope = new ManualResetEventSlim();
+        Exception? foreignFailure = null;
+        var foreignThread = new Thread(() =>
+        {
+            try
+            {
+                using var transaction = ItemContainerTransaction.Begin(scenario.Inventory.Items);
+                foreignScopeStarted.Set();
+                releaseForeignScope.Wait();
+                transaction.Commit();
+            }
+            catch (Exception exception)
+            {
+                foreignFailure = exception;
+            }
+        });
+
+        Thread? operationThread = null;
+        using var operationStarted = new ManualResetEventSlim();
+        using var operationFinished = new ManualResetEventSlim();
+        bool? operationResult = null;
+        Exception? operationFailure = null;
+        foreignThread.Start();
+        var foreignThreadJoined = false;
+        var operationThreadJoined = false;
+        try
+        {
+            Assert.IsTrue(foreignScopeStarted.Wait(TimeSpan.FromSeconds(5)));
+            var operation = new Thread(() =>
+            {
+                operationStarted.Set();
+                try { operationResult = scenario.MoneyPouch.TryAddExact(2); }
+                catch (Exception exception) { operationFailure = exception; }
+                finally { operationFinished.Set(); }
+            });
+            operationThread = operation;
+            operation.Start();
+
+            Assert.IsTrue(operationStarted.Wait(TimeSpan.FromSeconds(5)));
+            Assert.IsTrue(SpinWait.SpinUntil(
+                () => (operation.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                TimeSpan.FromSeconds(5)));
+            Assert.IsFalse(operationFinished.IsSet);
+        }
+        finally
+        {
+            releaseForeignScope.Set();
+            foreignThreadJoined = foreignThread.Join(TimeSpan.FromSeconds(5));
+            if (operationThread is not null) operationThreadJoined = operationThread.Join(TimeSpan.FromSeconds(5));
+        }
+
+        Assert.IsTrue(foreignThreadJoined);
+        Assert.IsTrue(operationThreadJoined);
+        Assert.IsNull(foreignFailure);
+        Assert.IsNull(operationFailure);
+        Assert.IsTrue(operationResult == true);
+        Assert.AreEqual(12, scenario.MoneyPouch.Count);
         Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(CoinId));
     }
 
@@ -739,13 +752,10 @@ public sealed class MoneyPouchContainerTests
         Assert.AreEqual(2, messages.Count);
     }
 
-    private sealed class AdvertisedCoinCountContainer(
-        ItemContainer inner,
-        IReadOnlyList<ItemContainerMutationBoundary>? boundaries = null,
-        bool useInnerBoundaries = true) : IItemContainer, IItemTransactionSource
+    private sealed class AdvertisedCoinCountContainer(ItemContainer inner) : IItemContainer, IItemTransactionSource
     {
         IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries =>
-            useInnerBoundaries ? ((IItemTransactionSource)inner).Boundaries : boundaries!;
+            ((IItemTransactionSource)inner).Boundaries;
         public StorageType Type => inner.Type;
         public int Capacity => inner.Capacity;
         public int FreeSlots => inner.FreeSlots;

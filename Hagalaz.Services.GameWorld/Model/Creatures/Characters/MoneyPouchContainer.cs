@@ -20,23 +20,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IItemBuilder _itemBuilder;
         private readonly ItemContainerStorage _storage;
         private readonly ItemContainerMutationBoundary _storageMutations;
+        private readonly ItemContainerMutationBoundary _inventoryMutations;
         private readonly Queue<MoneyPouchChange> _pendingChanges = new();
         private readonly record struct MoneyPouchChange(int PreviousCount, int NewCount, int ChangeCount);
 
-        IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries
-        {
-            get
-            {
-                if (_owner.Inventory.Items is not IItemTransactionSource inventory)
-                    throw new ArgumentException("The inventory must be an item-transactional domain object.", "participants");
-                var boundaries = inventory.Boundaries;
-                if (boundaries == null || boundaries.Count == 0)
-                    throw new ArgumentException("The inventory participant must contribute storage.", "participants");
-                if (boundaries.Any(boundary => boundary == null))
-                    throw new ArgumentException("The inventory participant contributed a null boundary.", "participants");
-                return [_storageMutations, .. boundaries];
-            }
-        }
+        IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries =>
+            [_storageMutations, _inventoryMutations];
 
         public bool HasSpaceForCoins(int count) => count > 0 && (long)Count + count <= int.MaxValue;
 
@@ -70,6 +59,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             _owner = owner;
             _itemBuilder = itemBuilder;
+            _inventoryMutations = ItemContainerTransaction.ResolveSingleBoundary(owner.Inventory.Items);
             var coins = _itemBuilder.Create().WithId(995).WithCount(0).Build();
             _storage = new ItemContainerStorage(StorageType.Normal, [coins], 1, 0);
             _storageMutations = new ItemContainerMutationBoundary(_storage, null, this);
@@ -92,7 +82,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public bool TryAddExact(int count)
         {
-            if (GetCompleteTransaction() is { } transaction) return AddExactCore(count, transaction);
+            if (GetCurrentThreadTransaction() is { } transaction) return AddExactCore(count, transaction);
 
             using var ownedTransaction = ItemContainerTransaction.Begin(this);
             if (!AddExactCore(count, ownedTransaction)) return false;
@@ -147,7 +137,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (coins.Id != 995 || count <= 0) return false;
 
             var sourceBoundary = ItemContainerTransaction.ResolveSingleBoundary(source);
-            var transaction = GetCompleteTransaction(sourceBoundary)
+            var transaction = GetCurrentThreadTransaction(sourceBoundary)
                 ?? throw new InvalidOperationException("Source, pouch, and inventory storage must belong to one active transaction.");
             if (!TryPlanExactAdd(count, out var pouchCount, out var inventoryCount)) return false;
 
@@ -177,7 +167,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public bool TryRemoveExact(int count)
         {
-            if (GetCompleteTransaction() is { } transaction) return RemoveExactCore(count, transaction);
+            if (GetCurrentThreadTransaction() is { } transaction) return RemoveExactCore(count, transaction);
 
             using var ownedTransaction = ItemContainerTransaction.Begin(this);
             if (!RemoveExactCore(count, ownedTransaction)) return false;
@@ -231,44 +221,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 PublishChange(change); // Consume before observable code; a failure is never retried.
         }
 
-        private ItemContainerTransaction? GetCompleteTransaction(ItemContainerMutationBoundary? additionalBoundary = null)
+        private ItemContainerTransaction? GetCurrentThreadTransaction(ItemContainerMutationBoundary? additionalBoundary = null)
         {
-            ItemContainerTransaction? transaction = null;
-            var unbound = 0;
-            var boundaries = ((IItemTransactionSource)this).Boundaries;
-            foreach (var boundary in boundaries)
-            {
-                var current = boundary.Transaction;
-                if (current == null)
-                {
-                    unbound++;
-                    continue;
-                }
+            var transaction = _storageMutations.GetCurrentThreadTransaction();
+            var inventoryTransaction = _inventoryMutations.GetCurrentThreadTransaction();
+            var additionalTransaction = additionalBoundary?.GetCurrentThreadTransaction();
+            if (transaction is null && inventoryTransaction is null && additionalTransaction is null) return null;
 
-                if (transaction == null)
-                {
-                    transaction = current;
-                }
-                else if (!ReferenceEquals(transaction, current))
-                {
-                    throw new InvalidOperationException("Money pouch storage belongs to different transactions.");
-                }
-            }
+            if (transaction is null || !ReferenceEquals(transaction, inventoryTransaction) ||
+                (additionalBoundary != null && !ReferenceEquals(transaction, additionalTransaction)))
+                throw new InvalidOperationException("All required MoneyPouch storage must belong to the same active current-thread transaction.");
 
-            if (additionalBoundary != null)
-            {
-                var current = additionalBoundary.Transaction;
-                if (current == null) unbound++;
-                else if (transaction == null) transaction = current;
-                else if (!ReferenceEquals(transaction, current))
-                    throw new InvalidOperationException("Money pouch source storage belongs to a different transaction.");
-            }
-
-            if (transaction == null) return null;
-            if (unbound != 0)
-                throw new InvalidOperationException("Every required money pouch storage contribution must belong to the same transaction.");
-
-            _storageMutations.EnsureOwnedBy(transaction);
             return transaction;
         }
 

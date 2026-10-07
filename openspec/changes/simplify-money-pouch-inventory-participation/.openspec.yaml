@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-07
+goal: Remove unsupported multi-boundary inventory enlistment and use
+  current-thread ownership for MoneyPouch scope participation.
