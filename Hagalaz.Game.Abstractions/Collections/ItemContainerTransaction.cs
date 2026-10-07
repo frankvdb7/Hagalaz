@@ -84,9 +84,7 @@ public sealed class ItemContainerTransaction : IDisposable
 
                     // Do not retain a lock prefix while waiting: the owner reacquires its ordered set to
                     // release the committed scope, so a retained prefix could deadlock scope teardown.
-                    List<Exception>? releaseFailures = null;
-                    transaction.ReleaseMutationLocks(ref releaseFailures);
-                    ThrowFailures(releaseFailures);
+                    transaction.ReleaseMutationLocks();
                     Monitor.Enter(boundary.MutationLock);
                     try
                     {
@@ -114,10 +112,10 @@ public sealed class ItemContainerTransaction : IDisposable
             foreach (var boundary in transaction._lockOrder) boundary.Transaction = transaction;
             return transaction;
         }
-        catch (Exception constructionFailure)
+        catch
         {
             transaction._snapshots.Clear();
-            transaction.ReleaseUncommittedResources([constructionFailure]);
+            transaction.ReleaseMutationLocks();
             throw;
         }
     }
@@ -138,32 +136,38 @@ public sealed class ItemContainerTransaction : IDisposable
         _state = TransactionState.Committed;
         _snapshots.Clear();
         List<Exception>? failures = null;
-        var mutationLocksReleased = ReleaseMutationLocks(ref failures);
+        ThreadInterruptedException? cleanupInterruption = null;
         try
         {
-            if (mutationLocksReleased)
+            ReleaseMutationLocks();
+            foreach (var owner in _completionOwners)
             {
-                foreach (var owner in _completionOwners)
-                {
-                    try { owner.CompleteBeforePublication(); }
-                    catch (Exception exception) { (failures ??= []).Add(exception); }
-                }
+                try { owner.CompleteBeforePublication(); }
+                catch (Exception exception) { (failures ??= []).Add(exception); }
+            }
+
+            try
+            {
                 foreach (var boundary in _boundaries)
                     if (_changed.TryGetValue(boundary, out var slots)) boundary.PublishCommittedChanges(slots);
                 foreach (var owner in _completionOwners) owner.CompleteAfterPublication();
             }
-        }
-        catch (Exception completionFailure)
-        {
-            (failures ??= []).Add(completionFailure);
+            catch (Exception completionFailure)
+            {
+                (failures ??= []).Add(completionFailure);
+            }
         }
         finally
         {
-            DiscardPendingCompletion(ref failures);
-            ReleaseCommittedScopeBindings(ref failures);
-            _state = TransactionState.Completed;
+            try { DiscardPendingCompletion(); }
+            finally
+            {
+                try { cleanupInterruption = ReleaseCommittedScopeBindings(); }
+                finally { _state = TransactionState.Completed; }
+            }
         }
         ThrowFailures(failures);
+        if (cleanupInterruption is not null) ExceptionDispatchInfo.Capture(cleanupInterruption).Throw();
     }
 
     /// <summary>Restores all captured storage if still active; disposal after commit or disposal is inert.</summary>
@@ -184,9 +188,12 @@ public sealed class ItemContainerTransaction : IDisposable
         finally
         {
             _snapshots.Clear();
-            DiscardPendingCompletion(ref failures);
-            ClearScopeBindingsAndPulse(ref failures);
-            ReleaseMutationLocks(ref failures);
+            try { DiscardPendingCompletion(); }
+            finally
+            {
+                try { ClearScopeBindings(); }
+                finally { ReleaseMutationLocks(); }
+            }
         }
         ThrowFailures(failures);
     }
@@ -201,13 +208,9 @@ public sealed class ItemContainerTransaction : IDisposable
         else _changed.Add(boundary, new HashSet<int>(slots));
     }
 
-    private void DiscardPendingCompletion(ref List<Exception>? failures)
+    private void DiscardPendingCompletion()
     {
-        foreach (var owner in _completionOwners)
-        {
-            try { owner.DiscardPendingCompletion(); }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
-        }
+        foreach (var owner in _completionOwners) owner.DiscardPendingCompletion();
     }
 
     internal bool IsOwnedByCurrentThread => Environment.CurrentManagedThreadId == _threadId;
@@ -224,48 +227,46 @@ public sealed class ItemContainerTransaction : IDisposable
             throw new InvalidOperationException("Transaction use must occur on its originating thread.");
     }
 
-    private bool ReleaseMutationLocks(ref List<Exception>? failures)
+    private void ReleaseMutationLocks()
     {
-        var succeeded = true;
         while (_locksAcquired > 0)
         {
-            var boundary = _lockOrder[--_locksAcquired];
-            try { Monitor.Exit(boundary.MutationLock); }
-            catch (Exception exception) { succeeded = false; (failures ??= []).Add(exception); }
+            var lockIndex = _locksAcquired - 1;
+            Monitor.Exit(_lockOrder[lockIndex].MutationLock);
+            _locksAcquired = lockIndex;
         }
-        return succeeded;
     }
 
-    private void ReleaseUncommittedResources(List<Exception>? failures = null)
-    {
-        ClearScopeBindingsAndPulse(ref failures);
-        ReleaseMutationLocks(ref failures);
-        ThrowFailures(failures);
-    }
-
-    private void ClearScopeBindingsAndPulse(ref List<Exception>? failures)
+    private void ClearScopeBindings()
     {
         for (var index = _lockOrder.Length - 1; index >= 0; index--)
         {
             var boundary = _lockOrder[index];
-            try
-            {
-                if (ReferenceEquals(boundary.Transaction, this)) boundary.Transaction = null;
-                if (Monitor.IsEntered(boundary.MutationLock)) Monitor.PulseAll(boundary.MutationLock);
-            }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
+            if (ReferenceEquals(boundary.Transaction, this)) boundary.Transaction = null;
         }
     }
 
-    private void ReleaseCommittedScopeBindings(ref List<Exception>? failures)
+    private ThreadInterruptedException? ReleaseCommittedScopeBindings()
     {
         var acquired = 0;
+        ThreadInterruptedException? interruption = null;
         try
         {
             foreach (var boundary in _lockOrder)
             {
-                EnterForCommittedScopeCleanup(boundary.MutationLock, ref failures);
-                acquired++;
+                while (true)
+                {
+                    try
+                    {
+                        Monitor.Enter(boundary.MutationLock);
+                        acquired++;
+                        break;
+                    }
+                    catch (ThreadInterruptedException exception)
+                    {
+                        interruption ??= exception;
+                    }
+                }
             }
 
             foreach (var boundary in _lockOrder)
@@ -282,26 +283,12 @@ public sealed class ItemContainerTransaction : IDisposable
         {
             while (acquired > 0)
             {
-                try { Monitor.Exit(_lockOrder[--acquired].MutationLock); }
-                catch (Exception exception) { (failures ??= []).Add(exception); }
+                var lockIndex = acquired - 1;
+                Monitor.Exit(_lockOrder[lockIndex].MutationLock);
+                acquired = lockIndex;
             }
         }
-    }
-
-    private static void EnterForCommittedScopeCleanup(object mutationLock, ref List<Exception>? failures)
-    {
-        while (true)
-        {
-            try
-            {
-                Monitor.Enter(mutationLock);
-                return;
-            }
-            catch (ThreadInterruptedException exception)
-            {
-                (failures ??= []).Add(exception);
-            }
-        }
+        return interruption;
     }
 
     private static void ThrowFailures(List<Exception>? failures)

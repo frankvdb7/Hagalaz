@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -222,9 +221,9 @@ internal sealed class ItemContainerMutationBoundary
 
     internal void PublishCommittedChanges(HashSet<int>? slots)
     {
-        List<Exception>? failures = null;
+        ThreadInterruptedException? interruption = null;
         bool standalonePublication;
-        EnterMutationLock(ref failures);
+        EnterMutationLock(ref interruption);
         try
         {
             if (_transaction != null)
@@ -249,28 +248,30 @@ internal sealed class ItemContainerMutationBoundary
 
         if (!standalonePublication)
         {
-            ThrowFailures(failures);
+            if (interruption is not null) ExceptionDispatchInfo.Capture(interruption).Throw();
             _publishChanges?.Invoke(slots);
             return;
         }
 
+        ExceptionDispatchInfo? publicationFailure = null;
         try
         {
             _publishChanges?.Invoke(slots);
         }
         catch (Exception exception)
         {
-            (failures ??= []).Add(exception);
+            publicationFailure = ExceptionDispatchInfo.Capture(exception);
         }
         finally
         {
-            ReleaseStandalonePublicationOwnership(ref failures);
+            ReleaseStandalonePublicationOwnership(ref interruption);
         }
 
-        ThrowFailures(failures);
+        if (publicationFailure is not null) publicationFailure.Throw();
+        if (interruption is not null) ExceptionDispatchInfo.Capture(interruption).Throw();
     }
 
-    private void EnterMutationLock(ref List<Exception>? failures)
+    private void EnterMutationLock(ref ThreadInterruptedException? interruption)
     {
         while (true)
         {
@@ -281,12 +282,12 @@ internal sealed class ItemContainerMutationBoundary
             }
             catch (ThreadInterruptedException exception)
             {
-                (failures ??= []).Add(exception);
+                interruption ??= exception;
             }
         }
     }
 
-    private void ReleaseStandalonePublicationOwnership(ref List<Exception>? failures)
+    private void ReleaseStandalonePublicationOwnership(ref ThreadInterruptedException? interruption)
     {
         while (true)
         {
@@ -297,33 +298,18 @@ internal sealed class ItemContainerMutationBoundary
             }
             catch (ThreadInterruptedException exception)
             {
-                (failures ??= []).Add(exception);
+                interruption ??= exception;
             }
         }
 
         try
         {
-            try { ReleaseStandalonePublicationOwnership(); }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
-
-            try { Monitor.PulseAll(_mutationLock); }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
+            ReleaseStandalonePublicationOwnership();
+            Monitor.PulseAll(_mutationLock);
         }
         finally
         {
-            try { Monitor.Exit(_mutationLock); }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
-        }
-    }
-
-    private static void ThrowFailures(List<Exception>? failures)
-    {
-        if (failures is { Count: 1 }) ExceptionDispatchInfo.Capture(failures[0]).Throw();
-        if (failures is { Count: > 1 })
-        {
-            throw new AggregateException(failures.SelectMany(failure => failure is AggregateException aggregate
-                ? aggregate.Flatten().InnerExceptions.AsEnumerable()
-                : [failure]));
+            Monitor.Exit(_mutationLock);
         }
     }
 

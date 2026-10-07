@@ -944,7 +944,7 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
-    public void StandalonePublicationCleanup_InterruptionPreservesPublicationFailureAndReleasesOwnership()
+    public void StandalonePublicationCleanup_InterruptionDoesNotAggregateWithEarlierPublicationFailure()
     {
         using var publicationStarted = new ManualResetEventSlim();
         using var finishPublication = new ManualResetEventSlim();
@@ -994,10 +994,7 @@ public sealed class ItemContainerTransferTests
 
         Assert.IsTrue(mutationThread.Join(TimeSpan.FromSeconds(5)));
         Assert.IsTrue(lockHolder.Join(TimeSpan.FromSeconds(5)));
-        var aggregate = Assert.IsInstanceOfType<AggregateException>(mutationFailure);
-        Assert.AreEqual(2, aggregate.InnerExceptions.Count);
-        Assert.AreSame(publicationFailure, aggregate.InnerExceptions[0]);
-        Assert.IsInstanceOfType<ThreadInterruptedException>(aggregate.InnerExceptions[1]);
+        Assert.AreSame(publicationFailure, mutationFailure);
         Assert.AreEqual(1, container.GetCountById(610));
         AssertUnboundAndUnlocked(container);
         using var transaction = ItemContainerTransaction.Begin(container);
