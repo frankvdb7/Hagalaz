@@ -148,7 +148,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             if (!viewer.Inventory.Items.TryTransferTo(_items, item, count, slot,
                     destinationItem: transformed ? sold : null)) return false;
             var paid = _shop.CurrencyId == 995
-                ? viewer.MoneyPouch.TryAddExact((int)currencyCount)
+                ? viewer.MoneyPouch.Add((int)currencyCount)
                 : viewer.Inventory.Items.Add(_itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)currencyCount).Build());
             if (!paid) return false;
             transaction.Commit();

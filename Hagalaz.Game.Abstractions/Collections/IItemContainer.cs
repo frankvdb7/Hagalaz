@@ -12,7 +12,7 @@ public interface IItemContainer : IReadOnlyItemContainer, IItemTransactional
 
     bool Add(int slot, IItem item);
 
-    int Remove(IItem item, int preferredSlot = -1, bool update = true);
+    int Remove(IItem item, int preferredSlot = -1, bool publishChanges = true);
 
     bool TryRemoveExact(IItem item, int preferredSlot = -1);
 
@@ -39,5 +39,5 @@ public interface IItemContainer : IReadOnlyItemContainer, IItemTransactional
 
     void Sort();
 
-    void Clear(bool update);
+    void Clear(bool publishChanges);
 }

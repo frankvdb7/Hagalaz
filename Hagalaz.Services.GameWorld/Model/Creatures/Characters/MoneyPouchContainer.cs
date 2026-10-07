@@ -6,12 +6,15 @@ using Hagalaz.Utilities;
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
     /// <summary>
-    /// 
+    /// Owns coin-pouch rules and contributes pouch plus inventory storage to transactions. Publishes typed pouch changes
+    /// after container publication.
     /// </summary>
     public partial class MoneyPouchContainer : IMoneyPouchContainer, IItemTransactionSource, IItemContainerCompletionOwner,
         IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
+        private const int CoinsItemId = 995;
+
         /// <summary>
         /// Instance of the character who owns this container.
         /// </summary>
@@ -29,7 +32,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public bool HasSpaceForCoins(int count) => count > 0 && (long)Count + count <= int.MaxValue;
 
-        public bool HasCoins(int count) => count > 0 && (long)Count + _owner.Inventory.Items.GetCountById(995) >= count;
+        public bool HasCoins(int count) => count > 0 && (long)Count + _owner.Inventory.Items.GetCountById(CoinsItemId) >= count;
 
         /// <summary>
         /// Contains the money count.
@@ -60,27 +63,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _owner = owner;
             _itemBuilder = itemBuilder;
             _inventoryMutations = ItemContainerTransaction.ResolveSingleBoundary(owner.Inventory.Items);
-            var coins = _itemBuilder.Create().WithId(995).WithCount(0).Build();
+            var coins = _itemBuilder.Create().WithId(CoinsItemId).WithCount(0).Build();
             _storage = new ItemContainerStorage(StorageType.Normal, [coins], 1, 0);
             _storageMutations = new ItemContainerMutationBoundary(_storage, null, this);
         }
 
         /// <summary>
-        /// Adds the specified count.
+        /// Adds exactly the requested number of coins using normal pouch overflow behavior.
         /// </summary>
         /// <param name="count">The count.</param>
-        /// <returns></returns>
+        /// <returns><see langword="true"/> when all coins are added; otherwise, <see langword="false"/>.</returns>
         public bool Add(int count)
-        {
-            return TryAddExact(count);
-        }
-
-        /// <summary>
-        /// Adds coins using the normal pouch overflow behavior as one exact
-        /// operation. This method acquires the pouch and inventory mutation
-        /// boundaries together.
-        /// </summary>
-        public bool TryAddExact(int count)
         {
             if (GetCurrentThreadTransaction() is { } transaction) return AddExactCore(count, transaction);
 
@@ -106,7 +99,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             pouchCount = Math.Min(count, int.MaxValue - Count);
             inventoryCount = count - pouchCount;
             return inventoryCount <= 0 || _owner.Inventory.Items.HasSpaceFor(
-                _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build());
+                _itemBuilder.Create().WithId(CoinsItemId).WithCount(inventoryCount).Build());
         }
 
         private bool ApplyExactAdd(ItemContainerTransaction transaction, int pouchCount, int inventoryCount)
@@ -114,13 +107,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _storageMutations.EnsureOwnedBy(transaction);
             var previousCount = Count;
             if (pouchCount > 0 && !_storage.TryAddRange(
-                    [_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()], out _))
+                    [_itemBuilder.Create().WithId(CoinsItemId).WithCount(pouchCount).Build()], out _))
             {
                 return false;
             }
 
             if (inventoryCount > 0 && !_owner.Inventory.Items.AddRange(
-                    [_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()]))
+                    [_itemBuilder.Create().WithId(CoinsItemId).WithCount(inventoryCount).Build()]))
             {
                 return false;
             }
@@ -135,7 +128,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             ArgumentNullException.ThrowIfNull(source);
             ArgumentNullException.ThrowIfNull(coins);
             var count = coins.Count;
-            if (coins.Id != 995 || count <= 0) return false;
+            if (coins.Id != CoinsItemId || count <= 0) return false;
 
             var sourceBoundary = ItemContainerTransaction.ResolveSingleBoundary(source);
             var transaction = GetCurrentThreadTransaction(sourceBoundary)
@@ -154,7 +147,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public int Remove(int count)
         {
             if (count <= 0) return 0;
-            var amount = (int)Math.Min((long)count, (long)Count + _owner.Inventory.Items.GetCountById(995));
+            var amount = (int)Math.Min((long)count, (long)Count + _owner.Inventory.Items.GetCountById(CoinsItemId));
             return amount > 0 && TryRemoveExact(amount) ? amount : 0;
         }
 
@@ -183,20 +176,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _storageMutations.EnsureOwnedBy(transaction);
             var pouchCount = Math.Min(count, Count);
             var inventoryCount = count - pouchCount;
-            if (inventoryCount > _owner.Inventory.Items.GetCountById(995))
+            if (inventoryCount > _owner.Inventory.Items.GetCountById(CoinsItemId))
             {
                 return false;
             }
 
             var previousCount = Count;
             if (pouchCount > 0 && !_storage.TryRemoveExact(
-                    _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0, out _))
+                    _itemBuilder.Create().WithId(CoinsItemId).WithCount(pouchCount).Build(), 0, out _))
             {
                 return false;
             }
 
             if (inventoryCount > 0 && !_owner.Inventory.Items.TryRemoveExact(
-                    _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
+                    _itemBuilder.Create().WithId(CoinsItemId).WithCount(inventoryCount).Build()))
             {
                 return false;
             }
@@ -268,13 +261,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 _owner.SendChatMessage(GameStrings.MoneyPouchFull);
             }
 
-            var transferCount = Math.Min(count, Math.Min(remainingSpace, _owner.Inventory.Items.GetCountById(995)));
+            var transferCount = Math.Min(count, Math.Min(remainingSpace, _owner.Inventory.Items.GetCountById(CoinsItemId)));
             if (transferCount <= 0) return false;
 
             using var transaction = ItemContainerTransaction.Begin(this);
-            if (!_owner.Inventory.Items.TryRemoveExact(
-                    _itemBuilder.Create().WithId(995).WithCount(transferCount).Build()) ||
-                !TryAddExact(transferCount)) return false;
+            if (!TryTransferCoinsFrom(
+                    _owner.Inventory.Items,
+                    _itemBuilder.Create().WithId(CoinsItemId).WithCount(transferCount).Build())) return false;
             transaction.Commit();
             return true;
         }
@@ -305,7 +298,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (count <= 0) return false;
             var transferCount = Math.Min(count, Count);
             if (transferCount <= 0) return false;
-            if (!_owner.Inventory.Items.AddRange([_itemBuilder.Create().WithId(995).WithCount(transferCount).Build()]))
+            if (!_owner.Inventory.Items.AddRange([_itemBuilder.Create().WithId(CoinsItemId).WithCount(transferCount).Build()]))
             {
                 inventoryFull = true;
                 return false;
@@ -319,7 +312,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="slots">The slots.</param>
         public void Hydrate(IReadOnlyList<HydratedItemDto> moneyPouch)
         {
-            if (moneyPouch.Any(item => item.ItemId != 995))
+            if (moneyPouch.Any(item => item.ItemId != CoinsItemId))
             {
                 throw new ArgumentException("Money pouch state must contain coins.", nameof(moneyPouch));
             }
@@ -330,9 +323,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             var items = moneyPouch.Count == 0
-                ? new[] { (0, _itemBuilder.Create().WithId(995).WithCount(0).Build()) }
+                ? new[] { (0, _itemBuilder.Create().WithId(CoinsItemId).WithCount(0).Build()) }
                 : moneyPouch.Select(entry => (entry.SlotId,
-                    _itemBuilder.Create().WithId(995).WithCount(entry.Count)
+                    _itemBuilder.Create().WithId(CoinsItemId).WithCount(entry.Count)
                         .WithExtraData(entry.ExtraData ?? string.Empty).Build())).ToArray();
             using (var mutation = _storageMutations.BeginMutation())
                 _storage.RestoreItems(items, allowZeroCount: true);

@@ -22,7 +22,7 @@ namespace Hagalaz.Game.Abstractions.Collections;
 public sealed class ItemContainerTransaction : IDisposable
 {
     private readonly int _threadId = Environment.CurrentManagedThreadId;
-    private readonly ItemContainerMutationBoundary[] _boundaries;
+    private readonly ItemContainerMutationBoundary[] _publicationOrder;
     private readonly ItemContainerMutationBoundary[] _lockOrder;
     private readonly IItemContainerCompletionOwner[] _completionOwners;
     private readonly List<StorageSnapshot> _snapshots = [];
@@ -30,19 +30,25 @@ public sealed class ItemContainerTransaction : IDisposable
     private int _locksAcquired;
     private TransactionState _state;
 
-    private ItemContainerTransaction(ItemContainerMutationBoundary[] boundaries)
+    private ItemContainerTransaction(ItemContainerMutationBoundary[] publicationOrder)
     {
-        _boundaries = boundaries;
+        _publicationOrder = publicationOrder;
         var completionOwners = new List<IItemContainerCompletionOwner>();
-        foreach (var boundary in boundaries)
+        foreach (var boundary in publicationOrder)
             if (boundary.CompletionOwner is { } owner) completionOwners.Add(owner);
         _completionOwners = completionOwners.ToArray();
-        _lockOrder = boundaries.OrderBy(boundary => boundary.MutationOrder).ToArray();
+        _lockOrder = publicationOrder.OrderBy(boundary => boundary.LockOrder).ToArray();
     }
 
     /// <summary>Resolves every participant, acquires ordered boundary locks and captures rollback state before binding the scope.</summary>
     /// <exception cref="ArgumentException">Participants are empty, unsupported, or contribute invalid storage.</exception>
     /// <exception cref="InvalidOperationException">A participant already belongs to a scope on the current thread.</exception>
+    /// <remarks>
+    /// Use a container directly for a single-container operation. <c>TryTransferTo</c> is already atomic for one
+    /// transfer. For several operations that must succeed together, pass their domain participants to <c>Begin</c>,
+    /// perform ordinary container operations, then call <see cref="Commit"/>. Composite participants may contribute
+    /// multiple storage boundaries.
+    /// </remarks>
     public static ItemContainerTransaction Begin(params IItemTransactional[] participants)
         => BeginResolved(Resolve(participants));
 
@@ -146,7 +152,7 @@ public sealed class ItemContainerTransaction : IDisposable
 
             try
             {
-                foreach (var boundary in _boundaries)
+                foreach (var boundary in _publicationOrder)
                     if (_changed.TryGetValue(boundary, out var slots)) boundary.PublishCommittedChanges(slots);
                 foreach (var owner in _completionOwners) owner.CompleteAfterPublication();
             }

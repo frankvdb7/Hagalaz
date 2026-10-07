@@ -41,7 +41,7 @@ Direct equipment restoration, replacement, full removal, and clearing MUST publi
 - **THEN** storage is empty before callbacks, every prior item's `OnUnequipped` is attempted, and publication follows all callback attempts
 
 ### Requirement: MoneyPouch separates gameplay operations from transaction participation
-`IMoneyPouchContainer` MUST expose normal coin-domain operations and implement the empty public `IItemTransactional` capability marker. It MUST NOT expose a `Mutations` property or storage boundary. Its concrete domain implementation MUST provide exactly its pouch storage and one inventory item-storage boundary through the internal `IItemTransactionSource`. `TryAddExact` and `TryRemoveExact` MUST own a transaction when the current thread owns neither required boundary, participate in the same active current-thread transaction when it owns both, and throw before mutation when the inventory boundary is already owned by a current-thread transaction that does not include the pouch boundary. A foreign transaction MUST be handled by the standalone transaction's normal contention behavior. The primary MoneyPouch API MUST NOT expose generic item-ID `Contains`, a domain-specific mutation boundary, or caller-managed publication receipts.
+`IMoneyPouchContainer` MUST expose normal coin-domain operations and implement the empty public `IItemTransactional` capability marker. `Add` MUST add the entire requested amount or leave storage unchanged, using inventory capacity for pouch overflow. It MUST NOT expose a `Mutations` property or storage boundary. Its concrete domain implementation MUST provide exactly its pouch storage and one inventory item-storage boundary through the internal `IItemTransactionSource`. `Add` and `TryRemoveExact` MUST own a transaction when the current thread owns neither required boundary, participate in the same active current-thread transaction when it owns both, and throw before mutation when the inventory boundary is already owned by a current-thread transaction that does not include the pouch boundary. A foreign transaction MUST be handled by the standalone transaction's normal contention behavior. The primary MoneyPouch API MUST NOT expose generic item-ID `Contains`, a domain-specific mutation boundary, or caller-managed publication receipts.
 
 #### Scenario: MoneyPouch coin availability is domain-specific
 - **WHEN** a caller checks whether a character has a positive coin amount
@@ -168,14 +168,14 @@ Storage MUST own its mutation revision, which invalidates active enumerators aft
 - **THEN** disposal restores A without publication while B retains its mutation and publishes normally
 
 ### Requirement: MoneyPouch uses one transaction rollback owner
-MoneyPouch MUST contribute exactly its pouch storage and its inventory item storage to a transaction. Exact additions and removals MUST mutate both through the same transaction. When neither boundary is owned by a current-thread transaction, an exact operation owns a transaction; it participates only when both boundaries belong to the same active transaction and throws before mutation on partial current-thread participation. A foreign overlap uses normal transaction contention. `TryTransferCoinsFrom(...)` MUST require its source, pouch, and inventory boundaries in one caller-owned transaction and MUST NOT create a transaction. Coin, slot-zero sentinel, and balance rules remain owned by MoneyPouch; it MUST NOT keep a separate rollback mechanism.
+MoneyPouch MUST contribute exactly its pouch storage and its inventory item storage to a transaction. Any pouch or inventory mutations made by `Add` and `TryRemoveExact` MUST occur through the same transaction. When neither boundary is owned by a current-thread transaction, these operations own a transaction; they participate only when both boundaries belong to the same active transaction and throw before mutation on partial current-thread participation. A foreign overlap uses normal transaction contention. `TryTransferCoinsFrom(...)` MUST require its source, pouch, and inventory boundaries in one caller-owned transaction and MUST NOT create a transaction. Coin, slot-zero sentinel, and balance rules remain owned by MoneyPouch; it MUST NOT keep a separate rollback mechanism.
 
 #### Scenario: A later participant rejects a staged pouch mutation
 - **WHEN** pouch and inventory mutations are staged but a later participant rejects its operation
 - **THEN** transaction rollback restores both stores and no pouch message or event is published
 
-#### Scenario: MoneyPouch exact operations own or participate in one scope
-- **WHEN** an exact add or remove runs with neither pouch nor inventory boundary owned by a current-thread transaction
+#### Scenario: MoneyPouch additions and exact removals own or participate in one scope
+- **WHEN** `Add` or `TryRemoveExact` runs with neither pouch nor inventory boundary owned by a current-thread transaction
 - **THEN** MoneyPouch owns a transaction over both boundaries
 - **WHEN** both boundaries already belong to the same active current-thread transaction
 - **THEN** the operation participates without committing that transaction
@@ -191,7 +191,7 @@ MoneyPouch MUST contribute exactly its pouch storage and its inventory item stor
 - **THEN** exactly the pouch storage and its inventory item storage are enlisted
 
 #### Scenario: An exact MoneyPouch operation waits for a foreign owner
-- **WHEN** another thread owns either required boundary and the current thread calls `TryAddExact` or `TryRemoveExact`
+- **WHEN** another thread owns either required boundary and the current thread calls `Add` or `TryRemoveExact`
 - **THEN** the operation waits through normal Begin contention and proceeds after the foreign scope completes
 
 ### Requirement: Familiar inventory owns partial withdrawal policy

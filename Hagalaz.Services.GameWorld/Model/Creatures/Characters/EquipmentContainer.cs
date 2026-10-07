@@ -18,7 +18,7 @@ using Hagalaz.Services.GameWorld.Logic.Characters;
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
     /// <summary>
-    /// Class EquipmentContainer
+    /// Owns equipment storage and lifecycle effects, running those effects after storage commits and before publication.
     /// </summary>
     public partial class EquipmentContainer : IEquipmentContainer, IItemTransactionSource, IItemContainerCompletionOwner, IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
@@ -105,8 +105,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
 
                 var inventoryMutationBoundary = ItemContainerTransaction.ResolveSingleBoundary(_owner.Inventory.Items);
-                inventoryMutationBoundary.EnsureNotOwnedByCurrentThread();
-                _mutations.EnsureNotOwnedByCurrentThread();
+                inventoryMutationBoundary.ThrowIfOwnedByCurrentThread();
+                _mutations.ThrowIfOwnedByCurrentThread();
 
                 // Custom unequip commands may open interactive UI and must remain outside mutation scopes.
                 if (_owner.Inventory.Items.Remove(item, slot) <= 0)
@@ -121,7 +121,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
 
                 HashSet<int> equipmentChanges;
-                using (var mutation = _mutations.BeginDomainMutation())
+                using (var mutation = _mutations.BeginMutationWithExplicitStandalonePublication())
                 {
                     if (!_storage.TryAdd((int)equipSlot, item, out var changedSlots)) return false;
                     equipmentChanges = changedSlots;
@@ -256,7 +256,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             var changedSlots = new HashSet<int> { itemSlot };
             ItemContainerTransaction? transaction;
-            using (var mutation = _mutations.BeginDomainMutation())
+            using (var mutation = _mutations.BeginMutationWithExplicitStandalonePublication())
             {
                 if (!ReferenceEquals(_storage[itemSlot], expectedItem)) return false;
                 _storage.Replace(itemSlot, replacement);
@@ -287,7 +287,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             HashSet<int> changedSlots;
             bool fullyRemoved;
             ItemContainerTransaction? transaction;
-            using (var mutation = _mutations.BeginDomainMutation())
+            using (var mutation = _mutations.BeginMutationWithExplicitStandalonePublication())
             {
                 if ((uint)preferredSlotIndex < (uint)_storage.Capacity)
                 {
@@ -328,7 +328,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             bool cleared;
             ItemContainerTransaction? transaction;
             EquipmentEffect[] effects = [];
-            using (var mutation = _mutations.BeginDomainMutation())
+            using (var mutation = _mutations.BeginMutationWithExplicitStandalonePublication())
             {
                 equippedItems = _storage.ToArray().Where(item => item != null).Cast<IItem>().ToArray();
                 cleared = _storage.Clear();

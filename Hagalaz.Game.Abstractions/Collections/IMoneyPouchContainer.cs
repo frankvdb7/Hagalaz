@@ -22,10 +22,19 @@ namespace Hagalaz.Game.Abstractions.Collections
         int Count { get; }
 
         /// <summary>
-        /// Adds a specified number of coins to the money pouch.
+        /// Adds exactly the requested number of coins, using the inventory for any amount that overflows the pouch.
+        /// The addition is all-or-nothing.
         /// </summary>
         /// <param name="count">The number of coins to add.</param>
         /// <returns><c>true</c> if the coins were added successfully; otherwise, <c>false</c>.</returns>
+        /// <remarks>
+        /// When none of the pouch's required storage is currently enlisted, this operation creates and owns one
+        /// <see cref="ItemContainerTransaction"/> covering the pouch and inventory storage. When every required storage
+        /// already belongs to the same active current-thread transaction, this operation participates in that
+        /// caller-owned transaction and does not commit it. When only part of the required storage is enlisted, or
+        /// required storage belongs to different transactions, this operation throws
+        /// <see cref="InvalidOperationException"/> before mutation.
+        /// </remarks>
         bool Add(int count);
 
         /// <summary>
@@ -48,19 +57,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="count">The number of coins to remove.</param>
         /// <returns>The number of coins that were actually removed.</returns>
         int Remove(int count);
-
-        /// <summary>
-        /// Adds exactly the requested coins using normal pouch overflow rules.
-        /// </summary>
-        /// <remarks>
-        /// When none of the pouch's required storage is currently enlisted, this operation creates and owns one
-        /// <see cref="ItemContainerTransaction"/> covering the pouch and inventory storage. When every required storage
-        /// already belongs to the same active current-thread transaction, this operation participates in that
-        /// caller-owned transaction and does not commit it. When only part of the required storage is enlisted, or
-        /// required storage belongs to different transactions, this operation throws
-        /// <see cref="InvalidOperationException"/> before mutation.
-        /// </remarks>
-        bool TryAddExact(int count);
 
         /// <summary>
         /// Transfers the full coin stack represented by <paramref name="coins"/> from an already-enlisted item

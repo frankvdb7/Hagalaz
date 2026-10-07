@@ -84,7 +84,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                                                   System.Reflection.BindingFlags.Public |
                                                   System.Reflection.BindingFlags.NonPublic)
                 .Any(member => member.Name.Contains("MutationLock", StringComparison.Ordinal) ||
-                               member.Name.Contains("MutationOrder", StringComparison.Ordinal) ||
+                               member.Name.Contains("LockOrder", StringComparison.Ordinal) ||
                                member.Name.Contains("Transaction", StringComparison.Ordinal) ||
                                member.Name.Contains("StandalonePublication", StringComparison.Ordinal)));
         }

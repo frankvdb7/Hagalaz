@@ -56,11 +56,11 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     public IItem? GetById(int id) => _storage.GetById(id);
 
-    public int Remove(IItem item, int preferredSlot = -1, bool update = true)
+    public int Remove(IItem item, int preferredSlot = -1, bool publishChanges = true)
     {
         using var mutation = _mutations.BeginMutation();
         var removed = _storage.Remove(item, preferredSlot, out var changedSlots);
-        if (removed > 0 && update) mutation.RecordChanges(changedSlots);
+        if (removed > 0 && publishChanges) mutation.RecordChanges(changedSlots);
         return removed;
     }
 
@@ -151,9 +151,9 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
     public bool HasSpaceFor(IItem item) => _storage.HasSpaceFor(item);
     public bool HasSpaceForRange(IEnumerable<IItem?> items) => _storage.HasSpaceForRange(items);
 
-    public void Clear(bool update)
+    public void Clear(bool publishChanges)
     {
         using var mutation = _mutations.BeginMutation();
-        if (_storage.Clear() && update) mutation.RecordChanges(null);
+        if (_storage.Clear() && publishChanges) mutation.RecordChanges(null);
     }
 }

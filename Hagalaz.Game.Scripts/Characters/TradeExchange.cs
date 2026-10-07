@@ -81,8 +81,7 @@ internal sealed class TradeExchange
     internal bool TryReturnMoneyToPouch(ICharacter character, IItemContainer offer, IItem coins, int preferredSlot)
     {
         using var transaction = ItemContainerTransaction.Begin(offer, character.MoneyPouch);
-        var count = coins.Count;
-        if (!offer.TryRemoveExact(coins, preferredSlot) || !character.MoneyPouch.TryAddExact(count)) return false;
+        if (!character.MoneyPouch.TryTransferCoinsFrom(offer, coins, preferredSlot)) return false;
         transaction.Commit();
         return true;
     }

@@ -8,9 +8,9 @@ namespace Hagalaz.Game.Abstractions.Collections;
 /// <summary>Coordinates mutations and publication for one owned item storage.</summary>
 internal sealed class ItemContainerMutationBoundary
 {
-    private static long _nextMutationOrder;
+    private static long _nextLockOrder;
     private readonly object _mutationLock = new();
-    private readonly long _mutationOrder = Interlocked.Increment(ref _nextMutationOrder);
+    private readonly long _lockOrder = Interlocked.Increment(ref _nextLockOrder);
     private readonly ItemContainerStorage _storage;
     private readonly IItemContainerCompletionOwner? _completion;
     private readonly Action<HashSet<int>?>? _publishChanges;
@@ -31,7 +31,7 @@ internal sealed class ItemContainerMutationBoundary
 
     internal ItemContainerStorage Storage => _storage;
     internal object MutationLock => _mutationLock;
-    internal long MutationOrder => _mutationOrder;
+    internal long LockOrder => _lockOrder;
     internal IItemContainerCompletionOwner? CompletionOwner => _completion;
     internal ItemContainerTransaction? Transaction { get => _transaction; set => _transaction = value; }
     internal bool IsMutationLockHeldByCurrentThread => Monitor.IsEntered(_mutationLock);
@@ -106,9 +106,9 @@ internal sealed class ItemContainerMutationBoundary
     internal MutationScope BeginMutation() => BeginMutation(publishStandaloneOnDispose: true);
 
     // Equipment owns standalone lifecycle effects and must run them before publication.
-    internal MutationScope BeginDomainMutation() => BeginMutation(publishStandaloneOnDispose: false);
+    internal MutationScope BeginMutationWithExplicitStandalonePublication() => BeginMutation(publishStandaloneOnDispose: false);
 
-    internal void EnsureNotOwnedByCurrentThread()
+    internal void ThrowIfOwnedByCurrentThread()
     {
         if (_transaction is { IsOwnedByCurrentThread: true } ||
             Volatile.Read(ref _standalonePublicationOwnerThreadId) == Environment.CurrentManagedThreadId)
@@ -163,6 +163,9 @@ internal sealed class ItemContainerMutationBoundary
             _slots = null;
         }
 
+        /// <summary>
+        /// Records changed slots for publication. A <see langword="null"/> set means the whole container changed.
+        /// </summary>
         internal void RecordChanges(HashSet<int>? slots)
         {
             if (_disposed) throw new ObjectDisposedException(nameof(MutationScope));

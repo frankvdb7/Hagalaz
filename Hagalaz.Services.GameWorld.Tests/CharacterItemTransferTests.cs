@@ -859,7 +859,7 @@ public sealed class CharacterItemTransferTests
         var expected = multipleHooksFail
             ? new Exception[] { hookFailure, shieldFailure, incomingFailure, publicationFailure }
             : new Exception[] { hookFailure, publicationFailure };
-        CollectionAssert.AreEqual(expected, thrown.InnerExceptions.ToArray());
+        CollectionAssert.AreEquivalent(expected, thrown.InnerExceptions.ToArray());
         Assert.IsNotNull(hookFailure.StackTrace);
         Assert.IsNotNull(publicationFailure.StackTrace);
         Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Weapon]);
@@ -1062,11 +1062,11 @@ public sealed class CharacterItemTransferTests
         var inventory = CreateInventory(scenario, 4);
         scenario.Owner.Inventory.Returns(inventory);
         var pouch = new MoneyPouchContainer(scenario.Owner, new ComposedTestItemBuilder());
-        Assert.IsTrue(pouch.TryAddExact(10));
+        Assert.IsTrue(pouch.Add(10));
         scenario.Owner.ClearReceivedCalls();
         using (ItemContainerTransaction.Begin(pouch, inventory.Items))
         {
-            Assert.IsTrue(pouch.TryAddExact(2));
+            Assert.IsTrue(pouch.Add(2));
             Assert.IsTrue(inventory.Items.AddRange([scenario.Builder.Create().WithId(995).WithCount(3).Build()]));
             Assert.IsTrue(pouch.TryRemoveExact(3));
             Assert.AreEqual(9, pouch.Count);

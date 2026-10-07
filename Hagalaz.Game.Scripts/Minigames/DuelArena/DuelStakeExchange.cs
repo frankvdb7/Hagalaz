@@ -55,8 +55,7 @@ internal sealed class DuelStakeExchange
         int preferredSourceSlot)
     {
         using var transaction = ItemContainerTransaction.Begin(stake, character.MoneyPouch);
-        var count = coins.Count;
-        if (!stake.TryRemoveExact(coins, preferredSourceSlot) || !character.MoneyPouch.TryAddExact(count)) return false;
+        if (!character.MoneyPouch.TryTransferCoinsFrom(stake, coins, preferredSourceSlot)) return false;
         transaction.Commit();
         return true;
     }
@@ -85,7 +84,7 @@ internal sealed class DuelStakeExchange
         {
             if (item.Id == CoinsItemId)
             {
-                if (!stake.TryRemoveExact(item, slot) || !owner.MoneyPouch.TryAddExact(count)) return false;
+                if (!owner.MoneyPouch.TryTransferCoinsFrom(stake, item, slot)) return false;
             }
             else if (!stake.TryTransferTo(owner.Inventory.Items, item, count, slot))
             {
