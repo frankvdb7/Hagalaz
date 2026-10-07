@@ -32,10 +32,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ItemContainerMutationBoundary _mutations;
         IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries => [_mutations];
         public IReadOnlyItemContainer Items => _storage;
-        private readonly Queue<EquipmentCompletion> _pendingCompletion = new();
+        private readonly Queue<EquipmentEffect> _pendingCompletion = new();
         private enum EquipmentEffectKind { Equipped, Unequipped, WeaponProfile }
         private readonly record struct EquipmentEffect(EquipmentEffectKind Kind, IItem Item, IItem? Incoming = null);
-        private readonly record struct EquipmentCompletion(EquipmentEffect[] Effects);
         /// <summary>
         /// Gets the item by the specified array index.
         /// </summary>
@@ -52,8 +51,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             (_owner, _itemBuilder) = (owner, itemBuilder);
             _storage = new ItemContainerStorage(StorageType.Normal, capacity);
-            _mutations = new ItemContainerMutationBoundary(_storage,
-                slots => PublishEquipmentState(slots?.Select(slot => (EquipmentSlot)slot).ToHashSet()), this);
+            _mutations = new ItemContainerMutationBoundary(_storage, PublishEquipmentState, this);
         }
 
         /// <summary>
@@ -122,11 +120,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return false;
                 }
 
-                HashSet<EquipmentSlot> equipmentChanges;
+                HashSet<int> equipmentChanges;
                 using (var mutation = _mutations.BeginDomainMutation())
                 {
                     if (!_storage.TryAdd((int)equipSlot, item, out var changedSlots)) return false;
-                    equipmentChanges = changedSlots.Select(changedSlot => (EquipmentSlot)changedSlot).ToHashSet();
+                    equipmentChanges = changedSlots;
                     mutation.RecordChanges(changedSlots);
                 }
                 CompleteStandaloneEquipmentChange(equipmentChanges,
@@ -222,12 +220,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool TryRestoreEquippedItem(EquipmentSlot slot, IItem item)
         {
             ArgumentNullException.ThrowIfNull(item);
-            var equipmentSlots = new HashSet<EquipmentSlot>();
+            HashSet<int> equipmentSlots;
             ItemContainerTransaction? transaction;
             using (var mutation = _mutations.BeginDomainMutation())
             {
                 if (!_storage.TryAdd((int)slot, item, out var slots)) return false;
-                foreach (var changedSlot in slots) equipmentSlots.Add((EquipmentSlot)changedSlot);
+                equipmentSlots = slots;
                 transaction = mutation.Transaction;
                 mutation.RecordChanges(slots);
             }
@@ -263,7 +261,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 throw new ArgumentOutOfRangeException(nameof(slot));
             }
 
-            var changedSlots = new HashSet<EquipmentSlot> { slot };
+            var changedSlots = new HashSet<int> { itemSlot };
             ItemContainerTransaction? transaction;
             using (var mutation = _mutations.BeginDomainMutation())
             {
@@ -274,7 +272,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     DeferEquipmentEffects(activeTransaction,
                         new EquipmentEffect(EquipmentEffectKind.Unequipped, expectedItem),
                         new EquipmentEffect(EquipmentEffectKind.Equipped, replacement));
-                mutation.RecordChanges(changedSlots.Select(changedSlot => (int)changedSlot).ToHashSet());
+                mutation.RecordChanges(changedSlots);
             }
 
             if (transaction == null)
@@ -309,7 +307,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 transaction = mutation.Transaction;
                 if (removed > 0)
                 {
-                    var changedEquipmentSlots = changedSlots.Select(changedSlot => (EquipmentSlot)changedSlot).ToHashSet();
                     if (fullyRemoved && transaction is { } activeTransaction)
                         DeferEquipmentEffects(activeTransaction, new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem!));
                     mutation.RecordChanges(changedSlots);
@@ -320,15 +317,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return removed;
             }
 
-            var equipmentChanges = changedSlots.Select(changedSlot => (EquipmentSlot)changedSlot).ToHashSet();
             if (!fullyRemoved)
             {
-                if (transaction == null) PublishCommittedEquipmentChanges(equipmentChanges);
+                if (transaction == null) PublishCommittedEquipmentChanges(changedSlots);
                 return removed;
             }
 
             if (transaction == null)
-                CompleteStandaloneEquipmentChange(equipmentChanges,
+                CompleteStandaloneEquipmentChange(changedSlots,
                     new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem!));
             return removed;
         }
@@ -359,7 +355,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (transaction == null) CompleteStandaloneEquipmentChange(null, effects);
         }
 
-        private void CompleteStandaloneEquipmentChange(HashSet<EquipmentSlot>? slots,
+        private void CompleteStandaloneEquipmentChange(HashSet<int>? slots,
             params EquipmentEffect[] effects)
         {
             var failures = ExecuteEquipmentEffects(effects);
@@ -372,7 +368,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private void DeferEquipmentEffects(ItemContainerTransaction transaction, params EquipmentEffect[] effects)
         {
             _mutations.EnsureOwnedBy(transaction);
-            _pendingCompletion.Enqueue(new EquipmentCompletion(effects));
+            foreach (var effect in effects)
+                _pendingCompletion.Enqueue(effect);
         }
 
         void IItemContainerCompletionOwner.DiscardPendingCompletion() => _pendingCompletion.Clear();
@@ -380,10 +377,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         void IItemContainerCompletionOwner.CompleteBeforePublication()
         {
             List<Exception>? failures = null;
-            while (_pendingCompletion.TryDequeue(out var completion))
+            while (_pendingCompletion.TryDequeue(out var effect))
             {
-                var effectFailures = ExecuteEquipmentEffects(completion.Effects);
-                if (effectFailures is { Count: > 0 }) (failures ??= []).AddRange(effectFailures);
+                try
+                {
+                    ExecuteEquipmentEffect(effect);
+                }
+                catch (Exception exception)
+                {
+                    (failures ??= []).Add(exception);
+                }
             }
 
             ThrowEquipmentFailures(failures);
@@ -436,14 +439,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
         }
 
-        private void PublishCommittedEquipmentChanges(HashSet<EquipmentSlot>? slots) =>
-            _mutations.PublishCommittedChanges(slots?.Select(slot => (int)slot).ToHashSet());
+        private void PublishCommittedEquipmentChanges(HashSet<int>? slots) =>
+            _mutations.PublishCommittedChanges(slots);
 
-        private void PublishEquipmentState(HashSet<EquipmentSlot>? slots)
+        private void PublishEquipmentState(HashSet<int>? slots)
         {
             _owner.Appearance.DrawCharacter();
             _owner.Statistics.CalculateBonuses();
-            _owner.EventManager.SendEvent(new EquipmentChangedEvent(_owner, slots));
+            var equipmentSlots = slots?.Select(slot => (EquipmentSlot)slot).ToHashSet();
+            _owner.EventManager.SendEvent(new EquipmentChangedEvent(_owner, equipmentSlots));
         }
 
         /// <summary>
