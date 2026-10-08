@@ -41,12 +41,44 @@ namespace Hagalaz.Game.Scripts.Characters
             public TradingCharacterScript Owner { get; }
             public ICharacter Target { get; }
             public TradingCharacterScript? TargetScript { get; set; }
-            public TradeState State { get; set; } = TradeState.Active;
+            public TradeState State { get; private set; } = TradeState.Active;
 
             public TradeSessionState(TradingCharacterScript owner, ICharacter target)
             {
                 Owner = owner;
                 Target = target;
+            }
+
+            public void BeginCompletion()
+            {
+                if (State != TradeState.Active)
+                    throw new InvalidOperationException("Only an active trade can begin completion.");
+
+                State = TradeState.Completing;
+            }
+
+            public void MarkCompleted()
+            {
+                if (State != TradeState.Completing)
+                    throw new InvalidOperationException("Only a completing trade can be marked completed.");
+
+                State = TradeState.Completed;
+            }
+
+            public void MarkCancelled()
+            {
+                if (State != TradeState.Active)
+                    throw new InvalidOperationException("Only an active trade can be marked cancelled.");
+
+                State = TradeState.Cancelled;
+            }
+
+            public void ReturnToActive()
+            {
+                if (State != TradeState.Completing)
+                    throw new InvalidOperationException("Only a completing trade can return to active.");
+
+                State = TradeState.Active;
             }
         }
 
@@ -1284,7 +1316,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     {
                         if (_tradeExchange.TryStageRefund(Character, SelfContainer.Items, session.Target, TargetContainer.Items))
                         {
-                            session.State = TradeState.Cancelled;
+                            session.MarkCancelled();
                             transaction.Commit();
                         }
                     }
@@ -1299,7 +1331,7 @@ namespace Hagalaz.Game.Scripts.Characters
                         using var transaction = ItemContainerTransaction.Begin(participants.ToArray());
                         if (_tradeExchange.TryStageEscrowRecovery(Character, SelfContainer.Items, session.Target, TargetContainer.Items))
                         {
-                            session.State = TradeState.Cancelled;
+                            session.MarkCancelled();
                             transaction.Commit();
                         }
                     }
@@ -1342,7 +1374,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     return;
                 }
 
-                session.State = TradeState.Completing;
+                session.BeginCompletion();
                 var target = session.Target;
                 try
                 {
@@ -1351,13 +1383,13 @@ namespace Hagalaz.Game.Scripts.Characters
                     {
                         if (_tradeExchange.TryStageCompletion(Character, SelfContainer.Items, target, TargetContainer.Items))
                         {
-                            session.State = TradeState.Completed;
+                            session.MarkCompleted();
                             transaction.Commit();
                         }
                     }
                     if (session.State == TradeState.Completing)
                     {
-                        session.State = TradeState.Active;
+                        session.ReturnToActive();
                         CancelTradeSession(session, forceConservation: false);
                         return;
                     }
@@ -1373,7 +1405,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     }
                     else if (session.State == TradeState.Completing)
                     {
-                        session.State = TradeState.Active;
+                        session.ReturnToActive();
                     }
                 }
             }
