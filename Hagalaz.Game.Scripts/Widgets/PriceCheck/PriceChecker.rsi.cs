@@ -376,7 +376,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                 var actual = Owner.Inventory.Items.GetCount(selected);
                 if (selected.Count > actual)
                 {
-                    priceCheckInterface.Items.Remove(selected.Clone(selected.Count - actual), slot, update: false);
+                    priceCheckInterface.Items.Remove(selected.Clone(selected.Count - actual), slot, publishChanges: false);
                     changed = true;
                 }
             }

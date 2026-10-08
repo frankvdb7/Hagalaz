@@ -30,7 +30,12 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             {
                 Items = new ItemContainer(type, items, capacity);
             }
-            public void SetItems(IItem[] items, bool update) { Items.ReplaceState(items); if (update) OnUpdate(); }
+            public void ReplaceState(IItem?[] items)
+            {
+                using var mutation = Items.BeginMutation();
+                Items.ReplaceState(items);
+            }
+            public void SetItems(IItem[] items, bool update) { ReplaceState(items); if (update) OnUpdate(); }
             public void OnUpdate(HashSet<int>? slots = null)
             {
                 UpdateCount++;
@@ -49,6 +54,150 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
 
             Assert.ThrowsExactly<ArgumentNullException>(() =>
                 container.Items.TryRemoveExact(null!, -1));
+        }
+
+        [TestMethod]
+        public void StorageMutators_AreSynchronizationAgnostic()
+        {
+            var storage = new ItemContainerStorage(StorageType.Normal, 2);
+            var item = CreateItem(1, 1);
+
+            Assert.IsTrue(storage.TryAdd(item, out _));
+            Assert.AreEqual(1, storage.Remove(item, -1, out _));
+            storage.Replace(0, CreateItem(2, 1));
+            Assert.AreEqual(2, storage[0]!.Id);
+        }
+
+        [TestMethod]
+        public void Storage_DoesNotOwnSynchronizationOrTransactionState()
+        {
+            var storageType = typeof(ItemContainerStorage);
+            var fields = storageType.GetFields(System.Reflection.BindingFlags.Instance |
+                                               System.Reflection.BindingFlags.Static |
+                                               System.Reflection.BindingFlags.Public |
+                                               System.Reflection.BindingFlags.NonPublic);
+
+            Assert.IsFalse(fields.Any(field => field.FieldType == typeof(ItemContainerTransaction) ||
+                                               field.FieldType == typeof(ItemContainerMutationBoundary)));
+            Assert.IsFalse(storageType.GetMembers(System.Reflection.BindingFlags.Instance |
+                                                  System.Reflection.BindingFlags.Static |
+                                                  System.Reflection.BindingFlags.Public |
+                                                  System.Reflection.BindingFlags.NonPublic)
+                .Any(member => member.Name.Contains("MutationLock", StringComparison.Ordinal) ||
+                               member.Name.Contains("LockOrder", StringComparison.Ordinal) ||
+                               member.Name.Contains("Transaction", StringComparison.Ordinal) ||
+                               member.Name.Contains("StandalonePublication", StringComparison.Ordinal)));
+        }
+
+        [TestMethod]
+        public void RestoreSnapshotState_RestoresStorageStateWithoutSynchronization()
+        {
+            var storage = new ItemContainerStorage(StorageType.Normal, 2);
+            var item = CreateItem(1, 1);
+            Assert.IsTrue(storage.TryAdd(item, out _));
+            var storedItem = storage[0];
+            var revision = storage.MutationRevision;
+            var snapshot = new IItem?[] { CreateItem(2, 1), null };
+            var counts = new[] { 1, 0 };
+
+            storage.RestoreSnapshotState(snapshot, counts, revision + 10);
+
+            Assert.AreSame(snapshot[0], storage[0]);
+            Assert.AreEqual(1, storedItem!.Count);
+            Assert.AreEqual(revision + 10, storage.MutationRevision);
+        }
+
+        [TestMethod]
+        public void ItemContainerAdd_OwnsStandaloneMutationLockAndPublishesAfterUnlock()
+        {
+            var storageLock = (object?)null;
+            var publicationSawLockReleased = false;
+            var container = new ItemContainer(StorageType.Normal, 2, _ =>
+            {
+                publicationSawLockReleased = Task.Run(() =>
+                {
+                    var acquired = Monitor.TryEnter(storageLock!, 0);
+                    if (acquired) Monitor.Exit(storageLock!);
+                    return acquired;
+                }).GetAwaiter().GetResult();
+            });
+            storageLock = ItemContainerTransaction.ResolveSingleBoundary(container).MutationLock;
+
+            Assert.IsTrue(container.Add(CreateItem(1, 1)));
+
+            Assert.IsTrue(publicationSawLockReleased);
+        }
+
+        [TestMethod]
+        public void ItemContainerAdd_PublicationFailurePropagatesAfterLockRelease()
+        {
+            var storageLock = (object?)null;
+            var publicationSawLockReleased = false;
+            var expected = new InvalidOperationException("Controlled publication failure.");
+            var container = new ItemContainer(StorageType.Normal, 2, _ =>
+            {
+                publicationSawLockReleased = Task.Run(() =>
+                {
+                    var acquired = Monitor.TryEnter(storageLock!, 0);
+                    if (acquired) Monitor.Exit(storageLock!);
+                    return acquired;
+                }).GetAwaiter().GetResult();
+                throw expected;
+            });
+            storageLock = ItemContainerTransaction.ResolveSingleBoundary(container).MutationLock;
+
+            var actual = Assert.ThrowsExactly<InvalidOperationException>(() => container.Add(CreateItem(1, 1)));
+
+            Assert.AreSame(expected, actual);
+            Assert.IsTrue(publicationSawLockReleased);
+        }
+
+        [TestMethod]
+        public void ItemContainerAdd_TransactionScopeRetainsMutationLock()
+        {
+            var container = new ItemContainer(StorageType.Normal, 2);
+            var storageLock = ItemContainerTransaction.ResolveSingleBoundary(container).MutationLock;
+            using var transaction = ItemContainerTransaction.Begin(container);
+
+            Assert.IsTrue(container.Add(CreateItem(1, 1)));
+            Assert.IsTrue(Monitor.IsEntered(storageLock));
+
+            transaction.Commit();
+            Assert.IsFalse(Monitor.IsEntered(storageLock));
+        }
+
+        [TestMethod]
+        public void BeginMutation_RejectsManuallyHeldLockWithoutReleasingIt()
+        {
+            var container = new ItemContainer(StorageType.Normal, 2);
+            var storageLock = ItemContainerTransaction.ResolveSingleBoundary(container).MutationLock;
+
+            lock (storageLock)
+            {
+                Assert.ThrowsExactly<InvalidOperationException>(() => container.BeginMutation());
+                Assert.IsTrue(Monitor.IsEntered(storageLock));
+            }
+        }
+
+        [TestMethod]
+        public void ItemContainerAdd_FailedStandaloneMutationReleasesLockWithoutPublishing()
+        {
+            var publications = 0;
+            var container = new ItemContainer(StorageType.Normal, 1, _ => publications++);
+            var storageLock = ItemContainerTransaction.ResolveSingleBoundary(container).MutationLock;
+            Assert.IsTrue(container.Add(CreateItem(1, 1)));
+            Assert.AreEqual(1, publications);
+
+            Assert.IsFalse(container.Add(CreateItem(2, 1)));
+
+            var lockWasReleased = Task.Run(() =>
+            {
+                var acquired = Monitor.TryEnter(storageLock, 0);
+                if (acquired) Monitor.Exit(storageLock);
+                return acquired;
+            }).GetAwaiter().GetResult();
+            Assert.IsTrue(lockWasReleased);
+            Assert.AreEqual(1, publications);
         }
 
         [TestMethod]
@@ -561,9 +710,12 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var storage = new ItemContainerStorage(StorageType.AlwaysStack, 2);
             var existing = CreateItem(1, 5, stackable: true);
             var newStack = CreateItem(2, 4, stackable: true);
-            Assert.IsTrue(storage.TryAdd(existing, out _));
+            HashSet<int> changedSlots;
 
-            Assert.IsTrue(storage.TryAddRange([CreateItem(1, 3, stackable: true), newStack], out var changedSlots));
+            {
+                Assert.IsTrue(storage.TryAdd(existing, out _));
+                Assert.IsTrue(storage.TryAddRange([CreateItem(1, 3, stackable: true), newStack], out changedSlots));
+            }
 
             Assert.AreSame(existing, storage[0]);
             Assert.AreEqual(8, existing.Count);
@@ -588,11 +740,13 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             var storage = new ItemContainerStorage(StorageType.Normal, 2);
             var existing = CreateItem(1, 3, stackable: true);
-            Assert.IsTrue(storage.TryAdd(existing, out _));
+             Assert.IsTrue(storage.TryAdd(existing, out _));
             var enumerator = storage.GetEnumerator();
             var revision = storage.MutationRevision;
 
-            var result = storage.TryAddRange(incoming, out var changedSlots);
+            bool result;
+            HashSet<int> changedSlots;
+             result = storage.TryAddRange(incoming, out changedSlots);
 
             Assert.IsTrue(result);
             Assert.IsEmpty(changedSlots);
@@ -610,7 +764,9 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var enumerator = storage.GetEnumerator();
             var revision = storage.MutationRevision;
 
-            Assert.IsTrue(storage.TryAddRange([CreateItem(1, 1)], out var changedSlots));
+            HashSet<int> changedSlots;
+
+                Assert.IsTrue(storage.TryAddRange([CreateItem(1, 1)], out changedSlots));
 
             Assert.IsNotEmpty(changedSlots);
             Assert.AreEqual(revision + 1, storage.MutationRevision);
@@ -643,7 +799,9 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var storage = new ItemContainerStorage(StorageType.Normal, 2);
             var incoming = CreateItem(1, 2);
 
-            Assert.IsTrue(storage.TryAddRange([incoming], out var changedSlots));
+            HashSet<int> changedSlots;
+
+                Assert.IsTrue(storage.TryAddRange([incoming], out changedSlots));
 
             Assert.AreEqual(1, storage[0]!.Count);
             Assert.AreEqual(1, storage[1]!.Count);
@@ -659,12 +817,14 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             var storage = new ItemContainerStorage(StorageType.Normal, 1);
             var existing = CreateItem(1, int.MaxValue - 1, stackable: true);
-            Assert.IsTrue(storage.TryAdd(existing, out _));
+             Assert.IsTrue(storage.TryAdd(existing, out _));
             var enumerator = storage.GetEnumerator();
             Assert.IsTrue(enumerator.MoveNext());
             var incoming = CreateItem(1, 2, stackable: true);
 
-            var result = storage.TryAddRange([incoming], out var changedSlots);
+            bool result;
+            HashSet<int> changedSlots;
+             result = storage.TryAddRange([incoming], out changedSlots);
 
             Assert.IsFalse(result);
             Assert.IsFalse(storage.HasSpaceForRange([incoming]));
@@ -889,41 +1049,52 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public void NormalMutation_UsesTradeSynchronizationBoundary()
+        public void NormalMutation_UsesMutationBoundaryLock()
         {
             var container = new TestableItemContainer(StorageType.Normal, 10);
             using var started = new ManualResetEventSlim();
-            using var proceed = new ManualResetEventSlim();
             using var finished = new ManualResetEventSlim();
 
-            Task mutation = Task.CompletedTask;
             var startedInTime = false;
+            var blockedOnMutationLock = false;
             var finishedWhileLocked = false;
-            container.Items.ExecuteUnderMutationLock(() =>
+            var boundary = ItemContainerTransaction.ResolveSingleBoundary(container.Items);
+            Exception? mutationFailure = null;
+            var mutation = new Thread(() =>
             {
-                mutation = Task.Run(() =>
+                started.Set();
+                try
                 {
-                    started.Set();
-                    proceed.Wait();
-                    try
-                    {
-                        container.Items.Add(CreateItem(1, 1));
-                    }
-                    finally
-                    {
-                        finished.Set();
-                    }
-                });
+                    container.Items.Add(CreateItem(1, 1));
+                }
+                catch (Exception exception)
+                {
+                    mutationFailure = exception;
+                }
+                finally
+                {
+                    finished.Set();
+                }
+            }) { IsBackground = true };
 
-                startedInTime = started.Wait(TimeSpan.FromSeconds(1));
-                proceed.Set();
-                finishedWhileLocked = finished.Wait(TimeSpan.FromMilliseconds(100));
-            });
+            lock (boundary.MutationLock)
+            {
+                mutation.Start();
+                startedInTime = started.Wait(TimeSpan.FromSeconds(5));
+                if (startedInTime)
+                {
+                    blockedOnMutationLock = SpinWait.SpinUntil(
+                        () => (mutation.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                        TimeSpan.FromSeconds(5));
+                    finishedWhileLocked = finished.IsSet;
+                }
+            }
 
             Assert.IsTrue(startedInTime);
+            Assert.IsTrue(blockedOnMutationLock, "The mutation must wait on the held boundary lock.");
             Assert.IsFalse(finishedWhileLocked);
-            Assert.IsTrue(finished.Wait(TimeSpan.FromSeconds(1)));
-            mutation.GetAwaiter().GetResult();
+            Assert.IsTrue(mutation.Join(TimeSpan.FromSeconds(5)));
+            if (mutationFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(mutationFailure).Throw();
             Assert.AreEqual(1, container.Items.TakenSlots);
         }
 
@@ -1015,7 +1186,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             newItems[1] = CreateItem(11, 1);
 
             // Act
-            container.Items.ReplaceState(newItems);
+            container.ReplaceState(newItems);
 
             // Assert
             Assert.AreEqual(2, container.Items.TakenSlots);
@@ -1032,7 +1203,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var replacement = new IItem?[container.Items.Capacity];
             replacement[1] = CreateItem(2, 1);
 
-            container.Items.ReplaceState(replacement);
+            container.ReplaceState(replacement);
 
             Assert.ThrowsExactly<InvalidOperationException>(() => enumerator.MoveNext());
             Assert.AreEqual(2, container.Items[1]!.Id);
@@ -1044,7 +1215,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var container = new TestableItemContainer(StorageType.Normal, 10);
             container.Items.Add(CreateItem(1, 1));
 
-            Assert.ThrowsExactly<ArgumentException>(() => container.Items.ReplaceState([CreateItem(2, 1)]));
+            Assert.ThrowsExactly<ArgumentException>(() => container.ReplaceState([CreateItem(2, 1)]));
 
             Assert.AreEqual(container.Items.Capacity, container.Items.SnapshotItems().Length);
             Assert.AreEqual(1, container.Items[0]!.Id);
@@ -1056,7 +1227,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var items = new IItem[container.Items.Capacity];
             items[5] = CreateItem(10, 1);
-            container.Items.ReplaceState(items);
+            container.ReplaceState(items);
 
             items[5] = CreateItem(11, 1);
             items[2] = CreateItem(12, 1);
@@ -1212,7 +1383,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var sourceEnumerator = source.Items.GetEnumerator();
             var destinationEnumerator = destination.Items.GetEnumerator();
 
-            Assert.IsFalse(source.Items.Mutations.TryTransferTo(destination.Items.Mutations, sourceItem!, 1));
+            Assert.IsFalse(Transfer(source.Items, destination.Items, sourceItem!, 1));
 
             Assert.AreSame(sourceItem, source.Items[0]);
             Assert.AreSame(destinationItem, destination.Items[0]);
@@ -1232,7 +1403,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var sourceEnumerator = source.Items.GetEnumerator();
             var sourceUpdates = source.UpdateCount;
 
-            Assert.IsFalse(source.Items.Mutations.TryTransferTo(destination.Items.Mutations, CreateItem(1, 3, stackable: true), 3));
+            Assert.IsFalse(Transfer(source.Items, destination.Items, CreateItem(1, 3, stackable: true), 3));
 
             Assert.AreSame(sourceItem, source.Items[0]);
             Assert.AreEqual(2, source.Items[0]!.Count);
@@ -1254,7 +1425,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var sourceEnumerator = source.Items.GetEnumerator();
             var destinationEnumerator = destination.Items.GetEnumerator();
 
-            Assert.IsFalse(source.Items.Mutations.TryTransferTo(destination.Items.Mutations, sourceItem!, 3));
+            Assert.IsFalse(Transfer(source.Items, destination.Items, sourceItem!, 3));
 
             Assert.AreSame(sourceItem, source.Items[0]);
             Assert.AreSame(destinationItem, destination.Items[0]);
@@ -1288,7 +1459,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                 destinationObservedCommit = true;
             };
 
-            Assert.IsTrue(source.Items.Mutations.TryTransferTo(destination.Items.Mutations, sourceItem!, 3));
+            Assert.IsTrue(Transfer(source.Items, destination.Items, sourceItem!, 3));
 
             Assert.AreSame(sourceItem, source.Items[0]);
             Assert.AreSame(destinationItem, destination.Items[0]);
@@ -1302,7 +1473,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         public void TryTransfer_NonStackableQuantity_PreservesMovedInstancesAndExtraData()
         {
             var source = new TestableItemContainer(StorageType.Normal, 2);
-            source.Items.ReplaceState(
+            source.ReplaceState(
             [
                 CreateItem(1, 1, extraData: [17]),
                 CreateItem(1, 1, extraData: [17])
@@ -1311,7 +1482,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var second = source.Items[1];
             var destination = new TestableItemContainer(StorageType.Normal, 2);
 
-            Assert.IsTrue(source.Items.Mutations.TryTransferTo(destination.Items.Mutations, first!, 2));
+            Assert.IsTrue(Transfer(source.Items, destination.Items, first!, 2));
 
             Assert.IsNull(source.Items[0]);
             Assert.IsNull(source.Items[1]);
@@ -1325,7 +1496,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         public void TryTransfer_SameIdDifferentExtraDataCannotSatisfyExactQuantity()
         {
             var source = new TestableItemContainer(StorageType.Normal, 2);
-            source.Items.ReplaceState(
+            source.ReplaceState(
             [
                 CreateItem(1, 1, extraData: [17]),
                 CreateItem(1, 1, extraData: [29])
@@ -1336,7 +1507,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var destination = new TestableItemContainer(StorageType.Normal, 2);
             var destinationUpdates = destination.UpdateCount;
 
-            Assert.IsFalse(source.Items.Mutations.TryTransferTo(destination.Items.Mutations, first!, 2));
+            Assert.IsFalse(Transfer(source.Items, destination.Items, first!, 2));
 
             Assert.AreSame(first, source.Items[0]);
             Assert.AreSame(second, source.Items[1]);
@@ -1351,14 +1522,14 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         public void TryTransfer_PreferredSlots_UsesSourceFirstAndExplicitDestinationSlot()
         {
             var source = new TestableItemContainer(StorageType.Normal, 2);
-            source.Items.ReplaceState(
+            source.ReplaceState(
             [
                 CreateItem(1, 3, stackable: true),
                 CreateItem(1, 5, stackable: true)
             ]);
             var destination = new TestableItemContainer(StorageType.Normal, 2);
 
-            Assert.IsTrue(source.Items.Mutations.TryTransferTo(destination.Items.Mutations, source.Items[0]!, 4, preferredSourceSlot: 1, destinationSlot: 1));
+            Assert.IsTrue(Transfer(source.Items, destination.Items, source.Items[0]!, 4, preferredSourceSlot: 1, destinationSlot: 1));
 
             Assert.AreEqual(3, source.Items[0]!.Count);
             Assert.AreEqual(1, source.Items[1]!.Count);
@@ -1374,7 +1545,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var sourceItem = source.Items[0];
             var destination = new TestableItemContainer(StorageType.Normal, 1);
 
-            Assert.IsTrue(source.Items.Mutations.TryTransferTo(destination.Items.Mutations, sourceItem!, 5));
+            Assert.IsTrue(Transfer(source.Items, destination.Items, sourceItem!, 5));
 
             Assert.AreSame(sourceItem, source.Items[0]);
             Assert.AreEqual(0, source.Items[0]!.Count);
@@ -1389,10 +1560,14 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             container.Items.Add(CreateItem(1, 2, stackable: true));
             var item = container.Items[0];
             var updates = container.UpdateCount;
+            var destination = new TestableItemContainer(StorageType.Normal, 1);
 
-            Assert.IsFalse(container.Items.Mutations.TryTransferTo(container.Items.Mutations, item!, 1));
-            Assert.IsFalse(container.Items.Mutations.TryTransferTo(new TestableItemContainer(StorageType.Normal, 1).Items.Mutations, item!, 0));
-            Assert.IsFalse(container.Items.Mutations.TryTransferTo(new TestableItemContainer(StorageType.Normal, 1).Items.Mutations, item!, -1));
+            Assert.IsFalse(Transfer(container.Items, container.Items, item!, 1));
+            using (ItemContainerTransaction.Begin(container.Items, destination.Items))
+            {
+                Assert.IsFalse(container.Items.TryTransferTo(destination.Items, item!, 0));
+                Assert.IsFalse(container.Items.TryTransferTo(destination.Items, item!, -1));
+            }
 
             Assert.AreSame(item, container.Items[0]);
             Assert.AreEqual(2, container.Items[0]!.Count);
@@ -1409,7 +1584,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var item = source.Items[0];
 
             Assert.ThrowsExactly<InvalidOperationException>(
-                () => source.Items.Mutations.TryTransferTo(destination.Items.Mutations, item!, 1));
+                () => Transfer(source.Items, destination.Items, item!, 1));
 
             Assert.IsNull(source.Items[0]);
             Assert.AreSame(item, destination.Items[0]);
@@ -1425,7 +1600,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var destination = new TestableItemContainer(StorageType.Normal, 4);
             var sourceUpdates = source.UpdateCount;
 
-            Assert.IsFalse(source.Items.Mutations.TryTransferTo(destination.Items.Mutations, sourceItem, int.MaxValue));
+            Assert.IsFalse(Transfer(source.Items, destination.Items, sourceItem, int.MaxValue));
 
             Assert.AreEqual(0, cloneCount);
             Assert.AreSame(sourceItem, source.Items[0]);
@@ -1436,28 +1611,53 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public async Task TryTransfer_OppositeDirectionsCompleteWithoutDeadlock()
+        public async Task TryTransfer_OppositeDirectionWaitsForForeignActiveScopeAndSucceedsAfterRelease()
         {
             var left = new TestableItemContainer(StorageType.Normal, 2);
             var right = new TestableItemContainer(StorageType.Normal, 2);
-            left.Items.Add(CreateItem(1, 1));
-            right.Items.Add(CreateItem(2, 1));
+            Assert.IsTrue(left.Items.Add(CreateItem(1, 1)));
+            Assert.IsTrue(right.Items.Add(CreateItem(2, 1)));
             var leftItem = left.Items[0]!;
             var rightItem = right.Items[0]!;
-            using var start = new Barrier(2);
-
-            var leftToRight = Task.Run(() => start.SignalAndWait(TimeSpan.FromSeconds(5)) &&
-                left.Items.Mutations.TryTransferTo(right.Items.Mutations, leftItem, 1));
-            var rightToLeft = Task.Run(() => start.SignalAndWait(TimeSpan.FromSeconds(5)) &&
-                right.Items.Mutations.TryTransferTo(left.Items.Mutations, rightItem, 1));
-
-            var results = await Task.WhenAll(leftToRight, rightToLeft).WaitAsync(TimeSpan.FromSeconds(5));
-
-            Assert.IsTrue(results[0]);
-            Assert.IsTrue(results[1]);
+            using var entered = new ManualResetEventSlim();
+            using var release = new ManualResetEventSlim();
+            using var attempted = new ManualResetEventSlim();
+            var leftToRight = Task.Run(() =>
+            {
+                using var transaction = ItemContainerTransaction.Begin(left.Items, right.Items);
+                entered.Set();
+                Assert.IsTrue(release.Wait(TimeSpan.FromSeconds(5)));
+                Assert.IsTrue(left.Items.TryTransferTo(right.Items, leftItem, 1));
+                transaction.Commit();
+            });
+            Task<bool>? rightToLeft = null;
+            try
+            {
+                Assert.IsTrue(entered.Wait(TimeSpan.FromSeconds(5)));
+                rightToLeft = Task.Run(() =>
+                {
+                    attempted.Set();
+                    return Transfer(right.Items, left.Items, rightItem, 1);
+                });
+                Assert.IsTrue(attempted.Wait(TimeSpan.FromSeconds(5)));
+                Assert.IsFalse(((IAsyncResult)rightToLeft).AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(100)),
+                    "An independent helper must wait for the foreign scope.");
+            }
+            finally { release.Set(); }
+            await leftToRight.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.IsNotNull(rightToLeft);
+            Assert.IsTrue(await rightToLeft.WaitAsync(TimeSpan.FromSeconds(5)));
             Assert.AreEqual(1, left.Items.GetCountById(2));
             Assert.AreEqual(1, right.Items.GetCountById(1));
             Assert.AreEqual(2, left.Items.TakenSlots + right.Items.TakenSlots);
+        }
+
+        private static bool Transfer(ItemContainer source, ItemContainer destination, IItem item, int count, int preferredSourceSlot = -1, int destinationSlot = -1)
+        {
+            using var transaction = ItemContainerTransaction.Begin(source, destination);
+            if (!source.TryTransferTo(destination, item, count, preferredSourceSlot, destinationSlot)) return false;
+            transaction.Commit();
+            return true;
         }
 
         [TestMethod]

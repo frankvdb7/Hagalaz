@@ -90,7 +90,7 @@ public sealed class ItemContainerPersistenceTests
     public void EquipmentRoundTrip_PreservesSemanticSlotsAndGaps()
     {
         using var scenario = new Scenario();
-        AssertRoundTrip(() => new EquipmentContainer(scenario.Owner, 15, scenario.Builder), container => container,
+        AssertRoundTrip(() => new EquipmentContainer(scenario.Owner, 15, scenario.Builder), container => container.Items,
             [new(101, 1, (int)EquipmentSlot.Hat, null), new(102, 1, (int)EquipmentSlot.Weapon, null),
                 new(103, 1, (int)EquipmentSlot.Shield, null), new(104, 1, (int)EquipmentSlot.Ring, null)]);
     }
@@ -123,13 +123,13 @@ public sealed class ItemContainerPersistenceTests
     public void MoneyPouchRoundTrip_PreservesZeroCoinSentinel()
     {
         using var scenario = new Scenario();
-        var source = new MoneyPouchContainer(scenario.Owner, scenario.Builder);
+        var source = CreateMoneyPouch(scenario);
         var saved = source.Dehydrate();
         Assert.HasCount(1, saved);
         Assert.AreEqual(0, saved[0].SlotId);
         Assert.AreEqual(0, saved[0].Count);
 
-        var restored = new MoneyPouchContainer(scenario.Owner, scenario.Builder);
+        var restored = CreateMoneyPouch(scenario);
         restored.Hydrate(saved);
         Assert.AreEqual(0, restored.Count);
         Assert.AreEqual(995, restored.Dehydrate()[0].ItemId);
@@ -139,7 +139,7 @@ public sealed class ItemContainerPersistenceTests
     public void MoneyPouchHydration_EmptyStateRestoresZeroCoinSentinel()
     {
         using var scenario = new Scenario();
-        var container = new MoneyPouchContainer(scenario.Owner, scenario.Builder);
+        var container = CreateMoneyPouch(scenario);
         container.Hydrate([new HydratedItemDto(995, 25, 0, null)]);
 
         container.Hydrate([]);
@@ -154,7 +154,7 @@ public sealed class ItemContainerPersistenceTests
     public void MoneyPouchHydration_RejectsNonCoinItemWithoutChangingState()
     {
         using var scenario = new Scenario();
-        var container = new MoneyPouchContainer(scenario.Owner, scenario.Builder);
+        var container = CreateMoneyPouch(scenario);
         container.Hydrate([new HydratedItemDto(995, 25, 0, null)]);
 
         Assert.ThrowsExactly<ArgumentException>(() => container.Hydrate([new HydratedItemDto(101, 5, 0, null)]));
@@ -247,7 +247,7 @@ public sealed class ItemContainerPersistenceTests
     public void MoneyPouchHydration_InvalidCoinSlot_ThrowsOutOfRangeWithoutChangingState(int invalidSlot)
     {
         using var scenario = new Scenario();
-        var container = new MoneyPouchContainer(scenario.Owner, scenario.Builder);
+        var container = CreateMoneyPouch(scenario);
         container.Hydrate([new HydratedItemDto(995, 25, 0, null)]);
 
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => container.Hydrate(
@@ -261,7 +261,7 @@ public sealed class ItemContainerPersistenceTests
     public void MoneyPouchHydration_NegativeCoinCount_ThrowsOutOfRangeWithoutChangingState()
     {
         using var scenario = new Scenario();
-        var container = new MoneyPouchContainer(scenario.Owner, scenario.Builder);
+        var container = CreateMoneyPouch(scenario);
         container.Hydrate([new HydratedItemDto(995, 25, 0, null)]);
 
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => container.Hydrate(
@@ -275,7 +275,7 @@ public sealed class ItemContainerPersistenceTests
     public void MoneyPouchHydration_DuplicateCoinSlot_ThrowsArgumentExceptionWithoutChangingState()
     {
         using var scenario = new Scenario();
-        var container = new MoneyPouchContainer(scenario.Owner, scenario.Builder);
+        var container = CreateMoneyPouch(scenario);
         container.Hydrate([new HydratedItemDto(995, 25, 0, null)]);
 
         Assert.ThrowsExactly<ArgumentException>(() => container.Hydrate(
@@ -328,6 +328,17 @@ public sealed class ItemContainerPersistenceTests
         }
     }
 
+    private static MoneyPouchContainer CreateMoneyPouch(Scenario scenario)
+    {
+        if (scenario.Owner.Inventory is not InventoryContainer)
+        {
+            scenario.Owner.Inventory.Returns(new InventoryContainer(scenario.Owner, 28,
+                Substitute.For<IMapRegionService>(), Substitute.For<IGroundItemBuilder>(), scenario.Builder));
+        }
+
+        return new MoneyPouchContainer(scenario.Owner, scenario.Builder);
+    }
+
     private static HydrationSubject CreateHydrationSubject(string containerName, Scenario scenario)
     {
         switch (containerName)
@@ -360,7 +371,7 @@ public sealed class ItemContainerPersistenceTests
             case "Equipment":
             {
                 var container = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
-                return new(container, entries =>
+                return new(container.Items, entries =>
                     container.Hydrate(entries.Select(entry => new HydratedItemDto(entry.ItemId, entry.Count, entry.SlotId, null)).ToArray()));
             }
             default:

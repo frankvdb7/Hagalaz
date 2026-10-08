@@ -1,0 +1,29 @@
+# Tasks
+
+> Historical task entries record intermediate implementations. The final approved contract is direct aggregate enlistment through `IItemTransactional`, with storage resolved only through internal `IItemTransactionSource`; public mutation-participant properties are not part of the current API.
+
+- [x] 1. Simplify ordinary item-container participation
+  - [x] 1.1 Remove `EnsureOutsideTransaction` from the boundary contract, implementation, and ordinary `ItemContainer` operations; retain low-level mutation access and automatic change notification.
+  - [x] 1.2 Keep the internal mutation boundary as transaction infrastructure and move ordinary transfer to `IItemContainer.TryTransferTo`; the earlier opaque-property approach was superseded by direct aggregate enlistment.
+  - [x] 1.3 Migrate ordinary mutation calls in Trade, Duel, Bank, Shop, Reward, Familiar, Equipment, MoneyPouch, and fixtures to normal container APIs; preserve transfer calls and transaction participant lists.
+- [x] 2. Align MoneyPouch and Equipment participation
+  - [x] 2.1 Replace the public MoneyPouch mutation boundary with the empty aggregate marker plus internal source implementation; exact operations participate in complete active scopes or own a scope when unbound.
+  - [x] 2.2 Make MoneyPouch inventory changes use normal container APIs and migrate all production and test callers.
+  - [x] 2.3 Allow the specified simple Equipment mutations to participate in an active scope while preserving immediate unbound and deferred bound completion.
+- [x] 3. Replace obsolete coverage and specify the contract
+  - [x] 3.1 Replace tests that expect ordinary mutation rejection with automatic participation, rollback, unenlisted mutation, and wrong-thread behavior coverage.
+  - [x] 3.2 Update MoneyPouch and Equipment behavior/API tests and remove tests for deleted boundary operations.
+  - [x] 3.3 Update canonical item-container specification and audit stale terminology/references.
+- [x] 4. Validate the refactor
+  - [x] 4.1 Run Abstractions, GameWorld, and Scripts test projects plus the full solution build.
+  - [x] 4.2 Run strict OpenSpec validation, jscpd, and `git diff --check`; report exact local results and leave all work uncommitted.
+- [x] 5. Move atomic transfer to the container API
+  - [x] 5.1 Record the initial opaque participant-property approach as superseded; add `IItemContainer.TryTransferTo`, delegating to the existing atomic storage algorithm.
+  - [x] 5.2 Keep a narrow internal transfer bridge for Equipment and migrate Bank, Familiar, Reward, Shop, Trade, and Duel callers.
+  - [x] 5.3 Migrate transfer tests and wrappers to the public container operation; retain transaction misuse, identity, transformed-item, sentinel, revision, and publication coverage.
+  - [x] 5.4 Reconcile canonical and active OpenSpec deltas, including the previously failing composition change.
+- [x] 5.5 Run requested test projects, build, strict OpenSpec, jscpd, and `git diff --check`; leave changes local.
+- [x] 6. Reconcile transaction participation with the approved aggregate marker API
+  - [x] 6.1 Add public `IItemTransactional` and internal `IItemTransactionSource`; remove the old public participant contract and all public mutation-participant properties.
+  - [x] 6.2 Migrate aggregate call sites and preserve `IItemContainer.TryTransferTo` through internal boundary resolution, including decorated interface destinations.
+  - [x] 6.3 Reconcile canonical and active OpenSpec text with the implemented API and run local validation without committing or pushing.

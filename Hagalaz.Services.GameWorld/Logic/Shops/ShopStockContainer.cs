@@ -80,8 +80,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
         public void SetItems(IItem[] items, bool update)
         {
+            using var mutation = _items.BeginMutation();
             _items.ReplaceState(items);
-            if (update) OnUpdate();
+            if (update) mutation.RecordChanges(null);
         }
 
         /// <summary>
@@ -140,24 +141,18 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 return false;
             }
 
-            var transaction = new ItemContainerTransaction(viewer.Inventory.Items.Mutations, _items.Mutations);
-            if (_shop.CurrencyId == 995) viewer.MoneyPouch.Mutations.EnlistIn(transaction);
-            var payout = _shop.CurrencyId == 995
-                ? null
-                : _itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)currencyCount).Build();
-
-            return transaction.TryExecute(tx =>
-            {
-                if (!tx.TryTransfer(viewer.Inventory.Items.Mutations, _items.Mutations, item, count, slot,
-                        destinationItem: transformed ? sold : null))
-                {
-                    return false;
-                }
-
-                return _shop.CurrencyId == 995
-                    ? viewer.MoneyPouch.Mutations.TryStageAddExact(tx, (int)currencyCount)
-                    : tx.TryAddRange(viewer.Inventory.Items.Mutations, [payout!]);
-            });
+            IItemTransactional[] participants = _shop.CurrencyId == 995
+                ? [viewer.MoneyPouch, _items]
+                : [viewer.Inventory.Items, _items];
+            using var transaction = ItemContainerTransaction.Begin(participants);
+            if (!viewer.Inventory.Items.TryTransferTo(_items, item, count, slot,
+                    destinationItem: transformed ? sold : null)) return false;
+            var paid = _shop.CurrencyId == 995
+                ? viewer.MoneyPouch.Add((int)currencyCount)
+                : viewer.Inventory.Items.Add(_itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)currencyCount).Build());
+            if (!paid) return false;
+            transaction.Commit();
+            return true;
         }
 
         /// <summary>
@@ -239,48 +234,34 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             }
 
             var originalStock = _originalStock.Any(it => it.Id == item.Id);
-            var transaction = new ItemContainerTransaction(_items.Mutations, viewer.Inventory.Items.Mutations);
-            if (_shop.CurrencyId == 995) viewer.MoneyPouch.Mutations.EnlistIn(transaction);
-
-            var paymentRejected = false;
-            var succeeded = transaction.TryExecute(tx =>
+            IItemTransactional[] participants = _shop.CurrencyId == 995
+                ? [_items, viewer.MoneyPouch]
+                : [_items, viewer.Inventory.Items];
+            var insufficientCurrency = false;
+            using (var transaction = ItemContainerTransaction.Begin(participants))
             {
                 if (cost > 0)
                 {
                     var paid = _shop.CurrencyId == 995
-                        ? viewer.MoneyPouch.Mutations.TryStageRemoveExact(tx, (int)cost)
-                        : tx.TryRemoveExact(viewer.Inventory.Items.Mutations,
+                        ? viewer.MoneyPouch.TryRemoveExact((int)cost)
+                        : viewer.Inventory.Items.TryRemoveExact(
                             _itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)cost).Build());
-                    if (!paid)
-                    {
-                        paymentRejected = true;
-                        return false;
-                    }
+                    insufficientCurrency = !paid;
                 }
-
-                if (!tx.TryTransfer(_items.Mutations, viewer.Inventory.Items.Mutations, item, count, slot))
+                if (!insufficientCurrency)
                 {
-                    return false;
+                    if (!_items.TryTransferTo(viewer.Inventory.Items, item, count, slot)) return false;
+                    transaction.Commit();
                 }
-
-                if (!originalStock)
-                {
-                    tx.OnCommitted(() =>
-                    {
-                        if (Items[slot] == null) Items.Sort();
-                    });
-                }
-
-                tx.OnCommitted(() => _eventManager.SendEvent(new ShopItemBoughtEvent(viewer, _shop, toRemove)));
-                return true;
-            });
-
-            if (!succeeded && paymentRejected)
+            }
+            if (insufficientCurrency)
             {
                 viewer.SendChatMessage("You don't have enough " + _itemRepository.FindItemDefinitionById(_shop.CurrencyId).Name.ToLower() + "!");
+                return false;
             }
-
-            return succeeded;
+            if (!originalStock && Items[slot] == null) Items.Sort();
+            _eventManager.SendEvent(new ShopItemBoughtEvent(viewer, _shop, toRemove));
+            return true;
         }
 
         /// <summary>
@@ -290,7 +271,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         {
             var changedSlots = new HashSet<int>();
             var shouldSort = false;
-            _items.ExecuteUnderMutationLock(() =>
+            using (var mutation = _items.BeginMutation())
             {
                 var items = _items.SnapshotItems();
                 // This uses the full capacity, because we don't know if items were added.
@@ -346,12 +327,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 if (changedSlots.Count > 0)
                 {
                     _items.ReplaceState(items);
+                    mutation.RecordChanges(shouldSort ? null : changedSlots);
                 }
-            });
-
-            if (changedSlots.Count > 0)
-            {
-                OnUpdate(shouldSort ? null : changedSlots);
             }
         }
     }

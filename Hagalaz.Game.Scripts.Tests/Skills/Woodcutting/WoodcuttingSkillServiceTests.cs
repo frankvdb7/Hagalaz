@@ -113,7 +113,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
 
             var hatchet = new HatchetDto { ItemId = 1, RequiredLevel = 1, Type = HatchetType.Bronze, ChopAnimationId = 1, CanoeAnimationId = 1, BaseHarvestChance = 0.1 };
             _woodcuttingService.FindAllHatchets().Returns(Task.FromResult((IReadOnlyList<HatchetDto>)new List<HatchetDto> { hatchet }));
-            character.Equipment.GetById(hatchet.ItemId).Returns(Substitute.For<IItem>());
+            character.Equipment.Items.GetById(hatchet.ItemId).Returns(Substitute.For<IItem>());
 
             var tree = Substitute.For<IGameObject>();
             ConfigureTarget(character, tree, new EntityHandle<IGameObject>(1, 1));
@@ -232,7 +232,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
 
             var hatchet = new HatchetDto { ItemId = 1, RequiredLevel = 1, Type = HatchetType.Bronze, ChopAnimationId = 1, CanoeAnimationId = 1, BaseHarvestChance = 0.1 };
             _woodcuttingService.FindAllHatchets().Returns(Task.FromResult((IReadOnlyList<HatchetDto>)new List<HatchetDto> { hatchet }));
-            character.Equipment.GetById(hatchet.ItemId).Returns(Substitute.For<IItem>());
+            character.Equipment.Items.GetById(hatchet.ItemId).Returns(Substitute.For<IItem>());
 
             var tree = Substitute.For<IGameObject>();
             ConfigureTarget(character, tree, new EntityHandle<IGameObject>(3, 1));
@@ -295,7 +295,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
                 BaseHarvestChance = 0.1,
             };
             _woodcuttingService.FindAllHatchets().Returns(Task.FromResult<IReadOnlyList<HatchetDto>>([hatchet]));
-            character.Equipment.GetById(hatchet.ItemId).Returns(Substitute.For<IItem>());
+            character.Equipment.Items.GetById(hatchet.ItemId).Returns(Substitute.For<IItem>());
 
             var tree = Substitute.For<IGameObject>();
             ConfigureTarget(character, tree, new EntityHandle<IGameObject>(5, 1));

@@ -64,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
             var wcLevel = character.Statistics.GetSkillLevel(StatisticsConstants.Woodcutting);
             return hatchets
                 .Where(h => h.RequiredLevel <= wcLevel &&
-                            (character.Equipment.GetById(h.ItemId) != null || character.Inventory.Items.GetById(h.ItemId) != null))
+                            (character.Equipment.Items.GetById(h.ItemId) != null || character.Inventory.Items.GetById(h.ItemId) != null))
                 .OrderByDescending(h => h.RequiredLevel)
                 .FirstOrDefault();
         }

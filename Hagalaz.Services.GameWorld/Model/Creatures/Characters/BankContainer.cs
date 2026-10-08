@@ -48,35 +48,27 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public bool DepositFromMoneyPouch([NotNullWhen(true)] out IItem? deposited)
         {
-            IItem? stagedCoins = null;
-            var bankRejected = false;
-            var transaction = new ItemContainerTransaction(_items.Mutations);
-            _owner.MoneyPouch.Mutations.EnlistIn(transaction);
-            var succeeded = transaction.TryExecute(tx =>
+            deposited = null;
+            var bankFull = false;
+            using (var transaction = ItemContainerTransaction.Begin(_items, _owner.MoneyPouch))
             {
                 var count = _owner.MoneyPouch.Count;
                 if (count <= 0) return false;
-
-                stagedCoins = _itemBuilder.Create().WithId(995).WithCount(count).Build();
-                if (!_owner.MoneyPouch.Mutations.TryStageRemoveExact(tx, count)) return false;
-                if (!tx.TryAddRange(_items.Mutations, [stagedCoins]))
+                var coins = _itemBuilder.Create().WithId(995).WithCount(count).Build();
+                if (!_owner.MoneyPouch.TryRemoveExact(count)) return false;
+                if (!_items.Add(coins))
                 {
-                    bankRejected = true;
-                    return false;
+                    bankFull = true;
                 }
-
-                return true;
-            });
-
-            if (!succeeded && bankRejected)
-            {
-                _owner.SendChatMessage("Not enough space in your bank.");
-                stagedCoins = null;
+                else
+                {
+                    transaction.Commit();
+                    deposited = coins;
+                    return true;
+                }
             }
-
-            deposited = succeeded ? stagedCoins : null;
-            return succeeded;
-
+            if (bankFull) _owner.SendChatMessage("Not enough space in your bank.");
+            return false;
         }
 
         /// <summary>
@@ -104,11 +96,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = CreateDepositItem(item, count, out var transformed);
-            if (container.Mutations.TryTransferTo(_items.Mutations, item, count, slot,
-                    destinationItem: transformed ? deposited : null))
-            {
-                return true;
-            }
+            if (container.TryTransferTo(_items, item, count, slot,
+                    destinationItem: transformed ? deposited : null)) return true;
 
             _owner.SendChatMessage("Not enough space in your bank.");
             deposited = null;
@@ -138,7 +127,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             var equipmentContainer = _owner.Equipment;
-            if (equipmentContainer[(int)slot] is not { } equippedItem)
+            if (equipmentContainer[slot] is not { } equippedItem)
             {
                 deposited = null;
                 return false;
@@ -188,11 +177,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = CreateDepositItem(item, count, out var transformed);
-            if (_owner.Inventory.Items.Mutations.TryTransferTo(_items.Mutations, item, count, slot,
-                    destinationItem: transformed ? deposited : null))
-            {
-                return true;
-            }
+            if (_owner.Inventory.Items.TryTransferTo(_items, item, count, slot,
+                    destinationItem: transformed ? deposited : null)) return true;
 
             _owner.SendChatMessage("Not enough space in your bank.");
             deposited = null;
@@ -279,16 +265,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             withdrawed.Count = count;
-            if (!_items.Mutations.TryTransferTo(_owner.Inventory.Items.Mutations, item, count, slot,
-                    destinationItem: transformed ? withdrawed : null))
+            using (var transaction = ItemContainerTransaction.Begin(_items, _owner.Inventory.Items))
             {
-                _owner.SendChatMessage(GameStrings.InventoryFull);
-                withdrawed = null;
-                return false;
+                if (_items.TryTransferTo(_owner.Inventory.Items, item, count, slot,
+                        destinationItem: transformed ? withdrawed : null))
+                {
+                    _items.Sort();
+                    transaction.Commit();
+                    return true;
+                }
             }
 
-            Items.Sort();
-            return true;
+            _owner.SendChatMessage(GameStrings.InventoryFull);
+            withdrawed = null;
+            return false;
 
         }
 

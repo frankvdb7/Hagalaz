@@ -1,12 +1,12 @@
+using Hagalaz.Game.Abstractions.Model.Items;
+
 namespace Hagalaz.Game.Abstractions.Collections
 {
     /// <summary>
     /// Defines the contract for a player's money pouch, a special container that holds coins separately from the main inventory.
     /// </summary>
-    public interface IMoneyPouchContainer
+    public interface IMoneyPouchContainer : IItemTransactional
     {
-        IMoneyPouchMutationBoundary Mutations { get; }
-
         bool HasSpaceForCoins(int count);
 
         bool HasCoins(int count);
@@ -22,10 +22,19 @@ namespace Hagalaz.Game.Abstractions.Collections
         int Count { get; }
 
         /// <summary>
-        /// Adds a specified number of coins to the money pouch.
+        /// Adds exactly the requested number of coins, using the inventory for any amount that overflows the pouch.
+        /// The addition is all-or-nothing.
         /// </summary>
         /// <param name="count">The number of coins to add.</param>
         /// <returns><c>true</c> if the coins were added successfully; otherwise, <c>false</c>.</returns>
+        /// <remarks>
+        /// When none of the pouch's required storage is currently enlisted, this operation creates and owns one
+        /// <see cref="ItemContainerTransaction"/> covering the pouch and inventory storage. When every required storage
+        /// already belongs to the same active current-thread transaction, this operation participates in that
+        /// caller-owned transaction and does not commit it. When only part of the required storage is enlisted, or
+        /// required storage belongs to different transactions, this operation throws
+        /// <see cref="InvalidOperationException"/> before mutation.
+        /// </remarks>
         bool Add(int count);
 
         /// <summary>
@@ -50,13 +59,26 @@ namespace Hagalaz.Game.Abstractions.Collections
         int Remove(int count);
 
         /// <summary>
-        /// Adds exactly the requested coins using normal pouch overflow rules.
+        /// Transfers the full coin stack represented by <paramref name="coins"/> from an already-enlisted item
+        /// container into this pouch.
         /// </summary>
-        bool TryAddExact(int count);
+        /// <remarks>
+        /// This operation requires the source, pouch, and inventory storage to belong to the same active
+        /// caller-owned <see cref="ItemContainerTransaction"/>. It never creates a transaction.
+        /// </remarks>
+        bool TryTransferCoinsFrom(IItemContainer source, IItem coins, int preferredSourceSlot = -1);
 
         /// <summary>
         /// Removes exactly the requested number of coins from the pouch and inventory, if available.
         /// </summary>
+        /// <remarks>
+        /// When none of the pouch's required storage is currently enlisted, this operation creates and owns one
+        /// <see cref="ItemContainerTransaction"/> covering the pouch and inventory storage. When every required storage
+        /// already belongs to the same active current-thread transaction, this operation participates in that
+        /// caller-owned transaction and does not commit it. When only part of the required storage is enlisted, or
+        /// required storage belongs to different transactions, this operation throws
+        /// <see cref="InvalidOperationException"/> before mutation.
+        /// </remarks>
         bool TryRemoveExact(int count);
     }
 }

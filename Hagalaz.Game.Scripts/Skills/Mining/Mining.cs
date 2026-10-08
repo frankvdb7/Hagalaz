@@ -22,7 +22,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         {
             var miningLevel = character.Statistics.GetSkillLevel(StatisticsConstants.Mining);
             return pickaxes
-                .Where(h => h.RequiredLevel <= miningLevel && (character.Equipment.GetById(h.ItemId) != null || character.Inventory.Items.GetById(h.ItemId) != null))
+                .Where(h => h.RequiredLevel <= miningLevel && (character.Equipment.Items.GetById(h.ItemId) != null || character.Inventory.Items.GetById(h.ItemId) != null))
                 .OrderByDescending(h => h.RequiredLevel) // return the highest possible level
                 .FirstOrDefault(); // return null if nothing found
         }

@@ -194,7 +194,7 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
 
         private static bool TryGetJewelrySlot(ICharacter character, IItem jewelry, bool equipment, out int slot)
         {
-            IContainer<IItem?> items = equipment ? character.Equipment : character.Inventory.Items;
+            IContainer<IItem?> items = equipment ? character.Equipment.Items : character.Inventory.Items;
             slot = items.IndexOf(item => ReferenceEquals(item, jewelry));
             return slot >= 0;
         }

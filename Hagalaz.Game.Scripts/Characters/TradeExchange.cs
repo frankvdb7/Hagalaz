@@ -20,131 +20,105 @@ internal sealed class TradeExchange
         _itemBuilder = itemBuilder;
     }
 
-    public bool TryCompleteTrade(ICharacter first, IItemContainer firstOffer, ICharacter second,
+    /// <summary>Stages a trade completion inside the caller-owned item-container transaction.</summary>
+    /// <remarks>
+    /// The caller must include both offer containers and both MoneyPouches in the transaction. Each MoneyPouch
+    /// contributes its inventory storage. This method does not create or commit a transaction.
+    /// </remarks>
+    public bool TryStageCompletion(ICharacter first, IItemContainer firstOffer, ICharacter second,
         IItemContainer secondOffer) =>
-        TryExchangeOffers(first, firstOffer, second, secondOffer, secondOffer, firstOffer);
+        StageOffers(first, second, secondOffer, firstOffer);
 
-    public bool TryRefundTrade(ICharacter first, IItemContainer firstOffer, ICharacter second,
+    /// <summary>Stages a trade refund inside the caller-owned item-container transaction.</summary>
+    /// <remarks>
+    /// The caller must include both offer containers and both MoneyPouches in the transaction. Each MoneyPouch
+    /// contributes its inventory storage. This method does not create or commit a transaction.
+    /// </remarks>
+    public bool TryStageRefund(ICharacter first, IItemContainer firstOffer, ICharacter second,
         IItemContainer secondOffer) =>
-        TryExchangeOffers(first, firstOffer, second, secondOffer, firstOffer, secondOffer);
+        StageOffers(first, second, firstOffer, secondOffer);
 
-    private bool TryExchangeOffers(ICharacter first, IItemContainer firstOffer, ICharacter second,
-        IItemContainer secondOffer, IItemContainer itemsForFirst, IItemContainer itemsForSecond)
+    private bool StageOffers(ICharacter first, ICharacter second,
+        IItemContainer itemsForFirst, IItemContainer itemsForSecond)
     {
-        var transaction = new ItemContainerTransaction(firstOffer.Mutations, secondOffer.Mutations,
-            first.Inventory.Items.Mutations, second.Inventory.Items.Mutations);
-        first.MoneyPouch.Mutations.EnlistIn(transaction);
-        second.MoneyPouch.Mutations.EnlistIn(transaction);
-
-        var succeeded = transaction.TryExecute(tx =>
-        {
-            var firstItems = CloneOfferedItems(itemsForFirst);
-            var secondItems = CloneOfferedItems(itemsForSecond);
-            if (!CanReceive(first, firstItems) || !CanReceive(second, secondItems))
-            {
-                return false;
-            }
-
-            if (!Receive(first, firstItems, tx) || !Receive(second, secondItems, tx))
-            {
-                return false;
-            }
-
-            tx.Clear(firstOffer.Mutations);
-            tx.Clear(secondOffer.Mutations);
-            return true;
-        });
-
-        return succeeded;
+        var firstItems = CloneOfferedItems(itemsForFirst);
+        var secondItems = CloneOfferedItems(itemsForSecond);
+        if (!CanReceive(first, firstItems) || !CanReceive(second, secondItems)) return false;
+        if (!TransferOffer(itemsForFirst, first) || !TransferOffer(itemsForSecond, second)) return false;
+        return true;
     }
 
-    /// <summary>Moves untouched escrow to existing recovery containers during forced destruction.</summary>
-    internal bool TryConserveEscrow(ICharacter first, IItemContainer firstOffer, ICharacter second,
+    /// <summary>Stages moving untouched escrow to recovery containers during forced destruction.</summary>
+    /// <remarks>
+    /// The caller must begin a transaction containing both offer containers and every available recovery destination
+    /// that may be selected before calling this method. This method does not create or commit a transaction.
+    /// </remarks>
+    internal bool TryStageEscrowRecovery(ICharacter first, IItemContainer firstOffer, ICharacter second,
         IItemContainer secondOffer)
     {
-        var transaction = new ItemContainerTransaction(firstOffer.Mutations, secondOffer.Mutations);
-        AddRecoveryBoundary(transaction, first.Rewards?.Items);
-        AddRecoveryBoundary(transaction, first.Bank?.Items);
-        AddRecoveryBoundary(transaction, second.Rewards?.Items);
-        AddRecoveryBoundary(transaction, second.Bank?.Items);
-
-        return transaction.TryExecute(tx =>
-        {
-            var firstItems = CloneOfferedItems(firstOffer);
-            var secondItems = CloneOfferedItems(secondOffer);
-            var firstDestination = GetRecoveryContainer(first, firstItems);
-            var secondDestination = GetRecoveryContainer(second, secondItems);
-            if ((firstItems.Length > 0 && firstDestination == null) ||
-                (secondItems.Length > 0 && secondDestination == null))
-            {
-                return false;
-            }
-
-            if (firstDestination != null && firstItems.Length > 0 &&
-                !tx.TryAddRange(firstDestination.Mutations, firstItems))
-            {
-                return false;
-            }
-
-            if (secondDestination != null && secondItems.Length > 0 &&
-                !tx.TryAddRange(secondDestination.Mutations, secondItems))
-            {
-                return false;
-            }
-
-            tx.Clear(firstOffer.Mutations);
-            tx.Clear(secondOffer.Mutations);
-            return true;
-        });
+        var firstItems = CloneOfferedItems(firstOffer);
+        var secondItems = CloneOfferedItems(secondOffer);
+        var firstDestination = GetRecoveryContainer(first, firstItems);
+        var secondDestination = GetRecoveryContainer(second, secondItems);
+        if ((firstItems.Length > 0 && firstDestination == null) ||
+            (secondItems.Length > 0 && secondDestination == null)) return false;
+        if (firstDestination != null && firstItems.Length > 0 && !TransferOffer(firstOffer, firstDestination)) return false;
+        if (secondDestination != null && secondItems.Length > 0 && !TransferOffer(secondOffer, secondDestination)) return false;
+        return true;
     }
 
     internal bool TryOfferMoneyFromPouch(ICharacter character, IItemContainer offer, IItem coins)
     {
         if (coins.Count <= 0) return false;
 
-        var transaction = new ItemContainerTransaction(offer.Mutations);
-        character.MoneyPouch.Mutations.EnlistIn(transaction);
-        var succeeded = transaction.TryExecute(tx =>
+        using var transaction = ItemContainerTransaction.Begin(offer, character.MoneyPouch);
+        if (!character.MoneyPouch.HasCoins(coins.Count) || !offer.HasSpaceFor(coins) || !offer.Add(coins) ||
+            !character.MoneyPouch.TryRemoveExact(coins.Count)) return false;
+        transaction.Commit();
+        return true;
+    }
+
+    internal bool TryReturnMoneyToPouch(ICharacter character, IItemContainer offer, IItem coins, int preferredSlot)
+    {
+        using var transaction = ItemContainerTransaction.Begin(offer, character.MoneyPouch);
+        if (!character.MoneyPouch.TryTransferCoinsFrom(offer, coins, preferredSlot)) return false;
+        transaction.Commit();
+        return true;
+    }
+
+    private bool TransferOffer(IItemContainer source, ICharacter recipient)
+    {
+        var offeredItems = source.Select((item, slot) => (item, slot))
+            .Where(entry => entry.item != null)
+            .Select(entry => (Item: entry.item!, entry.slot))
+            .ToArray();
+
+        foreach (var (item, slot) in offeredItems)
         {
-            if (!character.MoneyPouch.HasCoins(coins.Count) || !offer.HasSpaceFor(coins) ||
-                !tx.TryAddRange(offer.Mutations, [coins]))
+            if (item.Id == CoinsItemId)
+            {
+                if (!recipient.MoneyPouch.TryTransferCoinsFrom(source, item, slot)) return false;
+            }
+            else if (!source.TryTransferTo(recipient.Inventory.Items, item, item.Count,
+                         slot, destinationItem: item.Clone()))
             {
                 return false;
             }
-
-            return character.MoneyPouch.Mutations.TryStageRemoveExact(tx, coins.Count);
-        });
-
-        return succeeded;
-    }
-
-    internal bool TryReturnMoneyToPouch(ICharacter character, IItemContainer offer, IItem coins,
-        int preferredSlot)
-    {
-        var transaction = new ItemContainerTransaction(offer.Mutations);
-        character.MoneyPouch.Mutations.EnlistIn(transaction);
-        var succeeded = transaction.TryExecute(tx =>
-        {
-            if (!tx.TryRemoveExact(offer.Mutations, coins, preferredSlot)) return false;
-            return character.MoneyPouch.Mutations.TryStageAddExact(tx, coins.Count);
-        });
-
-        return succeeded;
-    }
-
-    private bool Receive(ICharacter character, IReadOnlyList<IItem> items, IItemContainerTransaction transaction)
-    {
-        var nonCoinItems = items.Where(item => item.Id != CoinsItemId).ToArray();
-        if (nonCoinItems.Length > 0 && !transaction.TryAddRange(character.Inventory.Items.Mutations, nonCoinItems))
-        {
-            return false;
         }
 
-        var coinCount = items.Where(item => item.Id == CoinsItemId).Sum(item => (long)item.Count);
-        if (coinCount <= 0) return true;
-        if (coinCount > int.MaxValue || !character.MoneyPouch.Mutations.TryStageAddExact(transaction, (int)coinCount))
+        return true;
+    }
+
+    private static bool TransferOffer(IItemContainer source, IItemContainer destination)
+    {
+        var offeredItems = source.Select((item, slot) => (item, slot))
+            .Where(entry => entry.item != null)
+            .Select(entry => (Item: entry.item!, entry.slot))
+            .ToArray();
+
+        foreach (var (item, slot) in offeredItems)
         {
-            return false;
+            if (!source.TryTransferTo(destination, item, item.Count, slot, destinationItem: item.Clone())) return false;
         }
 
         return true;
@@ -181,10 +155,5 @@ internal sealed class TradeExchange
 
     private IItem[] CloneOfferedItems(IItemContainer container) =>
         container.OfType<IItem>().Select(item => item.Clone()).ToArray();
-
-    private void AddRecoveryBoundary(IItemContainerTransaction transaction, IItemContainer? container)
-    {
-        if (container != null) transaction.Include(container.Mutations);
-    }
 
 }
