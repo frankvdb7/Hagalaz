@@ -189,10 +189,12 @@ public sealed class ItemContainerTransferTests
 
         Exception? transferFailure = null;
         Exception? transactionFailure = null;
+        var transferStillOwnsStorage = true;
         var transferThread = new Thread(() =>
         {
             try { source.TryTransferTo(destination, item, 2); }
             catch (Exception exception) { transferFailure = exception; }
+            transferStillOwnsStorage = ItemContainerMutationBoundary.CurrentThreadOwnsStorage;
         }) { IsBackground = true };
         transferThread.Start();
         Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
@@ -224,6 +226,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsTrue(transferThread.Join(TimeSpan.FromSeconds(5)));
         Assert.IsTrue(transactionThread.Join(TimeSpan.FromSeconds(5)));
         Assert.AreSame(failure, transferFailure);
+        Assert.IsFalse(transferStillOwnsStorage, "Both standalone publication claims must be released after publisher failure.");
         if (transactionFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transactionFailure).Throw();
         Assert.IsTrue(transactionEntered.IsSet);
 
@@ -1172,11 +1175,13 @@ public sealed class ItemContainerTransferTests
         var publicationFailure = new InvalidOperationException("Standalone publication failed.");
         var container = new ItemContainer(StorageType.Normal, 2, _ =>
         {
+            Assert.IsTrue(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
             if (Interlocked.Increment(ref publicationCount) == 1) throw publicationFailure;
         });
 
         Assert.AreSame(publicationFailure, Assert.ThrowsExactly<InvalidOperationException>(() => container.Add(new TestItem(608, 1))));
 
+        Assert.IsFalse(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
         AssertUnboundAndUnlocked(container);
         Assert.AreEqual(1, container.GetCountById(608));
         Assert.IsTrue(container.Add(new TestItem(609, 1)));
@@ -1197,6 +1202,146 @@ public sealed class ItemContainerTransferTests
         Assert.AreEqual(0, publications);
         transaction.Commit();
         Assert.AreEqual(1, publications);
+    }
+
+    [TestMethod]
+    public void ItemContainerTransaction_BalancesCurrentThreadOwnershipOnCommitAndRollback()
+    {
+        var container = new ItemContainer(StorageType.Normal, 2);
+        Assert.IsFalse(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
+
+        using (ItemContainerTransaction.Begin(container))
+        {
+            Assert.IsTrue(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
+            Assert.IsTrue(container.Add(new TestItem(6051, 1)));
+        }
+
+        Assert.IsFalse(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
+        Assert.AreEqual(0, container.TakenSlots);
+
+        using (var transaction = ItemContainerTransaction.Begin(container))
+        {
+            Assert.IsTrue(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
+            transaction.Commit();
+        }
+
+        Assert.IsFalse(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
+    }
+
+    [TestMethod]
+    public void Mutation_StorageOwnerRejectsCrossContainerPublicationCycle()
+    {
+        using var transactionStarted = new ManualResetEventSlim();
+        using var publicationStarted = new ManualResetEventSlim();
+        using var secondMutationReturned = new ManualResetEventSlim();
+        using var firstMutationReturned = new ManualResetEventSlim();
+        var observePublication = false;
+        var publicationCount = 0;
+        ItemContainer? first = null;
+        ItemContainer? second = null;
+        var callbackItem = new TestItem(612, 1);
+        first = new ItemContainer(StorageType.Normal, 2);
+        second = new ItemContainer(StorageType.Normal, 2, _ =>
+        {
+            if (!observePublication || Interlocked.Increment(ref publicationCount) != 1) return;
+            publicationStarted.Set();
+            try
+            {
+                Assert.IsTrue(transactionStarted.Wait(TimeSpan.FromSeconds(5)), "The opposing transaction must own the first boundary.");
+                Assert.IsTrue(secondMutationReturned.Wait(TimeSpan.FromSeconds(5)), "The opposing mutation must be rejected without waiting.");
+                Assert.ThrowsExactly<InvalidOperationException>(() => first!.Add(callbackItem));
+            }
+            finally { firstMutationReturned.Set(); }
+        });
+
+        var triggerItem = new TestItem(610, 1);
+        var conflictingItem = new TestItem(611, 1);
+        observePublication = true;
+
+        Exception? transactionFailure = null;
+        Exception? publicationFailure = null;
+        Exception? rejectedMutation = null;
+        var transactionThread = new Thread(() =>
+        {
+            try
+            {
+                using var transaction = ItemContainerTransaction.Begin(first!);
+                transactionStarted.Set();
+                Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
+                try { second!.Add(conflictingItem); }
+                catch (InvalidOperationException exception) { rejectedMutation = exception; }
+                finally { secondMutationReturned.Set(); }
+                Assert.IsTrue(firstMutationReturned.Wait(TimeSpan.FromSeconds(5)));
+                transaction.Commit();
+                Assert.IsFalse(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
+            }
+            catch (Exception exception) { transactionFailure = exception; }
+        }) { IsBackground = true };
+        var publicationThread = new Thread(() =>
+        {
+            try { Assert.IsTrue(second!.Add(triggerItem)); }
+            catch (Exception exception) { publicationFailure = exception; }
+        }) { IsBackground = true };
+
+        transactionThread.Start();
+        try
+        {
+            Assert.IsTrue(transactionStarted.Wait(TimeSpan.FromSeconds(5)));
+            publicationThread.Start();
+            Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
+            Assert.IsTrue(transactionThread.Join(TimeSpan.FromSeconds(5)), "The transaction thread must finish without waiting on publication.");
+            Assert.IsTrue(publicationThread.Join(TimeSpan.FromSeconds(5)), "The publication thread must finish without waiting on the transaction.");
+        }
+        finally
+        {
+            secondMutationReturned.Set();
+            firstMutationReturned.Set();
+        }
+
+        if (transactionFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transactionFailure).Throw();
+        if (publicationFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(publicationFailure).Throw();
+
+        Assert.IsNotNull(rejectedMutation, "A thread that owns one storage scope must reject a contended additional mutation.");
+        Assert.AreSame(triggerItem, second[0]);
+        Assert.AreEqual(-1, second.GetInstanceSlot(conflictingItem));
+        Assert.AreEqual(-1, first.GetInstanceSlot(callbackItem));
+        AssertUnboundAndUnlocked(first, second);
+    }
+
+    [TestMethod]
+    public void TransactionBegin_WhenOwningStorageRejectsContendedAdditionalLocksAndReleasesPrefix()
+    {
+        var owned = new ItemContainer(StorageType.Normal, 1);
+        var prefix = new ItemContainer(StorageType.Normal, 1);
+        var contended = new ItemContainer(StorageType.Normal, 1);
+        var prefixBoundary = Boundary(prefix);
+        var contendedBoundary = Boundary(contended);
+        Assert.IsTrue(prefixBoundary.LockOrder < contendedBoundary.LockOrder);
+
+        AssertContendedAdditionalAcquisitionRejected(owned, prefixBoundary, contendedBoundary,
+            () => ItemContainerTransaction.Begin(prefix, contended),
+            "A thread that owns storage must reject a contended additional transaction without waiting.");
+        AssertUnboundAndUnlocked(owned, prefix, contended);
+    }
+
+    [TestMethod]
+    public void StandaloneTransfer_WhenOwningStorageRejectsContendedParticipantAndReleasesPrefix()
+    {
+        var owned = new ItemContainer(StorageType.Normal, 1);
+        var source = new ItemContainer(StorageType.Normal, 1);
+        var destination = new ItemContainer(StorageType.Normal, 1);
+        var item = new TestItem(6121, 1);
+        Assert.IsTrue(source.Add(item));
+        var boundaries = new[] { Boundary(source), Boundary(destination) }.OrderBy(boundary => boundary.LockOrder).ToArray();
+        var prefixBoundary = boundaries[0];
+        var contendedBoundary = boundaries[1];
+
+        AssertContendedAdditionalAcquisitionRejected(owned, prefixBoundary, contendedBoundary,
+            () => source.TryTransferTo(destination, item, 1),
+            "A standalone transfer must reject a contended participant instead of waiting while its caller owns storage.");
+        Assert.AreSame(item, source[0]);
+        Assert.IsNull(destination[0]);
+        AssertUnboundAndUnlocked(owned, source, destination);
     }
 
     [TestMethod]
@@ -1806,6 +1951,56 @@ public sealed class ItemContainerTransferTests
 
     private static ItemContainerMutationBoundary Boundary(ItemContainer container) =>
         ((IItemTransactionSource)container).Boundaries.Single();
+
+    private static void AssertContendedAdditionalAcquisitionRejected(
+        ItemContainer owned,
+        ItemContainerMutationBoundary prefixBoundary,
+        ItemContainerMutationBoundary contendedBoundary,
+        Action operation,
+        string rejectionMessage)
+    {
+        using var contendedLockHeld = new ManualResetEventSlim();
+        using var releaseContendedLock = new ManualResetEventSlim();
+        using var rejectedAttemptCompleted = new ManualResetEventSlim();
+        Exception? ownerFailure = null;
+        var lockOwner = new Thread(() =>
+        {
+            lock (contendedBoundary.MutationLock)
+            {
+                contendedLockHeld.Set();
+                Assert.IsTrue(releaseContendedLock.Wait(TimeSpan.FromSeconds(5)));
+            }
+        }) { IsBackground = true };
+        lockOwner.Start();
+        Assert.IsTrue(contendedLockHeld.Wait(TimeSpan.FromSeconds(5)));
+
+        var transactionOwner = new Thread(() =>
+        {
+            try
+            {
+                using var transaction = ItemContainerTransaction.Begin(owned);
+                Assert.IsTrue(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
+                Assert.ThrowsExactly<InvalidOperationException>(operation);
+                Assert.IsTrue(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
+                rejectedAttemptCompleted.Set();
+                transaction.Commit();
+            }
+            catch (Exception exception) { ownerFailure = exception; }
+        }) { IsBackground = true };
+        transactionOwner.Start();
+        try
+        {
+            Assert.IsTrue(rejectedAttemptCompleted.Wait(TimeSpan.FromSeconds(5)), rejectionMessage);
+            Assert.IsTrue(Monitor.TryEnter(prefixBoundary.MutationLock),
+                "The acquired lock prefix must be released after contention is rejected.");
+            Monitor.Exit(prefixBoundary.MutationLock);
+        }
+        finally { releaseContendedLock.Set(); }
+
+        Assert.IsTrue(lockOwner.Join(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(transactionOwner.Join(TimeSpan.FromSeconds(5)));
+        if (ownerFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ownerFailure).Throw();
+    }
 
     private static void AssertUnboundAndUnlocked(params ItemContainer[] containers)
     {

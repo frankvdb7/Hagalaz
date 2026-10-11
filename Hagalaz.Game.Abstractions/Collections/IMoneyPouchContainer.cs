@@ -42,6 +42,10 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="count">The number of coins to transfer.</param>
         /// <returns><c>true</c> if the transfer was successful; otherwise, <c>false</c>.</returns>
+        /// <remarks>
+        /// This is a standalone gameplay command and cannot run while the current thread owns a transaction or
+        /// publication involving the pouch or inventory storage. Use composable coin operations inside a caller-owned transaction.
+        /// </remarks>
         bool AddFromInventory(int count);
 
         /// <summary>
@@ -49,6 +53,10 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="count">The number of coins to move.</param>
         /// <returns><c>true</c> if the coins were moved successfully; otherwise, <c>false</c>.</returns>
+        /// <remarks>
+        /// This is a standalone gameplay command and cannot run while the current thread owns a transaction or
+        /// publication involving the pouch or inventory storage. Use composable coin operations inside a caller-owned transaction.
+        /// </remarks>
         bool MoveToInventory(int count);
 
         /// <summary>

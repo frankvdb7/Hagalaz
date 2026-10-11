@@ -249,6 +249,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public bool AddFromInventory(int count)
         {
+            EnsureStandaloneGameplayCommand(nameof(AddFromInventory));
             if (count <= 0) return false;
 
             var remainingSpace = int.MaxValue - Count;
@@ -275,6 +276,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public bool MoveToInventory(int count)
         {
+            EnsureStandaloneGameplayCommand(nameof(MoveToInventory));
             var inventoryFull = false;
             using (var transaction = ItemContainerTransaction.Begin(this))
             {
@@ -286,6 +288,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
             if (inventoryFull) _owner.SendChatMessage(GameStrings.InventoryFull);
             return false;
+        }
+
+        private void EnsureStandaloneGameplayCommand(string operation)
+        {
+            var message = $"{operation} is a standalone MoneyPouch command and cannot run while its pouch or inventory storage is already owned by the current thread.";
+            _storageMutations.ThrowIfOwnedByCurrentThread(message);
+            _inventoryMutations.ThrowIfOwnedByCurrentThread(message);
         }
 
         private bool TryMoveToInventoryCore(int count, out bool inventoryFull)

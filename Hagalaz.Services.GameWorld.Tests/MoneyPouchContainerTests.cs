@@ -130,7 +130,7 @@ public sealed class MoneyPouchContainerTests
         eventManager.DidNotReceive().SendEvent(Arg.Any<MoneyPouchChangedEvent>());
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0)]
     [DataRow(-1)]
     public void HasCoins_NonPositiveCount_ReturnsFalse(int count)
@@ -255,6 +255,14 @@ public sealed class MoneyPouchContainerTests
     }
 
     [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public void AddFromInventory_RejectsCallerOwnedScopeBeforeValidation(bool includePouch)
+    {
+        AssertStandaloneCommandRejectsOwnedStorage(includePouch, pouch => pouch.AddFromInventory(-1));
+    }
+
+    [TestMethod]
     public void MoveToInventory_WhenInventoryIsFull_LeavesPouchUnchanged()
     {
         var scenario = CreateScenario(pouchCoins: 5, inventoryCoins: 0, inventoryCapacity: 1);
@@ -275,6 +283,30 @@ public sealed class MoneyPouchContainerTests
         Assert.AreEqual(5, scenario.MoneyPouch.Count);
         Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(123));
         Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(CoinId));
+    }
+
+    [DataTestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public void MoveToInventory_RejectsCallerOwnedScopeBeforeValidation(bool includePouch)
+    {
+        AssertStandaloneCommandRejectsOwnedStorage(includePouch, pouch => pouch.MoveToInventory(-1));
+    }
+
+    private static void AssertStandaloneCommandRejectsOwnedStorage(bool includePouch, Action<IMoneyPouchContainer> operation)
+    {
+        var scenario = CreateScenario(pouchCoins: 5, inventoryCoins: 5);
+        IItemTransactional participant = includePouch ? scenario.MoneyPouch : scenario.Inventory.Items;
+        using var transaction = ItemContainerTransaction.Begin(participant);
+        scenario.Owner.ClearReceivedCalls();
+
+        var failure = Assert.ThrowsExactly<InvalidOperationException>(() => operation(scenario.MoneyPouch));
+
+        StringAssert.Contains(failure.Message, "standalone MoneyPouch command");
+        Assert.AreEqual(5, scenario.MoneyPouch.Count);
+        Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(CoinId));
+        scenario.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
+        transaction.Commit();
     }
 
     private sealed class FailPouchStageItemBuilder : IItemBuilder, IItemId, IItemOptional

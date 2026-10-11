@@ -12,8 +12,9 @@ namespace Hagalaz.Game.Abstractions.Collections;
 /// This is a synchronous scope. Begin acquires and binds all participating mutation boundaries; mutations affect live
 /// storage eagerly while the Active scope owns their locks. Commit makes storage irreversible and
 /// releases boundary locks before committed completion and publication, while boundaries remain bound to
-/// this scope until that work finishes. Foreign overlapping scopes wait; same-thread reentrant overlap is
-/// rejected. Dispose without Commit restores storage before releasing the scope. Begin, mutations, Commit,
+/// this scope until that work finishes. Overlapping callers that own no storage wait; a caller already
+/// owning storage rejects contended additional acquisition. Same-thread reentrant overlap is rejected.
+/// Dispose without Commit restores storage before releasing the scope. Begin, mutations, Commit,
 /// and Dispose must run on the originating thread. Rollback restores slot topology, item references, item
 /// counts, and storage revision; it does not deep-snapshot arbitrary mutable item metadata such as
 /// <c>ExtraData</c>. Replace an item transactionally when rollback-sensitive metadata changes. Do not cross
@@ -67,6 +68,7 @@ public sealed class ItemContainerTransaction : IDisposable
 
     private static ItemContainerTransaction BeginResolved(ItemContainerMutationBoundary[] boundaries)
     {
+        var currentThreadOwnsStorage = ItemContainerMutationBoundary.CurrentThreadOwnsStorage;
         foreach (var boundary in boundaries)
             if (boundary.Transaction is { IsOwnedByCurrentThread: true })
                 throw new InvalidOperationException("Storage already belongs to a transaction on this thread.");
@@ -79,13 +81,24 @@ public sealed class ItemContainerTransaction : IDisposable
                 var retry = false;
                 foreach (var boundary in transaction._lockOrder)
                 {
-                    Monitor.Enter(boundary.MutationLock);
+                    if (currentThreadOwnsStorage)
+                    {
+                        if (!Monitor.TryEnter(boundary.MutationLock))
+                            throw new InvalidOperationException("Cannot wait for another item-container boundary while the current thread owns storage.");
+                    }
+                    else
+                    {
+                        Monitor.Enter(boundary.MutationLock);
+                    }
                     transaction._locksAcquired++;
                     var owner = boundary.Transaction;
                     var hasStandaloneOwner = boundary.HasStandalonePublicationOwner;
                     if (owner == null && !hasStandaloneOwner) continue;
                     if (owner is { IsOwnedByCurrentThread: true } || boundary.IsStandalonePublicationOwnedByCurrentThread)
                         throw new InvalidOperationException("Storage already belongs to a transaction on this thread.");
+
+                    if (currentThreadOwnsStorage)
+                        throw new InvalidOperationException("Cannot wait for another item-container boundary while the current thread owns storage.");
 
                     // Do not retain a lock prefix while waiting: the owner reacquires its ordered set to
                     // release the committed scope, so a retained prefix could deadlock scope teardown.
@@ -115,6 +128,7 @@ public sealed class ItemContainerTransaction : IDisposable
                     items.Select(item => item?.Count ?? 0).ToArray(), storage.MutationRevision));
             }
             foreach (var boundary in transaction._lockOrder) boundary.Transaction = transaction;
+            ItemContainerMutationBoundary.AddCurrentThreadStorageOwnership();
             return transaction;
         }
         catch
@@ -247,6 +261,7 @@ public sealed class ItemContainerTransaction : IDisposable
             var boundary = _lockOrder[index];
             if (ReferenceEquals(boundary.Transaction, this)) boundary.Transaction = null;
         }
+        ItemContainerMutationBoundary.RemoveCurrentThreadStorageOwnership();
     }
 
     private void ReleaseCommittedScopeBindings()
@@ -264,6 +279,7 @@ public sealed class ItemContainerTransaction : IDisposable
             {
                 if (ReferenceEquals(boundary.Transaction, this)) boundary.Transaction = null;
             }
+            ItemContainerMutationBoundary.RemoveCurrentThreadStorageOwnership();
 
             foreach (var boundary in _lockOrder)
             {

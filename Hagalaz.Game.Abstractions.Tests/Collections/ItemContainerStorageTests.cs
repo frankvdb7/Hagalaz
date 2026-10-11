@@ -512,6 +512,69 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
+        public void Clear_EmptyAndZeroCapacityContainersPreserveRevisionAndDoNotPublish()
+        {
+            var emptyUpdates = 0;
+            var empty = new ItemContainer(StorageType.Normal, 10, _ => emptyUpdates++);
+            var emptyStorage = ItemContainerTransaction.ResolveSingleBoundary(empty).Storage;
+            var emptyRevision = emptyStorage.MutationRevision;
+
+            empty.Clear();
+            using (var transaction = ItemContainerTransaction.Begin(empty))
+            {
+                empty.Clear();
+                transaction.Commit();
+            }
+
+            Assert.AreEqual(emptyRevision, emptyStorage.MutationRevision);
+            Assert.AreEqual(0, emptyUpdates);
+
+            var zeroCapacityUpdates = 0;
+            var zeroCapacity = new ItemContainer(StorageType.Normal, 0, _ => zeroCapacityUpdates++);
+            var zeroCapacityStorage = ItemContainerTransaction.ResolveSingleBoundary(zeroCapacity).Storage;
+            var zeroCapacityRevision = zeroCapacityStorage.MutationRevision;
+
+            zeroCapacity.Clear();
+
+            Assert.AreEqual(zeroCapacityRevision, zeroCapacityStorage.MutationRevision);
+            Assert.AreEqual(0, zeroCapacityUpdates);
+        }
+
+        [TestMethod]
+        public void Clear_NonnullZeroCountSentinelIsTreatedAsOccupied()
+        {
+            var storage = new ItemContainerStorage(StorageType.Normal, 1, countToResetTo: 0);
+            var sentinel = CreateItem(1, 0);
+            storage.RestoreItems([(0, sentinel)], allowZeroCount: true);
+            var revision = storage.MutationRevision;
+
+            Assert.IsTrue(storage.Clear());
+
+            Assert.IsNull(storage[0]);
+            Assert.AreEqual(revision + 1, storage.MutationRevision);
+        }
+
+        [TestMethod]
+        public void Clear_NonemptyTransactionRollsBackContentsAndRevision()
+        {
+            var publications = 0;
+            var container = new ItemContainer(StorageType.Normal, 2, _ => publications++);
+            var item = CreateItem(1, 1);
+            Assert.IsTrue(container.Add(item));
+            var storedItem = container[0];
+            var storage = ItemContainerTransaction.ResolveSingleBoundary(container).Storage;
+            var revision = storage.MutationRevision;
+            publications = 0;
+
+            using (ItemContainerTransaction.Begin(container))
+                container.Clear();
+
+            Assert.AreSame(storedItem, container[0]);
+            Assert.AreEqual(revision, storage.MutationRevision);
+            Assert.AreEqual(0, publications);
+        }
+
+        [TestMethod]
         public void AddRange_WithMultipleItems_Success()
         {
             // Arrange

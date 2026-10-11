@@ -10,6 +10,8 @@ namespace Hagalaz.Game.Abstractions.Collections;
 internal sealed class ItemContainerMutationBoundary
 {
     private static long _nextLockOrder;
+    [ThreadStatic]
+    private static int _currentThreadStorageOwnershipCount;
     private readonly object _mutationLock = new();
     private readonly long _lockOrder = Interlocked.Increment(ref _nextLockOrder);
     private readonly ItemContainerStorage _storage;
@@ -58,6 +60,16 @@ internal sealed class ItemContainerMutationBoundary
     internal ItemContainerTransaction? Transaction { get => _transaction; set => _transaction = value; }
     internal bool IsMutationLockHeldByCurrentThread => Monitor.IsEntered(_mutationLock);
 
+    internal static bool CurrentThreadOwnsStorage => _currentThreadStorageOwnershipCount > 0;
+
+    internal static void AddCurrentThreadStorageOwnership() => _currentThreadStorageOwnershipCount++;
+
+    internal static void RemoveCurrentThreadStorageOwnership()
+    {
+        System.Diagnostics.Debug.Assert(_currentThreadStorageOwnershipCount > 0);
+        _currentThreadStorageOwnershipCount--;
+    }
+
     internal void EnsureOwnedBy(ItemContainerTransaction transaction)
     {
         ArgumentNullException.ThrowIfNull(transaction);
@@ -99,6 +111,7 @@ internal sealed class ItemContainerMutationBoundary
         if (_standalonePublicationOwnerThreadId != 0)
             throw new InvalidOperationException("Storage already has a standalone publication owner.");
         _standalonePublicationOwnerThreadId = Environment.CurrentManagedThreadId;
+        AddCurrentThreadStorageOwnership();
     }
 
     private void ReleaseStandalonePublicationOwnership()
@@ -107,6 +120,7 @@ internal sealed class ItemContainerMutationBoundary
         if (_standalonePublicationOwnerThreadId != Environment.CurrentManagedThreadId)
             throw new InvalidOperationException("Only the standalone publication owner can release storage ownership.");
         _standalonePublicationOwnerThreadId = 0;
+        RemoveCurrentThreadStorageOwnership();
     }
 
     internal void RestoreTransactionState(ItemContainerTransaction transaction, IItem?[] items, int[] counts, int revision)
@@ -130,18 +144,28 @@ internal sealed class ItemContainerMutationBoundary
     // Equipment owns standalone lifecycle effects and must run them before publication.
     internal MutationScope BeginMutationWithExplicitStandalonePublication() => BeginMutation(publishStandaloneOnDispose: false);
 
-    internal void ThrowIfOwnedByCurrentThread()
+    internal void ThrowIfOwnedByCurrentThread(string? message = null)
     {
         if (_transaction is { IsOwnedByCurrentThread: true } ||
             Volatile.Read(ref _standalonePublicationOwnerThreadId) == Environment.CurrentManagedThreadId)
-            throw new InvalidOperationException("This operation cannot run within a transaction or publication owned by the current thread.");
+            throw new InvalidOperationException(message ?? "This operation cannot run within a transaction or publication owned by the current thread.");
     }
 
     private MutationScope BeginMutation(bool publishStandaloneOnDispose)
     {
         var ownsLock = !Monitor.IsEntered(_mutationLock);
         if (ownsLock)
-            Monitor.Enter(_mutationLock);
+        {
+            if (CurrentThreadOwnsStorage)
+            {
+                if (!Monitor.TryEnter(_mutationLock))
+                    throw new InvalidOperationException("Cannot wait for another item-container boundary while the current thread owns storage.");
+            }
+            else
+            {
+                Monitor.Enter(_mutationLock);
+            }
+        }
 
         try
         {
@@ -150,6 +174,8 @@ internal sealed class ItemContainerMutationBoundary
                 while (_transaction != null || _standalonePublicationOwnerThreadId != 0)
                 {
                     ThrowIfOwnedByCurrentThread();
+                    if (CurrentThreadOwnsStorage)
+                        throw new InvalidOperationException("Cannot wait for another item-container boundary while the current thread owns storage.");
                     Monitor.Wait(_mutationLock);
                 }
             }
@@ -270,6 +296,7 @@ internal sealed class ItemContainerMutationBoundary
 
         var first = _lockOrder < destination._lockOrder ? this : destination;
         var second = ReferenceEquals(first, this) ? destination : this;
+        var currentThreadOwnsStorage = CurrentThreadOwnsStorage;
 
         while (true)
         {
@@ -280,9 +307,25 @@ internal sealed class ItemContainerMutationBoundary
 
             try
             {
-                Monitor.Enter(first._mutationLock);
+                if (currentThreadOwnsStorage)
+                {
+                    if (!Monitor.TryEnter(first._mutationLock))
+                        throw new InvalidOperationException("Cannot wait for another item-container boundary while the current thread owns storage.");
+                }
+                else
+                {
+                    Monitor.Enter(first._mutationLock);
+                }
                 firstLockHeld = true;
-                Monitor.Enter(second._mutationLock);
+                if (currentThreadOwnsStorage)
+                {
+                    if (!Monitor.TryEnter(second._mutationLock))
+                        throw new InvalidOperationException("Cannot wait for another item-container boundary while the current thread owns storage.");
+                }
+                else
+                {
+                    Monitor.Enter(second._mutationLock);
+                }
                 secondLockHeld = true;
 
                 var firstHasOwner = first._transaction != null || first._standalonePublicationOwnerThreadId != 0;
@@ -297,6 +340,9 @@ internal sealed class ItemContainerMutationBoundary
                     {
                         throw new InvalidOperationException("A standalone transfer cannot overlap ownership held by the current thread.");
                     }
+
+                    if (currentThreadOwnsStorage)
+                        throw new InvalidOperationException("Cannot wait for another item-container boundary while the current thread owns storage.");
 
                     busyBoundary = firstHasOwner ? first : second;
                 }

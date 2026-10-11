@@ -109,24 +109,69 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 _mutations.ThrowIfOwnedByCurrentThread();
 
                 // Custom unequip commands may open interactive UI and must remain outside mutation scopes.
-                if (_owner.Inventory.Items.Remove(item, slot) <= 0)
+                try
                 {
+                    if (!_owner.Inventory.Items.TryRemoveExact(item, slot))
+                        return false;
+                }
+                catch (Exception failure)
+                {
+                    if (_owner.Inventory.Items.GetInstanceSlot(item) < 0)
+                        RestoreIncomingItemPreservingFailure(item, slot, failure);
+                    ExceptionDispatchInfo.Capture(failure).Throw();
+                    throw;
+                }
+
+                bool unequipped;
+                try
+                {
+                    unequipped = equipItem.EquipmentScript.UnEquipItem(equipItem, _owner, slot);
+                }
+                catch (Exception failure)
+                {
+                    RestoreIncomingItemPreservingFailure(item, slot, failure);
+                    ExceptionDispatchInfo.Capture(failure).Throw();
+                    throw;
+                }
+
+                if (!unequipped)
+                {
+                    RestoreIncomingItem(item, slot);
                     return false;
                 }
 
-                if (!equipItem.EquipmentScript.UnEquipItem(equipItem, _owner, slot))
+                if (this[equipSlot] != null)
                 {
-                    _owner.Inventory.Items.Add(slot, item);
+                    RestoreIncomingItem(item, slot);
                     return false;
                 }
 
-                HashSet<int> equipmentChanges;
-                using (var mutation = _mutations.BeginMutationWithExplicitStandalonePublication())
+                HashSet<int>? equipmentChanges = null;
+                bool inserted;
+                try
                 {
-                    if (!_storage.TryAdd((int)equipSlot, item, out var changedSlots)) return false;
-                    equipmentChanges = changedSlots;
-                    mutation.RecordChanges(changedSlots);
+                    using var mutation = _mutations.BeginMutationWithExplicitStandalonePublication();
+                    inserted = _storage.TryAdd((int)equipSlot, item, out var changedSlots);
+                    if (inserted)
+                    {
+                        equipmentChanges = changedSlots;
+                        mutation.RecordChanges(changedSlots);
+                    }
                 }
+                catch (Exception failure)
+                {
+                    if (!IsIncomingItemAvailable(item))
+                        RestoreIncomingItemPreservingFailure(item, slot, failure);
+                    ExceptionDispatchInfo.Capture(failure).Throw();
+                    throw;
+                }
+
+                if (!inserted)
+                {
+                    RestoreIncomingItem(item, slot);
+                    return false;
+                }
+
                 CompleteStandaloneEquipmentChange(equipmentChanges,
                     new EquipmentEffect(EquipmentEffectKind.Equipped, item));
                 return true;
@@ -195,6 +240,47 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
             _owner.SendChatMessage("Not enough space in your inventory.");
             return false;
+        }
+
+        private void RestoreIncomingItem(IItem item, int originalInventorySlot)
+        {
+            if (IsIncomingItemAvailable(item)) return;
+
+            if (TryRestoreToFreeSlot(_owner.Inventory.Items, item, originalInventorySlot)) return;
+            if (_owner.Rewards is { } rewards && TryRestoreToFreeSlot(rewards.Items, item)) return;
+            if (_owner.Bank is { } bank && TryRestoreToFreeSlot(bank.Items, item)) return;
+
+            throw new InvalidOperationException("The incoming item could not be restored to inventory, Rewards, or Bank after Equipment replacement failed.");
+        }
+
+        private bool IsIncomingItemAvailable(IItem item)
+        {
+            if (_storage.GetInstanceSlot(item) >= 0 || _owner.Inventory.Items.GetInstanceSlot(item) >= 0)
+                return true;
+            if (_owner.Rewards is { } rewards && rewards.Items.GetInstanceSlot(item) >= 0)
+                return true;
+            return _owner.Bank is { } bank && bank.Items.GetInstanceSlot(item) >= 0;
+        }
+
+        private static bool TryRestoreToFreeSlot(IItemContainer container, IItem item, int preferredSlot = -1)
+        {
+            if ((uint)preferredSlot < (uint)container.Capacity && container[preferredSlot] == null &&
+                container.Add(preferredSlot, item))
+                return true;
+
+            for (var slot = 0; slot < container.Capacity; slot++)
+            {
+                if (slot == preferredSlot || container[slot] != null) continue;
+                if (container.Add(slot, item)) return true;
+            }
+
+            return false;
+        }
+
+        private void RestoreIncomingItemPreservingFailure(IItem item, int originalInventorySlot, Exception failure)
+        {
+            try { RestoreIncomingItem(item, originalInventorySlot); }
+            catch (Exception restoreFailure) { throw new AggregateException(failure, restoreFailure); }
         }
 
         private void UpdateWeaponProfileAfterUnequip(IItem equippedWeapon, IItem incomingItem)

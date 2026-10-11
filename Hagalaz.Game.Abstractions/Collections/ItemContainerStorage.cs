@@ -1047,15 +1047,16 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         public bool Clear()
         {
-            if (Items.Length <= 0)
+            foreach (var item in Items)
             {
-                return false;
+                if (item == null) continue;
+
+                Array.Clear(Items, 0, Items.Length);
+                AdvanceRevision();
+                return true;
             }
 
-            Array.Clear(Items, 0, Items.Length);
-            AdvanceRevision();
-
-            return true;
+            return false;
         }
 
         /// <summary>Validates and restores exact persisted slots before replacing the current state.</summary>
