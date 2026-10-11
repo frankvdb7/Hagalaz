@@ -107,12 +107,39 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    public void TryMoveTo_StandaloneTransferOwnsAndCommitsTransaction()
+    public void TryMoveTo_StandaloneTransferUsesBoundaryOwnershipAndPublishesAfterUnequip()
     {
         using var scenario = new Scenario();
-        var destinationPublications = 0;
-        var (equipment, eventManager, destination, item) =
-            CreateEquipmentMoveScenario(scenario, () => destinationPublications++);
+        var order = new List<string>();
+        var (equipment, eventManager) = CreateEquipmentScenario(scenario);
+        var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item));
+        eventManager.ClearReceivedCalls();
+        ItemContainer? destination = null;
+        destination = new ItemContainer(StorageType.Normal, 2, _ =>
+            {
+                AssertStandaloneTransferOwnedAndUnlocked(equipment, destination!);
+                Assert.IsNull(equipment[EquipmentSlot.Hat]);
+                Assert.AreSame(item, destination![0]);
+                CollectionAssert.AreEqual(new[] { "unequip", "equipment" }, order);
+                order.Add("destination");
+            });
+        item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ =>
+        {
+            AssertStandaloneTransferOwnedAndUnlocked(equipment, destination);
+            Assert.IsNull(equipment[EquipmentSlot.Hat]);
+            Assert.AreSame(item, destination[0]);
+            order.Add("unequip");
+        });
+        eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
+        {
+            if (call.Arg<IEvent>() is not EquipmentChangedEvent) return;
+            AssertStandaloneTransferOwnedAndUnlocked(equipment, destination);
+            Assert.IsNull(equipment[EquipmentSlot.Hat]);
+            Assert.AreSame(item, destination[0]);
+            CollectionAssert.AreEqual(new[] { "unequip" }, order);
+            order.Add("equipment");
+        });
 
         Assert.IsTrue(equipment.TryMoveTo(destination, item, item.Count, EquipmentSlot.Hat));
 
@@ -120,7 +147,95 @@ public sealed class CharacterItemTransferTests
         Assert.AreSame(item, destination[0]);
         item.EquipmentScript.Received(1).OnUnequipped(item, scenario.Owner);
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+        CollectionAssert.AreEqual(new[] { "unequip", "equipment", "destination" }, order);
+        AssertUnboundAndUnlocked(equipment, destination);
+    }
+
+    [TestMethod]
+    public void TryMoveTo_PartialStandaloneRemovalDoesNotRunUnequipped()
+    {
+        using var scenario = new Scenario();
+        var (equipment, eventManager, destination, item) = CreateEquipmentMoveScenario(scenario, count: 3);
+
+        Assert.IsTrue(equipment.TryMoveTo(destination, item, 2, EquipmentSlot.Hat));
+
+        Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
+        Assert.AreEqual(1, item.Count);
+        Assert.AreEqual(2, destination[0]!.Count);
+        item.EquipmentScript.DidNotReceive().OnUnequipped(item, scenario.Owner);
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+        AssertUnboundAndUnlocked(equipment, destination);
+    }
+
+    [TestMethod]
+    public void TryMoveTo_ValidatesExpectedItemAndCountWhileBothLocksAreHeld()
+    {
+        using var scenario = new Scenario();
+        var (equipment, _) = CreateEquipmentScenario(scenario);
+        var destination = new ItemContainer(StorageType.Normal, 2);
+        var item = new TransferProbeItem(201, 3);
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item));
+        var equipmentLock = GetEquipmentBoundary(equipment).MutationLock;
+        var destinationLock = Boundary(destination).MutationLock;
+        var sawLockedCountRead = false;
+        item.OnCountRead = () =>
+        {
+            Assert.IsTrue(Monitor.IsEntered(equipmentLock));
+            Assert.IsTrue(Monitor.IsEntered(destinationLock));
+            sawLockedCountRead = true;
+        };
+
+        Assert.IsTrue(equipment.TryMoveTo(destination, item, 3, EquipmentSlot.Hat));
+
+        Assert.IsTrue(sawLockedCountRead, "Equipment's expected-instance/count validation must run under both mutation locks.");
+        Assert.IsNull(equipment[EquipmentSlot.Hat]);
+        Assert.AreSame(item, destination[0]);
+        AssertUnboundAndUnlocked(equipment, destination);
+    }
+
+    [TestMethod]
+    public void TryMoveTo_LifecycleFailureStillPublishesBothContainersAndReleasesOwnership()
+    {
+        using var scenario = new Scenario();
+        var destinationPublications = 0;
+        var (equipment, eventManager, destination, item) = CreateEquipmentMoveScenario(scenario,
+            () => destinationPublications++);
+        var hookFailure = new InvalidOperationException("Unequip hook failed.");
+        item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ => throw hookFailure);
+
+        Assert.AreSame(hookFailure, Assert.ThrowsExactly<InvalidOperationException>(
+            () => equipment.TryMoveTo(destination, item, 1, EquipmentSlot.Hat)));
+
+        Assert.IsNull(equipment[EquipmentSlot.Hat]);
+        Assert.AreSame(item, destination[0]);
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
         Assert.AreEqual(1, destinationPublications);
+        AssertUnboundAndUnlocked(equipment, destination);
+    }
+
+    [TestMethod]
+    public void TryMoveTo_LifecycleAndEquipmentPublicationFailuresAreBothPreserved()
+    {
+        using var scenario = new Scenario();
+        var destinationPublications = 0;
+        var (equipment, eventManager, destination, item) = CreateEquipmentMoveScenario(scenario,
+            () => destinationPublications++);
+        var hookFailure = new InvalidOperationException("Unequip hook failed.");
+        var publicationFailure = new InvalidOperationException("Equipment publisher failed.");
+        item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ => throw hookFailure);
+        eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
+        {
+            if (call.Arg<IEvent>() is EquipmentChangedEvent) throw publicationFailure;
+        });
+
+        var thrown = Assert.ThrowsExactly<AggregateException>(
+            () => equipment.TryMoveTo(destination, item, 1, EquipmentSlot.Hat));
+
+        CollectionAssert.AreEquivalent(new Exception[] { hookFailure, publicationFailure }, thrown.InnerExceptions.ToArray());
+        Assert.IsNull(equipment[EquipmentSlot.Hat]);
+        Assert.AreSame(item, destination[0]);
+        Assert.AreEqual(0, destinationPublications, "Equipment publication failure skips the later destination publisher.");
+        AssertUnboundAndUnlocked(equipment, destination);
     }
 
     [TestMethod]
@@ -164,10 +279,7 @@ public sealed class CharacterItemTransferTests
             Assert.AreSame(item, destination[0]);
         }
 
-        Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
-        Assert.IsNull(destination[0]);
-        item.EquipmentScript.DidNotReceive().OnUnequipped(item, scenario.Owner);
-        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+        AssertMoveRejectedWithoutMutation(equipment, eventManager, destination, item, scenario.Owner);
         Assert.AreEqual(0, destinationPublications);
     }
 
@@ -182,10 +294,7 @@ public sealed class CharacterItemTransferTests
         Assert.ThrowsExactly<InvalidOperationException>(() =>
             participant.TryMoveTo(destination, item, item.Count, EquipmentSlot.Hat));
 
-        Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
-        Assert.IsNull(destination[0]);
-        item.EquipmentScript.DidNotReceive().OnUnequipped(item, scenario.Owner);
-        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+        AssertMoveRejectedWithoutMutation(equipment, eventManager, destination, item, scenario.Owner);
     }
 
     [TestMethod]
@@ -1484,10 +1593,10 @@ public sealed class CharacterItemTransferTests
     }
 
     private static (EquipmentContainer Equipment, IEventManager EventManager, ItemContainer Destination, IItem Item)
-        CreateEquipmentMoveScenario(Scenario scenario, Action? onDestinationPublished = null)
+        CreateEquipmentMoveScenario(Scenario scenario, Action? onDestinationPublished = null, int count = 1)
     {
         var (equipment, eventManager) = CreateEquipmentScenario(scenario);
-        var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        var item = scenario.Builder.Create().WithId(101).WithCount(count).Build();
         Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item));
         eventManager.ClearReceivedCalls();
         var destination = new ItemContainer(StorageType.Normal, 2, _ => onDestinationPublished?.Invoke());
@@ -1500,6 +1609,42 @@ public sealed class CharacterItemTransferTests
     private static ItemContainerMutationBoundary GetEquipmentBoundary(EquipmentContainer equipment) =>
         (ItemContainerMutationBoundary)typeof(EquipmentContainer)
             .GetField("_mutations", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(equipment)!;
+
+    private static void AssertStandaloneTransferOwnedAndUnlocked(EquipmentContainer equipment, ItemContainer destination)
+    {
+        foreach (var boundary in new[] { GetEquipmentBoundary(equipment), Boundary(destination) })
+        {
+            lock (boundary.MutationLock)
+            {
+                Assert.IsNull(boundary.Transaction);
+                Assert.IsTrue(boundary.HasStandalonePublicationOwner);
+                Assert.IsTrue(boundary.IsStandalonePublicationOwnedByCurrentThread);
+            }
+            Assert.IsFalse(Monitor.IsEntered(boundary.MutationLock));
+        }
+    }
+
+    private static void AssertUnboundAndUnlocked(EquipmentContainer equipment, ItemContainer destination)
+    {
+        foreach (var boundary in new[] { GetEquipmentBoundary(equipment), Boundary(destination) })
+        {
+            lock (boundary.MutationLock)
+            {
+                Assert.IsNull(boundary.Transaction);
+                Assert.IsFalse(boundary.HasStandalonePublicationOwner);
+            }
+            Assert.IsFalse(Monitor.IsEntered(boundary.MutationLock));
+        }
+    }
+
+    private static void AssertMoveRejectedWithoutMutation(EquipmentContainer equipment, IEventManager eventManager,
+        ItemContainer destination, IItem item, ICharacter owner)
+    {
+        Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
+        Assert.IsNull(destination[0]);
+        item.EquipmentScript.DidNotReceive().OnUnequipped(item, owner);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+    }
 
     private static (EquipmentContainer Equipment, IEventManager EventManager, IItem Current, IItem Replacement)
         CreateReplacementScenario(Scenario scenario)
@@ -1615,5 +1760,45 @@ public sealed class CharacterItemTransferTests
             callbackSawCommittedStorage = true;
         });
         return () => callbackSawCommittedStorage;
+    }
+
+    private sealed class TransferProbeItem : IItem
+    {
+        private int _count;
+        private readonly IItemDefinition _definition = Substitute.For<IItemDefinition>();
+        private readonly IItemScript _itemScript = Substitute.For<IItemScript>();
+
+        public int Id { get; }
+        public int Count
+        {
+            get
+            {
+                OnCountRead?.Invoke();
+                return _count;
+            }
+            set => _count = value;
+        }
+        public Action? OnCountRead { get; set; }
+        public string Name => $"Probe item {Id}";
+        public long[] ExtraData => [];
+        public IItemDefinition ItemDefinition => _definition;
+        public IEquipmentDefinition EquipmentDefinition { get; } = Substitute.For<IEquipmentDefinition>();
+        public IItemScript ItemScript => _itemScript;
+        public IEquipmentScript EquipmentScript { get; } = Substitute.For<IEquipmentScript>();
+
+        public TransferProbeItem(int id, int count)
+        {
+            Id = id;
+            _count = count;
+            _definition.Stackable.Returns(true);
+            _definition.Noted.Returns(false);
+            _itemScript.CanStackItem(Arg.Any<IItem>(), Arg.Any<IItem>(), Arg.Any<bool>()).Returns(true);
+        }
+
+        public IItem Clone() => Clone(1);
+        public IItem Clone(int newCount) => new TransferProbeItem(Id, newCount);
+        public bool Equals(IItem otherItem, bool ignoreCount = true) =>
+            otherItem != null && Id == otherItem.Id && (ignoreCount || Count == otherItem.Count);
+        public string? SerializeExtraData() => null;
     }
 }

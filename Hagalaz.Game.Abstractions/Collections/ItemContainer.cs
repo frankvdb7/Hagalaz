@@ -78,21 +78,13 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
         ArgumentNullException.ThrowIfNull(destination);
         ArgumentNullException.ThrowIfNull(item);
         var destinationBoundary = ItemContainerTransaction.ResolveSingleBoundary(destination);
-        var sourceLockHeld = _mutations.IsMutationLockHeldByCurrentThread;
-        var destinationLockHeld = destinationBoundary.IsMutationLockHeldByCurrentThread;
-        if (sourceLockHeld != destinationLockHeld)
-            throw new InvalidOperationException("A transfer cannot partially participate in an item-container transaction.");
+        var transaction = _mutations.GetSharedCurrentThreadTransaction(destinationBoundary);
 
-        if (sourceLockHeld)
-            return _mutations.TryTransferTo(destinationBoundary, item, count,
+        return transaction != null
+            ? _mutations.TryTransferTo(destinationBoundary, item, count,
+                preferredSourceSlot, destinationSlot, destinationItem)
+            : _mutations.TryTransferStandaloneTo(destinationBoundary, item, count,
                 preferredSourceSlot, destinationSlot, destinationItem);
-
-        using var transaction = ItemContainerTransaction.Begin(this, destination);
-        if (!_mutations.TryTransferTo(destinationBoundary, item, count,
-                preferredSourceSlot, destinationSlot, destinationItem)) return false;
-
-        transaction.Commit();
-        return true;
     }
 
     public void Replace(int slot, IItem item)

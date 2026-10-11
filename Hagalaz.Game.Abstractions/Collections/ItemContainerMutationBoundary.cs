@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using Hagalaz.Game.Abstractions.Model.Items;
 
@@ -28,6 +29,28 @@ internal sealed class ItemContainerMutationBoundary
 
     internal ItemContainerTransaction? GetCurrentThreadTransaction() =>
         IsMutationLockHeldByCurrentThread ? EnsureActiveTransaction() : null;
+
+    internal ItemContainerTransaction? GetSharedCurrentThreadTransaction(ItemContainerMutationBoundary destination)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+
+        var sourceLockHeld = IsMutationLockHeldByCurrentThread;
+        var destinationLockHeld = destination.IsMutationLockHeldByCurrentThread;
+        if (sourceLockHeld != destinationLockHeld)
+            throw new InvalidOperationException("A transfer cannot partially participate in an item-container transaction.");
+
+        if (sourceLockHeld)
+        {
+            var transaction = EnsureActiveTransaction();
+            if (!ReferenceEquals(transaction, destination.EnsureActiveTransaction()))
+                throw new InvalidOperationException("Both storage boundaries must belong to the same active transaction.");
+            return transaction;
+        }
+
+        ThrowIfOwnedByCurrentThread();
+        destination.ThrowIfOwnedByCurrentThread();
+        return null;
+    }
 
     internal ItemContainerStorage Storage => _storage;
     internal object MutationLock => _mutationLock;
@@ -215,6 +238,166 @@ internal sealed class ItemContainerMutationBoundary
         transaction.RecordChanges(this, sourceSlots);
         transaction.RecordChanges(destination, destinationSlots);
         return true;
+    }
+
+    /// <summary>Transfers between unbound boundaries and retains both publication claims until completion.</summary>
+    internal bool TryTransferStandaloneTo(
+        ItemContainerMutationBoundary destination,
+        IItem item,
+        int count,
+        int preferredSourceSlot = -1,
+        int destinationSlot = -1,
+        IItem? destinationItem = null,
+        Func<bool>? validateWhileLocked = null,
+        Action? beforePublication = null)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        ArgumentNullException.ThrowIfNull(item);
+
+        if (ReferenceEquals(this, destination) || count <= 0 || destinationSlot < -1)
+            return false;
+
+        ThrowIfOwnedByCurrentThread();
+        destination.ThrowIfOwnedByCurrentThread();
+        if (IsMutationLockHeldByCurrentThread || destination.IsMutationLockHeldByCurrentThread)
+            throw new InvalidOperationException("A standalone transfer cannot borrow a mutation lock.");
+
+        var first = _lockOrder < destination._lockOrder ? this : destination;
+        var second = ReferenceEquals(first, this) ? destination : this;
+
+        while (true)
+        {
+            var firstLockHeld = false;
+            var secondLockHeld = false;
+            var pairAcquired = false;
+            ItemContainerMutationBoundary? busyBoundary = null;
+
+            try
+            {
+                Monitor.Enter(first._mutationLock);
+                firstLockHeld = true;
+                Monitor.Enter(second._mutationLock);
+                secondLockHeld = true;
+
+                var firstHasOwner = first._transaction != null || first._standalonePublicationOwnerThreadId != 0;
+                var secondHasOwner = second._transaction != null || second._standalonePublicationOwnerThreadId != 0;
+                if (firstHasOwner || secondHasOwner)
+                {
+                    var currentThreadId = Environment.CurrentManagedThreadId;
+                    if (first._transaction is { IsOwnedByCurrentThread: true } ||
+                        first._standalonePublicationOwnerThreadId == currentThreadId ||
+                        second._transaction is { IsOwnedByCurrentThread: true } ||
+                        second._standalonePublicationOwnerThreadId == currentThreadId)
+                    {
+                        throw new InvalidOperationException("A standalone transfer cannot overlap ownership held by the current thread.");
+                    }
+
+                    busyBoundary = firstHasOwner ? first : second;
+                }
+                else
+                {
+                    pairAcquired = true;
+                }
+            }
+            finally
+            {
+                if (!pairAcquired)
+                {
+                    if (secondLockHeld) Monitor.Exit(second._mutationLock);
+                    if (firstLockHeld) Monitor.Exit(first._mutationLock);
+                }
+            }
+
+            if (pairAcquired) break;
+
+            var waitingBoundary = busyBoundary!;
+            lock (waitingBoundary._mutationLock)
+            {
+                while (waitingBoundary._transaction != null || waitingBoundary._standalonePublicationOwnerThreadId != 0)
+                    Monitor.Wait(waitingBoundary._mutationLock);
+            }
+        }
+
+        HashSet<int> sourceSlots;
+        HashSet<int> destinationSlots;
+        try
+        {
+            if (validateWhileLocked != null && !validateWhileLocked())
+                return false;
+
+            if (!_storage.TryTransferTo(destination._storage, item, count,
+                    preferredSourceSlot, destinationSlot, destinationItem, out sourceSlots, out destinationSlots))
+                return false;
+
+            ClaimStandalonePublicationOwnership();
+            destination.ClaimStandalonePublicationOwnership();
+        }
+        finally
+        {
+            Monitor.Exit(second._mutationLock);
+            Monitor.Exit(first._mutationLock);
+        }
+
+        List<Exception>? failures = null;
+        try
+        {
+            if (beforePublication != null)
+            {
+                try { beforePublication(); }
+                catch (Exception exception) { (failures ??= []).Add(exception); }
+            }
+
+            try
+            {
+                PublishStandaloneChangesRetainingOwnership(sourceSlots);
+                destination.PublishStandaloneChangesRetainingOwnership(destinationSlots);
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+        }
+        finally
+        {
+            Monitor.Enter(first._mutationLock);
+            try
+            {
+                Monitor.Enter(second._mutationLock);
+                try
+                {
+                    ReleaseStandalonePublicationOwnership();
+                    destination.ReleaseStandalonePublicationOwnership();
+                    Monitor.PulseAll(_mutationLock);
+                    Monitor.PulseAll(destination._mutationLock);
+                }
+                finally
+                {
+                    Monitor.Exit(second._mutationLock);
+                }
+            }
+            finally
+            {
+                Monitor.Exit(first._mutationLock);
+            }
+        }
+
+        if (failures is { Count: 1 })
+            ExceptionDispatchInfo.Capture(failures[0]).Throw();
+        if (failures is { Count: > 1 })
+            throw new AggregateException(failures).Flatten();
+
+        return true;
+    }
+
+    private void PublishStandaloneChangesRetainingOwnership(HashSet<int>? slots)
+    {
+        lock (_mutationLock)
+        {
+            if (_transaction != null || !IsStandalonePublicationOwnedByCurrentThread)
+                throw new InvalidOperationException("Standalone publication requires retained boundary ownership.");
+        }
+
+        _publishChanges?.Invoke(slots);
     }
 
     internal void PublishCommittedChanges(HashSet<int>? slots)

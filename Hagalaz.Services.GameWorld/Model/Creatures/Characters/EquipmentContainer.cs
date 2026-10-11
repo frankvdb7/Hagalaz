@@ -237,29 +237,34 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             ArgumentNullException.ThrowIfNull(destination);
             ArgumentNullException.ThrowIfNull(item);
             var destinationBoundary = ItemContainerTransaction.ResolveSingleBoundary(destination);
-            var equipmentLockHeld = _mutations.IsMutationLockHeldByCurrentThread;
-            var destinationLockHeld = destinationBoundary.IsMutationLockHeldByCurrentThread;
-            if (equipmentLockHeld != destinationLockHeld)
-                throw new InvalidOperationException("A transfer cannot partially participate in an item-container transaction.");
-
-            var transaction = equipmentLockHeld ? _mutations.GetCurrentThreadTransaction() : null;
-            if (transaction != null && !ReferenceEquals(transaction, destinationBoundary.GetCurrentThreadTransaction()))
-                throw new InvalidOperationException("Both storage boundaries must belong to the same active transaction.");
-
-            if (count <= 0 || this[slot] is not { } equippedItem || !ReferenceEquals(equippedItem, item)) return false;
-            var fullyRemoved = count == equippedItem.Count;
+            var transaction = _mutations.GetSharedCurrentThreadTransaction(destinationBoundary);
             if (transaction != null)
             {
+                if (count <= 0 || this[slot] is not { } equippedItem || !ReferenceEquals(equippedItem, item)) return false;
+                var fullyRemoved = count == equippedItem.Count;
                 if (!_mutations.TryTransferTo(destinationBoundary, equippedItem, count, (int)slot, -1, destinationItem)) return false;
                 if (fullyRemoved) DeferEquipmentEffects(transaction, new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem));
                 return true;
             }
 
-            using var standaloneTransaction = ItemContainerTransaction.Begin(this, destination);
-            if (!_mutations.TryTransferTo(destinationBoundary, equippedItem, count, (int)slot, -1, destinationItem)) return false;
-            if (fullyRemoved) DeferEquipmentEffects(standaloneTransaction, new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem));
-            standaloneTransaction.Commit();
-            return true;
+            var fullyRemovedStandalone = false;
+            return _mutations.TryTransferStandaloneTo(
+                destinationBoundary,
+                item,
+                count,
+                (int)slot,
+                destinationItem: destinationItem,
+                validateWhileLocked: () =>
+                {
+                    if (count <= 0 || this[slot] is not { } equippedItem || !ReferenceEquals(equippedItem, item)) return false;
+                    fullyRemovedStandalone = count == equippedItem.Count;
+                    return true;
+                },
+                beforePublication: () =>
+                {
+                    if (fullyRemovedStandalone)
+                        ExecuteEquipmentEffect(new EquipmentEffect(EquipmentEffectKind.Unequipped, item));
+                });
         }
 
         public bool TryReplaceEquippedItem(EquipmentSlot slot, IItem expectedItem, IItem replacement)

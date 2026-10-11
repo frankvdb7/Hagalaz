@@ -7,7 +7,7 @@ Defines the ownership boundary and correctness guarantees for item storage share
 ## Requirements
 
 ### Requirement: Equipment exposes semantic mutation operations
-`IEquipmentContainer` MUST expose domain-specific mutation operations rather than generic `Add`, `Replace`, `Remove`, and `Clear` commands. Direct restoration, in-place transformation, removal, and clearing MUST use explicitly named equipment operations. Equipment replacement MUST require the caller's expected current item instance so a stale command cannot replace a different equipped item. Simple Equipment storage operations MUST participate when Equipment storage is enlisted; typed lifecycle completion MUST be deferred through the owning transaction. When unbound, lifecycle completion and publication occur immediately. `TryMoveTo(...)` MUST own a short transaction when neither required storage is enlisted, participate without committing or disposing when both belong to the same active current-thread transaction, and throw before mutation for partial or conflicting participation. Full removal MUST defer lifecycle completion until the owning transaction commits. `EquipItem()` and `UnEquipItem()` MUST remain standalone gameplay commands and MUST NOT participate in a caller-owned transaction over their required storage.
+`IEquipmentContainer` MUST expose domain-specific mutation operations rather than generic `Add`, `Replace`, `Remove`, and `Clear` commands. Direct restoration, in-place transformation, removal, and clearing MUST use explicitly named equipment operations. Equipment replacement MUST require the caller's expected current item instance so a stale command cannot replace a different equipped item. Simple Equipment storage operations MUST participate when Equipment storage is enlisted; typed lifecycle completion MUST be deferred through the owning transaction. When unbound, lifecycle completion and publication occur immediately. `TryMoveTo(...)` MUST use direct two-boundary ownership when standalone, participate without committing or disposing when both belong to the same active current-thread transaction, and throw before mutation for partial or conflicting participation. Full removal MUST defer lifecycle completion until the owning transaction commits or run the standalone lifecycle effect before publication. `EquipItem()` and `UnEquipItem()` MUST remain standalone gameplay commands and MUST NOT participate in a caller-owned transaction over their required storage.
 
 #### Scenario: Stale equipment replacement is rejected
 - **WHEN** the expected item instance no longer occupies the requested slot
@@ -17,9 +17,9 @@ Defines the ownership boundary and correctness guarantees for item storage share
 - **WHEN** restoration, replacement, removal, or clearing is called while Equipment storage belongs to an active transaction
 - **THEN** the storage mutation participates in that transaction, with lifecycle completion and publication deferred until commit
 
-#### Scenario: Equipment transfer owns a standalone transaction
+#### Scenario: Equipment transfer uses direct standalone ownership
 - **WHEN** `TryMoveTo(...)` moves an equipped item while neither Equipment nor destination belongs to a current-thread transaction
-- **THEN** it commits one short transaction and publishes the committed Equipment and destination changes
+- **THEN** it atomically mutates both storages without creating an `ItemContainerTransaction`, runs `OnUnequipped` before publication for full removal, and retains both boundaries' ownership through publication
 
 #### Scenario: Equipment transfer participates in a caller-owned transaction
 - **WHEN** `TryMoveTo(...)` moves an equipped item while Equipment and destination belong to the same active current-thread transaction
@@ -89,11 +89,15 @@ Storage mechanics MUST be composed rather than inherited. `BaseItemContainer`, `
 - **THEN** storage throws the established exception category and retains all previous slots, counts, and revision
 
 ### Requirement: Cross-container transfers commit both stores atomically
-`IItemContainer.TryTransferTo(...)` MUST provide one atomic exact cross-container operation using the single low-level `ItemContainerStorage` transfer algorithm. When neither storage participates in a current-thread transaction, the method MUST own a short `ItemContainerTransaction` over source and destination and commit it only after the exact transfer succeeds. When both storages already belong to the same active current-thread transaction, the method MUST participate without creating, committing, or disposing that transaction. Partial or conflicting participation MUST be rejected before mutation. A valid transfer rejection MUST return false without mutating either storage. Success MUST advance each storage revision once and publish changed slots only after commit. `ItemContainerMutationBoundary.TryTransferTo(...)` MUST require both storages to already belong to the same active current-thread transaction.
+`IItemContainer.TryTransferTo(...)` MUST provide one atomic exact cross-container operation using the single low-level `ItemContainerStorage` transfer algorithm. When neither storage participates in a current-thread transaction, the method MUST acquire both mutation boundaries in deterministic lock order, mutate both storages once, and retain standalone publication ownership for both until publication completes; it MUST NOT create an `ItemContainerTransaction`. When both storages already belong to the same active current-thread transaction, the method MUST participate without creating, committing, or disposing that transaction. Partial or conflicting participation MUST be rejected before mutation. A valid transfer rejection MUST return false without mutating either storage. Success MUST advance each storage revision once. Standalone publication MUST occur after both locks are released, source before destination, and a publisher failure MUST leave storage committed and skip later publishers. `ItemContainerMutationBoundary.TryTransferTo(...)` MUST require both storages to already belong to the same active current-thread transaction.
 
-#### Scenario: Standalone transfer owns a short transaction
+#### Scenario: Standalone transfer uses direct two-boundary ownership
 - **WHEN** neither storage participates in a current-thread transaction and the source has the requested quantity while the destination can accept the exact result
-- **THEN** `TryTransferTo(...)` owns and commits a short transaction over both stores before either container publishes an update
+- **THEN** `TryTransferTo(...)` mutates both stores atomically without creating an `ItemContainerTransaction`, releases both physical locks, and publishes source before destination while retaining both logical ownership claims
+
+#### Scenario: Standalone transfer publication failure leaves storage committed
+- **WHEN** the source publisher throws after a successful standalone transfer
+- **THEN** the destination publisher is skipped, both stores remain changed, both ownership claims are released, and the original publication exception propagates
 
 #### Scenario: Transfer participates in an existing transaction
 - **WHEN** both storages belong to the same active current-thread transaction

@@ -18,9 +18,9 @@ public interface IItemContainer : IReadOnlyItemContainer, IItemTransactional
 
     /// <summary>
     /// Atomically transfers an exact quantity to another item container. If neither storage is already held by the current
-    /// thread's item transaction, this operation owns and commits a short transaction over both containers. If both storages
-    /// belong to the same active current-thread transaction, this operation participates and leaves commit or rollback to its caller.
-    /// Partial or conflicting transaction participation is rejected.
+    /// thread's item transaction, this operation directly owns both mutation boundaries through publication without creating a
+    /// transaction. If both storages belong to the same active current-thread transaction, this operation participates and leaves
+    /// commit or rollback to its caller. Partial or conflicting transaction participation is rejected.
     /// </summary>
     /// <exception cref="ArgumentNullException">The destination or item is null.</exception>
     /// <exception cref="ArgumentException">The destination is not a supported transaction source or does not contribute exactly one storage boundary.</exception>
