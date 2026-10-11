@@ -7,7 +7,7 @@ Defines the ownership boundary and correctness guarantees for item storage share
 ## Requirements
 
 ### Requirement: Equipment exposes semantic mutation operations
-`IEquipmentContainer` MUST expose domain-specific mutation operations rather than generic `Add`, `Replace`, `Remove`, and `Clear` commands. Direct restoration, in-place transformation, removal, and clearing MUST use explicitly named equipment operations. Equipment replacement MUST require the caller's expected current item instance so a stale command cannot replace a different equipped item. Simple Equipment storage operations MUST participate when Equipment storage is enlisted; typed lifecycle completion MUST be deferred through the owning transaction. When unbound, lifecycle completion and publication occur immediately. Explicit transaction-owning Equipment workflows may use the private mutation boundary and typed deferred completion facts.
+`IEquipmentContainer` MUST expose domain-specific mutation operations rather than generic `Add`, `Replace`, `Remove`, and `Clear` commands. Direct restoration, in-place transformation, removal, and clearing MUST use explicitly named equipment operations. Equipment replacement MUST require the caller's expected current item instance so a stale command cannot replace a different equipped item. Simple Equipment storage operations MUST participate when Equipment storage is enlisted; typed lifecycle completion MUST be deferred through the owning transaction. When unbound, lifecycle completion and publication occur immediately. `TryMoveTo(...)` MUST own a short transaction when neither required storage is enlisted, participate without committing or disposing when both belong to the same active current-thread transaction, and throw before mutation for partial or conflicting participation. Full removal MUST defer lifecycle completion until the owning transaction commits. `EquipItem()` and `UnEquipItem()` MUST remain standalone gameplay commands and MUST NOT participate in a caller-owned transaction over their required storage.
 
 #### Scenario: Stale equipment replacement is rejected
 - **WHEN** the expected item instance no longer occupies the requested slot
@@ -16,6 +16,22 @@ Defines the ownership boundary and correctness guarantees for item storage share
 #### Scenario: Equipment storage mutation participates in an active scope
 - **WHEN** restoration, replacement, removal, or clearing is called while Equipment storage belongs to an active transaction
 - **THEN** the storage mutation participates in that transaction, with lifecycle completion and publication deferred until commit
+
+#### Scenario: Equipment transfer owns a standalone transaction
+- **WHEN** `TryMoveTo(...)` moves an equipped item while neither Equipment nor destination belongs to a current-thread transaction
+- **THEN** it commits one short transaction and publishes the committed Equipment and destination changes
+
+#### Scenario: Equipment transfer participates in a caller-owned transaction
+- **WHEN** `TryMoveTo(...)` moves an equipped item while Equipment and destination belong to the same active current-thread transaction
+- **THEN** it stages the move and defers lifecycle completion and publication until the caller commits
+
+#### Scenario: Equipment transfer rejects partial or conflicting participation
+- **WHEN** only one required storage is enlisted or required storages belong to different active current-thread transactions
+- **THEN** `TryMoveTo(...)` throws before changing either storage
+
+#### Scenario: Equipment gameplay commands remain standalone
+- **WHEN** a caller invokes `EquipItem()` or `UnEquipItem()` for an operation requiring inventory and Equipment
+- **THEN** the command owns its workflow and does not join a caller-owned transaction over those storages
 
 ### Requirement: Equipment publishes only after lifecycle effects
 Direct equipment restoration, replacement, full removal, and clearing MUST publish committed equipment state only after all required equipment lifecycle effects have been attempted. Storage MUST commit before lifecycle callbacks run. Clearing MUST remove all equipped items before callbacks and attempt `OnUnequipped` for every previously equipped item. The interactive occupied non-weapon/non-shield replacement path MUST verify that both inventory and Equipment are available for standalone operation before removing the incoming item or invoking its custom unequip command. Post-commit lifecycle or publication failures MUST NOT roll back committed storage. Every post-commit action MUST be attempted; one failure MUST preserve and rethrow the original exception, while multiple failures MUST be aggregated.

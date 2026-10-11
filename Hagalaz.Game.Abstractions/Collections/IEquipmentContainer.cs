@@ -24,6 +24,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <summary>
         /// Equips an item from another container (e.g., inventory) to the appropriate slot on the character.
         /// </summary>
+        /// <remarks>This is a standalone gameplay command; it does not participate in a caller-owned transaction over the required inventory or Equipment storage.</remarks>
         /// <param name="item">The item to equip.</param>
         /// <returns><c>true</c> if the item was equipped successfully; otherwise, <c>false</c>.</returns>
         bool EquipItem(IItem item);
@@ -31,12 +32,14 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <summary>
         /// Unequips an item from the character and prepares it for placement in another container.
         /// </summary>
+        /// <remarks>This is a standalone gameplay command; it does not participate in a caller-owned transaction over the required inventory or Equipment storage.</remarks>
         /// <param name="item">The item to unequip.</param>
         /// <param name="toInventorySlot">The preferred destination slot in the inventory. If -1, the item will be placed in the first available slot.</param>
         /// <returns><c>true</c> if the item was unequipped successfully; otherwise, <c>false</c>.</returns>
         bool UnEquipItem(IItem item, int toInventorySlot = -1);
 
-        /// <summary>Moves equipped items to another ordinary item container, preserving equipment callbacks.</summary>
+        /// <summary>Moves an equipped item to another ordinary item container, preserving equipment callbacks.</summary>
+        /// <remarks>Owns a short transaction when standalone and participates when Equipment and destination are already in the same current-thread transaction. Partial or conflicting participation throws before mutation.</remarks>
         bool TryMoveTo(IItemContainer destination, IItem item, int count, EquipmentSlot slot, IItem? destinationItem = null);
 
         /// <summary>

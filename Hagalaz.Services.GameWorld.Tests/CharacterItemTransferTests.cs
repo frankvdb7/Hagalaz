@@ -107,6 +107,106 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
+    public void TryMoveTo_StandaloneTransferOwnsAndCommitsTransaction()
+    {
+        using var scenario = new Scenario();
+        var destinationPublications = 0;
+        var (equipment, eventManager, destination, item) =
+            CreateEquipmentMoveScenario(scenario, () => destinationPublications++);
+
+        Assert.IsTrue(equipment.TryMoveTo(destination, item, item.Count, EquipmentSlot.Hat));
+
+        Assert.IsNull(equipment[EquipmentSlot.Hat]);
+        Assert.AreSame(item, destination[0]);
+        item.EquipmentScript.Received(1).OnUnequipped(item, scenario.Owner);
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+        Assert.AreEqual(1, destinationPublications);
+    }
+
+    [TestMethod]
+    public void TryMoveTo_ParticipatesInCallerTransactionUntilCommit()
+    {
+        using var scenario = new Scenario();
+        var destinationPublications = 0;
+        var (equipment, eventManager, destination, item) =
+            CreateEquipmentMoveScenario(scenario, () => destinationPublications++);
+        IEquipmentContainer participant = equipment;
+        using var transaction = ItemContainerTransaction.Begin(participant, destination);
+
+        Assert.IsTrue(participant.TryMoveTo(destination, item, item.Count, EquipmentSlot.Hat));
+
+        Assert.IsNull(equipment[EquipmentSlot.Hat]);
+        Assert.AreSame(item, destination[0]);
+        item.EquipmentScript.DidNotReceive().OnUnequipped(item, scenario.Owner);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+        Assert.AreEqual(0, destinationPublications);
+
+        transaction.Commit();
+
+        item.EquipmentScript.Received(1).OnUnequipped(item, scenario.Owner);
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+        Assert.AreEqual(1, destinationPublications);
+    }
+
+    [TestMethod]
+    public void TryMoveTo_RollsBackWithCallerTransaction()
+    {
+        using var scenario = new Scenario();
+        var destinationPublications = 0;
+        var (equipment, eventManager, destination, item) =
+            CreateEquipmentMoveScenario(scenario, () => destinationPublications++);
+        IEquipmentContainer participant = equipment;
+
+        using (ItemContainerTransaction.Begin(participant, destination))
+        {
+            Assert.IsTrue(participant.TryMoveTo(destination, item, item.Count, EquipmentSlot.Hat));
+            Assert.IsNull(equipment[EquipmentSlot.Hat]);
+            Assert.AreSame(item, destination[0]);
+        }
+
+        Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
+        Assert.IsNull(destination[0]);
+        item.EquipmentScript.DidNotReceive().OnUnequipped(item, scenario.Owner);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+        Assert.AreEqual(0, destinationPublications);
+    }
+
+    [TestMethod]
+    public void TryMoveTo_RejectsPartialEnlistmentBeforeMutation()
+    {
+        using var scenario = new Scenario();
+        var (equipment, eventManager, destination, item) = CreateEquipmentMoveScenario(scenario);
+        IEquipmentContainer participant = equipment;
+        using var transaction = ItemContainerTransaction.Begin(participant);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            participant.TryMoveTo(destination, item, item.Count, EquipmentSlot.Hat));
+
+        Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
+        Assert.IsNull(destination[0]);
+        item.EquipmentScript.DidNotReceive().OnUnequipped(item, scenario.Owner);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+    }
+
+    [TestMethod]
+    public void TryMoveTo_RejectsSeparateActiveTransactionsBeforeMutation()
+    {
+        using var scenario = new Scenario();
+        var (equipment, eventManager, destination, item) = CreateEquipmentMoveScenario(scenario);
+        IEquipmentContainer participant = equipment;
+        using var equipmentTransaction = ItemContainerTransaction.Begin(participant);
+        using var destinationTransaction = ItemContainerTransaction.Begin(destination);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            participant.TryMoveTo(destination, item, item.Count, EquipmentSlot.Hat));
+
+        Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
+        Assert.IsNull(destination[0]);
+        item.EquipmentScript.DidNotReceive().OnUnequipped(item, scenario.Owner);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+    }
+
+    [TestMethod]
     public void TryReplaceEquippedItem_ReplacesExpectedInstanceAndPreservesLifecycleOrder()
     {
         using var scenario = new Scenario();
@@ -1381,6 +1481,17 @@ public sealed class CharacterItemTransferTests
         var eventManager = Substitute.For<IEventManager>();
         scenario.Owner.EventManager.Returns(eventManager);
         return (new EquipmentContainer(scenario.Owner, 15, scenario.Builder), eventManager);
+    }
+
+    private static (EquipmentContainer Equipment, IEventManager EventManager, ItemContainer Destination, IItem Item)
+        CreateEquipmentMoveScenario(Scenario scenario, Action? onDestinationPublished = null)
+    {
+        var (equipment, eventManager) = CreateEquipmentScenario(scenario);
+        var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item));
+        eventManager.ClearReceivedCalls();
+        var destination = new ItemContainer(StorageType.Normal, 2, _ => onDestinationPublished?.Invoke());
+        return (equipment, eventManager, destination, item);
     }
 
     private static ItemContainerMutationBoundary Boundary(IItemTransactional participant) =>

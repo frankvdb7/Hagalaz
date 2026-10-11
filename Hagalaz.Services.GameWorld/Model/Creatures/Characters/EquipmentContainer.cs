@@ -234,13 +234,31 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool TryMoveTo(IItemContainer destination, IItem item, int count, EquipmentSlot slot,
             IItem? destinationItem = null)
         {
-            if (count <= 0 || this[slot] is not { } equippedItem || !ReferenceEquals(equippedItem, item)) return false;
+            ArgumentNullException.ThrowIfNull(destination);
+            ArgumentNullException.ThrowIfNull(item);
             var destinationBoundary = ItemContainerTransaction.ResolveSingleBoundary(destination);
+            var equipmentLockHeld = _mutations.IsMutationLockHeldByCurrentThread;
+            var destinationLockHeld = destinationBoundary.IsMutationLockHeldByCurrentThread;
+            if (equipmentLockHeld != destinationLockHeld)
+                throw new InvalidOperationException("A transfer cannot partially participate in an item-container transaction.");
+
+            var transaction = equipmentLockHeld ? _mutations.GetCurrentThreadTransaction() : null;
+            if (transaction != null && !ReferenceEquals(transaction, destinationBoundary.GetCurrentThreadTransaction()))
+                throw new InvalidOperationException("Both storage boundaries must belong to the same active transaction.");
+
+            if (count <= 0 || this[slot] is not { } equippedItem || !ReferenceEquals(equippedItem, item)) return false;
             var fullyRemoved = count == equippedItem.Count;
-            using var transaction = ItemContainerTransaction.Begin(this, destination);
+            if (transaction != null)
+            {
+                if (!_mutations.TryTransferTo(destinationBoundary, equippedItem, count, (int)slot, -1, destinationItem)) return false;
+                if (fullyRemoved) DeferEquipmentEffects(transaction, new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem));
+                return true;
+            }
+
+            using var standaloneTransaction = ItemContainerTransaction.Begin(this, destination);
             if (!_mutations.TryTransferTo(destinationBoundary, equippedItem, count, (int)slot, -1, destinationItem)) return false;
-            if (fullyRemoved) DeferEquipmentEffects(transaction, new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem));
-            transaction.Commit();
+            if (fullyRemoved) DeferEquipmentEffects(standaloneTransaction, new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem));
+            standaloneTransaction.Commit();
             return true;
         }
 
