@@ -82,7 +82,8 @@ public sealed class CharacterItemTransferTests
         Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, current));
         eventManager.ClearReceivedCalls();
         var boundary = GetEquipmentBoundary(equipment);
-        using var transaction = ItemContainerTransaction.Begin(equipment);
+        IEquipmentContainer participant = equipment;
+        using var transaction = ItemContainerTransaction.Begin(participant);
 
         Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Amulet, restored));
         Assert.IsTrue(equipment.TryReplaceEquippedItem(EquipmentSlot.Hat, current, replacement));

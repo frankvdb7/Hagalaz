@@ -402,11 +402,11 @@ MoneyPouch MUST internally record immutable notification facts containing the pr
 - **THEN** later stock sorting and the purchase event are skipped, storage remains committed, and the original publication exception propagates directly
 
 ### Requirement: Read-only item access is an explicit capability
-`IReadOnlyItemContainer` MUST expose indexed/enumerable item reads and item-specific queries without mutation or transaction participation. `IItemContainer` MUST inherit this capability and retain mutation members. `IEquipmentContainer` MUST compose an `IReadOnlyItemContainer Items` view and retain its equipment-slot indexer and semantic operations.
+`IReadOnlyItemContainer` MUST expose indexed/enumerable item reads and item-specific queries without mutation or transaction participation. `IItemContainer` MUST inherit this capability and retain mutation members. `IEquipmentContainer` MUST implement the public `IItemTransactional` marker, compose an `IReadOnlyItemContainer Items` view, and retain its equipment-slot indexer and semantic operations.
 
-#### Scenario: Equipment exposes only a read-only composed view
+#### Scenario: Equipment exposes a read-only view and transaction participation
 - **WHEN** a caller accesses equipment through `IEquipmentContainer`
-- **THEN** generic item reads and queries are available through `Items`, equipment-slot reads remain available through the `EquipmentSlot` indexer, and no generic mutation or transaction capability is exposed
+- **THEN** generic item reads and queries are available through `Items`, equipment-slot reads remain available through the `EquipmentSlot` indexer, generic mutation is unavailable, and the equipment domain object can participate in an item-container transaction
 
 #### Scenario: Equipment read view reflects its storage
 - **WHEN** equipment contains an item

@@ -7,7 +7,7 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// <summary>
     /// Defines the contract for a character's equipment container, which manages the items a character is currently wearing.
     /// </summary>
-    public interface IEquipmentContainer
+    public interface IEquipmentContainer : IItemTransactional
     {
         /// <summary>
         /// Gets read-only indexed and enumerable access to equipped items.
