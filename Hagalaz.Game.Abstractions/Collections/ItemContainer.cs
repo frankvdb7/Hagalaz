@@ -151,7 +151,7 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
     public bool HasSpaceFor(IItem item) => _storage.HasSpaceFor(item);
     public bool HasSpaceForRange(IEnumerable<IItem?> items) => _storage.HasSpaceForRange(items);
 
-    public void Clear(bool publishChanges)
+    public void Clear(bool publishChanges = true)
     {
         using var mutation = _mutations.BeginMutation();
         if (_storage.Clear() && publishChanges) mutation.RecordChanges(null);

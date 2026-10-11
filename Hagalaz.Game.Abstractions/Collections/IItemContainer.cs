@@ -39,5 +39,5 @@ public interface IItemContainer : IReadOnlyItemContainer, IItemTransactional
 
     void Sort();
 
-    void Clear(bool publishChanges);
+    void Clear(bool publishChanges = true);
 }
