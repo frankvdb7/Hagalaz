@@ -27,29 +27,30 @@ internal sealed class ItemContainerMutationBoundary
         return transaction;
     }
 
-    internal ItemContainerTransaction? GetCurrentThreadTransaction() =>
-        IsMutationLockHeldByCurrentThread ? EnsureActiveTransaction() : null;
+    internal ItemContainerTransaction? CurrentTransaction
+    {
+        get
+        {
+            var transaction = _transaction;
+            if (transaction is not { IsOwnedByCurrentThread: true }) return null;
+
+            transaction.EnsureActive();
+            return transaction;
+        }
+    }
+
+    internal ItemContainerTransaction? GetCurrentThreadTransaction() => CurrentTransaction;
 
     internal ItemContainerTransaction? GetSharedCurrentThreadTransaction(ItemContainerMutationBoundary destination)
     {
         ArgumentNullException.ThrowIfNull(destination);
 
-        var sourceLockHeld = IsMutationLockHeldByCurrentThread;
-        var destinationLockHeld = destination.IsMutationLockHeldByCurrentThread;
-        if (sourceLockHeld != destinationLockHeld)
-            throw new InvalidOperationException("A transfer cannot partially participate in an item-container transaction.");
+        var sourceTransaction = CurrentTransaction;
+        var destinationTransaction = destination.CurrentTransaction;
+        if (!ReferenceEquals(sourceTransaction, destinationTransaction))
+            throw new InvalidOperationException("Both boundaries must belong to the same active transaction.");
 
-        if (sourceLockHeld)
-        {
-            var transaction = EnsureActiveTransaction();
-            if (!ReferenceEquals(transaction, destination.EnsureActiveTransaction()))
-                throw new InvalidOperationException("Both storage boundaries must belong to the same active transaction.");
-            return transaction;
-        }
-
-        ThrowIfOwnedByCurrentThread();
-        destination.ThrowIfOwnedByCurrentThread();
-        return null;
+        return sourceTransaction;
     }
 
     internal ItemContainerStorage Storage => _storage;

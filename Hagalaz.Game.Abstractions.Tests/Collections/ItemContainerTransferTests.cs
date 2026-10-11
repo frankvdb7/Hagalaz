@@ -100,6 +100,64 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
+    public void CurrentTransaction_UsesCurrentThreadBindingForSharedDiscovery()
+    {
+        var source = new ItemContainer(StorageType.Normal, 1);
+        var destination = new ItemContainer(StorageType.Normal, 1);
+        var sourceBoundary = Boundary(source);
+        var destinationBoundary = Boundary(destination);
+
+        Assert.IsNull(sourceBoundary.CurrentTransaction);
+        Assert.IsNull(sourceBoundary.GetCurrentThreadTransaction());
+        Assert.IsNull(sourceBoundary.GetSharedCurrentThreadTransaction(destinationBoundary));
+
+        using var transaction = ItemContainerTransaction.Begin(source, destination);
+        Assert.AreSame(transaction, sourceBoundary.CurrentTransaction);
+        Assert.AreSame(transaction, sourceBoundary.GetCurrentThreadTransaction());
+        Assert.AreSame(transaction, destinationBoundary.CurrentTransaction);
+        Assert.AreSame(transaction, sourceBoundary.GetSharedCurrentThreadTransaction(destinationBoundary));
+
+        transaction.Commit();
+
+        Assert.IsNull(sourceBoundary.CurrentTransaction);
+        Assert.IsNull(destinationBoundary.CurrentTransaction);
+    }
+
+    [TestMethod]
+    public void CurrentTransaction_ForeignBindingIsNotJoinable()
+    {
+        using var transactionStarted = new ManualResetEventSlim();
+        using var finishTransaction = new ManualResetEventSlim();
+        var container = new ItemContainer(StorageType.Normal, 1);
+        var boundary = Boundary(container);
+        Exception? transactionFailure = null;
+        var transactionThread = new Thread(() =>
+        {
+            try
+            {
+                using var transaction = ItemContainerTransaction.Begin(container);
+                transactionStarted.Set();
+                Assert.IsTrue(finishTransaction.Wait(TimeSpan.FromSeconds(5)));
+                transaction.Commit();
+            }
+            catch (Exception exception) { transactionFailure = exception; }
+        }) { IsBackground = true };
+
+        transactionThread.Start();
+        try
+        {
+            Assert.IsTrue(transactionStarted.Wait(TimeSpan.FromSeconds(5)));
+            Assert.IsNull(boundary.CurrentTransaction);
+        }
+        finally { finishTransaction.Set(); }
+
+        Assert.IsTrue(transactionThread.Join(TimeSpan.FromSeconds(5)));
+        if (transactionFailure != null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transactionFailure).Throw();
+        Assert.IsNull(boundary.CurrentTransaction);
+    }
+
+    [TestMethod]
     public void TryTransferTo_StandalonePublicationFailureReleasesClaimsAndUnblocksTransaction()
     {
         var failure = new InvalidOperationException("Transfer publication failed.");
@@ -1099,6 +1157,11 @@ public sealed class ItemContainerTransferTests
         container = new ItemContainer(StorageType.Normal, 2, _ =>
         {
             publications++;
+            Assert.ThrowsExactly<InvalidOperationException>(() =>
+            {
+                var currentTransaction = Boundary(container!).CurrentTransaction;
+                GC.KeepAlive(currentTransaction);
+            });
             Assert.ThrowsExactly<InvalidOperationException>(() => container!.Add(new TestItem(605, 1)));
         });
         using var transaction = ItemContainerTransaction.Begin(container!);
@@ -1160,6 +1223,32 @@ public sealed class ItemContainerTransferTests
         Assert.AreSame(secondScope, Boundary(second).Transaction);
         Assert.AreSame(item, first[0]);
         Assert.IsNull(second[0]);
+    }
+
+    [TestMethod]
+    public void Transfer_CurrentTransactionDiscoveryDoesNotAuthorizeMutationWithoutItsLock()
+    {
+        var source = new ItemContainer(StorageType.Normal, 1);
+        var destination = new ItemContainer(StorageType.Normal, 1);
+        var item = new TestItem(451, 1);
+        Assert.IsTrue(source.Add(item));
+        var sourceBoundary = Boundary(source);
+        var sourceLock = sourceBoundary.MutationLock;
+        using var transaction = ItemContainerTransaction.Begin(source, destination);
+
+        Monitor.Exit(sourceLock);
+        try
+        {
+            Assert.AreSame(transaction, sourceBoundary.CurrentTransaction);
+            Assert.ThrowsExactly<InvalidOperationException>(() => source.TryTransferTo(destination, item, 1));
+        }
+        finally { Monitor.Enter(sourceLock); }
+
+        Assert.AreSame(transaction, sourceBoundary.Transaction);
+        Assert.AreSame(item, source[0]);
+        Assert.IsNull(destination[0]);
+        transaction.Commit();
+        AssertUnboundAndUnlocked(source, destination);
     }
 
     [TestMethod]
