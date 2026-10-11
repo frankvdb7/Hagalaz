@@ -34,19 +34,19 @@ Defines the ownership boundary and correctness guarantees for item storage share
 - **THEN** the command owns its workflow and does not join a caller-owned transaction over those storages
 
 ### Requirement: Equipment publishes only after lifecycle effects
-Direct equipment restoration, replacement, full removal, and clearing MUST publish committed equipment state only after all required equipment lifecycle effects have been attempted. Storage MUST commit before lifecycle callbacks run. Clearing MUST remove all equipped items before callbacks and attempt `OnUnequipped` for every previously equipped item. The interactive occupied non-weapon/non-shield replacement path MUST verify that both inventory and Equipment are available for standalone operation before removing the incoming item or invoking its custom unequip command. Post-commit lifecycle or publication failures MUST NOT roll back committed storage. Every post-commit action MUST be attempted; one failure MUST preserve and rethrow the original exception, while multiple failures MUST be aggregated.
+Direct equipment restoration, replacement, full removal, and clearing MUST publish committed equipment state only after all required equipment lifecycle effects have been attempted. Storage MUST commit before lifecycle callbacks run. Clearing MUST remove all equipped items before callbacks and attempt `OnUnequipped` for every previously equipped item. An occupied replacement MUST obtain any required approval before mutation and replace inventory and Equipment storage atomically. Post-commit lifecycle or publication failures MUST NOT roll back committed storage. Every post-commit action MUST be attempted; one failure MUST preserve and rethrow the original exception, while multiple failures MUST be aggregated.
 
 #### Scenario: Equipment replacement callbacks precede publication
 - **WHEN** an expected equipped item is replaced
 - **THEN** storage contains the replacement before `OnUnequipped` and `OnEquipped`, and publication follows both callback attempts
 
-#### Scenario: Interactive non-weapon equipment replacement callbacks precede publication
-- **WHEN** an incoming item replaces an occupied non-weapon/non-shield equipment slot through the standalone custom unequip path
-- **THEN** the incoming `OnEquipped` callback runs after storage mutation and lock release but before Equipment publication
+#### Scenario: Approved non-weapon replacement is atomic
+- **WHEN** an incoming item replaces an occupied non-weapon/non-shield equipment slot after approval
+- **THEN** the incoming and displaced item instances are swapped atomically, lifecycle callbacks run after storage commit and unlock, and publication follows both callback attempts
 
-#### Scenario: Interactive equipment replacement rejects existing ownership before mutation
-- **WHEN** inventory or Equipment already belongs to a transaction or standalone publication scope before interactive non-weapon replacement
-- **THEN** the operation throws before removing the incoming inventory item or invoking the custom unequip command
+#### Scenario: Deferred equipment approval leaves storage unchanged
+- **WHEN** an occupied replacement requests UI approval
+- **THEN** inventory and Equipment remain unchanged until acceptance, and the accepted continuation revalidates item identity and eligibility before mutation
 
 #### Scenario: Full equipment removal callback precedes publication
 - **WHEN** an equipped item is fully removed
@@ -55,21 +55,6 @@ Direct equipment restoration, replacement, full removal, and clearing MUST publi
 #### Scenario: Equipment clear exhausts callbacks after storage clear
 - **WHEN** equipment containing one or more items is cleared
 - **THEN** storage is empty before callbacks, every prior item's `OnUnequipped` is attempted, and publication follows all callback attempts
-
-### Requirement: Interactive Equipment replacement preserves the incoming item on pre-equip failure
-An interactive occupied non-weapon/non-shield replacement MUST retain the incoming item if the custom unequip rejects or fails, the destination slot remains unavailable, insertion fails before equip, or inventory-removal publication fails after removal committed. Recovery MUST preserve item identity and try the original inventory slot, ordinary inventory insertion, Rewards storage, then Bank storage without overwriting or duplicating the item. If all existing destinations reject it, the operation MUST throw an explicit failure. Once the item is equipped, later lifecycle or publication failures MUST NOT restore it to inventory.
-
-#### Scenario: Interactive replacement fails before equipping
-- **WHEN** custom unequip returns false or equipment insertion rejects the incoming item
-- **THEN** the same item instance remains accessible through the first accepting recovery destination and is not duplicated or overwritten
-
-#### Scenario: Inventory removal publisher fails after committing removal
-- **WHEN** the inventory publisher throws after exact removal has changed storage
-- **THEN** the incoming item is restored before the original publisher exception propagates
-
-#### Scenario: No existing recovery destination can accept the item
-- **WHEN** inventory, Rewards, and Bank reject restoration after a pre-equip failure
-- **THEN** an explicit recovery failure is thrown rather than reporting an ordinary rejected equip
 
 ### Requirement: MoneyPouch separates gameplay operations from transaction participation
 `IMoneyPouchContainer` MUST expose normal coin-domain operations and implement the empty public `IItemTransactional` capability marker. `Add` MUST add the entire requested amount or leave storage unchanged, using inventory capacity for pouch overflow. It MUST NOT expose a `Mutations` property or storage boundary. Its concrete domain implementation MUST provide exactly its pouch storage and one inventory item-storage boundary through the internal `IItemTransactionSource`. `Add` and `TryRemoveExact` MUST own a transaction when the current thread owns neither required boundary, participate in the same active current-thread transaction when it owns both, and throw before mutation when the inventory boundary is already owned by a current-thread transaction that does not include the pouch boundary. A foreign transaction MUST be handled by the standalone transaction's normal contention behavior. `AddFromInventory` and `MoveToInventory` MUST reject invocation when the current thread already owns a transaction or standalone publication involving either the pouch or inventory boundary, before validation, messaging, or mutation. Foreign contention for these standalone commands MUST retain normal standalone waiting behavior. The primary MoneyPouch API MUST NOT expose generic item-ID `Contains`, a domain-specific mutation boundary, or caller-managed publication receipts.
@@ -151,11 +136,11 @@ Storage mechanics MUST be composed rather than inherited. `BaseItemContainer`, `
 - **THEN** it finds `TryTransferTo(...)` on the interface; transaction membership is declared by passing the aggregate object directly to `Begin(...)`
 
 ### Requirement: Storage and trade revisions have distinct purposes
-Storage MUST own its mutation revision, which invalidates active enumerators after committed storage changes. `ItemContainerTransaction` MUST own deterministic mutation-boundary lock ordering; `ItemContainerMutationBoundary.TryTransferTo` MUST require an existing caller-owned scope containing both boundaries. `TradingCharacterScript` MUST own terminal completion, refund, and forced recovery scopes, establish them before TradeExchange stages mutations, and set the terminal `TradeState` before `Commit()`; TradeExchange MUST NOT begin or commit those scopes. Terminal TradeExchange movement MUST use exact `IItemContainer.TryTransferTo(...)` for offered non-coin items and selected escrow recovery destinations inside the existing caller-owned transaction, and `IMoneyPouchContainer.TryTransferCoinsFrom(...)` for offered coins. It MUST NOT use standalone-capable destination `AddRange` or terminal offer `Clear` for authoritative escrow movement. Trade session owners MUST NOT acquire mutation-boundary locks directly. A trade offer's acceptance `Revision` MUST remain domain-owned and MUST advance according to its existing publication semantics, independently of storage revision.
+Storage MUST own its mutation revision, which invalidates active enumerators after committed storage changes. `ItemContainerLockSet` MUST own deterministic mutation-boundary lock ordering; `ItemContainerTransaction` MUST use that lock order for scope acquisition and finalization. `ItemContainerMutationBoundary.TryTransferTo` MUST require an existing caller-owned scope containing both boundaries. `TradingCharacterScript` MUST own terminal completion, refund, and forced recovery scopes, establish them before TradeExchange stages mutations, and set the terminal `TradeState` before `Commit()`; TradeExchange MUST NOT begin or commit those scopes. Terminal TradeExchange movement MUST use exact `IItemContainer.TryTransferTo(...)` for offered non-coin items and selected escrow recovery destinations inside the existing caller-owned transaction, and `IMoneyPouchContainer.TryTransferCoinsFrom(...)` for offered coins. It MUST NOT use standalone-capable destination `AddRange` or terminal offer `Clear` for authoritative escrow movement. Trade session owners MUST NOT acquire mutation-boundary locks directly. A trade offer's acceptance `Revision` MUST remain domain-owned and MUST advance according to its existing publication semantics, independently of storage revision.
 
 #### Scenario: Storage revisions are independent from deterministic lock ordering
 - **WHEN** storage changes during a transaction involving multiple boundaries
-- **THEN** storage advances its own mutation revision while the transaction orders synchronization by boundary mutation order
+- **THEN** storage advances its own mutation revision while `ItemContainerLockSet` orders synchronization by boundary lock order
 
 ### Requirement: Storage is synchronization-agnostic
 `ItemContainerStorage` MUST own item state, mutation revision, mutation algorithms, snapshots, and restoration only. It MUST NOT own synchronization or transaction state. Its owning `ItemContainerMutationBoundary` provides synchronous authorization and protection. Transactions MUST coordinate boundaries and access storage only for the item-state data those boundaries protect.
@@ -175,6 +160,13 @@ Storage MUST own its mutation revision, which invalidates active enumerators aft
 - **AND** storage contents and mutation revision remain unchanged
 - **AND** the existing enumerator remains valid
 - **AND** no participant mutation publication occurs
+
+### Requirement: Stacking checks do not orchestrate gameplay
+`IItemScript.CanStackItem` calls made during storage mutation MUST make a deterministic decision from the supplied item data. They MUST NOT mutate unrelated containers, begin transactions, send gameplay events, or block on unrelated resources.
+
+#### Scenario: A stacking check attempts contended storage access
+- **WHEN** a stacking check tries to acquire another boundary while its caller owns storage
+- **THEN** the additional operation fails without waiting, deadlocking, or partially changing either container
 
 #### Scenario: Failed transaction restores storage revision
 - **GIVEN** enumerators exist before a multi-container transaction begins
@@ -278,6 +270,55 @@ Storage MUST support removing depleted slots or retaining the item at a configur
 - **WHEN** shop normalization processes depleted non-original stock
 - **THEN** storage retains the configured zero-count entry and the shop applies its existing normalization and sorting behavior
 
+### Requirement: Partial removal respects the requested total
+`Remove(...)` MUST remove no more than the requested item quantity across all matching stacks and return the actual quantity removed. Non-null zero-count sentinels MUST NOT count as available quantity. `TryRemoveExact(...)` and `TryTransferTo(...)` MUST remain all-or-nothing. A ground drop MUST create a ground item only after exact inventory removal succeeds, and its quantity MUST match the selected item quantity.
+
+#### Scenario: Removal spans matching stacks
+- **WHEN** matching stacks together contain more than the requested quantity
+- **THEN** removal consumes only the requested total and leaves the remaining quantity intact
+
+#### Scenario: Removal has insufficient positive quantity
+- **WHEN** matching stacks contain less than the requested quantity, including zero-count sentinels
+- **THEN** partial removal returns only the available positive quantity and removes no additional items
+
+#### Scenario: Exact removal fails without changing storage
+- **WHEN** the selected exact quantity is unavailable
+- **THEN** exact removal returns false and leaves every matching stack unchanged
+
+#### Scenario: Failed exact drop does not create a ground item
+- **WHEN** the selected item leaves inventory before the drop's exact removal
+- **THEN** the drop returns false and creates no ground item
+
+### Requirement: No-op sorting does not mutate storage
+Sorting an already compact container MUST preserve order and item references without advancing its revision or publishing. Sorting that moves items MUST advance revision and publish the changed container state once.
+
+#### Scenario: Sort has no items to move
+- **WHEN** every item already occupies the compact prefix
+- **THEN** sorting leaves revision and publication unchanged
+
+#### Scenario: Sort compacts sparse slots
+- **WHEN** sorting moves an item across an empty slot
+- **THEN** it preserves item order, advances revision once, and publishes the change
+
+### Requirement: Shop normalization uses immutable original quantities
+`ShopStockContainer` MUST retain original quantities keyed by item ID, aggregate duplicate entries with overflow validation, and plan normalization without mutating live item references. A successful change MUST apply as one coherent storage mutation, preserve identity for unchanged entries, and publish only when state changes. A failed plan MUST leave storage, item counts, and revision unchanged.
+
+#### Scenario: Original stock moves or player stock extends storage
+- **WHEN** original items move slots or player-added stock occupies an arbitrary slot
+- **THEN** normalization uses item-ID baselines without indexing current slots into original-stock metadata
+
+#### Scenario: Normalization changes only planned item instances
+- **WHEN** normalization changes stock quantities
+- **THEN** only changed items are replaced by planned copies and unchanged entries retain their original identity
+
+#### Scenario: Normalization has no effect
+- **WHEN** current stock already matches the normalization result
+- **THEN** revision and publication remain unchanged
+
+#### Scenario: Normalization planning fails
+- **WHEN** cloning or planning fails before state replacement
+- **THEN** live slots, item counts, references, and revision remain unchanged
+
 ### Requirement: Domain callbacks follow committed storage state
 Equipment callbacks, trade settlement publication, inventory/bank/reward events, money-pouch messages, and UI updates MUST remain owned by their domain operations and MUST observe committed storage state.
 
@@ -315,12 +356,43 @@ MoneyPouch additions, removals, inventory transfers, bank deposits, shop purchas
 - **WHEN** the stake or destination cannot accept the exact transfer
 - **THEN** source and destination remain unchanged and the script does not publish a stake change
 
-### Requirement: Equipment replacement preserves command behavior outside weapon and shield conflicts
-Before its first mutation, `EquipmentContainer` MUST identify all conflicting equipped items and require `CanUnEquipItem` to succeed for each. Rejection MUST leave equipment and inventory unchanged and invoke no equip or unequip callback. For occupied replacement slots other than Weapon and Shield, a successful preflight MUST preserve the existing `UnEquipItem` command behavior, including custom and interactive behavior.
+### Requirement: Decision-critical reads are revalidated under ownership
+A preflight read that determines whether an item mutation is valid MUST be checked again after all required mutation boundaries are acquired. Informational reads MAY remain lightweight, and the system MUST NOT introduce a global read lock.
+
+#### Scenario: Source changes after preflight
+- **WHEN** the selected source instance or quantity changes between preflight and mutation ownership
+- **THEN** the operation rejects without consuming a different or stale item
+
+#### Scenario: Destination changes after preflight
+- **WHEN** capacity or the target slot changes before mutation ownership is acquired
+- **THEN** the operation rechecks the destination and either performs the complete operation or leaves every participant unchanged
+
+### Requirement: Equipment replacement is authorized and atomic
+Before mutation, `EquipmentContainer` MUST require `CanEquipItem` and `CanUnEquipItem` to succeed for the relevant items. Rejection MUST leave equipment and inventory unchanged and invoke no lifecycle callback. For an active aura replacement, `AuraEquipmentScript.EquipItem` MUST prompt before delegating to `EquipmentScript.EquipItem`; it MUST NOT hold storage locks or a transaction while waiting. Acceptance MUST continue only if the same aura instance remains equipped. The resulting `EquipmentContainer` operation MUST revalidate the exact incoming inventory instance, equipped instance, and target slot under one transaction. Repeated or concurrent delivery MUST NOT duplicate an item. The transaction MUST remove the exact incoming instance, place the displaced item in the vacated inventory slot, and equip the incoming instance. A rejected storage step MUST roll back both containers without callbacks or publication. This path MUST NOT invoke the old `UnEquipItem` command or recover items through Rewards or Bank.
 
 #### Scenario: A later conflict rejects replacement
 - **WHEN** an earlier conflicting item allows unequipping but a later conflict rejects it
 - **THEN** equipment and inventory remain unchanged and no mutation publication or callback occurs
+
+#### Scenario: An occupied slot swaps atomically
+- **WHEN** the incoming item is equipped over an item in a non-weapon/non-shield slot
+- **THEN** the exact incoming item replaces it in one transaction and both lifecycle callbacks run after commit and before publication
+
+#### Scenario: Active aura confirmation leaves storage unchanged until accepted
+- **WHEN** an active aura's `EquipItem` requests UI confirmation before replacement
+- **THEN** inventory and equipment remain unchanged while the dialogue is open, and acceptance delegates to the normal atomic Equipment operation
+
+#### Scenario: A stale aura confirmation does not replace another item
+- **WHEN** the equipped aura changes before confirmation is accepted
+- **THEN** the continuation does nothing and does not start an Equipment operation
+
+#### Scenario: Repeated equip requests do not duplicate items
+- **WHEN** the same incoming item is submitted for equipment more than once, sequentially or concurrently
+- **THEN** the exact incoming item is moved at most once and later requests leave storage and publication unchanged
+
+#### Scenario: A failed replacement stage restores both containers
+- **WHEN** a storage operation fails after the incoming item has been removed inside the transaction
+- **THEN** rollback restores both original item instances and no lifecycle callback or publication occurs
 
 ### Requirement: Weapon and shield replacement commits conflicting items atomically
 After all required `CanUnEquipItem` checks succeed, Weapon and Shield replacement MUST remove the incoming inventory item, move each conflicting equipped item into inventory, and place the same incoming item instance in its equipment slot within one `ItemContainerTransaction`. If any staged storage operation fails, inventory and equipment MUST be restored unchanged and no lifecycle callback or mutation publication may occur. A successful replacement MUST NOT invoke conflicting items' `UnEquipItem` commands. After commit and unlock, it MUST run `OnUnequipped` for a conflicting weapon, then a conflicting shield, then weapon profile/special-attack logic when a weapon is removed, then the incoming item's `OnEquipped`, all before participant publication.
@@ -361,6 +433,10 @@ Commit MUST make the current storage state irreversible before discarding snapsh
 #### Scenario: A storage-owning thread rejects a contended additional transaction
 - **WHEN** a thread already owns an item-container transaction or standalone publication and begins another scope that needs a contended or foreign-owned boundary
 - **THEN** Begin throws without waiting and releases any additional lock prefix
+
+#### Scenario: Nested disjoint transaction remains available
+- **WHEN** a thread already owns one scope and begins a transaction over disjoint, immediately available boundaries
+- **THEN** the nested scope acquires them without waiting and can complete independently
 
 #### Scenario: Nested Begin on an enlisted boundary is rejected
 - **WHEN** the current thread begins a transaction for storage already enlisted in its active transaction

@@ -24,11 +24,10 @@ public sealed class ItemContainerTransaction : IDisposable
 {
     private readonly int _threadId = Environment.CurrentManagedThreadId;
     private readonly ItemContainerMutationBoundary[] _publicationOrder;
-    private readonly ItemContainerMutationBoundary[] _lockOrder;
     private readonly IItemContainerCompletionOwner[] _completionOwners;
     private readonly List<StorageSnapshot> _snapshots = [];
     private readonly Dictionary<ItemContainerMutationBoundary, HashSet<int>?> _changed = [];
-    private int _locksAcquired;
+    private ItemContainerLockSet? _lockSet;
     private TransactionState _state;
 
     private ItemContainerTransaction(ItemContainerMutationBoundary[] publicationOrder)
@@ -38,7 +37,6 @@ public sealed class ItemContainerTransaction : IDisposable
         foreach (var boundary in publicationOrder)
             if (boundary.CompletionOwner is { } owner) completionOwners.Add(owner);
         _completionOwners = completionOwners.ToArray();
-        _lockOrder = publicationOrder.OrderBy(boundary => boundary.LockOrder).ToArray();
     }
 
     /// <summary>Resolves every participant, acquires ordered boundary locks and captures rollback state before binding the scope.</summary>
@@ -68,73 +66,26 @@ public sealed class ItemContainerTransaction : IDisposable
 
     private static ItemContainerTransaction BeginResolved(ItemContainerMutationBoundary[] boundaries)
     {
-        var currentThreadOwnsStorage = ItemContainerMutationBoundary.CurrentThreadOwnsStorage;
-        foreach (var boundary in boundaries)
-            if (boundary.Transaction is { IsOwnedByCurrentThread: true })
-                throw new InvalidOperationException("Storage already belongs to a transaction on this thread.");
-
         var transaction = new ItemContainerTransaction(boundaries);
         try
         {
-            while (true)
-            {
-                var retry = false;
-                foreach (var boundary in transaction._lockOrder)
-                {
-                    if (currentThreadOwnsStorage)
-                    {
-                        if (!Monitor.TryEnter(boundary.MutationLock))
-                            throw new InvalidOperationException("Cannot wait for another item-container boundary while the current thread owns storage.");
-                    }
-                    else
-                    {
-                        Monitor.Enter(boundary.MutationLock);
-                    }
-                    transaction._locksAcquired++;
-                    var owner = boundary.Transaction;
-                    var hasStandaloneOwner = boundary.HasStandalonePublicationOwner;
-                    if (owner == null && !hasStandaloneOwner) continue;
-                    if (owner is { IsOwnedByCurrentThread: true } || boundary.IsStandalonePublicationOwnedByCurrentThread)
-                        throw new InvalidOperationException("Storage already belongs to a transaction on this thread.");
-
-                    if (currentThreadOwnsStorage)
-                        throw new InvalidOperationException("Cannot wait for another item-container boundary while the current thread owns storage.");
-
-                    // Do not retain a lock prefix while waiting: the owner reacquires its ordered set to
-                    // release the committed scope, so a retained prefix could deadlock scope teardown.
-                    transaction.ReleaseMutationLocks();
-                    Monitor.Enter(boundary.MutationLock);
-                    try
-                    {
-                        while (boundary.Transaction != null || boundary.HasStandalonePublicationOwner)
-                        {
-                            if (boundary.Transaction is { IsOwnedByCurrentThread: true } ||
-                                boundary.IsStandalonePublicationOwnedByCurrentThread)
-                                throw new InvalidOperationException("Storage already belongs to a transaction on this thread.");
-                            Monitor.Wait(boundary.MutationLock);
-                        }
-                    }
-                    finally { Monitor.Exit(boundary.MutationLock); }
-                    retry = true;
-                    break;
-                }
-                if (!retry) break;
-            }
-            foreach (var boundary in transaction._lockOrder)
+            transaction._lockSet = ItemContainerLockSet.Acquire(boundaries);
+            foreach (var boundary in boundaries)
             {
                 var storage = boundary.Storage;
                 var items = storage.ToArray();
                 transaction._snapshots.Add(new StorageSnapshot(boundary, items,
                     items.Select(item => item?.Count ?? 0).ToArray(), storage.MutationRevision));
             }
-            foreach (var boundary in transaction._lockOrder) boundary.Transaction = transaction;
-            ItemContainerMutationBoundary.AddCurrentThreadStorageOwnership();
+            foreach (var boundary in boundaries) boundary.Transaction = transaction;
             return transaction;
         }
         catch
         {
+            foreach (var boundary in boundaries)
+                if (ReferenceEquals(boundary.Transaction, transaction)) boundary.Transaction = null;
             transaction._snapshots.Clear();
-            transaction.ReleaseMutationLocks();
+            transaction._lockSet?.Dispose();
             throw;
         }
     }
@@ -157,7 +108,7 @@ public sealed class ItemContainerTransaction : IDisposable
         List<Exception>? failures = null;
         try
         {
-            ReleaseMutationLocks();
+            _lockSet!.ReleaseLocksPreservingOwnership();
             foreach (var owner in _completionOwners)
             {
                 try { owner.CompleteBeforePublication(); }
@@ -181,7 +132,11 @@ public sealed class ItemContainerTransaction : IDisposable
             finally
             {
                 try { ReleaseCommittedScopeBindings(); }
-                finally { _state = TransactionState.Completed; }
+                finally
+                {
+                    _lockSet!.ReleaseOwnership();
+                    _state = TransactionState.Completed;
+                }
             }
         }
         ThrowFailures(failures);
@@ -209,7 +164,7 @@ public sealed class ItemContainerTransaction : IDisposable
             finally
             {
                 try { ClearScopeBindings(); }
-                finally { ReleaseMutationLocks(); }
+                finally { _lockSet!.Dispose(); }
             }
         }
         ThrowFailures(failures);
@@ -244,55 +199,20 @@ public sealed class ItemContainerTransaction : IDisposable
             throw new InvalidOperationException("Transaction use must occur on its originating thread.");
     }
 
-    private void ReleaseMutationLocks()
-    {
-        while (_locksAcquired > 0)
-        {
-            var lockIndex = _locksAcquired - 1;
-            Monitor.Exit(_lockOrder[lockIndex].MutationLock);
-            _locksAcquired = lockIndex;
-        }
-    }
-
     private void ClearScopeBindings()
     {
-        for (var index = _lockOrder.Length - 1; index >= 0; index--)
-        {
-            var boundary = _lockOrder[index];
+        foreach (var boundary in _publicationOrder)
             if (ReferenceEquals(boundary.Transaction, this)) boundary.Transaction = null;
-        }
-        ItemContainerMutationBoundary.RemoveCurrentThreadStorageOwnership();
     }
 
     private void ReleaseCommittedScopeBindings()
     {
-        var acquired = 0;
-        try
+        using (ItemContainerLockSet.AcquireForTransactionFinalization(_publicationOrder, this))
         {
-            foreach (var boundary in _lockOrder)
-            {
-                Monitor.Enter(boundary.MutationLock);
-                acquired++;
-            }
-
-            foreach (var boundary in _lockOrder)
+            foreach (var boundary in _publicationOrder)
             {
                 if (ReferenceEquals(boundary.Transaction, this)) boundary.Transaction = null;
-            }
-            ItemContainerMutationBoundary.RemoveCurrentThreadStorageOwnership();
-
-            foreach (var boundary in _lockOrder)
-            {
                 Monitor.PulseAll(boundary.MutationLock);
-            }
-        }
-        finally
-        {
-            while (acquired > 0)
-            {
-                var lockIndex = acquired - 1;
-                Monitor.Exit(_lockOrder[lockIndex].MutationLock);
-                acquired = lockIndex;
             }
         }
     }

@@ -1,5 +1,5 @@
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.Shops;
@@ -36,11 +36,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         private readonly ItemContainer _items;
         public IItemContainer Items => _items;
 
-        /// <summary>
-        /// The original stock of the shop.
-        /// </summary>
-        /// <value>The original stock.</value>
-        private readonly IItem[] _originalStock;
+        private readonly Dictionary<int, int> _originalStockCounts;
 
         /// <summary>
         /// Constructs a container for character banks.
@@ -57,13 +53,26 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             IShop shop, IItemService itemRepository, IItemBuilder itemBuilder, bool sampleContainer, StorageType type, int capacity,
             IList<IItem> stock, IEventManager eventManager)
         {
+            _originalStockCounts = AggregateOriginalStock(stock);
             _items = new ItemContainer(type, stock, capacity, OnUpdate, 0);
             _shop = shop;
             _sampleContainer = sampleContainer;
             _itemRepository = itemRepository;
             _itemBuilder = itemBuilder;
             _eventManager = eventManager;
-            _originalStock = stock.ToArray();
+        }
+
+        private static Dictionary<int, int> AggregateOriginalStock(IEnumerable<IItem> stock)
+        {
+            ArgumentNullException.ThrowIfNull(stock);
+            var counts = new Dictionary<int, int>();
+            foreach (var item in stock)
+            {
+                ArgumentNullException.ThrowIfNull(item);
+                counts.TryGetValue(item.Id, out var count);
+                counts[item.Id] = checked(count + item.Count);
+            }
+            return counts;
         }
 
         /// <summary>
@@ -233,7 +242,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 }
             }
 
-            var originalStock = _originalStock.Any(it => it.Id == item.Id);
+            var originalStock = _originalStockCounts.ContainsKey(item.Id);
             IItemTransactional[] participants = _shop.CurrencyId == 995
                 ? [_items, viewer.MoneyPouch]
                 : [_items, viewer.Inventory.Items];
@@ -270,66 +279,103 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         public void NormalizeStock()
         {
             var changedSlots = new HashSet<int>();
-            var shouldSort = false;
+            var positionsChanged = false;
             using (var mutation = _items.BeginMutation())
             {
-                var items = _items.SnapshotItems();
-                // This uses the full capacity, because we don't know if items were added.
-                for (var i = 0; i < Items.Capacity; i++)
+                var currentItems = _items.SnapshotItems();
+                var plannedItems = (IItem?[])currentItems.Clone();
+                var countsById = new Dictionary<int, long>();
+                foreach (var item in currentItems)
                 {
-                    var item = items[i];
-                    if (item == null)
+                    if (item == null || item.Count <= 0) continue;
+                    countsById.TryGetValue(item.Id, out var count);
+                    countsById[item.Id] = count + item.Count;
+                }
+
+                var processedOriginalIds = new HashSet<int>();
+                for (var slot = 0; slot < currentItems.Length; slot++)
+                {
+                    var item = currentItems[slot];
+                    if (item == null) continue;
+
+                    if (_originalStockCounts.TryGetValue(item.Id, out var baseline))
                     {
+                        if (!processedOriginalIds.Add(item.Id)) continue;
+                        countsById.TryGetValue(item.Id, out var currentCount);
+                        if (currentCount < baseline)
+                        {
+                            var restoreSlot = Array.FindIndex(currentItems, candidate => candidate?.Id == item.Id);
+                            if (restoreSlot >= 0)
+                            {
+                                plannedItems[restoreSlot] = CloneWithCount(currentItems[restoreSlot]!,
+                                    checked(currentItems[restoreSlot]!.Count + 1));
+                                changedSlots.Add(restoreSlot);
+                            }
+                        }
+                        else if (currentCount > baseline)
+                        {
+                            var reduceSlot = Array.FindIndex(currentItems, candidate => candidate?.Id == item.Id && candidate.Count > 0);
+                            if (reduceSlot >= 0)
+                                DecreaseStockItem(currentItems, plannedItems, reduceSlot, changedSlots, ref positionsChanged);
+                        }
+
                         continue;
                     }
 
-                    if (item.Count < _originalStock[i].Count)
-                    {
-                        item.Count += 1;
-                        changedSlots.Add(i);
-                    }
-                    else if (item.Count > 0 && _originalStock.All(original => original.Id != item.Id))
-                    {
-                        item.Count -= 1;
-                        changedSlots.Add(i);
-                        if (item.Count <= 0)
-                        {
-                            if (_items.CountToResetTo == -1)
-                            {
-                                items[i] = null;
-                            }
-                            else
-                            {
-                                item.Count = _items.CountToResetTo;
-                            }
-
-                            shouldSort = true;
-                        }
-                    }
+                    if (item.Count > 0)
+                        DecreaseStockItem(currentItems, plannedItems, slot, changedSlots, ref positionsChanged);
                 }
 
-                if (shouldSort)
+                if (positionsChanged)
                 {
+                    var sortedItems = new IItem?[plannedItems.Length];
                     var write = 0;
-                    for (var i = 0; i < items.Length; i++)
+                    for (var read = 0; read < plannedItems.Length; read++)
                     {
-                        if (items[i] == null)
-                        {
-                            continue;
-                        }
-
-                        var item = items[i];
-                        items[i] = null;
-                        items[write++] = item;
+                        if (plannedItems[read] is { } item) sortedItems[write++] = item;
                     }
+                    positionsChanged = false;
+                    for (var slot = 0; slot < plannedItems.Length; slot++)
+                    {
+                        if (ReferenceEquals(plannedItems[slot], sortedItems[slot])) continue;
+                        positionsChanged = true;
+                        break;
+                    }
+                    plannedItems = sortedItems;
                 }
 
                 if (changedSlots.Count > 0)
                 {
-                    _items.ReplaceState(items);
-                    mutation.RecordChanges(shouldSort ? null : changedSlots);
+                    _items.ReplaceState(plannedItems);
+                    mutation.RecordChanges(positionsChanged ? null : changedSlots);
                 }
             }
+        }
+
+        private static IItem CloneWithCount(IItem item, int count)
+        {
+            var clone = item.Clone();
+            if (ReferenceEquals(clone, item))
+                throw new InvalidOperationException("Item cloning must produce a new instance for stock normalization.");
+            clone.Count = count;
+            return clone;
+        }
+
+        private void DecreaseStockItem(IItem?[] currentItems, IItem?[] plannedItems, int slot,
+            HashSet<int> changedSlots, ref bool positionsChanged)
+        {
+            var item = currentItems[slot]!;
+            var nextCount = item.Count - 1;
+            if (nextCount <= 0 && _items.CountToResetTo == -1)
+            {
+                plannedItems[slot] = null;
+                positionsChanged = true;
+            }
+            else
+            {
+                plannedItems[slot] = CloneWithCount(item, nextCount <= 0 ? _items.CountToResetTo : nextCount);
+            }
+            changedSlots.Add(slot);
         }
     }
 }

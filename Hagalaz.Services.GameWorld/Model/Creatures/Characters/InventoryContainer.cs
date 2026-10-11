@@ -39,8 +39,10 @@ public class InventoryContainer : IInventoryContainer,
     public bool DropItem(IItem item)
     {
         var slot = Items.GetInstanceSlot(item);
-        if (slot == -1 || Items.Remove(item, slot) < item.Count) return false;
-        var groundItem = _groundItemBuilder.Create().WithItem(item).WithLocation(_owner.Location).WithOwner(_owner).Build();
+        if (slot == -1) return false;
+        var droppedItem = item.Clone(item.Count);
+        if (!Items.TryRemoveExact(item, slot)) return false;
+        var groundItem = _groundItemBuilder.Create().WithItem(droppedItem).WithLocation(_owner.Location).WithOwner(_owner).Build();
         _mapRegionService.AddGroundItem(groundItem);
         return true;
     }

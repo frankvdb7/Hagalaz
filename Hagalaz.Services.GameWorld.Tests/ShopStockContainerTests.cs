@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
@@ -273,7 +274,7 @@ public sealed class ShopStockContainerTests
 
         scenario.Stock.NormalizeStock();
 
-        Assert.AreSame(depletedOriginal, scenario.Stock.Items[0]);
+        Assert.AreNotSame(depletedOriginal, scenario.Stock.Items[0]);
         Assert.AreEqual(1, scenario.Stock.Items[0]!.Count);
     }
 
@@ -288,8 +289,113 @@ public sealed class ShopStockContainerTests
 
         scenario.Stock.NormalizeStock();
 
-        Assert.AreSame(playerStock, scenario.Stock.Items[0]);
+        Assert.AreNotSame(playerStock, scenario.Stock.Items[0]);
         Assert.AreEqual(0, scenario.Stock.Items[0]!.Count);
+    }
+
+    [TestMethod]
+    public void ShopStockConstructor_DuplicateBaselineCountsAggregate()
+    {
+        var first = new ComposedTestItem(ItemId, 2, stackable: true);
+        var second = new ComposedTestItem(ItemId, 3, stackable: true);
+        var scenario = CreateScenario(cost: 0, stockCapacity: 2, originalStock: [first, second]);
+        scenario.Stock.SetItems([new ComposedTestItem(ItemId, 4, stackable: true), null!], update: false);
+
+        scenario.Stock.NormalizeStock();
+
+        Assert.AreEqual(5, scenario.Stock.Items.GetCountById(ItemId));
+    }
+
+    [TestMethod]
+    public void ShopStockConstructor_BaselineOverflowThrows()
+    {
+        var originalStock = new IItem[]
+        {
+            new ComposedTestItem(ItemId, int.MaxValue, stackable: true),
+            new ComposedTestItem(ItemId, 1, stackable: true)
+        };
+
+        Assert.ThrowsExactly<OverflowException>(() =>
+            CreateScenario(cost: 0, stockCapacity: 2, originalStock: originalStock));
+    }
+
+    [TestMethod]
+    public void NormalizeStock_UsesOriginalBaselineAfterItemMoves()
+    {
+        var scenario = CreateScenario(cost: 0, stockCapacity: 3);
+        var movedDepletedOriginal = new ComposedTestItem(ItemId, 0, stackable: true);
+        scenario.Stock.SetItems([null!, null!, movedDepletedOriginal], update: false);
+
+        scenario.Stock.NormalizeStock();
+
+        Assert.AreEqual(1, scenario.Stock.Items[2]!.Count);
+        Assert.AreNotSame(movedDepletedOriginal, scenario.Stock.Items[2]);
+    }
+
+    [TestMethod]
+    public void NormalizeStock_HandlesPlayerStockBeyondOriginalEntries()
+    {
+        var scenario = CreateScenario(cost: 0, stockCapacity: 3);
+        var playerStock = new ComposedTestItem(2001, 2, stackable: true);
+        scenario.Stock.SetItems([null!, null!, playerStock], update: false);
+
+        scenario.Stock.NormalizeStock();
+
+        Assert.AreEqual(1, scenario.Stock.Items[2]!.Count);
+    }
+
+    [TestMethod]
+    public void NormalizeStock_ChangesOnlyPlannedItemIdentity()
+    {
+        var baseline = new IItem[]
+        {
+            new ComposedTestItem(ItemId, 1, stackable: true),
+            new ComposedTestItem(3000, 3, stackable: true)
+        };
+        var scenario = CreateScenario(cost: 0, stockCapacity: 3, originalStock: baseline);
+        var depleted = new ComposedTestItem(ItemId, 0, stackable: true);
+        var playerStock = new ComposedTestItem(2001, 2, stackable: true);
+        var unchangedOriginal = new ComposedTestItem(3000, 3, stackable: true);
+        scenario.Stock.SetItems([depleted, playerStock, unchangedOriginal], update: false);
+
+        scenario.Stock.NormalizeStock();
+
+        Assert.AreNotSame(depleted, scenario.Stock.Items[0]);
+        Assert.AreNotSame(playerStock, scenario.Stock.Items[1]);
+        Assert.AreSame(unchangedOriginal, scenario.Stock.Items[2]);
+    }
+
+    [TestMethod]
+    public void NormalizeStock_NoChangeDoesNotAdvanceRevisionOrPublish()
+    {
+        var scenario = CreateScenario(cost: 0);
+        var boundary = ((IItemTransactionSource)scenario.Stock.Items).Boundaries[0];
+        var revision = boundary.Storage.MutationRevision;
+
+        scenario.Stock.NormalizeStock();
+
+        Assert.AreEqual(revision, boundary.Storage.MutationRevision);
+        scenario.ShopEvents.DidNotReceive().SendEvent(Arg.Any<ShopStockChangedEvent>());
+    }
+
+    [TestMethod]
+    public void NormalizeStock_PlanningFailureLeavesStateAndRevisionUnchanged()
+    {
+        var scenario = CreateScenario(cost: 0);
+        var item = new ComposedTestItem(ItemId, 0, stackable: true)
+        {
+            OnClone = () => throw new InvalidOperationException("Controlled clone failure.")
+        };
+        scenario.Stock.SetItems([item], update: false);
+        var boundary = ((IItemTransactionSource)scenario.Stock.Items).Boundaries[0];
+        var revision = boundary.Storage.MutationRevision;
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => scenario.Stock.NormalizeStock());
+
+        Assert.AreSame(item, scenario.Stock.Items[0]);
+        Assert.AreEqual(0, item.Count);
+        Assert.AreEqual(revision, boundary.Storage.MutationRevision);
+        scenario.ShopEvents.DidNotReceive().SendEvent(Arg.Any<ShopStockChangedEvent>());
     }
 
     private static ShopScenario CreateScenario(
@@ -298,7 +404,9 @@ public sealed class ShopStockContainerTests
         int pouchCoins = 0,
         int inventoryCurrency = 0,
         bool sampleStock = false,
-        int inventoryCapacity = 10)
+        int inventoryCapacity = 10,
+        int stockCapacity = 1,
+        IList<IItem>? originalStock = null)
     {
         var inventory = new ComposedTestInventory(inventoryCapacity);
         if (inventoryCurrency > 0)
@@ -330,7 +438,8 @@ public sealed class ShopStockContainerTests
         currencyDefinition.Name.Returns(currencyId == CoinId ? "Coins" : "Tokens");
         itemService.FindItemDefinitionById(currencyId).Returns(currencyDefinition);
 
-        var stockItem = new ComposedTestItem(ItemId, 1, stackable: true);
+        var stockItems = originalStock ?? [new ComposedTestItem(ItemId, 1, stackable: true)];
+        var stockItem = stockItems[0];
         var shopEvents = Substitute.For<IEventManager>();
         var stock = new ShopStockContainer(
             shop,
@@ -338,8 +447,8 @@ public sealed class ShopStockContainerTests
             itemBuilder,
             sampleStock,
             StorageType.AlwaysStack,
-            1,
-            [stockItem],
+            stockCapacity,
+            stockItems,
             shopEvents);
 
         return new ShopScenario(character, inventory, moneyPouch, stock, stockItem, shopEvents);

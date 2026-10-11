@@ -7,6 +7,7 @@ using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.Shops;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Events;
@@ -888,6 +889,27 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
+    public void EquipItem_StalePreflightDoesNotConsumeEquivalentReplacement()
+    {
+        using var scenario = new Scenario();
+        var (inventory, equipment, item) = CreateEquipmentSetup(scenario);
+        var equivalent = scenario.Builder.Create().WithId(item.Id).WithCount(item.Count).Build();
+        item.EquipmentScript.CanEquipItem(item, scenario.Owner).Returns(_ =>
+        {
+            Assert.IsTrue(inventory.Items.TryRemoveExact(item));
+            Assert.IsTrue(inventory.Items.Add(equivalent));
+            return true;
+        });
+
+        Assert.IsFalse(equipment.EquipItem(item));
+
+        Assert.AreSame(equivalent, inventory.Items[0]);
+        Assert.IsNull(equipment[EquipmentSlot.Hat]);
+        item.EquipmentScript.DidNotReceive().OnEquipped(item, scenario.Owner);
+        equivalent.EquipmentScript.DidNotReceive().OnEquipped(equivalent, scenario.Owner);
+    }
+
+    [TestMethod]
     public void EquipItem_TwoHandedReplacementPreflightsEveryConflictingItemBeforeMutation()
     {
         using var scenario = new Scenario();
@@ -1080,45 +1102,30 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    public void EquipItem_NonWeaponReplacementStillInvokesAndHonorsUnequipCommand()
+    public void EquipItem_NonWeaponReplacementSwapsIntoFreedInventorySlot()
     {
         using var scenario = new Scenario();
         var inventory = CreateInventory(scenario, 2);
         scenario.Owner.Inventory.Returns(inventory);
-        var rewards = Substitute.For<IRewardContainer>();
-        rewards.Items.Returns(new ItemContainer(StorageType.Normal, 0));
-        scenario.Owner.Rewards.Returns(rewards);
-        var bank = Substitute.For<IBankContainer>();
-        bank.Items.Returns(new ItemContainer(StorageType.Normal, 0));
-        scenario.Owner.Bank.Returns(bank);
         var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
         scenario.Owner.Equipment.Returns(equipment);
         scenario.DefaultEquipmentDefinition.Slot.Returns(EquipmentSlot.Hat);
         var equipped = scenario.Builder.Create().WithId(101).WithCount(1).Build();
         var incoming = scenario.Builder.Create().WithId(102).WithCount(1).Build();
+        var inventoryBlocker = scenario.Builder.Create().WithId(103).WithCount(1).Build();
         Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, equipped));
         Assert.IsTrue(inventory.Items.Add(incoming));
+        Assert.IsTrue(inventory.Items.Add(inventoryBlocker));
         incoming.EquipmentScript.CanEquipItem(incoming, scenario.Owner).Returns(true);
         equipped.EquipmentScript.CanUnEquipItem(equipped, scenario.Owner).Returns(true);
-        var publications = 0;
-        scenario.Owner.EventManager.When(manager => manager.SendEvent(Arg.Any<InventoryChangedEvent>())).Do(_ => publications++);
-        equipped.EquipmentScript.UnEquipItem(equipped, scenario.Owner, 0).Returns(_ =>
-        {
-            Assert.AreEqual(1, publications);
-            var equipmentBoundary = GetEquipmentBoundary(equipment);
-            Assert.IsNull(equipmentBoundary.Transaction);
-            Assert.IsFalse(Monitor.IsEntered(equipmentBoundary.MutationLock));
-            Assert.IsNull(Boundary(inventory.Items).Transaction);
-            return false;
-        });
+        Assert.IsTrue(equipment.EquipItem(incoming));
 
-        Assert.IsFalse(equipment.EquipItem(incoming));
-
-        Assert.AreSame(incoming, inventory.Items[0]);
-        Assert.AreSame(equipped, equipment[EquipmentSlot.Hat]);
-        Assert.AreEqual(2, publications);
-        equipped.EquipmentScript.Received(1).UnEquipItem(equipped, scenario.Owner, 0);
-        incoming.EquipmentScript.DidNotReceive().OnEquipped(incoming, scenario.Owner);
+        Assert.AreSame(incoming, equipment[EquipmentSlot.Hat]);
+        Assert.AreSame(equipped, inventory.Items[0]);
+        Assert.AreSame(inventoryBlocker, inventory.Items[1]);
+        equipped.EquipmentScript.DidNotReceive().UnEquipItem(equipped, scenario.Owner, Arg.Any<int>());
+        equipped.EquipmentScript.Received(1).OnUnequipped(equipped, scenario.Owner);
+        incoming.EquipmentScript.Received(1).OnEquipped(incoming, scenario.Owner);
 
     }
 
@@ -1298,275 +1305,253 @@ public sealed class CharacterItemTransferTests
     public void EquipItem_NonWeaponReplacementRunsOnEquippedBeforePublication()
     {
         using var scenario = new Scenario();
-        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
+        var setup = CreateNonWeaponReplacementSetup(scenario);
         var order = new List<string>();
-        ObserveInteractiveNonWeaponReplacementCompletion(setup, scenario.Owner, order, null, null);
+        ObserveReplacementCompletion(setup, scenario.Owner, order, null, null);
 
         Assert.IsTrue(setup.Equipment.EquipItem(setup.Incoming));
 
         Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
-        CollectionAssert.AreEqual(new[] { "equip", "publish" }, order);
-        setup.Current.EquipmentScript.Received(1).UnEquipItem(setup.Current, scenario.Owner, 0);
-    }
-
-    [TestMethod]
-    public void EquipItem_InteractiveUnequipRejectionRestoresSameItemOutsideMutationLocks()
-    {
-        using var scenario = new Scenario();
-        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
-        Assert.IsTrue(setup.Inventory.Items.TryRemoveExact(setup.Incoming));
-        var incoming = scenario.Builder.Create().WithId(102).WithCount(1).WithExtraData("11,22").Build();
-        Assert.IsTrue(setup.Inventory.Items.Add(incoming));
-        var originalSlot = setup.Inventory.Items.GetInstanceSlot(incoming);
-        incoming.EquipmentScript.CanEquipItem(incoming, scenario.Owner).Returns(true);
-        setup.Current.EquipmentScript.UnEquipItem(setup.Current, scenario.Owner, Arg.Any<int>()).Returns(call =>
-        {
-            Assert.IsFalse(Monitor.IsEntered(setup.MutationLock));
-            Assert.IsFalse(Monitor.IsEntered(ItemContainerTransaction.ResolveSingleBoundary(setup.Inventory.Items).MutationLock));
-            return false;
-        });
-
-        Assert.IsFalse(setup.Equipment.EquipItem(incoming));
-
-        Assert.AreEqual(originalSlot, setup.Inventory.Items.GetInstanceSlot(incoming));
-        Assert.AreSame(incoming, setup.Inventory.Items[originalSlot]);
-        CollectionAssert.AreEqual(new long[] { 11, 22 }, incoming.ExtraData);
-        Assert.AreEqual(-1, setup.Equipment.Items.GetInstanceSlot(incoming));
-        Assert.AreSame(setup.Current, setup.Equipment[EquipmentSlot.Hat]);
-        Assert.AreEqual(1, setup.Inventory.Items.GetCountById(incoming.Id));
-    }
-
-    [TestMethod]
-    public void EquipItem_InteractiveCommandCannotFreeDestinationRestoresIncomingItem()
-    {
-        using var scenario = new Scenario();
-        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
-        setup.Current.EquipmentScript.UnEquipItem(setup.Current, scenario.Owner, Arg.Any<int>()).Returns(true);
-        var originalSlot = setup.Inventory.Items.GetInstanceSlot(setup.Incoming);
-
-        Assert.IsFalse(setup.Equipment.EquipItem(setup.Incoming));
-
-        Assert.AreSame(setup.Incoming, setup.Inventory.Items[originalSlot]);
-        Assert.AreSame(setup.Current, setup.Equipment[EquipmentSlot.Hat]);
-        Assert.AreEqual(1, setup.Inventory.Items.GetCountById(setup.Incoming.Id));
-    }
-
-    [TestMethod]
-    public void EquipItem_InteractiveUnequipExceptionRestoresIncomingItemAndRethrows()
-    {
-        using var scenario = new Scenario();
-        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
-        var failure = new InvalidOperationException("Interactive unequip failed.");
-        var originalSlot = setup.Inventory.Items.GetInstanceSlot(setup.Incoming);
-        setup.Current.EquipmentScript.UnEquipItem(setup.Current, scenario.Owner, Arg.Any<int>())
-            .Returns(_ => throw failure);
-
-        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
-
-        Assert.AreSame(failure, thrown);
-        Assert.AreSame(setup.Incoming, setup.Inventory.Items[originalSlot]);
-        Assert.AreSame(setup.Current, setup.Equipment[EquipmentSlot.Hat]);
-        Assert.AreEqual(1, setup.Inventory.Items.GetCountById(setup.Incoming.Id));
-    }
-
-    [TestMethod]
-    public void EquipItem_RecoveryFailureIsExplicitWhenAllDestinationsAreFull()
-    {
-        using var scenario = new Scenario();
-        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
-        setup.Current.EquipmentScript.UnEquipItem(setup.Current, scenario.Owner, Arg.Any<int>()).Returns(_ =>
-        {
-            Assert.IsTrue(setup.Inventory.Items.Add(scenario.Builder.Create().WithId(401).WithCount(1).Build()));
-            Assert.IsTrue(setup.Inventory.Items.Add(scenario.Builder.Create().WithId(402).WithCount(1).Build()));
-            return false;
-        });
-        var rewardItems = new ItemContainer(StorageType.Normal, 1);
-        Assert.IsTrue(rewardItems.Add(scenario.Builder.Create().WithId(403).WithCount(1).Build()));
-        var rewards = Substitute.For<IRewardContainer>();
-        rewards.Items.Returns(rewardItems);
-        scenario.Owner.Rewards.Returns(rewards);
-        var bankItems = new ItemContainer(StorageType.Normal, 1);
-        Assert.IsTrue(bankItems.Add(scenario.Builder.Create().WithId(404).WithCount(1).Build()));
-        var bank = Substitute.For<IBankContainer>();
-        bank.Items.Returns(bankItems);
-        scenario.Owner.Bank.Returns(bank);
-
-        var failure = Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
-
-        StringAssert.Contains(failure.Message, "could not be restored");
-        Assert.AreEqual(0, setup.Inventory.Items.GetCountById(setup.Incoming.Id));
-        Assert.AreEqual(0, rewardItems.GetCountById(setup.Incoming.Id));
-        Assert.AreEqual(0, bankItems.GetCountById(setup.Incoming.Id));
-        Assert.AreSame(setup.Current, setup.Equipment[EquipmentSlot.Hat]);
-    }
-
-    [TestMethod]
-    public void EquipItem_InventoryRemovalPublicationFailureRestoresBeforeRethrowing()
-    {
-        using var scenario = new Scenario();
-        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
-        var originalSlot = setup.Inventory.Items.GetInstanceSlot(setup.Incoming);
-        var failure = new InvalidOperationException("Inventory publisher failed after removal.");
-        var inventoryPublications = 0;
-        setup.EventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
-        {
-            if (call.Arg<IEvent>() is InventoryChangedEvent && Interlocked.Increment(ref inventoryPublications) == 1)
-                throw failure;
-        });
-
-        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
-
-        Assert.AreSame(failure, thrown);
-        Assert.AreSame(setup.Incoming, setup.Inventory.Items[originalSlot]);
-        Assert.AreSame(setup.Current, setup.Equipment[EquipmentSlot.Hat]);
-        Assert.AreEqual(1, setup.Inventory.Items.GetCountById(setup.Incoming.Id));
+        CollectionAssert.AreEqual(new[] { "unequip", "equip", "publish" }, order);
         setup.Current.EquipmentScript.DidNotReceive().UnEquipItem(setup.Current, scenario.Owner, Arg.Any<int>());
     }
 
     [TestMethod]
-    public void EquipItem_InteractiveUnequipRejectionUsesAnotherInventorySlotWhenOriginalIsOccupied()
+    public void EquipItem_NonWeaponReplacementRollsBackOnDestinationPlanningFailure()
     {
         using var scenario = new Scenario();
-        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
+        var inventory = CreateInventory(scenario, 2);
+        scenario.Owner.Inventory.Returns(inventory);
+        var (equipment, eventManager) = CreateEquipmentScenario(scenario);
+        scenario.Owner.Equipment.Returns(equipment);
+        scenario.DefaultEquipmentDefinition.Slot.Returns(EquipmentSlot.Hat);
+        var current = new TransferProbeItem(101, 2);
+        current.EquipmentDefinition.Slot.Returns(EquipmentSlot.Hat);
+        var incoming = scenario.Builder.Create().WithId(102).WithCount(1).Build();
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, current));
+        Assert.IsTrue(inventory.Items.Add(incoming));
+        current.EquipmentScript.CanUnEquipItem(current, scenario.Owner).Returns(true);
+        incoming.EquipmentScript.CanEquipItem(incoming, scenario.Owner).Returns(true);
+        current.OnClone = () =>
+            throw new InvalidOperationException("Controlled destination planning failure.");
+        eventManager.ClearReceivedCalls();
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => equipment.EquipItem(incoming));
+
+        Assert.AreSame(incoming, inventory.Items[0]);
+        Assert.AreEqual(1, inventory.Items.GetCountById(incoming.Id));
+        Assert.AreSame(current, equipment[EquipmentSlot.Hat]);
+        Assert.AreEqual(2, current.Count);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+        current.EquipmentScript.DidNotReceive().OnUnequipped(current, scenario.Owner);
+        incoming.EquipmentScript.DidNotReceive().OnEquipped(incoming, scenario.Owner);
+    }
+
+    [TestMethod]
+    public void EquipItem_RequiresTheExactIncomingInstanceToRemainInInventory()
+    {
+        using var scenario = new Scenario();
+        var setup = CreateNonWeaponReplacementSetup(scenario);
         var originalSlot = setup.Inventory.Items.GetInstanceSlot(setup.Incoming);
-        var blocker = scenario.Builder.Create().WithId(405).WithCount(1).Build();
-        setup.Current.EquipmentScript.UnEquipItem(setup.Current, scenario.Owner, Arg.Any<int>()).Returns(_ =>
-        {
-            Assert.IsTrue(setup.Inventory.Items.Add(originalSlot, blocker));
-            return false;
-        });
+
+        Assert.IsTrue(setup.Inventory.Items.TryRemoveExact(setup.Incoming, originalSlot));
+        var equivalent = scenario.Builder.Create().WithId(setup.Incoming.Id).WithCount(1).Build();
+        Assert.IsTrue(setup.Inventory.Items.Add(equivalent));
+        setup.EventManager.ClearReceivedCalls();
 
         Assert.IsFalse(setup.Equipment.EquipItem(setup.Incoming));
 
-        Assert.AreSame(blocker, setup.Inventory.Items[originalSlot]);
-        var restoredSlot = setup.Inventory.Items.GetInstanceSlot(setup.Incoming);
-        Assert.IsTrue(restoredSlot >= 0);
-        Assert.AreNotEqual(originalSlot, restoredSlot);
-        Assert.AreSame(setup.Incoming, setup.Inventory.Items[restoredSlot]);
-        Assert.AreEqual(1, setup.Inventory.Items.GetCountById(setup.Incoming.Id));
+        Assert.AreSame(equivalent, setup.Inventory.Items[originalSlot]);
+        Assert.AreSame(setup.Current, setup.Equipment[EquipmentSlot.Hat]);
+        Assert.AreEqual(-1, setup.Inventory.Items.GetInstanceSlot(setup.Incoming));
+        setup.EventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
     }
 
     [TestMethod]
-    public void EquipItem_InventoryRecoveryFallsBackToRewardsWhenFull()
+    public void EquipItem_RepeatedRequestForSameInstanceDoesNotDuplicateItems()
     {
         using var scenario = new Scenario();
-        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
-        setup.Current.EquipmentScript.UnEquipItem(setup.Current, scenario.Owner, Arg.Any<int>()).Returns(_ =>
-        {
-            Assert.IsTrue(setup.Inventory.Items.Add(scenario.Builder.Create().WithId(301).WithCount(1).Build()));
-            Assert.IsTrue(setup.Inventory.Items.Add(scenario.Builder.Create().WithId(302).WithCount(1).Build()));
-            return false;
-        });
-        var rewardItems = new ItemContainer(StorageType.Normal, 1);
-        var rewards = Substitute.For<IRewardContainer>();
-        rewards.Items.Returns(rewardItems);
-        scenario.Owner.Rewards.Returns(rewards);
+        var setup = CreateNonWeaponReplacementSetup(scenario);
+        setup.EventManager.ClearReceivedCalls();
 
+        Assert.IsTrue(setup.Equipment.EquipItem(setup.Incoming));
         Assert.IsFalse(setup.Equipment.EquipItem(setup.Incoming));
 
-        Assert.AreSame(setup.Incoming, rewardItems[0]);
-        Assert.AreEqual(-1, setup.Inventory.Items.GetInstanceSlot(setup.Incoming));
-        Assert.AreEqual(-1, setup.Equipment.Items.GetInstanceSlot(setup.Incoming));
+        Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
+        Assert.AreSame(setup.Current, setup.Inventory.Items[0]);
+        setup.Current.EquipmentScript.Received(1).OnUnequipped(setup.Current, scenario.Owner);
+        setup.Incoming.EquipmentScript.Received(1).OnEquipped(setup.Incoming, scenario.Owner);
+        setup.EventManager.Received(2).SendEvent(Arg.Any<IEvent>());
     }
 
     [TestMethod]
-    public void EquipItem_InventoryRecoveryFallsBackToBankWhenRewardsAreFull()
+    public async Task EquipItem_ConcurrentRequestsForSameInstanceDoNotDuplicateItems()
     {
         using var scenario = new Scenario();
-        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
-        setup.Current.EquipmentScript.UnEquipItem(setup.Current, scenario.Owner, Arg.Any<int>()).Returns(_ =>
+        var setup = CreateNonWeaponReplacementSetup(scenario);
+        setup.EventManager.ClearReceivedCalls();
+
+        using var barrier = new Barrier(2);
+        var firstEquip = Task.Run(() =>
         {
-            Assert.IsTrue(setup.Inventory.Items.Add(scenario.Builder.Create().WithId(304).WithCount(1).Build()));
-            Assert.IsTrue(setup.Inventory.Items.Add(scenario.Builder.Create().WithId(305).WithCount(1).Build()));
-            return false;
+            Assert.IsTrue(barrier.SignalAndWait(TimeSpan.FromSeconds(5)));
+            return setup.Equipment.EquipItem(setup.Incoming);
         });
-        var rewardItems = new ItemContainer(StorageType.Normal, 1);
-        Assert.IsTrue(rewardItems.Add(scenario.Builder.Create().WithId(303).WithCount(1).Build()));
-        var rewards = Substitute.For<IRewardContainer>();
-        rewards.Items.Returns(rewardItems);
-        scenario.Owner.Rewards.Returns(rewards);
-        var bankItems = new ItemContainer(StorageType.Normal, 1);
-        var bank = Substitute.For<IBankContainer>();
-        bank.Items.Returns(bankItems);
-        scenario.Owner.Bank.Returns(bank);
+        var secondEquip = Task.Run(() =>
+        {
+            Assert.IsTrue(barrier.SignalAndWait(TimeSpan.FromSeconds(5)));
+            return setup.Equipment.EquipItem(setup.Incoming);
+        });
+        var results = await Task.WhenAll(firstEquip, secondEquip);
 
-        Assert.IsFalse(setup.Equipment.EquipItem(setup.Incoming));
-
-        Assert.AreSame(setup.Incoming, bankItems[0]);
-        Assert.AreEqual(-1, setup.Inventory.Items.GetInstanceSlot(setup.Incoming));
-        Assert.AreEqual(-1, setup.Equipment.Items.GetInstanceSlot(setup.Incoming));
-        Assert.AreEqual(-1, rewardItems.GetInstanceSlot(setup.Incoming));
+        Assert.IsTrue(results[0] ^ results[1]);
+        Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
+        Assert.AreSame(setup.Current, setup.Inventory.Items[0]);
+        Assert.AreEqual(1, setup.Inventory.Items.GetCountById(setup.Current.Id));
+        Assert.AreEqual(1, setup.Equipment.Items.GetCountById(setup.Incoming.Id));
+        setup.Current.EquipmentScript.Received(1).OnUnequipped(setup.Current, scenario.Owner);
+        setup.Incoming.EquipmentScript.Received(1).OnEquipped(setup.Incoming, scenario.Owner);
+        setup.EventManager.Received(2).SendEvent(Arg.Any<IEvent>());
     }
 
+    [TestMethod]
+    public void DropItem_DoesNotCreateGroundItemWhenExactRemovalLosesRace()
+    {
+        using var scenario = new Scenario();
+        var mapRegionService = Substitute.For<IMapRegionService>();
+        var groundItemBuilder = Substitute.For<IGroundItemBuilder>();
+        var inventory = new InventoryContainer(scenario.Owner, 1, mapRegionService, groundItemBuilder, scenario.Builder);
+        IItem item = new TransferProbeItem(101, 1);
+        Assert.IsTrue(inventory.Items.Add(item));
+        using var cloneEntered = new ManualResetEventSlim();
+        using var continueClone = new ManualResetEventSlim();
+        ((TransferProbeItem)item).OnClone = () =>
+        {
+            cloneEntered.Set();
+            if (!continueClone.Wait(TimeSpan.FromSeconds(5)))
+                throw new TimeoutException("Drop clone was not released by the test.");
+        };
+        var dropResult = true;
+        Exception? dropFailure = null;
+        var dropThread = new Thread(() =>
+        {
+            try { dropResult = inventory.DropItem(item); }
+            catch (Exception exception) { dropFailure = exception; }
+        }) { IsBackground = true };
+        dropThread.Start();
+
+        try
+        {
+            Assert.IsTrue(cloneEntered.Wait(TimeSpan.FromSeconds(5)));
+            Assert.IsTrue(inventory.Items.TryRemoveExact(item));
+        }
+        finally
+        {
+            continueClone.Set();
+        }
+
+        Assert.IsTrue(dropThread.Join(TimeSpan.FromSeconds(5)));
+        Assert.IsNull(dropFailure);
+        Assert.IsFalse(dropResult);
+        mapRegionService.DidNotReceive().AddGroundItem(Arg.Any<IGroundItem>());
+    }
+
+    [TestMethod]
+    public void DropItem_CreatesGroundItemWithExactRemovedQuantity()
+    {
+        using var scenario = new Scenario();
+        var mapRegionService = Substitute.For<IMapRegionService>();
+        var groundItemBuilder = Substitute.For<IGroundItemBuilder>();
+        var onGround = Substitute.For<IGroundItemOnGround>();
+        var location = Substitute.For<IGroundItemLocation>();
+        var optional = Substitute.For<IGroundItemOptional>();
+        var groundItem = Substitute.For<IGroundItem>();
+        var ownerLocation = Substitute.For<ILocation>();
+        scenario.Owner.Location.Returns(ownerLocation);
+        groundItemBuilder.Create().Returns(onGround);
+        onGround.WithItem(Arg.Any<IItem>()).Returns(location);
+        location.WithLocation(ownerLocation).Returns(optional);
+        optional.WithOwner(scenario.Owner).Returns(optional);
+        optional.Build().Returns(groundItem);
+        var inventory = new InventoryContainer(scenario.Owner, 1, mapRegionService, groundItemBuilder, scenario.Builder);
+        var item = scenario.Builder.Create().WithId(101).WithCount(4).Build();
+        Assert.IsTrue(inventory.Items.Add(item));
+
+        Assert.IsTrue(inventory.DropItem(item));
+
+        Assert.IsNull(inventory.Items[0]);
+        onGround.Received(1).WithItem(Arg.Is<IItem>(dropped =>
+            !ReferenceEquals(dropped, item) && dropped.Id == item.Id && dropped.Count == 4));
+        mapRegionService.Received(1).AddGroundItem(groundItem);
+    }
     [TestMethod]
     public void EquipItem_NonWeaponReplacementOnEquippedFailureStillPublishesAndPreservesStorage()
     {
         using var scenario = new Scenario();
-        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
+        var setup = CreateNonWeaponReplacementSetup(scenario);
         var failure = new InvalidOperationException("incoming equip failed");
         var order = new List<string>();
-        ObserveInteractiveNonWeaponReplacementCompletion(setup, scenario.Owner, order, failure, null);
+        ObserveReplacementCompletion(setup, scenario.Owner, order, failure, null);
 
         var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
 
         Assert.AreSame(failure, thrown);
-        AssertInteractiveReplacementCommittedAndReleased(setup, order);
+        AssertReplacementCommittedAndReleased(setup, order);
     }
 
     [TestMethod]
     public void EquipItem_NonWeaponReplacementPublicationFailureFollowsOnEquipped()
     {
         using var scenario = new Scenario();
-        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
+        var setup = CreateNonWeaponReplacementSetup(scenario);
         var failure = new InvalidOperationException("equipment publication failed");
         var order = new List<string>();
-        ObserveInteractiveNonWeaponReplacementCompletion(setup, scenario.Owner, order, null, failure);
+        ObserveReplacementCompletion(setup, scenario.Owner, order, null, failure);
 
         var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
 
         Assert.AreSame(failure, thrown);
-        AssertInteractiveReplacementCommittedAndReleased(setup, order);
+        AssertReplacementCommittedAndReleased(setup, order);
     }
 
     [TestMethod]
     public void EquipItem_NonWeaponReplacementAggregatesOnEquippedAndPublicationFailures()
     {
         using var scenario = new Scenario();
-        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
+        var setup = CreateNonWeaponReplacementSetup(scenario);
         var equipFailure = new InvalidOperationException("incoming equip failed");
         var publicationFailure = new InvalidOperationException("equipment publication failed");
         var order = new List<string>();
-        ObserveInteractiveNonWeaponReplacementCompletion(setup, scenario.Owner, order, equipFailure, publicationFailure);
+        ObserveReplacementCompletion(setup, scenario.Owner, order, equipFailure, publicationFailure);
 
         var thrown = Assert.ThrowsExactly<AggregateException>(() => setup.Equipment.EquipItem(setup.Incoming));
 
-        Assert.AreSame(equipFailure, thrown.InnerExceptions[0]);
-        Assert.AreSame(publicationFailure, thrown.InnerExceptions[1]);
+        CollectionAssert.AreEquivalent(new Exception[] { equipFailure, publicationFailure }, thrown.InnerExceptions);
         Assert.AreEqual(2, thrown.InnerExceptions.Count);
-        AssertInteractiveReplacementCommittedAndReleased(setup, order);
+        AssertReplacementCommittedAndReleased(setup, order);
     }
 
     [TestMethod]
-    public void EquipItem_InteractiveNonWeaponReplacementRejectsEnlistedEquipmentBeforeMutation()
+    public void EquipItem_NonWeaponReplacementRejectsEnlistedEquipmentBeforeMutation()
     {
         using var scenario = new Scenario();
-        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
-        AssertInteractiveReplacementRejectsExistingEnlistment(setup, scenario.Owner, setup.Equipment);
+        var setup = CreateNonWeaponReplacementSetup(scenario);
+        AssertReplacementRejectsExistingEnlistment(setup, scenario.Owner, setup.Equipment);
     }
 
     [TestMethod]
-    public void EquipItem_InteractiveNonWeaponReplacementRejectsEnlistedInventoryBeforeMutation()
+    public void EquipItem_NonWeaponReplacementRejectsEnlistedInventoryBeforeMutation()
     {
         using var scenario = new Scenario();
-        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
-        AssertInteractiveReplacementRejectsExistingEnlistment(setup, scenario.Owner, setup.Inventory.Items);
+        var setup = CreateNonWeaponReplacementSetup(scenario);
+        AssertReplacementRejectsExistingEnlistment(setup, scenario.Owner, setup.Inventory.Items);
     }
 
     [TestMethod]
     public void EquipItem_StandaloneOwnershipSpansLifecycleAndPublication()
     {
         using var scenario = new Scenario();
-        var setup = CreateInteractiveNonWeaponReplacementSetup(scenario);
+        var setup = CreateNonWeaponReplacementSetup(scenario);
         using var tryBegin = new ManualResetEventSlim();
         using var beginAttempted = new ManualResetEventSlim();
         using var transactionEntered = new ManualResetEventSlim();
@@ -1640,7 +1625,7 @@ public sealed class CharacterItemTransferTests
         Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
     }
 
-    private static void ObserveInteractiveNonWeaponReplacementCompletion(
+    private static void ObserveReplacementCompletion(
         (InventoryContainer Inventory, EquipmentContainer Equipment, IEventManager EventManager,
             IItem Current, IItem Incoming, object MutationLock) setup,
         ICharacter owner,
@@ -1648,9 +1633,17 @@ public sealed class CharacterItemTransferTests
         Exception? equipFailure,
         Exception? publicationFailure)
     {
+        setup.Current.EquipmentScript.When(script => script.OnUnequipped(setup.Current, owner)).Do(_ =>
+        {
+            Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
+            Assert.AreSame(setup.Current, setup.Inventory.Items[0]);
+            Assert.IsFalse(Monitor.IsEntered(setup.MutationLock));
+            order.Add("unequip");
+        });
         setup.Incoming.EquipmentScript.When(script => script.OnEquipped(setup.Incoming, owner)).Do(_ =>
         {
             Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
+            Assert.AreSame(setup.Current, setup.Inventory.Items[0]);
             Assert.IsFalse(Monitor.IsEntered(setup.MutationLock));
             order.Add("equip");
             if (equipFailure is not null) throw equipFailure;
@@ -1668,18 +1661,19 @@ public sealed class CharacterItemTransferTests
         });
     }
 
-    private static void AssertInteractiveReplacementCommittedAndReleased(
+    private static void AssertReplacementCommittedAndReleased(
         (InventoryContainer Inventory, EquipmentContainer Equipment, IEventManager EventManager,
             IItem Current, IItem Incoming, object MutationLock) setup,
         List<string> order)
     {
         Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
-        CollectionAssert.AreEqual(new[] { "equip", "publish" }, order);
-        using var transaction = ItemContainerTransaction.Begin(setup.Equipment);
+        Assert.AreSame(setup.Current, setup.Inventory.Items[0]);
+        CollectionAssert.AreEqual(new[] { "unequip", "equip", "publish" }, order);
+        using var transaction = ItemContainerTransaction.Begin(setup.Equipment, setup.Inventory.Items);
         transaction.Commit();
     }
 
-    private static void AssertInteractiveReplacementRejectsExistingEnlistment(
+    private static void AssertReplacementRejectsExistingEnlistment(
         (InventoryContainer Inventory, EquipmentContainer Equipment, IEventManager EventManager,
             IItem Current, IItem Incoming, object MutationLock) setup,
         ICharacter owner,
@@ -1711,7 +1705,7 @@ public sealed class CharacterItemTransferTests
         var thrown = Assert.ThrowsExactly<AggregateException>(() =>
             Assert.IsTrue(equipment.TryReplaceEquippedItem(EquipmentSlot.Hat, current, replacement)));
         CollectionAssert.AreEqual(new[] { "unequip", "equip", "publication" }, order);
-        CollectionAssert.AreEqual(new Exception[] { firstFailure, secondFailure, equipFailure, publicationFailure },
+        CollectionAssert.AreEquivalent(new Exception[] { firstFailure, secondFailure, equipFailure, publicationFailure },
             thrown.InnerExceptions.ToArray());
         Assert.IsNotNull(unequipFailure.StackTrace);
         Assert.IsNotNull(equipFailure.StackTrace);
@@ -1853,27 +1847,19 @@ public sealed class CharacterItemTransferTests
     }
 
     private static (InventoryContainer Inventory, EquipmentContainer Equipment, IEventManager EventManager,
-        IItem Current, IItem Incoming, object MutationLock) CreateInteractiveNonWeaponReplacementSetup(Scenario scenario)
+        IItem Current, IItem Incoming, object MutationLock) CreateNonWeaponReplacementSetup(Scenario scenario, int equippedCount = 1)
     {
         var inventory = CreateInventory(scenario, 2);
         scenario.Owner.Inventory.Returns(inventory);
         var (equipment, eventManager) = CreateEquipmentScenario(scenario);
         scenario.Owner.Equipment.Returns(equipment);
-        var rewards = Substitute.For<IRewardContainer>();
-        rewards.Items.Returns(new ItemContainer(StorageType.Normal, 0));
-        scenario.Owner.Rewards.Returns(rewards);
-        var bank = Substitute.For<IBankContainer>();
-        bank.Items.Returns(new ItemContainer(StorageType.Normal, 0));
-        scenario.Owner.Bank.Returns(bank);
         scenario.DefaultEquipmentDefinition.Slot.Returns(EquipmentSlot.Hat);
-        var current = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        var current = scenario.Builder.Create().WithId(101).WithCount(equippedCount).Build();
         var incoming = scenario.Builder.Create().WithId(102).WithCount(1).Build();
         Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, current));
         Assert.IsTrue(inventory.Items.Add(incoming));
         incoming.EquipmentScript.CanEquipItem(incoming, scenario.Owner).Returns(true);
         current.EquipmentScript.CanUnEquipItem(current, scenario.Owner).Returns(true);
-        current.EquipmentScript.UnEquipItem(current, scenario.Owner, 0)
-            .Returns(_ => equipment.UnEquipItem(current, 0));
         eventManager.ClearReceivedCalls();
         var mutationLock = GetEquipmentBoundary(equipment).MutationLock;
         return (inventory, equipment, eventManager, current, incoming, mutationLock);
@@ -1980,6 +1966,7 @@ public sealed class CharacterItemTransferTests
             set => _count = value;
         }
         public Action? OnCountRead { get; set; }
+        public Action? OnClone { get; set; }
         public string Name => $"Probe item {Id}";
         public long[] ExtraData => [];
         public IItemDefinition ItemDefinition => _definition;
@@ -1997,7 +1984,11 @@ public sealed class CharacterItemTransferTests
         }
 
         public IItem Clone() => Clone(1);
-        public IItem Clone(int newCount) => new TransferProbeItem(Id, newCount);
+        public IItem Clone(int newCount)
+        {
+            OnClone?.Invoke();
+            return new TransferProbeItem(Id, newCount);
+        }
         public bool Equals(IItem otherItem, bool ignoreCount = true) =>
             otherItem != null && Id == otherItem.Id && (ignoreCount || Count == otherItem.Count);
         public string? SerializeExtraData() => null;

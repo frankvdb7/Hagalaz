@@ -233,6 +233,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             public IEquipmentScript EquipmentScript { get; }
             private readonly long[] _extraData;
             private readonly Action? _onClone;
+            public Action? OnCanStackItem { get; set; }
             public long[] ExtraData => _extraData;
 
             public TestItem(int id, int count, bool stackable = false, bool noted = false, long[]? extraData = null, Action? onClone = null)
@@ -251,6 +252,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                 var itemScript = Substitute.For<IItemScript>();
                 itemScript.CanStackItem(Arg.Any<IItem>(), Arg.Any<IItem>(), Arg.Any<bool>()).Returns(info =>
                 {
+                    OnCanStackItem?.Invoke();
                     var arg1 = (IItem)info[0];
                     var arg2 = (IItem)info[1];
                     var alwaysStack = (bool)info[2];
@@ -673,7 +675,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public void Remove_MultipleMatchingStacks_PreservesLegacyPerStackBehavior()
+        public void Remove_MultipleMatchingStacks_RemovesRequestedTotalOnly()
         {
             var container = new TestableItemContainer(
                 StorageType.Normal,
@@ -684,7 +686,46 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
 
             Assert.AreEqual(2, removedCount);
             Assert.AreEqual(1, container.Items[0].Count);
-            Assert.AreEqual(2, container.Items[1].Count);
+            Assert.AreEqual(4, container.Items[1].Count);
+        }
+
+        [TestMethod]
+        public void Remove_ThreeMatchingStacks_RemovesRequestedTotalOnly()
+        {
+            var container = new TestableItemContainer(StorageType.Normal,
+                [CreateItem(1, 2, stackable: true), CreateItem(1, 3, stackable: true), CreateItem(1, 4, stackable: true)], 4);
+
+            Assert.AreEqual(5, container.Items.Remove(CreateItem(1, 5, stackable: true)));
+
+            Assert.IsNull(container.Items[0]);
+            Assert.IsNull(container.Items[1]);
+            Assert.AreEqual(4, container.Items[2]!.Count);
+        }
+
+        [TestMethod]
+        public void Remove_InsufficientMatchingStacksRemovesAvailableTotal()
+        {
+            var container = new TestableItemContainer(StorageType.Normal,
+                [CreateItem(1, 3, stackable: true), CreateItem(1, 4, stackable: true)], 3);
+
+            Assert.AreEqual(7, container.Items.Remove(CreateItem(1, 9, stackable: true)));
+
+            Assert.AreEqual(0, container.Items.TakenSlots);
+        }
+
+        [TestMethod]
+        public void Remove_ZeroCountSentinelDoesNotCountAsAvailableQuantity()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 2, countToResetTo: 0);
+            var sentinel = CreateItem(1, 0, stackable: true);
+            container.Items.RestoreItems([(0, sentinel)], allowZeroCount: true);
+            var revision = ItemContainerTransaction.ResolveSingleBoundary(container.Items).Storage.MutationRevision;
+
+            Assert.AreEqual(0, container.Items.Remove(CreateItem(1, 1, stackable: true)));
+
+            Assert.AreSame(sentinel, container.Items[0]);
+            Assert.AreEqual(0, sentinel.Count);
+            Assert.AreEqual(revision, ItemContainerTransaction.ResolveSingleBoundary(container.Items).Storage.MutationRevision);
         }
 
         [TestMethod]
@@ -1112,7 +1153,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public void NormalMutation_UsesMutationBoundaryLock()
+        public void NormalMutation_UsesStorageMutationLock()
         {
             var container = new TestableItemContainer(StorageType.Normal, 10);
             using var started = new ManualResetEventSlim();
@@ -1179,6 +1220,72 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.IsNotNull(container.Items[2]);
             Assert.IsNull(container.Items[3]);
             Assert.AreEqual(3, container.Items.TakenSlots);
+        }
+
+        [TestMethod]
+        public void Sort_AlreadyCompactContainerDoesNotReviseOrPublish()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 3);
+            container.Items.Add(CreateItem(1, 1));
+            container.Items.Add(CreateItem(2, 1));
+            var first = container.Items[0];
+            var second = container.Items[1];
+            var revision = ItemContainerTransaction.ResolveSingleBoundary(container.Items).Storage.MutationRevision;
+            var publications = container.UpdateCount;
+
+            container.Items.Sort();
+
+            Assert.AreSame(first, container.Items[0]);
+            Assert.AreSame(second, container.Items[1]);
+            Assert.AreEqual(revision, ItemContainerTransaction.ResolveSingleBoundary(container.Items).Storage.MutationRevision);
+            Assert.AreEqual(publications, container.UpdateCount);
+        }
+
+        [TestMethod]
+        public void Add_MisbehavingStackCheckRejectsContendedStorageWithoutDeadlock()
+        {
+            var source = new TestableItemContainer(StorageType.Normal, 2);
+            var destination = new TestableItemContainer(StorageType.Normal, 1);
+            var existing = (TestItem)CreateItem(1, 1, stackable: true);
+            Assert.IsTrue(source.Items.Add(existing));
+            var sourceBoundary = ItemContainerTransaction.ResolveSingleBoundary(source.Items);
+            var destinationBoundary = ItemContainerTransaction.ResolveSingleBoundary(destination.Items);
+            using var destinationLockHeld = new ManualResetEventSlim();
+            using var releaseDestination = new ManualResetEventSlim();
+            Exception? lockOwnerFailure = null;
+            var lockOwner = new Thread(() =>
+            {
+                try
+                {
+                    lock (destinationBoundary.MutationLock)
+                    {
+                        destinationLockHeld.Set();
+                        Assert.IsTrue(releaseDestination.Wait(TimeSpan.FromSeconds(5)));
+                    }
+                }
+                catch (Exception exception) { lockOwnerFailure = exception; }
+            }) { IsBackground = true };
+            lockOwner.Start();
+            Assert.IsTrue(destinationLockHeld.Wait(TimeSpan.FromSeconds(5)));
+            existing.OnCanStackItem = () =>
+            {
+                Assert.IsTrue(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
+                Assert.IsTrue(Monitor.IsEntered(sourceBoundary.MutationLock));
+                destination.Items.Add(CreateItem(2, 1));
+            };
+
+            try
+            {
+                Assert.ThrowsExactly<InvalidOperationException>(() => source.Items.Add(CreateItem(1, 1, stackable: true)));
+            }
+            finally { releaseDestination.Set(); }
+
+            Assert.IsTrue(lockOwner.Join(TimeSpan.FromSeconds(5)));
+            if (lockOwnerFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(lockOwnerFailure).Throw();
+            Assert.AreEqual(1, existing.Count);
+            Assert.AreEqual(1, source.Items.TakenSlots);
+            Assert.AreEqual(0, destination.Items.TakenSlots);
+            Assert.IsFalse(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
         }
 
         [TestMethod]

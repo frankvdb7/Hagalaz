@@ -99,82 +99,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return true;
                 }
 
-                if (!equipItem.EquipmentScript.CanUnEquipItem(equipItem, _owner))
-                {
-                    return false;
-                }
-
-                var inventoryMutationBoundary = ItemContainerTransaction.ResolveSingleBoundary(_owner.Inventory.Items);
-                inventoryMutationBoundary.ThrowIfOwnedByCurrentThread();
-                _mutations.ThrowIfOwnedByCurrentThread();
-
-                // Custom unequip commands may open interactive UI and must remain outside mutation scopes.
-                try
-                {
-                    if (!_owner.Inventory.Items.TryRemoveExact(item, slot))
-                        return false;
-                }
-                catch (Exception failure)
-                {
-                    if (_owner.Inventory.Items.GetInstanceSlot(item) < 0)
-                        RestoreIncomingItemPreservingFailure(item, slot, failure);
-                    ExceptionDispatchInfo.Capture(failure).Throw();
-                    throw;
-                }
-
-                bool unequipped;
-                try
-                {
-                    unequipped = equipItem.EquipmentScript.UnEquipItem(equipItem, _owner, slot);
-                }
-                catch (Exception failure)
-                {
-                    RestoreIncomingItemPreservingFailure(item, slot, failure);
-                    ExceptionDispatchInfo.Capture(failure).Throw();
-                    throw;
-                }
-
-                if (!unequipped)
-                {
-                    RestoreIncomingItem(item, slot);
-                    return false;
-                }
-
-                if (this[equipSlot] != null)
-                {
-                    RestoreIncomingItem(item, slot);
-                    return false;
-                }
-
-                HashSet<int>? equipmentChanges = null;
-                bool inserted;
-                try
-                {
-                    using var mutation = _mutations.BeginMutationWithExplicitStandalonePublication();
-                    inserted = _storage.TryAdd((int)equipSlot, item, out var changedSlots);
-                    if (inserted)
-                    {
-                        equipmentChanges = changedSlots;
-                        mutation.RecordChanges(changedSlots);
-                    }
-                }
-                catch (Exception failure)
-                {
-                    if (!IsIncomingItemAvailable(item))
-                        RestoreIncomingItemPreservingFailure(item, slot, failure);
-                    ExceptionDispatchInfo.Capture(failure).Throw();
-                    throw;
-                }
-
-                if (!inserted)
-                {
-                    RestoreIncomingItem(item, slot);
-                    return false;
-                }
-
-                CompleteStandaloneEquipmentChange(equipmentChanges,
-                    new EquipmentEffect(EquipmentEffectKind.Equipped, item));
-                return true;
+                if (!equipItem.EquipmentScript.CanUnEquipItem(equipItem, _owner)) return false;
+                if (!IsReplacementStillCurrent(item, equipItem, slot, equipSlot)) return false;
+                return TryCompleteReplacement(item, equipItem, slot, equipSlot);
             }
 
             var equippedWeapon = this[EquipmentSlot.Weapon];
@@ -242,45 +169,41 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             return false;
         }
 
-        private void RestoreIncomingItem(IItem item, int originalInventorySlot)
+        private bool IsReplacementStillCurrent(IItem incoming, IItem expectedEquipped,
+            int inventorySlot, EquipmentSlot equipmentSlot) =>
+            (uint)inventorySlot < (uint)_owner.Inventory.Items.Capacity &&
+            ReferenceEquals(_owner.Inventory.Items[inventorySlot], incoming) &&
+            ReferenceEquals(this[equipmentSlot], expectedEquipped) &&
+            incoming.EquipmentDefinition.Slot == equipmentSlot;
+
+        private bool TryCompleteReplacement(IItem incoming, IItem expectedEquipped,
+            int originalInventorySlot, EquipmentSlot equipmentSlot)
         {
-            if (IsIncomingItemAvailable(item)) return;
+            if (!Enum.IsDefined(equipmentSlot) || (uint)(int)equipmentSlot >= (uint)_storage.Capacity ||
+                incoming.Count <= 0 || expectedEquipped.Count <= 0 ||
+                incoming.EquipmentDefinition.Slot != equipmentSlot) return false;
 
-            if (TryRestoreToFreeSlot(_owner.Inventory.Items, item, originalInventorySlot)) return;
-            if (_owner.Rewards is { } rewards && TryRestoreToFreeSlot(rewards.Items, item)) return;
-            if (_owner.Bank is { } bank && TryRestoreToFreeSlot(bank.Items, item)) return;
+            var inventoryBoundary = ItemContainerTransaction.ResolveSingleBoundary(_owner.Inventory.Items);
+            using var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items, this);
+            if (!ReferenceEquals(_owner.Inventory.Items[originalInventorySlot], incoming) ||
+                !ReferenceEquals(_storage[(int)equipmentSlot], expectedEquipped) ||
+                incoming.Count <= 0 || expectedEquipped.Count <= 0 ||
+                incoming.EquipmentDefinition.Slot != equipmentSlot) return false;
+            if (!_owner.Inventory.Items.TryRemoveExact(incoming, originalInventorySlot)) return false;
+            if (!_mutations.TryTransferTo(inventoryBoundary, expectedEquipped, expectedEquipped.Count,
+                    (int)equipmentSlot, originalInventorySlot)) return false;
 
-            throw new InvalidOperationException("The incoming item could not be restored to inventory, Rewards, or Bank after Equipment replacement failed.");
-        }
-
-        private bool IsIncomingItemAvailable(IItem item)
-        {
-            if (_storage.GetInstanceSlot(item) >= 0 || _owner.Inventory.Items.GetInstanceSlot(item) >= 0)
-                return true;
-            if (_owner.Rewards is { } rewards && rewards.Items.GetInstanceSlot(item) >= 0)
-                return true;
-            return _owner.Bank is { } bank && bank.Items.GetInstanceSlot(item) >= 0;
-        }
-
-        private static bool TryRestoreToFreeSlot(IItemContainer container, IItem item, int preferredSlot = -1)
-        {
-            if ((uint)preferredSlot < (uint)container.Capacity && container[preferredSlot] == null &&
-                container.Add(preferredSlot, item))
-                return true;
-
-            for (var slot = 0; slot < container.Capacity; slot++)
+            using (var mutation = _mutations.BeginMutation())
             {
-                if (slot == preferredSlot || container[slot] != null) continue;
-                if (container.Add(slot, item)) return true;
+                if (!_storage.TryAdd((int)equipmentSlot, incoming, out var changedSlots)) return false;
+                mutation.RecordChanges(changedSlots);
             }
 
-            return false;
-        }
-
-        private void RestoreIncomingItemPreservingFailure(IItem item, int originalInventorySlot, Exception failure)
-        {
-            try { RestoreIncomingItem(item, originalInventorySlot); }
-            catch (Exception restoreFailure) { throw new AggregateException(failure, restoreFailure); }
+            DeferEquipmentEffects(transaction,
+                new EquipmentEffect(EquipmentEffectKind.Unequipped, expectedEquipped),
+                new EquipmentEffect(EquipmentEffectKind.Equipped, incoming));
+            transaction.Commit();
+            return true;
         }
 
         private void UpdateWeaponProfileAfterUnequip(IItem equippedWeapon, IItem incomingItem)
@@ -313,9 +236,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             return true;
         }
 
-        private bool MoveFromInventoryToSlot(IItem item, int inventorySlot, EquipmentSlot equipmentSlot) =>
-            ItemContainerTransaction.ResolveSingleBoundary(_owner.Inventory.Items)
+        private bool MoveFromInventoryToSlot(IItem item, int inventorySlot, EquipmentSlot equipmentSlot)
+        {
+            if ((uint)inventorySlot >= (uint)_owner.Inventory.Items.Capacity ||
+                !ReferenceEquals(_owner.Inventory.Items[inventorySlot], item)) return false;
+
+            return ItemContainerTransaction.ResolveSingleBoundary(_owner.Inventory.Items)
                 .TryTransferTo(_mutations, item, item.Count, inventorySlot, (int)equipmentSlot);
+        }
 
         public bool TryMoveTo(IItemContainer destination, IItem item, int count, EquipmentSlot slot,
             IItem? destinationItem = null)
@@ -460,10 +388,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private void CompleteStandaloneEquipmentChange(HashSet<int>? slots,
             params EquipmentEffect[] effects)
         {
-            var failures = ExecuteEquipmentEffects(effects);
-            try { PublishCommittedEquipmentChanges(slots); }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
-            ThrowEquipmentFailures(failures);
+            _mutations.CompleteStandaloneChanges(slots, () =>
+                ThrowEquipmentFailures(ExecuteEquipmentEffects(effects)));
         }
 
         // Equipment owns these small lifecycle batches; the transaction cannot schedule arbitrary work.
@@ -531,13 +457,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
             else if (exceptions is { Count: > 1 })
             {
-                var failures = new List<Exception>();
-                foreach (var exception in exceptions)
-                {
-                    if (exception is AggregateException aggregate) failures.AddRange(aggregate.Flatten().InnerExceptions);
-                    else failures.Add(exception);
-                }
-                throw new AggregateException("Multiple post-commit equipment actions failed.", failures);
+                throw new AggregateException(exceptions).Flatten();
             }
         }
 

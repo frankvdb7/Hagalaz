@@ -868,16 +868,61 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
-    public void Begin_LockOrderIsDeterministicAndIndependentFromPublicationOrder()
+    public void Begin_LocksAllParticipantsWhenInputOrderDiffersFromBoundaryOrder()
     {
         var first = new ItemContainer(StorageType.Normal, 1);
         var second = new ItemContainer(StorageType.Normal, 1);
         using var transaction = ItemContainerTransaction.Begin(second, first);
-        var lockOrder = (ItemContainerMutationBoundary[])typeof(ItemContainerTransaction)
-            .GetField("_lockOrder", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(transaction)!;
-        CollectionAssert.AreEqual(new[] { Boundary(first), Boundary(second) }, lockOrder);
-        Assert.IsTrue(Monitor.IsEntered(lockOrder[0].MutationLock));
-        Assert.IsTrue(Monitor.IsEntered(lockOrder[1].MutationLock));
+        foreach (var container in new[] { first, second })
+        {
+            var boundary = Boundary(container);
+            Assert.IsTrue(Monitor.IsEntered(boundary.MutationLock));
+            Assert.AreSame(transaction, boundary.Transaction);
+        }
+    }
+
+    [TestMethod]
+    public void Begin_NestedDisjointScopeSucceeds()
+    {
+        var first = new ItemContainer(StorageType.Normal, 1);
+        var second = new ItemContainer(StorageType.Normal, 1);
+        var firstItem = new TestItem(43, 1);
+        var secondItem = new TestItem(44, 1);
+
+        using (var outer = ItemContainerTransaction.Begin(first))
+        {
+            Assert.IsTrue(first.Add(firstItem));
+            using (var inner = ItemContainerTransaction.Begin(second))
+            {
+                Assert.IsTrue(second.Add(secondItem));
+                inner.Commit();
+            }
+
+            Assert.IsNotNull(first[0]);
+            Assert.IsNotNull(second[0]);
+            outer.Commit();
+        }
+
+        Assert.AreSame(firstItem, first[0]);
+        Assert.AreSame(secondItem, second[0]);
+        AssertUnboundAndUnlocked(first, second);
+    }
+
+    [TestMethod]
+    public void Begin_NestedScopeForEnlistedBoundaryRejectsWithoutChangingOuterScope()
+    {
+        var container = new ItemContainer(StorageType.Normal, 1);
+        var item = new TestItem(45, 1);
+        using var outer = ItemContainerTransaction.Begin(container);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => ItemContainerTransaction.Begin(container));
+
+        Assert.AreSame(outer, Boundary(container).Transaction);
+        Assert.IsTrue(Monitor.IsEntered(Boundary(container).MutationLock));
+        Assert.IsTrue(container.Add(item));
+        Assert.AreSame(item, container[0]);
+        outer.Commit();
+        AssertUnboundAndUnlocked(container);
     }
 
     [TestMethod]
@@ -1337,8 +1382,9 @@ public sealed class ItemContainerTransferTests
         var contendedBoundary = boundaries[1];
 
         AssertContendedAdditionalAcquisitionRejected(owned, prefixBoundary, contendedBoundary,
-            () => source.TryTransferTo(destination, item, 1),
-            "A standalone transfer must reject a contended participant instead of waiting while its caller owns storage.");
+            () => Assert.IsFalse(source.TryTransferTo(destination, item, 1)),
+            "A standalone transfer must reject a contended participant instead of waiting while its caller owns storage.",
+            expectsException: false);
         Assert.AreSame(item, source[0]);
         Assert.IsNull(destination[0]);
         AssertUnboundAndUnlocked(owned, source, destination);
@@ -1957,7 +2003,8 @@ public sealed class ItemContainerTransferTests
         ItemContainerMutationBoundary prefixBoundary,
         ItemContainerMutationBoundary contendedBoundary,
         Action operation,
-        string rejectionMessage)
+        string rejectionMessage,
+        bool expectsException = true)
     {
         using var contendedLockHeld = new ManualResetEventSlim();
         using var releaseContendedLock = new ManualResetEventSlim();
@@ -1980,7 +2027,8 @@ public sealed class ItemContainerTransferTests
             {
                 using var transaction = ItemContainerTransaction.Begin(owned);
                 Assert.IsTrue(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
-                Assert.ThrowsExactly<InvalidOperationException>(operation);
+                if (expectsException) Assert.ThrowsExactly<InvalidOperationException>(operation);
+                else operation();
                 Assert.IsTrue(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
                 rejectedAttemptCompleted.Set();
                 transaction.Commit();

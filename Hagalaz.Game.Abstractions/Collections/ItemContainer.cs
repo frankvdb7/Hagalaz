@@ -122,7 +122,11 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     internal IItem?[] SnapshotItems() => _storage.ToArray();
 
-    internal void ReplaceState(IItem?[] items) => _storage.ReplaceState(items);
+    internal void ReplaceState(IItem?[] items)
+    {
+        _mutations.EnsureMutationScope();
+        _storage.ReplaceState(items);
+    }
 
     internal ItemContainerMutationBoundary.MutationScope BeginMutation() => _mutations.BeginMutation();
 
@@ -135,8 +139,7 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
     public void Sort()
     {
         using var mutation = _mutations.BeginMutation();
-        _storage.Sort();
-        mutation.RecordChanges(null);
+        if (_storage.Sort()) mutation.RecordChanges(null);
     }
 
     public int GetSlotByItem(IItem item, bool ignoreCount = true) => _storage.GetSlotByItem(item, ignoreCount);

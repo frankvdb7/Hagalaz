@@ -771,85 +771,36 @@ namespace Hagalaz.Game.Abstractions.Collections
 
         private int ApplyRemove(IItem item, int preferredSlot, HashSet<int> slotsToUpdate)
         {
+            var remaining = item.Count;
+            if (remaining <= 0) return 0;
+
             var removed = 0;
-            if (Type == StorageType.AlwaysStack || item.ItemDefinition.Stackable || item.ItemDefinition.Noted)
+            var preferred = (uint)preferredSlot < (uint)Items.Length ? preferredSlot : -1;
+            for (var index = -1; index < Items.Length && remaining > 0; index++)
             {
-                var lastRemoved = 0;
-                for (var slot = 0; slot < Items.Length; slot++)
+                var slot = index == -1 ? preferred : index;
+                if (slot < 0 || index >= 0 && slot == preferred) continue;
+
+                var slotItem = Items[slot];
+                if (slotItem == null || slotItem.Count <= 0 || !slotItem.Equals(item, ignoreCount: true)) continue;
+
+                var amount = Math.Min(remaining, slotItem.Count);
+                if (slotItem.Count > amount)
                 {
-                    var slotItem = Items[slot];
-                    if (slotItem == null || !slotItem.Equals(item))
-                    {
-                        continue;
-                    }
-
-                    var requestedFromSlot = item.Count;
-                    var removedFromSlot = Math.Min(slotItem.Count, requestedFromSlot);
-                    if (slotItem.Count > item.Count)
-                    {
-                        slotItem.Count -= item.Count;
-                    }
-                    else if (_countToResetTo != -1)
-                    {
-                        slotItem.Count = _countToResetTo;
-                    }
-                    else
-                    {
-                        Items[slot] = null;
-                    }
-
-                    slotsToUpdate.Add(slot);
-                    lastRemoved = removedFromSlot;
+                    slotItem.Count -= amount;
                 }
-
-                return lastRemoved;
-            }
-
-            var slotIndex = GetSlotByItem(item);
-            if (preferredSlot != -1)
-            {
-                var slotItem = Items[preferredSlot];
-                if (slotItem != null && slotItem.Equals(item, true))
-                {
-                    slotIndex = preferredSlot;
-                }
-            }
-
-            var toRemove = item.Count;
-            while (toRemove > 0)
-            {
-                if (slotIndex == -1 && (slotIndex = GetSlotByItem(item)) == -1)
-                {
-                    break;
-                }
-
-                var slotItem = Items[slotIndex];
-                if (slotItem == null)
-                {
-                    continue;
-                }
-
-                if (slotItem.Count > toRemove)
-                {
-                    slotItem.Count -= toRemove;
-                    removed += toRemove;
-                    slotsToUpdate.Add(slotIndex);
-                    break;
-                }
-
-                removed += slotItem.Count;
-                toRemove -= slotItem.Count;
-                if (_countToResetTo != -1)
+                else if (_countToResetTo != -1)
                 {
                     slotItem.Count = _countToResetTo;
                 }
                 else
                 {
-                    Items[slotIndex] = null;
+                    Items[slot] = null;
                 }
 
-                slotsToUpdate.Add(slotIndex);
-                slotIndex = GetSlotByItem(item);
+                removed += amount;
+                remaining -= amount;
+                slotsToUpdate.Add(slot);
             }
 
             return removed;
@@ -986,22 +937,26 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <summary>
         /// Sorts the container by moving all items to the beginning, removing any empty slots between them.
         /// </summary>
-        public void Sort()
+        public bool Sort()
         {
             var baseWrite = 0;
+            var changed = false;
             for (var i = 0; i < Items.Length; i++)
             {
-                if (Items[i] == null)
-                {
-                    continue;
-                }
-
                 var item = Items[i];
-                Items[i] = null;
-                Items[baseWrite++] = item;
+                if (item == null) continue;
+
+                if (baseWrite != i)
+                {
+                    Items[baseWrite] = item;
+                    Items[i] = null;
+                    changed = true;
+                }
+                baseWrite++;
             }
 
-            AdvanceRevision();
+            if (changed) AdvanceRevision();
+            return changed;
         }
 
 

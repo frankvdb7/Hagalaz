@@ -10,9 +10,9 @@ namespace Hagalaz.Game.Scripts.Dialogues.Generic
     public class YesNoDialogueScript : DialogueScript
     {
         /// <summary>
-        /// The callback.
+        /// The callback for the answer, consumed before it is invoked and cleared when the dialogue closes.
         /// </summary>
-        public Action<bool> Callback { get; set; } = null!;
+        public Action<bool>? Callback { get; set; }
 
         /// <summary>
         /// The question.
@@ -31,19 +31,26 @@ namespace Hagalaz.Game.Scripts.Dialogues.Generic
             StandardOptionDialogue(Question, "Yes.", "No.");
             AttachDialogueOptionClickHandler("Yes.", (extraData1, extraData2) =>
             {
-                Callback.Invoke(true);
+                Complete(true);
                 return true;
             });
             AttachDialogueOptionClickHandler("No.", (extraData1, extraData2) =>
             {
-                Callback.Invoke(false);
+                Complete(false);
                 return true;
             });
+        }
+
+        private void Complete(bool answer)
+        {
+            var callback = Callback;
+            Callback = null;
+            callback?.Invoke(answer);
         }
 
         /// <summary>
         /// Happens when dialogue is closed for character.
         /// </summary>
-        public override void OnClose() { }
+        public override void OnClose() => Callback = null;
     }
 }

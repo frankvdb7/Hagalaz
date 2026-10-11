@@ -1,3 +1,4 @@
+using System;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -47,8 +48,17 @@ internal sealed class ComposedTestItem : IItem
     public IItemScript ItemScript { get; }
     public IEquipmentScript EquipmentScript { get; } = Substitute.For<IEquipmentScript>();
     public long[] ExtraData => [];
-    public IItem Clone() => new ComposedTestItem(Id, Count, ItemDefinition, ItemScript);
-    public IItem Clone(int newCount) => new ComposedTestItem(Id, newCount, ItemDefinition, ItemScript);
+    public Action? OnClone { get; set; }
+    public IItem Clone()
+    {
+        OnClone?.Invoke();
+        return new ComposedTestItem(Id, Count, ItemDefinition, ItemScript) { OnClone = OnClone };
+    }
+    public IItem Clone(int newCount)
+    {
+        OnClone?.Invoke();
+        return new ComposedTestItem(Id, newCount, ItemDefinition, ItemScript) { OnClone = OnClone };
+    }
     public bool Equals(IItem otherItem, bool ignoreCount = true) =>
         otherItem != null && Id == otherItem.Id && (ignoreCount || Count == otherItem.Count);
     public string? SerializeExtraData() => null;
