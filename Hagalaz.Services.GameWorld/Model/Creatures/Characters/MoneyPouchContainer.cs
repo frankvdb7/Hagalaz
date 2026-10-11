@@ -214,13 +214,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private ItemContainerTransaction? GetCurrentThreadTransaction(ItemContainerMutationBoundary? additionalBoundary = null)
         {
-            var transaction = _storageMutations.GetCurrentThreadTransaction();
-            var inventoryTransaction = _inventoryMutations.GetCurrentThreadTransaction();
-            var additionalTransaction = additionalBoundary?.GetCurrentThreadTransaction();
-            if (transaction is null && inventoryTransaction is null && additionalTransaction is null) return null;
-
-            if (transaction is null || !ReferenceEquals(transaction, inventoryTransaction) ||
-                (additionalBoundary != null && !ReferenceEquals(transaction, additionalTransaction)))
+            var transaction = _storageMutations.CurrentTransaction;
+            if (!ReferenceEquals(transaction, _inventoryMutations.CurrentTransaction) ||
+                (additionalBoundary != null && !ReferenceEquals(transaction, additionalBoundary.CurrentTransaction)))
                 throw new InvalidOperationException("All required MoneyPouch storage must belong to the same active current-thread transaction.");
 
             return transaction;

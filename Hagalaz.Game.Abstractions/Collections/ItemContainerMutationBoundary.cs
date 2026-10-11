@@ -39,8 +39,6 @@ internal sealed class ItemContainerMutationBoundary
         }
     }
 
-    internal ItemContainerTransaction? GetCurrentThreadTransaction() => CurrentTransaction;
-
     internal ItemContainerTransaction? GetSharedCurrentThreadTransaction(ItemContainerMutationBoundary destination)
     {
         ArgumentNullException.ThrowIfNull(destination);
@@ -143,16 +141,23 @@ internal sealed class ItemContainerMutationBoundary
     {
         var ownsLock = !Monitor.IsEntered(_mutationLock);
         if (ownsLock)
-        {
             Monitor.Enter(_mutationLock);
-        }
-        else if (_transaction == null)
-        {
-            throw new InvalidOperationException("A held mutation lock must belong to an active item-container transaction.");
-        }
 
         try
         {
+            if (ownsLock)
+            {
+                while (_transaction != null || _standalonePublicationOwnerThreadId != 0)
+                {
+                    ThrowIfOwnedByCurrentThread();
+                    Monitor.Wait(_mutationLock);
+                }
+            }
+            else if (CurrentTransaction == null)
+            {
+                throw new InvalidOperationException("A held mutation lock must belong to an active item-container transaction.");
+            }
+
             EnsureMutationAccess();
             return new MutationScope(this, ownsLock, _transaction, publishStandaloneOnDispose);
         }

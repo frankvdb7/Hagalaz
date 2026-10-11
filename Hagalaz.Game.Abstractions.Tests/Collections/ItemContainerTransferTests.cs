@@ -108,12 +108,10 @@ public sealed class ItemContainerTransferTests
         var destinationBoundary = Boundary(destination);
 
         Assert.IsNull(sourceBoundary.CurrentTransaction);
-        Assert.IsNull(sourceBoundary.GetCurrentThreadTransaction());
         Assert.IsNull(sourceBoundary.GetSharedCurrentThreadTransaction(destinationBoundary));
 
         using var transaction = ItemContainerTransaction.Begin(source, destination);
         Assert.AreSame(transaction, sourceBoundary.CurrentTransaction);
-        Assert.AreSame(transaction, sourceBoundary.GetCurrentThreadTransaction());
         Assert.AreSame(transaction, destinationBoundary.CurrentTransaction);
         Assert.AreSame(transaction, sourceBoundary.GetSharedCurrentThreadTransaction(destinationBoundary));
 
@@ -924,63 +922,74 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
-    public void Mutation_AuthorizationIsValidatedAfterLockAcquisitionWhenTransactionBinds()
+    public void Mutation_WaitsForForeignTransactionPublicationOwnership()
     {
-        var ownerThreadId = Environment.CurrentManagedThreadId;
+        var ownerThreadId = 0;
         using var publicationEntered = new ManualResetEventSlim();
         using var finishPublication = new ManualResetEventSlim();
+        using var mutationAttempted = new ManualResetEventSlim();
+        using var mutationCompleted = new ManualResetEventSlim();
         var publicationCount = 0;
         var container = new ItemContainer(StorageType.Normal, 2, _ =>
         {
-            Interlocked.Increment(ref publicationCount);
-            if (Environment.CurrentManagedThreadId == ownerThreadId)
+            var publication = Interlocked.Increment(ref publicationCount);
+            if (publication == 1 && Environment.CurrentManagedThreadId == Volatile.Read(ref ownerThreadId))
             {
                 publicationEntered.Set();
                 Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5)));
             }
         });
-        var storage = Boundary(container);
+        var transactionItem = new TestItem(600, 1);
         var workerItem = new TestItem(601, 1);
         Exception? workerFailure = null;
         var worker = new Thread(() =>
         {
-            try { container.Add(workerItem); }
+            try
+            {
+                if (!publicationEntered.Wait(TimeSpan.FromSeconds(5)))
+                    throw new TimeoutException("The transaction did not reach publication.");
+                mutationAttempted.Set();
+                if (!container.Add(workerItem)) throw new InvalidOperationException("The waiting mutation was rejected.");
+            }
             catch (Exception exception) { workerFailure = exception; }
+            finally { mutationCompleted.Set(); }
         }) { IsBackground = true };
+        Exception? transactionFailure = null;
+        var owner = new Thread(() =>
+        {
+            Volatile.Write(ref ownerThreadId, Environment.CurrentManagedThreadId);
+            try
+            {
+                using var transaction = ItemContainerTransaction.Begin(container);
+                if (!container.Add(transactionItem)) throw new InvalidOperationException("The transaction mutation was rejected.");
+                transaction.Commit();
+            }
+            catch (Exception exception) { transactionFailure = exception; }
+        }) { IsBackground = true };
+        worker.Start();
+        owner.Start();
 
-        Monitor.Enter(storage.MutationLock);
-        ItemContainerTransaction? transaction = null;
         try
         {
-            worker.Start();
-            Assert.IsTrue(SpinWait.SpinUntil(
-                () => (worker.ThreadState & ThreadState.WaitSleepJoin) != 0,
-                TimeSpan.FromSeconds(5)), "The worker must be blocked on MutationLock before Begin binds it.");
-            transaction = ItemContainerTransaction.Begin(container);
+            Assert.IsTrue(publicationEntered.Wait(TimeSpan.FromSeconds(5)), "The transaction must reach publication.");
+            Assert.IsTrue(mutationAttempted.Wait(TimeSpan.FromSeconds(5)));
+            Assert.IsFalse(mutationCompleted.Wait(TimeSpan.FromMilliseconds(100)),
+                "The ordinary mutation must wait while committed publication retains ownership.");
+            Assert.AreSame(transactionItem, container[0]);
+            Assert.IsNull(container[1]);
         }
         finally
         {
-            Monitor.Exit(storage.MutationLock);
+            finishPublication.Set();
         }
 
-        var releaser = new Thread(() =>
-        {
-            if (publicationEntered.Wait(TimeSpan.FromSeconds(5)))
-            {
-                worker.Join(TimeSpan.FromSeconds(5));
-            }
-            finishPublication.Set();
-        }) { IsBackground = true };
-        releaser.Start();
-
-        Assert.IsTrue(container.Add(new TestItem(600, 1)));
-        transaction!.Commit();
-
+        Assert.IsTrue(owner.Join(TimeSpan.FromSeconds(5)), "The committing transaction must finish after publication is released.");
         Assert.IsTrue(worker.Join(TimeSpan.FromSeconds(5)));
-        Assert.IsTrue(releaser.Join(TimeSpan.FromSeconds(5)));
-        Assert.IsInstanceOfType<InvalidOperationException>(workerFailure);
-        Assert.AreEqual(0, container.GetCountById(workerItem.Id));
-        Assert.AreEqual(1, publicationCount);
+        if (transactionFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transactionFailure).Throw();
+        if (workerFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(workerFailure).Throw();
+        Assert.AreSame(transactionItem, container[0]);
+        Assert.AreSame(workerItem, container[1]);
+        Assert.AreEqual(2, publicationCount);
         AssertUnboundAndUnlocked(container);
     }
 
@@ -1080,29 +1089,64 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
-    public void StandalonePublication_RejectsForeignOrdinaryMutationWithoutChangingStorage()
+    public void StandalonePublication_WaitsForForeignOrdinaryMutation() =>
+        AssertForeignOrdinaryMutationWaitsForStandalonePublication(publisherFails: false);
+
+    [TestMethod]
+    public void StandalonePublicationFailure_ReleasesWaitingForeignOrdinaryMutation() =>
+        AssertForeignOrdinaryMutationWaitsForStandalonePublication(publisherFails: true);
+
+    private static void AssertForeignOrdinaryMutationWaitsForStandalonePublication(bool publisherFails)
     {
         using var publicationStarted = new ManualResetEventSlim();
         using var allowPublication = new ManualResetEventSlim();
+        using var mutationAttempted = new ManualResetEventSlim();
+        using var mutationCompleted = new ManualResetEventSlim();
+        var publicationFailure = new InvalidOperationException("Standalone publisher failure.");
+        var publicationCount = 0;
         var container = new ItemContainer(StorageType.Normal, 2, _ =>
         {
+            if (Interlocked.Increment(ref publicationCount) != 1) return;
             publicationStarted.Set();
             Assert.IsTrue(allowPublication.Wait(TimeSpan.FromSeconds(5)));
+            if (publisherFails) throw publicationFailure;
         });
         Exception? publicationThreadFailure = null;
+        var firstItem = new TestItem(606, 1);
         var publicationThread = new Thread(() =>
         {
-            try { Assert.IsTrue(container.Add(new TestItem(606, 1))); }
+            try
+            {
+                if (!container.Add(firstItem)) throw new InvalidOperationException("The publishing mutation was rejected.");
+            }
             catch (Exception exception) { publicationThreadFailure = exception; }
         }) { IsBackground = true };
-        publicationThread.Start();
-        Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
+        var secondItem = new TestItem(607, 1);
+        Exception? mutationFailure = null;
+        var mutationThread = new Thread(() =>
+        {
+            try
+            {
+                if (!publicationStarted.Wait(TimeSpan.FromSeconds(5)))
+                    throw new TimeoutException("The standalone publisher did not start.");
+                mutationAttempted.Set();
+                if (!container.Add(secondItem)) throw new InvalidOperationException("The waiting mutation was rejected.");
+            }
+            catch (Exception exception) { mutationFailure = exception; }
+            finally { mutationCompleted.Set(); }
+        }) { IsBackground = true };
 
+        mutationThread.Start();
+        publicationThread.Start();
         try
         {
-            Assert.ThrowsExactly<InvalidOperationException>(() => container.Add(new TestItem(607, 1)));
+            Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
+            Assert.IsTrue(mutationAttempted.Wait(TimeSpan.FromSeconds(5)));
+            Assert.IsFalse(mutationCompleted.Wait(TimeSpan.FromMilliseconds(100)),
+                "The ordinary mutation must wait while standalone publication retains ownership.");
             Assert.AreEqual(1, container.TakenSlots);
-            Assert.AreEqual(0, container.GetCountById(607));
+            Assert.AreSame(firstItem, container[0]);
+            Assert.IsNull(container[1]);
         }
         finally
         {
@@ -1110,8 +1154,14 @@ public sealed class ItemContainerTransferTests
         }
 
         Assert.IsTrue(publicationThread.Join(TimeSpan.FromSeconds(5)));
-        if (publicationThreadFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(publicationThreadFailure).Throw();
-        Assert.AreEqual(1, container.TakenSlots);
+        Assert.IsTrue(mutationThread.Join(TimeSpan.FromSeconds(5)));
+        if (publisherFails) Assert.AreSame(publicationFailure, publicationThreadFailure);
+        else if (publicationThreadFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(publicationThreadFailure).Throw();
+        if (mutationFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(mutationFailure).Throw();
+        Assert.AreEqual(2, container.TakenSlots);
+        Assert.AreSame(firstItem, container[0]);
+        Assert.AreSame(secondItem, container[1]);
+        Assert.AreEqual(2, publicationCount);
         AssertUnboundAndUnlocked(container);
     }
 
