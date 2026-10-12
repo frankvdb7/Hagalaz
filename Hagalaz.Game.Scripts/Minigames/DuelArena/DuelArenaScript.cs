@@ -595,13 +595,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return;
             }
 
-            var selfFullUpdate = SelfContainer.Updates.Count == 0;
-            var targetFullUpdate = TargetContainer.Updates.Count == 0;
-
-            Character.Configurations.SendItems(134, false, SelfContainer.Items, selfFullUpdate ? null : SelfContainer.Updates);
-            Character.Configurations.SendItems(134, true, TargetContainer.Items, targetFullUpdate ? null : TargetContainer.Updates);
-            Target.Configurations.SendItems(134, false, TargetContainer.Items, targetFullUpdate ? null : TargetContainer.Updates);
-            Target.Configurations.SendItems(134, true, SelfContainer.Items, selfFullUpdate ? null : SelfContainer.Updates);
+            Character.Configurations.SendItems(134, false, SelfContainer.Items, null);
+            Character.Configurations.SendItems(134, true, TargetContainer.Items, null);
+            Target.Configurations.SendItems(134, false, TargetContainer.Items, null);
+            Target.Configurations.SendItems(134, true, SelfContainer.Items, null);
 
             var selfTotal = SelfContainer.CalculateTotalValue();
             var targetTotal = TargetContainer.CalculateTotalValue();
@@ -679,21 +676,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 RefreshDuelConfirmationStatus();
             }
 
-            var slots = self ? SelfContainer.Updates : TargetContainer.Updates;
-
             if (valueDecreased)
             {
-                //if (self && targetAccepted)
-                //this.TargetInterface.DrawString(37, "<col=FF0000><b>CHECK OTHER PLAYER'S OFFER!</b></col>");
-                //else if (!self && selfAccepted)
-                //this.SelfInterface.DrawString(37, "<col=FF0000><b>CHECK OTHER PLAYER'S OFFER!</b></col>");
-
-                //foreach (short slot in slots)
-                // {
-                //this.Character.Configurations.SendCS2Script(143, new object[] { 335 << 16 | (self ? 31 : 33), 4, 7, (int)slot });
-                //this.Target.Configurations.SendCS2Script(143, new object[] { 335 << 16 | (self ? 33 : 31), 4, 7, (int)slot });
-                //}
-
                 if (!SelfModified && self) { }
                 else if (!TargetModified && !self) { }
 
@@ -707,7 +691,6 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 }
             }
 
-            slots.Clear();
         }
 
         /// <summary>
@@ -1331,40 +1314,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     }
 
     /// <summary>
-    ///     Container for holding items in trade offer interfaces.
+    ///     Container for holding items in the duel stake interface.
     /// </summary>
-    public class DuelContainer
+    public sealed class DuelContainer
     {
-        public IItemContainer Items { get; }
-        /// <summary>
-        ///     Contains last slots update.
-        /// </summary>
-        public HashSet<int> Updates { get; }
-
-        /// <summary>
-        ///     Construct's new trade container.
-        /// </summary>
-        public DuelContainer()
-        {
-            Updates = [];
-            Items = new ItemContainer(StorageType.Normal, 9, OnUpdate);
-        }
-
-        /// <summary>
-        ///     Happens when trade container get's updated.
-        /// </summary>
-        /// <param name="slots"></param>
-        public void OnUpdate(HashSet<int>? slots = null)
-        {
-            if (slots == null)
-            {
-                Updates.Clear();
-            }
-            else
-            {
-                Updates.AddRange(slots);
-            }
-        }
+        public IItemContainer Items { get; } = new ItemContainer(StorageType.Normal, 9);
 
         /// <summary>
         ///     Calculate's total value of this container.

@@ -28,16 +28,77 @@ public sealed class DuelArenaInteractionRegressionTests
     {
         var duel = CreateDuel(6, 7);
 
+        duel.SentItems.Clear();
+        duel.StakeValueUpdates.Clear();
         Assert.IsTrue(duel.SelfStake!(0, ComponentClickType.Option4Click, duel.SelfItem.Id, 0));
+        AssertFullStakeRefresh(duel);
+        AssertStakeValueUpdates(duel, 707, 0);
+
+        duel.SentItems.Clear();
+        duel.StakeValueUpdates.Clear();
         Assert.IsTrue(duel.TargetStake!(0, ComponentClickType.Option4Click, duel.TargetItem.Id, 0));
+        AssertFullStakeRefresh(duel);
+        AssertStakeValueUpdates(duel, 707, 600);
+
+        Assert.IsTrue(duel.SelfAccept!(56, ComponentClickType.LeftClick, 0, 0));
+        duel.Self.Configurations.ClearReceivedCalls();
+        duel.Target.Configurations.ClearReceivedCalls();
+        duel.SentItems.Clear();
+        duel.StakeValueUpdates.Clear();
         Assert.IsTrue(duel.TargetUnstake!(7, ComponentClickType.Option4Click, duel.TargetItem.Id, 0));
+        AssertFullStakeRefresh(duel);
+        AssertStakeValueUpdates(duel, 707, 0);
+        duel.SessionScript.RefreshDuelConfirmationStatus();
+        duel.Self.Configurations.Received(2).SendBitConfiguration(12247, 0);
+        duel.Target.Configurations.Received(2).SendGlobalCs2Int(9, 0);
+        duel.Self.Configurations.DidNotReceive().SendBitConfiguration(12247, 1);
+        duel.Target.Configurations.DidNotReceive().SendGlobalCs2Int(9, 1);
 
         Assert.AreEqual(0, duel.TargetStakeContainer.GetCountById(duel.SelfItem.Id));
         Assert.AreEqual(7, duel.SelfStakeContainer.GetCountById(duel.SelfItem.Id));
         Assert.AreEqual(0, duel.SelfStakeContainer.GetCountById(duel.TargetItem.Id));
         Assert.AreEqual(0, duel.TargetStakeContainer.GetCountById(duel.TargetItem.Id));
+        Assert.AreEqual(0, duel.TargetStakeContainer.TakenSlots);
         Assert.AreEqual(0, duel.SelfInventory.Items.GetCountById(duel.SelfItem.Id));
         Assert.AreEqual(6, duel.TargetInventory.Items.GetCountById(duel.TargetItem.Id));
+    }
+
+    [TestMethod]
+    public void RefreshDuelStakeScreen_RepeatsFullStateWithoutChangingItemsOrAcceptance()
+    {
+        var duel = CreateDuel(6, 7);
+        Assert.IsTrue(duel.SelfStake!(0, ComponentClickType.Option4Click, duel.SelfItem.Id, 0));
+        Assert.IsTrue(duel.TargetStake!(0, ComponentClickType.Option4Click, duel.TargetItem.Id, 0));
+        Assert.IsTrue(duel.SelfAccept!(56, ComponentClickType.LeftClick, 0, 0));
+
+        var selfStakedItem = duel.SelfStakeContainer[0];
+        var targetStakedItem = duel.TargetStakeContainer[0];
+        var selfInventoryCount = duel.SelfInventory.Items.GetCountById(duel.SelfItem.Id);
+        var targetInventoryCount = duel.TargetInventory.Items.GetCountById(duel.TargetItem.Id);
+        duel.Self.Configurations.ClearReceivedCalls();
+        duel.Target.Configurations.ClearReceivedCalls();
+        duel.SentItems.Clear();
+        duel.StakeValueUpdates.Clear();
+
+        duel.SessionScript.RefreshDuelStakeScreen();
+        duel.SessionScript.RefreshDuelStakeScreen();
+
+        Assert.AreSame(selfStakedItem, duel.SelfStakeContainer[0]);
+        Assert.AreSame(targetStakedItem, duel.TargetStakeContainer[0]);
+        Assert.AreEqual(7, duel.SelfStakeContainer.GetCountById(duel.SelfItem.Id));
+        Assert.AreEqual(6, duel.TargetStakeContainer.GetCountById(duel.TargetItem.Id));
+        Assert.AreEqual(selfInventoryCount, duel.SelfInventory.Items.GetCountById(duel.SelfItem.Id));
+        Assert.AreEqual(targetInventoryCount, duel.TargetInventory.Items.GetCountById(duel.TargetItem.Id));
+        Assert.AreEqual(8, duel.SentItems.Count);
+        Assert.AreEqual(8, duel.StakeValueUpdates.Count);
+        AssertFullStakeRefresh(duel, 0);
+        AssertFullStakeRefresh(duel, 4);
+        AssertStakeValueUpdates(duel, 707, 600, 0);
+        AssertStakeValueUpdates(duel, 707, 600, 4);
+
+        duel.SessionScript.RefreshDuelConfirmationStatus();
+        duel.Self.Configurations.Received(1).SendBitConfiguration(12247, 1);
+        duel.Target.Configurations.Received(1).SendGlobalCs2Int(9, 1);
     }
 
     [DataTestMethod]
@@ -282,8 +343,8 @@ public sealed class DuelArenaInteractionRegressionTests
     {
         var selfInventory = new ComposedTestContainer(16);
         var targetInventory = new ComposedTestContainer(16);
-        var selfItem = CreateItem(100, selfCount, selfTradeable);
-        var targetItem = CreateItem(101, targetCount, selfTradeable);
+        var selfItem = CreateItem(100, selfCount, selfTradeable, 100);
+        var targetItem = CreateItem(101, targetCount, selfTradeable, 101);
         selfInventory.SetItem(0, selfItem);
         targetInventory.SetItem(0, targetItem);
         for (var index = 0; index < additionalSelfItems; index++)
@@ -311,12 +372,40 @@ public sealed class DuelArenaInteractionRegressionTests
         var targetScript = new DuelArenaScript(targetAccessor, Substitute.For<IHintIconBuilder>(), CreateItemBuilder());
         self.GetScript<DuelArenaScript>().Returns(selfScript);
         target.GetScript<DuelArenaScript>().Returns(targetScript);
+        var sentItems = new List<SentItems>();
+        var stakeValueUpdates = new List<StakeValueUpdate>();
         IItemContainer? selfStakeContainer = null;
         IItemContainer? targetStakeContainer = null;
         self.Configurations.When(x => x.SendItems(134, false, Arg.Any<IContainer<IItem?>>(), Arg.Any<HashSet<int>?>()))
-            .Do(call => selfStakeContainer = call.ArgAt<IContainer<IItem?>>(2) as IItemContainer);
+            .Do(call =>
+            {
+                var container = call.ArgAt<IContainer<IItem?>>(2);
+                selfStakeContainer = container as IItemContainer;
+                sentItems.Add(new(self, 134, false, container, call.ArgAt<HashSet<int>?>(3)));
+            });
+        self.Configurations.When(x => x.SendItems(134, true, Arg.Any<IContainer<IItem?>>(), Arg.Any<HashSet<int>?>()))
+            .Do(call => sentItems.Add(new(self, 134, true, call.ArgAt<IContainer<IItem?>>(2), call.ArgAt<HashSet<int>?>(3))));
         target.Configurations.When(x => x.SendItems(134, false, Arg.Any<IContainer<IItem?>>(), Arg.Any<HashSet<int>?>()))
-            .Do(call => targetStakeContainer = call.ArgAt<IContainer<IItem?>>(2) as IItemContainer);
+            .Do(call =>
+            {
+                var container = call.ArgAt<IContainer<IItem?>>(2);
+                targetStakeContainer = container as IItemContainer;
+                sentItems.Add(new(target, 134, false, container, call.ArgAt<HashSet<int>?>(3)));
+            });
+        target.Configurations.When(x => x.SendItems(134, true, Arg.Any<IContainer<IItem?>>(), Arg.Any<HashSet<int>?>()))
+            .Do(call => sentItems.Add(new(target, 134, true, call.ArgAt<IContainer<IItem?>>(2), call.ArgAt<HashSet<int>?>(3))));
+        self.Configurations.When(x => x.SendGlobalCs2Int(Arg.Any<int>(), Arg.Any<int>()))
+            .Do(call =>
+            {
+                var id = call.ArgAt<int>(0);
+                if (id is 546 or 1333) stakeValueUpdates.Add(new(self, id, call.ArgAt<int>(1)));
+            });
+        target.Configurations.When(x => x.SendGlobalCs2Int(Arg.Any<int>(), Arg.Any<int>()))
+            .Do(call =>
+            {
+                var id = call.ArgAt<int>(0);
+                if (id is 546 or 1333) stakeValueUpdates.Add(new(target, id, call.ArgAt<int>(1)));
+            });
         var selfChoice = new DuelChoiceScreenScript(selfAccessor);
         var targetChoice = new DuelChoiceScreenScript(targetAccessor);
         var selfDuelScreen = new DuelScreenScript(selfAccessor);
@@ -328,8 +417,11 @@ public sealed class DuelArenaInteractionRegressionTests
         OnComponentClick? targetStake = null;
         OnComponentClick? selfUnstake = null;
         OnComponentClick? targetUnstake = null;
+        OnComponentClick? selfAccept = null;
         OnComponentClick? selfPouch = null;
         OnComponentClick? targetPouch = null;
+        targetScreen.When(x => x.AttachClickHandler(56, Arg.Any<OnComponentClick>()))
+            .Do(call => selfAccept = call.ArgAt<OnComponentClick>(1));
         targetOverlay.When(x => x.AttachClickHandler(0, Arg.Any<OnComponentClick>()))
             .Do(call => selfStake = call.ArgAt<OnComponentClick>(1));
         selfOverlay.When(x => x.AttachClickHandler(0, Arg.Any<OnComponentClick>()))
@@ -361,7 +453,7 @@ public sealed class DuelArenaInteractionRegressionTests
 
         return new DuelHarness(target, self, targetInventory, selfInventory, targetItem, selfItem, targetScript,
             targetStakeContainer!, selfStakeContainer!, selfStake, targetStake, selfUnstake, targetUnstake,
-            selfPouch, targetPouch);
+            selfAccept, selfPouch, targetPouch, sentItems, stakeValueUpdates);
     }
 
     private static MoneyPouchContainer CreateMoneyPouch(ICharacter character, int coins)
@@ -431,7 +523,7 @@ public sealed class DuelArenaInteractionRegressionTests
         character.ServiceProvider.Returns(provider);
     }
 
-    private static IItem CreateItem(int id, int count, bool tradeable = true)
+    private static IItem CreateItem(int id, int count, bool tradeable = true, int tradeValue = 0)
     {
         var item = Substitute.For<IItem>();
         item.Id.Returns(id);
@@ -439,13 +531,14 @@ public sealed class DuelArenaInteractionRegressionTests
         item.Name.Returns($"Item {id}");
         var definition = Substitute.For<IItemDefinition>();
         definition.Stackable.Returns(true);
+        definition.TradeValue.Returns(tradeValue);
         item.ItemDefinition.Returns(definition);
         var itemScript = Substitute.For<IItemScript>();
         itemScript.CanTradeItem(Arg.Any<IItem>(), Arg.Any<ICharacter>()).Returns(tradeable);
         itemScript.CanStackItem(Arg.Any<IItem>(), Arg.Any<IItem>(), Arg.Any<bool>()).Returns(true);
         item.ItemScript.Returns(itemScript);
-        item.Clone().Returns(_ => CreateItem(id, count, tradeable));
-        item.Clone(Arg.Any<int>()).Returns(call => CreateItem(id, call.ArgAt<int>(0), tradeable));
+        item.Clone().Returns(_ => CreateItem(id, count, tradeable, tradeValue));
+        item.Clone(Arg.Any<int>()).Returns(call => CreateItem(id, call.ArgAt<int>(0), tradeable, tradeValue));
         item.Equals(Arg.Any<IItem>(), Arg.Any<bool>()).Returns(call =>
             call.ArgAt<IItem>(0)?.Id == id);
         return item;
@@ -453,9 +546,49 @@ public sealed class DuelArenaInteractionRegressionTests
 
     private static IItemBuilder CreateItemBuilder() => new TestItemBuilder((id, count) => CreateItem(id, count));
 
+    private static void AssertFullStakeRefresh(DuelHarness duel, int offset = 0)
+    {
+        AssertSentItems(duel.SentItems[offset], duel.Self, false, duel.SelfStakeContainer);
+        AssertSentItems(duel.SentItems[offset + 1], duel.Self, true, duel.TargetStakeContainer);
+        AssertSentItems(duel.SentItems[offset + 2], duel.Target, false, duel.TargetStakeContainer);
+        AssertSentItems(duel.SentItems[offset + 3], duel.Target, true, duel.SelfStakeContainer);
+    }
+
+    private static void AssertSentItems(SentItems sentItems, ICharacter recipient, bool split, IItemContainer container)
+    {
+        Assert.AreSame(recipient, sentItems.Recipient);
+        Assert.AreEqual(134, sentItems.ContainerId);
+        Assert.AreEqual(split, sentItems.Split);
+        Assert.AreSame(container, sentItems.Container);
+        Assert.IsNull(sentItems.ChangedSlots);
+    }
+
+    private static void AssertStakeValueUpdates(DuelHarness duel, int selfTotal, int targetTotal, int offset = 0)
+    {
+        Assert.IsTrue(duel.StakeValueUpdates.Count >= offset + 4);
+        AssertStakeValue(duel.StakeValueUpdates[offset], duel.Self, 546, selfTotal);
+        AssertStakeValue(duel.StakeValueUpdates[offset + 1], duel.Self, 1333, targetTotal);
+        AssertStakeValue(duel.StakeValueUpdates[offset + 2], duel.Target, 546, targetTotal);
+        AssertStakeValue(duel.StakeValueUpdates[offset + 3], duel.Target, 1333, selfTotal);
+    }
+
+    private static void AssertStakeValue(StakeValueUpdate update, ICharacter recipient, int id, int value)
+    {
+        Assert.AreSame(recipient, update.Recipient);
+        Assert.AreEqual(id, update.Id);
+        Assert.AreEqual(value, update.Value);
+    }
+
     private sealed record DuelHarness(ICharacter Self, ICharacter Target, ComposedTestContainer SelfInventory,
         ComposedTestContainer TargetInventory, IItem SelfItem, IItem TargetItem, DuelArenaScript SessionScript,
         IItemContainer SelfStakeContainer, IItemContainer TargetStakeContainer,
         OnComponentClick? SelfStake, OnComponentClick? TargetStake, OnComponentClick? SelfUnstake,
-        OnComponentClick? TargetUnstake, OnComponentClick? SelfPouch, OnComponentClick? TargetPouch);
+        OnComponentClick? TargetUnstake, OnComponentClick? SelfAccept,
+        OnComponentClick? SelfPouch, OnComponentClick? TargetPouch,
+        List<SentItems> SentItems, List<StakeValueUpdate> StakeValueUpdates);
+
+    private sealed record SentItems(ICharacter Recipient, int ContainerId, bool Split,
+        IContainer<IItem?> Container, HashSet<int>? ChangedSlots);
+
+    private sealed record StakeValueUpdate(ICharacter Recipient, int Id, int Value);
 }
