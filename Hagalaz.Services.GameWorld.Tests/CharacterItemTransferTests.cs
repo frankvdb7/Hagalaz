@@ -215,7 +215,7 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    public void TryMoveTo_LifecycleAndEquipmentPublicationFailuresAreBothPreserved()
+    public void TryMoveTo_LifecycleAndEquipmentPublicationFailuresStillAttemptDestination()
     {
         using var scenario = new Scenario();
         var destinationPublications = 0;
@@ -235,7 +235,7 @@ public sealed class CharacterItemTransferTests
         CollectionAssert.AreEquivalent(new Exception[] { hookFailure, publicationFailure }, thrown.InnerExceptions.ToArray());
         Assert.IsNull(equipment[EquipmentSlot.Hat]);
         Assert.AreSame(item, destination[0]);
-        Assert.AreEqual(0, destinationPublications, "Equipment publication failure skips the later destination publisher.");
+        Assert.AreEqual(1, destinationPublications, "A failed equipment publisher must not suppress the independent destination publisher.");
         AssertUnboundAndUnlocked(equipment, destination);
     }
 
@@ -1018,6 +1018,106 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
+    public void EquipItem_TwoHandedReplacementRejectsStaleIncomingInstance()
+    {
+        using var scenario = new Scenario();
+        var setup = CreateWeaponShieldReplacementSetup(scenario, inventoryCapacity: 3);
+        var replacement = scenario.Builder.Create().WithId(setup.Incoming.Id).WithCount(setup.Incoming.Count).Build();
+        var eventManager = scenario.Owner.EventManager;
+        setup.Weapon.EquipmentScript.CanUnEquipItem(setup.Weapon, scenario.Owner).Returns(_ =>
+        {
+            Assert.IsTrue(setup.Inventory.Items.TryRemoveExact(setup.Incoming, 0));
+            Assert.IsTrue(setup.Inventory.Items.Add(replacement));
+            eventManager.ClearReceivedCalls();
+            scenario.Owner.ClearReceivedCalls();
+            setup.Weapon.EquipmentScript.ClearReceivedCalls();
+            setup.Shield.EquipmentScript.ClearReceivedCalls();
+            setup.Incoming.EquipmentScript.ClearReceivedCalls();
+            replacement.EquipmentScript.ClearReceivedCalls();
+            return true;
+        });
+        setup.Shield.EquipmentScript.CanUnEquipItem(setup.Shield, scenario.Owner).Returns(true);
+
+        Assert.IsFalse(setup.Equipment.EquipItem(setup.Incoming));
+
+        Assert.AreSame(replacement, setup.Inventory.Items[0]);
+        Assert.AreSame(setup.Weapon, setup.Equipment[EquipmentSlot.Weapon]);
+        Assert.AreSame(setup.Shield, setup.Equipment[EquipmentSlot.Shield]);
+        setup.Incoming.EquipmentScript.DidNotReceive().OnEquipped(setup.Incoming, scenario.Owner);
+        setup.Weapon.EquipmentScript.DidNotReceive().OnUnequipped(setup.Weapon, scenario.Owner);
+        setup.Shield.EquipmentScript.DidNotReceive().OnUnequipped(setup.Shield, scenario.Owner);
+        replacement.EquipmentScript.DidNotReceive().OnEquipped(replacement, scenario.Owner);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+        scenario.Owner.DidNotReceive().SendChatMessage("Not enough space in your inventory.");
+    }
+
+    [TestMethod]
+    public void EquipItem_TwoHandedReplacementRejectsStaleWeaponInstance()
+    {
+        using var scenario = new Scenario();
+        var setup = CreateWeaponShieldReplacementSetup(scenario, inventoryCapacity: 3);
+        var replacementWeapon = scenario.Builder.Create().WithId(setup.Weapon.Id).WithCount(setup.Weapon.Count).Build();
+        var eventManager = scenario.Owner.EventManager;
+        setup.Weapon.EquipmentScript.CanUnEquipItem(setup.Weapon, scenario.Owner).Returns(_ =>
+        {
+            Assert.IsTrue(setup.Equipment.TryReplaceEquippedItem(EquipmentSlot.Weapon, setup.Weapon, replacementWeapon));
+            eventManager.ClearReceivedCalls();
+            scenario.Owner.ClearReceivedCalls();
+            setup.Weapon.EquipmentScript.ClearReceivedCalls();
+            setup.Shield.EquipmentScript.ClearReceivedCalls();
+            setup.Incoming.EquipmentScript.ClearReceivedCalls();
+            replacementWeapon.EquipmentScript.ClearReceivedCalls();
+            return true;
+        });
+        setup.Shield.EquipmentScript.CanUnEquipItem(setup.Shield, scenario.Owner).Returns(true);
+
+        Assert.IsFalse(setup.Equipment.EquipItem(setup.Incoming));
+
+        Assert.AreSame(setup.Incoming, setup.Inventory.Items[0]);
+        Assert.AreSame(replacementWeapon, setup.Equipment[EquipmentSlot.Weapon]);
+        Assert.AreSame(setup.Shield, setup.Equipment[EquipmentSlot.Shield]);
+        setup.Weapon.EquipmentScript.DidNotReceive().OnUnequipped(setup.Weapon, scenario.Owner);
+        setup.Shield.EquipmentScript.DidNotReceive().OnUnequipped(setup.Shield, scenario.Owner);
+        setup.Incoming.EquipmentScript.DidNotReceive().OnEquipped(setup.Incoming, scenario.Owner);
+        replacementWeapon.EquipmentScript.DidNotReceive().OnUnequipped(replacementWeapon, scenario.Owner);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+        scenario.Owner.DidNotReceive().SendChatMessage("Not enough space in your inventory.");
+    }
+
+    [TestMethod]
+    public void EquipItem_TwoHandedReplacementRejectsStaleShieldInstance()
+    {
+        using var scenario = new Scenario();
+        var setup = CreateWeaponShieldReplacementSetup(scenario, inventoryCapacity: 3);
+        var replacementShield = scenario.Builder.Create().WithId(setup.Shield.Id).WithCount(setup.Shield.Count).Build();
+        var eventManager = scenario.Owner.EventManager;
+        setup.Weapon.EquipmentScript.CanUnEquipItem(setup.Weapon, scenario.Owner).Returns(_ =>
+        {
+            Assert.IsTrue(setup.Equipment.TryReplaceEquippedItem(EquipmentSlot.Shield, setup.Shield, replacementShield));
+            eventManager.ClearReceivedCalls();
+            scenario.Owner.ClearReceivedCalls();
+            setup.Weapon.EquipmentScript.ClearReceivedCalls();
+            setup.Shield.EquipmentScript.ClearReceivedCalls();
+            setup.Incoming.EquipmentScript.ClearReceivedCalls();
+            replacementShield.EquipmentScript.ClearReceivedCalls();
+            return true;
+        });
+        setup.Shield.EquipmentScript.CanUnEquipItem(setup.Shield, scenario.Owner).Returns(true);
+
+        Assert.IsFalse(setup.Equipment.EquipItem(setup.Incoming));
+
+        Assert.AreSame(setup.Incoming, setup.Inventory.Items[0]);
+        Assert.AreSame(setup.Weapon, setup.Equipment[EquipmentSlot.Weapon]);
+        Assert.AreSame(replacementShield, setup.Equipment[EquipmentSlot.Shield]);
+        setup.Weapon.EquipmentScript.DidNotReceive().OnUnequipped(setup.Weapon, scenario.Owner);
+        setup.Shield.EquipmentScript.DidNotReceive().OnUnequipped(setup.Shield, scenario.Owner);
+        setup.Incoming.EquipmentScript.DidNotReceive().OnEquipped(setup.Incoming, scenario.Owner);
+        replacementShield.EquipmentScript.DidNotReceive().OnEquipped(replacementShield, scenario.Owner);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+        scenario.Owner.DidNotReceive().SendChatMessage("Not enough space in your inventory.");
+    }
+
+    [TestMethod]
     public void EquipItem_TwoConflictPublisherFailureLeavesCommittedStateAndRunsCallbacks()
     {
         using var scenario = new Scenario();
@@ -1043,7 +1143,7 @@ public sealed class CharacterItemTransferTests
         Assert.IsNull(setup.Equipment[EquipmentSlot.Shield]);
         Assert.AreSame(setup.Weapon, setup.Inventory.Items[0]);
         Assert.AreSame(setup.Shield, setup.Inventory.Items[1]);
-        eventManager.DidNotReceive().SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
     }
 
     [TestMethod]
@@ -1098,7 +1198,7 @@ public sealed class CharacterItemTransferTests
         Assert.IsNull(setup.Equipment[EquipmentSlot.Shield]);
         Assert.AreSame(setup.Weapon, setup.Inventory.Items[0]);
         Assert.AreSame(setup.Shield, setup.Inventory.Items[1]);
-        scenario.Owner.EventManager.DidNotReceive().SendEvent(Arg.Any<EquipmentChangedEvent>());
+        scenario.Owner.EventManager.Received(1).SendEvent(Arg.Any<EquipmentChangedEvent>());
     }
 
     [TestMethod]
@@ -1259,6 +1359,88 @@ public sealed class CharacterItemTransferTests
 
         Assert.IsTrue(callbackSawCommittedStorage);
         Assert.IsTrue(publicationSawEquipmentEffect);
+        item.EquipmentScript.Received(1).OnUnequipped(item, scenario.Owner);
+    }
+
+    [TestMethod]
+    public void UnEquipItem_RejectsStaleEquippedInstanceAfterPreflight()
+    {
+        using var scenario = new Scenario();
+        var inventory = CreateInventory(scenario, 2);
+        scenario.Owner.Inventory.Returns(inventory);
+        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        scenario.Owner.Equipment.Returns(equipment);
+        var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        var replacement = scenario.Builder.Create().WithId(item.Id).WithCount(item.Count).Build();
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item));
+        item.EquipmentScript.CanUnEquipItem(item, scenario.Owner).Returns(_ =>
+        {
+            Assert.IsTrue(equipment.TryReplaceEquippedItem(EquipmentSlot.Hat, item, replacement));
+            scenario.Owner.EventManager.ClearReceivedCalls();
+            scenario.Owner.ClearReceivedCalls();
+            item.EquipmentScript.ClearReceivedCalls();
+            replacement.EquipmentScript.ClearReceivedCalls();
+            return true;
+        });
+
+        Assert.IsFalse(equipment.UnEquipItem(item));
+
+        Assert.AreSame(replacement, equipment[EquipmentSlot.Hat]);
+        Assert.IsNull(inventory.Items[0]);
+        Assert.IsNull(inventory.Items[1]);
+        item.EquipmentScript.DidNotReceive().OnUnequipped(item, scenario.Owner);
+        replacement.EquipmentScript.DidNotReceive().OnUnequipped(replacement, scenario.Owner);
+        scenario.Owner.EventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+        scenario.Owner.DidNotReceive().SendChatMessage("Not enough space in your inventory.");
+    }
+
+    [TestMethod]
+    public void UnEquipItem_UsesRequestedEmptyInventorySlot()
+    {
+        using var scenario = new Scenario();
+        var inventory = CreateInventory(scenario, 3);
+        scenario.Owner.Inventory.Returns(inventory);
+        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        scenario.Owner.Equipment.Returns(equipment);
+        var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item));
+        item.EquipmentScript.CanUnEquipItem(item, scenario.Owner).Returns(true);
+
+        Assert.IsTrue(equipment.UnEquipItem(item, 2));
+
+        Assert.IsNull(equipment[EquipmentSlot.Hat]);
+        Assert.IsNull(inventory.Items[0]);
+        Assert.IsNull(inventory.Items[1]);
+        Assert.AreSame(item, inventory.Items[2]);
+        item.EquipmentScript.Received(1).OnUnequipped(item, scenario.Owner);
+    }
+
+    [TestMethod]
+    public void UnEquipItem_FallsBackWhenRequestedInventorySlotBecomesOccupiedDuringPreflight()
+    {
+        using var scenario = new Scenario();
+        var inventory = CreateInventory(scenario, 3);
+        scenario.Owner.Inventory.Returns(inventory);
+        var equipment = new EquipmentContainer(scenario.Owner, 15, scenario.Builder);
+        scenario.Owner.Equipment.Returns(equipment);
+        var item = scenario.Builder.Create().WithId(101).WithCount(1).Build();
+        var blocker = scenario.Builder.Create().WithId(102).WithCount(1).Build();
+        Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item));
+        item.EquipmentScript.CanUnEquipItem(item, scenario.Owner).Returns(_ =>
+        {
+            Assert.IsTrue(inventory.Items.Add(2, blocker));
+            scenario.Owner.EventManager.ClearReceivedCalls();
+            scenario.Owner.ClearReceivedCalls();
+            return true;
+        });
+
+        Assert.IsTrue(equipment.UnEquipItem(item, 2));
+
+        Assert.IsNull(equipment[EquipmentSlot.Hat]);
+        Assert.AreSame(item, inventory.Items[0]);
+        Assert.IsNull(inventory.Items[1]);
+        Assert.AreSame(blocker, inventory.Items[2]);
+        item.EquipmentScript.Received(1).OnUnequipped(item, scenario.Owner);
     }
 
     [TestMethod]

@@ -107,27 +107,39 @@ public sealed class MoneyPouchContainerTests
     }
 
     [TestMethod]
-    public void TryRemoveExact_WhenInventoryPublisherThrows_KeepsCommittedStorageAndSkipsPouchPublication()
+    public void TryRemoveExact_WhenInventoryPublisherThrowsStillPublishesPouchChange()
     {
         var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
         var eventManager = Substitute.For<IEventManager>();
         scenario.Owner.EventManager.Returns(eventManager);
+        var publicationOrder = new List<string>();
+        scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>()))
+            .Do(_ => publicationOrder.Add("pouch message"));
+        eventManager.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>()))
+            .Do(_ => publicationOrder.Add("pouch event"));
         scenario.Owner.ClearReceivedCalls();
         var publicationException = new InvalidOperationException("Inventory publisher failed.");
-        scenario.Inventory.OnUpdateAction = () => throw publicationException;
+        scenario.Inventory.OnUpdateAction = () =>
+        {
+            publicationOrder.Add("inventory publisher");
+            throw publicationException;
+        };
 
         var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => scenario.MoneyPouch.TryRemoveExact(12));
 
         Assert.AreSame(publicationException, thrown);
         Assert.AreEqual(0, scenario.MoneyPouch.Count);
         Assert.AreEqual(3, scenario.Inventory.Items.GetCountById(CoinId));
-        scenario.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
-        eventManager.DidNotReceive().SendEvent(Arg.Any<MoneyPouchChangedEvent>());
+        CollectionAssert.AreEqual(new[] { "inventory publisher", "pouch message", "pouch event" }, publicationOrder);
+        scenario.Owner.Received(1).SendChatMessage("12 coins have been removed from your money pouch.");
+        eventManager.Received(1).SendEvent(Arg.Is<MoneyPouchChangedEvent>(change =>
+            change.PreviousCount == 10 && change.Count == 0));
         scenario.Inventory.OnUpdateAction = null;
         using var fresh = ItemContainerTransaction.Begin(scenario.MoneyPouch);
         fresh.Commit();
-        scenario.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
-        eventManager.DidNotReceive().SendEvent(Arg.Any<MoneyPouchChangedEvent>());
+        scenario.Owner.Received(1).SendChatMessage("12 coins have been removed from your money pouch.");
+        eventManager.Received(1).SendEvent(Arg.Any<MoneyPouchChangedEvent>());
+        Assert.AreEqual(3, publicationOrder.Count, "The failed commit notification must not be replayed.");
     }
 
     [TestMethod]
@@ -668,7 +680,7 @@ public sealed class MoneyPouchContainerTests
     }
 
     [TestMethod]
-    public void Commit_PouchFailureStopsLaterOwnersAndDiscardsRemainingFacts()
+    public void Commit_PouchFailureStillAttemptsLaterOwnersAndDiscardsRemainingFacts()
     {
         var first = CreateScenario(10, 0);
         var second = CreateScenario(20, 0);
@@ -696,14 +708,15 @@ public sealed class MoneyPouchContainerTests
         Assert.AreEqual(22, second.MoneyPouch.Count);
         first.Owner.Received(1).SendChatMessage("1 coins have been added to your money pouch.");
         first.Owner.DidNotReceive().SendChatMessage("3 coins have been added to your money pouch.");
-        second.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
-        Assert.AreEqual(0, eventChanges.Count);
+        second.Owner.Received(1).SendChatMessage("2 coins have been added to your money pouch.");
+        Assert.AreEqual(1, eventChanges.Count);
+        Assert.AreEqual((20, 22), eventChanges[0]);
         using var fresh = ItemContainerTransaction.Begin(first.MoneyPouch, second.MoneyPouch);
         fresh.Commit();
         first.Owner.Received(1).SendChatMessage("1 coins have been added to your money pouch.");
         first.Owner.DidNotReceive().SendChatMessage("3 coins have been added to your money pouch.");
-        second.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
-        Assert.AreEqual(0, eventChanges.Count);
+        second.Owner.Received(1).SendChatMessage("2 coins have been added to your money pouch.");
+        Assert.AreEqual(1, eventChanges.Count, "The later owner's committed notification is published once.");
     }
 
     [TestMethod]

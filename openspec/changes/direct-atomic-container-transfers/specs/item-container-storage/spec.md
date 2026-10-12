@@ -30,7 +30,7 @@
 - **THEN** the command owns its workflow and does not join a caller-owned transaction over those storages
 
 ### Requirement: Cross-container transfers commit both stores atomically
-`IItemContainer.TryTransferTo(...)` MUST provide one atomic exact cross-container operation using the single low-level `ItemContainerStorage` transfer algorithm. When neither storage participates in a current-thread transaction, the method MUST acquire both mutation boundaries in deterministic lock order, mutate both storages once, and retain standalone publication ownership for both until publication completes; it MUST NOT create an `ItemContainerTransaction`. When both storages already belong to the same active current-thread transaction, the method MUST participate without creating, committing, or disposing that transaction. Partial or conflicting participation MUST be rejected before mutation. A valid transfer rejection MUST return false without mutating either storage. Success MUST advance each storage revision once. Standalone publication MUST occur after both locks are released, source before destination, and a publisher failure MUST leave storage committed and skip later publishers. `ItemContainerMutationBoundary.TryTransferTo(...)` MUST require both storages to already belong to the same active current-thread transaction.
+`IItemContainer.TryTransferTo(...)` MUST provide one atomic exact cross-container operation using the single low-level `ItemContainerStorage` transfer algorithm. When neither storage participates in a current-thread transaction, the method MUST acquire both mutation boundaries in deterministic lock order, mutate both storages once, and retain standalone publication ownership for both until publication completes; it MUST NOT create an `ItemContainerTransaction`. When both storages already belong to the same active current-thread transaction, the method MUST participate without creating, committing, or disposing that transaction. Partial or conflicting participation MUST be rejected before mutation. A valid transfer rejection MUST return false without mutating either storage. Success MUST advance each storage revision once. Standalone publication MUST occur after both locks are released in source-then-destination order. Each supplied pre-publication action and both publishers MUST be attempted once after commit even if an earlier stage throws. Failures MUST leave storage committed and release both ownership claims; one failure propagates as its original exception and multiple failures are aggregated. `ItemContainerMutationBoundary.TryTransferTo(...)` MUST require both storages to already belong to the same active current-thread transaction.
 
 #### Scenario: Standalone transfer uses direct two-boundary ownership
 - **WHEN** neither storage participates in a current-thread transaction and the source has the requested quantity while the destination can accept the exact result
@@ -38,7 +38,15 @@
 
 #### Scenario: Standalone transfer publication failure leaves storage committed
 - **WHEN** the source publisher throws after a successful standalone transfer
-- **THEN** the destination publisher is skipped, both stores remain changed, both ownership claims are released, and the original publication exception propagates
+- **THEN** the destination publisher is attempted once, both stores remain changed, both ownership claims are released, and the original publication exception propagates
+
+#### Scenario: Standalone transfer attempts publishers after a before-publication failure
+- **WHEN** a supplied before-publication action throws after the transfer commits
+- **THEN** source and destination publishers are both attempted once in order, ownership is released, and the single or multiple failures propagate
+
+#### Scenario: Standalone transfer aggregates independent publisher failures
+- **WHEN** both source and destination publishers throw
+- **THEN** both are attempted once and an `AggregateException` retains both failures
 
 #### Scenario: Transfer participates in an existing transaction
 - **WHEN** both storages belong to the same active current-thread transaction

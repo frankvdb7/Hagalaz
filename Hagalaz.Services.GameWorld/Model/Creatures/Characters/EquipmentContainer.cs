@@ -136,6 +136,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var inventoryFull = false;
             using (var replacementTransaction = ItemContainerTransaction.Begin(_owner.Inventory.Items, this))
             {
+                if ((uint)slot >= (uint)_owner.Inventory.Items.Capacity ||
+                    !ReferenceEquals(_owner.Inventory.Items[slot], item) ||
+                    !ReferenceEquals(_storage[(int)EquipmentSlot.Weapon], equippedWeapon) ||
+                    !ReferenceEquals(_storage[(int)EquipmentSlot.Shield], equippedShield) ||
+                    item.Count <= 0 || item.EquipmentDefinition.Slot != equipSlot)
+                {
+                    return false;
+                }
+
                 if (!_owner.Inventory.Items.TryRemoveExact(item, slot)) return false;
                 if (needsWeaponUnequip && !_mutations.TryTransferTo(inventoryBoundary, equippedWeapon!,
                         equippedWeapon!.Count, (int)EquipmentSlot.Weapon, slot))
@@ -491,16 +500,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 return false;
             }
-            var destinationSlot = -1;
-            if (toInventorySlot >= 0 && (uint)toInventorySlot < (uint)_owner.Inventory.Items.Capacity &&
-                _owner.Inventory.Items[toInventorySlot] == null)
-            {
-                destinationSlot = toInventorySlot;
-            }
-
             var inventoryBoundary = ItemContainerTransaction.ResolveSingleBoundary(_owner.Inventory.Items);
             using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items, this))
             {
+                if ((uint)(int)slot >= (uint)_storage.Capacity ||
+                    !ReferenceEquals(_storage[(int)slot], item))
+                {
+                    return false;
+                }
+
+                var destinationSlot = toInventorySlot >= 0 &&
+                                      (uint)toInventorySlot < (uint)_owner.Inventory.Items.Capacity &&
+                                      _owner.Inventory.Items[toInventorySlot] == null
+                    ? toInventorySlot
+                    : -1;
+
                 if (_mutations.TryTransferTo(inventoryBoundary, item, item.Count, (int)slot, destinationSlot))
                 {
                     DeferEquipmentEffects(transaction, new EquipmentEffect(EquipmentEffectKind.Unequipped, item));

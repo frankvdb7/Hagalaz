@@ -97,8 +97,8 @@ public sealed class ItemContainerTransaction : IDisposable
     /// visits each resolved boundary's completion owner once, in resolved boundary order. This order is independent of
     /// lock and publication order. Hook or publication failures propagate after storage has permanently committed.
     /// Dispose cannot undo that state, and another Commit cannot retry completion.
-    /// Container failure skips later containers and all post-publication completion. A post-publication failure skips later
-    /// completion. Multiple independent failures are retained in a flat AggregateException.
+    /// Every independent completion owner and changed boundary is attempted once in its existing order, even after an
+    /// earlier failure. Multiple independent failures are retained in a flat AggregateException.
     /// </remarks>
     public void Commit()
     {
@@ -115,15 +115,17 @@ public sealed class ItemContainerTransaction : IDisposable
                 catch (Exception exception) { (failures ??= []).Add(exception); }
             }
 
-            try
+            foreach (var boundary in _publicationOrder)
             {
-                foreach (var boundary in _publicationOrder)
-                    if (_changed.TryGetValue(boundary, out var slots)) boundary.PublishCommittedChanges(slots);
-                foreach (var owner in _completionOwners) owner.CompleteAfterPublication();
+                if (!_changed.TryGetValue(boundary, out var slots)) continue;
+                try { boundary.PublishCommittedChanges(slots); }
+                catch (Exception exception) { (failures ??= []).Add(exception); }
             }
-            catch (Exception completionFailure)
+
+            foreach (var owner in _completionOwners)
             {
-                (failures ??= []).Add(completionFailure);
+                try { owner.CompleteAfterPublication(); }
+                catch (Exception exception) { (failures ??= []).Add(exception); }
             }
         }
         finally

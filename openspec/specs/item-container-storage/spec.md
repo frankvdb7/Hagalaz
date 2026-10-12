@@ -97,7 +97,7 @@ Storage mechanics MUST be composed rather than inherited. `BaseItemContainer`, `
 - **THEN** storage throws the established exception category and retains all previous slots, counts, and revision
 
 ### Requirement: Cross-container transfers commit both stores atomically
-`IItemContainer.TryTransferTo(...)` MUST provide one atomic exact cross-container operation using the single low-level `ItemContainerStorage` transfer algorithm. When neither storage participates in a current-thread transaction, the method MUST acquire both mutation boundaries in deterministic lock order, mutate both storages once, and retain standalone publication ownership for both until publication completes; it MUST NOT create an `ItemContainerTransaction`. When both storages already belong to the same active current-thread transaction, the method MUST participate without creating, committing, or disposing that transaction. Partial or conflicting participation MUST be rejected before mutation. A valid transfer rejection MUST return false without mutating either storage. Success MUST advance each storage revision once. Standalone publication MUST occur after both locks are released, source before destination, and a publisher failure MUST leave storage committed and skip later publishers. `ItemContainerMutationBoundary.TryTransferTo(...)` MUST require both storages to already belong to the same active current-thread transaction.
+`IItemContainer.TryTransferTo(...)` MUST provide one atomic exact cross-container operation using the single low-level `ItemContainerStorage` transfer algorithm. When neither storage participates in a current-thread transaction, the method MUST acquire both mutation boundaries in deterministic lock order, mutate both storages once, and retain standalone publication ownership for both until publication completes; it MUST NOT create an `ItemContainerTransaction`. When both storages already belong to the same active current-thread transaction, the method MUST participate without creating, committing, or disposing that transaction. Partial or conflicting participation MUST be rejected before mutation. A valid transfer rejection MUST return false without mutating either storage. Success MUST advance each storage revision once. Standalone publication MUST occur after both locks are released in source-then-destination order. Every supplied before-publication action and both publishers MUST be attempted once even if an earlier stage throws. Failures MUST leave storage committed, MUST NOT be retried, and MUST release both ownership claims. A single failure MUST propagate as its original exception; multiple failures MUST be aggregated. `ItemContainerMutationBoundary.TryTransferTo(...)` MUST require both storages to already belong to the same active current-thread transaction.
 
 #### Scenario: Standalone transfer uses direct two-boundary ownership
 - **WHEN** neither storage participates in a current-thread transaction and the source has the requested quantity while the destination can accept the exact result
@@ -105,7 +105,15 @@ Storage mechanics MUST be composed rather than inherited. `BaseItemContainer`, `
 
 #### Scenario: Standalone transfer publication failure leaves storage committed
 - **WHEN** the source publisher throws after a successful standalone transfer
-- **THEN** the destination publisher is skipped, both stores remain changed, both ownership claims are released, and the original publication exception propagates
+- **THEN** the destination publisher is still attempted once, both stores remain changed, both ownership claims are released, and the original publication exception propagates
+
+#### Scenario: Standalone transfer attempts publishers after a before-publication failure
+- **WHEN** a supplied before-publication action throws after a successful standalone transfer
+- **THEN** source and destination publishers are both attempted once in order, ownership is released, and all failures propagate according to the single-or-multiple failure rule
+
+#### Scenario: Standalone transfer aggregates independent publisher failures
+- **WHEN** more than one before-publication action or publisher throws
+- **THEN** all independent stages are attempted once and an `AggregateException` retains the failures
 
 #### Scenario: Transfer participates in an existing transaction
 - **WHEN** both storages belong to the same active current-thread transaction
@@ -394,8 +402,27 @@ Before mutation, `EquipmentContainer` MUST require `CanEquipItem` and `CanUnEqui
 - **WHEN** a storage operation fails after the incoming item has been removed inside the transaction
 - **THEN** rollback restores both original item instances and no lifecycle callback or publication occurs
 
+#### Scenario: Weapon and shield replacement rejects stale captured instances
+- **WHEN** the incoming inventory item, captured weapon, or captured shield changes during preflight
+- **THEN** the transaction rejects before mutation, leaves the current item instances in place, and performs no additional lifecycle callback, publication, or inventory-full message
+
+#### Scenario: Two-handed replacement validates both captured equipment slots
+- **WHEN** a two-handed weapon replacement captured both weapon and shield and either slot changes before transaction ownership
+- **THEN** it rejects rather than recomputing which items to displace
+
+### Requirement: Unequip validates the expected instance and destination under ownership
+`UnEquipItem` MUST check that the exact item instance captured before `CanUnEquipItem` still occupies its equipment slot after it acquires inventory and equipment ownership. It MUST choose an available preferred inventory slot under that same ownership and use normal destination selection if the preferred slot is unavailable.
+
+#### Scenario: Unequip rejects an item replaced during preflight
+- **WHEN** the equipped item instance changes during `CanUnEquipItem`
+- **THEN** the command returns false without transferring the replacement, running an additional lifecycle callback, publishing the rejected operation, or reporting inventory full
+
+#### Scenario: Unequip rechecks its preferred inventory slot
+- **WHEN** a requested in-range inventory slot is empty at request time
+- **THEN** it uses that slot if still empty after acquiring ownership, and otherwise uses normal destination selection
+
 ### Requirement: Weapon and shield replacement commits conflicting items atomically
-After all required `CanUnEquipItem` checks succeed, Weapon and Shield replacement MUST remove the incoming inventory item, move each conflicting equipped item into inventory, and place the same incoming item instance in its equipment slot within one `ItemContainerTransaction`. If any staged storage operation fails, inventory and equipment MUST be restored unchanged and no lifecycle callback or mutation publication may occur. A successful replacement MUST NOT invoke conflicting items' `UnEquipItem` commands. After commit and unlock, it MUST run `OnUnequipped` for a conflicting weapon, then a conflicting shield, then weapon profile/special-attack logic when a weapon is removed, then the incoming item's `OnEquipped`, all before participant publication.
+After all required `CanUnEquipItem` checks succeed, Weapon and Shield replacement MUST acquire one `ItemContainerTransaction` and verify that the captured incoming item still occupies its in-range inventory slot, the captured weapon and shield instances still occupy their respective slots (including captured null values), the incoming count is positive, and its equipment slot is unchanged. It MUST reject a stale capture before mutation without treating it as an inventory-capacity failure. If validation succeeds, it MUST remove the incoming inventory item, move each conflicting equipped item into inventory, and place the same incoming item instance in its equipment slot within that transaction. If any staged storage operation fails, inventory and equipment MUST be restored unchanged and no lifecycle callback or mutation publication may occur. A successful replacement MUST NOT invoke conflicting items' `UnEquipItem` commands. After commit and unlock, it MUST run `OnUnequipped` for a conflicting weapon, then a conflicting shield, then weapon profile/special-attack logic when a weapon is removed, then the incoming item's `OnEquipped`, all before participant publication.
 
 #### Scenario: A second conflicting item cannot fit
 - **WHEN** Weapon and Shield are both displaced but inventory can accept only one of them
@@ -404,6 +431,10 @@ After all required `CanUnEquipItem` checks succeed, Weapon and Shield replacemen
 #### Scenario: A weapon and shield are displaced successfully
 - **WHEN** both conflicting items fit after the incoming item leaves inventory
 - **THEN** both original item instances are in inventory, the same incoming instance occupies its equipment slot, and lifecycle callbacks run in the specified order after commit and before publication
+
+#### Scenario: A stale weapon or shield capture is rejected
+- **WHEN** a captured conflicting weapon or shield instance changes during preflight
+- **THEN** replacement leaves the incoming item and current equipment instances unchanged and performs no additional callback or publication
 
 #### Scenario: A participant publisher throws after replacement commit
 - **WHEN** replacement storage commits and a participant publisher throws
@@ -443,17 +474,25 @@ Commit MUST make the current storage state irreversible before discarding snapsh
 - **THEN** Begin throws and leaves the existing scope unchanged
 
 ### Requirement: Commit completes domain effects and publication in order
-Commit MUST run pre-publication completion, changed container publication, then post-publication completion. Completion owners run once per owner-bearing resolved boundary in participant encounter and contribution order before lock sorting; each owner processes its facts in FIFO order, with no cross-owner fact-interleaving guarantee. Container publication uses its existing observable order independently of lock order; its first failure skips later container publishers and all post-publication completion. Post-publication completion runs only if container publication finishes, and its first failure skips later owners. Pending facts are discarded before bindings are released.
+Commit MUST run pre-publication completion, changed container publication, then post-publication completion. Completion owners run once per owner-bearing resolved boundary in participant encounter and contribution order before lock sorting; each owner processes its facts in FIFO order, with no cross-owner fact-interleaving guarantee. Container publication uses its existing observable order independently of lock order. Every independent completion owner and changed boundary in each phase MUST be attempted once even if an earlier operation throws. A failure within one owner's own fact processing MAY stop that owner's remaining facts, but MUST NOT prevent later owners from being attempted. Pending facts are discarded before bindings are released.
 
-An exception after the irreversible point leaves storage committed. A single failure propagates as its original exception; independent Equipment hook and publication failures both survive in one AggregateException. Validation needed to determine whether a mutation is allowed MUST happen before Commit. The transaction MUST NOT store executable domain callbacks or expose callback registration.
+An exception after the irreversible point leaves storage committed and is never retried. A single failure propagates as its original exception; multiple failures propagate as a flattened AggregateException in encounter order. Validation needed to determine whether a mutation is allowed MUST happen before Commit. The transaction MUST NOT store executable domain callbacks or expose callback registration.
 
 #### Scenario: Container publication fails
 - **WHEN** a container publisher throws
-- **THEN** later containers and all post-publication completion are skipped, storage remains committed, and the original exception propagates
+- **THEN** later changed containers and every post-publication completion owner are attempted once, storage remains committed, and the original exception propagates after cleanup
 
 #### Scenario: Post-publication completion fails
 - **WHEN** one completion owner throws after container publication succeeds
-- **THEN** earlier completion remains observable, later owners are skipped, remaining facts are discarded, and storage remains committed
+- **THEN** later independent owners are attempted once, the failed owner's remaining facts are discarded, and storage remains committed
+
+#### Scenario: Pre-publication completion failure does not suppress later phases
+- **WHEN** one pre-publication completion owner throws
+- **THEN** later owners, changed container publishers, and post-publication completion owners are attempted once
+
+#### Scenario: Multiple committed stages fail
+- **WHEN** more than one independent hook, publisher, or completion owner throws
+- **THEN** each independent stage is attempted once and a flattened AggregateException retains all original failures in encounter order
 
 #### Scenario: Equipment hooks and publication both fail
 - **WHEN** an Equipment hook batch and normal publication both throw

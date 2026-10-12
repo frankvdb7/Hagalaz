@@ -156,7 +156,7 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
-    public void TryTransferTo_StandalonePublicationFailureReleasesClaimsAndUnblocksTransaction()
+    public void TryTransferTo_StandaloneSourceFailureStillPublishesDestinationAndReleasesClaims()
     {
         var failure = new InvalidOperationException("Transfer publication failed.");
         var throwOnPublication = false;
@@ -233,11 +233,101 @@ public sealed class ItemContainerTransferTests
         Assert.IsNull(source[0]);
         Assert.AreSame(item, destination[0]);
         Assert.AreEqual(1, sourcePublications);
-        Assert.AreEqual(0, destinationPublications);
+        Assert.AreEqual(1, destinationPublications);
         AssertUnboundAndUnlocked(source, destination);
 
         throwOnPublication = false;
         Assert.IsTrue(source.Add(new TestItem(131, 1)), "A later operation must proceed after publisher failure.");
+        Assert.AreEqual(1, destinationPublications, "The failed transfer notification must not be replayed.");
+    }
+
+    [TestMethod]
+    public void TryTransferTo_StandaloneAttemptsBothPublishersAndAggregatesFailures()
+    {
+        var sourceFailure = new InvalidOperationException("Source publisher failed.");
+        var destinationFailure = new InvalidOperationException("Destination publisher failed.");
+        var order = new List<string>();
+        var failPublication = false;
+        ItemContainer? source = null;
+        ItemContainer? destination = null;
+        source = new ItemContainer(StorageType.Normal, 1, _ =>
+        {
+            if (!failPublication) return;
+            AssertStandaloneOwnedAndUnlocked(source!, destination!);
+            order.Add("source");
+            throw sourceFailure;
+        });
+        destination = new ItemContainer(StorageType.Normal, 1, _ =>
+        {
+            if (!failPublication) return;
+            AssertStandaloneOwnedAndUnlocked(source!, destination!);
+            order.Add("destination");
+            throw destinationFailure;
+        });
+        var item = new TestItem(132, 2);
+        Assert.IsTrue(source.Add(item));
+        failPublication = true;
+
+        var thrown = Assert.ThrowsExactly<AggregateException>(() => source.TryTransferTo(destination, item, 2));
+
+        CollectionAssert.AreEqual(new[] { "source", "destination" }, order);
+        CollectionAssert.AreEqual(new Exception[] { sourceFailure, destinationFailure }, thrown.InnerExceptions.ToArray());
+        Assert.IsNull(source[0]);
+        Assert.AreSame(item, destination[0]);
+        AssertUnboundAndUnlocked(source, destination);
+
+        failPublication = false;
+        using var fresh = ItemContainerTransaction.Begin(source, destination);
+        fresh.Commit();
+        Assert.AreEqual(2, order.Count, "A later scope must not replay either publication.");
+    }
+
+    [TestMethod]
+    public void TryTransferTo_StandaloneBeforePublicationFailureStillPublishesBothContainers()
+    {
+        var failure = new InvalidOperationException("Before-publication action failed.");
+        var order = new List<string>();
+        var observeTransferPublication = false;
+        ItemContainer? source = null;
+        ItemContainer? destination = null;
+        source = new ItemContainer(StorageType.Normal, 1, _ =>
+        {
+            if (!observeTransferPublication) return;
+            AssertStandaloneOwnedAndUnlocked(source!, destination!);
+            order.Add("source");
+        });
+        destination = new ItemContainer(StorageType.Normal, 1, _ =>
+        {
+            if (!observeTransferPublication) return;
+            AssertStandaloneOwnedAndUnlocked(source!, destination!);
+            order.Add("destination");
+        });
+        var item = new TestItem(133, 2);
+        Assert.IsTrue(source.Add(item));
+        observeTransferPublication = true;
+        order.Clear();
+        var sourceBoundary = Boundary(source);
+        var destinationBoundary = Boundary(destination);
+
+        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => sourceBoundary.TryTransferStandaloneTo(
+            destinationBoundary,
+            item,
+            2,
+            beforePublication: () =>
+            {
+                AssertStandaloneOwnedAndUnlocked(source, destination);
+                order.Add("before");
+                throw failure;
+            }));
+
+        Assert.AreSame(failure, thrown);
+        CollectionAssert.AreEqual(new[] { "before", "source", "destination" }, order);
+        Assert.IsNull(source[0]);
+        Assert.AreSame(item, destination[0]);
+        AssertUnboundAndUnlocked(source, destination);
+        using var fresh = ItemContainerTransaction.Begin(source, destination);
+        fresh.Commit();
+        Assert.AreEqual(3, order.Count, "A later scope must not replay committed publication.");
     }
 
     [TestMethod]
@@ -651,7 +741,7 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
-    public void Commit_ContainerFailureStopsLaterContainersAndAllAfterPublicationActionsWithoutRetryOrRollback()
+    public void Commit_ContainerFailureStillAttemptsLaterContainersAndCompletionWithoutRetryOrRollback()
     {
         var original = new InvalidOperationException("Publisher failed.");
         var calls = new List<string>();
@@ -677,13 +767,13 @@ public sealed class ItemContainerTransferTests
         transaction.Dispose();
         transaction.Dispose();
         Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
-        CollectionAssert.AreEqual(new[] { "first" }, calls);
+        CollectionAssert.AreEqual(new[] { "first", "second", "after" }, calls);
         Assert.AreEqual(1, first.TakenSlots);
         Assert.AreEqual(1, second.TakenSlots);
     }
 
     [TestMethod]
-    public void Commit_LaterContainerFailurePreservesEarlierPublicationAndSkipsLaterContainersAndActions()
+    public void Commit_LaterContainerFailureStillAttemptsLaterContainersAndCompletion()
     {
         var original = new InvalidOperationException("Second failed.");
         var calls = new List<string>();
@@ -699,7 +789,7 @@ public sealed class ItemContainerTransferTests
         Completion(first).After(() => calls.Add("after1"));
         Completion(second).After(() => calls.Add("after2"));
         Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
-        CollectionAssert.AreEqual(new[] { "first", "second" }, calls);
+        CollectionAssert.AreEqual(new[] { "first", "second", "third", "after1", "after2" }, calls);
         transaction.Dispose();
         Assert.AreEqual(1, first.TakenSlots);
         Assert.AreEqual(1, second.TakenSlots);
@@ -708,22 +798,59 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
-    public void Commit_AfterPublicationFailureStopsLaterActionsAfterContainerPublication()
+    public void Commit_AfterPublicationFailureStillAttemptsLaterCompletionOwners()
     {
         var calls = new List<string>();
         var original = new InvalidOperationException("After-publication action failed.");
-        var container = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("container"));
-        Completion(container);
-        using var transaction = ItemContainerTransaction.Begin(container);
-        Assert.IsTrue(container.Add(new TestItem(37, 1)));
-        Completion(container).After(() => calls.Add("after1"));
-        Completion(container).After(() => { AssertScopeBoundAndUnlocked(transaction, container); calls.Add("after2"); throw original; });
-        Completion(container).After(() => calls.Add("after3"));
+        var first = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("first container"));
+        var second = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("second container"));
+        Completion(first);
+        Completion(second);
+        using var transaction = ItemContainerTransaction.Begin(first, second);
+        Assert.IsTrue(first.Add(new TestItem(37, 1)));
+        Assert.IsTrue(second.Add(new TestItem(38, 1)));
+        Completion(first).After(() => calls.Add("first owner before failure"));
+        Completion(first).After(() => { AssertScopeBoundAndUnlocked(transaction, first, second); calls.Add("first owner failure"); throw original; });
+        Completion(first).After(() => calls.Add("unconsumed same-owner fact"));
+        Completion(second).After(() => calls.Add("second owner"));
         Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
         transaction.Dispose();
         Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
-        CollectionAssert.AreEqual(new[] { "container", "after1", "after2" }, calls);
-        Assert.AreEqual(1, container.TakenSlots);
+        CollectionAssert.AreEqual(new[]
+        {
+            "first container", "second container", "first owner before failure", "first owner failure", "second owner"
+        }, calls);
+        Assert.AreEqual(1, first.TakenSlots);
+        Assert.AreEqual(1, second.TakenSlots);
+        AssertUnboundAndUnlocked(first, second);
+    }
+
+    [TestMethod]
+    public void Commit_PrePublicationOwnerFailureStillAttemptsLaterOwnersAndAllLaterPhases()
+    {
+        var failure = new InvalidOperationException("Pre-publication completion failed.");
+        var order = new List<string>();
+        var first = new ItemContainer(StorageType.Normal, 1, _ => order.Add("first publisher"));
+        var second = new ItemContainer(StorageType.Normal, 1, _ => order.Add("second publisher"));
+        Completion(first);
+        Completion(second);
+        using var transaction = ItemContainerTransaction.Begin(first, second);
+        Assert.IsTrue(first.Add(new TestItem(381, 1)));
+        Assert.IsTrue(second.Add(new TestItem(382, 1)));
+        Completion(first).Before(() => { order.Add("first owner"); throw failure; });
+        Completion(second).Before(() => order.Add("second owner"));
+        Completion(first).After(() => order.Add("first after"));
+        Completion(second).After(() => order.Add("second after"));
+
+        Assert.AreSame(failure, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
+
+        CollectionAssert.AreEqual(new[]
+        {
+            "first owner", "second owner", "first publisher", "second publisher", "first after", "second after"
+        }, order);
+        Assert.AreEqual(1, first.TakenSlots);
+        Assert.AreEqual(1, second.TakenSlots);
+        AssertUnboundAndUnlocked(first, second);
     }
 
     [TestMethod]

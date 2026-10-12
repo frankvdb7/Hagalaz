@@ -74,7 +74,7 @@ public sealed class ShopStockContainerTests
     }
 
     [TestMethod]
-    public void BuyFromShop_WhenInventoryPublisherThrows_KeepsCommittedStorageAndSkipsLaterEffects()
+    public void BuyFromShop_WhenInventoryPublisherThrowsStillPublishesPouchChange()
     {
         var scenario = CreateScenario(cost: 5, pouchCoins: 5);
         var publicationException = new InvalidOperationException("Inventory publisher failed.");
@@ -87,7 +87,7 @@ public sealed class ShopStockContainerTests
         Assert.AreEqual(0, scenario.MoneyPouch.Count);
         Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
         Assert.AreEqual(0, scenario.Stock.Items.GetCountById(ItemId));
-        scenario.Character.EventManager.DidNotReceive().SendEvent(Arg.Is<MoneyPouchChangedEvent>(change =>
+        scenario.Character.EventManager.Received(1).SendEvent(Arg.Is<MoneyPouchChangedEvent>(change =>
             change.PreviousCount == 5 && change.Count == 0));
         scenario.ShopEvents.DidNotReceive().SendEvent(Arg.Any<ShopItemBoughtEvent>());
     }
@@ -120,7 +120,7 @@ public sealed class ShopStockContainerTests
     }
 
     [TestMethod]
-    public void BuyFromShop_StockPublicationFailureSkipsInventoryPouchAndBoughtEvent()
+    public void BuyFromShop_StockPublicationFailureStillAttemptsInventoryAndPouch()
     {
         var scenario = CreateScenario(cost: 5, pouchCoins: 5);
         var original = new InvalidOperationException("Stock publication failed.");
@@ -134,13 +134,11 @@ public sealed class ShopStockContainerTests
         scenario.Character.EventManager.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>())).Do(_ => order.Add("pouch"));
         scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopItemBoughtEvent>())).Do(_ => order.Add("bought"));
 
-        Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() =>
-            scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1)));
+        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+        Assert.AreSame(original, thrown);
 
-        CollectionAssert.AreEqual(new[] { "stock" }, order);
-        Assert.AreEqual(0, scenario.MoneyPouch.Count);
-        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
-        Assert.AreEqual(0, scenario.Stock.Items.GetCountById(ItemId));
+        AssertCommittedPurchaseAfterPublicationFailure(scenario, order);
     }
 
     [TestMethod]
@@ -161,10 +159,7 @@ public sealed class ShopStockContainerTests
         Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() =>
             scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1)));
 
-        CollectionAssert.AreEqual(new[] { "stock", "inventory", "pouch" }, order);
-        Assert.AreEqual(0, scenario.MoneyPouch.Count);
-        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
-        Assert.AreEqual(0, scenario.Stock.Items.GetCountById(ItemId));
+        AssertCommittedPurchaseAfterPublicationFailure(scenario, order);
     }
 
     [TestMethod]
@@ -456,6 +451,14 @@ public sealed class ShopStockContainerTests
 
     private static int GetTotalCoins(ShopScenario scenario) =>
         scenario.MoneyPouch.Count + scenario.Inventory.Items.GetCountById(CoinId);
+
+    private static void AssertCommittedPurchaseAfterPublicationFailure(ShopScenario scenario, List<string> publicationOrder)
+    {
+        CollectionAssert.AreEqual(new[] { "stock", "inventory", "pouch" }, publicationOrder);
+        Assert.AreEqual(0, scenario.MoneyPouch.Count);
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
+        Assert.AreEqual(0, scenario.Stock.Items.GetCountById(ItemId));
+    }
 
     private sealed record ShopScenario(
         ICharacter Character,

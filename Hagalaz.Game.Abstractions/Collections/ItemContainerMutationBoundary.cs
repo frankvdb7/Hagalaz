@@ -371,6 +371,14 @@ internal sealed class ItemContainerMutationBoundary
             try
             {
                 PublishStandaloneChangesRetainingOwnership(sourceSlots);
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+
+            try
+            {
                 destination.PublishStandaloneChangesRetainingOwnership(destinationSlots);
             }
             catch (Exception exception)
