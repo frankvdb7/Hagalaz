@@ -107,6 +107,10 @@ Equipment replacement and unequip commands MUST revalidate the item instances ca
 - **WHEN** a two-handed replacement captured a weapon and shield and either slot changes before transaction ownership
 - **THEN** replacement rejects without recomputing from the new equipment state
 
+#### Scenario: Empty weapon and shield slots are revalidated after ownership
+- **WHEN** both slots are captured empty before the equipment transaction begins and either slot becomes occupied while the operation waits to acquire ownership
+- **THEN** the operation returns false without changing inventory or equipment, running lifecycle effects, or publishing changes
+
 #### Scenario: Unequip rejects a stale equipped instance
 - **WHEN** the requested equipped instance changes during `CanUnEquipItem`
 - **THEN** unequip returns false without transferring the replacement item or emitting an inventory-full message

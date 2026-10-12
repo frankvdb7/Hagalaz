@@ -35,7 +35,7 @@ For an enlisted transaction, Equipment validates the expected item under both al
 
 ### Failure ordering remains local and explicit
 
-Standalone Equipment lifecycle failure is retained while both publishers are attempted. Source publication is followed by destination publication only when the source publisher succeeds. One failure is rethrown with its original stack; multiple independent failures use a flattened `AggregateException`. Pair ownership cleanup runs in `finally`; publication never runs under either mutation lock.
+Standalone Equipment lifecycle failure is retained while both publishers are attempted. Source publication is attempted before destination publication, and destination publication is still attempted if the source publisher fails. One failure is rethrown with its original stack; multiple independent failures use a flattened `AggregateException`. Pair ownership cleanup runs in `finally`; publication never runs under either mutation lock.
 
 ## Risks / Trade-offs
 

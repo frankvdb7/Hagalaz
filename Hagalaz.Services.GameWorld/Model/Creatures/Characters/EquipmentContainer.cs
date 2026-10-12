@@ -109,6 +109,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (equippedWeapon == null && equippedShield == null)
             {
                 using var transaction = ItemContainerTransaction.Begin(_owner.Inventory.Items, this);
+                if (_storage[(int)EquipmentSlot.Weapon] != null ||
+                    _storage[(int)EquipmentSlot.Shield] != null)
+                {
+                    return false;
+                }
+
                 if (!MoveFromInventoryToSlot(item, slot, equipSlot)) return false;
                 DeferEquipmentEffects(transaction, new EquipmentEffect(EquipmentEffectKind.Equipped, item));
                 transaction.Commit();

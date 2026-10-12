@@ -13,6 +13,7 @@ See proposal.md. The current boundary/transaction design already owns synchroniz
 ## Decisions
 
 - Keep `CanEquipItem` and `CanUnEquipItem` outside the transaction. Validate the captured incoming, weapon, and shield instances and incoming slot/count immediately after acquiring the existing replacement transaction and before mutation.
+- When the weapon/shield path captured both slots empty before acquisition, verify both are still empty immediately after the existing transaction begins; reject stale state without recomputing equipment requirements.
 - In `UnEquipItem`, validate the exact equipped instance and select the preferred destination after acquiring its existing transaction. If the requested slot is occupied, retain the existing ordinary destination-selection fallback.
 - Keep standalone transfer ownership and transaction cleanup as implemented. Catch failures around each independent before-publication hook, source/destination publisher, completion owner, and changed boundary. Preserve phase order and propagate one original exception or aggregate multiple failures.
 - Update the canonical specification and the active completed transfer delta so neither prescribes first-failure suppression.

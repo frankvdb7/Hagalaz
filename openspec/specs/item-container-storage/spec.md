@@ -436,9 +436,13 @@ After all required `CanUnEquipItem` checks succeed, Weapon and Shield replacemen
 - **WHEN** a captured conflicting weapon or shield instance changes during preflight
 - **THEN** replacement leaves the incoming item and current equipment instances unchanged and performs no additional callback or publication
 
+#### Scenario: Empty weapon and shield slots are revalidated after ownership
+- **WHEN** both slots are captured empty before the equipment transaction begins and either slot becomes occupied while the operation waits to acquire ownership
+- **THEN** the operation returns false without changing inventory or equipment, running lifecycle effects, or publishing changes
+
 #### Scenario: A participant publisher throws after replacement commit
 - **WHEN** replacement storage commits and a participant publisher throws
-- **THEN** committed storage remains in place, all required lifecycle effects have been attempted, and later participant publishers are skipped
+- **THEN** committed storage remains in place, all required lifecycle effects have been attempted, every independent changed-container publisher is attempted once in the existing order, and the original exception or aggregated failures propagate after completion
 
 ### Requirement: Transaction construction and rollback preserve storage state
 `ItemContainerTransaction` MUST expose Begin, Commit, and Dispose as one synchronous atomic lifecycle. Begin MUST resolve and validate participant contributions in encounter order before locking, deduplicate repeated boundary contributions without changing resolved publication order, and reject one storage exposed through different boundaries. It MUST acquire boundary locks in deterministic order, capture snapshots, and establish bindings only after construction succeeds. A construction failure MUST release acquired locks in reverse order without changing storage or publishing. Mutations affect live storage while the scope is active. Dispose without Commit MUST attempt every snapshot restoration while retaining the transaction bindings and locks, discard pending completion facts, then clear bindings and release locks without publishing or pulsing waiters. Snapshots restore slots, item references, counts, and storage revision, but do not deep-copy mutable `IItem` state such as `ExtraData`.

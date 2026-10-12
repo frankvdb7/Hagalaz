@@ -4,6 +4,7 @@
 
 - [x] 1.1 Revalidate captured weapon/shield replacement identities inside the existing transaction; verify with stale incoming, stale weapon, stale shield, and successful replacement tests.
 - [x] 1.2 Validate the exact unequipped instance and choose preferred/fallback inventory placement inside the transaction; verify stale, preferred-slot, occupied-slot fallback, and normal success tests.
+- [x] 1.3 Revalidate both captured-empty weapon/shield slots after transaction acquisition; verify both concurrent equipment races reject without mutation or lifecycle effects and a valid follow-up operation succeeds.
 
 ## 2. Committed publication attempts
 
@@ -12,5 +13,5 @@
 
 ## 3. Contract and integration validation
 
-- [x] 3.1 Update canonical and active item-container specs; verify no active item-container delta contradicts the attempt-all policy and strict OpenSpec validation passes.
-- [x] 3.2 Run targeted Abstractions, GameWorld, and Scripts tests, solution build/tests, the existing duplication gate, and `git diff --check`; targeted suites, build, OpenSpec, duplication, and diff checks pass. Full solution tests were run but Docker-backed integration tests fail because Docker is unavailable in this environment.
+- [x] 3.1 Update canonical and active item-container specs; verify stale empty-slot rejection and attempt-all publication agree across the specifications and strict OpenSpec validation passes.
+- [x] 3.2 Run targeted GameWorld, Abstractions, and Scripts tests, solution build/tests, the existing duplication gate, and `git diff --check`; the build and targeted suites passed, strict OpenSpec validation passed 71/71, jscpd found 502 baseline clones and zero new clones, and `git diff --check` passed. The full solution test run had 23 DockerUnavailableException failures across Characters, Data Integration, and GameWorld Integration because Docker was unavailable.

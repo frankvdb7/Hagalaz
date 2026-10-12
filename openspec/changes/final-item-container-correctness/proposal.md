@@ -2,11 +2,12 @@
 
 ## Why
 
-Weapon and shield replacement and unequipping can act on stale item references because eligibility callbacks run before mutation ownership. After storage commits, an exception from one publisher can also prevent unrelated committed publishers or completion owners from running.
+Weapon and shield replacement and unequipping can act on stale item references because eligibility callbacks run before mutation ownership. The empty-slot equipment path can also trust weapon/shield state captured before waiting for ownership. After storage commits, an exception from one publisher can also prevent unrelated committed publishers or completion owners from running.
 
 ## What Changes
 
 - Revalidate captured inventory and equipment instances inside the existing Equipment transaction before storage mutation.
+- Revalidate that weapon and shield slots remain empty after acquiring ownership in the empty-slot path.
 - Revalidate the equipped instance and choose the preferred inventory destination while the existing unequip transaction owns both boundaries.
 - Attempt each independent standalone and transactional publication/completion stage once after storage commits, preserving failure propagation and cleanup.
 - Update the canonical and active OpenSpec requirements and add focused regression coverage.
@@ -25,6 +26,6 @@ None.
 
 Changes are limited to item-container mutation and transaction code, EquipmentContainer, the related Abstractions/GameWorld test projects, and item-container OpenSpec files. No public API or transaction architecture changes are planned.
 
-Acceptance requires exact-instance rejection and successful placement regressions, attempt-all publication with committed storage and preserved exceptions, targeted tests, full solution build/tests, strict OpenSpec validation, the existing duplication gate, and a clean diff check.
+Acceptance requires exact-instance and stale empty-slot rejection, successful placement regressions, attempt-all publication with committed storage and preserved exceptions, targeted tests, full solution build/tests, strict OpenSpec validation, the existing duplication gate, and a clean diff check.
 
 Non-goals: changing generic transfer semantics, adding synchronization or transaction abstractions, changing gameplay eligibility callbacks, or redesigning trade processing. Stop if the existing boundaries cannot provide the required ownership without a new abstraction.
