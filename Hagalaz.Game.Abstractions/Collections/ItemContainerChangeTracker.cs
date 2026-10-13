@@ -43,7 +43,7 @@ public sealed class ItemContainerChangeTracker
             return false;
         }
 
-        slots = _committed.Slots == null ? null : new HashSet<int>(_committed.Slots);
+        slots = _committed.Slots;
         _committed = default;
         return true;
     }

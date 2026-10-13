@@ -960,6 +960,77 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
+    public void ChangeTracker_ForeignReadWaitsUntilTransactionPublicationFinishes()
+    {
+        using var publicationStarted = new ManualResetEventSlim();
+        using var finishPublication = new ManualResetEventSlim();
+        using var publicationFinished = new ManualResetEventSlim();
+        using var readerAttempted = new ManualResetEventSlim();
+        using var readerCompleted = new ManualResetEventSlim();
+        var item = new TestItem(276, 1);
+        ItemContainer? items = null;
+        ItemContainerTransaction? committing = null;
+        HashSet<int>? publishedSlots = null;
+        HashSet<int>? readSlots = null;
+        var readerSawPublicationFinished = false;
+        Exception? mutationFailure = null;
+        Exception? readerFailure = null;
+        items = new ItemContainer(StorageType.Normal, 1, slots =>
+        {
+            AssertScopeBoundAndUnlocked(committing!, items!);
+            publishedSlots = slots;
+            publicationStarted.Set();
+            try { Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5)), "Publication must be released by the test."); }
+            finally { publicationFinished.Set(); }
+        });
+        var mutationThread = new Thread(() =>
+        {
+            try
+            {
+                using var transaction = ItemContainerTransaction.Begin(items!);
+                committing = transaction;
+                Assert.IsTrue(items!.Add(item));
+                transaction.Commit();
+            }
+            catch (Exception exception) { mutationFailure = exception; }
+        }) { IsBackground = true };
+        var readerThread = new Thread(() =>
+        {
+            readerAttempted.Set();
+            try
+            {
+                readSlots = items!.ChangeTracker.GetSlots();
+                readerSawPublicationFinished = publicationFinished.IsSet;
+            }
+            catch (Exception exception) { readerFailure = exception; }
+            finally { readerCompleted.Set(); }
+        }) { IsBackground = true };
+
+        mutationThread.Start();
+        try
+        {
+            Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)), "The transaction must reach publication.");
+            readerThread.Start();
+            Assert.IsTrue(readerAttempted.Wait(TimeSpan.FromSeconds(5)));
+            Assert.IsTrue(SpinWait.SpinUntil(
+                () => (readerThread.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                TimeSpan.FromSeconds(5)), "The tracker reader should wait for transaction publication ownership.");
+            Assert.IsFalse(readerCompleted.IsSet);
+        }
+        finally { finishPublication.Set(); }
+
+        Assert.IsTrue(mutationThread.Join(TimeSpan.FromSeconds(5)));
+        if (readerThread.IsAlive) Assert.IsTrue(readerThread.Join(TimeSpan.FromSeconds(5)));
+        if (mutationFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(mutationFailure).Throw();
+        if (readerFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(readerFailure).Throw();
+
+        CollectionAssert.AreEquivalent(new[] { 0 }, publishedSlots!.ToArray());
+        Assert.AreSame(item, items![0]);
+        Assert.IsTrue(readerSawPublicationFinished, "The tracker reader must proceed after publication completes.");
+        Assert.AreEqual(0, readSlots!.Count, "Publication consumed the committed batch before the reader proceeded.");
+    }
+
+    [TestMethod]
     public void Commit_EmptyRangeDoesNotPublishOrInvalidateEnumerator()
     {
         var publications = 0;
