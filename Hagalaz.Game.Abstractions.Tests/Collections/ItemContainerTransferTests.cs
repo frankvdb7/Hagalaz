@@ -708,7 +708,7 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
-    public void ChangeTracker_StandaloneChangesAreMergedConsumedAndReturnedByCopy()
+    public void ChangeTracker_ConsumedSlotSetCannotAffectFutureChanges()
     {
         var items = new ItemContainer(StorageType.Normal, 3);
         var tracker = items.ChangeTracker;
@@ -723,6 +723,9 @@ public sealed class ItemContainerTransferTests
         slots.Clear();
         Assert.IsFalse(tracker.HasChanges);
         CollectionAssert.AreEqual(Array.Empty<int>(), tracker.GetSlots()!.ToArray());
+
+        Assert.IsTrue(items.Add(new TestItem(283, 1)));
+        CollectionAssert.AreEquivalent(new[] { 1 }, tracker.GetSlots()!.ToArray());
     }
 
     [TestMethod]
