@@ -24,7 +24,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
         /// <summary>
         ///     Contains the selected items while the price checker is open.
         /// </summary>
-        private IItemContainer? _priceCheckItems;
+        private ItemContainer? _priceCheckItems;
 
         /// <summary>
         ///     Handler for adding X amount of items from the owner's inventory to the price check interface.
@@ -68,7 +68,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
 
             _inventoryChangeHandler = Owner.RegisterEventHandler<InventoryChangedEvent>(OnInventoryChanged);
 
-            RefreshPriceChecker();
+            RefreshPriceChecker(fullRefresh: true);
             RefreshProjectedInventory();
 
 
@@ -298,7 +298,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                 var actual = Owner.Inventory.Items.GetCount(selected);
                 if (selected.Count > actual)
                 {
-                    items.Remove(selected.Clone(selected.Count - actual), slot, publishChanges: false);
+                    items.Remove(selected.Clone(selected.Count - actual), slot);
                     changed = true;
                 }
             }
@@ -350,17 +350,31 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             Owner.Configurations.SendItems(93, false, projected);
         }
 
-        private void RefreshPriceChecker()
+        private void RefreshPriceChecker(bool fullRefresh = false)
         {
             var items = _priceCheckItems;
             if (items == null) return;
 
-            Owner.Configurations.SendItems(90, false, items, null);
+            var slots = items.ChangeTracker.GetSlots();
+            if (!fullRefresh && slots is { Count: 0 }) return;
+            if (fullRefresh) slots = null;
+
+            Owner.Configurations.SendItems(90, false, items, slots);
             Owner.Configurations.SendGlobalCs2Int(728, (int)ItemContainerTradeValue.Calculate(items));
 
-            for (var slot = 0; slot < items.Capacity; slot++)
+            if (slots == null)
             {
-                Owner.Configurations.SendGlobalCs2Int(700 + slot, items[slot]?.ItemDefinition.TradeValue ?? 0);
+                for (var slot = 0; slot < items.Capacity; slot++)
+                {
+                    Owner.Configurations.SendGlobalCs2Int(700 + slot, items[slot]?.ItemDefinition.TradeValue ?? 0);
+                }
+            }
+            else
+            {
+                foreach (var slot in slots)
+                {
+                    Owner.Configurations.SendGlobalCs2Int(700 + slot, items[slot]?.ItemDefinition.TradeValue ?? 0);
+                }
             }
         }
     }

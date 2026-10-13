@@ -321,7 +321,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             if (transaction == null)
-                CompleteStandaloneEquipmentChange(changedSlots,
+                CompleteStandaloneEquipmentChange(
                     new EquipmentEffect(EquipmentEffectKind.Unequipped, expectedItem),
                     new EquipmentEffect(EquipmentEffectKind.Equipped, replacement));
             return true;
@@ -364,12 +364,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (!fullyRemoved)
             {
-                if (transaction == null) PublishCommittedEquipmentChanges(changedSlots);
+                if (transaction == null) PublishCommittedEquipmentChanges();
                 return removed;
             }
 
             if (transaction == null)
-                CompleteStandaloneEquipmentChange(changedSlots,
+                CompleteStandaloneEquipmentChange(
                     new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem!));
             return removed;
         }
@@ -397,13 +397,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
             if (!cleared) return;
 
-            if (transaction == null) CompleteStandaloneEquipmentChange(null, effects);
+            if (transaction == null) CompleteStandaloneEquipmentChange(effects);
         }
 
-        private void CompleteStandaloneEquipmentChange(HashSet<int>? slots,
-            params EquipmentEffect[] effects)
+        private void CompleteStandaloneEquipmentChange(params EquipmentEffect[] effects)
         {
-            _mutations.CompleteStandaloneChanges(slots, () =>
+            _mutations.CompleteStandaloneChanges(() =>
                 ThrowEquipmentFailures(ExecuteEquipmentEffects(effects)));
         }
 
@@ -476,8 +475,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
         }
 
-        private void PublishCommittedEquipmentChanges(HashSet<int>? slots) =>
-            _mutations.PublishCommittedChanges(slots);
+        private void PublishCommittedEquipmentChanges() =>
+            _mutations.PublishCommittedChanges();
 
         private void PublishEquipmentState(HashSet<int>? slots)
         {

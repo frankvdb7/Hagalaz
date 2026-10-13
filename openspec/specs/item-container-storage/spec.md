@@ -79,7 +79,7 @@ Ordinary domain owners that compose `ItemContainer` MUST NOT recover or access i
 - **THEN** it uses narrow `ItemContainer` operations and does not obtain raw storage
 
 ### Requirement: Containers compose one authoritative item store
-Storage mechanics MUST be composed rather than inherited. `BaseItemContainer`, `TradeItemContainer`, `ITradeItemContainer`, `ItemContainerExtensions`, generic forwarding wrappers, `IItemContainerStorageOwner`, and `ItemContainerTransfer` MUST be removed. One concrete `ItemContainer` MUST implement `IItemContainer` and the empty public `IItemTransactional` marker, privately composing one `ItemContainerStorage` and one `ItemContainerMutationBoundary`; its internal `IItemTransactionSource` implementation MUST contribute that boundary. Ordinary domain implementations privately own concrete `ItemContainer`; ordinary domain interfaces MUST expose `IItemContainer Items` and MUST NOT copy generic forwarding operations. Equipment and MoneyPouch MUST compose storage directly with private mutation boundaries and MUST NOT expose generic `Items` or raw storage boundaries. `IEquipmentContainer` MUST expose `IReadOnlyItemContainer Items` and MUST NOT expose generic mutation; its private `ItemContainerStorage` MAY implement `IReadOnlyItemContainer` directly without a forwarding wrapper. TradeOffer, Duel, and Price Checker MUST compose the concrete `ItemContainer` where generic behavior is required. `IItemContainer` MUST NOT reference concrete `ItemContainer`. Generic policy-heavy partial/bulk movement APIs such as `TransferAll`, `AddAndRemoveFrom`, or domain-specific transfer orchestration MUST NOT be added to `IItemContainer`. The exact atomic `TryTransferTo(...)` primitive is intentionally part of `IItemContainer`. Transaction membership MUST be explicit by passing all participating domain objects directly to `ItemContainerTransaction.Begin(...)`; `IItemContainer` and `IMoneyPouchContainer` MUST implement `IItemTransactional` and MUST NOT expose a public `Mutations` property. The internal `IItemTransactionSource` MUST resolve storage contributions. Ordinary mutations on enlisted storage MUST participate automatically and defer publication through the active transaction; ordinary mutations on unenlisted storage MUST remain standalone. Ordinary mutation methods MUST NOT create, commit, or dynamically enlist a transaction. Domain callers MUST NOT cast containers to recover storage infrastructure. `ItemContainerStorage` MUST own low-level slot and mutation mechanics and MUST NOT depend on character, trade, equipment, shop, UI, or persistence behavior. `ItemContainerTransaction` MUST own deterministic lock ordering, snapshots, rollback, changed-slot tracking, and post-commit publication. Domain containers MUST retain ownership of specialized gameplay callbacks and orchestration. Exact removal MUST remain available through the ordinary container API. MoneyPouch MUST perform pouch and inventory mutations through the same scope, with its internal source contributing both storage boundaries; it MUST NOT expose the concrete storage boundary or keep a separate rollback path. Concrete storage and mutation-boundary implementations MUST remain internal; Scripts MUST use public domain capabilities without friend-assembly access.
+Storage mechanics MUST be composed rather than inherited. `BaseItemContainer`, `TradeItemContainer`, `ITradeItemContainer`, `ItemContainerExtensions`, generic forwarding wrappers, `IItemContainerStorageOwner`, and `ItemContainerTransfer` MUST be removed. One concrete `ItemContainer` MUST implement `IItemContainer` and the empty public `IItemTransactional` marker, privately composing one `ItemContainerStorage` and one `ItemContainerMutationBoundary`; its internal `IItemTransactionSource` implementation MUST contribute that boundary. Ordinary domain implementations privately own concrete `ItemContainer`; ordinary domain interfaces MUST expose `IItemContainer Items` and MUST NOT copy generic forwarding operations. Equipment and MoneyPouch MUST compose storage directly with private mutation boundaries and MUST NOT expose generic `Items` or raw storage boundaries. `IEquipmentContainer` MUST expose `IReadOnlyItemContainer Items` and MUST NOT expose generic mutation; its private `ItemContainerStorage` MAY implement `IReadOnlyItemContainer` directly without a forwarding wrapper. TradeOffer, Duel, and Price Checker MUST compose the concrete `ItemContainer` where generic behavior is required. `IItemContainer` MUST NOT reference concrete `ItemContainer`. Generic policy-heavy partial/bulk movement APIs such as `TransferAll`, `AddAndRemoveFrom`, or domain-specific transfer orchestration MUST NOT be added to `IItemContainer`. The exact atomic `TryTransferTo(...)` primitive is intentionally part of `IItemContainer`. Transaction membership MUST be explicit by passing all participating domain objects directly to `ItemContainerTransaction.Begin(...)`; `IItemContainer` and `IMoneyPouchContainer` MUST implement `IItemTransactional` and MUST NOT expose a public `Mutations` property. The internal `IItemTransactionSource` MUST resolve storage contributions. Ordinary mutations on enlisted storage MUST participate automatically and defer publication through the active transaction; ordinary mutations on unenlisted storage MUST remain standalone. Ordinary mutation methods MUST NOT create, commit, or dynamically enlist a transaction. Domain callers MUST NOT cast containers to recover storage infrastructure. `ItemContainerStorage` MUST own low-level slot and mutation mechanics and MUST NOT depend on character, trade, equipment, shop, UI, or persistence behavior. `ItemContainerTransaction` MUST own deterministic lock ordering, snapshots, rollback, and post-commit publication; each `ItemContainerMutationBoundary` MUST own its change tracker, and the transaction MUST promote or discard provisional changes. Domain containers MUST retain ownership of specialized gameplay callbacks and orchestration. Exact removal MUST remain available through the ordinary container API. MoneyPouch MUST perform pouch and inventory mutations through the same scope, with its internal source contributing both storage boundaries; it MUST NOT expose the concrete storage boundary or keep a separate rollback path. Concrete storage and mutation-boundary implementations MUST remain internal; Scripts MUST use public domain capabilities without friend-assembly access.
 
 #### Scenario: Domain mutation publishes committed slots
 - **WHEN** a domain container successfully adds, removes, replaces, moves, swaps, sorts, clears, or restores items
@@ -608,3 +608,41 @@ MoneyPouch MUST internally record immutable notification facts containing the pr
 #### Scenario: Equipment read view reflects its storage
 - **WHEN** equipment contains an item
 - **THEN** the read-only view reports the same capacity, slots, enumeration, ID lookup, counts, and containment as the equipment storage
+
+### Requirement: Committed item-container changes are consumable by boundary
+Each mutation boundary MUST own one change tracker. Concrete `ItemContainer.ChangeTracker` MUST expose that same tracker. The tracker MUST expose committed changes only, report whether unconsumed changes exist, atomically consume each retrieved batch, and preserve full-container changes separately from empty batches. A full-container change is represented by `null`; no changes are represented by an empty `HashSet<int>`.
+
+#### Scenario: Standalone changes are accumulated and consumed
+- **WHEN** standalone mutations change one or more slots and the caller retrieves the tracker batch
+- **THEN** the tracker returns the union of changed slots, and a later retrieval returns an empty set unless another committed mutation occurred
+
+#### Scenario: Full-container change dominates slot changes
+- **WHEN** a full-container change is recorded with partial changes before or after it
+- **THEN** the next retrieval returns `null` for the full container and subsequent retrieval returns an empty set
+
+#### Scenario: Transaction changes are committed or discarded
+- **WHEN** a transaction mutates a boundary and commits or rolls back
+- **THEN** commit makes its changes consumable while rollback discards only provisional changes and preserves earlier unconsumed committed changes
+
+#### Scenario: Automatic publication consumes tracked changes once
+- **WHEN** an automatically publishing boundary completes a changed mutation and its publisher succeeds or throws
+- **THEN** the publisher receives the consumed batch before callback invocation and a later retrieval does not replay it
+
+#### Scenario: Explicitly suppressed mutation is not tracked
+- **WHEN** a mutation uses `publishChanges: false`
+- **THEN** it does not add a change to the consumable tracker or produce a later notification
+
+### Requirement: PriceChecker selection updates use tracked slots
+PriceChecker MUST send a full selection on open, then consume tracked selection changes to refresh only affected slots and their price configurations. Projected inventory MUST remain a separate full view.
+
+#### Scenario: Incremental selection refresh updates changed slots
+- **WHEN** a selection mutation commits after the interface opens
+- **THEN** component 90 and per-slot price configurations contain only the changed slots while the total price is refreshed
+
+#### Scenario: Inventory reconciliation refreshes selection once
+- **WHEN** an inventory change reduces one or more selected stacks
+- **THEN** reconciliation records those slot changes and sends one incremental selection refresh after the loop
+
+#### Scenario: Inventory changes without selection changes
+- **WHEN** inventory changes but reconciliation does not alter the selection
+- **THEN** PriceChecker does not send a component 90 update

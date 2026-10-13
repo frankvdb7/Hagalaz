@@ -19,6 +19,7 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
     public int Capacity => _storage.Capacity;
     public int FreeSlots => _storage.FreeSlots;
     public int TakenSlots => _storage.TakenSlots;
+    public ItemContainerChangeTracker ChangeTracker => _mutations.ChangeTracker;
     public IItem? this[int index] => _storage[index];
 
     public ItemContainer(StorageType type, int capacity, Action<HashSet<int>?>? publishChanges = null,

@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-13
+goal: One boundary-owned tracker is the sole source of changed slots while
+  existing transaction and publication behavior remains intact.

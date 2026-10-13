@@ -708,6 +708,258 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
+    public void ChangeTracker_StandaloneChangesAreMergedConsumedAndReturnedByCopy()
+    {
+        var items = new ItemContainer(StorageType.Normal, 3);
+        var tracker = items.ChangeTracker;
+
+        Assert.IsTrue(items.Add(new TestItem(261, 1)));
+        items.Replace(2, new TestItem(262, 1));
+        Assert.AreSame(tracker, items.ChangeTracker);
+        Assert.IsTrue(tracker.HasChanges);
+
+        var slots = tracker.GetSlots();
+        CollectionAssert.AreEquivalent(new[] { 0, 2 }, slots!.ToArray());
+        slots.Clear();
+        Assert.IsFalse(tracker.HasChanges);
+        CollectionAssert.AreEqual(Array.Empty<int>(), tracker.GetSlots()!.ToArray());
+    }
+
+    [TestMethod]
+    public void ChangeTracker_NoChangesReturnEmptySet()
+    {
+        var tracker = new ItemContainer(StorageType.Normal, 1).ChangeTracker;
+
+        Assert.IsFalse(tracker.HasChanges);
+        Assert.AreEqual(0, tracker.GetSlots()!.Count);
+        Assert.AreEqual(0, tracker.GetSlots()!.Count);
+        Assert.IsFalse(tracker.HasChanges);
+    }
+
+    [TestMethod]
+    public void ChangeTracker_SuppressedMutationsDoNotBecomeConsumableChanges()
+    {
+        var items = new ItemContainer(StorageType.Normal, 2);
+        var item = new TestItem(276, 1);
+        Assert.IsTrue(items.Add(item));
+        CollectionAssert.AreEquivalent(new[] { 0 }, items.ChangeTracker.GetSlots()!.ToArray());
+
+        Assert.AreEqual(1, items.Remove(item, publishChanges: false));
+        Assert.IsFalse(items.ChangeTracker.HasChanges);
+        Assert.AreEqual(0, items.ChangeTracker.GetSlots()!.Count);
+
+        Assert.IsTrue(items.Add(new TestItem(277, 1)));
+        CollectionAssert.AreEquivalent(new[] { 0 }, items.ChangeTracker.GetSlots()!.ToArray());
+
+        items.Clear(publishChanges: false);
+        Assert.IsFalse(items.ChangeTracker.HasChanges);
+        Assert.IsTrue(items.Add(new TestItem(278, 1)));
+        CollectionAssert.AreEquivalent(new[] { 0 }, items.ChangeTracker.GetSlots()!.ToArray());
+    }
+
+    [TestMethod]
+    public void ChangeTracker_ConcurrentStandaloneMutationsPreserveBothUpdates()
+    {
+        using var ready = new CountdownEvent(2);
+        using var start = new ManualResetEventSlim();
+        using var completed = new CountdownEvent(2);
+        var items = new ItemContainer(StorageType.Normal, 2);
+        Exception? firstFailure = null;
+        Exception? secondFailure = null;
+        var first = new Thread(() =>
+        {
+            ready.Signal();
+            start.Wait();
+            try { Assert.IsTrue(items.Add(new TestItem(279, 1))); }
+            catch (Exception exception) { firstFailure = exception; }
+            finally { completed.Signal(); }
+        }) { IsBackground = true };
+        var second = new Thread(() =>
+        {
+            ready.Signal();
+            start.Wait();
+            try { Assert.IsTrue(items.Add(new TestItem(280, 1))); }
+            catch (Exception exception) { secondFailure = exception; }
+            finally { completed.Signal(); }
+        }) { IsBackground = true };
+
+        first.Start();
+        second.Start();
+        try
+        {
+            Assert.IsTrue(ready.Wait(TimeSpan.FromSeconds(5)));
+        }
+        finally { start.Set(); }
+
+        Assert.IsTrue(completed.Wait(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(first.Join(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(second.Join(TimeSpan.FromSeconds(5)));
+        if (firstFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(firstFailure).Throw();
+        if (secondFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(secondFailure).Throw();
+
+        CollectionAssert.AreEquivalent(new[] { 0, 1 }, items.ChangeTracker.GetSlots()!.ToArray());
+    }
+
+    [TestMethod]
+    public void ChangeTracker_FullChangeDominatesPartialChanges()
+    {
+        var items = new ItemContainer(StorageType.Normal, 3);
+        Assert.IsTrue(items.Add(new TestItem(263, 1)));
+
+        items.Clear();
+        Assert.IsTrue(items.Add(new TestItem(264, 1)));
+
+        Assert.IsTrue(items.ChangeTracker.HasChanges);
+        Assert.IsNull(items.ChangeTracker.GetSlots());
+        Assert.IsFalse(items.ChangeTracker.HasChanges);
+    }
+
+    [TestMethod]
+    public void ChangeTracker_FailedMutationsDoNotRecordChanges()
+    {
+        var source = new ItemContainer(StorageType.Normal, 1);
+        var destination = new ItemContainer(StorageType.Normal, 1);
+        var sourceItem = new TestItem(265, 1);
+        Assert.IsTrue(source.Add(sourceItem));
+        Assert.IsTrue(destination.Add(new TestItem(266, 1)));
+        source.ChangeTracker.GetSlots();
+        destination.ChangeTracker.GetSlots();
+
+        Assert.IsFalse(source.Add(new TestItem(267, 1)));
+        Assert.AreEqual(0, source.Remove(new TestItem(268, 1)));
+        Assert.IsFalse(source.TryTransferTo(destination, sourceItem, 1));
+
+        Assert.AreEqual(0, source.ChangeTracker.GetSlots()!.Count);
+        Assert.AreEqual(0, destination.ChangeTracker.GetSlots()!.Count);
+    }
+
+    [TestMethod]
+    public void ChangeTracker_TransactionCommitPromotesChangesAndRejectsActiveReads()
+    {
+        var source = new ItemContainer(StorageType.Normal, 2);
+        var destination = new ItemContainer(StorageType.Normal, 2);
+        var item = new TestItem(269, 1);
+        Assert.IsTrue(source.Add(item));
+        source.ChangeTracker.GetSlots();
+
+        using var transaction = ItemContainerTransaction.Begin(source, destination);
+        Assert.IsTrue(source.TryTransferTo(destination, item, 1));
+        Assert.IsTrue(source.Add(new TestItem(281, 1)));
+        Assert.IsTrue(source.Add(new TestItem(282, 1)));
+        Assert.ThrowsExactly<InvalidOperationException>(() => source.ChangeTracker.GetSlots());
+        Assert.ThrowsExactly<InvalidOperationException>(() => { _ = destination.ChangeTracker.HasChanges; });
+
+        transaction.Commit();
+
+        CollectionAssert.AreEquivalent(new[] { 0, 1 }, source.ChangeTracker.GetSlots()!.ToArray());
+        CollectionAssert.AreEquivalent(new[] { 0 }, destination.ChangeTracker.GetSlots()!.ToArray());
+    }
+
+    [TestMethod]
+    public void ChangeTracker_RollbackDiscardsPendingAndPreservesEarlierCommittedChanges()
+    {
+        var items = new ItemContainer(StorageType.Normal, 2);
+        var first = new TestItem(270, 1);
+        Assert.IsTrue(items.Add(first));
+
+        using (ItemContainerTransaction.Begin(items))
+        {
+            Assert.IsTrue(items.Add(new TestItem(271, 1)));
+        }
+
+        CollectionAssert.AreEquivalent(new[] { 0 }, items.ChangeTracker.GetSlots()!.ToArray());
+        Assert.AreSame(first, items[0]);
+        Assert.IsNull(items[1]);
+        Assert.IsFalse(items.ChangeTracker.HasChanges);
+    }
+
+    [TestMethod]
+    public void ChangeTracker_StandaloneTransferRecordsBothContainers()
+    {
+        var source = new ItemContainer(StorageType.Normal, 2);
+        var destination = new ItemContainer(StorageType.Normal, 2);
+        var item = new TestItem(272, 4);
+        Assert.IsTrue(source.Add(item));
+        source.ChangeTracker.GetSlots();
+
+        Assert.IsTrue(source.TryTransferTo(destination, item, 4));
+
+        CollectionAssert.AreEquivalent(new[] { 0 }, source.ChangeTracker.GetSlots()!.ToArray());
+        CollectionAssert.AreEquivalent(new[] { 0 }, destination.ChangeTracker.GetSlots()!.ToArray());
+    }
+
+    [TestMethod]
+    public void ChangeTracker_PublisherFailureConsumesBatchWithoutReplay()
+    {
+        var fail = false;
+        var publications = 0;
+        var items = new ItemContainer(StorageType.Normal, 2, _ =>
+        {
+            publications++;
+            if (fail) throw new InvalidOperationException("Publisher failed.");
+        });
+        Assert.IsTrue(items.Add(new TestItem(273, 1)));
+        fail = true;
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => items.Add(new TestItem(274, 1)));
+        Assert.IsFalse(items.ChangeTracker.HasChanges);
+        Assert.AreEqual(0, items.ChangeTracker.GetSlots()!.Count);
+        using (var transaction = ItemContainerTransaction.Begin(items)) transaction.Commit();
+
+        Assert.AreEqual(2, publications);
+        Assert.AreEqual(2, items.TakenSlots);
+        AssertUnboundAndUnlocked(items);
+    }
+
+    [TestMethod]
+    public void ChangeTracker_ForeignReadWaitsUntilStandalonePublicationFinishes()
+    {
+        using var publicationStarted = new ManualResetEventSlim();
+        using var finishPublication = new ManualResetEventSlim();
+        using var readerAttempted = new ManualResetEventSlim();
+        using var readerCompleted = new ManualResetEventSlim();
+        var items = new ItemContainer(StorageType.Normal, 1, _ =>
+        {
+            publicationStarted.Set();
+            Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5)));
+        });
+        HashSet<int>? readSlots = null;
+        Exception? mutationFailure = null;
+        Exception? readerFailure = null;
+        var mutationThread = new Thread(() =>
+        {
+            try { items.Add(new TestItem(275, 1)); }
+            catch (Exception exception) { mutationFailure = exception; }
+        }) { IsBackground = true };
+        var readerThread = new Thread(() =>
+        {
+            readerAttempted.Set();
+            try { readSlots = items.ChangeTracker.GetSlots(); }
+            catch (Exception exception) { readerFailure = exception; }
+            finally { readerCompleted.Set(); }
+        }) { IsBackground = true };
+
+        mutationThread.Start();
+        Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
+        readerThread.Start();
+        try
+        {
+            Assert.IsTrue(readerAttempted.Wait(TimeSpan.FromSeconds(5)));
+            Assert.IsTrue(SpinWait.SpinUntil(
+                () => (readerThread.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                TimeSpan.FromSeconds(5)), "The tracker reader should wait for standalone publication ownership.");
+            Assert.IsFalse(readerCompleted.IsSet);
+        }
+        finally { finishPublication.Set(); }
+
+        Assert.IsTrue(mutationThread.Join(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(readerThread.Join(TimeSpan.FromSeconds(5)));
+        if (mutationFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(mutationFailure).Throw();
+        if (readerFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(readerFailure).Throw();
+        Assert.AreEqual(0, readSlots!.Count);
+    }
+
+    [TestMethod]
     public void Commit_EmptyRangeDoesNotPublishOrInvalidateEnumerator()
     {
         var publications = 0;
@@ -899,7 +1151,7 @@ public sealed class ItemContainerTransferTests
         using var transaction = ItemContainerTransaction.Begin(enlisted);
 
         Assert.ThrowsExactly<InvalidOperationException>(() =>
-            transaction.RecordChanges(Boundary(unowned), new HashSet<int> { 0 }));
+            Boundary(unowned).RecordTransactionChanges(transaction, new HashSet<int> { 0 }));
 
         Assert.AreSame(transaction, Boundary(enlisted).Transaction);
         Assert.IsNull(Boundary(unowned).Transaction);
@@ -920,7 +1172,7 @@ public sealed class ItemContainerTransferTests
         try
         {
             Assert.ThrowsExactly<InvalidOperationException>(() =>
-                transaction.RecordChanges(storage, new HashSet<int> { 0 }));
+                storage.RecordTransactionChanges(transaction, new HashSet<int> { 0 }));
         }
         finally
         {

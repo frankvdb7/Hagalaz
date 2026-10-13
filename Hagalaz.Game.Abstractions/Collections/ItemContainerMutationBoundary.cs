@@ -15,6 +15,7 @@ internal sealed class ItemContainerMutationBoundary
     private readonly object _mutationLock = new();
     private readonly long _lockOrder = Interlocked.Increment(ref _nextLockOrder);
     private readonly ItemContainerStorage _storage;
+    private readonly ItemContainerChangeTracker _changeTracker;
     private readonly IItemContainerCompletionOwner? _completion;
     private readonly Action<HashSet<int>?>? _publishChanges;
     private volatile ItemContainerTransaction? _transaction;
@@ -55,6 +56,7 @@ internal sealed class ItemContainerMutationBoundary
     }
 
     internal ItemContainerStorage Storage => _storage;
+    internal ItemContainerChangeTracker ChangeTracker => _changeTracker;
     internal object MutationLock => _mutationLock;
     internal long LockOrder => _lockOrder;
     internal IItemContainerCompletionOwner? CompletionOwner => _completion;
@@ -144,8 +146,63 @@ internal sealed class ItemContainerMutationBoundary
     {
         ArgumentNullException.ThrowIfNull(storage);
         _storage = storage;
+        _changeTracker = new ItemContainerChangeTracker(this);
         _publishChanges = publishChanges;
         _completion = completion;
+    }
+
+    internal bool HasTrackedChanges
+    {
+        get
+        {
+            EnterChangeTrackerRead();
+            try { return _changeTracker.HasCommittedChanges; }
+            finally { Monitor.Exit(_mutationLock); }
+        }
+    }
+
+    internal HashSet<int>? ConsumeTrackedChanges()
+    {
+        EnterChangeTrackerRead();
+        try
+        {
+            _changeTracker.TryConsumeCommitted(out var slots);
+            return slots;
+        }
+        finally { Monitor.Exit(_mutationLock); }
+    }
+
+    private void EnterChangeTrackerRead()
+    {
+        var lockAlreadyHeld = Monitor.IsEntered(_mutationLock);
+        if (CurrentThreadOwnsStorage)
+        {
+            if (!Monitor.TryEnter(_mutationLock))
+                throw new InvalidOperationException("Cannot wait for another item-container boundary while the current thread owns storage.");
+        }
+        else
+        {
+            Monitor.Enter(_mutationLock);
+        }
+
+        try
+        {
+            if (lockAlreadyHeld && _mutationScopeCount != 0)
+                throw new InvalidOperationException("Committed changes cannot be read during an active mutation scope.");
+
+            while (_transaction != null || _standalonePublicationOwnerThreadId != 0)
+            {
+                ThrowIfOwnedByCurrentThread("Committed changes cannot be read while the current thread owns a transaction or publication scope.");
+                if (CurrentThreadOwnsStorage)
+                    throw new InvalidOperationException("Cannot wait for another item-container boundary while the current thread owns storage.");
+                Monitor.Wait(_mutationLock);
+            }
+        }
+        catch
+        {
+            Monitor.Exit(_mutationLock);
+            throw;
+        }
     }
 
     internal MutationScope BeginMutation() => BeginMutation(publishStandaloneOnDispose: true);
@@ -224,8 +281,8 @@ internal sealed class ItemContainerMutationBoundary
         private bool _ownershipCounted;
         private bool _scopeCounted;
         private bool _recorded;
+        private bool _standalonePublicationClaimed;
         private bool _disposed;
-        private HashSet<int>? _slots;
 
         internal ItemContainerTransaction? Transaction => _transaction;
 
@@ -240,8 +297,8 @@ internal sealed class ItemContainerMutationBoundary
             _ownershipCounted = ownershipCounted;
             _scopeCounted = scopeCounted;
             _recorded = false;
+            _standalonePublicationClaimed = false;
             _disposed = false;
-            _slots = null;
         }
 
         /// <summary>
@@ -256,12 +313,16 @@ internal sealed class ItemContainerMutationBoundary
 
             if (_transaction is { } transaction)
             {
-                transaction.RecordChanges(_boundary, slots);
+                _boundary.RecordTransactionChanges(transaction, slots);
             }
             else
             {
-                _boundary.ClaimStandalonePublicationOwnership();
-                _slots = slots;
+                if (slots is not { Count: 0 })
+                {
+                    _boundary.ClaimStandalonePublicationOwnership();
+                    _standalonePublicationClaimed = true;
+                    _boundary._changeTracker.RecordCommitted(slots);
+                }
             }
             _recorded = true;
         }
@@ -287,9 +348,15 @@ internal sealed class ItemContainerMutationBoundary
                 }
             }
 
-            if (_ownsLock && _transaction == null && _recorded && _publishStandaloneOnDispose)
-                _boundary.PublishCommittedChanges(_slots);
+            if (_ownsLock && _transaction == null && _standalonePublicationClaimed && _publishStandaloneOnDispose)
+                _boundary.PublishCommittedChanges();
         }
+    }
+
+    internal void RecordTransactionChanges(ItemContainerTransaction transaction, HashSet<int>? slots)
+    {
+        EnsureOwnedBy(transaction);
+        _changeTracker.RecordPending(slots);
     }
 
     /// <summary>Transfers an exact quantity between storage boundaries already enlisted in one caller-owned transaction.</summary>
@@ -307,8 +374,8 @@ internal sealed class ItemContainerMutationBoundary
             throw new InvalidOperationException("Both storage boundaries must belong to the same active transaction.");
         if (!_storage.TryTransferTo(destination._storage, item, count,
                 preferredSourceSlot, destinationSlot, destinationItem, out var sourceSlots, out var destinationSlots)) return false;
-        transaction.RecordChanges(this, sourceSlots);
-        transaction.RecordChanges(destination, destinationSlots);
+        RecordTransactionChanges(transaction, sourceSlots);
+        destination.RecordTransactionChanges(transaction, destinationSlots);
         return true;
     }
 
@@ -357,6 +424,9 @@ internal sealed class ItemContainerMutationBoundary
                 ReleaseStandalonePublicationOwnership();
                 throw;
             }
+
+            _changeTracker.RecordCommitted(sourceSlots);
+            destination._changeTracker.RecordCommitted(destinationSlots);
         }
 
         List<Exception>? failures = null;
@@ -370,7 +440,7 @@ internal sealed class ItemContainerMutationBoundary
 
             try
             {
-                PublishStandaloneChangesRetainingOwnership(sourceSlots);
+                PublishStandaloneChangesRetainingOwnership();
             }
             catch (Exception exception)
             {
@@ -379,7 +449,7 @@ internal sealed class ItemContainerMutationBoundary
 
             try
             {
-                destination.PublishStandaloneChangesRetainingOwnership(destinationSlots);
+                destination.PublishStandaloneChangesRetainingOwnership();
             }
             catch (Exception exception)
             {
@@ -405,20 +475,26 @@ internal sealed class ItemContainerMutationBoundary
         return true;
     }
 
-    private void PublishStandaloneChangesRetainingOwnership(HashSet<int>? slots)
+    private void PublishStandaloneChangesRetainingOwnership()
     {
+        HashSet<int>? slots = null;
+        var hasChanges = false;
         lock (_mutationLock)
         {
             if (_transaction != null || !IsStandalonePublicationOwnedByCurrentThread)
                 throw new InvalidOperationException("Standalone publication requires retained boundary ownership.");
+            if (_publishChanges != null)
+                hasChanges = _changeTracker.TryConsumeCommitted(out slots);
         }
 
-        _publishChanges?.Invoke(slots);
+        if (hasChanges) _publishChanges!(slots);
     }
 
-    internal void PublishCommittedChanges(HashSet<int>? slots)
+    internal void PublishCommittedChanges()
     {
         bool standalonePublication;
+        bool hasChanges;
+        HashSet<int>? slots = null;
         lock (_mutationLock)
         {
             if (_transaction != null)
@@ -435,17 +511,19 @@ internal sealed class ItemContainerMutationBoundary
             {
                 throw new InvalidOperationException("Committed publication requires storage ownership.");
             }
+
+            hasChanges = _publishChanges != null && _changeTracker.TryConsumeCommitted(out slots);
         }
 
         if (!standalonePublication)
         {
-            _publishChanges?.Invoke(slots);
+            if (hasChanges) _publishChanges!(slots);
             return;
         }
 
         try
         {
-            _publishChanges?.Invoke(slots);
+            if (hasChanges) _publishChanges!(slots);
         }
         finally
         {
@@ -458,7 +536,7 @@ internal sealed class ItemContainerMutationBoundary
     }
 
     /// <summary>Runs standalone domain effects after unlock, then publishes and releases the retained ownership.</summary>
-    internal void CompleteStandaloneChanges(HashSet<int>? slots, Action beforePublication)
+    internal void CompleteStandaloneChanges(Action beforePublication)
     {
         ArgumentNullException.ThrowIfNull(beforePublication);
         lock (_mutationLock)
@@ -471,7 +549,7 @@ internal sealed class ItemContainerMutationBoundary
         try { beforePublication(); }
         catch (Exception exception) { (failures ??= []).Add(exception); }
 
-        try { PublishCommittedChanges(slots); }
+        try { PublishCommittedChanges(); }
         catch (Exception exception) { (failures ??= []).Add(exception); }
 
         if (failures is { Count: 1 }) ExceptionDispatchInfo.Capture(failures[0]).Throw();

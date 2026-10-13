@@ -60,34 +60,45 @@ public sealed class PriceCheckerTransferTests
     public void InsertAll_AfterExistingSelectionAddsOnlyAvailableQuantity()
     {
         var harness = CreateHarness();
-        var item = CreateItem(100, 100);
+        var item = CreateItem(100, 100, tradeValue: 3);
+        var otherItem = CreateItem(101, 2, tradeValue: 7);
         Assert.IsTrue(harness.Inventory.Items.Add(item));
+        Assert.IsTrue(harness.Inventory.Items.Add(otherItem));
         Assert.IsTrue(AddSelection(harness, item, 80));
+        Assert.IsTrue(AddSelection(harness, otherItem, 2));
+        ClearUiUpdates(harness);
 
         Assert.IsTrue(AddSelection(harness, item, int.MaxValue));
 
         Assert.AreEqual(100, harness.Inventory.Items.GetCount(item));
         Assert.AreEqual(100, harness.Selections.GetCount(item));
         Assert.AreEqual(0, GetCount(harness.ProjectedInventory!, item));
+        CollectionAssert.AreEquivalent(new[] { 0 }, harness.SentItems.Single(update => update.ComponentId == 90).Slots!.ToArray());
+        CollectionAssert.AreEquivalent(new[] { 700, 728 }, harness.SentConfigurations.Select(update => update.ConfigurationId).ToArray());
+        Assert.IsTrue(harness.SentConfigurations.Contains((728, 314)));
     }
 
     [TestMethod]
     public void Remove_ChangesOnlySelectionAndRestoresProjectedQuantity()
     {
         var harness = CreateHarness();
-        var item = CreateItem(100, 100);
+        var item = CreateItem(100, 100, tradeValue: 5);
         Assert.IsTrue(harness.Inventory.Items.Add(item));
         Assert.IsTrue(AddSelection(harness, item, 80));
+        ClearUiUpdates(harness);
 
         Assert.IsTrue(RemoveSelection(harness, item, 30));
 
         Assert.AreEqual(100, harness.Inventory.Items.GetCount(item));
         Assert.AreEqual(50, harness.Selections.GetCount(item));
         Assert.AreEqual(50, GetCount(harness.ProjectedInventory!, item));
+        CollectionAssert.AreEquivalent(new[] { 0 }, harness.SentItems.Single(update => update.ComponentId == 90).Slots!.ToArray());
+        CollectionAssert.AreEquivalent(new[] { 700, 728 }, harness.SentConfigurations.Select(update => update.ConfigurationId).ToArray());
+        Assert.IsTrue(harness.SentConfigurations.Contains((728, 250)));
     }
 
     [TestMethod]
-    public void SelectionMutations_PublishFullStateAndUpdatePriceConfigurations()
+    public void SelectionMutations_PublishOnlyChangedSlotsAndUpdatePriceConfigurations()
     {
         var harness = CreateHarness();
         var item = CreateItem(100, 20, tradeValue: 37);
@@ -98,9 +109,10 @@ public sealed class PriceCheckerTransferTests
 
         var selectionUpdate = harness.SentItems.Single(update => update.ComponentId == 90);
         Assert.AreSame(harness.Selections, selectionUpdate.Items);
-        Assert.IsNull(selectionUpdate.Slots);
+        CollectionAssert.AreEquivalent(new[] { 0 }, selectionUpdate.Slots!.ToArray());
         Assert.IsTrue(harness.SentConfigurations.Contains((728, 222)));
         Assert.IsTrue(harness.SentConfigurations.Contains((700, 37)));
+        Assert.IsFalse(harness.SentConfigurations.Any(update => update.ConfigurationId >= 701 && update.ConfigurationId < 728));
         Assert.AreEqual(1, harness.SentItems.Count(update => update.ComponentId == 93));
         Assert.AreEqual(14, GetCount(harness.ProjectedInventory!, item));
         Assert.AreEqual(20, harness.Inventory.Items.GetCount(item));
@@ -129,10 +141,10 @@ public sealed class PriceCheckerTransferTests
 
         var removalUpdate = harness.SentItems.Single(update => update.ComponentId == 90);
         Assert.AreSame(harness.Selections, removalUpdate.Items);
-        Assert.IsNull(removalUpdate.Slots);
+        CollectionAssert.AreEquivalent(new[] { removedSlot }, removalUpdate.Slots!.ToArray());
         Assert.IsNull(harness.Selections[removedSlot]);
         Assert.IsTrue(harness.SentConfigurations.Contains((700 + removedSlot, 0)));
-        Assert.IsTrue(harness.SentConfigurations.Contains((700 + remainingSlot, 7)));
+        Assert.IsFalse(harness.SentConfigurations.Any(update => update.ConfigurationId == 700 + remainingSlot));
         Assert.IsTrue(harness.SentConfigurations.Contains((728, 20)));
     }
 
@@ -169,8 +181,10 @@ public sealed class PriceCheckerTransferTests
         Assert.AreEqual(60, harness.Selections.GetCount(item));
         Assert.AreEqual(0, GetCount(harness.ProjectedInventory!, item));
         Assert.AreEqual(1, harness.SentItems.Count(update => update.ComponentId == 90));
+        CollectionAssert.AreEquivalent(new[] { 0 }, harness.SentItems.Single(update => update.ComponentId == 90).Slots!.ToArray());
         Assert.IsTrue(harness.SentConfigurations.Contains((728, 240)));
         Assert.IsTrue(harness.SentConfigurations.Contains((700, 4)));
+        Assert.AreEqual(2, harness.SentConfigurations.Count);
         Assert.AreEqual(1, harness.SentItems.Count(update => update.ComponentId == 93));
     }
 
@@ -182,11 +196,37 @@ public sealed class PriceCheckerTransferTests
         Assert.IsTrue(harness.Inventory.Items.Add(item));
         Assert.IsTrue(AddSelection(harness, item, 2));
         Assert.AreEqual(3, harness.Inventory.Items.Remove(item.Clone(3)));
+        ClearUiUpdates(harness);
 
         harness.InventoryChangedHandler!(new InventoryChangedEvent(harness.Character));
 
         Assert.AreEqual(0, harness.Selections.GetCount(item));
         Assert.AreEqual(0, GetCount(harness.ProjectedInventory!, item));
+        CollectionAssert.AreEquivalent(new[] { 0 }, harness.SentItems.Single(update => update.ComponentId == 90).Slots!.ToArray());
+        Assert.IsTrue(harness.SentConfigurations.Contains((700, 0)));
+    }
+
+    [TestMethod]
+    public void InventoryChanged_ReconcilesSeveralSelectionSlotsWithOneIncrementalRefresh()
+    {
+        var harness = CreateHarness();
+        var first = CreateItem(101, 10, tradeValue: 3);
+        var second = CreateItem(102, 10, tradeValue: 7);
+        Assert.IsTrue(harness.Inventory.Items.Add(first));
+        Assert.IsTrue(harness.Inventory.Items.Add(second));
+        Assert.IsTrue(AddSelection(harness, first, 10));
+        Assert.IsTrue(AddSelection(harness, second, 10));
+        Assert.AreEqual(5, harness.Inventory.Items.Remove(first.Clone(5)));
+        Assert.AreEqual(4, harness.Inventory.Items.Remove(second.Clone(4)));
+        ClearUiUpdates(harness);
+
+        harness.InventoryChangedHandler!(new InventoryChangedEvent(harness.Character));
+
+        var selectionUpdate = harness.SentItems.Single(update => update.ComponentId == 90);
+        CollectionAssert.AreEquivalent(new[] { 0, 1 }, selectionUpdate.Slots!.ToArray());
+        Assert.AreEqual(1, harness.SentItems.Count(update => update.ComponentId == 90));
+        Assert.AreEqual(57, harness.SentConfigurations.Single(update => update.ConfigurationId == 728).Value);
+        CollectionAssert.AreEquivalent(new[] { 700, 701, 728 }, harness.SentConfigurations.Select(update => update.ConfigurationId).ToArray());
     }
 
     [TestMethod]
@@ -276,6 +316,23 @@ public sealed class PriceCheckerTransferTests
         Assert.IsFalse(harness.InventoryChangedHandler!(new InventoryChangedEvent(harness.Character)));
         pendingInput(1);
         Assert.AreEqual(10, harness.Inventory.Items.GetCount(item));
+    }
+
+    [TestMethod]
+    public void NewInstance_UsesNewSelectionTrackerWithoutStaleChanges()
+    {
+        var previousHarness = CreateHarness();
+        var previousSelection = (ItemContainer)GetField(previousHarness.Script, "_priceCheckItems")!;
+        Assert.IsTrue(previousSelection.Add(CreateItem(120, 1)));
+        Assert.IsTrue(previousSelection.ChangeTracker.HasChanges);
+
+        var currentHarness = CreateHarness();
+        var currentSelection = (ItemContainer)GetField(currentHarness.Script, "_priceCheckItems")!;
+        Assert.AreNotSame(previousSelection, currentSelection);
+        Assert.IsFalse(currentSelection.ChangeTracker.HasChanges);
+        var selectionUpdate = currentHarness.SentItems.Single(update => update.ComponentId == 90);
+        Assert.AreSame(currentSelection, selectionUpdate.Items);
+        Assert.IsNull(selectionUpdate.Slots);
     }
 
     private static bool AddSelection(Harness harness, IItem item, int amount) =>

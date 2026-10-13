@@ -26,7 +26,6 @@ public sealed class ItemContainerTransaction : IDisposable
     private readonly ItemContainerMutationBoundary[] _publicationOrder;
     private readonly IItemContainerCompletionOwner[] _completionOwners;
     private readonly List<StorageSnapshot> _snapshots = [];
-    private readonly Dictionary<ItemContainerMutationBoundary, HashSet<int>?> _changed = [];
     private ItemContainerLockSet? _lockSet;
     private TransactionState _state;
 
@@ -108,7 +107,16 @@ public sealed class ItemContainerTransaction : IDisposable
         List<Exception>? failures = null;
         try
         {
-            _lockSet!.ReleaseLocksPreservingOwnership();
+            try
+            {
+                foreach (var boundary in _publicationOrder)
+                    boundary.ChangeTracker.PromotePending();
+            }
+            finally
+            {
+                _lockSet!.ReleaseLocksPreservingOwnership();
+            }
+
             foreach (var owner in _completionOwners)
             {
                 try { owner.CompleteBeforePublication(); }
@@ -117,8 +125,7 @@ public sealed class ItemContainerTransaction : IDisposable
 
             foreach (var boundary in _publicationOrder)
             {
-                if (!_changed.TryGetValue(boundary, out var slots)) continue;
-                try { boundary.PublishCommittedChanges(slots); }
+                try { boundary.PublishCommittedChanges(); }
                 catch (Exception exception) { (failures ??= []).Add(exception); }
             }
 
@@ -130,6 +137,8 @@ public sealed class ItemContainerTransaction : IDisposable
         }
         finally
         {
+            foreach (var boundary in _publicationOrder)
+                boundary.ChangeTracker.DiscardPending();
             try { DiscardPendingCompletion(); }
             finally
             {
@@ -162,6 +171,8 @@ public sealed class ItemContainerTransaction : IDisposable
         finally
         {
             _snapshots.Clear();
+            foreach (var boundary in _publicationOrder)
+                boundary.ChangeTracker.DiscardPending();
             try { DiscardPendingCompletion(); }
             finally
             {
@@ -170,16 +181,6 @@ public sealed class ItemContainerTransaction : IDisposable
             }
         }
         ThrowFailures(failures);
-    }
-
-    internal void RecordChanges(ItemContainerMutationBoundary boundary, HashSet<int>? slots)
-    {
-        ArgumentNullException.ThrowIfNull(boundary);
-        boundary.EnsureOwnedBy(this);
-        if (slots is { Count: 0 }) return;
-        if (slots == null) _changed[boundary] = null;
-        else if (_changed.TryGetValue(boundary, out var existing)) existing?.UnionWith(slots);
-        else _changed.Add(boundary, new HashSet<int>(slots));
     }
 
     private void DiscardPendingCompletion()
