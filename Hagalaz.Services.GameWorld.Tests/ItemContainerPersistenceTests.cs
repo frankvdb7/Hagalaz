@@ -49,11 +49,11 @@ public sealed class ItemContainerPersistenceTests
         items[4] = second;
         for (var slot = 0; slot < items.Length; slot++)
         {
-            if (items[slot] is { } item) container.Items.Replace(slot, item);
+            if (items[slot] is { } item) container.AddItem(slot, item);
         }
         first.SerializeExtraData().Returns(_ =>
         {
-            container.Items.Clear(false);
+            container.ClearItems(publishChanges: false);
             return null;
         });
 

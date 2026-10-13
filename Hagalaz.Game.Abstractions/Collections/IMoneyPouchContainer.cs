@@ -21,6 +21,9 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         int Count { get; }
 
+        /// <summary>Publishes committed pouch changes after ordinary container owners have published.</summary>
+        void PublishChanges();
+
         /// <summary>
         /// Adds exactly the requested number of coins, using the inventory for any amount that overflows the pouch.
         /// The addition is all-or-nothing.

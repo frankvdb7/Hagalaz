@@ -42,6 +42,9 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <remarks>When standalone, owns both mutation boundaries through lifecycle completion and publication without creating a transaction. Participates without committing when Equipment and destination are in the same current-thread transaction. Partial or conflicting participation throws before mutation.</remarks>
         bool TryMoveTo(IItemContainer destination, IItem item, int count, EquipmentSlot slot, IItem? destinationItem = null);
 
+        /// <summary>Completes and publishes committed equipment changes while the owning transaction scope is still active.</summary>
+        void PublishChanges();
+
         /// <summary>
         /// Gets the equipment slot of a specific item instance currently worn by the character.
         /// </summary>

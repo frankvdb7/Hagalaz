@@ -33,7 +33,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness
 
             var honorTokens = _itemBuilder.Create().WithId(19864).WithCount(CalculateHonorTokensCount(killer)).Build();
 
-            if (killer.Inventory.Items.Add(honorTokens))
+            if (killer.Inventory.AddItem(honorTokens))
             {
                 killer.SendChatMessage("<col=00BFFF>You earned " + honorTokens.Count + " x " + honorTokens.Name + "s!");
             }

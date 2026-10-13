@@ -403,7 +403,7 @@ public sealed class ShopStockContainerTests
         int stockCapacity = 1,
         IList<IItem>? originalStock = null)
     {
-        var inventory = new ComposedTestInventory(inventoryCapacity);
+        var inventory = new ComposedTestContainer(inventoryCapacity);
         if (inventoryCurrency > 0)
         {
             Assert.IsTrue(inventory.Items.Add(new ComposedTestItem(currencyId, inventoryCurrency, stackable: true)));
@@ -462,7 +462,7 @@ public sealed class ShopStockContainerTests
 
     private sealed record ShopScenario(
         ICharacter Character,
-        ComposedTestInventory Inventory,
+        ComposedTestContainer Inventory,
         IMoneyPouchContainer MoneyPouch,
         IShopStockContainer Stock,
         IItem StockItem,

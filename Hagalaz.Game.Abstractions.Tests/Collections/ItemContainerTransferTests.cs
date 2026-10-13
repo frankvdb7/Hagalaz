@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,75 +14,56 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections;
 public sealed class ItemContainerTransferTests
 {
     [TestMethod]
-    public void TryTransferTo_StandaloneInterfaceTypedContainersUseBoundaryOwnershipAndPublishOnce()
+    public void TryTransferTo_StandaloneInterfaceTypedContainersTrackBothChangedSlots()
     {
-        var order = new List<string>();
-        var observeTransferPublication = false;
-        ItemContainer? source = null;
-        ItemContainer? destination = null;
-        source = new ItemContainer(StorageType.Normal, 2, _ =>
-        {
-            if (!observeTransferPublication) return;
-            AssertStandaloneOwnedAndUnlocked(source!, destination!);
-            Assert.IsNull(source![0]);
-            Assert.AreEqual(7, destination![0]!.Count);
-            order.Add("source");
-        });
-        destination = new ItemContainer(StorageType.Normal, 2, _ =>
-        {
-            if (!observeTransferPublication) return;
-            AssertStandaloneOwnedAndUnlocked(source!, destination!);
-            Assert.IsNull(source![0]);
-            Assert.AreEqual(7, destination![0]!.Count);
-            order.Add("destination");
-        });
+        var source = new ItemContainer(StorageType.Normal, 2);
+        var destination = new ItemContainer(StorageType.Normal, 2);
         var item = new TestItem(10, 7);
         Assert.IsTrue(source.Add(item));
+        source.ChangeTracker.GetSlots();
 
-        observeTransferPublication = true;
         IItemContainer sourceContract = source;
         IItemContainer destinationContract = destination;
         Assert.IsTrue(sourceContract.TryTransferTo(destinationContract, item, 7, 0));
 
-        Assert.AreEqual(0, source.TakenSlots);
+        Assert.IsNull(source[0]);
         Assert.AreSame(item, destination[0]);
         Assert.AreEqual(7, destination[0]!.Count);
-        CollectionAssert.AreEqual(new[] { "source", "destination" }, order);
+        CollectionAssert.AreEquivalent(new[] { 0 }, source.ChangeTracker.GetSlots()!.ToArray());
+        CollectionAssert.AreEquivalent(new[] { 0 }, destination.ChangeTracker.GetSlots()!.ToArray());
         AssertUnboundAndUnlocked(source, destination);
     }
 
     [TestMethod]
     public void TryTransferTo_InterfaceTypedContainersLeaveBothStoragesUnchangedOnFailure()
     {
-        var sourceUpdates = 0;
-        var destinationUpdates = 0;
-        var source = new ItemContainer(StorageType.Normal, 2, _ => sourceUpdates++);
-        var destination = new ItemContainer(StorageType.Normal, 1, _ => destinationUpdates++);
+        var source = new ItemContainer(StorageType.Normal, 2);
+        var destination = new ItemContainer(StorageType.Normal, 1);
         var item = new TestItem(10, 2);
         var blockingItem = new TestItem(11, 1);
         Assert.IsTrue(source.Add(item));
         Assert.IsTrue(destination.Add(blockingItem));
+        source.ChangeTracker.GetSlots();
+        destination.ChangeTracker.GetSlots();
 
         Assert.IsFalse(source.TryTransferTo(destination, item, 2, 0));
 
         Assert.AreSame(item, source[0]);
         Assert.AreEqual(2, source[0]!.Count);
         Assert.AreSame(blockingItem, destination[0]);
-        Assert.AreEqual(1, sourceUpdates);
-        Assert.AreEqual(1, destinationUpdates);
+        Assert.IsFalse(source.ChangeTracker.HasChanges);
+        Assert.IsFalse(destination.ChangeTracker.HasChanges);
         AssertUnboundAndUnlocked(source, destination);
     }
 
     [TestMethod]
-    public void TryTransferTo_ParticipatesInCallerTransactionWithoutPublishingUntilCommit()
+    public void TryTransferTo_ParticipatesInCallerTransactionAndPromotesChangesOnCommit()
     {
-        var sourceUpdates = 0;
-        var destinationUpdates = 0;
-        var source = new ItemContainer(StorageType.Normal, 2, _ => sourceUpdates++);
-        var destination = new ItemContainer(StorageType.Normal, 2, _ => destinationUpdates++);
+        var source = new ItemContainer(StorageType.Normal, 2);
+        var destination = new ItemContainer(StorageType.Normal, 2);
         var item = new TestItem(12, 3);
         Assert.IsTrue(source.Add(item));
-        sourceUpdates = 0;
+        source.ChangeTracker.GetSlots();
 
         using var transaction = ItemContainerTransaction.Begin(source, destination);
         Assert.IsTrue(source.TryTransferTo(destination, item, 3));
@@ -90,12 +71,17 @@ public sealed class ItemContainerTransferTests
         Assert.AreSame(transaction, Boundary(destination).Transaction);
         Assert.IsTrue(Monitor.IsEntered(Boundary(source).MutationLock));
         Assert.IsTrue(Monitor.IsEntered(Boundary(destination).MutationLock));
-        Assert.AreEqual(0, sourceUpdates);
-        Assert.AreEqual(0, destinationUpdates);
+        Assert.IsFalse(source.ChangeTracker.HasChanges);
+        Assert.IsFalse(destination.ChangeTracker.HasChanges);
 
         transaction.Commit();
-        Assert.AreEqual(1, sourceUpdates);
-        Assert.AreEqual(1, destinationUpdates);
+        Assert.IsFalse(Monitor.IsEntered(Boundary(source).MutationLock));
+        Assert.IsFalse(Monitor.IsEntered(Boundary(destination).MutationLock));
+        Assert.AreSame(transaction, Boundary(source).Transaction);
+        Assert.AreSame(transaction, Boundary(destination).Transaction);
+        CollectionAssert.AreEquivalent(new[] { 0 }, source.ChangeTracker.GetSlots()!.ToArray());
+        CollectionAssert.AreEquivalent(new[] { 0 }, destination.ChangeTracker.GetSlots()!.ToArray());
+        transaction.Dispose();
         AssertUnboundAndUnlocked(source, destination);
     }
 
@@ -117,6 +103,10 @@ public sealed class ItemContainerTransferTests
 
         transaction.Commit();
 
+        Assert.AreSame(transaction, sourceBoundary.Transaction);
+        Assert.AreSame(transaction, destinationBoundary.Transaction);
+        Assert.ThrowsExactly<InvalidOperationException>(() => _ = sourceBoundary.CurrentTransaction);
+        transaction.Dispose();
         Assert.IsNull(sourceBoundary.CurrentTransaction);
         Assert.IsNull(destinationBoundary.CurrentTransaction);
     }
@@ -155,258 +145,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsNull(boundary.CurrentTransaction);
     }
 
-    [TestMethod]
-    public void TryTransferTo_StandaloneSourceFailureStillPublishesDestinationAndReleasesClaims()
-    {
-        var failure = new InvalidOperationException("Transfer publication failed.");
-        var throwOnPublication = false;
-        using var publicationStarted = new ManualResetEventSlim();
-        using var finishPublication = new ManualResetEventSlim();
-        using var transactionAttempted = new ManualResetEventSlim();
-        using var transactionEntered = new ManualResetEventSlim();
-        var sourcePublications = 0;
-        var destinationPublications = 0;
-        ItemContainer? source = null;
-        ItemContainer? destination = null;
-        source = new ItemContainer(StorageType.Normal, 1, _ =>
-        {
-            if (!throwOnPublication) return;
-            sourcePublications++;
-            AssertStandaloneOwnedAndUnlocked(source!, destination!);
-            publicationStarted.Set();
-            Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5)));
-            throw failure;
-        });
-        destination = new ItemContainer(StorageType.Normal, 1, _ =>
-        {
-            destinationPublications++;
-            AssertStandaloneOwnedAndUnlocked(source!, destination!);
-        });
-        var item = new TestItem(13, 2);
-        Assert.IsTrue(source.Add(item));
-        sourcePublications = 0;
-        throwOnPublication = true;
-
-        Exception? transferFailure = null;
-        Exception? transactionFailure = null;
-        var transferStillOwnsStorage = true;
-        var transferThread = new Thread(() =>
-        {
-            try { source.TryTransferTo(destination, item, 2); }
-            catch (Exception exception) { transferFailure = exception; }
-            transferStillOwnsStorage = ItemContainerMutationBoundary.CurrentThreadOwnsStorage;
-        }) { IsBackground = true };
-        transferThread.Start();
-        Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
-
-        var transactionThread = new Thread(() =>
-        {
-            try
-            {
-                transactionAttempted.Set();
-                using var transaction = ItemContainerTransaction.Begin(source, destination);
-                transactionEntered.Set();
-                transaction.Commit();
-            }
-            catch (Exception exception) { transactionFailure = exception; }
-        }) { IsBackground = true };
-        transactionThread.Start();
-        try
-        {
-            Assert.IsTrue(transactionAttempted.Wait(TimeSpan.FromSeconds(5)));
-            Assert.IsTrue(SpinWait.SpinUntil(
-                () => (transactionThread.ThreadState & ThreadState.WaitSleepJoin) != 0,
-                TimeSpan.FromSeconds(5)), "The transaction should wait for both standalone publication claims.");
-            Assert.IsFalse(transactionEntered.IsSet);
-            Assert.IsNull(source[0]);
-            Assert.AreSame(item, destination[0]);
-        }
-        finally { finishPublication.Set(); }
-
-        Assert.IsTrue(transferThread.Join(TimeSpan.FromSeconds(5)));
-        Assert.IsTrue(transactionThread.Join(TimeSpan.FromSeconds(5)));
-        Assert.AreSame(failure, transferFailure);
-        Assert.IsFalse(transferStillOwnsStorage, "Both standalone publication claims must be released after publisher failure.");
-        if (transactionFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transactionFailure).Throw();
-        Assert.IsTrue(transactionEntered.IsSet);
-
-        Assert.IsNull(source[0]);
-        Assert.AreSame(item, destination[0]);
-        Assert.AreEqual(1, sourcePublications);
-        Assert.AreEqual(1, destinationPublications);
-        AssertUnboundAndUnlocked(source, destination);
-
-        throwOnPublication = false;
-        Assert.IsTrue(source.Add(new TestItem(131, 1)), "A later operation must proceed after publisher failure.");
-        Assert.AreEqual(1, destinationPublications, "The failed transfer notification must not be replayed.");
-    }
-
-    [TestMethod]
-    public void TryTransferTo_StandaloneAttemptsBothPublishersAndAggregatesFailures()
-    {
-        var sourceFailure = new InvalidOperationException("Source publisher failed.");
-        var destinationFailure = new InvalidOperationException("Destination publisher failed.");
-        var order = new List<string>();
-        var failPublication = false;
-        ItemContainer? source = null;
-        ItemContainer? destination = null;
-        source = new ItemContainer(StorageType.Normal, 1, _ =>
-        {
-            if (!failPublication) return;
-            AssertStandaloneOwnedAndUnlocked(source!, destination!);
-            order.Add("source");
-            throw sourceFailure;
-        });
-        destination = new ItemContainer(StorageType.Normal, 1, _ =>
-        {
-            if (!failPublication) return;
-            AssertStandaloneOwnedAndUnlocked(source!, destination!);
-            order.Add("destination");
-            throw destinationFailure;
-        });
-        var item = new TestItem(132, 2);
-        Assert.IsTrue(source.Add(item));
-        failPublication = true;
-
-        var thrown = Assert.ThrowsExactly<AggregateException>(() => source.TryTransferTo(destination, item, 2));
-
-        CollectionAssert.AreEqual(new[] { "source", "destination" }, order);
-        CollectionAssert.AreEqual(new Exception[] { sourceFailure, destinationFailure }, thrown.InnerExceptions.ToArray());
-        Assert.IsNull(source[0]);
-        Assert.AreSame(item, destination[0]);
-        AssertUnboundAndUnlocked(source, destination);
-
-        failPublication = false;
-        using var fresh = ItemContainerTransaction.Begin(source, destination);
-        fresh.Commit();
-        Assert.AreEqual(2, order.Count, "A later scope must not replay either publication.");
-    }
-
-    [TestMethod]
-    public void TryTransferTo_StandaloneBeforePublicationFailureStillPublishesBothContainers()
-    {
-        var failure = new InvalidOperationException("Before-publication action failed.");
-        var order = new List<string>();
-        var observeTransferPublication = false;
-        ItemContainer? source = null;
-        ItemContainer? destination = null;
-        source = new ItemContainer(StorageType.Normal, 1, _ =>
-        {
-            if (!observeTransferPublication) return;
-            AssertStandaloneOwnedAndUnlocked(source!, destination!);
-            order.Add("source");
-        });
-        destination = new ItemContainer(StorageType.Normal, 1, _ =>
-        {
-            if (!observeTransferPublication) return;
-            AssertStandaloneOwnedAndUnlocked(source!, destination!);
-            order.Add("destination");
-        });
-        var item = new TestItem(133, 2);
-        Assert.IsTrue(source.Add(item));
-        observeTransferPublication = true;
-        order.Clear();
-        var sourceBoundary = Boundary(source);
-        var destinationBoundary = Boundary(destination);
-
-        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => sourceBoundary.TryTransferStandaloneTo(
-            destinationBoundary,
-            item,
-            2,
-            beforePublication: () =>
-            {
-                AssertStandaloneOwnedAndUnlocked(source, destination);
-                order.Add("before");
-                throw failure;
-            }));
-
-        Assert.AreSame(failure, thrown);
-        CollectionAssert.AreEqual(new[] { "before", "source", "destination" }, order);
-        Assert.IsNull(source[0]);
-        Assert.AreSame(item, destination[0]);
-        AssertUnboundAndUnlocked(source, destination);
-        using var fresh = ItemContainerTransaction.Begin(source, destination);
-        fresh.Commit();
-        Assert.AreEqual(3, order.Count, "A later scope must not replay committed publication.");
-    }
-
-    [TestMethod]
-    public void TryTransferTo_RejectsReentrantTransferDuringStandalonePublication()
-    {
-        var checkReentrancy = false;
-        ItemContainer? source = null;
-        ItemContainer? destination = null;
-        var item = new TestItem(14, 1);
-        source = new ItemContainer(StorageType.Normal, 1, _ =>
-        {
-            if (checkReentrancy)
-            {
-                Assert.ThrowsExactly<InvalidOperationException>(() => source!.TryTransferTo(destination!, item, 1));
-                Assert.ThrowsExactly<InvalidOperationException>(() => ItemContainerTransaction.Begin(source!, destination!));
-            }
-        });
-        destination = new ItemContainer(StorageType.Normal, 1);
-        Assert.IsTrue(source.Add(item));
-        checkReentrancy = true;
-        Assert.IsTrue(source.TryRemoveExact(item));
-        Assert.IsTrue(source.Add(item));
-        AssertUnboundAndUnlocked(source, destination);
-    }
-
-    [TestMethod]
-    public void TryTransferTo_WaitsForForeignStandalonePublicationOwnership()
-    {
-        using var publicationStarted = new ManualResetEventSlim();
-        using var finishPublication = new ManualResetEventSlim();
-        using var transferAttempted = new ManualResetEventSlim();
-        var publicationCount = 0;
-        var source = new ItemContainer(StorageType.Normal, 1, _ =>
-        {
-            if (Interlocked.Increment(ref publicationCount) == 1)
-            {
-                publicationStarted.Set();
-                Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5)));
-            }
-        });
-        var destination = new ItemContainer(StorageType.Normal, 1);
-        var item = new TestItem(15, 1);
-        Exception? publicationFailure = null;
-        Exception? transferFailure = null;
-        var transferResult = false;
-        var publicationThread = new Thread(() =>
-        {
-            try { Assert.IsTrue(source.Add(item)); }
-            catch (Exception exception) { publicationFailure = exception; }
-        }) { IsBackground = true };
-        var transferThread = new Thread(() =>
-        {
-            transferAttempted.Set();
-            try { transferResult = source.TryTransferTo(destination, item, 1); }
-            catch (Exception exception) { transferFailure = exception; }
-        }) { IsBackground = true };
-
-        publicationThread.Start();
-        Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
-        transferThread.Start();
-        Assert.IsTrue(transferAttempted.Wait(TimeSpan.FromSeconds(5)));
-        Assert.IsTrue(SpinWait.SpinUntil(
-            () => (transferThread.ThreadState & ThreadState.WaitSleepJoin) != 0,
-            TimeSpan.FromSeconds(5)), "The transfer should wait for standalone publication ownership to end.");
-        Assert.AreSame(item, source[0]);
-        Assert.IsNull(destination[0]);
-
-        finishPublication.Set();
-        Assert.IsTrue(publicationThread.Join(TimeSpan.FromSeconds(5)));
-        Assert.IsTrue(transferThread.Join(TimeSpan.FromSeconds(5)));
-        if (publicationFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(publicationFailure).Throw();
-        if (transferFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transferFailure).Throw();
-        Assert.IsTrue(transferResult);
-        Assert.IsNull(source[0]);
-        Assert.AreSame(item, destination[0]);
-        AssertUnboundAndUnlocked(source, destination);
-    }
-
-    [TestMethod]
+                        [TestMethod]
     public void TryTransferTo_OppositeStandaloneTransfersUseOneLockOrder()
     {
         using var ready = new CountdownEvent(2);
@@ -452,81 +191,10 @@ public sealed class ItemContainerTransferTests
         AssertUnboundAndUnlocked(first, second);
     }
 
-    [TestMethod]
-    public void TryTransferTo_ForeignTransactionPublicationReleasesAcquiredLockPrefixBeforeWaiting()
+            [TestMethod]
+    public void OrdinaryMutations_ParticipateAndTrackerPromotesOnlyOnCommit()
     {
-        using var publicationStarted = new ManualResetEventSlim();
-        using var finishPublication = new ManualResetEventSlim();
-        using var transferAttempted = new ManualResetEventSlim();
-        using var transferCompleted = new ManualResetEventSlim();
-        var prefix = new ItemContainer(StorageType.Normal, 2);
-        var shared = new ItemContainer(StorageType.Normal, 2, _ =>
-        {
-            publicationStarted.Set();
-            Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5)));
-        });
-        var ownerOnly = new ItemContainer(StorageType.Normal, 1);
-        var outgoing = new TestItem(153, 1);
-        var committed = new TestItem(154, 1);
-        Assert.IsTrue(prefix.Add(outgoing));
-        Exception? ownerFailure = null;
-        var ownerThread = new Thread(() =>
-        {
-            try
-            {
-                using var transaction = ItemContainerTransaction.Begin(shared, ownerOnly);
-                Assert.IsTrue(shared.Add(committed));
-                transaction.Commit();
-            }
-            catch (Exception exception) { ownerFailure = exception; }
-        }) { IsBackground = true };
-        ownerThread.Start();
-        Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
-
-        Exception? transferFailure = null;
-        var transferResult = false;
-        var transferThread = new Thread(() =>
-        {
-            transferAttempted.Set();
-            try { transferResult = prefix.TryTransferTo(shared, outgoing, 1); }
-            catch (Exception exception) { transferFailure = exception; }
-            finally { transferCompleted.Set(); }
-        }) { IsBackground = true };
-        transferThread.Start();
-        try
-        {
-            Assert.IsTrue(transferAttempted.Wait(TimeSpan.FromSeconds(5)));
-            Assert.IsTrue(SpinWait.SpinUntil(
-                () => (transferThread.ThreadState & ThreadState.WaitSleepJoin) != 0,
-                TimeSpan.FromSeconds(5)), "The transfer should condition-wait for the transaction binding.");
-            var prefixLock = Boundary(prefix).MutationLock;
-            var acquiredPrefix = false;
-            OnOtherThread(() =>
-            {
-                acquiredPrefix = Monitor.TryEnter(prefixLock);
-                if (acquiredPrefix) Monitor.Exit(prefixLock);
-            });
-            Assert.IsTrue(acquiredPrefix, "The transfer must release its lock prefix before waiting.");
-            Assert.IsFalse(transferCompleted.IsSet);
-        }
-        finally { finishPublication.Set(); }
-
-        Assert.IsTrue(ownerThread.Join(TimeSpan.FromSeconds(5)));
-        Assert.IsTrue(transferThread.Join(TimeSpan.FromSeconds(5)));
-        if (ownerFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ownerFailure).Throw();
-        if (transferFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transferFailure).Throw();
-        Assert.IsTrue(transferResult);
-        Assert.AreSame(committed, shared[0]);
-        Assert.AreSame(outgoing, shared[1]);
-        Assert.IsNull(prefix[0]);
-        AssertUnboundAndUnlocked(prefix, shared, ownerOnly);
-    }
-
-    [TestMethod]
-    public void OrdinaryMutations_ParticipateAutomaticallyAndRollbackOrPublishOnCommit()
-    {
-        var publications = 0;
-        var container = new ItemContainer(StorageType.Normal, 3, _ => publications++);
+        var container = new ItemContainer(StorageType.Normal, 3);
         var first = new TestItem(14, 1);
         var second = new TestItem(15, 1);
 
@@ -534,66 +202,59 @@ public sealed class ItemContainerTransferTests
         {
             Assert.IsTrue(container.Add(first));
             Assert.IsTrue(container.AddRange([second]));
-            Assert.AreSame(first, container[0]);
-            Assert.AreEqual(0, publications);
+            Assert.IsFalse(container.ChangeTracker.HasChanges);
         }
         Assert.AreEqual(0, container.TakenSlots);
-        Assert.AreEqual(0, publications);
+        Assert.IsFalse(container.ChangeTracker.HasChanges);
 
         using (var transaction = ItemContainerTransaction.Begin(container))
         {
             Assert.IsTrue(container.AddRange([first, second]));
             container.Sort();
             transaction.Commit();
-            transaction.Dispose();
+            CollectionAssert.AreEquivalent(new[] { 0, 1 }, container.ChangeTracker.GetSlots()!.ToArray());
         }
         Assert.AreEqual(2, container.TakenSlots);
-        Assert.AreEqual(1, publications);
 
         using (var transaction = ItemContainerTransaction.Begin(container))
         {
             Assert.IsTrue(container.TryRemoveExact(first));
-            container.Clear(true);
+            container.Clear();
             transaction.Commit();
+            Assert.IsNull(container.ChangeTracker.GetSlots());
         }
         Assert.AreEqual(0, container.TakenSlots);
-        Assert.AreEqual(2, publications);
     }
 
-    [TestMethod]
-    public void OrdinaryMutation_OnUnenlistedContainerRemainsStandaloneDuringRollback()
+        [TestMethod]
+    public void OrdinaryMutation_OnUnenlistedContainerRemainsCommittedDuringRollback()
     {
-        var firstPublications = 0;
-        var secondPublications = 0;
-        var first = new ItemContainer(StorageType.Normal, 2, _ => firstPublications++);
-        var second = new ItemContainer(StorageType.Normal, 2, _ => secondPublications++);
-        var firstItem = new TestItem(16, 1);
-        var secondItem = new TestItem(17, 1);
-        using (ItemContainerTransaction.Begin(first))
+        var enlisted = new ItemContainer(StorageType.Normal, 1);
+        var unowned = new ItemContainer(StorageType.Normal, 1);
+        var enlistedItem = new TestItem(16, 1);
+        var standaloneItem = new TestItem(17, 1);
+
+        using (ItemContainerTransaction.Begin(enlisted))
         {
-            Assert.IsTrue(first.Add(firstItem));
-            Assert.IsTrue(second.Add(secondItem));
-            Assert.AreEqual(0, firstPublications);
-            Assert.AreEqual(1, secondPublications);
+            Assert.IsTrue(enlisted.Add(enlistedItem));
+            Assert.IsTrue(unowned.Add(standaloneItem));
         }
 
-        Assert.IsNull(first[0]);
-        Assert.AreEqual(0, firstPublications);
-        Assert.AreSame(secondItem, second[0]);
-        Assert.AreEqual(1, secondPublications);
+        Assert.IsNull(enlisted[0]);
+        Assert.AreSame(standaloneItem, unowned[0]);
+        Assert.IsFalse(enlisted.ChangeTracker.HasChanges);
+        CollectionAssert.AreEquivalent(new[] { 0 }, unowned.ChangeTracker.GetSlots()!.ToArray());
     }
 
     [TestMethod]
     public void Dispose_WithoutCommitRestoresReferencesCountsAndRevisionsOfAllStorage()
     {
-        var publications = 0;
-        var source = new ItemContainer(StorageType.Normal, 2, _ => publications++);
-        var destination = new ItemContainer(StorageType.Normal, 2, _ => publications++);
+        var source = new ItemContainer(StorageType.Normal, 2);
+        var destination = new ItemContainer(StorageType.Normal, 2);
         var item = new TestItem(20, 5);
         var existing = new TestItem(20, 4);
         Assert.IsTrue(source.Add(item));
         Assert.IsTrue(destination.Add(existing));
-        publications = 0;
         var sourceEnumerator = source.GetEnumerator();
         var destinationEnumerator = destination.GetEnumerator();
         using (ItemContainerTransaction.Begin(source, destination))
@@ -601,7 +262,6 @@ public sealed class ItemContainerTransferTests
             Assert.IsTrue(source.TryTransferTo(destination, item, 3, 0));
             source.Clear(true);
             Assert.AreEqual(7, existing.Count);
-            Assert.AreEqual(0, publications);
         }
         Assert.AreSame(item, source[0]);
         Assert.AreEqual(5, item.Count);
@@ -611,7 +271,6 @@ public sealed class ItemContainerTransferTests
         Assert.AreSame(item, sourceEnumerator.Current);
         Assert.IsTrue(destinationEnumerator.MoveNext());
         Assert.AreSame(existing, destinationEnumerator.Current);
-        Assert.AreEqual(0, publications);
     }
 
     [TestMethod]
@@ -635,38 +294,27 @@ public sealed class ItemContainerTransferTests
         Assert.IsNull(Boundary(source).Transaction);
     }
 
-    [TestMethod]
-    public void Commit_PublishesOnceAfterUnlockAndMakesStoragePermanent()
+        [TestMethod]
+    public void Commit_PromotesChangesAndRetainsBindingUntilDispose()
     {
-        var order = new List<string>();
-        var first = new ItemContainer(StorageType.Normal, 2, _ => order.Add("first"));
-        var second = new ItemContainer(StorageType.Normal, 2, _ => order.Add("second"));
-        Completion(first);
-        Completion(second);
+        var first = new ItemContainer(StorageType.Normal, 2);
+        var second = new ItemContainer(StorageType.Normal, 2);
         using var transaction = ItemContainerTransaction.Begin(second, first, second);
         Assert.IsTrue(first.Add(new TestItem(23, 1)));
         Assert.IsTrue(second.Add(new TestItem(24, 1)));
-        Completion(first).Before(() =>
-        {
-            AssertScopeBoundAndUnlocked(transaction, first, second);
-            order.Add("hook");
-        });
-        Completion(first).After(() =>
-        {
-            AssertScopeBoundAndUnlocked(transaction, first, second);
-            Assert.AreEqual(1, first.TakenSlots);
-            Assert.AreEqual(1, second.TakenSlots);
-            order.Add("after1");
-        });
-        Completion(second).After(() => order.Add("after2"));
-        Assert.AreEqual(0, order.Count);
+        Assert.IsFalse(first.ChangeTracker.HasChanges);
+        Assert.IsFalse(second.ChangeTracker.HasChanges);
+
         transaction.Commit();
-        transaction.Dispose();
-        transaction.Dispose();
-        Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
-        CollectionAssert.AreEqual(new[] { "hook", "second", "first", "after2", "after1" }, order);
+
+        AssertScopeBoundAndUnlocked(transaction, first, second);
+        CollectionAssert.AreEquivalent(new[] { 0 }, first.ChangeTracker.GetSlots()!.ToArray());
+        CollectionAssert.AreEquivalent(new[] { 0 }, second.ChangeTracker.GetSlots()!.ToArray());
         Assert.AreEqual(1, first.TakenSlots);
         Assert.AreEqual(1, second.TakenSlots);
+        Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
+        transaction.Dispose();
+        transaction.Dispose();
         AssertUnboundAndUnlocked(first, second);
     }
 
@@ -683,28 +331,26 @@ public sealed class ItemContainerTransferTests
         AssertUnboundAndUnlocked(container);
     }
 
-    [TestMethod]
+        [TestMethod]
     public void Commit_ChangedSlotsAreAggregatedAndFullChangesRemainFull()
     {
-        var updates = new List<HashSet<int>?>();
-        var container = new ItemContainer(StorageType.Normal, 3, slots => updates.Add(slots));
+        var container = new ItemContainer(StorageType.Normal, 3);
         using (var transaction = ItemContainerTransaction.Begin(container))
         {
             Assert.IsTrue(container.Add(new TestItem(26, 1)));
             Assert.IsTrue(container.Add(new TestItem(27, 1)));
-            Assert.AreEqual(0, updates.Count);
+            Assert.IsFalse(container.ChangeTracker.HasChanges);
             transaction.Commit();
+            CollectionAssert.AreEquivalent(new[] { 0, 1 }, container.ChangeTracker.GetSlots()!.ToArray());
         }
-        CollectionAssert.AreEquivalent(new[] { 0, 1 }, updates.Single()!.ToArray());
-        updates.Clear();
+
         using (var transaction = ItemContainerTransaction.Begin(container))
         {
-            container.Clear(true);
+            container.Clear();
             Assert.IsTrue(container.Add(new TestItem(28, 1)));
             transaction.Commit();
+            Assert.IsNull(container.ChangeTracker.GetSlots());
         }
-        Assert.AreEqual(1, updates.Count);
-        Assert.IsNull(updates[0]);
     }
 
     [TestMethod]
@@ -837,7 +483,7 @@ public sealed class ItemContainerTransferTests
     }
 
     [TestMethod]
-    public void ChangeTracker_TransactionCommitPromotesChangesAndRejectsActiveReads()
+    public void ChangeTracker_TransactionCommitPromotesChangesAndRejectsActiveConsumption()
     {
         var source = new ItemContainer(StorageType.Normal, 2);
         var destination = new ItemContainer(StorageType.Normal, 2);
@@ -850,7 +496,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsTrue(source.Add(new TestItem(281, 1)));
         Assert.IsTrue(source.Add(new TestItem(282, 1)));
         Assert.ThrowsExactly<InvalidOperationException>(() => source.ChangeTracker.GetSlots());
-        Assert.ThrowsExactly<InvalidOperationException>(() => { _ = destination.ChangeTracker.HasChanges; });
+        Assert.IsFalse(destination.ChangeTracker.HasChanges);
 
         transaction.Commit();
 
@@ -891,75 +537,45 @@ public sealed class ItemContainerTransferTests
         CollectionAssert.AreEquivalent(new[] { 0 }, destination.ChangeTracker.GetSlots()!.ToArray());
     }
 
-    [TestMethod]
-    public void ChangeTracker_PublisherFailureConsumesBatchWithoutReplay()
+                [TestMethod]
+    public void ChangeTracker_ForeignReadWaitsUntilCommittedScopeIsDisposed()
     {
-        var fail = false;
-        var publications = 0;
-        var items = new ItemContainer(StorageType.Normal, 2, _ =>
-        {
-            publications++;
-            if (fail) throw new InvalidOperationException("Publisher failed.");
-        });
-        Assert.IsTrue(items.Add(new TestItem(273, 1)));
-        fail = true;
-
-        Assert.ThrowsExactly<InvalidOperationException>(() => items.Add(new TestItem(274, 1)));
-        Assert.IsFalse(items.ChangeTracker.HasChanges);
-        Assert.AreEqual(0, items.ChangeTracker.GetSlots()!.Count);
-        using (var transaction = ItemContainerTransaction.Begin(items)) transaction.Commit();
-
-        Assert.AreEqual(2, publications);
-        Assert.AreEqual(2, items.TakenSlots);
-        AssertUnboundAndUnlocked(items);
-    }
-
-    [TestMethod]
-    public void ChangeTracker_ForeignReadWaitsUntilStandalonePublicationFinishes()
-    {
-        using var publicationStarted = new ManualResetEventSlim();
-        using var finishPublication = new ManualResetEventSlim();
+        var items = new ItemContainer(StorageType.Normal, 1);
+        var boundary = Boundary(items);
         using var readerAttempted = new ManualResetEventSlim();
         using var readerCompleted = new ManualResetEventSlim();
-        var items = new ItemContainer(StorageType.Normal, 1, _ =>
-        {
-            publicationStarted.Set();
-            Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5)));
-        });
         HashSet<int>? readSlots = null;
-        Exception? mutationFailure = null;
         Exception? readerFailure = null;
-        var mutationThread = new Thread(() =>
+        var transaction = ItemContainerTransaction.Begin(items);
+        Assert.IsTrue(items.Add(new TestItem(276, 1)));
+        transaction.Commit();
+
+        // The domain owner consumes the committed batch while retaining the transaction binding.
+        CollectionAssert.AreEquivalent(new[] { 0 }, items.ChangeTracker.GetSlots()!.ToArray());
+        var reader = new Thread(() =>
         {
-            try { items.Add(new TestItem(275, 1)); }
-            catch (Exception exception) { mutationFailure = exception; }
-        }) { IsBackground = true };
-        var readerThread = new Thread(() =>
-        {
-            readerAttempted.Set();
-            try { readSlots = items.ChangeTracker.GetSlots(); }
+            try
+            {
+                lock (boundary.MutationLock)
+                {
+                    readerAttempted.Set();
+                    readSlots = items.ChangeTracker.GetSlots();
+                }
+            }
             catch (Exception exception) { readerFailure = exception; }
             finally { readerCompleted.Set(); }
         }) { IsBackground = true };
+        reader.Start();
+        Assert.IsTrue(readerAttempted.Wait(TimeSpan.FromSeconds(5)));
+        Monitor.Enter(boundary.MutationLock);
+        try { Assert.IsFalse(readerCompleted.IsSet, "The read must remain blocked by committed transaction ownership."); }
+        finally { Monitor.Exit(boundary.MutationLock); }
 
-        mutationThread.Start();
-        Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
-        readerThread.Start();
-        try
-        {
-            Assert.IsTrue(readerAttempted.Wait(TimeSpan.FromSeconds(5)));
-            Assert.IsTrue(SpinWait.SpinUntil(
-                () => (readerThread.ThreadState & ThreadState.WaitSleepJoin) != 0,
-                TimeSpan.FromSeconds(5)), "The tracker reader should wait for standalone publication ownership.");
-            Assert.IsFalse(readerCompleted.IsSet);
-        }
-        finally { finishPublication.Set(); }
-
-        Assert.IsTrue(mutationThread.Join(TimeSpan.FromSeconds(5)));
-        Assert.IsTrue(readerThread.Join(TimeSpan.FromSeconds(5)));
-        if (mutationFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(mutationFailure).Throw();
+        transaction.Dispose();
+        Assert.IsTrue(reader.Join(TimeSpan.FromSeconds(5)));
         if (readerFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(readerFailure).Throw();
         Assert.AreEqual(0, readSlots!.Count);
+        AssertUnboundAndUnlocked(items);
     }
 
     [TestMethod]
@@ -967,85 +583,82 @@ public sealed class ItemContainerTransferTests
     {
         using var publicationStarted = new ManualResetEventSlim();
         using var finishPublication = new ManualResetEventSlim();
-        using var publicationFinished = new ManualResetEventSlim();
         using var readerAttempted = new ManualResetEventSlim();
-        using var readerCompleted = new ManualResetEventSlim();
-        var item = new TestItem(276, 1);
-        ItemContainer? items = null;
-        ItemContainerTransaction? committing = null;
-        HashSet<int>? publishedSlots = null;
-        HashSet<int>? readSlots = null;
-        var readerSawPublicationFinished = false;
-        Exception? mutationFailure = null;
+        using var readerFinished = new ManualResetEventSlim();
+        var container = new ItemContainer(StorageType.Normal, 1);
+        HashSet<int>? readerSlots = null;
+        Exception? publisherFailure = null;
         Exception? readerFailure = null;
-        items = new ItemContainer(StorageType.Normal, 1, slots =>
-        {
-            AssertScopeBoundAndUnlocked(committing!, items!);
-            publishedSlots = slots;
-            publicationStarted.Set();
-            try { Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5)), "Publication must be released by the test."); }
-            finally { publicationFinished.Set(); }
-        });
-        var mutationThread = new Thread(() =>
-        {
-            try
-            {
-                using var transaction = ItemContainerTransaction.Begin(items!);
-                committing = transaction;
-                Assert.IsTrue(items!.Add(item));
-                transaction.Commit();
-            }
-            catch (Exception exception) { mutationFailure = exception; }
-        }) { IsBackground = true };
-        var readerThread = new Thread(() =>
-        {
-            readerAttempted.Set();
-            try
-            {
-                readSlots = items!.ChangeTracker.GetSlots();
-                readerSawPublicationFinished = publicationFinished.IsSet;
-            }
-            catch (Exception exception) { readerFailure = exception; }
-            finally { readerCompleted.Set(); }
-        }) { IsBackground = true };
 
-        mutationThread.Start();
+        var publisher = new Thread(() =>
+        {
+            try
+            {
+                using var transaction = ItemContainerTransaction.Begin(container);
+                Assert.IsTrue(container.Add(new TestItem(135, 1)));
+                transaction.Commit();
+                var slots = container.ChangeTracker.GetSlots();
+                CollectionAssert.AreEquivalent(new[] { 0 }, slots!.ToArray());
+                publicationStarted.Set();
+                Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5)));
+            }
+            catch (Exception exception)
+            {
+                publisherFailure = exception;
+                publicationStarted.Set();
+            }
+        }) { IsBackground = true };
+        publisher.Start();
+        Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
+
+        var reader = new Thread(() =>
+        {
+            try
+            {
+                readerAttempted.Set();
+                readerSlots = container.ChangeTracker.GetSlots();
+            }
+            catch (Exception exception)
+            {
+                readerFailure = exception;
+            }
+            finally { readerFinished.Set(); }
+        }) { IsBackground = true };
+        reader.Start();
+
         try
         {
-            Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)), "The transaction must reach publication.");
-            readerThread.Start();
             Assert.IsTrue(readerAttempted.Wait(TimeSpan.FromSeconds(5)));
             Assert.IsTrue(SpinWait.SpinUntil(
-                () => (readerThread.ThreadState & ThreadState.WaitSleepJoin) != 0,
-                TimeSpan.FromSeconds(5)), "The tracker reader should wait for transaction publication ownership.");
-            Assert.IsFalse(readerCompleted.IsSet);
+                () => (reader.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                TimeSpan.FromSeconds(5)), "The foreign tracker reader should wait for transaction publication.");
+            Assert.IsFalse(readerFinished.IsSet);
         }
         finally { finishPublication.Set(); }
 
-        Assert.IsTrue(mutationThread.Join(TimeSpan.FromSeconds(5)));
-        if (readerThread.IsAlive) Assert.IsTrue(readerThread.Join(TimeSpan.FromSeconds(5)));
-        if (mutationFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(mutationFailure).Throw();
-        if (readerFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(readerFailure).Throw();
-
-        CollectionAssert.AreEquivalent(new[] { 0 }, publishedSlots!.ToArray());
-        Assert.AreSame(item, items![0]);
-        Assert.IsTrue(readerSawPublicationFinished, "The tracker reader must proceed after publication completes.");
-        Assert.AreEqual(0, readSlots!.Count, "Publication consumed the committed batch before the reader proceeded.");
+        Assert.IsTrue(publisher.Join(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(reader.Join(TimeSpan.FromSeconds(5)));
+        if (publisherFailure != null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(publisherFailure).Throw();
+        if (readerFailure != null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(readerFailure).Throw();
+        Assert.IsTrue(readerFinished.IsSet);
+        Assert.AreEqual(0, readerSlots!.Count);
+        AssertUnboundAndUnlocked(container);
     }
 
-    [TestMethod]
-    public void Commit_EmptyRangeDoesNotPublishOrInvalidateEnumerator()
+        [TestMethod]
+    public void Commit_EmptyRangeDoesNotTrackChangesOrInvalidateEnumerator()
     {
-        var publications = 0;
-        var container = new ItemContainer(StorageType.Normal, 2, _ => publications++);
+        var container = new ItemContainer(StorageType.Normal, 2);
         var existing = new TestItem(31, 2);
         Assert.IsTrue(container.Add(existing));
-        publications = 0;
+        container.ChangeTracker.GetSlots();
         var enumerator = container.GetEnumerator();
         using var transaction = ItemContainerTransaction.Begin(container);
         Assert.IsTrue(container.AddRange(Array.Empty<IItem?>()));
         transaction.Commit();
-        Assert.AreEqual(0, publications);
+        Assert.IsFalse(container.ChangeTracker.HasChanges);
         Assert.IsTrue(enumerator.MoveNext());
         Assert.AreSame(existing, enumerator.Current);
     }
@@ -1066,157 +679,7 @@ public sealed class ItemContainerTransferTests
         Assert.ThrowsExactly<InvalidOperationException>(() => destinationEnumerator.MoveNext());
     }
 
-    [TestMethod]
-    public void Commit_ContainerFailureStillAttemptsLaterContainersAndCompletionWithoutRetryOrRollback()
-    {
-        var original = new InvalidOperationException("Publisher failed.");
-        var calls = new List<string>();
-        ItemContainer? first = null;
-        ItemContainer? second = null;
-        ItemContainerTransaction? committing = null;
-        first = new ItemContainer(StorageType.Normal, 2, _ =>
-        {
-            AssertScopeBoundAndUnlocked(committing!, first!, second!);
-            calls.Add("first");
-            throw original;
-        });
-        second = new ItemContainer(StorageType.Normal, 2, _ => calls.Add("second"));
-        Completion(first);
-        Completion(second);
-        using var transaction = ItemContainerTransaction.Begin(first, second);
-        committing = transaction;
-        Assert.IsTrue(first.Add(new TestItem(33, 1)));
-        Assert.IsTrue(second.Add(new TestItem(34, 1)));
-        Completion(first).After(() => calls.Add("after"));
-        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
-        Assert.AreSame(original, thrown);
-        transaction.Dispose();
-        transaction.Dispose();
-        Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
-        CollectionAssert.AreEqual(new[] { "first", "second", "after" }, calls);
-        Assert.AreEqual(1, first.TakenSlots);
-        Assert.AreEqual(1, second.TakenSlots);
-    }
-
-    [TestMethod]
-    public void Commit_LaterContainerFailureStillAttemptsLaterContainersAndCompletion()
-    {
-        var original = new InvalidOperationException("Second failed.");
-        var calls = new List<string>();
-        var first = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("first"));
-        var second = new ItemContainer(StorageType.Normal, 1, _ => { calls.Add("second"); throw original; });
-        var third = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("third"));
-        Completion(first);
-        Completion(second);
-        using var transaction = ItemContainerTransaction.Begin(first, second, third);
-        Assert.IsTrue(first.Add(new TestItem(35, 1)));
-        Assert.IsTrue(second.Add(new TestItem(36, 1)));
-        Assert.IsTrue(third.Add(new TestItem(37, 1)));
-        Completion(first).After(() => calls.Add("after1"));
-        Completion(second).After(() => calls.Add("after2"));
-        Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
-        CollectionAssert.AreEqual(new[] { "first", "second", "third", "after1", "after2" }, calls);
-        transaction.Dispose();
-        Assert.AreEqual(1, first.TakenSlots);
-        Assert.AreEqual(1, second.TakenSlots);
-        Assert.AreEqual(1, third.TakenSlots);
-        AssertUnboundAndUnlocked(first, second, third);
-    }
-
-    [TestMethod]
-    public void Commit_AfterPublicationFailureStillAttemptsLaterCompletionOwners()
-    {
-        var calls = new List<string>();
-        var original = new InvalidOperationException("After-publication action failed.");
-        var first = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("first container"));
-        var second = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("second container"));
-        Completion(first);
-        Completion(second);
-        using var transaction = ItemContainerTransaction.Begin(first, second);
-        Assert.IsTrue(first.Add(new TestItem(37, 1)));
-        Assert.IsTrue(second.Add(new TestItem(38, 1)));
-        Completion(first).After(() => calls.Add("first owner before failure"));
-        Completion(first).After(() => { AssertScopeBoundAndUnlocked(transaction, first, second); calls.Add("first owner failure"); throw original; });
-        Completion(first).After(() => calls.Add("unconsumed same-owner fact"));
-        Completion(second).After(() => calls.Add("second owner"));
-        Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
-        transaction.Dispose();
-        Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
-        CollectionAssert.AreEqual(new[]
-        {
-            "first container", "second container", "first owner before failure", "first owner failure", "second owner"
-        }, calls);
-        Assert.AreEqual(1, first.TakenSlots);
-        Assert.AreEqual(1, second.TakenSlots);
-        AssertUnboundAndUnlocked(first, second);
-    }
-
-    [TestMethod]
-    public void Commit_PrePublicationOwnerFailureStillAttemptsLaterOwnersAndAllLaterPhases()
-    {
-        var failure = new InvalidOperationException("Pre-publication completion failed.");
-        var order = new List<string>();
-        var first = new ItemContainer(StorageType.Normal, 1, _ => order.Add("first publisher"));
-        var second = new ItemContainer(StorageType.Normal, 1, _ => order.Add("second publisher"));
-        Completion(first);
-        Completion(second);
-        using var transaction = ItemContainerTransaction.Begin(first, second);
-        Assert.IsTrue(first.Add(new TestItem(381, 1)));
-        Assert.IsTrue(second.Add(new TestItem(382, 1)));
-        Completion(first).Before(() => { order.Add("first owner"); throw failure; });
-        Completion(second).Before(() => order.Add("second owner"));
-        Completion(first).After(() => order.Add("first after"));
-        Completion(second).After(() => order.Add("second after"));
-
-        Assert.AreSame(failure, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
-
-        CollectionAssert.AreEqual(new[]
-        {
-            "first owner", "second owner", "first publisher", "second publisher", "first after", "second after"
-        }, order);
-        Assert.AreEqual(1, first.TakenSlots);
-        Assert.AreEqual(1, second.TakenSlots);
-        AssertUnboundAndUnlocked(first, second);
-    }
-
-    [TestMethod]
-    public void Commit_HookFailureStillPublishesAndRetainsOriginalFailure()
-    {
-        var calls = new List<string>();
-        var original = new InvalidOperationException("Hook failed.");
-        var container = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("container"));
-        Completion(container);
-        using var transaction = ItemContainerTransaction.Begin(container);
-        Assert.IsTrue(container.Add(new TestItem(38, 1)));
-        Completion(container).Before(() => { AssertScopeBoundAndUnlocked(transaction, container); calls.Add("hook"); throw original; });
-        Completion(container).After(() => calls.Add("after"));
-        Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
-        transaction.Dispose();
-        Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
-        CollectionAssert.AreEqual(new[] { "hook", "container", "after" }, calls);
-        Assert.AreEqual(1, container.TakenSlots);
-    }
-
-    [TestMethod]
-    public void Commit_HookAndPublicationFailureRetainBothOriginalExceptions()
-    {
-        var hookFailure = new InvalidOperationException("Hook failed.");
-        var publicationFailure = new InvalidOperationException("Publisher failed.");
-        var container = new ItemContainer(StorageType.Normal, 1, _ => throw publicationFailure);
-        Completion(container);
-        using var transaction = ItemContainerTransaction.Begin(container);
-        Assert.IsTrue(container.Add(new TestItem(39, 1)));
-        Completion(container).Before(() => throw hookFailure);
-        var thrown = Assert.ThrowsExactly<AggregateException>(() => transaction.Commit());
-        CollectionAssert.AreEqual(new Exception[] { hookFailure, publicationFailure }, thrown.InnerExceptions.ToArray());
-        Assert.IsNotNull(hookFailure.StackTrace);
-        Assert.IsNotNull(publicationFailure.StackTrace);
-        transaction.Dispose();
-        Assert.AreEqual(1, container.TakenSlots);
-        AssertUnboundAndUnlocked(container);
-    }
-
-    [TestMethod]
+                            [TestMethod]
     public void RecordChanges_RejectsStorageNotOwnedByTransaction()
     {
         var enlisted = new ItemContainer(StorageType.Normal, 1);
@@ -1255,6 +718,7 @@ public sealed class ItemContainerTransferTests
 
         Assert.AreSame(transaction, storage.Transaction);
         transaction.Commit();
+        transaction.Dispose();
         AssertUnboundAndUnlocked(container);
     }
 
@@ -1289,17 +753,17 @@ public sealed class ItemContainerTransferTests
         AssertUnboundAndUnlocked(container);
     }
 
-    [TestMethod]
+        [TestMethod]
     public void Begin_SnapshotFailureReleasesAllLocksAndNeverExposesBindings()
     {
-        var calls = 0;
-        var first = new ItemContainer(StorageType.Normal, 1, _ => calls++);
-        var second = new ItemContainer(StorageType.Normal, 1, _ => calls++);
+        var first = new ItemContainer(StorageType.Normal, 1);
+        var second = new ItemContainer(StorageType.Normal, 1);
         var firstItem = new TestItem(40, 3);
         var failingItem = new TestItem(41, 4);
         Assert.IsTrue(first.Add(firstItem));
         Assert.IsTrue(second.Add(failingItem));
-        calls = 0;
+        first.ChangeTracker.GetSlots();
+        second.ChangeTracker.GetSlots();
         var original = new InvalidOperationException("Count capture failed.");
         failingItem.OnCountRead = () =>
         {
@@ -1309,14 +773,17 @@ public sealed class ItemContainerTransferTests
             Assert.IsNull(Boundary(second).Transaction);
             throw original;
         };
+
         Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => ItemContainerTransaction.Begin(first, second)));
+
         failingItem.OnCountRead = null;
         AssertUnboundAndUnlocked(first, second);
         Assert.AreSame(firstItem, first[0]);
         Assert.AreSame(failingItem, second[0]);
         Assert.AreEqual(3, firstItem.Count);
         Assert.AreEqual(4, failingItem.Count);
-        Assert.AreEqual(0, calls);
+        Assert.IsFalse(first.ChangeTracker.HasChanges);
+        Assert.IsFalse(second.ChangeTracker.HasChanges);
         using var fresh = ItemContainerTransaction.Begin(first, second);
     }
 
@@ -1375,38 +842,53 @@ public sealed class ItemContainerTransferTests
         Assert.IsTrue(container.Add(item));
         Assert.AreSame(item, container[0]);
         outer.Commit();
+        Assert.AreSame(outer, Boundary(container).Transaction);
+        outer.Dispose();
         AssertUnboundAndUnlocked(container);
     }
 
-    [TestMethod]
-    public void Begin_AliasesSnapshotAndPublishUnderlyingStorageOnceInFirstSeenOrder()
+        [TestMethod]
+    public void Begin_RepeatedCompositeParticipantSnapshotsEachBoundaryOnce()
     {
-        var calls = new List<string>();
-        var first = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("first"));
-        var second = new ItemContainer(StorageType.Normal, 1, _ => calls.Add("second"));
-        var item = new TestItem(42, 1);
-        Assert.IsTrue(first.Add(item));
-        calls.Clear();
-        var reads = 0;
-        item.OnCountRead = () => reads++;
+        var first = new ItemContainer(StorageType.Normal, 1);
+        var second = new ItemContainer(StorageType.Normal, 1);
+        var firstItem = new TestItem(42, 1);
+        var secondItem = new TestItem(43, 1);
+        Assert.IsTrue(first.Add(firstItem));
+        Assert.IsTrue(second.Add(secondItem));
+        first.ChangeTracker.GetSlots();
+        second.ChangeTracker.GetSlots();
+        var firstCountReads = 0;
+        var secondCountReads = 0;
+        firstItem.OnCountRead = () => firstCountReads++;
+        secondItem.OnCountRead = () => secondCountReads++;
         var composite = new CompositeParticipant([Boundary(first), Boundary(second)]);
+
         using var transaction = ItemContainerTransaction.Begin(first, composite, composite, second);
-        Assert.AreEqual(1, reads);
-        item.OnCountRead = null;
-        first.Clear(true);
-        Assert.IsTrue(second.Add(item));
+
+        Assert.AreEqual(1, firstCountReads);
+        Assert.AreEqual(1, secondCountReads);
+        firstItem.OnCountRead = null;
+        secondItem.OnCountRead = null;
+        first.Clear();
+        Assert.IsTrue(second.TryRemoveExact(secondItem));
+        Assert.IsTrue(second.Add(firstItem));
         transaction.Commit();
-        CollectionAssert.AreEqual(new[] { "first", "second" }, calls);
+        Assert.IsNull(first[0]);
+        Assert.AreSame(firstItem, second[0]);
+        Assert.IsNull(first.ChangeTracker.GetSlots());
+        CollectionAssert.AreEquivalent(new[] { 0 }, second.ChangeTracker.GetSlots()!.ToArray());
+        transaction.Dispose();
         AssertUnboundAndUnlocked(first, second);
     }
 
-    [TestMethod]
+        [TestMethod]
     public void Begin_DifferentBoundariesForSameStorageRejectBeforeLocking()
     {
         var container = new ItemContainer(StorageType.Normal, 1);
         var storage = Boundary(container);
         var first = new CompositeParticipant([Boundary(container)]);
-        var secondBoundary = new ItemContainerMutationBoundary(storage.Storage, _ => Assert.Fail("Rejected participants must not publish."));
+        var secondBoundary = new ItemContainerMutationBoundary(storage.Storage);
         var second = new CompositeParticipant([secondBoundary]);
 
         Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin(first, second));
@@ -1422,287 +904,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsTrue(acquired);
     }
 
-    [TestMethod]
-    public void Mutation_WaitsForForeignTransactionPublicationOwnership()
-    {
-        var ownerThreadId = 0;
-        using var publicationEntered = new ManualResetEventSlim();
-        using var finishPublication = new ManualResetEventSlim();
-        using var mutationAttempted = new ManualResetEventSlim();
-        using var mutationCompleted = new ManualResetEventSlim();
-        var publicationCount = 0;
-        var container = new ItemContainer(StorageType.Normal, 2, _ =>
-        {
-            var publication = Interlocked.Increment(ref publicationCount);
-            if (publication == 1 && Environment.CurrentManagedThreadId == Volatile.Read(ref ownerThreadId))
-            {
-                publicationEntered.Set();
-                Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5)));
-            }
-        });
-        var transactionItem = new TestItem(600, 1);
-        var workerItem = new TestItem(601, 1);
-        Exception? workerFailure = null;
-        var worker = new Thread(() =>
-        {
-            try
-            {
-                if (!publicationEntered.Wait(TimeSpan.FromSeconds(5)))
-                    throw new TimeoutException("The transaction did not reach publication.");
-                mutationAttempted.Set();
-                if (!container.Add(workerItem)) throw new InvalidOperationException("The waiting mutation was rejected.");
-            }
-            catch (Exception exception) { workerFailure = exception; }
-            finally { mutationCompleted.Set(); }
-        }) { IsBackground = true };
-        Exception? transactionFailure = null;
-        var owner = new Thread(() =>
-        {
-            Volatile.Write(ref ownerThreadId, Environment.CurrentManagedThreadId);
-            try
-            {
-                using var transaction = ItemContainerTransaction.Begin(container);
-                if (!container.Add(transactionItem)) throw new InvalidOperationException("The transaction mutation was rejected.");
-                transaction.Commit();
-            }
-            catch (Exception exception) { transactionFailure = exception; }
-        }) { IsBackground = true };
-        worker.Start();
-        owner.Start();
-
-        try
-        {
-            Assert.IsTrue(publicationEntered.Wait(TimeSpan.FromSeconds(5)), "The transaction must reach publication.");
-            Assert.IsTrue(mutationAttempted.Wait(TimeSpan.FromSeconds(5)));
-            Assert.IsFalse(mutationCompleted.Wait(TimeSpan.FromMilliseconds(100)),
-                "The ordinary mutation must wait while committed publication retains ownership.");
-            Assert.AreSame(transactionItem, container[0]);
-            Assert.IsNull(container[1]);
-        }
-        finally
-        {
-            finishPublication.Set();
-        }
-
-        Assert.IsTrue(owner.Join(TimeSpan.FromSeconds(5)), "The committing transaction must finish after publication is released.");
-        Assert.IsTrue(worker.Join(TimeSpan.FromSeconds(5)));
-        if (transactionFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transactionFailure).Throw();
-        if (workerFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(workerFailure).Throw();
-        Assert.AreSame(transactionItem, container[0]);
-        Assert.AreSame(workerItem, container[1]);
-        Assert.AreEqual(2, publicationCount);
-        AssertUnboundAndUnlocked(container);
-    }
-
-    [TestMethod]
-    public void StandalonePublication_RetainsOwnershipAndReleasesAcquiredBeginPrefix()
-    {
-        var prefix = new ItemContainer(StorageType.Normal, 2);
-        using var publicationStarted = new ManualResetEventSlim();
-        using var allowPublication = new ManualResetEventSlim();
-        var container = new ItemContainer(StorageType.Normal, 2, _ =>
-        {
-            publicationStarted.Set();
-            Assert.IsTrue(allowPublication.Wait(TimeSpan.FromSeconds(5)));
-        });
-        var item = new TestItem(602, 1);
-        Exception? mutationFailure = null;
-        var mutationThread = new Thread(() =>
-        {
-            try { Assert.IsTrue(container.Add(item)); }
-            catch (Exception exception) { mutationFailure = exception; }
-        }) { IsBackground = true };
-        mutationThread.Start();
-        Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
-
-        using var beginAttempted = new ManualResetEventSlim();
-        using var transactionBound = new ManualResetEventSlim();
-        using var allowRollback = new ManualResetEventSlim();
-        Exception? transactionFailure = null;
-        var transactionThread = new Thread(() =>
-        {
-            try
-            {
-                beginAttempted.Set();
-                using var transaction = ItemContainerTransaction.Begin(prefix, container);
-                transactionBound.Set();
-                Assert.IsTrue(allowRollback.Wait(TimeSpan.FromSeconds(5)));
-            }
-            catch (Exception exception) { transactionFailure = exception; }
-        }) { IsBackground = true };
-        transactionThread.Start();
-
-        try
-        {
-            Assert.IsTrue(beginAttempted.Wait(TimeSpan.FromSeconds(5)));
-            Assert.IsTrue(SpinWait.SpinUntil(
-                () => (transactionThread.ThreadState & ThreadState.WaitSleepJoin) != 0,
-                TimeSpan.FromSeconds(5)), "Begin must wait for standalone publication ownership.");
-            Assert.IsFalse(transactionBound.IsSet);
-            Assert.IsNull(Boundary(prefix).Transaction);
-            Assert.IsNull(Boundary(container).Transaction);
-
-            var prefixMutationCompleted = false;
-            var prefixMutation = new Thread(() => prefixMutationCompleted = prefix.Add(new TestItem(603, 1)))
-            { IsBackground = true };
-            prefixMutation.Start();
-            Assert.IsTrue(prefixMutation.Join(TimeSpan.FromSeconds(5)), "Begin must release its acquired lock prefix before waiting.");
-            Assert.IsTrue(prefixMutationCompleted);
-
-            allowPublication.Set();
-            Assert.IsTrue(transactionBound.Wait(TimeSpan.FromSeconds(5)));
-            Assert.IsNotNull(Boundary(prefix).Transaction);
-            Assert.IsNotNull(Boundary(container).Transaction);
-            allowRollback.Set();
-        }
-        finally
-        {
-            allowPublication.Set();
-            allowRollback.Set();
-        }
-
-        Assert.IsTrue(transactionThread.Join(TimeSpan.FromSeconds(5)));
-        Assert.IsTrue(mutationThread.Join(TimeSpan.FromSeconds(5)));
-        if (mutationFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(mutationFailure).Throw();
-        if (transactionFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transactionFailure).Throw();
-        Assert.AreSame(item, container[0]);
-        Assert.AreEqual(1, prefix.TakenSlots);
-        AssertUnboundAndUnlocked(prefix, container);
-    }
-
-    [TestMethod]
-    public void StandalonePublication_RejectsSameThreadBeginAndOrdinaryMutation()
-    {
-        var publications = 0;
-        ItemContainer? container = null;
-        container = new ItemContainer(StorageType.Normal, 2, _ =>
-        {
-            publications++;
-            Assert.ThrowsExactly<InvalidOperationException>(() => container!.Add(new TestItem(605, 1)));
-            Assert.ThrowsExactly<InvalidOperationException>(() => ItemContainerTransaction.Begin(container!));
-        });
-
-        Assert.IsTrue(container.Add(new TestItem(604, 1)));
-
-        Assert.AreEqual(1, container.TakenSlots);
-        Assert.AreEqual(1, publications);
-        AssertUnboundAndUnlocked(container);
-    }
-
-    [TestMethod]
-    public void StandalonePublication_WaitsForForeignOrdinaryMutation() =>
-        AssertForeignOrdinaryMutationWaitsForStandalonePublication(publisherFails: false);
-
-    [TestMethod]
-    public void StandalonePublicationFailure_ReleasesWaitingForeignOrdinaryMutation() =>
-        AssertForeignOrdinaryMutationWaitsForStandalonePublication(publisherFails: true);
-
-    private static void AssertForeignOrdinaryMutationWaitsForStandalonePublication(bool publisherFails)
-    {
-        using var publicationStarted = new ManualResetEventSlim();
-        using var allowPublication = new ManualResetEventSlim();
-        using var mutationAttempted = new ManualResetEventSlim();
-        using var mutationCompleted = new ManualResetEventSlim();
-        var publicationFailure = new InvalidOperationException("Standalone publisher failure.");
-        var publicationCount = 0;
-        var container = new ItemContainer(StorageType.Normal, 2, _ =>
-        {
-            if (Interlocked.Increment(ref publicationCount) != 1) return;
-            publicationStarted.Set();
-            Assert.IsTrue(allowPublication.Wait(TimeSpan.FromSeconds(5)));
-            if (publisherFails) throw publicationFailure;
-        });
-        Exception? publicationThreadFailure = null;
-        var firstItem = new TestItem(606, 1);
-        var publicationThread = new Thread(() =>
-        {
-            try
-            {
-                if (!container.Add(firstItem)) throw new InvalidOperationException("The publishing mutation was rejected.");
-            }
-            catch (Exception exception) { publicationThreadFailure = exception; }
-        }) { IsBackground = true };
-        var secondItem = new TestItem(607, 1);
-        Exception? mutationFailure = null;
-        var mutationThread = new Thread(() =>
-        {
-            try
-            {
-                if (!publicationStarted.Wait(TimeSpan.FromSeconds(5)))
-                    throw new TimeoutException("The standalone publisher did not start.");
-                mutationAttempted.Set();
-                if (!container.Add(secondItem)) throw new InvalidOperationException("The waiting mutation was rejected.");
-            }
-            catch (Exception exception) { mutationFailure = exception; }
-            finally { mutationCompleted.Set(); }
-        }) { IsBackground = true };
-
-        mutationThread.Start();
-        publicationThread.Start();
-        try
-        {
-            Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
-            Assert.IsTrue(mutationAttempted.Wait(TimeSpan.FromSeconds(5)));
-            Assert.IsFalse(mutationCompleted.Wait(TimeSpan.FromMilliseconds(100)),
-                "The ordinary mutation must wait while standalone publication retains ownership.");
-            Assert.AreEqual(1, container.TakenSlots);
-            Assert.AreSame(firstItem, container[0]);
-            Assert.IsNull(container[1]);
-        }
-        finally
-        {
-            allowPublication.Set();
-        }
-
-        Assert.IsTrue(publicationThread.Join(TimeSpan.FromSeconds(5)));
-        Assert.IsTrue(mutationThread.Join(TimeSpan.FromSeconds(5)));
-        if (publisherFails) Assert.AreSame(publicationFailure, publicationThreadFailure);
-        else if (publicationThreadFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(publicationThreadFailure).Throw();
-        if (mutationFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(mutationFailure).Throw();
-        Assert.AreEqual(2, container.TakenSlots);
-        Assert.AreSame(firstItem, container[0]);
-        Assert.AreSame(secondItem, container[1]);
-        Assert.AreEqual(2, publicationCount);
-        AssertUnboundAndUnlocked(container);
-    }
-
-    [TestMethod]
-    public void StandalonePublicationFailure_ReleasesOwnershipAndAllowsLaterOperations()
-    {
-        var publicationCount = 0;
-        var publicationFailure = new InvalidOperationException("Standalone publication failed.");
-        var container = new ItemContainer(StorageType.Normal, 2, _ =>
-        {
-            Assert.IsTrue(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
-            if (Interlocked.Increment(ref publicationCount) == 1) throw publicationFailure;
-        });
-
-        Assert.AreSame(publicationFailure, Assert.ThrowsExactly<InvalidOperationException>(() => container.Add(new TestItem(608, 1))));
-
-        Assert.IsFalse(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
-        AssertUnboundAndUnlocked(container);
-        Assert.AreEqual(1, container.GetCountById(608));
-        Assert.IsTrue(container.Add(new TestItem(609, 1)));
-        using var transaction = ItemContainerTransaction.Begin(container);
-        transaction.Commit();
-        Assert.AreEqual(2, publicationCount);
-    }
-
-    [TestMethod]
-    public void ContainerMutation_InsideTransactionDefersPublicationUntilCommit()
-    {
-        var publications = 0;
-        var container = new ItemContainer(StorageType.Normal, 2, _ => publications++);
-        using var transaction = ItemContainerTransaction.Begin(container);
-
-        Assert.IsTrue(container.Add(new TestItem(604, 1)));
-
-        Assert.AreEqual(0, publications);
-        transaction.Commit();
-        Assert.AreEqual(1, publications);
-    }
-
-    [TestMethod]
+                    [TestMethod]
     public void ItemContainerTransaction_BalancesCurrentThreadOwnershipOnCommitAndRollback()
     {
         var container = new ItemContainer(StorageType.Normal, 2);
@@ -1726,87 +928,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsFalse(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
     }
 
-    [TestMethod]
-    public void Mutation_StorageOwnerRejectsCrossContainerPublicationCycle()
-    {
-        using var transactionStarted = new ManualResetEventSlim();
-        using var publicationStarted = new ManualResetEventSlim();
-        using var secondMutationReturned = new ManualResetEventSlim();
-        using var firstMutationReturned = new ManualResetEventSlim();
-        var observePublication = false;
-        var publicationCount = 0;
-        ItemContainer? first = null;
-        ItemContainer? second = null;
-        var callbackItem = new TestItem(612, 1);
-        first = new ItemContainer(StorageType.Normal, 2);
-        second = new ItemContainer(StorageType.Normal, 2, _ =>
-        {
-            if (!observePublication || Interlocked.Increment(ref publicationCount) != 1) return;
-            publicationStarted.Set();
-            try
-            {
-                Assert.IsTrue(transactionStarted.Wait(TimeSpan.FromSeconds(5)), "The opposing transaction must own the first boundary.");
-                Assert.IsTrue(secondMutationReturned.Wait(TimeSpan.FromSeconds(5)), "The opposing mutation must be rejected without waiting.");
-                Assert.ThrowsExactly<InvalidOperationException>(() => first!.Add(callbackItem));
-            }
-            finally { firstMutationReturned.Set(); }
-        });
-
-        var triggerItem = new TestItem(610, 1);
-        var conflictingItem = new TestItem(611, 1);
-        observePublication = true;
-
-        Exception? transactionFailure = null;
-        Exception? publicationFailure = null;
-        Exception? rejectedMutation = null;
-        var transactionThread = new Thread(() =>
-        {
-            try
-            {
-                using var transaction = ItemContainerTransaction.Begin(first!);
-                transactionStarted.Set();
-                Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
-                try { second!.Add(conflictingItem); }
-                catch (InvalidOperationException exception) { rejectedMutation = exception; }
-                finally { secondMutationReturned.Set(); }
-                Assert.IsTrue(firstMutationReturned.Wait(TimeSpan.FromSeconds(5)));
-                transaction.Commit();
-                Assert.IsFalse(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
-            }
-            catch (Exception exception) { transactionFailure = exception; }
-        }) { IsBackground = true };
-        var publicationThread = new Thread(() =>
-        {
-            try { Assert.IsTrue(second!.Add(triggerItem)); }
-            catch (Exception exception) { publicationFailure = exception; }
-        }) { IsBackground = true };
-
-        transactionThread.Start();
-        try
-        {
-            Assert.IsTrue(transactionStarted.Wait(TimeSpan.FromSeconds(5)));
-            publicationThread.Start();
-            Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
-            Assert.IsTrue(transactionThread.Join(TimeSpan.FromSeconds(5)), "The transaction thread must finish without waiting on publication.");
-            Assert.IsTrue(publicationThread.Join(TimeSpan.FromSeconds(5)), "The publication thread must finish without waiting on the transaction.");
-        }
-        finally
-        {
-            secondMutationReturned.Set();
-            firstMutationReturned.Set();
-        }
-
-        if (transactionFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transactionFailure).Throw();
-        if (publicationFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(publicationFailure).Throw();
-
-        Assert.IsNotNull(rejectedMutation, "A thread that owns one storage scope must reject a contended additional mutation.");
-        Assert.AreSame(triggerItem, second[0]);
-        Assert.AreEqual(-1, second.GetInstanceSlot(conflictingItem));
-        Assert.AreEqual(-1, first.GetInstanceSlot(callbackItem));
-        AssertUnboundAndUnlocked(first, second);
-    }
-
-    [TestMethod]
+        [TestMethod]
     public void TransactionBegin_WhenOwningStorageRejectsContendedAdditionalLocksAndReleasesPrefix()
     {
         var owned = new ItemContainer(StorageType.Normal, 1);
@@ -1843,27 +965,20 @@ public sealed class ItemContainerTransferTests
         AssertUnboundAndUnlocked(owned, source, destination);
     }
 
-    [TestMethod]
-    public void ContainerMutation_RejectsCommittedTransactionDuringPublication()
+        [TestMethod]
+    public void ContainerMutation_RejectsMutationWhileCommittedScopeRemainsBound()
     {
-        var publications = 0;
-        ItemContainer? container = null;
-        container = new ItemContainer(StorageType.Normal, 2, _ =>
-        {
-            publications++;
-            Assert.ThrowsExactly<InvalidOperationException>(() =>
-            {
-                var currentTransaction = Boundary(container!).CurrentTransaction;
-                GC.KeepAlive(currentTransaction);
-            });
-            Assert.ThrowsExactly<InvalidOperationException>(() => container!.Add(new TestItem(605, 1)));
-        });
-        using var transaction = ItemContainerTransaction.Begin(container!);
+        var container = new ItemContainer(StorageType.Normal, 2);
+        using var transaction = ItemContainerTransaction.Begin(container);
+        Assert.IsTrue(container.Add(new TestItem(605, 1)));
 
-        Assert.IsTrue(container!.Add(new TestItem(605, 1)));
         transaction.Commit();
 
-        Assert.AreEqual(1, publications);
+        Assert.AreSame(transaction, Boundary(container).Transaction);
+        Assert.ThrowsExactly<InvalidOperationException>(() => container.Add(new TestItem(606, 1)));
+        Assert.AreSame(transaction, Boundary(container).Transaction);
+        Assert.AreEqual(1, container.TakenSlots);
+        Assert.IsTrue(container.ChangeTracker.HasChanges);
     }
 
     [TestMethod]
@@ -1900,6 +1015,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsNull(destination[0]);
         Assert.IsTrue(Monitor.IsEntered(Boundary(destination).MutationLock));
         transaction.Commit();
+        transaction.Dispose();
         AssertUnboundAndUnlocked(source, destination);
     }
 
@@ -1942,6 +1058,7 @@ public sealed class ItemContainerTransferTests
         Assert.AreSame(item, source[0]);
         Assert.IsNull(destination[0]);
         transaction.Commit();
+        transaction.Dispose();
         AssertUnboundAndUnlocked(source, destination);
     }
 
@@ -1960,20 +1077,19 @@ public sealed class ItemContainerTransferTests
         AssertUnboundAndUnlocked(source, destination);
     }
 
-    [TestMethod]
+        [TestMethod]
     public void Transfer_ToSameContainerKeepsExistingNoMutationBehavior()
     {
-        var publications = 0;
-        var source = new ItemContainer(StorageType.Normal, 1, _ => publications++);
+        var source = new ItemContainer(StorageType.Normal, 1);
         var item = new TestItem(46, 1);
         Assert.IsTrue(source.Add(item));
-        publications = 0;
+        source.ChangeTracker.GetSlots();
 
         Assert.IsFalse(source.TryTransferTo(source, item, 1));
 
         Assert.AreSame(item, source[0]);
         Assert.AreEqual(1, item.Count);
-        Assert.AreEqual(0, publications);
+        Assert.IsFalse(source.ChangeTracker.HasChanges);
         AssertUnboundAndUnlocked(source);
     }
 
@@ -2120,188 +1236,93 @@ public sealed class ItemContainerTransferTests
         OnOtherThread(() => Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Dispose()));
     }
 
-    [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public void Commit_ForeignBeginWaitsUntilPublicationFinishesAndCannotSeeLaterMutation(bool publicationFails)
+        [TestMethod]
+    public void Commit_ForeignBeginWaitsUntilOwnerPublicationCompletes()
     {
         using var publicationStarted = new ManualResetEventSlim();
         using var finishPublication = new ManualResetEventSlim();
+        using var publicationFinished = new ManualResetEventSlim();
         using var contenderAttempted = new ManualResetEventSlim();
         using var contenderEntered = new ManualResetEventSlim();
+        var container = new ItemContainer(StorageType.Normal, 2);
         var itemA = new TestItem(140, 1);
         var itemB = new TestItem(141, 1);
-        var original = new InvalidOperationException("Publisher failure.");
-        ItemContainer? container = null;
-        ItemContainerTransaction? committing = null;
-        var publications = 0;
-        container = new ItemContainer(StorageType.Normal, 2, _ =>
+        var transaction = ItemContainerTransaction.Begin(container);
+        Assert.IsTrue(container.Add(itemA));
+        transaction.Commit();
+        CollectionAssert.AreEquivalent(new[] { 0 }, container.ChangeTracker.GetSlots()!.ToArray());
+
+        var publisher = new Thread(() =>
         {
-            AssertScopeBoundAndUnlocked(committing!, container!);
-            if (Interlocked.Increment(ref publications) != 1) return;
-            Assert.AreSame(itemA, container![0]);
-            Assert.IsNull(container[1]);
             publicationStarted.Set();
-            Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5)), "Publication must be released by the test.");
-            Assert.IsFalse(contenderEntered.IsSet, "The later transaction must not enter before publication returns.");
-            Assert.AreSame(itemA, container![0]);
-            Assert.IsNull(container[1]);
-            if (publicationFails) throw original;
-        });
-
-        Exception? firstFailure = null;
-        var first = new Thread(() =>
-        {
-            try
-            {
-                using var transaction = ItemContainerTransaction.Begin(container);
-                committing = transaction;
-                Assert.IsTrue(container.Add(itemA));
-                transaction.Commit();
-            }
-            catch (Exception exception) { firstFailure = exception; }
+            try { Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5))); }
+            finally { publicationFinished.Set(); }
         }) { IsBackground = true };
-        first.Start();
-        Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)), "The first scope must reach publication.");
+        publisher.Start();
+        Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
 
-        Exception? secondFailure = null;
-        var second = new Thread(() =>
+        Exception? contenderFailure = null;
+        var contender = new Thread(() =>
         {
             try
             {
                 contenderAttempted.Set();
-                using var transaction = ItemContainerTransaction.Begin(container);
-                committing = transaction;
+                using var scope = ItemContainerTransaction.Begin(container);
                 contenderEntered.Set();
                 Assert.IsTrue(container.Add(itemB));
-                transaction.Commit();
+                scope.Commit();
             }
-            catch (Exception exception) { secondFailure = exception; }
+            catch (Exception exception) { contenderFailure = exception; }
         }) { IsBackground = true };
-        second.Start();
+        contender.Start();
         try
         {
             Assert.IsTrue(contenderAttempted.Wait(TimeSpan.FromSeconds(5)));
-            Assert.IsFalse(contenderEntered.Wait(TimeSpan.FromMilliseconds(100)), "The foreign scope must wait through publication.");
+            Assert.IsFalse(contenderEntered.IsSet);
             Assert.AreSame(itemA, container[0]);
             Assert.IsNull(container[1]);
         }
         finally { finishPublication.Set(); }
 
-        Assert.IsTrue(first.Join(TimeSpan.FromSeconds(5)), "The committing scope must finish publication.");
-        Assert.IsTrue(second.Join(TimeSpan.FromSeconds(5)), "The waiting scope must proceed after release.");
-        if (publicationFails) Assert.AreSame(original, firstFailure);
-        else if (firstFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(firstFailure).Throw();
-        if (secondFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(secondFailure).Throw();
+        Assert.IsTrue(publisher.Join(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(publicationFinished.IsSet);
+        transaction.Dispose();
+        Assert.IsTrue(contender.Join(TimeSpan.FromSeconds(5)));
+        if (contenderFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(contenderFailure).Throw();
         Assert.IsTrue(contenderEntered.IsSet);
         Assert.AreSame(itemA, container[0]);
         Assert.AreSame(itemB, container[1]);
-        Assert.AreEqual(2, publications, "The first publication must run once, even when it throws.");
         AssertUnboundAndUnlocked(container);
     }
 
-    [TestMethod]
-    public void Commit_PublicationRejectsSameThreadReentrancyButAllowsDisjointScope()
+        [TestMethod]
+    public void Commit_RejectsMutationUntilCommittedScopeIsDisposedButAllowsDisjointScope()
     {
-        ItemContainer? container = null;
-        ItemContainerTransaction? committing = null;
-        var publicationCount = 0;
-        container = new ItemContainer(StorageType.Normal, 2, _ =>
+        var container = new ItemContainer(StorageType.Normal, 2);
+        var transaction = ItemContainerTransaction.Begin(container);
+        Assert.IsTrue(container.Add(new TestItem(144, 1)));
+        transaction.Commit();
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => ItemContainerTransaction.Begin(container));
+        Assert.ThrowsExactly<InvalidOperationException>(() => container.Add(new TestItem(145, 1)));
+        var unrelated = new ItemContainer(StorageType.Normal, 1);
+        using (var disjoint = ItemContainerTransaction.Begin(unrelated))
         {
-            AssertScopeBoundAndUnlocked(committing!, container!);
-            if (Interlocked.Increment(ref publicationCount) != 1) return;
-            Assert.ThrowsExactly<InvalidOperationException>(() => ItemContainerTransaction.Begin(container!));
-            Assert.ThrowsExactly<InvalidOperationException>(() => container!.Add(new TestItem(145, 1)));
-            var unrelated = new ItemContainer(StorageType.Normal, 1);
-            using var disjoint = ItemContainerTransaction.Begin(unrelated);
             Assert.IsTrue(unrelated.Add(new TestItem(146, 1)));
             disjoint.Commit();
-            Assert.AreEqual(1, container!.TakenSlots);
-        });
-        using (var transaction = ItemContainerTransaction.Begin(container!))
-        {
-            committing = transaction;
-            Assert.IsTrue(container!.Add(new TestItem(144, 1)));
-            transaction.Commit();
         }
-        Assert.AreEqual(1, container!.TakenSlots);
-        using var later = ItemContainerTransaction.Begin(container!);
-        committing = later;
-        Assert.IsTrue(container!.Add(new TestItem(147, 1)));
+        Assert.AreEqual(1, container.TakenSlots);
+
+        transaction.Dispose();
+        using var later = ItemContainerTransaction.Begin(container);
+        Assert.IsTrue(container.Add(new TestItem(147, 1)));
         later.Commit();
-        Assert.AreEqual(2, container!.TakenSlots);
+        Assert.AreEqual(2, container.TakenSlots);
+        later.Dispose();
         AssertUnboundAndUnlocked(container);
     }
 
-    [TestMethod]
-    public void Commit_MultiStorageForeignScopeWaitsAndUsesDeterministicLockOrder()
-    {
-        using var publicationStarted = new ManualResetEventSlim();
-        using var finishPublication = new ManualResetEventSlim();
-        using var contenderAttempted = new ManualResetEventSlim();
-        using var contenderEntered = new ManualResetEventSlim();
-        var prefix = new ItemContainer(StorageType.Normal, 1);
-        var ownerOnly = new ItemContainer(StorageType.Normal, 1);
-        ItemContainerTransaction? committing = null;
-        ItemContainer? shared = null;
-        shared = new ItemContainer(StorageType.Normal, 1, _ =>
-        {
-            AssertScopeBoundAndUnlocked(committing!, shared!, ownerOnly);
-            publicationStarted.Set();
-            Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5)));
-            Assert.IsFalse(contenderEntered.IsSet);
-        });
-        var owner = new CompositeParticipant([Boundary(shared), Boundary(ownerOnly)]);
-        var contender = new CompositeParticipant([Boundary(prefix), Boundary(shared)]);
-        Exception? ownerFailure = null;
-        var first = new Thread(() =>
-        {
-            try
-            {
-                using var transaction = ItemContainerTransaction.Begin(owner);
-                committing = transaction;
-                Assert.IsTrue(shared.Add(new TestItem(148, 1)));
-                Assert.IsTrue(ownerOnly.Add(new TestItem(149, 1)));
-                transaction.Commit();
-            }
-            catch (Exception exception) { ownerFailure = exception; }
-        }) { IsBackground = true };
-        first.Start();
-        Assert.IsTrue(publicationStarted.Wait(TimeSpan.FromSeconds(5)));
-
-        Exception? contenderFailure = null;
-        var second = new Thread(() =>
-        {
-            try
-            {
-                contenderAttempted.Set();
-                using var transaction = ItemContainerTransaction.Begin(contender);
-                foreach (var boundary in new[] { Boundary(prefix), Boundary(shared) })
-                {
-                    Assert.IsTrue(Monitor.IsEntered(boundary.MutationLock));
-                    Assert.AreSame(transaction, boundary.Transaction);
-                }
-                contenderEntered.Set();
-                transaction.Commit();
-            }
-            catch (Exception exception) { contenderFailure = exception; }
-        }) { IsBackground = true };
-        second.Start();
-        try
-        {
-            Assert.IsTrue(contenderAttempted.Wait(TimeSpan.FromSeconds(5)));
-            Assert.IsFalse(contenderEntered.Wait(TimeSpan.FromMilliseconds(100)));
-        }
-        finally { finishPublication.Set(); }
-        Assert.IsTrue(first.Join(TimeSpan.FromSeconds(5)), "The first scope must release the complete set.");
-        Assert.IsTrue(second.Join(TimeSpan.FromSeconds(5)), "The overlapping scope must not deadlock during teardown.");
-        if (ownerFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ownerFailure).Throw();
-        if (contenderFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(contenderFailure).Throw();
-        Assert.IsTrue(contenderEntered.IsSet);
-        AssertUnboundAndUnlocked(prefix, shared, ownerOnly);
-    }
-
-    [TestMethod]
+        [TestMethod]
     [DataRow(false, false)]
     [DataRow(false, true)]
     [DataRow(true, false)]
@@ -2345,44 +1366,14 @@ public sealed class ItemContainerTransferTests
         finally
         {
             if (commit) owner.Commit();
-            else owner.Dispose();
+            owner.Dispose();
         }
         Assert.IsTrue(worker.Join(TimeSpan.FromSeconds(5)), "Ordered overlapping scopes must not deadlock.");
         if (failure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
         AssertUnboundAndUnlocked(first, second, third);
     }
 
-    [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public void Commit_MultipleHookFailuresAreFlatAndRetainOriginalExceptions(bool publicationFails)
-    {
-        var hookFailures = Enumerable.Range(0, 3).Select(index => new InvalidOperationException($"Hook {index}")).ToArray();
-        var publicationFailure = new InvalidOperationException("Publisher failed.");
-        var calls = 0;
-        var container = new ItemContainer(StorageType.Normal, 1, _ =>
-        {
-            calls++;
-            if (publicationFails) throw publicationFailure;
-        });
-        Completion(container);
-        using var transaction = ItemContainerTransaction.Begin(container);
-        Assert.IsTrue(container.Add(new TestItem(47, 1)));
-        foreach (var failure in hookFailures)
-            Completion(container).Before(() => { AssertScopeBoundAndUnlocked(transaction, container); throw failure; });
-        var thrown = Assert.ThrowsExactly<AggregateException>(() => transaction.Commit());
-        var expected = publicationFails ? hookFailures.Cast<Exception>().Append(publicationFailure).ToArray() : hookFailures;
-        CollectionAssert.AreEquivalent(expected, thrown.InnerExceptions.ToArray());
-        Assert.IsTrue(thrown.InnerExceptions.All(exception => exception.StackTrace != null));
-        transaction.Dispose();
-        transaction.Dispose();
-        Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
-        Assert.AreEqual(1, calls);
-        Assert.AreEqual(1, container.TakenSlots);
-        AssertUnboundAndUnlocked(container);
-    }
-
-    [TestMethod]
+        [TestMethod]
     public void TransactionMarkerExposesNoMechanicsAndMutationBoundaryIsInternal()
     {
         Assert.AreEqual(0, typeof(IItemTransactional).GetMembers().Length);
@@ -2578,27 +1569,7 @@ public sealed class ItemContainerTransferTests
         public IReadOnlyList<ItemContainerMutationBoundary> Boundaries { get { OnResolve?.Invoke(); return boundaries; } }
     }
 
-    [TestMethod]
-    public void OrdinaryDomainInterfacesTransferBetweenInterfaceTypedContainers()
-    {
-        IItemContainer inventoryItems = new ItemContainer(StorageType.Normal, 2);
-        IItemContainer bankItems = new ItemContainer(StorageType.AlwaysStack, 2);
-        var inventory = Substitute.For<IInventoryContainer>();
-        inventory.Items.Returns(inventoryItems);
-        var bank = Substitute.For<IBankContainer>();
-        bank.Items.Returns(bankItems);
-        var item = new TestItem(30, 4);
-        Assert.IsTrue(inventory.Items.Add(item));
-
-        using var transaction = ItemContainerTransaction.Begin(inventory.Items, bank.Items);
-        Assert.IsTrue(inventory.Items.TryTransferTo(bank.Items, item, 4, 0));
-        transaction.Commit();
-
-        Assert.IsNull(inventory.Items[0]);
-        Assert.AreSame(item, bank.Items[0]);
-    }
-
-    [TestMethod]
+        [TestMethod]
     public void DomainAndInfrastructureInterfacesDoNotExposeConcreteContainerImplementations()
     {
         var ordinaryContainers = new[]
@@ -2608,7 +1579,7 @@ public sealed class ItemContainerTransferTests
         };
         foreach (var contract in ordinaryContainers)
         {
-            Assert.AreEqual(typeof(IItemContainer), contract.GetProperty("Items")!.PropertyType, contract.Name);
+            Assert.AreEqual(typeof(IReadOnlyItemContainer), contract.GetProperty("Items")!.PropertyType, contract.Name);
         }
 
         Assert.IsTrue(typeof(IItemTransactional).IsAssignableFrom(typeof(IItemContainer)));

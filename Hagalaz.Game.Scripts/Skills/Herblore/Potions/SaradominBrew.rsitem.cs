@@ -67,7 +67,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
                     return;
                 }
 
-                character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(PotionConstants.Vial).Build());
+                character.Inventory.ReplaceItem(slot, _itemBuilder.Create().WithId(PotionConstants.Vial).Build());
             }
             else
             {

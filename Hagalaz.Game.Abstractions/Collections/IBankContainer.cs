@@ -6,9 +6,15 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// <summary>
     /// Defines the contract for a player's bank operations and its generic item-container component.
     /// </summary>
-    public interface IBankContainer
+    public interface IBankContainer : IItemTransactional
     {
-        IItemContainer Items { get; }
+        IReadOnlyItemContainer Items { get; }
+
+        bool AddItem(IItem item);
+        void SwapItems(int fromSlot, int toSlot);
+        void MoveItem(int fromSlot, int toSlot);
+        void SortItems();
+        void PublishChanges();
 
         /// <summary>
         /// Deposits the contents of the player's money pouch into the bank.
@@ -25,7 +31,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="deposited">When this method returns, contains the <see cref="IItem"/> that was actually deposited into the bank, if the operation was successful.</param>
         /// <param name="container">The source familiar inventory container.</param>
         /// <returns><c>true</c> if the deposit was successful; otherwise, <c>false</c>.</returns>
-        bool DepositFromFamiliar(IItem item, int count, [NotNullWhen(true)] out IItem? deposited, IItemContainer container);
+        bool DepositFromFamiliar(IItem item, int count, [NotNullWhen(true)] out IItem? deposited, IFamiliarInventoryContainer container);
 
         /// <summary>
         /// Deposits a specific item from the player's equipment into the bank.
@@ -44,6 +50,9 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="deposited">When this method returns, contains the <see cref="IItem"/> that was actually deposited into the bank, if the operation was successful.</param>
         /// <returns><c>true</c> if the deposit was successful; otherwise, <c>false</c>.</returns>
         bool DepositFromInventory(IItem item, int count, [NotNullWhen(true)] out IItem? deposited);
+
+        /// <summary>Receives an item from a trade escrow as part of its caller-owned transaction.</summary>
+        bool ReceiveFromTrade(IItemContainer source, IItem item, int count, int sourceSlot);
 
         /// <summary>
         /// Withdraws a specific item from the bank and prepares it for placement in another container (e.g., inventory).

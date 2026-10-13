@@ -4,6 +4,4 @@ namespace Hagalaz.Game.Abstractions.Collections;
 internal interface IItemContainerCompletionOwner
 {
     void DiscardPendingCompletion();
-    void CompleteBeforePublication();
-    void CompleteAfterPublication();
 }

@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Utilities;
@@ -62,10 +63,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             _owner = owner;
             _itemBuilder = itemBuilder;
-            _inventoryMutations = ItemContainerTransaction.ResolveSingleBoundary(owner.Inventory.Items);
+            _inventoryMutations = ItemContainerTransaction.ResolveSingleBoundary(owner.Inventory);
             var coins = _itemBuilder.Create().WithId(CoinsItemId).WithCount(0).Build();
             _storage = new ItemContainerStorage(StorageType.Normal, [coins], 1, 0);
-            _storageMutations = new ItemContainerMutationBoundary(_storage, null, this);
+            _storageMutations = new ItemContainerMutationBoundary(_storage, this);
         }
 
         /// <summary>
@@ -80,6 +81,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             using var ownedTransaction = ItemContainerTransaction.Begin(this);
             if (!AddExactCore(count, ownedTransaction)) return false;
             ownedTransaction.Commit();
+            PublishCommittedChanges();
             return true;
         }
 
@@ -112,7 +114,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            if (inventoryCount > 0 && !_owner.Inventory.Items.AddRange(
+            if (inventoryCount > 0 && !_owner.Inventory.AddItems(
                     [_itemBuilder.Create().WithId(CoinsItemId).WithCount(inventoryCount).Build()]))
             {
                 return false;
@@ -163,6 +165,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             using var ownedTransaction = ItemContainerTransaction.Begin(this);
             if (!RemoveExactCore(count, ownedTransaction)) return false;
             ownedTransaction.Commit();
+            PublishCommittedChanges();
             return true;
         }
 
@@ -188,7 +191,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            if (inventoryCount > 0 && !_owner.Inventory.Items.TryRemoveExact(
+            if (inventoryCount > 0 && !_owner.Inventory.TryRemoveItemExact(
                     _itemBuilder.Create().WithId(CoinsItemId).WithCount(inventoryCount).Build()))
             {
                 return false;
@@ -205,11 +208,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         }
 
         void IItemContainerCompletionOwner.DiscardPendingCompletion() => _pendingChanges.Clear();
-        void IItemContainerCompletionOwner.CompleteBeforePublication() { }
-        void IItemContainerCompletionOwner.CompleteAfterPublication()
+        public void PublishChanges()
         {
             while (_pendingChanges.TryDequeue(out var change))
-                PublishChange(change); // Consume before observable code; a failure is never retried.
+            {
+                try { PublishChange(change); } // Consume before observable code; a failure is never retried.
+                catch
+                {
+                    _pendingChanges.Clear();
+                    throw;
+                }
+            }
         }
 
         private ItemContainerTransaction? GetCurrentThreadTransaction(ItemContainerMutationBoundary? additionalBoundary = null)
@@ -227,6 +236,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             SendMoneyPouchChangedMessage(change.ChangeCount);
             if (change.PreviousCount != change.NewCount)
                 _owner.EventManager.SendEvent(new MoneyPouchChangedEvent(_owner, change.PreviousCount, change.NewCount));
+        }
+
+        private void PublishCommittedChanges()
+        {
+            List<Exception>? failures = null;
+            try { _owner.Inventory.PublishChanges(); }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
+            try { PublishChanges(); }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
+
+            if (failures is { Count: 1 }) ExceptionDispatchInfo.Capture(failures[0]).Throw();
+            if (failures is { Count: > 1 }) throw new AggregateException(failures).Flatten();
         }
 
         /// <summary>
@@ -262,10 +283,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (transferCount <= 0) return false;
 
             using var transaction = ItemContainerTransaction.Begin(this);
-            if (!TryTransferCoinsFrom(
-                    _owner.Inventory.Items,
-                    _itemBuilder.Create().WithId(CoinsItemId).WithCount(transferCount).Build())) return false;
+            var coins = _itemBuilder.Create().WithId(CoinsItemId).WithCount(transferCount).Build();
+            var slot = _owner.Inventory.Items.GetSlotByItem(coins);
+            if (slot < 0 || !_owner.Inventory.TryRemoveItemExact(coins, slot) ||
+                !AddExactCore(transferCount, transaction)) return false;
             transaction.Commit();
+            PublishCommittedChanges();
             return true;
         }
 
@@ -283,6 +306,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 if (TryMoveToInventoryCore(count, out inventoryFull))
                 {
                     transaction.Commit();
+                    PublishCommittedChanges();
                     return true;
                 }
             }
@@ -303,7 +327,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (count <= 0) return false;
             var transferCount = Math.Min(count, Count);
             if (transferCount <= 0) return false;
-            if (!_owner.Inventory.Items.AddRange([_itemBuilder.Create().WithId(CoinsItemId).WithCount(transferCount).Build()]))
+            if (!_owner.Inventory.AddItems([_itemBuilder.Create().WithId(CoinsItemId).WithCount(transferCount).Build()]))
             {
                 inventoryFull = true;
                 return false;

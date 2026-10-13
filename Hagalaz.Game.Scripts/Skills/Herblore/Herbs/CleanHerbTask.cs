@@ -97,7 +97,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                 }
 
                 Performer.SendChatMessage("You clean the drift from the " + item.Name.ToLower());
-                Performer.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(Definition.CleanHerbId).Build());
+                Performer.Inventory.ReplaceItem(slot, _itemBuilder.Create().WithId(Definition.CleanHerbId).Build());
                 Performer.Statistics.AddExperience(StatisticsConstants.Herblore, Definition.CleanExperience);
             }
         }

@@ -16,7 +16,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public partial class FamiliarInventoryContainer : IFamiliarInventoryContainer, IHydratable<IReadOnlyList<HydratedItem>>, IDehydratable<IReadOnlyList<HydratedItem>>
+    public partial class FamiliarInventoryContainer : IFamiliarInventoryContainer, IItemTransactionSource,
+        IHydratable<IReadOnlyList<HydratedItem>>, IDehydratable<IReadOnlyList<HydratedItem>>
     {
         /// <summary>
         /// Instance of the character who owns this container.
@@ -24,7 +25,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ICharacter _owner;
         private readonly IItemBuilder _itemBuilder;
         private readonly ItemContainer _items;
-        public IItemContainer Items => _items;
+        IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries =>
+            ((IItemTransactionSource)_items).Boundaries;
+        public IReadOnlyItemContainer Items => _items;
 
         /// <summary>
         /// Constructs a container for character inventories.
@@ -35,7 +38,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public FamiliarInventoryContainer(ICharacter owner, StorageType type, int capacity, IItemBuilder itemBuilder)
         {
             (_owner, _itemBuilder) = (owner, itemBuilder);
-            _items = new ItemContainer(type, capacity, OnUpdate);
+            _items = new ItemContainer(type, capacity);
         }
 
         /// <summary>
@@ -58,7 +61,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            if (_owner.Inventory.Items.TryTransferTo(_items, item, count, slot)) return true;
+            using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory, this))
+            {
+                if (_owner.Inventory.TryTransferItemTo(_items, item, count, slot))
+                {
+                    transaction.Commit();
+                    _owner.Inventory.PublishChanges();
+                    PublishChanges();
+                    return true;
+                }
+            }
 
             _owner.SendChatMessage(GameStrings.FamiliarInventoryFull);
             return false;
@@ -82,7 +94,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            if (_items.TryTransferTo(_owner.Inventory.Items, item, count, slot)) return true;
+            using (var transaction = ItemContainerTransaction.Begin(this, _owner.Inventory))
+            {
+                if (_owner.Inventory.TryTransferItemFrom(_items, item, count, slot))
+                {
+                    transaction.Commit();
+                    PublishChanges();
+                    _owner.Inventory.PublishChanges();
+                    return true;
+                }
+            }
 
             _owner.SendChatMessage(GameStrings.InventoryFull);
             return false;
@@ -90,20 +111,48 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void WithdrawAvailableToInventory()
         {
-            var inventoryItems = _owner.Inventory.Items;
-            using var transaction = ItemContainerTransaction.Begin(_items, inventoryItems);
+            using var transaction = ItemContainerTransaction.Begin(this, _owner.Inventory);
             var familiarItems = _items.Select((item, slot) => (item, slot))
                 .Where(entry => entry.item is { Count: > 0 }).ToArray();
             foreach (var (item, slot) in familiarItems)
-                _items.TryTransferTo(inventoryItems, item!, item!.Count, slot);
+                _owner.Inventory.TryTransferItemFrom(_items, item!, item!.Count, slot);
             transaction.Commit();
+            PublishChanges();
+            _owner.Inventory.PublishChanges();
+        }
+
+        public int RemoveItem(IItem item, int preferredSlot = -1, bool publishChanges = true)
+        {
+            if (_items.CurrentThreadTransaction != null)
+                return _items.Remove(item, preferredSlot, publishChanges);
+
+            using var transaction = ItemContainerTransaction.Begin(this);
+            var removed = _items.Remove(item, preferredSlot, publishChanges);
+            if (removed > 0) { transaction.Commit(); PublishChanges(); }
+            return removed;
+        }
+
+        public bool TryTransferItemTo(IItemContainer destination, IItem item, int count,
+            int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null)
+        {
+            using var transaction = _items.CurrentThreadTransaction == null
+                ? ItemContainerTransaction.Begin(this, destination)
+                : null;
+            if (!_items.TryTransferTo(destination, item, count, preferredSourceSlot, destinationSlot, destinationItem)) return false;
+            if (transaction != null) { transaction.Commit(); PublishChanges(); }
+            return true;
         }
 
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
         /// <param name="slots">The slots.</param>
-        public void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new FamiliarInventoryChangedEvent(_owner, slots));
+        public void PublishChanges()
+        {
+            var slots = _items.ChangeTracker.GetSlots();
+            if (slots is { Count: 0 }) return;
+            _owner.EventManager.SendEvent(new FamiliarInventoryChangedEvent(_owner, slots));
+        }
 
         public void Hydrate(IReadOnlyList<HydratedItem> inventory)
         {

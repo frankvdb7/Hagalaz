@@ -176,8 +176,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     victor.MoneyPouch.Add(removedCoins);
                 }
 
-                victor.Inventory.Items.AddRange(SelfContainer.Items);
-                victor.Inventory.Items.AddRange(TargetContainer.Items);
+                victor.Inventory.AddItems(SelfContainer.Items);
+                victor.Inventory.AddItems(TargetContainer.Items);
             }
         }
 

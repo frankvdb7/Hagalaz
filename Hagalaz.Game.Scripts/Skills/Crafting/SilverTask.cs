@@ -91,14 +91,14 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
             }
 
             MakeCount++;
-            var removed = Performer.Inventory.Items.Remove(_itemBuilder.Create().WithId(CraftingSkillService.SilverBar).Build());
+            var removed = Performer.Inventory.RemoveItem(_itemBuilder.Create().WithId(CraftingSkillService.SilverBar).Build());
             if (removed <= 0)
             {
                 Cancel();
                 return;
             }
 
-            Performer.Inventory.Items.Add(_itemBuilder.Create().WithId(Definition.ProductID).Build());
+            Performer.Inventory.AddItem(_itemBuilder.Create().WithId(Definition.ProductID).Build());
             Performer.SendChatMessage("You shape the silver bar with the mould to make a " +
                                       _itemService.FindItemDefinitionById(Definition.ProductID).Name.ToLower() + ".");
 

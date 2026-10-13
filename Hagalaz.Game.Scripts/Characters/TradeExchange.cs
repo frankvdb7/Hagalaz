@@ -25,8 +25,8 @@ internal sealed class TradeExchange
     /// The caller must include both offer containers and both MoneyPouches in the transaction. Each MoneyPouch
     /// contributes its inventory storage. This method does not create or commit a transaction.
     /// </remarks>
-    public bool TryStageCompletion(ICharacter first, IItemContainer firstOffer, ICharacter second,
-        IItemContainer secondOffer) =>
+    public bool TryStageCompletion(ICharacter first, TradingCharacterScript.TradeContainer firstOffer, ICharacter second,
+        TradingCharacterScript.TradeContainer secondOffer) =>
         StageOffers(first, second, secondOffer, firstOffer);
 
     /// <summary>Stages a trade refund inside the caller-owned item-container transaction.</summary>
@@ -34,15 +34,15 @@ internal sealed class TradeExchange
     /// The caller must include both offer containers and both MoneyPouches in the transaction. Each MoneyPouch
     /// contributes its inventory storage. This method does not create or commit a transaction.
     /// </remarks>
-    public bool TryStageRefund(ICharacter first, IItemContainer firstOffer, ICharacter second,
-        IItemContainer secondOffer) =>
+    public bool TryStageRefund(ICharacter first, TradingCharacterScript.TradeContainer firstOffer, ICharacter second,
+        TradingCharacterScript.TradeContainer secondOffer) =>
         StageOffers(first, second, firstOffer, secondOffer);
 
     private bool StageOffers(ICharacter first, ICharacter second,
-        IItemContainer itemsForFirst, IItemContainer itemsForSecond)
+        TradingCharacterScript.TradeContainer itemsForFirst, TradingCharacterScript.TradeContainer itemsForSecond)
     {
-        var firstItems = CloneOfferedItems(itemsForFirst);
-        var secondItems = CloneOfferedItems(itemsForSecond);
+        var firstItems = CloneOfferedItems(itemsForFirst.Items);
+        var secondItems = CloneOfferedItems(itemsForSecond.Items);
         if (!CanReceive(first, firstItems) || !CanReceive(second, secondItems)) return false;
         if (!TransferOffer(itemsForFirst, first) || !TransferOffer(itemsForSecond, second)) return false;
         return true;
@@ -53,11 +53,11 @@ internal sealed class TradeExchange
     /// The caller must begin a transaction containing both offer containers and every available recovery destination
     /// that may be selected before calling this method. This method does not create or commit a transaction.
     /// </remarks>
-    internal bool TryStageEscrowRecovery(ICharacter first, IItemContainer firstOffer, ICharacter second,
-        IItemContainer secondOffer)
+    internal bool TryStageEscrowRecovery(ICharacter first, TradingCharacterScript.TradeContainer firstOffer, ICharacter second,
+        TradingCharacterScript.TradeContainer secondOffer)
     {
-        var firstItems = CloneOfferedItems(firstOffer);
-        var secondItems = CloneOfferedItems(secondOffer);
+        var firstItems = CloneOfferedItems(firstOffer.Items);
+        var secondItems = CloneOfferedItems(secondOffer.Items);
         var firstDestination = GetRecoveryContainer(first, firstItems);
         var secondDestination = GetRecoveryContainer(second, secondItems);
         if ((firstItems.Length > 0 && firstDestination == null) ||
@@ -67,28 +67,34 @@ internal sealed class TradeExchange
         return true;
     }
 
-    internal bool TryOfferMoneyFromPouch(ICharacter character, IItemContainer offer, IItem coins)
+    internal bool TryOfferMoneyFromPouch(ICharacter character, TradingCharacterScript.TradeContainer offer, IItem coins)
     {
         if (coins.Count <= 0) return false;
 
-        using var transaction = ItemContainerTransaction.Begin(offer, character.MoneyPouch);
-        if (!character.MoneyPouch.HasCoins(coins.Count) || !offer.HasSpaceFor(coins) || !offer.Add(coins) ||
+        using var transaction = ItemContainerTransaction.Begin(offer.MutableItems, character.MoneyPouch);
+        if (!character.MoneyPouch.HasCoins(coins.Count) || !offer.Items.HasSpaceFor(coins) || !offer.AddItem(coins) ||
             !character.MoneyPouch.TryRemoveExact(coins.Count)) return false;
         transaction.Commit();
+        offer.PublishChanges();
+        character.Inventory.PublishChanges();
+        character.MoneyPouch.PublishChanges();
         return true;
     }
 
-    internal bool TryReturnMoneyToPouch(ICharacter character, IItemContainer offer, IItem coins, int preferredSlot)
+    internal bool TryReturnMoneyToPouch(ICharacter character, TradingCharacterScript.TradeContainer offer, IItem coins, int preferredSlot)
     {
-        using var transaction = ItemContainerTransaction.Begin(offer, character.MoneyPouch);
-        if (!character.MoneyPouch.TryTransferCoinsFrom(offer, coins, preferredSlot)) return false;
+        using var transaction = ItemContainerTransaction.Begin(offer.MutableItems, character.MoneyPouch);
+        if (!character.MoneyPouch.TryTransferCoinsFrom(offer.MutableItems, coins, preferredSlot)) return false;
         transaction.Commit();
+        offer.PublishChanges();
+        character.Inventory.PublishChanges();
+        character.MoneyPouch.PublishChanges();
         return true;
     }
 
-    private bool TransferOffer(IItemContainer source, ICharacter recipient)
+    private bool TransferOffer(TradingCharacterScript.TradeContainer source, ICharacter recipient)
     {
-        var offeredItems = source.Select((item, slot) => (item, slot))
+        var offeredItems = source.Items.Select((item, slot) => (item, slot))
             .Where(entry => entry.item != null)
             .Select(entry => (Item: entry.item!, entry.slot))
             .ToArray();
@@ -97,9 +103,9 @@ internal sealed class TradeExchange
         {
             if (item.Id == CoinsItemId)
             {
-                if (!recipient.MoneyPouch.TryTransferCoinsFrom(source, item, slot)) return false;
+                if (!recipient.MoneyPouch.TryTransferCoinsFrom(source.MutableItems, item, slot)) return false;
             }
-            else if (!source.TryTransferTo(recipient.Inventory.Items, item, item.Count,
+            else if (!recipient.Inventory.TryTransferItemFrom(source.MutableItems, item, item.Count,
                          slot, destinationItem: item.Clone()))
             {
                 return false;
@@ -109,16 +115,22 @@ internal sealed class TradeExchange
         return true;
     }
 
-    private static bool TransferOffer(IItemContainer source, IItemContainer destination)
+    private static bool TransferOffer(TradingCharacterScript.TradeContainer source, IItemTransactional destination)
     {
-        var offeredItems = source.Select((item, slot) => (item, slot))
+        var offeredItems = source.Items.Select((item, slot) => (item, slot))
             .Where(entry => entry.item != null)
             .Select(entry => (Item: entry.item!, entry.slot))
             .ToArray();
 
         foreach (var (item, slot) in offeredItems)
         {
-            if (!source.TryTransferTo(destination, item, item.Count, slot, destinationItem: item.Clone())) return false;
+            var transferred = destination switch
+            {
+                IRewardContainer rewards => rewards.ReceiveFromTrade(source.MutableItems, item, item.Count, slot),
+                IBankContainer bank => bank.ReceiveFromTrade(source.MutableItems, item, item.Count, slot),
+                _ => throw new InvalidOperationException("Trade recovery requires a bank or reward container.")
+            };
+            if (!transferred) return false;
         }
 
         return true;
@@ -142,18 +154,18 @@ internal sealed class TradeExchange
         return character.Inventory.Items.HasSpaceForRange(recipientItems);
     }
 
-    private IItemContainer? GetRecoveryContainer(ICharacter character, IReadOnlyList<IItem> items)
+    private IItemTransactional? GetRecoveryContainer(ICharacter character, IReadOnlyList<IItem> items)
     {
-        if (items.Count == 0) return character.Rewards?.Items;
+        if (items.Count == 0) return (IItemTransactional?)character.Rewards ?? character.Bank;
         if (character.Rewards != null && character.Rewards.Items.HasSpaceForRange(items))
         {
-            return character.Rewards.Items;
+            return character.Rewards;
         }
 
-        return character.Bank != null && character.Bank.Items.HasSpaceForRange(items) ? character.Bank.Items : null;
+        return character.Bank != null && character.Bank.Items.HasSpaceForRange(items) ? character.Bank : null;
     }
 
-    private IItem[] CloneOfferedItems(IItemContainer container) =>
+    private IItem[] CloneOfferedItems(IReadOnlyItemContainer container) =>
         container.OfType<IItem>().Select(item => item.Clone()).ToArray();
 
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.Shops;
@@ -34,7 +35,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         private readonly IItemBuilder _itemBuilder;
         private readonly IEventManager _eventManager;
         private readonly ItemContainer _items;
-        public IItemContainer Items => _items;
+        public IReadOnlyItemContainer Items => _items;
 
         private readonly Dictionary<int, int> _originalStockCounts;
 
@@ -54,7 +55,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             IList<IItem> stock, IEventManager eventManager)
         {
             _originalStockCounts = AggregateOriginalStock(stock);
-            _items = new ItemContainer(type, stock, capacity, OnUpdate, 0);
+            _items = new ItemContainer(type, stock, capacity, 0);
             _shop = shop;
             _sampleContainer = sampleContainer;
             _itemRepository = itemRepository;
@@ -79,8 +80,10 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
         /// <param name="slots">The slots.</param>
-        public void OnUpdate(HashSet<int>? slots = null)
+        public void PublishChanges()
         {
+            var slots = _items.ChangeTracker.GetSlots();
+            if (slots is { Count: 0 }) return;
             if (_sampleContainer)
                 _eventManager.SendEvent(new ShopSampleStockChangedEvent(_shop, slots));
             else
@@ -89,9 +92,14 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
         public void SetItems(IItem[] items, bool update)
         {
-            using var mutation = _items.BeginMutation();
-            _items.ReplaceState(items);
-            if (update) mutation.RecordChanges(null);
+            using var transaction = ItemContainerTransaction.Begin(_items);
+            using (var mutation = _items.BeginMutation())
+            {
+                _items.ReplaceState(items);
+                if (update) mutation.RecordChanges(null);
+            }
+            transaction.Commit();
+            if (update) PublishChanges();
         }
 
         /// <summary>
@@ -152,15 +160,16 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
             IItemTransactional[] participants = _shop.CurrencyId == 995
                 ? [viewer.MoneyPouch, _items]
-                : [viewer.Inventory.Items, _items];
+                : [viewer.Inventory, _items];
             using var transaction = ItemContainerTransaction.Begin(participants);
-            if (!viewer.Inventory.Items.TryTransferTo(_items, item, count, slot,
+            if (!viewer.Inventory.TryTransferItemTo(_items, item, count, slot,
                     destinationItem: transformed ? sold : null)) return false;
             var paid = _shop.CurrencyId == 995
                 ? viewer.MoneyPouch.Add((int)currencyCount)
-                : viewer.Inventory.Items.Add(_itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)currencyCount).Build());
+                : viewer.Inventory.AddItem(_itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)currencyCount).Build());
             if (!paid) return false;
             transaction.Commit();
+            PublishSaleChanges(viewer);
             return true;
         }
 
@@ -245,7 +254,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             var originalStock = _originalStockCounts.ContainsKey(item.Id);
             IItemTransactional[] participants = _shop.CurrencyId == 995
                 ? [_items, viewer.MoneyPouch]
-                : [_items, viewer.Inventory.Items];
+                : [_items, viewer.Inventory];
             var insufficientCurrency = false;
             using (var transaction = ItemContainerTransaction.Begin(participants))
             {
@@ -253,14 +262,15 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 {
                     var paid = _shop.CurrencyId == 995
                         ? viewer.MoneyPouch.TryRemoveExact((int)cost)
-                        : viewer.Inventory.Items.TryRemoveExact(
+                        : viewer.Inventory.TryRemoveItemExact(
                             _itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)cost).Build());
                     insufficientCurrency = !paid;
                 }
                 if (!insufficientCurrency)
                 {
-                    if (!_items.TryTransferTo(viewer.Inventory.Items, item, count, slot)) return false;
+                    if (!viewer.Inventory.TryTransferItemFrom(_items, item, count, slot)) return false;
                     transaction.Commit();
+                    PublishPurchaseChanges(viewer);
                 }
             }
             if (insufficientCurrency)
@@ -268,7 +278,13 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 viewer.SendChatMessage("You don't have enough " + _itemRepository.FindItemDefinitionById(_shop.CurrencyId).Name.ToLower() + "!");
                 return false;
             }
-            if (!originalStock && Items[slot] == null) Items.Sort();
+            if (!originalStock && Items[slot] == null)
+            {
+                using var sortTransaction = ItemContainerTransaction.Begin(_items);
+                _items.Sort();
+                sortTransaction.Commit();
+                PublishChanges();
+            }
             _eventManager.SendEvent(new ShopItemBoughtEvent(viewer, _shop, toRemove));
             return true;
         }
@@ -280,6 +296,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         {
             var changedSlots = new HashSet<int>();
             var positionsChanged = false;
+            using var transaction = ItemContainerTransaction.Begin(_items);
             using (var mutation = _items.BeginMutation())
             {
                 var currentItems = _items.SnapshotItems();
@@ -350,6 +367,11 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                     mutation.RecordChanges(positionsChanged ? null : changedSlots);
                 }
             }
+            if (changedSlots.Count > 0)
+            {
+                transaction.Commit();
+                PublishChanges();
+            }
         }
 
         private static IItem CloneWithCount(IItem item, int count)
@@ -359,6 +381,37 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 throw new InvalidOperationException("Item cloning must produce a new instance for stock normalization.");
             clone.Count = count;
             return clone;
+        }
+
+        private void PublishSaleChanges(ICharacter viewer)
+        {
+            List<Exception>? failures = null;
+            try { viewer.Inventory.PublishChanges(); }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
+            try { PublishChanges(); }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
+            PublishPouchChanges(viewer, ref failures);
+            if (failures is { Count: 1 }) ExceptionDispatchInfo.Capture(failures[0]).Throw();
+            if (failures is { Count: > 1 }) throw new AggregateException(failures).Flatten();
+        }
+
+        private void PublishPurchaseChanges(ICharacter viewer)
+        {
+            List<Exception>? failures = null;
+            try { PublishChanges(); }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
+            try { viewer.Inventory.PublishChanges(); }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
+            PublishPouchChanges(viewer, ref failures);
+            if (failures is { Count: 1 }) ExceptionDispatchInfo.Capture(failures[0]).Throw();
+            if (failures is { Count: > 1 }) throw new AggregateException(failures).Flatten();
+        }
+
+        private void PublishPouchChanges(ICharacter viewer, ref List<Exception>? failures)
+        {
+            if (_shop.CurrencyId != 995) return;
+            try { viewer.MoneyPouch.PublishChanges(); }
+            catch (Exception exception) { (failures ??= []).Add(exception); }
         }
 
         private void DecreaseStockItem(IItem?[] currentItems, IItem?[] plannedItems, int slot,

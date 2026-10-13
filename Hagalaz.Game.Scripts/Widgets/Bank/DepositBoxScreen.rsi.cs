@@ -135,7 +135,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                         var item = inventory.Items[i];
                         if (item != null)
                         {
-                            if (!Owner.Bank.DepositFromFamiliar(item, item.Count, out var outItem, inventory.Items))
+                            if (!Owner.Bank.DepositFromFamiliar(item, item.Count, out var outItem, inventory))
                             {
                                 break;
                             }

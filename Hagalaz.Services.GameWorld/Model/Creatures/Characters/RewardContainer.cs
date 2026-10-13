@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -8,7 +9,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public partial class RewardContainer : IRewardContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public partial class RewardContainer : IRewardContainer, IItemTransactionSource,
+        IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
@@ -23,13 +25,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
         private readonly ItemContainer _items;
-        public IItemContainer Items => _items;
+        IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries =>
+            ((IItemTransactionSource)_items).Boundaries;
+        public IReadOnlyItemContainer Items => _items;
 
         public RewardContainer(ICharacter owner, IItemBuilder itemBuilder)
         {
             _owner = owner;
             _itemBuilder = itemBuilder;
-            _items = new ItemContainer(StorageType.AlwaysStack, byte.MaxValue, OnUpdate);
+            _items = new ItemContainer(StorageType.AlwaysStack, byte.MaxValue);
         }
 
         /// <summary>
@@ -79,22 +83,35 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 toRemove.Count = count;
             }
 
-            using var transaction = ItemContainerTransaction.Begin(_items, _owner.Inventory.Items);
-            if (!_items.TryTransferTo(_owner.Inventory.Items, item, count, slot))
+            using var transaction = ItemContainerTransaction.Begin(_items, _owner.Inventory);
+            if (!_owner.Inventory.TryTransferItemFrom(_items, item, count, slot))
             {
                 return -1;
             }
 
             _items.Sort();
             transaction.Commit();
+            PublishChanges();
+            _owner.Inventory.PublishChanges();
             return count;
+        }
+
+        public bool ReceiveFromTrade(IItemContainer source, IItem item, int count, int sourceSlot)
+        {
+            ArgumentNullException.ThrowIfNull(source);
+            return source.TryTransferTo(_items, item, count, sourceSlot, destinationItem: item.Clone());
         }
 
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
         /// <param name="slots">The slots.</param>
-        public void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new RewardsChangedEvent(_owner, slots));
+        public void PublishChanges()
+        {
+            var slots = _items.ChangeTracker.GetSlots();
+            if (slots is { Count: 0 }) return;
+            _owner.EventManager.SendEvent(new RewardsChangedEvent(_owner, slots));
+        }
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> rewards)
         {

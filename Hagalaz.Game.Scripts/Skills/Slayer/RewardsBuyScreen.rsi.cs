@@ -69,7 +69,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                         return false;
                     }
 
-                    if (Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(13281).Build()))
+                    if (Owner.Inventory.AddItem(_itemBuilder.Create().WithId(13281).Build()))
                     {
                         _mediator.Publish(new ProfileIncrementIntAction(ProfileConstants.SlayerRewardPoints, 75));
                     }
@@ -89,8 +89,8 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                     var mindRune = _itemBuilder.Create().WithId(558).WithCount(4).Build();
                     if (Owner.Inventory.Items.HasSpaceForRange([deathRune, mindRune]))
                     {
-                        Owner.Inventory.Items.Add(deathRune);
-                        Owner.Inventory.Items.Add(mindRune);
+                        Owner.Inventory.AddItem(deathRune);
+                        Owner.Inventory.AddItem(mindRune);
                         _mediator.Publish(new ProfileIncrementIntAction(ProfileConstants.SlayerRewardPoints, 35));
                     }
                     else
@@ -110,7 +110,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                         return false;
                     }
 
-                    if (Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(13280).WithCount(250).Build()))
+                    if (Owner.Inventory.AddItem(_itemBuilder.Create().WithId(13280).WithCount(250).Build()))
                     {
                         _mediator.Publish(new ProfileIncrementIntAction(ProfileConstants.SlayerRewardPoints, 35));
                     }
@@ -126,7 +126,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                         return false;
                     }
 
-                    if (Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(4160).WithCount(250).Build()))
+                    if (Owner.Inventory.AddItem(_itemBuilder.Create().WithId(4160).WithCount(250).Build()))
                     {
                         _mediator.Publish(new ProfileIncrementIntAction(ProfileConstants.SlayerRewardPoints, 35));
                     }

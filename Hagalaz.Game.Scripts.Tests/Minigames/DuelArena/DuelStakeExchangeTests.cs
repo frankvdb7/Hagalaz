@@ -4,6 +4,7 @@ using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Minigames.DuelArena;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using NSubstitute;
@@ -57,12 +58,35 @@ public sealed class DuelStakeExchangeTests
     {
         var scenario = CreateScenario(pouchCoins: 5);
         Assert.IsTrue(scenario.InventoryItems.Add(new TestItem(995, 3, stackable: true)));
+        var eventManager = scenario.Character.EventManager;
+        eventManager.ClearReceivedCalls();
+        var inventoryUpdates = scenario.Inventory.UpdateCount;
 
         Assert.IsTrue(scenario.Exchange.TryStakePouchCoins(scenario.Character, scenario.Stake, 20));
 
         Assert.AreEqual(0, scenario.Pouch.Count);
         Assert.AreEqual(0, scenario.InventoryItems.GetCountById(995));
         Assert.AreEqual(8, scenario.Stake.GetCountById(995));
+        Assert.AreEqual(inventoryUpdates + 1, scenario.Inventory.UpdateCount);
+        eventManager.Received(1).SendEvent(Arg.Is<MoneyPouchChangedEvent>(change =>
+            change.PreviousCount == 5 && change.Count == 0));
+    }
+
+    [TestMethod]
+    public void TryReturnCoinsToPouch_PublishesPouchChangeAfterCommit()
+    {
+        var scenario = CreateScenario();
+        var stakeCoins = new TestItem(995, 4, stackable: true);
+        Assert.IsTrue(scenario.Stake.Add(stakeCoins));
+        var eventManager = scenario.Character.EventManager;
+        eventManager.ClearReceivedCalls();
+
+        Assert.IsTrue(scenario.Exchange.TryReturnCoinsToPouch(scenario.Character, scenario.Stake, stakeCoins, 0));
+
+        Assert.AreEqual(4, scenario.Pouch.Count);
+        Assert.AreEqual(0, scenario.Stake.GetCountById(995));
+        eventManager.Received(1).SendEvent(Arg.Is<MoneyPouchChangedEvent>(change =>
+            change.PreviousCount == 0 && change.Count == 4));
     }
 
     [TestMethod]
@@ -118,13 +142,13 @@ public sealed class DuelStakeExchangeTests
         Assert.AreEqual(0, second.Stake.TakenSlots);
         Assert.AreEqual(20, second.Pouch.Count);
         Assert.AreEqual(2, second.InventoryItems.GetCountById(1002));
+        Assert.AreEqual(1, first.Inventory.UpdateCount);
+        Assert.AreEqual(1, second.Inventory.UpdateCount);
     }
 
     private static Scenario CreateScenario(int inventoryCapacity = 4, int stakeCapacity = 4, int pouchCoins = 0)
     {
-        var inventoryItems = new ItemContainer(StorageType.Normal, (short)inventoryCapacity);
-        var inventory = Substitute.For<IInventoryContainer>();
-        inventory.Items.Returns(inventoryItems);
+        var inventory = new ComposedTestContainer(inventoryCapacity);
         var character = Substitute.For<ICharacter>();
         character.Inventory.Returns(inventory);
         character.EventManager.Returns(Substitute.For<IEventManager>());
@@ -132,11 +156,11 @@ public sealed class DuelStakeExchangeTests
         var pouch = new MoneyPouchContainer(character, itemBuilder);
         if (pouchCoins > 0) Assert.IsTrue(pouch.Add(pouchCoins));
         character.MoneyPouch.Returns(pouch);
-        return new Scenario(character, inventoryItems, pouch, new ItemContainer(StorageType.Normal, (short)stakeCapacity),
+        return new Scenario(character, inventory, inventory.Items, pouch, new ItemContainer(StorageType.Normal, (short)stakeCapacity),
             new DuelStakeExchange(itemBuilder));
     }
 
-    private sealed record Scenario(ICharacter Character, ItemContainer InventoryItems, MoneyPouchContainer Pouch,
+    private sealed record Scenario(ICharacter Character, ComposedTestContainer Inventory, IItemContainer InventoryItems, MoneyPouchContainer Pouch,
         ItemContainer Stake, DuelStakeExchange Exchange);
 
     private sealed class TestItem : IItem

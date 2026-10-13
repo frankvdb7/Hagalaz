@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Collections;
@@ -74,7 +74,7 @@ namespace Hagalaz.Game.Extensions
             var added = new List<IItem>();
             foreach (var item in items)
             {
-                if (!container.Items.Add(item))
+                if (!container.AddItem(item))
                 {
                     groundItemBuilder.Create().WithItem(item).WithLocation(character.Location).WithOwner(character).Spawn();
                 }

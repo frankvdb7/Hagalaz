@@ -226,13 +226,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                         var newItem = item.Clone();
                         newItem.Count = item.Count - amounts[a];
                         item = newItem;
-                        _owner.Inventory.Items.Replace(slot, newItem);
+                        _owner.Inventory.ReplaceItem(slot, newItem);
                         amounts[a] = 0;
                     }
                     else
                     {
                         amounts[a] -= item.Count;
-                        _owner.Inventory.Items.Remove(item, slot);
+                        _owner.Inventory.RemoveItem(item, slot);
                         break;
                     }
                 }

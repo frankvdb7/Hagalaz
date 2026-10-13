@@ -5,9 +5,9 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// <summary>
     /// Defines the contract for a reward container, which holds items that a player has earned but not yet claimed (e.g., from a quest or minigame).
     /// </summary>
-    public interface IRewardContainer
+    public interface IRewardContainer : IItemTransactional
     {
-        IItemContainer Items { get; }
+        IReadOnlyItemContainer Items { get; }
 
         /// <summary>
         /// Claims a specific item from the reward container, moving it to the player's inventory or bank.
@@ -16,5 +16,10 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="count">The number of items to claim.</param>
         /// <returns>The number of items that were actually claimed and transferred.</returns>
         int Claim(IItem item, int count);
+
+        void PublishChanges();
+
+        /// <summary>Receives an item from a trade escrow as part of its caller-owned transaction.</summary>
+        bool ReceiveFromTrade(IItemContainer source, IItem item, int count, int sourceSlot);
     }
 }

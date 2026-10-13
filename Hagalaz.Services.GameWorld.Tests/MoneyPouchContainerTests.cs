@@ -208,10 +208,8 @@ public sealed class MoneyPouchContainerTests
     [TestMethod]
     public void Remove_WhenInventoryRemovalFailsAfterPouchStaging_RestoresBothStores()
     {
-        var inventoryStorage = new ItemContainer(StorageType.Normal, 1);
-        var inventoryItems = new AdvertisedCoinCountContainer(inventoryStorage);
-        var inventory = Substitute.For<IInventoryContainer>();
-        inventory.Items.Returns(inventoryItems);
+        var inventory = new ComposedTestContainer(1) { RejectExactRemoval = true };
+        Assert.IsTrue(inventory.AddItem(new ComposedTestItem(CoinId, 5, stackable: true)));
         var owner = Substitute.For<ICharacter>();
         owner.Inventory.Returns(inventory);
         var eventManager = Substitute.For<IEventManager>();
@@ -224,7 +222,7 @@ public sealed class MoneyPouchContainerTests
         Assert.AreEqual(0, moneyPouch.Remove(10));
 
         Assert.AreEqual(5, moneyPouch.Count);
-        Assert.AreEqual(0, inventoryStorage.GetCountById(CoinId));
+        Assert.AreEqual(5, inventory.Items.GetCountById(CoinId));
         eventManager.DidNotReceive().SendEvent(Arg.Any<MoneyPouchChangedEvent>());
         owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
     }
@@ -243,7 +241,7 @@ public sealed class MoneyPouchContainerTests
     [TestMethod]
     public void AddFromInventory_WhenPouchStagingFails_RestoresRemovedInventoryCoins()
     {
-        var inventory = new ComposedTestInventory(4);
+        var inventory = new ComposedTestContainer(4);
         var owner = Substitute.For<ICharacter>();
         owner.Inventory.Returns(inventory);
         var eventManager = Substitute.For<IEventManager>();
@@ -601,6 +599,8 @@ public sealed class MoneyPouchContainerTests
         Assert.AreEqual(0, order.Count);
 
         transaction.Commit();
+        scenario.Inventory.PublishChanges();
+        scenario.MoneyPouch.PublishChanges();
         transaction.Dispose();
         transaction.Dispose();
 
@@ -632,6 +632,8 @@ public sealed class MoneyPouchContainerTests
         Assert.IsTrue(scenario.MoneyPouch.TryRemoveExact(1));
         Assert.AreEqual(0, order.Count);
         transaction.Commit();
+        scenario.Inventory.PublishChanges();
+        scenario.MoneyPouch.PublishChanges();
         CollectionAssert.AreEqual(new[]
         {
             "3 coins have been added to your money pouch.", "10->13",
@@ -641,82 +643,32 @@ public sealed class MoneyPouchContainerTests
     }
 
     [TestMethod]
-    public void Commit_MultipleCompletionOwnersUseFirstSeenParticipantOrder()
+    public void PublishChanges_FailureDiscardsRemainingFactsAndKeepsCommittedStorage()
     {
-        var first = CreateScenario(10, 0);
-        var second = CreateScenario(20, 0);
-        var order = new List<string>();
-        void Observe(MoneyPouchScenario scenario, string name)
-        {
-            scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>()))
-                .Do(call => order.Add($"{name}:{call.ArgAt<string>(0)}"));
-            var events = Substitute.For<IEventManager>();
-            scenario.Owner.EventManager.Returns(events);
-            events.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>())).Do(call =>
-            {
-                var change = call.Arg<MoneyPouchChangedEvent>();
-                Assert.IsNotNull(change);
-                order.Add($"{name}:{change.PreviousCount}->{change.Count}");
-            });
-        }
-        Observe(first, "first");
-        Observe(second, "second");
-        var firstBoundary = ((IItemTransactionSource)first.MoneyPouch).Boundaries[0];
-        var secondBoundary = ((IItemTransactionSource)second.MoneyPouch).Boundaries[0];
-        Assert.IsTrue(firstBoundary.LockOrder < secondBoundary.LockOrder,
-            "The first pouch must sort before the second for lock acquisition.");
-
-        using var transaction = ItemContainerTransaction.Begin(second.MoneyPouch, first.MoneyPouch);
-        Assert.IsTrue(first.MoneyPouch.Add(3));
-        Assert.IsTrue(second.MoneyPouch.Add(4));
-        Assert.AreEqual(0, order.Count);
-        transaction.Commit();
-
-        CollectionAssert.AreEqual(new[]
-        {
-            "second:4 coins have been added to your money pouch.", "second:20->24",
-            "first:3 coins have been added to your money pouch.", "first:10->13"
-        }, order);
-    }
-
-    [TestMethod]
-    public void Commit_PouchFailureStillAttemptsLaterOwnersAndDiscardsRemainingFacts()
-    {
-        var first = CreateScenario(10, 0);
-        var second = CreateScenario(20, 0);
+        var scenario = CreateScenario(10, 0);
         var events = Substitute.For<IEventManager>();
-        first.Owner.EventManager.Returns(events);
-        second.Owner.EventManager.Returns(events);
-        var eventChanges = new List<(int Previous, int Count)>();
-        events.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>())).Do(call =>
-        {
-            var change = call.Arg<MoneyPouchChangedEvent>();
-            eventChanges.Add((change.PreviousCount, change.Count));
-        });
-        first.Owner.ClearReceivedCalls();
-        second.Owner.ClearReceivedCalls();
+        scenario.Owner.EventManager.Returns(events);
         var failure = new InvalidOperationException("pouch message failed");
-        first.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(_ => throw failure);
-        using var transaction = ItemContainerTransaction.Begin(first.MoneyPouch, second.MoneyPouch);
-        Assert.IsTrue(first.MoneyPouch.Add(1));
-        Assert.IsTrue(second.MoneyPouch.Add(2));
-        Assert.IsTrue(first.MoneyPouch.Add(3));
-        Assert.AreSame(failure, Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit()));
+        var publishedMessages = new List<string>();
+        scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(call =>
+        {
+            publishedMessages.Add(call.ArgAt<string>(0));
+            throw failure;
+        });
+        using var transaction = ItemContainerTransaction.Begin(scenario.MoneyPouch);
+        Assert.IsTrue(scenario.MoneyPouch.Add(1));
+        Assert.IsTrue(scenario.MoneyPouch.Add(3));
+        transaction.Commit();
+        scenario.Inventory.PublishChanges();
+        Assert.AreSame(failure, Assert.ThrowsExactly<InvalidOperationException>(() => scenario.MoneyPouch.PublishChanges()));
         transaction.Dispose();
-        Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
-        Assert.AreEqual(14, first.MoneyPouch.Count);
-        Assert.AreEqual(22, second.MoneyPouch.Count);
-        first.Owner.Received(1).SendChatMessage("1 coins have been added to your money pouch.");
-        first.Owner.DidNotReceive().SendChatMessage("3 coins have been added to your money pouch.");
-        second.Owner.Received(1).SendChatMessage("2 coins have been added to your money pouch.");
-        Assert.AreEqual(1, eventChanges.Count);
-        Assert.AreEqual((20, 22), eventChanges[0]);
-        using var fresh = ItemContainerTransaction.Begin(first.MoneyPouch, second.MoneyPouch);
+        Assert.AreEqual(14, scenario.MoneyPouch.Count);
+        CollectionAssert.AreEqual(new[] { "1 coins have been added to your money pouch." }, publishedMessages);
+        using var fresh = ItemContainerTransaction.Begin(scenario.MoneyPouch);
         fresh.Commit();
-        first.Owner.Received(1).SendChatMessage("1 coins have been added to your money pouch.");
-        first.Owner.DidNotReceive().SendChatMessage("3 coins have been added to your money pouch.");
-        second.Owner.Received(1).SendChatMessage("2 coins have been added to your money pouch.");
-        Assert.AreEqual(1, eventChanges.Count, "The later owner's committed notification is published once.");
+        scenario.Inventory.PublishChanges();
+        scenario.MoneyPouch.PublishChanges();
+        CollectionAssert.AreEqual(new[] { "1 coins have been added to your money pouch." }, publishedMessages);
     }
 
     [TestMethod]
@@ -747,6 +699,9 @@ public sealed class MoneyPouchContainerTests
         Assert.IsTrue(scenario.MoneyPouch.Add(1));
         Assert.IsTrue(scenario.MoneyPouch.Add(2));
         transaction.Commit();
+        scenario.Inventory.PublishChanges();
+        scenario.MoneyPouch.PublishChanges();
+        transaction.Dispose();
         Assert.IsTrue(reentrantMutationRejected);
         Assert.AreEqual(13, scenario.MoneyPouch.Count);
         CollectionAssert.AreEqual(new[]
@@ -757,41 +712,6 @@ public sealed class MoneyPouchContainerTests
         using var fresh = ItemContainerTransaction.Begin(scenario.MoneyPouch);
         fresh.Commit();
         Assert.AreEqual(2, messages.Count);
-    }
-
-    private sealed class AdvertisedCoinCountContainer(ItemContainer inner) : IItemContainer, IItemTransactionSource
-    {
-        IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries =>
-            ((IItemTransactionSource)inner).Boundaries;
-        public StorageType Type => inner.Type;
-        public int Capacity => inner.Capacity;
-        public int FreeSlots => inner.FreeSlots;
-        public int TakenSlots => inner.TakenSlots;
-        public IItem? this[int index] => inner[index];
-        public IEnumerator<IItem?> GetEnumerator() => inner.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
-        public bool Add(IItem item) => inner.Add(item);
-        public bool Add(int slot, IItem item) => inner.Add(slot, item);
-        public IItem? GetById(int id) => inner.GetById(id);
-        public int Remove(IItem item, int preferredSlot = -1, bool publishChanges = true) => inner.Remove(item, preferredSlot, publishChanges);
-        public bool TryRemoveExact(IItem item, int preferredSlot = -1) => inner.TryRemoveExact(item, preferredSlot);
-        public bool TryTransferTo(IItemContainer destination, IItem item, int count,
-            int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null) =>
-            inner.TryTransferTo(destination, item, count, preferredSourceSlot, destinationSlot, destinationItem);
-        public void Replace(int slot, IItem item) => inner.Replace(slot, item);
-        public void Swap(int fromSlot, int toSlot) => inner.Swap(fromSlot, toSlot);
-        public void Move(int fromSlot, int toSlot) => inner.Move(fromSlot, toSlot);
-        public bool AddRange(IEnumerable<IItem?> items) => inner.AddRange(items);
-        public bool Contains(int id, int count) => inner.Contains(id, count);
-        public bool Contains(int id) => inner.Contains(id);
-        public int GetCount(IItem item) => inner.GetCount(item);
-        public int GetCountById(int id) => id == CoinId ? 10 : inner.GetCountById(id);
-        public int GetInstanceSlot(IItem instance) => inner.GetInstanceSlot(instance);
-        public void Sort() => inner.Sort();
-        public int GetSlotByItem(IItem item, bool ignoreCount = true) => inner.GetSlotByItem(item, ignoreCount);
-        public bool HasSpaceFor(IItem item) => inner.HasSpaceFor(item);
-        public bool HasSpaceForRange(IEnumerable<IItem?> items) => inner.HasSpaceForRange(items);
-        public void Clear(bool publishChanges) => inner.Clear(publishChanges);
     }
 
     private static ItemContainerMutationBoundary Boundary(IItemTransactional participant) =>
@@ -826,7 +746,7 @@ public sealed class MoneyPouchContainerTests
 
     private static MoneyPouchScenario CreateScenario(int pouchCoins, int inventoryCoins, int inventoryCapacity = 10)
     {
-        var inventory = new ComposedTestInventory(inventoryCapacity);
+        var inventory = new ComposedTestContainer(inventoryCapacity);
         if (inventoryCoins > 0)
         {
             Assert.IsTrue(inventory.Items.Add(new ComposedTestItem(CoinId, inventoryCoins, stackable: true)));
@@ -844,7 +764,7 @@ public sealed class MoneyPouchContainerTests
         return new MoneyPouchScenario(moneyPouch, inventory, character);
     }
 
-    private sealed record MoneyPouchScenario(MoneyPouchContainer MoneyPouch, ComposedTestInventory Inventory,
+    private sealed record MoneyPouchScenario(MoneyPouchContainer MoneyPouch, ComposedTestContainer Inventory,
         ICharacter Owner);
 
 

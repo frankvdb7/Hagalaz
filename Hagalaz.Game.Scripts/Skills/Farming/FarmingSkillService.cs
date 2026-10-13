@@ -390,7 +390,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
             character.QueueAnimation(Animation.Create(2291));
             character.SendChatMessage("You plant the " + item.Name.ToLower() + " in the " + patch.PatchDefinition.Type.ToString().ToLower() + " patch.");
             character.Statistics.AddExperience(StatisticsConstants.Farming, seed.PlantingExperience);
-            character.Inventory.Items.Remove(_itemBuilder.Create().WithId(item.Id).WithCount(count).Build());
+            character.Inventory.RemoveItem(_itemBuilder.Create().WithId(item.Id).WithCount(count).Build());
             patch.Plant(seed);
         }
 
@@ -450,7 +450,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
                         newItemID = 5331;
                     }
 
-                    character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(newItemID).Build());
+                    character.Inventory.ReplaceItem(slot, _itemBuilder.Create().WithId(newItemID).Build());
                     patch.Refresh();
                 },
                 2));
@@ -493,7 +493,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
                         return;
                     }
 
-                    character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(_emptyBucketID).Build());
+                    character.Inventory.ReplaceItem(slot, _itemBuilder.Create().WithId(_emptyBucketID).Build());
                     character.Statistics.AddExperience(StatisticsConstants.Farming, item.Id == 6032 ? 18 : 26);
                     patch.Refresh();
                 },
@@ -559,7 +559,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
                             return;
                         }
 
-                        character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(229).Build());
+                        character.Inventory.ReplaceItem(slot, _itemBuilder.Create().WithId(229).Build());
                     }
 
                     character.SendChatMessage("The plants in this patch has been restored to its natural health.");

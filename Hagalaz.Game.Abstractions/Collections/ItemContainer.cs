@@ -20,20 +20,19 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
     public int FreeSlots => _storage.FreeSlots;
     public int TakenSlots => _storage.TakenSlots;
     public ItemContainerChangeTracker ChangeTracker => _mutations.ChangeTracker;
+    internal ItemContainerTransaction? CurrentThreadTransaction => _mutations.CurrentTransaction;
     public IItem? this[int index] => _storage[index];
 
-    public ItemContainer(StorageType type, int capacity, Action<HashSet<int>?>? publishChanges = null,
-        int countToResetTo = -1)
+    public ItemContainer(StorageType type, int capacity, int countToResetTo = -1)
     {
         _storage = new ItemContainerStorage(type, capacity, countToResetTo);
-        _mutations = new ItemContainerMutationBoundary(_storage, publishChanges);
+        _mutations = new ItemContainerMutationBoundary(_storage);
     }
 
-    public ItemContainer(StorageType type, IEnumerable<IItem> items, int capacity,
-        Action<HashSet<int>?>? publishChanges = null, int countToResetTo = -1)
+    public ItemContainer(StorageType type, IEnumerable<IItem> items, int capacity, int countToResetTo = -1)
     {
         _storage = new ItemContainerStorage(type, items, capacity, countToResetTo);
-        _mutations = new ItemContainerMutationBoundary(_storage, publishChanges);
+        _mutations = new ItemContainerMutationBoundary(_storage);
     }
 
     public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();

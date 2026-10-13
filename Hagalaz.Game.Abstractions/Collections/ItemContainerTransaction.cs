@@ -7,15 +7,15 @@ using Hagalaz.Game.Abstractions.Model.Items;
 
 namespace Hagalaz.Game.Abstractions.Collections;
 
-/// <summary>Coordinates synchronous atomic item-container mutations, rollback, and deferred publication.</summary>
+/// <summary>Coordinates synchronous atomic item-container mutations and rollback.</summary>
 /// <remarks>
 /// This is a synchronous scope. Begin acquires and binds all participating mutation boundaries; mutations affect live
-/// storage eagerly while the Active scope owns their locks. Commit makes storage irreversible and
-/// releases boundary locks before committed completion and publication, while boundaries remain bound to
-/// this scope until that work finishes. Overlapping callers that own no storage wait; a caller already
+/// storage eagerly while the Active scope owns their locks. Commit makes storage irreversible and releases physical
+/// locks while retaining the logical bindings until disposal, so domain owners can publish committed changes without
+/// an intervening mutation. Overlapping callers that own no storage wait; a caller already
 /// owning storage rejects contended additional acquisition. Same-thread reentrant overlap is rejected.
 /// Dispose without Commit restores storage before releasing the scope. Begin, mutations, Commit,
-/// and Dispose must run on the originating thread. Rollback restores slot topology, item references, item
+/// publication, and Dispose must run on the originating thread. Rollback restores slot topology, item references, item
 /// counts, and storage revision; it does not deep-snapshot arbitrary mutable item metadata such as
 /// <c>ExtraData</c>. Replace an item transactionally when rollback-sensitive metadata changes. Do not cross
 /// await boundaries.
@@ -50,15 +50,15 @@ public sealed class ItemContainerTransaction : IDisposable
     public static ItemContainerTransaction Begin(params IItemTransactional[] participants)
         => BeginResolved(Resolve(participants));
 
-    internal static ItemContainerMutationBoundary ResolveSingleBoundary(IItemContainer container)
+    internal static ItemContainerMutationBoundary ResolveSingleBoundary(IItemTransactional participant)
     {
-        ArgumentNullException.ThrowIfNull(container);
-        if (container is not IItemTransactionSource source)
-            throw new ArgumentException("Unsupported item container.", nameof(container));
+        ArgumentNullException.ThrowIfNull(participant);
+        if (participant is not IItemTransactionSource source)
+            throw new ArgumentException("Unsupported item-container participant.", nameof(participant));
 
         var boundaries = source.Boundaries;
         if (boundaries == null || boundaries.Count != 1 || boundaries[0] == null)
-            throw new ArgumentException("This operation requires exactly one item storage.", nameof(container));
+            throw new ArgumentException("This operation requires exactly one item storage.", nameof(participant));
 
         return boundaries[0];
     }
@@ -89,74 +89,38 @@ public sealed class ItemContainerTransaction : IDisposable
         }
     }
 
-    /// <summary>Declares live storage irreversible, releases boundary locks, performs committed completion/publication, and releases the scope.</summary>
+    /// <summary>Makes live storage irreversible and releases physical mutation locks while retaining scope ownership until disposal.</summary>
     /// <remarks>
     /// Mutations already affect live storage under locks; Commit discards rollback ability rather than applying staged data.
-    /// Completion runs after boundary locks are released but before boundary bindings are released. The transaction
-    /// visits each resolved boundary's completion owner once, in resolved boundary order. This order is independent of
-    /// lock and publication order. Hook or publication failures propagate after storage has permanently committed.
-    /// Dispose cannot undo that state, and another Commit cannot retry completion.
-    /// Every independent completion owner and changed boundary is attempted once in its existing order, even after an
-    /// earlier failure. Multiple independent failures are retained in a flat AggregateException.
+    /// Domain owners must consume and publish their committed changes before disposing the transaction. A publication
+    /// exception does not make storage reversible; Dispose releases ownership without rolling back, and a second Commit
+    /// is invalid.
     /// </remarks>
     public void Commit()
     {
         EnsureActive();
         _state = TransactionState.Committed;
         _snapshots.Clear();
-        List<Exception>? failures = null;
         try
         {
-            try
-            {
-                foreach (var boundary in _publicationOrder)
-                    boundary.ChangeTracker.PromotePending();
-            }
-            finally
-            {
-                _lockSet!.ReleaseLocksPreservingOwnership();
-            }
-
-            foreach (var owner in _completionOwners)
-            {
-                try { owner.CompleteBeforePublication(); }
-                catch (Exception exception) { (failures ??= []).Add(exception); }
-            }
-
             foreach (var boundary in _publicationOrder)
-            {
-                try { boundary.PublishCommittedChanges(); }
-                catch (Exception exception) { (failures ??= []).Add(exception); }
-            }
-
-            foreach (var owner in _completionOwners)
-            {
-                try { owner.CompleteAfterPublication(); }
-                catch (Exception exception) { (failures ??= []).Add(exception); }
-            }
+                boundary.ChangeTracker.PromotePending();
         }
         finally
         {
-            foreach (var boundary in _publicationOrder)
-                boundary.ChangeTracker.DiscardPending();
-            try { DiscardPendingCompletion(); }
-            finally
-            {
-                try { ReleaseCommittedScopeBindings(); }
-                finally
-                {
-                    _lockSet!.ReleaseOwnership();
-                    _state = TransactionState.Completed;
-                }
-            }
+            _lockSet!.ReleaseLocksPreservingOwnership();
         }
-        ThrowFailures(failures);
     }
 
     /// <summary>Restores all captured storage if still active; disposal after commit or disposal is inert.</summary>
     public void Dispose()
     {
         EnsureThread();
+        if (_state == TransactionState.Committed)
+        {
+            CompleteCommittedScope();
+            return;
+        }
         if (_state != TransactionState.Active) return;
         _state = TransactionState.Disposed;
         List<Exception>? failures = null;
@@ -183,12 +147,29 @@ public sealed class ItemContainerTransaction : IDisposable
         ThrowFailures(failures);
     }
 
+    private void CompleteCommittedScope()
+    {
+        foreach (var boundary in _publicationOrder)
+            boundary.ChangeTracker.DiscardPending();
+        try { DiscardPendingCompletion(); }
+        finally
+        {
+            try { ReleaseCommittedScopeBindings(); }
+            finally
+            {
+                _lockSet!.ReleaseOwnership();
+                _state = TransactionState.Completed;
+            }
+        }
+    }
+
     private void DiscardPendingCompletion()
     {
         foreach (var owner in _completionOwners) owner.DiscardPendingCompletion();
     }
 
     internal bool IsOwnedByCurrentThread => Environment.CurrentManagedThreadId == _threadId;
+    internal bool IsCommittedByCurrentThread => IsOwnedByCurrentThread && _state == TransactionState.Committed;
 
     internal void EnsureActive()
     {

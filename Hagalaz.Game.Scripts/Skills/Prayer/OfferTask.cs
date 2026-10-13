@@ -115,7 +115,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
                     return;
                 }
 
-                var removed = Performer.Inventory.Items.Remove(item, slot);
+                var removed = Performer.Inventory.RemoveItem(item, slot);
                 if (removed <= 0)
                 {
                     return;

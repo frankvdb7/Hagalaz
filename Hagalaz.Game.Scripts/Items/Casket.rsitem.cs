@@ -44,7 +44,7 @@ namespace Hagalaz.Game.Scripts.Items
                     }
 
                     var slot = character.Inventory.Items.GetInstanceSlot(item);
-                    if (slot == -1 || character.Inventory.Items.Remove(item, slot) <= 0)
+                    if (slot == -1 || character.Inventory.RemoveItem(item, slot) <= 0)
                     {
                         return;
                     }

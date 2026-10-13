@@ -17,10 +17,11 @@ public interface IItemContainer : IReadOnlyItemContainer, IItemTransactional
     bool TryRemoveExact(IItem item, int preferredSlot = -1);
 
     /// <summary>
-    /// Atomically transfers an exact quantity to another item container. If neither storage is already held by the current
-    /// thread's item transaction, this operation directly owns both mutation boundaries through publication without creating a
-    /// transaction. If both storages belong to the same active current-thread transaction, this operation participates and leaves
-    /// commit or rollback to its caller. Partial or conflicting transaction participation is rejected.
+    /// Atomically transfers an exact quantity to another item container and records changes in both containers' trackers.
+    /// If neither storage is already held by the current thread's item transaction, this operation synchronizes the transfer
+    /// without creating a transaction. If both storages belong to the same active current-thread transaction, this operation
+    /// participates and leaves commit or rollback to its caller. Partial or conflicting transaction participation is rejected.
+    /// The owning domain is responsible for consuming and publishing committed changes.
     /// </summary>
     /// <exception cref="ArgumentNullException">The destination or item is null.</exception>
     /// <exception cref="ArgumentException">The destination is not a supported transaction source or does not contribute exactly one storage boundary.</exception>

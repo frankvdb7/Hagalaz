@@ -148,7 +148,7 @@ namespace Hagalaz.Game.Scripts.Model.Items
                 return false;
             }
 
-            if (!character.Inventory.Items.Add(item.ItemOnGround.Clone()))
+            if (!character.Inventory.AddItem(item.ItemOnGround.Clone()))
                 return false;
             return true;
         }

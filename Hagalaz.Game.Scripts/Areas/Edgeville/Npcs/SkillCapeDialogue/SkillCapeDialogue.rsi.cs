@@ -183,8 +183,8 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue
                                     }
                                 }
 
-                                Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(hasTwo99 ? TSkillCapes[SkillID] : _skillCapes[SkillID]).Build());
-                                Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(_skillCapes[SkillID] + 2).Build());
+                                Owner.Inventory.AddItem(_itemBuilder.Create().WithId(hasTwo99 ? TSkillCapes[SkillID] : _skillCapes[SkillID]).Build());
+                                Owner.Inventory.AddItem(_itemBuilder.Create().WithId(_skillCapes[SkillID] + 2).Build());
                                 StandardNpcDialogue(TalkingTo,
                                     DialogueAnimations.CalmTalk,
                                     "Congratulations! You have just bought a " + StatisticsConstants.SkillNames[SkillID] + " Skill Cape " +

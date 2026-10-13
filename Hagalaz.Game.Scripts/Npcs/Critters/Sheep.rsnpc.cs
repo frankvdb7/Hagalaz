@@ -60,7 +60,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Critters
                     {
                         _audioBuilder.Create().AsSound().WithId(761).Build().PlayFor(clicker);
                         clicker.QueueAnimation(Animation.Create(893));
-                        clicker.Inventory.Items.Add(_itemBuilder.Create().WithId(1737).Build());
+                        clicker.Inventory.AddItem(_itemBuilder.Create().WithId(1737).Build());
                         clicker.SendChatMessage("You shear the sheep of its fleece.");
                         Owner.Appearance.Transform(5149);
                         Owner.QueueTask(new RsTask(() =>

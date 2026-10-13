@@ -33,7 +33,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.GameObjects
                 }
 
                 character.QueueAnimation(Animation.Create(827));
-                character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(227).Build());
+                character.Inventory.ReplaceItem(slot, _itemBuilder.Create().WithId(227).Build());
                 character.SendChatMessage("You filled the vial with water from the well.");
                 return true;
             }

@@ -57,7 +57,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Items
                     return false;
                 }
 
-                var removed = Owner.Inventory.Items.Remove(_toDestroy, slot);
+                var removed = Owner.Inventory.RemoveItem(_toDestroy, slot);
                 if (removed > 0)
                 {
                     var sound = _soundBuilder.Create().AsSound().WithId(4500).Build();

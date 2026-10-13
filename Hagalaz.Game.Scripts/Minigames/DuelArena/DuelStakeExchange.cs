@@ -24,7 +24,7 @@ internal sealed class DuelStakeExchange
         IItem item,
         int count,
         int preferredSourceSlot) =>
-        character.Inventory.Items.TryTransferTo(stake, item, count, preferredSourceSlot);
+        character.Inventory.TryTransferItemTo(stake, item, count, preferredSourceSlot);
 
     public bool TryReturnItemToInventory(
         ICharacter character,
@@ -32,7 +32,7 @@ internal sealed class DuelStakeExchange
         IItem item,
         int count,
         int preferredSourceSlot) =>
-        stake.TryTransferTo(character.Inventory.Items, item, count, preferredSourceSlot);
+        character.Inventory.TryTransferItemFrom(stake, item, count, preferredSourceSlot);
 
     public bool TryStakePouchCoins(ICharacter character, IItemContainer stake, int count)
     {
@@ -45,6 +45,8 @@ internal sealed class DuelStakeExchange
         var coins = _itemBuilder.Create().WithId(CoinsItemId).WithCount(transferCount).Build();
         if (!stake.Add(coins) || !character.MoneyPouch.TryRemoveExact(transferCount)) return false;
         transaction.Commit();
+        character.Inventory.PublishChanges();
+        character.MoneyPouch.PublishChanges();
         return true;
     }
 
@@ -57,6 +59,8 @@ internal sealed class DuelStakeExchange
         using var transaction = ItemContainerTransaction.Begin(stake, character.MoneyPouch);
         if (!character.MoneyPouch.TryTransferCoinsFrom(stake, coins, preferredSourceSlot)) return false;
         transaction.Commit();
+        character.Inventory.PublishChanges();
+        character.MoneyPouch.PublishChanges();
         return true;
     }
 
@@ -70,6 +74,10 @@ internal sealed class DuelStakeExchange
             first.MoneyPouch, second.MoneyPouch);
         if (!RefundStake(first, firstStake) || !RefundStake(second, secondStake)) return false;
         transaction.Commit();
+        first.Inventory.PublishChanges();
+        second.Inventory.PublishChanges();
+        first.MoneyPouch.PublishChanges();
+        second.MoneyPouch.PublishChanges();
         return true;
     }
 
@@ -86,7 +94,7 @@ internal sealed class DuelStakeExchange
             {
                 if (!owner.MoneyPouch.TryTransferCoinsFrom(stake, item, slot)) return false;
             }
-            else if (!stake.TryTransferTo(owner.Inventory.Items, item, count, slot))
+            else if (!owner.Inventory.TryTransferItemFrom(stake, item, count, slot))
             {
                 return false;
             }

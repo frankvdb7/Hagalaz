@@ -35,9 +35,9 @@ internal static class AlchemyOperations
         }
 
         removeRunes();
-        var removed = caster.Inventory.Items.Remove(itemBuilder.Create().WithId(item.Id).WithCount(1).Build(), slot);
+        var removed = caster.Inventory.RemoveItem(itemBuilder.Create().WithId(item.Id).WithCount(1).Build(), slot);
         if (removed <= 0) return true;
-        if (!caster.Inventory.Items.Add(coins)) return true;
+        if (!caster.Inventory.AddItem(coins)) return true;
 
         caster.QueueAnimation(Animation.Create(animationId));
         caster.QueueGraphic(Graphic.Create(graphicId));
