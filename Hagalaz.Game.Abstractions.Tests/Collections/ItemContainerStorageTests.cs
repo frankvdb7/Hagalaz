@@ -249,6 +249,42 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
+        public void TryAdd_NonStackableCloneFailureLeavesStorageUnchanged()
+        {
+            var container = new ItemContainer(StorageType.Normal, 3);
+            Assert.IsTrue(container.Add(CreateItem(1, 1)));
+            var existing = container[0];
+            container.ChangeTracker.GetSlots();
+
+            var storage = ItemContainerTransaction.ResolveSingleBoundary(container).Storage;
+            var revision = storage.MutationRevision;
+            var enumerator = container.GetEnumerator();
+            Assert.IsTrue(enumerator.MoveNext());
+            Assert.AreSame(existing, enumerator.Current);
+
+            var cloneCount = 0;
+            var cloneFailure = new InvalidOperationException("Clone failed.");
+            var incoming = CreateItem(2, 2, onClone: () =>
+            {
+                if (++cloneCount == 2)
+                {
+                    throw cloneFailure;
+                }
+            });
+
+            var exception = Assert.ThrowsExactly<InvalidOperationException>(() => container.Add(incoming));
+
+            Assert.AreSame(cloneFailure, exception);
+            Assert.AreSame(existing, container[0]);
+            Assert.IsNull(container[1]);
+            Assert.IsNull(container[2]);
+            Assert.AreEqual(revision, storage.MutationRevision);
+            Assert.IsFalse(container.ChangeTracker.HasChanges);
+            Assert.IsTrue(enumerator.MoveNext());
+            Assert.IsNull(enumerator.Current);
+        }
+
+        [TestMethod]
         public void Add_StackableItem_StacksWithExisting()
         {
             // Arrange

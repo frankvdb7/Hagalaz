@@ -597,11 +597,18 @@ namespace Hagalaz.Game.Abstractions.Collections
                     return false;
                 }
 
-                for (var i = 0; i < item.Count; i++)
+                var addedItems = new IItem[item.Count];
+                for (var i = 0; i < addedItems.Length; i++)
+                {
+                    addedItems[i] = item.Clone();
+                    addedItems[i].Count = 1;
+                }
+
+                changedSlots = new HashSet<int>(addedItems.Length);
+                for (var i = 0; i < addedItems.Length; i++)
                 {
                     var freeSlot = GetFreeSlot();
-                    Items[freeSlot] = item.Clone();
-                    Items[freeSlot]!.Count = 1;
+                    Items[freeSlot] = addedItems[i];
                     changedSlots.Add(freeSlot);
                 }
 
