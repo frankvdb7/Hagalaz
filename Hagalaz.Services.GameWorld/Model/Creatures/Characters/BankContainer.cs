@@ -51,31 +51,31 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public bool AddItem(IItem item)
         {
-            using var transaction = _items.CurrentThreadTransaction == null ? ItemContainerTransaction.Begin(this) : null;
+            using var publication = _items.BeginStandalonePublication();
             if (!_items.Add(item)) return false;
-            if (transaction != null) { transaction.Commit(); PublishChanges(); }
+            if (publication.CompleteMutation()) PublishChanges();
             return true;
         }
 
         public void SwapItems(int fromSlot, int toSlot)
         {
-            using var transaction = _items.CurrentThreadTransaction == null ? ItemContainerTransaction.Begin(this) : null;
+            using var publication = _items.BeginStandalonePublication();
             _items.Swap(fromSlot, toSlot);
-            if (transaction != null) { transaction.Commit(); PublishChanges(); }
+            if (publication.CompleteMutation()) PublishChanges();
         }
 
         public void MoveItem(int fromSlot, int toSlot)
         {
-            using var transaction = _items.CurrentThreadTransaction == null ? ItemContainerTransaction.Begin(this) : null;
+            using var publication = _items.BeginStandalonePublication();
             _items.Move(fromSlot, toSlot);
-            if (transaction != null) { transaction.Commit(); PublishChanges(); }
+            if (publication.CompleteMutation()) PublishChanges();
         }
 
         public void SortItems()
         {
-            using var transaction = _items.CurrentThreadTransaction == null ? ItemContainerTransaction.Begin(this) : null;
+            using var publication = _items.BeginStandalonePublication();
             _items.Sort();
-            if (transaction != null) { transaction.Commit(); PublishChanges(); }
+            if (publication.CompleteMutation()) PublishChanges();
         }
 
         /// <summary>

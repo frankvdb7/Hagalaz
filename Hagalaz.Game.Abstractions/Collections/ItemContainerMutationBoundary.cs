@@ -214,8 +214,7 @@ internal sealed class ItemContainerMutationBoundary
 
     internal MutationScope BeginMutation() => BeginMutation(retainStandaloneOwnership: false);
 
-    // Equipment owns standalone lifecycle effects and must run them before publication.
-    internal MutationScope BeginMutationWithExplicitStandalonePublication() => BeginMutation(retainStandaloneOwnership: true);
+    internal MutationScope BeginStandalonePublication() => BeginMutation(retainStandaloneOwnership: true);
 
     internal void ThrowIfOwnedByCurrentThread(string? message = null)
     {
@@ -254,9 +253,9 @@ internal sealed class ItemContainerMutationBoundary
                     Monitor.Wait(_mutationLock);
                 }
             }
-            else if (CurrentTransaction == null)
+            else if (CurrentTransaction == null && _mutationScopeCount == 0)
             {
-                throw new InvalidOperationException("A held mutation lock must belong to an active item-container transaction.");
+                throw new InvalidOperationException("A held mutation lock must belong to an active item-container transaction or mutation scope.");
             }
 
             EnsureMutationAccess();
@@ -268,7 +267,8 @@ internal sealed class ItemContainerMutationBoundary
                 ownershipCounted = true;
             }
 
-            return new MutationScope(this, ownsLock, _transaction, retainStandaloneOwnership, ownershipCounted, scopeCounted);
+            return new MutationScope(this, ownsLock, _transaction, retainStandaloneOwnership, ownershipCounted,
+                scopeCounted, Environment.CurrentManagedThreadId);
         }
         catch
         {
@@ -283,27 +283,69 @@ internal sealed class ItemContainerMutationBoundary
     {
         private readonly ItemContainerMutationBoundary _boundary;
         private readonly ItemContainerTransaction? _transaction;
-        private readonly bool _ownsLock;
+        private bool _ownsLock;
         private readonly bool _retainStandaloneOwnership;
+        private readonly int _originatingThreadId;
         private bool _ownershipCounted;
         private bool _scopeCounted;
         private bool _recorded;
+        private bool _completedStandalonePublication;
         private bool _disposed;
 
         internal ItemContainerTransaction? Transaction => _transaction;
 
         internal MutationScope(ItemContainerMutationBoundary boundary, bool ownsLock,
             ItemContainerTransaction? transaction, bool retainStandaloneOwnership, bool ownershipCounted,
-            bool scopeCounted)
+            bool scopeCounted, int originatingThreadId)
         {
             _boundary = boundary;
             _ownsLock = ownsLock;
             _transaction = transaction;
             _retainStandaloneOwnership = retainStandaloneOwnership;
+            _originatingThreadId = originatingThreadId;
             _ownershipCounted = ownershipCounted;
             _scopeCounted = scopeCounted;
             _recorded = false;
+            _completedStandalonePublication = false;
             _disposed = false;
+        }
+
+        /// <summary>
+        /// Releases the physical mutation lock and retains standalone ownership for the caller to publish changes.
+        /// Returns false when publication belongs to a caller-owned transaction or an enclosing scope.
+        /// </summary>
+        internal bool CompleteMutation()
+        {
+            EnsureCurrentThread();
+            if (_disposed) throw new ObjectDisposedException(nameof(MutationScope));
+            if (!_retainStandaloneOwnership)
+                throw new InvalidOperationException("Only an explicit publication scope can complete a standalone mutation.");
+
+            if (_transaction is { } transaction)
+            {
+                _boundary.EnsureOwnedBy(transaction);
+                return false;
+            }
+
+            if (!_ownsLock) return false;
+            if (!_scopeCounted || !_ownershipCounted || !_boundary.IsMutationLockHeldByCurrentThread)
+                throw new InvalidOperationException("Standalone completion requires the owning mutation scope.");
+            if (_boundary._mutationScopeCount != 1)
+                throw new InvalidOperationException("Nested mutation scopes must end before standalone publication begins.");
+
+            if (_boundary._standalonePublicationOwnerThreadId == 0)
+                _boundary.ClaimStandalonePublicationOwnership();
+            else if (!_boundary.IsStandalonePublicationOwnedByCurrentThread)
+                throw new InvalidOperationException("Standalone publication belongs to another thread.");
+
+            _boundary._mutationScopeCount--;
+            _scopeCounted = false;
+            Monitor.Exit(_boundary._mutationLock);
+            _ownsLock = false;
+            RemoveCurrentThreadStorageOwnership();
+            _ownershipCounted = false;
+            _completedStandalonePublication = true;
+            return true;
         }
 
         /// <summary>
@@ -311,6 +353,7 @@ internal sealed class ItemContainerMutationBoundary
         /// </summary>
         internal void RecordChanges(HashSet<int>? slots)
         {
+            EnsureCurrentThread();
             if (_disposed) throw new ObjectDisposedException(nameof(MutationScope));
             if (_recorded) throw new InvalidOperationException("Mutation changes can only be recorded once per operation.");
             if (!Monitor.IsEntered(_boundary._mutationLock))
@@ -335,7 +378,15 @@ internal sealed class ItemContainerMutationBoundary
         public void Dispose()
         {
             if (_disposed) return;
+            EnsureCurrentThread();
             _disposed = true;
+
+            if (_completedStandalonePublication)
+            {
+                _boundary.CompleteStandalonePublication();
+                _completedStandalonePublication = false;
+                return;
+            }
 
             if (_scopeCounted)
             {
@@ -352,7 +403,12 @@ internal sealed class ItemContainerMutationBoundary
                     _ownershipCounted = false;
                 }
             }
+        }
 
+        private void EnsureCurrentThread()
+        {
+            if (_originatingThreadId != Environment.CurrentManagedThreadId)
+                throw new InvalidOperationException("Mutation scopes must be used and disposed on their originating thread.");
         }
     }
 

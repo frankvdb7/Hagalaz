@@ -130,6 +130,8 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     internal ItemContainerMutationBoundary.MutationScope BeginMutation() => _mutations.BeginMutation();
 
+    internal ItemContainerMutationBoundary.MutationScope BeginStandalonePublication() => _mutations.BeginStandalonePublication();
+
     public bool Contains(int id, int count) => _storage.Contains(id, count);
     public bool Contains(int id) => _storage.Contains(id);
     public int GetCount(IItem item) => _storage.GetCount(item);

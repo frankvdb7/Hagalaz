@@ -60,6 +60,70 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
+    public void InventoryAdd_PublishesAfterUnlockWithoutRollbackTransaction()
+    {
+        using var scenario = new Scenario();
+        var inventory = CreateInventory(scenario, 2);
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        var boundary = Boundary(inventory);
+        var item = scenario.Builder.Create().WithId(99).WithCount(1).Build();
+
+        eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
+        {
+            if (call.Arg<IEvent>() is not InventoryChangedEvent) return;
+
+            Assert.AreSame(item, inventory.Items[0]);
+            AssertStandalonePublicationOwnsBoundaryAfterUnlock(boundary);
+        });
+
+        Assert.IsTrue(inventory.AddItem(item));
+
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is InventoryChangedEvent));
+        lock (boundary.MutationLock) Assert.IsFalse(boundary.HasStandalonePublicationOwner);
+    }
+
+    [TestMethod]
+    public void BankAdd_PublishesAfterUnlockWithoutRollbackTransaction()
+    {
+        using var scenario = new Scenario();
+        var bank = new BankContainer(scenario.Owner, 2, scenario.Builder);
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        var boundary = Boundary(bank);
+        AssertBankPublicationOwnsBoundaryAfterUnlock(eventManager, boundary);
+
+        Assert.IsTrue(bank.AddItem(scenario.Builder.Create().WithId(98).WithCount(1).Build()));
+
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is BankChangedEvent));
+        lock (boundary.MutationLock) Assert.IsFalse(boundary.HasStandalonePublicationOwner);
+    }
+
+    [TestMethod]
+    public void BankSort_PublishesAfterUnlockWithoutRollbackTransaction()
+    {
+        using var scenario = new Scenario();
+        var bank = new BankContainer(scenario.Owner, 3, scenario.Builder);
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+        var boundary = Boundary(bank);
+        AssertBankPublicationOwnsBoundaryAfterUnlock(eventManager, boundary);
+        var first = scenario.Builder.Create().WithId(98).WithCount(1).Build();
+        var second = scenario.Builder.Create().WithId(99).WithCount(1).Build();
+        Assert.IsTrue(bank.AddItem(first));
+        Assert.IsTrue(bank.AddItem(second));
+        bank.SwapItems(0, 2);
+        eventManager.ClearReceivedCalls();
+
+        bank.SortItems();
+
+        Assert.AreSame(second, bank.Items[0]);
+        Assert.AreSame(first, bank.Items[1]);
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is BankChangedEvent));
+        lock (boundary.MutationLock) Assert.IsFalse(boundary.HasStandalonePublicationOwner);
+    }
+
+    [TestMethod]
     public void TryRestoreEquippedItem_PublishesWithoutRunningOnEquipped()
     {
         using var scenario = new Scenario();
@@ -2030,6 +2094,26 @@ public sealed class CharacterItemTransferTests
 
     private static ItemContainerMutationBoundary Boundary(IItemTransactional participant) =>
         ((IItemTransactionSource)participant).Boundaries.Single();
+
+    private static void AssertStandalonePublicationOwnsBoundaryAfterUnlock(ItemContainerMutationBoundary boundary)
+    {
+        Assert.IsFalse(Monitor.IsEntered(boundary.MutationLock));
+        lock (boundary.MutationLock)
+        {
+            Assert.IsNull(boundary.Transaction);
+            Assert.IsTrue(boundary.HasStandalonePublicationOwner);
+            Assert.IsTrue(boundary.IsStandalonePublicationOwnedByCurrentThread);
+        }
+    }
+
+    private static void AssertBankPublicationOwnsBoundaryAfterUnlock(IEventManager eventManager,
+        ItemContainerMutationBoundary boundary) =>
+        eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
+        {
+            if (call.Arg<IEvent>() is not BankChangedEvent) return;
+
+            AssertStandalonePublicationOwnsBoundaryAfterUnlock(boundary);
+        });
 
     private static ItemContainerMutationBoundary GetEquipmentBoundary(EquipmentContainer equipment) =>
         (ItemContainerMutationBoundary)typeof(EquipmentContainer)

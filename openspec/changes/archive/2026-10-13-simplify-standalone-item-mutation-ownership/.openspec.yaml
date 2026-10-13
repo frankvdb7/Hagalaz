@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-13
+goal: Remove unnecessary single-participant rollback transactions while
+  preserving explicit domain publication and existing multi-container atomicity.

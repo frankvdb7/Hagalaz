@@ -92,14 +92,13 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
         public void SetItems(IItem[] items, bool update)
         {
-            using var transaction = ItemContainerTransaction.Begin(_items);
+            using var publication = _items.BeginStandalonePublication();
             using (var mutation = _items.BeginMutation())
             {
                 _items.ReplaceState(items);
                 if (update) mutation.RecordChanges(null);
             }
-            transaction.Commit();
-            if (update) PublishChanges();
+            if (update && publication.CompleteMutation()) PublishChanges();
         }
 
         /// <summary>
@@ -280,10 +279,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             }
             if (!originalStock && Items[slot] == null)
             {
-                using var sortTransaction = ItemContainerTransaction.Begin(_items);
+                using var publication = _items.BeginStandalonePublication();
                 _items.Sort();
-                sortTransaction.Commit();
-                PublishChanges();
+                if (publication.CompleteMutation()) PublishChanges();
             }
             _eventManager.SendEvent(new ShopItemBoughtEvent(viewer, _shop, toRemove));
             return true;
@@ -296,7 +294,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         {
             var changedSlots = new HashSet<int>();
             var positionsChanged = false;
-            using var transaction = ItemContainerTransaction.Begin(_items);
+            using var publication = _items.BeginStandalonePublication();
             using (var mutation = _items.BeginMutation())
             {
                 var currentItems = _items.SnapshotItems();
@@ -367,11 +365,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                     mutation.RecordChanges(positionsChanged ? null : changedSlots);
                 }
             }
-            if (changedSlots.Count > 0)
-            {
-                transaction.Commit();
-                PublishChanges();
-            }
+            if (changedSlots.Count > 0 && publication.CompleteMutation()) PublishChanges();
         }
 
         private static IItem CloneWithCount(IItem item, int count)

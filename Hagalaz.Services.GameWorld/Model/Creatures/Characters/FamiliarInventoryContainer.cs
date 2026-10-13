@@ -123,12 +123,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public int RemoveItem(IItem item, int preferredSlot = -1, bool publishChanges = true)
         {
-            if (_items.CurrentThreadTransaction != null)
-                return _items.Remove(item, preferredSlot, publishChanges);
-
-            using var transaction = ItemContainerTransaction.Begin(this);
+            using var publication = _items.BeginStandalonePublication();
             var removed = _items.Remove(item, preferredSlot, publishChanges);
-            if (removed > 0) { transaction.Commit(); PublishChanges(); }
+            if (removed > 0 && publication.CompleteMutation()) PublishChanges();
             return removed;
         }
 

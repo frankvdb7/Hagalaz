@@ -274,6 +274,30 @@ public sealed class ShopStockContainerTests
     }
 
     [TestMethod]
+    public void NormalizeStock_PublishesAfterUnlockWithoutRollbackTransaction()
+    {
+        var scenario = CreateScenario(cost: 0);
+        var boundary = ((IItemTransactionSource)scenario.Stock.Items).Boundaries[0];
+        var depletedOriginal = scenario.StockItem.Clone(0);
+        scenario.Stock.SetItems([depletedOriginal], update: false);
+        scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopStockChangedEvent>())).Do(_ =>
+        {
+            Assert.IsFalse(System.Threading.Monitor.IsEntered(boundary.MutationLock));
+            lock (boundary.MutationLock)
+            {
+                Assert.IsNull(boundary.Transaction);
+                Assert.IsTrue(boundary.HasStandalonePublicationOwner);
+                Assert.IsTrue(boundary.IsStandalonePublicationOwnedByCurrentThread);
+            }
+        });
+
+        scenario.Stock.NormalizeStock();
+
+        scenario.ShopEvents.Received(1).SendEvent(Arg.Any<ShopStockChangedEvent>());
+        lock (boundary.MutationLock) Assert.IsFalse(boundary.HasStandalonePublicationOwner);
+    }
+
+    [TestMethod]
     public void NormalizeStock_RetainsDepletedPlayerStockAtZeroCount()
     {
         var scenario = CreateScenario(cost: 0);

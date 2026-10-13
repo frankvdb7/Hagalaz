@@ -38,41 +38,41 @@ public class InventoryContainer : IInventoryContainer, IItemTransactionSource,
 
     public bool AddItem(IItem item)
     {
-        using var transaction = _items.CurrentThreadTransaction == null ? ItemContainerTransaction.Begin(this) : null;
+        using var publication = _items.BeginStandalonePublication();
         if (!_items.Add(item)) return false;
-        if (transaction != null) { transaction.Commit(); PublishChanges(); }
+        if (publication.CompleteMutation()) PublishChanges();
         return true;
     }
 
     public bool AddItem(int slot, IItem item)
     {
-        using var transaction = _items.CurrentThreadTransaction == null ? ItemContainerTransaction.Begin(this) : null;
+        using var publication = _items.BeginStandalonePublication();
         if (!_items.Add(slot, item)) return false;
-        if (transaction != null) { transaction.Commit(); PublishChanges(); }
+        if (publication.CompleteMutation()) PublishChanges();
         return true;
     }
 
     public bool AddItems(IEnumerable<IItem?> items)
     {
-        using var transaction = _items.CurrentThreadTransaction == null ? ItemContainerTransaction.Begin(this) : null;
+        using var publication = _items.BeginStandalonePublication();
         if (!_items.AddRange(items)) return false;
-        if (transaction != null) { transaction.Commit(); PublishChanges(); }
+        if (publication.CompleteMutation()) PublishChanges();
         return true;
     }
 
     public int RemoveItem(IItem item, int preferredSlot = -1, bool publishChanges = true)
     {
-        using var transaction = _items.CurrentThreadTransaction == null ? ItemContainerTransaction.Begin(this) : null;
+        using var publication = _items.BeginStandalonePublication();
         var removed = _items.Remove(item, preferredSlot, publishChanges);
-        if (removed > 0 && transaction != null) { transaction.Commit(); PublishChanges(); }
+        if (removed > 0 && publication.CompleteMutation()) PublishChanges();
         return removed;
     }
 
     public bool TryRemoveItemExact(IItem item, int preferredSlot = -1)
     {
-        using var transaction = _items.CurrentThreadTransaction == null ? ItemContainerTransaction.Begin(this) : null;
+        using var publication = _items.BeginStandalonePublication();
         if (!_items.TryRemoveExact(item, preferredSlot)) return false;
-        if (transaction != null) { transaction.Commit(); PublishChanges(); }
+        if (publication.CompleteMutation()) PublishChanges();
         return true;
     }
 
@@ -102,23 +102,23 @@ public class InventoryContainer : IInventoryContainer, IItemTransactionSource,
 
     public void ReplaceItem(int slot, IItem item)
     {
-        using var transaction = _items.CurrentThreadTransaction == null ? ItemContainerTransaction.Begin(this) : null;
+        using var publication = _items.BeginStandalonePublication();
         _items.Replace(slot, item);
-        if (transaction != null) { transaction.Commit(); PublishChanges(); }
+        if (publication.CompleteMutation()) PublishChanges();
     }
 
     public void SwapItems(int fromSlot, int toSlot)
     {
-        using var transaction = _items.CurrentThreadTransaction == null ? ItemContainerTransaction.Begin(this) : null;
+        using var publication = _items.BeginStandalonePublication();
         _items.Swap(fromSlot, toSlot);
-        if (transaction != null) { transaction.Commit(); PublishChanges(); }
+        if (publication.CompleteMutation()) PublishChanges();
     }
 
     public void ClearItems(bool publishChanges = true)
     {
-        using var transaction = _items.CurrentThreadTransaction == null ? ItemContainerTransaction.Begin(this) : null;
+        using var publication = _items.BeginStandalonePublication();
         _items.Clear(publishChanges);
-        if (transaction != null) { transaction.Commit(); PublishChanges(); }
+        if (publication.CompleteMutation()) PublishChanges();
     }
 
     public void PublishChanges()

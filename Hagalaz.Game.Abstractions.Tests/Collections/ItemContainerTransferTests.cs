@@ -1295,6 +1295,143 @@ public sealed class ItemContainerTransferTests
         AssertUnboundAndUnlocked(container);
     }
 
+    [TestMethod]
+    public void StandalonePublicationScope_ReleasesLockAndRetainsOwnershipUntilDispose()
+    {
+        var container = new ItemContainer(StorageType.Normal, 2);
+        var boundary = Boundary(container);
+        var scope = container.BeginStandalonePublication();
+        try
+        {
+            Assert.IsTrue(container.Add(new TestItem(148, 1)));
+            Assert.IsTrue(scope.CompleteMutation());
+
+            Assert.IsFalse(Monitor.IsEntered(boundary.MutationLock));
+            lock (boundary.MutationLock)
+            {
+                Assert.IsNull(boundary.Transaction);
+                Assert.IsTrue(boundary.HasStandalonePublicationOwner);
+                Assert.IsTrue(boundary.IsStandalonePublicationOwnedByCurrentThread);
+            }
+            CollectionAssert.AreEquivalent(new[] { 0 }, container.ChangeTracker.GetSlots()!.ToArray());
+            Assert.ThrowsExactly<InvalidOperationException>(() => container.Add(new TestItem(149, 1)));
+
+            scope.Dispose();
+            AssertUnboundAndUnlocked(container);
+        }
+        finally
+        {
+            scope.Dispose();
+        }
+    }
+
+    [TestMethod]
+    public void StandalonePublicationScope_ForeignTrackerReaderWaitsUntilScopeDisposal()
+    {
+        using var readerEnteredBoundary = new ManualResetEventSlim();
+        using var readerCompleted = new ManualResetEventSlim();
+        var container = new ItemContainer(StorageType.Normal, 2);
+        var boundary = Boundary(container);
+        var scope = container.BeginStandalonePublication();
+        HashSet<int>? readSlots = null;
+        Exception? readerFailure = null;
+        Thread? reader = null;
+        try
+        {
+            Assert.IsTrue(container.Add(new TestItem(150, 1)));
+            Assert.IsTrue(scope.CompleteMutation());
+
+            reader = new Thread(() =>
+            {
+                try
+                {
+                    lock (boundary.MutationLock)
+                    {
+                        readerEnteredBoundary.Set();
+                        readSlots = container.ChangeTracker.GetSlots();
+                    }
+                }
+                catch (Exception exception) { readerFailure = exception; }
+                finally { readerCompleted.Set(); }
+            }) { IsBackground = true };
+            reader.Start();
+
+            Assert.IsTrue(readerEnteredBoundary.Wait(TimeSpan.FromSeconds(5)));
+            var lockAcquired = false;
+            Assert.IsTrue(SpinWait.SpinUntil(() =>
+            {
+                lockAcquired = Monitor.TryEnter(boundary.MutationLock, 0);
+                return lockAcquired;
+            }, TimeSpan.FromSeconds(5)), "The tracker reader should wait after entering its ownership check.");
+            try
+            {
+                Assert.IsFalse(readerCompleted.IsSet);
+                Assert.IsTrue(boundary.HasStandalonePublicationOwner);
+            }
+            finally { Monitor.Exit(boundary.MutationLock); }
+
+            scope.Dispose();
+            Assert.IsTrue(reader.Join(TimeSpan.FromSeconds(5)));
+            if (readerFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(readerFailure).Throw();
+            CollectionAssert.AreEquivalent(new[] { 0 }, readSlots!.ToArray());
+            AssertUnboundAndUnlocked(container);
+        }
+        finally
+        {
+            scope.Dispose();
+            if (reader != null) Assert.IsTrue(reader.Join(TimeSpan.FromSeconds(5)));
+        }
+    }
+
+    [TestMethod]
+    public void StandalonePublicationScope_ParticipatesInTransactionWithoutPublishingEarly()
+    {
+        var container = new ItemContainer(StorageType.Normal, 2);
+        var boundary = Boundary(container);
+        var item = new TestItem(151, 1);
+
+        using (ItemContainerTransaction.Begin(container))
+        {
+            using (var publication = container.BeginStandalonePublication())
+            {
+                Assert.IsTrue(container.Add(item));
+                Assert.IsFalse(publication.CompleteMutation());
+                Assert.IsTrue(Monitor.IsEntered(boundary.MutationLock));
+            }
+            Assert.IsFalse(container.ChangeTracker.HasChanges);
+        }
+
+        Assert.IsNull(container[0]);
+        Assert.IsFalse(container.ChangeTracker.HasChanges);
+        AssertUnboundAndUnlocked(container);
+    }
+
+    [TestMethod]
+    public void StandalonePublicationScope_FailedMutationDoesNotRetainOwnershipOrChanges()
+    {
+        var container = new ItemContainer(StorageType.Normal, 1);
+        Assert.IsTrue(container.Add(new TestItem(152, 1)));
+        container.ChangeTracker.GetSlots();
+
+        using (container.BeginStandalonePublication())
+            Assert.IsFalse(container.Add(new TestItem(153, 1)));
+
+        Assert.IsFalse(container.ChangeTracker.HasChanges);
+        AssertUnboundAndUnlocked(container);
+    }
+
+    [TestMethod]
+    public void StandalonePublicationScope_DisposeWithoutCompletionReleasesOwnership()
+    {
+        var container = new ItemContainer(StorageType.Normal, 1);
+
+        using (container.BeginStandalonePublication())
+            Assert.IsTrue(container.Add(new TestItem(154, 1)));
+
+        CollectionAssert.AreEquivalent(new[] { 0 }, container.ChangeTracker.GetSlots()!.ToArray());
+        AssertUnboundAndUnlocked(container);
+    }
+
         [TestMethod]
     public void Commit_RejectsMutationUntilCommittedScopeIsDisposedButAllowsDisjointScope()
     {
