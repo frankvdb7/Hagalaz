@@ -298,7 +298,7 @@ Equipment callbacks, trade settlement publication, inventory/bank/reward events,
 - **THEN** it uses existing container operations under the session-owned scope's deterministically ordered boundary locks and publishes through domain owners only after commit
 
 ### Requirement: MoneyPouch and economic flows use one transaction owner
-MoneyPouch additions, removals, inventory transfers, bank deposits, shop purchases and sales, and duel stake, return, and cancellation refunds MUST stage all affected storage through one `ItemContainerTransaction` or exact two-container mutation boundary. A failed operation MUST leave every participant unchanged. Existing amount clamping, prices, messages, callbacks, and stock normalization MUST remain owned by their domain operations. MoneyPouch MUST retain its slot-zero coin sentinel and partial `Remove`, `AddFromInventory`, and `MoveToInventory` behavior.
+MoneyPouch additions, removals, inventory transfers, bank deposits, shop purchases and sales, and duel stake, return, cancellation refunds, and victory payouts MUST stage all affected storage through one `ItemContainerTransaction` or exact two-container mutation boundary. A failed operation MUST leave every participant unchanged. Existing amount clamping, prices, messages, callbacks, and stock normalization MUST remain owned by their domain operations. MoneyPouch MUST retain its slot-zero coin sentinel and partial `Remove`, `AddFromInventory`, and `MoveToInventory` behavior.
 
 #### Scenario: Pouch overflow cannot partially commit
 - **WHEN** a pouch addition overflows but inventory cannot accept the overflow
@@ -322,6 +322,21 @@ MoneyPouch additions, removals, inventory transfers, bank deposits, shop purchas
 #### Scenario: Duel stake transfer fails
 - **WHEN** the stake or destination cannot accept the exact transfer
 - **THEN** source and destination remain unchanged and the script does not publish a stake change
+
+### Requirement: Duel victory stakes are credited atomically
+Duel victory settlement MUST transfer all stake items to the winner as one atomic operation, consuming the source stakes exactly once. If any destination cannot accept the complete payout, all stakes and winner storage MUST remain unchanged.
+
+#### Scenario: Winner receives both stakes
+- **WHEN** the winner's inventory and MoneyPouch can accept both participants' stakes
+- **THEN** all non-coin items are transferred to inventory, all coin stacks are credited through the MoneyPouch, and both stake containers are empty
+
+#### Scenario: Winner cannot accept the complete payout
+- **WHEN** the winner's inventory or MoneyPouch cannot accept any part of the settlement
+- **THEN** both stake containers, the winner's inventory, and the winner's MoneyPouch remain unchanged
+
+#### Scenario: Victory settlement is repeated
+- **WHEN** the same stakes are settled again after a successful settlement
+- **THEN** no additional items or coins are credited to the winner
 
 ### Requirement: Decision-critical reads are revalidated under ownership
 A preflight read that determines whether an item mutation is valid MUST be checked again after all required mutation boundaries are acquired. Informational reads MAY remain lightweight, and the system MUST NOT introduce a global read lock.

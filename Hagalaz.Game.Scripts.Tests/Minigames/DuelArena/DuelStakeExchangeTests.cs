@@ -146,6 +146,63 @@ public sealed class DuelStakeExchangeTests
         Assert.AreEqual(1, second.Inventory.UpdateCount);
     }
 
+    [TestMethod]
+    public void TrySettleWinner_WhenEveryDestinationAccepts_TransfersBothStakes()
+    {
+        var winner = CreateScenario(pouchCoins: 10);
+        var firstStake = CreateScenario();
+        var secondStake = CreateScenario();
+        Assert.IsTrue(firstStake.Stake.Add(new TestItem(995, 3, stackable: true)));
+        Assert.IsTrue(firstStake.Stake.Add(new TestItem(1001, 1)));
+        Assert.IsTrue(secondStake.Stake.Add(new TestItem(1002, 2)));
+
+        Assert.IsTrue(DuelStakeExchange.TrySettleWinner(winner.Character, firstStake.Stake, secondStake.Stake));
+
+        Assert.AreEqual(0, firstStake.Stake.TakenSlots);
+        Assert.AreEqual(0, secondStake.Stake.TakenSlots);
+        Assert.AreEqual(13, winner.Pouch.Count);
+        Assert.AreEqual(1, winner.InventoryItems.GetCountById(1001));
+        Assert.AreEqual(2, winner.InventoryItems.GetCountById(1002));
+    }
+
+    [TestMethod]
+    public void TrySettleWinner_WhenRepeated_DoesNotAwardStakesAgain()
+    {
+        var winner = CreateScenario(pouchCoins: 10);
+        var firstStake = CreateScenario();
+        var secondStake = CreateScenario();
+        Assert.IsTrue(firstStake.Stake.Add(new TestItem(995, 3, stackable: true)));
+        Assert.IsTrue(secondStake.Stake.Add(new TestItem(1001, 1)));
+
+        Assert.IsTrue(DuelStakeExchange.TrySettleWinner(winner.Character, firstStake.Stake, secondStake.Stake));
+        Assert.IsTrue(DuelStakeExchange.TrySettleWinner(winner.Character, firstStake.Stake, secondStake.Stake));
+
+        Assert.AreEqual(13, winner.Pouch.Count);
+        Assert.AreEqual(1, winner.InventoryItems.GetCountById(1001));
+        Assert.AreEqual(0, firstStake.Stake.TakenSlots);
+        Assert.AreEqual(0, secondStake.Stake.TakenSlots);
+    }
+
+    [TestMethod]
+    public void TrySettleWinner_WhenInventoryCannotAcceptAllStakes_LeavesParticipantsUnchanged()
+    {
+        var winner = CreateScenario(inventoryCapacity: 1, pouchCoins: 10);
+        var firstStake = CreateScenario();
+        var secondStake = CreateScenario();
+        Assert.IsTrue(winner.InventoryItems.Add(new TestItem(2000, 1)));
+        Assert.IsTrue(firstStake.Stake.Add(new TestItem(995, 4, stackable: true)));
+        Assert.IsTrue(secondStake.Stake.Add(new TestItem(1001, 1)));
+
+        Assert.IsFalse(DuelStakeExchange.TrySettleWinner(winner.Character, firstStake.Stake, secondStake.Stake));
+
+        Assert.AreEqual(4, firstStake.Stake.GetCountById(995));
+        Assert.AreEqual(1, secondStake.Stake.GetCountById(1001));
+        Assert.AreEqual(10, winner.Pouch.Count);
+        Assert.AreEqual(1, winner.InventoryItems.GetCountById(2000));
+        Assert.AreEqual(0, winner.InventoryItems.GetCountById(995));
+        Assert.AreEqual(0, winner.InventoryItems.GetCountById(1001));
+    }
+
     private static Scenario CreateScenario(int inventoryCapacity = 4, int stakeCapacity = 4, int pouchCoins = 0)
     {
         var inventory = new ComposedTestContainer(inventoryCapacity);

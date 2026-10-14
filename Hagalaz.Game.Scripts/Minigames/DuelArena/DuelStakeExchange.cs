@@ -60,6 +60,14 @@ internal sealed class DuelStakeExchange
         return true;
     }
 
+    public static bool TrySettleWinner(ICharacter winner, IItemContainer firstStake, IItemContainer secondStake)
+    {
+        using var transaction = ItemContainerTransaction.Begin(firstStake, secondStake, winner.MoneyPouch);
+        if (!TransferStake(winner, firstStake) || !TransferStake(winner, secondStake)) return false;
+        transaction.Commit();
+        return true;
+    }
+
     public bool TryRefundBoth(
         ICharacter first,
         IItemContainer firstStake,
@@ -73,7 +81,9 @@ internal sealed class DuelStakeExchange
         return true;
     }
 
-    private static bool RefundStake(ICharacter owner, IItemContainer stake)
+    private static bool RefundStake(ICharacter owner, IItemContainer stake) => TransferStake(owner, stake);
+
+    private static bool TransferStake(ICharacter recipient, IItemContainer stake)
     {
         var entries = stake.Select((item, slot) => (item, slot))
             .Where(entry => entry.item != null)
@@ -84,9 +94,9 @@ internal sealed class DuelStakeExchange
         {
             if (item.Id == CoinsItemId)
             {
-                if (!owner.MoneyPouch.TryTransferCoinsFrom(stake, item, slot)) return false;
+                if (!recipient.MoneyPouch.TryTransferCoinsFrom(stake, item, slot)) return false;
             }
-            else if (!owner.Inventory.TryTransferItemFrom(stake, item, count, slot))
+            else if (!recipient.Inventory.TryTransferItemFrom(stake, item, count, slot))
             {
                 return false;
             }

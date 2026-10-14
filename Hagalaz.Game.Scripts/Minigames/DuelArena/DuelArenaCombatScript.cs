@@ -158,26 +158,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     }
                 }
 
-                var removedCoins = 0;
-                var coins = SelfContainer.Items.GetById(995);
-                if (coins != null)
-                {
-                    removedCoins += SelfContainer.Items.Remove(coins);
-                }
-
-                coins = TargetContainer.Items.GetById(995);
-                if (coins != null)
-                {
-                    removedCoins += TargetContainer.Items.Remove(coins);
-                }
-
-                if (removedCoins > 0)
-                {
-                    victor.MoneyPouch.Add(removedCoins);
-                }
-
-                victor.Inventory.AddItems(SelfContainer.Items);
-                victor.Inventory.AddItems(TargetContainer.Items);
+                DuelStakeExchange.TrySettleWinner(victor, SelfContainer!.Items, TargetContainer!.Items);
             }
         }
 
