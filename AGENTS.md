@@ -87,6 +87,7 @@ solutions proportional to the problem and prevent accidental architecture expans
 - During implementation: re-check the diff after each logical step and stop when a second mechanism for the same responsibility appears.
 - Before completion: review for regressions, duplicate paths, dead code, ownership leaks, cancellation behavior, dependency weight, and readability—not only test failures.
 - Validate the actual runtime topology with targeted tests, integration tests where boundaries are distributed, a build, and a clean diff check. Report what was not verified.
+- Do not introduce new compiler or analyzer warnings. When a build reports warnings, distinguish warnings introduced by the change from pre-existing warnings.
 
 ### Production relevance in code review
 
