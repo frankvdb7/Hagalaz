@@ -172,9 +172,10 @@ internal sealed class ItemContainerMutationBoundary
     private void EnterChangeTrackerRead(bool consume)
     {
         var lockAlreadyHeld = Monitor.IsEntered(_mutationLock);
-        if (_transaction is { IsCommittedByCurrentThread: true })
+        if (_transaction is { IsCommittedByCurrentThread: true } ||
+            Volatile.Read(ref _standalonePublicationOwnerThreadId) == Environment.CurrentManagedThreadId)
         {
-            // A committed transaction owner may publish while a foreign contender is waiting on this binding.
+            // The logical owner may consume changes while a foreign contender briefly owns the monitor to wait.
             Monitor.Enter(_mutationLock);
         }
         else if (CurrentThreadOwnsStorage)
@@ -212,18 +213,7 @@ internal sealed class ItemContainerMutationBoundary
         }
     }
 
-    internal MutationScope BeginMutation() => BeginMutation(retainStandaloneOwnership: false);
-
-    internal MutationScope BeginStandalonePublication() => BeginMutation(retainStandaloneOwnership: true);
-
-    internal void ThrowIfOwnedByCurrentThread(string? message = null)
-    {
-        if (_transaction is { IsOwnedByCurrentThread: true } ||
-            Volatile.Read(ref _standalonePublicationOwnerThreadId) == Environment.CurrentManagedThreadId)
-            throw new InvalidOperationException(message ?? "This operation cannot run within a transaction or publication owned by the current thread.");
-    }
-
-    private MutationScope BeginMutation(bool retainStandaloneOwnership)
+    internal MutationScope BeginMutation()
     {
         var ownsLock = !Monitor.IsEntered(_mutationLock);
         var ownershipCounted = false;
@@ -267,7 +257,7 @@ internal sealed class ItemContainerMutationBoundary
                 ownershipCounted = true;
             }
 
-            return new MutationScope(this, ownsLock, _transaction, retainStandaloneOwnership, ownershipCounted,
+            return new MutationScope(this, ownsLock, _transaction, ownershipCounted,
                 scopeCounted, Environment.CurrentManagedThreadId);
         }
         catch
@@ -279,73 +269,38 @@ internal sealed class ItemContainerMutationBoundary
         }
     }
 
+    internal void ThrowIfOwnedByCurrentThread(string? message = null)
+    {
+        if (_transaction is { IsOwnedByCurrentThread: true } ||
+            Volatile.Read(ref _standalonePublicationOwnerThreadId) == Environment.CurrentManagedThreadId)
+            throw new InvalidOperationException(message ?? "This operation cannot run within a transaction or publication owned by the current thread.");
+    }
+
     internal ref struct MutationScope
     {
         private readonly ItemContainerMutationBoundary _boundary;
         private readonly ItemContainerTransaction? _transaction;
         private bool _ownsLock;
-        private readonly bool _retainStandaloneOwnership;
         private readonly int _originatingThreadId;
         private bool _ownershipCounted;
         private bool _scopeCounted;
         private bool _recorded;
-        private bool _completedStandalonePublication;
         private bool _disposed;
 
         internal ItemContainerTransaction? Transaction => _transaction;
 
         internal MutationScope(ItemContainerMutationBoundary boundary, bool ownsLock,
-            ItemContainerTransaction? transaction, bool retainStandaloneOwnership, bool ownershipCounted,
+            ItemContainerTransaction? transaction, bool ownershipCounted,
             bool scopeCounted, int originatingThreadId)
         {
             _boundary = boundary;
             _ownsLock = ownsLock;
             _transaction = transaction;
-            _retainStandaloneOwnership = retainStandaloneOwnership;
             _originatingThreadId = originatingThreadId;
             _ownershipCounted = ownershipCounted;
             _scopeCounted = scopeCounted;
             _recorded = false;
-            _completedStandalonePublication = false;
             _disposed = false;
-        }
-
-        /// <summary>
-        /// Releases the physical mutation lock and retains standalone ownership for the caller to publish changes.
-        /// Returns false when publication belongs to a caller-owned transaction or an enclosing scope.
-        /// </summary>
-        internal bool CompleteMutation()
-        {
-            EnsureCurrentThread();
-            if (_disposed) throw new ObjectDisposedException(nameof(MutationScope));
-            if (!_retainStandaloneOwnership)
-                throw new InvalidOperationException("Only an explicit publication scope can complete a standalone mutation.");
-
-            if (_transaction is { } transaction)
-            {
-                _boundary.EnsureOwnedBy(transaction);
-                return false;
-            }
-
-            if (!_ownsLock) return false;
-            if (!_scopeCounted || !_ownershipCounted || !_boundary.IsMutationLockHeldByCurrentThread)
-                throw new InvalidOperationException("Standalone completion requires the owning mutation scope.");
-            if (_boundary._mutationScopeCount != 1)
-                throw new InvalidOperationException("Nested mutation scopes must end before standalone publication begins.");
-
-            if (_boundary._standalonePublicationOwnerThreadId == 0)
-                _boundary.ClaimStandalonePublicationOwnership();
-            else if (!_boundary.IsStandalonePublicationOwnedByCurrentThread)
-                throw new InvalidOperationException("Standalone publication belongs to another thread.");
-
-            _boundary._mutationScopeCount--;
-            _scopeCounted = false;
-            Monitor.Exit(_boundary._mutationLock);
-            _ownsLock = false;
-            RemoveCurrentThreadStorageOwnership();
-            _ownershipCounted = false;
-            _completedStandalonePublication = true;
-            return true;
         }
 
         /// <summary>
@@ -367,8 +322,6 @@ internal sealed class ItemContainerMutationBoundary
             {
                 if (slots is not { Count: 0 })
                 {
-                    if (_retainStandaloneOwnership)
-                        _boundary.ClaimStandalonePublicationOwnership();
                     _boundary._changeTracker.RecordCommitted(slots);
                 }
             }
@@ -381,12 +334,11 @@ internal sealed class ItemContainerMutationBoundary
             EnsureCurrentThread();
             _disposed = true;
 
-            if (_completedStandalonePublication)
-            {
-                _boundary.CompleteStandalonePublication();
-                _completedStandalonePublication = false;
-                return;
-            }
+            var publishStandaloneChanges = _ownsLock && _scopeCounted &&
+                _boundary._mutationScopeCount == 1 && _transaction == null &&
+                _boundary._completion != null && _boundary._changeTracker.HasCommittedChanges;
+            if (publishStandaloneChanges)
+                _boundary.ClaimStandalonePublicationOwnership();
 
             if (_scopeCounted)
             {
@@ -401,6 +353,19 @@ internal sealed class ItemContainerMutationBoundary
                 {
                     RemoveCurrentThreadStorageOwnership();
                     _ownershipCounted = false;
+                }
+            }
+
+            if (publishStandaloneChanges)
+            {
+                try
+                {
+                    _boundary._completion!.CompleteCommittedEffects();
+                    _boundary._completion.PublishCommittedChanges();
+                }
+                finally
+                {
+                    CompleteStandalonePublications([_boundary]);
                 }
             }
         }
@@ -467,20 +432,42 @@ internal sealed class ItemContainerMutationBoundary
                 return false;
             _changeTracker.RecordCommitted(sourceSlots);
             destination._changeTracker.RecordCommitted(destinationSlots);
+
+            var owners = new List<IItemContainerCompletionOwner>(2);
+            if (_completion is { } sourceOwner) owners.Add(sourceOwner);
+            var destinationOwner = destination._completion;
+            if (destinationOwner != null && (owners.Count == 0 || !ReferenceEquals(owners[0], destinationOwner)))
+                owners.Add(destinationOwner);
+            if (owners.Count == 0) return true;
+
+            ClaimStandalonePublicationOwnership();
+            destination.ClaimStandalonePublicationOwnership();
+            lockSet!.ReleaseLocksPreservingOwnership();
+            try
+            {
+                foreach (var owner in owners) owner.CompleteCommittedEffects();
+                foreach (var owner in owners) owner.PublishCommittedChanges();
+            }
+            finally
+            {
+                CompleteStandalonePublications([this, destination]);
+            }
         }
 
         return true;
     }
 
-    internal void CompleteStandalonePublication()
+    private static void CompleteStandalonePublications(IReadOnlyCollection<ItemContainerMutationBoundary> boundaries)
     {
-        lock (_mutationLock)
+        using var lockSet = ItemContainerLockSet.AcquireForStandalonePublicationFinalization(boundaries);
+        foreach (var boundary in boundaries)
         {
-            if (_transaction != null || !IsStandalonePublicationOwnedByCurrentThread)
+            if (boundary._transaction != null || !boundary.IsStandalonePublicationOwnedByCurrentThread)
                 throw new InvalidOperationException("Standalone completion requires retained boundary ownership.");
-            ReleaseStandalonePublicationOwnership();
-            Monitor.PulseAll(_mutationLock);
+            if (boundary._completion != null) boundary._changeTracker.DiscardCommitted();
+            boundary.ReleaseStandalonePublicationOwnership();
         }
+        foreach (var boundary in boundaries) Monitor.PulseAll(boundary._mutationLock);
     }
 
 }

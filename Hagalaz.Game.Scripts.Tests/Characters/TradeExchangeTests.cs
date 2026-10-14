@@ -234,7 +234,6 @@ public sealed class TradeExchangeTests
         character.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(_ =>
         {
             inventory.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
-            offer.Revision.Should().Be(2);
             offer.Items.GetCountById(995).Should().Be(25);
             moneyPouch.Count.Should().Be(0);
             inventory.Items.GetCountById(995).Should().Be(0);
@@ -244,6 +243,7 @@ public sealed class TradeExchangeTests
         CreateTradeExchange().TryOfferMoneyFromPouch(character, offer, new TestItem(995, 25, stackable: true)).Should().BeTrue();
 
         publicationSawFinalState.Should().BeTrue();
+        offer.Revision.Should().Be(2);
     }
 
     [TestMethod]
@@ -289,7 +289,6 @@ public sealed class TradeExchangeTests
         inventory.OnUpdateAction = () =>
         {
             inventory.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
-            offer.Revision.Should().Be(3);
             offer.Items.GetCountById(995).Should().Be(0);
             moneyPouch.Count.Should().Be(int.MaxValue);
             inventory.Items.GetCountById(995).Should().Be(5);
@@ -299,6 +298,7 @@ public sealed class TradeExchangeTests
         CreateTradeExchange().TryReturnMoneyToPouch(character, offer, new TestItem(995, 10, stackable: true), -1).Should().BeTrue();
 
         publicationSawFinalState.Should().BeTrue();
+        offer.Revision.Should().Be(3);
     }
 
     [TestMethod]
@@ -969,10 +969,6 @@ public sealed class TradeExchangeTests
         transaction.Commit();
         firstOffer.PublishChanges();
         secondOffer.PublishChanges();
-        first.Inventory.PublishChanges();
-        second.Inventory.PublishChanges();
-        first.MoneyPouch.PublishChanges();
-        second.MoneyPouch.PublishChanges();
         return true;
     }
 
@@ -983,10 +979,6 @@ public sealed class TradeExchangeTests
         transaction.Commit();
         firstOffer.PublishChanges();
         secondOffer.PublishChanges();
-        first.Inventory.PublishChanges();
-        second.Inventory.PublishChanges();
-        first.MoneyPouch.PublishChanges();
-        second.MoneyPouch.PublishChanges();
         return true;
     }
 
@@ -1006,10 +998,6 @@ public sealed class TradeExchangeTests
         transaction.Commit();
         firstOffer.PublishChanges();
         secondOffer.PublishChanges();
-        first.Rewards?.PublishChanges();
-        first.Bank?.PublishChanges();
-        second.Rewards?.PublishChanges();
-        second.Bank?.PublishChanges();
         return true;
     }
 

@@ -23,9 +23,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         void SwapItems(int fromSlot, int toSlot);
         void ClearItems(bool publishChanges = true);
 
-        /// <summary>Publishes committed inventory changes while the owning transaction scope is still active.</summary>
-        void PublishChanges();
-
         /// <summary>
         /// Drops a specific item from the inventory onto the ground.
         /// </summary>

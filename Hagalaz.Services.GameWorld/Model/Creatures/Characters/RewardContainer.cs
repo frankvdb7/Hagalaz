@@ -9,7 +9,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public partial class RewardContainer : IRewardContainer, IItemTransactionSource,
+    public partial class RewardContainer : IRewardContainer, IItemTransactionSource, IItemContainerCompletionOwner,
         IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
@@ -33,7 +33,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             _owner = owner;
             _itemBuilder = itemBuilder;
-            _items = new ItemContainer(StorageType.AlwaysStack, byte.MaxValue);
+            _items = new ItemContainer(StorageType.AlwaysStack, byte.MaxValue, -1, this);
         }
 
         /// <summary>
@@ -91,8 +91,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             _items.Sort();
             transaction.Commit();
-            PublishChanges();
-            _owner.Inventory.PublishChanges();
             return count;
         }
 
@@ -106,12 +104,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
         /// <param name="slots">The slots.</param>
-        public void PublishChanges()
+        void IItemContainerCompletionOwner.PublishCommittedChanges()
         {
             var slots = _items.ChangeTracker.GetSlots();
             if (slots is { Count: 0 }) return;
             _owner.EventManager.SendEvent(new RewardsChangedEvent(_owner, slots));
         }
+
+        void IItemContainerCompletionOwner.DiscardPendingCompletion() { }
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> rewards)
         {

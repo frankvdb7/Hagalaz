@@ -76,8 +76,6 @@ internal sealed class TradeExchange
             !character.MoneyPouch.TryRemoveExact(coins.Count)) return false;
         transaction.Commit();
         offer.PublishChanges();
-        character.Inventory.PublishChanges();
-        character.MoneyPouch.PublishChanges();
         return true;
     }
 
@@ -87,8 +85,6 @@ internal sealed class TradeExchange
         if (!character.MoneyPouch.TryTransferCoinsFrom(offer.MutableItems, coins, preferredSlot)) return false;
         transaction.Commit();
         offer.PublishChanges();
-        character.Inventory.PublishChanges();
-        character.MoneyPouch.PublishChanges();
         return true;
     }
 

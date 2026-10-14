@@ -1295,143 +1295,6 @@ public sealed class ItemContainerTransferTests
         AssertUnboundAndUnlocked(container);
     }
 
-    [TestMethod]
-    public void StandalonePublicationScope_ReleasesLockAndRetainsOwnershipUntilDispose()
-    {
-        var container = new ItemContainer(StorageType.Normal, 2);
-        var boundary = Boundary(container);
-        var scope = container.BeginStandalonePublication();
-        try
-        {
-            Assert.IsTrue(container.Add(new TestItem(148, 1)));
-            Assert.IsTrue(scope.CompleteMutation());
-
-            Assert.IsFalse(Monitor.IsEntered(boundary.MutationLock));
-            lock (boundary.MutationLock)
-            {
-                Assert.IsNull(boundary.Transaction);
-                Assert.IsTrue(boundary.HasStandalonePublicationOwner);
-                Assert.IsTrue(boundary.IsStandalonePublicationOwnedByCurrentThread);
-            }
-            CollectionAssert.AreEquivalent(new[] { 0 }, container.ChangeTracker.GetSlots()!.ToArray());
-            Assert.ThrowsExactly<InvalidOperationException>(() => container.Add(new TestItem(149, 1)));
-
-            scope.Dispose();
-            AssertUnboundAndUnlocked(container);
-        }
-        finally
-        {
-            scope.Dispose();
-        }
-    }
-
-    [TestMethod]
-    public void StandalonePublicationScope_ForeignTrackerReaderWaitsUntilScopeDisposal()
-    {
-        using var readerEnteredBoundary = new ManualResetEventSlim();
-        using var readerCompleted = new ManualResetEventSlim();
-        var container = new ItemContainer(StorageType.Normal, 2);
-        var boundary = Boundary(container);
-        var scope = container.BeginStandalonePublication();
-        HashSet<int>? readSlots = null;
-        Exception? readerFailure = null;
-        Thread? reader = null;
-        try
-        {
-            Assert.IsTrue(container.Add(new TestItem(150, 1)));
-            Assert.IsTrue(scope.CompleteMutation());
-
-            reader = new Thread(() =>
-            {
-                try
-                {
-                    lock (boundary.MutationLock)
-                    {
-                        readerEnteredBoundary.Set();
-                        readSlots = container.ChangeTracker.GetSlots();
-                    }
-                }
-                catch (Exception exception) { readerFailure = exception; }
-                finally { readerCompleted.Set(); }
-            }) { IsBackground = true };
-            reader.Start();
-
-            Assert.IsTrue(readerEnteredBoundary.Wait(TimeSpan.FromSeconds(5)));
-            var lockAcquired = false;
-            Assert.IsTrue(SpinWait.SpinUntil(() =>
-            {
-                lockAcquired = Monitor.TryEnter(boundary.MutationLock, 0);
-                return lockAcquired;
-            }, TimeSpan.FromSeconds(5)), "The tracker reader should wait after entering its ownership check.");
-            try
-            {
-                Assert.IsFalse(readerCompleted.IsSet);
-                Assert.IsTrue(boundary.HasStandalonePublicationOwner);
-            }
-            finally { Monitor.Exit(boundary.MutationLock); }
-
-            scope.Dispose();
-            Assert.IsTrue(reader.Join(TimeSpan.FromSeconds(5)));
-            if (readerFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(readerFailure).Throw();
-            CollectionAssert.AreEquivalent(new[] { 0 }, readSlots!.ToArray());
-            AssertUnboundAndUnlocked(container);
-        }
-        finally
-        {
-            scope.Dispose();
-            if (reader != null) Assert.IsTrue(reader.Join(TimeSpan.FromSeconds(5)));
-        }
-    }
-
-    [TestMethod]
-    public void StandalonePublicationScope_ParticipatesInTransactionWithoutPublishingEarly()
-    {
-        var container = new ItemContainer(StorageType.Normal, 2);
-        var boundary = Boundary(container);
-        var item = new TestItem(151, 1);
-
-        using (ItemContainerTransaction.Begin(container))
-        {
-            using (var publication = container.BeginStandalonePublication())
-            {
-                Assert.IsTrue(container.Add(item));
-                Assert.IsFalse(publication.CompleteMutation());
-                Assert.IsTrue(Monitor.IsEntered(boundary.MutationLock));
-            }
-            Assert.IsFalse(container.ChangeTracker.HasChanges);
-        }
-
-        Assert.IsNull(container[0]);
-        Assert.IsFalse(container.ChangeTracker.HasChanges);
-        AssertUnboundAndUnlocked(container);
-    }
-
-    [TestMethod]
-    public void StandalonePublicationScope_FailedMutationDoesNotRetainOwnershipOrChanges()
-    {
-        var container = new ItemContainer(StorageType.Normal, 1);
-        Assert.IsTrue(container.Add(new TestItem(152, 1)));
-        container.ChangeTracker.GetSlots();
-
-        using (container.BeginStandalonePublication())
-            Assert.IsFalse(container.Add(new TestItem(153, 1)));
-
-        Assert.IsFalse(container.ChangeTracker.HasChanges);
-        AssertUnboundAndUnlocked(container);
-    }
-
-    [TestMethod]
-    public void StandalonePublicationScope_DisposeWithoutCompletionReleasesOwnership()
-    {
-        var container = new ItemContainer(StorageType.Normal, 1);
-
-        using (container.BeginStandalonePublication())
-            Assert.IsTrue(container.Add(new TestItem(154, 1)));
-
-        CollectionAssert.AreEquivalent(new[] { 0 }, container.ChangeTracker.GetSlots()!.ToArray());
-        AssertUnboundAndUnlocked(container);
-    }
-
         [TestMethod]
     public void Commit_RejectsMutationUntilCommittedScopeIsDisposedButAllowsDisjointScope()
     {
@@ -1517,52 +1380,224 @@ public sealed class ItemContainerTransferTests
         Assert.IsFalse(typeof(ItemContainerMutationBoundary).IsPublic);
     }
 
-    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ItemContainer, TestCompletionOwner> CompletionOwners = new();
-    private static TestCompletionOwner Completion(ItemContainer container) => CompletionOwners.GetValue(container, key =>
+    [TestMethod]
+    public void StandaloneMutation_PublishesOnceWhenOutermostScopeDisposes()
     {
-        var owner = new TestCompletionOwner(Boundary(key));
-        typeof(ItemContainerMutationBoundary).GetField("_completion", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Boundary(key), owner);
-        return owner;
-    });
+        var (container, owner) = CreateOwnedContainer("container", 3);
+        using (container.BeginMutation())
+        {
+            Assert.IsTrue(container.Add(new TestItem(201, 1)));
+            Assert.IsTrue(container.Add(new TestItem(202, 1)));
+            Assert.AreEqual(0, owner.EffectsCalls);
+            Assert.AreEqual(0, owner.PublicationCalls);
+        }
 
-    private sealed class TestCompletionOwner(ItemContainerMutationBoundary boundary) : IItemContainerCompletionOwner
+        CollectionAssert.AreEqual(new[] { "effects:container", "publish:container" }, owner.Timeline);
+        CollectionAssert.AreEquivalent(new[] { 0, 1 }, owner.PublishedSlots!.ToArray());
+        Assert.IsFalse(container.ChangeTracker.HasChanges);
+        AssertUnboundAndUnlocked(container);
+    }
+
+    [TestMethod]
+    public void StandaloneMutation_NoRecordedChangesDoesNotPublish()
     {
-        private readonly Queue<Action> _before = new();
-        private readonly Queue<Action> _after = new();
-        internal int BeforeCalls { get; private set; }
-        internal int AfterCalls { get; private set; }
+        var (container, owner) = CreateOwnedContainer("container", 1, [new TestItem(203, 1)]);
+
+        Assert.IsFalse(container.Add(new TestItem(204, 1)));
+        container.Clear(publishChanges: false);
+
+        Assert.AreEqual(0, owner.EffectsCalls);
+        Assert.AreEqual(0, owner.PublicationCalls);
+        Assert.IsNull(container[0]);
+        AssertUnboundAndUnlocked(container);
+    }
+
+    [TestMethod]
+    public void StandaloneMutation_RetainsLogicalOwnershipUntilPublicationFinishes()
+    {
+        using var publicationEntered = new ManualResetEventSlim();
+        using var finishPublication = new ManualResetEventSlim();
+        using var contenderStarted = new ManualResetEventSlim();
+        using var contenderFinished = new ManualResetEventSlim();
+        var (container, owner) = CreateOwnedContainer("container", 2);
+        owner.OnPublish = () =>
+        {
+            Assert.IsFalse(Monitor.IsEntered(Boundary(container).MutationLock));
+            lock (Boundary(container).MutationLock)
+            {
+                Assert.IsTrue(Boundary(container).HasStandalonePublicationOwner);
+                Assert.IsTrue(Boundary(container).IsStandalonePublicationOwnedByCurrentThread);
+            }
+            publicationEntered.Set();
+            Assert.IsTrue(finishPublication.Wait(TimeSpan.FromSeconds(5)));
+        };
+
+        Exception? firstFailure = null;
+        var first = new Thread(() =>
+        {
+            try { Assert.IsTrue(container.Add(new TestItem(215, 1))); }
+            catch (Exception exception) { firstFailure = exception; }
+        }) { IsBackground = true };
+        first.Start();
+        Assert.IsTrue(publicationEntered.Wait(TimeSpan.FromSeconds(5)));
+
+        Exception? contenderFailure = null;
+        var contender = new Thread(() =>
+        {
+            try
+            {
+                contenderStarted.Set();
+                Assert.IsTrue(container.Add(new TestItem(216, 1)));
+            }
+            catch (Exception exception) { contenderFailure = exception; }
+            finally { contenderFinished.Set(); }
+        }) { IsBackground = true };
+        contender.Start();
+        try
+        {
+            Assert.IsTrue(contenderStarted.Wait(TimeSpan.FromSeconds(5)));
+            Assert.IsFalse(contenderFinished.IsSet);
+            Assert.IsFalse(Monitor.IsEntered(Boundary(container).MutationLock));
+        }
+        finally { finishPublication.Set(); }
+
+        Assert.IsTrue(first.Join(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(contender.Join(TimeSpan.FromSeconds(5)));
+        if (firstFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(firstFailure).Throw();
+        if (contenderFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(contenderFailure).Throw();
+        Assert.AreEqual(2, owner.PublicationCalls);
+        AssertUnboundAndUnlocked(container);
+    }
+
+    [TestMethod]
+    public void Commit_CompletesEveryOwnerBeforePublishingInParticipantOrder()
+    {
+        var timeline = new List<string>();
+        var (first, firstOwner) = CreateOwnedContainer("first", 2, [new TestItem(205, 1)], timeline);
+        var (second, secondOwner) = CreateOwnedContainer("second", 2, [new TestItem(206, 1)], timeline);
+        var transaction = ItemContainerTransaction.Begin(first, second);
+        Assert.IsTrue(first.Add(new TestItem(207, 1)));
+        Assert.IsTrue(second.Add(new TestItem(208, 1)));
+
+        transaction.Commit();
+
+        CollectionAssert.AreEqual(new[]
+        {
+            "effects:first", "effects:second", "publish:first", "publish:second"
+        }, timeline);
+        Assert.AreEqual(1, firstOwner.PublicationCalls);
+        Assert.AreEqual(1, secondOwner.PublicationCalls);
+        Assert.IsFalse(Monitor.IsEntered(Boundary(first).MutationLock));
+        Assert.IsFalse(Monitor.IsEntered(Boundary(second).MutationLock));
+        Assert.AreSame(transaction, Boundary(first).Transaction);
+        Assert.AreSame(transaction, Boundary(second).Transaction);
+        transaction.Dispose();
+        AssertUnboundAndUnlocked(first, second);
+    }
+
+    [TestMethod]
+    public void Commit_PublicationFailureLeavesStorageCommittedAndDoesNotPublishLaterOwners()
+    {
+        var (first, firstOwner) = CreateOwnedContainer("first", 2, [new TestItem(209, 1)]);
+        var (second, secondOwner) = CreateOwnedContainer("second", 2, [new TestItem(210, 1)]);
+        firstOwner.OnPublish = () => throw new InvalidOperationException("publisher failed");
+        var transaction = ItemContainerTransaction.Begin(first, second);
+        var added = new TestItem(211, 1);
+        Assert.IsTrue(first.Add(added));
+        Assert.IsTrue(second.Add(new TestItem(212, 1)));
+
+        Assert.ThrowsExactly<InvalidOperationException>(transaction.Commit);
+        transaction.Dispose();
+
+        Assert.AreSame(added, first[1]);
+        Assert.AreEqual(0, secondOwner.PublicationCalls);
+        Assert.AreEqual(1, firstOwner.DiscardCalls);
+        Assert.AreEqual(1, secondOwner.DiscardCalls);
+        Assert.IsFalse(second.ChangeTracker.HasChanges);
+        AssertUnboundAndUnlocked(first, second);
+    }
+
+    [TestMethod]
+    public void StandaloneTransfer_CompletesBothOwnersAfterReleasingLocks()
+    {
+        var timeline = new List<string>();
+        var item = new TestItem(213, 2);
+        var (source, sourceOwner) = CreateOwnedContainer("source", 2, [item], timeline);
+        var (destination, destinationOwner) = CreateOwnedContainer("destination", 2, [], timeline);
+        Action<ItemContainer> verifyOwnership = container =>
+        {
+            Assert.IsFalse(Monitor.IsEntered(Boundary(container).MutationLock));
+            lock (Boundary(container).MutationLock)
+            {
+                Assert.IsTrue(Boundary(container).HasStandalonePublicationOwner);
+                Assert.IsTrue(Boundary(container).IsStandalonePublicationOwnedByCurrentThread);
+            }
+        };
+        sourceOwner.OnEffects = () => { verifyOwnership(source); verifyOwnership(destination); };
+        destinationOwner.OnEffects = () => { verifyOwnership(source); verifyOwnership(destination); };
+
+        Assert.IsTrue(source.TryTransferTo(destination, item, 2));
+
+        CollectionAssert.AreEqual(new[]
+        {
+            "effects:source", "effects:destination", "publish:source", "publish:destination"
+        }, timeline);
+        Assert.IsNull(source[0]);
+        Assert.AreSame(item, destination[0]);
+        AssertUnboundAndUnlocked(source, destination);
+    }
+
+    [TestMethod]
+    public void StandaloneTransfer_PublicationFailureReleasesBothBoundaries()
+    {
+        var item = new TestItem(214, 1);
+        var (source, sourceOwner) = CreateOwnedContainer("source", 1, [item]);
+        var (destination, destinationOwner) = CreateOwnedContainer("destination", 1, []);
+        sourceOwner.OnPublish = () => throw new InvalidOperationException("publisher failed");
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => source.TryTransferTo(destination, item, 1));
+
+        Assert.IsNull(source[0]);
+        Assert.AreSame(item, destination[0]);
+        Assert.AreEqual(0, destinationOwner.PublicationCalls);
+        AssertUnboundAndUnlocked(source, destination);
+    }
+
+    private static (ItemContainer Container, TestCompletionOwner Owner) CreateOwnedContainer(
+        string name, int capacity, IEnumerable<IItem>? items = null, List<string>? timeline = null)
+    {
+        var owner = new TestCompletionOwner(name, timeline ?? []);
+        var container = items == null
+            ? new ItemContainer(StorageType.Normal, capacity, -1, owner)
+            : new ItemContainer(StorageType.Normal, items, capacity, -1, owner);
+        owner.Container = container;
+        return (container, owner);
+    }
+
+    private sealed class TestCompletionOwner(string name, List<string> timeline) : IItemContainerCompletionOwner
+    {
+        internal ItemContainer Container { get; set; } = null!;
+        internal int EffectsCalls { get; private set; }
+        internal int PublicationCalls { get; private set; }
         internal int DiscardCalls { get; private set; }
-        internal void Before(Action effect) => Add(_before, effect);
-        internal void After(Action effect) => Add(_after, effect);
-        private void Add(Queue<Action> pending, Action effect)
+        internal HashSet<int>? PublishedSlots { get; private set; }
+        internal Action? OnEffects { get; set; }
+        internal Action? OnPublish { get; set; }
+        internal List<string> Timeline => timeline;
+        public void DiscardPendingCompletion() => DiscardCalls++;
+        public void CompleteCommittedEffects()
         {
-            lock (boundary.MutationLock)
-            {
-                var transaction = boundary.Transaction
-                    ?? throw new InvalidOperationException("Completion facts require an active transaction.");
-                transaction.EnsureActive();
-                if (!ReferenceEquals(boundary.Transaction, transaction) || !boundary.IsMutationLockHeldByCurrentThread)
-                    throw new InvalidOperationException("Completion facts require their active transaction and mutation lock.");
-                pending.Enqueue(effect);
-            }
+            EffectsCalls++;
+            timeline.Add($"effects:{name}");
+            Assert.IsFalse(Monitor.IsEntered(Boundary(Container).MutationLock));
+            OnEffects?.Invoke();
         }
-        public void DiscardPendingCompletion() { DiscardCalls++; _before.Clear(); _after.Clear(); }
-        public void CompleteBeforePublication()
+        public void PublishCommittedChanges()
         {
-            BeforeCalls++;
-            List<Exception>? failures = null;
-            while (_before.TryDequeue(out var effect))
-            {
-                try { effect(); }
-                catch (Exception exception) { (failures ??= []).Add(exception); }
-            }
-            if (failures is { Count: 1 }) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failures[0]).Throw();
-            if (failures is { Count: > 1 }) throw new AggregateException(failures);
-        }
-        public void CompleteAfterPublication()
-        {
-            AfterCalls++;
-            while (_after.TryDequeue(out var effect)) effect();
+            PublicationCalls++;
+            timeline.Add($"publish:{name}");
+            PublishedSlots = Container.ChangeTracker.GetSlots();
+            OnPublish?.Invoke();
         }
     }
 

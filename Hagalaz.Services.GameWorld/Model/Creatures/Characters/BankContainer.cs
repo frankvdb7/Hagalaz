@@ -12,7 +12,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// Class BankContainer
     /// </summary>
-    public partial class BankContainer : IBankContainer, IItemTransactionSource,
+    public partial class BankContainer : IBankContainer, IItemTransactionSource, IItemContainerCompletionOwner,
         IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
@@ -35,47 +35,40 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             _owner = owner;
             _itemBuilder = itemBuilder;
-            _items = new ItemContainer(StorageType.AlwaysStack, capacity);
+            _items = new ItemContainer(StorageType.AlwaysStack, capacity, -1, this);
         }
 
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
         /// <param name="slots">The slots.</param>
-        public void PublishChanges()
+        void IItemContainerCompletionOwner.PublishCommittedChanges()
         {
             var slots = _items.ChangeTracker.GetSlots();
             if (slots is { Count: 0 }) return;
             _owner.EventManager.SendEvent(new BankChangedEvent(_owner, slots));
         }
 
+        void IItemContainerCompletionOwner.DiscardPendingCompletion() { }
+
         public bool AddItem(IItem item)
         {
-            using var publication = _items.BeginStandalonePublication();
-            if (!_items.Add(item)) return false;
-            if (publication.CompleteMutation()) PublishChanges();
-            return true;
+            return _items.Add(item);
         }
 
         public void SwapItems(int fromSlot, int toSlot)
         {
-            using var publication = _items.BeginStandalonePublication();
             _items.Swap(fromSlot, toSlot);
-            if (publication.CompleteMutation()) PublishChanges();
         }
 
         public void MoveItem(int fromSlot, int toSlot)
         {
-            using var publication = _items.BeginStandalonePublication();
             _items.Move(fromSlot, toSlot);
-            if (publication.CompleteMutation()) PublishChanges();
         }
 
         public void SortItems()
         {
-            using var publication = _items.BeginStandalonePublication();
             _items.Sort();
-            if (publication.CompleteMutation()) PublishChanges();
         }
 
         /// <summary>
@@ -100,9 +93,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 else
                 {
                     transaction.Commit();
-                    PublishChanges();
-                    _owner.Inventory.PublishChanges();
-                    _owner.MoneyPouch.PublishChanges();
                     deposited = coins;
                     return true;
                 }
@@ -142,8 +132,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                         destinationItem: transformed ? deposited : null))
                 {
                     transaction.Commit();
-                    container.PublishChanges();
-                    PublishChanges();
                     return true;
                 }
             }
@@ -196,8 +184,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                         transformed ? deposited : null))
                 {
                     transaction.Commit();
-                    _owner.Equipment.PublishChanges();
-                    PublishChanges();
                     return true;
                 }
             }
@@ -238,8 +224,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                         destinationItem: transformed ? deposited : null))
                 {
                     transaction.Commit();
-                    _owner.Inventory.PublishChanges();
-                    PublishChanges();
                     return true;
                 }
             }
@@ -342,8 +326,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 {
                     _items.Sort();
                     transaction.Commit();
-                    PublishChanges();
-                    _owner.Inventory.PublishChanges();
                     return true;
                 }
             }

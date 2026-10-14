@@ -11,8 +11,6 @@ namespace Hagalaz.Game.Abstractions.Collections
     {
         IReadOnlyItemContainer Items { get; }
 
-        void PublishChanges();
-
         /// <summary>
         /// Resets the shop's stock to its default state. This is typically called periodically
         /// to replenish items and remove excess player-sold items.

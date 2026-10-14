@@ -10,9 +10,9 @@ namespace Hagalaz.Game.Abstractions.Collections;
 /// <summary>Coordinates synchronous atomic item-container mutations and rollback.</summary>
 /// <remarks>
 /// This is a synchronous scope. Begin acquires and binds all participating mutation boundaries; mutations affect live
-/// storage eagerly while the Active scope owns their locks. Commit makes storage irreversible and releases physical
-/// locks while retaining the logical bindings until disposal, so domain owners can publish committed changes without
-/// an intervening mutation. Overlapping callers that own no storage wait; a caller already
+/// storage eagerly while the Active scope owns their locks. Commit makes storage irreversible, releases physical
+/// locks, and completes registered domain owners while retaining logical bindings until disposal. Overlapping callers
+/// that own no storage wait; a caller already
 /// owning storage rejects contended additional acquisition. Same-thread reentrant overlap is rejected.
 /// Dispose without Commit restores storage before releasing the scope. Begin, mutations, Commit,
 /// publication, and Dispose must run on the originating thread. Rollback restores slot topology, item references, item
@@ -33,8 +33,9 @@ public sealed class ItemContainerTransaction : IDisposable
     {
         _publicationOrder = publicationOrder;
         var completionOwners = new List<IItemContainerCompletionOwner>();
+        var seenOwners = new HashSet<IItemContainerCompletionOwner>(ReferenceEqualityComparer.Instance);
         foreach (var boundary in publicationOrder)
-            if (boundary.CompletionOwner is { } owner) completionOwners.Add(owner);
+            if (boundary.CompletionOwner is { } owner && seenOwners.Add(owner)) completionOwners.Add(owner);
         _completionOwners = completionOwners.ToArray();
     }
 
@@ -92,9 +93,8 @@ public sealed class ItemContainerTransaction : IDisposable
     /// <summary>Makes live storage irreversible and releases physical mutation locks while retaining scope ownership until disposal.</summary>
     /// <remarks>
     /// Mutations already affect live storage under locks; Commit discards rollback ability rather than applying staged data.
-    /// Domain owners must consume and publish their committed changes before disposing the transaction. A publication
-    /// exception does not make storage reversible; Dispose releases ownership without rolling back, and a second Commit
-    /// is invalid.
+    /// After releasing physical locks, Commit completes domain effects and publishes committed changes. If either phase
+    /// throws, storage remains committed and disposal releases ownership without rolling back. A second Commit is invalid.
     /// </remarks>
     public void Commit()
     {
@@ -110,6 +110,9 @@ public sealed class ItemContainerTransaction : IDisposable
         {
             _lockSet!.ReleaseLocksPreservingOwnership();
         }
+
+        foreach (var owner in _completionOwners) owner.CompleteCommittedEffects();
+        foreach (var owner in _completionOwners) owner.PublishCommittedChanges();
     }
 
     /// <summary>Restores all captured storage if still active; disposal after commit or disposal is inert.</summary>
@@ -150,7 +153,10 @@ public sealed class ItemContainerTransaction : IDisposable
     private void CompleteCommittedScope()
     {
         foreach (var boundary in _publicationOrder)
+        {
             boundary.ChangeTracker.DiscardPending();
+            if (boundary.CompletionOwner != null) boundary.ChangeTracker.DiscardCommitted();
+        }
         try { DiscardPendingCompletion(); }
         finally
         {

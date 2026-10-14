@@ -17,7 +17,7 @@ public sealed class ItemContainerCompositionTests
         Assert.IsTrue(container.Add(item));
 
         Assert.AreSame(item, container[0]);
-        CollectionAssert.AreEquivalent(new[] { 0 }, container.ChangeTracker.GetSlots()!.ToArray());
+        CollectionAssert.AreEquivalent(new[] { 0, 1 }, container.ChangeTracker.GetSlots()!.ToArray());
     }
 
     [TestMethod]

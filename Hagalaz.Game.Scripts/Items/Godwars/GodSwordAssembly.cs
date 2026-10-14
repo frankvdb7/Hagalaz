@@ -21,7 +21,6 @@ internal static class GodSwordAssembly
         if (!inventory.TryRemoveItemExact(used, usedSlot)) return false;
         inventory.ReplaceItem(usedWithSlot, itemBuilder.Create().WithId(resultId).Build());
         transaction.Commit();
-        inventory.PublishChanges();
         return true;
     }
 }

@@ -1,5 +1,4 @@
 using System.Linq;
-using System.Runtime.ExceptionServices;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Utilities;
@@ -29,7 +28,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly record struct MoneyPouchChange(int PreviousCount, int NewCount, int ChangeCount);
 
         IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries =>
-            [_storageMutations, _inventoryMutations];
+            [_inventoryMutations, _storageMutations];
 
         public bool HasSpaceForCoins(int count) => count > 0 && (long)Count + count <= int.MaxValue;
 
@@ -81,7 +80,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             using var ownedTransaction = ItemContainerTransaction.Begin(this);
             if (!AddExactCore(count, ownedTransaction)) return false;
             ownedTransaction.Commit();
-            PublishCommittedChanges();
             return true;
         }
 
@@ -165,7 +163,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             using var ownedTransaction = ItemContainerTransaction.Begin(this);
             if (!RemoveExactCore(count, ownedTransaction)) return false;
             ownedTransaction.Commit();
-            PublishCommittedChanges();
             return true;
         }
 
@@ -208,7 +205,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         }
 
         void IItemContainerCompletionOwner.DiscardPendingCompletion() => _pendingChanges.Clear();
-        public void PublishChanges()
+        void IItemContainerCompletionOwner.PublishCommittedChanges()
         {
             while (_pendingChanges.TryDequeue(out var change))
             {
@@ -236,18 +233,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             SendMoneyPouchChangedMessage(change.ChangeCount);
             if (change.PreviousCount != change.NewCount)
                 _owner.EventManager.SendEvent(new MoneyPouchChangedEvent(_owner, change.PreviousCount, change.NewCount));
-        }
-
-        private void PublishCommittedChanges()
-        {
-            List<Exception>? failures = null;
-            try { _owner.Inventory.PublishChanges(); }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
-            try { PublishChanges(); }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
-
-            if (failures is { Count: 1 }) ExceptionDispatchInfo.Capture(failures[0]).Throw();
-            if (failures is { Count: > 1 }) throw new AggregateException(failures).Flatten();
         }
 
         /// <summary>
@@ -288,7 +273,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (slot < 0 || !_owner.Inventory.TryRemoveItemExact(coins, slot) ||
                 !AddExactCore(transferCount, transaction)) return false;
             transaction.Commit();
-            PublishCommittedChanges();
             return true;
         }
 
@@ -306,7 +290,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 if (TryMoveToInventoryCore(count, out inventoryFull))
                 {
                     transaction.Commit();
-                    PublishCommittedChanges();
                     return true;
                 }
             }

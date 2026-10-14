@@ -17,6 +17,7 @@ using Hagalaz.Services.GameWorld.Logic.Characters;
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 
 public class InventoryContainer : IInventoryContainer, IItemTransactionSource,
+    IItemContainerCompletionOwner,
     IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
 {
     private readonly ICharacter _owner;
@@ -33,47 +34,32 @@ public class InventoryContainer : IInventoryContainer, IItemTransactionSource,
     {
         (_owner, _mapRegionService, _groundItemBuilder, _itemBuilder) =
             (owner, mapRegionService, groundItemBuilder, itemBuilder);
-        _items = new ItemContainer(StorageType.Normal, capacity);
+        _items = new ItemContainer(StorageType.Normal, capacity, -1, this);
     }
 
     public bool AddItem(IItem item)
     {
-        using var publication = _items.BeginStandalonePublication();
-        if (!_items.Add(item)) return false;
-        if (publication.CompleteMutation()) PublishChanges();
-        return true;
+        return _items.Add(item);
     }
 
     public bool AddItem(int slot, IItem item)
     {
-        using var publication = _items.BeginStandalonePublication();
-        if (!_items.Add(slot, item)) return false;
-        if (publication.CompleteMutation()) PublishChanges();
-        return true;
+        return _items.Add(slot, item);
     }
 
     public bool AddItems(IEnumerable<IItem?> items)
     {
-        using var publication = _items.BeginStandalonePublication();
-        if (!_items.AddRange(items)) return false;
-        if (publication.CompleteMutation()) PublishChanges();
-        return true;
+        return _items.AddRange(items);
     }
 
     public int RemoveItem(IItem item, int preferredSlot = -1, bool publishChanges = true)
     {
-        using var publication = _items.BeginStandalonePublication();
-        var removed = _items.Remove(item, preferredSlot, publishChanges);
-        if (removed > 0 && publication.CompleteMutation()) PublishChanges();
-        return removed;
+        return _items.Remove(item, preferredSlot, publishChanges);
     }
 
     public bool TryRemoveItemExact(IItem item, int preferredSlot = -1)
     {
-        using var publication = _items.BeginStandalonePublication();
-        if (!_items.TryRemoveExact(item, preferredSlot)) return false;
-        if (publication.CompleteMutation()) PublishChanges();
-        return true;
+        return _items.TryRemoveExact(item, preferredSlot);
     }
 
     public bool TryTransferItemTo(IItemContainer destination, IItem item, int count,
@@ -84,7 +70,7 @@ public class InventoryContainer : IInventoryContainer, IItemTransactionSource,
             ? ItemContainerTransaction.Begin(this, destination)
             : null;
         if (!_items.TryTransferTo(destination, item, count, preferredSourceSlot, destinationSlot, destinationItem)) return false;
-        if (transaction != null) { transaction.Commit(); PublishChanges(); }
+        transaction?.Commit();
         return true;
     }
 
@@ -96,37 +82,33 @@ public class InventoryContainer : IInventoryContainer, IItemTransactionSource,
             ? ItemContainerTransaction.Begin(this, source)
             : null;
         if (!source.TryTransferTo(_items, item, count, preferredSourceSlot, destinationSlot, destinationItem)) return false;
-        if (transaction != null) { transaction.Commit(); PublishChanges(); }
+        transaction?.Commit();
         return true;
     }
 
     public void ReplaceItem(int slot, IItem item)
     {
-        using var publication = _items.BeginStandalonePublication();
         _items.Replace(slot, item);
-        if (publication.CompleteMutation()) PublishChanges();
     }
 
     public void SwapItems(int fromSlot, int toSlot)
     {
-        using var publication = _items.BeginStandalonePublication();
         _items.Swap(fromSlot, toSlot);
-        if (publication.CompleteMutation()) PublishChanges();
     }
 
     public void ClearItems(bool publishChanges = true)
     {
-        using var publication = _items.BeginStandalonePublication();
         _items.Clear(publishChanges);
-        if (publication.CompleteMutation()) PublishChanges();
     }
 
-    public void PublishChanges()
+    void IItemContainerCompletionOwner.PublishCommittedChanges()
     {
         var slots = _items.ChangeTracker.GetSlots();
         if (slots is { Count: 0 }) return;
         _owner.EventManager.SendEvent(new InventoryChangedEvent(_owner, slots));
     }
+
+    void IItemContainerCompletionOwner.DiscardPendingCompletion() { }
 
     public bool DropItem(IItem item)
     {

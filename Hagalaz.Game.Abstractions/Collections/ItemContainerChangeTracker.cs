@@ -35,6 +35,8 @@ public sealed class ItemContainerChangeTracker
 
     internal void DiscardPending() => _pending = default;
 
+    internal void DiscardCommitted() => _committed = default;
+
     internal bool TryConsumeCommitted(out HashSet<int>? slots)
     {
         if (!_committed.HasChanges)

@@ -9,7 +9,8 @@ using NSubstitute;
 
 namespace Hagalaz.TestSupport;
 
-internal sealed class ComposedTestContainer : IInventoryContainer, IRewardContainer, IItemTransactionSource
+internal sealed class ComposedTestContainer : IInventoryContainer, IRewardContainer, IItemTransactionSource,
+    IItemContainerCompletionOwner
 {
     private readonly ItemContainer _items;
     public IItemContainer Items => _items;
@@ -23,7 +24,7 @@ internal sealed class ComposedTestContainer : IInventoryContainer, IRewardContai
 
     public ComposedTestContainer(int capacity) : this(StorageType.Normal, capacity) { }
     public ComposedTestContainer(StorageType type, int capacity, int countToResetTo = -1) =>
-        _items = new ItemContainer(type, capacity, countToResetTo);
+        _items = new ItemContainer(type, capacity, countToResetTo, this);
 
     public static IItem CreateTestItem(int id, int count = 1)
     {
@@ -59,63 +60,37 @@ internal sealed class ComposedTestContainer : IInventoryContainer, IRewardContai
 
     public bool DropItem(IItem item) => false;
     public int Claim(IItem item, int count) => 0;
-    public bool AddItem(IItem item) => Mutate(() => _items.Add(item));
-    public bool AddItem(int slot, IItem item) => Mutate(() => _items.Add(slot, item));
-    public bool AddItems(IEnumerable<IItem?> items) => Mutate(() => _items.AddRange(items));
+    public bool AddItem(IItem item) => _items.Add(item);
+    public bool AddItem(int slot, IItem item) => _items.Add(slot, item);
+    public bool AddItems(IEnumerable<IItem?> items) => _items.AddRange(items);
 
     public int RemoveItem(IItem item, int preferredSlot = -1, bool publishChanges = true)
     {
-        using var transaction = BeginMutation();
-        var removed = _items.Remove(item, preferredSlot, publishChanges);
-        if (removed > 0) Commit(transaction);
-        return removed;
+        return _items.Remove(item, preferredSlot, publishChanges);
     }
 
     public bool TryRemoveItemExact(IItem item, int preferredSlot = -1) =>
-        !RejectExactRemoval && Mutate(() => _items.TryRemoveExact(item, preferredSlot));
+        !RejectExactRemoval && _items.TryRemoveExact(item, preferredSlot);
 
     public bool TryTransferItemTo(IItemContainer destination, IItem item, int count,
         int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null)
     {
-        using var transaction = BeginMutation(destination);
-        var transferred = _items.TryTransferTo(destination, item, count,
+        return _items.TryTransferTo(destination, item, count,
             preferredSourceSlot, destinationSlot, destinationItem);
-        if (transferred) Commit(transaction);
-        return transferred;
     }
 
     public bool TryTransferItemFrom(IItemContainer source, IItem item, int count,
         int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null)
     {
-        using var transaction = BeginMutation(source);
-        var transferred = source.TryTransferTo(_items, item, count,
+        return source.TryTransferTo(_items, item, count,
             preferredSourceSlot, destinationSlot, destinationItem);
-        if (transferred) Commit(transaction);
-        return transferred;
     }
 
-    public void ReplaceItem(int slot, IItem item)
-    {
-        using var transaction = BeginMutation();
-        _items.Replace(slot, item);
-        Commit(transaction);
-    }
+    public void ReplaceItem(int slot, IItem item) => _items.Replace(slot, item);
+    public void SwapItems(int fromSlot, int toSlot) => _items.Swap(fromSlot, toSlot);
+    public void ClearItems(bool publishChanges = true) => _items.Clear(publishChanges);
 
-    public void SwapItems(int fromSlot, int toSlot)
-    {
-        using var transaction = BeginMutation();
-        _items.Swap(fromSlot, toSlot);
-        Commit(transaction);
-    }
-
-    public void ClearItems(bool publishChanges = true)
-    {
-        using var transaction = BeginMutation();
-        _items.Clear(publishChanges);
-        Commit(transaction);
-    }
-
-    public void PublishChanges()
+    void IItemContainerCompletionOwner.PublishCommittedChanges()
     {
         var slots = _items.ChangeTracker.GetSlots();
         if (slots is { Count: 0 }) return;
@@ -128,26 +103,5 @@ internal sealed class ComposedTestContainer : IInventoryContainer, IRewardContai
 
     public void SetItem(int slot, IItem item) => _items.Replace(slot, item);
 
-    private bool Mutate(Func<bool> mutation)
-    {
-        using var transaction = BeginMutation();
-        if (!mutation()) return false;
-        Commit(transaction);
-        return true;
-    }
-
-    private ItemContainerTransaction? BeginMutation(IItemTransactional? participant = null)
-    {
-        if (_items.CurrentThreadTransaction != null) return null;
-        return participant == null
-            ? ItemContainerTransaction.Begin(this)
-            : ItemContainerTransaction.Begin(this, participant);
-    }
-
-    private void Commit(ItemContainerTransaction? transaction)
-    {
-        if (transaction == null) return;
-        transaction.Commit();
-        PublishChanges();
-    }
+    void IItemContainerCompletionOwner.DiscardPendingCompletion() { }
 }

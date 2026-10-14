@@ -45,8 +45,6 @@ internal sealed class DuelStakeExchange
         var coins = _itemBuilder.Create().WithId(CoinsItemId).WithCount(transferCount).Build();
         if (!stake.Add(coins) || !character.MoneyPouch.TryRemoveExact(transferCount)) return false;
         transaction.Commit();
-        character.Inventory.PublishChanges();
-        character.MoneyPouch.PublishChanges();
         return true;
     }
 
@@ -59,8 +57,6 @@ internal sealed class DuelStakeExchange
         using var transaction = ItemContainerTransaction.Begin(stake, character.MoneyPouch);
         if (!character.MoneyPouch.TryTransferCoinsFrom(stake, coins, preferredSourceSlot)) return false;
         transaction.Commit();
-        character.Inventory.PublishChanges();
-        character.MoneyPouch.PublishChanges();
         return true;
     }
 
@@ -74,10 +70,6 @@ internal sealed class DuelStakeExchange
             first.MoneyPouch, second.MoneyPouch);
         if (!RefundStake(first, firstStake) || !RefundStake(second, secondStake)) return false;
         transaction.Commit();
-        first.Inventory.PublishChanges();
-        second.Inventory.PublishChanges();
-        first.MoneyPouch.PublishChanges();
-        second.MoneyPouch.PublishChanges();
         return true;
     }
 

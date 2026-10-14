@@ -14,8 +14,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         void SwapItems(int fromSlot, int toSlot);
         void MoveItem(int fromSlot, int toSlot);
         void SortItems();
-        void PublishChanges();
-
         /// <summary>
         /// Deposits the contents of the player's money pouch into the bank.
         /// </summary>

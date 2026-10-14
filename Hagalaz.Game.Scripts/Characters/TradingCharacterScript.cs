@@ -768,7 +768,6 @@ namespace Hagalaz.Game.Scripts.Characters
                 {
                     if (!offer.TryReceiveFromInventory(character.Inventory, item, count, preferredSlot)) return false;
                     transaction.Commit();
-                    character.Inventory.PublishChanges();
                     offer.PublishChanges();
                 }
 
@@ -792,7 +791,6 @@ namespace Hagalaz.Game.Scripts.Characters
                         if (!offer.TryTransferToInventory(character.Inventory, item, count, preferredSlot)) return false;
                         transaction.Commit();
                         offer.PublishChanges();
-                        character.Inventory.PublishChanges();
                     }
 
                     RefreshTradeOfferScreenLocked(session);
@@ -1331,7 +1329,7 @@ namespace Hagalaz.Game.Scripts.Characters
                         {
                             session.MarkCancelled();
                             transaction.Commit();
-                            CompleteTradePublications(SelfContainer, TargetContainer, Character, session.Target, includePouches: true);
+                            CompleteOfferPublications(SelfContainer, TargetContainer);
                         }
                     }
                     if (session.State != TradeState.Cancelled && forceConservation)
@@ -1348,7 +1346,7 @@ namespace Hagalaz.Game.Scripts.Characters
                         {
                             session.MarkCancelled();
                             transaction.Commit();
-                            CompleteRecoveryPublications(SelfContainer, TargetContainer, Character, session.Target);
+                            CompleteOfferPublications(SelfContainer, TargetContainer);
                         }
                     }
                     if (session.State != TradeState.Cancelled)
@@ -1401,7 +1399,7 @@ namespace Hagalaz.Game.Scripts.Characters
                         {
                             session.MarkCompleted();
                             transaction.Commit();
-                            CompleteTradePublications(SelfContainer, TargetContainer, Character, target, includePouches: true);
+                            CompleteOfferPublications(SelfContainer, TargetContainer);
                         }
                     }
                     if (session.State == TradeState.Completing)
@@ -1513,58 +1511,13 @@ namespace Hagalaz.Game.Scripts.Characters
             }
         }
 
-        private static void CompleteTradePublications(TradeContainer firstOffer, TradeContainer secondOffer,
-            ICharacter first, ICharacter second, bool includePouches)
+        private static void CompleteOfferPublications(TradeContainer firstOffer, TradeContainer secondOffer)
         {
             List<Exception>? failures = null;
             try { firstOffer.PublishChanges(); }
             catch (Exception exception) { (failures ??= []).Add(exception); }
             try { secondOffer.PublishChanges(); }
             catch (Exception exception) { (failures ??= []).Add(exception); }
-            try { first.Inventory.PublishChanges(); }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
-            try { second.Inventory.PublishChanges(); }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
-            if (includePouches)
-            {
-                try { first.MoneyPouch.PublishChanges(); }
-                catch (Exception exception) { (failures ??= []).Add(exception); }
-                try { second.MoneyPouch.PublishChanges(); }
-                catch (Exception exception) { (failures ??= []).Add(exception); }
-            }
-
-            if (failures is { Count: 1 }) ExceptionDispatchInfo.Capture(failures[0]).Throw();
-            if (failures is { Count: > 1 }) throw new AggregateException(failures).Flatten();
-        }
-
-        private static void CompleteRecoveryPublications(TradeContainer firstOffer, TradeContainer secondOffer,
-            ICharacter first, ICharacter second)
-        {
-            List<Exception>? failures = null;
-            try { firstOffer.PublishChanges(); }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
-            try { secondOffer.PublishChanges(); }
-            catch (Exception exception) { (failures ??= []).Add(exception); }
-            if (first.Rewards != null)
-            {
-                try { first.Rewards.PublishChanges(); }
-                catch (Exception exception) { (failures ??= []).Add(exception); }
-            }
-            if (first.Bank != null)
-            {
-                try { first.Bank.PublishChanges(); }
-                catch (Exception exception) { (failures ??= []).Add(exception); }
-            }
-            if (second.Rewards != null)
-            {
-                try { second.Rewards.PublishChanges(); }
-                catch (Exception exception) { (failures ??= []).Add(exception); }
-            }
-            if (second.Bank != null)
-            {
-                try { second.Bank.PublishChanges(); }
-                catch (Exception exception) { (failures ??= []).Add(exception); }
-            }
 
             if (failures is { Count: 1 }) ExceptionDispatchInfo.Capture(failures[0]).Throw();
             if (failures is { Count: > 1 }) throw new AggregateException(failures).Flatten();

@@ -165,7 +165,6 @@ public sealed class CharacterItemTransferTests
         eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
 
         transaction.Commit();
-        equipment.PublishChanges();
         current.EquipmentScript.Received(1).OnUnequipped(current, scenario.Owner);
         replacement.EquipmentScript.Received(1).OnEquipped(replacement, scenario.Owner);
         replacement.EquipmentScript.Received(1).OnUnequipped(replacement, scenario.Owner);
@@ -254,7 +253,7 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    public void TryMoveTo_LifecycleFailureStillPublishesEquipmentAndRetainsDestinationChanges()
+    public void TryMoveTo_LifecycleFailureSkipsPublicationAndRetainsOwnerlessDestinationChanges()
     {
         using var scenario = new Scenario();
         var (equipment, eventManager, destination, item) = CreateEquipmentMoveScenario(scenario);
@@ -266,30 +265,7 @@ public sealed class CharacterItemTransferTests
 
         Assert.IsNull(equipment[EquipmentSlot.Hat]);
         Assert.AreSame(item, destination[0]);
-        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
-        CollectionAssert.AreEqual(new[] { 0 }, destination.ChangeTracker.GetSlots()!.Order().ToArray());
-        AssertUnboundAndUnlocked(equipment, destination);
-    }
-
-    [TestMethod]
-    public void TryMoveTo_LifecycleAndEquipmentPublicationFailuresRetainDestinationChanges()
-    {
-        using var scenario = new Scenario();
-        var (equipment, eventManager, destination, item) = CreateEquipmentMoveScenario(scenario);
-        var hookFailure = new InvalidOperationException("Unequip hook failed.");
-        var publicationFailure = new InvalidOperationException("Equipment publisher failed.");
-        item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ => throw hookFailure);
-        eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
-        {
-            if (call.Arg<IEvent>() is EquipmentChangedEvent) throw publicationFailure;
-        });
-
-        var thrown = Assert.ThrowsExactly<AggregateException>(
-            () => equipment.TryMoveTo(destination, item, 1, EquipmentSlot.Hat));
-
-        CollectionAssert.AreEquivalent(new Exception[] { hookFailure, publicationFailure }, thrown.InnerExceptions.ToArray());
-        Assert.IsNull(equipment[EquipmentSlot.Hat]);
-        Assert.AreSame(item, destination[0]);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
         CollectionAssert.AreEqual(new[] { 0 }, destination.ChangeTracker.GetSlots()!.Order().ToArray());
         AssertUnboundAndUnlocked(equipment, destination);
     }
@@ -310,7 +286,6 @@ public sealed class CharacterItemTransferTests
         eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
 
         transaction.Commit();
-        equipment.PublishChanges();
 
         item.EquipmentScript.Received(1).OnUnequipped(item, scenario.Owner);
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
@@ -401,7 +376,7 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    public void TryReplaceEquippedItem_WhenOldCallbackThrows_AttemptsRemainingActionsAndPreservesStorage()
+    public void TryReplaceEquippedItem_WhenOldCallbackThrows_AttemptsRemainingEffectsAndSkipsPublication()
     {
         using var scenario = new Scenario();
         var (equipment, eventManager, current, replacement) = CreateReplacementScenario(scenario);
@@ -428,12 +403,12 @@ public sealed class CharacterItemTransferTests
 
         Assert.AreSame(failure, thrown);
         Assert.AreSame(replacement, equipment[EquipmentSlot.Hat]);
-        CollectionAssert.AreEqual(new[] { "unequip", "equip", "publish" }, order);
-        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+        CollectionAssert.AreEqual(new[] { "unequip", "equip" }, order);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
     }
 
     [TestMethod]
-    public void TryReplaceEquippedItem_WhenBothCallbacksThrow_AggregatesFailuresAfterPublication()
+    public void TryReplaceEquippedItem_WhenBothCallbacksThrow_AggregatesFailuresAndSkipsPublication()
     {
         using var scenario = new Scenario();
         var (equipment, eventManager, current, replacement) = CreateReplacementScenario(scenario);
@@ -452,8 +427,8 @@ public sealed class CharacterItemTransferTests
         Assert.AreSame(equipFailure, thrown.InnerExceptions[1]);
         Assert.AreEqual(2, thrown.InnerExceptions.Count);
         Assert.AreSame(replacement, equipment[EquipmentSlot.Hat]);
-        CollectionAssert.AreEqual(new[] { "unequip", "equip", "publish" }, order);
-        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+        CollectionAssert.AreEqual(new[] { "unequip", "equip" }, order);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
     }
 
     [TestMethod]
@@ -497,7 +472,7 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    public void RemoveEquippedItem_WhenUnequipCallbackThrows_StillPublishesAndKeepsStorageRemoved()
+    public void RemoveEquippedItem_WhenUnequipCallbackThrows_KeepsStorageRemovedAndSkipsPublication()
     {
         using var scenario = new Scenario();
         var eventManager = Substitute.For<IEventManager>();
@@ -524,8 +499,8 @@ public sealed class CharacterItemTransferTests
 
         Assert.AreSame(failure, thrown);
         Assert.IsNull(equipment[EquipmentSlot.Hat]);
-        CollectionAssert.AreEqual(new[] { "unequip", "publish" }, order);
-        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+        CollectionAssert.AreEqual(new[] { "unequip" }, order);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
     }
 
     [TestMethod]
@@ -732,7 +707,7 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    public void ClearEquipment_WhenCallbackThrows_AttemptsEveryCallbackAndPublication()
+    public void ClearEquipment_WhenCallbackThrows_AttemptsEveryCallbackAndSkipsPublication()
     {
         using var scenario = new Scenario();
         var eventManager = Substitute.For<IEventManager>();
@@ -771,8 +746,8 @@ public sealed class CharacterItemTransferTests
 
         Assert.AreSame(failure, thrown);
         Assert.IsTrue(equipment.Items.All(item => item == null));
-        CollectionAssert.AreEqual(new[] { "first", "second", "publish" }, order);
-        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+        CollectionAssert.AreEqual(new[] { "first", "second" }, order);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
     }
 
     [TestMethod]
@@ -1235,7 +1210,7 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    public void EquipItem_TwoConflictPublisherFailureLeavesCommittedStateAndRunsCallbacks()
+    public void EquipItem_TwoConflictInventoryPublisherFailureStopsEquipmentPublication()
     {
         using var scenario = new Scenario();
         var setup = CreateWeaponShieldReplacementSetup(scenario, inventoryCapacity: 3);
@@ -1260,20 +1235,20 @@ public sealed class CharacterItemTransferTests
         Assert.IsNull(setup.Equipment[EquipmentSlot.Shield]);
         Assert.AreSame(setup.Weapon, setup.Inventory.Items[0]);
         Assert.AreSame(setup.Shield, setup.Inventory.Items[1]);
-        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+        eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is InventoryChangedEvent));
+        eventManager.DidNotReceive().SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
     }
 
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
-    public void EquipItem_HookAndPublisherFailuresPreserveBothAfterAttemptingOwnedHooks(bool multipleHooksFail)
+    public void EquipItem_HookFailureAttemptsOwnedHooksAndStopsBeforePublication(bool multipleHooksFail)
     {
         using var scenario = new Scenario();
         var setup = CreateWeaponShieldReplacementSetup(scenario, inventoryCapacity: 3);
         var hookFailure = new InvalidOperationException("Weapon lifecycle failed.");
         var shieldFailure = new InvalidOperationException("Shield lifecycle failed.");
         var incomingFailure = new InvalidOperationException("Incoming lifecycle failed.");
-        var publicationFailure = new InvalidOperationException("Inventory publication failed.");
         var callbacks = new List<string>();
         setup.Weapon.EquipmentScript.CanUnEquipItem(setup.Weapon, scenario.Owner).Returns(true);
         setup.Shield.EquipmentScript.CanUnEquipItem(setup.Shield, scenario.Owner).Returns(true);
@@ -1297,25 +1272,24 @@ public sealed class CharacterItemTransferTests
             callbacks.Add("incoming");
             if (multipleHooksFail) throw incomingFailure;
         });
-        scenario.Owner.EventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
-        {
-            if (call.Arg<IEvent>() is InventoryChangedEvent) throw publicationFailure;
-        });
-
-        var thrown = Assert.ThrowsExactly<AggregateException>(() => setup.Equipment.EquipItem(setup.Incoming));
+        Exception thrown = multipleHooksFail
+            ? Assert.ThrowsExactly<AggregateException>(() => setup.Equipment.EquipItem(setup.Incoming))
+            : Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
 
         CollectionAssert.AreEqual(new[] { "weapon", "shield", "profile", "incoming" }, callbacks);
         var expected = multipleHooksFail
-            ? new Exception[] { hookFailure, shieldFailure, incomingFailure, publicationFailure }
-            : new Exception[] { hookFailure, publicationFailure };
-        CollectionAssert.AreEquivalent(expected, thrown.InnerExceptions.ToArray());
+            ? new Exception[] { hookFailure, shieldFailure, incomingFailure }
+            : new Exception[] { hookFailure };
+        if (thrown is AggregateException aggregate)
+            CollectionAssert.AreEquivalent(expected, aggregate.InnerExceptions.ToArray());
+        else
+            Assert.AreSame(hookFailure, thrown);
         Assert.IsNotNull(hookFailure.StackTrace);
-        Assert.IsNotNull(publicationFailure.StackTrace);
         Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Weapon]);
         Assert.IsNull(setup.Equipment[EquipmentSlot.Shield]);
         Assert.AreSame(setup.Weapon, setup.Inventory.Items[0]);
         Assert.AreSame(setup.Shield, setup.Inventory.Items[1]);
-        scenario.Owner.EventManager.Received(1).SendEvent(Arg.Any<EquipmentChangedEvent>());
+        scenario.Owner.EventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
     }
 
     [TestMethod]
@@ -1785,7 +1759,7 @@ public sealed class CharacterItemTransferTests
         mapRegionService.Received(1).AddGroundItem(groundItem);
     }
     [TestMethod]
-    public void EquipItem_NonWeaponReplacementOnEquippedFailureStillPublishesAndPreservesStorage()
+    public void EquipItem_NonWeaponReplacementOnEquippedFailureStopsBeforePublication()
     {
         using var scenario = new Scenario();
         var setup = CreateNonWeaponReplacementSetup(scenario);
@@ -1796,7 +1770,9 @@ public sealed class CharacterItemTransferTests
         var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
 
         Assert.AreSame(failure, thrown);
-        AssertReplacementCommittedAndReleased(setup, order);
+        CollectionAssert.AreEqual(new[] { "unequip", "equip" }, order);
+        setup.EventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+        AssertReplacementCommittedAndReleased(setup);
     }
 
     [TestMethod]
@@ -1811,24 +1787,25 @@ public sealed class CharacterItemTransferTests
         var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
 
         Assert.AreSame(failure, thrown);
-        AssertReplacementCommittedAndReleased(setup, order);
+        CollectionAssert.AreEqual(new[] { "unequip", "equip", "publish" }, order);
+        AssertReplacementCommittedAndReleased(setup);
     }
 
     [TestMethod]
-    public void EquipItem_NonWeaponReplacementAggregatesOnEquippedAndPublicationFailures()
+    public void EquipItem_NonWeaponReplacementOnEquippedFailureSkipsPublication()
     {
         using var scenario = new Scenario();
         var setup = CreateNonWeaponReplacementSetup(scenario);
         var equipFailure = new InvalidOperationException("incoming equip failed");
-        var publicationFailure = new InvalidOperationException("equipment publication failed");
         var order = new List<string>();
-        ObserveReplacementCompletion(setup, scenario.Owner, order, equipFailure, publicationFailure);
+        ObserveReplacementCompletion(setup, scenario.Owner, order, equipFailure, null);
 
-        var thrown = Assert.ThrowsExactly<AggregateException>(() => setup.Equipment.EquipItem(setup.Incoming));
+        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
 
-        CollectionAssert.AreEquivalent(new Exception[] { equipFailure, publicationFailure }, thrown.InnerExceptions);
-        Assert.AreEqual(2, thrown.InnerExceptions.Count);
-        AssertReplacementCommittedAndReleased(setup, order);
+        Assert.AreSame(equipFailure, thrown);
+        CollectionAssert.AreEqual(new[] { "unequip", "equip" }, order);
+        setup.EventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+        AssertReplacementCommittedAndReleased(setup);
     }
 
     [TestMethod]
@@ -1963,12 +1940,10 @@ public sealed class CharacterItemTransferTests
 
     private static void AssertReplacementCommittedAndReleased(
         (InventoryContainer Inventory, EquipmentContainer Equipment, IEventManager EventManager,
-            IItem Current, IItem Incoming, object MutationLock) setup,
-        List<string> order)
+            IItem Current, IItem Incoming, object MutationLock) setup)
     {
         Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
         Assert.AreSame(setup.Current, setup.Inventory.Items[0]);
-        CollectionAssert.AreEqual(new[] { "unequip", "equip", "publish" }, order);
         using var transaction = ItemContainerTransaction.Begin(setup.Equipment, setup.Inventory);
         transaction.Commit();
     }
@@ -1987,7 +1962,7 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    public void EquipmentCompletion_AttemptsEffectsAndPublicationRetainsFlatFailuresAndNeverRetries()
+    public void EquipmentCompletion_AttemptsAllEffectsAndSkipsPublicationAfterFailure()
     {
         using var scenario = new Scenario();
         var (equipment, events, current, replacement) = CreateReplacementScenario(scenario);
@@ -1995,23 +1970,17 @@ public sealed class CharacterItemTransferTests
         var secondFailure = new InvalidOperationException("second unequip failure");
         var unequipFailure = new AggregateException(firstFailure, secondFailure);
         var equipFailure = new InvalidOperationException("equip failure");
-        var publicationFailure = new InvalidOperationException("publication failure");
         var order = ObserveFailingReplacementEffects(scenario.Owner, current, replacement, unequipFailure, equipFailure);
-        events.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(_ =>
-        {
-            order.Add("publication");
-            throw publicationFailure;
-        });
         var thrown = Assert.ThrowsExactly<AggregateException>(() =>
             Assert.IsTrue(equipment.TryReplaceEquippedItem(EquipmentSlot.Hat, current, replacement)));
-        CollectionAssert.AreEqual(new[] { "unequip", "equip", "publication" }, order);
-        CollectionAssert.AreEquivalent(new Exception[] { firstFailure, secondFailure, equipFailure, publicationFailure },
+        CollectionAssert.AreEqual(new[] { "unequip", "equip" }, order);
+        CollectionAssert.AreEquivalent(new Exception[] { firstFailure, secondFailure, equipFailure },
             thrown.InnerExceptions.ToArray());
         Assert.IsNotNull(unequipFailure.StackTrace);
         Assert.IsNotNull(equipFailure.StackTrace);
-        Assert.IsNotNull(publicationFailure.StackTrace);
+        events.DidNotReceive().SendEvent(Arg.Any<IEvent>());
         Assert.AreSame(replacement, equipment[EquipmentSlot.Hat]);
-        CollectionAssert.AreEqual(new[] { "unequip", "equip", "publication" }, order);
+        CollectionAssert.AreEqual(new[] { "unequip", "equip" }, order);
     }
 
     private static List<string> ObserveFailingReplacementEffects(ICharacter owner, IItem current, IItem replacement,
@@ -2281,8 +2250,6 @@ public sealed class CharacterItemTransferTests
             Assert.IsTrue(inventory.TryRemoveItemExact(concurrentItem));
             Assert.IsTrue(equipment.TryRestoreEquippedItem(concurrentSlot, concurrentItem));
             transaction.Commit();
-            inventory.PublishChanges();
-            equipment.PublishChanges();
         }
         finally
         {

@@ -21,7 +21,8 @@ public interface IItemContainer : IReadOnlyItemContainer, IItemTransactional
     /// If neither storage is already held by the current thread's item transaction, this operation synchronizes the transfer
     /// without creating a transaction. If both storages belong to the same active current-thread transaction, this operation
     /// participates and leaves commit or rollback to its caller. Partial or conflicting transaction participation is rejected.
-    /// The owning domain is responsible for consuming and publishing committed changes.
+    /// Registered domain owners complete committed changes automatically. Ownerless containers retain pull-based
+    /// tracking through their change tracker.
     /// </summary>
     /// <exception cref="ArgumentNullException">The destination or item is null.</exception>
     /// <exception cref="ArgumentException">The destination is not a supported transaction source or does not contribute exactly one storage boundary.</exception>

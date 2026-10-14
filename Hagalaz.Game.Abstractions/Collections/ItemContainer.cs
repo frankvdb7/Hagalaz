@@ -24,15 +24,26 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
     public IItem? this[int index] => _storage[index];
 
     public ItemContainer(StorageType type, int capacity, int countToResetTo = -1)
+        : this(type, capacity, countToResetTo, null)
+    {
+    }
+
+    internal ItemContainer(StorageType type, int capacity, int countToResetTo, IItemContainerCompletionOwner? completion)
     {
         _storage = new ItemContainerStorage(type, capacity, countToResetTo);
-        _mutations = new ItemContainerMutationBoundary(_storage);
+        _mutations = new ItemContainerMutationBoundary(_storage, completion);
     }
 
     public ItemContainer(StorageType type, IEnumerable<IItem> items, int capacity, int countToResetTo = -1)
+        : this(type, items, capacity, countToResetTo, null)
+    {
+    }
+
+    internal ItemContainer(StorageType type, IEnumerable<IItem> items, int capacity, int countToResetTo,
+        IItemContainerCompletionOwner? completion)
     {
         _storage = new ItemContainerStorage(type, items, capacity, countToResetTo);
-        _mutations = new ItemContainerMutationBoundary(_storage);
+        _mutations = new ItemContainerMutationBoundary(_storage, completion);
     }
 
     public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();
@@ -129,8 +140,6 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
     }
 
     internal ItemContainerMutationBoundary.MutationScope BeginMutation() => _mutations.BeginMutation();
-
-    internal ItemContainerMutationBoundary.MutationScope BeginStandalonePublication() => _mutations.BeginStandalonePublication();
 
     public bool Contains(int id, int count) => _storage.Contains(id, count);
     public bool Contains(int id) => _storage.Contains(id);

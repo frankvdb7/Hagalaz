@@ -107,7 +107,7 @@ public sealed class MoneyPouchContainerTests
     }
 
     [TestMethod]
-    public void TryRemoveExact_WhenInventoryPublisherThrowsStillPublishesPouchChange()
+    public void TryRemoveExact_WhenInventoryPublisherThrowsSkipsPouchPublicationWithoutRetry()
     {
         var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
         var eventManager = Substitute.For<IEventManager>();
@@ -130,16 +130,15 @@ public sealed class MoneyPouchContainerTests
         Assert.AreSame(publicationException, thrown);
         Assert.AreEqual(0, scenario.MoneyPouch.Count);
         Assert.AreEqual(3, scenario.Inventory.Items.GetCountById(CoinId));
-        CollectionAssert.AreEqual(new[] { "inventory publisher", "pouch message", "pouch event" }, publicationOrder);
-        scenario.Owner.Received(1).SendChatMessage("12 coins have been removed from your money pouch.");
-        eventManager.Received(1).SendEvent(Arg.Is<MoneyPouchChangedEvent>(change =>
-            change.PreviousCount == 10 && change.Count == 0));
+        CollectionAssert.AreEqual(new[] { "inventory publisher" }, publicationOrder);
+        scenario.Owner.DidNotReceive().SendChatMessage("12 coins have been removed from your money pouch.");
+        eventManager.DidNotReceive().SendEvent(Arg.Any<MoneyPouchChangedEvent>());
         scenario.Inventory.OnUpdateAction = null;
         using var fresh = ItemContainerTransaction.Begin(scenario.MoneyPouch);
         fresh.Commit();
-        scenario.Owner.Received(1).SendChatMessage("12 coins have been removed from your money pouch.");
-        eventManager.Received(1).SendEvent(Arg.Any<MoneyPouchChangedEvent>());
-        Assert.AreEqual(3, publicationOrder.Count, "The failed commit notification must not be replayed.");
+        scenario.Owner.DidNotReceive().SendChatMessage("12 coins have been removed from your money pouch.");
+        eventManager.DidNotReceive().SendEvent(Arg.Any<MoneyPouchChangedEvent>());
+        Assert.AreEqual(1, publicationOrder.Count, "Later commits must not replay the failed completion batch.");
     }
 
     [TestMethod]
@@ -355,7 +354,7 @@ public sealed class MoneyPouchContainerTests
         var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
         var boundaries = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries;
         Assert.AreEqual(2, boundaries.Count);
-        Assert.AreSame(Boundary(scenario.Inventory.Items), boundaries[1]);
+        Assert.AreSame(Boundary(scenario.Inventory.Items), boundaries[0]);
         Assert.AreNotSame(boundaries[0], boundaries[1]);
 
         using (var transaction = ItemContainerTransaction.Begin(scenario.MoneyPouch))
@@ -380,7 +379,7 @@ public sealed class MoneyPouchContainerTests
     {
         var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
         var inventoryBoundary = Boundary(scenario.Inventory.Items);
-        var pouchBoundary = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries[0];
+        var pouchBoundary = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries[1];
         using var transaction = ItemContainerTransaction.Begin(scenario.Inventory.Items);
 
         Assert.ThrowsExactly<InvalidOperationException>(() => scenario.MoneyPouch.Add(2));
@@ -593,14 +592,12 @@ public sealed class MoneyPouchContainerTests
             scenario.Inventory.Items, scenario.MoneyPouch);
         var boundaries = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries;
         Assert.AreEqual(2, boundaries.Count);
-        Assert.AreSame(Boundary(scenario.Inventory.Items), boundaries[1]);
+        Assert.AreSame(Boundary(scenario.Inventory.Items), boundaries[0]);
         foreach (var boundary in boundaries) Assert.AreSame(transaction, boundary.Transaction);
         Assert.IsTrue(scenario.MoneyPouch.Add(4));
         Assert.AreEqual(0, order.Count);
 
         transaction.Commit();
-        scenario.Inventory.PublishChanges();
-        scenario.MoneyPouch.PublishChanges();
         transaction.Dispose();
         transaction.Dispose();
 
@@ -632,8 +629,6 @@ public sealed class MoneyPouchContainerTests
         Assert.IsTrue(scenario.MoneyPouch.TryRemoveExact(1));
         Assert.AreEqual(0, order.Count);
         transaction.Commit();
-        scenario.Inventory.PublishChanges();
-        scenario.MoneyPouch.PublishChanges();
         CollectionAssert.AreEqual(new[]
         {
             "3 coins have been added to your money pouch.", "10->13",
@@ -643,7 +638,7 @@ public sealed class MoneyPouchContainerTests
     }
 
     [TestMethod]
-    public void PublishChanges_FailureDiscardsRemainingFactsAndKeepsCommittedStorage()
+    public void Commit_PouchPublicationFailureDiscardsRemainingFactsAndKeepsCommittedStorage()
     {
         var scenario = CreateScenario(10, 0);
         var events = Substitute.For<IEventManager>();
@@ -658,16 +653,12 @@ public sealed class MoneyPouchContainerTests
         using var transaction = ItemContainerTransaction.Begin(scenario.MoneyPouch);
         Assert.IsTrue(scenario.MoneyPouch.Add(1));
         Assert.IsTrue(scenario.MoneyPouch.Add(3));
-        transaction.Commit();
-        scenario.Inventory.PublishChanges();
-        Assert.AreSame(failure, Assert.ThrowsExactly<InvalidOperationException>(() => scenario.MoneyPouch.PublishChanges()));
+        Assert.AreSame(failure, Assert.ThrowsExactly<InvalidOperationException>(transaction.Commit));
         transaction.Dispose();
         Assert.AreEqual(14, scenario.MoneyPouch.Count);
         CollectionAssert.AreEqual(new[] { "1 coins have been added to your money pouch." }, publishedMessages);
         using var fresh = ItemContainerTransaction.Begin(scenario.MoneyPouch);
         fresh.Commit();
-        scenario.Inventory.PublishChanges();
-        scenario.MoneyPouch.PublishChanges();
         CollectionAssert.AreEqual(new[] { "1 coins have been added to your money pouch." }, publishedMessages);
     }
 
@@ -699,8 +690,6 @@ public sealed class MoneyPouchContainerTests
         Assert.IsTrue(scenario.MoneyPouch.Add(1));
         Assert.IsTrue(scenario.MoneyPouch.Add(2));
         transaction.Commit();
-        scenario.Inventory.PublishChanges();
-        scenario.MoneyPouch.PublishChanges();
         transaction.Dispose();
         Assert.IsTrue(reentrantMutationRejected);
         Assert.AreEqual(13, scenario.MoneyPouch.Count);

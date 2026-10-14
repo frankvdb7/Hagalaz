@@ -11,8 +11,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         int RemoveItem(IItem item, int preferredSlot = -1, bool publishChanges = true);
         bool TryTransferItemTo(IItemContainer destination, IItem item, int count,
             int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null);
-        void PublishChanges();
-
         /// <summary>
         /// Deposits a specific item from the player's inventory into the familiar's inventory.
         /// </summary>
