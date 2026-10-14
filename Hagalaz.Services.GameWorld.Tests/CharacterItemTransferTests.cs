@@ -1,5 +1,4 @@
 using System.Threading;
-using System.Reflection;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Collections;
@@ -147,7 +146,7 @@ public sealed class CharacterItemTransferTests
         var replacement = scenario.Builder.Create().WithId(103).WithCount(1).Build();
         Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, current));
         eventManager.ClearReceivedCalls();
-        var boundary = GetEquipmentBoundary(equipment);
+        var boundary = Synchronization(equipment);
         IEquipmentContainer participant = equipment;
         using var transaction = ItemContainerTransaction.Begin(participant);
 
@@ -234,7 +233,7 @@ public sealed class CharacterItemTransferTests
         var destination = new ItemContainer(StorageType.Normal, 2);
         var item = new TransferProbeItem(201, 3);
         Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item));
-        var equipmentLock = GetEquipmentBoundary(equipment).MutationLock;
+        var equipmentLock = Synchronization(equipment).MutationLock;
         var destinationLock = Synchronization(destination).MutationLock;
         var sawLockedCountRead = false;
         item.OnCountRead = () =>
@@ -1252,7 +1251,7 @@ public sealed class CharacterItemTransferTests
         setup.Shield.EquipmentScript.CanUnEquipItem(setup.Shield, scenario.Owner).Returns(true);
         setup.Weapon.EquipmentScript.When(script => script.OnUnequipped(setup.Weapon, scenario.Owner)).Do(_ =>
         {
-            var equipmentBoundary = GetEquipmentBoundary(setup.Equipment);
+            var equipmentBoundary = Synchronization(setup.Equipment);
             Assert.IsFalse(Monitor.IsEntered(equipmentBoundary.MutationLock));
             Assert.IsNotNull(equipmentBoundary.Transaction);
             Assert.AreSame(equipmentBoundary.Transaction, Synchronization(setup.Inventory).Transaction);
@@ -1403,15 +1402,14 @@ public sealed class CharacterItemTransferTests
         inventory.AddItem(scenario.Builder.Create().WithId(102).WithCount(1).Build());
         item.EquipmentScript.CanUnEquipItem(item, scenario.Owner).Returns(true);
         scenario.Owner.ClearReceivedCalls();
-        var equipmentBoundary = (ItemContainerSynchronization)typeof(EquipmentContainer)
-            .GetField("_mutations", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(equipment)!;
-        var inventoryBoundary = Synchronization(inventory);
+        var equipmentSynchronization = Synchronization(equipment);
+        var inventorySynchronization = Synchronization(inventory);
         scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(_ =>
         {
-            Assert.IsNull(equipmentBoundary.Transaction);
-            Assert.IsFalse(Monitor.IsEntered(equipmentBoundary.MutationLock));
-            Assert.IsNull(inventoryBoundary.Transaction);
-            Assert.IsFalse(Monitor.IsEntered(inventoryBoundary.MutationLock));
+            Assert.IsNull(equipmentSynchronization.Transaction);
+            Assert.IsFalse(Monitor.IsEntered(equipmentSynchronization.MutationLock));
+            Assert.IsNull(inventorySynchronization.Transaction);
+            Assert.IsFalse(Monitor.IsEntered(inventorySynchronization.MutationLock));
         });
         Assert.IsFalse(equipment.UnEquipItem(item));
 
@@ -2101,16 +2099,13 @@ public sealed class CharacterItemTransferTests
             AssertStandalonePublicationOwnsBoundaryAfterUnlock(boundary);
         });
 
-    private static ItemContainerSynchronization GetEquipmentBoundary(EquipmentContainer equipment) =>
-        (ItemContainerSynchronization)typeof(EquipmentContainer)
-            .GetField("_mutations", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(equipment)!;
-
     private static void AssertScopeBoundAndUnlocked(EquipmentContainer equipment, ItemContainer destination)
     {
-        var transaction = GetEquipmentBoundary(equipment).Transaction;
+        var equipmentSynchronization = Synchronization(equipment);
+        var transaction = equipmentSynchronization.Transaction;
         Assert.IsNotNull(transaction);
         Assert.IsTrue(transaction.IsCommittedByCurrentThread);
-        foreach (var boundary in new[] { GetEquipmentBoundary(equipment), Synchronization(destination) })
+        foreach (var boundary in new[] { equipmentSynchronization, Synchronization(destination) })
         {
             lock (boundary.MutationLock)
             {
@@ -2123,7 +2118,7 @@ public sealed class CharacterItemTransferTests
 
     private static void AssertUnboundAndUnlocked(EquipmentContainer equipment, IItemTransactional destination)
     {
-        foreach (var boundary in new[] { GetEquipmentBoundary(equipment), Synchronization(destination) })
+        foreach (var boundary in new[] { Synchronization(equipment), Synchronization(destination) })
         {
             lock (boundary.MutationLock)
             {
@@ -2169,7 +2164,7 @@ public sealed class CharacterItemTransferTests
         incoming.EquipmentScript.CanEquipItem(incoming, scenario.Owner).Returns(true);
         current.EquipmentScript.CanUnEquipItem(current, scenario.Owner).Returns(true);
         eventManager.ClearReceivedCalls();
-        var mutationLock = GetEquipmentBoundary(equipment).MutationLock;
+        var mutationLock = Synchronization(equipment).MutationLock;
         return (inventory, equipment, eventManager, current, incoming, mutationLock);
     }
 
