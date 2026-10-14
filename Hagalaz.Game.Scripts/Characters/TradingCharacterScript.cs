@@ -818,33 +818,27 @@ namespace Hagalaz.Game.Scripts.Characters
             lock (session.Gate)
             {
                 if (!IsActiveSession(session)) return false;
-                return operation(session, self ? Character : session.Target,
-                    self ? SelfContainer : TargetContainer);
+                var offer = self ? SelfContainer : TargetContainer;
+                var revision = offer.Revision;
+                try
+                {
+                    return operation(session, self ? Character : session.Target, offer);
+                }
+                catch
+                {
+                    if (offer.Revision != revision) ResetTradeAcceptancesLocked();
+                    throw;
+                }
             }
         }
 
         private bool TryOfferMoney(bool self, int requestedCount)
         {
-            var session = _tradeSession;
-            if (session == null)
+            return TryWithActiveTradeSession(self, (session, character, offer) =>
             {
-                return false;
-            }
-
-            lock (session.Gate)
-            {
-                if (!IsActiveSession(session) || requestedCount <= 0)
-                {
-                    return false;
-                }
-
-                var character = self ? Character : session.Target;
-                var offer = self ? SelfContainer : TargetContainer;
+                if (requestedCount <= 0) return false;
                 var coinOffer = _itemBuilder.Create().WithId(995).WithCount(requestedCount).Build();
-                if (!offer.Items.HasSpaceFor(coinOffer))
-                {
-                    return false;
-                }
+                if (!offer.Items.HasSpaceFor(coinOffer)) return false;
 
                 if (_tradeExchange.TryOfferMoneyFromPouch(character, offer, coinOffer))
                 {
@@ -854,7 +848,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 }
 
                 return false;
-            }
+            });
         }
 
         private bool IsActiveSession(TradeSessionState session) =>
@@ -1560,9 +1554,9 @@ namespace Hagalaz.Game.Scripts.Characters
             public HashSet<int> Updates { get; }
 
             /// <summary>
-            ///     Gets the monotonically increasing content revision.
+            ///     Gets the content revision used to validate trade acceptance.
             /// </summary>
-            public int Revision { get; private set; }
+            public int Revision => 1 + _items.ChangeTracker.Revision;
 
             /// <summary>
             ///     Construct's new trade container.
@@ -1571,7 +1565,6 @@ namespace Hagalaz.Game.Scripts.Characters
             {
                 Updates = [];
                 _items = new ItemContainer(StorageType.Normal, 14);
-                Revision = 1;
                 for (var slot = 0; slot < _items.Capacity; slot++) Updates.Add(slot);
             }
 
@@ -1583,7 +1576,6 @@ namespace Hagalaz.Game.Scripts.Characters
             {
                 var slots = _items.ChangeTracker.GetSlots();
                 if (slots is { Count: 0 }) return;
-                Revision++;
                 if (slots == null)
                 {
                     Updates.Clear();

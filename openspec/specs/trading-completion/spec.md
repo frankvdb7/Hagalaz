@@ -24,11 +24,15 @@ An active trade MUST serialize final acceptance, cancellation, interruption, and
 
 ### Requirement: Confirmation requires the current offers and session
 
-Both participants MUST accept the current offers before completion. An offer change after acceptance MUST invalidate both confirmations. Each confirmation callback MUST affect only the trade session that created it.
+Both participants MUST accept the current offers before completion. Any committed offer change MUST invalidate both confirmations independently of whether its notifications are successfully published. Each confirmation callback MUST affect only the trade session that created it.
 
 #### Scenario: An offer changes after acceptance
 - **WHEN** an offer changes after it was accepted
 - **THEN** both confirmations are invalidated and the old confirmation cannot complete the changed offer
+
+#### Scenario: An offer change commits before publication fails
+- **WHEN** an offer change commits and Inventory publication throws before the changed offer is published
+- **THEN** the changed offer remains committed, both previous confirmations are invalid, and the old acceptance cannot complete the trade
 
 #### Scenario: A stale confirmation callback arrives during a later trade
 - **WHEN** a callback from a closed trade is invoked after a new trade starts
@@ -72,6 +76,7 @@ Trade completion, refund, and recovery MUST perform checked domain mutations und
 #### Scenario: Refund or recovery publication fails after commit
 - **WHEN** a refund or forced recovery commits but an explicit domain publisher throws
 - **THEN** returned or recovered value remains committed, the trade is cancelled and cleaned up once, remaining required publishers follow the established attempt policy, and the publication exception propagates
+
 ### Requirement: Failed completion leaves a safe retry or terminal state
 
 If completion does not commit, recipient storage MUST remain unchanged and escrow MUST remain available until refund or recovery commits. If ordinary refund cannot fit and the session remains active, both acceptances and accepted offer revisions MUST be cleared, and the confirmation UI MUST require fresh acceptance before another completion attempt.

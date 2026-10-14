@@ -14,6 +14,10 @@ public sealed class ItemContainerChangeTracker
     /// <summary>Gets whether committed, unconsumed changes exist.</summary>
     public bool HasChanges => _boundary.HasTrackedChanges;
 
+    /// <summary>Gets the synchronized mutation revision of the underlying item storage.</summary>
+    /// <remarks>A rolled-back transaction restores its previous revision. The owning thread may observe in-progress mutations.</remarks>
+    public int Revision => _boundary.MutationRevision;
+
     /// <summary>
     /// Retrieves and consumes committed changes. Returns <see langword="null"/> when the entire container changed,
     /// an empty set when there are no changes, or the changed slot indexes otherwise.

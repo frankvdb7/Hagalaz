@@ -66,24 +66,14 @@ public class InventoryContainer : IInventoryContainer, IItemTransactionSource,
         int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null)
     {
         ArgumentNullException.ThrowIfNull(destination);
-        using var transaction = _items.CurrentThreadTransaction == null
-            ? ItemContainerTransaction.Begin(this, destination)
-            : null;
-        if (!_items.TryTransferTo(destination, item, count, preferredSourceSlot, destinationSlot, destinationItem)) return false;
-        transaction?.Commit();
-        return true;
+        return _items.TryTransferTo(destination, item, count, preferredSourceSlot, destinationSlot, destinationItem);
     }
 
     public bool TryTransferItemFrom(IItemContainer source, IItem item, int count,
         int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null)
     {
         ArgumentNullException.ThrowIfNull(source);
-        using var transaction = _items.CurrentThreadTransaction == null
-            ? ItemContainerTransaction.Begin(this, source)
-            : null;
-        if (!source.TryTransferTo(_items, item, count, preferredSourceSlot, destinationSlot, destinationItem)) return false;
-        transaction?.Commit();
-        return true;
+        return source.TryTransferTo(_items, item, count, preferredSourceSlot, destinationSlot, destinationItem);
     }
 
     public void ReplaceItem(int slot, IItem item)

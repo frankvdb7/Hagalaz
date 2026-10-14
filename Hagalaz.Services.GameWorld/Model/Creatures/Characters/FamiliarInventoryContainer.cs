@@ -62,14 +62,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory, this))
-            {
-                if (_owner.Inventory.TryTransferItemTo(_items, item, count, slot))
-                {
-                    transaction.Commit();
-                    return true;
-                }
-            }
+            if (_owner.Inventory.TryTransferItemTo(_items, item, count, slot)) return true;
 
             _owner.SendChatMessage(GameStrings.FamiliarInventoryFull);
             return false;
@@ -93,14 +86,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            using (var transaction = ItemContainerTransaction.Begin(this, _owner.Inventory))
-            {
-                if (_owner.Inventory.TryTransferItemFrom(_items, item, count, slot))
-                {
-                    transaction.Commit();
-                    return true;
-                }
-            }
+            if (_owner.Inventory.TryTransferItemFrom(_items, item, count, slot)) return true;
 
             _owner.SendChatMessage(GameStrings.InventoryFull);
             return false;
@@ -124,12 +110,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool TryTransferItemTo(IItemContainer destination, IItem item, int count,
             int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null)
         {
-            using var transaction = _items.CurrentThreadTransaction == null
-                ? ItemContainerTransaction.Begin(this, destination)
-                : null;
-            if (!_items.TryTransferTo(destination, item, count, preferredSourceSlot, destinationSlot, destinationItem)) return false;
-            transaction?.Commit();
-            return true;
+            return _items.TryTransferTo(destination, item, count, preferredSourceSlot, destinationSlot, destinationItem);
         }
 
         /// <summary>

@@ -793,6 +793,64 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
+    public void OfferInventoryItem_WhenPublicationFailsAfterCommit_CannotCompleteWithPreviousAcceptance()
+    {
+        var firstInventory = new ComposedTestContainer(14);
+        var secondInventory = new ComposedTestContainer(14);
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
+        var item = new TestItem(102, 1);
+        firstInventory.Items.Add(item).Should().BeTrue();
+        var inventoryItem = firstInventory.Items[0]!;
+        inventoryItem.ItemScript.CanTradeItem(inventoryItem, first).Returns(true);
+        var trade = CreatePreparedScript(first, second);
+        var script = trade.Script;
+
+        trade.AcceptOffers();
+        trade.AcceptSelfFinal();
+        script.SelfAccepted.Should().BeTrue();
+        var publicationException = FailPublicationAfterCommit(firstInventory);
+
+        trade.Handlers.SelfInventoryOffer!(0, ComponentClickType.Option5Click, item.Id, 0).Should().BeTrue();
+        Action offer = () => script.SelfIntInputHandler!(1);
+        offer.Should().Throw<InvalidOperationException>().Which.Should().BeSameAs(publicationException);
+
+        firstInventory.OnUpdateAction = null;
+        script.SelfAccepted.Should().BeFalse();
+        script.TargetAccepted.Should().BeFalse();
+        trade.AcceptTargetFinal();
+
+        script.TradeSession.Should().BeTrue();
+        script.SelfAccepted.Should().BeFalse();
+        script.TargetAccepted.Should().BeTrue();
+        script.SelfContainer.Items.GetCountById(102).Should().Be(1);
+        firstInventory.Items.GetCountById(101).Should().Be(0);
+        secondInventory.Items.GetCountById(100).Should().Be(0);
+    }
+
+    [TestMethod]
+    public void TradeContainer_RevisionChangesOnlyForCommittedStorageMutations()
+    {
+        var offer = new TradingCharacterScript.TradeContainer();
+        var initialRevision = offer.Revision;
+
+        using (ItemContainerTransaction.Begin(offer.MutableItems))
+        {
+            offer.MutableItems.Add(new TestItem(102, 1)).Should().BeTrue();
+        }
+
+        offer.Revision.Should().Be(initialRevision);
+
+        using (var transaction = ItemContainerTransaction.Begin(offer.MutableItems))
+        {
+            offer.MutableItems.Add(new TestItem(102, 1)).Should().BeTrue();
+            transaction.Commit();
+        }
+
+        offer.Revision.Should().BeGreaterThan(initialRevision);
+    }
+
+    [TestMethod]
     public void FinishTradeSession_WhenExchangeAndRefundCannotFit_ResetsAcceptanceAndPreservesEscrow()
     {
         var firstInventory = new ComposedTestContainer(0);

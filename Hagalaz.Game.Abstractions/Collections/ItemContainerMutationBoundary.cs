@@ -158,6 +158,16 @@ internal sealed class ItemContainerMutationBoundary
         }
     }
 
+    internal int MutationRevision
+    {
+        get
+        {
+            EnterChangeTrackerRead(consume: false);
+            try { return _storage.MutationRevision; }
+            finally { Monitor.Exit(_mutationLock); }
+        }
+    }
+
     internal HashSet<int>? ConsumeTrackedChanges()
     {
         EnterChangeTrackerRead(consume: true);
