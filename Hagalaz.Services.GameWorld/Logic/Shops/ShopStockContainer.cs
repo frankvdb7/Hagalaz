@@ -284,7 +284,6 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         {
             var changedSlots = new HashSet<int>();
             var positionsChanged = false;
-            using var publication = _items.BeginMutation();
             using (var mutation = _items.BeginMutation())
             {
                 var currentItems = _items.SnapshotItems();
