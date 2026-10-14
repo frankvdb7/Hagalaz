@@ -1010,6 +1010,21 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
+        public void GetCountById_WithSeparateLargeStacks_SaturatesAtIntMax()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+            var firstStack = CreateItem(1, 1_500_000_000, stackable: true, extraData: [17]);
+            var secondStack = CreateItem(1, 1_500_000_000, stackable: true, extraData: [29]);
+
+            Assert.IsTrue(container.Items.Add(firstStack));
+            Assert.IsTrue(container.Items.Add(secondStack));
+
+            Assert.AreEqual(int.MaxValue, container.Items.GetCountById(1));
+            Assert.AreEqual(1_500_000_000, container.Items.GetCount(firstStack));
+            Assert.AreEqual(1_500_000_000, container.Items.GetCount(secondStack));
+        }
+
+        [TestMethod]
         public void AddToSlot_WithEmptySlot_Success()
         {
             // Arrange
@@ -1023,6 +1038,27 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.IsTrue(result);
             Assert.IsNotNull(container.Items[5]);
             Assert.IsTrue(item.Equals(container.Items[5]));
+        }
+
+        [TestMethod]
+        public void AddToSlot_NonStackableMultipleUnits_RequiresMultipleSlots()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 1);
+            var item = CreateItem(1, 2);
+
+            Assert.IsFalse(container.Items.Add(0, item));
+            Assert.IsFalse(container.Items.Add(item));
+            Assert.IsNull(container.Items[0]);
+        }
+
+        [TestMethod]
+        public void AddToSlot_AlwaysStackAllowsMultipleNonStackableUnits()
+        {
+            var container = new TestableItemContainer(StorageType.AlwaysStack, 1);
+            var item = CreateItem(1, 2);
+
+            Assert.IsTrue(container.Items.Add(0, item));
+            Assert.AreEqual(2, container.Items[0]!.Count);
         }
 
         [TestMethod]

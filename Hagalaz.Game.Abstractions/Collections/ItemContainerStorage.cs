@@ -461,6 +461,11 @@ namespace Hagalaz.Game.Abstractions.Collections
 
         private static bool ApplyAddAt(IItem?[] targetItems, int slot, IItem item, bool alwaysStack)
         {
+            if (!alwaysStack && !item.ItemDefinition.Stackable && !item.ItemDefinition.Noted && item.Count != 1)
+            {
+                return false;
+            }
+
             var slotItem = targetItems[slot];
             if (slotItem != null)
             {
@@ -530,8 +535,8 @@ namespace Hagalaz.Game.Abstractions.Collections
 
 
         /// <summary>
-        /// Adds an item to a specific slot in the container. If the slot is occupied by a stackable item of the same type,
-        /// it increases the count. If the slot is empty, it places the item there.
+        /// Adds an item to a specific slot in the container. Ordinary storage accepts one non-stackable item per slot;
+        /// always-stack storage may store multiple units in one slot.
         /// </summary>
         /// <param name="slot">The zero-based index of the slot to add the item to.</param>
         /// <param name="item">The item to add.</param>
@@ -930,16 +935,29 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// Gets the total count of a specified item in this container, summing up all stacks.
         /// </summary>
         /// <param name="item">The item to count.</param>
-        /// <returns>The total number of the specified item.</returns>
-        public int GetCount(IItem item) => Items.OfType<IItem>().Where(tItem => tItem.Equals(item, true)).Sum(tItem => tItem.Count);
+        /// <returns>The total number of the specified item, capped at <see cref="int.MaxValue"/>.</returns>
+        public int GetCount(IItem item)
+        {
+            var count = Items.OfType<IItem>()
+                .Where(tItem => tItem.Equals(item, true))
+                .Sum(tItem => (long)tItem.Count);
+
+            return (int)Math.Min(count, int.MaxValue);
+        }
 
         /// <summary>
         /// Gets the total count of an item by its ID in this container, summing up all stacks.
         /// </summary>
         /// <param name="id">The ID of the item to count.</param>
-        /// <returns>The total number of items with the specified ID.</returns>
-        public int GetCountById(int id) =>
-            (int)Items.OfType<IItem>().Where(item => item.Id == id).Aggregate<IItem, long>(0, (current, item) => current + item.Count);
+        /// <returns>The total number of items with the specified ID, capped at <see cref="int.MaxValue"/>.</returns>
+        public int GetCountById(int id)
+        {
+            var count = Items.OfType<IItem>()
+                .Where(item => item.Id == id)
+                .Sum(item => (long)item.Count);
+
+            return (int)Math.Min(count, int.MaxValue);
+        }
 
         /// <summary>
         /// Sorts the container by moving all items to the beginning, removing any empty slots between them.

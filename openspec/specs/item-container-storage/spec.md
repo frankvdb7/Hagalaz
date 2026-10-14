@@ -78,6 +78,17 @@ Ordinary domain owners that compose `ItemContainer` MUST NOT recover or access i
 - **WHEN** an ordinary domain owner hydrates, dehydrates, or normalizes item state
 - **THEN** it uses narrow `ItemContainer` operations and does not obtain raw storage
 
+### Requirement: Explicit-slot insertion respects storage quantity semantics
+Ordinary storage MUST reject explicit-slot insertion of a non-stackable, non-noted item unless its count is exactly one. `AlwaysStack` storage MAY store multiple units in a single slot to preserve aggregate stock behavior.
+
+#### Scenario: Ordinary storage rejects multiple non-stackable units in one slot
+- **WHEN** an explicit-slot add targets ordinary storage with a non-stackable item whose count is not one
+- **THEN** the add fails without changing storage
+
+#### Scenario: Always-stack storage retains multiple units in one slot
+- **WHEN** an explicit-slot add targets `AlwaysStack` storage with a non-stackable item whose count is greater than one
+- **THEN** the add succeeds with the quantity in that slot
+
 ### Requirement: Exact restoration validates before replacing state
 `ItemContainerStorage` MUST own exact slot restoration validation and replacement. It MUST reject out-of-range slots and invalid counts with `ArgumentOutOfRangeException`, reject duplicate slots with `ArgumentException`, and leave the previous state unchanged if any input entry is invalid. Ordinary containers MUST reject zero counts; MoneyPouch MAY allow zero while validating its coin ID and physical slot at the domain boundary.
 
