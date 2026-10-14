@@ -88,6 +88,16 @@ solutions proportional to the problem and prevent accidental architecture expans
 - Before completion: review for regressions, duplicate paths, dead code, ownership leaks, cancellation behavior, dependency weight, and readability—not only test failures.
 - Validate the actual runtime topology with targeted tests, integration tests where boundaries are distributed, a build, and a clean diff check. Report what was not verified.
 
+### Production relevance in code review
+
+Before reporting or fixing a code-review finding, inspect the concrete production implementation and trace its real callers. Do not infer production failure behavior from mocks, test doubles, synthetic exceptions, or hypothetical implementations.
+
+Every actionable finding must identify a realistic trigger, the violated invariant, and its observable consequence. Distinguish confirmed regressions from speculative risks.
+
+Prefer KISS and YAGNI. Do not add defensive exception handling, synchronization, abstractions, or recovery mechanisms solely to satisfy unrealistic edge cases. Existing explicit contracts and demonstrable integrity risks remain valid reasons for defensive behavior.
+
+When evidence is insufficient, investigate further rather than presenting speculation as a confirmed bug.
+
 ### Review remediation and scope retention
 
 Pull-request review comments are findings, not independent implementation tasks. The originating issue/spec and the complete cumulative PR diff remain the primary context throughout the review-fix cycle. Never narrow attention to only the latest comment, latest commit, or commented line.
