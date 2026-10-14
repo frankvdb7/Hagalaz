@@ -30,7 +30,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
 
             public void ReplaceState(IItem?[] items)
             {
-                using var mutation = Items.BeginWrite();
+                using var write = Items.BeginWrite();
                 Items.ReplaceState(items);
             }
         }

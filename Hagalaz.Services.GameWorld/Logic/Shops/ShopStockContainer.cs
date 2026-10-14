@@ -55,8 +55,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         {
             _originalStockCounts = AggregateOriginalStock(stock);
             var storage = new ItemContainerStorage(type, stock, capacity, 0);
-            var mutations = new ItemContainerSynchronization(storage, this);
-            _items = new ItemContainer(mutations);
+            var synchronization = new ItemContainerSynchronization(storage, this);
+            _items = new ItemContainer(synchronization);
             _shop = shop;
             _sampleContainer = sampleContainer;
             _itemRepository = itemRepository;
@@ -95,9 +95,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
         public void SetItems(IItem[] items, bool update)
         {
-            using var mutation = _items.BeginWrite();
+            using var write = _items.BeginWrite();
             _items.ReplaceState(items);
-            if (update) mutation.RecordChanges(null);
+            if (update) write.RecordChanges(null);
         }
 
         /// <summary>
@@ -286,7 +286,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         {
             var changedSlots = new HashSet<int>();
             var positionsChanged = false;
-            using (var mutation = _items.BeginWrite())
+            using (var write = _items.BeginWrite())
             {
                 var currentItems = _items.SnapshotItems();
                 var plannedItems = (IItem?[])currentItems.Clone();
@@ -335,10 +335,10 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 if (positionsChanged)
                 {
                     var sortedItems = new IItem?[plannedItems.Length];
-                    var write = 0;
+                    var writeIndex = 0;
                     for (var read = 0; read < plannedItems.Length; read++)
                     {
-                        if (plannedItems[read] is { } item) sortedItems[write++] = item;
+                        if (plannedItems[read] is { } item) sortedItems[writeIndex++] = item;
                     }
                     positionsChanged = false;
                     for (var slot = 0; slot < plannedItems.Length; slot++)
@@ -353,7 +353,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 if (changedSlots.Count > 0)
                 {
                     _items.ReplaceState(plannedItems);
-                    mutation.RecordChanges(positionsChanged ? null : changedSlots);
+                    write.RecordChanges(positionsChanged ? null : changedSlots);
                 }
             }
         }

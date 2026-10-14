@@ -339,7 +339,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 : moneyPouch.Select(entry => (entry.SlotId,
                     _itemBuilder.Create().WithId(CoinsItemId).WithCount(entry.Count)
                         .WithExtraData(entry.ExtraData ?? string.Empty).Build())).ToArray();
-            using (var mutation = _pouchSynchronization.BeginWrite())
+            using (var write = _pouchSynchronization.BeginWrite())
                 _storage.RestoreItems(items, allowZeroCount: true);
         }
 

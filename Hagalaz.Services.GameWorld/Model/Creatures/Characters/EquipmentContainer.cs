@@ -165,7 +165,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
                 if (!inventoryFull)
                 {
-                    using (var mutation = _synchronization.BeginWrite())
+                    using (var write = _synchronization.BeginWrite())
                     {
                         if (!_storage.TryAdd((int)equipSlot, item, out var incomingSlots)) return false;
                         var effects = new List<EquipmentEffect>();
@@ -174,7 +174,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                         if (needsWeaponUnequip) effects.Add(new EquipmentEffect(EquipmentEffectKind.WeaponProfile, equippedWeapon!, item));
                         effects.Add(new EquipmentEffect(EquipmentEffectKind.Equipped, item));
                         DeferEquipmentEffects(replacementTransaction, effects.ToArray());
-                        mutation.RecordChanges(incomingSlots);
+                        write.RecordChanges(incomingSlots);
                     }
 
                     replacementTransaction.Commit();
@@ -210,10 +210,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     expectedEquipped.Count,
                     (int)equipmentSlot, originalInventorySlot)) return false;
 
-            using (var mutation = _synchronization.BeginWrite())
+            using (var write = _synchronization.BeginWrite())
             {
                 if (!_storage.TryAdd((int)equipmentSlot, incoming, out var changedSlots)) return false;
-                mutation.RecordChanges(changedSlots);
+                write.RecordChanges(changedSlots);
             }
 
             DeferEquipmentEffects(transaction,
@@ -246,9 +246,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool TryRestoreEquippedItem(EquipmentSlot slot, IItem item)
         {
             ArgumentNullException.ThrowIfNull(item);
-            using var mutation = _synchronization.BeginWrite();
+            using var write = _synchronization.BeginWrite();
             if (!_storage.TryAdd((int)slot, item, out var slots)) return false;
-            mutation.RecordChanges(slots);
+            write.RecordChanges(slots);
             return true;
         }
 
@@ -299,10 +299,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             var changedSlots = new HashSet<int> { itemSlot };
-            using var mutation = _synchronization.BeginWrite();
+            using var write = _synchronization.BeginWrite();
             if (!ReferenceEquals(_storage[itemSlot], expectedItem)) return false;
             _storage.Replace(itemSlot, replacement);
-            var transaction = mutation.Transaction;
+            var transaction = write.Transaction;
             var effects = new[]
             {
                 new EquipmentEffect(EquipmentEffectKind.Unequipped, expectedItem),
@@ -312,7 +312,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 DeferEquipmentEffects(activeTransaction, effects);
             else
                 DeferEquipmentEffects(effects);
-            mutation.RecordChanges(changedSlots);
+            write.RecordChanges(changedSlots);
             return true;
         }
 
@@ -328,14 +328,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             HashSet<int> changedSlots;
             bool fullyRemoved;
             ItemContainerTransaction? transaction;
-            using var mutation = _synchronization.BeginWrite();
+            using var write = _synchronization.BeginWrite();
             if ((uint)preferredSlotIndex < (uint)_storage.Capacity)
                 equippedItem = _storage[preferredSlotIndex];
 
             removed = _storage.Remove(item, preferredSlotIndex, out changedSlots);
             fullyRemoved = equippedItem != null &&
                            !ReferenceEquals(equippedItem, _storage[preferredSlotIndex]);
-            transaction = mutation.Transaction;
+            transaction = write.Transaction;
             if (removed > 0)
             {
                 if (fullyRemoved)
@@ -344,7 +344,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     if (transaction is { } activeTransaction) DeferEquipmentEffects(activeTransaction, effect);
                     else DeferEquipmentEffects(effect);
                 }
-                mutation.RecordChanges(changedSlots);
+                write.RecordChanges(changedSlots);
             }
             return removed;
         }
@@ -355,10 +355,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             bool cleared;
             ItemContainerTransaction? transaction;
             EquipmentEffect[] effects = [];
-            using var mutation = _synchronization.BeginWrite();
+            using var write = _synchronization.BeginWrite();
             equippedItems = _storage.ToArray().Where(item => item != null).Cast<IItem>().ToArray();
             cleared = _storage.Clear();
-            transaction = mutation.Transaction;
+            transaction = write.Transaction;
             if (cleared)
             {
                 effects = new EquipmentEffect[equippedItems.Length];
@@ -366,7 +366,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     effects[index] = new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItems[index]);
                 if (transaction is { } activeTransaction) DeferEquipmentEffects(activeTransaction, effects);
                 else DeferEquipmentEffects(effects);
-                mutation.RecordChanges(null);
+                write.RecordChanges(null);
             }
         }
 
@@ -501,7 +501,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public void Hydrate(IReadOnlyList<HydratedItemDto> equipment)
         {
             var items = equipment.Select(entry => entry.ToStorageEntry(_itemBuilder)).ToArray();
-            using (var mutation = _synchronization.BeginWrite())
+            using (var write = _synchronization.BeginWrite())
                 _storage.RestoreItems(items);
             _owner.Statistics.CalculateBonuses();
             foreach (var (_, item) in items) item.EquipmentScript.OnEquipped(item, _owner);

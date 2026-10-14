@@ -81,7 +81,7 @@ internal sealed class ItemContainerSynchronization
             throw new InvalidOperationException("Storage must be owned by the active transaction.");
     }
 
-    internal void EnsureMutationScope()
+    internal void EnsureWriteScope()
     {
         EnsureMutationLockHeld();
         EnsureMutationAccess();

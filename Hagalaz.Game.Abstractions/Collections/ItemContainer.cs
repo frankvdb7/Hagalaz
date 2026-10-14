@@ -27,11 +27,11 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
     {
     }
 
-    internal ItemContainer(ItemContainerSynchronization mutations)
+    internal ItemContainer(ItemContainerSynchronization synchronization)
     {
-        ArgumentNullException.ThrowIfNull(mutations);
-        _synchronization = mutations;
-        _storage = mutations.Storage;
+        ArgumentNullException.ThrowIfNull(synchronization);
+        _synchronization = synchronization;
+        _storage = synchronization.Storage;
     }
 
     public ItemContainer(StorageType type, IEnumerable<IItem> items, int capacity, int countToResetTo = -1)
@@ -44,17 +44,17 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     public bool Add(IItem item)
     {
-        using var mutation = _synchronization.BeginWrite();
+        using var write = _synchronization.BeginWrite();
         if (!_storage.TryAdd(item, out var changedSlots)) return false;
-        mutation.RecordChanges(changedSlots);
+        write.RecordChanges(changedSlots);
         return true;
     }
 
     public bool Add(int slot, IItem item)
     {
-        using var mutation = _synchronization.BeginWrite();
+        using var write = _synchronization.BeginWrite();
         if (!_storage.TryAdd(slot, item, out var changedSlots)) return false;
-        mutation.RecordChanges(changedSlots);
+        write.RecordChanges(changedSlots);
         return true;
     }
 
@@ -62,17 +62,17 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     public int Remove(IItem item, int preferredSlot = -1, bool publishChanges = true)
     {
-        using var mutation = _synchronization.BeginWrite();
+        using var write = _synchronization.BeginWrite();
         var removed = _storage.Remove(item, preferredSlot, out var changedSlots);
-        if (removed > 0 && publishChanges) mutation.RecordChanges(changedSlots);
+        if (removed > 0 && publishChanges) write.RecordChanges(changedSlots);
         return removed;
     }
 
     public bool TryRemoveExact(IItem item, int preferredSlot = -1)
     {
-        using var mutation = _synchronization.BeginWrite();
+        using var write = _synchronization.BeginWrite();
         if (!_storage.TryRemoveExact(item, preferredSlot, out var changedSlots)) return false;
-        mutation.RecordChanges(changedSlots);
+        write.RecordChanges(changedSlots);
         return true;
     }
 
@@ -88,34 +88,34 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     public void Replace(int slot, IItem item)
     {
-        using var mutation = _synchronization.BeginWrite();
+        using var write = _synchronization.BeginWrite();
         _storage.Replace(slot, item);
-        mutation.RecordChanges([slot]);
+        write.RecordChanges([slot]);
     }
 
     public void Swap(int fromSlot, int toSlot)
     {
-        using var mutation = _synchronization.BeginWrite();
-        if (_storage.Swap(fromSlot, toSlot)) mutation.RecordChanges([fromSlot, toSlot]);
+        using var write = _synchronization.BeginWrite();
+        if (_storage.Swap(fromSlot, toSlot)) write.RecordChanges([fromSlot, toSlot]);
     }
 
     public void Move(int fromSlot, int toSlot)
     {
-        using var mutation = _synchronization.BeginWrite();
-        if (_storage.Move(fromSlot, toSlot)) mutation.RecordChanges(null);
+        using var write = _synchronization.BeginWrite();
+        if (_storage.Move(fromSlot, toSlot)) write.RecordChanges(null);
     }
 
     public bool AddRange(IEnumerable<IItem?> items)
     {
-        using var mutation = _synchronization.BeginWrite();
+        using var write = _synchronization.BeginWrite();
         if (!_storage.TryAddRange(items, out var changedSlots)) return false;
-        if (changedSlots.Count > 0) mutation.RecordChanges(changedSlots);
+        if (changedSlots.Count > 0) write.RecordChanges(changedSlots);
         return true;
     }
 
     internal void RestoreItems(IEnumerable<(int Slot, IItem Item)> items, bool allowZeroCount = false)
     {
-        using var mutation = _synchronization.BeginWrite();
+        using var write = _synchronization.BeginWrite();
         _storage.RestoreItems(items, allowZeroCount);
     }
 
@@ -123,7 +123,7 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     internal void ReplaceState(IItem?[] items)
     {
-        _synchronization.EnsureMutationScope();
+        _synchronization.EnsureWriteScope();
         _storage.ReplaceState(items);
     }
 
@@ -137,8 +137,8 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     public void Sort()
     {
-        using var mutation = _synchronization.BeginWrite();
-        if (_storage.Sort()) mutation.RecordChanges(null);
+        using var write = _synchronization.BeginWrite();
+        if (_storage.Sort()) write.RecordChanges(null);
     }
 
     public int GetSlotByItem(IItem item, bool ignoreCount = true) => _storage.GetSlotByItem(item, ignoreCount);
@@ -147,7 +147,7 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
 
     public void Clear(bool publishChanges = true)
     {
-        using var mutation = _synchronization.BeginWrite();
-        if (_storage.Clear() && publishChanges) mutation.RecordChanges(null);
+        using var write = _synchronization.BeginWrite();
+        if (_storage.Clear() && publishChanges) write.RecordChanges(null);
     }
 }
