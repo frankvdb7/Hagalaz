@@ -519,7 +519,11 @@ Equipment MUST run its lifecycle effects before consuming and publishing committ
 
 #### Scenario: Equipment hook failure does not roll back storage
 - **WHEN** an Equipment lifecycle hook throws after Commit
-- **THEN** required hooks and the Equipment event follow Equipment's attempt-all policy, storage remains committed, and the failure propagates
+- **THEN** all required hooks are attempted, Equipment state publication is attempted, storage remains committed, and the hook failures propagate after publication
+
+#### Scenario: Equipment hook and publication failures are both preserved
+- **WHEN** one or more Equipment lifecycle hooks fail and Equipment state publication also fails after commit
+- **THEN** all required hooks and the Equipment publication are attempted, storage remains committed, and both hook and publication failures propagate
 
 ### Requirement: Committed item-container changes are consumed by domain owners
 Each mutation boundary MUST own one change tracker. Concrete `ItemContainer.ChangeTracker` MUST expose that same tracker. The tracker MUST expose committed changes only, report whether unconsumed changes exist, atomically consume each retrieved batch, and preserve full-container changes separately from empty batches. A full-container change is represented by `null`; no changes are represented by an empty `HashSet<int>`. Registered owners consume committed batches during automatic completion; ownerless containers retain explicit pull-based consumption. Generic storage MUST NOT publish domain events.

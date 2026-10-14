@@ -33,6 +33,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries => [_mutations];
         public IReadOnlyItemContainer Items => _storage;
         private readonly Queue<EquipmentEffect> _pendingCompletion = new();
+        private List<Exception>? _pendingEffectFailures;
         private enum EquipmentEffectKind { Equipped, Unequipped, WeaponProfile }
         private readonly record struct EquipmentEffect(EquipmentEffectKind Kind, IItem Item, IItem? Incoming = null);
         /// <summary>
@@ -373,7 +374,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             DeferEquipmentEffects(effects);
         }
 
-        void IItemContainerCompletionOwner.DiscardPendingCompletion() => _pendingCompletion.Clear();
+        void IItemContainerCompletionOwner.DiscardPendingCompletion()
+        {
+            _pendingCompletion.Clear();
+            _pendingEffectFailures = null;
+        }
         private void DeferEquipmentEffects(params EquipmentEffect[] effects)
         {
             foreach (var effect in effects) _pendingCompletion.Enqueue(effect);
@@ -381,14 +386,24 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         void IItemContainerCompletionOwner.CompleteCommittedEffects()
         {
-            var failures = ExecutePendingEquipmentEffects();
-            ThrowEquipmentFailures(failures);
+            _pendingEffectFailures = ExecutePendingEquipmentEffects();
         }
 
         void IItemContainerCompletionOwner.PublishCommittedChanges()
         {
             var slots = _mutations.ChangeTracker.GetSlots();
-            if (slots is not { Count: 0 }) PublishEquipmentState(slots);
+            var failures = _pendingEffectFailures;
+            _pendingEffectFailures = null;
+            if (slots is not { Count: 0 })
+            {
+                try { PublishEquipmentState(slots); }
+                catch (Exception exception)
+                {
+                    if (failures == null) throw;
+                    failures.Add(exception);
+                }
+            }
+            ThrowEquipmentFailures(failures);
         }
 
         private List<Exception>? ExecutePendingEquipmentEffects()
