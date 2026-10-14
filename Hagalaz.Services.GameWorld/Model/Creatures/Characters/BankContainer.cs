@@ -36,8 +36,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _owner = owner;
             _itemBuilder = itemBuilder;
             var storage = new ItemContainerStorage(StorageType.AlwaysStack, capacity);
-            var mutations = new ItemContainerSynchronization(storage, this);
-            _items = new ItemContainer(mutations);
+            var synchronization = new ItemContainerSynchronization(storage, this);
+            _items = new ItemContainer(synchronization);
         }
 
         /// <summary>
@@ -50,8 +50,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (slots is { Count: 0 }) return;
             _owner.EventManager.SendEvent(new BankChangedEvent(_owner, slots));
         }
-
-        void IItemContainerCompletionOwner.DiscardPendingCompletion() { }
 
         public bool AddItem(IItem item)
         {

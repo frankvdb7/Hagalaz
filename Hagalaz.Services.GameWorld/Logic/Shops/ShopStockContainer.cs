@@ -91,8 +91,6 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 _eventManager.SendEvent(new ShopStockChangedEvent(_shop, slots));
         }
 
-        void IItemContainerCompletionOwner.DiscardPendingCompletion() { }
-
         public void SetItems(IItem[] items, bool update)
         {
             using var write = _items.BeginWrite();

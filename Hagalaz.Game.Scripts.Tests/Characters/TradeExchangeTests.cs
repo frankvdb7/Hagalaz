@@ -171,7 +171,7 @@ public sealed class TradeExchangeTests
         var firstPublicationSawFinalState = false;
         firstInventory.OnUpdateAction = () =>
         {
-            firstInventory.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
+            firstInventory.CanAcquireSynchronizationLockFromOtherThread().Should().BeTrue();
             firstInventory.Items.GetCountById(101).Should().Be(1);
             secondInventory.Items.GetCountById(100).Should().Be(1);
             firstOffer.Items.TakenSlots.Should().Be(0);
@@ -233,7 +233,7 @@ public sealed class TradeExchangeTests
         var publicationSawFinalState = false;
         character.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(_ =>
         {
-            inventory.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
+            inventory.CanAcquireSynchronizationLockFromOtherThread().Should().BeTrue();
             offer.Items.GetCountById(995).Should().Be(25);
             moneyPouch.Count.Should().Be(0);
             inventory.Items.GetCountById(995).Should().Be(0);
@@ -288,7 +288,7 @@ public sealed class TradeExchangeTests
         var publicationSawFinalState = false;
         inventory.OnUpdateAction = () =>
         {
-            inventory.CanAcquireMutationLockFromOtherThread().Should().BeTrue();
+            inventory.CanAcquireSynchronizationLockFromOtherThread().Should().BeTrue();
             offer.Items.GetCountById(995).Should().Be(0);
             moneyPouch.Count.Should().Be(int.MaxValue);
             inventory.Items.GetCountById(995).Should().Be(5);

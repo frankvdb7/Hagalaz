@@ -13,7 +13,7 @@ internal sealed class ItemContainerSynchronization
     [ThreadStatic]
     private static int _currentThreadStorageOwnershipCount;
 
-    private readonly object _mutationLock = new();
+    private readonly object _synchronizationLock = new();
     private readonly long _lockOrder = Interlocked.Increment(ref _nextLockOrder);
     private readonly ItemContainerStorage _storage;
     private readonly ItemContainerChangeTracker _changeTracker;
@@ -33,11 +33,11 @@ internal sealed class ItemContainerSynchronization
 
     internal ItemContainerStorage Storage => _storage;
     internal ItemContainerChangeTracker ChangeTracker => _changeTracker;
-    internal object MutationLock => _mutationLock;
+    internal object SynchronizationLock => _synchronizationLock;
     internal long LockOrder => _lockOrder;
     internal IItemContainerCompletionOwner? CompletionOwner => _completionOwner;
     internal ItemContainerTransaction? Transaction { get => _transaction; }
-    internal bool IsMutationLockHeldByCurrentThread => Monitor.IsEntered(_mutationLock);
+    internal bool IsSynchronizationLockHeldByCurrentThread => Monitor.IsEntered(_synchronizationLock);
     internal static bool CurrentThreadOwnsStorage => _currentThreadStorageOwnershipCount > 0;
 
     internal static void AddCurrentThreadStorageOwnership() => _currentThreadStorageOwnershipCount++;
@@ -76,14 +76,14 @@ internal sealed class ItemContainerSynchronization
     {
         ArgumentNullException.ThrowIfNull(transaction);
         transaction.EnsureActive();
-        EnsureMutationLockHeld();
+        EnsureSynchronizationLockHeld();
         if (!ReferenceEquals(_transaction, transaction))
             throw new InvalidOperationException("Storage must be owned by the active transaction.");
     }
 
     internal void EnsureWriteScope()
     {
-        EnsureMutationLockHeld();
+        EnsureSynchronizationLockHeld();
         EnsureMutationAccess();
         if (_writeScopeCount == 0)
             throw new InvalidOperationException("Storage replacement requires an active write scope.");
@@ -91,14 +91,14 @@ internal sealed class ItemContainerSynchronization
 
     internal void EnsureCurrentTransaction(ItemContainerTransaction transaction)
     {
-        EnsureMutationLockHeld();
+        EnsureSynchronizationLockHeld();
         if (!ReferenceEquals(_transaction, transaction))
             throw new InvalidOperationException("Storage is not bound to the expected transaction.");
     }
 
     internal void BindTransaction(ItemContainerTransaction transaction)
     {
-        EnsureMutationLockHeld();
+        EnsureSynchronizationLockHeld();
         if (_transaction != null || _standalonePublicationOwnerThreadId != 0)
             throw new InvalidOperationException("Storage is already owned by another scope.");
         _transaction = transaction;
@@ -106,7 +106,7 @@ internal sealed class ItemContainerSynchronization
 
     internal void UnbindTransaction(ItemContainerTransaction transaction, bool pulseWaiters = false)
     {
-        EnsureMutationLockHeld();
+        EnsureSynchronizationLockHeld();
         if (!ReferenceEquals(_transaction, transaction)) return;
         _transaction = null;
         if (pulseWaiters) PulseWaiters();
@@ -121,12 +121,12 @@ internal sealed class ItemContainerSynchronization
 
     internal bool TryEnterForNewScope()
     {
-        if (!Monitor.TryEnter(_mutationLock)) return false;
+        if (!Monitor.TryEnter(_synchronizationLock)) return false;
         if (_transaction == null && _standalonePublicationOwnerThreadId == 0) return true;
 
         var ownedByCurrentThread = _transaction is { IsOwnedByCurrentThread: true } ||
                                    _standalonePublicationOwnerThreadId == Environment.CurrentManagedThreadId;
-        Monitor.Exit(_mutationLock);
+        Monitor.Exit(_synchronizationLock);
         if (ownedByCurrentThread)
             throw new InvalidOperationException("Storage already belongs to a scope on this thread.");
 
@@ -139,7 +139,7 @@ internal sealed class ItemContainerSynchronization
             throw new InvalidOperationException(
                 "Cannot wait for another item-container storage while the current thread owns storage.");
 
-        Monitor.Enter(_mutationLock);
+        Monitor.Enter(_synchronizationLock);
         try
         {
             while (_transaction != null || _standalonePublicationOwnerThreadId != 0)
@@ -148,12 +148,12 @@ internal sealed class ItemContainerSynchronization
                 if (CurrentThreadOwnsStorage)
                     throw new InvalidOperationException(
                         "Cannot wait for another item-container storage while the current thread owns storage.");
-                Monitor.Wait(_mutationLock);
+                Monitor.Wait(_synchronizationLock);
             }
         }
         finally
         {
-            Monitor.Exit(_mutationLock);
+            Monitor.Exit(_synchronizationLock);
         }
     }
 
@@ -164,7 +164,7 @@ internal sealed class ItemContainerSynchronization
             Volatile.Read(ref _standalonePublicationOwnerThreadId) != currentThreadId)
             throw new InvalidOperationException("Only a completed scope owner can finalize storage access.");
 
-        Monitor.Enter(_mutationLock);
+        Monitor.Enter(_synchronizationLock);
     }
 
     internal void ThrowIfOwnedByCurrentThread(string? message = null)
@@ -177,20 +177,20 @@ internal sealed class ItemContainerSynchronization
 
     internal ItemContainerWriteScope BeginWrite()
     {
-        var ownsLock = !Monitor.IsEntered(_mutationLock);
+        var ownsLock = !Monitor.IsEntered(_synchronizationLock);
         var ownershipCounted = false;
         var scopeCounted = false;
         if (ownsLock)
         {
             if (CurrentThreadOwnsStorage)
             {
-                if (!Monitor.TryEnter(_mutationLock))
+                if (!Monitor.TryEnter(_synchronizationLock))
                     throw new InvalidOperationException(
                         "Cannot wait for another item-container storage while the current thread owns storage.");
             }
             else
             {
-                Monitor.Enter(_mutationLock);
+                Monitor.Enter(_synchronizationLock);
             }
         }
 
@@ -204,7 +204,7 @@ internal sealed class ItemContainerSynchronization
                     if (CurrentThreadOwnsStorage)
                         throw new InvalidOperationException(
                             "Cannot wait for another item-container storage while the current thread owns storage.");
-                    Monitor.Wait(_mutationLock);
+                    Monitor.Wait(_synchronizationLock);
                 }
             }
             else if (CurrentTransaction == null && _writeScopeCount == 0)
@@ -222,21 +222,20 @@ internal sealed class ItemContainerSynchronization
                 ownershipCounted = true;
             }
 
-            return new ItemContainerWriteScope(this, ownsLock, _transaction, ownershipCounted,
-                scopeCounted, Environment.CurrentManagedThreadId);
+            return new ItemContainerWriteScope(this, ownsLock, _transaction, Environment.CurrentManagedThreadId);
         }
         catch
         {
             if (ownershipCounted) RemoveCurrentThreadStorageOwnership();
             if (scopeCounted) _writeScopeCount--;
-            if (ownsLock) Monitor.Exit(_mutationLock);
+            if (ownsLock) Monitor.Exit(_synchronizationLock);
             throw;
         }
     }
 
     internal void RecordChanges(ItemContainerTransaction? transaction, HashSet<int>? slots)
     {
-        EnsureMutationLockHeld();
+        EnsureSynchronizationLockHeld();
         if (transaction is { } activeTransaction)
         {
             EnsureOwnedBy(activeTransaction);
@@ -249,18 +248,17 @@ internal sealed class ItemContainerSynchronization
         }
     }
 
-    internal IItemContainerCompletionOwner? EndWrite(bool ownsLock, bool scopeCounted, bool ownershipCounted,
-        ItemContainerTransaction? transaction)
+    internal IItemContainerCompletionOwner? EndWrite(bool ownsLock, ItemContainerTransaction? transaction)
     {
-        var publishStandaloneChanges = ownsLock && scopeCounted && _writeScopeCount == 1 && transaction == null &&
+        var publishStandaloneChanges = ownsLock && _writeScopeCount == 1 && transaction == null &&
                                        _completionOwner != null && _changeTracker.HasCommittedChanges;
         if (publishStandaloneChanges) ClaimStandalonePublicationOwnership();
 
-        if (scopeCounted) _writeScopeCount--;
+        _writeScopeCount--;
         if (ownsLock)
         {
-            Monitor.Exit(_mutationLock);
-            if (ownershipCounted) RemoveCurrentThreadStorageOwnership();
+            Monitor.Exit(_synchronizationLock);
+            RemoveCurrentThreadStorageOwnership();
         }
 
         return publishStandaloneChanges ? _completionOwner : null;
@@ -276,13 +274,13 @@ internal sealed class ItemContainerSynchronization
         }
         finally
         {
-            Monitor.Exit(_mutationLock);
+            Monitor.Exit(_synchronizationLock);
         }
     }
 
     internal void ClaimStandalonePublicationOwnership()
     {
-        EnsureMutationLockHeld();
+        EnsureSynchronizationLockHeld();
         if (_transaction != null)
             throw new InvalidOperationException("Transaction-owned storage cannot claim standalone publication ownership.");
         if (_standalonePublicationOwnerThreadId != 0)
@@ -293,7 +291,7 @@ internal sealed class ItemContainerSynchronization
 
     internal void ReleaseStandalonePublicationOwnership()
     {
-        EnsureMutationLockHeld();
+        EnsureSynchronizationLockHeld();
         if (_standalonePublicationOwnerThreadId != Environment.CurrentManagedThreadId)
             throw new InvalidOperationException("Only the standalone publication owner can release storage ownership.");
         _standalonePublicationOwnerThreadId = 0;
@@ -303,27 +301,27 @@ internal sealed class ItemContainerSynchronization
 
     private void PulseWaiters()
     {
-        EnsureMutationLockHeld();
-        Monitor.PulseAll(_mutationLock);
+        EnsureSynchronizationLockHeld();
+        Monitor.PulseAll(_synchronizationLock);
     }
 
     internal void EnsureStandalonePublicationOwnedByCurrentThread()
     {
-        EnsureMutationLockHeld();
+        EnsureSynchronizationLockHeld();
         if (_transaction != null || _standalonePublicationOwnerThreadId != Environment.CurrentManagedThreadId)
             throw new InvalidOperationException("Standalone completion requires retained publication ownership.");
     }
 
     internal bool HasStandalonePublicationOwner
     {
-        get { EnsureMutationLockHeld(); return _standalonePublicationOwnerThreadId != 0; }
+        get { EnsureSynchronizationLockHeld(); return _standalonePublicationOwnerThreadId != 0; }
     }
 
     internal bool IsStandalonePublicationOwnedByCurrentThread
     {
         get
         {
-            EnsureMutationLockHeld();
+            EnsureSynchronizationLockHeld();
             return _standalonePublicationOwnerThreadId == Environment.CurrentManagedThreadId;
         }
     }
@@ -334,7 +332,7 @@ internal sealed class ItemContainerSynchronization
         {
             EnterChangeTrackerRead(consume: false);
             try { return _changeTracker.HasCommittedChanges; }
-            finally { Monitor.Exit(_mutationLock); }
+            finally { Monitor.Exit(_synchronizationLock); }
         }
     }
 
@@ -344,7 +342,7 @@ internal sealed class ItemContainerSynchronization
         {
             EnterChangeTrackerRead(consume: false);
             try { return _storage.MutationRevision; }
-            finally { Monitor.Exit(_mutationLock); }
+            finally { Monitor.Exit(_synchronizationLock); }
         }
     }
 
@@ -356,27 +354,27 @@ internal sealed class ItemContainerSynchronization
             _changeTracker.TryConsumeCommitted(out var slots);
             return slots;
         }
-        finally { Monitor.Exit(_mutationLock); }
+        finally { Monitor.Exit(_synchronizationLock); }
     }
 
     private void EnterChangeTrackerRead(bool consume)
     {
-        var lockAlreadyHeld = Monitor.IsEntered(_mutationLock);
+        var lockAlreadyHeld = Monitor.IsEntered(_synchronizationLock);
         if (_transaction is { IsCommittedByCurrentThread: true } ||
             Volatile.Read(ref _standalonePublicationOwnerThreadId) == Environment.CurrentManagedThreadId)
         {
             // The logical owner may consume changes while a foreign contender briefly owns the monitor to wait.
-            Monitor.Enter(_mutationLock);
+            Monitor.Enter(_synchronizationLock);
         }
         else if (CurrentThreadOwnsStorage)
         {
-            if (!Monitor.TryEnter(_mutationLock))
+            if (!Monitor.TryEnter(_synchronizationLock))
                 throw new InvalidOperationException(
                     "Cannot wait for another item-container storage while the current thread owns storage.");
         }
         else
         {
-            Monitor.Enter(_mutationLock);
+            Monitor.Enter(_synchronizationLock);
         }
 
         try
@@ -396,27 +394,27 @@ internal sealed class ItemContainerSynchronization
                 if (CurrentThreadOwnsStorage)
                     throw new InvalidOperationException(
                         "Cannot wait for another item-container storage while the current thread owns storage.");
-                Monitor.Wait(_mutationLock);
+                Monitor.Wait(_synchronizationLock);
             }
         }
         catch
         {
-            Monitor.Exit(_mutationLock);
+            Monitor.Exit(_synchronizationLock);
             throw;
         }
     }
 
     private void EnsureMutationAccess()
     {
-        EnsureMutationLockHeld();
+        EnsureSynchronizationLockHeld();
         if (_standalonePublicationOwnerThreadId != 0)
             throw new InvalidOperationException("Storage is completing standalone publication.");
         _transaction?.EnsureActive();
     }
 
-    private void EnsureMutationLockHeld()
+    private void EnsureSynchronizationLockHeld()
     {
-        if (!Monitor.IsEntered(_mutationLock))
+        if (!Monitor.IsEntered(_synchronizationLock))
             throw new InvalidOperationException("Storage access must be authorized while holding its mutation lock.");
     }
 }

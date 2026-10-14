@@ -102,7 +102,7 @@ internal sealed class ItemContainerLockSet : IDisposable
         while (_locksAcquired > 0)
         {
             var index = _locksAcquired - 1;
-            Monitor.Exit(_lockOrder[index].MutationLock);
+            Monitor.Exit(_lockOrder[index].SynchronizationLock);
             _locksAcquired = index;
         }
     }

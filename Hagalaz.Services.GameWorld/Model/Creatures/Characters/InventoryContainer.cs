@@ -35,8 +35,8 @@ public class InventoryContainer : IInventoryContainer, IItemTransactionSource,
         (_owner, _mapRegionService, _groundItemBuilder, _itemBuilder) =
             (owner, mapRegionService, groundItemBuilder, itemBuilder);
         var storage = new ItemContainerStorage(StorageType.Normal, capacity);
-        var mutations = new ItemContainerSynchronization(storage, this);
-        _items = new ItemContainer(mutations);
+        var synchronization = new ItemContainerSynchronization(storage, this);
+        _items = new ItemContainer(synchronization);
     }
 
     public bool AddItem(IItem item)
@@ -99,8 +99,6 @@ public class InventoryContainer : IInventoryContainer, IItemTransactionSource,
         if (slots is { Count: 0 }) return;
         _owner.EventManager.SendEvent(new InventoryChangedEvent(_owner, slots));
     }
-
-    void IItemContainerCompletionOwner.DiscardPendingCompletion() { }
 
     public bool DropItem(IItem item)
     {

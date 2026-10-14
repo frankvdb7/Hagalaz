@@ -45,7 +45,7 @@ internal static class ItemContainerTransfer
     {
         source.ThrowIfOwnedByCurrentThread();
         destination.ThrowIfOwnedByCurrentThread();
-        if (source.IsMutationLockHeldByCurrentThread || destination.IsMutationLockHeldByCurrentThread)
+        if (source.IsSynchronizationLockHeldByCurrentThread || destination.IsSynchronizationLockHeldByCurrentThread)
             throw new InvalidOperationException("A standalone transfer cannot borrow a mutation lock.");
 
         var synchronizations = new[] { source, destination };

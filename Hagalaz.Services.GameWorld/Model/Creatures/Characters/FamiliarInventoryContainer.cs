@@ -40,8 +40,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             (_owner, _itemBuilder) = (owner, itemBuilder);
             var storage = new ItemContainerStorage(type, capacity);
-            var mutations = new ItemContainerSynchronization(storage, this);
-            _items = new ItemContainer(mutations);
+            var synchronization = new ItemContainerSynchronization(storage, this);
+            _items = new ItemContainer(synchronization);
         }
 
         /// <summary>
@@ -125,8 +125,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (slots is { Count: 0 }) return;
             _owner.EventManager.SendEvent(new FamiliarInventoryChangedEvent(_owner, slots));
         }
-
-        void IItemContainerCompletionOwner.DiscardPendingCompletion() { }
 
         public void Hydrate(IReadOnlyList<HydratedItem> inventory)
         {

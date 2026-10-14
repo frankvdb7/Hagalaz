@@ -26,8 +26,8 @@ internal sealed class ComposedTestContainer : IInventoryContainer, IRewardContai
     public ComposedTestContainer(StorageType type, int capacity, int countToResetTo = -1)
     {
         var storage = new ItemContainerStorage(type, capacity, countToResetTo);
-        var mutations = new ItemContainerSynchronization(storage, this);
-        _items = new ItemContainer(mutations);
+        var synchronization = new ItemContainerSynchronization(storage, this);
+        _items = new ItemContainer(synchronization);
     }
 
     public static IItem CreateTestItem(int id, int count = 1)
@@ -45,16 +45,16 @@ internal sealed class ComposedTestContainer : IInventoryContainer, IRewardContai
         return item;
     }
 
-    public bool CanAcquireMutationLockFromOtherThread()
+    public bool CanAcquireSynchronizationLockFromOtherThread()
     {
-        var mutationLock = ((IItemTransactionSource)_items).Synchronizations[0].MutationLock;
+        var synchronizationLock = ((IItemTransactionSource)_items).Synchronizations[0].SynchronizationLock;
         var acquired = false;
         var acquisition = new Thread(() =>
         {
             try
             {
-                acquired = Monitor.TryEnter(mutationLock);
-                if (acquired) Monitor.Exit(mutationLock);
+                acquired = Monitor.TryEnter(synchronizationLock);
+                if (acquired) Monitor.Exit(synchronizationLock);
             }
             catch (SynchronizationLockException) { acquired = false; }
         }) { IsBackground = true };
@@ -106,6 +106,4 @@ internal sealed class ComposedTestContainer : IInventoryContainer, IRewardContai
         source.TryTransferTo(_items, item, count, sourceSlot);
 
     public void SetItem(int slot, IItem item) => _items.Replace(slot, item);
-
-    void IItemContainerCompletionOwner.DiscardPendingCompletion() { }
 }

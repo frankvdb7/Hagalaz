@@ -79,7 +79,7 @@ public sealed class CharacterItemTransferTests
         Assert.IsTrue(inventory.AddItem(item));
 
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is InventoryChangedEvent));
-        lock (boundary.MutationLock) Assert.IsFalse(boundary.HasStandalonePublicationOwner);
+        lock (boundary.SynchronizationLock) Assert.IsFalse(boundary.HasStandalonePublicationOwner);
     }
 
     [TestMethod]
@@ -95,7 +95,7 @@ public sealed class CharacterItemTransferTests
         Assert.IsTrue(bank.AddItem(scenario.Builder.Create().WithId(98).WithCount(1).Build()));
 
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is BankChangedEvent));
-        lock (boundary.MutationLock) Assert.IsFalse(boundary.HasStandalonePublicationOwner);
+        lock (boundary.SynchronizationLock) Assert.IsFalse(boundary.HasStandalonePublicationOwner);
     }
 
     [TestMethod]
@@ -119,7 +119,7 @@ public sealed class CharacterItemTransferTests
         Assert.AreSame(second, bank.Items[0]);
         Assert.AreSame(first, bank.Items[1]);
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is BankChangedEvent));
-        lock (boundary.MutationLock) Assert.IsFalse(boundary.HasStandalonePublicationOwner);
+        lock (boundary.SynchronizationLock) Assert.IsFalse(boundary.HasStandalonePublicationOwner);
     }
 
     [TestMethod]
@@ -233,8 +233,8 @@ public sealed class CharacterItemTransferTests
         var destination = new ItemContainer(StorageType.Normal, 2);
         var item = new TransferProbeItem(201, 3);
         Assert.IsTrue(equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, item));
-        var equipmentLock = Synchronization(equipment).MutationLock;
-        var destinationLock = Synchronization(destination).MutationLock;
+        var equipmentLock = Synchronization(equipment).SynchronizationLock;
+        var destinationLock = Synchronization(destination).SynchronizationLock;
         var sawLockedCountRead = false;
         item.OnCountRead = () =>
         {
@@ -570,11 +570,11 @@ public sealed class CharacterItemTransferTests
         scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(_ =>
         {
             Assert.IsNull(bankBoundary.Transaction);
-            Assert.IsFalse(Monitor.IsEntered(bankBoundary.MutationLock));
+            Assert.IsFalse(Monitor.IsEntered(bankBoundary.SynchronizationLock));
             foreach (var boundary in pouchStorages)
             {
                 Assert.IsNull(boundary.Transaction);
-                Assert.IsFalse(Monitor.IsEntered(boundary.MutationLock));
+                Assert.IsFalse(Monitor.IsEntered(boundary.SynchronizationLock));
             }
         });
         Assert.IsFalse(bank.DepositFromMoneyPouch(out var deposited));
@@ -1252,7 +1252,7 @@ public sealed class CharacterItemTransferTests
         setup.Weapon.EquipmentScript.When(script => script.OnUnequipped(setup.Weapon, scenario.Owner)).Do(_ =>
         {
             var equipmentBoundary = Synchronization(setup.Equipment);
-            Assert.IsFalse(Monitor.IsEntered(equipmentBoundary.MutationLock));
+            Assert.IsFalse(Monitor.IsEntered(equipmentBoundary.SynchronizationLock));
             Assert.IsNotNull(equipmentBoundary.Transaction);
             Assert.AreSame(equipmentBoundary.Transaction, Synchronization(setup.Inventory).Transaction);
             callbacks.Add("weapon");
@@ -1407,9 +1407,9 @@ public sealed class CharacterItemTransferTests
         scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(_ =>
         {
             Assert.IsNull(equipmentSynchronization.Transaction);
-            Assert.IsFalse(Monitor.IsEntered(equipmentSynchronization.MutationLock));
+            Assert.IsFalse(Monitor.IsEntered(equipmentSynchronization.SynchronizationLock));
             Assert.IsNull(inventorySynchronization.Transaction);
-            Assert.IsFalse(Monitor.IsEntered(inventorySynchronization.MutationLock));
+            Assert.IsFalse(Monitor.IsEntered(inventorySynchronization.SynchronizationLock));
         });
         Assert.IsFalse(equipment.UnEquipItem(item));
 
@@ -1836,7 +1836,7 @@ public sealed class CharacterItemTransferTests
 
         setup.Incoming.EquipmentScript.When(script => script.OnEquipped(setup.Incoming, scenario.Owner)).Do(_ =>
         {
-            Assert.IsFalse(Monitor.IsEntered(setup.MutationLock));
+            Assert.IsFalse(Monitor.IsEntered(setup.SynchronizationLock));
             Assert.ThrowsExactly<InvalidOperationException>(() => ItemContainerTransaction.Begin(setup.Equipment));
             tryBegin.Set();
             Assert.IsTrue(beginAttempted.Wait(TimeSpan.FromSeconds(5)));
@@ -1850,7 +1850,7 @@ public sealed class CharacterItemTransferTests
             if (call.Arg<IEvent>() is EquipmentChangedEvent &&
                 ReferenceEquals(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]))
             {
-                Assert.IsFalse(Monitor.IsEntered(setup.MutationLock));
+                Assert.IsFalse(Monitor.IsEntered(setup.SynchronizationLock));
                 Assert.IsFalse(transactionEntered.IsSet);
                 publicationEntered.Set();
                 Assert.IsTrue(allowPublication.Wait(TimeSpan.FromSeconds(5)));
@@ -1887,7 +1887,7 @@ public sealed class CharacterItemTransferTests
 
     private static void ObserveReplacementCompletion(
         (InventoryContainer Inventory, EquipmentContainer Equipment, IEventManager EventManager,
-            IItem Current, IItem Incoming, object MutationLock) setup,
+            IItem Current, IItem Incoming, object SynchronizationLock) setup,
         ICharacter owner,
         List<string> order,
         Exception? equipFailure,
@@ -1897,14 +1897,14 @@ public sealed class CharacterItemTransferTests
         {
             Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
             Assert.AreSame(setup.Current, setup.Inventory.Items[0]);
-            Assert.IsFalse(Monitor.IsEntered(setup.MutationLock));
+            Assert.IsFalse(Monitor.IsEntered(setup.SynchronizationLock));
             order.Add("unequip");
         });
         setup.Incoming.EquipmentScript.When(script => script.OnEquipped(setup.Incoming, owner)).Do(_ =>
         {
             Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
             Assert.AreSame(setup.Current, setup.Inventory.Items[0]);
-            Assert.IsFalse(Monitor.IsEntered(setup.MutationLock));
+            Assert.IsFalse(Monitor.IsEntered(setup.SynchronizationLock));
             order.Add("equip");
             if (equipFailure is not null) throw equipFailure;
         });
@@ -1914,7 +1914,7 @@ public sealed class CharacterItemTransferTests
                 ReferenceEquals(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]))
             {
                 Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
-                Assert.IsFalse(Monitor.IsEntered(setup.MutationLock));
+                Assert.IsFalse(Monitor.IsEntered(setup.SynchronizationLock));
                 order.Add("publish");
                 if (publicationFailure is not null) throw publicationFailure;
             }
@@ -1923,7 +1923,7 @@ public sealed class CharacterItemTransferTests
 
     private static void AssertReplacementCommittedAndReleased(
         (InventoryContainer Inventory, EquipmentContainer Equipment, IEventManager EventManager,
-            IItem Current, IItem Incoming, object MutationLock) setup)
+            IItem Current, IItem Incoming, object SynchronizationLock) setup)
     {
         Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Hat]);
         Assert.AreSame(setup.Current, setup.Inventory.Items[0]);
@@ -1933,7 +1933,7 @@ public sealed class CharacterItemTransferTests
 
     private static void AssertReplacementRejectsExistingEnlistment(
         (InventoryContainer Inventory, EquipmentContainer Equipment, IEventManager EventManager,
-            IItem Current, IItem Incoming, object MutationLock) setup,
+            IItem Current, IItem Incoming, object SynchronizationLock) setup,
         ICharacter owner,
         IItemTransactional participant)
     {
@@ -2081,8 +2081,8 @@ public sealed class CharacterItemTransferTests
 
     private static void AssertStandalonePublicationOwnsBoundaryAfterUnlock(ItemContainerSynchronization boundary)
     {
-        Assert.IsFalse(Monitor.IsEntered(boundary.MutationLock));
-        lock (boundary.MutationLock)
+        Assert.IsFalse(Monitor.IsEntered(boundary.SynchronizationLock));
+        lock (boundary.SynchronizationLock)
         {
             Assert.IsNull(boundary.Transaction);
             Assert.IsTrue(boundary.HasStandalonePublicationOwner);
@@ -2107,12 +2107,12 @@ public sealed class CharacterItemTransferTests
         Assert.IsTrue(transaction.IsCommittedByCurrentThread);
         foreach (var boundary in new[] { equipmentSynchronization, Synchronization(destination) })
         {
-            lock (boundary.MutationLock)
+            lock (boundary.SynchronizationLock)
             {
                 Assert.AreSame(transaction, boundary.Transaction);
                 Assert.IsFalse(boundary.HasStandalonePublicationOwner);
             }
-            Assert.IsFalse(Monitor.IsEntered(boundary.MutationLock));
+            Assert.IsFalse(Monitor.IsEntered(boundary.SynchronizationLock));
         }
     }
 
@@ -2120,12 +2120,12 @@ public sealed class CharacterItemTransferTests
     {
         foreach (var boundary in new[] { Synchronization(equipment), Synchronization(destination) })
         {
-            lock (boundary.MutationLock)
+            lock (boundary.SynchronizationLock)
             {
                 Assert.IsNull(boundary.Transaction);
                 Assert.IsFalse(boundary.HasStandalonePublicationOwner);
             }
-            Assert.IsFalse(Monitor.IsEntered(boundary.MutationLock));
+            Assert.IsFalse(Monitor.IsEntered(boundary.SynchronizationLock));
         }
     }
 
@@ -2150,7 +2150,7 @@ public sealed class CharacterItemTransferTests
     }
 
     private static (InventoryContainer Inventory, EquipmentContainer Equipment, IEventManager EventManager,
-        IItem Current, IItem Incoming, object MutationLock) CreateNonWeaponReplacementSetup(Scenario scenario, int equippedCount = 1)
+        IItem Current, IItem Incoming, object SynchronizationLock) CreateNonWeaponReplacementSetup(Scenario scenario, int equippedCount = 1)
     {
         var inventory = CreateInventory(scenario, 2);
         scenario.Owner.Inventory.Returns(inventory);
@@ -2164,8 +2164,8 @@ public sealed class CharacterItemTransferTests
         incoming.EquipmentScript.CanEquipItem(incoming, scenario.Owner).Returns(true);
         current.EquipmentScript.CanUnEquipItem(current, scenario.Owner).Returns(true);
         eventManager.ClearReceivedCalls();
-        var mutationLock = Synchronization(equipment).MutationLock;
-        return (inventory, equipment, eventManager, current, incoming, mutationLock);
+        var synchronizationLock = Synchronization(equipment).SynchronizationLock;
+        return (inventory, equipment, eventManager, current, incoming, synchronizationLock);
     }
 
     private static (InventoryContainer Inventory, ShopStockContainer Stock, IMoneyPouchContainer MoneyPouch)

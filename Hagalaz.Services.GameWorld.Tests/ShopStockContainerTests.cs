@@ -104,7 +104,7 @@ public sealed class ShopStockContainerTests
             foreach (var boundary in ((IItemTransactionSource)scenario.MoneyPouch).Synchronizations)
             {
                 Assert.AreSame(transaction, boundary.Transaction);
-                Assert.IsFalse(System.Threading.Monitor.IsEntered(boundary.MutationLock));
+                Assert.IsFalse(System.Threading.Monitor.IsEntered(boundary.SynchronizationLock));
             }
             Assert.AreEqual(0, scenario.MoneyPouch.Count);
             Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
@@ -284,8 +284,8 @@ public sealed class ShopStockContainerTests
         scenario.Stock.SetItems([depletedOriginal], update: false);
         scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopStockChangedEvent>())).Do(_ =>
         {
-            Assert.IsFalse(System.Threading.Monitor.IsEntered(boundary.MutationLock));
-            lock (boundary.MutationLock)
+            Assert.IsFalse(System.Threading.Monitor.IsEntered(boundary.SynchronizationLock));
+            lock (boundary.SynchronizationLock)
             {
                 Assert.IsNull(boundary.Transaction);
                 Assert.IsTrue(boundary.HasStandalonePublicationOwner);
@@ -296,7 +296,7 @@ public sealed class ShopStockContainerTests
         scenario.Stock.NormalizeStock();
 
         scenario.ShopEvents.Received(1).SendEvent(Arg.Any<ShopStockChangedEvent>());
-        lock (boundary.MutationLock) Assert.IsFalse(boundary.HasStandalonePublicationOwner);
+        lock (boundary.SynchronizationLock) Assert.IsFalse(boundary.HasStandalonePublicationOwner);
     }
 
     [TestMethod]

@@ -283,7 +283,7 @@ public sealed class MoneyPouchContainerTests
             foreach (var boundary in boundaries)
             {
                 Assert.IsNull(boundary.Transaction);
-                Assert.IsFalse(Monitor.IsEntered(boundary.MutationLock));
+                Assert.IsFalse(Monitor.IsEntered(boundary.SynchronizationLock));
             }
         });
         Assert.IsFalse(scenario.MoneyPouch.MoveToInventory(5));
@@ -362,7 +362,7 @@ public sealed class MoneyPouchContainerTests
             foreach (var boundary in boundaries)
             {
                 Assert.AreSame(transaction, boundary.Transaction);
-                Assert.IsTrue(Monitor.IsEntered(boundary.MutationLock));
+                Assert.IsTrue(Monitor.IsEntered(boundary.SynchronizationLock));
             }
             Assert.IsTrue(scenario.Inventory.Items.Add(new ComposedTestItem(CoinId, 1, stackable: true)));
             Assert.IsTrue(scenario.MoneyPouch.TryRemoveExact(2));
@@ -385,7 +385,7 @@ public sealed class MoneyPouchContainerTests
         Assert.ThrowsExactly<InvalidOperationException>(() => scenario.MoneyPouch.Add(2));
         Assert.AreSame(transaction, inventoryBoundary.Transaction);
         Assert.IsNull(pouchBoundary.Transaction);
-        Assert.IsFalse(Monitor.IsEntered(pouchBoundary.MutationLock));
+        Assert.IsFalse(Monitor.IsEntered(pouchBoundary.SynchronizationLock));
         Assert.AreEqual(10, scenario.MoneyPouch.Count);
         Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(CoinId));
     }

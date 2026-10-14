@@ -10,22 +10,18 @@ internal ref struct ItemContainerWriteScope
     private readonly ItemContainerTransaction? _transaction;
     private readonly int _originatingThreadId;
     private readonly bool _ownsLock;
-    private readonly bool _ownershipCounted;
-    private readonly bool _scopeCounted;
     private bool _recorded;
     private bool _disposed;
 
     internal ItemContainerTransaction? Transaction => _transaction;
 
     internal ItemContainerWriteScope(ItemContainerSynchronization synchronization, bool ownsLock,
-        ItemContainerTransaction? transaction, bool ownershipCounted, bool scopeCounted, int originatingThreadId)
+        ItemContainerTransaction? transaction, int originatingThreadId)
     {
         _synchronization = synchronization;
         _transaction = transaction;
         _originatingThreadId = originatingThreadId;
         _ownsLock = ownsLock;
-        _ownershipCounted = ownershipCounted;
-        _scopeCounted = scopeCounted;
         _recorded = false;
         _disposed = false;
     }
@@ -47,7 +43,7 @@ internal ref struct ItemContainerWriteScope
         EnsureCurrentThread();
         _disposed = true;
 
-        var completionOwner = _synchronization.EndWrite(_ownsLock, _scopeCounted, _ownershipCounted, _transaction);
+        var completionOwner = _synchronization.EndWrite(_ownsLock, _transaction);
         if (completionOwner == null) return;
 
         try

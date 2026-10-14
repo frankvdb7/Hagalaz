@@ -5,5 +5,5 @@ internal interface IItemContainerCompletionOwner
 {
     void CompleteCommittedEffects() { }
     void PublishCommittedChanges();
-    void DiscardPendingCompletion();
+    void DiscardPendingCompletion() { }
 }

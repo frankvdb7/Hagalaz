@@ -841,6 +841,11 @@ namespace Hagalaz.Game.Abstractions.Collections
                 return false;
             }
 
+            if (fromSlot == toSlot)
+            {
+                return false;
+            }
+
             var fromItem = Items[fromSlot];
             if (fromItem == null) return false;
 
@@ -901,7 +906,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         public bool Swap(int fromSlot, int toSlot)
         {
             var fromItem = Items[fromSlot];
-            if (fromItem == null) return false;
+            if (fromItem == null || fromSlot == toSlot) return false;
 
             Items[fromSlot] = Items[toSlot];
             Items[toSlot] = fromItem;
