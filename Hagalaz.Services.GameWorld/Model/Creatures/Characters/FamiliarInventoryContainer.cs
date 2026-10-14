@@ -26,8 +26,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ICharacter _owner;
         private readonly IItemBuilder _itemBuilder;
         private readonly ItemContainer _items;
-        IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries =>
-            ((IItemTransactionSource)_items).Boundaries;
+        IReadOnlyList<ItemContainerSynchronization> IItemTransactionSource.Synchronizations =>
+            ((IItemTransactionSource)_items).Synchronizations;
         public IReadOnlyItemContainer Items => _items;
 
         /// <summary>
@@ -40,7 +40,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             (_owner, _itemBuilder) = (owner, itemBuilder);
             var storage = new ItemContainerStorage(type, capacity);
-            var mutations = new ItemContainerMutationBoundary(storage, this);
+            var mutations = new ItemContainerSynchronization(storage, this);
             _items = new ItemContainer(mutations);
         }
 

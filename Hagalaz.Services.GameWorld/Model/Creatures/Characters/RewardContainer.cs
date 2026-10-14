@@ -25,8 +25,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
         private readonly ItemContainer _items;
-        IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries =>
-            ((IItemTransactionSource)_items).Boundaries;
+        IReadOnlyList<ItemContainerSynchronization> IItemTransactionSource.Synchronizations =>
+            ((IItemTransactionSource)_items).Synchronizations;
         public IReadOnlyItemContainer Items => _items;
 
         public RewardContainer(ICharacter owner, IItemBuilder itemBuilder)
@@ -34,7 +34,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _owner = owner;
             _itemBuilder = itemBuilder;
             var storage = new ItemContainerStorage(StorageType.AlwaysStack, byte.MaxValue);
-            var mutations = new ItemContainerMutationBoundary(storage, this);
+            var mutations = new ItemContainerSynchronization(storage, this);
             _items = new ItemContainer(mutations);
         }
 

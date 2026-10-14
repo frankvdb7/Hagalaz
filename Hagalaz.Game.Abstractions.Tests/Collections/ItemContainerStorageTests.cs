@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Collections;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Cache.Abstractions.Types;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -30,7 +30,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
 
             public void ReplaceState(IItem?[] items)
             {
-                using var mutation = Items.BeginMutation();
+                using var mutation = Items.BeginWrite();
                 Items.ReplaceState(items);
             }
         }
@@ -66,7 +66,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                                                System.Reflection.BindingFlags.NonPublic);
 
             Assert.IsFalse(fields.Any(field => field.FieldType == typeof(ItemContainerTransaction) ||
-                                               field.FieldType == typeof(ItemContainerMutationBoundary)));
+                                               field.FieldType == typeof(ItemContainerSynchronization)));
             Assert.IsFalse(storageType.GetMembers(System.Reflection.BindingFlags.Instance |
                                                   System.Reflection.BindingFlags.Static |
                                                   System.Reflection.BindingFlags.Public |
@@ -99,7 +99,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         public void ItemContainerAdd_TransactionScopeRetainsMutationLock()
         {
             var container = new ItemContainer(StorageType.Normal, 2);
-            var storageLock = ItemContainerTransaction.ResolveSingleBoundary(container).MutationLock;
+            var storageLock = ItemContainerTransaction.ResolveSingleSynchronization(container).MutationLock;
             using var transaction = ItemContainerTransaction.Begin(container);
 
             Assert.IsTrue(container.Add(CreateItem(1, 1)));
@@ -113,11 +113,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         public void BeginMutation_RejectsManuallyHeldLockWithoutReleasingIt()
         {
             var container = new ItemContainer(StorageType.Normal, 2);
-            var storageLock = ItemContainerTransaction.ResolveSingleBoundary(container).MutationLock;
+            var storageLock = ItemContainerTransaction.ResolveSingleSynchronization(container).MutationLock;
 
             lock (storageLock)
             {
-                Assert.ThrowsExactly<InvalidOperationException>(() => container.BeginMutation());
+                Assert.ThrowsExactly<InvalidOperationException>(() => container.BeginWrite());
                 Assert.IsTrue(Monitor.IsEntered(storageLock));
             }
         }
@@ -126,7 +126,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         public void ItemContainerAdd_FailedStandaloneMutationReleasesLockWithoutTrackingChanges()
         {
             var container = new ItemContainer(StorageType.Normal, 1);
-            var storageLock = ItemContainerTransaction.ResolveSingleBoundary(container).MutationLock;
+            var storageLock = ItemContainerTransaction.ResolveSingleSynchronization(container).MutationLock;
             Assert.IsTrue(container.Add(CreateItem(1, 1)));
             container.ChangeTracker.GetSlots();
 
@@ -149,14 +149,14 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var item = CreateItem(1, 2, stackable: true);
             Assert.IsTrue(container.Items.Add(0, item));
             container.Items.ChangeTracker.GetSlots();
-            var revision = ItemContainerTransaction.ResolveSingleBoundary(container.Items).Storage.MutationRevision;
+            var revision = ItemContainerTransaction.ResolveSingleSynchronization(container.Items).Storage.MutationRevision;
             var enumerator = container.Items.GetEnumerator();
 
             Assert.IsFalse(container.Items.TryRemoveExact(CreateItem(1, 3, stackable: true), 0));
 
             Assert.AreSame(item, container.Items[0]);
             Assert.AreEqual(2, item.Count);
-            Assert.AreEqual(revision, ItemContainerTransaction.ResolveSingleBoundary(container.Items).Storage.MutationRevision);
+            Assert.AreEqual(revision, ItemContainerTransaction.ResolveSingleSynchronization(container.Items).Storage.MutationRevision);
             Assert.IsFalse(container.Items.ChangeTracker.HasChanges);
             Assert.IsTrue(enumerator.MoveNext());
 
@@ -256,7 +256,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var existing = container[0];
             container.ChangeTracker.GetSlots();
 
-            var storage = ItemContainerTransaction.ResolveSingleBoundary(container).Storage;
+            var storage = ItemContainerTransaction.ResolveSingleSynchronization(container).Storage;
             var revision = storage.MutationRevision;
             var enumerator = container.GetEnumerator();
             Assert.IsTrue(enumerator.MoveNext());
@@ -496,7 +496,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         public void Clear_EmptyAndZeroCapacityContainersPreserveRevisionAndTracker()
         {
             var empty = new ItemContainer(StorageType.Normal, 10);
-            var emptyStorage = ItemContainerTransaction.ResolveSingleBoundary(empty).Storage;
+            var emptyStorage = ItemContainerTransaction.ResolveSingleSynchronization(empty).Storage;
             var emptyRevision = emptyStorage.MutationRevision;
 
             empty.Clear();
@@ -510,7 +510,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.IsFalse(empty.ChangeTracker.HasChanges);
 
             var zeroCapacity = new ItemContainer(StorageType.Normal, 0);
-            var zeroCapacityStorage = ItemContainerTransaction.ResolveSingleBoundary(zeroCapacity).Storage;
+            var zeroCapacityStorage = ItemContainerTransaction.ResolveSingleSynchronization(zeroCapacity).Storage;
             var zeroCapacityRevision = zeroCapacityStorage.MutationRevision;
 
             zeroCapacity.Clear();
@@ -540,7 +540,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var item = CreateItem(1, 1);
             Assert.IsTrue(container.Add(item));
             var storedItem = container[0];
-            var storage = ItemContainerTransaction.ResolveSingleBoundary(container).Storage;
+            var storage = ItemContainerTransaction.ResolveSingleSynchronization(container).Storage;
             var revision = storage.MutationRevision;
             container.ChangeTracker.GetSlots();
 
@@ -695,13 +695,13 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var container = new TestableItemContainer(StorageType.Normal, 2, countToResetTo: 0);
             var sentinel = CreateItem(1, 0, stackable: true);
             container.Items.RestoreItems([(0, sentinel)], allowZeroCount: true);
-            var revision = ItemContainerTransaction.ResolveSingleBoundary(container.Items).Storage.MutationRevision;
+            var revision = ItemContainerTransaction.ResolveSingleSynchronization(container.Items).Storage.MutationRevision;
 
             Assert.AreEqual(0, container.Items.Remove(CreateItem(1, 1, stackable: true)));
 
             Assert.AreSame(sentinel, container.Items[0]);
             Assert.AreEqual(0, sentinel.Count);
-            Assert.AreEqual(revision, ItemContainerTransaction.ResolveSingleBoundary(container.Items).Storage.MutationRevision);
+            Assert.AreEqual(revision, ItemContainerTransaction.ResolveSingleSynchronization(container.Items).Storage.MutationRevision);
         }
 
         [TestMethod]
@@ -1125,7 +1125,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var startedInTime = false;
             var blockedOnMutationLock = false;
             var finishedWhileLocked = false;
-            var boundary = ItemContainerTransaction.ResolveSingleBoundary(container.Items);
+            var boundary = ItemContainerTransaction.ResolveSingleSynchronization(container.Items);
             Exception? mutationFailure = null;
             var mutation = new Thread(() =>
             {
@@ -1194,13 +1194,13 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             container.Items.ChangeTracker.GetSlots();
             var first = container.Items[0];
             var second = container.Items[1];
-            var revision = ItemContainerTransaction.ResolveSingleBoundary(container.Items).Storage.MutationRevision;
+            var revision = ItemContainerTransaction.ResolveSingleSynchronization(container.Items).Storage.MutationRevision;
 
             container.Items.Sort();
 
             Assert.AreSame(first, container.Items[0]);
             Assert.AreSame(second, container.Items[1]);
-            Assert.AreEqual(revision, ItemContainerTransaction.ResolveSingleBoundary(container.Items).Storage.MutationRevision);
+            Assert.AreEqual(revision, ItemContainerTransaction.ResolveSingleSynchronization(container.Items).Storage.MutationRevision);
             Assert.IsFalse(container.Items.ChangeTracker.HasChanges);
         }
 
@@ -1211,8 +1211,8 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var destination = new TestableItemContainer(StorageType.Normal, 1);
             var existing = (TestItem)CreateItem(1, 1, stackable: true);
             Assert.IsTrue(source.Items.Add(existing));
-            var sourceBoundary = ItemContainerTransaction.ResolveSingleBoundary(source.Items);
-            var destinationBoundary = ItemContainerTransaction.ResolveSingleBoundary(destination.Items);
+            var sourceBoundary = ItemContainerTransaction.ResolveSingleSynchronization(source.Items);
+            var destinationBoundary = ItemContainerTransaction.ResolveSingleSynchronization(destination.Items);
             using var destinationLockHeld = new ManualResetEventSlim();
             using var releaseDestination = new ManualResetEventSlim();
             Exception? lockOwnerFailure = null;
@@ -1232,7 +1232,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.IsTrue(destinationLockHeld.Wait(TimeSpan.FromSeconds(5)));
             existing.OnCanStackItem = () =>
             {
-                Assert.IsTrue(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
+                Assert.IsTrue(ItemContainerSynchronization.CurrentThreadOwnsStorage);
                 Assert.IsTrue(Monitor.IsEntered(sourceBoundary.MutationLock));
                 destination.Items.Add(CreateItem(2, 1));
             };
@@ -1248,7 +1248,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.AreEqual(1, existing.Count);
             Assert.AreEqual(1, source.Items.TakenSlots);
             Assert.AreEqual(0, destination.Items.TakenSlots);
-            Assert.IsFalse(ItemContainerMutationBoundary.CurrentThreadOwnsStorage);
+            Assert.IsFalse(ItemContainerSynchronization.CurrentThreadOwnsStorage);
         }
 
         [TestMethod]
@@ -1771,14 +1771,14 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             container.Items.Add(CreateItem(1, 1));
             var original = container.Items[0];
             container.Items.ChangeTracker.GetSlots();
-            var revision = ItemContainerTransaction.ResolveSingleBoundary(container.Items).Storage.MutationRevision;
+            var revision = ItemContainerTransaction.ResolveSingleSynchronization(container.Items).Storage.MutationRevision;
             var enumerator = container.Items.GetEnumerator();
 
             Assert.IsFalse(container.Items.AddRange([CreateItem(2, 1)]));
 
             Assert.AreSame(original, container.Items[0]);
             Assert.AreEqual(1, container.Items[0]!.Id);
-            Assert.AreEqual(revision, ItemContainerTransaction.ResolveSingleBoundary(container.Items).Storage.MutationRevision);
+            Assert.AreEqual(revision, ItemContainerTransaction.ResolveSingleSynchronization(container.Items).Storage.MutationRevision);
             Assert.IsFalse(container.Items.ChangeTracker.HasChanges);
             Assert.IsTrue(enumerator.MoveNext());
         }

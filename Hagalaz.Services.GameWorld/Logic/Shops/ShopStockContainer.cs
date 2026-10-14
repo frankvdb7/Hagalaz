@@ -55,7 +55,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         {
             _originalStockCounts = AggregateOriginalStock(stock);
             var storage = new ItemContainerStorage(type, stock, capacity, 0);
-            var mutations = new ItemContainerMutationBoundary(storage, this);
+            var mutations = new ItemContainerSynchronization(storage, this);
             _items = new ItemContainer(mutations);
             _shop = shop;
             _sampleContainer = sampleContainer;
@@ -95,7 +95,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
         public void SetItems(IItem[] items, bool update)
         {
-            using var mutation = _items.BeginMutation();
+            using var mutation = _items.BeginWrite();
             _items.ReplaceState(items);
             if (update) mutation.RecordChanges(null);
         }
@@ -286,7 +286,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         {
             var changedSlots = new HashSet<int>();
             var positionsChanged = false;
-            using (var mutation = _items.BeginMutation())
+            using (var mutation = _items.BeginWrite())
             {
                 var currentItems = _items.SnapshotItems();
                 var plannedItems = (IItem?[])currentItems.Clone();

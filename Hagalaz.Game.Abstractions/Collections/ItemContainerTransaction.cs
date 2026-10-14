@@ -2,99 +2,100 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.ExceptionServices;
-using System.Threading;
 using Hagalaz.Game.Abstractions.Model.Items;
 
 namespace Hagalaz.Game.Abstractions.Collections;
 
 /// <summary>Coordinates synchronous atomic item-container mutations and rollback.</summary>
 /// <remarks>
-/// This is a synchronous scope. Begin acquires and binds all participating mutation boundaries; mutations affect live
-/// storage eagerly while the Active scope owns their locks. Commit makes storage irreversible, releases physical
-/// locks, and completes registered domain owners while retaining logical bindings until disposal. Overlapping callers
-/// that own no storage wait; a caller already
-/// owning storage rejects contended additional acquisition. Same-thread reentrant overlap is rejected.
-/// Dispose without Commit restores storage before releasing the scope. Begin, mutations, Commit,
-/// publication, and Dispose must run on the originating thread. Rollback restores slot topology, item references, item
-/// counts, and storage revision; it does not deep-snapshot arbitrary mutable item metadata such as
-/// <c>ExtraData</c>. Replace an item transactionally when rollback-sensitive metadata changes. Do not cross
-/// await boundaries.
+/// Begin acquires and binds all participating storage synchronizations; mutations affect live storage while the active
+/// scope owns their locks. Commit makes storage irreversible, releases physical locks, and completes registered domain
+/// owners while retaining logical ownership until Dispose. Dispose without Commit restores storage before releasing
+/// the scope. Rollback restores slot topology, item references, item counts, and storage revision, but does not deep
+/// snapshot arbitrary mutable item metadata such as <c>ExtraData</c>. Replace an item transactionally when
+/// rollback-sensitive metadata changes. Do not cross await boundaries.
 /// </remarks>
 public sealed class ItemContainerTransaction : IDisposable
 {
     private readonly int _threadId = Environment.CurrentManagedThreadId;
-    private readonly ItemContainerMutationBoundary[] _publicationOrder;
+    private readonly ItemContainerSynchronization[] _publicationOrder;
     private readonly IItemContainerCompletionOwner[] _completionOwners;
     private readonly List<StorageSnapshot> _snapshots = [];
     private ItemContainerLockSet? _lockSet;
+    private bool _ownsThreadStorageCount;
     private TransactionState _state;
 
-    private ItemContainerTransaction(ItemContainerMutationBoundary[] publicationOrder)
+    private ItemContainerTransaction(ItemContainerSynchronization[] publicationOrder)
     {
         _publicationOrder = publicationOrder;
         var completionOwners = new List<IItemContainerCompletionOwner>();
         var seenOwners = new HashSet<IItemContainerCompletionOwner>(ReferenceEqualityComparer.Instance);
-        foreach (var boundary in publicationOrder)
-            if (boundary.CompletionOwner is { } owner && seenOwners.Add(owner)) completionOwners.Add(owner);
+        foreach (var synchronization in publicationOrder)
+            if (synchronization.CompletionOwner is { } owner && seenOwners.Add(owner))
+                completionOwners.Add(owner);
         _completionOwners = completionOwners.ToArray();
     }
 
-    /// <summary>Resolves every participant, acquires ordered boundary locks and captures rollback state before binding the scope.</summary>
-    /// <exception cref="ArgumentException">Participants are empty, unsupported, or contribute invalid storage.</exception>
-    /// <exception cref="InvalidOperationException">A participant already belongs to a scope on the current thread.</exception>
+    /// <summary>Resolves participants, captures rollback state, and starts an atomic synchronous mutation scope.</summary>
     /// <remarks>
     /// Use a container directly for a single-container operation. <c>TryTransferTo</c> is already atomic for one
     /// transfer. For several operations that must succeed together, pass their domain participants to <c>Begin</c>,
     /// perform ordinary container operations, then call <see cref="Commit"/>. Composite participants may contribute
-    /// multiple storage boundaries.
+    /// multiple storage synchronizations.
     /// </remarks>
     public static ItemContainerTransaction Begin(params IItemTransactional[] participants)
         => BeginResolved(Resolve(participants));
 
-    internal static ItemContainerMutationBoundary ResolveSingleBoundary(IItemTransactional participant)
+    internal static ItemContainerSynchronization ResolveSingleSynchronization(IItemTransactional participant)
     {
         ArgumentNullException.ThrowIfNull(participant);
         if (participant is not IItemTransactionSource source)
             throw new ArgumentException("Unsupported item-container participant.", nameof(participant));
 
-        var boundaries = source.Boundaries;
-        if (boundaries == null || boundaries.Count != 1 || boundaries[0] == null)
+        var synchronizations = source.Synchronizations;
+        if (synchronizations == null || synchronizations.Count != 1 || synchronizations[0] == null)
             throw new ArgumentException("This operation requires exactly one item storage.", nameof(participant));
 
-        return boundaries[0];
+        return synchronizations[0];
     }
 
-    private static ItemContainerTransaction BeginResolved(ItemContainerMutationBoundary[] boundaries)
+    private static ItemContainerTransaction BeginResolved(ItemContainerSynchronization[] synchronizations)
     {
-        var transaction = new ItemContainerTransaction(boundaries);
+        var transaction = new ItemContainerTransaction(synchronizations);
         try
         {
-            transaction._lockSet = ItemContainerLockSet.Acquire(boundaries);
-            foreach (var boundary in boundaries)
+            transaction._lockSet = ItemContainerLockSet.Acquire(synchronizations);
+            ItemContainerSynchronization.AddCurrentThreadStorageOwnership();
+            transaction._ownsThreadStorageCount = true;
+
+            foreach (var synchronization in synchronizations)
             {
-                var storage = boundary.Storage;
+                var storage = synchronization.Storage;
                 var items = storage.ToArray();
-                transaction._snapshots.Add(new StorageSnapshot(boundary, items,
+                transaction._snapshots.Add(new StorageSnapshot(synchronization, items,
                     items.Select(item => item?.Count ?? 0).ToArray(), storage.MutationRevision));
             }
-            foreach (var boundary in boundaries) boundary.Transaction = transaction;
+
+            foreach (var synchronization in synchronizations) synchronization.BindTransaction(transaction);
             return transaction;
         }
         catch
         {
-            foreach (var boundary in boundaries)
-                if (ReferenceEquals(boundary.Transaction, transaction)) boundary.Transaction = null;
+            if (transaction._lockSet != null)
+                foreach (var synchronization in synchronizations)
+                    synchronization.UnbindTransaction(transaction);
             transaction._snapshots.Clear();
             transaction._lockSet?.Dispose();
+            transaction.ReleaseThreadStorageCount();
             throw;
         }
     }
 
-    /// <summary>Makes live storage irreversible and releases physical mutation locks while retaining scope ownership until disposal.</summary>
+    /// <summary>Makes live storage irreversible, releases physical locks, then completes registered domain owners.</summary>
     /// <remarks>
-    /// Mutations already affect live storage under locks; Commit discards rollback ability rather than applying staged data.
-    /// After releasing physical locks, Commit completes domain effects and publishes committed changes. If either phase
-    /// throws, storage remains committed and disposal releases ownership without rolling back. A second Commit is invalid.
+    /// Mutations already affect live storage under locks; Commit discards rollback ability rather than applying staged
+    /// data. If completion or publication throws, storage remains committed and Dispose releases ownership without
+    /// rolling it back. A second Commit is invalid.
     /// </remarks>
     public void Commit()
     {
@@ -103,19 +104,19 @@ public sealed class ItemContainerTransaction : IDisposable
         _snapshots.Clear();
         try
         {
-            foreach (var boundary in _publicationOrder)
-                boundary.ChangeTracker.PromotePending();
+            foreach (var synchronization in _publicationOrder)
+                synchronization.ChangeTracker.PromotePending();
         }
         finally
         {
-            _lockSet!.ReleaseLocksPreservingOwnership();
+            _lockSet!.ReleaseLocks();
         }
 
         foreach (var owner in _completionOwners) owner.CompleteCommittedEffects();
         foreach (var owner in _completionOwners) owner.PublishCommittedChanges();
     }
 
-    /// <summary>Restores all captured storage if still active; disposal after commit or disposal is inert.</summary>
+    /// <summary>Restores captured storage if still active; disposal after commit or disposal is inert.</summary>
     public void Dispose()
     {
         EnsureThread();
@@ -124,6 +125,7 @@ public sealed class ItemContainerTransaction : IDisposable
             CompleteCommittedScope();
             return;
         }
+
         if (_state != TransactionState.Active) return;
         _state = TransactionState.Disposed;
         List<Exception>? failures = null;
@@ -131,39 +133,56 @@ public sealed class ItemContainerTransaction : IDisposable
         {
             foreach (var snapshot in _snapshots)
             {
-                try { snapshot.Boundary.RestoreTransactionState(this, snapshot.Items, snapshot.Counts, snapshot.Revision); }
-                catch (Exception exception) { (failures ??= []).Add(exception); }
+                try
+                {
+                    snapshot.Synchronization.RestoreTransactionState(this, snapshot.Items, snapshot.Counts,
+                        snapshot.Revision);
+                }
+                catch (Exception exception)
+                {
+                    (failures ??= []).Add(exception);
+                }
             }
         }
         finally
         {
             _snapshots.Clear();
-            foreach (var boundary in _publicationOrder)
-                boundary.ChangeTracker.DiscardPending();
+            foreach (var synchronization in _publicationOrder)
+                synchronization.ChangeTracker.DiscardPending();
             try { DiscardPendingCompletion(); }
             finally
             {
                 try { ClearScopeBindings(); }
-                finally { _lockSet!.Dispose(); }
+                finally
+                {
+                    _lockSet!.Dispose();
+                    ReleaseThreadStorageCount();
+                }
             }
         }
+
         ThrowFailures(failures);
     }
 
     private void CompleteCommittedScope()
     {
-        foreach (var boundary in _publicationOrder)
-        {
-            boundary.ChangeTracker.DiscardPending();
-            if (boundary.CompletionOwner != null) boundary.ChangeTracker.DiscardCommitted();
-        }
         try { DiscardPendingCompletion(); }
         finally
         {
-            try { ReleaseCommittedScopeBindings(); }
+            try
+            {
+                using var lockSet = ItemContainerLockSet.AcquireForCurrentOwners(_publicationOrder);
+                foreach (var synchronization in _publicationOrder)
+                {
+                    synchronization.ChangeTracker.DiscardPending();
+                    if (synchronization.CompletionOwner != null)
+                        synchronization.ChangeTracker.DiscardCommitted();
+                    synchronization.UnbindTransaction(this, pulseWaiters: true);
+                }
+            }
             finally
             {
-                _lockSet!.ReleaseOwnership();
+                ReleaseThreadStorageCount();
                 _state = TransactionState.Completed;
             }
         }
@@ -180,7 +199,8 @@ public sealed class ItemContainerTransaction : IDisposable
     internal void EnsureActive()
     {
         EnsureThread();
-        if (_state != TransactionState.Active) throw new InvalidOperationException("The transaction is no longer active.");
+        if (_state != TransactionState.Active)
+            throw new InvalidOperationException("The transaction is no longer active.");
     }
 
     private void EnsureThread()
@@ -191,20 +211,15 @@ public sealed class ItemContainerTransaction : IDisposable
 
     private void ClearScopeBindings()
     {
-        foreach (var boundary in _publicationOrder)
-            if (ReferenceEquals(boundary.Transaction, this)) boundary.Transaction = null;
+        foreach (var synchronization in _publicationOrder)
+            synchronization.UnbindTransaction(this);
     }
 
-    private void ReleaseCommittedScopeBindings()
+    private void ReleaseThreadStorageCount()
     {
-        using (ItemContainerLockSet.AcquireForTransactionFinalization(_publicationOrder, this))
-        {
-            foreach (var boundary in _publicationOrder)
-            {
-                if (ReferenceEquals(boundary.Transaction, this)) boundary.Transaction = null;
-                Monitor.PulseAll(boundary.MutationLock);
-            }
-        }
+        if (!_ownsThreadStorageCount) return;
+        ItemContainerSynchronization.RemoveCurrentThreadStorageOwnership();
+        _ownsThreadStorageCount = false;
     }
 
     private static void ThrowFailures(List<Exception>? failures)
@@ -214,42 +229,49 @@ public sealed class ItemContainerTransaction : IDisposable
             throw new AggregateException(failures).Flatten();
     }
 
-    private static ItemContainerMutationBoundary[] Resolve(IItemTransactional[] participants)
+    private static ItemContainerSynchronization[] Resolve(IItemTransactional[] participants)
     {
         ArgumentNullException.ThrowIfNull(participants);
-        if (participants.Length == 0) throw new ArgumentException("At least one participant is required.", nameof(participants));
-        var boundariesByStorage = new Dictionary<ItemContainerStorage, ItemContainerMutationBoundary>();
-        var boundaries = new List<ItemContainerMutationBoundary>();
+        if (participants.Length == 0)
+            throw new ArgumentException("At least one participant is required.", nameof(participants));
+
+        var synchronizationsByStorage = new Dictionary<ItemContainerStorage, ItemContainerSynchronization>();
+        var synchronizations = new List<ItemContainerSynchronization>();
         foreach (var participant in participants)
         {
             ArgumentNullException.ThrowIfNull(participant);
             if (participant is not IItemTransactionSource source)
-                throw new ArgumentException("Use an item-transactional object provided by the item-container domain.", nameof(participants));
-            var contributions = source.Boundaries;
+                throw new ArgumentException("Use an item-transactional object provided by the item-container domain.",
+                    nameof(participants));
+
+            var contributions = source.Synchronizations;
             if (contributions == null || contributions.Count == 0)
                 throw new ArgumentException("A participant must contribute storage.", nameof(participants));
-            foreach (var boundary in contributions)
-            {
-                if (boundary == null) throw new ArgumentException("A participant contributed a null boundary.", nameof(participants));
-                if (boundariesByStorage.TryGetValue(boundary.Storage, out var existing))
-                {
-                    if (!ReferenceEquals(existing, boundary))
-                    {
-                        throw new ArgumentException(
-                            "Multiple transaction boundaries were contributed for the same storage.",
-                            nameof(participants));
-                    }
 
+            foreach (var synchronization in contributions)
+            {
+                if (synchronization == null)
+                    throw new ArgumentException("A participant contributed null storage synchronization.",
+                        nameof(participants));
+
+                if (synchronizationsByStorage.TryGetValue(synchronization.Storage, out var existing))
+                {
+                    if (!ReferenceEquals(existing, synchronization))
+                        throw new ArgumentException(
+                            "Multiple synchronizations were contributed for the same storage.", nameof(participants));
                     continue;
                 }
 
-                boundariesByStorage.Add(boundary.Storage, boundary);
-                boundaries.Add(boundary);
+                synchronizationsByStorage.Add(synchronization.Storage, synchronization);
+                synchronizations.Add(synchronization);
             }
         }
-        return boundaries.ToArray();
+
+        return synchronizations.ToArray();
     }
 
     private enum TransactionState { Active, Committed, Completed, Disposed }
-    private sealed record StorageSnapshot(ItemContainerMutationBoundary Boundary, IItem?[] Items, int[] Counts, int Revision);
+
+    private sealed record StorageSnapshot(ItemContainerSynchronization Synchronization, IItem?[] Items,
+        int[] Counts, int Revision);
 }

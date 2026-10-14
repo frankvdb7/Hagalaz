@@ -277,7 +277,7 @@ public sealed class MoneyPouchContainerTests
         var scenario = CreateScenario(pouchCoins: 5, inventoryCoins: 0, inventoryCapacity: 1);
         Assert.IsTrue(scenario.Inventory.Items.Add(new ComposedTestItem(123, 1, stackable: false)));
         scenario.Owner.ClearReceivedCalls();
-        var boundaries = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries;
+        var boundaries = ((IItemTransactionSource)scenario.MoneyPouch).Synchronizations;
         scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(_ =>
         {
             foreach (var boundary in boundaries)
@@ -352,9 +352,9 @@ public sealed class MoneyPouchContainerTests
     public void Begin_PouchEnlistsPouchAndInventoryStorageAndRollsBackBoth()
     {
         var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
-        var boundaries = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries;
+        var boundaries = ((IItemTransactionSource)scenario.MoneyPouch).Synchronizations;
         Assert.AreEqual(2, boundaries.Count);
-        Assert.AreSame(Boundary(scenario.Inventory.Items), boundaries[0]);
+        Assert.AreSame(Synchronization(scenario.Inventory.Items), boundaries[0]);
         Assert.AreNotSame(boundaries[0], boundaries[1]);
 
         using (var transaction = ItemContainerTransaction.Begin(scenario.MoneyPouch))
@@ -378,8 +378,8 @@ public sealed class MoneyPouchContainerTests
     public void Add_PartialInventoryEnlistmentRejectsWithoutMutationOrNestedScope()
     {
         var scenario = CreateScenario(pouchCoins: 10, inventoryCoins: 5);
-        var inventoryBoundary = Boundary(scenario.Inventory.Items);
-        var pouchBoundary = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries[1];
+        var inventoryBoundary = Synchronization(scenario.Inventory.Items);
+        var pouchBoundary = ((IItemTransactionSource)scenario.MoneyPouch).Synchronizations[1];
         using var transaction = ItemContainerTransaction.Begin(scenario.Inventory.Items);
 
         Assert.ThrowsExactly<InvalidOperationException>(() => scenario.MoneyPouch.Add(2));
@@ -590,9 +590,9 @@ public sealed class MoneyPouchContainerTests
         });
         using var transaction = ItemContainerTransaction.Begin(scenario.MoneyPouch,
             scenario.Inventory.Items, scenario.MoneyPouch);
-        var boundaries = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries;
+        var boundaries = ((IItemTransactionSource)scenario.MoneyPouch).Synchronizations;
         Assert.AreEqual(2, boundaries.Count);
-        Assert.AreSame(Boundary(scenario.Inventory.Items), boundaries[0]);
+        Assert.AreSame(Synchronization(scenario.Inventory.Items), boundaries[0]);
         foreach (var boundary in boundaries) Assert.AreSame(transaction, boundary.Transaction);
         Assert.IsTrue(scenario.MoneyPouch.Add(4));
         Assert.AreEqual(0, order.Count);
@@ -703,8 +703,8 @@ public sealed class MoneyPouchContainerTests
         Assert.AreEqual(2, messages.Count);
     }
 
-    private static ItemContainerMutationBoundary Boundary(IItemTransactional participant) =>
-        ((IItemTransactionSource)participant).Boundaries.Single();
+    private static ItemContainerSynchronization Synchronization(IItemTransactional participant) =>
+        ((IItemTransactionSource)participant).Synchronizations.Single();
 
     private static void AssertTradeStoragePublishesAfterFinalState(MoneyPouchScenario scenario, int movedCoins,
         int previousPouchCount, int expectedPouchCount, int expectedInventoryCoins,

@@ -22,13 +22,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private readonly IItemBuilder _itemBuilder;
         private readonly ItemContainerStorage _storage;
-        private readonly ItemContainerMutationBoundary _storageMutations;
-        private readonly ItemContainerMutationBoundary _inventoryMutations;
+        private readonly ItemContainerSynchronization _pouchSynchronization;
+        private readonly ItemContainerSynchronization _inventorySynchronization;
         private readonly Queue<MoneyPouchChange> _pendingChanges = new();
         private readonly record struct MoneyPouchChange(int PreviousCount, int NewCount, int ChangeCount);
 
-        IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries =>
-            [_inventoryMutations, _storageMutations];
+        IReadOnlyList<ItemContainerSynchronization> IItemTransactionSource.Synchronizations =>
+            [_inventorySynchronization, _pouchSynchronization];
 
         public bool HasSpaceForCoins(int count) => count > 0 && (long)Count + count <= int.MaxValue;
 
@@ -62,10 +62,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             _owner = owner;
             _itemBuilder = itemBuilder;
-            _inventoryMutations = ItemContainerTransaction.ResolveSingleBoundary(owner.Inventory);
+            _inventorySynchronization = ItemContainerTransaction.ResolveSingleSynchronization(owner.Inventory);
             var coins = _itemBuilder.Create().WithId(CoinsItemId).WithCount(0).Build();
             _storage = new ItemContainerStorage(StorageType.Normal, [coins], 1, 0);
-            _storageMutations = new ItemContainerMutationBoundary(_storage, this);
+            _pouchSynchronization = new ItemContainerSynchronization(_storage, this);
         }
 
         /// <summary>
@@ -104,7 +104,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private bool ApplyExactAdd(ItemContainerTransaction transaction, int pouchCount, int inventoryCount)
         {
-            _storageMutations.EnsureOwnedBy(transaction);
+            _pouchSynchronization.EnsureOwnedBy(transaction);
             var previousCount = Count;
             if (pouchCount > 0 && !_storage.TryAddRange(
                     [_itemBuilder.Create().WithId(CoinsItemId).WithCount(pouchCount).Build()], out _))
@@ -130,8 +130,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var count = coins.Count;
             if (coins.Id != CoinsItemId || count <= 0) return false;
 
-            var sourceBoundary = ItemContainerTransaction.ResolveSingleBoundary(source);
-            var transaction = GetCurrentThreadTransaction(sourceBoundary)
+            var sourceSynchronization = ItemContainerTransaction.ResolveSingleSynchronization(source);
+            var transaction = GetCurrentThreadTransaction(sourceSynchronization)
                 ?? throw new InvalidOperationException("Source, pouch, and inventory storage must belong to one active transaction.");
             if (!TryPlanExactAdd(count, out var pouchCount, out var inventoryCount)) return false;
 
@@ -173,7 +173,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            _storageMutations.EnsureOwnedBy(transaction);
+            _pouchSynchronization.EnsureOwnedBy(transaction);
             var pouchCount = Math.Min(count, Count);
             var inventoryCount = count - pouchCount;
             if (inventoryCount > _owner.Inventory.Items.GetCountById(CoinsItemId))
@@ -200,7 +200,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private void DeferChange(ItemContainerTransaction transaction, int previousCount, int newCount, int changeCount)
         {
-            _storageMutations.EnsureOwnedBy(transaction);
+            _pouchSynchronization.EnsureOwnedBy(transaction);
             _pendingChanges.Enqueue(new MoneyPouchChange(previousCount, newCount, changeCount));
         }
 
@@ -218,11 +218,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
         }
 
-        private ItemContainerTransaction? GetCurrentThreadTransaction(ItemContainerMutationBoundary? additionalBoundary = null)
+        private ItemContainerTransaction? GetCurrentThreadTransaction(ItemContainerSynchronization? additionalSynchronization = null)
         {
-            var transaction = _storageMutations.CurrentTransaction;
-            if (!ReferenceEquals(transaction, _inventoryMutations.CurrentTransaction) ||
-                (additionalBoundary != null && !ReferenceEquals(transaction, additionalBoundary.CurrentTransaction)))
+            var transaction = _pouchSynchronization.CurrentTransaction;
+            if (!ReferenceEquals(transaction, _inventorySynchronization.CurrentTransaction) ||
+                (additionalSynchronization != null && !ReferenceEquals(transaction, additionalSynchronization.CurrentTransaction)))
                 throw new InvalidOperationException("All required MoneyPouch storage must belong to the same active current-thread transaction.");
 
             return transaction;
@@ -300,8 +300,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private void EnsureStandaloneGameplayCommand(string operation)
         {
             var message = $"{operation} is a standalone MoneyPouch command and cannot run while its pouch or inventory storage is already owned by the current thread.";
-            _storageMutations.ThrowIfOwnedByCurrentThread(message);
-            _inventoryMutations.ThrowIfOwnedByCurrentThread(message);
+            _pouchSynchronization.ThrowIfOwnedByCurrentThread(message);
+            _inventorySynchronization.ThrowIfOwnedByCurrentThread(message);
         }
 
         private bool TryMoveToInventoryCore(int count, out bool inventoryFull)
@@ -339,7 +339,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 : moneyPouch.Select(entry => (entry.SlotId,
                     _itemBuilder.Create().WithId(CoinsItemId).WithCount(entry.Count)
                         .WithExtraData(entry.ExtraData ?? string.Empty).Build())).ToArray();
-            using (var mutation = _storageMutations.BeginMutation())
+            using (var mutation = _pouchSynchronization.BeginWrite())
                 _storage.RestoreItems(items, allowZeroCount: true);
         }
 

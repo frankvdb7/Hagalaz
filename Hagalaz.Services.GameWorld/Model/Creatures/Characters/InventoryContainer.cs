@@ -25,8 +25,8 @@ public class InventoryContainer : IInventoryContainer, IItemTransactionSource,
     private readonly IGroundItemBuilder _groundItemBuilder;
     private readonly IItemBuilder _itemBuilder;
     private readonly ItemContainer _items;
-    IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries =>
-        ((IItemTransactionSource)_items).Boundaries;
+    IReadOnlyList<ItemContainerSynchronization> IItemTransactionSource.Synchronizations =>
+        ((IItemTransactionSource)_items).Synchronizations;
     public IReadOnlyItemContainer Items => _items;
 
     public InventoryContainer(ICharacter owner, int capacity, IMapRegionService mapRegionService,
@@ -35,7 +35,7 @@ public class InventoryContainer : IInventoryContainer, IItemTransactionSource,
         (_owner, _mapRegionService, _groundItemBuilder, _itemBuilder) =
             (owner, mapRegionService, groundItemBuilder, itemBuilder);
         var storage = new ItemContainerStorage(StorageType.Normal, capacity);
-        var mutations = new ItemContainerMutationBoundary(storage, this);
+        var mutations = new ItemContainerSynchronization(storage, this);
         _items = new ItemContainer(mutations);
     }
 

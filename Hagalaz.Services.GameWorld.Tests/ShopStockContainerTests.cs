@@ -99,9 +99,9 @@ public sealed class ShopStockContainerTests
         var order = new List<string>();
         scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopStockChangedEvent>())).Do(_ =>
         {
-            var transaction = ((IItemTransactionSource)scenario.MoneyPouch).Boundaries[0].Transaction;
+            var transaction = ((IItemTransactionSource)scenario.MoneyPouch).Synchronizations[0].Transaction;
             Assert.IsNotNull(transaction);
-            foreach (var boundary in ((IItemTransactionSource)scenario.MoneyPouch).Boundaries)
+            foreach (var boundary in ((IItemTransactionSource)scenario.MoneyPouch).Synchronizations)
             {
                 Assert.AreSame(transaction, boundary.Transaction);
                 Assert.IsFalse(System.Threading.Monitor.IsEntered(boundary.MutationLock));
@@ -279,7 +279,7 @@ public sealed class ShopStockContainerTests
     public void NormalizeStock_PublishesAfterUnlockWithoutRollbackTransaction()
     {
         var scenario = CreateScenario(cost: 0);
-        var boundary = ((IItemTransactionSource)scenario.Stock.Items).Boundaries[0];
+        var boundary = ((IItemTransactionSource)scenario.Stock.Items).Synchronizations[0];
         var depletedOriginal = scenario.StockItem.Clone(0);
         scenario.Stock.SetItems([depletedOriginal], update: false);
         scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopStockChangedEvent>())).Do(_ =>
@@ -390,7 +390,7 @@ public sealed class ShopStockContainerTests
     public void NormalizeStock_NoChangeDoesNotAdvanceRevisionOrPublish()
     {
         var scenario = CreateScenario(cost: 0);
-        var boundary = ((IItemTransactionSource)scenario.Stock.Items).Boundaries[0];
+        var boundary = ((IItemTransactionSource)scenario.Stock.Items).Synchronizations[0];
         var revision = boundary.Storage.MutationRevision;
 
         scenario.Stock.NormalizeStock();
@@ -408,7 +408,7 @@ public sealed class ShopStockContainerTests
             OnClone = () => throw new InvalidOperationException("Controlled clone failure.")
         };
         scenario.Stock.SetItems([item], update: false);
-        var boundary = ((IItemTransactionSource)scenario.Stock.Items).Boundaries[0];
+        var boundary = ((IItemTransactionSource)scenario.Stock.Items).Synchronizations[0];
         var revision = boundary.Storage.MutationRevision;
 
         Assert.ThrowsExactly<InvalidOperationException>(() => scenario.Stock.NormalizeStock());

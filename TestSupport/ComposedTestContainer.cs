@@ -16,8 +16,8 @@ internal sealed class ComposedTestContainer : IInventoryContainer, IRewardContai
     public IItemContainer Items => _items;
     IReadOnlyItemContainer IInventoryContainer.Items => _items;
     IReadOnlyItemContainer IRewardContainer.Items => _items;
-    IReadOnlyList<ItemContainerMutationBoundary> IItemTransactionSource.Boundaries =>
-        ((IItemTransactionSource)_items).Boundaries;
+    IReadOnlyList<ItemContainerSynchronization> IItemTransactionSource.Synchronizations =>
+        ((IItemTransactionSource)_items).Synchronizations;
     public Action? OnUpdateAction { get; set; }
     public bool RejectExactRemoval { get; set; }
     public int UpdateCount { get; private set; }
@@ -26,7 +26,7 @@ internal sealed class ComposedTestContainer : IInventoryContainer, IRewardContai
     public ComposedTestContainer(StorageType type, int capacity, int countToResetTo = -1)
     {
         var storage = new ItemContainerStorage(type, capacity, countToResetTo);
-        var mutations = new ItemContainerMutationBoundary(storage, this);
+        var mutations = new ItemContainerSynchronization(storage, this);
         _items = new ItemContainer(mutations);
     }
 
@@ -47,7 +47,7 @@ internal sealed class ComposedTestContainer : IInventoryContainer, IRewardContai
 
     public bool CanAcquireMutationLockFromOtherThread()
     {
-        var mutationLock = ((IItemTransactionSource)_items).Boundaries[0].MutationLock;
+        var mutationLock = ((IItemTransactionSource)_items).Synchronizations[0].MutationLock;
         var acquired = false;
         var acquisition = new Thread(() =>
         {

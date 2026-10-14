@@ -5,24 +5,24 @@ namespace Hagalaz.Game.Abstractions.Collections;
 /// <summary>Tracks committed item-container changes and consumes them in batches.</summary>
 public sealed class ItemContainerChangeTracker
 {
-    private readonly ItemContainerMutationBoundary _boundary;
+    private readonly ItemContainerSynchronization _synchronization;
     private ChangeSet _committed;
     private ChangeSet _pending;
 
-    internal ItemContainerChangeTracker(ItemContainerMutationBoundary boundary) => _boundary = boundary;
+    internal ItemContainerChangeTracker(ItemContainerSynchronization synchronization) => _synchronization = synchronization;
 
     /// <summary>Gets whether committed, unconsumed changes exist.</summary>
-    public bool HasChanges => _boundary.HasTrackedChanges;
+    public bool HasChanges => _synchronization.HasTrackedChanges;
 
     /// <summary>Gets the synchronized mutation revision of the underlying item storage.</summary>
     /// <remarks>A rolled-back transaction restores its previous revision. The owning thread may observe in-progress mutations.</remarks>
-    public int Revision => _boundary.MutationRevision;
+    public int Revision => _synchronization.MutationRevision;
 
     /// <summary>
     /// Retrieves and consumes committed changes. Returns <see langword="null"/> when the entire container changed,
     /// an empty set when there are no changes, or the changed slot indexes otherwise.
     /// </summary>
-    public HashSet<int>? GetSlots() => _boundary.ConsumeTrackedChanges();
+    public HashSet<int>? GetSlots() => _synchronization.ConsumeTrackedChanges();
 
     internal bool HasCommittedChanges => _committed.HasChanges;
 
