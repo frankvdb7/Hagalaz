@@ -23,8 +23,12 @@ internal sealed class ComposedTestContainer : IInventoryContainer, IRewardContai
     public int UpdateCount { get; private set; }
 
     public ComposedTestContainer(int capacity) : this(StorageType.Normal, capacity) { }
-    public ComposedTestContainer(StorageType type, int capacity, int countToResetTo = -1) =>
-        _items = new ItemContainer(type, capacity, countToResetTo, this);
+    public ComposedTestContainer(StorageType type, int capacity, int countToResetTo = -1)
+    {
+        var storage = new ItemContainerStorage(type, capacity, countToResetTo);
+        var mutations = new ItemContainerMutationBoundary(storage, this);
+        _items = new ItemContainer(mutations);
+    }
 
     public static IItem CreateTestItem(int id, int count = 1)
     {

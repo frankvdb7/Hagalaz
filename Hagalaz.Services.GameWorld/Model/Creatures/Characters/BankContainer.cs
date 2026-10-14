@@ -35,7 +35,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             _owner = owner;
             _itemBuilder = itemBuilder;
-            _items = new ItemContainer(StorageType.AlwaysStack, capacity, -1, this);
+            var storage = new ItemContainerStorage(StorageType.AlwaysStack, capacity);
+            var mutations = new ItemContainerMutationBoundary(storage, this);
+            _items = new ItemContainer(mutations);
         }
 
         /// <summary>

@@ -54,7 +54,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             IList<IItem> stock, IEventManager eventManager)
         {
             _originalStockCounts = AggregateOriginalStock(stock);
-            _items = new ItemContainer(type, stock, capacity, 0, this);
+            var storage = new ItemContainerStorage(type, stock, capacity, 0);
+            var mutations = new ItemContainerMutationBoundary(storage, this);
+            _items = new ItemContainer(mutations);
             _shop = shop;
             _sampleContainer = sampleContainer;
             _itemRepository = itemRepository;

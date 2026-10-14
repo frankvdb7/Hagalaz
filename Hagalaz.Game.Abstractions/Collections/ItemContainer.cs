@@ -24,26 +24,20 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
     public IItem? this[int index] => _storage[index];
 
     public ItemContainer(StorageType type, int capacity, int countToResetTo = -1)
-        : this(type, capacity, countToResetTo, null)
+        : this(new ItemContainerMutationBoundary(new ItemContainerStorage(type, capacity, countToResetTo)))
     {
     }
 
-    internal ItemContainer(StorageType type, int capacity, int countToResetTo, IItemContainerCompletionOwner? completion)
+    internal ItemContainer(ItemContainerMutationBoundary mutations)
     {
-        _storage = new ItemContainerStorage(type, capacity, countToResetTo);
-        _mutations = new ItemContainerMutationBoundary(_storage, completion);
+        ArgumentNullException.ThrowIfNull(mutations);
+        _mutations = mutations;
+        _storage = mutations.Storage;
     }
 
     public ItemContainer(StorageType type, IEnumerable<IItem> items, int capacity, int countToResetTo = -1)
-        : this(type, items, capacity, countToResetTo, null)
+        : this(new ItemContainerMutationBoundary(new ItemContainerStorage(type, items, capacity, countToResetTo)))
     {
-    }
-
-    internal ItemContainer(StorageType type, IEnumerable<IItem> items, int capacity, int countToResetTo,
-        IItemContainerCompletionOwner? completion)
-    {
-        _storage = new ItemContainerStorage(type, items, capacity, countToResetTo);
-        _mutations = new ItemContainerMutationBoundary(_storage, completion);
     }
 
     public IEnumerator<IItem?> GetEnumerator() => _storage.GetEnumerator();

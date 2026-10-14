@@ -1567,9 +1567,11 @@ public sealed class ItemContainerTransferTests
         string name, int capacity, IEnumerable<IItem>? items = null, List<string>? timeline = null)
     {
         var owner = new TestCompletionOwner(name, timeline ?? []);
-        var container = items == null
-            ? new ItemContainer(StorageType.Normal, capacity, -1, owner)
-            : new ItemContainer(StorageType.Normal, items, capacity, -1, owner);
+        var storage = items == null
+            ? new ItemContainerStorage(StorageType.Normal, capacity, -1)
+            : new ItemContainerStorage(StorageType.Normal, items, capacity, -1);
+        var mutations = new ItemContainerMutationBoundary(storage, owner);
+        var container = new ItemContainer(mutations);
         owner.Container = container;
         return (container, owner);
     }

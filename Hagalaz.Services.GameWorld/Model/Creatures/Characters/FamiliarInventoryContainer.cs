@@ -39,7 +39,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public FamiliarInventoryContainer(ICharacter owner, StorageType type, int capacity, IItemBuilder itemBuilder)
         {
             (_owner, _itemBuilder) = (owner, itemBuilder);
-            _items = new ItemContainer(type, capacity, -1, this);
+            var storage = new ItemContainerStorage(type, capacity);
+            var mutations = new ItemContainerMutationBoundary(storage, this);
+            _items = new ItemContainer(mutations);
         }
 
         /// <summary>

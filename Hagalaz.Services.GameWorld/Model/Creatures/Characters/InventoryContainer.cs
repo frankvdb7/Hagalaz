@@ -34,7 +34,9 @@ public class InventoryContainer : IInventoryContainer, IItemTransactionSource,
     {
         (_owner, _mapRegionService, _groundItemBuilder, _itemBuilder) =
             (owner, mapRegionService, groundItemBuilder, itemBuilder);
-        _items = new ItemContainer(StorageType.Normal, capacity, -1, this);
+        var storage = new ItemContainerStorage(StorageType.Normal, capacity);
+        var mutations = new ItemContainerMutationBoundary(storage, this);
+        _items = new ItemContainer(mutations);
     }
 
     public bool AddItem(IItem item)
