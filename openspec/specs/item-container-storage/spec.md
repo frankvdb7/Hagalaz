@@ -324,7 +324,11 @@ MoneyPouch additions, removals, inventory transfers, bank deposits, shop purchas
 - **THEN** source and destination remain unchanged and the script does not publish a stake change
 
 ### Requirement: Duel victory stakes are credited atomically
-Duel victory settlement MUST transfer all stake items to the winner as one atomic operation, consuming the source stakes exactly once. If any destination cannot accept the complete payout, all stakes and winner storage MUST remain unchanged.
+Duel victory settlement MUST transfer all stake items to the winner as one atomic operation, consuming the source stakes exactly once. If any destination cannot accept the complete payout, all stakes and winner storage MUST remain unchanged. Before duel confirmation, each participant MUST have inventory capacity for both the full stake and any equipment that duel rules will return to their inventory before combat.
+
+#### Scenario: Duel confirmation includes returned equipment in payout capacity
+- **WHEN** rule-removed equipment and the full stake each fit in a participant's inventory separately but do not fit together
+- **THEN** duel confirmation is rejected before combat starts
 
 #### Scenario: Winner receives both stakes
 - **WHEN** the winner's inventory and MoneyPouch can accept both participants' stakes

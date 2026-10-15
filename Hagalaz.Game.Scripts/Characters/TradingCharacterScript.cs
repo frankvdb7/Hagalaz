@@ -176,7 +176,7 @@ namespace Hagalaz.Game.Scripts.Characters
             SelfContainer = new TradeContainer();
             TargetContainer = new TradeContainer();
             _itemBuilder = itemBuilder;
-            _tradeExchange = new TradeExchange(itemBuilder);
+            _tradeExchange = new TradeExchange();
         }
 
         /// <summary>

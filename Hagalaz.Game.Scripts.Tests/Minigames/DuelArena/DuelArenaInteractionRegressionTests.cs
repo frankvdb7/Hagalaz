@@ -24,6 +24,48 @@ namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena;
 public sealed class DuelArenaInteractionRegressionTests
 {
     [TestMethod]
+    public void StartConfirmationStage_RejectsStakesThatOnlyFitBeforeRestrictedEquipmentIsReturned()
+    {
+        var duel = CreateDuel(1, 1, additionalSelfItems: 14);
+        var restrictedEquipment = CreateItem(300, 1);
+        var equipment = Substitute.For<IEquipmentContainer>();
+        equipment[EquipmentSlot.Hat].Returns(restrictedEquipment);
+        duel.Self.Equipment.Returns(equipment);
+        duel.SessionScript.CurrentRules.ToggleRule(DuelRules.Rule.NoHelm);
+
+        Assert.IsTrue(duel.SelfStake!(0, ComponentClickType.Option4Click, duel.SelfItem.Id, 0));
+        Assert.IsTrue(duel.TargetStake!(0, ComponentClickType.Option4Click, duel.TargetItem.Id, 0));
+
+        var stakes = new[] { duel.SelfStakeContainer[0]!, duel.TargetStakeContainer[0]! };
+        Assert.IsTrue(duel.SelfInventory.Items.HasSpaceForRange([restrictedEquipment]));
+        Assert.IsTrue(duel.SelfInventory.Items.HasSpaceForRange(stakes));
+        Assert.IsFalse(duel.SelfInventory.Items.HasSpaceForRange([restrictedEquipment, .. stakes]));
+
+        duel.SessionScript.StartConfirmationStage();
+
+        duel.Self.Widgets.DidNotReceive().OpenWidget(1366, 0, Arg.Any<IWidgetScript>(), false);
+        duel.Self.Received(1).SendChatMessage("You don't have enough space in your inventory for this duel.");
+        duel.Target.Received(1).SendChatMessage("Your opponent doesn't have enough space in their inventory for this duel.");
+        Assert.AreEqual(1, duel.SelfStakeContainer.TakenSlots);
+        Assert.AreEqual(1, duel.TargetStakeContainer.TakenSlots);
+    }
+
+    [TestMethod]
+    public void OnDestroy_CancelsPreCombatDuelAndRefundsBothStakes()
+    {
+        var duel = CreateDuel(6, 7);
+        Assert.IsTrue(duel.SelfStake!(0, ComponentClickType.Option4Click, duel.SelfItem.Id, 0));
+        Assert.IsTrue(duel.TargetStake!(0, ComponentClickType.Option4Click, duel.TargetItem.Id, 0));
+
+        duel.SessionScript.OnDestroy();
+
+        Assert.AreEqual(7, duel.SelfInventory.Items.GetCountById(duel.SelfItem.Id));
+        Assert.AreEqual(6, duel.TargetInventory.Items.GetCountById(duel.TargetItem.Id));
+        Assert.AreEqual(0, duel.SelfStakeContainer.GetCountById(duel.SelfItem.Id));
+        Assert.AreEqual(0, duel.TargetStakeContainer.GetCountById(duel.TargetItem.Id));
+    }
+
+    [TestMethod]
     public void SelfAndTargetStakeHandlers_UseTheirOwnInventoryAndStake()
     {
         var duel = CreateDuel(6, 7);
@@ -410,6 +452,8 @@ public sealed class DuelArenaInteractionRegressionTests
         var targetChoice = new DuelChoiceScreenScript(targetAccessor);
         var selfDuelScreen = new DuelScreenScript(selfAccessor);
         var targetDuelScreen = new DuelScreenScript(targetAccessor);
+        selfScreen.Script.Returns(selfDuelScreen);
+        targetScreen.Script.Returns(targetDuelScreen);
         ConfigureScripts(self, selfAccessor, selfChoice, selfDuelScreen, target);
         ConfigureScripts(target, targetAccessor, targetChoice, targetDuelScreen, self);
 
@@ -503,6 +547,7 @@ public sealed class DuelArenaInteractionRegressionTests
         var provider = Substitute.For<IServiceProvider>();
         provider.GetService(typeof(DuelChoiceScreenScript)).Returns(choice);
         provider.GetService(typeof(DuelScreenScript)).Returns(duelScreen);
+        provider.GetService(typeof(DuelConfirmScreenScript)).Returns(new DuelConfirmScreenScript(accessor));
         provider.GetService(typeof(DefaultWidgetScript)).Returns(new DefaultWidgetScript(accessor));
         var entityService = Substitute.For<IEntityService>();
         var pathFinder = Substitute.For<ISmartPathFinder>();

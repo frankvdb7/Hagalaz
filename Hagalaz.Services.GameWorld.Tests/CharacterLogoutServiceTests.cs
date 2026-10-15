@@ -171,6 +171,7 @@ public sealed class CharacterLogoutServiceTests
             order.Add("remove");
             return true;
         });
+        character.When(value => value.OnDetach()).Do(_ => order.Add("script-destroy"));
         character.When(value => value.Destroy()).Do(_ => order.Add("destroy"));
         using var provider = new ServiceCollection()
             .AddSingleton<ICharacterDehydrationService>(dehydrationService)
@@ -189,8 +190,9 @@ public sealed class CharacterLogoutServiceTests
         Assert.AreEqual(1L, result.SnapshotRevision);
         Assert.AreEqual(0L, snapshot.SnapshotRevision);
         characterService.Received(1).Remove(character);
+        character.Received(1).OnDetach();
         character.Received(1).Destroy();
-        CollectionAssert.AreEqual(new[] { "snapshot", "remove", "destroy" }, order);
+        CollectionAssert.AreEqual(new[] { "script-destroy", "snapshot", "remove", "destroy" }, order);
     }
 
     [TestMethod]
@@ -687,6 +689,7 @@ public sealed class CharacterLogoutServiceTests
             .AddSingleton<ICharacterDehydrationService>(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
+        character.When(value => value.OnDetach()).Do(_ => order.Add("script-destroy"));
         character.When(value => value.Destroy()).Do(_ => order.Add("destroy"));
         var logout = new CharacterLogoutService(
             state,
@@ -702,7 +705,7 @@ public sealed class CharacterLogoutServiceTests
         Assert.AreNotSame(snapshot, result);
         Assert.AreEqual(1L, result.SnapshotRevision);
         Assert.AreEqual(0L, snapshot.SnapshotRevision);
-        CollectionAssert.AreEqual(new[] { "gameplay", "snapshot", "remove", "destroy" }, order);
+        CollectionAssert.AreEqual(new[] { "gameplay", "script-destroy", "snapshot", "remove", "destroy" }, order);
     }
 
     [TestMethod]

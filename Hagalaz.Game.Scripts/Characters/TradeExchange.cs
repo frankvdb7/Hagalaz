@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -12,13 +11,6 @@ namespace Hagalaz.Game.Scripts.Characters;
 internal sealed class TradeExchange
 {
     private const int CoinsItemId = 995;
-    private readonly IItemBuilder _itemBuilder;
-
-    public TradeExchange(IItemBuilder itemBuilder)
-    {
-        ArgumentNullException.ThrowIfNull(itemBuilder);
-        _itemBuilder = itemBuilder;
-    }
 
     /// <summary>Stages a trade completion inside the caller-owned item-container transaction.</summary>
     /// <remarks>
@@ -41,9 +33,6 @@ internal sealed class TradeExchange
     private bool StageOffers(ICharacter first, ICharacter second,
         TradingCharacterScript.TradeContainer itemsForFirst, TradingCharacterScript.TradeContainer itemsForSecond)
     {
-        var firstItems = CloneOfferedItems(itemsForFirst.Items);
-        var secondItems = CloneOfferedItems(itemsForSecond.Items);
-        if (!CanReceive(first, firstItems) || !CanReceive(second, secondItems)) return false;
         if (!TransferOffer(itemsForFirst, first) || !TransferOffer(itemsForSecond, second)) return false;
         return true;
     }
@@ -132,24 +121,6 @@ internal sealed class TradeExchange
         return true;
     }
 
-    private bool CanReceive(ICharacter character, IReadOnlyList<IItem> items)
-    {
-        var nonCoinItems = items.Where(item => item.Id != CoinsItemId).ToArray();
-        var coinCount = items.Where(item => item.Id == CoinsItemId).Sum(item => (long)item.Count);
-        if (coinCount > int.MaxValue) return false;
-
-        var pouchSpace = int.MaxValue - (long)character.MoneyPouch.Count;
-        var inventoryCoins = Math.Max(0, coinCount - pouchSpace);
-        var recipientItems = nonCoinItems;
-        if (inventoryCoins > 0)
-        {
-            recipientItems = nonCoinItems.Append(_itemBuilder.Create().WithId(CoinsItemId)
-                .WithCount((int)inventoryCoins).Build()).ToArray();
-        }
-
-        return character.Inventory.Items.HasSpaceForRange(recipientItems);
-    }
-
     private IItemTransactional? GetRecoveryContainer(ICharacter character, IReadOnlyList<IItem> items)
     {
         if (items.Count == 0) return (IItemTransactional?)character.Rewards ?? character.Bank;
@@ -163,5 +134,4 @@ internal sealed class TradeExchange
 
     private IItem[] CloneOfferedItems(IReadOnlyItemContainer container) =>
         container.OfType<IItem>().Select(item => item.Clone()).ToArray();
-
 }

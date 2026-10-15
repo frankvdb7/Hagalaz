@@ -180,8 +180,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// </summary>
         /// <param name="character">The character.</param>
         /// <param name="other">The other.</param>
+        /// <param name="stakeItems">The combined items in both participants' stakes.</param>
         /// <returns></returns>
-        public bool CheckRules(ICharacter character, ICharacter other)
+        public bool CheckRules(ICharacter character, ICharacter other, IReadOnlyList<IItem> stakeItems)
         {
             if (this[Rule.NoRanged] && this[Rule.NoMelee] && this[Rule.NoMagic])
             {
@@ -204,18 +205,32 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 }
             }
 
-            if (equipment.Count == 0)
+            if (equipment.Count > 0 && !character.Inventory.Items.HasSpaceForRange(equipment.ToArray()))
+            {
+                character.SendChatMessage("You do not have enough inventory space to remove all the equipment.");
+                other.SendChatMessage("Other player doesn't have enough space in their inventory to remove all the equipment.");
+                return false;
+            }
+
+            if (stakeItems.Count == 0)
             {
                 return true;
             }
 
-            if (character.Inventory.Items.HasSpaceForRange(equipment.ToArray()))
+            var incomingItems = new IItem[equipment.Count + stakeItems.Count];
+            equipment.CopyTo(incomingItems, 0);
+            for (var index = 0; index < stakeItems.Count; index++)
+            {
+                incomingItems[equipment.Count + index] = stakeItems[index];
+            }
+
+            if (character.Inventory.Items.HasSpaceForRange(incomingItems))
             {
                 return true;
             }
 
-            character.SendChatMessage("You do not have enough inventory space to remove all the equipment.");
-            other.SendChatMessage("Other player doesn't have enough space in their inventory to remove all the equipment.");
+            character.SendChatMessage("You don't have enough space in your inventory for this duel.");
+            other.SendChatMessage("Your opponent doesn't have enough space in their inventory for this duel.");
             return false;
 
         }

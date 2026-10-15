@@ -62,3 +62,14 @@ The system MUST remove only the local session or distributed claim belonging to 
 - WHEN cleanup returns
 - THEN the local state needed to retry the cleanup is retained
 - AND the existing lease cycle can retry the cleanup
+
+### Requirement: Final logout snapshots include script destruction cleanup
+
+Terminal character detachment MUST run character-script destruction callbacks before capturing its final snapshot so synchronous cleanup is persisted.
+
+#### Scenario: Pre-combat duel cancellation is included in the snapshot
+
+- GIVEN a character has items in a pre-combat duel stake container
+- WHEN terminal logout captures the character's final snapshot
+- THEN the duel script's destruction callback cancels the duel and returns the stakes before dehydration
+- AND the final snapshot contains the returned items

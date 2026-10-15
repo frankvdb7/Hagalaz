@@ -356,6 +356,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         }
 
         /// <summary>
+        /// Runs the character scripts' destruction callbacks as the character is being detached.
+        /// </summary>
+        public void OnDetach() => InvokeScriptDestroyCallbacks();
+
+        /// <summary>
         /// Interrupts open interfaces.
         /// </summary>
         public void InterruptInterfaces()

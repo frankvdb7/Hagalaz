@@ -1066,7 +1066,7 @@ public sealed class TradeExchangeTests
         return added;
     }
 
-    private static TradeExchange CreateTradeExchange() => new(CreateItemBuilder());
+    private static TradeExchange CreateTradeExchange() => new();
 
     private static ICharacter CreateCharacter(
         IInventoryContainer inventory,

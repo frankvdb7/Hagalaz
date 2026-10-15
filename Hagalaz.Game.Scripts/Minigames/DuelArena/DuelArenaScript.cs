@@ -706,35 +706,21 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             SelfAccepted = false;
             TargetAccepted = false;
 
-            if (!CurrentRules.CheckRules(Character, Target) || !CurrentRules.CheckRules(Target, Character))
+            IItem[] allStakes = [];
+            if (IsStaking)
+            {
+                IItemContainer container = new ItemContainer(StorageType.Normal,
+                    (short)(SelfContainer!.Items.Capacity + TargetContainer!.Items.Capacity));
+                container.AddRange(SelfContainer!.Items);
+                container.AddRange(TargetContainer!.Items);
+                allStakes = System.Linq.Enumerable.ToArray(container);
+            }
+
+            if (!CurrentRules.CheckRules(Character, Target, allStakes) ||
+                !CurrentRules.CheckRules(Target, Character, allStakes))
             {
                 RefreshDuelConfirmationStatus();
                 return;
-            }
-
-            if (IsStaking)
-            {
-                IItemContainer container = new ItemContainer(StorageType.Normal, (short)(SelfContainer!.Items.Capacity + TargetContainer!.Items.Capacity));
-                container.AddRange(SelfContainer!.Items);
-                container.AddRange(TargetContainer!.Items);
-
-                var all = System.Linq.Enumerable.ToArray(container);
-
-                if (!Character.Inventory.Items.HasSpaceForRange(all))
-                {
-                    Character.SendChatMessage("You don't have enough space in your inventory for this duel.");
-                    Target.SendChatMessage("Your opponent doesn't have enough space in their inventory for this duel.");
-                    RefreshDuelConfirmationStatus();
-                    return;
-                }
-
-                if (!Target.Inventory.Items.HasSpaceForRange(all))
-                {
-                    Character.SendChatMessage("Your opponent doesn't have enough space in their inventory for this duel.");
-                    Target.SendChatMessage("You don't have enough space in your inventory for this duel.");
-                    RefreshDuelConfirmationStatus();
-                    return;
-                }
             }
 
             ((DuelScreenScript)SelfInterface.Script).CloseCallback = null;
@@ -1204,6 +1190,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             base.OnInterrupt(source);
             CancelDuelSession();
         }
+
+        public override void OnDestroy() => CancelDuelSession();
 
         /// <summary>
         ///     Tick's character.

@@ -61,6 +61,10 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// <returns>An <see cref="IEnumerable{T}"/> of <see cref="ICharacterScript"/>.</returns>
         IEnumerable<ICharacterScript> GetScripts();
         /// <summary>
+        /// Runs script destruction callbacks as the character is being detached.
+        /// </summary>
+        void OnDetach();
+        /// <summary>
         /// Renders a skull icon above the character's head, typically indicating a PvP status.
         /// </summary>
         /// <param name="icon">The type of skull icon to display.</param>
