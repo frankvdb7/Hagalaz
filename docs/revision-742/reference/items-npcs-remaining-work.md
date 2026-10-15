@@ -44,3 +44,14 @@ Before declaring this static inventory complete, query the actual EF-backed `Fis
 ## Spawn origin audit
 
 The [NPC spawn source inventory](../data/catalogs/npc-spawn-sources.csv) identifies nine independently scoped spawn paths, including persistent DB, familiar summon/restore, minigame waves, Glacor minions and administrative commands. Real counts/coordinates remain unavailable without database rows and live instance captures. Never merge event-generated transient NPCs into npc_spawns. The region loader projects persistent database NPC spawn coordinates into dimension 0.
+
+
+## P0 status after this work (16 October 2026)
+
+| First-three task | Completed here | Outstanding to genuinely close |
+|---|---|---|
+| Full 742 item/NPC cache export | Audited decoder/index owners, verified LFS checksum from companion fixture metadata, created input validation and reconciliation tool | Retrieve approved LFS bytes and actually decode every populated record; verify per-definition hashes and counts |
+| Item/NPC EF reconciliation | Audited database mappings, created read-only data extraction and integrity queries and deterministic full-outer comparison | Provide current populated MySQL snapshot and run the comparer; resolve genuine source conflicts |
+| NPC spawns and dynamic registrations | Audited persistent spawn loader and nine runtime spawn origins; documented fishing/Slayer factory sourcing and duplicate NPC script registration | Export actual npc_spawns and dynamic factory rows, verify runtime startup precedence, map collision and live encounter spawns |
+
+**All three remain data-incomplete.** The available connection cannot access the approved archive bytes or populated database, so no exact revision parity or exhaustive spawn counts are claimed. The tooling and current source evidence are committed; do not mark these three P0 objectives resolved until the missing inputs are processed.

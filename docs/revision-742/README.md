@@ -139,3 +139,8 @@ Added **128** more historical candidate records across ten CSV datasets, taking 
 The [source-family coverage table](data/catalogs/source-family-coverage.csv) separates script-registered IDs by subsystem; dynamically generated fishing/Slayer registrations and complete runtime startup mappings still require database-backed extraction.
 
 The [NPC spawn-origin inventory](data/catalogs/npc-spawn-sources.csv) distinguishes persistent database spawns, summoned followers, encounter creatures and administrative or emote-only creations. No private spawn table rows have been invented.
+
+
+## First three P0 evidence tasks
+
+The [source-to-data reconciliation workflow](tools/README.md) includes a deterministic Python comparer, SQL exports, DB-only integrity checks and synthetic unit tests. The [P0 task status table](reference/items-npcs-remaining-work.md#p0-status-after-this-work-16-october-2026) records why complete item/NPC definition, EF and spawn parity cannot yet be claimed without the approved LFS asset and populated MySQL data.

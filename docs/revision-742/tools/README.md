@@ -44,3 +44,8 @@ Source schemas and joins: audited. Export/reconciliation CLI: authored, pending 
 ## Source-only spawn mechanisms
 
 The [nine known spawn-source categories](../data/catalogs/npc-spawn-sources.csv) are independently listed. The Python comparer audits *persistent database* rows only. Temporary wave/healer/familiar/encounter entities are runtime events and require separate event or session captures; the database count is not the total number of world NPC instances.
+
+
+## Database-only integrity checks
+
+[Read-only SQL checks](read-only-integrity-audit.sql) report missing server definitions for permanent spawns, impossible stored bounds, orphan statistics/bonuses/loot links, and unresolved fishing/Slayer registration IDs. They may be executed before the exact client-cache export, but their results remain unknown until an authorized database snapshot is provided.
