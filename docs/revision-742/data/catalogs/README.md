@@ -71,3 +71,7 @@ The [source-family summary](source-family-coverage.csv) groups existing registra
 - `Wilfred` is declared using an item attribute on a class deriving `NpcScriptBase`. `NpcScriptMetaDataFactory` only reads `NpcScriptMetaDataAttribute` for concrete NPC scripts, so that attribute **does not supply an NPC mapping**. This is a concrete registration gap unless another factory supplies the ID.
 
 The runtime provider plus all registered factory outputs are authoritative for **which script actually gets selected**; static metadata counts alone cannot establish that mapping. A complete audit should dump `(id,selected script type,origin factory)` during a controlled startup, then compare it against the CSVs and actual cache definitions.
+
+## Spawn origin classes (source audited)
+
+[Source-backed spawn ownership inventory](npc-spawn-sources.csv) separates persistent database spawns from temporary summoning, boss/minigame, emote and admin-generated NPCs. These are **source-backed spawn mechanisms, not a list of actual persisted instances**. In particular, entity script builders must not be counted as NPC spawns when they only call Build. Dynamic spawns are instance/scenario owned, not rows in npc_spawns.

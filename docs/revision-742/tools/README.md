@@ -40,3 +40,7 @@ The outputs are items.csv, npcs.csv, npc-spawns.csv, issues.csv and summary.json
 ## Current status
 
 Source schemas and joins: audited. Export/reconciliation CLI: authored, pending execution with real approved inputs. **The first three P0 tasks are not completed as data extraction tasks in this environment:** the 607 MB cache LFS object and the populated MySQL database are unavailable through the active connection. No verified total definition counts, actual DB row counts, region spawn records, or runtime registration order can be claimed. Avoid generating illustrative records and labeling them fixture-backed. Continue with the explicit handoff in reference/items-npcs-remaining-work.md after those data sources are accessible.
+
+## Source-only spawn mechanisms
+
+The [nine known spawn-source categories](../data/catalogs/npc-spawn-sources.csv) are independently listed. The Python comparer audits *persistent database* rows only. Temporary wave/healer/familiar/encounter entities are runtime events and require separate event or session captures; the database count is not the total number of world NPC instances.

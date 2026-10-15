@@ -137,3 +137,5 @@ Added **128** more historical candidate records across ten CSV datasets, taking 
 - This is not the complete 742 client cache roster; the pinned LFS bytes are not present and no exhaustive JS5 definitions or server DB rows were decoded here. Do not confuse declared metadata with verified fixture contents.
 
 The [source-family coverage table](data/catalogs/source-family-coverage.csv) separates script-registered IDs by subsystem; dynamically generated fishing/Slayer registrations and complete runtime startup mappings still require database-backed extraction.
+
+The [NPC spawn-origin inventory](data/catalogs/npc-spawn-sources.csv) distinguishes persistent database spawns, summoned followers, encounter creatures and administrative or emote-only creations. No private spawn table rows have been invented.

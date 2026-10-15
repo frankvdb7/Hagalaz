@@ -44,6 +44,8 @@ def sha256_file(path):
 
 def cache_index(path, index, sha):
     source = rows(path, "id")
+    if not source:
+        raise ValueError(f"{path}: empty cache manifest is not a valid full definition export")
     result = indexed(source, "id", path)
     shift = 8 if index == 19 else 7
     for entry in source:

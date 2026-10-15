@@ -76,6 +76,12 @@ class ReconcileTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("invalid cache address", result.stderr)
 
+    def test_rejects_empty_manifest(self):
+        self.write("item.csv", ["id", "index", "group", "file", "name", "fixture_sha256", "raw_sha256"], [])
+        result = self.run_cli()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("empty cache manifest", result.stderr)
+
     def test_reports_invalid_spawn_bounds_and_orphan(self):
         self.write("spawn.tsv", ["spawn_id", "npc_id", "coord_x", "coord_y", "coord_z",
                                 "min_coord_x", "min_coord_y", "min_coord_z",
