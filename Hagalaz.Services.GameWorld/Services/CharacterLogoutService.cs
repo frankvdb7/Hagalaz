@@ -563,7 +563,7 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
                 try
                 {
                     var dehydrationService = character.ServiceProvider.GetRequiredService<ICharacterDehydrationService>();
-                    character.OnDestroying();
+                    character.OnDetach();
                     var finalSnapshot = dehydrationService.Dehydrate(character) with
                     {
                         SnapshotRevision = _persistenceState.NextRevision(character.MasterId)

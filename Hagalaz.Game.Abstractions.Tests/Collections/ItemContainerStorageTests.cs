@@ -420,25 +420,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         [TestMethod]
         public void Swap_SameSlot_LeavesContainerUnchanged()
         {
-            var container = new TestableItemContainer(StorageType.Normal, 10);
-            var item1 = CreateItem(1, 1);
-            var item2 = CreateItem(2, 1);
-            container.Items.Replace(0, item1);
-            container.Items.Replace(1, item2);
-            container.Items.ChangeTracker.GetSlots();
-            var revision = container.Items.ChangeTracker.Revision;
-            var enumerator = container.Items.GetEnumerator();
-            Assert.IsTrue(enumerator.MoveNext());
-
-            container.Items.Swap(0, 0);
-
-            Assert.AreSame(item1, container.Items[0]);
-            Assert.AreSame(item2, container.Items[1]);
-            Assert.AreEqual(revision, container.Items.ChangeTracker.Revision);
-            Assert.IsFalse(container.Items.ChangeTracker.HasChanges);
-            Assert.AreEqual(0, container.Items.ChangeTracker.GetSlots()!.Count);
-            Assert.IsTrue(enumerator.MoveNext());
-            Assert.AreSame(item2, enumerator.Current);
+            AssertSameSlotMutationLeavesContainerUnchanged(items => items.Swap(0, 0));
         }
 
         [TestMethod]
@@ -463,6 +445,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         [TestMethod]
         public void Move_SameSlot_LeavesContainerUnchanged()
         {
+            AssertSameSlotMutationLeavesContainerUnchanged(items => items.Move(0, 0));
+        }
+
+        private void AssertSameSlotMutationLeavesContainerUnchanged(Action<ItemContainer> mutation)
+        {
             var container = new TestableItemContainer(StorageType.Normal, 10);
             var item1 = CreateItem(1, 1);
             var item2 = CreateItem(2, 1);
@@ -473,7 +460,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var enumerator = container.Items.GetEnumerator();
             Assert.IsTrue(enumerator.MoveNext());
 
-            container.Items.Move(0, 0);
+            mutation(container.Items);
 
             Assert.AreSame(item1, container.Items[0]);
             Assert.AreSame(item2, container.Items[1]);
