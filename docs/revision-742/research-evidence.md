@@ -4,7 +4,7 @@
 
 ## Confidence model
 
-1. **Direct revision evidence (strongest):** a recorded 742 client session, opcode/widget trace, cache asset hash and definition dump, or verified behavior reproduced against that build. None was supplied to this audit, so exact IDs/ticks and exhaustive rewards remain open.
+1. **Direct revision evidence (strongest):** a recorded 742 client session, opcode/widget trace, cache asset hash and definition dump, or verified behavior reproduced against that build. The companion client repository identifies a pinned 742 cache fixture, but the LFS archive was not downloaded or exhaustively decoded in this research. Exact IDs/ticks and exhaustive rewards therefore remain open.
 2. **Repository evidence:** paths and owner candidates from `frankvdb7/Hagalaz` `main`, audited at commit `9c9f8622305d18ca05fa7099848a0cdb01cf09b6`. Source presence only proves some code exists; a documented TODO or empty handler is not complete functionality.
 3. **Dated historical material:** period sources and preserved 2012 update notes establish that a feature existed before the target build. These sources may have later edits; they do not by themselves prove every numerical rule.
 4. **Later retrospective articles:** useful leads, not an authority for target-version details.
@@ -23,10 +23,14 @@
 
 ## Evidence gaps before parity can be claimed
 
-- Version-742 cache archive, build hash, definitions and asset indexes.
+- Download and hash the existing pinned version-742 cache archive, then export feature-relevant definitions and asset indices. See [client/cache evidence path](reference/client-cache-evidence.md).
 - Real login/interaction captures for combat, world, item container, widgets, money pouch, teleport and quests.
 - Per-skill recipe database audit versus target version and manual tests of formulas/animations.
 - Feature-specific persistence/error handling tests across disconnect, world handoff, full inventory and concurrent players.
 - Server-run results for the files changed in a future implementation PR.
 
 The feature guides intentionally do **not** invent missing identifiers or copy contemporary behavior into the 742 baseline. Preserve this uncertainty when implementing and replace it with reproducible fixture evidence.
+
+## Verified companion-client source locations
+
+A separately managed revision-742 Java client repository documents a pinned Git LFS cache in `tests/fixtures/cache742/cache.zip` with a SHA-256 sidecar. Its repository docs provide canonical cache, interface, protocol, CS2, map and region evidence ledgers. These are **verified repository-source references**, but not proof that a complete historical gameplay dataset has already been extracted. See [client/cache extraction handoff](reference/client-cache-evidence.md).

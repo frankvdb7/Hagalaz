@@ -1,0 +1,8 @@
+bar,level,primary_ore,secondary_ore,secondary_count,xp,source_url
+bronze,1,copper,tin,1,6.25,https://wiki.darkan.org/Smithing_training_pay_to_play
+iron,15,iron,,0,12.5,https://wiki.darkan.org/Smithing_training_pay_to_play
+steel,30,iron,coal,2,17.5,https://wiki.darkan.org/Smithing_training_pay_to_play
+gold,40,gold,,0,22.5,https://wiki.darkan.org/Smithing_training_pay_to_play
+mithril,50,mithril,coal,4,30,https://wiki.darkan.org/Smithing_training_pay_to_play
+adamant,70,adamantite,coal,6,37.5,https://wiki.darkan.org/Smithing_training_pay_to_play
+rune,85,runite,coal,8,50,https://wiki.darkan.org/Smithing_training_pay_to_play

@@ -1,0 +1,14 @@
+rune,level,xp_per_essence,pure_essence_required,source_url
+air,1,5,false,https://wiki.darkan.org/Runecrafting
+mind,,5.5,false,https://wiki.darkan.org/Runecrafting
+water,5,6,false,https://wiki.darkan.org/Runecrafting
+earth,9,6.5,false,https://wiki.darkan.org/Runecrafting
+fire,14,7,false,https://wiki.darkan.org/Runecrafting
+body,20,7.5,false,https://wiki.darkan.org/Runecrafting
+cosmic,27,8,true,https://wiki.darkan.org/Runecrafting
+chaos,35,8.5,true,https://wiki.darkan.org/Runecrafting
+astral,40,8.75,true,https://wiki.darkan.org/Runecrafting
+nature,44,9,true,https://wiki.darkan.org/Runecrafting
+law,54,9.5,true,https://wiki.darkan.org/Runecrafting
+death,65,10,true,https://wiki.darkan.org/Runecrafting
+blood,77,10.5,true,https://wiki.darkan.org/Runecrafting

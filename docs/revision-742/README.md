@@ -88,4 +88,8 @@ See [research evidence and source methodology](research-evidence.md) and [implem
 | Storage: source of truth and hydrator/dehydrator or database schema | Prevents an in-memory-only feature |
 | Tests: positive path, rejection, cancellation, capacity, concurrency, restart, client UI parity | Separates functional evidence from partial code presence |
 
-The listed file paths were audited against the repository's `main` tree on 15 October 2026. This is a **documentation and architecture inventory**, not a completed game-content dataset; no local 742 client/cache fixtures or server integration run were available during this research.
+The listed file paths were audited against the repository's `main` tree on 15 October 2026. This is a **documentation and architecture inventory**, not a completed game-content dataset; a pinned 742 cache fixture exists in the companion client repository, but its LFS bytes were not downloaded or exhaustively decoded during this research; no server integration run was performed.
+
+## Researched gameplay data (supplement)
+
+The initial feature guides are now supplemented with [41 per-feature historical research references](reference/README.md) and [nine machine-readable datasets](data/README.md). The reference pages include concrete 2012-era values, restrictions, recipe examples and cited sources; **not all details are verified against a specific 742 cache build**. Use the evidence gate in [research provenance](research-evidence.md) before implementing exact IDs, rates or packet behavior.
