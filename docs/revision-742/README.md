@@ -92,11 +92,11 @@ The listed file paths were audited against the repository's `main` tree on 15 Oc
 
 ## Researched gameplay data (supplement)
 
-The initial feature guides are now supplemented with [41 per-feature historical research references](reference/README.md) and [30 machine-readable gameplay datasets](data/README.md). The reference pages include concrete 2012-era values, restrictions, recipe examples and cited sources; **not all details are verified against a specific 742 cache build**. Use the evidence gate in [research provenance](research-evidence.md) before implementing exact IDs, rates or packet behavior.
+The initial feature guides are now supplemented with [41 per-feature historical research references](reference/README.md) and [48 machine-readable gameplay datasets](data/README.md). The reference pages include concrete 2012-era values, restrictions, recipe examples and cited sources; **not all details are verified against a specific 742 cache build**. Use the evidence gate in [research provenance](research-evidence.md) before implementing exact IDs, rates or packet behavior.
 
 ## Deeper implementation-grade research
 
-- [Expanded 2012 data pack](data/researched/README.md) — **354 additional candidate rows across 21 new CSVs** covering room costs/portals, spells, potions, pouches, Slayer rewards, firemaking methods, fishing variants and bonuses. The earlier 9 CSVs remain available.
+- [Expanded 2012 data pack](data/researched/README.md) — **705 curated candidate rows across 39 researched CSVs** covering room costs/portals, spells, potions, pouches, Slayer rewards, firemaking methods, fishing variants and bonuses. The earlier 9 CSVs remain available.
 - [Complete 41-feature evidence requirements](reference/feature-completeness.md) and [machine-readable feature coverage matrix](reference/feature-completeness-matrix.csv) — explicit data still required to claim full behavior parity.
 - [Audited Hagalaz data ownership and schema crosswalk](reference/repository-data-crosswalk.md) — actual existing EF property names, expected cache joins, persistence owners and missing fields.
 - [Deep runtime specifications](reference/README.md#vertical-slice-specifications) — Construction, Magic, Slayer, economy, gathering, Farming, Summoning and progression, with failure cases and existing method behavior.
@@ -110,7 +110,7 @@ The initial feature guides are now supplemented with [41 per-feature historical 
 - [Hunter training methods](data/researched/hunter-methods.csv), [trap limits](data/researched/hunter-trap-capacity.csv) and the [trap lifecycle dossier](reference/deep-hunter.md).
 - [Ten meat-cooking recipes](data/researched/cooking-meat-products.csv) with XP/healing and an [audit of actual cooking task rules](reference/deep-cooking.md).
 
-**Coverage note:** these additional tables raise the new source-linked candidates to **354 across 21 tables**. The pinned client cache has still not been decoded for exact numeric resource and interface IDs.
+**Coverage note:** the expanded research catalog now contains **705 candidate rows across 39 researched tables**. The pinned client cache has still not been decoded for exact numeric resource and interface IDs.
 
 ### Expanded Prayer, Farming and Cooking catalogs
 

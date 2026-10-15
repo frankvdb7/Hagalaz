@@ -28,7 +28,7 @@ These are **curated candidate records**, not live game server configuration. Eac
 | [Cooked fish](cooking-fish.csv) | 23 | Cooking level, historical burn threshold, XP and life points restored |
 | [Allotments and flowers](farming-allotments-and-flowers.csv) | 13 | Seed level, growth cycle/time, planting and harvesting XP, protection |
 
-**Total: 354 candidate rows across 21 new files.** Earlier [datasets](../README.md) add representative skill rows and the computed 1–120 level XP curve. The [41-feature requirements matrix](../../reference/feature-completeness-matrix.csv) identifies what is still missing before full content coverage.
+**Original deep-reference batch: 354 candidate rows across 21 files. Current expanded catalog: 705 source-linked candidate records across 39 researched CSVs, plus nine starter datasets.** Earlier [datasets](../README.md) add representative skill rows and the computed 1–120 level XP curve. The [41-feature requirements matrix](../../reference/feature-completeness-matrix.csv) identifies what is still missing before full content coverage.
 
 ## Evidence classification
 
