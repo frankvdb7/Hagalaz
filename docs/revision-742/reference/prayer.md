@@ -28,3 +28,5 @@ The supplied historical links provide candidate behavior, not a full cache/data 
 [Curse levels, base drain interval and effect family](../data/researched/ancient-curses.csv) · [Activation and combat-effect investigation](deep-prayer.md)
 
 Verify all exact client IDs/rates before treating secondary research as final revision-742 behavior.
+
+[All 30 standard prayers](../data/researched/standard-prayers.csv) · [23 offering-item base XP values](../data/researched/prayer-offering-xp.csv) · [Drain multiplier and altar XP cases](deep-prayer.md)

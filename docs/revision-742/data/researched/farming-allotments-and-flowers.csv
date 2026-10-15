@@ -1,0 +1,14 @@
+seed,patch_type,level,growth_cycles,minutes_per_cycle,plant_xp,harvest_xp,protection,source_url,evidence
+Potato seed,allotment,1,4,10,8,9,marigold,https://wiki.darkan.org/Seeds,historical_secondary_pending_cache
+Onion seed,allotment,5,4,10,9.5,10.5,marigold,https://wiki.darkan.org/Seeds,historical_secondary_pending_cache
+Cabbage seed,allotment,7,4,10,10,11.5,rosemary,https://wiki.darkan.org/Seeds,historical_secondary_pending_cache
+Tomato seed,allotment,12,4,10,12.5,14,marigold,https://wiki.darkan.org/Seeds,historical_secondary_pending_cache
+Sweetcorn seed,allotment,20,5,10,17,19,scarecrow,https://wiki.darkan.org/Seeds,historical_secondary_pending_cache
+Strawberry seed,allotment,31,6,10,26,29,none,https://wiki.darkan.org/Seeds,historical_secondary_pending_cache
+Watermelon seed,allotment,47,7,10,48.5,54.5,nasturtium,https://wiki.darkan.org/Seeds,historical_secondary_pending_cache
+Marigold seed,flower,2,4,5,8.5,47,none,https://wiki.darkan.org/Seeds,historical_secondary_pending_cache
+Rosemary seed,flower,11,4,5,12,66.5,none,https://wiki.darkan.org/Seeds,historical_secondary_pending_cache
+Nasturtium seed,flower,24,4,5,19.5,111,none,https://wiki.darkan.org/Seeds,historical_secondary_pending_cache
+Woad seed,flower,25,4,5,20.5,115.5,none,https://wiki.darkan.org/Seeds,historical_secondary_pending_cache
+Limpwurt seed,flower,26,5,5,21.5,120,none,https://wiki.darkan.org/Seeds,historical_secondary_pending_cache
+White lily seed,flower,52,4,20,70,250,none,https://wiki.darkan.org/Seeds,historical_secondary_pending_cache

@@ -91,3 +91,9 @@ These additions complement the original feature-by-feature pages and do **not** 
 | Runecrafting | [Standard/combination outputs, multipliers and rune consumption](deep-runecrafting.md) |
 | Hunter | [Method catalog, trap limits, placement and reward ownership](deep-hunter.md) |
 | Cooking | [Recipes, burn probability and source-lifetime task code](deep-cooking.md) |
+
+### More complete reference tables
+
+- [Standard prayers (30)](../data/researched/standard-prayers.csv) and [Prayer item XP (23)](../data/researched/prayer-offering-xp.csv), including the drain bonus formula in [prayer implementation notes](deep-prayer.md).
+- [Fish Cooking (23)](../data/researched/cooking-fish.csv), see [cooking task analysis](deep-cooking.md).
+- [Farming allotments and flowers (13)](../data/researched/farming-allotments-and-flowers.csv), see [patch lifecycle](deep-farming.md).

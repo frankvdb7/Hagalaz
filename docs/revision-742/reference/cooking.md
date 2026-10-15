@@ -28,3 +28,5 @@ The first three rows come from the historical fish cooking table; lobster XP is 
 [Meat cooking level/XP/healing table](../data/researched/cooking-meat-products.csv) · [Source-aware burn and task implementation study](deep-cooking.md)
 
 Verify all exact client IDs/rates before treating secondary research as final revision-742 behavior.
+
+[23 candidate fish recipes and burn thresholds](../data/researched/cooking-fish.csv) · [Source and burn policy](deep-cooking.md)

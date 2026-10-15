@@ -28,3 +28,5 @@ Validate all recipe, NPC/object, animation and config IDs in a captured 742 clie
 - [Seed and patch EF model](repository-data-crosswalk.md)
 
 These additions include period-source candidate facts or checked Hagalaz code paths. They are **not a completed 742 client/cache parity capture**.
+
+[13 candidate allotment/flower rows](../data/researched/farming-allotments-and-flowers.csv) · [Growth and offline persistence analysis](deep-farming.md)

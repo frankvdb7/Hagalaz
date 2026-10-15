@@ -41,3 +41,11 @@ Historical [Farming reference](https://wiki.darkan.org/Farming) includes individ
 - Crop mutation during logout snapshot is either fully persisted or fully rejected.
 
 **Open question:** if server wall-clock catchup is needed, add it inside existing patch hydration/task data rather than one timer per plot or a second background farming service.
+
+## Crop-by-crop timed candidate table
+
+[Seven allotments and six flowers](../data/researched/farming-allotments-and-flowers.csv) now record exact *reported* growth cycle count and cycle-minutes, planting/harvest XP and protection (where specified). Historical [seed definitions](https://wiki.darkan.org/Seeds) explicitly warn that disease or growth-cycle repeats can extend the minimum total growth interval. For example, potato and onion plots have four ten-minute stages, while white lily uses four 20-minute stages. These are wall-clock candidate durations, **not** preconverted Hagalaz game ticks.
+
+Implementation detail: `SkillsFarmingSeedDefinition.CycleTicks` and `CharactersFarmingPatch.CurrentCycleTicks` must be reconciled with elapsed real time before interpreting the seed table. Record which transition awards planting XP, check-health XP and per-product harvest XP; the CSV includes individual harvest values that must not be unconditionally granted once per entire patch.
+
+Additional test: disease at stage boundary holds or replays a cycle; offline growth crosses multiple cycles but does not skip a disease event or generate extra harvested produce; crop receives protection and cannot simultaneously roll an incompatible death transition; white lily protection prevents disease only when the relevant conditions hold.

@@ -38,3 +38,11 @@ The task uses `Performer.Inventory.Items.Replace(slot, ...)` directly. Confirm t
 ## Completion dataset still required
 
 Every cookable raw product and burned/cooked pair with level/XP/burn threshold and cooking source categories, source object/animation IDs and item-on-object widget operation. The historical CSV deliberately represents only ten **meat dishes**, not the full fish, pie, cake, stew, beer, wine and potato catalogs.
+
+## Fish source/definition reconciliation
+
+[23 candidate fish and special-cooking rows](../data/researched/cooking-fish.csv) include raw-to-cooked name, minimum level, historical stop-burning threshold, success XP and heal value. Include source-specific burn distinctions in parity fixtures: fire vs range, gauntlets ID 775, output item 391 special case, member-only high-tier catches and minigame/quest availability. This dataset does **not** determine raw/cooked/burnt cache IDs.
+
+Do not silently map a literal `never` threshold to a byte value: the Hagalaz `SkillsCookingRawFoodDefinition.StopBurningLevel` field is a byte, and the existing `IsBurned` logic assumes a numeric threshold. Resolve the matching 742 definition's semantics and any equipment-dependent exception before importing. For example, some high-level foods never become unburnable without a bonus, while gauntlets change the threshold.
+
+Add cooking catch-to-recipe tests for trout, salmon, lobster, shark, cavefish and rocktail, and verify the item identity and burn behavior against the pinned target cache; assume neither that all fish cook on fire nor that every fish has only one healing outcome.

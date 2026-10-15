@@ -37,4 +37,6 @@ For production ingestion, reconcile each CSV row to actual item/NPC/object defin
 
 ## Larger historical dataset pack
 
-See [expanded researched tables](researched/README.md) for **17 additional files with 265 curated rows** (total **26 gameplay CSV datasets** including the nine earlier datasets). These provide many more concrete potion, pouch, ancient spell, construction, Slayer and fishing facts, each with a source URL and evidence tier. The new files are not runtime-ready migrations or comprehensive content dumps; missing IDs and contradictions remain explicit.
+See [expanded researched tables](researched/README.md) for **21 additional files with 354 curated rows** (total **30 gameplay CSV datasets** including the nine earlier datasets). These provide many more concrete potion, pouch, ancient spell, construction, Slayer and fishing facts, each with a source URL and evidence tier. The new files are not runtime-ready migrations or comprehensive content dumps; missing IDs and contradictions remain explicit.
+
+The later expansion adds 30 standard prayers, 23 offering items, 23 cooked fish and 13 growable allotment/flower entries. The 742 cache identifiers remain unverified.

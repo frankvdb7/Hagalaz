@@ -47,3 +47,17 @@ Trace the existing enum/state/bitfields first. If they already encode the rule, 
 ## Remaining data necessary for full parity
 
 The other standard prayers/curses book table, exact UI icon ordinals and packed config/varbits, all overhead graphical IDs, drain with bonuses, target-specific multipliers and quest state from the pinned cache must be exported. The CSV alone is a **historical candidate**.
+
+## Full standard prayer and offering datasets
+
+The [standard-book catalog](../data/researched/standard-prayers.csv) now records all **30** candidate ordinary prayers and their required levels, base drain intervals and effect categories. The [bone/ash offering table](../data/researched/prayer-offering-xp.csv) covers **23** base XP values. The latter **does not** include gilded altar, incense, Ectofuntus or quest-specific multipliers; source descriptions provide Ectofuntus at **4x** base, and fully equipped gilded altar with two burners up to **3.5x** base, conditional on live burning state. [Period Prayer reference](https://wiki.darkan.org/Prayer).
+
+The period description says Prayer points were scaled to **ten points per skill level** from September 2011. It also gives a base prayer-bonus interval approximation:
+
+```text
+modifiedSecondsPerPrayerPoint = baseSecondsPerPrayerPoint * (1 + prayerBonus / 30)
+```
+
+This is a *historical reference formula*, not a confirmed 742 server tick implementation. Verify rounding, tick accumulation, ten-point scaling and zero state in `Prayers.Tick` and `GetDrainRate`. Overcharge from special altars must not become permanent base Prayer. Always keep altar/incense timer ownership separate from ordinary point restoration.
+
+Regression additions: 0 and +15 prayer bonus protection over 30 seconds; simultaneous prayer drain stacking, first/last timer tick, ordinary-to-curse book switching, prayer point maximum versus effective boost, offering item with both lit and extinguishing burners during a quantity-X batch, and Ectofuntus bonus without additional XP duplication.

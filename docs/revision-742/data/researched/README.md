@@ -23,8 +23,12 @@ These are **curated candidate records**, not live game server configuration. Eac
 | [Hunter trap capacity](hunter-trap-capacity.csv) | 5 | Traps allowed by skill level |
 | [Combination rune recipes](combination-runes.csv) | 6 | Pairs, levels, two altar XP values and chance |
 | [Cooking meat products](cooking-meat-products.csv) | 10 | Levels, cooking XP and life points healed |
+| [Standard prayers](standard-prayers.csv) | 30 | Level, base drain interval and effect family |
+| [Prayer offerings](prayer-offering-xp.csv) | 23 | Burial/ash scattering base XP before altar bonus |
+| [Cooked fish](cooking-fish.csv) | 23 | Cooking level, historical burn threshold, XP and life points restored |
+| [Allotments and flowers](farming-allotments-and-flowers.csv) | 13 | Seed level, growth cycle/time, planting and harvesting XP, protection |
 
-**Total: 265 candidate rows across 17 new files.** Earlier [datasets](../README.md) add representative skill rows and the computed 1–120 level XP curve. The [41-feature requirements matrix](../../reference/feature-completeness-matrix.csv) identifies what is still missing before full content coverage.
+**Total: 354 candidate rows across 21 new files.** Earlier [datasets](../README.md) add representative skill rows and the computed 1–120 level XP curve. The [41-feature requirements matrix](../../reference/feature-completeness-matrix.csv) identifies what is still missing before full content coverage.
 
 ## Evidence classification
 
@@ -90,3 +94,9 @@ See [client/cache extraction guide](../../reference/client-cache-evidence.md) an
 - [Historical cooking values](https://wiki.darkan.org/Cooking) — meat dish subset, spit vs fire/oven restrictions and burn rules; [actual Hagalaz task behavior](../../reference/deep-cooking.md).
 
 All five new CSV files use historical secondary evidence only. The term `seconds_per_prayer_point` describes a *base drain interval*, not a point rate; do not transpose the numerator/denominator in production.
+
+## Further mechanical constraints
+
+- The Prayer source describes **ten prayer points per Prayer level** for the period after September 2011. The listed `seconds_per_prayer_point` values are base intervals, before modifiers. A period secondary formula is `actual interval = baseInterval * (1 + prayerBonus / 30)`. Do not implement it without verifying current Hagalaz tick scaling and the target 742 prayer-bar units. [Prayer](https://wiki.darkan.org/Prayer).
+- The [fish Cooking source](https://wiki.darkan.org/Cooking) prints data headed "Experience (Bonfire)". Check whether XP is actually independent of cooking source for the selected build; treat these figures as candidates, not separate source effects. Some fish have **never** or unknown stop-burning levels and the CSV preserves these as literal values rather than coercing to numeric zero.
+- [Farming seed sources](https://wiki.darkan.org/Seeds) express cycles in *wall-clock minutes*, with possible disease/failed cycle repeats; total time is a minimum, not always an exact harvest timestamp. Harvest XP may be **per item** or per check/harvest depending on crop type: verify the proper award unit.

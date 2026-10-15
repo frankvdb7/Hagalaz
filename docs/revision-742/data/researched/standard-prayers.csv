@@ -1,0 +1,31 @@
+name,level,seconds_per_prayer_point,category,effect_summary,source_url,evidence
+Thick Skin,1,1.2,defence,5 percent defence,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Burst of Strength,4,1.2,strength,5 percent strength,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Clarity of Thought,7,1.2,attack,5 percent attack,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Sharp Eye,8,1.2,ranged,5 percent ranged,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Mystic Will,9,1.2,magic,5 percent magic,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Rock Skin,10,0.6,defence,10 percent defence,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Superhuman Strength,13,0.6,strength,10 percent strength,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Improved Reflexes,16,0.6,attack,10 percent attack,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Rapid Restore,19,3.6,utility,double non-constitution stat restoration,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Rapid Heal,22,1.8,utility,double Constitution restore,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Protect Item,25,1.8,utility,one more protected item on dangerous death,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Hawk Eye,26,0.6,ranged,10 percent ranged,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Mystic Lore,27,0.6,magic,10 percent magic,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Steel Skin,28,0.3,defence,15 percent defence,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Ultimate Strength,31,0.3,strength,15 percent strength,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Incredible Reflexes,34,0.3,attack,15 percent attack,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Protect from Summoning,35,0.3,protect_familiar,protection against familiar attacks,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Protect from Magic,37,0.3,protect,NPC and PvP magic reduction,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Protect from Missiles,40,0.3,protect,NPC and PvP ranged reduction,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Protect from Melee,43,0.3,protect,NPC and PvP melee reduction,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Eagle Eye,44,0.3,ranged,15 percent ranged,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Mystic Might,45,0.3,magic,15 percent magic,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Retribution,46,1.2,overhead_death,area damage on death,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Redemption,49,0.6,overhead,heal at critically low health at expense of prayer,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Smite,52,0.18,overhead,enemy prayer damage 25 percent of dealt hit,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Chivalry,60,0.18,combat_boost,attack 15 strength 18 defence 20; quest gate,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Rapid Renewal,65,0.24,utility,constitution regeneration; dungeon unlock,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Piety,70,0.15,combat_boost,attack 20 strength 23 defence 25; quest gate,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Rigour,74,0.2,combat_boost,ranged 20 defence 25; dungeon unlock,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture
+Augury,77,0.18,combat_boost,magic 20 defence 25; dungeon unlock,https://wiki.darkan.org/Prayer,secondary_2012_pending_742_fixture

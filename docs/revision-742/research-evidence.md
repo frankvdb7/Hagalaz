@@ -50,3 +50,7 @@ A separately managed revision-742 Java client repository documents a pinned Git 
 - [Hunter](https://wiki.darkan.org/Hunter), trap count step function, method unlocks, bird snaring and fallen trap ownership rules.
 - [Cooking](https://wiki.darkan.org/Cooking), separate cooking method requirements, food healing, and XP.
 - Direct inspected `CookingTask` code performs a 3-tick item replacement cycle and special gloves/threshold-based burn roll; `Runecrafting.GetMultiplier` reads existing threshold array. These findings are now covered in dedicated deep reference notes; no matching client fixture was executed.
+
+## More reference tables from period secondary sources
+
+The dataset pack now includes ordinary prayer levels/drain and offering item XP, 23 fish cooking recipes/healing values, and 13 allotment/flower growing cycles/protection fields. Sources are [Prayer](https://wiki.darkan.org/Prayer), [Cooking](https://wiki.darkan.org/Cooking), and [Seeds](https://wiki.darkan.org/Seeds). Values are not directly decoded from the pinned 742 fixture. The accompanying deep guides explain unit boundaries and Hagalaz model types.
