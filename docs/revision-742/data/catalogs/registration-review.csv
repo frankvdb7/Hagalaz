@@ -1,0 +1,4 @@
+classification,id,source_path,details
+wrong_attribute_on_npc_class,4906,Hagalaz.Game.Scripts/Areas/Edgeville/Npcs/Wilfred/Wilfred.rsnpc.cs,"The class derives from NpcScriptBase but declares ItemScriptMetaData([4906]). Confirm registration behavior before fixing; excluded from item rows, and not assumed to be registered as NPC."
+abstract_empty_attribute,,Hagalaz.Game.Scripts/Items/Auras/AuraItemScript.cs,Abstract base script declares empty ItemScriptMetaData. This is not an item definition ID.
+symbolic_attribute_resolved,2355,Hagalaz.Game.Scripts/Skills/Crafting/SilverBar.rsitem.cs,Symbolic CraftingSkillService.SilverBar resolves to 2355 at Hagalaz.Game.Scripts/Skills/Crafting/CraftingSkillService.cs. Exact 742 cache contents remain unverified.

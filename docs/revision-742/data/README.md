@@ -40,3 +40,8 @@ For production ingestion, reconcile each CSV row to actual item/NPC/object defin
 See [expanded researched tables](researched/README.md) for **21 additional files with 354 curated rows** (total **48 gameplay CSV datasets** including the nine earlier datasets). These provide many more concrete potion, pouch, ancient spell, construction, Slayer and fishing facts, each with a source URL and evidence tier. The new files are not runtime-ready migrations or comprehensive content dumps; missing IDs and contradictions remain explicit.
 
 The later expansion adds 30 standard prayers, 23 offering items, 23 cooked fish and 13 growable allotment/flower entries. The 742 cache identifiers remain unverified.
+
+
+## Numeric item and NPC source catalog
+
+The [script registration catalogs](catalogs/README.md) provide source-backed, numeric IDs for a documented subset of items and NPCs; their presence in the target cache has **not** been established. They are not counted among the historical skill-candidate recipe rows, and do not alter the 48 CSV gameplay dataset count.

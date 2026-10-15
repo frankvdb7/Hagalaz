@@ -129,3 +129,9 @@ These additions cover production recipes, skill thresholds, output quantities, r
 ## Additional Fletching and dungeon resources
 
 Added **128** more historical candidate records across ten CSV datasets, taking the curated research expansion to **705** candidate rows. The [Fletching](reference/deep-fletching.md) and [dungeon resource](reference/deep-dungeoneering.md) dossiers provide per-stage XP, material quantities, session boundaries and failure tests. These are not verified cache exports, and cannot be loaded as authoritative runtime values.
+
+## Item and NPC server registration index (source-backed, not cache verified)
+
+- [281 concrete registered item IDs](data/catalogs/item-script-registrations.csv) and [383 concrete registered NPC IDs](data/catalogs/npc-script-registrations.csv), each with script source path, exact numeric cache group/subfile coordinates, source commit and evidence grade.
+- [Manifest methodology, data owner crosswalk and anomalies](data/catalogs/README.md); [item/NPC prioritized remaining work](reference/items-npcs-remaining-work.md).
+- This is not the complete 742 client cache roster; the pinned LFS bytes are not present and no exhaustive JS5 definitions or server DB rows were decoded here. Do not confuse declared metadata with verified fixture contents.

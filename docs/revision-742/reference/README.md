@@ -111,3 +111,9 @@ All values are candidate period data; no numeric IDs have been claimed without t
 
 - [Standard Fletching and projectile production stages](deep-fletching.md): 68 source-linked candidates, quantity/XP conflicts, quest-gated operations and atomic batch semantics.
 - [Dungeon-only production resources and session isolation](deep-dungeoneering.md): 60 candidates, five resource families, instance lifecycle and anti-leak tests.
+
+
+## Item and NPC numeric registration audit
+
+- [Existing script-to-ID catalog, decoder/DB ownership and provenance](../data/catalogs/README.md)
+- [Prioritized evidence required to complete item and NPC parity](items-npcs-remaining-work.md)

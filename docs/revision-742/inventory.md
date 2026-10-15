@@ -28,3 +28,8 @@ Twenty-eight slot inventory, item identity, stackability, movement, examine, ite
 
 - Exact historical values and component mappings remain fixture-gated; do not replace unknowns with later-client defaults.
 - Read [implementation conventions](implementation-conventions.md) before modifying runtime state or persistence.
+
+
+## Direct item identifiers from the repository
+
+The [numeric item registration catalog](data/catalogs/item-script-registrations.csv) provides source-linked ID references for existing scripts, including checked cache group/file arithmetic. Treat these as script registrations only until direct 742 cache presence and item definition properties have been validated. See [item/NPC evidence methodology](data/catalogs/README.md).

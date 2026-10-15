@@ -27,3 +27,8 @@ Revision-specific map collision, terrain locations, region loading, ground-item 
 
 - Historical behavior and resource IDs require direct 742 fixture verification.
 - Follow [implementation conventions](implementation-conventions.md) before adding state, handlers or persistence.
+
+
+## Numeric NPC registration inventory
+
+The [NPC script registration CSV](data/catalogs/npc-script-registrations.csv) maps concrete IDs to existing NPC scripts; it is a repository inventory, not NPC spawn data or a 742 client cache dump. See the [NPC and item parity backlog](reference/items-npcs-remaining-work.md).
