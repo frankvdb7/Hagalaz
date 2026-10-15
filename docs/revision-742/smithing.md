@@ -27,3 +27,7 @@ Smelting ore into bars, smithing bars into equipment, required levels, coal quan
 
 - Exact level tables, success chances and asset/config IDs remain unverified until reference fixtures are captured.
 - Apply [implementation conventions](implementation-conventions.md) for ownership, testability and durable state.
+
+## Extended 2012 candidate datasets
+
+- [72 forged-product rows](data/researched/smithing-forging-products.csv) and [full smithing execution contract](reference/deep-smithing.md). Includes per-product bar counts, quantity output and quest gates; these are historical candidates without mapped 742 item/UI IDs.

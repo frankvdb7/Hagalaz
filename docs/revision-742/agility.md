@@ -27,3 +27,7 @@ Obstacle sequences, movement/animation, failure damage, lap rewards, run-energy 
 
 - Exact level tables, success chances and asset/config IDs remain unverified until reference fixtures are captured.
 - Apply [implementation conventions](implementation-conventions.md) for ownership, testability and durable state.
+
+## Extended 2012 candidate datasets
+
+- [13 course records](data/researched/agility-course-candidates.csv), [ordered obstacle and XP records](data/researched/agility-obstacle-sequences.csv), [31 shortcut records](data/researched/agility-shortcut-candidates.csv) and [route/collision/idempotency specification](reference/deep-agility.md). Per-course counterexamples and historical XP attribution conflicts are documented.

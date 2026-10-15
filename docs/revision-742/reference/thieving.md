@@ -19,3 +19,7 @@ Man/Woman failure was described as a **5-second stun** and **10 life points** of
 Validate all recipe, NPC/object, animation and config IDs in a captured 742 client/cache; trace live click packets, skill XP changes and cancellation through existing Hagalaz handlers. Numeric rows are candidates, not yet authoritative server constants.
 
 [Implementation guide](../thieving.md) · [Research policy](../research-evidence.md)
+
+## Expanded 2012 datasets and behavioral contract
+
+See [22 pickpocket NPC families](../data/researched/thieving-pickpocket-targets.csv), [ten locked-door gates](../data/researched/thieving-locked-doors.csv), and [the live target, stun and loot lifecycle dossier](deep-thieving.md).

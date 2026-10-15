@@ -119,3 +119,9 @@ The initial feature guides are now supplemented with [41 per-feature historical 
 - [13 allotment/flower crops](data/researched/farming-allotments-and-flowers.csv), with growth cycles, XP, protection and eligibility.
 
 All are historically sourced candidate values, pending the exact 742 cache and Hagalaz database contents.
+
+## Content-expansion pass: 15 October 2026
+
+Added **223 source-linked historical candidate records in eight more machine-readable datasets**, extending the existing 354 researched records, together with [Smithing](reference/deep-smithing.md), [Crafting](reference/deep-crafting.md), [Thieving](reference/deep-thieving.md) and [Agility](reference/deep-agility.md) execution contracts. See [expanded data inventory](data/researched/README.md).
+
+These additions cover production recipes, skill thresholds, output quantities, repeat-action cancellation, NPC and door permissions, stun and reward rules, obstacle sequencing and map collision. **The complete content catalog is still not ready**: exact index-16/18/19 object and item IDs, live widget and opcode mappings, complete drop weights, success rates and map locations require the pinned 742 cache and repeatable captures. Do not label individual feature parity complete based on this data.

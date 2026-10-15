@@ -25,3 +25,7 @@ Iron succeeds about **50%** at level 15 and approaches **80%** at level 45; ring
 - Capture of failure, interruption, concurrency, full-container and login/logout behavior.
 
 [Implementation guide](../smithing.md) · [Research policy](../research-evidence.md)
+
+## Expanded 2012 datasets and behavioral contract
+
+See [72 forged-product candidates](../data/researched/smithing-forging-products.csv), the earlier [smelting-bar candidates](../data/smithing-bars.csv), and the [smithing iteration and resource-conservation dossier](deep-smithing.md).

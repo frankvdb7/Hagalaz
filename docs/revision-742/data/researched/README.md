@@ -100,3 +100,28 @@ All five new CSV files use historical secondary evidence only. The term `seconds
 - The Prayer source describes **ten prayer points per Prayer level** for the period after September 2011. The listed `seconds_per_prayer_point` values are base intervals, before modifiers. A period secondary formula is `actual interval = baseInterval * (1 + prayerBonus / 30)`. Do not implement it without verifying current Hagalaz tick scaling and the target 742 prayer-bar units. [Prayer](https://wiki.darkan.org/Prayer).
 - The [fish Cooking source](https://wiki.darkan.org/Cooking) prints data headed "Experience (Bonfire)". Check whether XP is actually independent of cooking source for the selected build; treat these figures as candidates, not separate source effects. Some fish have **never** or unknown stop-burning levels and the CSV preserves these as literal values rather than coercing to numeric zero.
 - [Farming seed sources](https://wiki.darkan.org/Seeds) express cycles in *wall-clock minutes*, with possible disease/failed cycle repeats; total time is a minimum, not always an exact harvest timestamp. Harvest XP may be **per item** or per check/harvest depending on crop type: verify the proper award unit.
+
+## Further content extraction: forging, crafting, theft, agility (15 October 2026)
+
+The following **223 additional candidate records in 8 CSVs** were extracted from 2012-compatible preserved source tables. These extend, rather than replace, the earlier **354 records**. Direct build/cache identity and numeric IDs remain unverified. Sources and evidence grade are present on every row.
+
+| File | New rows | Use |
+|---|---:|---|
+| [smithing-forging-products.csv](smithing-forging-products.csv) | 72 | Source-linked historical candidates; IDs and runtime traces unverified |
+| [crafting-gold-jewellery.csv](crafting-gold-jewellery.csv) | 28 | Source-linked historical candidates; IDs and runtime traces unverified |
+| [crafting-gem-cutting.csv](crafting-gem-cutting.csv) | 9 | Source-linked historical candidates; IDs and runtime traces unverified |
+| [thieving-pickpocket-targets.csv](thieving-pickpocket-targets.csv) | 22 | Source-linked historical candidates; IDs and runtime traces unverified |
+| [thieving-locked-doors.csv](thieving-locked-doors.csv) | 10 | Source-linked historical candidates; IDs and runtime traces unverified |
+| [agility-course-candidates.csv](agility-course-candidates.csv) | 13 | Source-linked historical candidates; IDs and runtime traces unverified |
+| [agility-obstacle-sequences.csv](agility-obstacle-sequences.csv) | 38 | Source-linked historical candidates; IDs and runtime traces unverified |
+| [agility-shortcut-candidates.csv](agility-shortcut-candidates.csv) | 31 | Source-linked historical candidates; IDs and runtime traces unverified |
+
+**Important:** these are source-derived *candidate facts*, not an import script or a complete historical implementation. An exact NPC's loot probabilities, a forge product's item ID, a course obstacle's map coordinates and a widget's click component cannot be derived safely from its display name. Empty fields deliberately mean **no measured 742 value**. The [four new in-depth reference dossiers](../../reference/README.md) map the next evidence and regression work.
+
+### Internal consistency and conflict ledger
+
+- Forge XP is XP per **forging action**; quantities 10 or 15 indicate the number of output items created, not a multiplication of the action XP. Dart tips are gated by *The Tourist Trap*.
+- Jewellery and gem cutting are separate XP actions; mould/chisel are reusable tools where applicable. Base jewellery requires gold bars; bracelets, neckwear and amulets are distinct product/item definitions.
+- Thieving's multi-loot requires higher Agility and Thieving levels but provides only base XP per theft; success chance and loot weights remain blank, not zero.
+- Agility sources disagree about some last-obstacle/bonus allocations and basic Barbarian obstacle subtotals. The 742 fixture must decide packet-event granularity. The recorded full-lap values are candidates, not arbitrarily summed runtime rewards.
+- The source snapshots were last checked **15 October 2026**; `historical_2012_pending_cache` means preserved period text, **not** a direct 742 capture.

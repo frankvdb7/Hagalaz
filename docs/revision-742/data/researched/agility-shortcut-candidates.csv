@@ -1,0 +1,32 @@
+required_level,shortcut_key,area,xp_success,special_requirement_or_failure,object_id,source_tile,destination_tile,source_url,evidence
+1,stile,various,3,members XP only,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+5,climbing_rocks,Yanille north wall,25,south-side access,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+5,crumbling_wall,Falador west bank,0.5,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+10,rope_swing,west Brimhaven,3,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+12,stepping_stones,Brimhaven Dungeon,3,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+13,small_hole,Lumbridge cellar,0,Lost Tribe quest,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+15,monkey_bars,Edgeville Dungeon,20,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+15,rock_climb,Cairn Isle,1,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+15,bridge,Cairn Isle,10,failure redoes rock climb,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+16,underwall_tunnel,Yanille,0,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+18,watchtower_trellis,Yanille,31,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+20,log_balance,west of Seers Village,8.5,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+21,underwall_tunnel,Grand Exchange,0,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+22,pipe_squeeze,Brimhaven Dungeon,8.5,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+25,rope_climb,Agility Pyramid,0,Dealing with Scabaras,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+25,rock_climb,Eagles Peak,1,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+26,underwall_tunnel,Falador,0,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+28,fence_squeeze,Draynor Manor,0,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+29,rock_passage,Oo'glog north wall,0,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+30,stepping_stones,Brimhaven Dungeon red dragon,0,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+31,river_stepping_stones,Draynor Manor near River Lum,3,failure may grant 1 XP,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+33,river_log_balance,Ardougne river,4,failure may grant 2 XP,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+34,pipe_squeeze,Brimhaven Dungeon demon room,10,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+37,fallen_tree,Grand Tree north east,0,The Grand Tree,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+40,balancing_ledge,Yanille Agility Dungeon,22,failure drops into spider pit,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+46,narrow_walkway,Zanaris cosmic altar,10,can fail,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+51,pipe_squeeze,Varrock Sewers to Edgeville Dungeon,0,can fail,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+57,monkey_bars,Yanille Agility Dungeon,18,can fall into poisoned spider area,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+65,loose_railing,River Salve,0,,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+66,narrow_walkway,Zanaris cosmic altar,10,can fail,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+70,pipe_squeeze,Taverley Dungeon,10,can fail,,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache

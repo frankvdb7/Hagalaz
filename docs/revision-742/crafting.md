@@ -27,3 +27,7 @@ Multiple recipe families: gem cutting, spinning, hides, jewelry, pottery and sil
 
 - Exact level tables, success chances and asset/config IDs remain unverified until reference fixtures are captured.
 - Apply [implementation conventions](implementation-conventions.md) for ownership, testability and durable state.
+
+## Extended 2012 candidate datasets
+
+- [28 gold-jewellery recipes](data/researched/crafting-gold-jewellery.csv), [nine cut-gem recipes](data/researched/crafting-gem-cutting.csv) and [crafting transformation/atomicity contract](reference/deep-crafting.md). Numeric product/mould IDs require 742 cache reconciliation.

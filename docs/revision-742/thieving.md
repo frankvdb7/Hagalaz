@@ -27,3 +27,7 @@ NPC pickpocketing, stall theft, rewards, cooldowns, stun/retaliation, detection 
 
 - Exact level tables, success chances and asset/config IDs remain unverified until reference fixtures are captured.
 - Apply [implementation conventions](implementation-conventions.md) for ownership, testability and durable state.
+
+## Extended 2012 candidate datasets
+
+- [22 pickpocket families](data/researched/thieving-pickpocket-targets.csv), [ten locked-door gates](data/researched/thieving-locked-doors.csv) and [the failure/loot/collision contract](reference/deep-thieving.md). Quest-modified loot, probabilities and NPC/object IDs remain open.

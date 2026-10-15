@@ -97,3 +97,12 @@ These additions complement the original feature-by-feature pages and do **not** 
 - [Standard prayers (30)](../data/researched/standard-prayers.csv) and [Prayer item XP (23)](../data/researched/prayer-offering-xp.csv), including the drain bonus formula in [prayer implementation notes](deep-prayer.md).
 - [Fish Cooking (23)](../data/researched/cooking-fish.csv), see [cooking task analysis](deep-cooking.md).
 - [Farming allotments and flowers (13)](../data/researched/farming-allotments-and-flowers.csv), see [patch lifecycle](deep-farming.md).
+
+## Deeper 2012 source-led implementation dossiers (additional)
+
+- [Smithing: full 72-product candidate forging matrix, resource accounting and batch iteration](deep-smithing.md).
+- [Crafting: gold jewellery/gem cutting recipes and atomic transformations](deep-crafting.md).
+- [Thieving: 22 pickpocket families, ten doors, stun/loot/bonus semantics](deep-thieving.md).
+- [Agility: course requirements, route-sequenced XP, 31 shortcut candidates and collision](deep-agility.md).
+
+All values are candidate period data; no numeric IDs have been claimed without the 742 build fixture.

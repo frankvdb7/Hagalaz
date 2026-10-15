@@ -24,3 +24,7 @@ Advanced course requires **85 Agility** and yields **725 XP** per completed lap.
 Validate all recipe, NPC/object, animation and config IDs in a captured 742 client/cache; trace live click packets, skill XP changes and cancellation through existing Hagalaz handlers. Numeric rows are candidates, not yet authoritative server constants.
 
 [Implementation guide](../agility.md) · [Research policy](../research-evidence.md)
+
+## Expanded 2012 datasets and behavioral contract
+
+See [course access levels and lap rewards](../data/researched/agility-course-candidates.csv), [ordered obstacle XP sequences](../data/researched/agility-obstacle-sequences.csv), [shortcuts](../data/researched/agility-shortcut-candidates.csv), and [full routing/failure evidence dossier](deep-agility.md).

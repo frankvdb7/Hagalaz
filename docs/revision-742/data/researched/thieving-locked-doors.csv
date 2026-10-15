@@ -1,0 +1,11 @@
+key,required_level,xp_success,location,requires_lockpick,object_id,door_destination,source_url,evidence
+east_ardougne_10_coin_chest_door,1,3.5,East Ardougne,no,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+east_ardougne_nature_chest_door,14,15,East Ardougne,no,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+east_ardougne_house_door,14,15,East Ardougne,no,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+ham_trapdoor,15,4,east of Draynor,no,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+axe_hut_door,32,25,Wilderness level 54,yes,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+ardougne_sewer_gate,32,25,Ardougne sewers,no,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+pirates_hideout_door,39,35,Wilderness level 54,no,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+chaos_druid_tower_door,46,37.5,north of Ardougne,no,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+paladin_door,61,50,Ardougne Castle,no,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+yanille_dungeon_door,82,50,Yanille,yes,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache

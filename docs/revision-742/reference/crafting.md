@@ -22,3 +22,7 @@
 - Capture of failure, interruption, concurrency, full-container and login/logout behavior.
 
 [Implementation guide](../crafting.md) · [Research policy](../research-evidence.md)
+
+## Expanded 2012 datasets and behavioral contract
+
+See [28 gold-jewellery recipes](../data/researched/crafting-gold-jewellery.csv), [nine gem-cutting entries](../data/researched/crafting-gem-cutting.csv), and [the crafting inventory/XP specification](deep-crafting.md).
