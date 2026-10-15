@@ -18,8 +18,13 @@ These are **curated candidate records**, not live game server configuration. Eac
 | [Ground fire vs bonfire](firemaking-method-xp.csv) | 9 | Method-dependent experience |
 | [Barbarian fishing](barbarian-fishing.csv) | 6 | Fishing/Strength/Agility level requirements and XP |
 | [Fishing familiar bonuses](fishing-familiar-bonuses.csv) | 3 | Fishing boost and foraged catch examples |
+| [Ancient curses](ancient-curses.csv) | 20 | Every named curse's level, effect group and historical drain interval |
+| [Hunter methods](hunter-methods.csv) | 11 | Methods, levels and required equipment |
+| [Hunter trap capacity](hunter-trap-capacity.csv) | 5 | Traps allowed by skill level |
+| [Combination rune recipes](combination-runes.csv) | 6 | Pairs, levels, two altar XP values and chance |
+| [Cooking meat products](cooking-meat-products.csv) | 10 | Levels, cooking XP and life points healed |
 
-**Total: 213 candidate rows across 12 new files.** Earlier [datasets](../README.md) add representative skill rows and the computed 1–120 level XP curve. The [41-feature requirements matrix](../../reference/feature-completeness-matrix.csv) identifies what is still missing before full content coverage.
+**Total: 265 candidate rows across 17 new files.** Earlier [datasets](../README.md) add representative skill rows and the computed 1–120 level XP curve. The [41-feature requirements matrix](../../reference/feature-completeness-matrix.csv) identifies what is still missing before full content coverage.
 
 ## Evidence classification
 
@@ -76,3 +81,12 @@ The source licenses vary; these CSVs contain short **structured factual assertio
 - For inherited fields `ItemId`/`NpcId`/`ObjectId`, validate the right cache index (19/18/16) and bit-shard calculation.
 
 See [client/cache extraction guide](../../reference/client-cache-evidence.md) and [implementation constraints](../../implementation-conventions.md).
+
+## Additional historical research links
+
+- [Ancient curses period table](https://wiki.darkan.org/Ancient_Curses) — 20 curse effects; **seconds per point** at zero prayer bonus, not a per-second drain amount. See [drain and activation dossier](../../reference/deep-prayer.md).
+- [Combination rune explanation](https://wiki.darkan.org/Runecrafting) — 50% success except charge-limited Binding necklace, pure essence and opposing talisman. See [crafting and rune-consumption dossier](../../reference/deep-runecrafting.md).
+- [Hunter methods and trap rules](https://wiki.darkan.org/Hunter) — general five-trap scale with one-deadfall exception; [placement state and safety](../../reference/deep-hunter.md).
+- [Historical cooking values](https://wiki.darkan.org/Cooking) — meat dish subset, spit vs fire/oven restrictions and burn rules; [actual Hagalaz task behavior](../../reference/deep-cooking.md).
+
+All five new CSV files use historical secondary evidence only. The term `seconds_per_prayer_point` describes a *base drain interval*, not a point rate; do not transpose the numerator/denominator in production.

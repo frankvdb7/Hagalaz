@@ -82,3 +82,12 @@ These **41 feature references** contain period-preserved mechanics, numbers, rec
 - [41-feature data requirements and missing evidence](feature-completeness.md) and [CSV](feature-completeness-matrix.csv).
 
 These additions complement the original feature-by-feature pages and do **not** replace their exact revision-fixture validation requirements.
+
+### Added deep skill guides
+
+| Feature | Implementation dossier |
+|---|---|
+| Prayer/curses | [All 20 curse families, activation and drain](deep-prayer.md) |
+| Runecrafting | [Standard/combination outputs, multipliers and rune consumption](deep-runecrafting.md) |
+| Hunter | [Method catalog, trap limits, placement and reward ownership](deep-hunter.md) |
+| Cooking | [Recipes, burn probability and source-lifetime task code](deep-cooking.md) |

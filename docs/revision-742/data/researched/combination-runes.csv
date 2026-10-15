@@ -1,0 +1,7 @@
+result,required_level,elements,xp_lower_altar,xp_higher_altar,base_success_probability,source_url,evidence
+Mist,6,Air + Water,8,8.5,0.5,https://wiki.darkan.org/Runecrafting,historical_secondary_pending_cache
+Dust,10,Earth + Air,8.3,9,0.5,https://wiki.darkan.org/Runecrafting,historical_secondary_pending_cache
+Mud,13,Earth + Water,9.3,9.5,0.5,https://wiki.darkan.org/Runecrafting,historical_secondary_pending_cache
+Smoke,15,Air + Fire,8.5,9.5,0.5,https://wiki.darkan.org/Runecrafting,historical_secondary_pending_cache
+Steam,19,Water + Fire,9.3,10,0.5,https://wiki.darkan.org/Runecrafting,historical_secondary_pending_cache
+Lava,23,Earth + Fire,10,10.5,0.5,https://wiki.darkan.org/Runecrafting,historical_secondary_pending_cache

@@ -1,0 +1,21 @@
+curse,level,seconds_per_prayer_point,category,effect_summary,source_url,evidence
+Protect Item,50,1.8,protect,one additional item retained on dangerous death,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Sap Warrior,50,0.24,sap,opponent combat skill drain,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Sap Ranger,52,0.24,sap,opponent ranged skill drain,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Sap Mage,54,0.24,sap,opponent magic skill drain,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Sap Spirit,56,0.24,sap,opponent special/summoning drain,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Berserker,59,1.8,misc,boost duration extension,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Deflect Summoning,62,0.3,deflect,reduce familiar damage and reflect,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Deflect Magic,65,0.3,deflect,reduce magic damage and reflect,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Deflect Missiles,68,0.3,deflect,reduce ranged damage and reflect,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Deflect Melee,71,0.3,deflect,reduce melee damage and reflect,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Leech Attack,74,0.36,leech,opponent Attack reduction and caster boost,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Leech Ranged,76,0.36,leech,opponent Ranged reduction and caster boost,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Leech Magic,78,0.36,leech,opponent Magic reduction and caster boost,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Leech Defence,80,0.36,leech,opponent Defence reduction and caster boost,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Leech Strength,82,0.36,leech,opponent Strength reduction and caster boost,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Leech Energy,84,0.36,leech,opponent run energy transfer,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Leech Special Attack,86,0.36,leech,opponent special energy transfer,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Wrath,89,1.2,overhead,damage on own death,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Soul Split,92,0.2,overhead,heal from outgoing hit and drain target prayer,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture
+Turmoil,95,0.2,combat_boost,boost combat stats using opponent stats,https://wiki.darkan.org/Ancient_Curses,secondary_2012_pending_742_fixture

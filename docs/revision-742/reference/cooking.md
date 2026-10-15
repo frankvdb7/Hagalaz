@@ -22,3 +22,9 @@ The first three rows come from the historical fish cooking table; lobster XP is 
 - Capture of failure, interruption, concurrency, full-container and login/logout behavior.
 
 [Implementation guide](../cooking.md) · [Research policy](../research-evidence.md)
+
+## Expanded period data and code analysis
+
+[Meat cooking level/XP/healing table](../data/researched/cooking-meat-products.csv) · [Source-aware burn and task implementation study](deep-cooking.md)
+
+Verify all exact client IDs/rates before treating secondary research as final revision-742 behavior.

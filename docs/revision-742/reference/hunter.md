@@ -21,3 +21,9 @@ On successful collection, a snare supplies bird-related materials; failed snares
 Validate all recipe, NPC/object, animation and config IDs in a captured 742 client/cache; trace live click packets, skill XP changes and cancellation through existing Hagalaz handlers. Numeric rows are candidates, not yet authoritative server constants.
 
 [Implementation guide](../hunter.md) · [Research policy](../research-evidence.md)
+
+## Expanded period data and code analysis
+
+[Unlockable trap and tracking methods](../data/researched/hunter-methods.csv) · [Trap capacity by level](../data/researched/hunter-trap-capacity.csv) · [World-object ownership, rewards and failure states](deep-hunter.md)
+
+Verify all exact client IDs/rates before treating secondary research as final revision-742 behavior.

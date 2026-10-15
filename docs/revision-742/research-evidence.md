@@ -42,3 +42,11 @@ A separately managed revision-742 Java client repository documents a pinned Git 
 - The audited Hagalaz entities already provide substantial structured columns for mining, trees, fishing, cooking, firemaking, crafting, fletching, farming, prayer, magic, runecrafting, summoning, Slayer, quests, NPCs and shops. See [entity-level crosswalk](reference/repository-data-crosswalk.md).
 - Direct method inspection confirmed Farming uses per-patch tasks, Mining/Fishing re-resolve live entity handles each tick, and Summoning spawn precedes item/point debit in the examined call flow. These are source observations, **not assertions that targeted regression tests have run**.
 - [Source conflict and completeness ledger](data/researched/README.md) documents unresolved cases and prevents promoting contested numbers into production.
+
+## Additional skill-specific historical sources
+
+- [Curses](https://wiki.darkan.org/Ancient_Curses), twenty historical curse effects and drain-interval records.
+- [Combination runes](https://wiki.darkan.org/Combination_rune), six recipes, two altar experience values, 50% success and binding necklace usage (pending exact client verification).
+- [Hunter](https://wiki.darkan.org/Hunter), trap count step function, method unlocks, bird snaring and fallen trap ownership rules.
+- [Cooking](https://wiki.darkan.org/Cooking), separate cooking method requirements, food healing, and XP.
+- Direct inspected `CookingTask` code performs a 3-tick item replacement cycle and special gloves/threshold-based burn roll; `Runecrafting.GetMultiplier` reads existing threshold array. These findings are now covered in dedicated deep reference notes; no matching client fixture was executed.

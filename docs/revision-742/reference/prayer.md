@@ -22,3 +22,9 @@ Piety requires **King's Ransom**, **Knight Waves** and **70 Defence** in additio
 The supplied historical links provide candidate behavior, not a full cache/data export. Before implementing, verify the exact target build's IDs, mechanics and production invocations; test consistency across sessions, interrupts and restarts.
 
 [Implementation guide](../prayer.md) · [Research policy](../research-evidence.md)
+
+## Expanded period data and code analysis
+
+[Curse levels, base drain interval and effect family](../data/researched/ancient-curses.csv) · [Activation and combat-effect investigation](deep-prayer.md)
+
+Verify all exact client IDs/rates before treating secondary research as final revision-742 behavior.
