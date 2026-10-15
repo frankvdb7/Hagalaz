@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 
@@ -34,25 +32,6 @@ internal sealed class TradeExchange
         TradingCharacterScript.TradeContainer itemsForFirst, TradingCharacterScript.TradeContainer itemsForSecond)
     {
         if (!TransferOffer(itemsForFirst, first) || !TransferOffer(itemsForSecond, second)) return false;
-        return true;
-    }
-
-    /// <summary>Stages moving untouched escrow to recovery containers during forced destruction.</summary>
-    /// <remarks>
-    /// The caller must begin a transaction containing both offer containers and every available recovery destination
-    /// that may be selected before calling this method. This method does not create or commit a transaction.
-    /// </remarks>
-    internal bool TryStageEscrowRecovery(ICharacter first, TradingCharacterScript.TradeContainer firstOffer, ICharacter second,
-        TradingCharacterScript.TradeContainer secondOffer)
-    {
-        var firstItems = CloneOfferedItems(firstOffer.Items);
-        var secondItems = CloneOfferedItems(secondOffer.Items);
-        var firstDestination = GetRecoveryContainer(first, firstItems);
-        var secondDestination = GetRecoveryContainer(second, secondItems);
-        if ((firstItems.Length > 0 && firstDestination == null) ||
-            (secondItems.Length > 0 && secondDestination == null)) return false;
-        if (firstDestination != null && firstItems.Length > 0 && !TransferOffer(firstOffer, firstDestination)) return false;
-        if (secondDestination != null && secondItems.Length > 0 && !TransferOffer(secondOffer, secondDestination)) return false;
         return true;
     }
 
@@ -100,38 +79,4 @@ internal sealed class TradeExchange
         return true;
     }
 
-    private static bool TransferOffer(TradingCharacterScript.TradeContainer source, IItemTransactional destination)
-    {
-        var offeredItems = source.Items.Select((item, slot) => (item, slot))
-            .Where(entry => entry.item != null)
-            .Select(entry => (Item: entry.item!, entry.slot))
-            .ToArray();
-
-        foreach (var (item, slot) in offeredItems)
-        {
-            var transferred = destination switch
-            {
-                IRewardContainer rewards => rewards.ReceiveFromTrade(source.MutableItems, item, item.Count, slot),
-                IBankContainer bank => bank.ReceiveFromTrade(source.MutableItems, item, item.Count, slot),
-                _ => throw new InvalidOperationException("Trade recovery requires a bank or reward container.")
-            };
-            if (!transferred) return false;
-        }
-
-        return true;
-    }
-
-    private IItemTransactional? GetRecoveryContainer(ICharacter character, IReadOnlyList<IItem> items)
-    {
-        if (items.Count == 0) return (IItemTransactional?)character.Rewards ?? character.Bank;
-        if (character.Rewards != null && character.Rewards.Items.HasSpaceForRange(items))
-        {
-            return character.Rewards;
-        }
-
-        return character.Bank != null && character.Bank.Items.HasSpaceForRange(items) ? character.Bank : null;
-    }
-
-    private IItem[] CloneOfferedItems(IReadOnlyItemContainer container) =>
-        container.OfType<IItem>().Select(item => item.Clone()).ToArray();
 }

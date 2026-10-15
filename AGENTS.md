@@ -99,6 +99,8 @@ Prefer KISS and YAGNI. Do not add defensive exception handling, synchronization,
 
 When evidence is insufficient, investigate further rather than presenting speculation as a confirmed bug.
 
+Before changing code for a reported failure path, make the production reachability trace explicit: identify the real caller and operation that creates the state, the relevant guards or synchronization, the operation that encounters the failure, and the observable consequence. Share this trace before editing. Regression tests may prove behavior for a reachable state, but synthetic test setup alone does not prove that production can reach it. If no supported production path can create the state, do not add defensive code for it; investigate further or report the concern as speculative.
+
 ### Review remediation and scope retention
 
 Pull-request review comments are findings, not independent implementation tasks. The originating issue/spec and the complete cumulative PR diff remain the primary context throughout the review-fix cycle. Never narrow attention to only the latest comment, latest commit, or commented line.

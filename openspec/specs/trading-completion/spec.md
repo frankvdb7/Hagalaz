@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines safe confirmation, exchange, cancellation, recovery, and cleanup outcomes for in-memory player trades.
+Defines safe confirmation, exchange, cancellation, and cleanup outcomes for in-memory player trades.
 
 ## Requirements
 
@@ -16,7 +16,7 @@ An active trade MUST serialize final acceptance, cancellation, interruption, and
 
 #### Scenario: Completion races with cancellation or lifecycle cleanup
 - **WHEN** completion races with cancellation, owner or target destruction, or interruption
-- **THEN** exactly one valid exchange, refund, or recovery outcome wins and the same escrow is never transferred twice
+- **THEN** exactly one valid exchange or refund wins and the same offer is never transferred twice
 
 #### Scenario: Independent trades
 - **WHEN** two unrelated sessions complete concurrently
@@ -44,47 +44,43 @@ Both participants MUST accept the current offers before completion. Any committe
 
 ### Requirement: Completion is complete or untouched
 
-Completion MUST deliver both complete opposite offers and clear both escrow containers only after both checked deliveries succeed. A failed completion MUST leave recipient storage unchanged and retain escrow for cancellation or recovery.
+Completion MUST deliver both complete opposite offers and clear both escrow containers only after both checked deliveries succeed. A failed completion MUST leave recipient storage unchanged and retain the original offers for cancellation.
 
 #### Scenario: Items and coins are exchanged
 - **WHEN** both offers contain stackable, non-stackable, or coin values
 - **THEN** each recipient receives exactly the other offer and escrow is empty
 
 #### Scenario: A checked delivery fails
-- **WHEN** a preflight or checked delivery reports failure
-- **THEN** no recipient receives partial credit and both offers remain available
+- **WHEN** a recipient cannot receive an offered item or coin value
+- **THEN** the transaction rolls back recipient changes and both original offers remain available for cancellation
 
-### Requirement: Cancellation returns or recovers escrow exactly once
+### Requirement: Cancellation returns each offer to its owner
 
-Cancellation MUST return each offer to its owner exactly once and become terminal only after the value is returned or moved to the existing recovery destination. Forced destruction MAY use the existing Rewards or Bank recovery destination when an ordinary refund cannot fit.
+Cancellation MUST return each offer to its original owner exactly once in one transaction. A cancellation MUST become terminal only after both refunds commit. The trade offer's source removals provide the capacity needed to restore those same offered items and coins.
 
-#### Scenario: Refund fits
-- **WHEN** an active trade is cancelled
-- **THEN** each owner receives its own offer once, both offers are cleared, and the session is cancelled
+#### Scenario: An active trade is cancelled
+- **WHEN** either participant cancels an active trade
+- **THEN** each owner receives their own offer, both offers are cleared, and the session is cancelled
 
-#### Scenario: Forced destruction cannot fit a refund
-- **WHEN** a character is destroyed while untouched escrow cannot fit in its inventory or pouch
-- **THEN** the existing recovery container receives the escrow and the session reaches terminal cleanup
+#### Scenario: A failed completion is cancelled
+- **WHEN** recipient capacity rejects completion before commit
+- **THEN** completion rolls back, the original offers are refunded to their owners, and the session is cancelled
 
 ### Requirement: Committed trade operations reach a terminal state
-Trade completion, refund, and recovery MUST perform checked domain mutations under their existing session gate and one disposable transaction. The session MUST own state changes through intent-specific transitions: completion enters `Completing` from `Active`, successful completion enters `Completed`, failed completion returns to `Active`, and cancellation enters `Cancelled` from `Active` only after refund or recovery mutations succeed. Immediately before Commit, the owner MUST transition to `Completed` or `Cancelled` without an intervening external action. Commit MUST make storage irreversible and release physical locks while retaining transaction bindings. The trade owner MUST explicitly publish each affected domain in its established order before disposing the committed scope. Existing finally cleanup MUST run exactly once even when publication throws. Such failures MUST NOT make committed value eligible for another completion or refund, and the original publication exception MUST propagate without a transaction result or public committed-state query. Unsuccessful attempts MUST dispose before refund or recovery starts.
+Trade completion and refund MUST perform checked domain mutations under their existing session gate and one disposable transaction. The session MUST own state changes through intent-specific transitions: completion enters `Completing` from `Active`, successful completion enters `Completed`, failed completion returns to `Active`, and cancellation enters `Cancelled` from `Active` only after refund mutations succeed. Immediately before Commit, the owner MUST transition to `Completed` or `Cancelled` without an intervening external action. Commit MUST make storage irreversible and release physical locks while retaining transaction bindings. The trade owner MUST explicitly publish each affected domain in its established order before disposing the committed scope. Existing finally cleanup MUST run exactly once even when publication throws. Such failures MUST NOT make committed value eligible for another completion or refund, and the original publication exception MUST propagate without a transaction result or public committed-state query. Unsuccessful attempts MUST dispose before another operation starts.
 
 #### Scenario: Completion publication fails after commit
 - **WHEN** recipient credit and escrow clearing commit but an explicit domain publisher throws
 - **THEN** the recipients retain the exchanged value, escrow stays cleared, the trade completes and cleans up once, remaining required publishers follow the established attempt policy, and the publication exception propagates
 
-#### Scenario: Refund or recovery publication fails after commit
-- **WHEN** a refund or forced recovery commits but an explicit domain publisher throws
-- **THEN** returned or recovered value remains committed, the trade is cancelled and cleaned up once, remaining required publishers follow the established attempt policy, and the publication exception propagates
+#### Scenario: Refund publication fails after commit
+- **WHEN** an owner refund commits but an explicit domain publisher throws
+- **THEN** returned value remains committed, the trade is cancelled and cleaned up once, remaining required publishers follow the established attempt policy, and the publication exception propagates
 
 ### Requirement: Failed completion leaves a safe retry or terminal state
 
-If completion does not commit, recipient storage MUST remain unchanged and escrow MUST remain available until refund or recovery commits. If ordinary refund cannot fit and the session remains active, both acceptances and accepted offer revisions MUST be cleared, and the confirmation UI MUST require fresh acceptance before another completion attempt.
+If completion does not commit, recipient storage MUST remain unchanged and both original offers MUST remain available for cancellation. Since offers are removed from their owners' Inventory or MoneyPouch, cancellation MUST be able to refund them without a separate capacity-based recovery destination.
 
-#### Scenario: Failed completion and refund leave a safe retry state
-- **WHEN** completion and ordinary refund both fail because recipient capacity is insufficient
-- **THEN** the trade remains active with unchanged escrow and recipients, both acceptances are cleared, and a fresh confirmation is required
-
-#### Scenario: Failed completion refunds successfully
-- **WHEN** completion fails before commit and ordinary refund succeeds
-- **THEN** each owner receives its own offer once and the trade is cancelled and cleaned up
+#### Scenario: Insufficient recipient capacity rejects completion
+- **WHEN** a recipient cannot accept the complete offer
+- **THEN** recipient state is unchanged, both offers remain intact, and cancellation refunds each offer to its original owner

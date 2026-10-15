@@ -235,7 +235,7 @@ namespace Hagalaz.Game.Scripts.Characters
         /// </summary>
         public override void OnDestroy()
         {
-            CancelTradeSession(forceConservation: true);
+            CancelTradeSession();
         }
 
         /// <summary>
@@ -272,7 +272,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     {
                         if (ShouldCancelTrade())
                         {
-                            CancelTradeSession(session, forceConservation: false);
+                            CancelTradeSession(session);
                         }
                         else if (IsOfferStage() && HasInventorySlotChange())
                         {
@@ -1278,11 +1278,6 @@ namespace Hagalaz.Game.Scripts.Characters
         /// </summary>
         public void CancelTradeSession()
         {
-            CancelTradeSession(forceConservation: false);
-        }
-
-        private void CancelTradeSession(bool forceConservation)
-        {
             var session = _tradeSession ?? _linkedTradeSession;
             if (session == null)
             {
@@ -1291,16 +1286,16 @@ namespace Hagalaz.Game.Scripts.Characters
 
             if (!ReferenceEquals(session.Owner, this))
             {
-                session.Owner.CancelTradeSession(session, forceConservation);
+                session.Owner.CancelTradeSession(session);
                 return;
             }
 
-            CancelTradeSession(session, forceConservation);
+            CancelTradeSession(session);
         }
 
         private void LinkTradeSession(TradeSessionState session) => _linkedTradeSession = session;
 
-        private void CancelTradeSession(TradeSessionState session, bool forceConservation)
+        private void CancelTradeSession(TradeSessionState session)
         {
             lock (session.Gate)
             {
@@ -1320,23 +1315,6 @@ namespace Hagalaz.Game.Scripts.Characters
                                TargetContainer.MutableItems, Character.MoneyPouch, session.Target.MoneyPouch))
                     {
                         if (_tradeExchange.TryStageRefund(Character, SelfContainer, session.Target, TargetContainer))
-                        {
-                            session.MarkCancelled();
-                            transaction.Commit();
-                            CompleteOfferPublications(SelfContainer, TargetContainer);
-                        }
-                    }
-                    if (session.State != TradeState.Cancelled && forceConservation)
-                    {
-                        var participants = new List<IItemTransactional>();
-                        if (Character.Rewards is { } firstRewards) participants.Add(firstRewards);
-                        if (Character.Bank is { } firstBank) participants.Add(firstBank);
-                        if (session.Target.Rewards is { } secondRewards) participants.Add(secondRewards);
-                        if (session.Target.Bank is { } secondBank) participants.Add(secondBank);
-                        participants.Insert(0, SelfContainer.MutableItems);
-                        participants.Insert(1, TargetContainer.MutableItems);
-                        using var transaction = ItemContainerTransaction.Begin(participants.ToArray());
-                        if (_tradeExchange.TryStageEscrowRecovery(Character, SelfContainer, session.Target, TargetContainer))
                         {
                             session.MarkCancelled();
                             transaction.Commit();
@@ -1399,7 +1377,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     if (session.State == TradeState.Completing)
                     {
                         session.ReturnToActive();
-                        CancelTradeSession(session, forceConservation: false);
+                        CancelTradeSession(session);
                         return;
                     }
 
