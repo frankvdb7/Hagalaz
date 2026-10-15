@@ -1,0 +1,8 @@
+metal,level,stock_log,stock_xp,attach_limbs_xp,string_xp,item_id,source_url,evidence
+bronze,9,normal,6,12,6,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+blurite,24,oak,16,32,16,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+iron,39,willow,22,44,22,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+steel,46,teak,27,54,27,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+mithril,54,maple,32,64,32,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+adamant,61,mahogany,41,82,41,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+rune,69,yew,50,100,50,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache

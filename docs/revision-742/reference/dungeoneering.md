@@ -13,3 +13,7 @@ Dungeon-specific tool belt appeared 11 April 2012: novite pickaxe/hatchet, knife
 - Positive, negative, interruption, concurrency and persistence tests for each interaction.
 
 [Implementation guide](../dungeoneering.md) · [Research policy](../research-evidence.md)
+
+## Extended floor-local equipment data
+
+See the [60-record dungeon crafting inventory and session isolation dossier](deep-dungeoneering.md). The source was edited in May 2012, but direct client-cache IDs are still required.

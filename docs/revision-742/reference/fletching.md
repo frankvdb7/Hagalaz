@@ -25,3 +25,7 @@ One ordinary log yields 15 arrow shafts; converting 15 shafts into headless arro
 - Capture of failure, interruption, concurrency, full-container and login/logout behavior.
 
 [Implementation guide](../fletching.md) · [Research policy](../research-evidence.md)
+
+## Extended implementation-grade evidence
+
+See the [68-record recipe inventory and batch safety contract](deep-fletching.md), with separate bows, crossbows, projectiles and material quantity CSVs. The earlier basic bow candidate remains unresolved wherever sources conflict.

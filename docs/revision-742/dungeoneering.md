@@ -26,3 +26,7 @@ Party formation, instanced floors, doors/keys, binding, floor completion, experi
 
 - [Period reference](https://wiki.darkan.org/Update%3ADungeoneering_and_Shop_Improvements)
 - Apply [implementation conventions](implementation-conventions.md) for ownership, testability and durable state.
+
+## Session-scoped production data
+
+The [dungeon item and crafting dossier](reference/deep-dungeoneering.md) includes 60 period-derived records for bows, branches, arrows, staves and traps, alongside item-isolation and floor lifecycle tests. This does not imply a dungeon service has been implemented.

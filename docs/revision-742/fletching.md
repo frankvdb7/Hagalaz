@@ -27,3 +27,7 @@ Bow shafts/stringing, arrow and bolt creation, material/tool requirements, batch
 
 - Exact level tables, success chances and asset/config IDs remain unverified until reference fixtures are captured.
 - Apply [implementation conventions](implementation-conventions.md) for ownership, testability and durable state.
+
+## Detailed 2012 candidate dataset
+
+The [Fletching stage dossier](reference/deep-fletching.md) links 68 new production records spanning bows, crossbows, arrows, bolts and darts. Production quantities, XP event ownership, gating and failure tests are explicit; cache IDs remain unverified.

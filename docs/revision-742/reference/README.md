@@ -106,3 +106,8 @@ These additions complement the original feature-by-feature pages and do **not** 
 - [Agility: course requirements, route-sequenced XP, 31 shortcut candidates and collision](deep-agility.md).
 
 All values are candidate period data; no numeric IDs have been claimed without the 742 build fixture.
+
+## Expanded Fletching and dungeon reference studies
+
+- [Standard Fletching and projectile production stages](deep-fletching.md): 68 source-linked candidates, quantity/XP conflicts, quest-gated operations and atomic batch semantics.
+- [Dungeon-only production resources and session isolation](deep-dungeoneering.md): 60 candidates, five resource families, instance lifecycle and anti-leak tests.

@@ -125,3 +125,20 @@ The following **223 additional candidate records in 8 CSVs** were extracted from
 - Thieving's multi-loot requires higher Agility and Thieving levels but provides only base XP per theft; success chance and loot weights remain blank, not zero.
 - Agility sources disagree about some last-obstacle/bonus allocations and basic Barbarian obstacle subtotals. The 742 fixture must decide packet-event granularity. The recorded full-lap values are candidates, not arbitrarily summed runtime rewards.
 - The source snapshots were last checked **15 October 2026**; `historical_2012_pending_cache` means preserved period text, **not** a direct 742 capture.
+
+## Additional Fletching and dungeon tables (15 October 2026)
+
+**128 new source-linked candidate rows** were added in ten files:
+
+- [fletching-bow-stages.csv](fletching-bow-stages.csv): 13 rows.
+- [fletching-crossbow-stages.csv](fletching-crossbow-stages.csv): 7 rows.
+- [fletching-arrow-candidates.csv](fletching-arrow-candidates.csv): 15 rows.
+- [fletching-bolt-candidates.csv](fletching-bolt-candidates.csv): 26 rows.
+- [fletching-dart-candidates.csv](fletching-dart-candidates.csv): 7 rows.
+- [dungeon-fletching-bows.csv](dungeon-fletching-bows.csv): 20 rows.
+- [dungeon-fletching-shafts.csv](dungeon-fletching-shafts.csv): 10 rows.
+- [dungeon-fletching-arrows.csv](dungeon-fletching-arrows.csv): 10 rows.
+- [dungeon-fletching-staves.csv](dungeon-fletching-staves.csv): 10 rows.
+- [dungeon-fletching-traps.csv](dungeon-fletching-traps.csv): 10 rows.
+
+Normal skill source: https://wiki.darkan.org/Fletching_boost; dungeon skill source: https://wiki.darkan.org/Dungeoneering/Fletching (page edited 6 May 2012). See [normal production dossier](../../reference/deep-fletching.md) and [session-local crafting dossier](../../reference/deep-dungeoneering.md). The curated research pack now totals **705** new candidate rows in **39** expanded CSVs, plus the original nine starter datasets. Every new row has a source link and evidence tier; blank item_id means unknown rather than zero. Contemporary/retrospective availability and mismatched XP units remain a parity gate. No exhaustive item definition IDs, UI widgets or packet opcodes were extracted.
