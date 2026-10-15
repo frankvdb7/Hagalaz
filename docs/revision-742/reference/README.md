@@ -61,3 +61,24 @@ These **41 feature references** contain period-preserved mechanics, numbers, rec
 ## Exact client evidence
 
 [Companion client and pinned cache extraction handoff](client-cache-evidence.md) records the discovered direct 742 fixture, index identities and code-to-cache workflow. Use it before promoting a wiki-derived number or a guessed item/animation/widget ID.
+
+## Vertical-slice specifications
+
+| System | Deep implementation dossier |
+|---|---|
+| Construction | [Rooms, furniture, house ownership and guest rules](deep-construction.md) |
+| Magic | [Spellbooks, targeting, cast validation and effects](deep-magic.md) |
+| Slayer | [Assignment, streaks, master points, shop and co-op](deep-slayer.md) |
+| Item economy | [Trade, bank, pouch, duel, marketplace and durability](deep-economy.md) |
+| Gathering | [Mining, trees, fishing, cooking and firemaking task behavior](deep-gathering.md) |
+| Farming | [Patch state, cycles, disease, harvest and offline persistence](deep-farming.md) |
+| Summoning | [Pouches, familiars, inventory/point consumption and recovery](deep-summoning.md) |
+| Progression | [Skill XP, caps, boosts and experience ownership](deep-progression.md) |
+
+## Concrete data and Hagalaz schema
+
+- [Expanded structured historical datasets](../data/researched/README.md): 213 additional curated rows in 12 new tables.
+- [Current data ownership crosswalk](repository-data-crosswalk.md): the actual C# EF entity fields and cache index join targets.
+- [41-feature data requirements and missing evidence](feature-completeness.md) and [CSV](feature-completeness-matrix.csv).
+
+These additions complement the original feature-by-feature pages and do **not** replace their exact revision-fixture validation requirements.

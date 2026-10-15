@@ -24,3 +24,10 @@ The higher hatchet tier changes chopping speed, not the XP of one log; required 
 - Capture of failure, interruption, concurrency, full-container and login/logout behavior.
 
 [Implementation guide](../woodcutting.md) · [Research policy](../research-evidence.md)
+
+## Expanded research materials
+
+- [Tree/log EF model](repository-data-crosswalk.md)
+- [Gathering tasks](deep-gathering.md)
+
+These additions include period-source candidate facts or checked Hagalaz code paths. They are **not a completed 742 client/cache parity capture**.

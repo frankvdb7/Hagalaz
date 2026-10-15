@@ -18,3 +18,10 @@ Source: [skills](https://wiki.darkan.org/Skills), [experience](https://wiki.dark
 The supplied historical links provide candidate behavior, not a full cache/data export. Before implementing, verify the exact target build's IDs, mechanics and production invocations; test consistency across sessions, interrupts and restarts.
 
 [Implementation guide](../progression.md) · [Research policy](../research-evidence.md)
+
+## Expanded research materials
+
+- [XP, level and boost rules](deep-progression.md)
+- [1–120 XP thresholds](../data/experience-levels-1-120.csv)
+
+These additions include period-source candidate facts or checked Hagalaz code paths. They are **not a completed 742 client/cache parity capture**.

@@ -34,3 +34,7 @@ Examples checked in generation: level **2 = 83**, level **10 = 1,154**, level **
 ## Recommended future data format
 
 For production ingestion, reconcile each CSV row to actual item/NPC/object definition IDs and a version-specific cache checksum, plus an evidence classification (`capture`, `cache`, `repository`, or `historical_secondary`). These input tables are deliberately documentation assets, not migrations or configuration automatically loaded by the game server.
+
+## Larger historical dataset pack
+
+See [expanded researched tables](researched/README.md) for **12 additional files with 213 curated rows** (total **21 gameplay CSV datasets** including the nine earlier datasets). These provide many more concrete potion, pouch, ancient spell, construction, Slayer and fishing facts, each with a source URL and evidence tier. The new files are not runtime-ready migrations or comprehensive content dumps; missing IDs and contradictions remain explicit.

@@ -13,3 +13,9 @@ Duel Arena offers **friendly and staked** one-on-one matches with restrictions s
 The current source set does not provide exhaustive 742 item IDs, widget/config/packet IDs or an executable reference dataset. Capture those from the target client/cache and reconcile with Hagalaz's existing definitions before promoting candidate rules to constants.
 
 [Implementation guide](../dueling.md) · [Research policy](../research-evidence.md)
+
+## Expanded research materials
+
+- [Stake settlement failure matrix](deep-economy.md)
+
+These additions include period-source candidate facts or checked Hagalaz code paths. They are **not a completed 742 client/cache parity capture**.

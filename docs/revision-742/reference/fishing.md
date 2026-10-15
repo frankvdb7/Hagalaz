@@ -22,3 +22,11 @@ These are examples, not a complete table: trout/salmon, swordfish, shark, monkfi
 - Capture of failure, interruption, concurrency, full-container and login/logout behavior.
 
 [Implementation guide](../fishing.md) · [Research policy](../research-evidence.md)
+
+## Expanded research materials
+
+- [Special fishing methods](../data/researched/barbarian-fishing.csv)
+- [Familiar fishing bonus](../data/researched/fishing-familiar-bonuses.csv)
+- [Task and catch ownership](deep-gathering.md)
+
+These additions include period-source candidate facts or checked Hagalaz code paths. They are **not a completed 742 client/cache parity capture**.

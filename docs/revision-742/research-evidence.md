@@ -34,3 +34,11 @@ The feature guides intentionally do **not** invent missing identifiers or copy c
 ## Verified companion-client source locations
 
 A separately managed revision-742 Java client repository documents a pinned Git LFS cache in `tests/fixtures/cache742/cache.zip` with a SHA-256 sidecar. Its repository docs provide canonical cache, interface, protocol, CS2, map and region evidence ledgers. These are **verified repository-source references**, but not proof that a complete historical gameplay dataset has already been extracted. See [client/cache extraction handoff](reference/client-cache-evidence.md).
+
+## Additional dated 2012 sources and repository findings
+
+- [Archived ancient spell snapshot](https://wiki.darkan.org/index.php?title=Ancient_Magicks&oldid=31700), whose visible last-edit date is **24 October 2012**: period spell requirements, base hit/XP and effects. Rune reagent images remain unresolved in plain-text output.
+- [Archived Slayer points snapshot](https://wiki.darkan.org/index.php?title=Slayer_points&oldid=50331), visibly last edited **2 November 2012**: reward store and master points including a bonus-multiplier discrepancy worth investigating.
+- The audited Hagalaz entities already provide substantial structured columns for mining, trees, fishing, cooking, firemaking, crafting, fletching, farming, prayer, magic, runecrafting, summoning, Slayer, quests, NPCs and shops. See [entity-level crosswalk](reference/repository-data-crosswalk.md).
+- Direct method inspection confirmed Farming uses per-patch tasks, Mining/Fishing re-resolve live entity handles each tick, and Summoning spawn precedes item/point debit in the examined call flow. These are source observations, **not assertions that targeted regression tests have run**.
+- [Source conflict and completeness ledger](data/researched/README.md) documents unresolved cases and prevents promoting contested numbers into production.

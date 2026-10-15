@@ -92,4 +92,13 @@ The listed file paths were audited against the repository's `main` tree on 15 Oc
 
 ## Researched gameplay data (supplement)
 
-The initial feature guides are now supplemented with [41 per-feature historical research references](reference/README.md) and [nine machine-readable datasets](data/README.md). The reference pages include concrete 2012-era values, restrictions, recipe examples and cited sources; **not all details are verified against a specific 742 cache build**. Use the evidence gate in [research provenance](research-evidence.md) before implementing exact IDs, rates or packet behavior.
+The initial feature guides are now supplemented with [41 per-feature historical research references](reference/README.md) and [21 machine-readable gameplay datasets](data/README.md). The reference pages include concrete 2012-era values, restrictions, recipe examples and cited sources; **not all details are verified against a specific 742 cache build**. Use the evidence gate in [research provenance](research-evidence.md) before implementing exact IDs, rates or packet behavior.
+
+## Deeper implementation-grade research
+
+- [Expanded 2012 data pack](data/researched/README.md) — **213 additional candidate rows across 12 new CSVs** covering room costs/portals, spells, potions, pouches, Slayer rewards, firemaking methods, fishing variants and bonuses. The earlier 9 CSVs remain available.
+- [Complete 41-feature evidence requirements](reference/feature-completeness.md) and [machine-readable feature coverage matrix](reference/feature-completeness-matrix.csv) — explicit data still required to claim full behavior parity.
+- [Audited Hagalaz data ownership and schema crosswalk](reference/repository-data-crosswalk.md) — actual existing EF property names, expected cache joins, persistence owners and missing fields.
+- [Deep runtime specifications](reference/README.md#vertical-slice-specifications) — Construction, Magic, Slayer, economy, gathering, Farming, Summoning and progression, with failure cases and existing method behavior.
+
+**Limit:** even this larger data pack is not exhaustive. No pinned LFS cache was downloaded, decoded or replayed with live server tests in this documentation change. Full item/NPC/object/UI/CS2/packet mappings and complete content tables remain a separate evidence collection effort.

@@ -25,3 +25,10 @@ Bonfires (introduced before target revision) award different XP from lighting a 
 - Capture of failure, interruption, concurrency, full-container and login/logout behavior.
 
 [Implementation guide](../firemaking.md) · [Research policy](../research-evidence.md)
+
+## Expanded research materials
+
+- [Fire and bonfire XP](../data/researched/firemaking-method-xp.csv)
+- [Gathering tasks](deep-gathering.md)
+
+These additions include period-source candidate facts or checked Hagalaz code paths. They are **not a completed 742 client/cache parity capture**.

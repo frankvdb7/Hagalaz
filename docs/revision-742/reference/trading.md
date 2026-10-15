@@ -15,3 +15,9 @@ The 1 February 2011 removal of direct trade value limits predates 742; **do not 
 The current source set does not provide exhaustive 742 item IDs, widget/config/packet IDs or an executable reference dataset. Capture those from the target client/cache and reconcile with Hagalaz's existing definitions before promoting candidate rules to constants.
 
 [Implementation guide](../trading.md) · [Research policy](../research-evidence.md)
+
+## Expanded research materials
+
+- [Escrow/confirmation failure matrix](deep-economy.md)
+
+These additions include period-source candidate facts or checked Hagalaz code paths. They are **not a completed 742 client/cache parity capture**.

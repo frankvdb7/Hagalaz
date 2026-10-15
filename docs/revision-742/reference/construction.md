@@ -13,3 +13,10 @@
 - Positive, negative, interruption, concurrency and persistence tests for each interaction.
 
 [Implementation guide](../construction.md) · [Research policy](../research-evidence.md)
+
+## Expanded research materials
+
+- [Room, portal and plank datasets](../data/researched/README.md)
+- [House lifecycle](deep-construction.md)
+
+These additions include period-source candidate facts or checked Hagalaz code paths. They are **not a completed 742 client/cache parity capture**.

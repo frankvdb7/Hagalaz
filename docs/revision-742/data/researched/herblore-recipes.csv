@@ -1,0 +1,54 @@
+product,level,xp,base_ingredient,secondary_ingredient,source_url,evidence
+Attack potion (3),3,25,Clean guam,Eye of newt,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Antipoison (3),5,37.5,Clean marrentill,Unicorn horn dust,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Relicym's balm (3),8,40,Clean rogue's purse,Clean snake weed,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Strength potion (3),12,50,Clean tarromin,Limpwurt root,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Serum 207,15,50,Clean tarromin,Ashes,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Guthix rest (4),18,59.5,Clean harralander + Clean guam x2,Clean marrentill,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Guam tar,19,30,Clean guam,Swamp tar x15,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Restore potion (3),22,62.5,Clean harralander,Red spider's eggs,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Guthix balance (3),22,50,Restore potion (3),Garlic + silver dust,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Blamish oil,25,80,Clean harralander,Blamish snail slime,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Energy potion (3),26,67.5,Clean harralander,Chocolate dust,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Defence potion (3),30,75,Clean ranarr,White berries,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Marrentill tar,31,42.5,Clean marrentill,Swamp tar x15,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Super fishing explosive,31,55,Clean guam,Rubium,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Agility potion (3),34,80,Clean toadflax,Toad's legs,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Combat potion (3),36,84,Clean harralander,Goat horn dust,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Prayer potion (3),38,87.5,Clean ranarr,Snape grass,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Tarromin tar,39,55,Clean tarromin,Swamp tar x15,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Summoning potion (3),40,92,Clean spirit weed,Cockatrice egg,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Crafting potion,42,95,Clean wergali,Frogspawn,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Harralander tar,44,72.5,Clean harralander,Swamp tar x15,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Super attack (3),45,100,Clean irit,Eye of newt,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Super antipoison (3),48,106.3,Clean irit,Unicorn horn dust,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Fishing potion (3),50,112.5,Clean avantoe,Snape grass,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Super energy (3),52,117.5,Clean avantoe,Mort myre fungi,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Shrinking potion,52,6,Clean tarromin,Shrunk ogleroot,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Hunter potion (3),53,120,Clean avantoe,Kebbit teeth dust,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Super strength (3),55,125,Clean kwuarm,Limpwurt root,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Magic essence potion,57,130,Starflower,Crushed gorak claw,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Fletching potion,58,132,Clean wergali,Wimpy feather,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Weapon poison,60,137.5,Clean kwuarm,Blue dragon scale,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Super restore (3),63,142.5,Clean snapdragon,Red spider's eggs,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Sanfew serum (4),65,192,Super restore (4),Unicorn horn dust + Clean snake weed + Nail beast nails,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Super defence (3),66,150,Clean cadantine,White berries,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Antipoison+ (4),68,155,Coconut milk + Clean toadflax,Yew roots,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Antifire (3),69,157.5,Clean lantadyme,Dragon scale dust,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Ranging potion (3),72,162.5,Clean dwarf weed,Wine of zamorak,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Weapon poison+,73,165,Coconut milk + Cactus spine,Red spider's eggs,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Magic potion (3),76,172.5,Clean lantadyme,Potato cactus,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Zamorak brew (3),78,175,Torstol potion (unf),Jangerberries,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Antipoison++ (3),79,177.5,Coconut milk + Clean irit,Magic roots,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Saradomin brew (3),81,180,Clean toadflax,Crushed nest,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Weapon poison++,82,190,Coconut milk + Nightshade,Poison ivy berries,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Recover special,84,200,Super energy (3),Papaya,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Super antifire,85,210,Antifire (3),Phoenix feather,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Extreme attack,88,220,Super attack (3),Clean avantoe,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Extreme strength,89,230,Super strength (3),Clean dwarf weed,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Extreme defence,90,240,Super defence (3),Clean lantadyme,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Extreme magic,91,250,Magic potion (3),Ground mud runes,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Extreme ranging,92,260,Ranging potion (3),Grenwall spikes x5,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Super prayer,94,270,Prayer potion (3),Wyvern bonemeal,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Prayer renewal,94,190,Fellstalk potion (unf),Morchella mushroom,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache
+Overload,96,1000,Extreme attack + strength + defence + magic + ranging,Clean torstol,https://wiki.darkan.org/Herblore_calculator,secondary_pending_cache

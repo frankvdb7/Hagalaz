@@ -19,3 +19,11 @@ Fire-supplying staves can satisfy the fire rune cost of Alchemy; high alchemy ca
 The supplied historical links provide candidate behavior, not a full cache/data export. Before implementing, verify the exact target build's IDs, mechanics and production invocations; test consistency across sessions, interrupts and restarts.
 
 [Implementation guide](../magic.md) · [Research policy](../research-evidence.md)
+
+## Expanded research materials
+
+- [20 combat spells](../data/researched/ancient-combat-spells.csv)
+- [8 teleports](../data/researched/ancient-teleports.csv)
+- [Cast flow](deep-magic.md)
+
+These additions include period-source candidate facts or checked Hagalaz code paths. They are **not a completed 742 client/cache parity capture**.

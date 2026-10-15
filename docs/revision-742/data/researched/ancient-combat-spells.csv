@@ -1,0 +1,21 @@
+spell,magic_level,base_max_hit,base_cast_xp,target_shape,special_effect,duration_seconds,source_url,evidence
+Smoke Rush,50,130,30,single,poison starting 20,,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Shadow Rush,52,140,31,single,attack reduction,,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Blood Rush,56,150,33,single,heal quarter damage,,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Ice Rush,58,160,34,single,freeze,5,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Miasmic Rush,61,180,36,single,attack speed slowed,12,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Smoke Burst,62,170,36,3x3,poison starting 20,,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Shadow Burst,64,180,37,3x3,attack reduction,,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Blood Burst,68,210,39,3x3,heal quarter damage,,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Ice Burst,70,220,40,3x3,freeze,10,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Miasmic Burst,73,240,42,3x3,attack speed slowed,24,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Smoke Blitz,74,230,42,single,poison starting 40,,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Shadow Blitz,76,240,43,single,attack reduction,,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Blood Blitz,80,250,45,single,heal quarter damage,,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Ice Blitz,82,260,46,single,freeze,15,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Miasmic Blitz,85,280,48,single,attack speed slowed,36,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Smoke Barrage,86,270,48,3x3,poison starting 40,,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Shadow Barrage,88,280,48,3x3,attack reduction,,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Blood Barrage,92,290,51,3x3,heal quarter damage,,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Ice Barrage,94,300,52,3x3,freeze,20,https://wiki.darkan.org/Ancients,secondary_pending_cache
+Miasmic Barrage,97,320,54,3x3,attack speed slowed,48,https://wiki.darkan.org/Ancients,secondary_pending_cache

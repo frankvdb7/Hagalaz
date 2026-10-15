@@ -21,3 +21,10 @@ Preserved Farming tables also include yield, disease, compost, farmer protection
 Validate all recipe, NPC/object, animation and config IDs in a captured 742 client/cache; trace live click packets, skill XP changes and cancellation through existing Hagalaz handlers. Numeric rows are candidates, not yet authoritative server constants.
 
 [Implementation guide](../farming.md) · [Research policy](../research-evidence.md)
+
+## Expanded research materials
+
+- [Patch lifecycle](deep-farming.md)
+- [Seed and patch EF model](repository-data-crosswalk.md)
+
+These additions include period-source candidate facts or checked Hagalaz code paths. They are **not a completed 742 client/cache parity capture**.

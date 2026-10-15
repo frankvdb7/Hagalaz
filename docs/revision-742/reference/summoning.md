@@ -21,3 +21,10 @@
 The supplied historical links provide candidate behavior, not a full cache/data export. Before implementing, verify the exact target build's IDs, mechanics and production invocations; test consistency across sessions, interrupts and restarts.
 
 [Implementation guide](../summoning.md) · [Research policy](../research-evidence.md)
+
+## Expanded research materials
+
+- [61 pouches](../data/researched/summoning-pouches.csv)
+- [Spawn and pouch integrity](deep-summoning.md)
+
+These additions include period-source candidate facts or checked Hagalaz code paths. They are **not a completed 742 client/cache parity capture**.

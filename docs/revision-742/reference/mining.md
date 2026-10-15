@@ -26,3 +26,10 @@ Ore respawn depends on vein type/world population in the historical system. Rune
 - Capture of failure, interruption, concurrency, full-container and login/logout behavior.
 
 [Implementation guide](../mining.md) · [Research policy](../research-evidence.md)
+
+## Expanded research materials
+
+- [Ore/tool EF model](repository-data-crosswalk.md)
+- [Task ownership](deep-gathering.md)
+
+These additions include period-source candidate facts or checked Hagalaz code paths. They are **not a completed 742 client/cache parity capture**.
