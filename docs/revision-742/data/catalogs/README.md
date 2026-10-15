@@ -56,3 +56,18 @@ For each populated NPC index-18 record: `fixture_sha256,cache_definition_present
 ## Explicit remaining gates
 
 See [the feature completeness matrix](../../reference/feature-completeness-matrix.csv) and [remaining data plan](../../reference/items-npcs-remaining-work.md) for a prioritized, bounded backlog. Don't introduce a new central item/NPC data storage system: use the existing `ItemTypeProvider`, `NpcTypeProvider`, EF repositories and feature-specific services.
+
+## Coverage by source family and dynamically registered NPCs
+
+The [source-family summary](source-family-coverage.csv) groups existing registrations by the **directory of their script implementation**, not by cache type or actual in-world availability. The 281 item IDs and 383 NPC IDs do not represent an exhaustive 742 content census.
+
+**Additional registration mechanisms are NOT included in the numeric CSVs** because the necessary database rows were not available:
+
+- `Hagalaz.Game.Scripts/Skills/Fishing/FishingSpotScriptFactory.cs` obtains NPC IDs dynamically from `IFishingService.FindAllSpots()` and each definition's `NpcIds`.
+- `Hagalaz.Game.Scripts/Skills/Slayer/SlayerMasterScriptFactory.cs` obtains NPC IDs from `ISlayerService.FindAllSlayerMasterTables()`.
+- `Hagalaz.Services.GameWorld/Factories/FamiliarScriptFactory.cs` consumes discovered NPC types and selects familiar scripts.
+- `Hagalaz.Services.GameWorld/Providers/NpcScriptProvider.cs` registers all `INpcScriptFactory` outputs with `TryAdd`; a duplicate logs a warning, and **the earlier registration wins**. Therefore NPC 5362, registered on both `BrutalDragon` and `StandardDragon`, is not guaranteed to resolve to the specialized script. Both classes share the same inherited implementation at present; nonetheless, this is an ambiguous ownership path and should be clarified rather than auto-overwritten.
+- `Hagalaz.Services.GameWorld/Providers/ItemScriptProvider.cs` likewise uses `TryAdd` for item script IDs.
+- `Wilfred` is declared using an item attribute on a class deriving `NpcScriptBase`. `NpcScriptMetaDataFactory` only reads `NpcScriptMetaDataAttribute` for concrete NPC scripts, so that attribute **does not supply an NPC mapping**. This is a concrete registration gap unless another factory supplies the ID.
+
+The runtime provider plus all registered factory outputs are authoritative for **which script actually gets selected**; static metadata counts alone cannot establish that mapping. A complete audit should dump `(id,selected script type,origin factory)` during a controlled startup, then compare it against the CSVs and actual cache definitions.

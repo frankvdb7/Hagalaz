@@ -36,3 +36,7 @@ This plan distinguishes documented source references from **missing direct cache
 18. Full content (shops, drops, boss mechanics, minigames, houses/dungeons, task/quest graphs and remaining skill tables), then server/browser functional and restart testing.
 
 The order matters: a missing cache/durable data source is not solved by inventing an item/NPC ID in a script. Use existing domain owners; do not build a replacement catalog framework just for documentation.
+
+## Dynamic registration census (P0 prerequisite)
+
+Before declaring this static inventory complete, query the actual EF-backed `FishingSpotScriptFactory` and `SlayerMasterScriptFactory` results and perform a controlled `NpcScriptProvider.LoadAsync` initialization. Export selected script type and all duplicate warnings; source metadata alone omits database-derived NPC IDs. NPC 5362 is a static duplicate where registration order determines which script wins. Verify any special handling for familiar script selection and NPC 4906 Wilfred's malformed attribute with focused integration tests.
