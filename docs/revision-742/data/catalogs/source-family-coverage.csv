@@ -23,7 +23,7 @@ npc,Areas/Lumbridge,1,1,1,repository_script_registration_only
 npc,Areas/Wilderness,1,1,1,repository_script_registration_only
 npc,Minigames/Barrows,7,7,7,repository_script_registration_only
 npc,Minigames/DuelArena,1,1,1,repository_script_registration_only
-npc,Minigames/Godwars,73,73,28,repository_script_registration_only
+npc,Minigames/Godwars,72,72,27,repository_script_registration_only
 npc,Minigames/TzHaar,23,23,13,repository_script_registration_only
 npc,Npcs/Bankers,7,7,2,repository_script_registration_only
 npc,Npcs/Bosses,4,4,4,repository_script_registration_only
@@ -40,4 +40,4 @@ npc,Npcs/Knights,3,3,2,repository_script_registration_only
 npc,Npcs/Rats,6,6,1,repository_script_registration_only
 npc,Npcs/Shops,14,14,13,repository_script_registration_only
 npc,Npcs/Spiders,2,2,1,repository_script_registration_only
-npc,Skills/Thieving,103,103,1,repository_script_registration_only
+npc,Skills/Thieving,104,104,1,repository_script_registration_only

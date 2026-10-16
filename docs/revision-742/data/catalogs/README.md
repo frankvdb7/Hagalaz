@@ -88,3 +88,7 @@ The runtime provider plus all registered factory outputs are authoritative for *
 | [Object opcode names](object-opcode-constants.csv) | 68 | Decoder constant names/values, not observed fixture opcodes |
 
 The object-script scanner excluded the `GoldBar.rsitem.cs` class because its declared `GameObjectScriptMetaData` sits on an `ItemScript`, not a working object handler. It is documented as a source anomaly in [world objects](../../reference/deep-world-objects.md). Caveat: search-derived registrations can miss dynamic registrations and future source files; the CSVs should be compared against reflection-based startup inventories and the pinned cache before being called exhaustive.
+
+## NPC source correction and boss scripts
+
+The [boss source audit](npc-boss-script-audit.csv) classifies 11 representative files by **active compiled script**, **inherited/no-override script**, **commented-out class**, or **runtime encounter controller**, and lists the relevant hooks. A previous search-snippet pass falsely counted the **commented-out** NPC 13447 class and omitted source-declared cave goblin 5768; both errors have been corrected in the numeric NPC registration CSV. The unique static NPC IDs remain **383**, but their composition changed and the number of contributing active source files is **122**. The [registration review](registration-review.csv) records both changes. No boss gameplay parity has been inferred from class names.

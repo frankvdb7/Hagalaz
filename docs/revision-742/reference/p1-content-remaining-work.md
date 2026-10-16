@@ -33,3 +33,7 @@
 - Explicit **complete / partial / blocked** flag for cache, DB, scripting, client, tests and persistence.
 
 **Current status of all three: partial/source-audited, not fully complete.** No direct archive bytes, populated MySQL data or live runtime execution were available, and none are invented in these documents.
+
+### NPC catalog correction / boss gate
+
+A full-source audit corrected the static script inventory: removed inactive/commented ID 13447 and restored actual pickpocket registration ID 5768. There remain 383 distinct static NPC IDs. The [boss script status matrix](../data/catalogs/npc-boss-script-audit.csv) separates 9 active concrete scripts, one wholly commented-out class and one runtime encounter controller. Verify compiled plugin registration and each boss phase with live data; do not infer implementation completeness from historical names or commented code.
