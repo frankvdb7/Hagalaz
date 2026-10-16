@@ -2,12 +2,13 @@
 
 ## Why
 
-Trade offers are funded by moving items out of the offering character's Inventory or MoneyPouch. However, the GameFrame money-pouch withdrawal can consume the inventory capacity freed by an offer while the trade is open. Reject that withdrawal when its deferred amount is submitted so cancellation and detach can refund the offer to its owner.
+Trade offers are funded by moving items out of the offering character's Inventory or MoneyPouch. While a trade is open, GameFrame money-pouch withdrawal and the Summoning Orb/Summoning Tab Take BoB actions can consume inventory capacity freed by an offer. Reject those actions while busy so cancellation and detach can refund the offer to its owner.
 
 ## What Changes
 
 - Remove the forced-destruction recovery path that moves trade offers to Rewards or Bank when a refund does not fit.
 - Reject GameFrame money-pouch withdrawals while the character is busy, including an active trade.
+- Reject Take BoB withdrawals from the Summoning Orb and Summoning Tab while the character is busy, including an active trade.
 - Keep the normal transactional refund and its operation-result check so a rejected transfer rolls back instead of partially committing.
 - Keep insufficient recipient capacity as a failed trade completion; rollback leaves the original offers available for refund.
 - Replace pre-snapshot dispatch of every script's destruction callback with a narrow script detach callback for economic state that must be reflected in the final snapshot.
@@ -18,7 +19,7 @@ Trade offers are funded by moving items out of the offering character's Inventor
 
 - Trade cancellation and detach cleanup.
 - Character script detach callbacks for trade and pre-combat duel refunds.
-- The GameFrame money-pouch withdrawal path that can consume refund capacity during an active trade.
+- GameFrame money-pouch and Summoning Orb/Summoning Tab familiar withdrawals that can consume refund capacity during an active trade.
 - The recovery-only trade transfer helper and tests for its unsupported capacity state.
 - The canonical `trading-completion` behavior specification.
 
@@ -32,6 +33,7 @@ Trade offers are funded by moving items out of the offering character's Inventor
 
 - All production cancellation paths attempt one atomic refund to the original Inventory and MoneyPouch owners.
 - A submitted GameFrame money-pouch withdrawal cannot consume Inventory slots while a trade is active.
+- A Summoning Orb or Summoning Tab Take BoB action cannot consume Inventory slots while a trade is active.
 - Character detachment invokes script-specific detach callbacks before the final snapshot, while general script destruction callbacks remain at actual character destruction.
 - A trade funded through the inventory click handler is refunded by the trade script's detach callback and appears in the inventory dehydration payload.
 - A pre-combat duel's stakes are returned by the duel script's detach callback before the final snapshot.
@@ -41,7 +43,7 @@ Trade offers are funded by moving items out of the offering character's Inventor
 
 ## Stop Conditions
 
-- If a production offer can be funded from storage other than the owner's Inventory or MoneyPouch, stop and retain the recovery path until that ownership path is understood.
+- If another supported production action can consume Inventory capacity while a trade is active, identify and guard that path before relying on refund capacity.
 
 ## Capabilities
 

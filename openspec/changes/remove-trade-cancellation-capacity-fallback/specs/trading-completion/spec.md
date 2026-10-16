@@ -32,7 +32,7 @@ Completion MUST deliver both complete opposite offers and clear both escrow cont
 
 ### Requirement: Cancellation returns each offer to its owner
 
-Cancellation MUST return each offer to its original owner exactly once in one transaction. A cancellation MUST become terminal only after both refunds commit. A GameFrame money-pouch withdrawal MUST NOT consume Inventory capacity while a trade is active, preserving the capacity freed by funded offers for a refund.
+Cancellation MUST return each offer to its original owner exactly once in one transaction. A cancellation MUST become terminal only after both refunds commit. GameFrame money-pouch withdrawals and Summoning Orb/Summoning Tab Take BoB actions MUST NOT consume Inventory capacity while a trade is active, preserving the capacity freed by funded offers for a refund.
 
 Terminal character detachment MUST invoke the trade script's detach callback before the final snapshot is captured. General script destruction callbacks MUST remain at actual character destruction.
 
@@ -47,6 +47,10 @@ Terminal character detachment MUST invoke the trade script's detach callback bef
 #### Scenario: A pouch withdrawal is submitted during an active trade
 - **WHEN** a character submits a GameFrame money-pouch withdrawal amount while a trade is active
 - **THEN** the busy check rejects the withdrawal before Inventory or MoneyPouch changes, leaving capacity available to refund the offer
+
+#### Scenario: A familiar withdrawal is requested during an active trade
+- **WHEN** a character uses Take BoB from the Summoning Orb or Summoning Tab while a trade is active
+- **THEN** the busy check rejects the withdrawal before the familiar or Inventory changes, leaving capacity available to refund the offer
 
 #### Scenario: An active trade is cancelled before the logout snapshot
 - **WHEN** terminal detachment begins while a funded trade is active

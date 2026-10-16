@@ -15,6 +15,7 @@
 - [x] 3.1 Reject a deferred GameFrame money-pouch withdrawal when the character is busy, before calling `MoveToInventory`.
 - [x] 3.2 Replace the synthetic zero-capacity offer test with a regression that funds offers through the inventory click handler, attempts the GameFrame withdrawal, runs detach cleanup, and checks the real inventory and pouch dehydration payloads.
 - [x] 3.3 Update the canonical trading-completion requirement and validate the OpenSpec change.
+- [x] 3.4 Reject Orb and Summoning Tab Take BoB withdrawals while busy and add focused interaction regressions.
 
 ## 4. Keep pre-snapshot cleanup narrow
 

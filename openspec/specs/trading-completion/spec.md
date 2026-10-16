@@ -56,7 +56,7 @@ Completion MUST deliver both complete opposite offers and clear both escrow cont
 
 ### Requirement: Cancellation returns each offer to its owner
 
-Cancellation MUST return each offer to its original owner exactly once in one transaction. A cancellation MUST become terminal only after both refunds commit. A GameFrame money-pouch withdrawal MUST NOT consume Inventory capacity while a trade is active, preserving the capacity freed by funded offers for a refund.
+Cancellation MUST return each offer to its original owner exactly once in one transaction. A cancellation MUST become terminal only after both refunds commit. GameFrame money-pouch withdrawals and Summoning Orb/Summoning Tab Take BoB actions MUST NOT consume Inventory capacity while a trade is active, preserving the capacity freed by funded offers for a refund.
 
 #### Scenario: An active trade is cancelled
 - **WHEN** either participant cancels an active trade
@@ -69,6 +69,10 @@ Cancellation MUST return each offer to its original owner exactly once in one tr
 #### Scenario: A pouch withdrawal is submitted during an active trade
 - **WHEN** a character submits a GameFrame money-pouch withdrawal amount while a trade is active
 - **THEN** the busy check rejects the withdrawal before Inventory or MoneyPouch changes, leaving capacity available to refund the offer
+
+#### Scenario: A familiar withdrawal is requested during an active trade
+- **WHEN** a character uses Take BoB from the Summoning Orb or Summoning Tab while a trade is active
+- **THEN** the busy check rejects the withdrawal before the familiar or Inventory changes, leaving capacity available to refund the offer
 
 ### Requirement: Committed trade operations reach a terminal state
 Trade completion and refund MUST perform checked domain mutations under their existing session gate and one disposable transaction. The session MUST own state changes through intent-specific transitions: completion enters `Completing` from `Active`, successful completion enters `Completed`, failed completion returns to `Active`, and cancellation enters `Cancelled` from `Active` only after refund mutations succeed. Immediately before Commit, the owner MUST transition to `Completed` or `Cancelled` without an intervening external action. Commit MUST make storage irreversible and release physical locks while retaining transaction bindings. The trade owner MUST explicitly publish each affected domain in its established order before disposing the committed scope. Existing finally cleanup MUST run exactly once even when publication throws. Such failures MUST NOT make committed value eligible for another completion or refund, and the original publication exception MUST propagate without a transaction result or public committed-state query. Unsuccessful attempts MUST dispose before another operation starts.
