@@ -92,3 +92,14 @@ The object-script scanner excluded the `GoldBar.rsitem.cs` class because its dec
 ## NPC source correction and boss scripts
 
 The [boss source audit](npc-boss-script-audit.csv) classifies 11 representative files by **active compiled script**, **inherited/no-override script**, **commented-out class**, or **runtime encounter controller**, and lists the relevant hooks. A previous search-snippet pass falsely counted the **commented-out** NPC 13447 class and omitted source-declared cave goblin 5768; both errors have been corrected in the numeric NPC registration CSV. The unique static NPC IDs remain **383**, but their composition changed and the number of contributing active source files is **122**. The [registration review](registration-review.csv) records both changes. No boss gameplay parity has been inferred from class names.
+
+## P1 #9 character combat source tables
+
+| Dataset | Rows | Verified scope |
+|---|---:|---|
+| [Special weapon energy](combat-special-energy-script-registrations.csv) | 49 | Item-script IDs and raw energy cost for 19 explicit source equipment scripts; not a complete weapon list |
+| [Prayer/curse source levels and drain](combat-prayer-source-constants.csv) | 50 | 30 normal / 20 curse enum-indexed server constants; base milliseconds per prayer point (gear and tick adjustments excluded) |
+| [Ancient combat spell parameter arrays](combat-ancient-spell-script-rules.csv) | 20 | Blood/Ice/Miasmic/Shadow/Smoke: 4 ordered variants each; levels, XP, base damage, rune names/counts and autocast config; DB and client verification pending |
+| [Combat code review findings](combat-mechanics-review-findings.csv) | 14 | Source-derived risk/test hypotheses, not passing runtime test outcomes |
+
+The [full combat dossier](../../reference/deep-combat-character-mechanics.md) specifies how item-definition speeds, hit rolls, magic, familiars and PvP permissions interact. Distinguish source rows from historical candidates or physically present binary resource IDs; do not import undocumented default values as revision-specific content.

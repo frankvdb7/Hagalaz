@@ -126,3 +126,10 @@ All values are candidate period data; no numeric IDs have been claimed without t
 - [P1 data/verification handoff and unresolved findings](p1-content-remaining-work.md)
 
 Source-derived numeric rows are under [data/catalogs](../data/catalogs/README.md), separate from the historical candidate research tables.
+
+## Combat and character mechanics (P1 #9)
+
+- [Source-traced combat, prayers, special attacks, NPCs, magic, familiars, death and PvP](deep-combat-character-mechanics.md)
+- [34 deterministic and integration test scenarios, acceptance criteria and evidence gates](combat-verification-matrix.md)
+- [14 prioritized source-review findings](../data/catalogs/combat-mechanics-review-findings.csv) requiring focused test confirmation and owner-local fixes
+- [Special weapon costs](../data/catalogs/combat-special-energy-script-registrations.csv), [prayer book level/drain constants](../data/catalogs/combat-prayer-source-constants.csv), and [ancient spell variants](../data/catalogs/combat-ancient-spell-script-rules.csv) — **repository source only**

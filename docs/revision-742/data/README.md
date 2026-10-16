@@ -49,3 +49,7 @@ The [script registration catalogs](catalogs/README.md) provide source-backed, nu
 ## Direct source-extracted P1 catalogs
 
 The [numeric content catalogs](catalogs/README.md) now cover item script registrations, potion-dose chains, equipment degradation stages, NPC script and pickpocket registrations, and world-object script IDs/opcode constants. All numeric records carry **repository-source evidence only**; they must not be counted as verified index-16/18/19 fixture definitions or as part of the 705 historical candidates.
+
+## Source-anchored combat data
+
+The [combat source catalogs](catalogs/README.md) contain 49 item-ID special costs, 50 prayer level/drain constants, 20 ancient spell variants and 14 review observations. These are not part of the **705 historical candidate rows** and have not been verified against the pinned 742 binary or a live database.

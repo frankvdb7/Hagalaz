@@ -26,3 +26,7 @@ Risk levels, skulls, wilderness eligibility, safe zones, single/multicombat, tel
 
 - Historical behavior and resource IDs require direct 742 fixture verification.
 - Follow [implementation conventions](implementation-conventions.md) before adding state, handlers or persistence.
+
+## P1 PvP and character-death verification
+
+[Combat and character mechanics](reference/deep-combat-character-mechanics.md#7-death-skull-item-conservation-and-pvp) follows Wilderness combat-level limits, teleport gates, familiars, skulled status and DuelArena rules. [Tests C27–C34](reference/combat-verification-matrix.md) describe boundary conditions and item-conservation cases. Runtime tests and any current DB-specific death overrides remain unverified.

@@ -54,3 +54,7 @@ Acceptance for **documentation pass**: correct source map, explicit version/evid
 Acceptance for **full P1 completion**: physically verified index-18/19 definitions, current relevant DB rows, all 34 tests passing or explicitly waived with evidence, instrumented client/server action captures, no unresolved correctness bugs or unknown effective owner for requested mechanics.
 
 Non-goals of this PR: runtime combat formula rewrite; "canonical" research values substituted for actual server inputs; creating another combat coordinator, locking protocol, request pipeline or generalized integration harness; undocumented PvP policy changes.
+
+## Extraction audit cross-check
+
+The [ancient spell rule table](../data/catalogs/combat-ancient-spell-script-rules.csv) contains five families of four variants, parsed from source arrays without inventing missing config IDs. The [prayer constant table](../data/catalogs/combat-prayer-source-constants.csv) contains 30 standard and 20 curse indexed rows; [special energy table](../data/catalogs/combat-special-energy-script-registrations.csv) contains 49 unique item IDs from 19 concrete equipment scripts. These are fixture-independent source facts, and the tests above remain unexecuted.

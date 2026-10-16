@@ -37,3 +37,11 @@
 ### NPC catalog correction / boss gate
 
 A full-source audit corrected the static script inventory: removed inactive/commented ID 13447 and restored actual pickpocket registration ID 5768. There remain 383 distinct static NPC IDs. The [boss script status matrix](../data/catalogs/npc-boss-script-audit.csv) separates 9 active concrete scripts, one wholly commented-out class and one runtime encounter controller. Verify compiled plugin registration and each boss phase with live data; do not infer implementation completeness from historical names or commented code.
+
+## P1 #9 combat and character mechanics — source pass 16 October 2026
+
+**Source documentation added:** [deep combat dossier](deep-combat-character-mechanics.md) and [34-scenario acceptance matrix](combat-verification-matrix.md). The directly extracted input tables cover 49 weapon special costs, 50 prayer/curse levels and base drains, and 20 ancient spell variants (levels, damage, XP, rune costs, autocast configs). [14 source-audit observations](../data/catalogs/combat-mechanics-review-findings.csv) are recorded as *hypotheses and concrete regression test cases*, not as proven production incidents.
+
+**Highest priority before code changes:** source protection-prayer damage-type operator precedence; special-energy debit before unsupported handler; `StandardCombatSpell` calling max-hit adjustment twice. More gates: attack roll and max-hit accuracy compared with the approved 742 fixture/client; NPC wall/line-of-sight and boss overrides; prayer mutual exclusion/drain/deflection; rune debit and multi-target spells; familiar lifespan/scroll/inventory/hydration; death item ownership/skulls and Wilderness/duel familiar restrictions. Verify before fixing and keep logic in current combat/area/equipment owners; no second combat engine.
+
+**Remaining data:** populated equipment-speed cache params, NPC combat DB records, spell DB table, familiar summon records, character death states and target client packet captures. Without executable .NET tests and these inputs, P1 #9 is **source-audited but not gameplay-complete**.

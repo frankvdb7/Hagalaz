@@ -27,3 +27,7 @@ Standard and alternate spellbooks, rune consumption, staff-provided runes, autoc
 
 - Exact historical values and component mappings remain fixture-gated; do not replace unknowns with later-client defaults.
 - Read [implementation conventions](implementation-conventions.md) before modifying runtime state or persistence.
+
+## Combat spell validation
+
+[Ancient combat spell source arrays](data/catalogs/combat-ancient-spell-script-rules.csv) capture 20 explicit source variants across Blood, Ice, Miasmic, Shadow and Smoke. [P1 combat dossier](reference/deep-combat-character-mechanics.md#5-combat-magic-spells-autocast-and-rune-ownership) records source-only casting speed, rune debit, spell selection and the suspected double-applied magic maximum. The populated `skills_magic_combat_definitions` records and 742 client interface/packet mapping are not available here.

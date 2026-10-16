@@ -31,3 +31,7 @@ Pre-20-November attack-style combat: melee, ranged and magic attacks, attack spe
 ## NPC source data and drop behavior
 
 The [NPC gameplay dossier](reference/deep-npc-gameplay.md) details source code paths for aggression, attack/defence/death animation, weighted NPC drops, pickpocketing, shop NPCs and bosses. [104 numeric pickpocket rules](data/catalogs/npc-pickpocket-source-rules.csv) are extracted from current server source; full loot weights and NPC mechanics remain awaiting the actual database and pinned-cache validation.
+
+## Source-backed P1 #9 mechanics verification
+
+The [combat and character mechanics dossier](reference/deep-combat-character-mechanics.md) covers actual source hit/accuracy/max-hit formulas, equipment and magic speed, NPC behavior, prayers, specials, rune costs, familiars, death and Wilderness/duel authorization. The [34-case verification matrix](reference/combat-verification-matrix.md) and [14 source findings](data/catalogs/combat-mechanics-review-findings.csv) are the next test and issue triage gates. See [49 weapon special cost records](data/catalogs/combat-special-energy-script-registrations.csv), [50 prayer constants](data/catalogs/combat-prayer-source-constants.csv) and [20 ancient spell rule records](data/catalogs/combat-ancient-spell-script-rules.csv). These describe current code, not completed historic 742 parity.

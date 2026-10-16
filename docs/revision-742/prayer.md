@@ -27,3 +27,7 @@ Earlier prayer and curse books, activation restrictions, mutually exclusive effe
 
 - Exact historical values and component mappings remain fixture-gated; do not replace unknowns with later-client defaults.
 - Read [implementation conventions](implementation-conventions.md) before modifying runtime state or persistence.
+
+## Prayer and curse source constants
+
+[50 per-prayer/curse rows](data/catalogs/combat-prayer-source-constants.csv) record 30 standard and 20 curse level thresholds and **base** drain intervals from the server constants. See [P1 combat prayer explanation](reference/deep-combat-character-mechanics.md#4-prayer-and-curse-mechanics). All require comparison to the client and equipped prayer bonus; a listed drain is not an effective drain rate.
