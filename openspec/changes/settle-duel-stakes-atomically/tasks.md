@@ -6,6 +6,7 @@
 - [x] 1.2 Route `DuelArenaCombatScript` victory payout through `DuelStakeExchange` without changing its public constructor; verify the focused Game Scripts test project builds and existing combat-script tests pass.
 - [x] 1.3 Keep the victory stage and trapdoor exit blocked until stake settlement succeeds; keep an active duel busy so Equipment access and familiar withdrawals cannot consume confirmation-checked capacity; verify the full duel stage flow still settles the stakes.
 - [x] 1.4 Make duel confirmation account for MoneyPouch coin capacity and require inventory space only for coin overflow; verify pouch-only payouts with full inventories and reject overflow without inventory space.
+- [x] 1.5 Build the confirmation capacity projection without aliasing live stake items; verify confirmation leaves both coin stakes unchanged and successful settlement conserves their total.
 
 ## 2. Behavior specification and validation
 

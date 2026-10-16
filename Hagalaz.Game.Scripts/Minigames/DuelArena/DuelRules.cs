@@ -182,9 +182,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// </summary>
         /// <param name="character">The character.</param>
         /// <param name="other">The other.</param>
-        /// <param name="stakeItems">The combined items in both participants' stakes.</param>
+        /// <param name="stakeItems">The items in both participants' stakes.</param>
         /// <returns></returns>
-        public bool CheckRules(ICharacter character, ICharacter other, IReadOnlyList<IItem> stakeItems)
+        public bool CheckRules(ICharacter character, ICharacter other, IEnumerable<IItem> stakeItems)
         {
             if (this[Rule.NoRanged] && this[Rule.NoMelee] && this[Rule.NoMagic])
             {
@@ -214,21 +214,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return false;
             }
 
-            if (stakeItems.Count == 0)
-            {
-                return true;
-            }
-
-            var incomingItems = new List<IItem?>(equipment.Count + stakeItems.Count);
+            var incomingItems = new List<IItem?>(equipment.Count);
             incomingItems.AddRange(equipment);
             var remainingPouchCapacity = (long)int.MaxValue - character.MoneyPouch.Count;
+            var hasStakeItems = false;
             foreach (var stakeItem in stakeItems)
             {
-                if (stakeItem is null)
-                {
-                    incomingItems.Add(null);
-                    continue;
-                }
+                hasStakeItems = true;
 
                 if (stakeItem.Id != CoinsItemId || stakeItem.Count <= 0)
                 {
@@ -243,6 +235,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 {
                     incomingItems.Add(stakeItem.Clone(inventoryCount));
                 }
+            }
+
+            if (!hasStakeItems)
+            {
+                return true;
             }
 
             if (character.Inventory.Items.HasSpaceForRange(incomingItems))

@@ -110,7 +110,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private bool CanWithdrawToInventory()
         {
-            if (!_owner.IsBusy()) return true;
+            var combat = _owner.Combat;
+            if (!combat.IsDead && !combat.IsInCombat() && !_owner.GetScripts().Any(script => script.IsBusy()))
+                return true;
 
             _owner.SendChatMessage("Please finish what you're doing before withdrawing items from your familiar.");
             return false;

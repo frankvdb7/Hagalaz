@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Hagalaz.Collections.Extensions;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Builders.Item;
@@ -704,18 +705,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             SelfAccepted = false;
             TargetAccepted = false;
 
-            IItem[] allStakes = [];
-            if (IsStaking)
-            {
-                IItemContainer container = new ItemContainer(StorageType.Normal,
-                    (short)(SelfContainer!.Items.Capacity + TargetContainer!.Items.Capacity));
-                container.AddRange(SelfContainer!.Items);
-                container.AddRange(TargetContainer!.Items);
-                allStakes = System.Linq.Enumerable.ToArray(container);
-            }
+            IEnumerable<IItem> stakeItems = IsStaking
+                ? SelfContainer!.Items.Concat(TargetContainer!.Items).OfType<IItem>()
+                : Enumerable.Empty<IItem>();
 
-            if (!CurrentRules.CheckRules(Character, Target, allStakes) ||
-                !CurrentRules.CheckRules(Target, Character, allStakes))
+            if (!CurrentRules.CheckRules(Character, Target, stakeItems) ||
+                !CurrentRules.CheckRules(Target, Character, stakeItems))
             {
                 RefreshDuelConfirmationStatus();
                 return;

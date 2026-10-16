@@ -522,6 +522,22 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
+    public void TradeSession_MarksBothParticipantsBusyUntilCancelled()
+    {
+        var first = CreateCharacter(new ComposedTestContainer(14));
+        var second = CreateCharacter(new ComposedTestContainer(14));
+        var trade = CreateActiveTrade(first, second);
+
+        trade.Script.IsBusy().Should().BeTrue();
+        trade.TargetScript.IsBusy().Should().BeTrue();
+
+        trade.Script.CancelTradeSession();
+
+        trade.Script.IsBusy().Should().BeFalse();
+        trade.TargetScript.IsBusy().Should().BeFalse();
+    }
+
+    [TestMethod]
     public void FinishTradeSession_UsesComposedExchangeToCompleteTrade()
     {
         var (firstInventory, secondInventory, _, _, trade) = CreatePreparedTradeScenario();

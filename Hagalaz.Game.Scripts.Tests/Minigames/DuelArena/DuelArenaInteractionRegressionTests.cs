@@ -1,21 +1,34 @@
+using Hagalaz.Game.Abstractions.Builders.Animation;
+using Hagalaz.Game.Abstractions.Builders.Graphic;
+using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
+using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
+using Hagalaz.Game.Abstractions.Factories;
+using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
+using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Scripts.Minigames.DuelArena;
 using Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Hagalaz.Game.Scripts.Npcs.Familiars;
+using Hagalaz.Game.Scripts.Widgets.Orbs;
 using Hagalaz.Game.Scripts.Widgets.Tabs;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
+using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
@@ -78,6 +91,113 @@ public sealed class DuelArenaInteractionRegressionTests
     }
 
     [TestMethod]
+    public void StartConfirmationStage_DoesNotMutateLiveCoinStakesAndSettlementPreservesTotal()
+    {
+        var duel = CreateDuel(1, 1, selfPouchCoins: 100, targetPouchCoins: 50);
+        Assert.IsTrue(duel.SelfPouch!(8, ComponentClickType.LeftClick, 0, 0));
+        duel.Self.Widgets.IntInputHandler!(100);
+        Assert.IsTrue(duel.TargetPouch!(8, ComponentClickType.LeftClick, 0, 0));
+        duel.Target.Widgets.IntInputHandler!(50);
+
+        var selfStakeCoins = duel.SelfStakeContainer[0]!;
+        var targetStakeCoins = duel.TargetStakeContainer[0]!;
+        Assert.AreEqual(100, selfStakeCoins.Count);
+        Assert.AreEqual(50, targetStakeCoins.Count);
+
+        var selfConfirmation = Substitute.For<IWidget>();
+        var targetConfirmation = Substitute.For<IWidget>();
+        selfConfirmation.Script.Returns(duel.Self.ServiceProvider.GetService(typeof(DuelConfirmScreenScript)));
+        targetConfirmation.Script.Returns(duel.Target.ServiceProvider.GetService(typeof(DuelConfirmScreenScript)));
+        duel.Self.Widgets.GetOpenWidget(1366).Returns(selfConfirmation);
+        duel.Target.Widgets.GetOpenWidget(1366).Returns(targetConfirmation);
+
+        Assert.IsTrue(duel.SelfAccept!(56, ComponentClickType.LeftClick, 0, 0));
+        Assert.IsTrue(duel.TargetAccept!(56, ComponentClickType.LeftClick, 0, 0));
+
+        duel.Self.Widgets.Received(1).OpenWidget(1366, 0, Arg.Any<IWidgetScript>(), false);
+        duel.Target.Widgets.Received(1).OpenWidget(1366, 0, Arg.Any<IWidgetScript>(), false);
+        Assert.AreSame(selfStakeCoins, duel.SelfStakeContainer[0]);
+        Assert.AreSame(targetStakeCoins, duel.TargetStakeContainer[0]);
+        Assert.AreEqual(100, selfStakeCoins.Count);
+        Assert.AreEqual(50, targetStakeCoins.Count);
+        Assert.AreEqual(0, duel.Self.MoneyPouch.Count);
+        Assert.AreEqual(0, duel.Target.MoneyPouch.Count);
+
+        Assert.IsTrue(DuelStakeExchange.TrySettleWinner(duel.Self, duel.SelfStakeContainer, duel.TargetStakeContainer));
+
+        var totalCoins = duel.Self.MoneyPouch.Count + duel.Target.MoneyPouch.Count +
+                         duel.SelfInventory.Items.GetCountById(995) + duel.TargetInventory.Items.GetCountById(995) +
+                         duel.SelfStakeContainer.GetCountById(995) + duel.TargetStakeContainer.GetCountById(995);
+        Assert.AreEqual(150, totalCoins);
+        Assert.AreEqual(150, duel.Self.MoneyPouch.Count);
+        Assert.AreEqual(0, duel.Target.MoneyPouch.Count);
+        Assert.AreEqual(0, duel.SelfStakeContainer.TakenSlots);
+        Assert.AreEqual(0, duel.TargetStakeContainer.TakenSlots);
+    }
+
+    [TestMethod]
+    public void StartConfirmationStage_ThenCancel_RefundsExactlyTheCoinStakes()
+    {
+        var duel = CreateDuel(1, 1, selfPouchCoins: 100, targetPouchCoins: 50);
+        Assert.IsTrue(duel.SelfPouch!(8, ComponentClickType.LeftClick, 0, 0));
+        duel.Self.Widgets.IntInputHandler!(100);
+        Assert.IsTrue(duel.TargetPouch!(8, ComponentClickType.LeftClick, 0, 0));
+        duel.Target.Widgets.IntInputHandler!(50);
+        AcceptDuelConfirmation(duel);
+
+        Assert.AreEqual(0, duel.Self.MoneyPouch.Count);
+        Assert.AreEqual(0, duel.Target.MoneyPouch.Count);
+        Assert.AreEqual(100, duel.SelfStakeContainer.GetCountById(995));
+        Assert.AreEqual(50, duel.TargetStakeContainer.GetCountById(995));
+
+        duel.SessionScript.OnDetach();
+
+        Assert.AreEqual(100, duel.Self.MoneyPouch.Count);
+        Assert.AreEqual(50, duel.Target.MoneyPouch.Count);
+        Assert.AreEqual(0, duel.SelfStakeContainer.TakenSlots);
+        Assert.AreEqual(0, duel.TargetStakeContainer.TakenSlots);
+        Assert.AreEqual(150L, TotalCoinCount(duel));
+    }
+
+    [TestMethod]
+    public void StartConfirmationStage_CombinedCoinStakesExceedIntMax_RejectsWithoutChangingStakes()
+    {
+        const int coinStake = 1_200_000_000;
+        var duel = CreateDuel(1, 1, selfPouchCoins: coinStake, targetPouchCoins: coinStake);
+        FillInventories(duel);
+        Assert.IsTrue(duel.SelfPouch!(8, ComponentClickType.LeftClick, 0, 0));
+        duel.Self.Widgets.IntInputHandler!(coinStake);
+        Assert.IsTrue(duel.TargetPouch!(8, ComponentClickType.LeftClick, 0, 0));
+        duel.Target.Widgets.IntInputHandler!(coinStake);
+
+        var selfStakeCoins = duel.SelfStakeContainer[0]!;
+        var targetStakeCoins = duel.TargetStakeContainer[0]!;
+        AcceptDuelConfirmation(duel);
+
+        Assert.AreSame(selfStakeCoins, duel.SelfStakeContainer[0]);
+        Assert.AreSame(targetStakeCoins, duel.TargetStakeContainer[0]);
+        Assert.AreEqual(coinStake, selfStakeCoins.Count);
+        Assert.AreEqual(coinStake, targetStakeCoins.Count);
+        Assert.AreEqual(0, duel.Self.MoneyPouch.Count);
+        Assert.AreEqual(0, duel.Target.MoneyPouch.Count);
+        Assert.AreEqual(2L * coinStake, TotalCoinCount(duel));
+        duel.Self.Widgets.DidNotReceive().OpenWidget(1366, 0, Arg.Any<IWidgetScript>(), false);
+        duel.Target.Widgets.DidNotReceive().OpenWidget(1366, 0, Arg.Any<IWidgetScript>(), false);
+        duel.Self.DidNotReceive().AddScript(Arg.Any<DuelArenaCombatScript>());
+        duel.Target.DidNotReceive().AddScript(Arg.Any<DuelArenaCombatScript>());
+
+        // Insufficient payout capacity is rejected before combat starts, so death/arena-exit cleanup
+        // cannot discard stakes from a duel that never entered its combat stage.
+        duel.SessionScript.OnDetach();
+
+        Assert.AreEqual(coinStake, duel.Self.MoneyPouch.Count);
+        Assert.AreEqual(coinStake, duel.Target.MoneyPouch.Count);
+        Assert.AreEqual(0, duel.SelfStakeContainer.TakenSlots);
+        Assert.AreEqual(0, duel.TargetStakeContainer.TakenSlots);
+        Assert.AreEqual(2L * coinStake, TotalCoinCount(duel));
+    }
+
+    [TestMethod]
     public void CheckRules_RequiresInventorySpaceForCoinsThatOverflowPouch()
     {
         var duel = CreateDuel(1, 1, selfPouchCoins: int.MaxValue, targetPouchCoins: 1);
@@ -92,9 +212,9 @@ public sealed class DuelArenaInteractionRegressionTests
     }
 
     [TestMethod]
-    public void DuelStageFlow_ActiveCombatBlocksInventoryCreditsAndSettlesWinner()
+    public void DuelStageFlow_ActiveCombatBlocksInventoryCreditsAndDeathSettlesBeforeArenaExit()
     {
-        var duel = CreateDuel(1, 1);
+        var duel = CreateDuel(1, 1, selfPouchCoins: 100, targetPouchCoins: 50);
         for (var index = 0; index < 15; index++)
         {
             Assert.IsTrue(duel.TargetInventory.Items.Add(CreateItem(300 + index, 1)));
@@ -104,12 +224,17 @@ public sealed class DuelArenaInteractionRegressionTests
         var equipment = Substitute.For<IEquipmentContainer>();
         equipment[EquipmentSlot.Hat].Returns(equippedItem);
         duel.Target.Equipment.Returns(equipment);
-        var familiar = new FamiliarInventoryContainer(duel.Target, StorageType.Normal, 1, CreateItemBuilder());
+        var familiar = new FamiliarInventoryContainer(duel.Target, StorageType.Normal, 30, CreateItemBuilder());
         var familiarItem = duel.TargetInventory.Items[1]!;
         Assert.IsTrue(familiar.DepositFromInventory(familiarItem, 1));
+        AttachPackYak(duel.Target, familiar);
 
         Assert.IsTrue(duel.SelfStake!(0, ComponentClickType.Option4Click, duel.SelfItem.Id, 0));
         Assert.IsTrue(duel.TargetStake!(0, ComponentClickType.Option4Click, duel.TargetItem.Id, 0));
+        Assert.IsTrue(duel.SelfPouch!(8, ComponentClickType.LeftClick, 0, 0));
+        duel.Self.Widgets.IntInputHandler!(100);
+        Assert.IsTrue(duel.TargetPouch!(8, ComponentClickType.LeftClick, 0, 0));
+        duel.Target.Widgets.IntInputHandler!(50);
 
         Assert.AreEqual(14, duel.TargetInventory.Items.TakenSlots);
         var stakes = new[] { duel.SelfStakeContainer[0]!, duel.TargetStakeContainer[0]! };
@@ -181,6 +306,9 @@ public sealed class DuelArenaInteractionRegressionTests
         Assert.IsTrue(winningCombat!.IsBusy());
         Assert.IsTrue(duel.Self.IsBusy());
         Assert.IsTrue(duel.Target.IsBusy());
+        duel.Target.GetScripts().Returns(_ => winningCombat is null
+            ? Array.Empty<ICharacterScript>()
+            : [winningCombat]);
 
         var equipmentTabWidget = Substitute.For<IWidget>();
         OnComponentClick? openEquipment = null;
@@ -197,20 +325,93 @@ public sealed class DuelArenaInteractionRegressionTests
         duel.Target.Widgets.DidNotReceive().OpenWidget(667, 0, Arg.Any<IWidgetScript>(), true);
         duel.Target.Received(1).SendChatMessage("Please finish what you're doing before opening equipment interface.");
 
-        familiar.WithdrawAvailableToInventory();
+        AssertSummoningTakeBoBIsBlocked(duel.Target, targetAccessor);
         Assert.AreEqual(1, familiar.Items.GetCountById(familiarItem.Id));
         Assert.AreEqual(14, duel.TargetInventory.Items.TakenSlots);
-        duel.Target.Received(1).SendChatMessage("Please finish what you're doing before withdrawing items from your familiar.");
+        duel.Target.Received(3).SendChatMessage("Please finish what you're doing before withdrawing items from your familiar.");
 
-        losingCombat!.OnKilledBy(duel.Target);
+        duel.Self.GetScripts().Returns(_ => losingCombat is null
+            ? Array.Empty<ICharacterScript>()
+            : [losingCombat]);
+        var characterCombat = CreateDeathCombat(duel.Self, duel.Target);
+        duel.Self.Combat.Returns(characterCombat);
+        duel.Self.When(character => character.OnKilledBy(Arg.Any<ICreature>()))
+            .Do(call =>
+            {
+                var killer = call.Arg<ICreature>()!;
+                foreach (var script in duel.Self.GetScripts())
+                {
+                    script.OnKilledBy(killer);
+                }
+
+                characterCombat.OnKilledBy(killer);
+            });
+
+        var respawned = new List<ICharacter>();
+        duel.Self.When(character => character.Respawn()).Do(_ => respawned.Add(duel.Self));
+        duel.Target.When(character => character.Respawn()).Do(_ => respawned.Add(duel.Target));
+
+        duel.Self.HasScript<DuelArenaCombatScript>().Returns(_ => losingCombat is not null);
+        duel.Self.TryRemoveScript<DuelArenaCombatScript>().Returns(_ =>
+        {
+            var script = losingCombat;
+            if (script is null)
+            {
+                return false;
+            }
+
+            losingCombat = null;
+            script.OnRemove();
+            return true;
+        });
+        duel.Target.HasScript<DuelArenaCombatScript>().Returns(_ => winningCombat is not null);
+        duel.Target.TryRemoveScript<DuelArenaCombatScript>().Returns(_ =>
+        {
+            var script = winningCombat;
+            if (script is null)
+            {
+                return false;
+            }
+
+            winningCombat = null;
+            script.OnRemove();
+            return true;
+        });
+
+        ITaskItem? deathContinuation = null;
+        duel.Self.When(character => character.QueueTask(Arg.Any<ITaskItem>()))
+            .Do(call => deathContinuation = call.Arg<ITaskItem>());
+        characterCombat.AddKiller(duel.Target);
+        characterCombat.OnDeath();
+
+        Assert.IsInstanceOfType<RsTask>(deathContinuation);
+        deathContinuation!.Tick();
+        Assert.IsTrue(deathContinuation.IsCompleted);
+        Assert.IsTrue(respawned.Contains(duel.Self));
+        Assert.IsTrue(respawned.Contains(duel.Target));
+        Assert.AreEqual(0, duel.SelfStakeContainer.TakenSlots);
+        Assert.AreEqual(0, duel.TargetStakeContainer.TakenSlots);
+        Assert.IsNotNull(losingCombat);
+        Assert.IsNotNull(winningCombat);
+
+        var arenaPit = new DuelArenaPit(Options.Create(new WorldOptions()));
+        foreach (var character in respawned.Distinct())
+        {
+            arenaPit.OnCreatureExitArea(character);
+        }
 
         Assert.AreEqual(0, duel.SelfStakeContainer.TakenSlots);
         Assert.AreEqual(0, duel.TargetStakeContainer.TakenSlots);
         Assert.AreEqual(1, duel.TargetInventory.Items.GetCountById(duel.SelfItem.Id));
         Assert.AreEqual(1, duel.TargetInventory.Items.GetCountById(duel.TargetItem.Id));
         Assert.AreEqual(16, duel.TargetInventory.Items.TakenSlots);
+        Assert.AreEqual(150, duel.Target.MoneyPouch.Count);
+        Assert.AreEqual(0, duel.Self.MoneyPouch.Count);
+        Assert.AreEqual(150L, TotalCoinCount(duel));
         Assert.AreEqual(1, familiar.Items.GetCountById(familiarItem.Id));
         duel.Target.Widgets.Received(1).OpenWidget(1365, 0, Arg.Any<IWidgetScript>(), false);
+        Assert.IsNull(losingCombat);
+        Assert.IsNull(winningCombat);
     }
 
     [TestMethod]
@@ -690,6 +891,48 @@ public sealed class DuelArenaInteractionRegressionTests
         }
     }
 
+    private static void AcceptDuelConfirmation(DuelHarness duel)
+    {
+        Assert.IsTrue(duel.SelfAccept!(56, ComponentClickType.LeftClick, 0, 0));
+        Assert.IsTrue(duel.TargetAccept!(56, ComponentClickType.LeftClick, 0, 0));
+    }
+
+    private static void AssertSummoningTakeBoBIsBlocked(ICharacter owner, ICharacterContextAccessor accessor)
+    {
+        owner.GameClient.Returns(Substitute.For<IGameClient>());
+        var mediator = Substitute.For<IScopedGameMediator>();
+
+        var orbWidget = Substitute.For<IWidget>();
+        OnComponentClick? orbOptionTake = null;
+        OnComponentClick? orbLeftClickTake = null;
+        orbWidget.When(widget => widget.AttachClickHandler(13, Arg.Any<OnComponentClick>()))
+            .Do(call => orbOptionTake = call.ArgAt<OnComponentClick>(1));
+        orbWidget.When(widget => widget.AttachClickHandler(22, Arg.Any<OnComponentClick>()))
+            .Do(call => orbLeftClickTake = call.ArgAt<OnComponentClick>(1));
+        var leftClickTab = new LeftClickOptionTab(accessor, mediator);
+        var orb = new SummoningOrb(accessor, mediator, leftClickTab);
+        orb.Initialize(orbWidget);
+        orb.OnOpen();
+
+        Assert.IsTrue(orbOptionTake!(13, ComponentClickType.Option6Click, 0, 0));
+        Assert.IsTrue(orbLeftClickTake!(22, ComponentClickType.LeftClick, 0, 0));
+
+        var tabWidget = Substitute.For<IWidget>();
+        OnComponentClick? tabTake = null;
+        tabWidget.When(widget => widget.AttachClickHandler(67, Arg.Any<OnComponentClick>()))
+            .Do(call => tabTake = call.ArgAt<OnComponentClick>(1));
+        var summoningTab = new SummoningTab(accessor);
+        summoningTab.Initialize(tabWidget);
+        summoningTab.OnOpen();
+
+        Assert.IsTrue(tabTake!(67, ComponentClickType.LeftClick, 0, 0));
+    }
+
+    private static long TotalCoinCount(DuelHarness duel) =>
+        (long)duel.Self.MoneyPouch.Count + duel.Target.MoneyPouch.Count +
+        duel.SelfInventory.Items.GetCountById(995) + duel.TargetInventory.Items.GetCountById(995) +
+        duel.SelfStakeContainer.GetCountById(995) + duel.TargetStakeContainer.GetCountById(995);
+
     private static MoneyPouchContainer CreateMoneyPouch(ICharacter character, int coins)
     {
         var pouch = new MoneyPouchContainer(character, CreateItemBuilder());
@@ -757,6 +1000,66 @@ public sealed class DuelArenaInteractionRegressionTests
                 return true;
             });
         character.ServiceProvider.Returns(provider);
+    }
+
+    private static TestDeathCharacterCombat CreateDeathCombat(ICharacter owner, ICreature killer)
+    {
+        var entityService = Substitute.For<IEntityService>();
+        entityService.TryResolve<ICreature>(Arg.Any<EntityHandle<ICreature>>(), out Arg.Any<ICreature>())
+            .Returns(call =>
+            {
+                call[1] = killer;
+                return true;
+            });
+
+        return new TestDeathCharacterCombat(owner, entityService);
+    }
+
+    private static PackYak AttachPackYak(ICharacter summoner, FamiliarInventoryContainer inventory)
+    {
+        var containerFactory = Substitute.For<IItemContainerFactory>();
+        containerFactory.Create(summoner, StorageType.Normal, 30).Returns(inventory);
+        var npc = Substitute.For<INpc>();
+        npc.Appearance.Returns(Substitute.For<INpcAppearance>());
+        var familiar = new PackYak(
+            npc,
+            containerFactory,
+            Substitute.For<ISmartPathFinder>(),
+            Substitute.For<INpcService>(),
+            Substitute.For<IItemService>(),
+            Substitute.For<IGroundItemBuilder>(),
+            CreateItemBuilder(),
+            Substitute.For<IWidgetScriptActivator>());
+        familiar.AttachToSummoner(summoner, new SummoningDto());
+        summoner.FamiliarScript.Returns(familiar);
+        return familiar;
+    }
+
+    private sealed class TestDeathCharacterCombat : CharacterCombat
+    {
+        public TestDeathCharacterCombat(ICharacter owner, IEntityService entityService)
+            : base(
+                owner,
+                entityService,
+                Substitute.For<IAnimationBuilder>(),
+                Substitute.For<IGraphicBuilder>(),
+                Substitute.For<IProjectileBuilder>(),
+                Substitute.For<IMapRegionService>(),
+                Substitute.For<IGroundItemBuilder>(),
+                Substitute.For<IHitSplatBuilder>(),
+                Substitute.For<IProjectilePathFinder>(),
+                Substitute.For<ISmartPathFinder>(),
+                Options.Create(new CombatOptions()))
+        {
+        }
+
+        public void AddKiller(ICreature killer)
+        {
+            AddAttacker(killer);
+            AddDamageToAttacker(killer, 1);
+        }
+
+        protected override int RenderDeath() => 1;
     }
 
     private static IItem CreateItem(int id, int count, bool tradeable = true, int tradeValue = 0)

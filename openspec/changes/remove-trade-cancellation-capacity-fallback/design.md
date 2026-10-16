@@ -14,7 +14,7 @@ Production offers enter the trade container only through Inventory item transfer
 
 - Use the existing refund transaction for every cancellation. Removing an Inventory-funded offer frees the capacity its refund needs; active-trade Inventory-credit actions must not consume that reserved capacity.
 - Check `ICharacter.IsBusy()` when the GameFrame money-pouch amount is submitted, immediately before calling `MoveToInventory`. A trade marks its participants busy, so the deferred UI action cannot use capacity reserved by funded offers.
-- Check `ICharacter.IsBusy()` in the Summoning Orb and Summoning Tab Take BoB handlers before calling `WithdrawAvailableToInventory`. Those persistent interfaces do not replace the trade interface or interrupt its session, so their direct familiar withdrawals must respect the same busy rule.
+- Block familiar withdrawals while a gameplay script or combat state prevents inventory changes. The familiar inventory screen opens an inventory overlay, so the broad `ICharacter.IsBusy()` check would also reject normal use of that screen. `TradingCharacterScript` reports both linked participants busy for the active session, preserving trade refund capacity without treating the familiar screen's own overlay as a gameplay lock.
 - Aura and cosmetic-aura unequip options bypass the default `ItemScript.ItemClickedInEquipment` path. They must call the same character interruption before unequipping, so an active trade refunds its offer before the equipment operation can use the freed Inventory slot.
 - Retain the `TryStageRefund` result guard. It protects transaction atomicity if an underlying domain mutation rejects; it is not a separate capacity preflight.
 - Remove `forceConservation` and the Rewards/Bank selection helper because supported production offer sources already establish the return capacity.
@@ -22,7 +22,7 @@ Production offers enter the trade container only through Inventory item transfer
 
 ## Risks / Trade-offs
 
-- Other interactive Inventory-credit paths were checked: world actions interrupt the character, and incompatible root inventory widgets close the trade interface before their operations run. Persistent UI withdrawal handlers are guarded while busy; Equipment-tab aura unequip uses interruption to refund first. If another supported gameplay operation can consume Inventory capacity during trade, it must be prevented or included in this design.
+- Other interactive Inventory-credit paths were checked: world actions interrupt the character, and incompatible root inventory widgets close the trade interface before their operations run. GameFrame pouch withdrawals use the existing busy check; familiar withdrawals use gameplay script/combat busy state and remain available from their own screen outside those states. Equipment-tab aura unequip uses interruption to refund first. If another supported gameplay operation can consume Inventory capacity during trade, it must be prevented or included in this design.
 
 ## Migration Plan
 

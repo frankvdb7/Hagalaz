@@ -876,13 +876,15 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    public void FamiliarInventory_WithdrawalsAreRejectedWhileOwnerIsBusy()
+    public void FamiliarInventory_WithdrawalsAreRejectedWhileGameplayScriptIsBusy()
     {
         using var scenario = new Scenario();
         scenario.DefineItem(101, stackable: false);
         var inventory = CreateInventory(scenario, 1);
         scenario.Owner.Inventory.Returns(inventory);
-        scenario.Owner.IsBusy().Returns(true);
+        var busyScript = Substitute.For<ICharacterScript>();
+        busyScript.IsBusy().Returns(true);
+        scenario.Owner.GetScripts().Returns([busyScript]);
         var familiar = new FamiliarInventoryContainer(scenario.Owner, StorageType.Normal, 1, scenario.Builder);
         familiar.Hydrate([new Hagalaz.Game.Abstractions.Logic.Characters.Model.HydratedItem(101, 1, 0, null)]);
         var familiarItem = familiar.Items[0]!;
@@ -897,6 +899,35 @@ public sealed class CharacterItemTransferTests
         scenario.Owner.Received(2).SendChatMessage(
             "Please finish what you're doing before withdrawing items from your familiar.");
         eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+    }
+
+    [TestMethod]
+    public void FamiliarInventory_WithdrawalsAreAllowedWhenInventoryOverlayIsOpen()
+    {
+        using var scenario = new Scenario();
+        scenario.DefineItem(101, stackable: false);
+        scenario.DefineItem(102, stackable: false);
+        var inventory = CreateInventory(scenario, 2);
+        scenario.Owner.Inventory.Returns(inventory);
+        // Character.IsBusy() also returns true for the inventory overlay used by the familiar screen.
+        scenario.Owner.IsBusy().Returns(true);
+        scenario.Owner.GetScripts().Returns(Array.Empty<ICharacterScript>());
+        scenario.Owner.Combat.IsDead.Returns(false);
+        scenario.Owner.Combat.IsInCombat().Returns(false);
+        var familiar = new FamiliarInventoryContainer(scenario.Owner, StorageType.Normal, 2, scenario.Builder);
+        familiar.Hydrate([
+            new Hagalaz.Game.Abstractions.Logic.Characters.Model.HydratedItem(101, 1, 0, null),
+            new Hagalaz.Game.Abstractions.Logic.Characters.Model.HydratedItem(102, 1, 1, null)
+        ]);
+
+        Assert.IsTrue(familiar.WithdrawFromFamiliarInventory(familiar.Items[0]!, 1));
+        familiar.WithdrawAvailableToInventory();
+
+        Assert.AreEqual(0, familiar.Items.TakenSlots);
+        Assert.AreEqual(1, inventory.Items.GetCountById(101));
+        Assert.AreEqual(1, inventory.Items.GetCountById(102));
+        scenario.Owner.DidNotReceive().SendChatMessage(
+            "Please finish what you're doing before withdrawing items from your familiar.");
     }
 
     [TestMethod]

@@ -342,6 +342,12 @@ Duel victory settlement MUST atomically transfer and consume all stakes exactly 
 - **WHEN** the combined coin stakes exceed a participant's remaining MoneyPouch capacity
 - **THEN** duel confirmation requires inventory capacity for the overflow coins alongside non-coin stakes and returned equipment
 
+#### Scenario: Confirmation projection preserves live stake stacks
+- **GIVEN** both participants have staked stackable coins
+- **WHEN** duel confirmation assembles the combined stake for capacity checks
+- **THEN** both source stake item references and counts remain unchanged
+- **AND** successful settlement credits only the originally staked amount
+
 #### Scenario: Active duel preserves confirmed payout capacity
 - **WHEN** a participant attempts to open Equipment or withdraw familiar items after duel combat starts
 - **THEN** the active combat script reports the character busy and those inventory-changing interactions are rejected

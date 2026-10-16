@@ -32,7 +32,7 @@ Completion MUST deliver both complete opposite offers and clear both escrow cont
 
 ### Requirement: Cancellation returns each offer to its owner
 
-Cancellation MUST return each offer to its original owner exactly once in one transaction and become terminal only after both refunds commit. Inventory capacity freed by funding a non-coin offer MUST remain available for cancellation while the trade is active. Persistent UI inventory-credit actions that could consume that capacity MUST be rejected while the character is busy; this includes GameFrame money-pouch withdrawals and Summoning Orb/Summoning Tab Take BoB actions. Equipment-tab aura unequip actions MUST interrupt and refund the trade before moving the aura into Inventory.
+Cancellation MUST return each offer to its original owner exactly once in one transaction and become terminal only after both refunds commit. Inventory capacity freed by funding a non-coin offer MUST remain available for cancellation while the trade is active. GameFrame money-pouch withdrawals and Summoning Orb/Summoning Tab Take BoB actions MUST NOT consume that capacity during an active trade, regardless of which interface is open. A familiar inventory screen's own overlay MUST NOT block normal withdrawals when no gameplay action is busy. Equipment-tab aura unequip actions MUST interrupt and refund the trade before moving the aura into Inventory.
 
 Terminal character detachment MUST invoke the trade script's detach callback before the final snapshot is captured. General script destruction callbacks MUST remain at actual character destruction.
 
@@ -50,7 +50,11 @@ Terminal character detachment MUST invoke the trade script's detach callback bef
 
 #### Scenario: A familiar withdrawal is requested during an active trade
 - **WHEN** a character uses Take BoB from the Summoning Orb or Summoning Tab while a trade is active
-- **THEN** the busy check rejects the withdrawal before the familiar or Inventory changes, leaving capacity available to refund the offer
+- **THEN** the active trade keeps both participants gameplay-busy, the withdrawal is rejected before the familiar or Inventory changes, and capacity remains available to refund the offer
+
+#### Scenario: A familiar withdrawal is requested from its open inventory screen
+- **WHEN** a character withdraws an item or uses Take BoB from the familiar inventory screen outside a gameplay-busy state
+- **THEN** the familiar's inventory overlay does not block the withdrawal and fitting items move to Inventory
 
 #### Scenario: An aura is unequipped during an active trade
 - **WHEN** a character chooses an aura unequip option from the Equipment tab while a funded offer is active

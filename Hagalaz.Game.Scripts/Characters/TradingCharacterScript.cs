@@ -93,6 +93,10 @@ namespace Hagalaz.Game.Scripts.Characters
         /// </summary>
         public bool TradeSession { get; private set; }
 
+        /// <inheritdoc />
+        public override bool IsBusy() =>
+            TradeSession || _linkedTradeSession?.State is TradeState.Active or TradeState.Completing;
+
         /// <summary>
         ///     Contains trade target.
         /// </summary>
