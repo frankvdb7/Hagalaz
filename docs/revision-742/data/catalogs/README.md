@@ -110,9 +110,9 @@ The [full combat dossier](../../reference/deep-combat-character-mechanics.md) sp
 |---|---:|---|
 | [client-server-outbound-packet-crosswalk.csv](client-server-outbound-packet-crosswalk.csv) | **108** | Client-to-server opcode 0..107; client vs server body framing **108/108 exact matches**, **75** server-registered decoder opcodes; remaining 33 require intent review, not automatic implementation |
 | [server-to-client-encoder-crosswalk.csv](server-to-client-encoder-crosswalk.csv) | **71** | All **59** concrete server encoder classes; 67 distinct opcode values, 70 source framing-kind matches and one clear mismatch at **162**; payload bytes and runtime path not proved |
-| [interface-cs2-var-state-source-calls.csv](interface-cs2-var-state-source-calls.csv) | **75** | Literal CS2, standard varp, varbit or global CS2 calls from **17 contributing source files (25 inspected)**, not exhaustive dynamic calls or client-cache verified |
+| [interface-cs2-var-state-source-calls.csv](interface-cs2-var-state-source-calls.csv) | **75** | Literal CS2, standard varp or global CS2 calls from **17 contributing source files (25 inspected)**, not exhaustive dynamic calls or client-cache verified |
 | [client-protocol-integration-findings.csv](client-protocol-integration-findings.csv) | **8** | Prioritized source findings and focused runtime test expectations |
+| [client-varbit-source-calls.csv](client-varbit-source-calls.csv) | **29** | `SendBitConfiguration` calls in 12 contributing gameplay/service files: **18** literal ID calls (14 unique IDs) and **11** expressions requiring runtime resolution; not a full index-22 cache dump |
 
 These are Hagalaz-versus-GameClient **source reconciliation records**, not new client opcode authorities; consult the linked [dossier](../../reference/deep-client-interface-cs2-protocol-integration.md). One confirmed declaration error is the enclosed zone update's server Fixed framing vs client variable-short (162). The nested opcode-writer metadata path also requires direct tests.
 
-| [client-varbit-source-calls.csv](client-varbit-source-calls.csv) | **29** | `SendBitConfiguration` calls in 12 contributing gameplay/service files: **18** literal ID calls (14 unique IDs) and **11** expressions requiring runtime resolution; not a full index-22 cache dump |
