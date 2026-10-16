@@ -7,7 +7,7 @@
 | Dataset | Rows | Meaning |
 |---|---:|---|
 | [Item script registrations](item-script-registrations.csv) | 281 | 281 distinct item IDs declared by 69 source files |
-| [NPC script registrations](npc-script-registrations.csv) | 384 | 383 distinct NPC IDs declared by 123 source files |
+| [NPC script registrations](npc-script-registrations.csv) | 384 | 383 distinct NPC IDs declared by 122 active source files |
 | [Registration review](registration-review.csv) | 3 | Abnormal or symbolic attributes requiring review |
 | [NPC overlaps](npc-registration-overlaps.csv) | 1 | Same definition ID registered by more than one NPC script; inspect runtime ownership |
 
