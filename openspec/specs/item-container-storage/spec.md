@@ -324,7 +324,7 @@ MoneyPouch additions, removals, inventory transfers, bank deposits, shop purchas
 - **THEN** source and destination remain unchanged and the script does not publish a stake change
 
 ### Requirement: Duel victory stakes are credited atomically
-Duel victory settlement MUST atomically transfer and consume all stakes exactly once; if any destination rejects the payout, all stakes and winner storage MUST remain unchanged. Before confirmation, each participant MUST have inventory capacity for non-coin stakes, returned equipment, and only coins exceeding their remaining MoneyPouch capacity. During active combat, the participant MUST be reported busy so ordinary Equipment access and familiar withdrawals cannot consume confirmed capacity.
+Duel victory settlement MUST atomically transfer and consume all stakes exactly once; if any destination rejects the payout, all stakes and winner storage MUST remain unchanged. Before confirmation, each participant MUST have inventory capacity for non-coin stakes, returned equipment, and only coins exceeding their remaining MoneyPouch capacity. While a duel session is active, the participant MUST be reported busy so ordinary Equipment access and familiar withdrawals cannot consume inventory capacity reserved for a refund or confirmed payout.
 
 #### Scenario: Duel confirmation includes returned equipment in payout capacity
 - **WHEN** rule-removed equipment and the full stake each fit in a participant's inventory separately but do not fit together
@@ -347,6 +347,11 @@ Duel victory settlement MUST atomically transfer and consume all stakes exactly 
 - **WHEN** duel confirmation assembles the combined stake for capacity checks
 - **THEN** both source stake item references and counts remain unchanged
 - **AND** successful settlement credits only the originally staked amount
+
+#### Scenario: Pre-combat duel preserves stake refund capacity
+- **WHEN** a participant attempts to withdraw familiar items while a duel session has funded stakes
+- **THEN** the active duel script reports the character busy and the familiar withdrawal is rejected
+- **AND** cancelling or detaching the session refunds the original stakes
 
 #### Scenario: Active duel preserves confirmed payout capacity
 - **WHEN** a participant attempts to open Equipment or withdraw familiar items after duel combat starts

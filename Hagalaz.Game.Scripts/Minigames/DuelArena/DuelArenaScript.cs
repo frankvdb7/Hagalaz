@@ -72,9 +72,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         public DuelRules CurrentRules { get; private set; }
 
         /// <summary>
-        ///     Contains boolean if trade session is currently active.
+        ///     Indicates whether a duel session is active.
         /// </summary>
         private bool DuelSession { get; set; }
+
+        public override bool IsBusy() => DuelSession;
 
         /// <summary>
         ///     Contains a value indicating whether this instance is staking.

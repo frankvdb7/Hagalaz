@@ -415,19 +415,19 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 EventHappened? happ = null;
                 happ = character.RegisterEventHandler(new EventHappened<AttackAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        if (e.Style == AttackStyle.MeleeAccurate || e.Style == AttackStyle.MeleeAggressive ||
-                            e.Style == AttackStyle.MeleeControlled || e.Style == AttackStyle.MeleeDefensive)
-                        {
-                            {
-                                character.SendChatMessage("Melee has been disabled.");
-                                return true;
-                            }
-                        }
+                        character.UnregisterEventHandler<AttackAllowEvent>(happ!);
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<AttackAllowEvent>(happ!);
+                    if (e.Style == AttackStyle.MeleeAccurate || e.Style == AttackStyle.MeleeAggressive ||
+                        e.Style == AttackStyle.MeleeControlled || e.Style == AttackStyle.MeleeDefensive)
+                    {
+                        character.SendChatMessage("Melee has been disabled.");
+                        return true;
+                    }
+
                     return false;
                 }));
             }
@@ -437,19 +437,19 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 EventHappened? happ = null;
                 happ = character.RegisterEventHandler(new EventHappened<AttackAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        if (e.Style == AttackStyle.RangedAccurate || e.Style == AttackStyle.RangedLongRange ||
-                            e.Style == AttackStyle.RangedRapid)
-                        {
-                            {
-                                character.SendChatMessage("Ranged has been disabled.");
-                                return true;
-                            }
-                        }
+                        character.UnregisterEventHandler<AttackAllowEvent>(happ!);
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<AttackAllowEvent>(happ!);
+                    if (e.Style == AttackStyle.RangedAccurate || e.Style == AttackStyle.RangedLongRange ||
+                        e.Style == AttackStyle.RangedRapid)
+                    {
+                        character.SendChatMessage("Ranged has been disabled.");
+                        return true;
+                    }
+
                     return false;
                 }));
             }
@@ -459,18 +459,18 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 EventHappened? happ = null;
                 happ = character.RegisterEventHandler(new EventHappened<AttackAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        if (e.Style == AttackStyle.MagicDefensive || e.Style == AttackStyle.MagicNormal)
-                        {
-                            {
-                                character.SendChatMessage("Magic has been disabled.");
-                                return true;
-                            }
-                        }
+                        character.UnregisterEventHandler<AttackAllowEvent>(happ!);
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<AttackAllowEvent>(happ!);
+                    if (e.Style == AttackStyle.MagicDefensive || e.Style == AttackStyle.MagicNormal)
+                    {
+                        character.SendChatMessage("Magic has been disabled.");
+                        return true;
+                    }
+
                     return false;
                 }));
             }

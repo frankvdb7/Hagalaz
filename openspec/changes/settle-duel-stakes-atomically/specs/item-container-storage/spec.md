@@ -23,6 +23,11 @@ Duel victory settlement MUST transfer all stake items to the winner as one atomi
 - **THEN** both source stake item references and counts remain unchanged
 - **AND** successful settlement credits only the originally staked amount
 
+#### Scenario: Pre-combat duel preserves stake refund capacity
+- **WHEN** a participant attempts to withdraw familiar items while a duel session has funded stakes
+- **THEN** the active duel script reports the character busy and the familiar withdrawal is rejected
+- **AND** cancelling or detaching the session refunds the original stakes
+
 #### Scenario: Active duel preserves confirmed payout capacity
 - **WHEN** a participant attempts to open Equipment or withdraw familiar items after duel combat starts
 - **THEN** the active combat script reports the character busy and those inventory-changing interactions are rejected

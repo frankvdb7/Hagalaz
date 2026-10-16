@@ -39,7 +39,7 @@ The affected runtime paths are `DuelRules.CheckRules` during duel confirmation a
 - Duel confirmation accepts coin stakes that fit in each participant's MoneyPouch without requiring Inventory space for those coins, while still checking Inventory for coin overflow.
 - A failed transfer leaves both stake containers, the winner's inventory, and the winner's pouch unchanged.
 - If payout fails because inventory capacity changed during combat, the victory stage does not advance, the participant remains in the arena, and the stakes remain available for another settlement attempt.
-- Once combat starts, the active duel reports the participant as busy so equipment access and familiar withdrawals cannot consume inventory capacity already checked during confirmation.
+- While a duel session is active, its character script reports the participant as busy so equipment access and familiar withdrawals cannot consume inventory capacity reserved for a stake refund or confirmed payout.
 - A stage-flow regression funds both stakes through the offer handlers, confirms the duel, attempts capacity-consuming interactions during combat, then verifies victory settles both stakes.
 - Repeating settlement after success does not award any stake item or coin a second time.
 - Existing staking and cancellation-refund behavior remains unchanged.
