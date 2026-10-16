@@ -46,3 +46,7 @@ For each case record \`case_id\`, server/client commit, approved fixture ZIP SHA
 **Full feature completion gate:** approved cache indexes 3/12/22 decoded, actual interface/CS2/varbit joins produced, exact transform/body-length tests including zone 162 pass, all 32 scenarios executed or evidence-waived, relevant gameplay flows observed end-to-end, source mismatches fixed using current owners. **No C# or client runtime code should be changed in this documentation-only PR.**
 
 **Non-goals:** second packet registry in GameClient, mass rename/deobfuscation, speculative opcode interpretations, automatic handler generation for 33 unregistered opcodes, replacing the CS2 VM, introducing a parallel widget event pipeline.
+
+## Source varbit test inputs
+
+The [29 observed varbit-send calls](../data/catalogs/client-varbit-source-calls.csv) provide an initial test driver for P25: 14 distinct literal candidate IDs across 18 literal call occurrences, plus 11 calculated-ID expressions. Resolve runtime expressions only through their actual owner and pinned source fixtures, then assert bitwise update against the unchanged revision-742 client.

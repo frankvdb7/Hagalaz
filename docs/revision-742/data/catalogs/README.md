@@ -114,3 +114,5 @@ The [full combat dossier](../../reference/deep-combat-character-mechanics.md) sp
 | [client-protocol-integration-findings.csv](client-protocol-integration-findings.csv) | **8** | Prioritized source findings and focused runtime test expectations |
 
 These are Hagalaz-versus-GameClient **source reconciliation records**, not new client opcode authorities; consult the linked [dossier](../../reference/deep-client-interface-cs2-protocol-integration.md). One confirmed declaration error is the enclosed zone update's server Fixed framing vs client variable-short (162). The nested opcode-writer metadata path also requires direct tests.
+
+| [client-varbit-source-calls.csv](client-varbit-source-calls.csv) | **29** | `SendBitConfiguration` calls in 12 contributing gameplay/service files: **18** literal ID calls (14 unique IDs) and **11** expressions requiring runtime resolution; not a full index-22 cache dump |

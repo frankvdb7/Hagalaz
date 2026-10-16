@@ -140,3 +140,5 @@ Source-derived numeric rows are under [data/catalogs](../data/catalogs/README.md
 - [32 explicit protocol/interface/CS2 regression cases](client-protocol-integration-verification.md).
 - [108-row client-outgoing/server-decoder crosswalk](../data/catalogs/client-server-outbound-packet-crosswalk.csv), [71 server-encoder/client-incoming entries](../data/catalogs/server-to-client-encoder-crosswalk.csv) and [75 literal server UI state calls](../data/catalogs/interface-cs2-var-state-source-calls.csv).
 - [Eight cross-boundary source findings](../data/catalogs/client-protocol-integration-findings.csv), including opcode 162 framing and nested writer metadata.
+
+- [29 varbit-send source call sites](../data/catalogs/client-varbit-source-calls.csv) preserve literal IDs separately from computed expressions; physical index-22 decoding remains open.

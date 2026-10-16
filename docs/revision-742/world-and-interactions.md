@@ -40,3 +40,5 @@ The [world-object implementation dossier](reference/deep-world-objects.md) separ
 ## P1 object and region interaction protocol
 
 The [protocol integration dossier](reference/deep-client-interface-cs2-protocol-integration.md#4-packet-framing-reconciliation-and-protocol-state-cautions) documents the serious **opcode 162 enclosed zone update** declared-framing mismatch and embedded encoder metadata ownership risk. Test actual grouped object/ground-item/projectile updates with the unchanged client before claiming zone map parity. Server/Client 742 interaction and component use-on packets also require exact transforms and collision validation.
+
+Object scripts may select a varbit dynamically from `Owner.Definition.VarpBitFileId`; the [source call inventory](data/catalogs/client-varbit-source-calls.csv) separates these dynamic values from hard-coded varbits. Verify against decoded index-22 definitions and object transformation state; do not substitute static script-registration IDs.
