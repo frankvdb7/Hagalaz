@@ -49,3 +49,7 @@ Produce a joined `npc_id,cache_raw_hash,cache_name,actions,combat_level,size,tra
 Required tests: attacker range/LOS, minion spawn count, faction aggression/multicombat, no loot on inaccessible/unowned kill, exactly-once drop on death, seeded weighted drop and Always effects, nested loot cycle guard, pickpocket thresholds (double/triple/quadruple, 255 sentinel), inventory full and cancel, stale NPC handle/click options, shop stock/payment conservation, boss phase cleanup, restart state and no ghost NPC registrations.
 
 **Not done:** complete physical index-18 cache definitions, populated loot item lists and weights, all shops/quest dialogue mappings, live NPC spawn coordinates, every boss's historical mechanics and packet parity. This dossier records source ownership and tests to finish those gaps, not completion of the entire gameplay census.
+
+## 7. Source-ID coverage and next data joins
+
+The [104 NPC pickpocket mapping records](../data/catalogs/npc-pickpocket-source-rules.csv) preserve one numeric NPC per explicit `PickPocketDefinition` row, including source-listed cave goblin ID `5768`. Compare with [static NPC script registration IDs](../data/catalogs/npc-script-registrations.csv) to find scanner omissions or factory precedence; do not infer actual spawn coverage. After supplying populated DB rows, export `npc_loot` and `npc_loot_items` **with table count, child links, probability and Always semantics** and test `LootStore`'s NPC max-result initialization before claiming weighted roll parity.

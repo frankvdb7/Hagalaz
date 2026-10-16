@@ -28,3 +28,7 @@ Equipment slots, skill/quest requirements, worn bonuses, two-handed weapon confl
 
 - [Historical feature reference](https://wiki.darkan.org/Toolbelt)
 - Read [implementation conventions](implementation-conventions.md) before modifying runtime state or persistence.
+
+## Revision-742 source-backed equipment relationships
+
+See [item relationship implementation dossier](reference/deep-item-relationships.md) and the [140 degradation stage records](data/catalogs/equipment-degradation-script-stages.csv). Explicit item note/lend/bought stack rules and source equipment requirements are explained there; no complete cache-wide variant graph has been decoded in this repository pass.

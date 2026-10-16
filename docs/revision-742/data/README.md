@@ -45,3 +45,7 @@ The later expansion adds 30 standard prayers, 23 offering items, 23 cooked fish 
 ## Numeric item and NPC source catalog
 
 The [script registration catalogs](catalogs/README.md) provide source-backed, numeric IDs for a documented subset of items and NPCs; their presence in the target cache has **not** been established. They are not counted among the historical skill-candidate recipe rows, and do not alter the 48 CSV gameplay dataset count.
+
+## Direct source-extracted P1 catalogs
+
+The [numeric content catalogs](catalogs/README.md) now cover item script registrations, potion-dose chains, equipment degradation stages, NPC script and pickpocket registrations, and world-object script IDs/opcode constants. All numeric records carry **repository-source evidence only**; they must not be counted as verified index-16/18/19 fixture definitions or as part of the 705 historical candidates.

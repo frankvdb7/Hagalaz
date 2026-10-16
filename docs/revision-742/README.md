@@ -144,3 +144,10 @@ The [NPC spawn-origin inventory](data/catalogs/npc-spawn-sources.csv) distinguis
 ## First three P0 evidence tasks
 
 The [source-to-data reconciliation workflow](tools/README.md) includes a deterministic Python comparer, SQL exports, DB-only integrity checks and synthetic unit tests. The [P0 task status table](reference/items-npcs-remaining-work.md#p0-status-after-this-work-16-october-2026) records why complete item/NPC definition, EF and spawn parity cannot yet be claimed without the approved LFS asset and populated MySQL data.
+
+## P1 item relationships, NPC gameplay and world objects (source-backed)
+
+- [Item identity/variants, equipment, lending, degradation and consumables](reference/deep-item-relationships.md), with [140 degradation-stage transitions](data/catalogs/equipment-degradation-script-stages.csv), [104 potion-dose stages](data/catalogs/potion-dose-script-stages.csv) and [10 script attribute/chain mismatches](data/catalogs/equipment-script-registration-gaps.csv).
+- [NPC combat, weighted loot, pickpocketing, shops, dialogue and bosses](reference/deep-npc-gameplay.md), including [104 source-backed pickpocket NPC rules](data/catalogs/npc-pickpocket-source-rules.csv).
+- [World-object definitions, static/DB placements, transformations, collision and feature joins](reference/deep-world-objects.md), with [321 script-registered object IDs](data/catalogs/object-script-registrations.csv) and [68 codec opcode constants](data/catalogs/object-opcode-constants.csv).
+- [Remaining evidence and runtime acceptance gates](reference/p1-content-remaining-work.md). These are **source inventories and implementation dossiers**, not a fully decoded revision-742 client cache, live world DB or gameplay-complete content pack. The earlier 705 historical candidate records remain independent of these script-source catalog records.

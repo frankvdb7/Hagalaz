@@ -117,3 +117,12 @@ All values are candidate period data; no numeric IDs have been claimed without t
 
 - [Existing script-to-ID catalog, decoder/DB ownership and provenance](../data/catalogs/README.md)
 - [Prioritized evidence required to complete item and NPC parity](items-npcs-remaining-work.md)
+
+## Focused P1 content dossiers
+
+- [Item relations and equipment/consumable states](deep-item-relationships.md)
+- [NPC combat, loot, interactions and pickpocketing](deep-npc-gameplay.md)
+- [Object definitions, terrain placements and collision](deep-world-objects.md)
+- [P1 data/verification handoff and unresolved findings](p1-content-remaining-work.md)
+
+Source-derived numeric rows are under [data/catalogs](../data/catalogs/README.md), separate from the historical candidate research tables.

@@ -57,3 +57,11 @@ Use the [read-only archive/DB reconciliation tooling](../tools/README.md) as an 
 Regression set: stack overflow/underflow; note conversion preserving item counts; missing template and variant loops; partial bank and inventory; loan/degrade/delete state on logout; equipment set bonuses after unequip; potion combine with odd quantities; untrusted item-click slots; quest restriction in both client presentation and server enforcement; concurrent trade/duel/equipment integrity.
 
 **Not done:** full cache-wide link extraction, current populated DB equipment requirements/bonuses, comprehensive item recipes, live UI/packet parity and historical validation. Do not report these complete solely from the 281 script registrations.
+
+## 7. Extracted implementation datasets and registration questions
+
+- [140 sourced degradation-stage records](../data/catalogs/equipment-degradation-script-stages.csv) cover `Ahrim`, `Akrisae`, `Dharok`, `Guthan`, `Karil`, `Torag`, and `Verac`: each contains 20 explicitly enumerated IDs and an implementation-derived successor. Where a successor falls outside the declared 20-ID chain, `next_in_same_declared_chain=no` flags it for cache/runtime verification rather than inventing a last-stage name or assuming deletion.
+- [104 ordered potion-dose states](../data/catalogs/potion-dose-script-stages.csv) extract 26 concrete four-ID script attributes, retaining the **array order** consumed by `Potion.ItemClickedInInventory`; the final transition is to vial `229` from `PotionConstants.Vial`.
+- [10 missing equipment-attribute members](../data/catalogs/equipment-script-registration-gaps.csv) affect the weapon/crossbow section of `GuthanEquipment` and `KarilEquipment`. Each script's internal degradation list includes 20 IDs, but its `EquipmentScriptMetaData` contains only 15. These may be assigned to a specialized weapon script, but **no assumption is made**: verify `IEquipmentScriptProvider`'s selected handler and its set-bonus/degrade hooks in a startup regression before changing attributes.
+
+These rows have stronger **repository source** provenance than a historical candidate list, but they are not a physical cache export. Whether every derived successor, full/empty vial variant or equipment script registration is valid in the target binary must still be proven.

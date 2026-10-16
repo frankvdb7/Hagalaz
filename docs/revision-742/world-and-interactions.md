@@ -32,3 +32,7 @@ Revision-specific map collision, terrain locations, region loading, ground-item 
 ## Numeric NPC registration inventory
 
 The [NPC script registration CSV](data/catalogs/npc-script-registrations.csv) maps concrete IDs to existing NPC scripts; it is a repository inventory, not NPC spawn data or a 742 client cache dump. See the [NPC and item parity backlog](reference/items-npcs-remaining-work.md).
+
+## World-object placement and collision source audit
+
+The [world-object implementation dossier](reference/deep-world-objects.md) separates physical index-16 definitions, index-5 static placements and `gameobject_spawns` overlays. The [321 source-registered handler IDs](data/catalogs/object-script-registrations.csv) and [object opcode constants](data/catalogs/object-opcode-constants.csv) are not cache/world placement records. Map collision, doors, skill objects and travel destinations still require direct fixture evidence.

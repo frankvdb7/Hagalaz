@@ -27,3 +27,7 @@ Pre-20-November attack-style combat: melee, ranged and magic attacks, attack spe
 
 - [Historical feature reference](https://wiki.darkan.org/Evolution_of_Combat)
 - Read [implementation conventions](implementation-conventions.md) before modifying runtime state or persistence.
+
+## NPC source data and drop behavior
+
+The [NPC gameplay dossier](reference/deep-npc-gameplay.md) details source code paths for aggression, attack/defence/death animation, weighted NPC drops, pickpocketing, shop NPCs and bosses. [104 numeric pickpocket rules](data/catalogs/npc-pickpocket-source-rules.csv) are extracted from current server source; full loot weights and NPC mechanics remain awaiting the actual database and pinned-cache validation.

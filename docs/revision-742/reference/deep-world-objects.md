@@ -67,3 +67,7 @@ Source-backed examples:
 5. Test index shard boundaries 255/256, sparse IDs, 8x8 dynamic part rotation, bridge/plane, both sources placing an object on one tile, collisions across wall orientation, door rotation twice, expired/hidden transforms, failure/rollback and immutable static region source.
 
 **Still missing:** complete index-16/object cache roster, full index-5 map and region placements, live DB spawns and world dimensions, decoded transformation graph, full collision maps, all agriculture/mining/tree content and 742 client click/scene packet parity. Data collection must precede any claim of full world-object completion.
+
+## 7. Audited handler/opcode coverage
+
+The [321 numeric object script registration rows](../data/catalogs/object-script-registrations.csv) cover area gates, banks, traps, altars, minigames and training objects; script ownership/ID is not evidence that a region contains an object. The [68 codec opcode constants](../data/catalogs/object-opcode-constants.csv) document which decoder branches exist, not which branches were observed in the missing 742 archive. `GameObjectScriptMetaData` on `GoldBar.rsitem.cs` was excluded as an attribute/class-domain mismatch. The world census is unfinished until index 16, index 5 landscape groups, optional DB placements and runtime script-generated instances are joined.

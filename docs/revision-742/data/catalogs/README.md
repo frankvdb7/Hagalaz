@@ -75,3 +75,16 @@ The runtime provider plus all registered factory outputs are authoritative for *
 ## Spawn origin classes (source audited)
 
 [Source-backed spawn ownership inventory](npc-spawn-sources.csv) separates persistent database spawns from temporary summoning, boss/minigame, emote and admin-generated NPCs. These are **source-backed spawn mechanisms, not a list of actual persisted instances**. In particular, entity script builders must not be counted as NPC spawns when they only call Build. Dynamic spawns are instance/scenario owned, not rows in npc_spawns.
+
+## New P1 source-extracted datasets
+
+| File | Records | Scope and constraints |
+|---|---:|---|
+| [Item equipment degradation stages](equipment-degradation-script-stages.csv) | 140 | Seven script families, four equipment parts by five source-declared stages, exact next-ID rules, 22500 noninitial ticks and 0.80 death factor; not cache verified |
+| [Potion dose stages](potion-dose-script-stages.csv) | 104 | 26 named four-ID sequences; dose transitions based on base `Potion` script, last dose to vial ID 229; no claim that all drinks/actions are historically validated |
+| [Equipment script coverage review](equipment-script-registration-gaps.csv) | 10 | Five source-chain IDs absent from each of two equipment attributes; may be intentional specialized ownership, requires runtime check |
+| [NPC pickpocket source rules](npc-pickpocket-source-rules.csv) | 104 | 18 archetypes, level/XP/fail damage and extra-loot thresholds; values are server source, not historic proof |
+| [World object script registrations](object-script-registrations.csv) | 321 | Numeric object IDs and index-16 shard coordinates registered in 116 object-script files; not actual placements |
+| [Object opcode names](object-opcode-constants.csv) | 68 | Decoder constant names/values, not observed fixture opcodes |
+
+The object-script scanner excluded the `GoldBar.rsitem.cs` class because its declared `GameObjectScriptMetaData` sits on an `ItemScript`, not a working object handler. It is documented as a source anomaly in [world objects](../../reference/deep-world-objects.md). Caveat: search-derived registrations can miss dynamic registrations and future source files; the CSVs should be compared against reflection-based startup inventories and the pinned cache before being called exhaustive.
