@@ -31,3 +31,7 @@ Standard and alternate spellbooks, rune consumption, staff-provided runes, autoc
 ## Combat spell validation
 
 [Ancient combat spell source arrays](data/catalogs/combat-ancient-spell-script-rules.csv) capture 20 explicit source variants across Blood, Ice, Miasmic, Shadow and Smoke. [P1 combat dossier](reference/deep-combat-character-mechanics.md#5-combat-magic-spells-autocast-and-rune-ownership) records source-only casting speed, rune debit, spell selection and the suspected double-applied magic maximum. The populated `skills_magic_combat_definitions` records and 742 client interface/packet mapping are not available here.
+
+## P1 spellbook UI and CS2/varbit binding
+
+The [UI/CS2 and varbit source crosswalk](reference/deep-client-interface-cs2-protocol-integration.md) maps index-3 spellbook components, index-12 script execution, index-22 varbits and normal vs global client state transport. [P19–P26 tests](reference/client-protocol-integration-verification.md) must prove spellbook layout, autocast/runecost UI events and server-authorized combat choices. Script names and signatures remain unverified until the pinned cache is decoded.

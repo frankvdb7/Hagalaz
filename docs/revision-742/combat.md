@@ -35,3 +35,7 @@ The [NPC gameplay dossier](reference/deep-npc-gameplay.md) details source code p
 ## Source-backed P1 #9 mechanics verification
 
 The [combat and character mechanics dossier](reference/deep-combat-character-mechanics.md) covers actual source hit/accuracy/max-hit formulas, equipment and magic speed, NPC behavior, prayers, specials, rune costs, familiars, death and Wilderness/duel authorization. The [34-case verification matrix](reference/combat-verification-matrix.md) and [14 source findings](data/catalogs/combat-mechanics-review-findings.csv) are the next test and issue triage gates. See [49 weapon special cost records](data/catalogs/combat-special-energy-script-registrations.csv), [50 prayer constants](data/catalogs/combat-prayer-source-constants.csv) and [20 ancient spell rule records](data/catalogs/combat-ancient-spell-script-rules.csv). These describe current code, not completed historic 742 parity.
+
+## P1 client combat tab and protocol integration
+
+[UI, CS2, varbit and packet ownership](reference/deep-client-interface-cs2-protocol-integration.md) traces attack-style configuration, special UI data, character actions and server widget dispatch. [Cases P04–P09 and P29](reference/client-protocol-integration-verification.md) require actual attack-style, prayer/special and client UI update observations; source-only opcode matches do not validate attack behavior.

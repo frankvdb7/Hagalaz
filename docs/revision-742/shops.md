@@ -28,3 +28,7 @@ Shop stock, buy/sell price, general vs specialist stock, restocking, coin pouch 
 
 - Exact historical values and component mappings remain fixture-gated; do not replace unknowns with later-client defaults.
 - Read [implementation conventions](implementation-conventions.md) before modifying runtime state or persistence.
+
+## P1 shop interface integration
+
+[Client/server UI dossier](reference/deep-client-interface-cs2-protocol-integration.md) and [call-site catalog](data/catalogs/interface-cs2-var-state-source-calls.csv) map shop configuration and client script ID **149** requests, component actions and item-container updates. Verify index-3/12 definitions and [case P28](reference/client-protocol-integration-verification.md) with real buy/sell state mutation; do not infer exact script signature from number alone.

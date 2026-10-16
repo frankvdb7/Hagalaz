@@ -31,3 +31,7 @@ Earlier prayer and curse books, activation restrictions, mutually exclusive effe
 ## Prayer and curse source constants
 
 [50 per-prayer/curse rows](data/catalogs/combat-prayer-source-constants.csv) record 30 standard and 20 curse level thresholds and **base** drain intervals from the server constants. See [P1 combat prayer explanation](reference/deep-combat-character-mechanics.md#4-prayer-and-curse-mechanics). All require comparison to the client and equipped prayer bonus; a listed drain is not an effective drain rate.
+
+## P1 prayer UI configuration and packet trace
+
+The [client/server interface integration](reference/deep-client-interface-cs2-protocol-integration.md) distinguishes standard varp updates (10/82), varbit updates (156/99), global CS2 int (22/152) and dynamic widget trigger dispatch; the [test matrix](reference/client-protocol-integration-verification.md) requires prayer-enable/disable client-visible state to match server-authorized prayers. Actual index-22 bitfield IDs require pinned cache evidence.

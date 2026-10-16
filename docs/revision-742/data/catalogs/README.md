@@ -103,3 +103,14 @@ The [boss source audit](npc-boss-script-audit.csv) classifies 11 representative 
 | [Combat code review findings](combat-mechanics-review-findings.csv) | 14 | Source-derived risk/test hypotheses, not passing runtime test outcomes |
 
 The [full combat dossier](../../reference/deep-combat-character-mechanics.md) specifies how item-definition speeds, hit rolls, magic, familiars and PvP permissions interact. Distinguish source rows from historical candidates or physically present binary resource IDs; do not import undocumented default values as revision-specific content.
+
+## P1 #10 — interface, CS2 and protocol cross-repository data
+
+| Dataset | Rows | Source check and coverage |
+|---|---:|---|
+| [client-server-outbound-packet-crosswalk.csv](client-server-outbound-packet-crosswalk.csv) | **108** | Client-to-server opcode 0..107; client vs server body framing **108/108 exact matches**, **75** server-registered decoder opcodes; remaining 33 require intent review, not automatic implementation |
+| [server-to-client-encoder-crosswalk.csv](server-to-client-encoder-crosswalk.csv) | **71** | All **59** concrete server encoder classes; 67 distinct opcode values, 70 source framing-kind matches and one clear mismatch at **162**; payload bytes and runtime path not proved |
+| [interface-cs2-var-state-source-calls.csv](interface-cs2-var-state-source-calls.csv) | **75** | Literal CS2, standard varp, varbit or global CS2 calls from **25 sampled source files**, not exhaustive dynamic calls or client-cache verified |
+| [client-protocol-integration-findings.csv](client-protocol-integration-findings.csv) | **8** | Prioritized source findings and focused runtime test expectations |
+
+These are Hagalaz-versus-GameClient **source reconciliation records**, not new client opcode authorities; consult the linked [dossier](../../reference/deep-client-interface-cs2-protocol-integration.md). One confirmed declaration error is the enclosed zone update's server Fixed framing vs client variable-short (162). The nested opcode-writer metadata path also requires direct tests.

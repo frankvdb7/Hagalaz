@@ -133,3 +133,10 @@ Source-derived numeric rows are under [data/catalogs](../data/catalogs/README.md
 - [34 deterministic and integration test scenarios, acceptance criteria and evidence gates](combat-verification-matrix.md)
 - [14 prioritized source-review findings](../data/catalogs/combat-mechanics-review-findings.csv) requiring focused test confirmation and owner-local fixes
 - [Special weapon costs](../data/catalogs/combat-special-energy-script-registrations.csv), [prayer book level/drain constants](../data/catalogs/combat-prayer-source-constants.csv), and [ancient spell variants](../data/catalogs/combat-ancient-spell-script-rules.csv) — **repository source only**
+
+## P1 #10 — Revision-742 UI/CS2/varbit/protocol
+
+- [Client-to-server/source-state and server-to-client integration dossier](deep-client-interface-cs2-protocol-integration.md): index-3 components, index-12 scripts, index-22 varbits, packet framing, widget dispatch and live ownership boundaries.
+- [32 explicit protocol/interface/CS2 regression cases](client-protocol-integration-verification.md).
+- [108-row client-outgoing/server-decoder crosswalk](../data/catalogs/client-server-outbound-packet-crosswalk.csv), [71 server-encoder/client-incoming entries](../data/catalogs/server-to-client-encoder-crosswalk.csv) and [75 literal server UI state calls](../data/catalogs/interface-cs2-var-state-source-calls.csv).
+- [Eight cross-boundary source findings](../data/catalogs/client-protocol-integration-findings.csv), including opcode 162 framing and nested writer metadata.

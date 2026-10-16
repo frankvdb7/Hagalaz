@@ -33,3 +33,7 @@ Twenty-eight slot inventory, item identity, stackability, movement, examine, ite
 ## Direct item identifiers from the repository
 
 The [numeric item registration catalog](data/catalogs/item-script-registrations.csv) provides source-linked ID references for existing scripts, including checked cache group/file arithmetic. Treat these as script registrations only until direct 742 cache presence and item definition properties have been validated. See [item/NPC evidence methodology](data/catalogs/README.md).
+
+## P1 inventory UI and item-on-target bridge
+
+The [client interaction dossier](reference/deep-client-interface-cs2-protocol-integration.md) maps the packed widget ID, option 1..10 opcode table, action extra fields, drag/use-on packet decoding and \`ComponentHub\`/widget handler ownership. The distinct full/delta container opcodes **67/94** need [case P27–P28](reference/client-protocol-integration-verification.md) tests against client index-3 component definitions, index-12 UI scripts and actual item-container state. Packet payload extra fields are not universally item slots.

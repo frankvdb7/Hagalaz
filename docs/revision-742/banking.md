@@ -28,3 +28,7 @@ Bank tabs, withdraw as note/item, placeholders, rearranging, deposit-all from in
 
 - [Historical feature reference](https://wiki.darkan.org/Bank)
 - Read [implementation conventions](implementation-conventions.md) before modifying runtime state or persistence.
+
+## P1 bank UI integration
+
+[UI and packet integration](reference/deep-client-interface-cs2-protocol-integration.md) traces open/close, component action, source/destination extra fields, item-container full/delta updates and CS2 callbacks. The [literal call-site inventory](data/catalogs/interface-cs2-var-state-source-calls.csv) includes bank screen CS2 ID **1451**. Its client script VM signature is **not** established; [case P28](reference/client-protocol-integration-verification.md) requires a full bank interaction capture.

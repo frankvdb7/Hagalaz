@@ -53,3 +53,7 @@ The [numeric content catalogs](catalogs/README.md) now cover item script registr
 ## Source-anchored combat data
 
 The [combat source catalogs](catalogs/README.md) contain 49 item-ID special costs, 50 prayer level/drain constants, 20 ancient spell variants and 14 review observations. These are not part of the **705 historical candidate rows** and have not been verified against the pinned 742 binary or a live database.
+
+## Protocol and interface source crosswalks (P1 #10)
+
+[The server/client protocol and UI catalog](catalogs/README.md) now includes 108 reconciled incoming-server opcode definitions, 71 server encoder branch entries, 75 literal widget-state call sites and eight implementation risk records. Client 164-opcode incoming and 108-opcode outgoing canonical ledgers remain in the GameClient repository; these are only comparison/ownership data.

@@ -36,3 +36,7 @@ The [NPC script registration CSV](data/catalogs/npc-script-registrations.csv) ma
 ## World-object placement and collision source audit
 
 The [world-object implementation dossier](reference/deep-world-objects.md) separates physical index-16 definitions, index-5 static placements and `gameobject_spawns` overlays. The [321 source-registered handler IDs](data/catalogs/object-script-registrations.csv) and [object opcode constants](data/catalogs/object-opcode-constants.csv) are not cache/world placement records. Map collision, doors, skill objects and travel destinations still require direct fixture evidence.
+
+## P1 object and region interaction protocol
+
+The [protocol integration dossier](reference/deep-client-interface-cs2-protocol-integration.md#4-packet-framing-reconciliation-and-protocol-state-cautions) documents the serious **opcode 162 enclosed zone update** declared-framing mismatch and embedded encoder metadata ownership risk. Test actual grouped object/ground-item/projectile updates with the unchanged client before claiming zone map parity. Server/Client 742 interaction and component use-on packets also require exact transforms and collision validation.
