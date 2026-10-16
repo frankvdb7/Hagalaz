@@ -176,15 +176,18 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             public IEquipmentScript EquipmentScript { get; }
             private readonly long[] _extraData;
             private readonly Action? _onClone;
+            private readonly bool _customStacking;
             public Action? OnCanStackItem { get; set; }
             public long[] ExtraData => _extraData;
 
-            public TestItem(int id, int count, bool stackable = false, bool noted = false, long[]? extraData = null, Action? onClone = null)
+            public TestItem(int id, int count, bool stackable = false, bool noted = false, long[]? extraData = null,
+                Action? onClone = null, bool customStacking = false)
             {
                 Id = id;
                 Count = count;
                 _extraData = extraData ?? Array.Empty<long>();
                 _onClone = onClone;
+                _customStacking = customStacking;
                 Name = $"TestItem_{id}";
 
                 var itemDef = Substitute.For<IItemDefinition>();
@@ -201,7 +204,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                     var alwaysStack = (bool)info[2];
                     return arg1.Id == arg2.Id &&
                            arg1.ExtraData.AsSpan().SequenceEqual(arg2.ExtraData) &&
-                           (alwaysStack || arg1.ItemDefinition.Stackable || arg1.ItemDefinition.Noted);
+                           (alwaysStack || arg1.ItemDefinition.Stackable || arg1.ItemDefinition.Noted || _customStacking);
                 });
                 ItemScript = itemScript;
 
@@ -213,7 +216,8 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             public IItem Clone(int newCount)
             {
                 _onClone?.Invoke();
-                return new TestItem(Id, newCount, ItemDefinition.Stackable, ItemDefinition.Noted, (long[])_extraData.Clone(), _onClone);
+                return new TestItem(Id, newCount, ItemDefinition.Stackable, ItemDefinition.Noted,
+                    (long[])_extraData.Clone(), _onClone, _customStacking);
             }
 
             public bool Equals(IItem other, bool ignoreCount = true) =>
@@ -225,9 +229,10 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             public string? SerializeExtraData() => _extraData.Length == 0 ? null : string.Join(",", _extraData);
         }
 
-        private IItem CreateItem(int id, int count, bool stackable = false, bool noted = false, long[]? extraData = null, Action? onClone = null)
+        private IItem CreateItem(int id, int count, bool stackable = false, bool noted = false, long[]? extraData = null,
+            Action? onClone = null, bool customStacking = false)
         {
-            return new TestItem(id, count, stackable, noted, extraData, onClone);
+            return new TestItem(id, count, stackable, noted, extraData, onClone, customStacking);
         }
 
         [TestMethod]
@@ -1659,6 +1664,28 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.AreEqual(7, destination.Items[0]!.Count);
             CollectionAssert.AreEquivalent(new[] { 0 }, source.Items.ChangeTracker.GetSlots()!.ToArray());
             CollectionAssert.AreEquivalent(new[] { 0 }, destination.Items.ChangeTracker.GetSlots()!.ToArray());
+        }
+
+        [TestMethod]
+        public void TryTransfer_CustomNonStackableItemUsesItemScriptStacking()
+        {
+            // PvPToken permits same-ID, same-extra-data stacks even when its item definition is non-stackable.
+            var source = new TestableItemContainer(StorageType.Normal, 2);
+            var sourceItem = CreateItem(1815, 1, extraData: [17], customStacking: true);
+            Assert.IsTrue(source.Items.Add(sourceItem));
+            Assert.IsTrue(source.Items.Add(CreateItem(1815, 1, extraData: [17], customStacking: true)));
+            Assert.AreEqual(2, source.Items[0]!.Count);
+            Assert.IsFalse(source.Items[0]!.ItemDefinition.Stackable);
+
+            var destination = new TestableItemContainer(StorageType.Normal, 1);
+            Assert.IsTrue(Transfer(source.Items, destination.Items, source.Items[0]!, 2));
+
+            Assert.IsNull(source.Items[0]);
+            Assert.AreEqual(1815, destination.Items[0]!.Id);
+            Assert.AreEqual(2, destination.Items[0]!.Count);
+            CollectionAssert.AreEqual(new long[] { 17 }, destination.Items[0]!.ExtraData);
+            Assert.IsFalse(destination.Items[0]!.ItemDefinition.Stackable);
+            Assert.AreEqual(1, destination.Items.TakenSlots);
         }
 
         [TestMethod]

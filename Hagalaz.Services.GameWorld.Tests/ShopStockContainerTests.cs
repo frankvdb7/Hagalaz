@@ -32,6 +32,7 @@ public sealed class ShopStockContainerTests
         Assert.IsFalse(result);
         Assert.AreEqual(1, scenario.MoneyPouch.Count);
         Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(ItemId));
+        scenario.Character.Received(1).SendChatMessage("You don't have enough coins!");
     }
 
     [TestMethod]
@@ -229,6 +230,7 @@ public sealed class ShopStockContainerTests
         Assert.IsFalse(result);
         Assert.AreEqual(cost - 1, scenario.Inventory.Items.GetCountById(currencyId));
         Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(ItemId));
+        scenario.Character.Received(1).SendChatMessage("You don't have enough tokens!");
     }
 
     [TestMethod]

@@ -228,22 +228,10 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             }
 
             var cost = _sampleContainer ? 0 : _shop.GetBuyValue(item) * (long)count;
-            if (cost > 0)
+            if (cost > int.MaxValue)
             {
-                if (cost > int.MaxValue)
-                {
-                    viewer.SendChatMessage("The shop does not have enough money for this amount of items.");
-                    return false;
-                }
-
-                var hasCurrency = _shop.CurrencyId == 995
-                    ? viewer.MoneyPouch.HasCoins((int)cost)
-                    : viewer.Inventory.Items.Contains(_shop.CurrencyId, (int)cost);
-                if (!hasCurrency)
-                {
-                    viewer.SendChatMessage("You don't have enough " + _itemRepository.FindItemDefinitionById(_shop.CurrencyId).Name.ToLower() + "!");
-                    return false;
-                }
+                viewer.SendChatMessage("The shop does not have enough money for this amount of items.");
+                return false;
             }
 
             var originalStock = _originalStockCounts.ContainsKey(item.Id);

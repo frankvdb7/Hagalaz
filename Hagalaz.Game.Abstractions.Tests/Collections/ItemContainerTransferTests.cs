@@ -31,7 +31,7 @@ public sealed class ItemContainerTransferTests
         Assert.AreEqual(7, destination[0]!.Count);
         CollectionAssert.AreEquivalent(new[] { 0 }, source.ChangeTracker.GetSlots()!.ToArray());
         CollectionAssert.AreEquivalent(new[] { 0 }, destination.ChangeTracker.GetSlots()!.ToArray());
-        AssertUnboundAndUnlocked(source, destination);
+        AssertLockReleasedAndNoStandalonePublication(source, destination);
     }
 
     [TestMethod]
@@ -53,7 +53,7 @@ public sealed class ItemContainerTransferTests
         Assert.AreSame(blockingItem, destination[0]);
         Assert.IsFalse(source.ChangeTracker.HasChanges);
         Assert.IsFalse(destination.ChangeTracker.HasChanges);
-        AssertUnboundAndUnlocked(source, destination);
+        AssertLockReleasedAndNoStandalonePublication(source, destination);
     }
 
     [TestMethod]
@@ -67,8 +67,6 @@ public sealed class ItemContainerTransferTests
 
         using var transaction = ItemContainerTransaction.Begin(source, destination);
         Assert.IsTrue(source.TryTransferTo(destination, item, 3));
-        Assert.AreSame(transaction, Synchronization(source).Transaction);
-        Assert.AreSame(transaction, Synchronization(destination).Transaction);
         Assert.IsTrue(Monitor.IsEntered(Synchronization(source).SynchronizationLock));
         Assert.IsTrue(Monitor.IsEntered(Synchronization(destination).SynchronizationLock));
         Assert.IsFalse(source.ChangeTracker.HasChanges);
@@ -77,12 +75,10 @@ public sealed class ItemContainerTransferTests
         transaction.Commit();
         Assert.IsFalse(Monitor.IsEntered(Synchronization(source).SynchronizationLock));
         Assert.IsFalse(Monitor.IsEntered(Synchronization(destination).SynchronizationLock));
-        Assert.AreSame(transaction, Synchronization(source).Transaction);
-        Assert.AreSame(transaction, Synchronization(destination).Transaction);
         CollectionAssert.AreEquivalent(new[] { 0 }, source.ChangeTracker.GetSlots()!.ToArray());
         CollectionAssert.AreEquivalent(new[] { 0 }, destination.ChangeTracker.GetSlots()!.ToArray());
         transaction.Dispose();
-        AssertUnboundAndUnlocked(source, destination);
+        AssertLockReleasedAndNoStandalonePublication(source, destination);
     }
 
     [TestMethod]
@@ -103,8 +99,6 @@ public sealed class ItemContainerTransferTests
 
         transaction.Commit();
 
-        Assert.AreSame(transaction, sourceBoundary.Transaction);
-        Assert.AreSame(transaction, destinationBoundary.Transaction);
         Assert.ThrowsExactly<InvalidOperationException>(() => _ = sourceBoundary.CurrentTransaction);
         transaction.Dispose();
         Assert.IsNull(sourceBoundary.CurrentTransaction);
@@ -188,7 +182,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsTrue(secondResult);
         Assert.AreSame(secondItem, first.GetById(secondItem.Id));
         Assert.AreSame(firstItem, second.GetById(firstItem.Id));
-        AssertUnboundAndUnlocked(first, second);
+        AssertLockReleasedAndNoStandalonePublication(first, second);
     }
 
             [TestMethod]
@@ -291,11 +285,11 @@ public sealed class ItemContainerTransferTests
         Assert.AreSame(item, source[0]);
         Assert.IsNull(destination[0]);
         Assert.AreEqual(5, item.Count);
-        Assert.IsNull(Synchronization(source).Transaction);
+        AssertLockReleasedAndNoStandalonePublication(source);
     }
 
         [TestMethod]
-    public void Commit_PromotesChangesAndRetainsBindingUntilDispose()
+    public void Commit_PromotesChangesAndRejectsFurtherMutationsUntilDispose()
     {
         var first = new ItemContainer(StorageType.Normal, 2);
         var second = new ItemContainer(StorageType.Normal, 2);
@@ -307,15 +301,17 @@ public sealed class ItemContainerTransferTests
 
         transaction.Commit();
 
-        AssertScopeBoundAndUnlocked(transaction, first, second);
+        AssertSynchronizationLockReleased(Synchronization(first));
+        AssertSynchronizationLockReleased(Synchronization(second));
         CollectionAssert.AreEquivalent(new[] { 0 }, first.ChangeTracker.GetSlots()!.ToArray());
         CollectionAssert.AreEquivalent(new[] { 0 }, second.ChangeTracker.GetSlots()!.ToArray());
         Assert.AreEqual(1, first.TakenSlots);
         Assert.AreEqual(1, second.TakenSlots);
+        Assert.ThrowsExactly<InvalidOperationException>(() => first.Add(new TestItem(231, 1)));
         Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
         transaction.Dispose();
         transaction.Dispose();
-        AssertUnboundAndUnlocked(first, second);
+        AssertLockReleasedAndNoStandalonePublication(first, second);
     }
 
     [TestMethod]
@@ -328,7 +324,7 @@ public sealed class ItemContainerTransferTests
         transaction.Dispose();
         Assert.IsNull(container[0]);
         Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
-        AssertUnboundAndUnlocked(container);
+        AssertLockReleasedAndNoStandalonePublication(container);
     }
 
         [TestMethod]
@@ -575,7 +571,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsTrue(reader.Join(TimeSpan.FromSeconds(5)));
         if (readerFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(readerFailure).Throw();
         Assert.AreEqual(0, readSlots!.Count);
-        AssertUnboundAndUnlocked(items);
+        AssertLockReleasedAndNoStandalonePublication(items);
     }
 
     [TestMethod]
@@ -644,7 +640,7 @@ public sealed class ItemContainerTransferTests
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(readerFailure).Throw();
         Assert.IsTrue(readerFinished.IsSet);
         Assert.AreEqual(0, readerSlots!.Count);
-        AssertUnboundAndUnlocked(container);
+        AssertLockReleasedAndNoStandalonePublication(container);
     }
 
         [TestMethod]
@@ -690,10 +686,11 @@ public sealed class ItemContainerTransferTests
         Assert.ThrowsExactly<InvalidOperationException>(() =>
             Synchronization(unowned).RecordChanges(transaction, new HashSet<int> { 0 }));
 
-        Assert.AreSame(transaction, Synchronization(enlisted).Transaction);
-        Assert.IsNull(Synchronization(unowned).Transaction);
         Assert.IsFalse(Monitor.IsEntered(Synchronization(unowned).SynchronizationLock));
         Assert.AreEqual(0, unowned.TakenSlots);
+        Assert.IsTrue(unowned.Add(new TestItem(612, 1)));
+        Assert.IsTrue(unowned.ChangeTracker.HasChanges,
+            "The unrelated container should publish its change independently of the enlisted transaction.");
         Assert.IsTrue(enlisted.Add(item));
         transaction.Commit();
     }
@@ -716,10 +713,11 @@ public sealed class ItemContainerTransferTests
             Monitor.Enter(storage.SynchronizationLock);
         }
 
-        Assert.AreSame(transaction, storage.Transaction);
+        Assert.IsTrue(container.Add(new TestItem(613, 1)),
+            "The active transaction should remain usable after rejecting a write without its lock.");
         transaction.Commit();
         transaction.Dispose();
-        AssertUnboundAndUnlocked(container);
+        AssertLockReleasedAndNoStandalonePublication(container);
     }
 
     [TestMethod]
@@ -732,7 +730,7 @@ public sealed class ItemContainerTransferTests
         Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin(container, new ExternalParticipant()));
         Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin(container, new CompositeParticipant([])));
         Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin(container, new CompositeParticipant([null!])));
-        AssertUnboundAndUnlocked(container);
+        AssertLockReleasedAndNoStandalonePublication(container);
         using var valid = ItemContainerTransaction.Begin(container);
     }
 
@@ -746,15 +744,14 @@ public sealed class ItemContainerTransferTests
             OnResolve = () =>
             {
                 Assert.IsFalse(Monitor.IsEntered(storage.SynchronizationLock));
-                Assert.IsNull(storage.Transaction);
             }
         };
         Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin(container, invalid));
-        AssertUnboundAndUnlocked(container);
+        AssertLockReleasedAndNoStandalonePublication(container);
     }
 
         [TestMethod]
-    public void Begin_SnapshotFailureReleasesAllLocksAndNeverExposesBindings()
+    public void Begin_SnapshotFailureReleasesLocksAndLeavesStorageUnchanged()
     {
         var first = new ItemContainer(StorageType.Normal, 1);
         var second = new ItemContainer(StorageType.Normal, 1);
@@ -769,15 +766,13 @@ public sealed class ItemContainerTransferTests
         {
             Assert.IsTrue(Monitor.IsEntered(Synchronization(first).SynchronizationLock));
             Assert.IsTrue(Monitor.IsEntered(Synchronization(second).SynchronizationLock));
-            Assert.IsNull(Synchronization(first).Transaction);
-            Assert.IsNull(Synchronization(second).Transaction);
             throw original;
         };
 
         Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() => ItemContainerTransaction.Begin(first, second)));
 
         failingItem.OnCountRead = null;
-        AssertUnboundAndUnlocked(first, second);
+        AssertLockReleasedAndNoStandalonePublication(first, second);
         Assert.AreSame(firstItem, first[0]);
         Assert.AreSame(failingItem, second[0]);
         Assert.AreEqual(3, firstItem.Count);
@@ -797,7 +792,6 @@ public sealed class ItemContainerTransferTests
         {
             var boundary = Synchronization(container);
             Assert.IsTrue(Monitor.IsEntered(boundary.SynchronizationLock));
-            Assert.AreSame(transaction, boundary.Transaction);
         }
     }
 
@@ -825,7 +819,7 @@ public sealed class ItemContainerTransferTests
 
         Assert.AreSame(firstItem, first[0]);
         Assert.AreSame(secondItem, second[0]);
-        AssertUnboundAndUnlocked(first, second);
+        AssertLockReleasedAndNoStandalonePublication(first, second);
     }
 
     [TestMethod]
@@ -837,14 +831,13 @@ public sealed class ItemContainerTransferTests
 
         Assert.ThrowsExactly<InvalidOperationException>(() => ItemContainerTransaction.Begin(container));
 
-        Assert.AreSame(outer, Synchronization(container).Transaction);
         Assert.IsTrue(Monitor.IsEntered(Synchronization(container).SynchronizationLock));
         Assert.IsTrue(container.Add(item));
         Assert.AreSame(item, container[0]);
         outer.Commit();
-        Assert.AreSame(outer, Synchronization(container).Transaction);
+        Assert.ThrowsExactly<InvalidOperationException>(() => container.Add(new TestItem(450, 1)));
         outer.Dispose();
-        AssertUnboundAndUnlocked(container);
+        AssertLockReleasedAndNoStandalonePublication(container);
     }
 
         [TestMethod]
@@ -879,7 +872,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsNull(first.ChangeTracker.GetSlots());
         CollectionAssert.AreEquivalent(new[] { 0 }, second.ChangeTracker.GetSlots()!.ToArray());
         transaction.Dispose();
-        AssertUnboundAndUnlocked(first, second);
+        AssertLockReleasedAndNoStandalonePublication(first, second);
     }
 
         [TestMethod]
@@ -893,7 +886,6 @@ public sealed class ItemContainerTransferTests
 
         Assert.ThrowsExactly<ArgumentException>(() => ItemContainerTransaction.Begin(first, second));
 
-        Assert.IsNull(storage.Transaction);
         Assert.IsFalse(Monitor.IsEntered(storage.SynchronizationLock));
         var acquired = false;
         OnOtherThread(() =>
@@ -902,6 +894,8 @@ public sealed class ItemContainerTransferTests
             if (acquired) Monitor.Exit(storage.SynchronizationLock);
         });
         Assert.IsTrue(acquired);
+        using var fresh = ItemContainerTransaction.Begin(container);
+        fresh.Commit();
     }
 
                     [TestMethod]
@@ -941,7 +935,7 @@ public sealed class ItemContainerTransferTests
         AssertContendedAdditionalAcquisitionRejected(owned, prefixBoundary, contendedBoundary,
             () => ItemContainerTransaction.Begin(prefix, contended),
             "A thread that owns storage must reject a contended additional transaction without waiting.");
-        AssertUnboundAndUnlocked(owned, prefix, contended);
+        AssertLockReleasedAndNoStandalonePublication(owned, prefix, contended);
     }
 
     [TestMethod]
@@ -962,7 +956,7 @@ public sealed class ItemContainerTransferTests
             expectsException: false);
         Assert.AreSame(item, source[0]);
         Assert.IsNull(destination[0]);
-        AssertUnboundAndUnlocked(owned, source, destination);
+        AssertLockReleasedAndNoStandalonePublication(owned, source, destination);
     }
 
         [TestMethod]
@@ -974,9 +968,7 @@ public sealed class ItemContainerTransferTests
 
         transaction.Commit();
 
-        Assert.AreSame(transaction, Synchronization(container).Transaction);
         Assert.ThrowsExactly<InvalidOperationException>(() => container.Add(new TestItem(606, 1)));
-        Assert.AreSame(transaction, Synchronization(container).Transaction);
         Assert.AreEqual(1, container.TakenSlots);
         Assert.IsTrue(container.ChangeTracker.HasChanges);
     }
@@ -990,12 +982,11 @@ public sealed class ItemContainerTransferTests
         Assert.IsTrue(first.Add(item));
         using var transaction = ItemContainerTransaction.Begin(first);
         Assert.ThrowsExactly<InvalidOperationException>(() => first.TryTransferTo(second, item, 1));
-        Assert.AreSame(transaction, Synchronization(first).Transaction);
         Assert.AreSame(item, first[0]);
         Assert.IsNull(second[0]);
-        AssertUnboundAndUnlocked(second);
+        AssertLockReleasedAndNoStandalonePublication(second);
         Assert.ThrowsExactly<InvalidOperationException>(() => ItemContainerTransaction.Begin(first, second));
-        AssertUnboundAndUnlocked(second);
+        AssertLockReleasedAndNoStandalonePublication(second);
     }
 
     [TestMethod]
@@ -1009,14 +1000,12 @@ public sealed class ItemContainerTransferTests
 
         Assert.ThrowsExactly<InvalidOperationException>(() => source.TryTransferTo(destination, item, 1));
 
-        Assert.IsNull(Synchronization(source).Transaction);
-        Assert.AreSame(transaction, Synchronization(destination).Transaction);
         Assert.AreSame(item, source[0]);
         Assert.IsNull(destination[0]);
         Assert.IsTrue(Monitor.IsEntered(Synchronization(destination).SynchronizationLock));
         transaction.Commit();
         transaction.Dispose();
-        AssertUnboundAndUnlocked(source, destination);
+        AssertLockReleasedAndNoStandalonePublication(source, destination);
     }
 
     [TestMethod]
@@ -1029,8 +1018,6 @@ public sealed class ItemContainerTransferTests
         using var firstScope = ItemContainerTransaction.Begin(first);
         using var secondScope = ItemContainerTransaction.Begin(second);
         Assert.ThrowsExactly<InvalidOperationException>(() => first.TryTransferTo(second, item, 1));
-        Assert.AreSame(firstScope, Synchronization(first).Transaction);
-        Assert.AreSame(secondScope, Synchronization(second).Transaction);
         Assert.AreSame(item, first[0]);
         Assert.IsNull(second[0]);
     }
@@ -1054,12 +1041,11 @@ public sealed class ItemContainerTransferTests
         }
         finally { Monitor.Enter(sourceLock); }
 
-        Assert.AreSame(transaction, sourceBoundary.Transaction);
         Assert.AreSame(item, source[0]);
         Assert.IsNull(destination[0]);
         transaction.Commit();
         transaction.Dispose();
-        AssertUnboundAndUnlocked(source, destination);
+        AssertLockReleasedAndNoStandalonePublication(source, destination);
     }
 
     [TestMethod]
@@ -1074,7 +1060,7 @@ public sealed class ItemContainerTransferTests
 
         Assert.IsNull(source[0]);
         Assert.AreSame(item, destination[0]);
-        AssertUnboundAndUnlocked(source, destination);
+        AssertLockReleasedAndNoStandalonePublication(source, destination);
     }
 
         [TestMethod]
@@ -1090,7 +1076,7 @@ public sealed class ItemContainerTransferTests
         Assert.AreSame(item, source[0]);
         Assert.AreEqual(1, item.Count);
         Assert.IsFalse(source.ChangeTracker.HasChanges);
-        AssertUnboundAndUnlocked(source);
+        AssertLockReleasedAndNoStandalonePublication(source);
     }
 
     [TestMethod]
@@ -1109,7 +1095,7 @@ public sealed class ItemContainerTransferTests
 
         Assert.AreSame(item, source[0]);
         Assert.IsNull(destination[0]);
-        AssertUnboundAndUnlocked(source, destination);
+        AssertLockReleasedAndNoStandalonePublication(source, destination);
     }
 
     [TestMethod]
@@ -1128,8 +1114,6 @@ public sealed class ItemContainerTransferTests
 
         Assert.ThrowsExactly<InvalidOperationException>(() => source.TryTransferTo(destination, item, 1, 0));
 
-        Assert.AreSame(sourceTransaction, Synchronization(source).Transaction);
-        Assert.AreSame(destinationTransaction, Synchronization(destination).Transaction);
         Assert.AreSame(item, source[0]);
         Assert.IsNull(destination[0]);
         Assert.AreEqual(sourceRevision, sourceStorage.MutationRevision);
@@ -1198,8 +1182,6 @@ public sealed class ItemContainerTransferTests
         Assert.AreSame(item, source[0]);
         Assert.IsNull(destination[0]);
 
-        Assert.AreSame(transaction, Synchronization(source).Transaction);
-        Assert.AreSame(transaction, Synchronization(destination).Transaction);
         transaction.Commit();
         transaction.Dispose();
         Assert.IsTrue(transferFinished.Wait(TimeSpan.FromSeconds(5)));
@@ -1208,7 +1190,7 @@ public sealed class ItemContainerTransferTests
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transferFailure).Throw();
         Assert.IsNull(source[0]);
         Assert.AreSame(item, destination[0]);
-        AssertUnboundAndUnlocked(source, destination);
+        AssertLockReleasedAndNoStandalonePublication(source, destination);
     }
 
     [TestMethod]
@@ -1224,7 +1206,6 @@ public sealed class ItemContainerTransferTests
             Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Commit());
             Assert.ThrowsExactly<InvalidOperationException>(() => transaction.Dispose());
         });
-        Assert.AreSame(transaction, Synchronization(first).Transaction);
         Assert.AreSame(item, first[0]);
         Assert.AreEqual(1, first.TakenSlots);
         Assert.AreEqual(0, second.TakenSlots);
@@ -1288,7 +1269,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsTrue(contenderEntered.IsSet);
         Assert.AreSame(itemA, container[0]);
         Assert.AreSame(itemB, container[1]);
-        AssertUnboundAndUnlocked(container);
+        AssertLockReleasedAndNoStandalonePublication(container);
     }
 
         [TestMethod]
@@ -1315,7 +1296,7 @@ public sealed class ItemContainerTransferTests
         later.Commit();
         Assert.AreEqual(2, container.TakenSlots);
         later.Dispose();
-        AssertUnboundAndUnlocked(container);
+        AssertLockReleasedAndNoStandalonePublication(container);
     }
 
         [TestMethod]
@@ -1344,7 +1325,6 @@ public sealed class ItemContainerTransferTests
                 foreach (var boundary in required)
                 {
                     Assert.IsTrue(Monitor.IsEntered(boundary.SynchronizationLock));
-                    Assert.AreSame(contender, boundary.Transaction);
                 }
                 contender.Commit();
             }
@@ -1357,7 +1337,6 @@ public sealed class ItemContainerTransferTests
             Assert.IsTrue(attempted.Wait(TimeSpan.FromSeconds(5)), "The contender must resolve its participants.");
             Assert.IsFalse(completed.Wait(TimeSpan.FromMilliseconds(100)),
                 "The contender must wait, rather than reject the foreign binding or bypass its lock.");
-            Assert.AreSame(owner, Synchronization(second).Transaction);
         }
         finally
         {
@@ -1366,7 +1345,7 @@ public sealed class ItemContainerTransferTests
         }
         Assert.IsTrue(worker.Join(TimeSpan.FromSeconds(5)), "Ordered overlapping scopes must not deadlock.");
         if (failure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
-        AssertUnboundAndUnlocked(first, second, third);
+        AssertLockReleasedAndNoStandalonePublication(first, second, third);
     }
 
         [TestMethod]
@@ -1391,7 +1370,7 @@ public sealed class ItemContainerTransferTests
         CollectionAssert.AreEqual(new[] { "effects:container", "publish:container" }, owner.Timeline);
         CollectionAssert.AreEquivalent(new[] { 0, 1 }, owner.PublishedSlots!.ToArray());
         Assert.IsFalse(container.ChangeTracker.HasChanges);
-        AssertUnboundAndUnlocked(container);
+        AssertLockReleasedAndNoStandalonePublication(container);
     }
 
     [TestMethod]
@@ -1405,7 +1384,7 @@ public sealed class ItemContainerTransferTests
         Assert.AreEqual(0, owner.EffectsCalls);
         Assert.AreEqual(0, owner.PublicationCalls);
         Assert.IsNull(container[0]);
-        AssertUnboundAndUnlocked(container);
+        AssertLockReleasedAndNoStandalonePublication(container);
     }
 
     [TestMethod]
@@ -1462,7 +1441,7 @@ public sealed class ItemContainerTransferTests
         if (firstFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(firstFailure).Throw();
         if (contenderFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(contenderFailure).Throw();
         Assert.AreEqual(2, owner.PublicationCalls);
-        AssertUnboundAndUnlocked(container);
+        AssertLockReleasedAndNoStandalonePublication(container);
     }
 
     [TestMethod]
@@ -1485,10 +1464,9 @@ public sealed class ItemContainerTransferTests
         Assert.AreEqual(1, secondOwner.PublicationCalls);
         Assert.IsFalse(Monitor.IsEntered(Synchronization(first).SynchronizationLock));
         Assert.IsFalse(Monitor.IsEntered(Synchronization(second).SynchronizationLock));
-        Assert.AreSame(transaction, Synchronization(first).Transaction);
-        Assert.AreSame(transaction, Synchronization(second).Transaction);
+        Assert.ThrowsExactly<InvalidOperationException>(() => first.Add(new TestItem(213, 1)));
         transaction.Dispose();
-        AssertUnboundAndUnlocked(first, second);
+        AssertLockReleasedAndNoStandalonePublication(first, second);
     }
 
     [TestMethod]
@@ -1510,7 +1488,7 @@ public sealed class ItemContainerTransferTests
         Assert.AreEqual(1, firstOwner.DiscardCalls);
         Assert.AreEqual(1, secondOwner.DiscardCalls);
         Assert.IsFalse(second.ChangeTracker.HasChanges);
-        AssertUnboundAndUnlocked(first, second);
+        AssertLockReleasedAndNoStandalonePublication(first, second);
     }
 
     [TestMethod]
@@ -1540,7 +1518,7 @@ public sealed class ItemContainerTransferTests
         }, timeline);
         Assert.IsNull(source[0]);
         Assert.AreSame(item, destination[0]);
-        AssertUnboundAndUnlocked(source, destination);
+        AssertLockReleasedAndNoStandalonePublication(source, destination);
     }
 
     [TestMethod]
@@ -1556,7 +1534,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsNull(source[0]);
         Assert.AreSame(item, destination[0]);
         Assert.AreEqual(0, destinationOwner.PublicationCalls);
-        AssertUnboundAndUnlocked(source, destination);
+        AssertLockReleasedAndNoStandalonePublication(source, destination);
     }
 
     private static (ItemContainer Container, TestCompletionOwner Owner) CreateOwnedContainer(
@@ -1664,14 +1642,13 @@ public sealed class ItemContainerTransferTests
         if (ownerFailure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ownerFailure).Throw();
     }
 
-    private static void AssertUnboundAndUnlocked(params ItemContainer[] containers)
+    private static void AssertLockReleasedAndNoStandalonePublication(params ItemContainer[] containers)
     {
         foreach (var container in containers)
         {
             var storage = Synchronization(container);
             lock (storage.SynchronizationLock)
             {
-                Assert.IsNull(storage.Transaction);
                 Assert.IsFalse(storage.HasStandalonePublicationOwner);
             }
             AssertSynchronizationLockReleased(storage);
@@ -1685,23 +1662,8 @@ public sealed class ItemContainerTransferTests
             var storage = Synchronization(container);
             lock (storage.SynchronizationLock)
             {
-                Assert.IsNull(storage.Transaction);
                 Assert.IsTrue(storage.HasStandalonePublicationOwner);
                 Assert.IsTrue(storage.IsStandalonePublicationOwnedByCurrentThread);
-            }
-            AssertSynchronizationLockReleased(storage);
-        }
-    }
-
-    private static void AssertScopeBoundAndUnlocked(ItemContainerTransaction transaction, params ItemContainer[] containers)
-    {
-        foreach (var container in containers)
-        {
-            var storage = Synchronization(container);
-            lock (storage.SynchronizationLock)
-            {
-                Assert.AreSame(transaction, storage.Transaction);
-                Assert.IsFalse(storage.HasStandalonePublicationOwner);
             }
             AssertSynchronizationLockReleased(storage);
         }

@@ -843,7 +843,6 @@ namespace Hagalaz.Game.Scripts.Characters
             {
                 if (requestedCount <= 0) return false;
                 var coinOffer = _itemBuilder.Create().WithId(995).WithCount(requestedCount).Build();
-                if (!offer.Items.HasSpaceFor(coinOffer)) return false;
 
                 if (_tradeExchange.TryOfferMoneyFromPouch(character, offer, coinOffer))
                 {

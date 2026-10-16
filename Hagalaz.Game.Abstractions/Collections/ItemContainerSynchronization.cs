@@ -36,7 +36,6 @@ internal sealed class ItemContainerSynchronization
     internal object SynchronizationLock => _synchronizationLock;
     internal long LockOrder => _lockOrder;
     internal IItemContainerCompletionOwner? CompletionOwner => _completionOwner;
-    internal ItemContainerTransaction? Transaction { get => _transaction; }
     internal bool IsSynchronizationLockHeldByCurrentThread => Monitor.IsEntered(_synchronizationLock);
     internal static bool CurrentThreadOwnsStorage => _currentThreadStorageOwnershipCount > 0;
 

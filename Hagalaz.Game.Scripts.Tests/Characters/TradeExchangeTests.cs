@@ -257,6 +257,46 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
+    public void TryOfferMoneyFromPouch_WhenPouchHasInsufficientCoins_RollsBackOfferMutation()
+    {
+        var inventory = new ComposedTestContainer(4);
+        var character = CreateCharacter(inventory);
+        character.MoneyPouch.Add(25).Should().BeTrue();
+        var offer = new TradingCharacterScript.TradeContainer();
+
+        var result = CreateTradeExchange().TryOfferMoneyFromPouch(character, offer,
+            new TestItem(995, 30, stackable: true));
+
+        result.Should().BeFalse();
+        character.MoneyPouch.Count.Should().Be(25);
+        inventory.Items.GetCountById(995).Should().Be(0);
+        offer.Items.GetCountById(995).Should().Be(0);
+    }
+
+    [TestMethod]
+    public void TryOfferMoneyFromPouch_WhenOfferIsFull_LeavesPouchUnchanged()
+    {
+        var inventory = new ComposedTestContainer(4);
+        var character = CreateCharacter(inventory);
+        character.MoneyPouch.Add(25).Should().BeTrue();
+        var offer = new TradingCharacterScript.TradeContainer();
+        for (var id = 100; id < 114; id++)
+        {
+            AddOfferItem(offer, new TestItem(id, 1)).Should().BeTrue();
+        }
+
+        var revision = offer.Revision;
+        var result = CreateTradeExchange().TryOfferMoneyFromPouch(character, offer,
+            new TestItem(995, 25, stackable: true));
+
+        result.Should().BeFalse();
+        character.MoneyPouch.Count.Should().Be(25);
+        inventory.Items.GetCountById(995).Should().Be(0);
+        offer.Items.GetCountById(995).Should().Be(0);
+        offer.Revision.Should().Be(revision);
+    }
+
+    [TestMethod]
     public void ItemContainer_AddRange_UsesGenericStorageOperation()
     {
         var container = new ItemContainer(StorageType.Normal, 4);

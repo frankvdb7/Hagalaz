@@ -40,8 +40,7 @@ internal sealed class TradeExchange
         if (coins.Count <= 0) return false;
 
         using var transaction = ItemContainerTransaction.Begin(offer.MutableItems, character.MoneyPouch);
-        if (!character.MoneyPouch.HasCoins(coins.Count) || !offer.Items.HasSpaceFor(coins) || !offer.AddItem(coins) ||
-            !character.MoneyPouch.TryRemoveExact(coins.Count)) return false;
+        if (!offer.AddItem(coins) || !character.MoneyPouch.TryRemoveExact(coins.Count)) return false;
         transaction.Commit();
         offer.PublishChanges();
         return true;
