@@ -2,11 +2,12 @@
 
 ## Why
 
-Trade offers are funded by moving items out of the offering character's Inventory or MoneyPouch. Returning an offer restores the capacity that operation freed, so the forced Rewards/Bank fallback models a capacity failure that the supported trade flow cannot produce.
+Trade offers are funded by moving items out of the offering character's Inventory or MoneyPouch. However, the GameFrame money-pouch withdrawal can consume the inventory capacity freed by an offer while the trade is open. Reject that withdrawal when its deferred amount is submitted so cancellation and detach can refund the offer to its owner.
 
 ## What Changes
 
 - Remove the forced-destruction recovery path that moves trade offers to Rewards or Bank when a refund does not fit.
+- Reject GameFrame money-pouch withdrawals while the character is busy, including an active trade.
 - Keep the normal transactional refund and its operation-result check so a rejected transfer rolls back instead of partially committing.
 - Keep insufficient recipient capacity as a failed trade completion; rollback leaves the original offers available for refund.
 
@@ -15,6 +16,7 @@ Trade offers are funded by moving items out of the offering character's Inventor
 ### In Scope
 
 - Trade cancellation and detach cleanup.
+- The GameFrame money-pouch withdrawal path that can consume refund capacity during an active trade.
 - The recovery-only trade transfer helper and tests for its unsupported capacity state.
 - The canonical `trading-completion` behavior specification.
 
@@ -27,6 +29,8 @@ Trade offers are funded by moving items out of the offering character's Inventor
 ## Acceptance Criteria
 
 - All production cancellation paths attempt one atomic refund to the original Inventory and MoneyPouch owners.
+- A submitted GameFrame money-pouch withdrawal cannot consume Inventory slots while a trade is active.
+- A trade funded through the inventory click handler is refunded by the detach callback and appears in the inventory dehydration payload.
 - Cancellation marks the trade terminal only after the refund is staged and committed.
 - Failed recipient delivery leaves the transaction rolled back, then the ordinary cancellation refund returns the untouched offers.
 - No forced Rewards/Bank capacity selection remains in trade cancellation.
@@ -47,4 +51,4 @@ None.
 
 ## Impact
 
-`TradingCharacterScript`, `TradeExchange`, focused trade tests, and the `trading-completion` specification. No public API or storage behavior changes.
+`TradingCharacterScript`, `GameFrame`, focused trade tests, and the `trading-completion` specification. No public API or storage behavior changes.

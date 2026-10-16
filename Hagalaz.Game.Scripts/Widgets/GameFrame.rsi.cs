@@ -406,6 +406,12 @@ namespace Hagalaz.Game.Scripts.Widgets
                         _moneyXHandler = Owner.Widgets.IntInputHandler = value =>
                         {
                             _moneyXHandler = Owner.Widgets.IntInputHandler = null;
+                            if (Owner.IsBusy())
+                            {
+                                Owner.SendChatMessage("Please finish what you're doing before withdrawing money from your money pouch.");
+                                return;
+                            }
+
                             if (value <= 0)
                             {
                                 Owner.SendChatMessage("Value can't be negative.");

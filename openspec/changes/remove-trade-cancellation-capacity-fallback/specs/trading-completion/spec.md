@@ -32,7 +32,7 @@ Completion MUST deliver both complete opposite offers and clear both escrow cont
 
 ### Requirement: Cancellation returns each offer to its owner
 
-Cancellation MUST return each offer to its original owner exactly once in one transaction. A cancellation MUST become terminal only after both refunds commit. The trade offer's source removals provide the capacity needed to restore those same offered items and coins.
+Cancellation MUST return each offer to its original owner exactly once in one transaction. A cancellation MUST become terminal only after both refunds commit. A GameFrame money-pouch withdrawal MUST NOT consume Inventory capacity while a trade is active, preserving the capacity freed by funded offers for a refund.
 
 #### Scenario: An active trade is cancelled
 - **WHEN** either participant cancels an active trade
@@ -41,6 +41,10 @@ Cancellation MUST return each offer to its original owner exactly once in one tr
 #### Scenario: A failed completion is cancelled
 - **WHEN** recipient capacity rejects completion before commit
 - **THEN** completion rolls back, the original offers are refunded to their owners, and the session is cancelled
+
+#### Scenario: A pouch withdrawal is submitted during an active trade
+- **WHEN** a character submits a GameFrame money-pouch withdrawal amount while a trade is active
+- **THEN** the busy check rejects the withdrawal before Inventory or MoneyPouch changes, leaving capacity available to refund the offer
 
 ### Requirement: Committed trade operations reach a terminal state
 
