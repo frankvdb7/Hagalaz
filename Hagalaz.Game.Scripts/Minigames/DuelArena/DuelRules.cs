@@ -13,6 +13,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     /// </summary>
     public class DuelRules
     {
+        private const int CoinsItemId = 995;
+
         /// <summary>
         /// </summary>
         public enum Rule : byte
@@ -217,11 +219,30 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return true;
             }
 
-            var incomingItems = new IItem[equipment.Count + stakeItems.Count];
-            equipment.CopyTo(incomingItems, 0);
-            for (var index = 0; index < stakeItems.Count; index++)
+            var incomingItems = new List<IItem?>(equipment.Count + stakeItems.Count);
+            incomingItems.AddRange(equipment);
+            var remainingPouchCapacity = (long)int.MaxValue - character.MoneyPouch.Count;
+            foreach (var stakeItem in stakeItems)
             {
-                incomingItems[equipment.Count + index] = stakeItems[index];
+                if (stakeItem is null)
+                {
+                    incomingItems.Add(null);
+                    continue;
+                }
+
+                if (stakeItem.Id != CoinsItemId || stakeItem.Count <= 0)
+                {
+                    incomingItems.Add(stakeItem);
+                    continue;
+                }
+
+                var pouchCount = (int)Math.Min(remainingPouchCapacity, stakeItem.Count);
+                remainingPouchCapacity -= pouchCount;
+                var inventoryCount = stakeItem.Count - pouchCount;
+                if (inventoryCount > 0)
+                {
+                    incomingItems.Add(stakeItem.Clone(inventoryCount));
+                }
             }
 
             if (character.Inventory.Items.HasSpaceForRange(incomingItems))

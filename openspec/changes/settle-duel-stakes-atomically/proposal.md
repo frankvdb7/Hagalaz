@@ -11,6 +11,7 @@ Duel victory currently removes stake coins and adds both stake containers to the
 - Consume the source stake items as part of that transfer so a later settlement attempt cannot award them again.
 - Leave both stakes and winner storage unchanged if any item cannot be transferred.
 - Keep the victory stage and its stake-container references active when payout cannot complete; only show the victory screen and allow the trapdoor exit after settlement succeeds.
+- Check confirmation capacity against the actual destinations: Inventory must fit non-coin stakes, returned equipment, and only the coin amount that exceeds the remaining MoneyPouch capacity.
 
 ## Capabilities
 
@@ -24,7 +25,7 @@ None.
 
 ## Impact
 
-The affected runtime path is `DuelArenaCombatScript.StartVictoryStage` and the existing `DuelStakeExchange`. The transaction will enlist both stake containers and the winner's MoneyPouch, which contributes its inventory storage. No public API or dependency changes are required.
+The affected runtime paths are `DuelRules.CheckRules` during duel confirmation and `DuelArenaCombatScript.StartVictoryStage` with the existing `DuelStakeExchange` during settlement. The transaction will enlist both stake containers and the winner's MoneyPouch, which contributes its inventory storage. No public API or dependency changes are required.
 
 ## Non-goals
 
@@ -35,6 +36,7 @@ The affected runtime path is `DuelArenaCombatScript.StartVictoryStage` and the e
 ## Acceptance Criteria
 
 - A successful victory settlement moves all non-coin stakes to the winner's inventory and coin stakes through the winner's MoneyPouch in one committed transaction.
+- Duel confirmation accepts coin stakes that fit in each participant's MoneyPouch without requiring Inventory space for those coins, while still checking Inventory for coin overflow.
 - A failed transfer leaves both stake containers, the winner's inventory, and the winner's pouch unchanged.
 - If payout fails because inventory capacity changed during combat, the victory stage does not advance, the participant remains in the arena, and the stakes remain available for another settlement attempt.
 - Once combat starts, the active duel reports the participant as busy so equipment access and familiar withdrawals cannot consume inventory capacity already checked during confirmation.

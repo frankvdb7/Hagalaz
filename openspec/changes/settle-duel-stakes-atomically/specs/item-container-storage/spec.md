@@ -9,6 +9,14 @@ Duel victory settlement MUST transfer all stake items to the winner as one atomi
 - **WHEN** the winner's inventory and MoneyPouch can accept both participants' stakes
 - **THEN** all non-coin items are transferred to inventory, all coin stacks are credited through the MoneyPouch, and both stake containers are empty
 
+#### Scenario: Coin-only stakes fit in the MoneyPouch
+- **WHEN** each participant's remaining MoneyPouch capacity can hold the combined coin stakes, even though their inventories are full
+- **THEN** duel confirmation accepts the stakes and a winner receives the coins through the MoneyPouch without inventory space
+
+#### Scenario: Coin overflow needs inventory capacity
+- **WHEN** the combined coin stakes exceed a participant's remaining MoneyPouch capacity
+- **THEN** duel confirmation requires inventory capacity for the overflow coins alongside non-coin stakes and returned equipment
+
 #### Scenario: Active duel preserves confirmed payout capacity
 - **WHEN** a participant attempts to open Equipment or withdraw familiar items after duel combat starts
 - **THEN** the active combat script reports the character busy and those inventory-changing interactions are rejected

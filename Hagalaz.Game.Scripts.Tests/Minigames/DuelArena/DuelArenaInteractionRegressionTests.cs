@@ -53,6 +53,45 @@ public sealed class DuelArenaInteractionRegressionTests
     }
 
     [TestMethod]
+    public void CheckRules_CoinOnlyStakesUsePouchCapacityWhenInventoriesAreFull()
+    {
+        var duel = CreateDuel(1, 1, selfPouchCoins: 5, targetPouchCoins: 7);
+        FillInventories(duel);
+
+        Assert.IsTrue(duel.SelfPouch!(8, ComponentClickType.LeftClick, 0, 0));
+        duel.Self.Widgets.IntInputHandler!(5);
+        Assert.IsTrue(duel.TargetPouch!(8, ComponentClickType.LeftClick, 0, 0));
+        duel.Target.Widgets.IntInputHandler!(7);
+
+        var stakes = new[] { duel.SelfStakeContainer[0]!, duel.TargetStakeContainer[0]! };
+        Assert.AreEqual(16, duel.SelfInventory.Items.TakenSlots);
+        Assert.AreEqual(16, duel.TargetInventory.Items.TakenSlots);
+        Assert.IsTrue(duel.SessionScript.CurrentRules.CheckRules(duel.Self, duel.Target, stakes));
+        Assert.IsTrue(duel.SessionScript.CurrentRules.CheckRules(duel.Target, duel.Self, stakes));
+
+        Assert.IsTrue(DuelStakeExchange.TrySettleWinner(duel.Self, duel.SelfStakeContainer, duel.TargetStakeContainer));
+
+        Assert.AreEqual(12, duel.Self.MoneyPouch.Count);
+        Assert.AreEqual(0, duel.SelfInventory.Items.GetCountById(995));
+        Assert.AreEqual(0, duel.SelfStakeContainer.TakenSlots);
+        Assert.AreEqual(0, duel.TargetStakeContainer.TakenSlots);
+    }
+
+    [TestMethod]
+    public void CheckRules_RequiresInventorySpaceForCoinsThatOverflowPouch()
+    {
+        var duel = CreateDuel(1, 1, selfPouchCoins: int.MaxValue, targetPouchCoins: 1);
+        FillInventories(duel);
+
+        Assert.IsTrue(duel.TargetPouch!(8, ComponentClickType.LeftClick, 0, 0));
+        duel.Target.Widgets.IntInputHandler!(1);
+        var stakes = new[] { duel.TargetStakeContainer[0]! };
+
+        Assert.IsFalse(duel.SessionScript.CurrentRules.CheckRules(duel.Self, duel.Target, stakes));
+        Assert.IsTrue(duel.SessionScript.CurrentRules.CheckRules(duel.Target, duel.Self, stakes));
+    }
+
+    [TestMethod]
     public void DuelStageFlow_ActiveCombatBlocksInventoryCreditsAndSettlesWinner()
     {
         var duel = CreateDuel(1, 1);
@@ -640,6 +679,15 @@ public sealed class DuelArenaInteractionRegressionTests
         return new DuelHarness(target, self, targetInventory, selfInventory, targetItem, selfItem, targetScript,
             targetStakeContainer!, selfStakeContainer!, selfStake, targetStake, selfUnstake, targetUnstake,
             selfAccept, targetAccept, selfPouch, targetPouch, sentItems, stakeValueUpdates);
+    }
+
+    private static void FillInventories(DuelHarness duel)
+    {
+        for (var index = 0; index < 15; index++)
+        {
+            Assert.IsTrue(duel.SelfInventory.Items.Add(CreateItem(300 + index, 1)));
+            Assert.IsTrue(duel.TargetInventory.Items.Add(CreateItem(400 + index, 1)));
+        }
     }
 
     private static MoneyPouchContainer CreateMoneyPouch(ICharacter character, int coins)
