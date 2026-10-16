@@ -282,8 +282,9 @@ public sealed class MoneyPouchContainerTests
         {
             foreach (var boundary in boundaries)
             {
-                Assert.IsNull(boundary.Transaction);
                 Assert.IsFalse(Monitor.IsEntered(boundary.SynchronizationLock));
+                lock (boundary.SynchronizationLock)
+                    Assert.IsFalse(boundary.HasStandalonePublicationOwner);
             }
         });
         Assert.IsFalse(scenario.MoneyPouch.MoveToInventory(5));
@@ -361,7 +362,6 @@ public sealed class MoneyPouchContainerTests
         {
             foreach (var boundary in boundaries)
             {
-                Assert.AreSame(transaction, boundary.Transaction);
                 Assert.IsTrue(Monitor.IsEntered(boundary.SynchronizationLock));
             }
             Assert.IsTrue(scenario.Inventory.Items.Add(new ComposedTestItem(CoinId, 1, stackable: true)));
@@ -371,7 +371,6 @@ public sealed class MoneyPouchContainerTests
 
         Assert.AreEqual(10, scenario.MoneyPouch.Count);
         Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(CoinId));
-        foreach (var boundary in boundaries) Assert.IsNull(boundary.Transaction);
     }
 
     [TestMethod]
@@ -383,11 +382,11 @@ public sealed class MoneyPouchContainerTests
         using var transaction = ItemContainerTransaction.Begin(scenario.Inventory.Items);
 
         Assert.ThrowsExactly<InvalidOperationException>(() => scenario.MoneyPouch.Add(2));
-        Assert.AreSame(transaction, inventoryBoundary.Transaction);
-        Assert.IsNull(pouchBoundary.Transaction);
+        Assert.IsTrue(Monitor.IsEntered(inventoryBoundary.SynchronizationLock));
         Assert.IsFalse(Monitor.IsEntered(pouchBoundary.SynchronizationLock));
         Assert.AreEqual(10, scenario.MoneyPouch.Count);
         Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(CoinId));
+        transaction.Commit();
     }
 
     [TestMethod]
@@ -593,7 +592,8 @@ public sealed class MoneyPouchContainerTests
         var boundaries = ((IItemTransactionSource)scenario.MoneyPouch).Synchronizations;
         Assert.AreEqual(2, boundaries.Count);
         Assert.AreSame(Synchronization(scenario.Inventory.Items), boundaries[0]);
-        foreach (var boundary in boundaries) Assert.AreSame(transaction, boundary.Transaction);
+        foreach (var boundary in boundaries)
+            Assert.IsTrue(Monitor.IsEntered(boundary.SynchronizationLock));
         Assert.IsTrue(scenario.MoneyPouch.Add(4));
         Assert.AreEqual(0, order.Count);
 

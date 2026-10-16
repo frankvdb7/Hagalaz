@@ -164,12 +164,6 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
                     return false;
                 }
 
-                if (Owner.IsBusy())
-                {
-                    Owner.SendChatMessage("Please finish what you're doing before withdrawing items from your familiar.");
-                    return true;
-                }
-
                 bob.Inventory.WithdrawAvailableToInventory();
                 return true;
             });
@@ -300,12 +294,6 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
                 if (Owner.FamiliarScript is not BobFamiliarScriptBase bob)
                 {
                     return false;
-                }
-
-                if (Owner.IsBusy())
-                {
-                    Owner.SendChatMessage("Please finish what you're doing before withdrawing items from your familiar.");
-                    return true;
                 }
 
                 bob.Inventory.WithdrawAvailableToInventory();

@@ -108,12 +108,6 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 }
 
-                if (Owner.IsBusy())
-                {
-                    Owner.SendChatMessage("Please finish what you're doing before withdrawing items from your familiar.");
-                    return true;
-                }
-
                 bob.Inventory.WithdrawAvailableToInventory();
                 return true;
             });

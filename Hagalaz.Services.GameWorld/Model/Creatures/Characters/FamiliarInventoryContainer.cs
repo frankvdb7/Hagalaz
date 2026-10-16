@@ -78,6 +78,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         public bool WithdrawFromFamiliarInventory(IItem item, int count)
         {
+            if (!CanWithdrawToInventory()) return false;
+
             var slot = Items.GetInstanceSlot(item);
             if (slot == -1 || count <= 0)
                 return false;
@@ -96,12 +98,22 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void WithdrawAvailableToInventory()
         {
+            if (!CanWithdrawToInventory()) return;
+
             using var transaction = ItemContainerTransaction.Begin(this, _owner.Inventory);
             var familiarItems = _items.Select((item, slot) => (item, slot))
                 .Where(entry => entry.item is { Count: > 0 }).ToArray();
             foreach (var (item, slot) in familiarItems)
                 _owner.Inventory.TryTransferItemFrom(_items, item!, item!.Count, slot);
             transaction.Commit();
+        }
+
+        private bool CanWithdrawToInventory()
+        {
+            if (!_owner.IsBusy()) return true;
+
+            _owner.SendChatMessage("Please finish what you're doing before withdrawing items from your familiar.");
+            return false;
         }
 
         public int RemoveItem(IItem item, int preferredSlot = -1, bool publishChanges = true)

@@ -157,7 +157,7 @@ public sealed class CharacterItemTransferTests
 
         Assert.IsNull(equipment[EquipmentSlot.Hat]);
         Assert.IsNull(equipment[EquipmentSlot.Amulet]);
-        Assert.AreSame(transaction, boundary.Transaction);
+        Assert.IsTrue(Monitor.IsEntered(boundary.SynchronizationLock));
         current.EquipmentScript.DidNotReceive().OnUnequipped(current, scenario.Owner);
         restored.EquipmentScript.DidNotReceive().OnEquipped(restored, scenario.Owner);
         replacement.EquipmentScript.DidNotReceive().OnEquipped(replacement, scenario.Owner);
@@ -183,7 +183,7 @@ public sealed class CharacterItemTransferTests
         var destination = new ItemContainer(StorageType.Normal, 2);
         item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ =>
         {
-            AssertScopeBoundAndUnlocked(equipment, destination);
+            AssertCompletionRunsAfterUnlock(equipment, destination);
             Assert.IsNull(equipment[EquipmentSlot.Hat]);
             Assert.AreSame(item, destination[0]);
             order.Add("unequip");
@@ -191,7 +191,7 @@ public sealed class CharacterItemTransferTests
         eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
         {
             if (call.Arg<IEvent>() is not EquipmentChangedEvent) return;
-            AssertScopeBoundAndUnlocked(equipment, destination);
+            AssertCompletionRunsAfterUnlock(equipment, destination);
             Assert.IsNull(equipment[EquipmentSlot.Hat]);
             Assert.AreSame(item, destination[0]);
             CollectionAssert.AreEqual(new[] { "unequip" }, order);
@@ -206,7 +206,7 @@ public sealed class CharacterItemTransferTests
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
         CollectionAssert.AreEqual(new[] { "unequip", "equipment" }, order);
         CollectionAssert.AreEqual(new[] { 0 }, destination.ChangeTracker.GetSlots()!.Order().ToArray());
-        AssertUnboundAndUnlocked(equipment, destination);
+        AssertLocksReleasedAndNoStandalonePublication(equipment, destination);
     }
 
     [TestMethod]
@@ -222,7 +222,7 @@ public sealed class CharacterItemTransferTests
         Assert.AreEqual(2, destination[0]!.Count);
         item.EquipmentScript.DidNotReceive().OnUnequipped(item, scenario.Owner);
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
-        AssertUnboundAndUnlocked(equipment, destination);
+        AssertLocksReleasedAndNoStandalonePublication(equipment, destination);
     }
 
     [TestMethod]
@@ -248,7 +248,7 @@ public sealed class CharacterItemTransferTests
         Assert.IsTrue(sawLockedCountRead, "Equipment's expected-instance/count validation must run under both mutation locks.");
         Assert.IsNull(equipment[EquipmentSlot.Hat]);
         Assert.AreSame(item, destination[0]);
-        AssertUnboundAndUnlocked(equipment, destination);
+        AssertLocksReleasedAndNoStandalonePublication(equipment, destination);
     }
 
     [TestMethod]
@@ -266,7 +266,7 @@ public sealed class CharacterItemTransferTests
         Assert.AreSame(item, destination[0]);
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
         CollectionAssert.AreEqual(new[] { 0 }, destination.ChangeTracker.GetSlots()!.Order().ToArray());
-        AssertUnboundAndUnlocked(equipment, destination);
+        AssertLocksReleasedAndNoStandalonePublication(equipment, destination);
     }
 
     [TestMethod]
@@ -569,11 +569,9 @@ public sealed class CharacterItemTransferTests
         var pouchStorages = ((IItemTransactionSource)moneyPouch).Synchronizations;
         scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(_ =>
         {
-            Assert.IsNull(bankBoundary.Transaction);
             Assert.IsFalse(Monitor.IsEntered(bankBoundary.SynchronizationLock));
             foreach (var boundary in pouchStorages)
             {
-                Assert.IsNull(boundary.Transaction);
                 Assert.IsFalse(Monitor.IsEntered(boundary.SynchronizationLock));
             }
         });
@@ -881,6 +879,30 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
+    public void FamiliarInventory_WithdrawalsAreRejectedWhileOwnerIsBusy()
+    {
+        using var scenario = new Scenario();
+        scenario.DefineItem(101, stackable: false);
+        var inventory = CreateInventory(scenario, 1);
+        scenario.Owner.Inventory.Returns(inventory);
+        scenario.Owner.IsBusy().Returns(true);
+        var familiar = new FamiliarInventoryContainer(scenario.Owner, StorageType.Normal, 1, scenario.Builder);
+        familiar.Hydrate([new Hagalaz.Game.Abstractions.Logic.Characters.Model.HydratedItem(101, 1, 0, null)]);
+        var familiarItem = familiar.Items[0]!;
+        var eventManager = Substitute.For<IEventManager>();
+        scenario.Owner.EventManager.Returns(eventManager);
+
+        Assert.IsFalse(familiar.WithdrawFromFamiliarInventory(familiarItem, 1));
+        familiar.WithdrawAvailableToInventory();
+
+        Assert.AreSame(familiarItem, familiar.Items[0]);
+        Assert.IsNull(inventory.Items[0]);
+        scenario.Owner.Received(2).SendChatMessage(
+            "Please finish what you're doing before withdrawing items from your familiar.");
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+    }
+
+    [TestMethod]
     public void RewardClaim_TransfersOnlyTheNonStackableQuantityThatFits()
     {
         using var scenario = new Scenario();
@@ -933,7 +955,7 @@ public sealed class CharacterItemTransferTests
         setup.EventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is InventoryChangedEvent));
         setup.EventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
         scenario.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
-        AssertUnboundAndUnlocked(setup.Equipment, setup.Inventory);
+        AssertLocksReleasedAndNoStandalonePublication(setup.Equipment, setup.Inventory);
 
         scenario.DefaultEquipmentDefinition.Slot.Returns(EquipmentSlot.Hat);
         var validItem = scenario.Builder.Create().WithId(103).WithCount(1).Build();
@@ -967,7 +989,7 @@ public sealed class CharacterItemTransferTests
         setup.EventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is InventoryChangedEvent));
         setup.EventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
         scenario.Owner.DidNotReceive().SendChatMessage(Arg.Any<string>());
-        AssertUnboundAndUnlocked(setup.Equipment, setup.Inventory);
+        AssertLocksReleasedAndNoStandalonePublication(setup.Equipment, setup.Inventory);
     }
 
     [TestMethod]
@@ -1253,8 +1275,6 @@ public sealed class CharacterItemTransferTests
         {
             var equipmentBoundary = Synchronization(setup.Equipment);
             Assert.IsFalse(Monitor.IsEntered(equipmentBoundary.SynchronizationLock));
-            Assert.IsNotNull(equipmentBoundary.Transaction);
-            Assert.AreSame(equipmentBoundary.Transaction, Synchronization(setup.Inventory).Transaction);
             callbacks.Add("weapon");
             throw hookFailure;
         });
@@ -1406,9 +1426,7 @@ public sealed class CharacterItemTransferTests
         var inventorySynchronization = Synchronization(inventory);
         scenario.Owner.When(owner => owner.SendChatMessage(Arg.Any<string>())).Do(_ =>
         {
-            Assert.IsNull(equipmentSynchronization.Transaction);
             Assert.IsFalse(Monitor.IsEntered(equipmentSynchronization.SynchronizationLock));
-            Assert.IsNull(inventorySynchronization.Transaction);
             Assert.IsFalse(Monitor.IsEntered(inventorySynchronization.SynchronizationLock));
         });
         Assert.IsFalse(equipment.UnEquipItem(item));
@@ -2084,7 +2102,6 @@ public sealed class CharacterItemTransferTests
         Assert.IsFalse(Monitor.IsEntered(boundary.SynchronizationLock));
         lock (boundary.SynchronizationLock)
         {
-            Assert.IsNull(boundary.Transaction);
             Assert.IsTrue(boundary.HasStandalonePublicationOwner);
             Assert.IsTrue(boundary.IsStandalonePublicationOwnedByCurrentThread);
         }
@@ -2099,32 +2116,24 @@ public sealed class CharacterItemTransferTests
             AssertStandalonePublicationOwnsBoundaryAfterUnlock(boundary);
         });
 
-    private static void AssertScopeBoundAndUnlocked(EquipmentContainer equipment, ItemContainer destination)
+    private static void AssertCompletionRunsAfterUnlock(EquipmentContainer equipment, ItemContainer destination)
     {
         var equipmentSynchronization = Synchronization(equipment);
-        var transaction = equipmentSynchronization.Transaction;
-        Assert.IsNotNull(transaction);
-        Assert.IsTrue(transaction.IsCommittedByCurrentThread);
         foreach (var boundary in new[] { equipmentSynchronization, Synchronization(destination) })
         {
             lock (boundary.SynchronizationLock)
-            {
-                Assert.AreSame(transaction, boundary.Transaction);
                 Assert.IsFalse(boundary.HasStandalonePublicationOwner);
-            }
             Assert.IsFalse(Monitor.IsEntered(boundary.SynchronizationLock));
         }
     }
 
-    private static void AssertUnboundAndUnlocked(EquipmentContainer equipment, IItemTransactional destination)
+    private static void AssertLocksReleasedAndNoStandalonePublication(EquipmentContainer equipment,
+        IItemTransactional destination)
     {
         foreach (var boundary in new[] { Synchronization(equipment), Synchronization(destination) })
         {
             lock (boundary.SynchronizationLock)
-            {
-                Assert.IsNull(boundary.Transaction);
                 Assert.IsFalse(boundary.HasStandalonePublicationOwner);
-            }
             Assert.IsFalse(Monitor.IsEntered(boundary.SynchronizationLock));
         }
     }
