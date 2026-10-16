@@ -1,0 +1,11 @@
+family,item_id,source_path,reason,evidence
+Guthan,4726,Hagalaz.Game.Scripts/Equipment/Barrows/GuthanEquipment.rseq.cs,id used in degradation chain but omitted from this equipment script attribute,source_attribute_coverage_review
+Guthan,4910,Hagalaz.Game.Scripts/Equipment/Barrows/GuthanEquipment.rseq.cs,id used in degradation chain but omitted from this equipment script attribute,source_attribute_coverage_review
+Guthan,4911,Hagalaz.Game.Scripts/Equipment/Barrows/GuthanEquipment.rseq.cs,id used in degradation chain but omitted from this equipment script attribute,source_attribute_coverage_review
+Guthan,4912,Hagalaz.Game.Scripts/Equipment/Barrows/GuthanEquipment.rseq.cs,id used in degradation chain but omitted from this equipment script attribute,source_attribute_coverage_review
+Guthan,4913,Hagalaz.Game.Scripts/Equipment/Barrows/GuthanEquipment.rseq.cs,id used in degradation chain but omitted from this equipment script attribute,source_attribute_coverage_review
+Karil,4734,Hagalaz.Game.Scripts/Equipment/Barrows/KarilEquipment.rseq.cs,id used in degradation chain but omitted from this equipment script attribute,source_attribute_coverage_review
+Karil,4934,Hagalaz.Game.Scripts/Equipment/Barrows/KarilEquipment.rseq.cs,id used in degradation chain but omitted from this equipment script attribute,source_attribute_coverage_review
+Karil,4935,Hagalaz.Game.Scripts/Equipment/Barrows/KarilEquipment.rseq.cs,id used in degradation chain but omitted from this equipment script attribute,source_attribute_coverage_review
+Karil,4936,Hagalaz.Game.Scripts/Equipment/Barrows/KarilEquipment.rseq.cs,id used in degradation chain but omitted from this equipment script attribute,source_attribute_coverage_review
+Karil,4937,Hagalaz.Game.Scripts/Equipment/Barrows/KarilEquipment.rseq.cs,id used in degradation chain but omitted from this equipment script attribute,source_attribute_coverage_review
