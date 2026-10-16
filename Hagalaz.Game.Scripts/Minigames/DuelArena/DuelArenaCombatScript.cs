@@ -125,12 +125,6 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return false;
             }
 
-            victor.Respawn();
-            if (!loserDestroyed)
-            {
-                loser.Respawn();
-            }
-
             IReadOnlyList<IItem?>? spoils = null;
             if (IsStaking)
             {
@@ -141,6 +135,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     victor.SendChatMessage("You don't have enough room to receive the duel stakes. Free some inventory or Money Pouch space and try again.");
                     return false;
                 }
+            }
+
+            victor.Respawn();
+            if (!loserDestroyed)
+            {
+                loser.Respawn();
             }
 
             var victorDuelEndScreen = victor.ServiceProvider.GetRequiredService<DuelEndScreenScript>();

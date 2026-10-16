@@ -499,6 +499,19 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     }));
                 }
             }
+
+            EventHappened? unequipHandler = null;
+            unequipHandler = character.RegisterEventHandler(new EventHappened<UnEquipAllowEvent>(_ =>
+            {
+                if (character.GetScript<DuelArenaCombatScript>() != script)
+                {
+                    character.UnregisterEventHandler<UnEquipAllowEvent>(unequipHandler!);
+                    return false;
+                }
+
+                character.SendChatMessage("You cannot unequip items during a duel.");
+                return true;
+            }));
         }
 
         /// <summary>

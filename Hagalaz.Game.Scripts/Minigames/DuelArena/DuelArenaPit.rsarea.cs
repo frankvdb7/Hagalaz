@@ -80,7 +80,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return;
             }
 
-            if (character.HasScript<DuelArenaCombatScript>())
+            var combatScript = character.GetScript<DuelArenaCombatScript>();
+            if (HasUnsettledStakes(combatScript))
+            {
+                return;
+            }
+
+            if (combatScript != null)
             {
                 character.TryRemoveScript<DuelArenaCombatScript>();
             }
@@ -124,7 +130,20 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// <returns>
         ///     Location.
         /// </returns>
-        public override ILocation GetRespawnLocation(ICharacter character) => DuelData.GetDuelLobbyLocation(character.ServiceProvider.GetRequiredService<IMapRegionService>());
+        public override ILocation GetRespawnLocation(ICharacter character)
+        {
+            var combatScript = character.GetScript<DuelArenaCombatScript>();
+            if (HasUnsettledStakes(combatScript))
+            {
+                // CharacterCombat still respawns after rejected settlement; keep the stake owner in the pit.
+                return character.Location;
+            }
+
+            return DuelData.GetDuelLobbyLocation(character.ServiceProvider.GetRequiredService<IMapRegionService>());
+        }
+
+        private static bool HasUnsettledStakes(DuelArenaCombatScript? script) =>
+            script?.SelfContainer?.Items.TakenSlots > 0 || script?.TargetContainer?.Items.TakenSlots > 0;
 
         /// <summary>
         ///     Initializes area script.

@@ -105,6 +105,40 @@ public sealed class DuelRulesTests
         }
     }
 
+    [TestMethod]
+    public void ApplyRules_UnEquipIsRejectedOnlyWhileCombatScriptIsActive()
+    {
+        var character = Substitute.For<ICharacter>();
+        var context = Substitute.For<ICharacterContext>();
+        context.Character.Returns(character);
+        var contextAccessor = Substitute.For<ICharacterContextAccessor>();
+        contextAccessor.Context.Returns(context);
+        var combatScript = new DuelArenaCombatScript(
+            contextAccessor,
+            Substitute.For<ICharacter>(),
+            new DuelRules(_ => { }),
+            null,
+            null,
+            Substitute.For<IHintIconBuilder>());
+
+        EventHappened<UnEquipAllowEvent>? unEquipHandler = null;
+        var registeredHandler = (EventHappened)(_ => false);
+        character.GetScript<DuelArenaCombatScript>().Returns(combatScript);
+        character.RegisterEventHandler<UnEquipAllowEvent>(
+                Arg.Do<EventHappened<UnEquipAllowEvent>>(handler => unEquipHandler = handler))
+            .Returns(registeredHandler);
+
+        combatScript.Rules.ApplyRules(character, combatScript);
+
+        Assert.IsNotNull(unEquipHandler);
+        Assert.IsTrue(unEquipHandler!(new UnEquipAllowEvent(character, Substitute.For<IItem>())));
+        character.Received(1).SendChatMessage("You cannot unequip items during a duel.");
+
+        character.GetScript<DuelArenaCombatScript>().Returns((DuelArenaCombatScript?)null);
+        Assert.IsFalse(unEquipHandler(new UnEquipAllowEvent(character, Substitute.For<IItem>())));
+        character.Received(1).UnregisterEventHandler<UnEquipAllowEvent>(registeredHandler);
+    }
+
     private static IItem CreateItem(EquipmentSlot slot)
     {
         var equipmentDefinition = Substitute.For<IEquipmentDefinition>();
