@@ -465,16 +465,18 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     EventHappened? happ = null;
                     happ = character.RegisterEventHandler(new EventHappened<EquipAllowEvent>(e =>
                     {
-                        if (character.GetScript<DuelArenaCombatScript>() == script)
+                        if (character.GetScript<DuelArenaCombatScript>() != script)
                         {
-                            if (e.Item.EquipmentDefinition.Slot == (EquipmentSlot)slot)
-                            {
-                                character.SendChatMessage("Equiping this item has been disabled.");
-                                return true;
-                            }
+                            character.UnregisterEventHandler<EquipAllowEvent>(happ!);
+                            return false;
                         }
 
-                        character.UnregisterEventHandler<EquipAllowEvent>(happ!);
+                        if (e.Item.EquipmentDefinition.Slot == (EquipmentSlot)slot)
+                        {
+                            character.SendChatMessage("Equiping this item has been disabled.");
+                            return true;
+                        }
+
                         return false;
                     }));
                 }
