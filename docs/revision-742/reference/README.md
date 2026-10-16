@@ -142,3 +142,10 @@ Source-derived numeric rows are under [data/catalogs](../data/catalogs/README.md
 - [Eight cross-boundary source findings](../data/catalogs/client-protocol-integration-findings.csv), including opcode 162 framing and nested writer metadata.
 
 - [29 varbit-send source call sites](../data/catalogs/client-varbit-source-calls.csv) preserve literal IDs separately from computed expressions; physical index-22 decoding remains open.
+
+## P1 #10 — Client and server revision 742 integration
+
+- [UI, CS2, varp/varbit and packet ownership dossier](deep-client-integration.md)
+- [30-case integration verification and evidence matrix](client-integration-verification-matrix.md)
+- [108 client outgoing + 164 incoming opcode identities](../data/catalogs/protocol-client-ledger-742.csv)
+- [38 server decoder, 59 encoder and 45 widget script source files](../data/catalogs/protocol-server-source-inventory.csv)

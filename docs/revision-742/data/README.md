@@ -59,3 +59,7 @@ The [combat source catalogs](catalogs/README.md) contain 49 item-ID special cost
 [The server/client protocol and UI catalog](catalogs/README.md) now includes 108 reconciled incoming-server opcode definitions, 71 server encoder branch entries, 75 literal widget-state calls (17 contributing files from 25 inspected) and eight implementation risk records. Client 164-opcode incoming and 108-opcode outgoing canonical ledgers remain in the GameClient repository; these are only comparison/ownership data.
 
 The [29-varbit-send source call catalog](catalogs/client-varbit-source-calls.csv) distinguishes 18 literal-ID call sites (14 distinct values) from 11 computed-ID expressions. No index-22 cache definition join has been performed.
+
+## Client protocol evidence
+
+[Revision-742 client protocol ledger](catalogs/protocol-client-ledger-742.csv) includes 272 source-documented client opcodes (108 outgoing, 164 incoming), and the [server source inventory](catalogs/protocol-server-source-inventory.csv) contains 142 C# decoder, encoder and widget script files. The [integration dossier](../reference/deep-client-integration.md) explains the boundaries and missing runtime reconciliation.

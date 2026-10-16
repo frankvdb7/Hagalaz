@@ -116,3 +116,11 @@ The [full combat dossier](../../reference/deep-combat-character-mechanics.md) sp
 
 These are Hagalaz-versus-GameClient **source reconciliation records**, not new client opcode authorities; consult the linked [dossier](../../reference/deep-client-interface-cs2-protocol-integration.md). One confirmed declaration error is the enclosed zone update's server Fixed framing vs client variable-short (162). The nested opcode-writer metadata path also requires direct tests.
 
+## P1 #10 — Client protocol and server source inventories
+
+| File | Records | Scope |
+|---|---:|---|
+| [Client protocol 742 ledger](protocol-client-ledger-742.csv) | 272 | Client-owned 108 outgoing + 164 incoming opcode identities, sizes and source symbols with original evidence URLs; no new server-opcode join proven |
+| [Server protocol/UI source inventory](protocol-server-source-inventory.csv) | 142 | 38 decoder C# files, 59 encoder C# files and 45 widget script files; file presence is not live handler registration |
+
+Start with the [cross-repository dossier](../../reference/deep-client-integration.md) and [test matrix](../../reference/client-integration-verification-matrix.md) before altering protocol or UI code.
