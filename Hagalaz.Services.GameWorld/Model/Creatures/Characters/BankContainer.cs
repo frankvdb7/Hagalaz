@@ -234,12 +234,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         }
 
-        public bool ReceiveFromTrade(IItemContainer source, IItem item, int count, int sourceSlot)
-        {
-            ArgumentNullException.ThrowIfNull(source);
-            return source.TryTransferTo(_items, item, count, sourceSlot, destinationItem: item.Clone());
-        }
-
         /// <summary>
         /// Withdraw's specific item from character's bank and
         /// stores it into character's inventory.

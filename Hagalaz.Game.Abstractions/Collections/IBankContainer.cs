@@ -49,9 +49,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <returns><c>true</c> if the deposit was successful; otherwise, <c>false</c>.</returns>
         bool DepositFromInventory(IItem item, int count, [NotNullWhen(true)] out IItem? deposited);
 
-        /// <summary>Receives an item from a trade escrow as part of its caller-owned transaction.</summary>
-        bool ReceiveFromTrade(IItemContainer source, IItem item, int count, int sourceSlot);
-
         /// <summary>
         /// Withdraws a specific item from the bank and prepares it for placement in another container (e.g., inventory).
         /// </summary>

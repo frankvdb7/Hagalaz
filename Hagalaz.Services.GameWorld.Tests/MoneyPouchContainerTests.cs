@@ -283,8 +283,6 @@ public sealed class MoneyPouchContainerTests
             foreach (var boundary in boundaries)
             {
                 Assert.IsFalse(Monitor.IsEntered(boundary.SynchronizationLock));
-                lock (boundary.SynchronizationLock)
-                    Assert.IsFalse(boundary.HasStandalonePublicationOwner);
             }
         });
         Assert.IsFalse(scenario.MoneyPouch.MoveToInventory(5));

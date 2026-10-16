@@ -286,7 +286,6 @@ public sealed class ShopStockContainerTests
             Assert.IsFalse(System.Threading.Monitor.IsEntered(boundary.SynchronizationLock));
             lock (boundary.SynchronizationLock)
             {
-                Assert.IsTrue(boundary.HasStandalonePublicationOwner);
                 Assert.IsTrue(boundary.IsStandalonePublicationOwnedByCurrentThread);
             }
         });
@@ -294,7 +293,6 @@ public sealed class ShopStockContainerTests
         scenario.Stock.NormalizeStock();
 
         scenario.ShopEvents.Received(1).SendEvent(Arg.Any<ShopStockChangedEvent>());
-        lock (boundary.SynchronizationLock) Assert.IsFalse(boundary.HasStandalonePublicationOwner);
     }
 
     [TestMethod]

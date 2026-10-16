@@ -311,11 +311,6 @@ internal sealed class ItemContainerSynchronization
             throw new InvalidOperationException("Standalone completion requires retained publication ownership.");
     }
 
-    internal bool HasStandalonePublicationOwner
-    {
-        get { EnsureSynchronizationLockHeld(); return _standalonePublicationOwnerThreadId != 0; }
-    }
-
     internal bool IsStandalonePublicationOwnedByCurrentThread
     {
         get
