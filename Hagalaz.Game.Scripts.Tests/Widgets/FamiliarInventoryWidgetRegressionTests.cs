@@ -8,7 +8,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
+using ISmartPathFinder = Hagalaz.Game.Abstractions.Model.Maps.PathFinding.ISmartPathFinder;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
@@ -73,39 +73,11 @@ public sealed class FamiliarInventoryWidgetRegressionTests
         busyScript.IsBusy().Returns(true);
         character.GetScripts().Returns([busyScript]);
 
-        var itemBuilder = new TestItemBuilder(ComposedTestContainer.CreateTestItem);
-        var familiarInventory = new FamiliarInventoryContainer(character, StorageType.Normal, 30, itemBuilder);
-        var containerFactory = Substitute.For<IItemContainerFactory>();
-        containerFactory.Create(character, StorageType.Normal, 30).Returns(familiarInventory);
-        var bob = CreateBob(containerFactory);
-        bob.AttachToSummoner(character, new SummoningDto());
-        familiarInventory.Hydrate([new HydratedItem(100, 1, 0, null)]);
-        character.FamiliarScript.Returns(bob);
+        var familiar = CreateFamiliarWidget(character, new HydratedItem(100, 1, 0, null));
 
-        var context = Substitute.For<ICharacterContext>();
-        context.Character.Returns(character);
-        var accessor = Substitute.For<ICharacterContextAccessor>();
-        accessor.Context.Returns(context);
-        character.ServiceProvider.GetService(typeof(DefaultWidgetScript)).Returns(new DefaultWidgetScript(accessor));
+        Assert.IsTrue(familiar.WithdrawClick!(27, ComponentClickType.LeftClick, 100, 0));
 
-        var overlay = Substitute.For<IWidget>();
-        var widgets = Substitute.For<IWidgetContainer>();
-        widgets.OpenInventoryOverlay(665, 1, Arg.Any<IWidgetScript>()).Returns(true);
-        widgets.GetOpenWidget(665).Returns(overlay);
-        character.Widgets.Returns(widgets);
-
-        OnComponentClick? withdrawClick = null;
-        var widget = Substitute.For<IWidget>();
-        widget.When(x => x.AttachClickHandler(27, Arg.Any<OnComponentClick>()))
-            .Do(call => withdrawClick = call.ArgAt<OnComponentClick>(1));
-
-        var script = new FamiliarInventoryWidget(accessor);
-        script.Initialize(widget);
-        script.OnOpen();
-
-        Assert.IsTrue(withdrawClick!(27, ComponentClickType.LeftClick, 100, 0));
-
-        Assert.AreEqual(1, familiarInventory.Items.GetCountById(100));
+        Assert.AreEqual(1, familiar.Inventory.Items.GetCountById(100));
         Assert.AreEqual(0, ownerItems.Items.GetCountById(100));
         character.Received(1).SendChatMessage(
             "Please finish what you're doing before withdrawing items from your familiar.");
@@ -125,16 +97,33 @@ public sealed class FamiliarInventoryWidgetRegressionTests
         combat.IsInCombat().Returns(false);
         character.Combat.Returns(combat);
 
+        var familiar = CreateFamiliarWidget(character,
+            new HydratedItem(100, 1, 0, null),
+            new HydratedItem(101, 1, 1, null));
+
+        Assert.IsTrue(familiar.WithdrawClick!(27, ComponentClickType.LeftClick, 100, 0));
+        Assert.AreEqual(1, ownerItems.Items.GetCountById(100));
+        Assert.AreEqual(1, familiar.Inventory.Items.GetCountById(101));
+
+        Assert.IsTrue(familiar.TakeAllClick!(29, ComponentClickType.LeftClick, 0, 0));
+
+        Assert.AreEqual(1, ownerItems.Items.GetCountById(100));
+        Assert.AreEqual(1, ownerItems.Items.GetCountById(101));
+        Assert.AreEqual(0, familiar.Inventory.Items.TakenSlots);
+        character.DidNotReceive().SendChatMessage(
+            "Please finish what you're doing before withdrawing items from your familiar.");
+    }
+
+    private static (FamiliarInventoryContainer Inventory, OnComponentClick? WithdrawClick, OnComponentClick? TakeAllClick)
+        CreateFamiliarWidget(ICharacter character, params HydratedItem[] items)
+    {
         var itemBuilder = new TestItemBuilder(ComposedTestContainer.CreateTestItem);
-        var familiarInventory = new FamiliarInventoryContainer(character, StorageType.Normal, 30, itemBuilder);
+        var inventory = new FamiliarInventoryContainer(character, StorageType.Normal, 30, itemBuilder);
         var containerFactory = Substitute.For<IItemContainerFactory>();
-        containerFactory.Create(character, StorageType.Normal, 30).Returns(familiarInventory);
+        containerFactory.Create(character, StorageType.Normal, 30).Returns(inventory);
         var bob = CreateBob(containerFactory);
         bob.AttachToSummoner(character, new SummoningDto());
-        familiarInventory.Hydrate([
-            new HydratedItem(100, 1, 0, null),
-            new HydratedItem(101, 1, 1, null)
-        ]);
+        inventory.Hydrate(items);
         character.FamiliarScript.Returns(bob);
 
         var context = Substitute.For<ICharacterContext>();
@@ -161,17 +150,7 @@ public sealed class FamiliarInventoryWidgetRegressionTests
         script.Initialize(widget);
         script.OnOpen();
 
-        Assert.IsTrue(withdrawClick!(27, ComponentClickType.LeftClick, 100, 0));
-        Assert.AreEqual(1, ownerItems.Items.GetCountById(100));
-        Assert.AreEqual(1, familiarInventory.Items.GetCountById(101));
-
-        Assert.IsTrue(takeAllClick!(29, ComponentClickType.LeftClick, 0, 0));
-
-        Assert.AreEqual(1, ownerItems.Items.GetCountById(100));
-        Assert.AreEqual(1, ownerItems.Items.GetCountById(101));
-        Assert.AreEqual(0, familiarInventory.Items.TakenSlots);
-        character.DidNotReceive().SendChatMessage(
-            "Please finish what you're doing before withdrawing items from your familiar.");
+        return (inventory, withdrawClick, takeAllClick);
     }
 
     private static PackYak CreateBob(IItemContainerFactory? itemContainerFactory = null) => new(
