@@ -34,6 +34,8 @@ Completion MUST deliver both complete opposite offers and clear both escrow cont
 
 Cancellation MUST return each offer to its original owner exactly once in one transaction. A cancellation MUST become terminal only after both refunds commit. A GameFrame money-pouch withdrawal MUST NOT consume Inventory capacity while a trade is active, preserving the capacity freed by funded offers for a refund.
 
+Terminal character detachment MUST invoke the trade script's detach callback before the final snapshot is captured. General script destruction callbacks MUST remain at actual character destruction.
+
 #### Scenario: An active trade is cancelled
 - **WHEN** either participant cancels an active trade
 - **THEN** each owner receives their own offer, both offers are cleared, and the session is cancelled
@@ -45,6 +47,10 @@ Cancellation MUST return each offer to its original owner exactly once in one tr
 #### Scenario: A pouch withdrawal is submitted during an active trade
 - **WHEN** a character submits a GameFrame money-pouch withdrawal amount while a trade is active
 - **THEN** the busy check rejects the withdrawal before Inventory or MoneyPouch changes, leaving capacity available to refund the offer
+
+#### Scenario: An active trade is cancelled before the logout snapshot
+- **WHEN** terminal detachment begins while a funded trade is active
+- **THEN** the trade script refunds its offer before dehydration captures the character snapshot
 
 ### Requirement: Committed trade operations reach a terminal state
 

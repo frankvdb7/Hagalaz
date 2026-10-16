@@ -231,6 +231,11 @@ namespace Hagalaz.Game.Scripts.Characters
                 });
 
         /// <summary>
+        ///     Finalizes an active trade before the character's logout snapshot is captured.
+        /// </summary>
+        public override void OnDetach() => CancelTradeSession();
+
+        /// <summary>
         ///     Happens when character exits world.
         /// </summary>
         public override void OnDestroy()

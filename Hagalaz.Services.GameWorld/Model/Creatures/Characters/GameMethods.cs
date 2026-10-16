@@ -356,9 +356,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         }
 
         /// <summary>
-        /// Runs character-script destruction callbacks before the final snapshot is captured.
+        /// Runs character-script detach callbacks before the final snapshot is captured.
         /// </summary>
-        public void OnDetach() => InvokeScriptDestroyCallbacks();
+        public void OnDetach()
+        {
+            foreach (var script in _scripts.Values)
+            {
+                script.OnDetach();
+            }
+        }
 
         /// <summary>
         /// Interrupts open interfaces.

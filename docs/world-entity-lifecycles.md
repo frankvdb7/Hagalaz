@@ -30,12 +30,12 @@ create → hydrate → add to character/entity stores → load visible regions
   → ICharacter.OnRegistered()
   → Character.OnRegistered(): script.OnRegistered() → OnInit() → OnSpawn()/script.OnSpawn()
   → active creature ticks
-  → successful terminal logout only: ICharacter.OnDetach() → character-script OnDestroy() callbacks
+  → successful terminal logout only: ICharacter.OnDetach() → character-script OnDetach() callbacks for pre-snapshot domain cleanup
   → final snapshot → remove from stores → Character.Destroy()
-  → Creature.Destroy(): leave region/area → Character.OnDestroy() entity hook → combat cleanup → dispose scope
+  → Creature.Destroy(): leave region/area → Character.OnDestroy(): CreatureDestroyedEvent → character-script OnDestroy() callbacks → combat cleanup → dispose scope
 ```
 
-Here `ICharacter.OnDetach()` and `Character.OnDestroy()` are different stages. `OnDetach()` runs character-script destruction callbacks before the logout snapshot; `Character.OnDestroy()` is the entity hook called from `Destroy()` after region removal. The script callbacks are skipped there if they completed successfully during detachment. Other destruction paths, such as failed sign-in cleanup, can call `Destroy()` without `OnDetach()`.
+Here `ICharacter.OnDetach()` and `Character.OnDestroy()` are different stages. `OnDetach()` invokes only script-specific `OnDetach()` callbacks for synchronous domain state that must be included in the logout snapshot. General script `OnDestroy()` callbacks remain at actual destruction. `Character.OnDestroy()` is the entity hook called from `Destroy()` after region removal. Other destruction paths, such as failed sign-in cleanup, can call `Destroy()` without `OnDetach()`.
 
 ### Sign-in and activation
 
@@ -51,9 +51,9 @@ Character data is hydrated by [`CharacterHydrationService`](../Hagalaz.Services.
 
 ### Logout and destruction
 
-For terminal logout, [`CharacterLogoutService.DetachAsync()`](../Hagalaz.Services.GameWorld/Services/CharacterLogoutService.cs) calls `ICharacter.OnDetach()` before taking the final snapshot. `Character.OnDetach()` invokes the attached scripts' `OnDestroy()` callbacks before dehydration. If all callbacks complete successfully, `Character.OnDestroy()` skips invoking them again; if any callback fails, the call reports the failures and the completion flag is not set. The service then removes the character from its stores, records the snapshot for persistence, and calls `Character.Destroy()`.
+For terminal logout, [`CharacterLogoutService.DetachAsync()`](../Hagalaz.Services.GameWorld/Services/CharacterLogoutService.cs) calls `ICharacter.OnDetach()` before taking the final snapshot. `Character.OnDetach()` invokes the attached scripts' `OnDetach()` callbacks; trade and pre-combat duel scripts use this phase to return temporary offers or stakes. The service then removes the character from its stores, records the snapshot for persistence, and calls `Character.Destroy()`.
 
-`Character.OnDestroy()` publishes the creature-destroyed event, invokes script destruction callbacks if they have not already run, and unregisters event handlers. When `Creature.Destroy()` later disposes the service scope, character-owned services and tasks end as well. Failed sign-in cleanup can call `Destroy()` directly without going through the logout snapshot path.
+`Character.OnDestroy()` publishes the creature-destroyed event, invokes every attached script's `OnDestroy()` callback, and unregisters event handlers. When `Creature.Destroy()` later disposes the service scope, character-owned services and tasks end as well. Failed sign-in cleanup can call `Destroy()` directly without going through the logout snapshot path.
 
 The distinction matters: `OnDetach()` is the pre-snapshot callback in the terminal logout path; `Destroy()` is the terminal in-memory cleanup path.
 

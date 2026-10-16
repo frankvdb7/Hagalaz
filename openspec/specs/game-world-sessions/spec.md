@@ -65,11 +65,11 @@ The system MUST remove only the local session or distributed claim belonging to 
 
 ### Requirement: Final logout snapshots include script detach cleanup
 
-Terminal character detachment MUST run the character's detach lifecycle hook before capturing its final snapshot so synchronous script cleanup is persisted.
+Terminal character detachment MUST invoke character-script detach callbacks before capturing its final snapshot so required synchronous domain cleanup is persisted. General character-script destruction callbacks MUST remain at actual character destruction.
 
 #### Scenario: Pre-combat duel cancellation is included in the snapshot
 
 - GIVEN a character has items in a pre-combat duel stake container
 - WHEN terminal logout captures the character's final snapshot
-- THEN the duel script's destruction callback cancels the duel and returns the stakes before dehydration
+- THEN the duel script's detach callback cancels the duel and returns the stakes before dehydration
 - AND the final snapshot contains the returned items

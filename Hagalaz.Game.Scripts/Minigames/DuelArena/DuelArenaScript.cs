@@ -1172,6 +1172,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         }
 
         /// <summary>
+        ///     Returns pre-combat stakes before the character's logout snapshot is captured.
+        /// </summary>
+        public override void OnDetach() => CancelDuelSession();
+
+        /// <summary>
         ///     Get's called when character is interrupted.
         ///     By default this method does nothing.
         /// </summary>

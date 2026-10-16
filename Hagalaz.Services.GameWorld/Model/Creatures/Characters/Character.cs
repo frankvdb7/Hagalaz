@@ -47,8 +47,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         private readonly Dictionary<Type, ICharacterScript> _scripts = default!;
 
-        private bool _scriptDestroyCallbacksCompleted;
-
         /// <summary>
         /// Contains character option handlers.
         /// </summary>
@@ -422,11 +420,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private void InvokeScriptDestroyCallbacks()
         {
-            if (_scriptDestroyCallbacksCompleted)
-            {
-                return;
-            }
-
             List<Exception>? exceptions = null;
             foreach (var script in _scripts.Values)
             {
@@ -444,8 +437,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 throw new AggregateException("One or more character script cleanup operations failed.", exceptions).Flatten();
             }
-
-            _scriptDestroyCallbacksCompleted = true;
         }
 
         /// <summary>

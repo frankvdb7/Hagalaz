@@ -745,7 +745,7 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
-    public void OnDetach_FundedOfferIsRefundedToSnapshotWhenPouchWithdrawalIsRejectedDuringTrade()
+    public void TradeScriptDetach_FundedOfferIsRefundedBeforeSnapshotWhenPouchWithdrawalIsRejected()
     {
         var (first, firstInventory, firstMoneyPouch) = CreateCharacterWithProductionContainers(2);
         var (second, _, _) = CreateCharacterWithProductionContainers(4);
@@ -783,8 +783,8 @@ public sealed class TradeExchangeTests
         firstMoneyPouch.Count.Should().Be(10);
         trade.Script.TradeSession.Should().BeTrue();
 
-        // Character.OnDetach runs the trade script's OnDestroy callback before dehydration.
-        trade.Script.OnDestroy();
+        // Character.OnDetach runs the trade script's detach callback before dehydration.
+        trade.Script.OnDetach();
 
         var persistedInventory = firstInventory.Dehydrate();
         persistedInventory.Select(item => item.ItemId).Should().BeEquivalentTo([100, 101]);

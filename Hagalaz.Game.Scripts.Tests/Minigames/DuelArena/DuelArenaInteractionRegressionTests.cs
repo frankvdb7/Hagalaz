@@ -66,6 +66,21 @@ public sealed class DuelArenaInteractionRegressionTests
     }
 
     [TestMethod]
+    public void OnDetach_CancelsPreCombatDuelAndRefundsBothStakesBeforeSnapshot()
+    {
+        var duel = CreateDuel(6, 7);
+        Assert.IsTrue(duel.SelfStake!(0, ComponentClickType.Option4Click, duel.SelfItem.Id, 0));
+        Assert.IsTrue(duel.TargetStake!(0, ComponentClickType.Option4Click, duel.TargetItem.Id, 0));
+
+        duel.SessionScript.OnDetach();
+
+        Assert.AreEqual(7, duel.SelfInventory.Items.GetCountById(duel.SelfItem.Id));
+        Assert.AreEqual(6, duel.TargetInventory.Items.GetCountById(duel.TargetItem.Id));
+        Assert.AreEqual(0, duel.SelfStakeContainer.GetCountById(duel.SelfItem.Id));
+        Assert.AreEqual(0, duel.TargetStakeContainer.GetCountById(duel.TargetItem.Id));
+    }
+
+    [TestMethod]
     public void SelfAndTargetStakeHandlers_UseTheirOwnInventoryAndStake()
     {
         var duel = CreateDuel(6, 7);

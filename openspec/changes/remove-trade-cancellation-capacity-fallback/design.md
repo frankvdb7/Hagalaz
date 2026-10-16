@@ -8,7 +8,7 @@ Production offers enter the trade container only through Inventory item transfer
 
 **Goals:** Keep cancellation on the same transactional refund path for normal cancellation and detach cleanup; prevent the GameFrame pouch-withdrawal path from consuming Inventory capacity during a trade; remove the redundant forced recovery branch.
 
-**Non-Goals:** Change how a recipient-capacity failure rejects a trade or add a second destination for returned items.
+**Non-Goals:** Change how a recipient-capacity failure rejects a trade or add a second destination for returned items. Do not run unrelated script destruction callbacks before dehydration, change combat-stage duel settlement, or alter the equipment degradation timer's existing destruction-event persistence behavior.
 
 ## Decisions
 
@@ -16,6 +16,7 @@ Production offers enter the trade container only through Inventory item transfer
 - Check `ICharacter.IsBusy()` when the GameFrame money-pouch amount is submitted, immediately before calling `MoveToInventory`. A trade marks its participants busy, so the deferred UI action cannot use capacity reserved by funded offers.
 - Retain the `TryStageRefund` result guard. It protects transaction atomicity if an underlying domain mutation rejects; it is not a separate capacity preflight.
 - Remove `forceConservation` and the Rewards/Bank selection helper because supported production offer sources already establish the return capacity.
+- `CharacterLogoutService.DetachAsync` already calls `ICharacter.OnDetach()` before dehydration. That phase dispatches only `ICharacterScript.OnDetach()`; `ICharacterScript.OnDestroy()` remains part of actual character destruction. Trade and pre-combat duel scripts use the detach callback to refund their temporary offers or stakes.
 
 ## Risks / Trade-offs
 
