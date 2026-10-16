@@ -12,6 +12,11 @@ Duel victory settlement MUST transfer all stake items to the winner as one atomi
 #### Scenario: Winner cannot accept the complete payout
 - **WHEN** the winner's inventory or MoneyPouch cannot accept any part of the settlement
 - **THEN** both stake containers, the winner's inventory, and the winner's MoneyPouch remain unchanged
+- **AND** the victory stage does not advance, the stake containers remain owned by the active combat script, and the trapdoor does not remove the winner from the arena
+
+#### Scenario: Winner retries after making inventory space
+- **WHEN** a previous payout attempt was rejected and the winner later makes enough inventory space
+- **THEN** the victory stage can be started again and both stake containers are settled exactly once
 
 #### Scenario: Victory settlement is repeated
 - **WHEN** the same stakes are settled again after a successful settlement

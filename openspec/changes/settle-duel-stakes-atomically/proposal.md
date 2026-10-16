@@ -10,6 +10,7 @@ Duel victory currently removes stake coins and adds both stake containers to the
 - Move both stake containers into the winner's MoneyPouch and inventory in one `ItemContainerTransaction`.
 - Consume the source stake items as part of that transfer so a later settlement attempt cannot award them again.
 - Leave both stakes and winner storage unchanged if any item cannot be transferred.
+- Keep the victory stage and its stake-container references active when payout cannot complete; only show the victory screen and allow the trapdoor exit after settlement succeeds.
 
 ## Capabilities
 
@@ -27,7 +28,7 @@ The affected runtime path is `DuelArenaCombatScript.StartVictoryStage` and the e
 
 ## Non-goals
 
-- Changing duel staking, cancellation refunds, duel UI, or combat-session lifecycle.
+- Changing duel staking or cancellation refunds.
 - Adding a new recovery destination, payout queue, settlement coordinator, or generic transaction mechanism.
 - Changing the existing MoneyPouch overflow rules.
 
@@ -35,5 +36,6 @@ The affected runtime path is `DuelArenaCombatScript.StartVictoryStage` and the e
 
 - A successful victory settlement moves all non-coin stakes to the winner's inventory and coin stakes through the winner's MoneyPouch in one committed transaction.
 - A failed transfer leaves both stake containers, the winner's inventory, and the winner's pouch unchanged.
+- If payout fails because inventory capacity changed during combat, the victory stage does not advance, the participant remains in the arena, and the stakes remain available for another settlement attempt.
 - Repeating settlement after success does not award any stake item or coin a second time.
 - Existing staking and cancellation-refund behavior remains unchanged.

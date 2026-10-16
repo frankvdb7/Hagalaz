@@ -1,9 +1,11 @@
+using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
@@ -107,20 +109,33 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// </summary>
         /// <param name="victor">The victor.</param>
         /// <param name="loser">The loser.</param>
-        public void StartVictoryStage(ICharacter victor, ICharacter loser)
+        /// <returns>True when the victory stage starts; false when the duel is inactive or stake settlement fails.</returns>
+        public bool StartVictoryStage(ICharacter victor, ICharacter loser)
             => StartVictoryStage(victor, loser, false);
 
-        private void StartVictoryStage(ICharacter victor, ICharacter loser, bool loserDestroyed)
+        private bool StartVictoryStage(ICharacter victor, ICharacter loser, bool loserDestroyed)
         {
             if (!DuelSession)
             {
-                return;
+                return false;
             }
 
             victor.Respawn();
             if (!loserDestroyed)
             {
                 loser.Respawn();
+            }
+
+            IReadOnlyList<IItem?>? spoils = null;
+            if (IsStaking)
+            {
+                var spoilsContainer = (ReferenceEquals(victor, Character) ? TargetContainer : SelfContainer)!;
+                spoils = spoilsContainer.Items.ToArray();
+                if (!DuelStakeExchange.TrySettleWinner(victor, SelfContainer!.Items, TargetContainer!.Items))
+                {
+                    victor.SendChatMessage("You don't have enough room to receive the duel stakes. Free some inventory or Money Pouch space and try again.");
+                    return false;
+                }
             }
 
             var victorDuelEndScreen = victor.ServiceProvider.GetRequiredService<DuelEndScreenScript>();
@@ -143,7 +158,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     //victoryInterface.SetOptions(14, 0, 27, (0x2 | 0x400)); // allow clicking of 2 right click options + auto examine option ( last ))
                     //victor.Configurations.SendCS2Script(158, new object[] { (1365 << 16 | 14), 130, 3, 3, 1, -1, "Value", "", "", "", "" });
 
-                    victor.Configurations.SendItems(136, false, (ReferenceEquals(victor, Character) ? TargetContainer : SelfContainer)!.Items);
+                    victor.Configurations.SendItems(136, false, spoils!);
                 }
 
                 if (!loserDestroyed)
@@ -154,12 +169,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         // loseInterface.SetOptions(14, 0, 27, (0x2 | 0x400)); // allow clicking of 2 right click options + auto examine option ( last ))
                         //loser.Configurations.SendCS2Script(158, new object[] { (1365 << 16 | 14), 130, 3, 3, 1, -1, "Value", "", "", "", "" });
 
-                        loser.Configurations.SendItems(136, false, (ReferenceEquals(victor, Character) ? TargetContainer : SelfContainer)!.Items);
+                        loser.Configurations.SendItems(136, false, spoils!);
                     }
                 }
-
-                DuelStakeExchange.TrySettleWinner(victor, SelfContainer!.Items, TargetContainer!.Items);
             }
+
+            return true;
         }
 
         /// <summary>

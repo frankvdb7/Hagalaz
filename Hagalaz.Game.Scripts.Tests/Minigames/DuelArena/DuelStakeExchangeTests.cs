@@ -1,11 +1,21 @@
 using System.Linq;
+using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
+using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Model.Widgets;
+using Hagalaz.Game.Abstractions.Providers;
+using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Minigames.DuelArena;
+using Hagalaz.Game.Scripts.Minigames.DuelArena.GameObjects;
+using Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using NSubstitute;
 
@@ -201,6 +211,84 @@ public sealed class DuelStakeExchangeTests
         Assert.AreEqual(1, winner.InventoryItems.GetCountById(2000));
         Assert.AreEqual(0, winner.InventoryItems.GetCountById(995));
         Assert.AreEqual(0, winner.InventoryItems.GetCountById(1001));
+    }
+
+    [TestMethod]
+    public void Trapdoor_WhenStakesCannotFit_KeepsDuelActiveUntilWinnerMakesSpace()
+    {
+        var winner = CreateScenario(inventoryCapacity: 1);
+        var itemTakingTheLastSlot = new TestItem(2000, 1);
+        Assert.IsTrue(winner.InventoryItems.Add(itemTakingTheLastSlot));
+
+        var loser = Substitute.For<ICharacter>();
+        var loserStake = new DuelContainer();
+        var winnerStake = new DuelContainer();
+        Assert.IsTrue(loserStake.Items.Add(new TestItem(1001, 1)));
+        Assert.IsTrue(winnerStake.Items.Add(new TestItem(995, 4, stackable: true)));
+
+        var loserContext = Substitute.For<ICharacterContext>();
+        loserContext.Character.Returns(loser);
+        var loserContextAccessor = Substitute.For<ICharacterContextAccessor>();
+        loserContextAccessor.Context.Returns(loserContext);
+        var hintIconBuilder = Substitute.For<IHintIconBuilder>();
+        var hintIconType = Substitute.For<IHintIconType>();
+        var hintIconTarget = Substitute.For<IHintIconEntityOptional>();
+        var hintIcon = Substitute.For<IHintIcon>();
+        hintIconBuilder.Create().Returns(hintIconType);
+        hintIconType.AtEntity(winner.Character).Returns(hintIconTarget);
+        hintIconTarget.Build().Returns(hintIcon);
+
+        var combat = new DuelArenaCombatScript(loserContextAccessor, winner.Character, new DuelRules(_ => { }),
+            loserStake, winnerStake, hintIconBuilder);
+        loser.GetScript<DuelArenaCombatScript>().Returns(combat);
+
+        var winnerContext = Substitute.For<ICharacterContext>();
+        winnerContext.Character.Returns(winner.Character);
+        var winnerContextAccessor = Substitute.For<ICharacterContextAccessor>();
+        winnerContextAccessor.Context.Returns(winnerContext);
+        var winnerEndScreen = new DuelEndScreenScript(winnerContextAccessor);
+        var winnerServices = Substitute.For<IServiceProvider>();
+        winnerServices.GetService(typeof(DuelEndScreenScript)).Returns(winnerEndScreen);
+        winner.Character.ServiceProvider.Returns(winnerServices);
+
+        var loserEndScreen = new DuelEndScreenScript(loserContextAccessor);
+        var mapRegionService = Substitute.For<IMapRegionService>();
+        mapRegionService.IsAccessible(Arg.Any<ILocation>()).Returns(true);
+        var loserServices = Substitute.For<IServiceProvider>();
+        loserServices.GetService(typeof(DuelEndScreenScript)).Returns(loserEndScreen);
+        loserServices.GetService(typeof(IMapRegionService)).Returns(mapRegionService);
+        loser.ServiceProvider.Returns(loserServices);
+
+        combat.OnRegistered();
+        ITaskItem? queuedTask = null;
+        loser.QueueTask(Arg.Do<ITaskItem>(task => queuedTask = task)).Returns(Substitute.For<IRsTaskHandle>());
+
+        new Trapdoor().OnCharacterClickPerform(loser, GameObjectClickType.Option1Click);
+        var trapdoorTask = (RsTask)queuedTask!;
+        trapdoorTask.Tick();
+        trapdoorTask.Tick();
+
+        Assert.IsTrue(combat.DuelSession);
+        Assert.AreSame(loserStake, combat.SelfContainer);
+        Assert.AreSame(winnerStake, combat.TargetContainer);
+        Assert.AreEqual(1, loserStake.Items.GetCountById(1001));
+        Assert.AreEqual(4, winnerStake.Items.GetCountById(995));
+        Assert.AreEqual(1, winner.InventoryItems.GetCountById(2000));
+        Assert.AreEqual(0, winner.Pouch.Count);
+        loser.Movement.DidNotReceive().Teleport(Arg.Any<ITeleport>());
+        loser.Movement.Received(1).Unlock(false);
+        loser.Widgets.DidNotReceive().OpenWidget(1365, 0, Arg.Any<IWidgetScript>(), false);
+        winner.Character.Widgets.DidNotReceive().OpenWidget(1365, 0, Arg.Any<IWidgetScript>(), false);
+
+        Assert.IsTrue(winner.InventoryItems.TryRemoveExact(itemTakingTheLastSlot, 0));
+        Assert.IsTrue(combat.StartVictoryStage(winner.Character, loser));
+
+        Assert.AreEqual(0, loserStake.Items.TakenSlots);
+        Assert.AreEqual(0, winnerStake.Items.TakenSlots);
+        Assert.AreEqual(1, winner.InventoryItems.GetCountById(1001));
+        Assert.AreEqual(4, winner.Pouch.Count);
+        winner.Character.Widgets.Received(1).OpenWidget(1365, 0, winnerEndScreen, false);
+        loser.Widgets.Received(1).OpenWidget(1365, 0, loserEndScreen, false);
     }
 
     private static Scenario CreateScenario(int inventoryCapacity = 4, int stakeCapacity = 4, int pouchCoins = 0)
