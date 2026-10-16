@@ -41,6 +41,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         public bool DuelSession { get; private set; }
 
         /// <summary>
+        ///     Prevents ordinary inventory-changing interactions while a duel is active.
+        /// </summary>
+        public override bool IsBusy() => DuelSession;
+
+        /// <summary>
         ///     Gets a value indicating whether this instance is staking.
         /// </summary>
         /// <value>

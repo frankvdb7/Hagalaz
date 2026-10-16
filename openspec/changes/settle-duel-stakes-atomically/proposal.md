@@ -37,5 +37,7 @@ The affected runtime path is `DuelArenaCombatScript.StartVictoryStage` and the e
 - A successful victory settlement moves all non-coin stakes to the winner's inventory and coin stakes through the winner's MoneyPouch in one committed transaction.
 - A failed transfer leaves both stake containers, the winner's inventory, and the winner's pouch unchanged.
 - If payout fails because inventory capacity changed during combat, the victory stage does not advance, the participant remains in the arena, and the stakes remain available for another settlement attempt.
+- Once combat starts, the active duel reports the participant as busy so equipment access and familiar withdrawals cannot consume inventory capacity already checked during confirmation.
+- A stage-flow regression funds both stakes through the offer handlers, confirms the duel, attempts capacity-consuming interactions during combat, then verifies victory settles both stakes.
 - Repeating settlement after success does not award any stake item or coin a second time.
 - Existing staking and cancellation-refund behavior remains unchanged.

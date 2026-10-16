@@ -14,6 +14,7 @@ using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Minigames.DuelArena;
 using Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Hagalaz.Game.Scripts.Widgets.Tabs;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
@@ -41,13 +42,136 @@ public sealed class DuelArenaInteractionRegressionTests
         Assert.IsTrue(duel.SelfInventory.Items.HasSpaceForRange(stakes));
         Assert.IsFalse(duel.SelfInventory.Items.HasSpaceForRange([restrictedEquipment, .. stakes]));
 
-        duel.SessionScript.StartConfirmationStage();
+        Assert.IsTrue(duel.SelfAccept!(56, ComponentClickType.LeftClick, 0, 0));
+        Assert.IsTrue(duel.TargetAccept!(56, ComponentClickType.LeftClick, 0, 0));
 
         duel.Self.Widgets.DidNotReceive().OpenWidget(1366, 0, Arg.Any<IWidgetScript>(), false);
         duel.Self.Received(1).SendChatMessage("You don't have enough space in your inventory for this duel.");
         duel.Target.Received(1).SendChatMessage("Your opponent doesn't have enough space in their inventory for this duel.");
         Assert.AreEqual(1, duel.SelfStakeContainer.TakenSlots);
         Assert.AreEqual(1, duel.TargetStakeContainer.TakenSlots);
+    }
+
+    [TestMethod]
+    public void DuelStageFlow_ActiveCombatBlocksInventoryCreditsAndSettlesWinner()
+    {
+        var duel = CreateDuel(1, 1);
+        for (var index = 0; index < 15; index++)
+        {
+            Assert.IsTrue(duel.TargetInventory.Items.Add(CreateItem(300 + index, 1)));
+        }
+
+        var equippedItem = CreateItem(450, 1);
+        var equipment = Substitute.For<IEquipmentContainer>();
+        equipment[EquipmentSlot.Hat].Returns(equippedItem);
+        duel.Target.Equipment.Returns(equipment);
+        var familiar = new FamiliarInventoryContainer(duel.Target, StorageType.Normal, 1, CreateItemBuilder());
+        var familiarItem = duel.TargetInventory.Items[1]!;
+        Assert.IsTrue(familiar.DepositFromInventory(familiarItem, 1));
+
+        Assert.IsTrue(duel.SelfStake!(0, ComponentClickType.Option4Click, duel.SelfItem.Id, 0));
+        Assert.IsTrue(duel.TargetStake!(0, ComponentClickType.Option4Click, duel.TargetItem.Id, 0));
+
+        Assert.AreEqual(14, duel.TargetInventory.Items.TakenSlots);
+        var stakes = new[] { duel.SelfStakeContainer[0]!, duel.TargetStakeContainer[0]! };
+        Assert.IsTrue(duel.TargetInventory.Items.HasSpaceForRange(stakes));
+        Assert.IsFalse(duel.TargetInventory.Items.HasSpaceForRange([equippedItem, familiarItem, .. stakes]));
+
+        var selfConfirmation = Substitute.For<IWidget>();
+        var targetConfirmation = Substitute.For<IWidget>();
+        var selfConfirmationScript = (DuelConfirmScreenScript)duel.Self.ServiceProvider
+            .GetService(typeof(DuelConfirmScreenScript))!;
+        var targetConfirmationScript = (DuelConfirmScreenScript)duel.Target.ServiceProvider
+            .GetService(typeof(DuelConfirmScreenScript))!;
+        selfConfirmation.Script.Returns(selfConfirmationScript);
+        targetConfirmation.Script.Returns(targetConfirmationScript);
+        duel.Self.Widgets.GetOpenWidget(1366).Returns(selfConfirmation);
+        duel.Target.Widgets.GetOpenWidget(1366).Returns(targetConfirmation);
+
+        OnComponentClick? selfConfirm = null;
+        OnComponentClick? targetConfirm = null;
+        selfConfirmation.When(x => x.AttachClickHandler(24, Arg.Any<OnComponentClick>()))
+            .Do(call => selfConfirm = call.ArgAt<OnComponentClick>(1));
+        targetConfirmation.When(x => x.AttachClickHandler(24, Arg.Any<OnComponentClick>()))
+            .Do(call => targetConfirm = call.ArgAt<OnComponentClick>(1));
+
+        var regionService = Substitute.For<IMapRegionService>();
+        regionService.IsAccessible(Arg.Any<ILocation>()).Returns(true);
+        duel.Self.ServiceProvider.GetService(typeof(IMapRegionService)).Returns(regionService);
+        duel.Self.Prayers.Returns(Substitute.For<IPrayers>());
+        duel.Target.Prayers.Returns(Substitute.For<IPrayers>());
+        duel.Self.Profile.Returns(Substitute.For<IProfile>());
+        duel.Target.Profile.Returns(Substitute.For<IProfile>());
+        var selfAccessor = (ICharacterContextAccessor)duel.Self.ServiceProvider
+            .GetService(typeof(ICharacterContextAccessor))!;
+        var targetAccessor = (ICharacterContextAccessor)duel.Target.ServiceProvider
+            .GetService(typeof(ICharacterContextAccessor))!;
+        duel.Self.ServiceProvider.GetService(typeof(DuelEndScreenScript))
+            .Returns(new DuelEndScreenScript(selfAccessor));
+        duel.Target.ServiceProvider.GetService(typeof(DuelEndScreenScript))
+            .Returns(new DuelEndScreenScript(targetAccessor));
+
+        DuelArenaCombatScript? losingCombat = null;
+        DuelArenaCombatScript? winningCombat = null;
+        duel.Self.IsBusy().Returns(_ => losingCombat?.IsBusy() ?? false);
+        duel.Target.IsBusy().Returns(_ => winningCombat?.IsBusy() ?? false);
+        duel.Self.AddScript(Arg.Any<DuelArenaCombatScript>()).Returns(call =>
+        {
+            losingCombat = call.ArgAt<DuelArenaCombatScript>(0);
+            losingCombat.OnRegistered();
+            return losingCombat;
+        });
+        duel.Target.AddScript(Arg.Any<DuelArenaCombatScript>()).Returns(call =>
+        {
+            winningCombat = call.ArgAt<DuelArenaCombatScript>(0);
+            winningCombat.OnRegistered();
+            return winningCombat;
+        });
+
+        Assert.IsTrue(duel.SelfAccept!(56, ComponentClickType.LeftClick, 0, 0));
+        Assert.IsTrue(duel.TargetAccept!(56, ComponentClickType.LeftClick, 0, 0));
+        duel.Self.Widgets.Received(1).OpenWidget(1366, 0, Arg.Any<IWidgetScript>(), false);
+        duel.Target.Widgets.Received(1).OpenWidget(1366, 0, Arg.Any<IWidgetScript>(), false);
+        Assert.AreSame(selfConfirmation, duel.Self.Widgets.GetOpenWidget(1366));
+        Assert.AreSame(targetConfirmation, duel.Target.Widgets.GetOpenWidget(1366));
+        Assert.AreSame(selfConfirmationScript, selfConfirmation.Script);
+        Assert.AreSame(targetConfirmationScript, targetConfirmation.Script);
+        Assert.IsTrue(selfConfirm!(24, ComponentClickType.LeftClick, 0, 0));
+        Assert.IsTrue(targetConfirm!(24, ComponentClickType.LeftClick, 0, 0));
+        Assert.IsNotNull(losingCombat);
+        Assert.IsTrue(winningCombat!.IsBusy());
+        Assert.IsTrue(duel.Self.IsBusy());
+        Assert.IsTrue(duel.Target.IsBusy());
+
+        var equipmentTabWidget = Substitute.For<IWidget>();
+        OnComponentClick? openEquipment = null;
+        equipmentTabWidget.When(widget => widget.AttachClickHandler(38, Arg.Any<OnComponentClick>()))
+            .Do(call => openEquipment = call.ArgAt<OnComponentClick>(1));
+        var targetContext = Substitute.For<ICharacterContext>();
+        targetContext.Character.Returns(duel.Target);
+        var targetContextAccessor = Substitute.For<ICharacterContextAccessor>();
+        targetContextAccessor.Context.Returns(targetContext);
+        var equipmentTab = new EquipmentTab(targetContextAccessor);
+        equipmentTab.Initialize(equipmentTabWidget);
+        equipmentTab.OnOpen();
+        Assert.IsTrue(openEquipment!(38, ComponentClickType.LeftClick, 0, 0));
+        duel.Target.Widgets.DidNotReceive().OpenWidget(667, 0, Arg.Any<IWidgetScript>(), true);
+        duel.Target.Received(1).SendChatMessage("Please finish what you're doing before opening equipment interface.");
+
+        familiar.WithdrawAvailableToInventory();
+        Assert.AreEqual(1, familiar.Items.GetCountById(familiarItem.Id));
+        Assert.AreEqual(14, duel.TargetInventory.Items.TakenSlots);
+        duel.Target.Received(1).SendChatMessage("Please finish what you're doing before withdrawing items from your familiar.");
+
+        losingCombat!.OnKilledBy(duel.Target);
+
+        Assert.AreEqual(0, duel.SelfStakeContainer.TakenSlots);
+        Assert.AreEqual(0, duel.TargetStakeContainer.TakenSlots);
+        Assert.AreEqual(1, duel.TargetInventory.Items.GetCountById(duel.SelfItem.Id));
+        Assert.AreEqual(1, duel.TargetInventory.Items.GetCountById(duel.TargetItem.Id));
+        Assert.AreEqual(16, duel.TargetInventory.Items.TakenSlots);
+        Assert.AreEqual(1, familiar.Items.GetCountById(familiarItem.Id));
+        duel.Target.Widgets.Received(1).OpenWidget(1365, 0, Arg.Any<IWidgetScript>(), false);
     }
 
     [TestMethod]
@@ -425,8 +549,8 @@ public sealed class DuelArenaInteractionRegressionTests
         target.MoneyPouch.Returns(pouchOwnedByInitialTarget);
         self.Viewport.VisibleCreatures.Returns([target]);
         target.Viewport.VisibleCreatures.Returns([self]);
-        var selfScript = new DuelArenaScript(selfAccessor, Substitute.For<IHintIconBuilder>(), CreateItemBuilder());
-        var targetScript = new DuelArenaScript(targetAccessor, Substitute.For<IHintIconBuilder>(), CreateItemBuilder());
+        var selfScript = new DuelArenaScript(selfAccessor, CreateHintIconBuilder(), CreateItemBuilder());
+        var targetScript = new DuelArenaScript(targetAccessor, CreateHintIconBuilder(), CreateItemBuilder());
         self.GetScript<DuelArenaScript>().Returns(selfScript);
         target.GetScript<DuelArenaScript>().Returns(targetScript);
         var sentItems = new List<SentItems>();
@@ -477,10 +601,13 @@ public sealed class DuelArenaInteractionRegressionTests
         OnComponentClick? selfUnstake = null;
         OnComponentClick? targetUnstake = null;
         OnComponentClick? selfAccept = null;
+        OnComponentClick? targetAccept = null;
         OnComponentClick? selfPouch = null;
         OnComponentClick? targetPouch = null;
         targetScreen.When(x => x.AttachClickHandler(56, Arg.Any<OnComponentClick>()))
             .Do(call => selfAccept = call.ArgAt<OnComponentClick>(1));
+        selfScreen.When(x => x.AttachClickHandler(56, Arg.Any<OnComponentClick>()))
+            .Do(call => targetAccept = call.ArgAt<OnComponentClick>(1));
         targetOverlay.When(x => x.AttachClickHandler(0, Arg.Any<OnComponentClick>()))
             .Do(call => selfStake = call.ArgAt<OnComponentClick>(1));
         selfOverlay.When(x => x.AttachClickHandler(0, Arg.Any<OnComponentClick>()))
@@ -512,7 +639,7 @@ public sealed class DuelArenaInteractionRegressionTests
 
         return new DuelHarness(target, self, targetInventory, selfInventory, targetItem, selfItem, targetScript,
             targetStakeContainer!, selfStakeContainer!, selfStake, targetStake, selfUnstake, targetUnstake,
-            selfAccept, selfPouch, targetPouch, sentItems, stakeValueUpdates);
+            selfAccept, targetAccept, selfPouch, targetPouch, sentItems, stakeValueUpdates);
     }
 
     private static MoneyPouchContainer CreateMoneyPouch(ICharacter character, int coins)
@@ -562,6 +689,7 @@ public sealed class DuelArenaInteractionRegressionTests
         var provider = Substitute.For<IServiceProvider>();
         provider.GetService(typeof(DuelChoiceScreenScript)).Returns(choice);
         provider.GetService(typeof(DuelScreenScript)).Returns(duelScreen);
+        provider.GetService(typeof(ICharacterContextAccessor)).Returns(accessor);
         provider.GetService(typeof(DuelConfirmScreenScript)).Returns(new DuelConfirmScreenScript(accessor));
         provider.GetService(typeof(DefaultWidgetScript)).Returns(new DefaultWidgetScript(accessor));
         var entityService = Substitute.For<IEntityService>();
@@ -606,6 +734,17 @@ public sealed class DuelArenaInteractionRegressionTests
 
     private static IItemBuilder CreateItemBuilder() => new TestItemBuilder((id, count) => CreateItem(id, count));
 
+    private static IHintIconBuilder CreateHintIconBuilder()
+    {
+        var builder = Substitute.For<IHintIconBuilder>();
+        var hintIconType = Substitute.For<IHintIconType>();
+        var hintIconEntity = Substitute.For<IHintIconEntityOptional>();
+        builder.Create().Returns(hintIconType);
+        hintIconType.AtEntity(Arg.Any<IEntity>()).Returns(hintIconEntity);
+        hintIconEntity.Build().Returns(Substitute.For<IHintIcon>());
+        return builder;
+    }
+
     private static void AssertFullStakeRefresh(DuelHarness duel, int offset = 0)
     {
         AssertSentItems(duel.SentItems[offset], duel.Self, false, duel.SelfStakeContainer);
@@ -643,7 +782,7 @@ public sealed class DuelArenaInteractionRegressionTests
         ComposedTestContainer TargetInventory, IItem SelfItem, IItem TargetItem, DuelArenaScript SessionScript,
         IItemContainer SelfStakeContainer, IItemContainer TargetStakeContainer,
         OnComponentClick? SelfStake, OnComponentClick? TargetStake, OnComponentClick? SelfUnstake,
-        OnComponentClick? TargetUnstake, OnComponentClick? SelfAccept,
+        OnComponentClick? TargetUnstake, OnComponentClick? SelfAccept, OnComponentClick? TargetAccept,
         OnComponentClick? SelfPouch, OnComponentClick? TargetPouch,
         List<SentItems> SentItems, List<StakeValueUpdate> StakeValueUpdates);
 
