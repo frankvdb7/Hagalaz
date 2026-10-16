@@ -56,4 +56,4 @@ The [combat source catalogs](catalogs/README.md) contain 49 item-ID special cost
 
 ## Protocol and interface source crosswalks (P1 #10)
 
-[The server/client protocol and UI catalog](catalogs/README.md) now includes 108 reconciled incoming-server opcode definitions, 71 server encoder branch entries, 75 literal widget-state call sites and eight implementation risk records. Client 164-opcode incoming and 108-opcode outgoing canonical ledgers remain in the GameClient repository; these are only comparison/ownership data.
+[The server/client protocol and UI catalog](catalogs/README.md) now includes 108 reconciled incoming-server opcode definitions, 71 server encoder branch entries, 75 literal widget-state call sites (17 contributing files) (17 contributing files) and eight implementation risk records. Client 164-opcode incoming and 108-opcode outgoing canonical ledgers remain in the GameClient repository; these are only comparison/ownership data.
