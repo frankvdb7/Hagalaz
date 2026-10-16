@@ -56,7 +56,7 @@ Completion MUST deliver both complete opposite offers and clear both escrow cont
 
 ### Requirement: Cancellation returns each offer to its owner
 
-Cancellation MUST return each offer to its original owner exactly once in one transaction. A cancellation MUST become terminal only after both refunds commit. GameFrame money-pouch withdrawals and Summoning Orb/Summoning Tab Take BoB actions MUST NOT consume Inventory capacity while a trade is active, preserving the capacity freed by funded offers for a refund.
+Cancellation MUST return each offer to its original owner exactly once in one transaction and become terminal only after both refunds commit. Inventory capacity freed by funding a non-coin offer MUST remain available for cancellation while the trade is active. Persistent UI inventory-credit actions that could consume that capacity MUST be rejected while the character is busy; this includes GameFrame money-pouch withdrawals and Summoning Orb/Summoning Tab Take BoB actions. Equipment-tab aura unequip actions MUST interrupt and refund the trade before moving the aura into Inventory.
 
 #### Scenario: An active trade is cancelled
 - **WHEN** either participant cancels an active trade
@@ -74,6 +74,14 @@ Cancellation MUST return each offer to its original owner exactly once in one tr
 - **WHEN** a character uses Take BoB from the Summoning Orb or Summoning Tab while a trade is active
 - **THEN** the busy check rejects the withdrawal before the familiar or Inventory changes, leaving capacity available to refund the offer
 
+#### Scenario: An aura is unequipped during an active trade
+- **WHEN** a character chooses an aura unequip option from the Equipment tab while a funded offer is active
+- **THEN** the normal interruption cancels and refunds the offer before the aura is moved into Inventory
+
+#### Scenario: A funded offer is refunded before the detach snapshot
+- **WHEN** an Inventory-funded offer is active, a GameFrame pouch withdrawal is attempted, and the character detaches
+- **THEN** the busy check leaves Inventory capacity available, detach refunds the offer before dehydration, and the snapshot contains the refunded item
+
 ### Requirement: Committed trade operations reach a terminal state
 Trade completion and refund MUST perform checked domain mutations under their existing session gate and one disposable transaction. The session MUST own state changes through intent-specific transitions: completion enters `Completing` from `Active`, successful completion enters `Completed`, failed completion returns to `Active`, and cancellation enters `Cancelled` from `Active` only after refund mutations succeed. Immediately before Commit, the owner MUST transition to `Completed` or `Cancelled` without an intervening external action. Commit MUST make storage irreversible and release physical locks while retaining transaction bindings. The trade owner MUST explicitly publish each affected domain in its established order before disposing the committed scope. Existing finally cleanup MUST run exactly once even when publication throws. Such failures MUST NOT make committed value eligible for another completion or refund, and the original publication exception MUST propagate without a transaction result or public committed-state query. Unsuccessful attempts MUST dispose before another operation starts.
 
@@ -87,7 +95,7 @@ Trade completion and refund MUST perform checked domain mutations under their ex
 
 ### Requirement: Failed completion leaves a safe retry or terminal state
 
-If completion does not commit, recipient storage MUST remain unchanged and both original offers MUST remain available for cancellation. Since offers are removed from their owners' Inventory or MoneyPouch, cancellation MUST be able to refund them without a separate capacity-based recovery destination.
+If completion does not commit, recipient storage MUST remain unchanged and both original offers MUST remain available for cancellation. Cancellation uses the same refund path; it relies on active-trade Inventory-credit guards preserving capacity released by funded offers, not on source removal alone or a separate capacity-based recovery destination.
 
 #### Scenario: Insufficient recipient capacity rejects completion
 - **WHEN** a recipient cannot accept the complete offer

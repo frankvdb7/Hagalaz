@@ -19,6 +19,7 @@ internal static class CosmeticAuraOperations
 
         if (clickType == ComponentClickType.Option4Click)
         {
+            character.Interrupt(aura.ItemScript);
             aura.EquipmentScript.UnEquipItem(aura, character);
             return true;
         }

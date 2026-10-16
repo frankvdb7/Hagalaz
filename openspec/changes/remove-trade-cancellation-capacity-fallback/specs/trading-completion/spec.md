@@ -32,7 +32,7 @@ Completion MUST deliver both complete opposite offers and clear both escrow cont
 
 ### Requirement: Cancellation returns each offer to its owner
 
-Cancellation MUST return each offer to its original owner exactly once in one transaction. A cancellation MUST become terminal only after both refunds commit. GameFrame money-pouch withdrawals and Summoning Orb/Summoning Tab Take BoB actions MUST NOT consume Inventory capacity while a trade is active, preserving the capacity freed by funded offers for a refund.
+Cancellation MUST return each offer to its original owner exactly once in one transaction and become terminal only after both refunds commit. Inventory capacity freed by funding a non-coin offer MUST remain available for cancellation while the trade is active. Persistent UI inventory-credit actions that could consume that capacity MUST be rejected while the character is busy; this includes GameFrame money-pouch withdrawals and Summoning Orb/Summoning Tab Take BoB actions. Equipment-tab aura unequip actions MUST interrupt and refund the trade before moving the aura into Inventory.
 
 Terminal character detachment MUST invoke the trade script's detach callback before the final snapshot is captured. General script destruction callbacks MUST remain at actual character destruction.
 
@@ -52,9 +52,13 @@ Terminal character detachment MUST invoke the trade script's detach callback bef
 - **WHEN** a character uses Take BoB from the Summoning Orb or Summoning Tab while a trade is active
 - **THEN** the busy check rejects the withdrawal before the familiar or Inventory changes, leaving capacity available to refund the offer
 
-#### Scenario: An active trade is cancelled before the logout snapshot
-- **WHEN** terminal detachment begins while a funded trade is active
-- **THEN** the trade script refunds its offer before dehydration captures the character snapshot
+#### Scenario: An aura is unequipped during an active trade
+- **WHEN** a character chooses an aura unequip option from the Equipment tab while a funded offer is active
+- **THEN** the normal interruption cancels and refunds the offer before the aura is moved into Inventory
+
+#### Scenario: A funded offer is refunded before the detach snapshot
+- **WHEN** an Inventory-funded offer is active, a GameFrame pouch withdrawal is attempted, and the character detaches
+- **THEN** the busy check leaves Inventory capacity available, detach refunds the offer before dehydration, and the snapshot contains the refunded item
 
 ### Requirement: Committed trade operations reach a terminal state
 
@@ -70,7 +74,7 @@ Trade completion and refund MUST perform checked domain mutations under their ex
 
 ### Requirement: Failed completion leaves a safe retry or terminal state
 
-If completion does not commit, recipient storage MUST remain unchanged and both original offers MUST remain available for cancellation. Since offers are removed from their owners' Inventory or MoneyPouch, cancellation MUST be able to refund them without a separate capacity-based recovery destination.
+If completion does not commit, recipient storage MUST remain unchanged and both original offers MUST remain available for cancellation. Cancellation uses the same refund path; it relies on active-trade Inventory-credit guards preserving capacity released by funded offers, not on source removal alone or a separate capacity-based recovery destination.
 
 #### Scenario: Insufficient recipient capacity rejects completion
 - **WHEN** a recipient cannot accept the complete offer
@@ -80,5 +84,5 @@ If completion does not commit, recipient storage MUST remain unchanged and both 
 
 ### Requirement: Cancellation returns or recovers escrow exactly once
 
-**Reason**: Production offers are funded by removing items from the owner's Inventory or MoneyPouch, which frees the capacity needed to return them. A capacity-based Rewards/Bank fallback treats an unsupported state as an expected cancellation path.
-**Migration**: Use the existing transactional refund to return each offer to its owner. Forced destruction uses that same refund path and does not select a separate recovery destination.
+**Reason**: Cancellation has one transactional refund path. Funding frees Inventory capacity for non-coin offers, and supported active-trade Inventory-credit actions are rejected so they cannot consume that capacity before cancellation. A capacity-based Rewards/Bank fallback would add a second ownership path instead of protecting the existing refund invariant.
+**Migration**: Use the existing transactional refund to return each offer to its owner. Detachment uses that same refund path and does not select a separate recovery destination.

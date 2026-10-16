@@ -102,8 +102,5 @@ internal sealed class ComposedTestContainer : IInventoryContainer, IRewardContai
         OnUpdateAction?.Invoke();
     }
 
-    public bool ReceiveFromTrade(IItemContainer source, IItem item, int count, int sourceSlot) =>
-        source.TryTransferTo(_items, item, count, sourceSlot);
-
     public void SetItem(int slot, IItem item) => _items.Replace(slot, item);
 }

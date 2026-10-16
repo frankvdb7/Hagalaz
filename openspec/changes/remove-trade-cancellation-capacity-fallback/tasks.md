@@ -16,6 +16,7 @@
 - [x] 3.2 Replace the synthetic zero-capacity offer test with a regression that funds offers through the inventory click handler, attempts the GameFrame withdrawal, runs detach cleanup, and checks the real inventory and pouch dehydration payloads.
 - [x] 3.3 Update the canonical trading-completion requirement and validate the OpenSpec change.
 - [x] 3.4 Reject Orb and Summoning Tab Take BoB withdrawals while busy and add focused interaction regressions.
+- [x] 3.5 Preserve interrupt-before-unequip for aura equipment clicks and test normal and cosmetic aura refunds during trade.
 
 ## 4. Keep pre-snapshot cleanup narrow
 

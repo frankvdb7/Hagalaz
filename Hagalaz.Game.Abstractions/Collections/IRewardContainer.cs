@@ -16,8 +16,5 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="count">The number of items to claim.</param>
         /// <returns>The number of items that were actually claimed and transferred.</returns>
         int Claim(IItem item, int count);
-
-        /// <summary>Receives an item from a trade escrow as part of its caller-owned transaction.</summary>
-        bool ReceiveFromTrade(IItemContainer source, IItem item, int count, int sourceSlot);
     }
 }

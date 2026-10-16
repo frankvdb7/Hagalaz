@@ -96,12 +96,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             return count;
         }
 
-        public bool ReceiveFromTrade(IItemContainer source, IItem item, int count, int sourceSlot)
-        {
-            ArgumentNullException.ThrowIfNull(source);
-            return source.TryTransferTo(_items, item, count, sourceSlot, destinationItem: item.Clone());
-        }
-
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>

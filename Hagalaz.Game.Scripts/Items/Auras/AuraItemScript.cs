@@ -58,6 +58,7 @@ namespace Hagalaz.Game.Scripts.Items.Auras
 
             if (clickType == ComponentClickType.Option4Click)
             {
+                character.Interrupt(this);
                 aura.EquipmentScript.UnEquipItem(aura, character);
                 return;
             }

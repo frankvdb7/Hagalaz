@@ -6,17 +6,27 @@ using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Builders.Widget;
 using Hagalaz.Game.Abstractions.Collections;
+using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Characters;
+using Hagalaz.Game.Scripts.Equipment.Auras;
+using Hagalaz.Game.Scripts.Items.Auras;
+using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
+using Hagalaz.Game.Scripts.Npcs.Familiars;
 using Hagalaz.Game.Scripts.Widgets;
+using Hagalaz.Game.Scripts.Widgets.Orbs;
+using Hagalaz.Game.Scripts.Widgets.Tabs;
 using DefaultWidgetScript = Hagalaz.Game.Scripts.Model.Widgets.DefaultWidgetScript;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -760,6 +770,12 @@ public sealed class TradeExchangeTests
             storedItem.ItemScript.CanTradeItem(storedItem, first).Returns(true);
         }
 
+        first.Configurations.Returns(Substitute.For<IConfigurations>());
+        var moneyPouchClick = CreateMoneyPouchClickHandler(first);
+        moneyPouchClick(250, ComponentClickType.Option2Click, 0, 0).Should().BeTrue();
+        var pendingPouchInput = first.Widgets.IntInputHandler;
+        pendingPouchInput.Should().NotBeNull();
+
         var trade = CreateActiveTrade(first, second);
         trade.First.IsBusy().Returns(_ => trade.Script.TradeSession);
 
@@ -774,9 +790,8 @@ public sealed class TradeExchangeTests
         trade.Script.SelfContainer.Items.GetCountById(101).Should().Be(1);
         var selfOffer = trade.Script.SelfContainer;
 
-        var moneyPouchClick = CreateMoneyPouchClickHandler(first);
-        moneyPouchClick(250, ComponentClickType.Option2Click, 0, 0).Should().BeTrue();
-        first.Widgets.IntInputHandler.Should().NotBeNull();
+        // Starting a trade does not replace the pending global input handler.
+        first.Widgets.IntInputHandler.Should().BeSameAs(pendingPouchInput);
         first.Widgets.IntInputHandler!(5);
 
         firstInventory.Items.GetCountById(995).Should().Be(0);
@@ -795,6 +810,112 @@ public sealed class TradeExchangeTests
         persistedPouch[0].Count.Should().Be(10);
         selfOffer.Items.TakenSlots.Should().Be(0);
         trade.Script.TradeSession.Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void TradeScriptDetach_FundedOfferIsRefundedWhenOrbAndTabBobWithdrawalsAreRejected()
+    {
+        var firstInventory = new ComposedTestContainer(2);
+        var secondInventory = new ComposedTestContainer(4);
+        var first = CreateCharacter(firstInventory);
+        var second = CreateCharacter(secondInventory);
+        first.Configurations.Returns(Substitute.For<IConfigurations>());
+        firstInventory.AddItem(new TestItem(100, 1)).Should().BeTrue();
+        firstInventory.AddItem(new TestItem(101, 1)).Should().BeTrue();
+
+        var trade = CreateActiveTrade(first, second);
+        first.IsBusy().Returns(_ => trade.Script.TradeSession);
+        var selfOffer = trade.Script.SelfContainer;
+        var offeredItem = firstInventory.Items[0]!;
+        offeredItem.ItemScript.CanTradeItem(offeredItem, first).Returns(true);
+        trade.Handlers.SelfInventoryOffer!(0, ComponentClickType.LeftClick, offeredItem.Id, 0).Should().BeTrue();
+        firstInventory.Items.TakenSlots.Should().Be(1);
+
+        var familiarInventory = Substitute.For<IFamiliarInventoryContainer>();
+        var itemContainerFactory = Substitute.For<IItemContainerFactory>();
+        itemContainerFactory.Create(first, StorageType.Normal, 30).Returns(familiarInventory);
+        var npc = Substitute.For<INpc>();
+        npc.Appearance.Returns(Substitute.For<INpcAppearance>());
+        var familiar = new PackYak(npc, itemContainerFactory, Substitute.For<ISmartPathFinder>(),
+            Substitute.For<INpcService>(), Substitute.For<IItemService>(), Substitute.For<IGroundItemBuilder>(),
+            new TestItemBuilder(ComposedTestContainer.CreateTestItem), Substitute.For<IWidgetScriptActivator>());
+        familiar.AttachToSummoner(first, new SummoningDto());
+        first.FamiliarScript.Returns(familiar);
+
+        var context = Substitute.For<ICharacterContext>();
+        context.Character.Returns(first);
+        var contextAccessor = Substitute.For<ICharacterContextAccessor>();
+        contextAccessor.Context.Returns(context);
+        var mediator = Substitute.For<IScopedGameMediator>();
+        var widget = Substitute.For<IWidget>();
+        OnComponentClick? takeBob = null;
+        OnComponentClick? takeBobLeftClick = null;
+        widget.When(x => x.AttachClickHandler(13, Arg.Any<OnComponentClick>()))
+            .Do(call => takeBob = call.ArgAt<OnComponentClick>(1));
+        widget.When(x => x.AttachClickHandler(22, Arg.Any<OnComponentClick>()))
+            .Do(call => takeBobLeftClick = call.ArgAt<OnComponentClick>(1));
+        var orb = new SummoningOrb(contextAccessor, mediator, new LeftClickOptionTab(contextAccessor, mediator));
+        orb.Initialize(widget);
+        orb.OnOpen();
+
+        takeBob!(13, ComponentClickType.Option6Click, 0, 0).Should().BeTrue();
+        takeBobLeftClick!(22, ComponentClickType.LeftClick, 0, 0).Should().BeTrue();
+
+        var summoningTabWidget = Substitute.For<IWidget>();
+        OnComponentClick? takeBobFromTab = null;
+        summoningTabWidget.When(x => x.AttachClickHandler(67, Arg.Any<OnComponentClick>()))
+            .Do(call => takeBobFromTab = call.ArgAt<OnComponentClick>(1));
+        var summoningTab = new SummoningTab(contextAccessor);
+        summoningTab.Initialize(summoningTabWidget);
+        summoningTab.OnOpen();
+        takeBobFromTab!(67, ComponentClickType.LeftClick, 0, 0).Should().BeTrue();
+
+        familiarInventory.DidNotReceive().WithdrawAvailableToInventory();
+
+        trade.Script.OnDetach();
+
+        firstInventory.Items.GetCountById(100).Should().Be(1);
+        firstInventory.Items.GetCountById(101).Should().Be(1);
+        selfOffer.Items.TakenSlots.Should().Be(0);
+        trade.Script.TradeSession.Should().BeFalse();
+    }
+
+    [TestMethod]
+    public void InactiveAuraUnequip_CancelsTradeBeforeUsingTheRefundSlot()
+    {
+        AssertUnequipCancelsTradeBeforeUsingRefundSlot(new TestAuraItemScript());
+    }
+
+    [TestMethod]
+    public void CosmeticAuraUnequip_CancelsTradeBeforeUsingTheRefundSlot()
+    {
+        AssertUnequipCancelsTradeBeforeUsingRefundSlot(new CosmeticAuraActivated());
+    }
+
+    [TestMethod]
+    public void MoneyPouchWithdrawal_WhileTradeAmountInputIsPendingPreservesHandler()
+    {
+        var (first, firstInventory, _) = CreateCharacterWithProductionContainers(2);
+        var (second, _, _) = CreateCharacterWithProductionContainers(2);
+        var item = new TestItem(100, 3, stackable: true);
+        firstInventory.AddItem(item).Should().BeTrue();
+        var storedItem = firstInventory.Items[0]!;
+        storedItem.ItemScript.CanTradeItem(storedItem, first).Returns(true);
+
+        var trade = CreateActiveTrade(first, second);
+        trade.First.IsBusy().Returns(_ => trade.Script.TradeSession);
+        trade.Handlers.SelfInventoryOffer!(0, ComponentClickType.Option5Click, storedItem.Id, 0).Should().BeTrue();
+        var pendingTradeInput = first.Widgets.IntInputHandler;
+        pendingTradeInput.Should().NotBeNull();
+
+        var moneyPouchClick = CreateMoneyPouchClickHandler(first);
+        moneyPouchClick(250, ComponentClickType.Option2Click, 0, 0).Should().BeTrue();
+
+        first.Widgets.IntInputHandler.Should().BeSameAs(pendingTradeInput);
+        first.Widgets.IntInputHandler!(2);
+
+        trade.Script.SelfContainer.Items.GetCountById(storedItem.Id).Should().Be(2);
+        firstInventory.Items.GetCountById(storedItem.Id).Should().Be(1);
     }
 
     private static (ComposedTestContainer FirstInventory, ComposedTestContainer SecondInventory,
@@ -848,6 +969,52 @@ public sealed class TradeExchangeTests
         return (character, inventory, moneyPouch);
     }
 
+    private static void AssertUnequipCancelsTradeBeforeUsingRefundSlot(IItemScript auraItemScript)
+    {
+        var (first, firstInventory, _) = CreateCharacterWithProductionContainers(2);
+        var (second, _, _) = CreateCharacterWithProductionContainers(4);
+        first.Appearance.Returns(Substitute.For<ICharacterAppearance>());
+        first.Statistics.Returns(Substitute.For<ICharacterStatistics>());
+        first.Configurations.Returns(Substitute.For<IConfigurations>());
+
+        var offeredItem = new TestItem(100, 1);
+        firstInventory.AddItem(offeredItem).Should().BeTrue();
+        var storedOfferedItem = firstInventory.Items[0]!;
+        storedOfferedItem.ItemScript.CanTradeItem(storedOfferedItem, first).Returns(true);
+        var trade = CreateActiveTrade(first, second);
+        var selfOffer = trade.Script.SelfContainer;
+        trade.Handlers.SelfInventoryOffer!(0, ComponentClickType.LeftClick, storedOfferedItem.Id, 0).Should().BeTrue();
+        firstInventory.Items.GetCountById(storedOfferedItem.Id).Should().Be(0);
+        selfOffer.Items.GetCountById(storedOfferedItem.Id).Should().Be(1);
+
+        first.When(character => character.Interrupt(Arg.Any<object>()))
+            .Do(call => trade.Script.OnInterrupt(call.ArgAt<object>(0)));
+        var equipment = new EquipmentContainer(first, 14, CreateItemBuilder());
+        first.Equipment.Returns(equipment);
+        var aura = new TestItem(300, 1, itemScript: auraItemScript, equipmentScript: new TestAuraEquipmentScript(),
+            extraData: [0, 0]);
+        equipment.TryRestoreEquippedItem(EquipmentSlot.Hat, aura).Should().BeTrue();
+
+        var context = Substitute.For<ICharacterContext>();
+        context.Character.Returns(first);
+        var contextAccessor = Substitute.For<ICharacterContextAccessor>();
+        contextAccessor.Context.Returns(context);
+        var widget = Substitute.For<IWidget>();
+        OnComponentClick? equipmentClick = null;
+        widget.When(x => x.AttachClickHandler(6, Arg.Any<OnComponentClick>()))
+            .Do(call => equipmentClick = call.ArgAt<OnComponentClick>(1));
+        var equipmentTab = new EquipmentTab(contextAccessor);
+        equipmentTab.Initialize(widget);
+        equipmentTab.OnOpen();
+
+        equipmentClick!(6, ComponentClickType.Option4Click, aura.Id, 0).Should().BeTrue();
+
+        trade.Script.TradeSession.Should().BeFalse();
+        firstInventory.Items.GetCountById(offeredItem.Id).Should().Be(1);
+        firstInventory.Items.GetCountById(aura.Id).Should().Be(1);
+        selfOffer.Items.TakenSlots.Should().Be(0);
+    }
+
     private static OnComponentClick CreateMoneyPouchClickHandler(ICharacter character)
     {
         var characterContext = Substitute.For<ICharacterContext>();
@@ -890,7 +1057,7 @@ public sealed class TradeExchangeTests
         offerWidget.Script.Returns(tradeScript);
         confirmationWidget.Script.Returns(tradeScript);
 
-        var widgets = Substitute.For<IWidgetContainer>();
+        var widgets = character.Widgets;
         widgets.OpenWidget(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IWidgetScript>(), Arg.Any<bool>()).Returns(true);
         widgets.OpenInventoryOverlay(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IWidgetScript>()).Returns(true);
         widgets.GetOpenWidget(Arg.Any<int>()).Returns(call => call.ArgAt<int>(0) switch
@@ -1059,17 +1226,19 @@ public sealed class TradeExchangeTests
     private sealed class TestItem : IItem
     {
         public int Id { get; }
-        public long[] ExtraData => [];
+        public long[] ExtraData { get; }
         public int Count { get; set; }
         public string Name => $"Test item {Id}";
         public IItemDefinition ItemDefinition { get; }
         public IEquipmentDefinition EquipmentDefinition { get; } = Substitute.For<IEquipmentDefinition>();
         public IItemScript ItemScript { get; }
-        public IEquipmentScript EquipmentScript { get; } = Substitute.For<IEquipmentScript>();
-        public TestItem(int id, int count, bool stackable = false, bool noted = false)
+        public IEquipmentScript EquipmentScript { get; }
+        public TestItem(int id, int count, bool stackable = false, bool noted = false,
+            IItemScript? itemScript = null, IEquipmentScript? equipmentScript = null, long[]? extraData = null)
         {
             Id = id;
             Count = count;
+            ExtraData = extraData ?? [];
             var definition = Substitute.For<IItemDefinition>();
             definition.Stackable.Returns(stackable);
             definition.Noted.Returns(noted);
@@ -1082,20 +1251,23 @@ public sealed class TradeExchangeTests
                 return left.Id == right.Id && left.ExtraData.SequenceEqual(right.ExtraData) &&
                        (info.ArgAt<bool>(2) || left.ItemDefinition.Stackable || left.ItemDefinition.Noted);
             });
-            ItemScript = script;
+            ItemScript = itemScript ?? script;
+            EquipmentScript = equipmentScript ?? Substitute.For<IEquipmentScript>();
         }
 
         public IItem Clone() => new TestItem(
             Id,
             Count,
             ItemDefinition.Stackable,
-            ItemDefinition.Noted);
+            ItemDefinition.Noted,
+            extraData: ExtraData);
 
         public IItem Clone(int newCount) => new TestItem(
             Id,
             newCount,
             ItemDefinition.Stackable,
-            ItemDefinition.Noted);
+            ItemDefinition.Noted,
+            extraData: ExtraData);
 
         public bool Equals(IItem otherItem, bool ignoreCount = true)
         {
@@ -1104,6 +1276,16 @@ public sealed class TradeExchangeTests
         }
 
         public string? SerializeExtraData() => null;
+    }
+
+    private sealed class TestAuraItemScript : AuraItemScript
+    {
+        public override int GetTier(ICharacter character, IItem aura) => 0;
+    }
+
+    private sealed class TestAuraEquipmentScript : AuraEquipmentScript
+    {
+        public override bool CanUnEquipItem(IItem item, ICharacter character) => true;
     }
 
 }
