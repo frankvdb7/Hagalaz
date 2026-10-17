@@ -27,3 +27,8 @@ Cleaning herbs, combining primary and secondary ingredients, potion doses, level
 
 - Exact level tables, success chances and asset/config IDs remain unverified until reference fixtures are captured.
 - Apply [implementation conventions](implementation-conventions.md) for ownership, testability and durable state.
+
+
+## Implementation evidence supplement
+
+[Herblore source transformations](herblore-source-transformations.md) documents cleaning, potion mixing, overload assembly, dose combination and input mutation. [Eight scalar source constants](data/catalogs/herblore-source-constants.csv) are separately cataloged. The [five-spike ingredient bug #529](https://github.com/frankvdb7/Hagalaz/issues/529) remains a code fix outside this documentation PR.

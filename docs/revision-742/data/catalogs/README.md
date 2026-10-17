@@ -143,3 +143,18 @@ These rows are extracted from `Hagalaz.Game.Scripts/Skills/Smithing/Smithing.cs`
 These are source declarations, **not** verified client cache or executed gameplay. [Detailed crosswalk](../../fletching-and-runecrafting-source-crosswalk.md) includes known registration/data gaps and the independent essence-selection issue [#527](https://github.com/frankvdb7/Hagalaz/issues/527).
 
 **PR #522 completion boundary:** These source catalogs are finished as declaration inventories. Populated database extraction and target-cache reconciliation are explicitly deferred; they are not required to review or merge documentation with the evidence status shown in each record.
+
+
+## Source-only Crafting, Herblore and Thieving declarations
+
+| Catalog | Rows | Source and interpretation |
+| --- | ---: | --- |
+| [Thieving stalls and chests](thieving-stall-and-chest-source-definitions.csv) | **23** | 18 stall types and 5 chests; 12 entries contain source object IDs and 11 deliberately have none |
+| [Crafting numeric constants](crafting-source-item-constants.csv) | **18** | Literal IDs for bars, moulds, needles, thread, clay and no-gem sentinels |
+| [Herblore numeric constants](herblore-source-constants.csv) | **8** | Literal scalar fields; the separate five-item overload array is documented in the Herblore dossier |
+
+All rows carry source-line evidence and are not verified against the client fixture. Empty object IDs are unknown **not zero**. The existing [NPC pickpocket rules](npc-pickpocket-source-rules.csv) are not duplicated.
+
+Behavior dossiers: [Crafting](../../crafting-source-behavior-and-integrity.md), [Thieving](../../thieving-stall-source-lifecycle.md) and [Herblore](../../herblore-source-transformations.md). Follow-up gameplay issues: [#528](https://github.com/frankvdb7/Hagalaz/issues/528) and [#529](https://github.com/frankvdb7/Hagalaz/issues/529).
+
+This evidence-only work has **no** requirement to change database schemas, export populated data or decode cache assets.

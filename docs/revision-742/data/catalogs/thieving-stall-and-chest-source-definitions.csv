@@ -1,0 +1,24 @@
+entry_index,source_label,object_ids,required_level,experience,respawn_ticks,npc_owner_id,empty_object_id,has_literal_object_ids,source_path,source_line,evidence_status
+0,vegetable stall,4706|4708,2,10.0,2,-1,634,true,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,100,repository_source_unverified_742
+1,bakers stal,34384,5,16.0,4,-1,34381,true,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,101,repository_source_unverified_742
+2,general stall,,5,16.0,17,-1,34381,false,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,102,repository_source_unverified_742
+3,crafting stall,,5,16.0,17,-1,34381,false,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,103,repository_source_unverified_742
+4,monkey food stall,,5,16.0,17,-1,34381,false,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,104,repository_source_unverified_742
+5,tea stall,,5,16.0,15,-1,34381,false,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,105,repository_source_unverified_742
+6,rock cake stall,,15,10.0,17,-1,34381,false,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,106,repository_source_unverified_742
+7,silk stall,34383,20,24.0,8,-1,34381,true,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,107,repository_source_unverified_742
+8,wine stall,14011,22,27.0,25,-1,34381,true,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,108,repository_source_unverified_742
+9,seed stall,,27,10.0,25,-1,2047,false,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,109,repository_source_unverified_742
+10,fur stall,34387,35,36.0,25,-1,34381,true,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,110,repository_source_unverified_742
+11,fish stall,,42,42.0,25,-1,34381,false,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,111,repository_source_unverified_742
+12,crossbow stall,,49,52.0,28,-1,34381,false,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,112,repository_source_unverified_742
+13,silver stall,34382,50,54.0,50,-1,34381,true,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,113,repository_source_unverified_742
+14,spice stall,34386,65,81.3,133,-1,34381,true,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,114,repository_source_unverified_742
+15,magic stall,,65,100.0,100,-1,34381,false,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,115,repository_source_unverified_742
+16,scimitar stall,,65,160.0,100,-1,34381,false,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,116,repository_source_unverified_742
+17,gem stall,,75,160.0,300,-1,34381,false,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,117,repository_source_unverified_742
+18,Bronze Chest,4111,1,10.0,5,-1,-1,true,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,119,repository_source_unverified_742
+19,Steel Chest,4116,20,20.0,5,-1,-1,true,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,120,repository_source_unverified_742
+20,Black Chest,4121,40,40.0,5,-1,-1,true,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,121,repository_source_unverified_742
+21,Silver Chest,4126,60,65.0,5,-1,-1,true,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,122,repository_source_unverified_742
+22,Gold Chest,59731,80,130.0,5,-1,-1,true,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs,123,repository_source_unverified_742

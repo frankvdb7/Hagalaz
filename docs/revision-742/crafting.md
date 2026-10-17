@@ -31,3 +31,8 @@ Multiple recipe families: gem cutting, spinning, hides, jewelry, pottery and sil
 ## Extended 2012 candidate datasets
 
 - [28 gold-jewellery recipes](data/researched/crafting-gold-jewellery.csv), [nine cut-gem recipes](data/researched/crafting-gem-cutting.csv) and [crafting transformation/atomicity contract](reference/deep-crafting.md). Numeric product/mould IDs require 742 cache reconciliation.
+
+
+## Implementation evidence supplement
+
+[Crafting source behavior and conservation](crafting-source-behavior-and-integrity.md) documents active task owners, per-tick sequencing, leather thread consumption and jewellery multi-ingredient integrity. [18 code-owned constants](data/catalogs/crafting-source-item-constants.csv) are recorded with source lines. Runtime defect [#528](https://github.com/frankvdb7/Hagalaz/issues/528) is tracked separately.
