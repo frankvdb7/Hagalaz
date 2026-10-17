@@ -1,0 +1,9 @@
+name,numeric_value,source_path,source_line,evidence_status
+FilledVial,227,Hagalaz.Game.Scripts/Skills/Herblore/Herbs/HerbloreConstants.cs,11,repository_source_unverified_742
+Avantoe,261,Hagalaz.Game.Scripts/Skills/Herblore/Herbs/HerbloreConstants.cs,16,repository_source_unverified_742
+Dwarfweed,267,Hagalaz.Game.Scripts/Skills/Herblore/Herbs/HerbloreConstants.cs,21,repository_source_unverified_742
+Lantadyme,2481,Hagalaz.Game.Scripts/Skills/Herblore/Herbs/HerbloreConstants.cs,26,repository_source_unverified_742
+Groundmudrunes,9594,Hagalaz.Game.Scripts/Skills/Herblore/Herbs/HerbloreConstants.cs,31,repository_source_unverified_742
+Grenwallspikes,12539,Hagalaz.Game.Scripts/Skills/Herblore/Herbs/HerbloreConstants.cs,36,repository_source_unverified_742
+Torstol,269,Hagalaz.Game.Scripts/Skills/Herblore/Herbs/HerbloreConstants.cs,46,repository_source_unverified_742
+MakePotionAnimation,363,Hagalaz.Game.Scripts/Skills/Herblore/Herbs/HerbloreConstants.cs,51,repository_source_unverified_742
