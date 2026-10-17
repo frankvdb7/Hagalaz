@@ -9,11 +9,11 @@ Source: `Hagalaz.Game.Scripts/Skills/Smithing/SmeltTask.cs`.
 - `Definition.SmeltDefinition.RequiredOres` provides the input requirements, `Definition.BarID` the product, and `SmithingExperience` the success reward.
 - At tick 1 or each sixth tick the script validates all ingredients and queues animation 897.
 - At ticks divisible by 3 it increments the processed count and removes input ores using a sum of individual `Remove` results. It only checks `removed <= 0`, **not that every required ingredient count was removed**.
-- For a successful smelt, it invokes `Inventory.Items.Add(bar)` without checking its boolean outcome, and then grants XP. This has an evident reward-integrity gap when output insertion fails.
+- For a successful smelt, it invokes `Inventory.Items.Add(bar)` without checking its boolean outcome, and then grants XP. **This is not enough to establish a reachable full-inventory defect:** normal nonstackable ore removal frees slots before bar creation. Follow actual recipe and container contracts before alleging output loss.
 - For bar ID 2351 it draws `RandomStatic.Generator.Next(0, 100)` and tests `<= 80` at effective Smithing level 45+, or `<= 50` below. Inclusive comparisons mean **81% / 51%** in the current implementation, rather than the apparent intended 80% / 50%. Do not silently replace these values with an assumed historical formula.
 - On iron failure ingredients are consumed and no XP is granted; whether failed ore consumption is version-correct needs historical verification.
 
-**Tests:** with two ingredients, remove all of ingredient A between initial validation and consume time; confirm no partial ingredient loss without resulting bar. Fill output inventory before the reward, verify no silent lost bar or XP. At threshold level 44/45 use controlled random values 49/50/51/79/80/81 to pin existing behavior and choose a historically justified fix separately. Confirm 1/3/6 tick ordering and interruption.
+**Tests:** with two ingredients, remove one between initial validation and consume time; confirm neither unrelated ingredients nor output/XP mutate. Verify actual item-space behavior using configured recipe definitions rather than a contrived full inventory. At levels 15/16/44/45 use boundary random values to confirm the historically documented 50/51/79/80 percent thresholds. Confirm 1/3/6 tick ordering and interruption. See [Smithing source catalog and issues](smithing-source-catalog-and-integrity.md).
 
 ## Cooking: raw, cooked and burnt item ownership
 
@@ -23,7 +23,7 @@ Source: `Hagalaz.Game.Scripts/Skills/Cooking/CookingTask.cs`.
 - Validates the target object remains enabled and is still present **by reference** at its map position.
 - At tick 1 or every sixth tick it queues animation 897; every third tick it looks up raw food, gets its slot, rolls burn, replaces that slot with cooked or burnt output, and grants XP only if not burnt.
 - `IsBurned()` stops all burns when effective level meets `StopBurningLevel`. Glove item ID 775 lowers the no-burn threshold by six levels except for cooked item ID 391. Otherwise the level deficit is capped at 20 and compared with `RandomStatic.Generator.Next(45) <= deficit`. Inclusive comparison gives `(deficit+1)/45` while deficit is between 0 and 20; note that an early stop-burning guard normally prevents deficit zero.
-- `Inventory.Items.Replace` result is not checked before granting success XP. Verify whether replace can reject mutation, and whether stacked/multi-count inputs are handled according to this script's supported items.
+- `Inventory.Items.Replace` is a **void, direct slot mutation**; there is no success boolean to check. The prior failure-return suspicion is disproven by `IItemContainer` and `ItemContainerStorage.Replace`. Verify stacked/multi-count food assumptions separately against actual supported raw-food definitions.
 
 **Tests:** level just below/at `StopBurningLevel`; gloves present/absent; cooked ID 391 exception; exact source object removed/replaced; inventory slot replaced successfully; interrupted batch. Crosswalk actual rows to `data/researched/cooking-fish.csv` and `cooking-meat-products.csv`, preserving evidence labels.
 
@@ -52,4 +52,4 @@ Source: `Hagalaz.Game.Scripts/Skills/Runecrafting/Runecrafting.cs`.
 
 ## Evidence and follow-up discipline
 
-These observations identify **potential correctness bugs requiring reproducible tests**; do not file a duplicate issue or claim a security defect without checking actual `ItemContainer` method return contracts and all callers. Keep runtime fixes in focused changes, with appropriate OpenSpec records under the repository's AGENTS.md rules. This PR remains documentation-only and must not be labeled a complete cache or database reconciliation.
+The confirmed Smithing partial-consumption defect and iron chance mismatch are tracked in [#524](https://github.com/frankvdb7/Hagalaz/issues/524) and [#525](https://github.com/frankvdb7/Hagalaz/issues/525). Other notes are test candidates, **not** confirmed defects. Do not file a duplicate issue or claim a security defect without checking actual `ItemContainer` method return contracts and all callers. Keep runtime fixes in focused changes, with appropriate OpenSpec records under the repository's AGENTS.md rules. This PR remains documentation-only and must not be labeled a complete cache or database reconciliation.
