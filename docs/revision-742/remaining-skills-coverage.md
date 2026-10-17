@@ -35,3 +35,12 @@ For every skill record a complete implementation row with: requirement level; in
 ## Known limitations of this pass
 
 A targeted code search cannot establish the *absence* of a feature; routes may live outside conventional skill folders or be implemented dynamically. These rows are a work queue, not a completion certification. There is no accessible populated runtime database or complete decoded cache snapshot in this investigation, so exact recipe matrices, IDs, probabilities and timings remain unverified. The observed entrypoint file names are grounded in repository search results.
+
+## Additional source extraction completed on this PR
+
+- Smithing: [18 smelting ingredient links](data/catalogs/smithing-smelting-source-definitions.csv), [106 forging products](data/catalogs/smithing-forging-source-definitions.csv), [integrity notes](smithing-source-catalog-and-integrity.md) and issues [#524](https://github.com/frankvdb7/Hagalaz/issues/524), [#525](https://github.com/frankvdb7/Hagalaz/issues/525).
+- Fletching: [90 exact source recipe variants](data/catalogs/fletching-source-recipes.csv) and [crosswalk](fletching-and-runecrafting-source-crosswalk.md); no claim of verified client registration.
+- Runecrafting: source-backed mixed-essence eligibility bug tracked as [#527](https://github.com/frankvdb7/Hagalaz/issues/527).
+- Farming: verified watering protection order defect tracked as [#526](https://github.com/frankvdb7/Hagalaz/issues/526).
+
+The populated database and approved 742 cache fixture are still needed to establish completeness and production readiness of these data sources. Avoid duplicating existing historical candidate CSVs.
