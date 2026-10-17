@@ -485,6 +485,7 @@ public sealed class CharacterUpdateRequestConsumerTests
 
     [TestMethod]
     [Timeout(120_000)]
+    [DoNotParallelize]
     public async Task Consume_DefaultFamiliarSentinel_DoesNotPersistFamiliar()
     {
         await using var database = new MySqlBuilder("mysql:8.4")
@@ -540,6 +541,7 @@ public sealed class CharacterUpdateRequestConsumerTests
 
     [TestMethod]
     [Timeout(120_000)]
+    [DoNotParallelize]
     public async Task Consume_MultipleFarmingPatches_PersistsEachPatchAndValidSeedId()
     {
         await using var database = new MySqlBuilder("mysql:8.4")
