@@ -124,3 +124,12 @@ These are Hagalaz-versus-GameClient **source reconciliation records**, not new c
 | [Server protocol/UI source inventory](protocol-server-source-inventory.csv) | 142 | 38 decoder C# files, 59 encoder C# files and 45 widget script files; file presence is not live handler registration |
 
 Start with the [cross-repository dossier](../../reference/deep-client-integration.md) and [test matrix](../../reference/client-integration-verification-matrix.md) before altering protocol or UI code.
+
+## Smithing source-only recipe crosswalk
+
+| File | Rows | Scope |
+|---|---:|---|
+| [smithing-smelting-source-definitions.csv](smithing-smelting-source-definitions.csv) | **18** | Ingredient edges across **13** bar definitions, with bar/ore IDs, counts, required level, XP, source line and evidence status |
+| [smithing-forging-source-definitions.csv](smithing-forging-source-definitions.csv) | **106** | Nonempty forging product records with bar/product IDs, counts, levels, base XP/bar and source line; **10 empty UI entry placeholders are deliberately omitted** |
+
+These rows are extracted from `Hagalaz.Game.Scripts/Skills/Smithing/Smithing.cs`; they are not a live database export nor verified 742 cache definitions. Refer to [source catalog and integrity analysis](../../smithing-source-catalog-and-integrity.md), [#524](https://github.com/frankvdb7/Hagalaz/issues/524) and [#525](https://github.com/frankvdb7/Hagalaz/issues/525). Migration responsibility for recipe ownership belongs to [#377](https://github.com/frankvdb7/Hagalaz/issues/377).
