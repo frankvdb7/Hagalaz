@@ -87,25 +87,23 @@ The displayed varbit base formula varies by patch type: Allotment `6 + index * 7
 
 These findings are **candidates requiring reproduction**, not confirmed issue tickets. Keep fixes out of this documentation PR.
 
-## External research: constrained candidate data, not imported truth
+## Historical numeric data: use the newly merged canonical datasets
 
-A historical mining FAQ includes the following *candidate* baseline ore levels and XP. It predates revision 742 and is therefore **not sufficient to mark 742-verified**. It is useful solely as a discrepancy checklist for the seed database:
+The latest `main` introduces the source-attributed [mining ores CSV](data/mining-ores.csv), [gathering reference](reference/deep-gathering.md), [skill catalog index](data/README.md), and [expanded historical candidates](data/researched/README.md). **Do not maintain a second unsynchronized numeric table in this ledger.** The canonical candidate mining table reports iron at level 15, **35 XP**; an older guide consulted in the original audit gave **30 XP**. This discrepancy demonstrates why historical secondary sources cannot be treated as revision-verified. Retain the conflict as an evidence gap; only a pinned 742 fixture or verified gameplay reference can settle it. The canonical CSV also has no blurite entry, so do not assume it is absent from the game.
 
-| Ore | Candidate level | Candidate XP | Confidence for 742 |
-| --- | ---: | ---: | --- |
-| Clay | 1 | 5 | unverified |
-| Copper | 1 | 17.5 | unverified |
-| Tin | 1 | 17.5 | unverified |
-| Blurite | 10 | 17.5 | unverified |
-| Iron | 15 | 30 | unverified |
-| Silver | 20 | 40 | unverified |
-| Coal | 30 | 50 | unverified |
-| Gold | 40 | 65 | unverified |
-| Mithril | 55 | 80 | unverified |
-| Adamantite | 70 | 95 | unverified |
-| Runite | 85 | 125 | unverified |
+The `experience-levels-1-120.csv` file records a calculated XP curve; it is not a decoded cache asset. Follow [deep progression](reference/deep-progression.md) to compare against Hagalaz's actual level calculations and client mappings.
 
-Source: https://gamefaqs.gamespot.com/webonly/562728-runescape/faqs/23185 (older historical guide; different build). **Do not silently replace existing data from this table.** Current online guides reflect later mechanics and are not suitable historical sources for the 742 version.
+The repository's [read-only reconciliation tooling](tools/README.md) already defines the approved cache fixture, checksum and missing database exports. Extend those tools only after checking if the skills-specific data can be obtained through their existing inputs. **Do not assert any extraction ran** without actual fixture and database access.
+
+## Concrete discrepancies to reconcile from the merged sources
+
+| Question | Ledger / source conflict | Resolution evidence |
+| --- | --- | --- |
+| Iron ore XP | Earlier secondary reference: 30; `data/mining-ores.csv`: 35 | Pin to historical 742 action/definition and verify awarded XP in-game |
+| Fishing bait semantics | Catch callback awards XP then consumes bait; `reference/deep-gathering.md` expects one bait per successful catch | Define ordering for single and multi-item catches and test last-bait behavior |
+| Woodcutting and Mining loot | Server scripts use loot tables instead of guaranteed per-resource item creation | Compare actual loot weights and inventory mutation outcome against XP and depletion behavior |
+| Client-side skill IDs | `StatisticsConstants.ClientSkillIDs` is repository evidence | Verify revision-742 packet encoding / skills interface index before approving a change |
+| Farming growth varbit offsets | Source contains patch-type arithmetic and source-only timers | Decode index 16 objects and corresponding varbits with approved cache fixture |
 
 ## Concrete reproducible data export
 
