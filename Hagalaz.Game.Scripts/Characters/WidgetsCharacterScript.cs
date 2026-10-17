@@ -73,7 +73,7 @@ namespace Hagalaz.Game.Scripts.Characters
         
         public void OpenCharacterDesignFrame()
         {
-            if (Character.Equipment.FreeSlots != Character.Equipment.Capacity)
+            if (Character.Equipment.Items.FreeSlots != Character.Equipment.Items.Capacity)
             {
                 Character.SendChatMessage("Please remove all your equipment before customizing your character.");
                 return;

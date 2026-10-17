@@ -60,6 +60,12 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Characters
         public virtual void OnRegistered() { }
 
         /// <summary>
+        /// Runs synchronous domain cleanup before the character's final snapshot is captured.
+        /// By default, this method does nothing.
+        /// </summary>
+        public virtual void OnDetach() { }
+
+        /// <summary>
         /// Get's called when character is destroyed permanently.
         /// By default, this method does nothing.
         /// </summary>

@@ -148,10 +148,10 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
 
                         foreach (var t in HerbloreConstants.OverloadPotions)
                         {
-                            character.Inventory.Items.Remove(_itemBuilder.Create().WithId(t).Build());
+                            character.Inventory.RemoveItem(_itemBuilder.Create().WithId(t).Build());
                         }
 
-                        character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(15333).Build());
+                        character.Inventory.ReplaceItem(slot, _itemBuilder.Create().WithId(15333).Build());
                         character.QueueAnimation(Animation.Create(HerbloreConstants.MakePotionAnimation));
                         character.Statistics.AddExperience(StatisticsConstants.Herblore, 1000);
                         return false;
@@ -214,11 +214,11 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                             return true;
                         }
 
-                        character.Inventory.Items.Remove(inventoryResource.Id == HerbloreConstants.Grenwallspikes
+                        character.Inventory.RemoveItem(inventoryResource.Id == HerbloreConstants.Grenwallspikes
                                 ? _itemBuilder.Create().WithId(HerbloreConstants.Grenwallspikes).WithCount(5).Build()
                                 : inventoryResource,
                             itemSlot);
-                        character.Inventory.Items.Replace(vialSlot,
+                        character.Inventory.ReplaceItem(vialSlot,
                             _itemBuilder.Create().WithId(makeUnfinished ? potion.UnfinishedPotionId : potion.PotionId).Build());
                         character.QueueAnimation(Animation.Create(HerbloreConstants.MakePotionAnimation));
                         if (!makeUnfinished)

@@ -105,7 +105,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
 
             bool Callback(IGameObject target)
             {
-                if (!character.Inventory.Items.Add(ore))
+                if (!character.Inventory.AddItem(ore))
                 {
                     return false;
                 }

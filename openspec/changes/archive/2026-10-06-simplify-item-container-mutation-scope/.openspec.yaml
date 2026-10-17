@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-05
+goal: Simplify ordinary item-container mutation while preserving the current
+  transaction, locking, publication, and domain ordering guarantees.

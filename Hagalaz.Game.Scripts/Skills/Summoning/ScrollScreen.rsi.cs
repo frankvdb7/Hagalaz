@@ -108,13 +108,13 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                                 return;
                             }
 
-                            var removed = Owner.Inventory.Items.Remove(_itemBuilder.Create().WithId(definition.PouchId).WithCount(value).Build());
+                            var removed = Owner.Inventory.RemoveItem(_itemBuilder.Create().WithId(definition.PouchId).WithCount(value).Build());
                             if (removed <= 0)
                             {
                                 return;
                             }
 
-                            Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(definition.ScrollId).WithCount(removed * _scrollsPerPouch).Build());
+                            Owner.Inventory.AddItem(_itemBuilder.Create().WithId(definition.ScrollId).WithCount(removed * _scrollsPerPouch).Build());
                             Owner.Statistics.AddExperience(StatisticsConstants.Summoning, definition.ScrollExperience * removed);
                         };
                         Owner.Configurations.SendIntegerInput("Please enter the amount to transform:");
@@ -136,13 +136,13 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                     }
 
 
-                    var removed = Owner.Inventory.Items.Remove(_itemBuilder.Create().WithId(definition.PouchId).WithCount(amount).Build());
+                    var removed = Owner.Inventory.RemoveItem(_itemBuilder.Create().WithId(definition.PouchId).WithCount(amount).Build());
                     if (removed <= 0)
                     {
                         return true;
                     }
 
-                    Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(definition.ScrollId).WithCount(removed * _scrollsPerPouch).Build());
+                    Owner.Inventory.AddItem(_itemBuilder.Create().WithId(definition.ScrollId).WithCount(removed * _scrollsPerPouch).Build());
                     Owner.Statistics.AddExperience(StatisticsConstants.Summoning, definition.ScrollExperience * removed);
 
                     return true;

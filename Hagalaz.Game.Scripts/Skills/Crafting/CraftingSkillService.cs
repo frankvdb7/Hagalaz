@@ -217,7 +217,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                             return;
                         }
 
-                        character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(definition.BakedProductID).Build());
+                        character.Inventory.ReplaceItem(slot, _itemBuilder.Create().WithId(definition.BakedProductID).Build());
                         character.Statistics.AddExperience(StatisticsConstants.Crafting, definition.BakeExperience);
                     }
                 });
@@ -324,7 +324,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                             return;
                         }
 
-                        character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(definition.FormedProductID).Build());
+                        character.Inventory.ReplaceItem(slot, _itemBuilder.Create().WithId(definition.FormedProductID).Build());
                         character.Statistics.AddExperience(StatisticsConstants.Crafting, definition.FormExperience);
                     }
                 });
@@ -607,14 +607,14 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
 
             var coinRemoved = character.MoneyPouch.Remove((int)coinCount);
             var tannedCount = coinRemoved / definition.BasePrice;
-            var removedCount = character.Inventory.Items.Remove(_itemBuilder.Create().WithId(definition.ResourceID).WithCount(tannedCount).Build());
+            var removedCount = character.Inventory.RemoveItem(_itemBuilder.Create().WithId(definition.ResourceID).WithCount(tannedCount).Build());
             if (removedCount <= 0)
             {
                 return false;
             }
 
             var product = _itemBuilder.Create().WithId(definition.ProductID).WithCount(removedCount).Build();
-            character.Inventory.Items.Add(product);
+            character.Inventory.AddItem(product);
             character.SendChatMessage("The tanner tans " + removedCount + " " + product.Name.ToLower() + "s for you.");
             return true;
         }

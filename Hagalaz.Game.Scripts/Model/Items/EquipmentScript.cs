@@ -260,5 +260,6 @@ namespace Hagalaz.Game.Scripts.Model.Items
         /// <param name="character">Character which wants to unequip item.</param>
         /// <returns><c>true</c> if this instance [can un equip item] the specified item; otherwise, <c>false</c>.</returns>
         public virtual bool CanUnEquipItem(IItem item, ICharacter character) => character.EventManager.SendEvent(new UnEquipAllowEvent(character, item));
+
     }
 }

@@ -74,7 +74,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 }
 
-                Owner.Inventory.Items.Swap(fromSlot, toSlot);
+                Owner.Inventory.SwapItems(fromSlot, toSlot);
                 return true;
             });
 

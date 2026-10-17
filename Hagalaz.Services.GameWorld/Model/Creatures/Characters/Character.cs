@@ -401,6 +401,26 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 (exceptions ??= []).Add(exception);
             }
 
+            try
+            {
+                InvokeScriptDestroyCallbacks();
+            }
+            catch (Exception exception)
+            {
+                (exceptions ??= []).Add(exception);
+            }
+
+            UnregisterEventHandlers();
+
+            if (exceptions is { Count: > 0 })
+            {
+                throw new AggregateException("One or more character cleanup operations failed.", exceptions).Flatten();
+            }
+        }
+
+        private void InvokeScriptDestroyCallbacks()
+        {
+            List<Exception>? exceptions = null;
             foreach (var script in _scripts.Values)
             {
                 try
@@ -413,11 +433,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
             }
 
-            UnregisterEventHandlers();
-
             if (exceptions is { Count: > 0 })
             {
-                throw new AggregateException("One or more character cleanup operations failed.", exceptions).Flatten();
+                throw new AggregateException("One or more character script cleanup operations failed.", exceptions).Flatten();
             }
         }
 

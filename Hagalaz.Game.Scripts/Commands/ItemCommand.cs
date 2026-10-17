@@ -24,7 +24,7 @@ namespace Hagalaz.Game.Scripts.Commands
 
             if (id >= 0 && amount > 0)
             {
-                args.Character.Inventory.Items.Add(_itemBuilder.Create().WithId(id).WithCount(amount).Build());
+                args.Character.Inventory.AddItem(_itemBuilder.Create().WithId(id).WithCount(amount).Build());
             }
 
             return Task.CompletedTask;

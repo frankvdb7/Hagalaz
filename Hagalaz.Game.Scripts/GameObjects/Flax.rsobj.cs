@@ -44,7 +44,7 @@ namespace Hagalaz.Game.Scripts.GameObjects
                 clicker.QueueAnimation(Animation.Create(827));
                 clicker.QueueTask(new RsTask(() =>
                     {
-                        if (clicker.Inventory.Items.Add(_itemBuilder.Create().WithId(1779).Build()))
+                        if (clicker.Inventory.AddItem(_itemBuilder.Create().WithId(1779).Build()))
                         {
                             if (0.40 >= RandomStatic.Generator.NextDouble())
                             {

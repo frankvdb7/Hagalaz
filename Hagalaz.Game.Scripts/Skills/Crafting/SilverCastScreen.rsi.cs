@@ -25,6 +25,15 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// </summary>
         public override void OnClose()
         {
+            if (_silverXHandler != null)
+            {
+                if (Owner.Widgets.IntInputHandler == _silverXHandler)
+                {
+                    Owner.Widgets.IntInputHandler = null;
+                }
+
+                _silverXHandler = null;
+            }
         }
 
         /// <summary>

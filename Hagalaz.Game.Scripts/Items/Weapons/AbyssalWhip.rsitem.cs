@@ -63,10 +63,10 @@ namespace Hagalaz.Game.Scripts.Items.Weapons
                 return false;
             }
 
-            var removed = character.Inventory.Items.Remove(whipIsUsedItem ? usedWith : used, colourSlot);
+            var removed = character.Inventory.RemoveItem(whipIsUsedItem ? usedWith : used, colourSlot);
             if (removed > 0)
             {
-                character.Inventory.Items.Replace(whipSlot, colouredItem);
+                character.Inventory.ReplaceItem(whipSlot, colouredItem);
                 return true;
             }
 

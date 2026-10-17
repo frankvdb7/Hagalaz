@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-11
+goal: Make multi-container synchronization consistent, keep equipment
+  replacement atomic, and preserve item quantities and shop stock state

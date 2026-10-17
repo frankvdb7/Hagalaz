@@ -1,5 +1,5 @@
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.Shops;
@@ -14,7 +14,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
     /// <summary>
     /// Class ShopStockContainer
     /// </summary>
-    public partial class ShopStockContainer : IShopStockContainer
+    public partial class ShopStockContainer : IShopStockContainer, IItemContainerCompletionOwner
     {
         /// <summary>
         /// Wether this shop container is a sample container.
@@ -34,13 +34,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         private readonly IItemBuilder _itemBuilder;
         private readonly IEventManager _eventManager;
         private readonly ItemContainer _items;
-        public IItemContainer Items => _items;
+        public IReadOnlyItemContainer Items => _items;
 
-        /// <summary>
-        /// The original stock of the shop.
-        /// </summary>
-        /// <value>The original stock.</value>
-        private readonly IItem[] _originalStock;
+        private readonly Dictionary<int, int> _originalStockCounts;
 
         /// <summary>
         /// Constructs a container for character banks.
@@ -57,21 +53,38 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             IShop shop, IItemService itemRepository, IItemBuilder itemBuilder, bool sampleContainer, StorageType type, int capacity,
             IList<IItem> stock, IEventManager eventManager)
         {
-            _items = new ItemContainer(type, stock, capacity, OnUpdate, 0);
+            _originalStockCounts = AggregateOriginalStock(stock);
+            var storage = new ItemContainerStorage(type, stock, capacity, 0);
+            var synchronization = new ItemContainerSynchronization(storage, this);
+            _items = new ItemContainer(synchronization);
             _shop = shop;
             _sampleContainer = sampleContainer;
             _itemRepository = itemRepository;
             _itemBuilder = itemBuilder;
             _eventManager = eventManager;
-            _originalStock = stock.ToArray();
+        }
+
+        private static Dictionary<int, int> AggregateOriginalStock(IEnumerable<IItem> stock)
+        {
+            ArgumentNullException.ThrowIfNull(stock);
+            var counts = new Dictionary<int, int>();
+            foreach (var item in stock)
+            {
+                ArgumentNullException.ThrowIfNull(item);
+                counts.TryGetValue(item.Id, out var count);
+                counts[item.Id] = checked(count + item.Count);
+            }
+            return counts;
         }
 
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
         /// <param name="slots">The slots.</param>
-        public void OnUpdate(HashSet<int>? slots = null)
+        void IItemContainerCompletionOwner.PublishCommittedChanges()
         {
+            var slots = _items.ChangeTracker.GetSlots();
+            if (slots is { Count: 0 }) return;
             if (_sampleContainer)
                 _eventManager.SendEvent(new ShopSampleStockChangedEvent(_shop, slots));
             else
@@ -80,8 +93,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
 
         public void SetItems(IItem[] items, bool update)
         {
+            using var write = _items.BeginWrite();
             _items.ReplaceState(items);
-            if (update) OnUpdate();
+            if (update) write.RecordChanges(null);
         }
 
         /// <summary>
@@ -140,24 +154,18 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 return false;
             }
 
-            var transaction = new ItemContainerTransaction(viewer.Inventory.Items.Mutations, _items.Mutations);
-            if (_shop.CurrencyId == 995) viewer.MoneyPouch.Mutations.EnlistIn(transaction);
-            var payout = _shop.CurrencyId == 995
-                ? null
-                : _itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)currencyCount).Build();
-
-            return transaction.TryExecute(tx =>
-            {
-                if (!tx.TryTransfer(viewer.Inventory.Items.Mutations, _items.Mutations, item, count, slot,
-                        destinationItem: transformed ? sold : null))
-                {
-                    return false;
-                }
-
-                return _shop.CurrencyId == 995
-                    ? viewer.MoneyPouch.Mutations.TryStageAddExact(tx, (int)currencyCount)
-                    : tx.TryAddRange(viewer.Inventory.Items.Mutations, [payout!]);
-            });
+            IItemTransactional[] participants = _shop.CurrencyId == 995
+                ? [viewer.Inventory, _items, viewer.MoneyPouch]
+                : [viewer.Inventory, _items];
+            using var transaction = ItemContainerTransaction.Begin(participants);
+            if (!viewer.Inventory.TryTransferItemTo(_items, item, count, slot,
+                    destinationItem: transformed ? sold : null)) return false;
+            var paid = _shop.CurrencyId == 995
+                ? viewer.MoneyPouch.Add((int)currencyCount)
+                : viewer.Inventory.AddItem(_itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)currencyCount).Build());
+            if (!paid) return false;
+            transaction.Commit();
+            return true;
         }
 
         /// <summary>
@@ -220,67 +228,41 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             }
 
             var cost = _sampleContainer ? 0 : _shop.GetBuyValue(item) * (long)count;
-            if (cost > 0)
+            if (cost > int.MaxValue)
             {
-                if (cost > int.MaxValue)
-                {
-                    viewer.SendChatMessage("The shop does not have enough money for this amount of items.");
-                    return false;
-                }
-
-                var hasCurrency = _shop.CurrencyId == 995
-                    ? viewer.MoneyPouch.HasCoins((int)cost)
-                    : viewer.Inventory.Items.Contains(_shop.CurrencyId, (int)cost);
-                if (!hasCurrency)
-                {
-                    viewer.SendChatMessage("You don't have enough " + _itemRepository.FindItemDefinitionById(_shop.CurrencyId).Name.ToLower() + "!");
-                    return false;
-                }
+                viewer.SendChatMessage("The shop does not have enough money for this amount of items.");
+                return false;
             }
 
-            var originalStock = _originalStock.Any(it => it.Id == item.Id);
-            var transaction = new ItemContainerTransaction(_items.Mutations, viewer.Inventory.Items.Mutations);
-            if (_shop.CurrencyId == 995) viewer.MoneyPouch.Mutations.EnlistIn(transaction);
-
-            var paymentRejected = false;
-            var succeeded = transaction.TryExecute(tx =>
+            var originalStock = _originalStockCounts.ContainsKey(item.Id);
+            IItemTransactional[] participants = _shop.CurrencyId == 995
+                ? [_items, viewer.MoneyPouch]
+                : [_items, viewer.Inventory];
+            var insufficientCurrency = false;
+            using (var transaction = ItemContainerTransaction.Begin(participants))
             {
                 if (cost > 0)
                 {
                     var paid = _shop.CurrencyId == 995
-                        ? viewer.MoneyPouch.Mutations.TryStageRemoveExact(tx, (int)cost)
-                        : tx.TryRemoveExact(viewer.Inventory.Items.Mutations,
+                        ? viewer.MoneyPouch.TryRemoveExact((int)cost)
+                        : viewer.Inventory.TryRemoveItemExact(
                             _itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)cost).Build());
-                    if (!paid)
-                    {
-                        paymentRejected = true;
-                        return false;
-                    }
+                    insufficientCurrency = !paid;
                 }
-
-                if (!tx.TryTransfer(_items.Mutations, viewer.Inventory.Items.Mutations, item, count, slot))
+                if (!insufficientCurrency)
                 {
-                    return false;
+                    if (!viewer.Inventory.TryTransferItemFrom(_items, item, count, slot)) return false;
+                    if (!originalStock && Items[slot] == null) _items.Sort();
+                    transaction.Commit();
                 }
-
-                if (!originalStock)
-                {
-                    tx.OnCommitted(() =>
-                    {
-                        if (Items[slot] == null) Items.Sort();
-                    });
-                }
-
-                tx.OnCommitted(() => _eventManager.SendEvent(new ShopItemBoughtEvent(viewer, _shop, toRemove)));
-                return true;
-            });
-
-            if (!succeeded && paymentRejected)
+            }
+            if (insufficientCurrency)
             {
                 viewer.SendChatMessage("You don't have enough " + _itemRepository.FindItemDefinitionById(_shop.CurrencyId).Name.ToLower() + "!");
+                return false;
             }
-
-            return succeeded;
+            _eventManager.SendEvent(new ShopItemBoughtEvent(viewer, _shop, toRemove));
+            return true;
         }
 
         /// <summary>
@@ -289,70 +271,103 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         public void NormalizeStock()
         {
             var changedSlots = new HashSet<int>();
-            var shouldSort = false;
-            _items.ExecuteUnderMutationLock(() =>
+            var positionsChanged = false;
+            using (var write = _items.BeginWrite())
             {
-                var items = _items.SnapshotItems();
-                // This uses the full capacity, because we don't know if items were added.
-                for (var i = 0; i < Items.Capacity; i++)
+                var currentItems = _items.SnapshotItems();
+                var plannedItems = (IItem?[])currentItems.Clone();
+                var countsById = new Dictionary<int, long>();
+                foreach (var item in currentItems)
                 {
-                    var item = items[i];
-                    if (item == null)
+                    if (item == null || item.Count <= 0) continue;
+                    countsById.TryGetValue(item.Id, out var count);
+                    countsById[item.Id] = count + item.Count;
+                }
+
+                var processedOriginalIds = new HashSet<int>();
+                for (var slot = 0; slot < currentItems.Length; slot++)
+                {
+                    var item = currentItems[slot];
+                    if (item == null) continue;
+
+                    if (_originalStockCounts.TryGetValue(item.Id, out var baseline))
                     {
+                        if (!processedOriginalIds.Add(item.Id)) continue;
+                        countsById.TryGetValue(item.Id, out var currentCount);
+                        if (currentCount < baseline)
+                        {
+                            var restoreSlot = Array.FindIndex(currentItems, candidate => candidate?.Id == item.Id);
+                            if (restoreSlot >= 0)
+                            {
+                                plannedItems[restoreSlot] = CloneWithCount(currentItems[restoreSlot]!,
+                                    checked(currentItems[restoreSlot]!.Count + 1));
+                                changedSlots.Add(restoreSlot);
+                            }
+                        }
+                        else if (currentCount > baseline)
+                        {
+                            var reduceSlot = Array.FindIndex(currentItems, candidate => candidate?.Id == item.Id && candidate.Count > 0);
+                            if (reduceSlot >= 0)
+                                DecreaseStockItem(currentItems, plannedItems, reduceSlot, changedSlots, ref positionsChanged);
+                        }
+
                         continue;
                     }
 
-                    if (item.Count < _originalStock[i].Count)
-                    {
-                        item.Count += 1;
-                        changedSlots.Add(i);
-                    }
-                    else if (item.Count > 0 && _originalStock.All(original => original.Id != item.Id))
-                    {
-                        item.Count -= 1;
-                        changedSlots.Add(i);
-                        if (item.Count <= 0)
-                        {
-                            if (_items.CountToResetTo == -1)
-                            {
-                                items[i] = null;
-                            }
-                            else
-                            {
-                                item.Count = _items.CountToResetTo;
-                            }
-
-                            shouldSort = true;
-                        }
-                    }
+                    if (item.Count > 0)
+                        DecreaseStockItem(currentItems, plannedItems, slot, changedSlots, ref positionsChanged);
                 }
 
-                if (shouldSort)
+                if (positionsChanged)
                 {
-                    var write = 0;
-                    for (var i = 0; i < items.Length; i++)
+                    var sortedItems = new IItem?[plannedItems.Length];
+                    var writeIndex = 0;
+                    for (var read = 0; read < plannedItems.Length; read++)
                     {
-                        if (items[i] == null)
-                        {
-                            continue;
-                        }
-
-                        var item = items[i];
-                        items[i] = null;
-                        items[write++] = item;
+                        if (plannedItems[read] is { } item) sortedItems[writeIndex++] = item;
                     }
+                    positionsChanged = false;
+                    for (var slot = 0; slot < plannedItems.Length; slot++)
+                    {
+                        if (ReferenceEquals(plannedItems[slot], sortedItems[slot])) continue;
+                        positionsChanged = true;
+                        break;
+                    }
+                    plannedItems = sortedItems;
                 }
 
                 if (changedSlots.Count > 0)
                 {
-                    _items.ReplaceState(items);
+                    _items.ReplaceState(plannedItems);
+                    write.RecordChanges(positionsChanged ? null : changedSlots);
                 }
-            });
-
-            if (changedSlots.Count > 0)
-            {
-                OnUpdate(shouldSort ? null : changedSlots);
             }
+        }
+
+        private static IItem CloneWithCount(IItem item, int count)
+        {
+            var clone = item.Clone();
+            if (ReferenceEquals(clone, item))
+                throw new InvalidOperationException("Item cloning must produce a new instance for stock normalization.");
+            clone.Count = count;
+            return clone;
+        }
+
+        private void DecreaseStockItem(IItem?[] currentItems, IItem?[] plannedItems, int slot,
+            HashSet<int> changedSlots, ref bool positionsChanged)
+        {
+            var item = currentItems[slot]!;
+            var nextCount = item.Count - 1;
+            if (nextCount <= 0 && _items.CountToResetTo == -1)
+            {
+                plannedItems[slot] = null;
+                positionsChanged = true;
+            }
+            else
+            {
+                plannedItems[slot] = CloneWithCount(item, nextCount <= 0 ? _items.CountToResetTo : nextCount);
+            }
+            changedSlots.Add(slot);
         }
     }
 }

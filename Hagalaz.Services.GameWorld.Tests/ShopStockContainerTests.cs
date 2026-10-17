@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
@@ -31,6 +32,7 @@ public sealed class ShopStockContainerTests
         Assert.IsFalse(result);
         Assert.AreEqual(1, scenario.MoneyPouch.Count);
         Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(ItemId));
+        scenario.Character.Received(1).SendChatMessage("You don't have enough coins!");
     }
 
     [TestMethod]
@@ -70,6 +72,94 @@ public sealed class ShopStockContainerTests
         Assert.IsTrue(result);
         Assert.AreEqual(1, GetTotalCoins(scenario));
         Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenInventoryPublisherThrowsSkipsPouchPublication()
+    {
+        var scenario = CreateScenario(cost: 5, pouchCoins: 5);
+        var publicationException = new InvalidOperationException("Inventory publisher failed.");
+        scenario.Character.EventManager.ClearReceivedCalls();
+        scenario.Inventory.OnUpdateAction = () => throw publicationException;
+
+        var thrown = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(() =>
+            scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+        Assert.AreSame(publicationException, thrown.InnerException);
+        Assert.AreEqual(0, scenario.MoneyPouch.Count);
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
+        Assert.AreEqual(0, scenario.Stock.Items.GetCountById(ItemId));
+        scenario.Character.EventManager.DidNotReceive().SendEvent(Arg.Any<MoneyPouchChangedEvent>());
+        scenario.ShopEvents.DidNotReceive().SendEvent(Arg.Any<ShopItemBoughtEvent>());
+    }
+
+    [TestMethod]
+    public void BuyFromShop_PublishesStockInventoryPouchAndBoughtEventInExistingOrder()
+    {
+        var scenario = CreateScenario(cost: 5, pouchCoins: 5);
+        var order = new List<string>();
+        scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopStockChangedEvent>())).Do(_ =>
+        {
+            foreach (var boundary in ((IItemTransactionSource)scenario.MoneyPouch).Synchronizations)
+            {
+                Assert.IsFalse(System.Threading.Monitor.IsEntered(boundary.SynchronizationLock));
+            }
+            Assert.AreEqual(0, scenario.MoneyPouch.Count);
+            Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
+            order.Add("stock");
+        });
+        scenario.Inventory.OnUpdateAction = () => order.Add("inventory");
+        scenario.Character.EventManager.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>())).Do(_ => order.Add("pouch"));
+        scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopItemBoughtEvent>())).Do(_ => order.Add("bought"));
+
+        Assert.IsTrue(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+
+        CollectionAssert.AreEqual(new[] { "stock", "inventory", "pouch", "bought" }, order);
+    }
+
+    [TestMethod]
+    public void BuyFromShop_StockPublicationFailureStopsLaterOwnerPublication()
+    {
+        var scenario = CreateScenario(cost: 5, pouchCoins: 5);
+        var original = new InvalidOperationException("Stock publication failed.");
+        var order = new List<string>();
+        scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopStockChangedEvent>())).Do(_ =>
+        {
+            order.Add("stock");
+            throw original;
+        });
+        scenario.Inventory.OnUpdateAction = () => order.Add("inventory");
+        scenario.Character.EventManager.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>())).Do(_ => order.Add("pouch"));
+        scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopItemBoughtEvent>())).Do(_ => order.Add("bought"));
+
+        var thrown = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(() =>
+            scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+        Assert.AreSame(original, thrown.InnerException);
+
+        CollectionAssert.AreEqual(new[] { "stock" }, order);
+        AssertCommittedPurchaseAfterPublicationFailure(scenario);
+    }
+
+    [TestMethod]
+    public void BuyFromShop_PouchPublicationFailurePreservesEarlierUpdatesAndSkipsBoughtEvent()
+    {
+        var scenario = CreateScenario(cost: 5, pouchCoins: 5);
+        var original = new InvalidOperationException("Pouch publication failed.");
+        var order = new List<string>();
+        scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopStockChangedEvent>())).Do(_ => order.Add("stock"));
+        scenario.Inventory.OnUpdateAction = () => order.Add("inventory");
+        scenario.Character.EventManager.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>())).Do(_ =>
+        {
+            order.Add("pouch");
+            throw original;
+        });
+        scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopItemBoughtEvent>())).Do(_ => order.Add("bought"));
+
+        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(() =>
+            scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+        Assert.AreSame(original, postCommitException.InnerException);
+
+        CollectionAssert.AreEqual(new[] { "stock", "inventory", "pouch" }, order);
+        AssertCommittedPurchaseAfterPublicationFailure(scenario);
     }
 
     [TestMethod]
@@ -137,6 +227,7 @@ public sealed class ShopStockContainerTests
         Assert.IsFalse(result);
         Assert.AreEqual(cost - 1, scenario.Inventory.Items.GetCountById(currencyId));
         Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(ItemId));
+        scenario.Character.Received(1).SendChatMessage("You don't have enough tokens!");
     }
 
     [TestMethod]
@@ -179,8 +270,29 @@ public sealed class ShopStockContainerTests
 
         scenario.Stock.NormalizeStock();
 
-        Assert.AreSame(depletedOriginal, scenario.Stock.Items[0]);
+        Assert.AreNotSame(depletedOriginal, scenario.Stock.Items[0]);
         Assert.AreEqual(1, scenario.Stock.Items[0]!.Count);
+    }
+
+    [TestMethod]
+    public void NormalizeStock_PublishesAfterUnlockWithoutRollbackTransaction()
+    {
+        var scenario = CreateScenario(cost: 0);
+        var boundary = ((IItemTransactionSource)scenario.Stock.Items).Synchronizations[0];
+        var depletedOriginal = scenario.StockItem.Clone(0);
+        scenario.Stock.SetItems([depletedOriginal], update: false);
+        scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopStockChangedEvent>())).Do(_ =>
+        {
+            Assert.IsFalse(System.Threading.Monitor.IsEntered(boundary.SynchronizationLock));
+            lock (boundary.SynchronizationLock)
+            {
+                Assert.IsTrue(boundary.IsStandalonePublicationOwnedByCurrentThread);
+            }
+        });
+
+        scenario.Stock.NormalizeStock();
+
+        scenario.ShopEvents.Received(1).SendEvent(Arg.Any<ShopStockChangedEvent>());
     }
 
     [TestMethod]
@@ -194,8 +306,113 @@ public sealed class ShopStockContainerTests
 
         scenario.Stock.NormalizeStock();
 
-        Assert.AreSame(playerStock, scenario.Stock.Items[0]);
+        Assert.AreNotSame(playerStock, scenario.Stock.Items[0]);
         Assert.AreEqual(0, scenario.Stock.Items[0]!.Count);
+    }
+
+    [TestMethod]
+    public void ShopStockConstructor_DuplicateBaselineCountsAggregate()
+    {
+        var first = new ComposedTestItem(ItemId, 2, stackable: true);
+        var second = new ComposedTestItem(ItemId, 3, stackable: true);
+        var scenario = CreateScenario(cost: 0, stockCapacity: 2, originalStock: [first, second]);
+        scenario.Stock.SetItems([new ComposedTestItem(ItemId, 4, stackable: true), null!], update: false);
+
+        scenario.Stock.NormalizeStock();
+
+        Assert.AreEqual(5, scenario.Stock.Items.GetCountById(ItemId));
+    }
+
+    [TestMethod]
+    public void ShopStockConstructor_BaselineOverflowThrows()
+    {
+        var originalStock = new IItem[]
+        {
+            new ComposedTestItem(ItemId, int.MaxValue, stackable: true),
+            new ComposedTestItem(ItemId, 1, stackable: true)
+        };
+
+        Assert.ThrowsExactly<OverflowException>(() =>
+            CreateScenario(cost: 0, stockCapacity: 2, originalStock: originalStock));
+    }
+
+    [TestMethod]
+    public void NormalizeStock_UsesOriginalBaselineAfterItemMoves()
+    {
+        var scenario = CreateScenario(cost: 0, stockCapacity: 3);
+        var movedDepletedOriginal = new ComposedTestItem(ItemId, 0, stackable: true);
+        scenario.Stock.SetItems([null!, null!, movedDepletedOriginal], update: false);
+
+        scenario.Stock.NormalizeStock();
+
+        Assert.AreEqual(1, scenario.Stock.Items[2]!.Count);
+        Assert.AreNotSame(movedDepletedOriginal, scenario.Stock.Items[2]);
+    }
+
+    [TestMethod]
+    public void NormalizeStock_HandlesPlayerStockBeyondOriginalEntries()
+    {
+        var scenario = CreateScenario(cost: 0, stockCapacity: 3);
+        var playerStock = new ComposedTestItem(2001, 2, stackable: true);
+        scenario.Stock.SetItems([null!, null!, playerStock], update: false);
+
+        scenario.Stock.NormalizeStock();
+
+        Assert.AreEqual(1, scenario.Stock.Items[2]!.Count);
+    }
+
+    [TestMethod]
+    public void NormalizeStock_ChangesOnlyPlannedItemIdentity()
+    {
+        var baseline = new IItem[]
+        {
+            new ComposedTestItem(ItemId, 1, stackable: true),
+            new ComposedTestItem(3000, 3, stackable: true)
+        };
+        var scenario = CreateScenario(cost: 0, stockCapacity: 3, originalStock: baseline);
+        var depleted = new ComposedTestItem(ItemId, 0, stackable: true);
+        var playerStock = new ComposedTestItem(2001, 2, stackable: true);
+        var unchangedOriginal = new ComposedTestItem(3000, 3, stackable: true);
+        scenario.Stock.SetItems([depleted, playerStock, unchangedOriginal], update: false);
+
+        scenario.Stock.NormalizeStock();
+
+        Assert.AreNotSame(depleted, scenario.Stock.Items[0]);
+        Assert.AreNotSame(playerStock, scenario.Stock.Items[1]);
+        Assert.AreSame(unchangedOriginal, scenario.Stock.Items[2]);
+    }
+
+    [TestMethod]
+    public void NormalizeStock_NoChangeDoesNotAdvanceRevisionOrPublish()
+    {
+        var scenario = CreateScenario(cost: 0);
+        var boundary = ((IItemTransactionSource)scenario.Stock.Items).Synchronizations[0];
+        var revision = boundary.Storage.MutationRevision;
+
+        scenario.Stock.NormalizeStock();
+
+        Assert.AreEqual(revision, boundary.Storage.MutationRevision);
+        scenario.ShopEvents.DidNotReceive().SendEvent(Arg.Any<ShopStockChangedEvent>());
+    }
+
+    [TestMethod]
+    public void NormalizeStock_PlanningFailureLeavesStateAndRevisionUnchanged()
+    {
+        var scenario = CreateScenario(cost: 0);
+        var item = new ComposedTestItem(ItemId, 0, stackable: true)
+        {
+            OnClone = () => throw new InvalidOperationException("Controlled clone failure.")
+        };
+        scenario.Stock.SetItems([item], update: false);
+        var boundary = ((IItemTransactionSource)scenario.Stock.Items).Synchronizations[0];
+        var revision = boundary.Storage.MutationRevision;
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => scenario.Stock.NormalizeStock());
+
+        Assert.AreSame(item, scenario.Stock.Items[0]);
+        Assert.AreEqual(0, item.Count);
+        Assert.AreEqual(revision, boundary.Storage.MutationRevision);
+        scenario.ShopEvents.DidNotReceive().SendEvent(Arg.Any<ShopStockChangedEvent>());
     }
 
     private static ShopScenario CreateScenario(
@@ -204,9 +421,11 @@ public sealed class ShopStockContainerTests
         int pouchCoins = 0,
         int inventoryCurrency = 0,
         bool sampleStock = false,
-        int inventoryCapacity = 10)
+        int inventoryCapacity = 10,
+        int stockCapacity = 1,
+        IList<IItem>? originalStock = null)
     {
-        var inventory = new ComposedTestInventory(inventoryCapacity);
+        var inventory = new ComposedTestContainer(inventoryCapacity);
         if (inventoryCurrency > 0)
         {
             Assert.IsTrue(inventory.Items.Add(new ComposedTestItem(currencyId, inventoryCurrency, stackable: true)));
@@ -236,7 +455,8 @@ public sealed class ShopStockContainerTests
         currencyDefinition.Name.Returns(currencyId == CoinId ? "Coins" : "Tokens");
         itemService.FindItemDefinitionById(currencyId).Returns(currencyDefinition);
 
-        var stockItem = new ComposedTestItem(ItemId, 1, stackable: true);
+        var stockItems = originalStock ?? [new ComposedTestItem(ItemId, 1, stackable: true)];
+        var stockItem = stockItems[0];
         var shopEvents = Substitute.For<IEventManager>();
         var stock = new ShopStockContainer(
             shop,
@@ -244,8 +464,8 @@ public sealed class ShopStockContainerTests
             itemBuilder,
             sampleStock,
             StorageType.AlwaysStack,
-            1,
-            [stockItem],
+            stockCapacity,
+            stockItems,
             shopEvents);
 
         return new ShopScenario(character, inventory, moneyPouch, stock, stockItem, shopEvents);
@@ -254,9 +474,16 @@ public sealed class ShopStockContainerTests
     private static int GetTotalCoins(ShopScenario scenario) =>
         scenario.MoneyPouch.Count + scenario.Inventory.Items.GetCountById(CoinId);
 
+    private static void AssertCommittedPurchaseAfterPublicationFailure(ShopScenario scenario)
+    {
+        Assert.AreEqual(0, scenario.MoneyPouch.Count);
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
+        Assert.AreEqual(0, scenario.Stock.Items.GetCountById(ItemId));
+    }
+
     private sealed record ShopScenario(
         ICharacter Character,
-        IInventoryContainer Inventory,
+        ComposedTestContainer Inventory,
         IMoneyPouchContainer MoneyPouch,
         IShopStockContainer Stock,
         IItem StockItem,

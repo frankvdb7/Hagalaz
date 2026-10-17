@@ -82,7 +82,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                     character.AttachFamiliar(familiarScript);
                 })
                 .Spawn();
-            character.Inventory.Items.Remove(item, slot);
+            character.Inventory.RemoveItem(item, slot);
             character.Statistics.DamageSkill(StatisticsConstants.Summoning, def.SummonSpawnCost);
             character.Statistics.AddExperience(StatisticsConstants.Summoning, def.SummonExperience);
         }

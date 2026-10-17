@@ -164,7 +164,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
         private void AddCannonBalls()
         {
             var toRemoveCount = 30 - _cannonBalls.Count;
-            var removed = _cannonOwner.Inventory.Items.Remove(_itemBuilder.Create().WithId(CannonballItemID).WithCount(toRemoveCount).Build());
+            var removed = _cannonOwner.Inventory.RemoveItem(_itemBuilder.Create().WithId(CannonballItemID).WithCount(toRemoveCount).Build());
             _cannonBalls = _itemBuilder.Create().WithId(CannonballItemID).WithCount(_cannonBalls.Count + removed).Build();
             _cannonOwner.SendChatMessage("You load the cannon with " + removed + " cannonball" + (removed == 1 ? "" : "s") + ".");
         }
@@ -346,7 +346,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                         return;
                     }
 
-                    character.Inventory.Items.Add(toAdd);
+                    character.Inventory.AddItem(toAdd);
 
                     if (!character.Inventory.Items.HasSpaceFor(cannonBalls))
                     {
@@ -355,7 +355,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                         return;
                     }
 
-                    character.Inventory.Items.Add(cannonBalls);
+                    character.Inventory.AddItem(cannonBalls);
 
                     _mapRegionService.RemoveGameObject(cannon);
 
@@ -379,7 +379,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                         return;
                     }
 
-                    character.Inventory.Items.Add(toAdd);
+                    character.Inventory.AddItem(toAdd);
 
                     _gameObjectService.UpdateGameObject(new GameObjectUpdate
                     {
@@ -399,7 +399,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                         return;
                     }
 
-                    character.Inventory.Items.Add(toAdd);
+                    character.Inventory.AddItem(toAdd);
 
                     _gameObjectService.UpdateGameObject(new GameObjectUpdate
                     {
@@ -419,7 +419,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                         return;
                     }
 
-                    character.Inventory.Items.Add(toAdd);
+                    character.Inventory.AddItem(toAdd);
 
                     _gameObjectService.UpdateGameObject(new GameObjectUpdate
                     {

@@ -226,7 +226,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                 return;
             }
 
-            Summoner.Inventory.Items.Remove(_itemBuilder.Create().WithId(Definition.PouchId).Build());
+            Summoner.Inventory.RemoveItem(_itemBuilder.Create().WithId(Definition.PouchId).Build());
             ResetTimer();
             Summoner.SendChatMessage("Your familiar has been renewed.");
         }
@@ -455,7 +455,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// <param name="target">The target.</param>
         public virtual void PerformSpecialMove(IRuneObject target)
         {
-            if (Summoner.Inventory.Items.Remove(_itemBuilder.Create().WithId(Definition.ScrollId).Build()) >= 1)
+            if (Summoner.Inventory.RemoveItem(_itemBuilder.Create().WithId(Definition.ScrollId).Build()) >= 1)
             {
                 DrainSpecialMovePoints(GetRequiredSpecialMovePoints());
                 SetUsingSpecialMove(false);

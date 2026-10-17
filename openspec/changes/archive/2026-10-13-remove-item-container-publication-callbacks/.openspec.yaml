@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-13
+goal: Complete ChangeTracker-based publication without weakening atomic mutation
+  or transaction ownership guarantees.

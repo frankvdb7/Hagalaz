@@ -17,7 +17,7 @@ internal static class RopeOperations
 
         character.QueueAnimation(Animation.Create(827));
         character.AddState(ropeState);
-        character.Inventory.Items.Remove(itemBuilder.Create().WithId(954).Build());
+        character.Inventory.RemoveItem(itemBuilder.Create().WithId(954).Build());
         character.Configurations.SendBitConfiguration(varpBitFileId, 1);
     }
 }

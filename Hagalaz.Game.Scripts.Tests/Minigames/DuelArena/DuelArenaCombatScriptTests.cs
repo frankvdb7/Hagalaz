@@ -8,6 +8,7 @@ using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Common.Events;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using AwesomeAssertions;
@@ -32,7 +33,8 @@ namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena
             var contextAccessor = Substitute.For<ICharacterContextAccessor>();
             contextAccessor.Context.Returns(characterContext);
 
-            var script = new DuelArenaCombatScript(contextAccessor, target, rules, null, null, hintIconBuilder);
+            var script = new DuelArenaCombatScript(contextAccessor, target, rules, null, null, hintIconBuilder,
+                Substitute.For<ILogger<DuelArenaCombatScript>>());
 
             // Act
             Action act = () => script.OnKilledBy(target);
@@ -62,7 +64,8 @@ namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena
             context.Character.Returns(character);
             var contextAccessor = Substitute.For<ICharacterContextAccessor>();
             contextAccessor.Context.Returns(context);
-            var script = new DuelArenaCombatScript(contextAccessor, target, rules, null, null, hintIconBuilder);
+            var script = new DuelArenaCombatScript(contextAccessor, target, rules, null, null, hintIconBuilder,
+                Substitute.For<ILogger<DuelArenaCombatScript>>());
 
             script.OnRegistered();
             script.OnRemove();
@@ -100,7 +103,8 @@ namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena
             provider.GetService(typeof(DuelEndScreenScript)).Returns(endScreen);
             character.ServiceProvider.Returns(provider);
 
-            var script = new DuelArenaCombatScript(contextAccessor, target, rules, null, null, hintIconBuilder);
+            var script = new DuelArenaCombatScript(contextAccessor, target, rules, null, null, hintIconBuilder,
+                Substitute.For<ILogger<DuelArenaCombatScript>>());
             script.OnRegistered();
 
             Assert.IsNotNull(targetDestroyed);

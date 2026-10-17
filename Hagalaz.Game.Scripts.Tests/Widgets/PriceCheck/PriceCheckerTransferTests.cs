@@ -21,6 +21,25 @@ namespace Hagalaz.Game.Scripts.Tests.Widgets.PriceCheck;
 public sealed class PriceCheckerTransferTests
 {
     [TestMethod]
+    public void Open_SendsFullSelectionAndInitialProjectedInventory()
+    {
+        var harness = CreateHarness();
+
+        var selectionUpdate = harness.SentItems.Single(update => update.ComponentId == 90);
+        Assert.AreSame(harness.Selections, selectionUpdate.Items);
+        Assert.IsNull(selectionUpdate.Slots);
+        Assert.IsTrue(harness.SentConfigurations.Contains((728, 0)));
+        for (var slot = 0; slot < harness.Selections.Capacity; slot++)
+        {
+            Assert.IsTrue(harness.SentConfigurations.Contains((700 + slot, 0)));
+        }
+
+        Assert.AreEqual(1, harness.SentItems.Count(update => update.ComponentId == 93));
+        Assert.IsNotNull(harness.ProjectedInventory);
+        Assert.AreNotSame(harness.Inventory.Items, harness.ProjectedInventory);
+    }
+
+    [TestMethod]
     public void Insert_ClonesSelectionAndProjectsRemainingCountWithoutChangingInventory()
     {
         var harness = CreateHarness();
@@ -41,46 +60,132 @@ public sealed class PriceCheckerTransferTests
     public void InsertAll_AfterExistingSelectionAddsOnlyAvailableQuantity()
     {
         var harness = CreateHarness();
-        var item = CreateItem(100, 100);
+        var item = CreateItem(100, 100, tradeValue: 3);
+        var otherItem = CreateItem(101, 2, tradeValue: 7);
         Assert.IsTrue(harness.Inventory.Items.Add(item));
+        Assert.IsTrue(harness.Inventory.Items.Add(otherItem));
         Assert.IsTrue(AddSelection(harness, item, 80));
+        Assert.IsTrue(AddSelection(harness, otherItem, 2));
+        ClearUiUpdates(harness);
 
         Assert.IsTrue(AddSelection(harness, item, int.MaxValue));
 
         Assert.AreEqual(100, harness.Inventory.Items.GetCount(item));
         Assert.AreEqual(100, harness.Selections.GetCount(item));
         Assert.AreEqual(0, GetCount(harness.ProjectedInventory!, item));
+        CollectionAssert.AreEquivalent(new[] { 0 }, harness.SentItems.Single(update => update.ComponentId == 90).Slots!.ToArray());
+        CollectionAssert.AreEquivalent(new[] { 700, 728 }, harness.SentConfigurations.Select(update => update.ConfigurationId).ToArray());
+        Assert.IsTrue(harness.SentConfigurations.Contains((728, 314)));
     }
 
     [TestMethod]
     public void Remove_ChangesOnlySelectionAndRestoresProjectedQuantity()
     {
         var harness = CreateHarness();
-        var item = CreateItem(100, 100);
+        var item = CreateItem(100, 100, tradeValue: 5);
         Assert.IsTrue(harness.Inventory.Items.Add(item));
         Assert.IsTrue(AddSelection(harness, item, 80));
+        ClearUiUpdates(harness);
 
         Assert.IsTrue(RemoveSelection(harness, item, 30));
 
         Assert.AreEqual(100, harness.Inventory.Items.GetCount(item));
         Assert.AreEqual(50, harness.Selections.GetCount(item));
         Assert.AreEqual(50, GetCount(harness.ProjectedInventory!, item));
+        CollectionAssert.AreEquivalent(new[] { 0 }, harness.SentItems.Single(update => update.ComponentId == 90).Slots!.ToArray());
+        CollectionAssert.AreEquivalent(new[] { 700, 728 }, harness.SentConfigurations.Select(update => update.ConfigurationId).ToArray());
+        Assert.IsTrue(harness.SentConfigurations.Contains((728, 250)));
+    }
+
+    [TestMethod]
+    public void SelectionMutations_PublishOnlyChangedSlotsAndUpdatePriceConfigurations()
+    {
+        var harness = CreateHarness();
+        var item = CreateItem(100, 20, tradeValue: 37);
+        Assert.IsTrue(harness.Inventory.Items.Add(item));
+        ClearUiUpdates(harness);
+
+        Assert.IsTrue(AddSelection(harness, item, 6));
+
+        var selectionUpdate = harness.SentItems.Single(update => update.ComponentId == 90);
+        Assert.AreSame(harness.Selections, selectionUpdate.Items);
+        CollectionAssert.AreEquivalent(new[] { 0 }, selectionUpdate.Slots!.ToArray());
+        Assert.IsTrue(harness.SentConfigurations.Contains((728, 222)));
+        Assert.IsTrue(harness.SentConfigurations.Contains((700, 37)));
+        Assert.IsFalse(harness.SentConfigurations.Any(update => update.ConfigurationId >= 701 && update.ConfigurationId < 728));
+        Assert.AreEqual(1, harness.SentItems.Count(update => update.ComponentId == 93));
+        Assert.AreEqual(14, GetCount(harness.ProjectedInventory!, item));
+        Assert.AreEqual(20, harness.Inventory.Items.GetCount(item));
+    }
+
+    [TestMethod]
+    public void RemoveSelection_ClearsRemovedSlotPriceWithoutChangingOtherSlotPrices()
+    {
+        var harness = CreateHarness();
+        var firstSlotItem = CreateItem(101, 2, tradeValue: 3);
+        var secondSlotItem = CreateItem(102, 2, tradeValue: 7);
+        var removedItem = CreateItem(103, 2, tradeValue: 11);
+        Assert.IsTrue(harness.Inventory.Items.Add(firstSlotItem));
+        Assert.IsTrue(harness.Inventory.Items.Add(secondSlotItem));
+        Assert.IsTrue(harness.Inventory.Items.Add(removedItem));
+        Assert.IsTrue(AddSelection(harness, firstSlotItem, 2));
+        Assert.IsTrue(AddSelection(harness, secondSlotItem, 2));
+        Assert.IsTrue(AddSelection(harness, removedItem, 2));
+        var removedSlot = FindSlot(harness.Selections, removedItem);
+        var remainingSlot = FindSlot(harness.Selections, secondSlotItem);
+        Assert.AreEqual(2, removedSlot);
+        Assert.AreEqual(1, remainingSlot);
+        ClearUiUpdates(harness);
+
+        Assert.IsTrue(RemoveSelection(harness, removedItem, 2));
+
+        var removalUpdate = harness.SentItems.Single(update => update.ComponentId == 90);
+        Assert.AreSame(harness.Selections, removalUpdate.Items);
+        CollectionAssert.AreEquivalent(new[] { removedSlot }, removalUpdate.Slots!.ToArray());
+        Assert.IsNull(harness.Selections[removedSlot]);
+        Assert.IsTrue(harness.SentConfigurations.Contains((700 + removedSlot, 0)));
+        Assert.IsFalse(harness.SentConfigurations.Any(update => update.ConfigurationId == 700 + remainingSlot));
+        Assert.IsTrue(harness.SentConfigurations.Contains((728, 20)));
+    }
+
+    [TestMethod]
+    public void RejectedSelectionMutations_DoNotPublishUiUpdates()
+    {
+        var harness = CreateHarness();
+        var item = CreateItem(100, 5, tradeValue: 9);
+        Assert.IsTrue(harness.Inventory.Items.Add(item));
+        Assert.IsTrue(AddSelection(harness, item, 5));
+        ClearUiUpdates(harness);
+
+        Assert.IsFalse(AddSelection(harness, item, 1));
+        Assert.IsFalse(RemoveSelection(harness, item, 0));
+
+        Assert.AreEqual(0, harness.SentItems.Count);
+        Assert.AreEqual(0, harness.SentConfigurations.Count);
+        Assert.AreEqual(5, harness.Selections.GetCount(item));
     }
 
     [TestMethod]
     public void InventoryChanged_ReducesSelectionToCurrentOwnedQuantity()
     {
         var harness = CreateHarness();
-        var item = CreateItem(100, 100);
+        var item = CreateItem(100, 100, tradeValue: 4);
         Assert.IsTrue(harness.Inventory.Items.Add(item));
         Assert.IsTrue(AddSelection(harness, item, 80));
         Assert.AreEqual(40, harness.Inventory.Items.Remove(item.Clone(40)));
+        ClearUiUpdates(harness);
 
         Assert.IsFalse(harness.InventoryChangedHandler!(new InventoryChangedEvent(harness.Character)));
 
         Assert.AreEqual(60, harness.Inventory.Items.GetCount(item));
         Assert.AreEqual(60, harness.Selections.GetCount(item));
         Assert.AreEqual(0, GetCount(harness.ProjectedInventory!, item));
+        Assert.AreEqual(1, harness.SentItems.Count(update => update.ComponentId == 90));
+        CollectionAssert.AreEquivalent(new[] { 0 }, harness.SentItems.Single(update => update.ComponentId == 90).Slots!.ToArray());
+        Assert.IsTrue(harness.SentConfigurations.Contains((728, 240)));
+        Assert.IsTrue(harness.SentConfigurations.Contains((700, 4)));
+        Assert.AreEqual(2, harness.SentConfigurations.Count);
+        Assert.AreEqual(1, harness.SentItems.Count(update => update.ComponentId == 93));
     }
 
     [TestMethod]
@@ -91,11 +196,37 @@ public sealed class PriceCheckerTransferTests
         Assert.IsTrue(harness.Inventory.Items.Add(item));
         Assert.IsTrue(AddSelection(harness, item, 2));
         Assert.AreEqual(3, harness.Inventory.Items.Remove(item.Clone(3)));
+        ClearUiUpdates(harness);
 
         harness.InventoryChangedHandler!(new InventoryChangedEvent(harness.Character));
 
         Assert.AreEqual(0, harness.Selections.GetCount(item));
         Assert.AreEqual(0, GetCount(harness.ProjectedInventory!, item));
+        CollectionAssert.AreEquivalent(new[] { 0 }, harness.SentItems.Single(update => update.ComponentId == 90).Slots!.ToArray());
+        Assert.IsTrue(harness.SentConfigurations.Contains((700, 0)));
+    }
+
+    [TestMethod]
+    public void InventoryChanged_ReconcilesSeveralSelectionSlotsWithOneIncrementalRefresh()
+    {
+        var harness = CreateHarness();
+        var first = CreateItem(101, 10, tradeValue: 3);
+        var second = CreateItem(102, 10, tradeValue: 7);
+        Assert.IsTrue(harness.Inventory.Items.Add(first));
+        Assert.IsTrue(harness.Inventory.Items.Add(second));
+        Assert.IsTrue(AddSelection(harness, first, 10));
+        Assert.IsTrue(AddSelection(harness, second, 10));
+        Assert.AreEqual(5, harness.Inventory.Items.Remove(first.Clone(5)));
+        Assert.AreEqual(4, harness.Inventory.Items.Remove(second.Clone(4)));
+        ClearUiUpdates(harness);
+
+        harness.InventoryChangedHandler!(new InventoryChangedEvent(harness.Character));
+
+        var selectionUpdate = harness.SentItems.Single(update => update.ComponentId == 90);
+        CollectionAssert.AreEquivalent(new[] { 0, 1 }, selectionUpdate.Slots!.ToArray());
+        Assert.AreEqual(1, harness.SentItems.Count(update => update.ComponentId == 90));
+        Assert.AreEqual(57, harness.SentConfigurations.Single(update => update.ConfigurationId == 728).Value);
+        CollectionAssert.AreEquivalent(new[] { 700, 701, 728 }, harness.SentConfigurations.Select(update => update.ConfigurationId).ToArray());
     }
 
     [TestMethod]
@@ -106,12 +237,16 @@ public sealed class PriceCheckerTransferTests
         Assert.IsTrue(harness.Inventory.Items.Add(item));
         Assert.IsTrue(AddSelection(harness, item, 80));
         Assert.IsTrue(harness.Inventory.Items.Add(item.Clone(20)));
+        ClearUiUpdates(harness);
 
         harness.InventoryChangedHandler!(new InventoryChangedEvent(harness.Character));
 
         Assert.AreEqual(120, harness.Inventory.Items.GetCount(item));
         Assert.AreEqual(80, harness.Selections.GetCount(item));
         Assert.AreEqual(40, GetCount(harness.ProjectedInventory!, item));
+        Assert.AreEqual(0, harness.SentItems.Count(update => update.ComponentId == 90));
+        Assert.AreEqual(0, harness.SentConfigurations.Count);
+        Assert.AreEqual(1, harness.SentItems.Count(update => update.ComponentId == 93));
     }
 
     [TestMethod]
@@ -171,11 +306,33 @@ public sealed class PriceCheckerTransferTests
         Assert.AreEqual(10, harness.Inventory.Items.GetCount(item));
         Assert.AreSame(harness.Inventory.Items, harness.ProjectedInventory);
         Assert.IsNull(harness.Character.Widgets.IntInputHandler);
-        Assert.IsNull(GetField(harness.Script, "_priceCheckInterface"));
+        Assert.IsNull(GetField(harness.Script, "_priceCheckItems"));
         harness.Character.Received(1).UnregisterEventHandler<InventoryChangedEvent>(harness.InventoryChangeHandle!);
         harness.Widgets.Received(1).CloseWidget(harness.InventoryOverlay);
         Assert.IsNotNull(pendingInput);
         harness.Configurations.Received().SendItems(93, false, harness.Inventory.Items, null);
+
+        harness.Script.OnClose();
+        Assert.IsFalse(harness.InventoryChangedHandler!(new InventoryChangedEvent(harness.Character)));
+        pendingInput(1);
+        Assert.AreEqual(10, harness.Inventory.Items.GetCount(item));
+    }
+
+    [TestMethod]
+    public void NewInstance_UsesNewSelectionTrackerWithoutStaleChanges()
+    {
+        var previousHarness = CreateHarness();
+        var previousSelection = (ItemContainer)GetField(previousHarness.Script, "_priceCheckItems")!;
+        Assert.IsTrue(previousSelection.Add(CreateItem(120, 1)));
+        Assert.IsTrue(previousSelection.ChangeTracker.HasChanges);
+
+        var currentHarness = CreateHarness();
+        var currentSelection = (ItemContainer)GetField(currentHarness.Script, "_priceCheckItems")!;
+        Assert.AreNotSame(previousSelection, currentSelection);
+        Assert.IsFalse(currentSelection.ChangeTracker.HasChanges);
+        var selectionUpdate = currentHarness.SentItems.Single(update => update.ComponentId == 90);
+        Assert.AreSame(currentSelection, selectionUpdate.Items);
+        Assert.IsNull(selectionUpdate.Slots);
     }
 
     private static bool AddSelection(Harness harness, IItem item, int amount) =>
@@ -198,6 +355,25 @@ public sealed class PriceCheckerTransferTests
         }
 
         return count;
+    }
+
+    private static int FindSlot(IContainer<IItem?> container, IItem matching)
+    {
+        for (var slot = 0; slot < container.Capacity; slot++)
+        {
+            if (container[slot]?.Equals(matching, true) == true)
+            {
+                return slot;
+            }
+        }
+
+        return -1;
+    }
+
+    private static void ClearUiUpdates(Harness harness)
+    {
+        harness.SentItems.Clear();
+        harness.SentConfigurations.Clear();
     }
 
     private static object? GetField(object instance, string name) =>
@@ -240,31 +416,39 @@ public sealed class PriceCheckerTransferTests
                 return inventoryChangeHandle;
             });
 
-        var script = new PriceChecker(accessor);
-        script.Initialize(interfaceInstance);
-        script.OnOpen();
-        var selections = (IItemContainer)GetField(script, "_priceCheckInterface")!
-            .GetType().GetProperty("Items")!.GetValue(GetField(script, "_priceCheckInterface"))!;
-
         IContainer<IItem?>? projectedInventory = null;
+        var sentItems = new List<(int ComponentId, IContainer<IItem?> Items, HashSet<int>? Slots)>();
+        var sentConfigurations = new List<(int ConfigurationId, int Value)>();
         configurations.When(configuration => configuration.SendItems(
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<IContainer<IItem?>>(), Arg.Any<HashSet<int>?>()))
             .Do(call =>
             {
-                if (call.ArgAt<int>(0) == 93)
+                var componentId = call.ArgAt<int>(0);
+                var items = call.ArgAt<IContainer<IItem?>>(2);
+                sentItems.Add((componentId, items, call.ArgAt<HashSet<int>?>(3)));
+                if (componentId == 93)
                 {
-                    projectedInventory = call.ArgAt<IContainer<IItem?>>(2);
+                    projectedInventory = items;
                 }
             });
+        configurations.When(configuration => configuration.SendGlobalCs2Int(Arg.Any<int>(), Arg.Any<int>()))
+            .Do(call => sentConfigurations.Add((call.ArgAt<int>(0), call.ArgAt<int>(1))));
+
+        var script = new PriceChecker(accessor);
+        script.Initialize(interfaceInstance);
+        script.OnOpen();
+        var selections = (IItemContainer)GetField(script, "_priceCheckItems")!;
 
         return new Harness(character, configurations, inventory, widgets, script, selections, inventoryOverlay,
-            inventoryClick, inventoryChangedHandler, inventoryChangeHandle, () => projectedInventory);
+            inventoryClick, inventoryChangedHandler, inventoryChangeHandle, sentItems, sentConfigurations,
+            () => projectedInventory);
     }
 
-    private static IItem CreateItem(int id, int count, bool stackable = true, long[]? extraData = null)
+    private static IItem CreateItem(int id, int count, bool stackable = true, long[]? extraData = null, int tradeValue = 0)
     {
         var definition = Substitute.For<IItemDefinition>();
         definition.Stackable.Returns(stackable);
+        definition.TradeValue.Returns(tradeValue);
         var itemScript = Substitute.For<IItemScript>();
         itemScript.CanStackItem(Arg.Any<IItem>(), Arg.Any<IItem>(), Arg.Any<bool>()).Returns(call =>
         {
@@ -311,6 +495,8 @@ public sealed class PriceCheckerTransferTests
         OnComponentClick? inventoryClick,
         EventHappened<InventoryChangedEvent>? inventoryChangedHandler,
         EventHappened? inventoryChangeHandle,
+        List<(int ComponentId, IContainer<IItem?> Items, HashSet<int>? Slots)> sentItems,
+        List<(int ConfigurationId, int Value)> sentConfigurations,
         Func<IContainer<IItem?>?> getProjectedInventory)
     {
         public ICharacter Character { get; } = character;
@@ -323,6 +509,8 @@ public sealed class PriceCheckerTransferTests
         public OnComponentClick? InventoryClick { get; } = inventoryClick;
         public EventHappened<InventoryChangedEvent>? InventoryChangedHandler { get; } = inventoryChangedHandler;
         public EventHappened? InventoryChangeHandle { get; } = inventoryChangeHandle;
+        public List<(int ComponentId, IContainer<IItem?> Items, HashSet<int>? Slots)> SentItems { get; } = sentItems;
+        public List<(int ConfigurationId, int Value)> SentConfigurations { get; } = sentConfigurations;
         public IContainer<IItem?>? ProjectedInventory => getProjectedInventory();
     }
 

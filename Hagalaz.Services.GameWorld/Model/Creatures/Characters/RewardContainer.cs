@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -8,7 +9,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public partial class RewardContainer : IRewardContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public partial class RewardContainer : IRewardContainer, IItemTransactionSource, IItemContainerCompletionOwner,
+        IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
@@ -23,13 +25,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
         private readonly ItemContainer _items;
-        public IItemContainer Items => _items;
+        IReadOnlyList<ItemContainerSynchronization> IItemTransactionSource.Synchronizations =>
+            ((IItemTransactionSource)_items).Synchronizations;
+        public IReadOnlyItemContainer Items => _items;
 
         public RewardContainer(ICharacter owner, IItemBuilder itemBuilder)
         {
             _owner = owner;
             _itemBuilder = itemBuilder;
-            _items = new ItemContainer(StorageType.AlwaysStack, byte.MaxValue, OnUpdate);
+            var storage = new ItemContainerStorage(StorageType.AlwaysStack, byte.MaxValue);
+            var synchronization = new ItemContainerSynchronization(storage, this);
+            _items = new ItemContainer(synchronization);
         }
 
         /// <summary>
@@ -79,12 +85,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 toRemove.Count = count;
             }
 
-            if (!_items.Mutations.TryTransferTo(_owner.Inventory.Items.Mutations, item, count, slot))
+            using var transaction = ItemContainerTransaction.Begin(_items, _owner.Inventory);
+            if (!_owner.Inventory.TryTransferItemFrom(_items, item, count, slot))
             {
                 return -1;
             }
 
-            Items.Sort();
+            _items.Sort();
+            transaction.Commit();
             return count;
         }
 
@@ -92,7 +100,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
         /// <param name="slots">The slots.</param>
-        public void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new RewardsChangedEvent(_owner, slots));
+        void IItemContainerCompletionOwner.PublishCommittedChanges()
+        {
+            var slots = _items.ChangeTracker.GetSlots();
+            if (slots is { Count: 0 }) return;
+            _owner.EventManager.SendEvent(new RewardsChangedEvent(_owner, slots));
+        }
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> rewards)
         {

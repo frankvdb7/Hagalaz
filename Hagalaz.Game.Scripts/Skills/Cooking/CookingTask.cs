@@ -135,7 +135,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
                 Performer.SendChatMessage(burned
                     ? "Oops! You accidentally burnt the " + rawItem.Name.ToLower()
                     : "You successfully cook the " + rawItem.Name.ToLower());
-                Performer.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(burned ? RawDto.BurntItemId : RawDto.CookedItemId).Build());
+                Performer.Inventory.ReplaceItem(slot, _itemBuilder.Create().WithId(burned ? RawDto.BurntItemId : RawDto.CookedItemId).Build());
                 if (!burned)
                 {
                     Performer.Statistics.AddExperience(StatisticsConstants.Cooking, RawDto.Experience); // Stop cooking if leveled up.

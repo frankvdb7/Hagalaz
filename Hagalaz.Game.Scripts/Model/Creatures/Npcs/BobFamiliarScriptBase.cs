@@ -97,7 +97,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                         .Spawn();
                 }
 
-                Inventory.Items.Remove(it, i, false);
+                Inventory.RemoveItem(it, i, publishChanges: false);
             }
         }
 

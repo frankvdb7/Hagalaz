@@ -1040,8 +1040,8 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterDesign
 
                 switch (item.Type)
                 {
-                    case ItemContainerType.Inventory: Owner.Inventory.Items.Add(it); break;
-                    case ItemContainerType.Bank: Owner.Bank.Items.Add(it); break;
+                    case ItemContainerType.Inventory: Owner.Inventory.AddItem(it); break;
+                    case ItemContainerType.Bank: Owner.Bank.AddItem(it); break;
                     case ItemContainerType.MoneyPouch: Owner.MoneyPouch.Add(it.Count); break;
                 }
             }

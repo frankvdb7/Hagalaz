@@ -40,12 +40,12 @@ namespace Hagalaz.Game.Scripts.Items.Godwars
                     return;
                 }
 
-                if (character.Inventory.Items.Remove(item, slot) <= 0)
+                if (character.Inventory.RemoveItem(item, slot) <= 0)
                 {
                     return;
                 }
 
-                character.Inventory.Items.Add(_itemBuilder.Create().WithId(11690).Build());
+                character.Inventory.AddItem(_itemBuilder.Create().WithId(11690).Build());
                 var hiltId = item.Id switch
                 {
                     11694 => 11702,
@@ -55,7 +55,7 @@ namespace Hagalaz.Game.Scripts.Items.Godwars
                     _ => -1
                 };
 
-                character.Inventory.Items.Add(_itemBuilder.Create().WithId(hiltId).Build());
+                character.Inventory.AddItem(_itemBuilder.Create().WithId(hiltId).Build());
 
                 return;
             }

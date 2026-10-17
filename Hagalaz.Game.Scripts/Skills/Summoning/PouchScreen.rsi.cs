@@ -103,10 +103,10 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                             var requirements = ItemTypeLogic.GetCreateItemRequirements(itemDef);
                             foreach (var (key, iAmount) in requirements)
                             {
-                                Owner.Inventory.Items.Remove(_itemBuilder.Create().WithId(key).WithCount(iAmount * value).Build());
+                                Owner.Inventory.RemoveItem(_itemBuilder.Create().WithId(key).WithCount(iAmount * value).Build());
                             }
 
-                            Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(itemID).WithCount(value).Build());
+                            Owner.Inventory.AddItem(_itemBuilder.Create().WithId(itemID).WithCount(value).Build());
                             Owner.Statistics.AddExperience(StatisticsConstants.Summoning, definition.CreatePouchExperience * value);
                         };
                         Owner.Configurations.SendIntegerInput("Please enter the amount to infuse:");
@@ -133,11 +133,11 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                     {
                         foreach (var (key, iAmount) in requirements)
                         {
-                            Owner.Inventory.Items.Remove(_itemBuilder.Create().WithId(key).WithCount(iAmount * amount).Build());
+                            Owner.Inventory.RemoveItem(_itemBuilder.Create().WithId(key).WithCount(iAmount * amount).Build());
                         }
                     }
 
-                    Owner.Inventory.Items.Add(_itemBuilder.Create().WithId(itemID).WithCount(amount).Build());
+                    Owner.Inventory.AddItem(_itemBuilder.Create().WithId(itemID).WithCount(amount).Build());
                     Owner.Statistics.AddExperience(StatisticsConstants.Summoning, definition.CreatePouchExperience * amount);
 
                     return true;

@@ -13,6 +13,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     /// </summary>
     public class DuelRules
     {
+        private const int CoinsItemId = 995;
+
         /// <summary>
         /// </summary>
         public enum Rule : byte
@@ -180,8 +182,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// </summary>
         /// <param name="character">The character.</param>
         /// <param name="other">The other.</param>
+        /// <param name="stakeItems">The items in both participants' stakes.</param>
         /// <returns></returns>
-        public bool CheckRules(ICharacter character, ICharacter other)
+        public bool CheckRules(ICharacter character, ICharacter other, IEnumerable<IItem> stakeItems)
         {
             if (this[Rule.NoRanged] && this[Rule.NoMelee] && this[Rule.NoMagic])
             {
@@ -204,18 +207,48 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 }
             }
 
-            if (equipment.Count == 0)
+            if (equipment.Count > 0 && !character.Inventory.Items.HasSpaceForRange(equipment.ToArray()))
+            {
+                character.SendChatMessage("You do not have enough inventory space to remove all the equipment.");
+                other.SendChatMessage("Other player doesn't have enough space in their inventory to remove all the equipment.");
+                return false;
+            }
+
+            var incomingItems = new List<IItem?>(equipment.Count);
+            incomingItems.AddRange(equipment);
+            var remainingPouchCapacity = (long)int.MaxValue - character.MoneyPouch.Count;
+            var hasStakeItems = false;
+            foreach (var stakeItem in stakeItems)
+            {
+                hasStakeItems = true;
+
+                if (stakeItem.Id != CoinsItemId || stakeItem.Count <= 0)
+                {
+                    incomingItems.Add(stakeItem);
+                    continue;
+                }
+
+                var pouchCount = (int)Math.Min(remainingPouchCapacity, stakeItem.Count);
+                remainingPouchCapacity -= pouchCount;
+                var inventoryCount = stakeItem.Count - pouchCount;
+                if (inventoryCount > 0)
+                {
+                    incomingItems.Add(stakeItem.Clone(inventoryCount));
+                }
+            }
+
+            if (!hasStakeItems)
             {
                 return true;
             }
 
-            if (character.Inventory.Items.HasSpaceForRange(equipment.ToArray()))
+            if (character.Inventory.Items.HasSpaceForRange(incomingItems))
             {
                 return true;
             }
 
-            character.SendChatMessage("You do not have enough inventory space to remove all the equipment.");
-            other.SendChatMessage("Other player doesn't have enough space in their inventory to remove all the equipment.");
+            character.SendChatMessage("You don't have enough space in your inventory for this duel.");
+            other.SendChatMessage("Your opponent doesn't have enough space in their inventory for this duel.");
             return false;
 
         }
@@ -283,161 +316,143 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         {
             if (this[Rule.NoMovement])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<WalkAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<WalkAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        character.SendChatMessage("Movement has been disabled.");
-                        return true;
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<WalkAllowEvent>(happ!);
-                    return false;
+                    character.SendChatMessage("Movement has been disabled.");
+                    return true;
                 }));
             }
 
             if (!this[Rule.EnableSummoning])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<SummoningAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<SummoningAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        character.SendChatMessage("Summoning has been disabled.");
-                        return true;
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<SummoningAllowEvent>(happ!);
-                    return false;
+                    character.SendChatMessage("Summoning has been disabled.");
+                    return true;
                 }));
             }
 
             if (this[Rule.NoDrinks])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<DrinkAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<DrinkAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        character.SendChatMessage("Drinking has been disabled.");
-                        return true;
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<DrinkAllowEvent>(happ!);
-                    return false;
+                    character.SendChatMessage("Drinking has been disabled.");
+                    return true;
                 }));
             }
 
             if (this[Rule.NoFood])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<EatAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<EatAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        character.SendChatMessage("Food has been disabled.");
-                        return true;
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<EatAllowEvent>(happ!);
-                    return false;
+                    character.SendChatMessage("Food has been disabled.");
+                    return true;
                 }));
             }
 
             if (this[Rule.NoSpecialAttacks])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<SpecialAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<SpecialAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        character.SendChatMessage("Special attacks have been disabled.");
-                        return true;
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<SpecialAllowEvent>(happ!);
-                    return false;
+                    character.SendChatMessage("Special attacks have been disabled.");
+                    return true;
                 }));
             }
 
             if (this[Rule.NoPrayer])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<PrayerAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<PrayerAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        character.SendChatMessage("Prayer have been disabled.");
-                        return true;
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<PrayerAllowEvent>(happ!);
-                    return false;
+                    character.SendChatMessage("Prayer have been disabled.");
+                    return true;
                 }));
             }
 
             if (this[Rule.NoMelee])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<AttackAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<AttackAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        if (e.Style == AttackStyle.MeleeAccurate || e.Style == AttackStyle.MeleeAggressive ||
-                            e.Style == AttackStyle.MeleeControlled || e.Style == AttackStyle.MeleeDefensive)
-                        {
-                            {
-                                character.SendChatMessage("Melee has been disabled.");
-                                return true;
-                            }
-                        }
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<AttackAllowEvent>(happ!);
+                    if (e.Style == AttackStyle.MeleeAccurate || e.Style == AttackStyle.MeleeAggressive ||
+                        e.Style == AttackStyle.MeleeControlled || e.Style == AttackStyle.MeleeDefensive)
+                    {
+                        character.SendChatMessage("Melee has been disabled.");
+                        return true;
+                    }
+
                     return false;
                 }));
             }
 
             if (this[Rule.NoRanged])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<AttackAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<AttackAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        if (e.Style == AttackStyle.RangedAccurate || e.Style == AttackStyle.RangedLongRange ||
-                            e.Style == AttackStyle.RangedRapid)
-                        {
-                            {
-                                character.SendChatMessage("Ranged has been disabled.");
-                                return true;
-                            }
-                        }
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<AttackAllowEvent>(happ!);
+                    if (e.Style == AttackStyle.RangedAccurate || e.Style == AttackStyle.RangedLongRange ||
+                        e.Style == AttackStyle.RangedRapid)
+                    {
+                        character.SendChatMessage("Ranged has been disabled.");
+                        return true;
+                    }
+
                     return false;
                 }));
             }
 
             if (this[Rule.NoMagic])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<AttackAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<AttackAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        if (e.Style == AttackStyle.MagicDefensive || e.Style == AttackStyle.MagicNormal)
-                        {
-                            {
-                                character.SendChatMessage("Magic has been disabled.");
-                                return true;
-                            }
-                        }
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<AttackAllowEvent>(happ!);
+                    if (e.Style == AttackStyle.MagicDefensive || e.Style == AttackStyle.MagicNormal)
+                    {
+                        character.SendChatMessage("Magic has been disabled.");
+                        return true;
+                    }
+
                     return false;
                 }));
             }
@@ -447,23 +462,34 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 if (this[(Rule)ruleId])
                 {
                     var slot = ruleId - 10;
-                    EventHappened? happ = null;
-                    happ = character.RegisterEventHandler(new EventHappened<EquipAllowEvent>(e =>
+                    script.RegisterRuleHandler(character, new EventHappened<EquipAllowEvent>(e =>
                     {
-                        if (character.GetScript<DuelArenaCombatScript>() == script)
+                        if (character.GetScript<DuelArenaCombatScript>() != script)
                         {
-                            if (e.Item.EquipmentDefinition.Slot == (EquipmentSlot)slot)
-                            {
-                                character.SendChatMessage("Equiping this item has been disabled.");
-                                return true;
-                            }
+                            return false;
                         }
 
-                        character.UnregisterEventHandler<EquipAllowEvent>(happ!);
+                        if (e.Item.EquipmentDefinition.Slot == (EquipmentSlot)slot)
+                        {
+                            character.SendChatMessage("Equiping this item has been disabled.");
+                            return true;
+                        }
+
                         return false;
                     }));
                 }
             }
+
+            script.RegisterRuleHandler(character, new EventHappened<UnEquipAllowEvent>(_ =>
+            {
+                if (character.GetScript<DuelArenaCombatScript>() != script)
+                {
+                    return false;
+                }
+
+                character.SendChatMessage("You cannot unequip items during a duel.");
+                return true;
+            }));
         }
 
         /// <summary>

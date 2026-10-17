@@ -20,6 +20,11 @@
         /// </summary>
         void OnRegistered();
         /// <summary>
+        /// A callback executed before the character's final snapshot is captured.
+        /// Use this only for synchronous domain state that must be finalized before detachment.
+        /// </summary>
+        void OnDetach();
+        /// <summary>
         /// A callback executed when the character is permanently destroyed.
         /// </summary>
         void OnDestroy();

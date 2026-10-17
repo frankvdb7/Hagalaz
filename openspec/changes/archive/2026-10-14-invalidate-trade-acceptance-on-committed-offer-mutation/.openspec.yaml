@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-14
+goal: Trade acceptance tracks committed offer mutations independently of
+  publication success.

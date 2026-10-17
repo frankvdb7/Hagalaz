@@ -221,7 +221,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                     return true;
                 }
 
-                var removed = character.Inventory.Items.Remove(resource);
+                var removed = character.Inventory.RemoveItem(resource);
                 if (removed <= 0)
                 {
                     return true;
@@ -229,7 +229,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
 
                 amount = definition.ProductAmounts[productIndex];
                 var product = _itemBuilder.Create().WithId(definition.ProductIDs[productIndex]).WithCount(amount).Build();
-                character.Inventory.Items.Add(product);
+                character.Inventory.AddItem(product);
                 if (amount > 1)
                 {
                     character.SendChatMessage("You carefully cut the wood into " + amount + " " + product.Name.ToLower() + "s.");
@@ -304,20 +304,20 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             {
                 if (!TryGetFletchingItems(character, definition, out var resource, out var resourceSlot, out var tool, out var toolSlot)) return true;
 
-                var removed = character.Inventory.Items.Remove(resource, resourceSlot);
+                var removed = character.Inventory.RemoveItem(resource, resourceSlot);
                 if (removed <= 0)
                 {
                     return true;
                 }
 
-                removed = character.Inventory.Items.Remove(tool, toolSlot);
+                removed = character.Inventory.RemoveItem(tool, toolSlot);
                 if (removed <= 0)
                 {
                     return true;
                 }
 
                 var product = _itemBuilder.Create().WithId(definition.ProductIDs[productIndex]).Build();
-                character.Inventory.Items.Add(resourceSlot, product);
+                character.Inventory.AddItem(resourceSlot, product);
                 character.SendChatMessage("You add a " + tool.Name.ToLower() + " to the " + product.Name.ToLower() + ".");
                 character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex]);
                 return false;
@@ -398,13 +398,13 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                     amount = itemAmount;
                 }
 
-                var removed = character.Inventory.Items.Remove(_itemBuilder.Create().WithId(resource.Id).WithCount(amount).Build(), resourceSlot);
+                var removed = character.Inventory.RemoveItem(_itemBuilder.Create().WithId(resource.Id).WithCount(amount).Build(), resourceSlot);
                 if (removed < amount)
                 {
                     amount = removed;
                 }
 
-                removed = character.Inventory.Items.Remove(_itemBuilder.Create().WithId(tool.Id).WithCount(amount).Build(), toolSlot);
+                removed = character.Inventory.RemoveItem(_itemBuilder.Create().WithId(tool.Id).WithCount(amount).Build(), toolSlot);
                 if (removed < amount)
                 {
                     amount = removed;
@@ -416,7 +416,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                 }
 
                 var product = _itemBuilder.Create().WithId(definition.ProductIDs[productIndex]).WithCount(amount).Build();
-                character.Inventory.Items.Add(product);
+                character.Inventory.AddItem(product);
                 character.SendChatMessage("You attach " + tool.Name.ToLower() + " to the " + product.Name.ToLower() + ".");
                 character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex] * amount);
                 return false;
@@ -485,14 +485,14 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
 
                 var amount = definition.ProductAmounts[productIndex];
 
-                var removed = character.Inventory.Items.Remove(_itemBuilder.Create().WithId(resource.Id).Build(), resourceSlot);
+                var removed = character.Inventory.RemoveItem(_itemBuilder.Create().WithId(resource.Id).Build(), resourceSlot);
                 if (removed <= 0)
                 {
                     return true;
                 }
 
                 var product = _itemBuilder.Create().WithId(definition.ProductIDs[productIndex]).WithCount(amount).Build();
-                character.Inventory.Items.Add(product);
+                character.Inventory.AddItem(product);
                 character.SendChatMessage("You cut the " + resource.Name.ToLower() + " to " + amount + " x " + product.Name.ToLower() + ".");
                 character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex] * amount);
                 return false;

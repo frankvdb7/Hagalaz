@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-11
+goal: Make standalone cross-container transfers atomic through mutation
+  boundaries without creating ItemContainerTransaction scopes.

@@ -989,7 +989,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             }
 
             character.Magic.RemoveRunes(dto.RequiredRunes, dto.RequiredRunesCounts);
-            character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(product.ProductId).Build());
+            character.Inventory.ReplaceItem(slot, _itemBuilder.Create().WithId(product.ProductId).Build());
             // TODO - Animation
             character.QueueGraphic(Graphic.Create(dto.GraphicId));
             character.Statistics.AddExperience(StatisticsConstants.Magic, dto.Experience);

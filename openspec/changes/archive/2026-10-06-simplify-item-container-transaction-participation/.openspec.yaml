@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-04
+goal: Unify standalone and enlisted mutation APIs while preserving explicit
+  transaction membership.
