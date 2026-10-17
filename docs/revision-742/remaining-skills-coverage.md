@@ -30,7 +30,7 @@ Examples: `reference/deep-cooking.md`, `reference/deep-farming.md`, `reference/d
 
 For every skill record a complete implementation row with: requirement level; input items and counts; outputs and counts; XP and applicable bonus; probabilistic and deterministic stages; game tick duration; XP award point; failure/rollback behavior; inventory/equipment/skill/quest gating; client animation, sound, widget, CS2, varbit and message IDs; interruption; multiplayer visibility; persistence; unit/integration test anchors; historical evidence and confidence.
 
-**Ordered completion strategy:** (1) export existing authored database definitions and actual joins, (2) link the revision 742 cache IDs, (3) verify historical formulas and interaction captures, (4) test happy-path, cancellation, depletion and rollback, (5) track missing functionality as focused issues. Do not replace source-backed historical values with data from modern gameplay variants. Avoid new abstractions before existing domain services have been inspected. Keep code modifications separate from this evidence pass.
+**Future follow-up strategy (not acceptance criteria for PR #522):** (1) export populated database definitions and joins, (2) link decoded revision-742 cache IDs, (3) verify historical formulas and interaction captures, (4) test happy-path, cancellation, depletion and rollback, (5) track missing functionality as focused issues. Do not replace source-backed historical values with data from modern gameplay variants. Avoid new abstractions before existing domain services have been inspected. Keep code modifications separate from this evidence pass.
 
 ## Known limitations of this pass
 
@@ -43,4 +43,4 @@ A targeted code search cannot establish the *absence* of a feature; routes may l
 - Runecrafting: source-backed mixed-essence eligibility bug tracked as [#527](https://github.com/frankvdb7/Hagalaz/issues/527).
 - Farming: verified watering protection order defect tracked as [#526](https://github.com/frankvdb7/Hagalaz/issues/526).
 
-The populated database and approved 742 cache fixture are still needed to establish completeness and production readiness of these data sources. Avoid duplicating existing historical candidate CSVs.
+**Scope closeout:** PR #522 delivers the source-anchored audit and normalized declaration catalogs listed above. Populated database exports and cache-fixture verification are expressly deferred; neither blocks completion of this documentation change. Actual historical parity and runtime repairs remain separate, tracked work. Avoid duplicating existing historical candidate CSVs.
