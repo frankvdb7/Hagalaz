@@ -1,6 +1,6 @@
 # Revision 742 Herblore: source transformation and dose contracts
 
-**Status:** code-path audit of Hagalaz. This complements [historical Herblore candidates](data/researched/herblore-recipes.csv) and [the deeper feature reference](reference/deep-herblore.md). It does not claim a runtime database export or decoded client fixture.
+**Status:** code-path audit of Hagalaz. This complements [historical Herblore candidates](data/researched/herblore-recipes.csv) and [the deeper feature reference](reference/herblore.md). It does not claim a runtime database export or decoded client fixture.
 
 ## Source constants
 
