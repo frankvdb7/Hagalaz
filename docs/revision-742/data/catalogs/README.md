@@ -141,3 +141,5 @@ These rows are extracted from `Hagalaz.Game.Scripts/Skills/Smithing/Smithing.cs`
 | [fletching-source-recipes.csv](fletching-source-recipes.csv) | **90** | Output variants across **78** static declarations (`Wood` 18, `Bows` 26, `Ammo` 35, `Tips` 11); resource/tool/product IDs, quantity, level, XP, animation, source line, evidence status |
 
 These are source declarations, **not** verified client cache or executed gameplay. [Detailed crosswalk](../../fletching-and-runecrafting-source-crosswalk.md) includes known registration/data gaps and the independent essence-selection issue [#527](https://github.com/frankvdb7/Hagalaz/issues/527).
+
+**PR #522 completion boundary:** These source catalogs are finished as declaration inventories. Populated database extraction and target-cache reconciliation are explicitly deferred; they are not required to review or merge documentation with the evidence status shown in each record.
