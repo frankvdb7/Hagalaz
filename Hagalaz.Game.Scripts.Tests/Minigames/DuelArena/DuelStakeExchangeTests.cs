@@ -17,6 +17,7 @@ using Hagalaz.Game.Scripts.Minigames.DuelArena;
 using Hagalaz.Game.Scripts.Minigames.DuelArena.GameObjects;
 using Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena;
@@ -239,7 +240,7 @@ public sealed class DuelStakeExchangeTests
         hintIconTarget.Build().Returns(hintIcon);
 
         var combat = new DuelArenaCombatScript(loserContextAccessor, winner.Character, new DuelRules(_ => { }),
-            loserStake, winnerStake, hintIconBuilder);
+            loserStake, winnerStake, hintIconBuilder, Substitute.For<ILogger<DuelArenaCombatScript>>());
         loser.GetScript<DuelArenaCombatScript>().Returns(combat);
 
         var winnerContext = Substitute.For<ICharacterContext>();

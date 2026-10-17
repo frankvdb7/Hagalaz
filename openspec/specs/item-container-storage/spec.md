@@ -371,6 +371,11 @@ Duel victory settlement MUST atomically transfer and consume all stakes exactly 
 - **WHEN** the same stakes are settled again after a successful settlement
 - **THEN** no additional items or coins are credited to the winner
 
+#### Scenario: Post-commit publication failure completes duel victory
+- **WHEN** a container publisher throws after duel stake settlement has committed during combat death
+- **THEN** both stake containers remain empty and the winner retains the complete payout exactly once
+- **AND** the failure is logged and the victory and death completion flows finish
+
 ### Requirement: Decision-critical reads are revalidated under ownership
 A preflight read that determines whether an item mutation is valid MUST be checked again after all required mutation boundaries are acquired. Informational reads MAY remain lightweight, and the system MUST NOT introduce a global read lock.
 
@@ -448,11 +453,11 @@ After all required `CanUnEquipItem` checks succeed, Weapon and Shield replacemen
 - **THEN** the operation returns false without changing inventory or equipment, running lifecycle effects, or publishing changes
 
 #### Scenario: A participant publisher throws after replacement commit
-- **WHEN** replacement storage commits and a participant publisher throws
-- **THEN** committed storage remains in place, all required lifecycle effects have been attempted, later publishers are skipped, and the original exception propagates
+- **WHEN** replacement storage commits and a transaction-owned participant publisher throws
+- **THEN** committed storage remains in place, all required lifecycle effects have been attempted, later publishers are skipped, and `Commit()` throws `ItemContainerPostCommitException` with phase `Publication` and the exact publisher exception as `InnerException`
 
 ### Requirement: Domain-owned containers control mutation publication
-Ordinary domain containers MUST expose item reads through `IReadOnlyItemContainer`; Equipment MUST expose a read-only item view and transaction participation without generic mutation. Writes MUST use the owning domain's existing or narrowly required mutation commands. Registered domain owners MUST automatically complete changed batches after a successful outermost standalone mutation, standalone transfer, or transaction commit. Completion MUST run after physical locks are released and before logical ownership is released; logical ownership prevents interleaving while domain callbacks run without holding mutation locks. Completion remains synchronous; game-tick batching is deferred until measured update volume justifies it. Completion runs domain effects before change publication. A completion exception MUST NOT roll back committed storage; it propagates and is not retried. Raw ownerless `ItemContainer` instances MUST retain manually consumable tracker changes.
+Ordinary domain containers MUST expose item reads through `IReadOnlyItemContainer`; Equipment MUST expose a read-only item view and transaction participation without generic mutation. Writes MUST use the owning domain's existing or narrowly required mutation commands. Registered domain owners MUST automatically complete changed batches after a successful outermost standalone mutation, standalone transfer, or transaction commit. Completion MUST run after physical locks are released and before logical ownership is released; logical ownership prevents interleaving while domain callbacks run without holding mutation locks. Completion remains synchronous; game-tick batching is deferred until measured update volume justifies it. Completion runs domain effects before change publication. A standalone completion exception MUST retain its existing propagation behavior and MUST NOT roll back committed storage or be retried. Transaction-owned completion and publication callback exceptions MUST be reported by `Commit()` as `ItemContainerPostCommitException`, as specified by the transaction requirement below. Raw ownerless `ItemContainer` instances MUST retain manually consumable tracker changes.
 
 #### Scenario: Domain item views cannot bypass their owner
 - **WHEN** a consumer accesses Inventory, Bank, Reward, Familiar Inventory, or Shop Stock items through its public interface
@@ -519,7 +524,7 @@ Ordinary domain containers MUST expose item reads through `IReadOnlyItemContaine
 - **THEN** the operation returns false without changing either storage or tracker
 
 ### Requirement: Transaction construction and commit preserve storage state
-`ItemContainerTransaction` MUST resolve and validate all participants before locking, deduplicate repeated storage synchronizations without changing participant encounter order, acquire synchronizations in deterministic lock order, capture snapshots, and establish bindings only after construction succeeds. Construction failure MUST release acquired locks without changing storage or publishing. Mutations affect live storage while the scope is active. Dispose without Commit MUST restore snapshots and discard provisional tracker changes. Commit MUST make storage irreversible, promote all participant changes, release physical locks, then invoke each reference-distinct completion owner in resolved-synchronization encounter order: all owners' completion-effects phase runs before any owner's publication phase. Transaction bindings remain until Dispose so owners can complete without an intervening mutation. Completion failures MUST NOT roll back committed storage or replay consumed changes. Snapshots restore slot topology, item references, counts, and storage revision, but do not deep-copy mutable item metadata such as `ExtraData`.
+`ItemContainerTransaction` MUST resolve and validate all participants before locking, deduplicate repeated storage synchronizations without changing participant encounter order, acquire synchronizations in deterministic lock order, capture snapshots, and establish bindings only after construction succeeds. Construction failure MUST release acquired locks without changing storage or publishing. Mutations affect live storage while the scope is active. Dispose without Commit MUST restore snapshots and discard provisional tracker changes. Commit MUST make storage irreversible, promote all participant changes, release physical locks, then invoke each completion owner in resolved-synchronization encounter order: all owners' completion-effects phase runs before any owner's publication phase. Transaction bindings remain until Dispose so owners can complete without an intervening mutation. An exception from a transaction-owned completion-effects callback MUST make `Commit()` throw `ItemContainerPostCommitException` with phase `Completion`; an exception from a transaction-owned publication callback MUST use phase `Publication`. The exact callback exception MUST be retained as `InnerException`. These failures MUST NOT roll back committed storage or replay consumed changes. Failures before owner callbacks MUST remain unwrapped. Snapshots restore slot topology, item references, counts, and storage revision, but do not deep-copy mutable item metadata such as `ExtraData`.
 
 #### Scenario: Construction fails during snapshot capture
 - **WHEN** snapshot capture throws after locks have been acquired
@@ -541,9 +546,27 @@ Ordinary domain containers MUST expose item reads through `IReadOnlyItemContaine
 - **WHEN** a transaction commits with one or more registered owners
 - **THEN** each reference-distinct owner receives one effects-phase invocation followed by one publication-phase invocation in resolved-synchronization encounter order, before lock-order sorting
 
-#### Scenario: Commit failure does not reverse storage or retry completion
-- **WHEN** an owner callback throws after the transaction becomes irreversible
-- **THEN** committed storage remains changed, disposal does not roll it back, and another Commit cannot replay completion
+#### Scenario: Completion callback failure identifies committed storage
+- **WHEN** a completion-effects callback throws after the transaction becomes irreversible
+- **THEN** `Commit()` throws `ItemContainerPostCommitException` with phase `Completion` and the exact callback exception as `InnerException`
+- **AND** publication does not begin, committed storage remains changed, and disposal does not roll it back or retry the callback
+
+#### Scenario: Publication callback failure identifies committed storage
+- **WHEN** a publication callback throws after completion-effects callbacks succeed
+- **THEN** `Commit()` throws `ItemContainerPostCommitException` with phase `Publication` and the exact callback exception as `InnerException`
+- **AND** committed storage remains changed, later publishers are skipped, and disposal does not roll it back or retry the callback
+
+#### Scenario: Callback aggregate remains the inner exception
+- **WHEN** a transaction-owned callback throws an `AggregateException`
+- **THEN** `ItemContainerPostCommitException.InnerException` is the same aggregate instance without flattening
+
+#### Scenario: Pre-commit failure remains unwrapped
+- **WHEN** a domain mutation throws before `Commit()` is called
+- **THEN** the original exception propagates unchanged, disposal restores storage, and no completion or publication occurs
+
+#### Scenario: Rejected mutation rolls back without a post-commit exception
+- **WHEN** an operation is rejected and the active transaction is disposed without `Commit()`
+- **THEN** storage is restored and no `ItemContainerPostCommitException` is thrown
 
 #### Scenario: Foreign operations wait through committed owner completion
 - **WHEN** an owner completes changes after Commit but before transaction disposal

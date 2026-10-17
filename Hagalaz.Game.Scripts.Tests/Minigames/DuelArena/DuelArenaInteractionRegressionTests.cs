@@ -34,6 +34,7 @@ using Hagalaz.Game.Scripts.Widgets.Tabs;
 using Hagalaz.Services.GameWorld.Data;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
@@ -225,7 +226,7 @@ public sealed class DuelArenaInteractionRegressionTests
     }
 
     [TestMethod]
-    public void DuelStageFlow_RejectedPayoutKeepsStakesThroughDeathRespawnAndPitExitUntilSettlementSucceeds()
+    public void DuelStageFlow_RejectedPayoutKeepsStakesAndCommittedPublicationFailureFinishesVictory()
     {
         var duel = CreateDuel(1, 1, selfPouchCoins: 100, targetPouchCoins: 50);
         for (var index = 0; index < 15; index++)
@@ -491,11 +492,21 @@ public sealed class DuelArenaInteractionRegressionTests
 
         Assert.AreEqual(14, duel.TargetInventory.Items.TakenSlots);
         deathContinuation = null;
+        var publicationFailure = new InvalidOperationException("Inventory publication failed.");
+        duel.TargetInventory.OnUpdateAction = () => throw publicationFailure;
         characterCombat.AddKiller(duel.Target);
         characterCombat.OnDeath();
         Assert.IsInstanceOfType<RsTask>(deathContinuation);
         deathContinuation!.Tick();
+        Assert.IsFalse(deathContinuation.IsFaulted);
         Assert.IsTrue(deathContinuation.IsCompleted);
+        var duelLogger = (RecordingLogger<DuelArenaCombatScript>)duel.Self.ServiceProvider
+            .GetService(typeof(ILogger<DuelArenaCombatScript>))!;
+        Assert.AreEqual(LogLevel.Error, duelLogger.LastLogLevel);
+        var postCommitException = duelLogger.LastException as ItemContainerPostCommitException;
+        Assert.IsNotNull(postCommitException);
+        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, postCommitException.Phase);
+        Assert.AreSame(publicationFailure, postCommitException.InnerException);
         Assert.IsTrue(respawned.Contains(duel.Target));
         Assert.IsGreaterThan(1, selfRespawnLocations.Count);
         Assert.AreNotSame(deathLocation, selfRespawnLocations[1]);
@@ -503,6 +514,13 @@ public sealed class DuelArenaInteractionRegressionTests
         Assert.AreNotSame(deathLocation, targetRespawnLocations[0]);
         Assert.AreEqual(0, duel.SelfStakeContainer.TakenSlots);
         Assert.AreEqual(0, duel.TargetStakeContainer.TakenSlots);
+
+        losingCombat!.OnKilledBy(duel.Target);
+
+        Assert.AreEqual(1, duel.TargetInventory.Items.GetCountById(duel.SelfItem.Id));
+        Assert.AreEqual(1, duel.TargetInventory.Items.GetCountById(duel.TargetItem.Id));
+        Assert.AreEqual(150, duel.Target.MoneyPouch.Count);
+        Assert.AreEqual(150L, TotalCoinCount(duel));
 
         foreach (var character in respawned.Distinct())
         {
@@ -518,9 +536,10 @@ public sealed class DuelArenaInteractionRegressionTests
         Assert.AreEqual(0, duel.Self.MoneyPouch.Count);
         Assert.AreEqual(150L, TotalCoinCount(duel));
         Assert.AreEqual(1, familiar.Items.GetCountById(familiarItem.Id));
-        duel.Target.Widgets.Received(1).OpenWidget(1365, 0, Arg.Any<IWidgetScript>(), false);
+        duel.Target.Widgets.Received(2).OpenWidget(1365, 0, Arg.Any<IWidgetScript>(), false);
         Assert.IsNull(losingCombat);
         Assert.IsNull(winningCombat);
+        Assert.IsFalse(characterCombat.IsDead);
     }
 
     [TestMethod]
@@ -1128,6 +1147,7 @@ public sealed class DuelArenaInteractionRegressionTests
         DuelChoiceScreenScript choice, DuelScreenScript duelScreen, ICharacter otherCharacter)
     {
         var provider = Substitute.For<IServiceProvider>();
+        provider.GetService(typeof(ILogger<DuelArenaCombatScript>)).Returns(new RecordingLogger<DuelArenaCombatScript>());
         provider.GetService(typeof(DuelChoiceScreenScript)).Returns(choice);
         provider.GetService(typeof(DuelScreenScript)).Returns(duelScreen);
         provider.GetService(typeof(ICharacterContextAccessor)).Returns(accessor);
@@ -1215,6 +1235,24 @@ public sealed class DuelArenaInteractionRegressionTests
     private sealed class TestItemScript : ItemScript { }
 
     private sealed class TestEquipmentScript : EquipmentScript { }
+
+    private sealed class RecordingLogger<TCategory> : ILogger<TCategory>
+    {
+        public LogLevel? LastLogLevel { get; private set; }
+
+        public Exception? LastException { get; private set; }
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            LastLogLevel = logLevel;
+            LastException = exception;
+        }
+    }
 
     private static IItem CreateItem(int id, int count, bool tradeable = true, int tradeValue = 0)
     {

@@ -94,8 +94,9 @@ public sealed class ItemContainerTransaction : IDisposable
     /// <summary>Makes live storage irreversible, releases physical locks, then completes registered domain owners.</summary>
     /// <remarks>
     /// Mutations already affect live storage under locks; Commit discards rollback ability rather than applying staged
-    /// data. If completion or publication throws, storage remains committed and Dispose releases ownership without
-    /// rolling it back. A second Commit is invalid.
+    /// data. If a transaction-owned completion or publication callback throws, <see cref="ItemContainerPostCommitException"/>
+    /// identifies the failed phase and preserves the callback exception as its inner exception. Storage remains
+    /// committed and Dispose releases ownership without rolling it back. A second Commit is invalid.
     /// </remarks>
     public void Commit()
     {
@@ -112,8 +113,29 @@ public sealed class ItemContainerTransaction : IDisposable
             _lockSet!.ReleaseLocks();
         }
 
-        foreach (var owner in _completionOwners) owner.CompleteCommittedEffects();
-        foreach (var owner in _completionOwners) owner.PublishCommittedChanges();
+        foreach (var owner in _completionOwners)
+        {
+            try
+            {
+                owner.CompleteCommittedEffects();
+            }
+            catch (Exception exception)
+            {
+                throw new ItemContainerPostCommitException(ItemContainerPostCommitPhase.Completion, exception);
+            }
+        }
+
+        foreach (var owner in _completionOwners)
+        {
+            try
+            {
+                owner.PublishCommittedChanges();
+            }
+            catch (Exception exception)
+            {
+                throw new ItemContainerPostCommitException(ItemContainerPostCommitPhase.Publication, exception);
+            }
+        }
     }
 
     /// <summary>Restores captured storage if still active; disposal after commit or disposal is inert.</summary>

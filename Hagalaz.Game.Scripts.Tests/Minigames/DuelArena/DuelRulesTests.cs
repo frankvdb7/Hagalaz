@@ -7,6 +7,7 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Minigames.DuelArena;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
@@ -31,7 +32,8 @@ public sealed class DuelRulesTests
             rules,
             null,
             null,
-            Substitute.For<IHintIconBuilder>());
+            Substitute.For<IHintIconBuilder>(),
+            Substitute.For<ILogger<DuelArenaCombatScript>>());
 
         EventHappened<EquipAllowEvent>? equipHandler = null;
         var registeredHandler = (EventHappened)(_ => false);
@@ -80,7 +82,8 @@ public sealed class DuelRulesTests
                 rules,
                 null,
                 null,
-                Substitute.For<IHintIconBuilder>());
+                Substitute.For<IHintIconBuilder>(),
+                Substitute.For<ILogger<DuelArenaCombatScript>>());
 
             EventHappened<AttackAllowEvent>? attackHandler = null;
             var registeredHandler = (EventHappened)(_ => false);
@@ -119,7 +122,8 @@ public sealed class DuelRulesTests
             new DuelRules(_ => { }),
             null,
             null,
-            Substitute.For<IHintIconBuilder>());
+            Substitute.For<IHintIconBuilder>(),
+            Substitute.For<ILogger<DuelArenaCombatScript>>());
 
         EventHappened<UnEquipAllowEvent>? unEquipHandler = null;
         var registeredHandler = (EventHappened)(_ => false);

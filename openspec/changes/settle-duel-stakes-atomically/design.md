@@ -32,4 +32,4 @@ Alternatives considered: Passing the internal exchange through the combat script
 
 - A full winner inventory rejects the whole payout and leaves the stakes unchanged in their existing containers. The active combat script retains those containers until settlement succeeds; this change does not add a new overflow destination.
 - During a duel session, standard Equipment access and familiar withdrawals are blocked so they cannot consume space reserved for refunds or admitted by the confirmation check.
-- Transaction completion publication can throw after storage is irreversible. Because both stake sources have already been consumed, retrying the victory path cannot duplicate the payout.
+- A transaction-owned completion or publication callback can throw after storage is irreversible. `ItemContainerTransaction` reports this with `ItemContainerPostCommitException`; the duel victory boundary logs that typed outcome and finishes its existing lifecycle. Because both stake sources have already been consumed, retrying the victory path cannot duplicate the payout.

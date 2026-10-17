@@ -76,6 +76,14 @@ Trade completion and refund MUST perform checked domain mutations under their ex
 - **WHEN** an owner refund commits but an explicit domain publisher throws
 - **THEN** returned value remains committed, the trade is cancelled and cleaned up once, remaining required publishers follow the established attempt policy, and the publication exception propagates
 
+#### Scenario: Transaction-owned publication fails after commit
+- **WHEN** a transaction-owned publisher throws after the trade's storage changes commit
+- **THEN** the trade remains terminal and is cleaned up exactly once, and `ItemContainerPostCommitException` exposes phase `Publication` and the exact publisher exception as `InnerException`
+
+#### Scenario: Trade-owned publication fails after Commit returns
+- **WHEN** an explicit trade-owned publication throws after transaction Commit has returned
+- **THEN** the trade remains terminal and is cleaned up once, and the publisher's exception follows its existing direct propagation behavior
+
 ### Requirement: Failed completion leaves a safe retry or terminal state
 
 If completion does not commit, recipient storage MUST remain unchanged and both original offers MUST remain available for cancellation. Cancellation uses the same refund path; it relies on active-trade Inventory-credit guards preserving capacity released by funded offers, not on source removal alone or a separate capacity-based recovery destination.

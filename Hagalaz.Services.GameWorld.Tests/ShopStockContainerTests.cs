@@ -82,10 +82,11 @@ public sealed class ShopStockContainerTests
         scenario.Character.EventManager.ClearReceivedCalls();
         scenario.Inventory.OnUpdateAction = () => throw publicationException;
 
-        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() =>
+        var thrown = Assert.ThrowsExactly<ItemContainerPostCommitException>(() =>
             scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
 
-        Assert.AreSame(publicationException, thrown);
+        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, thrown.Phase);
+        Assert.AreSame(publicationException, thrown.InnerException);
         Assert.AreEqual(0, scenario.MoneyPouch.Count);
         Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
         Assert.AreEqual(0, scenario.Stock.Items.GetCountById(ItemId));
@@ -132,9 +133,10 @@ public sealed class ShopStockContainerTests
         scenario.Character.EventManager.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>())).Do(_ => order.Add("pouch"));
         scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopItemBoughtEvent>())).Do(_ => order.Add("bought"));
 
-        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() =>
+        var thrown = Assert.ThrowsExactly<ItemContainerPostCommitException>(() =>
             scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
-        Assert.AreSame(original, thrown);
+        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, thrown.Phase);
+        Assert.AreSame(original, thrown.InnerException);
 
         CollectionAssert.AreEqual(new[] { "stock" }, order);
         AssertCommittedPurchaseAfterPublicationFailure(scenario);
@@ -155,8 +157,10 @@ public sealed class ShopStockContainerTests
         });
         scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopItemBoughtEvent>())).Do(_ => order.Add("bought"));
 
-        Assert.AreSame(original, Assert.ThrowsExactly<InvalidOperationException>(() =>
-            scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1)));
+        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitException>(() =>
+            scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, postCommitException.Phase);
+        Assert.AreSame(original, postCommitException.InnerException);
 
         CollectionAssert.AreEqual(new[] { "stock", "inventory", "pouch" }, order);
         AssertCommittedPurchaseAfterPublicationFailure(scenario);

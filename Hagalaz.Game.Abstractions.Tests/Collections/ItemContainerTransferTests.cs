@@ -270,10 +270,9 @@ public sealed class ItemContainerTransferTests
     [TestMethod]
     public void MutationException_DisposalRestoresStateAndPreservesException()
     {
-        var source = new ItemContainer(StorageType.Normal, 2);
-        var destination = new ItemContainer(StorageType.Normal, 2);
         var item = new TestItem(22, 5);
-        Assert.IsTrue(source.Add(item));
+        var (source, sourceOwner) = CreateOwnedContainer("source", 2, [item]);
+        var (destination, destinationOwner) = CreateOwnedContainer("destination", 2);
         var original = new InvalidOperationException("Abort mutation.");
         var thrown = Assert.ThrowsExactly<InvalidOperationException>(() =>
         {
@@ -285,7 +284,36 @@ public sealed class ItemContainerTransferTests
         Assert.AreSame(item, source[0]);
         Assert.IsNull(destination[0]);
         Assert.AreEqual(5, item.Count);
-        AssertLocksReleased(source);
+        Assert.AreEqual(0, sourceOwner.EffectsCalls);
+        Assert.AreEqual(0, sourceOwner.PublicationCalls);
+        Assert.AreEqual(0, destinationOwner.EffectsCalls);
+        Assert.AreEqual(0, destinationOwner.PublicationCalls);
+        AssertLocksReleased(source, destination);
+    }
+
+    [TestMethod]
+    public void RejectedMutation_DisposalRestoresEarlierChangesWithoutCompletion()
+    {
+        var (first, firstOwner) = CreateOwnedContainer("first", 2);
+        var (second, secondOwner) = CreateOwnedContainer("second", 2);
+        var added = new TestItem(25, 1);
+        var absent = new TestItem(26, 1);
+
+        using (ItemContainerTransaction.Begin(first, second))
+        {
+            Assert.IsTrue(first.Add(added));
+            Assert.IsFalse(second.TryTransferTo(first, absent, 1));
+        }
+
+        Assert.IsNull(first[0]);
+        Assert.IsNull(second[0]);
+        Assert.IsFalse(first.ChangeTracker.HasChanges);
+        Assert.IsFalse(second.ChangeTracker.HasChanges);
+        Assert.AreEqual(0, firstOwner.EffectsCalls);
+        Assert.AreEqual(0, firstOwner.PublicationCalls);
+        Assert.AreEqual(0, secondOwner.EffectsCalls);
+        Assert.AreEqual(0, secondOwner.PublicationCalls);
+        AssertLocksReleased(first, second);
     }
 
         [TestMethod]
@@ -1469,13 +1497,24 @@ public sealed class ItemContainerTransferTests
     {
         var (first, firstOwner) = CreateOwnedContainer("first", 2, [new TestItem(209, 1)]);
         var (second, secondOwner) = CreateOwnedContainer("second", 2, [new TestItem(210, 1)]);
-        firstOwner.OnPublish = () => throw new InvalidOperationException("publisher failed");
+        var publicationFailure = new InvalidOperationException("publisher failed");
+        firstOwner.OnPublish = () => throw publicationFailure;
         var transaction = ItemContainerTransaction.Begin(first, second);
         var added = new TestItem(211, 1);
         Assert.IsTrue(first.Add(added));
         Assert.IsTrue(second.Add(new TestItem(212, 1)));
 
+        var exception = Assert.ThrowsExactly<ItemContainerPostCommitException>(transaction.Commit);
+        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, exception.Phase);
+        Assert.AreSame(publicationFailure, exception.InnerException);
+        Assert.AreEqual(1, firstOwner.EffectsCalls);
+        Assert.AreEqual(1, secondOwner.EffectsCalls);
+        Assert.AreEqual(1, firstOwner.PublicationCalls);
+        Assert.AreEqual(0, secondOwner.PublicationCalls);
+        Assert.IsFalse(Monitor.IsEntered(Synchronization(first).SynchronizationLock));
+        Assert.IsFalse(Monitor.IsEntered(Synchronization(second).SynchronizationLock));
         Assert.ThrowsExactly<InvalidOperationException>(transaction.Commit);
+        transaction.Dispose();
         transaction.Dispose();
 
         Assert.AreSame(added, first[1]);
@@ -1485,6 +1524,44 @@ public sealed class ItemContainerTransferTests
         Assert.IsFalse(second.ChangeTracker.HasChanges);
         AssertLocksReleased(first, second);
 
+        using (ItemContainerTransaction.Begin(first, second)) { }
+    }
+
+    [TestMethod]
+    public void Commit_CompletionFailureReportsCommittedStateAndDoesNotPublishOrRetry()
+    {
+        var (first, firstOwner) = CreateOwnedContainer("first", 2, [new TestItem(209, 1)]);
+        var (second, secondOwner) = CreateOwnedContainer("second", 2, [new TestItem(210, 1)]);
+        var callbackFailure = new AggregateException(new InvalidOperationException("completion failed"));
+        firstOwner.OnEffects = () => throw callbackFailure;
+        var transaction = ItemContainerTransaction.Begin(first, second);
+        var firstAdded = new TestItem(211, 1);
+        var secondAdded = new TestItem(212, 1);
+        Assert.IsTrue(first.Add(firstAdded));
+        Assert.IsTrue(second.Add(secondAdded));
+
+        var exception = Assert.ThrowsExactly<ItemContainerPostCommitException>(transaction.Commit);
+
+        Assert.AreEqual(ItemContainerPostCommitPhase.Completion, exception.Phase);
+        Assert.AreSame(callbackFailure, exception.InnerException);
+        Assert.AreEqual(1, firstOwner.EffectsCalls);
+        Assert.AreEqual(0, secondOwner.EffectsCalls);
+        Assert.AreEqual(0, firstOwner.PublicationCalls);
+        Assert.AreEqual(0, secondOwner.PublicationCalls);
+        Assert.IsFalse(Monitor.IsEntered(Synchronization(first).SynchronizationLock));
+        Assert.IsFalse(Monitor.IsEntered(Synchronization(second).SynchronizationLock));
+        Assert.ThrowsExactly<InvalidOperationException>(transaction.Commit);
+
+        transaction.Dispose();
+        transaction.Dispose();
+
+        Assert.AreSame(firstAdded, first[1]);
+        Assert.AreSame(secondAdded, second[1]);
+        Assert.AreEqual(1, firstOwner.DiscardCalls);
+        Assert.AreEqual(1, secondOwner.DiscardCalls);
+        Assert.AreEqual(0, firstOwner.PublicationCalls);
+        Assert.AreEqual(0, secondOwner.PublicationCalls);
+        AssertLocksReleased(first, second);
         using (ItemContainerTransaction.Begin(first, second)) { }
     }
 

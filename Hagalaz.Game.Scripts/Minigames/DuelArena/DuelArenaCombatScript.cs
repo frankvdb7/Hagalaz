@@ -1,4 +1,6 @@
+using System;
 using System.Linq;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -13,6 +15,7 @@ using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
+using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 {
@@ -21,13 +24,15 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     public class DuelArenaCombatScript : CharacterScriptBase
     {
         private readonly IHintIconBuilder _hintIconBuilder;
+        private readonly ILogger<DuelArenaCombatScript> _logger;
         private EventHappened? _targetDestroyedHandler;
         private EventHappened? _characterDestroyedHandler;
 
-        public DuelArenaCombatScript(ICharacterContextAccessor contextAccessor, ICharacter target, DuelRules rules, DuelContainer? selfContainer, DuelContainer? targetContainer, IHintIconBuilder hintIconBuilder)
+        public DuelArenaCombatScript(ICharacterContextAccessor contextAccessor, ICharacter target, DuelRules rules, DuelContainer? selfContainer, DuelContainer? targetContainer, IHintIconBuilder hintIconBuilder, ILogger<DuelArenaCombatScript> logger)
             : base(contextAccessor)
         {
             _hintIconBuilder = hintIconBuilder;
+            _logger = logger;
             Target = target;
             Rules = rules;
             SelfContainer = selfContainer;
@@ -130,10 +135,24 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             {
                 var spoilsContainer = (ReferenceEquals(victor, Character) ? TargetContainer : SelfContainer)!;
                 spoils = spoilsContainer.Items.ToArray();
-                if (!DuelStakeExchange.TrySettleWinner(victor, SelfContainer!.Items, TargetContainer!.Items))
+                try
                 {
-                    victor.SendChatMessage("You don't have enough room to receive the duel stakes. Free some inventory or Money Pouch space and try again.");
-                    return false;
+                    if (!DuelStakeExchange.TrySettleWinner(
+                            victor,
+                            SelfContainer!.Items,
+                            TargetContainer!.Items))
+                    {
+                        victor.SendChatMessage("You don't have enough room to receive the duel stakes. Free some inventory or Money Pouch space and try again.");
+                        return false;
+                    }
+                }
+                catch (ItemContainerPostCommitException exception)
+                {
+                    // The typed exception guarantees settlement committed; log the callback failure and finish victory.
+                    _logger.LogError(exception,
+                        "Duel stakes were committed for {Victor} and {Loser}, but completion or publication failed.",
+                        victor.DisplayName,
+                        loser.DisplayName);
                 }
             }
 

@@ -256,8 +256,10 @@ public sealed class CharacterItemTransferTests
         var hookFailure = new InvalidOperationException("Unequip hook failed.");
         item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ => throw hookFailure);
 
-        Assert.AreSame(hookFailure, Assert.ThrowsExactly<InvalidOperationException>(
-            () => equipment.TryMoveTo(destination, item, 1, EquipmentSlot.Hat)));
+        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitException>(
+            () => equipment.TryMoveTo(destination, item, 1, EquipmentSlot.Hat));
+        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, postCommitException.Phase);
+        Assert.AreSame(hookFailure, postCommitException.InnerException);
 
         Assert.IsNull(equipment[EquipmentSlot.Hat]);
         Assert.AreSame(item, destination[0]);
@@ -1269,13 +1271,16 @@ public sealed class CharacterItemTransferTests
         setup.Incoming.EquipmentScript.When(script => script.OnEquipped(setup.Incoming, scenario.Owner)).Do(_ => callbacks.Add("incoming"));
         setup.Weapon.EquipmentScript.CanUnEquipItem(setup.Weapon, scenario.Owner).Returns(true);
         setup.Shield.EquipmentScript.CanUnEquipItem(setup.Shield, scenario.Owner).Returns(true);
+        var inventoryPublicationFailure = new InvalidOperationException("Controlled inventory publication failure.");
         eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
         {
             if (call.Arg<IEvent>() is InventoryChangedEvent)
-                throw new InvalidOperationException("Controlled inventory publication failure.");
+                throw inventoryPublicationFailure;
         });
 
-        Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
+        var failure = Assert.ThrowsExactly<ItemContainerPostCommitException>(() => setup.Equipment.EquipItem(setup.Incoming));
+        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, failure.Phase);
+        Assert.AreSame(inventoryPublicationFailure, failure.InnerException);
 
         CollectionAssert.AreEqual(new[] { "weapon", "shield", "incoming" }, callbacks);
         Assert.AreSame(setup.Incoming, setup.Equipment[EquipmentSlot.Weapon]);
@@ -1321,9 +1326,10 @@ public sealed class CharacterItemTransferTests
         {
             if (call.Arg<IEvent>() is EquipmentChangedEvent) callbacks.Add("publish");
         });
-        Exception thrown = multipleHooksFail
-            ? Assert.ThrowsExactly<AggregateException>(() => setup.Equipment.EquipItem(setup.Incoming))
-            : Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
+        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitException>(() =>
+            setup.Equipment.EquipItem(setup.Incoming));
+        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, postCommitException.Phase);
+        var thrown = postCommitException.InnerException;
 
         CollectionAssert.AreEqual(new[] { "weapon", "shield", "profile", "incoming", "publish" }, callbacks);
         var expected = multipleHooksFail
@@ -1426,7 +1432,8 @@ public sealed class CharacterItemTransferTests
                 }
             });
 
-        Assert.ThrowsExactly<InvalidOperationException>(() => equipment.EquipItem(item));
+        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitException>(() => equipment.EquipItem(item));
+        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, postCommitException.Phase);
 
         Assert.IsTrue(callbackSawCommittedStorage());
         Assert.IsTrue(publicationSawEquipmentEffect);
@@ -1813,9 +1820,11 @@ public sealed class CharacterItemTransferTests
         var order = new List<string>();
         ObserveReplacementCompletion(setup, scenario.Owner, order, failure, null);
 
-        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
+        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitException>(() =>
+            setup.Equipment.EquipItem(setup.Incoming));
 
-        Assert.AreSame(failure, thrown);
+        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, postCommitException.Phase);
+        Assert.AreSame(failure, postCommitException.InnerException);
         CollectionAssert.AreEqual(new[] { "unequip", "equip", "publish" }, order);
         setup.EventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
         AssertReplacementCommittedAndReleased(setup);
@@ -1830,9 +1839,11 @@ public sealed class CharacterItemTransferTests
         var order = new List<string>();
         ObserveReplacementCompletion(setup, scenario.Owner, order, null, failure);
 
-        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => setup.Equipment.EquipItem(setup.Incoming));
+        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitException>(() =>
+            setup.Equipment.EquipItem(setup.Incoming));
 
-        Assert.AreSame(failure, thrown);
+        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, postCommitException.Phase);
+        Assert.AreSame(failure, postCommitException.InnerException);
         CollectionAssert.AreEqual(new[] { "unequip", "equip", "publish" }, order);
         AssertReplacementCommittedAndReleased(setup);
     }

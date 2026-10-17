@@ -20,6 +20,7 @@ using Hagalaz.Game.Scripts.Items;
 using Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 {
@@ -1071,13 +1072,15 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 CurrentRules,
                 SelfContainer,
                 TargetContainer,
-                _hintIconBuilder));
+                _hintIconBuilder,
+                Character.ServiceProvider.GetRequiredService<ILogger<DuelArenaCombatScript>>()));
             Target.AddScript(new DuelArenaCombatScript(Target.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(),
                 Character,
                 CurrentRules,
                 TargetContainer,
                 SelfContainer,
-                _hintIconBuilder));
+                _hintIconBuilder,
+                Target.ServiceProvider.GetRequiredService<ILogger<DuelArenaCombatScript>>()));
 
             var previousRules = CurrentRules.Dehydrate();
             PreviousRules = previousRules;
