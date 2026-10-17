@@ -44,11 +44,11 @@ Source: `Hagalaz.Game.Scripts/Skills/Runecrafting/Runecrafting.cs`.
 
 `GetMultiplier` inspects `RunecraftingDto.LevelCountMultipliers` from last index down, ignores sentinel -1, and returns `2 + index` for the first level threshold satisfied, otherwise 1. This is source-backed and means the array configuration, not a hardcoded global tier table, controls output quantity.
 
-**Tests:** no threshold; -1 sentinel; exact threshold, one below, boosted level, malformed/misordered array; check that quantity and XP award policy are distinct. Reconcile `data/runecrafting-runes.csv` and `data/researched/combination-runes.csv`.
+**Tests:** no threshold; -1 sentinel; exact threshold, one below, boosted level, malformed/misordered array; check that quantity and XP award policy are distinct. Reconcile `data/runecrafting-runes.csv` and `data/researched/combination-runes.csv`. Separately, [Runecrafting essence selection #527](https://github.com/frankvdb7/Hagalaz/issues/527) documents the source-backed mixed-essence rejection; see [crosswalk](fletching-and-runecrafting-source-crosswalk.md).
 
 ## Fletching: interaction ownership
 
-`Hagalaz.Game.Scripts/Skills/Fletching/FletchingBow.rsitem.cs` delegates `UseItemOnItem` to `IFletchingSkillService.TryFletchBow`. To document recipes or batch production accurately, follow the service implementation and its DTO/repository source rather than inferring recipes from this thin item script. Candidate data: `data/fletching-bows.csv`, `data/researched/fletching-bow-stages.csv`, and arrow/bolt/dart/crossbow tables. Verify quantity, cancellation, level requirements and consumed items per attempt.
+`Hagalaz.Game.Scripts/Skills/Fletching/FletchingBow.rsitem.cs` delegates `UseItemOnItem` to `IFletchingSkillService.TryFletchBow`. To document recipes or batch production accurately, follow the service implementation and its DTO/repository source rather than inferring recipes from this thin item script. The [normalized source catalog](data/catalogs/fletching-source-recipes.csv) enumerates 90 source output variants, but registration and historical parity are unverified. Candidate data: `data/fletching-bows.csv`, `data/researched/fletching-bow-stages.csv`, and arrow/bolt/dart/crossbow tables. Verify quantity, cancellation, level requirements and consumed items per attempt.
 
 ## Evidence and follow-up discipline
 
