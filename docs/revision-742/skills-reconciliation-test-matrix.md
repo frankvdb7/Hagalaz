@@ -33,6 +33,10 @@ Status: design/verification matrix only. No real cache or database dump has been
 | PROG-01 | XP just below/at levels 2, 99, 120, and XP cap | Threshold and level caps consistent with server and 742 client |
 | PROG-02 | Skill boost/drain followed by XP gain, logout/relog | XP-derived base level unaffected by temporary level |
 
+## Production skill follow-up
+
+See [production skill source audit](production-skill-source-audit.md) for verified task sequencing, smelting multi-ingredient integrity, cooking burn formula, firemaking ignition math, and configured Runecrafting multiplier thresholds. The specific Smithing and Cooking mutation-result concerns require tests against actual container semantics before classifying as confirmed defects.
+
 ## Triage and implementation rules
 
 1. Run the already-existing `tools/reconcile_catalogs.py` only with the approved hashed fixture and authorized read-only exports. It currently addresses item/NPC/spawn comparisons, **not** skill definition extraction; do not represent a successful run as gathering-skill verification.
