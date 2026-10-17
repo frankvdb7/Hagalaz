@@ -1,6 +1,6 @@
 # Revision 742 skills: executable reconciliation plan
 
-Status: design/verification matrix only. No real cache or database dump has been evaluated in this PR. This document bridges the already-present candidate tables and the exact server runtime behaviors to verify. Keep the [source ledger](skill-mechanics-source-ledger.md) and [canonical index](data/README.md) as evidence classifications.
+Status: complete **source-evidence verification plan** for PR #522, not a claim of full gameplay parity. No real cache or database dump has been evaluated in this PR. This document bridges the already-present candidate tables and the exact server runtime behaviors to verify. Keep the [source ledger](skill-mechanics-source-ledger.md) and [canonical index](data/README.md) as evidence classifications.
 
 ## Data lineage and match keys
 
@@ -45,9 +45,13 @@ See [production skill source audit](production-skill-source-audit.md) for verifi
 4. Write deterministic, targeted tests for reproducible gameplay bugs. Keep those fixes in separate code changes rather than embedding runtime changes inside the documentation PR.
 5. Never silently flatten historically distinct crafting methods, fishing click-options or tree/resource variants into one generic system.
 
-## Current blockers
+## Deferred verification — outside PR #522
 
-- Approved cache archive data not provided in this connection (see `tools/README.md`).
-- Populated game database not connected for actual seed and loot export.
-- Exact cache-to-runtime ID joins absent for these skills.
-- This PR's evidence is source-backed and candidate-based, not a gameplay certification.
+PR #522 is **complete once its source-backed catalogs, evidence classifications, links and reproducible test plans are reviewed**. Do not require database migrations, database connectivity, cache decoding, or runtime bug fixes to close this documentation PR.
+
+- Approved archive extraction and cache-to-runtime ID joins belong to a later fixture-verification effort (see `tools/README.md`).
+- Populated game database exports and any definition migrations belong to a later data phase (including existing issue #377 for Smithing).
+- Running runtime regression scenarios and fixing source defects belong to separate issues #524–#527.
+- Historical candidate figures cannot be promoted to confirmed version-742 data until independently verified; this evidence limitation is intentional and does not prevent merging **documentation clearly labeled with its provenance**.
+
+**PR-specific verification:** compare generated source CSV rows with their literal source declarations; require valid schemas, correct counts (18 smelting ingredient links, 106 forged products, 90 Fletching outputs), working relative links and no runtime changes. These are the completion gates for this PR.
