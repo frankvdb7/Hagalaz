@@ -19,6 +19,13 @@
 | Summoning | `Skills/Summoning/SummoningSkillService.cs`, `PouchScreen.rsi.cs`, `ScrollScreen.rsi.cs` | Pouch/scroll recipes, shards/charms, familiar summoning points, timers, abilities and XP |
 | Dungeoneering | Skill constants and statistics helpers were found; no domain gameplay path proven by targeted search | Verify dungeon lifecycle, party allocation, floors, complexity, rewards and XP independently |
 
+
+## Relationship to the canonical revision-742 research pack
+
+The latest `main` already contains feature guides under `docs/revision-742/`, deeper source-backed references under `docs/revision-742/reference/` and per-feature candidate tables under `docs/revision-742/data/` and `data/researched/`. **Use those as the primary feature specifications and candidate data.** This page is strictly a targeted *code-ownership/verification-gap ledger*, not a claim that other feature documentation is missing.
+
+Examples: `reference/deep-cooking.md`, `reference/deep-farming.md`, `reference/deep-progression.md`, `reference/deep-slayer.md`, `reference/deep-summoning.md`, `data/researched/herblore-recipes.csv`, `data/researched/summoning-pouches.csv` and `data/experience-levels-1-120.csv`. Before writing new facts, reconcile against those resources and preserve their evidence tags. The phrase “no implementation demonstrated by targeted search” below is **not** evidence of absent implementation or absent documentation.
+
 ## Cross-cutting implementation and evidence checklist
 
 For every skill record a complete implementation row with: requirement level; input items and counts; outputs and counts; XP and applicable bonus; probabilistic and deterministic stages; game tick duration; XP award point; failure/rollback behavior; inventory/equipment/skill/quest gating; client animation, sound, widget, CS2, varbit and message IDs; interruption; multiplayer visibility; persistence; unit/integration test anchors; historical evidence and confidence.
