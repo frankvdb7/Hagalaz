@@ -1,0 +1,11 @@
+ore,level,xp,source_url
+copper,1,17.5,https://wiki.darkan.org/Mining
+tin,1,17.5,https://wiki.darkan.org/Mining
+clay,1,5,https://wiki.darkan.org/Mining
+iron,15,35,https://wiki.darkan.org/Mining
+silver,20,40,https://wiki.darkan.org/Mining
+coal,30,50,https://wiki.darkan.org/Mining
+gold,40,65,https://wiki.darkan.org/Mining
+mithril,55,80,https://wiki.darkan.org/Mining
+adamantite,70,95,https://wiki.darkan.org/Mining
+runite,85,125,https://wiki.darkan.org/Mining

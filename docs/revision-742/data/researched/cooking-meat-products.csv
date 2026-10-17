@@ -1,0 +1,11 @@
+product,cooking_level,xp_per_success,life_points_healed,notes,source_url,evidence
+Cooked meat,1,30,30,Raw beef/bear/yak/rat,https://wiki.darkan.org/Cooking,historical_secondary_pending_cache
+Cooked chicken,1,30,30,Raw chicken,https://wiki.darkan.org/Cooking,historical_secondary_pending_cache
+Ugthanki meat,1,40,30,Members only; camel,https://wiki.darkan.org/Cooking,historical_secondary_pending_cache
+Cooked rabbit,1,30,50,Fire directly,https://wiki.darkan.org/Cooking,historical_secondary_pending_cache
+Roasted bird meat,11,62,60,Iron spit,https://wiki.darkan.org/Cooking,historical_secondary_pending_cache
+Roasted rabbit,16,72,70,Iron spit,https://wiki.darkan.org/Cooking,historical_secondary_pending_cache
+Roasted beast meat,21,82,80,Iron spit,https://wiki.darkan.org/Cooking,historical_secondary_pending_cache
+Cooked chompy,30,140,100,Fire or spit,https://wiki.darkan.org/Cooking,historical_secondary_pending_cache
+Cooked jubbly,41,160,150,Quest requirement,https://wiki.darkan.org/Cooking,historical_secondary_pending_cache
+Oomlie wrap,50,110,140,Palm leaf required,https://wiki.darkan.org/Cooking,historical_secondary_pending_cache

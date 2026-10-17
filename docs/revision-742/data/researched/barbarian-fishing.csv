@@ -1,0 +1,7 @@
+fish,mode,fishing_level,strength_level,agility_level,fishing_xp,secondary_xp,source_url,evidence
+Leaping trout,heavy_rod,48,15,15,50,5,https://wiki.darkan.org/Fishing,historical_secondary_pending_cache
+Leaping salmon,heavy_rod,58,30,30,70,6,https://wiki.darkan.org/Fishing,historical_secondary_pending_cache
+Leaping sturgeon,heavy_rod,70,45,45,80,7,https://wiki.darkan.org/Fishing,historical_secondary_pending_cache
+Tuna,barehand,55,35,,80,8,https://wiki.darkan.org/Fishing,historical_secondary_pending_cache
+Swordfish,barehand,70,50,,100,10,https://wiki.darkan.org/Fishing,historical_secondary_pending_cache
+Shark,barehand,96,76,,110,11,https://wiki.darkan.org/Fishing,historical_secondary_pending_cache

@@ -1,0 +1,14 @@
+course_key,agility_level,candidate_full_reward_xp,other_prerequisites,reward_model,caveat,obstacle_object_ids,location_coordinates,source_url,evidence
+gnome_stronghold,1,86.5,none,standard_lap,no_failed_obstacles,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+gnome_advanced,85,725,none,standard_lap,250 successful laps unlock agile legs,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+barbarian_outpost,35,139.5,Bar Crawl,standard_lap,historical obstacle sum conflicts by 3.7 XP,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+barbarian_advanced,90,740.7,Bar Crawl,standard_lap,250 successful laps unlock agile top,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+ape_atoll,48,580,Monkey Madness; ninja greegree,standard_lap,failure up to level 74; historical note,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+wilderness,52,571.5,wilderness access; PvP risk,standard_lap,failure damage; dangerous area,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+werewolf_skullball,25,750,Creature of Fenkenstrain; Ring of Charos,timed_minigame,750 XP maximum if time under four minutes,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+penguin,30,540,Cold War; penguin suit,standard_lap,all four obstacles may fail,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+agility_pyramid,30,1014,none,standard_lap,artifact redeemable for 1000 coins; source shows lap total,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+werewolf,60,540,Creature of Fenkenstrain; Ring of Charos,retrieval_lap,350 base XP plus 190 for retrieving stick,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+bandos,60,380,The Chosen Commander; 60 Strength and Ranged,mixed_skill,mixed XP; not a flat agility-only grant,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+dorgesh_kaan,80,2375,Death to the Dorgeshuun; light source,two_way_route,2375 only for agility-route both ways,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache
+brimhaven_arena,1,,entry fee 200 coins except Rocking Out completion,ticket_arena,ticket target moves about once per minute; XP varies,,,https://wiki.darkan.org/Agility,historical_2012_pending_cache

@@ -1,0 +1,22 @@
+room,level,coins,source_url,evidence
+Garden,1,1000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Parlour,1,1000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Kitchen,5,5000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Dining room,10,5000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Workshop,15,10000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Bedroom,20,10000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Skill hall,25,15000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Games room,30,25000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Combat room,32,25000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Quest hall,35,25000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Menagerie,37,30000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Study,40,50000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Costume room,42,50000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Chapel,45,50000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Portal chamber,50,100000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Formal garden,55,75000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Throne room,60,150000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Oubliette,65,150000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Dungeon,70,7500,https://wiki.darkan.org/Construction,secondary_pending_cache
+Pit dungeon,70,10000,https://wiki.darkan.org/Construction,secondary_pending_cache
+Treasure room,75,250000,https://wiki.darkan.org/Construction,secondary_pending_cache

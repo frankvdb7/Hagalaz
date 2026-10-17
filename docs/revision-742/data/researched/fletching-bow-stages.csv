@@ -1,0 +1,14 @@
+name,level,cut_xp,string_xp,item_id,source_url,evidence
+normal_shortbow,1,5,5,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+normal_longbow,10,10,10,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+oak_shortbow,20,16.5,16.5,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+oak_longbow,25,25,25,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+composite_ogre_bow,30,45,45,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+willow_shortbow,35,33.25,33.25,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+willow_longbow,40,41.5,41.5,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+maple_shortbow,50,50,50,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+maple_longbow,55,58.3,58.2,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+yew_shortbow,65,67.5,67.5,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+yew_longbow,70,75,75,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+magic_shortbow,80,83.3,83.2,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache
+magic_longbow,85,91.5,91.5,,https://wiki.darkan.org/Fletching_boost,historical_2012_pending_cache

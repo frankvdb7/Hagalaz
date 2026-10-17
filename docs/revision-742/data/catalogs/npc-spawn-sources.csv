@@ -1,0 +1,10 @@
+spawn_origin,source_path,npc_id_evidence,coordinate_evidence,trigger,notes
+persistent_database,Hagalaz.Services.GameWorld/Data/MapRegionLoader.cs,npc_spawns via NpcSpawnRepository.FindByBounds,authoritative DB spawn coordinates and bounds,region load,live database rows not available
+familiar_summon,Hagalaz.Game.Scripts/Skills/Summoning/SummoningSkillService.cs,SummoningDto.NpcId,current summoner location,character summoning action,definition and script from SummoningService; entity is temporary
+familiar_hydration,Hagalaz.Game.Scripts/Characters/FamiliarCharacterScript.cs,hydrated familiar.FamiliarId,character location on restore,character reconnect,restore stored familiar state and inventory
+tzhaar_wave,Hagalaz.Game.Scripts/Logic/NpcWaveController.cs,npcWave.NpcId,random predefined wave spawn locations,minigame progression,wave definitions and spawn locations vary by activity
+tzhaar_splits,Hagalaz.Game.Scripts/Minigames/TzHaar/Cave/TzHaarCaveScript.cs,2738,victim NPC location,minigame creature kill,creates two entities under cave controller
+tzhaar_healers,Hagalaz.Game.Scripts/Minigames/TzHaar/Cave/NPCs/TzTokJad.rsnpc.cs,2746,boss NPC location,boss reaches half health,spawns up to four healers by script condition
+glacor_minions,Hagalaz.Game.Scripts/Npcs/Elementals/GlacorEncounter.cs,caller's id argument,caller's location argument,Glacor encounter,tracks spawned glacytes and cleanup
+emote_temporary,Hagalaz.Game.Scripts/Widgets/Tabs/EmotesTab.rsi.cs,1224,character location plus one east tile,max cape emote,"Build not Spawn; temporary task-owned creature, do not count as permanent world spawn"
+manual_admin_command,Hagalaz.Game.Scripts/Commands/SpawnNpcCommand.cs,player-supplied id,admin character location,staff command,"admin-only, excluded from canonical world content"

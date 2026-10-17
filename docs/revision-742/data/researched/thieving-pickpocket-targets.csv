@@ -1,0 +1,23 @@
+target_key,required_level,xp_success,loot_candidate,stun_seconds_on_failure,damage_lp_on_failure,quest_gate,npc_definition_id,success_chance,source_url,evidence
+man_or_woman,1,8,3 coins,5,10,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+farmer,10,14.5,9 coins; potato seeds,5,10,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+ham_member_female,15,18.5,coins; assorted resources; H.A.M. apparel; clue scroll,4,10-30,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+ham_member_male,20,22.5,coins; assorted resources; H.A.M. apparel; clue scroll,4,10-30,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+ham_guard,20,22.5,male H.A.M. loot plus storeroom keys,4,10-30,Death to the Dorgeshuun,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+warrior_woman_or_alkharid_warrior,25,26,18 coins; court summons,5,20,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+rogue,32,35.5,25-40 coins; minor resources,5,20,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+cave_goblin,36,40,30 coins; lamps; goblin equipment; wire,5,10,Death to the Dorgeshuun,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+master_farmer,38,43,allotment; flower; herb seeds,5,30,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+guard,40,46.5,30 coins,5,20,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+fremennik_citizen,45,65,40 coins,5,20,The Fremennik Trials,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+bearded_pollnivnian_bandit,45,65,40 coins,5,50,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+desert_bandit,53,79.5,30 coins; antipoison; lockpick,5,30,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+knight_of_ardougne,55,84.3,50 coins; court summons,5,30,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+pollnivnian_bandit,55,84.3,50 coins,5,50,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+yanille_watchman,65,137.5,60 coins; bread,5,30,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+menaphite_thug,65,137.5,60 coins,5,50,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+paladin,70,151.75,80 coins; two chaos runes; court summons,,30,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+gnome,75,198.5,300 coins; resource loot; court summons,5,10,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+hero,80,273.3,200-300 coins; rare rune and item loot,6,40,,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+elf,85,353,250-350 coins; rare resources,6,50,Mourning's Ends Part I,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
+dwarf_trader,90,556.5,100-400 coins; noted ores and bars; clue scroll,5,10,The Giant Dwarf,,,https://wiki.darkan.org/index.php?title=Thieving&oldid=31000,historical_2012_pending_cache
