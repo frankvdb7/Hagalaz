@@ -28,7 +28,7 @@ The completion callback in HerbloreSkillService.MakePotion checks only that the 
 
 The current IItemContainer.Remove operation supports partial consumption; with only one to four spikes, the task can still create the product after removing insufficient material. This is a concrete path that does not require an artificial inventory-capacity failure.
 
-The [period high-level ranging potion reference](https://wiki.darkan.org/Extreme_ranged) specifies **five** grenwall spikes plus a three-dose ranging potion for **260 XP**, and the [historical potion table](https://wiki.darkan.org/Potions) agrees. The source-level item ID and exact output variant still need independent cache verification. Fixing the behavior should be a separate issue using existing exact mutation boundaries.
+The [period high-level ranging potion reference](https://wiki.darkan.org/Extreme_ranged) specifies **five** grenwall spikes plus a three-dose ranging potion for **260 XP**, and the [historical potion table](https://wiki.darkan.org/Potions) agrees. The source-level item ID and exact output variant still need independent cache verification. Fixing this behavior is tracked by [#529](https://github.com/frankvdb7/Hagalaz/issues/529), using existing exact mutation boundaries.
 
 ## Overload and dose restrictions
 
