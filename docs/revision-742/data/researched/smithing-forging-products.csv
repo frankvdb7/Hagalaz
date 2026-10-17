@@ -1,0 +1,73 @@
+metal,product,required_level,bars_consumed,product_quantity,xp_per_action,quest_gate,cache_item_id,ui_component_id,source_url,evidence
+bronze,dagger,1,1,1,12.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+bronze,mace,2,1,1,12.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+bronze,medium_helm,3,1,1,12.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+bronze,crossbow_bolts_unfinished,3,1,10,12.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+bronze,sword,4,1,1,12.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+bronze,dart_tips,4,1,10,12.5,The Tourist Trap,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+bronze,nails,4,1,15,12.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+bronze,arrowtips,5,1,15,12.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+bronze,scimitar,5,2,1,25,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+bronze,full_helm,7,2,1,25,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+bronze,platelegs,16,3,1,37.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+bronze,platebody,18,5,1,62.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+iron,dagger,15,1,1,25,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+iron,mace,17,1,1,25,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+iron,medium_helm,18,1,1,25,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+iron,crossbow_bolts_unfinished,18,1,10,25,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+iron,sword,19,1,1,25,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+iron,dart_tips,19,1,10,25,The Tourist Trap,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+iron,nails,19,1,15,25,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+iron,arrowtips,20,1,15,25,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+iron,scimitar,20,2,1,50,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+iron,full_helm,22,2,1,50,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+iron,platelegs,31,3,1,75,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+iron,platebody,33,5,1,125,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+steel,dagger,30,1,1,37.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+steel,mace,32,1,1,37.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+steel,medium_helm,33,1,1,37.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+steel,crossbow_bolts_unfinished,33,1,10,37.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+steel,sword,34,1,1,37.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+steel,dart_tips,34,1,10,37.5,The Tourist Trap,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+steel,nails,34,1,15,37.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+steel,arrowtips,35,1,15,37.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+steel,scimitar,35,2,1,75,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+steel,full_helm,37,2,1,75,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+steel,platelegs,46,3,1,112.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+steel,platebody,48,5,1,187.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+mithril,dagger,50,1,1,50,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+mithril,mace,52,1,1,50,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+mithril,medium_helm,53,1,1,50,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+mithril,crossbow_bolts_unfinished,53,1,10,50,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+mithril,sword,54,1,1,50,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+mithril,dart_tips,54,1,10,50,The Tourist Trap,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+mithril,nails,54,1,15,50,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+mithril,arrowtips,55,1,15,50,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+mithril,scimitar,55,2,1,100,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+mithril,full_helm,57,2,1,100,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+mithril,platelegs,66,3,1,150,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+mithril,platebody,68,5,1,250,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+adamant,dagger,70,1,1,62.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+adamant,mace,72,1,1,62.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+adamant,medium_helm,73,1,1,62.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+adamant,crossbow_bolts_unfinished,73,1,10,62.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+adamant,sword,74,1,1,62.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+adamant,dart_tips,74,1,10,62.5,The Tourist Trap,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+adamant,nails,74,1,15,62.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+adamant,arrowtips,75,1,15,62.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+adamant,scimitar,75,2,1,125,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+adamant,full_helm,77,2,1,125,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+adamant,platelegs,86,3,1,187.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+adamant,platebody,88,5,1,312.5,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+rune,dagger,85,1,1,75,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+rune,mace,87,1,1,75,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+rune,medium_helm,88,1,1,75,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+rune,crossbow_bolts_unfinished,88,1,10,75,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+rune,sword,89,1,1,75,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+rune,dart_tips,89,1,10,75,The Tourist Trap,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+rune,nails,89,1,15,75,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+rune,arrowtips,90,1,15,75,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+rune,scimitar,90,2,1,150,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+rune,full_helm,92,2,1,150,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+rune,platelegs,99,3,1,225,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache
+rune,platebody,99,5,1,375,,,,https://wiki.darkan.org/index.php?title=Calculator:Standard_smithing&oldid=37329,historical_2012_pending_cache

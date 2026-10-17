@@ -1,0 +1,10 @@
+gem,required_level,cutting_xp,special_rule,uncut_item_id,cut_item_id,source_url,evidence
+opal,1,15,crush_chance_unknown,,,https://wiki.darkan.org/Crafting,historical_2012_pending_cache
+jade,13,20,crush_chance_unknown,,,https://wiki.darkan.org/Crafting,historical_2012_pending_cache
+red_topaz,16,25,crush_chance_unknown,,,https://wiki.darkan.org/Crafting,historical_2012_pending_cache
+sapphire,20,50,,,,https://wiki.darkan.org/Crafting,historical_2012_pending_cache
+emerald,27,67.5,,,,https://wiki.darkan.org/Crafting,historical_2012_pending_cache
+ruby,34,85,,,,https://wiki.darkan.org/Crafting,historical_2012_pending_cache
+diamond,43,107.5,,,,https://wiki.darkan.org/Crafting,historical_2012_pending_cache
+dragonstone,55,137.5,,,,https://wiki.darkan.org/Crafting,historical_2012_pending_cache
+onyx,67,167.5,,,,https://wiki.darkan.org/Crafting,historical_2012_pending_cache

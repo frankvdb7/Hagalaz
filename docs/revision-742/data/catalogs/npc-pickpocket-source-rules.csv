@@ -1,0 +1,105 @@
+npc_id,group,required_thieving_level,experience,fail_damage,double_loot_thieving_level,double_loot_agility_level,evidence,cache_present,source_path
+1,man,1,8,10,11,1,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2,man,1,8,10,11,1,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+3,man,1,8,10,11,1,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+4,man,1,8,10,11,1,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5,man,1,8,10,11,1,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+6,man,1,8,10,11,1,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+7,farmer,10,14.5,10,20,10,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+9,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+15,al-kharid warrior / woman,25,26,20,35,25,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+16,man,1,8,10,11,1,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+18,al-kharid warrior / woman,25,26,20,35,25,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+20,paladin,70,151.8,30,80,70,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+21,hero,80,273.3,40,90,80,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+23,ardougne knight,55,84.3,30,65,55,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+24,man,1,8,10,11,1,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+26,ardougne knight,55,84.3,30,65,55,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+32,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+66,gnome,75,198.3,10,85,75,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+67,gnome,75,198.3,10,85,75,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+68,gnome,75,198.3,10,85,75,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+168,gnome,75,198.3,10,85,75,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+169,gnome,75,198.3,10,85,75,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+170,man,1,8,10,11,1,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+187,rogue,32,36.5,20,42,32,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+206,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+296,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+297,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+298,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+299,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+344,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+346,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+368,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+678,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+812,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+1710,h.a.m. guard,20,22.5,30,30,20,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+1711,h.a.m. guard,20,22.5,30,30,20,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+1712,h.a.m. guard,20,22.5,30,30,20,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+1714,male h.a.m. member,20,22.2,20,30,20,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+1715,female h.a.m. member,15,18.5,10,25,15,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+1716,male h.a.m. member,20,22.2,20,30,20,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+1757,farmer,10,14.5,10,20,10,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+1758,farmer,10,14.5,10,20,10,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+1760,farmer,10,14.5,10,20,10,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+1905,menaphite thug,65,137.5,50,75,65,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2109,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2110,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2111,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2112,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2113,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2114,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2115,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2116,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2117,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2118,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2119,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2120,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2121,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2122,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2123,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2124,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2125,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2126,dwarf trader,90,556.5,10,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2234,master farmer,38,43,30,48,38,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2235,master farmer,38,43,30,48,38,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2249,gnome,75,198.3,10,85,75,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2250,gnome,75,198.3,10,85,75,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2251,gnome,75,198.3,10,85,75,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2256,paladin,70,151.8,30,80,70,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2267,rogue,32,36.5,20,42,32,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2268,rogue,32,36.5,20,42,32,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2269,rogue,32,36.5,20,42,32,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2371,gnome,75,198.3,10,85,75,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2462,fremennik citizen,45,65,20,55,45,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2649,gnome,75,198.3,10,85,75,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+2650,gnome,75,198.3,10,85,75,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+3228,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+3229,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+3230,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+3231,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+3407,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+3408,guard,40,46.8,20,50,40,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5752,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5753,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5754,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5755,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5756,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5757,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5758,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5759,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5760,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5761,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5762,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5763,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5764,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5765,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5766,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5767,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+5768,cave goblin,36,40,10,46,36,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+6002,gnome,75,198.3,10,85,75,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+6004,gnome,75,198.3,10,85,75,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+8122,rogue,32,36.5,20,42,32,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+13195,monkey knife fighter,70,150,60,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+13212,monkey knife fighter,70,150,60,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs
+13213,monkey knife fighter,70,150,60,255,255,repository_pickpocket_definition,unverified,Hagalaz.Game.Scripts/Skills/Thieving/Thieving.cs

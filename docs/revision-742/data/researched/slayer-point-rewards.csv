@@ -1,0 +1,16 @@
+reward,type,points,required_level,source_url,evidence
+"10,000 Slayer XP",buy,400,,https://wiki.darkan.org/Slayer_points,secondary_pending_cache
+Ring of slaying (8 charges),buy,75,,https://wiki.darkan.org/Slayer_points,secondary_pending_cache
+Magic Dart runes (250 casts),buy,35,,https://wiki.darkan.org/Slayer_points,secondary_pending_cache
+Broad bolts (250),buy,35,55,https://wiki.darkan.org/Slayer_points,secondary_pending_cache
+Broad arrows (250),buy,35,55,https://wiki.darkan.org/Slayer_points,secondary_pending_cache
+Fletch broad arrows and bolts,unlock,300,52,https://wiki.darkan.org/Slayer_points,secondary_pending_cache
+Craft slaying rings,unlock,300,75,https://wiki.darkan.org/Slayer_points,secondary_pending_cache
+Craft Slayer helmet,unlock,400,55,https://wiki.darkan.org/Slayer_points,secondary_pending_cache
+Aquanite assignment,unlock,50,78,https://wiki.darkan.org/Slayer_points,secondary_pending_cache
+Finishing blows,unlock,400,,https://wiki.darkan.org/Slayer_points,secondary_pending_cache
+Ice strykewyrm alternative,unlock,2000,93,https://wiki.darkan.org/Slayer_points,secondary_pending_cache
+Skip current task,task,30,,https://wiki.darkan.org/Slayer_points,secondary_pending_cache
+Permanently block task,task,100,,https://wiki.darkan.org/Slayer_points,secondary_pending_cache
+Share food with co-op partner,coop,25,,https://wiki.darkan.org/Slayer_points,secondary_pending_cache
+Share potion effects,coop,75,,https://wiki.darkan.org/Slayer_points,secondary_pending_cache
