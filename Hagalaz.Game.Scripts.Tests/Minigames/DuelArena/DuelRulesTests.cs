@@ -53,6 +53,7 @@ public sealed class DuelRulesTests
         character.DidNotReceive().UnregisterEventHandler<EquipAllowEvent>(Arg.Any<EventHappened>());
 
         character.GetScript<DuelArenaCombatScript>().Returns((DuelArenaCombatScript?)null);
+        combatScript.OnRemove();
         Assert.IsFalse(handler(new EquipAllowEvent(character, CreateItem(EquipmentSlot.Cape))));
         character.Received(1).UnregisterEventHandler<EquipAllowEvent>(registeredHandler);
     }
@@ -103,6 +104,7 @@ public sealed class DuelRulesTests
             character.DidNotReceive().UnregisterEventHandler<AttackAllowEvent>(Arg.Any<EventHappened>());
 
             character.GetScript<DuelArenaCombatScript>().Returns((DuelArenaCombatScript?)null);
+            combatScript.OnRemove();
             Assert.IsFalse(attackHandler(new AttackAllowEvent(character, allowedStyle)));
             character.Received(1).UnregisterEventHandler<AttackAllowEvent>(registeredHandler);
         }
@@ -139,8 +141,66 @@ public sealed class DuelRulesTests
         character.Received(1).SendChatMessage("You cannot unequip items during a duel.");
 
         character.GetScript<DuelArenaCombatScript>().Returns((DuelArenaCombatScript?)null);
+        combatScript.OnRemove();
         Assert.IsFalse(unEquipHandler(new UnEquipAllowEvent(character, Substitute.For<IItem>())));
         character.Received(1).UnregisterEventHandler<UnEquipAllowEvent>(registeredHandler);
+    }
+
+    [TestMethod]
+    public void ApplyRulesThenRemove_RepeatedDuelsUnregisterRuleHandlers()
+    {
+        var character = Substitute.For<ICharacter>();
+        var context = Substitute.For<ICharacterContext>();
+        context.Character.Returns(character);
+        var contextAccessor = Substitute.For<ICharacterContextAccessor>();
+        contextAccessor.Context.Returns(context);
+        var registeredEquipHandlers = new List<EventHappened>();
+        var unregisteredEquipHandlers = new List<EventHappened>();
+        var registeredUnequipHandlers = new List<EventHappened>();
+        var unregisteredUnequipHandlers = new List<EventHappened>();
+
+        character.RegisterEventHandler<EquipAllowEvent>(Arg.Any<EventHappened<EquipAllowEvent>>())
+            .Returns(_ =>
+            {
+                EventHappened handler = _ => false;
+                registeredEquipHandlers.Add(handler);
+                return handler;
+            });
+        character.UnregisterEventHandler<EquipAllowEvent>(Arg.Do<EventHappened>(unregisteredEquipHandlers.Add))
+            .Returns(true);
+        character.RegisterEventHandler<UnEquipAllowEvent>(Arg.Any<EventHappened<UnEquipAllowEvent>>())
+            .Returns(_ =>
+            {
+                EventHappened handler = _ => false;
+                registeredUnequipHandlers.Add(handler);
+                return handler;
+            });
+        character.UnregisterEventHandler<UnEquipAllowEvent>(Arg.Do<EventHappened>(unregisteredUnequipHandlers.Add))
+            .Returns(true);
+
+        for (var duel = 0; duel < 2; duel++)
+        {
+            var rules = new DuelRules(_ => { });
+            rules.ToggleRule(DuelRules.Rule.NoHelm);
+            rules.ToggleRule(DuelRules.Rule.EnableSummoning);
+            var combatScript = new DuelArenaCombatScript(
+                contextAccessor,
+                Substitute.For<ICharacter>(),
+                rules,
+                null,
+                null,
+                Substitute.For<IHintIconBuilder>(),
+                Substitute.For<ILogger<DuelArenaCombatScript>>());
+
+            rules.ApplyRules(character, combatScript);
+            combatScript.OnRemove();
+
+            Assert.AreEqual(duel + 1, unregisteredEquipHandlers.Count);
+            Assert.AreEqual(duel + 1, unregisteredUnequipHandlers.Count);
+        }
+
+        CollectionAssert.AreEqual(registeredEquipHandlers, unregisteredEquipHandlers);
+        CollectionAssert.AreEqual(registeredUnequipHandlers, unregisteredUnequipHandlers);
     }
 
     private static IItem CreateItem(EquipmentSlot slot)

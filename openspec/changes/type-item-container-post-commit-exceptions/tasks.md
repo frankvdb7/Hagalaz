@@ -14,7 +14,7 @@
 
 ## 3. Specifications and validation
 
-- [x] 3.1 Update canonical item-container and trading requirements plus the active duel settlement change to describe phase classification and duel handling; verify deltas match canonical behavior.
+- [x] 3.1 Update canonical item-container and trading requirements plus the active duel settlement change to describe phase-based classification, including deferred Equipment hook failures; verify deltas match canonical behavior.
 - [x] 3.2 Run focused Abstractions, GameWorld, and Scripts tests, then solution build and full solution tests; record any environment-blocked checks.
 - [x] 3.3 Run `openspec validate --all --strict`, the repository duplication gate, and `git diff --check`; inspect the final cumulative diff for scope and warning regressions.
 

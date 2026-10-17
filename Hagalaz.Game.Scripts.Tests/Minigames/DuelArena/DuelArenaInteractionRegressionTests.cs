@@ -44,6 +44,41 @@ namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena;
 public sealed class DuelArenaInteractionRegressionTests
 {
     [TestMethod]
+    public void InventoryStake_PostCommitPublicationFailureInvalidatesPriorAcceptance()
+    {
+        var duel = CreateDuel(1, 1);
+        Assert.IsTrue(duel.SelfAccept!(56, ComponentClickType.LeftClick, 0, 0));
+        var publicationFailure = new InvalidOperationException("Inventory publication failed.");
+        duel.SelfInventory.OnUpdateAction = () => throw publicationFailure;
+
+        var exception = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(() =>
+            duel.SelfStake!(0, ComponentClickType.LeftClick, duel.SelfItem.Id, 0));
+
+        Assert.AreSame(publicationFailure, exception.InnerException);
+        Assert.AreEqual(0, duel.SelfInventory.Items.GetCountById(duel.SelfItem.Id));
+        Assert.AreEqual(1, duel.SelfStakeContainer.GetCountById(duel.SelfItem.Id));
+        AssertReacceptanceRequired(duel);
+    }
+
+    [TestMethod]
+    public void InventoryUnstake_PostCommitPublicationFailureInvalidatesPriorAcceptance()
+    {
+        var duel = CreateDuel(1, 1);
+        Assert.IsTrue(duel.SelfStake!(0, ComponentClickType.LeftClick, duel.SelfItem.Id, 0));
+        Assert.IsTrue(duel.SelfAccept!(56, ComponentClickType.LeftClick, 0, 0));
+        var publicationFailure = new InvalidOperationException("Inventory publication failed.");
+        duel.SelfInventory.OnUpdateAction = () => throw publicationFailure;
+
+        var exception = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(() =>
+            duel.SelfUnstake!(7, ComponentClickType.LeftClick, duel.SelfItem.Id, 0));
+
+        Assert.AreSame(publicationFailure, exception.InnerException);
+        Assert.AreEqual(1, duel.SelfInventory.Items.GetCountById(duel.SelfItem.Id));
+        Assert.AreEqual(0, duel.SelfStakeContainer.TakenSlots);
+        AssertReacceptanceRequired(duel);
+    }
+
+    [TestMethod]
     public void StartConfirmationStage_RejectsStakesThatOnlyFitBeforeRestrictedEquipmentIsReturned()
     {
         var duel = CreateDuel(1, 1, additionalSelfItems: 14);
@@ -507,7 +542,7 @@ public sealed class DuelArenaInteractionRegressionTests
         Assert.IsNotNull(postCommitException);
         Assert.AreSame(publicationFailure, postCommitException.InnerException);
         Assert.IsTrue(respawned.Contains(duel.Target));
-        Assert.IsGreaterThan(1, selfRespawnLocations.Count);
+        Assert.AreEqual(2, selfRespawnLocations.Count);
         Assert.AreNotSame(deathLocation, selfRespawnLocations[1]);
         Assert.IsNotEmpty(targetRespawnLocations);
         Assert.AreNotSame(deathLocation, targetRespawnLocations[0]);
@@ -610,6 +645,42 @@ public sealed class DuelArenaInteractionRegressionTests
         Assert.AreEqual(6, duel.TargetInventory.Items.GetCountById(duel.TargetItem.Id));
         Assert.AreEqual(0, duel.SelfStakeContainer.GetCountById(duel.SelfItem.Id));
         Assert.AreEqual(0, duel.TargetStakeContainer.GetCountById(duel.TargetItem.Id));
+    }
+
+    [TestMethod]
+    public void OnDetach_PostCommitRefundPublicationFailureStillCompletesSession()
+    {
+        var duel = CreateDuel(6, 7);
+        Assert.IsTrue(duel.SelfStake!(0, ComponentClickType.Option4Click, duel.SelfItem.Id, 0));
+        Assert.IsTrue(duel.TargetStake!(0, ComponentClickType.Option4Click, duel.TargetItem.Id, 0));
+        var publicationFailure = new InvalidOperationException("Inventory publication failed.");
+        var publicationAttempts = 0;
+        duel.SelfInventory.OnUpdateAction = () =>
+        {
+            publicationAttempts++;
+            throw publicationFailure;
+        };
+
+        duel.SessionScript.OnDetach();
+
+        Assert.IsFalse(duel.SessionScript.IsBusy());
+        Assert.AreEqual(7, duel.SelfInventory.Items.GetCountById(duel.SelfItem.Id));
+        Assert.AreEqual(6, duel.TargetInventory.Items.GetCountById(duel.TargetItem.Id));
+        Assert.AreEqual(0, duel.SelfStakeContainer.TakenSlots);
+        Assert.AreEqual(0, duel.TargetStakeContainer.TakenSlots);
+        Assert.AreEqual(1, publicationAttempts);
+        var duelLogger = (RecordingLogger<DuelArenaScript>)duel.Self.ServiceProvider
+            .GetService(typeof(ILogger<DuelArenaScript>))!;
+        Assert.AreEqual(LogLevel.Error, duelLogger.LastLogLevel);
+        var postCommitException = duelLogger.LastException as ItemContainerPostCommitPublicationException;
+        Assert.IsNotNull(postCommitException);
+        Assert.AreSame(publicationFailure, postCommitException.InnerException);
+
+        duel.SessionScript.OnDetach();
+
+        Assert.AreEqual(7, duel.SelfInventory.Items.GetCountById(duel.SelfItem.Id));
+        Assert.AreEqual(6, duel.TargetInventory.Items.GetCountById(duel.TargetItem.Id));
+        Assert.AreEqual(1, publicationAttempts);
     }
 
     [TestMethod]
@@ -1065,6 +1136,15 @@ public sealed class DuelArenaInteractionRegressionTests
         Assert.IsTrue(duel.TargetAccept!(56, ComponentClickType.LeftClick, 0, 0));
     }
 
+    private static void AssertReacceptanceRequired(DuelHarness duel)
+    {
+        Assert.IsTrue(duel.TargetAccept!(56, ComponentClickType.LeftClick, 0, 0));
+        duel.Self.Widgets.DidNotReceive().OpenWidget(1366, 0, Arg.Any<IWidgetScript>(), false);
+
+        Assert.IsTrue(duel.SelfAccept!(56, ComponentClickType.LeftClick, 0, 0));
+        duel.Self.Widgets.Received(1).OpenWidget(1366, 0, Arg.Any<IWidgetScript>(), false);
+    }
+
     private static void InvokeSummoningTakeBoBOptions(ICharacter owner, ICharacterContextAccessor accessor)
     {
         owner.GameClient.Returns(Substitute.For<IGameClient>());
@@ -1147,6 +1227,7 @@ public sealed class DuelArenaInteractionRegressionTests
     {
         var provider = Substitute.For<IServiceProvider>();
         provider.GetService(typeof(ILogger<DuelArenaCombatScript>)).Returns(new RecordingLogger<DuelArenaCombatScript>());
+        provider.GetService(typeof(ILogger<DuelArenaScript>)).Returns(new RecordingLogger<DuelArenaScript>());
         provider.GetService(typeof(DuelChoiceScreenScript)).Returns(choice);
         provider.GetService(typeof(DuelScreenScript)).Returns(duelScreen);
         provider.GetService(typeof(ICharacterContextAccessor)).Returns(accessor);

@@ -94,10 +94,13 @@ public sealed class ItemContainerTransaction : IDisposable
     /// <summary>Makes live storage irreversible, releases physical locks, then completes registered domain owners.</summary>
     /// <remarks>
     /// Mutations already affect live storage under locks; Commit discards rollback ability rather than applying staged
-    /// data. If a transaction-owned completion callback throws, <see cref="ItemContainerPostCommitCompletionException"/>
-    /// is thrown; if a publication callback throws, <see cref="ItemContainerPostCommitPublicationException"/> is
-    /// thrown. In either case, its inner exception is the exact callback exception, storage remains committed, and
-    /// Dispose releases ownership without rolling it back. A second Commit is invalid.
+    /// data. An exception escaping a transaction-owned completion-effects callback is reported as
+    /// <see cref="ItemContainerPostCommitCompletionException"/>; an exception escaping a publication-phase callback is
+    /// reported as <see cref="ItemContainerPostCommitPublicationException"/>. These types identify the phase in which
+    /// an owner reports a failure, not necessarily the underlying cause. For example, Equipment reports retained
+    /// lifecycle-hook failures after attempting its state publication, so they surface as publication-phase failures.
+    /// The inner exception is the exact exception reported by the owner, storage remains committed, and Dispose releases
+    /// ownership without rolling it back. A second Commit is invalid.
     /// </remarks>
     public void Commit()
     {

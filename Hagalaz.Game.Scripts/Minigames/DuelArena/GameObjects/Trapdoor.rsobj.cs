@@ -38,11 +38,15 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena.GameObjects
                 clicker.QueueAnimation(Animation.Create(827));
                 clicker.QueueTask(new RsTask(() =>
                     {
-                        if (script is { DuelSession: true, Target: { } target } &&
-                            !script.StartVictoryStage(target, script.Character))
+                        if (script is { DuelSession: true, Target: { } target })
                         {
-                            clicker.Movement.Unlock(false);
-                            return;
+                            if (!script.StartVictoryStage(target, script.Character))
+                            {
+                                clicker.Movement.Unlock(false);
+                                return;
+                            }
+
+                            clicker.Respawn();
                         }
 
                         clicker.Movement.Teleport(Teleport.Create(DuelData.GetDuelLobbyLocation(regionService)));

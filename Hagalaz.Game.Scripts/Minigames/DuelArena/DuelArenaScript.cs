@@ -540,13 +540,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        if (!_stakeExchange.TryStakePouchCoins(Character, SelfContainer.Items, amt))
-                        {
-                            return;
-                        }
-
-                        RefreshDuelStakeScreen();
-                        ProcessDuelStakeChange(true, false);
+                        TryCompleteStakeMutation(true, false,
+                            () => _stakeExchange.TryStakePouchCoins(Character, SelfContainer.Items, amt));
                     });
                     return true;
                 });
@@ -567,13 +562,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        if (!_stakeExchange.TryStakePouchCoins(Target, TargetContainer.Items, amt))
-                        {
-                            return;
-                        }
-
-                        RefreshDuelStakeScreen();
-                        ProcessDuelStakeChange(false, false);
+                        TryCompleteStakeMutation(false, false,
+                            () => _stakeExchange.TryStakePouchCoins(Target, TargetContainer.Items, amt));
                     });
                     return true;
                 });
@@ -693,6 +683,24 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 }
             }
 
+        }
+
+        private bool TryCompleteStakeMutation(bool self, bool valueDecreased, Func<bool> mutation)
+        {
+            try
+            {
+                if (!mutation()) return false;
+            }
+            catch (Exception exception) when (exception is
+                ItemContainerPostCommitCompletionException or ItemContainerPostCommitPublicationException)
+            {
+                ProcessDuelStakeChange(self, valueDecreased);
+                throw;
+            }
+
+            RefreshDuelStakeScreen();
+            ProcessDuelStakeChange(self, valueDecreased);
+            return true;
         }
 
         /// <summary>
@@ -865,9 +873,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return;
                     }
 
-                    if (!_stakeExchange.TryStakeInventoryItem(character, container.Items, item, requested.Count, itemSlot)) return;
-                    RefreshDuelStakeScreen();
-                    ProcessDuelStakeChange(self, false);
+                    TryCompleteStakeMutation(self, false,
+                        () => _stakeExchange.TryStakeInventoryItem(character, container.Items, item, requested.Count, itemSlot));
                 });
                 return true;
             }
@@ -896,10 +903,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return false;
             }
 
-            if (!_stakeExchange.TryStakeInventoryItem(character, container.Items, item, toRemove.Count, itemSlot)) return false;
-            RefreshDuelStakeScreen();
-            ProcessDuelStakeChange(self, false);
-            return true;
+            return TryCompleteStakeMutation(self, false,
+                () => _stakeExchange.TryStakeInventoryItem(character, container.Items, item, toRemove.Count, itemSlot));
         }
 
         private bool HandleStakedItemClick(bool self, ComponentClickType clickType, int itemID, int itemSlot)
@@ -919,13 +924,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 {
                     var requested = item.Clone();
                     requested.Count = Math.Min(amount, max);
-                    var returned = requested.Id == 995
+                    TryCompleteStakeMutation(self, true, () => requested.Id == 995
                         ? _stakeExchange.TryReturnCoinsToPouch(character, container.Items, requested, itemSlot)
-                        : _stakeExchange.TryReturnItemToInventory(character, container.Items, requested, requested.Count, itemSlot);
-                    if (!returned) return;
-
-                    RefreshDuelStakeScreen();
-                    ProcessDuelStakeChange(self, true);
+                        : _stakeExchange.TryReturnItemToInventory(character, container.Items, requested, requested.Count, itemSlot));
                 });
                 return true;
             }
@@ -947,14 +948,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             var toRemove = item.Clone();
             toRemove.Count = Math.Min(count, max);
-            var success = toRemove.Id == 995
+            return TryCompleteStakeMutation(self, true, () => toRemove.Id == 995
                 ? _stakeExchange.TryReturnCoinsToPouch(character, container.Items, toRemove, itemSlot)
-                : _stakeExchange.TryReturnItemToInventory(character, container.Items, toRemove, toRemove.Count, itemSlot);
-            if (!success) return false;
-
-            RefreshDuelStakeScreen();
-            ProcessDuelStakeChange(self, true);
-            return true;
+                : _stakeExchange.TryReturnItemToInventory(character, container.Items, toRemove, toRemove.Count, itemSlot));
         }
 
         private void RequestDuelAmountInput(bool self, string message, Action<int> onAmount)
@@ -1107,10 +1103,21 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return;
             }
 
-            if (SelfContainer != null && Target != null && TargetContainer != null &&
-                !_stakeExchange.TryRefundBoth(Character, SelfContainer.Items, Target, TargetContainer.Items))
+            Exception? postCommitFailure = null;
+            if (SelfContainer != null && Target != null && TargetContainer != null)
             {
-                return;
+                try
+                {
+                    if (!_stakeExchange.TryRefundBoth(Character, SelfContainer.Items, Target, TargetContainer.Items))
+                    {
+                        return;
+                    }
+                }
+                catch (Exception exception) when (exception is
+                    ItemContainerPostCommitCompletionException or ItemContainerPostCommitPublicationException)
+                {
+                    postCommitFailure = exception;
+                }
             }
 
             DuelSession = false;
@@ -1121,6 +1128,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Target = null;
             SelfContainer = null;
             TargetContainer = null;
+
+            if (postCommitFailure != null)
+            {
+                Character.ServiceProvider.GetRequiredService<ILogger<DuelArenaScript>>()
+                    .LogError(postCommitFailure, "Duel stake refund committed, but post-commit processing failed.");
+            }
         }
 
         /// <summary>

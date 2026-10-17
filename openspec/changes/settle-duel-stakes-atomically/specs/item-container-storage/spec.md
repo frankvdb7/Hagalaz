@@ -2,6 +2,14 @@
 
 ## ADDED Requirements
 
+### Requirement: Committed duel stake changes invalidate acceptance
+Duel stake and return mutations MUST invalidate both first-stage acceptances when storage commits but a transaction-owned completion or publication callback throws. The typed post-commit exception MUST propagate after invalidation.
+
+#### Scenario: Post-commit stake mutation failure invalidates acceptance
+- **GIVEN** either participant has accepted the first duel stage
+- **WHEN** an item or coin stake/return mutation commits and a transaction-owned completion or publication callback throws
+- **THEN** the committed storage change remains, both first-stage acceptances are cleared, and the typed post-commit exception propagates
+
 ### Requirement: Duel victory stakes are credited atomically
 Duel victory settlement MUST transfer all stake items to the winner as one atomic operation, consuming the source stakes exactly once. If any destination cannot accept the complete payout, all stakes and winner storage MUST remain unchanged.
 
@@ -51,3 +59,15 @@ Duel victory settlement MUST transfer all stake items to the winner as one atomi
 - **THEN** both stake containers remain empty and the winner retains the complete payout exactly once
 - **AND** `ItemContainerPostCommitPublicationException` preserves the exact publisher exception as its inner exception
 - **AND** the failure is logged and the victory and death completion flows finish
+
+### Requirement: Duel cancellation cleanup follows a committed refund
+If a cancellation refund is rejected before commit, the duel MUST remain active with all stakes unchanged. If refund storage commits and a transaction-owned completion or publication callback then throws, the duel owner MUST report the failure and complete session cleanup without retrying the refund.
+
+#### Scenario: Post-commit publication failure completes pre-combat cancellation
+- **WHEN** a transaction-owned inventory publisher throws after a pre-combat cancellation refund commits during `OnDetach`
+- **THEN** both stake containers remain empty and both players retain their original stakes exactly once
+- **AND** the failure is logged, the duel session is cleared, and `OnDetach` returns
+
+#### Scenario: Rejected cancellation refund keeps the session active
+- **WHEN** a destination rejects a stake refund before transaction commit
+- **THEN** both stake containers and all destination storage remain unchanged and the duel session remains active

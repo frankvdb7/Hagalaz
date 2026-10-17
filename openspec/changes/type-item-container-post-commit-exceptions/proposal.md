@@ -28,7 +28,7 @@ The public API change is in `Hagalaz.Game.Abstractions`. Production behavior cha
 
 ## Acceptance Criteria
 
-- A typed exception from `Commit()` always means storage is irreversible; its phase is accurate and its inner exception is the original instance.
+- A typed exception from `Commit()` always means storage is irreversible; its type identifies the phase in which the owner reports the failure, and its inner exception is the exact exception reported by the owner. Owners may defer reporting a completion failure until after required publication.
 - Pre-commit failures remain unwrapped and disposal rolls back; callback failures remain fail-fast and disposal does not replay callbacks or roll back.
 - Trade stays terminal after committed callback failures. Duel logs a typed post-commit failure and finishes victory cleanup; a rejected pre-commit payout remains retryable.
 - Focused tests, solution build, strict OpenSpec validation, duplication checks, and diff validation pass, with unavailable checks reported accurately.

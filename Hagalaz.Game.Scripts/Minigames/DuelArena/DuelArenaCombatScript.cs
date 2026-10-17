@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
@@ -7,6 +8,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Model.Events.Creatures;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common;
@@ -25,6 +27,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     {
         private readonly IHintIconBuilder _hintIconBuilder;
         private readonly ILogger<DuelArenaCombatScript> _logger;
+        private readonly List<Action> _ruleHandlerUnregistrations = [];
         private EventHappened? _targetDestroyedHandler;
         private EventHappened? _characterDestroyedHandler;
 
@@ -114,11 +117,22 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Rules.ApplyRules(Character, this);
         }
 
+        internal void RegisterRuleHandler<TEventType>(ICharacter character, EventHappened<TEventType> handler)
+            where TEventType : ICreatureEvent
+        {
+            var registeredHandler = character.RegisterEventHandler(handler);
+            _ruleHandlerUnregistrations.Add(() => character.UnregisterEventHandler<TEventType>(registeredHandler));
+        }
+
         /// <summary>
         ///     Starts the victory stage.
         /// </summary>
         /// <param name="victor">The victor.</param>
         /// <param name="loser">The loser.</param>
+        /// <remarks>
+        /// This method respawns only the victor. Combat death continuations respawn their owner; non-death
+        /// outcomes must handle the loser's lifecycle themselves.
+        /// </remarks>
         /// <returns>True when the victory stage starts; false when the duel is inactive or stake settlement fails.</returns>
         public bool StartVictoryStage(ICharacter victor, ICharacter loser)
             => StartVictoryStage(victor, loser, false);
@@ -158,10 +172,6 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             }
 
             victor.Respawn();
-            if (!loserDestroyed)
-            {
-                loser.Respawn();
-            }
 
             var victorDuelEndScreen = victor.ServiceProvider.GetRequiredService<DuelEndScreenScript>();
             victorDuelEndScreen.Opponent = loser;
@@ -322,9 +332,20 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// </summary>
         public override void OnRemove()
         {
+            UnregisterRuleHandlers();
             UnregisterParticipantDestroyedHandlers();
 
             CancelDuelSession();
+        }
+
+        private void UnregisterRuleHandlers()
+        {
+            foreach (var unregister in _ruleHandlerUnregistrations)
+            {
+                unregister();
+            }
+
+            _ruleHandlerUnregistrations.Clear();
         }
 
         private void UnregisterParticipantDestroyedHandlers()

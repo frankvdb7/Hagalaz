@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Transaction construction and commit preserve storage state
-`ItemContainerTransaction` MUST resolve and validate all participants before locking, deduplicate repeated storage synchronizations without changing participant encounter order, acquire synchronizations in deterministic lock order, capture snapshots, and establish bindings only after construction succeeds. Construction failure MUST release acquired locks without changing storage or publishing. Mutations affect live storage while the scope is active. Dispose without Commit MUST restore snapshots and discard provisional tracker changes. Commit MUST make storage irreversible, promote all participant changes, release physical locks, then invoke each reference-distinct completion owner in resolved-synchronization encounter order: all owners' completion-effects phase runs before any owner's publication phase. Transaction bindings remain until Dispose so owners can complete without an intervening mutation. A completion-effects callback exception MUST make `Commit()` throw `ItemContainerPostCommitCompletionException`; a publication callback exception MUST make it throw `ItemContainerPostCommitPublicationException`. Both types MUST derive directly from `Exception`, retain the exact callback exception as `InnerException`, and make clear that storage is already irreversible. Callbacks MUST remain fail-fast and MUST NOT be retried. Failures before these callback phases, including transaction validation, snapshot, synchronization, tracker, or lock-release failures, MUST remain unwrapped. Snapshots restore slot topology, item references, counts, and storage revision, but do not deep-copy mutable item metadata such as `ExtraData`.
+`ItemContainerTransaction` MUST resolve and validate all participants before locking, deduplicate repeated storage synchronizations without changing participant encounter order, acquire synchronizations in deterministic lock order, capture snapshots, and establish bindings only after construction succeeds. Construction failure MUST release acquired locks without changing storage or publishing. Mutations affect live storage while the scope is active. Dispose without Commit MUST restore snapshots and discard provisional tracker changes. Commit MUST make storage irreversible, promote all participant changes, release physical locks, then invoke each reference-distinct completion owner in resolved-synchronization encounter order: all owners' completion-effects phase runs before any owner's publication phase. Transaction bindings remain until Dispose so owners can complete without an intervening mutation. An exception reported during completion effects MUST make `Commit()` throw `ItemContainerPostCommitCompletionException`; an exception reported during publication MUST make it throw `ItemContainerPostCommitPublicationException`. The exception type identifies the phase in which the owner reports the failure, not necessarily its underlying cause: Equipment attempts its required state publication before reporting retained lifecycle-hook failures, so those failures surface as publication-phase failures. Both types MUST derive directly from `Exception`, retain the exact exception reported by the owner as `InnerException`, and make clear that storage is already irreversible. Callbacks MUST remain fail-fast and MUST NOT be retried. Failures before these callback phases, including transaction validation, snapshot, synchronization, tracker, or lock-release failures, MUST remain unwrapped. Snapshots restore slot topology, item references, counts, and storage revision, but do not deep-copy mutable item metadata such as `ExtraData`.
 
 #### Scenario: Construction fails during snapshot capture
 - **WHEN** snapshot capture throws after locks have been acquired
@@ -30,10 +30,14 @@
 - **THEN** `Commit()` throws `ItemContainerPostCommitCompletionException` with the exact callback exception as `InnerException`
 - **AND** publication does not begin, storage remains changed, and disposal does not roll it back or retry the callback
 
-#### Scenario: Publication callback failure identifies committed storage
-- **WHEN** a publication callback throws after completion succeeds
-- **THEN** `Commit()` throws `ItemContainerPostCommitPublicationException` with the exact callback exception as `InnerException`
+#### Scenario: Publication-phase failure identifies committed storage
+- **WHEN** an exception escapes a publication callback after completion succeeds
+- **THEN** `Commit()` throws `ItemContainerPostCommitPublicationException` with the exact exception reported by the owner as `InnerException`
 - **AND** earlier completion effects remain complete, later publishers are skipped, and disposal does not roll back or retry the committed operation
+
+#### Scenario: Equipment reports retained hook failure from publication phase
+- **WHEN** an Equipment lifecycle hook fails but Equipment state publication succeeds
+- **THEN** Equipment reports the retained hook failure after publication and `Commit()` throws `ItemContainerPostCommitPublicationException` with that hook failure as `InnerException`
 
 #### Scenario: Callback aggregate remains the inner exception
 - **WHEN** a completion or publication callback throws an `AggregateException`

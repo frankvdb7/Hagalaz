@@ -282,12 +282,18 @@ public sealed class DuelStakeExchangeTests
         winner.Character.Widgets.DidNotReceive().OpenWidget(1365, 0, Arg.Any<IWidgetScript>(), false);
 
         Assert.IsTrue(winner.InventoryItems.TryRemoveExact(itemTakingTheLastSlot, 0));
-        Assert.IsTrue(combat.StartVictoryStage(winner.Character, loser));
+        queuedTask = null;
+        new Trapdoor().OnCharacterClickPerform(loser, GameObjectClickType.Option1Click);
+        trapdoorTask = (RsTask)queuedTask!;
+        trapdoorTask.Tick();
+        trapdoorTask.Tick();
 
         Assert.AreEqual(0, loserStake.Items.TakenSlots);
         Assert.AreEqual(0, winnerStake.Items.TakenSlots);
         Assert.AreEqual(1, winner.InventoryItems.GetCountById(1001));
         Assert.AreEqual(4, winner.Pouch.Count);
+        loser.Received(1).Respawn();
+        loser.Movement.Received(1).Teleport(Arg.Any<ITeleport>());
         winner.Character.Widgets.Received(1).OpenWidget(1365, 0, winnerEndScreen, false);
         loser.Widgets.Received(1).OpenWidget(1365, 0, loserEndScreen, false);
     }

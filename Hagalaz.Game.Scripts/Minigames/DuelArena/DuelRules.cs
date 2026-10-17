@@ -316,108 +316,94 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         {
             if (this[Rule.NoMovement])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<WalkAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<WalkAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        character.SendChatMessage("Movement has been disabled.");
-                        return true;
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<WalkAllowEvent>(happ!);
-                    return false;
+                    character.SendChatMessage("Movement has been disabled.");
+                    return true;
                 }));
             }
 
             if (!this[Rule.EnableSummoning])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<SummoningAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<SummoningAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        character.SendChatMessage("Summoning has been disabled.");
-                        return true;
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<SummoningAllowEvent>(happ!);
-                    return false;
+                    character.SendChatMessage("Summoning has been disabled.");
+                    return true;
                 }));
             }
 
             if (this[Rule.NoDrinks])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<DrinkAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<DrinkAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        character.SendChatMessage("Drinking has been disabled.");
-                        return true;
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<DrinkAllowEvent>(happ!);
-                    return false;
+                    character.SendChatMessage("Drinking has been disabled.");
+                    return true;
                 }));
             }
 
             if (this[Rule.NoFood])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<EatAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<EatAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        character.SendChatMessage("Food has been disabled.");
-                        return true;
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<EatAllowEvent>(happ!);
-                    return false;
+                    character.SendChatMessage("Food has been disabled.");
+                    return true;
                 }));
             }
 
             if (this[Rule.NoSpecialAttacks])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<SpecialAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<SpecialAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        character.SendChatMessage("Special attacks have been disabled.");
-                        return true;
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<SpecialAllowEvent>(happ!);
-                    return false;
+                    character.SendChatMessage("Special attacks have been disabled.");
+                    return true;
                 }));
             }
 
             if (this[Rule.NoPrayer])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<PrayerAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<PrayerAllowEvent>(e =>
                 {
-                    if (character.GetScript<DuelArenaCombatScript>() == script)
+                    if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        character.SendChatMessage("Prayer have been disabled.");
-                        return true;
+                        return false;
                     }
 
-                    character.UnregisterEventHandler<PrayerAllowEvent>(happ!);
-                    return false;
+                    character.SendChatMessage("Prayer have been disabled.");
+                    return true;
                 }));
             }
 
             if (this[Rule.NoMelee])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<AttackAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<AttackAllowEvent>(e =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        character.UnregisterEventHandler<AttackAllowEvent>(happ!);
                         return false;
                     }
 
@@ -434,12 +420,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             if (this[Rule.NoRanged])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<AttackAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<AttackAllowEvent>(e =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        character.UnregisterEventHandler<AttackAllowEvent>(happ!);
                         return false;
                     }
 
@@ -456,12 +440,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             if (this[Rule.NoMagic])
             {
-                EventHappened? happ = null;
-                happ = character.RegisterEventHandler(new EventHappened<AttackAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<AttackAllowEvent>(e =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
-                        character.UnregisterEventHandler<AttackAllowEvent>(happ!);
                         return false;
                     }
 
@@ -480,12 +462,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 if (this[(Rule)ruleId])
                 {
                     var slot = ruleId - 10;
-                    EventHappened? happ = null;
-                    happ = character.RegisterEventHandler(new EventHappened<EquipAllowEvent>(e =>
+                    script.RegisterRuleHandler(character, new EventHappened<EquipAllowEvent>(e =>
                     {
                         if (character.GetScript<DuelArenaCombatScript>() != script)
                         {
-                            character.UnregisterEventHandler<EquipAllowEvent>(happ!);
                             return false;
                         }
 
@@ -500,12 +480,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 }
             }
 
-            EventHappened? unequipHandler = null;
-            unequipHandler = character.RegisterEventHandler(new EventHappened<UnEquipAllowEvent>(_ =>
+            script.RegisterRuleHandler(character, new EventHappened<UnEquipAllowEvent>(_ =>
             {
                 if (character.GetScript<DuelArenaCombatScript>() != script)
                 {
-                    character.UnregisterEventHandler<UnEquipAllowEvent>(unequipHandler!);
                     return false;
                 }
 

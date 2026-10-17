@@ -312,16 +312,29 @@ MoneyPouch additions, removals, inventory transfers, bank deposits, shop purchas
 - **WHEN** a shop purchase or sale cannot stage every payment, item, or payout change
 - **THEN** inventory, pouch, and shop storage remain unchanged and no purchase event is emitted
 
-#### Scenario: Duel cancellation refund fails
-- **WHEN** either player's stake cannot be returned
+### Requirement: Duel cancellation preserves refund and session consistency
+Duel cancellation MUST refund both players' stakes atomically. If a destination rejects a refund before commit, both stake containers and both players' destination stores MUST remain unchanged and the duel session MUST remain active. If refund storage commits before a transaction-owned completion or publication callback throws, the session owner MUST report the failure and complete session cleanup without retrying the refund.
+
+#### Scenario: Duel cancellation refund fails before commit
+- **WHEN** either player's destination rejects its stake refund
 - **THEN** both stake containers and both players' destination stores remain unchanged and the duel session remains active
 
+#### Scenario: Post-commit publication failure completes cancellation cleanup
+- **WHEN** an inventory publisher throws after a pre-combat cancellation refund commits during `OnDetach`
+- **THEN** both players retain their original stakes exactly once, both stake containers are empty, and the duel session is cleared
+- **AND** the failure is logged and `OnDetach` returns so logout can continue to snapshot creation
+
 ### Requirement: Duel stake mutations use a composed domain collaborator
-`DuelArenaScript` MUST compose one concrete `DuelStakeExchange` for item and pouch staking, return, and cancellation refund. The collaborator MUST use exact mutation-boundary transfers for simple items and one `ItemContainerTransaction` for pouch or two-player refund operations. It MUST NOT own UI or session state or require an interface or service registration.
+`DuelArenaScript` MUST compose one concrete `DuelStakeExchange` for item and pouch staking, return, and cancellation refund. Each exact stake or return operation MUST run within one `ItemContainerTransaction` so the caller can distinguish a committed mutation's post-commit failure from a rejection before commit. The collaborator MUST NOT own UI or session state or require an interface or service registration.
 
 #### Scenario: Duel stake transfer fails
 - **WHEN** the stake or destination cannot accept the exact transfer
 - **THEN** source and destination remain unchanged and the script does not publish a stake change
+
+#### Scenario: Post-commit stake mutation failure invalidates acceptance
+- **GIVEN** either participant has accepted the first duel stage
+- **WHEN** an item or coin stake/return mutation commits and a transaction-owned completion or publication callback throws
+- **THEN** the committed storage change remains, both first-stage acceptances are cleared, and the typed post-commit exception propagates
 
 ### Requirement: Duel victory stakes are credited atomically
 Duel victory settlement MUST atomically transfer and consume all stakes exactly once; if any destination rejects the payout, all stakes and winner storage MUST remain unchanged. Before confirmation, each participant MUST have inventory capacity for non-coin stakes, returned equipment, and only coins exceeding their remaining MoneyPouch capacity. While a duel session is active, the participant MUST be reported busy so ordinary Equipment access and familiar withdrawals cannot consume inventory capacity reserved for a refund or confirmed payout.
@@ -524,7 +537,7 @@ Ordinary domain containers MUST expose item reads through `IReadOnlyItemContaine
 - **THEN** the operation returns false without changing either storage or tracker
 
 ### Requirement: Transaction construction and commit preserve storage state
-`ItemContainerTransaction` MUST resolve and validate all participants before locking, deduplicate repeated storage synchronizations without changing participant encounter order, acquire synchronizations in deterministic lock order, capture snapshots, and establish bindings only after construction succeeds. Construction failure MUST release acquired locks without changing storage or publishing. Mutations affect live storage while the scope is active. Dispose without Commit MUST restore snapshots and discard provisional tracker changes. Commit MUST make storage irreversible, promote all participant changes, release physical locks, then invoke each completion owner in resolved-synchronization encounter order: all owners' completion-effects phase runs before any owner's publication phase. Transaction bindings remain until Dispose so owners can complete without an intervening mutation. A transaction completion-effects callback exception MUST make `Commit()` throw `ItemContainerPostCommitCompletionException`; a transaction publication callback exception MUST make it throw `ItemContainerPostCommitPublicationException`. These are the two public post-commit exception types: both MUST be sealed, derive directly from `Exception`, and retain the exact callback exception as `InnerException`. These failures MUST NOT roll back committed storage or replay consumed changes. Failures before owner callbacks MUST remain unwrapped. Snapshots restore slot topology, item references, counts, and storage revision, but do not deep-copy mutable item metadata such as `ExtraData`.
+`ItemContainerTransaction` MUST resolve and validate all participants before locking, deduplicate repeated storage synchronizations without changing participant encounter order, acquire synchronizations in deterministic lock order, capture snapshots, and establish bindings only after construction succeeds. Construction failure MUST release acquired locks without changing storage or publishing. Mutations affect live storage while the scope is active. Dispose without Commit MUST restore snapshots and discard provisional tracker changes. Commit MUST make storage irreversible, promote all participant changes, release physical locks, then invoke each completion owner in resolved-synchronization encounter order: all owners' completion-effects phase runs before any owner's publication phase. Transaction bindings remain until Dispose so owners can complete without an intervening mutation. An exception reported during completion effects MUST make `Commit()` throw `ItemContainerPostCommitCompletionException`; an exception reported during publication MUST make it throw `ItemContainerPostCommitPublicationException`. The exception type identifies the phase in which the owner reports the failure, not necessarily its underlying cause: Equipment attempts its required state publication before reporting retained lifecycle-hook failures, so those failures surface as publication-phase failures even if Equipment publication succeeds. These are the two public post-commit exception types: both MUST be sealed, derive directly from `Exception`, and retain the exact exception reported by the owner as `InnerException`. These failures MUST NOT roll back committed storage or replay consumed changes. Failures before owner callbacks MUST remain unwrapped. Snapshots restore slot topology, item references, counts, and storage revision, but do not deep-copy mutable item metadata such as `ExtraData`.
 
 #### Scenario: Construction fails during snapshot capture
 - **WHEN** snapshot capture throws after locks have been acquired
@@ -551,9 +564,9 @@ Ordinary domain containers MUST expose item reads through `IReadOnlyItemContaine
 - **THEN** `Commit()` throws `ItemContainerPostCommitCompletionException` with the exact callback exception as `InnerException`
 - **AND** publication does not begin, committed storage remains changed, and disposal does not roll it back or retry the callback
 
-#### Scenario: Publication callback failure identifies committed storage
-- **WHEN** a publication callback throws after completion-effects callbacks succeed
-- **THEN** `Commit()` throws `ItemContainerPostCommitPublicationException` with the exact callback exception as `InnerException`
+#### Scenario: Publication-phase failure identifies committed storage
+- **WHEN** an exception escapes a publication callback after completion-effects callbacks succeed
+- **THEN** `Commit()` throws `ItemContainerPostCommitPublicationException` with the exact exception reported by the owner as `InnerException`
 - **AND** committed storage remains changed, later publishers are skipped, and disposal does not roll it back or retry the callback
 
 #### Scenario: Callback aggregate remains the inner exception
@@ -626,6 +639,7 @@ Equipment MUST run its lifecycle effects before consuming and publishing committ
 #### Scenario: Equipment hook failure does not roll back storage
 - **WHEN** an Equipment lifecycle hook throws after Commit
 - **THEN** all required hooks are attempted, Equipment state publication is attempted, storage remains committed, and the hook failures propagate after publication
+- **AND** when the Equipment owner reports the hook failure from its publication phase, `Commit()` throws `ItemContainerPostCommitPublicationException` even if Equipment state publication succeeded
 
 #### Scenario: Equipment hook and publication failures are both preserved
 - **WHEN** one or more Equipment lifecycle hooks fail and Equipment state publication also fails after commit
