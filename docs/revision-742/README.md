@@ -165,3 +165,12 @@ An [11-source boss script audit](data/catalogs/npc-boss-script-audit.csv) distin
 ## P1 #10 — Client-to-server interface, CS2, varbit and protocol bridge
 
 [Deep integration mapping](reference/deep-client-integration.md) and [30 verification cases](reference/client-integration-verification-matrix.md) connect existing authoritative companion-client evidence to Hagalaz's source ownership. [272 source-documented packet ledger entries](data/catalogs/protocol-client-ledger-742.csv) and [142 decoder/encoder/widget source files](data/catalogs/protocol-server-source-inventory.csv) are catalogued; these are **not yet** independently joined to active registrations, binary cache definitions or passing packet roundtrips.
+
+## Additional source-backed skills audits (PR #522)
+
+- [Gathering skills and persistence audit](gathering-skills-and-progression-audit.md), [runtime formulas and skill ID ledger](skill-mechanics-source-ledger.md), and [verification/test matrix](skills-reconciliation-test-matrix.md).
+- [Smithing source catalog and integrity](smithing-source-catalog-and-integrity.md): **18** source ingredient edges across **13** bars and **106** nonempty forged products, indexed under [numeric catalogs](data/catalogs/README.md). Related code issues [#524](https://github.com/frankvdb7/Hagalaz/issues/524) and [#525](https://github.com/frankvdb7/Hagalaz/issues/525).
+- [Fletching and Runecrafting crosswalk](fletching-and-runecrafting-source-crosswalk.md): **90** Fletching output variants from **78** source definitions and one eligible-essence selection defect [#527](https://github.com/frankvdb7/Hagalaz/issues/527).
+- [Production skill source audit](production-skill-source-audit.md) and [remaining skill ownership ledger](remaining-skills-coverage.md). Farming watering/disease behavior has a focused issue [#526](https://github.com/frankvdb7/Hagalaz/issues/526).
+
+All additions distinguish **repository-source** facts from historical candidates and unverified 742 cache identities. The available repository connection does not expose the approved cache archive or populated database; no runtime gameplay tests were executed in this documentation branch.
