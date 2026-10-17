@@ -79,13 +79,13 @@ The displayed varbit base formula varies by patch type: Allotment `6 + index * 7
 
 | Severity | Location | Evidence and required test |
 | --- | --- | --- |
-| High | `MiningRocks.rsobj.cs` harvest callback | `TryAddLoot(..., out _)` discards award outcome, then displays success and calls `AddExperience` unconditionally. Simulate a failed insertion, assert no XP or success message; also check whether `TryAddLoot` can partially succeed. |
-| High | `FarmingPatchTickTask.cs` `Grow` | `RemoveCondition(Watered)` occurs before the disease-chance check `HasCondition(Watered)`, making that bonus unreachable in the shown growth path. Add fixed-RNG regression around watering before changing logic. |
+| Investigation | `MiningRocks.rsobj.cs` harvest callback | `TryAddLoot(..., out _)` deliberately falls back to **owned ground drops** when inventory insertion fails. Inventory rejection does **not** prove lost reward. Separately test whether an empty generated loot result grants XP and whether an item reaches inventory or ground. Do not file a defect until this distinction is reproduced. |
+| Medium, #526 | `FarmingPatchTickTask.cs` `Grow` | `RemoveCondition(Watered)` occurs before the disease-chance check `HasCondition(Watered)`, making the protection branch unreachable; see [issue #526](https://github.com/frankvdb7/Hagalaz/issues/526). |
 | Medium | `FishingSkillService.cs` catch callback | Bait removal happens **after** catch delivery and XP; a final bait may award a catch first, and the removal condition branches on remaining bait. Verify whether one bait is consumed per attempt, per successful catch or per caught item; no behavior change without evidence. |
 | Medium | `MiningRocks.rsobj.cs`, `FishingSkillService.cs` | Population-adjusted respawn calculation has no visible lower bound; test extreme counts and zero/negative scheduled ticks. |
 | Medium | `FarmingPatchTickTask.cs` stage serialization | Rehydrate stage, condition, product count and elapsed time using original persisted snapshot; compare before/after client varbit values and timer progression, especially around maturity. |
 
-These findings are **candidates requiring reproduction**, not confirmed issue tickets. Keep fixes out of this documentation PR.
+The watering branch was verified against direct code and historical reference and has a dedicated issue. All other rows remain investigation candidates requiring targeted reproduction; keep fixes out of this documentation PR.
 
 ## Historical numeric data: use the newly merged canonical datasets
 
