@@ -125,9 +125,7 @@ public sealed class MoneyPouchContainerTests
             throw publicationException;
         };
 
-        var thrown = Assert.ThrowsExactly<ItemContainerPostCommitException>(() => scenario.MoneyPouch.TryRemoveExact(12));
-
-        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, thrown.Phase);
+        var thrown = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(() => scenario.MoneyPouch.TryRemoveExact(12));
         Assert.AreSame(publicationException, thrown.InnerException);
         Assert.AreEqual(0, scenario.MoneyPouch.Count);
         Assert.AreEqual(3, scenario.Inventory.Items.GetCountById(CoinId));
@@ -652,8 +650,7 @@ public sealed class MoneyPouchContainerTests
         using var transaction = ItemContainerTransaction.Begin(scenario.MoneyPouch);
         Assert.IsTrue(scenario.MoneyPouch.Add(1));
         Assert.IsTrue(scenario.MoneyPouch.Add(3));
-        var exception = Assert.ThrowsExactly<ItemContainerPostCommitException>(transaction.Commit);
-        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, exception.Phase);
+        var exception = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(transaction.Commit);
         Assert.AreSame(failure, exception.InnerException);
         transaction.Dispose();
         Assert.AreEqual(14, scenario.MoneyPouch.Count);

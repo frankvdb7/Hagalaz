@@ -49,5 +49,5 @@ Duel victory settlement MUST transfer all stake items to the winner as one atomi
 #### Scenario: Post-commit publication failure completes duel victory
 - **WHEN** a transaction-owned container publisher throws after duel stake settlement has committed during combat death
 - **THEN** both stake containers remain empty and the winner retains the complete payout exactly once
-- **AND** `ItemContainerPostCommitException` reports phase `Publication` and preserves the exact publisher exception as its inner exception
+- **AND** `ItemContainerPostCommitPublicationException` preserves the exact publisher exception as its inner exception
 - **AND** the failure is logged and the victory and death completion flows finish

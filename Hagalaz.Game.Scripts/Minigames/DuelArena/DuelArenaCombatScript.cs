@@ -146,7 +146,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return false;
                     }
                 }
-                catch (ItemContainerPostCommitException exception)
+                catch (Exception exception) when (exception is
+                    ItemContainerPostCommitCompletionException or ItemContainerPostCommitPublicationException)
                 {
                     // The typed exception guarantees settlement committed; log the callback failure and finish victory.
                     _logger.LogError(exception,

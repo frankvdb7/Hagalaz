@@ -256,9 +256,8 @@ public sealed class CharacterItemTransferTests
         var hookFailure = new InvalidOperationException("Unequip hook failed.");
         item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ => throw hookFailure);
 
-        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitException>(
+        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(
             () => equipment.TryMoveTo(destination, item, 1, EquipmentSlot.Hat));
-        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, postCommitException.Phase);
         Assert.AreSame(hookFailure, postCommitException.InnerException);
 
         Assert.IsNull(equipment[EquipmentSlot.Hat]);
@@ -1278,8 +1277,7 @@ public sealed class CharacterItemTransferTests
                 throw inventoryPublicationFailure;
         });
 
-        var failure = Assert.ThrowsExactly<ItemContainerPostCommitException>(() => setup.Equipment.EquipItem(setup.Incoming));
-        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, failure.Phase);
+        var failure = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(() => setup.Equipment.EquipItem(setup.Incoming));
         Assert.AreSame(inventoryPublicationFailure, failure.InnerException);
 
         CollectionAssert.AreEqual(new[] { "weapon", "shield", "incoming" }, callbacks);
@@ -1326,9 +1324,8 @@ public sealed class CharacterItemTransferTests
         {
             if (call.Arg<IEvent>() is EquipmentChangedEvent) callbacks.Add("publish");
         });
-        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitException>(() =>
+        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(() =>
             setup.Equipment.EquipItem(setup.Incoming));
-        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, postCommitException.Phase);
         var thrown = postCommitException.InnerException;
 
         CollectionAssert.AreEqual(new[] { "weapon", "shield", "profile", "incoming", "publish" }, callbacks);
@@ -1432,8 +1429,7 @@ public sealed class CharacterItemTransferTests
                 }
             });
 
-        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitException>(() => equipment.EquipItem(item));
-        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, postCommitException.Phase);
+        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(() => equipment.EquipItem(item));
 
         Assert.IsTrue(callbackSawCommittedStorage());
         Assert.IsTrue(publicationSawEquipmentEffect);
@@ -1820,10 +1816,8 @@ public sealed class CharacterItemTransferTests
         var order = new List<string>();
         ObserveReplacementCompletion(setup, scenario.Owner, order, failure, null);
 
-        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitException>(() =>
+        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(() =>
             setup.Equipment.EquipItem(setup.Incoming));
-
-        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, postCommitException.Phase);
         Assert.AreSame(failure, postCommitException.InnerException);
         CollectionAssert.AreEqual(new[] { "unequip", "equip", "publish" }, order);
         setup.EventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
@@ -1839,10 +1833,8 @@ public sealed class CharacterItemTransferTests
         var order = new List<string>();
         ObserveReplacementCompletion(setup, scenario.Owner, order, null, failure);
 
-        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitException>(() =>
+        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(() =>
             setup.Equipment.EquipItem(setup.Incoming));
-
-        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, postCommitException.Phase);
         Assert.AreSame(failure, postCommitException.InnerException);
         CollectionAssert.AreEqual(new[] { "unequip", "equip", "publish" }, order);
         AssertReplacementCommittedAndReleased(setup);

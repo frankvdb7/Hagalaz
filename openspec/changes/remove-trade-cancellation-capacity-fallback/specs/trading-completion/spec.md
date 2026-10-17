@@ -78,7 +78,7 @@ Trade completion and refund MUST perform checked domain mutations under their ex
 
 #### Scenario: Transaction-owned publication fails after commit
 - **WHEN** a transaction-owned publisher throws after the trade's storage changes commit
-- **THEN** the trade remains terminal and is cleaned up exactly once, and `ItemContainerPostCommitException` exposes phase `Publication` and the exact publisher exception as `InnerException`
+- **THEN** the trade remains terminal and is cleaned up exactly once, and `ItemContainerPostCommitPublicationException` preserves the exact publisher exception as `InnerException`
 
 #### Scenario: Trade-owned publication fails after Commit returns
 - **WHEN** an explicit trade-owned publication throws after transaction Commit has returned

@@ -6,7 +6,7 @@
 
 ## What Changes
 
-- **BREAKING:** Add `ItemContainerPostCommitException` with `Completion` and `Publication` phases. Its presence guarantees transaction storage is already committed, and its `InnerException` is the exact callback exception.
+- **BREAKING:** Add sealed `ItemContainerPostCommitCompletionException` and `ItemContainerPostCommitPublicationException` types. Each directly derives from `Exception`, guarantees transaction storage is already committed, and preserves the exact callback exception as `InnerException`.
 - Wrap only transaction-owned completion and publication callbacks. Preserve their current fail-fast ordering; do not roll back or retry committed storage. Leave validation, pre-commit, synchronization, tracker, lock-release, and standalone publication exception behavior unchanged.
 - Keep trade terminal cleanup and propagation behavior. In duel victory, log this typed committed outcome and finish the existing victory flow rather than treating it as rejected settlement.
 - Add transaction, trade, MoneyPouch, and duel regressions for the new contract and existing rollback behavior.

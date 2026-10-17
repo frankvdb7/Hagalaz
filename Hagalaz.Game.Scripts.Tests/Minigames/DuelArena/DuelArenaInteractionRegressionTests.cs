@@ -503,9 +503,8 @@ public sealed class DuelArenaInteractionRegressionTests
         var duelLogger = (RecordingLogger<DuelArenaCombatScript>)duel.Self.ServiceProvider
             .GetService(typeof(ILogger<DuelArenaCombatScript>))!;
         Assert.AreEqual(LogLevel.Error, duelLogger.LastLogLevel);
-        var postCommitException = duelLogger.LastException as ItemContainerPostCommitException;
+        var postCommitException = duelLogger.LastException as ItemContainerPostCommitPublicationException;
         Assert.IsNotNull(postCommitException);
-        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, postCommitException.Phase);
         Assert.AreSame(publicationFailure, postCommitException.InnerException);
         Assert.IsTrue(respawned.Contains(duel.Target));
         Assert.IsGreaterThan(1, selfRespawnLocations.Count);

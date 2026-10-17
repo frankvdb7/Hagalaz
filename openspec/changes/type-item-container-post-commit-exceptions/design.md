@@ -20,7 +20,7 @@ See [proposal.md](proposal.md) for motivation and [specs](specs) for the public 
 
 ## Decisions
 
-1. Add one public `ItemContainerPostCommitException` and `ItemContainerPostCommitPhase` in the collections namespace. The exception keeps the callback exception as its direct `InnerException`; it does not flatten aggregates. Its `Phase` is the transaction owner method that threw: completion or publication.
+1. Add exactly two public sealed exception types in the collections namespace: `ItemContainerPostCommitCompletionException` and `ItemContainerPostCommitPublicationException`. Both derive directly from `Exception`, accept the original callback exception, and preserve that exact instance as `InnerException`. Do not add a shared base type or phase enum.
 2. In `Commit()`, place a narrow `try`/`catch` around each completion-owner phase. Wrap the first thrown `Exception` and let it stop the current loop and later phases. Do not wrap the rest of `Commit()`.
 3. Leave `Dispose()` and transaction state sequencing unchanged. After a typed post-commit failure, ordinary disposal performs existing committed cleanup, does not restore snapshots, and does not replay owner callbacks.
 4. Trade already marks `Completed`/`Cancelled` before `Commit()` and resets the session in `finally`; those paths should propagate the typed exception without further lifecycle changes. Duel catches only the typed exception at the victory boundary, logs it with the original exception in its inner chain, then continues the existing respawn and victory presentation. A `false` payout result and pre-commit exceptions retain their existing behavior.

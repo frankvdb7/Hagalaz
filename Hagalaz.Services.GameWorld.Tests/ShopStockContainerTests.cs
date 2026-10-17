@@ -82,10 +82,8 @@ public sealed class ShopStockContainerTests
         scenario.Character.EventManager.ClearReceivedCalls();
         scenario.Inventory.OnUpdateAction = () => throw publicationException;
 
-        var thrown = Assert.ThrowsExactly<ItemContainerPostCommitException>(() =>
+        var thrown = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(() =>
             scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
-
-        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, thrown.Phase);
         Assert.AreSame(publicationException, thrown.InnerException);
         Assert.AreEqual(0, scenario.MoneyPouch.Count);
         Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
@@ -133,9 +131,8 @@ public sealed class ShopStockContainerTests
         scenario.Character.EventManager.When(manager => manager.SendEvent(Arg.Any<MoneyPouchChangedEvent>())).Do(_ => order.Add("pouch"));
         scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopItemBoughtEvent>())).Do(_ => order.Add("bought"));
 
-        var thrown = Assert.ThrowsExactly<ItemContainerPostCommitException>(() =>
+        var thrown = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(() =>
             scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
-        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, thrown.Phase);
         Assert.AreSame(original, thrown.InnerException);
 
         CollectionAssert.AreEqual(new[] { "stock" }, order);
@@ -157,9 +154,8 @@ public sealed class ShopStockContainerTests
         });
         scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopItemBoughtEvent>())).Do(_ => order.Add("bought"));
 
-        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitException>(() =>
+        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(() =>
             scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
-        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, postCommitException.Phase);
         Assert.AreSame(original, postCommitException.InnerException);
 
         CollectionAssert.AreEqual(new[] { "stock", "inventory", "pouch" }, order);

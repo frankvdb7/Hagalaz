@@ -14,6 +14,22 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections;
 public sealed class ItemContainerTransferTests
 {
     [TestMethod]
+    public void PostCommitExceptions_AreSealedDirectExceptionTypesAndPreserveInnerException()
+    {
+        var completionFailure = new InvalidOperationException("completion failed");
+        var publicationFailure = new InvalidOperationException("publication failed");
+        var completionException = new ItemContainerPostCommitCompletionException(completionFailure);
+        var publicationException = new ItemContainerPostCommitPublicationException(publicationFailure);
+
+        Assert.IsTrue(typeof(ItemContainerPostCommitCompletionException).IsSealed);
+        Assert.AreSame(typeof(Exception), typeof(ItemContainerPostCommitCompletionException).BaseType);
+        Assert.AreSame(completionFailure, completionException.InnerException);
+        Assert.IsTrue(typeof(ItemContainerPostCommitPublicationException).IsSealed);
+        Assert.AreSame(typeof(Exception), typeof(ItemContainerPostCommitPublicationException).BaseType);
+        Assert.AreSame(publicationFailure, publicationException.InnerException);
+    }
+
+    [TestMethod]
     public void TryTransferTo_StandaloneInterfaceTypedContainersTrackBothChangedSlots()
     {
         var source = new ItemContainer(StorageType.Normal, 2);
@@ -1504,8 +1520,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsTrue(first.Add(added));
         Assert.IsTrue(second.Add(new TestItem(212, 1)));
 
-        var exception = Assert.ThrowsExactly<ItemContainerPostCommitException>(transaction.Commit);
-        Assert.AreEqual(ItemContainerPostCommitPhase.Publication, exception.Phase);
+        var exception = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(transaction.Commit);
         Assert.AreSame(publicationFailure, exception.InnerException);
         Assert.AreEqual(1, firstOwner.EffectsCalls);
         Assert.AreEqual(1, secondOwner.EffectsCalls);
@@ -1540,9 +1555,7 @@ public sealed class ItemContainerTransferTests
         Assert.IsTrue(first.Add(firstAdded));
         Assert.IsTrue(second.Add(secondAdded));
 
-        var exception = Assert.ThrowsExactly<ItemContainerPostCommitException>(transaction.Commit);
-
-        Assert.AreEqual(ItemContainerPostCommitPhase.Completion, exception.Phase);
+        var exception = Assert.ThrowsExactly<ItemContainerPostCommitCompletionException>(transaction.Commit);
         Assert.AreSame(callbackFailure, exception.InnerException);
         Assert.AreEqual(1, firstOwner.EffectsCalls);
         Assert.AreEqual(0, secondOwner.EffectsCalls);

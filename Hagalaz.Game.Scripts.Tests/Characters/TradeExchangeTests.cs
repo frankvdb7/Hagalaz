@@ -562,8 +562,7 @@ public sealed class TradeExchangeTests
         var publicationException = FailPublicationAfterCommit(firstInventory);
 
         Action finish = trade.CompleteTrade;
-        var postCommitException = finish.Should().Throw<ItemContainerPostCommitException>().Which;
-        postCommitException.Phase.Should().Be(ItemContainerPostCommitPhase.Publication);
+        var postCommitException = finish.Should().Throw<ItemContainerPostCommitPublicationException>().Which;
         postCommitException.InnerException.Should().BeSameAs(publicationException);
 
         firstInventory.Items.GetCountById(101).Should().Be(1);
@@ -596,8 +595,7 @@ public sealed class TradeExchangeTests
         AddOfferItem(secondOffer, new TestItem(995, 3, stackable: true)).Should().BeTrue();
 
         Action finish = trade.CompleteTrade;
-        var postCommitException = finish.Should().Throw<ItemContainerPostCommitException>().Which;
-        postCommitException.Phase.Should().Be(ItemContainerPostCommitPhase.Publication);
+        var postCommitException = finish.Should().Throw<ItemContainerPostCommitPublicationException>().Which;
         postCommitException.InnerException.Should().BeSameAs(publicationException);
 
         firstMoneyPouch.Count.Should().Be(3);
@@ -616,8 +614,7 @@ public sealed class TradeExchangeTests
         var publicationException = FailPublicationAfterCommit(firstInventory);
 
         Action cancel = script.CancelTradeSession;
-        var postCommitException = cancel.Should().Throw<ItemContainerPostCommitException>().Which;
-        postCommitException.Phase.Should().Be(ItemContainerPostCommitPhase.Publication);
+        var postCommitException = cancel.Should().Throw<ItemContainerPostCommitPublicationException>().Which;
         postCommitException.InnerException.Should().BeSameAs(publicationException);
 
         firstInventory.Items.GetCountById(100).Should().Be(1);
@@ -779,8 +776,7 @@ public sealed class TradeExchangeTests
 
         trade.Handlers.SelfInventoryOffer!(0, ComponentClickType.Option5Click, item.Id, 0).Should().BeTrue();
         Action offer = () => script.SelfIntInputHandler!(1);
-        var postCommitException = offer.Should().Throw<ItemContainerPostCommitException>().Which;
-        postCommitException.Phase.Should().Be(ItemContainerPostCommitPhase.Publication);
+        var postCommitException = offer.Should().Throw<ItemContainerPostCommitPublicationException>().Which;
         postCommitException.InnerException.Should().BeSameAs(publicationException);
 
         firstInventory.OnUpdateAction = null;
