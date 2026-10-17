@@ -77,4 +77,4 @@ Do not treat these as tests already run. They are reproducible requirements for 
 
 ## Source follow-ups
 
-The confirmed partial-consumption failures in `JewelryTask` and `LeatherTask` merit one focused issue with acceptance tests; **do not implement it in this documentation PR**. Changes should follow repository `AGENTS.md` / OpenSpec and the existing item-container storage specification.
+The confirmed partial-consumption failures in `JewelryTask` and `LeatherTask` are tracked by [#528](https://github.com/frankvdb7/Hagalaz/issues/528), which contains acceptance tests; **do not implement it in this documentation PR**. Changes should follow repository `AGENTS.md` / OpenSpec and the existing item-container storage specification.
