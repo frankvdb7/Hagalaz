@@ -133,3 +133,11 @@ Start with the [cross-repository dossier](../../reference/deep-client-integratio
 | [smithing-forging-source-definitions.csv](smithing-forging-source-definitions.csv) | **106** | Nonempty forging product records with bar/product IDs, counts, levels, base XP/bar and source line; **10 empty UI entry placeholders are deliberately omitted** |
 
 These rows are extracted from `Hagalaz.Game.Scripts/Skills/Smithing/Smithing.cs`; they are not a live database export nor verified 742 cache definitions. Refer to [source catalog and integrity analysis](../../smithing-source-catalog-and-integrity.md), [#524](https://github.com/frankvdb7/Hagalaz/issues/524) and [#525](https://github.com/frankvdb7/Hagalaz/issues/525). Migration responsibility for recipe ownership belongs to [#377](https://github.com/frankvdb7/Hagalaz/issues/377).
+
+## Fletching source-only recipe crosswalk
+
+| File | Rows | Scope |
+|---|---:|---|
+| [fletching-source-recipes.csv](fletching-source-recipes.csv) | **90** | Output variants across **78** static declarations (`Wood` 18, `Bows` 26, `Ammo` 35, `Tips` 11); resource/tool/product IDs, quantity, level, XP, animation, source line, evidence status |
+
+These are source declarations, **not** verified client cache or executed gameplay. [Detailed crosswalk](../../fletching-and-runecrafting-source-crosswalk.md) includes known registration/data gaps and the independent essence-selection issue [#527](https://github.com/frankvdb7/Hagalaz/issues/527).
