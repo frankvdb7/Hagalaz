@@ -31,3 +31,8 @@ NPC pickpocketing, stall theft, rewards, cooldowns, stun/retaliation, detection 
 ## Extended 2012 candidate datasets
 
 - [22 pickpocket families](data/researched/thieving-pickpocket-targets.csv), [ten locked-door gates](data/researched/thieving-locked-doors.csv) and [the failure/loot/collision contract](reference/deep-thieving.md). Quest-modified loot, probabilities and NPC/object IDs remain open.
+
+
+## Implementation evidence supplement
+
+[Thieving stall and chest source lifecycle](thieving-stall-source-lifecycle.md) records **23** configured definitions, actual script registration, guard response and object restoration, including 11 entries with no configured object identity. Reuse [the existing NPC pickpocket source catalog](data/catalogs/npc-pickpocket-source-rules.csv); do not duplicate it.

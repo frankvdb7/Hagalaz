@@ -174,3 +174,12 @@ An [11-source boss script audit](data/catalogs/npc-boss-script-audit.csv) distin
 - [Production skill source audit](production-skill-source-audit.md) and [remaining skill ownership ledger](remaining-skills-coverage.md). Farming watering/disease behavior has a focused issue [#526](https://github.com/frankvdb7/Hagalaz/issues/526).
 
 All additions distinguish **repository-source** facts from historical candidates and unverified 742 cache identities. **Completion boundary for PR #522:** source catalogs, ownership audit, evidence limitations, cross-references and executable regression plans only. Cache decoding, database-backed definition work and the gameplay changes tracked in #524–#527 are independent follow-ups, not prerequisites for this documentation PR. No runtime gameplay tests were executed in this documentation branch.
+
+
+## Additional source-level skill dossiers after PR #522
+
+- [Crafting lifecycle and item conservation](crafting-source-behavior-and-integrity.md) — 18 source constants, pottery/leather/jewellery production ticks, testable item mutation rules and [issue #528](https://github.com/frankvdb7/Hagalaz/issues/528).
+- [Thieving stall and chest lifecycle](thieving-stall-source-lifecycle.md) — 23 entries with exact server-side matching: 12 ID-bearing entries and 11 unbound source placeholders. Existing pickpocket records remain authoritative.
+- [Herblore transformation and dose contracts](herblore-source-transformations.md) — eight static scalar IDs, five required overload potions, potion input/replacement semantics and [issue #529](https://github.com/frankvdb7/Hagalaz/issues/529).
+
+See [numeric source catalogs](data/catalogs/README.md). These are source-backed inventories, not historical parity certification; no database-backed work is included.
