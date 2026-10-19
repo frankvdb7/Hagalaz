@@ -744,6 +744,17 @@ namespace Raido.Server
             }
         }
 
+        internal bool IsDetached
+        {
+            get
+            {
+                lock (_stateLock)
+                {
+                    return !_disposed && _detachedPhysicalConnection is not null;
+                }
+            }
+        }
+
         internal bool TryGetCurrentConnection(out ConnectionContext connection)
         {
             lock (_stateLock)

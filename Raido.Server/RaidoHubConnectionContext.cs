@@ -139,7 +139,7 @@ namespace Raido.Server
         }
 
         private string GetUnavailableWriteOutcome() =>
-            _tcpConnection.IsAwaitingReconnect ? "unavailable-detached" : "unavailable";
+            _tcpConnection.IsDetached ? "unavailable-detached" : "unavailable";
 
         private sealed class WriteMetricAttempt(
             RaidoMetrics metrics,

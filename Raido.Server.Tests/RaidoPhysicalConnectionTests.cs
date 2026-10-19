@@ -996,6 +996,35 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
+    public async Task ExpiredDetachedWriteMetricRemainsUnavailableDetachedUntilTerminalTransition()
+    {
+        using var metrics = new RaidoMetricsTestContext();
+        var clock = new ManualTimeProvider();
+        var initial = CreatePhysicalConnection("metrics-expired-detached-write");
+        var context = CreateContext(
+            initial.Connection,
+            reconnectEnabled: true,
+            timeout: TimeSpan.FromMinutes(5),
+            timeProvider: clock,
+            metrics: metrics.Metrics);
+
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        var pendingReconnect = context.TcpConnection.WaitForReconnectAsync();
+        clock.Advance(TimeSpan.FromMinutes(6));
+
+        Assert.IsFalse(context.TcpConnection.IsAwaitingReconnect);
+        Assert.IsFalse(context.TcpConnection.IsTerminal);
+        await context.WriteAsync(new TestMessage());
+
+        var write = metrics.Listener.Measurements.Single(measurement => measurement.InstrumentName == "raido.server.outbound_messages");
+        Assert.AreEqual("unavailable-detached", write.Tags["outcome"]);
+
+        context.Abort();
+        await context.CleanupAsync();
+        Assert.IsFalse(await pendingReconnect);
+    }
+
+    [TestMethod]
     public async Task AlreadyClosedPhysicalCandidateIsRejectedWithoutPublishingATransport()
     {
         var initial = CreatePhysicalConnection("initial");
