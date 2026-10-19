@@ -4,6 +4,8 @@
   "minTokens": 80,
   "mode": "mild",
   "reporters": ["console", "json", "sarif"],
+  "failOnEmpty": true,
+  "summary": true,
   "ignore": [
     "**/bin/**",
     "**/obj/**",
