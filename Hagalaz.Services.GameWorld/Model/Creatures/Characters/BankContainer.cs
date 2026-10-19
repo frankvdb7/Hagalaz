@@ -126,14 +126,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = CreateDepositItem(item, count, out var transformed);
-            using (var transaction = ItemContainerTransaction.Begin(container, this))
+            if (container.TryTransferItemTo(_items, item, count, slot,
+                    destinationItem: transformed ? deposited : null))
             {
-                if (container.TryTransferItemTo(_items, item, count, slot,
-                        destinationItem: transformed ? deposited : null))
-                {
-                    transaction.Commit();
-                    return true;
-                }
+                return true;
             }
 
             _owner.SendChatMessage("Not enough space in your bank.");
@@ -218,14 +214,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             deposited = CreateDepositItem(item, count, out var transformed);
-            using (var transaction = ItemContainerTransaction.Begin(_owner.Inventory, this))
+            if (_owner.Inventory.TryTransferItemTo(_items, item, count, slot,
+                    destinationItem: transformed ? deposited : null))
             {
-                if (_owner.Inventory.TryTransferItemTo(_items, item, count, slot,
-                        destinationItem: transformed ? deposited : null))
-                {
-                    transaction.Commit();
-                    return true;
-                }
+                return true;
             }
 
             _owner.SendChatMessage("Not enough space in your bank.");
