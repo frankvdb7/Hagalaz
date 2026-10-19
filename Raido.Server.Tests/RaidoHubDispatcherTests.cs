@@ -715,8 +715,12 @@ public sealed class RaidoHubDispatcherTests
             dispatcher,
             metrics.Metrics);
 
-        await RunMessageThroughConnectionAsync(new DerivedMessage());
-        await RunMessageThroughConnectionAsync(new OtherMessage());
+        var unhandled = await RunMessageThroughConnectionAsync(new DerivedMessage(), "unhandled");
+        var unauthorized = await RunMessageThroughConnectionAsync(new OtherMessage(), "unauthorized");
+        Assert.IsTrue(unhandled.MetricsContext.InboundDispatchEnabled);
+        Assert.AreEqual("unhandled", unhandled.GetMessageDispatchOutcome());
+        Assert.IsTrue(unauthorized.MetricsContext.InboundDispatchEnabled);
+        Assert.AreEqual("unauthorized", unauthorized.GetMessageDispatchOutcome());
 
         var measurements = metrics.Listener.Measurements;
         var counts = measurements
@@ -745,7 +749,9 @@ public sealed class RaidoHubDispatcherTests
             Assert.AreEqual(expectedOutcome, duration.Tags["outcome"]);
         }
 
-        async Task RunMessageThroughConnectionAsync(RaidoMessage message)
+        async Task<RaidoHubConnectionContext> RunMessageThroughConnectionAsync(
+            RaidoMessage message,
+            string expectedOutcome)
         {
             var input = new Pipe();
             var connection = CreateConnection(
@@ -753,8 +759,16 @@ public sealed class RaidoHubDispatcherTests
                 input: input);
             var run = handler.ConnectAsync(connection);
             await input.Writer.WriteAsync(new byte[] { 1 });
+            var timeout = Stopwatch.StartNew();
+            while (connection.GetMessageDispatchOutcome() != expectedOutcome)
+            {
+                Assert.IsTrue(timeout.Elapsed < TimeSpan.FromSeconds(1), $"Expected dispatch outcome '{expectedOutcome}'.");
+                await Task.Delay(1);
+            }
+
             input.Writer.Complete();
             await run;
+            return connection;
         }
     }
 
