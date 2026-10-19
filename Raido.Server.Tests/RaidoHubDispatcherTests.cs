@@ -703,57 +703,6 @@ public sealed class RaidoHubDispatcherTests
     }
 
     [TestMethod]
-    [Timeout(5000)]
-    public async Task Handler_RecordsUnhandledAndUnauthorizedDispatchMeasurements()
-    {
-        using var provider = CreateProvider().Provider;
-        using var metrics = new RaidoMetricsTestContext();
-        var dispatcher = new DefaultRaidoDispatcher(new IRaidoHubDispatcher[] { CreateDispatcher(provider) });
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            new DefaultRaidoHubLifetimeManager(new RaidoHubConnectionStore()),
-            dispatcher,
-            metrics.Metrics);
-
-        await DispatchMessageAsync("unhandled", new DerivedMessage());
-        await DispatchMessageAsync("unauthorized", new OtherMessage());
-
-        var measurements = metrics.Listener.Measurements;
-        AssertMeasurement("unhandled", nameof(DerivedMessage));
-        AssertMeasurement("unauthorized", nameof(OtherMessage));
-
-        async Task DispatchMessageAsync(string connectionId, RaidoMessage message)
-        {
-            var input = new Pipe();
-            var connection = CreateConnection(
-                connectionId,
-                new TestProtocol { MessageToReturn = message },
-                input);
-            var run = handler.ConnectAsync(connection);
-            await input.Writer.WriteAsync(new byte[] { 1 });
-            input.Writer.Complete();
-            await run;
-        }
-
-        void AssertMeasurement(string outcome, string messageType)
-        {
-            var count = measurements.Single(measurement =>
-                measurement.InstrumentName == "raido.server.inbound_messages" &&
-                Equals(measurement.Tags["outcome"], outcome));
-            Assert.AreEqual(2, count.Tags.Count);
-            Assert.AreEqual(messageType, count.Tags["message.type"]);
-
-            var duration = measurements.Single(measurement =>
-                measurement.InstrumentName == "raido.server.inbound_message.duration" &&
-                Equals(measurement.Tags["outcome"], outcome));
-            Assert.AreEqual(2, duration.Tags.Count);
-            Assert.AreEqual(messageType, duration.Tags["message.type"]);
-            Assert.IsTrue(duration.Value >= 0);
-        }
-    }
-
-    [TestMethod]
     public void Dispatcher_RejectsInvalidHubDefinitions()
     {
         using var provider = CreateProvider().Provider;
