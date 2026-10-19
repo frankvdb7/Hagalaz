@@ -242,12 +242,15 @@ public sealed class RaidoHubDispatcherTests
         }
     }
 
-    private RaidoHubConnectionContext CreateConnection(string id = "connection")
+    private RaidoHubConnectionContext CreateConnection(
+        string id = "connection",
+        IRaidoProtocol? protocol = null,
+        Pipe? input = null)
     {
         var context = Substitute.For<ConnectionContext>();
         context.ConnectionId.Returns(id);
         var transport = Substitute.For<IDuplexPipe>();
-        var input = new Pipe();
+        input ??= new Pipe();
         var output = new Pipe();
         transport.Input.Returns(input.Reader);
         transport.Output.Returns(output.Writer);
@@ -259,7 +262,7 @@ public sealed class RaidoHubDispatcherTests
             context,
             new RaidoConnectionContextOptions(),
             NullLoggerFactory.Instance,
-            protocol: new TestProtocol());
+            protocol: protocol ?? new TestProtocol());
         _connections.Add(connection);
         return connection;
     }
@@ -697,6 +700,57 @@ public sealed class RaidoHubDispatcherTests
         connection.BeginMessageDispatch();
         await new DefaultRaidoDispatcher(Array.Empty<IRaidoHubDispatcher>()).DispatchMessageAsync(connection, PingMessage.Instance);
         Assert.AreEqual("handled", connection.GetMessageDispatchOutcome());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task Handler_RecordsUnhandledAndUnauthorizedDispatchMeasurements()
+    {
+        using var provider = CreateProvider().Provider;
+        using var metrics = new RaidoMetricsTestContext();
+        var dispatcher = new DefaultRaidoDispatcher(new IRaidoHubDispatcher[] { CreateDispatcher(provider) });
+        var handler = new RaidoHubConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            new DefaultRaidoHubLifetimeManager(new RaidoHubConnectionStore()),
+            dispatcher,
+            metrics.Metrics);
+
+        await DispatchMessageAsync("unhandled", new DerivedMessage());
+        await DispatchMessageAsync("unauthorized", new OtherMessage());
+
+        var measurements = metrics.Listener.Measurements;
+        AssertMeasurement("unhandled", nameof(DerivedMessage));
+        AssertMeasurement("unauthorized", nameof(OtherMessage));
+
+        async Task DispatchMessageAsync(string connectionId, RaidoMessage message)
+        {
+            var input = new Pipe();
+            var connection = CreateConnection(
+                connectionId,
+                new TestProtocol { MessageToReturn = message },
+                input);
+            var run = handler.ConnectAsync(connection);
+            await input.Writer.WriteAsync(new byte[] { 1 });
+            input.Writer.Complete();
+            await run;
+        }
+
+        void AssertMeasurement(string outcome, string messageType)
+        {
+            var count = measurements.Single(measurement =>
+                measurement.InstrumentName == "raido.server.inbound_messages" &&
+                Equals(measurement.Tags["outcome"], outcome));
+            Assert.AreEqual(2, count.Tags.Count);
+            Assert.AreEqual(messageType, count.Tags["message.type"]);
+
+            var duration = measurements.Single(measurement =>
+                measurement.InstrumentName == "raido.server.inbound_message.duration" &&
+                Equals(measurement.Tags["outcome"], outcome));
+            Assert.AreEqual(2, duration.Tags.Count);
+            Assert.AreEqual(messageType, duration.Tags["message.type"]);
+            Assert.IsTrue(duration.Value >= 0);
+        }
     }
 
     [TestMethod]
