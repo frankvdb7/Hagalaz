@@ -237,7 +237,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
             var hasStaff = false;
             for (var i = 0; i < _staffIds.Length; i++)
             {
-                if (caster.Equipment.GetById((short)_staffIds[i]) != null)
+                if (caster.Equipment.Items.GetById((short)_staffIds[i]) != null)
                 {
                     hasStaff = true;
                     break;

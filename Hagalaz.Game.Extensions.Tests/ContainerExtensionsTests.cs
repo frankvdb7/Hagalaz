@@ -1,4 +1,4 @@
-using Hagalaz.Game.Abstractions.Builders.GroundItem;
+﻿using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Logic.Loot;
@@ -18,6 +18,7 @@ namespace Hagalaz.Game.Extensions.Tests
     {
         private ICharacter _character = null!;
         private IInventoryContainer _inventory = null!;
+        private ItemContainer _inventoryItems = null!;
         private IGroundItemBuilder _groundItemBuilder = null!;
         private IGroundItemOnGround _groundItemOnGround = null!;
         private IGroundItemLocation _groundItemLocation = null!;
@@ -29,7 +30,7 @@ namespace Hagalaz.Game.Extensions.Tests
 
         private void UseInventory(int capacity)
         {
-            _inventory = new TestInventory(capacity);
+            _inventory = CreateInventory(capacity);
             _character.Inventory.Returns(_inventory);
         }
 
@@ -47,10 +48,13 @@ namespace Hagalaz.Game.Extensions.Tests
             return item;
         }
 
-        private sealed class TestInventory(int capacity) : IInventoryContainer
+        private IInventoryContainer CreateInventory(int capacity)
         {
-            public IItemContainer Items { get; } = new ItemContainer(StorageType.Normal, capacity);
-            public bool DropItem(IItem item) => false;
+            _inventoryItems = new ItemContainer(StorageType.Normal, capacity);
+            var inventory = Substitute.For<IInventoryContainer>();
+            inventory.Items.Returns(_inventoryItems);
+            inventory.AddItem(Arg.Any<IItem>()).Returns(call => _inventoryItems.Add(call.Arg<IItem>()));
+            return inventory;
         }
 
         [TestInitialize]
@@ -58,7 +62,7 @@ namespace Hagalaz.Game.Extensions.Tests
         {
             var serviceProvider = Substitute.For<IServiceProvider>();
             _character = Substitute.For<ICharacter>();
-            _inventory = new TestInventory(2);
+            _inventory = CreateInventory(2);
             _groundItemBuilder = Substitute.For<IGroundItemBuilder>();
             _groundItemOnGround = Substitute.For<IGroundItemOnGround>();
             _groundItemLocation = Substitute.For<IGroundItemLocation>();

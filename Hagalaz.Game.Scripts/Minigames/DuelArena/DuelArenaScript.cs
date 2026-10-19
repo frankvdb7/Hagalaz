@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Hagalaz.Collections.Extensions;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Builders.Item;
@@ -19,6 +20,7 @@ using Hagalaz.Game.Scripts.Items;
 using Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 {
@@ -71,9 +73,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         public DuelRules CurrentRules { get; private set; }
 
         /// <summary>
-        ///     Contains boolean if trade session is currently active.
+        ///     Indicates whether a duel session is active.
         /// </summary>
         private bool DuelSession { get; set; }
+
+        public override bool IsBusy() => DuelSession;
 
         /// <summary>
         ///     Contains a value indicating whether this instance is staking.
@@ -463,8 +467,6 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             // this.Character.Configurations.SendCS2Script(6910, new object[] { ((1367 << 16) | 1), ((1367 << 16) | 1) });
             // this.Target.Configurations.SendCS2Script(6910, new object[] { ((1367 << 16) | 1), ((1367 << 16) | 1) });
 
-            Character.Widgets.OpenInventoryOverlay(1368, 1, Character.ServiceProvider.GetRequiredService<DefaultWidgetScript>());
-            Target.Widgets.OpenInventoryOverlay(1368, 1, Target.ServiceProvider.GetRequiredService<DefaultWidgetScript>());
             if (!Character.Widgets.OpenInventoryOverlay(1368, 1, Character.ServiceProvider.GetRequiredService<DefaultWidgetScript>()) ||
                 !Target.Widgets.OpenInventoryOverlay(1368, 1, Target.ServiceProvider.GetRequiredService<DefaultWidgetScript>()))
             {
@@ -538,13 +540,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        if (!_stakeExchange.TryStakePouchCoins(Character, SelfContainer.Items, amt))
-                        {
-                            return;
-                        }
-
-                        RefreshDuelStakeScreen();
-                        ProcessDuelStakeChange(true, false);
+                        TryCompleteStakeMutation(true, false,
+                            () => _stakeExchange.TryStakePouchCoins(Character, SelfContainer.Items, amt));
                     });
                     return true;
                 });
@@ -565,13 +562,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        if (!_stakeExchange.TryStakePouchCoins(Target, TargetContainer.Items, amt))
-                        {
-                            return;
-                        }
-
-                        RefreshDuelStakeScreen();
-                        ProcessDuelStakeChange(false, false);
+                        TryCompleteStakeMutation(false, false,
+                            () => _stakeExchange.TryStakePouchCoins(Target, TargetContainer.Items, amt));
                     });
                     return true;
                 });
@@ -595,13 +587,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return;
             }
 
-            var selfFullUpdate = SelfContainer.Updates.Count == 0;
-            var targetFullUpdate = TargetContainer.Updates.Count == 0;
-
-            Character.Configurations.SendItems(134, false, SelfContainer.Items, selfFullUpdate ? null : SelfContainer.Updates);
-            Character.Configurations.SendItems(134, true, TargetContainer.Items, targetFullUpdate ? null : TargetContainer.Updates);
-            Target.Configurations.SendItems(134, false, TargetContainer.Items, targetFullUpdate ? null : TargetContainer.Updates);
-            Target.Configurations.SendItems(134, true, SelfContainer.Items, selfFullUpdate ? null : SelfContainer.Updates);
+            Character.Configurations.SendItems(134, false, SelfContainer.Items, null);
+            Character.Configurations.SendItems(134, true, TargetContainer.Items, null);
+            Target.Configurations.SendItems(134, false, TargetContainer.Items, null);
+            Target.Configurations.SendItems(134, true, SelfContainer.Items, null);
 
             var selfTotal = SelfContainer.CalculateTotalValue();
             var targetTotal = TargetContainer.CalculateTotalValue();
@@ -679,21 +668,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 RefreshDuelConfirmationStatus();
             }
 
-            var slots = self ? SelfContainer.Updates : TargetContainer.Updates;
-
             if (valueDecreased)
             {
-                //if (self && targetAccepted)
-                //this.TargetInterface.DrawString(37, "<col=FF0000><b>CHECK OTHER PLAYER'S OFFER!</b></col>");
-                //else if (!self && selfAccepted)
-                //this.SelfInterface.DrawString(37, "<col=FF0000><b>CHECK OTHER PLAYER'S OFFER!</b></col>");
-
-                //foreach (short slot in slots)
-                // {
-                //this.Character.Configurations.SendCS2Script(143, new object[] { 335 << 16 | (self ? 31 : 33), 4, 7, (int)slot });
-                //this.Target.Configurations.SendCS2Script(143, new object[] { 335 << 16 | (self ? 33 : 31), 4, 7, (int)slot });
-                //}
-
                 if (!SelfModified && self) { }
                 else if (!TargetModified && !self) { }
 
@@ -707,7 +683,24 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 }
             }
 
-            slots.Clear();
+        }
+
+        private bool TryCompleteStakeMutation(bool self, bool valueDecreased, Func<bool> mutation)
+        {
+            try
+            {
+                if (!mutation()) return false;
+            }
+            catch (Exception exception) when (exception is
+                ItemContainerPostCommitCompletionException or ItemContainerPostCommitPublicationException)
+            {
+                ProcessDuelStakeChange(self, valueDecreased);
+                throw;
+            }
+
+            RefreshDuelStakeScreen();
+            ProcessDuelStakeChange(self, valueDecreased);
+            return true;
         }
 
         /// <summary>
@@ -723,35 +716,15 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             SelfAccepted = false;
             TargetAccepted = false;
 
-            if (!CurrentRules.CheckRules(Character, Target) || !CurrentRules.CheckRules(Target, Character))
+            IEnumerable<IItem> stakeItems = IsStaking
+                ? SelfContainer!.Items.Concat(TargetContainer!.Items).OfType<IItem>()
+                : Enumerable.Empty<IItem>();
+
+            if (!CurrentRules.CheckRules(Character, Target, stakeItems) ||
+                !CurrentRules.CheckRules(Target, Character, stakeItems))
             {
                 RefreshDuelConfirmationStatus();
                 return;
-            }
-
-            if (IsStaking)
-            {
-                IItemContainer container = new ItemContainer(StorageType.Normal, (short)(SelfContainer!.Items.Capacity + TargetContainer!.Items.Capacity));
-                container.AddRange(SelfContainer!.Items);
-                container.AddRange(TargetContainer!.Items);
-
-                var all = System.Linq.Enumerable.ToArray(container);
-
-                if (!Character.Inventory.Items.HasSpaceForRange(all))
-                {
-                    Character.SendChatMessage("You don't have enough space in your inventory for this duel.");
-                    Target.SendChatMessage("Your opponent doesn't have enough space in their inventory for this duel.");
-                    RefreshDuelConfirmationStatus();
-                    return;
-                }
-
-                if (!Target.Inventory.Items.HasSpaceForRange(all))
-                {
-                    Character.SendChatMessage("Your opponent doesn't have enough space in their inventory for this duel.");
-                    Target.SendChatMessage("You don't have enough space in your inventory for this duel.");
-                    RefreshDuelConfirmationStatus();
-                    return;
-                }
             }
 
             ((DuelScreenScript)SelfInterface.Script).CloseCallback = null;
@@ -900,9 +873,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return;
                     }
 
-                    if (!_stakeExchange.TryStakeInventoryItem(character, container.Items, item, requested.Count, itemSlot)) return;
-                    RefreshDuelStakeScreen();
-                    ProcessDuelStakeChange(self, false);
+                    TryCompleteStakeMutation(self, false,
+                        () => _stakeExchange.TryStakeInventoryItem(character, container.Items, item, requested.Count, itemSlot));
                 });
                 return true;
             }
@@ -931,10 +903,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return false;
             }
 
-            if (!_stakeExchange.TryStakeInventoryItem(character, container.Items, item, toRemove.Count, itemSlot)) return false;
-            RefreshDuelStakeScreen();
-            ProcessDuelStakeChange(self, false);
-            return true;
+            return TryCompleteStakeMutation(self, false,
+                () => _stakeExchange.TryStakeInventoryItem(character, container.Items, item, toRemove.Count, itemSlot));
         }
 
         private bool HandleStakedItemClick(bool self, ComponentClickType clickType, int itemID, int itemSlot)
@@ -954,13 +924,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 {
                     var requested = item.Clone();
                     requested.Count = Math.Min(amount, max);
-                    var returned = requested.Id == 995
+                    TryCompleteStakeMutation(self, true, () => requested.Id == 995
                         ? _stakeExchange.TryReturnCoinsToPouch(character, container.Items, requested, itemSlot)
-                        : _stakeExchange.TryReturnItemToInventory(character, container.Items, requested, requested.Count, itemSlot);
-                    if (!returned) return;
-
-                    RefreshDuelStakeScreen();
-                    ProcessDuelStakeChange(self, true);
+                        : _stakeExchange.TryReturnItemToInventory(character, container.Items, requested, requested.Count, itemSlot));
                 });
                 return true;
             }
@@ -982,14 +948,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             var toRemove = item.Clone();
             toRemove.Count = Math.Min(count, max);
-            var success = toRemove.Id == 995
+            return TryCompleteStakeMutation(self, true, () => toRemove.Id == 995
                 ? _stakeExchange.TryReturnCoinsToPouch(character, container.Items, toRemove, itemSlot)
-                : _stakeExchange.TryReturnItemToInventory(character, container.Items, toRemove, toRemove.Count, itemSlot);
-            if (!success) return false;
-
-            RefreshDuelStakeScreen();
-            ProcessDuelStakeChange(self, true);
-            return true;
+                : _stakeExchange.TryReturnItemToInventory(character, container.Items, toRemove, toRemove.Count, itemSlot));
         }
 
         private void RequestDuelAmountInput(bool self, string message, Action<int> onAmount)
@@ -1107,13 +1068,15 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 CurrentRules,
                 SelfContainer,
                 TargetContainer,
-                _hintIconBuilder));
+                _hintIconBuilder,
+                Character.ServiceProvider.GetRequiredService<ILogger<DuelArenaCombatScript>>()));
             Target.AddScript(new DuelArenaCombatScript(Target.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(),
                 Character,
                 CurrentRules,
                 TargetContainer,
                 SelfContainer,
-                _hintIconBuilder));
+                _hintIconBuilder,
+                Target.ServiceProvider.GetRequiredService<ILogger<DuelArenaCombatScript>>()));
 
             var previousRules = CurrentRules.Dehydrate();
             PreviousRules = previousRules;
@@ -1140,10 +1103,21 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return;
             }
 
-            if (SelfContainer != null && Target != null && TargetContainer != null &&
-                !_stakeExchange.TryRefundBoth(Character, SelfContainer.Items, Target, TargetContainer.Items))
+            Exception? postCommitFailure = null;
+            if (SelfContainer != null && Target != null && TargetContainer != null)
             {
-                return;
+                try
+                {
+                    if (!_stakeExchange.TryRefundBoth(Character, SelfContainer.Items, Target, TargetContainer.Items))
+                    {
+                        return;
+                    }
+                }
+                catch (Exception exception) when (exception is
+                    ItemContainerPostCommitCompletionException or ItemContainerPostCommitPublicationException)
+                {
+                    postCommitFailure = exception;
+                }
             }
 
             DuelSession = false;
@@ -1154,6 +1128,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Target = null;
             SelfContainer = null;
             TargetContainer = null;
+
+            if (postCommitFailure != null)
+            {
+                Character.ServiceProvider.GetRequiredService<ILogger<DuelArenaScript>>()
+                    .LogError(postCommitFailure, "Duel stake refund committed, but post-commit processing failed.");
+            }
         }
 
         /// <summary>
@@ -1203,6 +1183,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         }
 
         /// <summary>
+        ///     Returns pre-combat stakes before the character's logout snapshot is captured.
+        /// </summary>
+        public override void OnDetach() => CancelDuelSession();
+
+        /// <summary>
         ///     Get's called when character is interrupted.
         ///     By default this method does nothing.
         /// </summary>
@@ -1221,6 +1206,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             base.OnInterrupt(source);
             CancelDuelSession();
         }
+
+        public override void OnDestroy() => CancelDuelSession();
 
         /// <summary>
         ///     Tick's character.
@@ -1331,40 +1318,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     }
 
     /// <summary>
-    ///     Container for holding items in trade offer interfaces.
+    ///     Container for holding items in the duel stake interface.
     /// </summary>
-    public class DuelContainer
+    public sealed class DuelContainer
     {
-        public IItemContainer Items { get; }
-        /// <summary>
-        ///     Contains last slots update.
-        /// </summary>
-        public HashSet<int> Updates { get; }
-
-        /// <summary>
-        ///     Construct's new trade container.
-        /// </summary>
-        public DuelContainer()
-        {
-            Updates = [];
-            Items = new ItemContainer(StorageType.Normal, 9, OnUpdate);
-        }
-
-        /// <summary>
-        ///     Happens when trade container get's updated.
-        /// </summary>
-        /// <param name="slots"></param>
-        public void OnUpdate(HashSet<int>? slots = null)
-        {
-            if (slots == null)
-            {
-                Updates.Clear();
-            }
-            else
-            {
-                Updates.AddRange(slots);
-            }
-        }
+        public IItemContainer Items { get; } = new ItemContainer(StorageType.Normal, 9);
 
         /// <summary>
         ///     Calculate's total value of this container.

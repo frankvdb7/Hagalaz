@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-04
+goal: Preserve committed publication ordering while serializing overlapping
+  transaction scopes.

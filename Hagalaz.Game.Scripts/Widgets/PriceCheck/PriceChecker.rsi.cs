@@ -1,6 +1,4 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
@@ -19,91 +17,14 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
     public class PriceChecker : WidgetScript
     {
         /// <summary>
-        ///     Price checker interface container.
-        /// </summary>
-        private class PriceCheckerInterfaceContainer
-        {
-            /// <summary>
-            ///     Contains owner of this class.
-            /// </summary>
-            private readonly ICharacter _owner;
-            public IItemContainer Items { get; }
-
-            /// <summary>
-            ///     Construct's new instance.
-            /// </summary>
-            /// <param name="owner"></param>
-            public PriceCheckerInterfaceContainer(ICharacter owner)
-            {
-                _owner = owner;
-                Items = new ItemContainer(StorageType.AlwaysStack, owner.Inventory.Items.Capacity, OnUpdate);
-            }
-
-            /// <summary>
-            ///     Happens when container is updated.
-            /// </summary>
-            /// <param name="slots"></param>
-            public void OnUpdate(HashSet<int>? slots = null)
-            {
-                _owner.Configurations.SendItems(90, false, Items, slots);
-                RefreshPrices(slots);
-            }
-
-            /// <summary>
-            ///     Calculate's total value of this container.
-            /// </summary>
-            /// <returns></returns>
-            public long CalculateTotalValue() => ItemContainerTradeValue.Calculate(Items);
-
-
-            /// <summary>
-            ///     Refreshe's prices.
-            /// </summary>
-            /// <param name="slots"></param>
-            public void RefreshPrices(HashSet<int>? slots = null)
-            {
-                _owner.Configurations.SendGlobalCs2Int(728, (int)CalculateTotalValue());
-
-                if (slots == null)
-                {
-                    for (var i = 0; i < Items.Capacity; i++)
-                    {
-                        if (Items[i] != null)
-                        {
-                            _owner.Configurations.SendGlobalCs2Int(700 + i, Items[i]!.ItemDefinition.TradeValue);
-                        }
-                        else
-                        {
-                            _owner.Configurations.SendGlobalCs2Int(700 + 1, 0);
-                        }
-                    }
-                }
-                else
-                {
-                    foreach (var i in slots)
-                    {
-                        if (Items[i] != null)
-                        {
-                            _owner.Configurations.SendGlobalCs2Int((short)(700 + i), Items[i]!.ItemDefinition.TradeValue);
-                        }
-                        else
-                        {
-                            _owner.Configurations.SendGlobalCs2Int(700 + 1, 0);
-                        }
-                    }
-                }
-            }
-        }
-
-        /// <summary>
         ///     Contains inventory interface.
         /// </summary>
         private IWidget? _inventoryInterface;
 
         /// <summary>
-        ///     Contains price check interface container.
+        ///     Contains the selected items while the price checker is open.
         /// </summary>
-        private PriceCheckerInterfaceContainer? _priceCheckInterface;
+        private ItemContainer? _priceCheckItems;
 
         /// <summary>
         ///     Handler for adding X amount of items from the owner's inventory to the price check interface.
@@ -143,12 +64,11 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             Owner.Configurations.SendGlobalCs2Int(729, 0);
 
             // price check interface & clear interface items (from previous price checks).
-            var priceCheckInterface = new PriceCheckerInterfaceContainer(Owner);
-            _priceCheckInterface = priceCheckInterface;
+            _priceCheckItems = new ItemContainer(StorageType.AlwaysStack, Owner.Inventory.Items.Capacity);
 
             _inventoryChangeHandler = Owner.RegisterEventHandler<InventoryChangedEvent>(OnInventoryChanged);
 
-            priceCheckInterface.OnUpdate();
+            RefreshPriceChecker(fullRefresh: true);
             RefreshProjectedInventory();
 
 
@@ -217,18 +137,18 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             // Component attachment for price checker (for ability to remove items to owner's inventory).
             InterfaceInstance.AttachClickHandler(15, (componentID, clickType, itemID, slot) =>
             {
-                var priceCheckInterface = _priceCheckInterface;
-                if (priceCheckInterface == null)
+                var items = _priceCheckItems;
+                if (items == null)
                 {
                     return false;
                 }
 
-                if (slot < 0 || slot >= priceCheckInterface.Items.Capacity)
+                if (slot < 0 || slot >= items.Capacity)
                 {
                     return false;
                 }
 
-                var item = priceCheckInterface.Items[slot];
+                var item = items[slot];
                 if (item == null || item.Id != itemID)
                 {
                     return false;
@@ -249,7 +169,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                 }
                 else if (clickType == ComponentClickType.Option4Click)
                 {
-                    amount = priceCheckInterface.Items.GetCount(item);
+                    amount = items.GetCount(item);
                 }
                 else if (clickType == ComponentClickType.Option5Click)
                 {
@@ -300,7 +220,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             }
 
             _inventoryInterface = null;
-            _priceCheckInterface = null;
+            _priceCheckItems = null;
             Owner.Configurations.SendItems(93, false, Owner.Inventory.Items);
         }
 
@@ -314,19 +234,20 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
         /// </returns>
         private bool AddItemToPriceChecker(IItem item, int amount)
         {
-            var priceCheckInterface = _priceCheckInterface;
-            if (priceCheckInterface == null)
+            var items = _priceCheckItems;
+            if (items == null)
             {
                 return false;
             }
 
-            var available = Owner.Inventory.Items.GetCount(item) - priceCheckInterface.Items.GetCount(item);
+            var available = Owner.Inventory.Items.GetCount(item) - items.GetCount(item);
             var count = Math.Min(amount, available);
-            if (count <= 0 || !priceCheckInterface.Items.Add(item.Clone(count)))
+            if (count <= 0 || !items.Add(item.Clone(count)))
             {
                 return false;
             }
 
+            RefreshPriceChecker();
             RefreshProjectedInventory();
             return true;
         }
@@ -341,34 +262,35 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
         /// </returns>
         private bool RemoveSelection(IItem item, int amount)
         {
-            var priceCheckInterface = _priceCheckInterface;
-            if (priceCheckInterface == null)
+            var items = _priceCheckItems;
+            if (items == null)
             {
                 return false;
             }
 
-            var count = Math.Min(amount, priceCheckInterface.Items.GetCount(item));
-            if (count <= 0 || priceCheckInterface.Items.Remove(item.Clone(count)) != count)
+            var count = Math.Min(amount, items.GetCount(item));
+            if (count <= 0 || items.Remove(item.Clone(count)) != count)
             {
                 return false;
             }
 
+            RefreshPriceChecker();
             RefreshProjectedInventory();
             return true;
         }
 
         private bool ReconcileSelections()
         {
-            var priceCheckInterface = _priceCheckInterface;
-            if (priceCheckInterface == null)
+            var items = _priceCheckItems;
+            if (items == null)
             {
                 return false;
             }
 
             var changed = false;
-            for (var slot = 0; slot < priceCheckInterface.Items.Capacity; slot++)
+            for (var slot = 0; slot < items.Capacity; slot++)
             {
-                if (priceCheckInterface.Items[slot] is not { } selected)
+                if (items[slot] is not { } selected)
                 {
                     continue;
                 }
@@ -376,7 +298,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                 var actual = Owner.Inventory.Items.GetCount(selected);
                 if (selected.Count > actual)
                 {
-                    priceCheckInterface.Items.Remove(selected.Clone(selected.Count - actual), slot, update: false);
+                    items.Remove(selected.Clone(selected.Count - actual), slot);
                     changed = true;
                 }
             }
@@ -386,15 +308,14 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
 
         private bool OnInventoryChanged(InventoryChangedEvent _)
         {
-            var priceCheckInterface = _priceCheckInterface;
-            if (priceCheckInterface == null)
+            if (_priceCheckItems == null)
             {
                 return false;
             }
 
             if (ReconcileSelections())
             {
-                priceCheckInterface.OnUpdate();
+                RefreshPriceChecker();
             }
 
             RefreshProjectedInventory();
@@ -403,8 +324,8 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
 
         private void RefreshProjectedInventory()
         {
-            var priceCheckInterface = _priceCheckInterface;
-            if (priceCheckInterface == null)
+            var items = _priceCheckItems;
+            if (items == null)
             {
                 return;
             }
@@ -418,15 +339,43 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                 }
             }
 
-            for (var slot = 0; slot < priceCheckInterface.Items.Capacity; slot++)
+            for (var slot = 0; slot < items.Capacity; slot++)
             {
-                if (priceCheckInterface.Items[slot] is { } selected)
+                if (items[slot] is { } selected)
                 {
                     projected.TryRemoveExact(selected);
                 }
             }
 
             Owner.Configurations.SendItems(93, false, projected);
+        }
+
+        private void RefreshPriceChecker(bool fullRefresh = false)
+        {
+            var items = _priceCheckItems;
+            if (items == null) return;
+
+            var slots = items.ChangeTracker.GetSlots();
+            if (!fullRefresh && slots is { Count: 0 }) return;
+            if (fullRefresh) slots = null;
+
+            Owner.Configurations.SendItems(90, false, items, slots);
+            Owner.Configurations.SendGlobalCs2Int(728, (int)ItemContainerTradeValue.Calculate(items));
+
+            if (slots == null)
+            {
+                for (var slot = 0; slot < items.Capacity; slot++)
+                {
+                    Owner.Configurations.SendGlobalCs2Int(700 + slot, items[slot]?.ItemDefinition.TradeValue ?? 0);
+                }
+            }
+            else
+            {
+                foreach (var slot in slots)
+                {
+                    Owner.Configurations.SendGlobalCs2Int(700 + slot, items[slot]?.ItemDefinition.TradeValue ?? 0);
+                }
+            }
         }
     }
 }

@@ -55,7 +55,7 @@ namespace Hagalaz.Game.Scripts.Dialogues
                     foreach (var t in _goodsIds)
                     {
                         var good = _itemBuilder.Create().WithId(t).WithCount(int.MaxValue).Build();
-                        var removed = Owner.Inventory.Items.Remove(good);
+                        var removed = Owner.Inventory.RemoveItem(good);
                         if (removed <= 0)
                         {
                             continue;

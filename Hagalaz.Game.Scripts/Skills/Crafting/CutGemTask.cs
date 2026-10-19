@@ -88,7 +88,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                     return;
                 }
 
-                Performer.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(Definition.CutGemID).Build());
+                Performer.Inventory.ReplaceItem(slot, _itemBuilder.Create().WithId(Definition.CutGemID).Build());
                 Performer.Statistics.AddExperience(StatisticsConstants.Crafting, Definition.CraftingExperience);
             }
         }

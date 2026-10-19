@@ -104,7 +104,7 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                         {
                             if (character.Equipment.RemoveEquippedItem(jewelry, EquipmentSlot.Amulet) <= 0) return false;
                         }
-                        else character.Inventory.Items.Remove(jewelry, slot);
+                        else character.Inventory.RemoveItem(jewelry, slot);
                         character.SendChatMessage("Your " + jewelry.Name + " has been depleted of all its charges.");
                     }
                     else
@@ -186,7 +186,7 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                         {
                             if (character.Equipment.RemoveEquippedItem(jewelry, (EquipmentSlot)slot) <= 0) return false;
                         }
-                        else character.Inventory.Items.Remove(jewelry, slot);
+                        else character.Inventory.RemoveItem(jewelry, slot);
                     }
 
                     return true;
@@ -194,7 +194,7 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
 
         private static bool TryGetJewelrySlot(ICharacter character, IItem jewelry, bool equipment, out int slot)
         {
-            IContainer<IItem?> items = equipment ? character.Equipment : character.Inventory.Items;
+            IContainer<IItem?> items = equipment ? character.Equipment.Items : character.Inventory.Items;
             slot = items.IndexOf(item => ReferenceEquals(item, jewelry));
             return slot >= 0;
         }
@@ -206,7 +206,7 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
                 return character.Equipment.TryReplaceEquippedItem((EquipmentSlot)slot, jewelry, replacement);
             }
 
-            character.Inventory.Items.Replace(slot, replacement);
+            character.Inventory.ReplaceItem(slot, replacement);
             return true;
         }
 

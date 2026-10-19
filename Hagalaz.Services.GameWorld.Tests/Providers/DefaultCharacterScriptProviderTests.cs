@@ -73,6 +73,8 @@ public sealed class DefaultCharacterScriptProviderTests
 
         public void OnRegistered() { }
 
+        public void OnDetach() { }
+
         public void OnDestroy() { }
 
         public bool CanRenderSkull(SkullIcon icon) => true;

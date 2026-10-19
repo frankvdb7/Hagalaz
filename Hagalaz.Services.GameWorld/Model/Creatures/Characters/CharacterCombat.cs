@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Configuration;
@@ -135,7 +135,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             //database.ExecuteAsync(new ActivityLogQuery(characterKiller.MasterId, "Player Kill", "I have defeated " + _character.DisplayName + " in combat."));
 
             var itemsOnDeath = _character.GetItemsOnDeathData();
-            _character.Inventory.Items.Clear(false);
+            _character.Inventory.ClearItems(publishChanges: false);
 
             var groundItemOwner = _character;
             if (characterKiller != null)
@@ -160,7 +160,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 .WithOwner(groundItemOwner)
                 .Build();
             _mapRegionService.AddGroundItem(bones);
-            _character.Inventory.Items.AddRange(itemsOnDeath.keptItems);
+            _character.Inventory.AddItems(itemsOnDeath.keptItems);
             _character.Equipment.ClearEquipment();
         }
 
@@ -378,7 +378,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             if (IsDead) return -1;
 
-            foreach (var item in _character.Equipment)
+            foreach (var item in _character.Equipment.Items)
             {
                 item?.EquipmentScript.OnIncomingAttack(item, _character, attacker, damageType, damage, delay);
             }
@@ -717,7 +717,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             if (_character.HasState<TurmoilState>()) _character.Statistics.SetTurmoilBonuses(target);
 
-            foreach (var item in _character.Equipment)
+            foreach (var item in _character.Equipment.Items)
             {
                 item?.EquipmentScript.OnAttackPerformed(item, _character, target);
             }
@@ -1390,7 +1390,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns>Amount of damage remains after defence.</returns>
         public int PerformDefence(ICreature attacker, DamageType damageType, int damage)
         {
-            foreach (var item in _character.Equipment)
+            foreach (var item in _character.Equipment.Items)
             {
                 item?.EquipmentScript.OnAttack(item, _character, attacker, damageType, ref damage);
             }

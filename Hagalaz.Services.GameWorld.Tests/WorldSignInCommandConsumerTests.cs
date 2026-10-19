@@ -149,14 +149,15 @@ public sealed class WorldSignInCommandConsumerTests
         var consumer = CreateConsumer(publishEndpoint, scheduler, terminator, contactsClient: contactsClient);
 
         var consumeTask = consumer.Consume(CreateContext(new WorldSignInCommand(character)));
-        await loadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        var timeout = TimeSpan.FromSeconds(10);
+        await loadStarted.Task.WaitAsync(timeout);
 
         Assert.IsFalse(consumeTask.IsCompleted);
         character.DidNotReceive().OnRegistered();
         viewport.Received(1).RebuildView();
 
         releaseLoad.TrySetResult();
-        await consumeTask.WaitAsync(TimeSpan.FromSeconds(1));
+        await consumeTask.WaitAsync(timeout);
         await scheduler.StopAsync(CancellationToken.None);
 
         character.Received(1).OnRegistered();

@@ -99,7 +99,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                         character.ServiceProvider.GetRequiredService<IMapRegionService>().AddGameObject(cannon);
 
                         character.SendChatMessage("You place the cannon base on the ground...");
-                        character.Inventory.Items.Remove(_itemBuilder.Create().WithId(CannonItemIds[0 + cannonId]).Build());
+                        character.Inventory.RemoveItem(_itemBuilder.Create().WithId(CannonItemIds[0 + cannonId]).Build());
                     }
                     else if (tick == 2)
                     {
@@ -109,7 +109,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                             Id = DwarfMultiCannonGameObjectScript.CannonObjectIds[2 + cannonId]
                         });
                         character.SendChatMessage("You add the stand...");
-                        character.Inventory.Items.Remove(_itemBuilder.Create().WithId(CannonItemIds[1 + cannonId]).Build());
+                        character.Inventory.RemoveItem(_itemBuilder.Create().WithId(CannonItemIds[1 + cannonId]).Build());
                     }
                     else if (tick == 4)
                     {
@@ -120,7 +120,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                         });
 
                         character.SendChatMessage("You add the barrel...");
-                        character.Inventory.Items.Remove(_itemBuilder.Create().WithId(CannonItemIds[2 + cannonId]).Build());
+                        character.Inventory.RemoveItem(_itemBuilder.Create().WithId(CannonItemIds[2 + cannonId]).Build());
                     }
                     else if (tick == 6)
                     {
@@ -131,7 +131,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                         });
 
                         character.SendChatMessage("You add the furnace...");
-                        character.Inventory.Items.Remove(_itemBuilder.Create().WithId(CannonItemIds[3 + cannonId]).Build());
+                        character.Inventory.RemoveItem(_itemBuilder.Create().WithId(CannonItemIds[3 + cannonId]).Build());
 
                         character.Movement.Unlock(false);
                         task.Cancel();

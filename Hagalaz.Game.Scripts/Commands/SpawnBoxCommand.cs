@@ -123,7 +123,7 @@ namespace Hagalaz.Game.Scripts.Commands
 
                             if (args.Character.Inventory.Items.HasSpaceFor(item))
                             {
-                                args.Character.Inventory.Items.Add(item.Clone());
+                                args.Character.Inventory.AddItem(item.Clone());
                             }
                             else
                             {
@@ -165,7 +165,7 @@ namespace Hagalaz.Game.Scripts.Commands
 
                                 if (args.Character.Inventory.Items.HasSpaceFor(addItem))
                                 {
-                                    args.Character.Inventory.Items.Add(addItem);
+                                    args.Character.Inventory.AddItem(addItem);
                                 }
                                 else
                                 {

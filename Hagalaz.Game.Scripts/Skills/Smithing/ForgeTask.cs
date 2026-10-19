@@ -95,7 +95,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
             }
 
             ForgeCount++;
-            var removed = Performer.Inventory.Items.Remove(_itemBuilder.Create().WithId(Definition.BarID).WithCount(ForgeDefinition.RequiredBarCount).Build());
+            var removed = Performer.Inventory.RemoveItem(_itemBuilder.Create().WithId(Definition.BarID).WithCount(ForgeDefinition.RequiredBarCount).Build());
             if (removed < ForgeDefinition.RequiredBarCount) // something went wrong
             {
                 Cancel();
@@ -105,7 +105,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
             // TODO message
             //this.Performer.SendMessage("You retrieve a bar of " + World.ItemsManager.GetItemDefinition(this.Definition.BarID).Name.ToLower().Replace(" bar", "") + ".");
 
-            Performer.Inventory.Items.Add(_itemBuilder.Create().WithId(ForgeDefinition.Product.Id).WithCount(ForgeDefinition.Product.Count).Build());
+            Performer.Inventory.AddItem(_itemBuilder.Create().WithId(ForgeDefinition.Product.Id).WithCount(ForgeDefinition.Product.Count).Build());
             Performer.Statistics.AddExperience(StatisticsConstants.Smithing,
                 Definition.ForgeDefinition.BaseSmithingExperience * ForgeDefinition.RequiredBarCount); // Stop smithing if leveled up.
         }

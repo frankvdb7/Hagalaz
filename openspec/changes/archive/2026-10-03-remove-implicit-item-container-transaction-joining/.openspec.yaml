@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-03
+goal: Replace BeginIfNeeded with caller-owned transactions and
+  transaction-participating mutation primitives.

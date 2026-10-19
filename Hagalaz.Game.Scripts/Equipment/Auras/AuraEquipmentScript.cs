@@ -12,6 +12,34 @@ namespace Hagalaz.Game.Scripts.Equipment.Auras
     /// </summary>
     public abstract class AuraEquipmentScript : EquipmentScript
     {
+        public override bool EquipItem(IItem aura, ICharacter character)
+        {
+            var equippedAura = character.Equipment[EquipmentSlot.Aura];
+            if (equippedAura?.ItemScript is not AuraItemScript || !AuraItemScript.IsActivated(equippedAura))
+            {
+                return base.EquipItem(aura, character);
+            }
+
+            var yesNoDialogueScript = character.ServiceProvider.GetRequiredService<YesNoDialogueScript>();
+            yesNoDialogueScript.Question = "The aura is active, are you sure you want to remove it?";
+            yesNoDialogueScript.Callback = yes =>
+            {
+                try
+                {
+                    if (yes && ReferenceEquals(character.Equipment[EquipmentSlot.Aura], equippedAura))
+                    {
+                        base.EquipItem(aura, character);
+                    }
+                }
+                finally
+                {
+                    character.Widgets.CloseChatboxOverlay();
+                }
+            };
+            character.Widgets.OpenDialogue(yesNoDialogueScript, true);
+            return false;
+        }
+
         /// <summary>
         ///     Uns the equip item.
         /// </summary>

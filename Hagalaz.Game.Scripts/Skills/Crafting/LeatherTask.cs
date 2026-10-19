@@ -112,7 +112,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 MakeCount++;
                 if (++ThreadCount == 5)
                 {
-                    var tremoved = Performer.Inventory.Items.Remove(_itemBuilder.Create().WithId(CraftingSkillService.ThreadId).Build());
+                    var tremoved = Performer.Inventory.RemoveItem(_itemBuilder.Create().WithId(CraftingSkillService.ThreadId).Build());
                     if (tremoved <= 0)
                     {
                         Cancel();
@@ -125,7 +125,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
 
                 if (RandomStatic.Generator.Next(0, 30) <= 3)
                 {
-                    var nremoved = Performer.Inventory.Items.Remove(_itemBuilder.Create().WithId(CraftingSkillService.NeedleId).Build());
+                    var nremoved = Performer.Inventory.RemoveItem(_itemBuilder.Create().WithId(CraftingSkillService.NeedleId).Build());
                     if (nremoved <= 0)
                     {
                         Cancel();
@@ -135,7 +135,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                     Performer.SendChatMessage("Your needle has broken.");
                 }
 
-                var removed = Performer.Inventory.Items.Remove(
+                var removed = Performer.Inventory.RemoveItem(
                     _itemBuilder.Create().WithId(Definition.ResourceID).WithCount(Definition.RequiredResourceCount).Build());
                 if (removed < Definition.RequiredResourceCount)
                 {
@@ -143,7 +143,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                     return;
                 }
 
-                Performer.Inventory.Items.Add(_itemBuilder.Create().WithId(Definition.ProductId).Build());
+                Performer.Inventory.AddItem(_itemBuilder.Create().WithId(Definition.ProductId).Build());
                 Performer.Statistics.AddExperience(StatisticsConstants.Crafting, Definition.Experience);
             }
         }

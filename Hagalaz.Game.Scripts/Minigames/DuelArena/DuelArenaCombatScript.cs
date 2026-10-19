@@ -1,9 +1,15 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Model.Events.Creatures;
+using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
@@ -11,6 +17,7 @@ using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
+using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 {
@@ -19,13 +26,16 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     public class DuelArenaCombatScript : CharacterScriptBase
     {
         private readonly IHintIconBuilder _hintIconBuilder;
+        private readonly ILogger<DuelArenaCombatScript> _logger;
+        private readonly List<Action> _ruleHandlerUnregistrations = [];
         private EventHappened? _targetDestroyedHandler;
         private EventHappened? _characterDestroyedHandler;
 
-        public DuelArenaCombatScript(ICharacterContextAccessor contextAccessor, ICharacter target, DuelRules rules, DuelContainer? selfContainer, DuelContainer? targetContainer, IHintIconBuilder hintIconBuilder)
+        public DuelArenaCombatScript(ICharacterContextAccessor contextAccessor, ICharacter target, DuelRules rules, DuelContainer? selfContainer, DuelContainer? targetContainer, IHintIconBuilder hintIconBuilder, ILogger<DuelArenaCombatScript> logger)
             : base(contextAccessor)
         {
             _hintIconBuilder = hintIconBuilder;
+            _logger = logger;
             Target = target;
             Rules = rules;
             SelfContainer = selfContainer;
@@ -37,6 +47,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         ///     Contains duel session.
         /// </summary>
         public bool DuelSession { get; private set; }
+
+        /// <summary>
+        ///     Prevents ordinary inventory-changing interactions while a duel is active.
+        /// </summary>
+        public override bool IsBusy() => DuelSession;
 
         /// <summary>
         ///     Gets a value indicating whether this instance is staking.
@@ -102,26 +117,61 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Rules.ApplyRules(Character, this);
         }
 
+        internal void RegisterRuleHandler<TEventType>(ICharacter character, EventHappened<TEventType> handler)
+            where TEventType : ICreatureEvent
+        {
+            var registeredHandler = character.RegisterEventHandler(handler);
+            _ruleHandlerUnregistrations.Add(() => character.UnregisterEventHandler<TEventType>(registeredHandler));
+        }
+
         /// <summary>
         ///     Starts the victory stage.
         /// </summary>
         /// <param name="victor">The victor.</param>
         /// <param name="loser">The loser.</param>
-        public void StartVictoryStage(ICharacter victor, ICharacter loser)
+        /// <remarks>
+        /// This method respawns only the victor. Combat death continuations respawn their owner; non-death
+        /// outcomes must handle the loser's lifecycle themselves.
+        /// </remarks>
+        /// <returns>True when the victory stage starts; false when the duel is inactive or stake settlement fails.</returns>
+        public bool StartVictoryStage(ICharacter victor, ICharacter loser)
             => StartVictoryStage(victor, loser, false);
 
-        private void StartVictoryStage(ICharacter victor, ICharacter loser, bool loserDestroyed)
+        private bool StartVictoryStage(ICharacter victor, ICharacter loser, bool loserDestroyed)
         {
             if (!DuelSession)
             {
-                return;
+                return false;
+            }
+
+            IReadOnlyList<IItem?>? spoils = null;
+            if (IsStaking)
+            {
+                var spoilsContainer = (ReferenceEquals(victor, Character) ? TargetContainer : SelfContainer)!;
+                spoils = spoilsContainer.Items.ToArray();
+                try
+                {
+                    if (!DuelStakeExchange.TrySettleWinner(
+                            victor,
+                            SelfContainer!.Items,
+                            TargetContainer!.Items))
+                    {
+                        victor.SendChatMessage("You don't have enough room to receive the duel stakes. Free some inventory or Money Pouch space and try again.");
+                        return false;
+                    }
+                }
+                catch (Exception exception) when (exception is
+                    ItemContainerPostCommitCompletionException or ItemContainerPostCommitPublicationException)
+                {
+                    // The typed exception guarantees settlement committed; log the callback failure and finish victory.
+                    _logger.LogError(exception,
+                        "Duel stakes were committed for {Victor} and {Loser}, but completion or publication failed.",
+                        victor.DisplayName,
+                        loser.DisplayName);
+                }
             }
 
             victor.Respawn();
-            if (!loserDestroyed)
-            {
-                loser.Respawn();
-            }
 
             var victorDuelEndScreen = victor.ServiceProvider.GetRequiredService<DuelEndScreenScript>();
             victorDuelEndScreen.Opponent = loser;
@@ -143,7 +193,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     //victoryInterface.SetOptions(14, 0, 27, (0x2 | 0x400)); // allow clicking of 2 right click options + auto examine option ( last ))
                     //victor.Configurations.SendCS2Script(158, new object[] { (1365 << 16 | 14), 130, 3, 3, 1, -1, "Value", "", "", "", "" });
 
-                    victor.Configurations.SendItems(136, false, (ReferenceEquals(victor, Character) ? TargetContainer : SelfContainer)!.Items);
+                    victor.Configurations.SendItems(136, false, spoils!);
                 }
 
                 if (!loserDestroyed)
@@ -154,31 +204,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         // loseInterface.SetOptions(14, 0, 27, (0x2 | 0x400)); // allow clicking of 2 right click options + auto examine option ( last ))
                         //loser.Configurations.SendCS2Script(158, new object[] { (1365 << 16 | 14), 130, 3, 3, 1, -1, "Value", "", "", "", "" });
 
-                        loser.Configurations.SendItems(136, false, (ReferenceEquals(victor, Character) ? TargetContainer : SelfContainer)!.Items);
+                        loser.Configurations.SendItems(136, false, spoils!);
                     }
                 }
-
-                var removedCoins = 0;
-                var coins = SelfContainer.Items.GetById(995);
-                if (coins != null)
-                {
-                    removedCoins += SelfContainer.Items.Remove(coins);
-                }
-
-                coins = TargetContainer.Items.GetById(995);
-                if (coins != null)
-                {
-                    removedCoins += TargetContainer.Items.Remove(coins);
-                }
-
-                if (removedCoins > 0)
-                {
-                    victor.MoneyPouch.Add(removedCoins);
-                }
-
-                victor.Inventory.Items.AddRange(SelfContainer.Items);
-                victor.Inventory.Items.AddRange(TargetContainer.Items);
             }
+
+            return true;
         }
 
         /// <summary>
@@ -301,9 +332,20 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// </summary>
         public override void OnRemove()
         {
+            UnregisterRuleHandlers();
             UnregisterParticipantDestroyedHandlers();
 
             CancelDuelSession();
+        }
+
+        private void UnregisterRuleHandlers()
+        {
+            foreach (var unregister in _ruleHandlerUnregistrations)
+            {
+                unregister();
+            }
+
+            _ruleHandlerUnregistrations.Clear();
         }
 
         private void UnregisterParticipantDestroyedHandlers()

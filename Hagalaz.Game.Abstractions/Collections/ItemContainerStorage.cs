@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using Hagalaz.Game.Abstractions.Model.Items;
 
 namespace Hagalaz.Game.Abstractions.Collections
@@ -10,12 +9,8 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// <summary>
     /// Owns fixed-capacity item slots and the shared item mutation algorithms.
     /// </summary>
-    internal sealed class ItemContainerStorage : IEnumerable<IItem?>
+    internal sealed class ItemContainerStorage : IReadOnlyItemContainer
     {
-        private static long _nextMutationOrder;
-        private readonly object _mutationLock = new();
-        private readonly long _mutationOrder = Interlocked.Increment(ref _nextMutationOrder);
-
         /// <summary>
         /// The internal array storing the item objects.
         /// </summary>
@@ -29,23 +24,14 @@ namespace Hagalaz.Game.Abstractions.Collections
 
         private int _version;
 
-        /// <summary>The current mutation revision, captured by transactions while holding this storage's lock.</summary>
+
+        /// <summary>The current storage mutation revision.</summary>
         internal int MutationRevision => _version;
 
         /// <summary>
-        /// Advances the storage revision after a mutation commits.
+        /// Advances the storage revision after an item-state mutation.
         /// </summary>
         private void AdvanceRevision() => _version++;
-
-        /// <summary>
-        /// Synchronization boundary used by operations that mutate multiple stores.
-        /// </summary>
-        internal object MutationLock => _mutationLock;
-
-        /// <summary>
-        /// Stable order for acquiring more than one container mutation boundary.
-        /// </summary>
-        internal long MutationOrder => _mutationOrder;
 
         /// <summary>
         /// Gets the item at the specified index in the container.
@@ -129,9 +115,8 @@ namespace Hagalaz.Game.Abstractions.Collections
             }
         }
 
-        /// <summary>Atomically transfers an exact quantity between two stores.</summary>
-        internal static bool TryTransfer(
-            ItemContainerStorage source,
+        /// <summary>Applies the exact item-transfer algorithm; the owning boundaries validate synchronization.</summary>
+        internal bool TryTransferTo(
             ItemContainerStorage destination,
             IItem item,
             int count,
@@ -141,7 +126,6 @@ namespace Hagalaz.Game.Abstractions.Collections
             out HashSet<int> sourceSlots,
             out HashSet<int> destinationSlots)
         {
-            ArgumentNullException.ThrowIfNull(source);
             ArgumentNullException.ThrowIfNull(destination);
             ArgumentNullException.ThrowIfNull(item);
 
@@ -150,7 +134,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             sourceSlots = changedSourceSlots;
             destinationSlots = changedDestinationSlots;
 
-            if (count <= 0 || ReferenceEquals(source, destination))
+            if (count <= 0 || ReferenceEquals(this, destination))
             {
                 return false;
             }
@@ -160,35 +144,20 @@ namespace Hagalaz.Game.Abstractions.Collections
                 return false;
             }
 
-            return TryTransferLocked(source, destination, item, count,
-                preferredSourceSlot, destinationSlot, destinationItem, changedSourceSlots, changedDestinationSlots);
-        }
-
-        private static bool TryTransferLocked(
-            ItemContainerStorage source,
-            ItemContainerStorage destination,
-            IItem item,
-            int count,
-            int preferredSourceSlot,
-            int destinationSlot,
-            IItem? destinationItem,
-            HashSet<int> sourceSlots,
-            HashSet<int> destinationSlots)
-        {
             var removals = new List<(int Slot, int Count, IItem Item)>();
-            if (!TryCreateRemovalPlan(source, item, count, preferredSourceSlot, removals))
+            if (!TryCreateRemovalPlan(item, count, preferredSourceSlot, removals))
             {
                 return false;
             }
 
             var destinationTemplate = destinationItem ?? item;
             var isTransformed = destinationItem != null;
-            if (CannotAcceptExpandedNonStackableTransfer(destination, destinationTemplate, isTransformed, count, destinationSlot, removals))
+            if (destination.CannotAcceptExpandedNonStackableTransfer(destinationTemplate, isTransformed, count, destinationSlot, removals))
             {
                 return false;
             }
 
-            var incomingItems = CreateIncomingItems(source, destination, destinationTemplate, isTransformed, removals);
+            var incomingItems = CreateIncomingItems(destination, destinationTemplate, isTransformed, removals);
             var simulatedItems = new IItem?[destination.Items.Length];
             for (var i = 0; i < destination.Items.Length; i++)
             {
@@ -238,7 +207,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             }
 
             var committedDestination = (IItem?[])destination.Items.Clone();
-            source.ApplyRemovalPlan(removals, sourceSlots);
+            ApplyRemovalPlan(removals, changedSourceSlots);
 
             for (var slot = 0; slot < simulatedItems.Length; slot++)
             {
@@ -260,20 +229,19 @@ namespace Hagalaz.Game.Abstractions.Collections
             }
 
             destination.Items = committedDestination;
-            source.AdvanceRevision();
+            AdvanceRevision();
             destination.AdvanceRevision();
             return true;
         }
 
-        private static bool CannotAcceptExpandedNonStackableTransfer(
-            ItemContainerStorage destination,
+        private bool CannotAcceptExpandedNonStackableTransfer(
             IItem destinationTemplate,
             bool isTransformed,
             int count,
             int destinationSlot,
             IReadOnlyList<(int Slot, int Count, IItem Item)> removals)
         {
-            if (destination.Type == StorageType.AlwaysStack || destinationTemplate.ItemDefinition.Stackable || destinationTemplate.ItemDefinition.Noted)
+            if (Type == StorageType.AlwaysStack || destinationTemplate.ItemDefinition.Stackable || destinationTemplate.ItemDefinition.Noted)
             {
                 return false;
             }
@@ -282,13 +250,13 @@ namespace Hagalaz.Game.Abstractions.Collections
 
             if (destinationSlot >= 0)
             {
-                if ((uint)destinationSlot >= (uint)destination.Items.Length)
+                if ((uint)destinationSlot >= (uint)Items.Length)
                 {
                     return true;
                 }
 
                 var incoming = IncomingTemplate(removals[0]);
-                var slotItem = destination.Items[destinationSlot];
+                var slotItem = Items[destinationSlot];
                 if (slotItem != null)
                 {
                     if (slotItem.Id != incoming.Id || !slotItem.ItemScript.CanStackItem(slotItem, incoming, false))
@@ -308,13 +276,13 @@ namespace Hagalaz.Game.Abstractions.Collections
                 return !incoming.ItemScript.CanStackItem(incoming, nextIncoming, false);
             }
 
-            if (destination.FreeSlots >= count)
+            if (FreeSlots >= count)
             {
                 return false;
             }
 
             var firstIncoming = IncomingTemplate(removals[0]);
-            foreach (var slotItem in destination.Items)
+            foreach (var slotItem in Items)
             {
                 if (slotItem != null && slotItem.Id == firstIncoming.Id && slotItem.ItemScript.CanStackItem(slotItem, firstIncoming, false))
                 {
@@ -322,7 +290,7 @@ namespace Hagalaz.Game.Abstractions.Collections
                 }
             }
 
-            foreach (var slotItem in destination.Items)
+            foreach (var slotItem in Items)
             {
                 if (slotItem == null)
                 {
@@ -351,15 +319,14 @@ namespace Hagalaz.Game.Abstractions.Collections
             return true;
         }
 
-        private static bool TryCreateRemovalPlan(
-            ItemContainerStorage source,
+        private bool TryCreateRemovalPlan(
             IItem item,
             int count,
             int preferredSourceSlot,
             List<(int Slot, int Count, IItem Item)> removals)
         {
             long available = 0;
-            foreach (var sourceItem in source.Items)
+            foreach (var sourceItem in Items)
             {
                 if (sourceItem != null && sourceItem.Count > 0 && sourceItem.Equals(item, true))
                 {
@@ -373,15 +340,15 @@ namespace Hagalaz.Game.Abstractions.Collections
             }
 
             var remaining = count;
-            if ((uint)preferredSourceSlot < (uint)source.Items.Length &&
-                source.Items[preferredSourceSlot] is { Count: > 0 } preferredItem && preferredItem.Equals(item, true))
+            if ((uint)preferredSourceSlot < (uint)Items.Length &&
+                Items[preferredSourceSlot] is { Count: > 0 } preferredItem && preferredItem.Equals(item, true))
             {
                 AddRemoval(preferredSourceSlot, preferredItem);
             }
 
-            for (var slot = 0; remaining > 0 && slot < source.Items.Length; slot++)
+            for (var slot = 0; remaining > 0 && slot < Items.Length; slot++)
             {
-                if (slot == preferredSourceSlot || source.Items[slot] is not { Count: > 0 } sourceItem || !sourceItem.Equals(item, true))
+                if (slot == preferredSourceSlot || Items[slot] is not { Count: > 0 } sourceItem || !sourceItem.Equals(item, true))
                 {
                     continue;
                 }
@@ -417,22 +384,19 @@ namespace Hagalaz.Game.Abstractions.Collections
         {
             ArgumentNullException.ThrowIfNull(item);
             slotsToUpdate = [];
+            var removals = new List<(int Slot, int Count, IItem Item)>();
             if (count <= 0)
             {
                 return false;
             }
 
-            var removals = new List<(int Slot, int Count, IItem Item)>();
-            lock (_mutationLock)
+            if (!TryCreateRemovalPlan(item, count, preferredSlot, removals))
             {
-                if (!TryCreateRemovalPlan(this, item, count, preferredSlot, removals))
-                {
-                    return false;
-                }
-
-                ApplyRemovalPlan(removals, slotsToUpdate);
-                AdvanceRevision();
+                return false;
             }
+
+            ApplyRemovalPlan(removals, slotsToUpdate);
+            AdvanceRevision();
 
             return true;
         }
@@ -462,8 +426,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             }
         }
 
-        private static List<(IItem Item, IItem? Original)> CreateIncomingItems(
-            ItemContainerStorage source,
+        private List<(IItem Item, IItem? Original)> CreateIncomingItems(
             ItemContainerStorage destination,
             IItem destinationTemplate,
             bool isTransformed,
@@ -476,7 +439,7 @@ namespace Hagalaz.Game.Abstractions.Collections
 
             foreach (var removal in removals)
             {
-                var canMoveInstance = !isTransformed && removal.Count == removal.Item.Count && source._countToResetTo == -1;
+                var canMoveInstance = !isTransformed && removal.Count == removal.Item.Count && _countToResetTo == -1;
                 if (splitIntoUnits)
                 {
                     for (var unit = 0; unit < removal.Count; unit++)
@@ -498,6 +461,11 @@ namespace Hagalaz.Game.Abstractions.Collections
 
         private static bool ApplyAddAt(IItem?[] targetItems, int slot, IItem item, bool alwaysStack)
         {
+            if (!alwaysStack && !item.ItemDefinition.Stackable && !item.ItemDefinition.Noted && item.Count != 1)
+            {
+                return false;
+            }
+
             var slotItem = targetItems[slot];
             if (slotItem != null)
             {
@@ -567,8 +535,8 @@ namespace Hagalaz.Game.Abstractions.Collections
 
 
         /// <summary>
-        /// Adds an item to a specific slot in the container. If the slot is occupied by a stackable item of the same type,
-        /// it increases the count. If the slot is empty, it places the item there.
+        /// Adds an item to a specific slot in the container. Ordinary storage accepts one non-stackable item per slot;
+        /// always-stack storage may store multiple units in one slot.
         /// </summary>
         /// <param name="slot">The zero-based index of the slot to add the item to.</param>
         /// <param name="item">The item to add.</param>
@@ -581,16 +549,13 @@ namespace Hagalaz.Game.Abstractions.Collections
                 return false;
             }
 
-            lock (_mutationLock)
+            if (!ApplyAddAt(Items, slot, item, Type == StorageType.AlwaysStack))
             {
-                if (!ApplyAddAt(Items, slot, item, Type == StorageType.AlwaysStack))
-                {
-                    return false;
-                }
-
-                changedSlots.Add(slot);
-                AdvanceRevision();
+                return false;
             }
+
+            changedSlots.Add(slot);
+            AdvanceRevision();
 
             return true;
         }
@@ -603,52 +568,56 @@ namespace Hagalaz.Game.Abstractions.Collections
         public bool TryAdd(IItem item, out HashSet<int> changedSlots)
         {
             changedSlots = [];
-            lock (_mutationLock)
+            var stacked = false;
+            for (var slot = 0; slot < Items.Length; slot++)
             {
-                var stacked = false;
-                for (var slot = 0; slot < Items.Length; slot++)
-                {
-                    var slotItem = Items[slot];
+                var slotItem = Items[slot];
 
-                    // If an identical item is located in this container.
-                    if (slotItem != null && slotItem.Id == item.Id && slotItem.ItemScript.CanStackItem(slotItem, item, Type == StorageType.AlwaysStack))
-                    {
-                        var total = slotItem.Count + (long)item.Count;
-                        if (total > int.MaxValue) return false;
-                        slotItem.Count = (int)total;
-                        changedSlots.Add(slot);
-                        _version++;
-                        stacked = true;
-                        break;
-                    }
-                }
-
-                if (!stacked && (Type == StorageType.AlwaysStack || item.ItemDefinition.Stackable || item.ItemDefinition.Noted))
+                // If an identical item is located in this container.
+                if (slotItem != null && slotItem.Id == item.Id && slotItem.ItemScript.CanStackItem(slotItem, item, Type == StorageType.AlwaysStack))
                 {
-                    // Not existing in container.
-                    var slot = GetFreeSlot();
-                    if (slot == -1) return false;
-                    Items[slot] = item;
+                    var total = slotItem.Count + (long)item.Count;
+                    if (total > int.MaxValue) return false;
+                    slotItem.Count = (int)total;
                     changedSlots.Add(slot);
                     _version++;
+                    stacked = true;
+                    break;
                 }
-                else if (!stacked)
+            }
+
+            if (!stacked && (Type == StorageType.AlwaysStack || item.ItemDefinition.Stackable || item.ItemDefinition.Noted))
+            {
+                // Not existing in container.
+                var slot = GetFreeSlot();
+                if (slot == -1) return false;
+                Items[slot] = item;
+                changedSlots.Add(slot);
+                _version++;
+            }
+            else if (!stacked)
+            {
+                if (FreeSlots < item.Count)
                 {
-                    if (FreeSlots < item.Count)
-                    {
-                        return false;
-                    }
-
-                    for (var i = 0; i < item.Count; i++)
-                    {
-                        var freeSlot = GetFreeSlot();
-                        Items[freeSlot] = item.Clone();
-                        Items[freeSlot]!.Count = 1;
-                        changedSlots.Add(freeSlot);
-                    }
-
-                    _version++;
+                    return false;
                 }
+
+                var addedItems = new IItem[item.Count];
+                for (var i = 0; i < addedItems.Length; i++)
+                {
+                    addedItems[i] = item.Clone();
+                    addedItems[i].Count = 1;
+                }
+
+                changedSlots = new HashSet<int>(addedItems.Length);
+                for (var i = 0; i < addedItems.Length; i++)
+                {
+                    var freeSlot = GetFreeSlot();
+                    Items[freeSlot] = addedItems[i];
+                    changedSlots.Add(freeSlot);
+                }
+
+                _version++;
             }
 
             return true;
@@ -664,47 +633,44 @@ namespace Hagalaz.Game.Abstractions.Collections
             ArgumentNullException.ThrowIfNull(newItems);
             var incomingItems = newItems.ToArray();
             slotsToUpdate = [];
-            lock (_mutationLock)
+            var simulatedItems = Items.Select(item => item?.Clone(item.Count)).ToArray();
+            var simulatedIncoming = incomingItems.Select(item => item?.Clone(item.Count)).ToArray();
+            var slotOrigins = new int[Items.Length];
+            Array.Fill(slotOrigins, -1);
+            if (!ApplyAddRange(simulatedItems, simulatedIncoming, slotsToUpdate, slotOrigins))
             {
-                var simulatedItems = Items.Select(item => item?.Clone(item.Count)).ToArray();
-                var simulatedIncoming = incomingItems.Select(item => item?.Clone(item.Count)).ToArray();
-                var slotOrigins = new int[Items.Length];
-                Array.Fill(slotOrigins, -1);
-                if (!ApplyAddRange(simulatedItems, simulatedIncoming, slotsToUpdate, slotOrigins))
-                {
-                    slotsToUpdate.Clear();
-                    return false;
-                }
-
-                if (slotsToUpdate.Count == 0)
-                {
-                    return true;
-                }
-
-                var committedItems = (IItem?[])Items.Clone();
-                for (var slot = 0; slot < simulatedItems.Length; slot++)
-                {
-                    if (simulatedItems[slot] is not { } simulatedItem)
-                    {
-                        continue;
-                    }
-
-                    if (Items[slot] is { } existingItem)
-                    {
-                        existingItem.Count = simulatedItem.Count;
-                        continue;
-                    }
-
-                    var incoming = incomingItems[slotOrigins[slot]]!;
-                    var stacks = Type == StorageType.AlwaysStack || incoming.ItemDefinition.Stackable || incoming.ItemDefinition.Noted;
-                    var newItem = stacks ? incoming : incoming.Clone();
-                    newItem.Count = simulatedItem.Count;
-                    committedItems[slot] = newItem;
-                }
-
-                Items = committedItems;
-                AdvanceRevision();
+                slotsToUpdate.Clear();
+                return false;
             }
+
+            if (slotsToUpdate.Count == 0)
+            {
+                return true;
+            }
+
+            var committedItems = (IItem?[])Items.Clone();
+            for (var slot = 0; slot < simulatedItems.Length; slot++)
+            {
+                if (simulatedItems[slot] is not { } simulatedItem)
+                {
+                    continue;
+                }
+
+                if (Items[slot] is { } existingItem)
+                {
+                    existingItem.Count = simulatedItem.Count;
+                    continue;
+                }
+
+                var incoming = incomingItems[slotOrigins[slot]]!;
+                var stacks = Type == StorageType.AlwaysStack || incoming.ItemDefinition.Stackable || incoming.ItemDefinition.Noted;
+                var newItem = stacks ? incoming : incoming.Clone();
+                newItem.Count = simulatedItem.Count;
+                committedItems[slot] = newItem;
+            }
+
+            Items = committedItems;
+            AdvanceRevision();
 
             return true;
         }
@@ -806,13 +772,10 @@ namespace Hagalaz.Game.Abstractions.Collections
         {
             changedSlots = [];
             int removed;
-            lock (_mutationLock)
+            removed = ApplyRemove(item, preferredSlot, changedSlots);
+            if (removed > 0)
             {
-                removed = ApplyRemove(item, preferredSlot, changedSlots);
-                if (removed > 0)
-                {
-                    AdvanceRevision();
-                }
+                AdvanceRevision();
             }
 
             return removed;
@@ -820,85 +783,36 @@ namespace Hagalaz.Game.Abstractions.Collections
 
         private int ApplyRemove(IItem item, int preferredSlot, HashSet<int> slotsToUpdate)
         {
+            var remaining = item.Count;
+            if (remaining <= 0) return 0;
+
             var removed = 0;
-            if (Type == StorageType.AlwaysStack || item.ItemDefinition.Stackable || item.ItemDefinition.Noted)
+            var preferred = (uint)preferredSlot < (uint)Items.Length ? preferredSlot : -1;
+            for (var index = -1; index < Items.Length && remaining > 0; index++)
             {
-                var lastRemoved = 0;
-                for (var slot = 0; slot < Items.Length; slot++)
+                var slot = index == -1 ? preferred : index;
+                if (slot < 0 || index >= 0 && slot == preferred) continue;
+
+                var slotItem = Items[slot];
+                if (slotItem == null || slotItem.Count <= 0 || !slotItem.Equals(item, ignoreCount: true)) continue;
+
+                var amount = Math.Min(remaining, slotItem.Count);
+                if (slotItem.Count > amount)
                 {
-                    var slotItem = Items[slot];
-                    if (slotItem == null || !slotItem.Equals(item))
-                    {
-                        continue;
-                    }
-
-                    var requestedFromSlot = item.Count;
-                    var removedFromSlot = Math.Min(slotItem.Count, requestedFromSlot);
-                    if (slotItem.Count > item.Count)
-                    {
-                        slotItem.Count -= item.Count;
-                    }
-                    else if (_countToResetTo != -1)
-                    {
-                        slotItem.Count = _countToResetTo;
-                    }
-                    else
-                    {
-                        Items[slot] = null;
-                    }
-
-                    slotsToUpdate.Add(slot);
-                    lastRemoved = removedFromSlot;
+                    slotItem.Count -= amount;
                 }
-
-                return lastRemoved;
-            }
-
-            var slotIndex = GetSlotByItem(item);
-            if (preferredSlot != -1)
-            {
-                var slotItem = Items[preferredSlot];
-                if (slotItem != null && slotItem.Equals(item, true))
-                {
-                    slotIndex = preferredSlot;
-                }
-            }
-
-            var toRemove = item.Count;
-            while (toRemove > 0)
-            {
-                if (slotIndex == -1 && (slotIndex = GetSlotByItem(item)) == -1)
-                {
-                    break;
-                }
-
-                var slotItem = Items[slotIndex];
-                if (slotItem == null)
-                {
-                    continue;
-                }
-
-                if (slotItem.Count > toRemove)
-                {
-                    slotItem.Count -= toRemove;
-                    removed += toRemove;
-                    slotsToUpdate.Add(slotIndex);
-                    break;
-                }
-
-                removed += slotItem.Count;
-                toRemove -= slotItem.Count;
-                if (_countToResetTo != -1)
+                else if (_countToResetTo != -1)
                 {
                     slotItem.Count = _countToResetTo;
                 }
                 else
                 {
-                    Items[slotIndex] = null;
+                    Items[slot] = null;
                 }
 
-                slotsToUpdate.Add(slotIndex);
-                slotIndex = GetSlotByItem(item);
+                removed += amount;
+                remaining -= amount;
+                slotsToUpdate.Add(slot);
             }
 
             return removed;
@@ -911,11 +825,8 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="item">The new item to place in the slot. This cannot be null.</param>
         public void Replace(int slot, IItem item)
         {
-            lock (_mutationLock)
-            {
-                Items[slot] = item;
-                AdvanceRevision();
-            }
+            Items[slot] = item;
+            AdvanceRevision();
         }
 
         /// <summary>
@@ -925,62 +836,64 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="toSlot">The destination slot.</param>
         public bool Move(int fromSlot, int toSlot)
         {
-            lock (_mutationLock)
+            if ((uint)fromSlot >= (uint)Items.Length || (uint)toSlot >= (uint)Items.Length)
             {
-                if ((uint)fromSlot >= (uint)Items.Length || (uint)toSlot >= (uint)Items.Length)
-                {
-                    return false;
-                }
-
-                var fromItem = Items[fromSlot];
-                if (fromItem == null) return false;
-
-                Items[fromSlot] = null;
-
-                if (fromSlot > toSlot)
-                {
-                    var shiftFrom = toSlot;
-                    var shiftTo = fromSlot;
-
-                    for (var i = toSlot + 1; i < fromSlot; i++)
-                    {
-                        if (Items[i] != null)
-                        {
-                            continue;
-                        }
-
-                        shiftTo = i;
-                        break;
-                    }
-
-                    var slice = new IItem[shiftTo - shiftFrom];
-                    Array.Copy(Items, shiftFrom, slice, 0, slice.Length);
-                    Array.Copy(slice, 0, Items, shiftFrom + 1, slice.Length);
-                }
-                else
-                {
-                    var sliceStart = fromSlot + 1;
-                    var sliceEnd = toSlot;
-
-                    for (var i = sliceEnd - 1; i >= sliceStart; i--)
-                    {
-                        if (Items[i] != null)
-                        {
-                            continue;
-                        }
-
-                        sliceStart = i;
-                        break;
-                    }
-
-                    var slice = new IItem[sliceEnd - sliceStart + 1];
-                    Array.Copy(Items, sliceStart, slice, 0, slice.Length);
-                    Array.Copy(slice, 0, Items, sliceStart - 1, slice.Length);
-                }
-
-                Items[toSlot] = fromItem;
-                AdvanceRevision();
+                return false;
             }
+
+            if (fromSlot == toSlot)
+            {
+                return false;
+            }
+
+            var fromItem = Items[fromSlot];
+            if (fromItem == null) return false;
+
+            Items[fromSlot] = null;
+
+            if (fromSlot > toSlot)
+            {
+                var shiftFrom = toSlot;
+                var shiftTo = fromSlot;
+
+                for (var i = toSlot + 1; i < fromSlot; i++)
+                {
+                    if (Items[i] != null)
+                    {
+                        continue;
+                    }
+
+                    shiftTo = i;
+                    break;
+                }
+
+                var slice = new IItem[shiftTo - shiftFrom];
+                Array.Copy(Items, shiftFrom, slice, 0, slice.Length);
+                Array.Copy(slice, 0, Items, shiftFrom + 1, slice.Length);
+            }
+            else
+            {
+                var sliceStart = fromSlot + 1;
+                var sliceEnd = toSlot;
+
+                for (var i = sliceEnd - 1; i >= sliceStart; i--)
+                {
+                    if (Items[i] != null)
+                    {
+                        continue;
+                    }
+
+                    sliceStart = i;
+                    break;
+                }
+
+                var slice = new IItem[sliceEnd - sliceStart + 1];
+                Array.Copy(Items, sliceStart, slice, 0, slice.Length);
+                Array.Copy(slice, 0, Items, sliceStart - 1, slice.Length);
+            }
+
+            Items[toSlot] = fromItem;
+            AdvanceRevision();
 
             return true;
         }
@@ -992,15 +905,12 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="toSlot">The second slot to swap.</param>
         public bool Swap(int fromSlot, int toSlot)
         {
-            lock (_mutationLock)
-            {
-                var fromItem = Items[fromSlot];
-                if (fromItem == null) return false;
+            var fromItem = Items[fromSlot];
+            if (fromItem == null || fromSlot == toSlot) return false;
 
-                Items[fromSlot] = Items[toSlot];
-                Items[toSlot] = fromItem;
-                AdvanceRevision();
-            }
+            Items[fromSlot] = Items[toSlot];
+            Items[toSlot] = fromItem;
+            AdvanceRevision();
 
             return true;
         }
@@ -1030,39 +940,53 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// Gets the total count of a specified item in this container, summing up all stacks.
         /// </summary>
         /// <param name="item">The item to count.</param>
-        /// <returns>The total number of the specified item.</returns>
-        public int GetCount(IItem item) => Items.OfType<IItem>().Where(tItem => tItem.Equals(item, true)).Sum(tItem => tItem.Count);
+        /// <returns>The total number of the specified item, capped at <see cref="int.MaxValue"/>.</returns>
+        public int GetCount(IItem item)
+        {
+            var count = Items.OfType<IItem>()
+                .Where(tItem => tItem.Equals(item, true))
+                .Sum(tItem => (long)tItem.Count);
+
+            return (int)Math.Min(count, int.MaxValue);
+        }
 
         /// <summary>
         /// Gets the total count of an item by its ID in this container, summing up all stacks.
         /// </summary>
         /// <param name="id">The ID of the item to count.</param>
-        /// <returns>The total number of items with the specified ID.</returns>
-        public int GetCountById(int id) =>
-            (int)Items.OfType<IItem>().Where(item => item.Id == id).Aggregate<IItem, long>(0, (current, item) => current + item.Count);
+        /// <returns>The total number of items with the specified ID, capped at <see cref="int.MaxValue"/>.</returns>
+        public int GetCountById(int id)
+        {
+            var count = Items.OfType<IItem>()
+                .Where(item => item.Id == id)
+                .Sum(item => (long)item.Count);
+
+            return (int)Math.Min(count, int.MaxValue);
+        }
 
         /// <summary>
         /// Sorts the container by moving all items to the beginning, removing any empty slots between them.
         /// </summary>
-        public void Sort()
+        public bool Sort()
         {
-            lock (_mutationLock)
+            var baseWrite = 0;
+            var changed = false;
+            for (var i = 0; i < Items.Length; i++)
             {
-                var baseWrite = 0;
-                for (var i = 0; i < Items.Length; i++)
+                var item = Items[i];
+                if (item == null) continue;
+
+                if (baseWrite != i)
                 {
-                    if (Items[i] == null)
-                    {
-                        continue;
-                    }
-
-                    var item = Items[i];
+                    Items[baseWrite] = item;
                     Items[i] = null;
-                    Items[baseWrite++] = item;
+                    changed = true;
                 }
-
-                AdvanceRevision();
+                baseWrite++;
             }
+
+            if (changed) AdvanceRevision();
+            return changed;
         }
 
 
@@ -1108,18 +1032,16 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         public bool Clear()
         {
-            lock (_mutationLock)
+            foreach (var item in Items)
             {
-                if (Items.Length <= 0)
-                {
-                    return false;
-                }
+                if (item == null) continue;
 
                 Array.Clear(Items, 0, Items.Length);
                 AdvanceRevision();
+                return true;
             }
 
-            return true;
+            return false;
         }
 
         /// <summary>Validates and restores exact persisted slots before replacing the current state.</summary>
@@ -1154,15 +1076,12 @@ namespace Hagalaz.Game.Abstractions.Collections
                 throw new ArgumentException("Item storage length must equal container capacity.", nameof(items));
             }
 
-            lock (_mutationLock)
-            {
-                Items = (IItem?[])items.Clone();
-                AdvanceRevision();
-            }
+            Items = (IItem?[])items.Clone();
+            AdvanceRevision();
         }
 
-        /// <summary>Restores a transaction snapshot without treating rollback as a committed mutation.</summary>
-        internal void RestoreTransactionState(IItem?[] items, int[] counts, int mutationRevision)
+        /// <summary>Restores item state and revision from a rollback snapshot.</summary>
+        internal void RestoreSnapshotState(IItem?[] items, int[] counts, int mutationRevision)
         {
             ArgumentNullException.ThrowIfNull(items);
             ArgumentNullException.ThrowIfNull(counts);
@@ -1175,15 +1094,12 @@ namespace Hagalaz.Game.Abstractions.Collections
                 throw new ArgumentException("Item count snapshot length must equal container capacity.", nameof(counts));
             }
 
-            lock (_mutationLock)
+            for (var slot = 0; slot < items.Length; slot++)
             {
-                for (var slot = 0; slot < items.Length; slot++)
-                {
-                    if (items[slot] is { } item) item.Count = counts[slot];
-                }
-                Items = (IItem?[])items.Clone();
-                _version = mutationRevision;
+                if (items[slot] is { } item) item.Count = counts[slot];
             }
+            Items = (IItem?[])items.Clone();
+            _version = mutationRevision;
         }
 
         /// <summary>

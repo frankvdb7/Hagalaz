@@ -16,7 +16,8 @@ using Hagalaz.Services.GameWorld.Logic.Characters;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 
-public class InventoryContainer : IInventoryContainer,
+public class InventoryContainer : IInventoryContainer, IItemTransactionSource,
+    IItemContainerCompletionOwner,
     IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
 {
     private readonly ICharacter _owner;
@@ -24,23 +25,88 @@ public class InventoryContainer : IInventoryContainer,
     private readonly IGroundItemBuilder _groundItemBuilder;
     private readonly IItemBuilder _itemBuilder;
     private readonly ItemContainer _items;
-    public IItemContainer Items => _items;
+    IReadOnlyList<ItemContainerSynchronization> IItemTransactionSource.Synchronizations =>
+        ((IItemTransactionSource)_items).Synchronizations;
+    public IReadOnlyItemContainer Items => _items;
 
     public InventoryContainer(ICharacter owner, int capacity, IMapRegionService mapRegionService,
         IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder)
     {
         (_owner, _mapRegionService, _groundItemBuilder, _itemBuilder) =
             (owner, mapRegionService, groundItemBuilder, itemBuilder);
-        _items = new ItemContainer(StorageType.Normal, capacity, OnUpdate);
+        var storage = new ItemContainerStorage(StorageType.Normal, capacity);
+        var synchronization = new ItemContainerSynchronization(storage, this);
+        _items = new ItemContainer(synchronization);
     }
 
-    public void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new InventoryChangedEvent(_owner, slots));
+    public bool AddItem(IItem item)
+    {
+        return _items.Add(item);
+    }
+
+    public bool AddItem(int slot, IItem item)
+    {
+        return _items.Add(slot, item);
+    }
+
+    public bool AddItems(IEnumerable<IItem?> items)
+    {
+        return _items.AddRange(items);
+    }
+
+    public int RemoveItem(IItem item, int preferredSlot = -1, bool publishChanges = true)
+    {
+        return _items.Remove(item, preferredSlot, publishChanges);
+    }
+
+    public bool TryRemoveItemExact(IItem item, int preferredSlot = -1)
+    {
+        return _items.TryRemoveExact(item, preferredSlot);
+    }
+
+    public bool TryTransferItemTo(IItemContainer destination, IItem item, int count,
+        int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        return _items.TryTransferTo(destination, item, count, preferredSourceSlot, destinationSlot, destinationItem);
+    }
+
+    public bool TryTransferItemFrom(IItemContainer source, IItem item, int count,
+        int preferredSourceSlot = -1, int destinationSlot = -1, IItem? destinationItem = null)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        return source.TryTransferTo(_items, item, count, preferredSourceSlot, destinationSlot, destinationItem);
+    }
+
+    public void ReplaceItem(int slot, IItem item)
+    {
+        _items.Replace(slot, item);
+    }
+
+    public void SwapItems(int fromSlot, int toSlot)
+    {
+        _items.Swap(fromSlot, toSlot);
+    }
+
+    public void ClearItems(bool publishChanges = true)
+    {
+        _items.Clear(publishChanges);
+    }
+
+    void IItemContainerCompletionOwner.PublishCommittedChanges()
+    {
+        var slots = _items.ChangeTracker.GetSlots();
+        if (slots is { Count: 0 }) return;
+        _owner.EventManager.SendEvent(new InventoryChangedEvent(_owner, slots));
+    }
 
     public bool DropItem(IItem item)
     {
         var slot = Items.GetInstanceSlot(item);
-        if (slot == -1 || Items.Remove(item, slot) < item.Count) return false;
-        var groundItem = _groundItemBuilder.Create().WithItem(item).WithLocation(_owner.Location).WithOwner(_owner).Build();
+        if (slot == -1) return false;
+        var droppedItem = item.Clone(item.Count);
+        if (!TryRemoveItemExact(item, slot)) return false;
+        var groundItem = _groundItemBuilder.Create().WithItem(droppedItem).WithLocation(_owner.Location).WithOwner(_owner).Build();
         _mapRegionService.AddGroundItem(groundItem);
         return true;
     }

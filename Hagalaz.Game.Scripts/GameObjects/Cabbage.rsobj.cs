@@ -41,7 +41,7 @@ namespace Hagalaz.Game.Scripts.GameObjects
                 clicker.SendChatMessage("You tried pulling the cabbage from the ground...");
                 clicker.QueueTask(new RsTask(() =>
                     {
-                        if (clicker.Inventory.Items.Add(_itemBuilder.Create().WithId(1965).Build()))
+                        if (clicker.Inventory.AddItem(_itemBuilder.Create().WithId(1965).Build()))
                         {
                             // delete the cabbage object.
                             _mapRegionService.RemoveGameObject(Owner);

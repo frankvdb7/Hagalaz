@@ -84,7 +84,7 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
                 }
             }
 
-            var removed = character.Inventory.Items.Remove(_itemBuilder.Create()
+            var removed = character.Inventory.RemoveItem(_itemBuilder.Create()
                 .WithId(usingPureEssence ? RunecraftingConstants.PureEssence : RunecraftingConstants.RuneEssence)
                 .WithCount(character.Inventory.Items.GetCountById(usingPureEssence ? RunecraftingConstants.PureEssence : RunecraftingConstants.RuneEssence))
                 .Build());
@@ -97,7 +97,7 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
             character.QueueGraphic(Graphic.Create(186));
 
             var runes = _itemBuilder.Create().WithId(definition.RuneId).WithCount(removed * Runecrafting.GetMultiplier(character, definition)).Build();
-            character.Inventory.Items.Add(runes);
+            character.Inventory.AddItem(runes);
             character.Statistics.AddExperience(StatisticsConstants.Runecrafting, definition.Experience * removed);
             character.SendChatMessage("You bind the temple's power into " + runes.Name + "s.");
         }

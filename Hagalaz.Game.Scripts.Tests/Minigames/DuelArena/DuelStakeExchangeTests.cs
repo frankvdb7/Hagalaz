@@ -1,11 +1,23 @@
 using System.Linq;
+using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
+using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Model.Widgets;
+using Hagalaz.Game.Abstractions.Providers;
+using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Tasks;
+using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Minigames.DuelArena;
+using Hagalaz.Game.Scripts.Minigames.DuelArena.GameObjects;
+using Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena;
@@ -57,12 +69,35 @@ public sealed class DuelStakeExchangeTests
     {
         var scenario = CreateScenario(pouchCoins: 5);
         Assert.IsTrue(scenario.InventoryItems.Add(new TestItem(995, 3, stackable: true)));
+        var eventManager = scenario.Character.EventManager;
+        eventManager.ClearReceivedCalls();
+        var inventoryUpdates = scenario.Inventory.UpdateCount;
 
         Assert.IsTrue(scenario.Exchange.TryStakePouchCoins(scenario.Character, scenario.Stake, 20));
 
         Assert.AreEqual(0, scenario.Pouch.Count);
         Assert.AreEqual(0, scenario.InventoryItems.GetCountById(995));
         Assert.AreEqual(8, scenario.Stake.GetCountById(995));
+        Assert.AreEqual(inventoryUpdates + 1, scenario.Inventory.UpdateCount);
+        eventManager.Received(1).SendEvent(Arg.Is<MoneyPouchChangedEvent>(change =>
+            change.PreviousCount == 5 && change.Count == 0));
+    }
+
+    [TestMethod]
+    public void TryReturnCoinsToPouch_PublishesPouchChangeAfterCommit()
+    {
+        var scenario = CreateScenario();
+        var stakeCoins = new TestItem(995, 4, stackable: true);
+        Assert.IsTrue(scenario.Stake.Add(stakeCoins));
+        var eventManager = scenario.Character.EventManager;
+        eventManager.ClearReceivedCalls();
+
+        Assert.IsTrue(scenario.Exchange.TryReturnCoinsToPouch(scenario.Character, scenario.Stake, stakeCoins, 0));
+
+        Assert.AreEqual(4, scenario.Pouch.Count);
+        Assert.AreEqual(0, scenario.Stake.GetCountById(995));
+        eventManager.Received(1).SendEvent(Arg.Is<MoneyPouchChangedEvent>(change =>
+            change.PreviousCount == 0 && change.Count == 4));
     }
 
     [TestMethod]
@@ -118,13 +153,154 @@ public sealed class DuelStakeExchangeTests
         Assert.AreEqual(0, second.Stake.TakenSlots);
         Assert.AreEqual(20, second.Pouch.Count);
         Assert.AreEqual(2, second.InventoryItems.GetCountById(1002));
+        Assert.AreEqual(1, first.Inventory.UpdateCount);
+        Assert.AreEqual(1, second.Inventory.UpdateCount);
+    }
+
+    [TestMethod]
+    public void TrySettleWinner_WhenEveryDestinationAccepts_TransfersBothStakes()
+    {
+        var winner = CreateScenario(pouchCoins: 10);
+        var firstStake = CreateScenario();
+        var secondStake = CreateScenario();
+        Assert.IsTrue(firstStake.Stake.Add(new TestItem(995, 3, stackable: true)));
+        Assert.IsTrue(firstStake.Stake.Add(new TestItem(1001, 1)));
+        Assert.IsTrue(secondStake.Stake.Add(new TestItem(1002, 2)));
+
+        Assert.IsTrue(DuelStakeExchange.TrySettleWinner(winner.Character, firstStake.Stake, secondStake.Stake));
+
+        Assert.AreEqual(0, firstStake.Stake.TakenSlots);
+        Assert.AreEqual(0, secondStake.Stake.TakenSlots);
+        Assert.AreEqual(13, winner.Pouch.Count);
+        Assert.AreEqual(1, winner.InventoryItems.GetCountById(1001));
+        Assert.AreEqual(2, winner.InventoryItems.GetCountById(1002));
+    }
+
+    [TestMethod]
+    public void TrySettleWinner_WhenRepeated_DoesNotAwardStakesAgain()
+    {
+        var winner = CreateScenario(pouchCoins: 10);
+        var firstStake = CreateScenario();
+        var secondStake = CreateScenario();
+        Assert.IsTrue(firstStake.Stake.Add(new TestItem(995, 3, stackable: true)));
+        Assert.IsTrue(secondStake.Stake.Add(new TestItem(1001, 1)));
+
+        Assert.IsTrue(DuelStakeExchange.TrySettleWinner(winner.Character, firstStake.Stake, secondStake.Stake));
+        Assert.IsTrue(DuelStakeExchange.TrySettleWinner(winner.Character, firstStake.Stake, secondStake.Stake));
+
+        Assert.AreEqual(13, winner.Pouch.Count);
+        Assert.AreEqual(1, winner.InventoryItems.GetCountById(1001));
+        Assert.AreEqual(0, firstStake.Stake.TakenSlots);
+        Assert.AreEqual(0, secondStake.Stake.TakenSlots);
+    }
+
+    [TestMethod]
+    public void TrySettleWinner_WhenInventoryCannotAcceptAllStakes_LeavesParticipantsUnchanged()
+    {
+        var winner = CreateScenario(inventoryCapacity: 1, pouchCoins: 10);
+        var firstStake = CreateScenario();
+        var secondStake = CreateScenario();
+        Assert.IsTrue(winner.InventoryItems.Add(new TestItem(2000, 1)));
+        Assert.IsTrue(firstStake.Stake.Add(new TestItem(995, 4, stackable: true)));
+        Assert.IsTrue(secondStake.Stake.Add(new TestItem(1001, 1)));
+
+        Assert.IsFalse(DuelStakeExchange.TrySettleWinner(winner.Character, firstStake.Stake, secondStake.Stake));
+
+        Assert.AreEqual(4, firstStake.Stake.GetCountById(995));
+        Assert.AreEqual(1, secondStake.Stake.GetCountById(1001));
+        Assert.AreEqual(10, winner.Pouch.Count);
+        Assert.AreEqual(1, winner.InventoryItems.GetCountById(2000));
+        Assert.AreEqual(0, winner.InventoryItems.GetCountById(995));
+        Assert.AreEqual(0, winner.InventoryItems.GetCountById(1001));
+    }
+
+    [TestMethod]
+    public void Trapdoor_WhenStakesCannotFit_KeepsDuelActiveUntilWinnerMakesSpace()
+    {
+        var winner = CreateScenario(inventoryCapacity: 1);
+        var itemTakingTheLastSlot = new TestItem(2000, 1);
+        Assert.IsTrue(winner.InventoryItems.Add(itemTakingTheLastSlot));
+
+        var loser = Substitute.For<ICharacter>();
+        var loserStake = new DuelContainer();
+        var winnerStake = new DuelContainer();
+        Assert.IsTrue(loserStake.Items.Add(new TestItem(1001, 1)));
+        Assert.IsTrue(winnerStake.Items.Add(new TestItem(995, 4, stackable: true)));
+
+        var loserContext = Substitute.For<ICharacterContext>();
+        loserContext.Character.Returns(loser);
+        var loserContextAccessor = Substitute.For<ICharacterContextAccessor>();
+        loserContextAccessor.Context.Returns(loserContext);
+        var hintIconBuilder = Substitute.For<IHintIconBuilder>();
+        var hintIconType = Substitute.For<IHintIconType>();
+        var hintIconTarget = Substitute.For<IHintIconEntityOptional>();
+        var hintIcon = Substitute.For<IHintIcon>();
+        hintIconBuilder.Create().Returns(hintIconType);
+        hintIconType.AtEntity(winner.Character).Returns(hintIconTarget);
+        hintIconTarget.Build().Returns(hintIcon);
+
+        var combat = new DuelArenaCombatScript(loserContextAccessor, winner.Character, new DuelRules(_ => { }),
+            loserStake, winnerStake, hintIconBuilder, Substitute.For<ILogger<DuelArenaCombatScript>>());
+        loser.GetScript<DuelArenaCombatScript>().Returns(combat);
+
+        var winnerContext = Substitute.For<ICharacterContext>();
+        winnerContext.Character.Returns(winner.Character);
+        var winnerContextAccessor = Substitute.For<ICharacterContextAccessor>();
+        winnerContextAccessor.Context.Returns(winnerContext);
+        var winnerEndScreen = new DuelEndScreenScript(winnerContextAccessor);
+        var winnerServices = Substitute.For<IServiceProvider>();
+        winnerServices.GetService(typeof(DuelEndScreenScript)).Returns(winnerEndScreen);
+        winner.Character.ServiceProvider.Returns(winnerServices);
+
+        var loserEndScreen = new DuelEndScreenScript(loserContextAccessor);
+        var mapRegionService = Substitute.For<IMapRegionService>();
+        mapRegionService.IsAccessible(Arg.Any<ILocation>()).Returns(true);
+        var loserServices = Substitute.For<IServiceProvider>();
+        loserServices.GetService(typeof(DuelEndScreenScript)).Returns(loserEndScreen);
+        loserServices.GetService(typeof(IMapRegionService)).Returns(mapRegionService);
+        loser.ServiceProvider.Returns(loserServices);
+
+        combat.OnRegistered();
+        ITaskItem? queuedTask = null;
+        loser.QueueTask(Arg.Do<ITaskItem>(task => queuedTask = task)).Returns(Substitute.For<IRsTaskHandle>());
+
+        new Trapdoor().OnCharacterClickPerform(loser, GameObjectClickType.Option1Click);
+        var trapdoorTask = (RsTask)queuedTask!;
+        trapdoorTask.Tick();
+        trapdoorTask.Tick();
+
+        Assert.IsTrue(combat.DuelSession);
+        Assert.AreSame(loserStake, combat.SelfContainer);
+        Assert.AreSame(winnerStake, combat.TargetContainer);
+        Assert.AreEqual(1, loserStake.Items.GetCountById(1001));
+        Assert.AreEqual(4, winnerStake.Items.GetCountById(995));
+        Assert.AreEqual(1, winner.InventoryItems.GetCountById(2000));
+        Assert.AreEqual(0, winner.Pouch.Count);
+        loser.Movement.DidNotReceive().Teleport(Arg.Any<ITeleport>());
+        loser.Movement.Received(1).Unlock(false);
+        loser.Widgets.DidNotReceive().OpenWidget(1365, 0, Arg.Any<IWidgetScript>(), false);
+        winner.Character.Widgets.DidNotReceive().OpenWidget(1365, 0, Arg.Any<IWidgetScript>(), false);
+
+        Assert.IsTrue(winner.InventoryItems.TryRemoveExact(itemTakingTheLastSlot, 0));
+        queuedTask = null;
+        new Trapdoor().OnCharacterClickPerform(loser, GameObjectClickType.Option1Click);
+        trapdoorTask = (RsTask)queuedTask!;
+        trapdoorTask.Tick();
+        trapdoorTask.Tick();
+
+        Assert.AreEqual(0, loserStake.Items.TakenSlots);
+        Assert.AreEqual(0, winnerStake.Items.TakenSlots);
+        Assert.AreEqual(1, winner.InventoryItems.GetCountById(1001));
+        Assert.AreEqual(4, winner.Pouch.Count);
+        loser.Received(1).Respawn();
+        loser.Movement.Received(1).Teleport(Arg.Any<ITeleport>());
+        winner.Character.Widgets.Received(1).OpenWidget(1365, 0, winnerEndScreen, false);
+        loser.Widgets.Received(1).OpenWidget(1365, 0, loserEndScreen, false);
     }
 
     private static Scenario CreateScenario(int inventoryCapacity = 4, int stakeCapacity = 4, int pouchCoins = 0)
     {
-        var inventoryItems = new ItemContainer(StorageType.Normal, (short)inventoryCapacity);
-        var inventory = Substitute.For<IInventoryContainer>();
-        inventory.Items.Returns(inventoryItems);
+        var inventory = new ComposedTestContainer(inventoryCapacity);
         var character = Substitute.For<ICharacter>();
         character.Inventory.Returns(inventory);
         character.EventManager.Returns(Substitute.For<IEventManager>());
@@ -132,11 +308,11 @@ public sealed class DuelStakeExchangeTests
         var pouch = new MoneyPouchContainer(character, itemBuilder);
         if (pouchCoins > 0) Assert.IsTrue(pouch.Add(pouchCoins));
         character.MoneyPouch.Returns(pouch);
-        return new Scenario(character, inventoryItems, pouch, new ItemContainer(StorageType.Normal, (short)stakeCapacity),
+        return new Scenario(character, inventory, inventory.Items, pouch, new ItemContainer(StorageType.Normal, (short)stakeCapacity),
             new DuelStakeExchange(itemBuilder));
     }
 
-    private sealed record Scenario(ICharacter Character, ItemContainer InventoryItems, MoneyPouchContainer Pouch,
+    private sealed record Scenario(ICharacter Character, ComposedTestContainer Inventory, IItemContainer InventoryItems, MoneyPouchContainer Pouch,
         ItemContainer Stake, DuelStakeExchange Exchange);
 
     private sealed class TestItem : IItem

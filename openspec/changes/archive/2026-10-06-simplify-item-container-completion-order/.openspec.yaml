@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-06
+goal: Simplify item-container completion ordering while preserving FIFO within
+  each owner and existing completion/publication semantics.

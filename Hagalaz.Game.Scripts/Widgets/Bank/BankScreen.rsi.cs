@@ -259,7 +259,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                         }
 
                         var takenSlotsBefore = Owner.Bank.Items.TakenSlots;
-                        if (!Owner.Bank.DepositFromFamiliar(item, item.Count, out var outItem, inventory.Items))
+                        if (!Owner.Bank.DepositFromFamiliar(item, item.Count, out var outItem, inventory))
                         {
                             break;
                         }
@@ -308,7 +308,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
             InterfaceInstance.AttachClickHandler(37,
                 (componentID, type, extra1, extra2) =>
                 {
-                    foreach (var item in Owner.Equipment)
+                    foreach (var item in Owner.Equipment.Items)
                     {
                         if (item == null)
                         {
@@ -349,7 +349,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                         return false;
                     }
 
-                    Owner.Inventory.Items.Swap(fromSlot, toSlot);
+                    Owner.Inventory.SwapItems(fromSlot, toSlot);
                     return true;
                 });
             InterfaceInstance.AttachDragHandler(95, BankComponentDragged);
@@ -440,7 +440,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                     return false;
                 }
 
-                Owner.Bank.Items.Swap(fromSlot, toSlot);
+                Owner.Bank.SwapItems(fromSlot, toSlot);
                 return true;
             }
 
@@ -611,8 +611,8 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                 _bankTabsItemCount[tab]++;
             }
 
-            Owner.Bank.Items.Move(slot, offset);
-            Owner.Bank.Items.Sort();
+            Owner.Bank.MoveItem(slot, offset);
+            Owner.Bank.SortItems();
         }
 
         /// <summary>

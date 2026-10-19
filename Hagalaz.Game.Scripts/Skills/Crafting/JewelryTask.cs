@@ -99,10 +99,10 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
             }
 
             MakeCount++;
-            var removed = Performer.Inventory.Items.Remove(_itemBuilder.Create().WithId(Definition.ResourceID).Build());
+            var removed = Performer.Inventory.RemoveItem(_itemBuilder.Create().WithId(Definition.ResourceID).Build());
             if (CraftingSkillService.GoldBar != Definition.ResourceID)
             {
-                removed += Performer.Inventory.Items.Remove(_itemBuilder.Create().WithId(CraftingSkillService.GoldBar).Build());
+                removed += Performer.Inventory.RemoveItem(_itemBuilder.Create().WithId(CraftingSkillService.GoldBar).Build());
             }
 
             if (removed <= 0)
@@ -111,7 +111,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 return;
             }
 
-            Performer.Inventory.Items.Add(_itemBuilder.Create().WithId(Definition.ProductID).Build());
+            Performer.Inventory.AddItem(_itemBuilder.Create().WithId(Definition.ProductID).Build());
 
             if (Definition.ResourceID == CraftingSkillService.GoldBar)
             {

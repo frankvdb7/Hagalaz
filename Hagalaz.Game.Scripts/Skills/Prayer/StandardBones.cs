@@ -78,7 +78,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
         /// <param name="slot">The slot.</param>
         private static void OnRemovedCallBack(ICharacter character, IItem toRemove, PrayerDto definition, int slot)
         {
-            var removed = character.Inventory.Items.Remove(toRemove, slot);
+            var removed = character.Inventory.RemoveItem(toRemove, slot);
             if (removed <= 0)
             {
                 return;

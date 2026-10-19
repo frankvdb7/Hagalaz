@@ -21,15 +21,17 @@ public sealed class JewelryMutationTests
     {
         var inventory = new ComposedTestContainer(2);
         var equipment = Substitute.For<IEquipmentContainer>();
-        equipment.Capacity.Returns(14);
+        var equipmentItems = Substitute.For<IReadOnlyItemContainer>();
+        equipment.Items.Returns(equipmentItems);
+        equipmentItems.Capacity.Returns(14);
         var jewelry = Substitute.For<IItem>();
         jewelry.Id.Returns(1712);
         jewelry.Count.Returns(1);
         jewelry.Name.Returns("Amulet of glory (6)");
         if (equipped)
         {
-            equipment[2].Returns(jewelry);
-            equipment.GetEnumerator().Returns(_ => new IItem?[] { null, null, jewelry }.AsEnumerable().GetEnumerator());
+            equipmentItems[2].Returns(jewelry);
+            equipmentItems.GetEnumerator().Returns(_ => new IItem?[] { null, null, jewelry }.AsEnumerable().GetEnumerator());
         }
         else
         {
@@ -72,12 +74,14 @@ public sealed class JewelryMutationTests
         var ring = new JewelryTestItem(2150, 1, "Ring of slaying (1)");
         var inventory = new ComposedTestContainer(2);
         var equipment = Substitute.For<IEquipmentContainer>();
-        equipment.Capacity.Returns(14);
+        var equipmentItems = Substitute.For<IReadOnlyItemContainer>();
+        equipment.Items.Returns(equipmentItems);
+        equipmentItems.Capacity.Returns(14);
         var slot = (int)EquipmentSlot.Ring;
-        var items = new IItem?[equipment.Capacity];
+        var items = new IItem?[equipmentItems.Capacity];
         items[slot] = ring;
-        equipment[slot].Returns(ring);
-        equipment.GetEnumerator().Returns(_ => items.AsEnumerable().GetEnumerator());
+        equipmentItems[slot].Returns(ring);
+        equipmentItems.GetEnumerator().Returns(_ => items.AsEnumerable().GetEnumerator());
         equipment.RemoveEquippedItem(ring, EquipmentSlot.Ring).Returns(_ =>
         {
             items[slot] = null;
@@ -100,12 +104,14 @@ public sealed class JewelryMutationTests
         var stale = new JewelryTestItem(2150, 1, "Ring of slaying (1)");
         var inventory = new ComposedTestContainer(2);
         var equipment = Substitute.For<IEquipmentContainer>();
-        equipment.Capacity.Returns(14);
+        var equipmentItems = Substitute.For<IReadOnlyItemContainer>();
+        equipment.Items.Returns(equipmentItems);
+        equipmentItems.Capacity.Returns(14);
         var slot = (int)EquipmentSlot.Ring;
-        var items = new IItem?[equipment.Capacity];
+        var items = new IItem?[equipmentItems.Capacity];
         items[slot] = current;
-        equipment[slot].Returns(current);
-        equipment.GetEnumerator().Returns(_ => items.AsEnumerable().GetEnumerator());
+        equipmentItems[slot].Returns(current);
+        equipmentItems.GetEnumerator().Returns(_ => items.AsEnumerable().GetEnumerator());
         var character = CreateCharacter(inventory, equipment);
 
         Jewelry.TeleportRingOfSlaying(character, stale, equipment: true, Jewelry.RingOfSlayingTeleports[0]);

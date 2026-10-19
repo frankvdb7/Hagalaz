@@ -43,7 +43,9 @@ namespace Hagalaz.Game.Abstractions.Model.Items
         bool CanDrawFor(IGroundItem item, ICharacter character);
 
         /// <summary>
-        /// Checks if a specific item can be stacked with another item.
+        /// Checks if a specific item can be stacked with another item. Storage may call this while mutation locks are held;
+        /// the result must be deterministic from the supplied item data. Implementations must not mutate containers, start
+        /// transactions, send gameplay events, or block on unrelated resources.
         /// </summary>
         /// <param name="item">The first item.</param>
         /// <param name="otherItem">The second item.</param>

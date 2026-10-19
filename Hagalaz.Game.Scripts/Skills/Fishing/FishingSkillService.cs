@@ -95,7 +95,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
                 foreach (var result in _lootGenerator.GenerateLoot<IFishingLoot>(new CharacterLootParams(table, character)))
                 {
                     var fish = _itemBuilder.Create().WithId(result.Item.Id).Build();
-                    if (!character.Inventory.Items.Add(fish))
+                    if (!character.Inventory.AddItem(fish))
                     {
                         continue;
                     }
@@ -145,7 +145,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
                     return true; // stop fishing
                 }
 
-                if (table.BaitId <= 0 || (character.Inventory.Items.Remove(_itemBuilder.Create().WithId(table.BaitId).Build()) > 0 &&
+                if (table.BaitId <= 0 || (character.Inventory.RemoveItem(_itemBuilder.Create().WithId(table.BaitId).Build()) > 0 &&
                                           character.Inventory.Items.Contains(table.BaitId)))
                 {
                     return false; // keep fishing

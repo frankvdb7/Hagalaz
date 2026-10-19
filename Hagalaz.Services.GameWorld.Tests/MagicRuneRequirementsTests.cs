@@ -14,8 +14,8 @@ public sealed class MagicRuneRequirementsTests
     [TestMethod]
     public void CheckRunes_WithInfiniteRuneWeapon_SkipsItsRuneAndRetainsOtherRequirements()
     {
-        var inventory = new ItemContainer(StorageType.Normal, 4);
-        inventory.Add(new RuneItem((int)RuneType.Earth, 1));
+        var inventory = new ComposedTestContainer(4);
+        inventory.AddItem(new RuneItem((int)RuneType.Earth, 1));
         var character = CreateCharacter(inventory, new RuneItem((int)StaffType.AirStaff, 1));
         var magic = new Magic(character, Substitute.For<IItemService>());
         var requirements = new[] { 1, 1 };
@@ -29,24 +29,24 @@ public sealed class MagicRuneRequirementsTests
     [TestMethod]
     public void RemoveRunes_WithInfiniteRuneWeapon_RemovesOnlyNormalRequirementWithoutMutatingInput()
     {
-        var inventory = new ItemContainer(StorageType.Normal, 4);
-        inventory.Add(new RuneItem((int)RuneType.Earth, 2));
+        var inventory = new ComposedTestContainer(4);
+        inventory.AddItem(new RuneItem((int)RuneType.Earth, 2));
         var character = CreateCharacter(inventory, new RuneItem((int)StaffType.AirStaff, 1));
         var magic = new Magic(character, Substitute.For<IItemService>());
         var requirements = new[] { 1, 1 };
 
         magic.RemoveRunes([RuneType.Air, RuneType.Earth], requirements);
 
-        Assert.AreEqual(1, inventory.GetCountById((int)RuneType.Earth));
-        Assert.AreEqual(1, inventory.TakenSlots);
+        Assert.AreEqual(1, inventory.Items.GetCountById((int)RuneType.Earth));
+        Assert.AreEqual(1, inventory.Items.TakenSlots);
         CollectionAssert.AreEqual(new[] { 1, 1 }, requirements);
     }
 
     [TestMethod]
     public void CheckRunes_WithoutWeapon_UsesOriginalRuneRequirements()
     {
-        var inventory = new ItemContainer(StorageType.Normal, 4);
-        inventory.Add(new RuneItem((int)RuneType.Air, 1));
+        var inventory = new ComposedTestContainer(4);
+        inventory.AddItem(new RuneItem((int)RuneType.Air, 1));
         var character = CreateCharacter(inventory, weapon: null);
         var magic = new Magic(character, Substitute.For<IItemService>());
         var requirements = new[] { 1 };
@@ -55,14 +55,12 @@ public sealed class MagicRuneRequirementsTests
         CollectionAssert.AreEqual(new[] { 1 }, requirements);
     }
 
-    private static ICharacter CreateCharacter(ItemContainer inventory, IItem? weapon)
+    private static ICharacter CreateCharacter(IInventoryContainer inventory, IItem? weapon)
     {
-        var inventoryContainer = Substitute.For<IInventoryContainer>();
-        inventoryContainer.Items.Returns(inventory);
         var equipment = Substitute.For<IEquipmentContainer>();
         equipment[EquipmentSlot.Weapon].Returns(weapon);
         var character = Substitute.For<ICharacter>();
-        character.Inventory.Returns(inventoryContainer);
+        character.Inventory.Returns(inventory);
         character.Equipment.Returns(equipment);
         return character;
     }

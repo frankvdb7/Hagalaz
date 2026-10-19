@@ -74,11 +74,11 @@ namespace Hagalaz.Game.Scripts.GameObjects.Altars
                     return false;
                 }
 
-                var removed = character.Inventory.Items.Remove(used, usedSlot);
-                removed += character.Inventory.Items.Remove(otherItem, otherSlot);
+                var removed = character.Inventory.RemoveItem(used, usedSlot);
+                removed += character.Inventory.RemoveItem(otherItem, otherSlot);
                 if (removed == 2)
                 {
-                    character.Inventory.Items.Add(blessedShield);
+                    character.Inventory.AddItem(blessedShield);
                     return true;
                 }
 

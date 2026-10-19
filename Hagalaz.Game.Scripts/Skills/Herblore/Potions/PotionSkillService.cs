@@ -39,7 +39,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
                 return;
             }
 
-            character.Inventory.Items.Replace(slot, next);
+            character.Inventory.ReplaceItem(slot, next);
 
             character.AddState(new DrinkingState { TicksLeft = drinkingTicks });
             character.QueueAnimation(Animation.Create(829));
@@ -165,8 +165,8 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
 
             if (newUsed != null && newUsedWith != null)
             {
-                character.Inventory.Items.Replace(usedSlot, newUsed);
-                character.Inventory.Items.Replace(usedWithSlot, newUsedWith);
+                character.Inventory.ReplaceItem(usedSlot, newUsed);
+                character.Inventory.ReplaceItem(usedWithSlot, newUsedWith);
                 return true;
             }
 
@@ -187,7 +187,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
                 return false;
             }
 
-            character.Inventory.Items.Replace(slot, _itemBuilder.Create().WithId(PotionConstants.Vial).Build());
+            character.Inventory.ReplaceItem(slot, _itemBuilder.Create().WithId(PotionConstants.Vial).Build());
             return true;
         }
     }

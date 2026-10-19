@@ -58,6 +58,20 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class CharacterStatePersistenceTests
 {
     [TestMethod]
+    public void OnDetach_RunsScriptDetachCallbackBeforeDestructionCallback()
+    {
+        var script = Substitute.For<IDefaultCharacterScript>();
+        var character = CreateCharacter(new TestStateService(), out _, [script]);
+
+        character.OnDetach();
+        script.Received(1).OnDetach();
+        script.DidNotReceive().OnDestroy();
+
+        character.Destroy();
+        script.Received(1).OnDestroy();
+    }
+
+    [TestMethod]
     public void CharacterStateRoundTrip_PreservesDurableStatesAndExcludesRuntimeOnlyStates()
     {
         var stateService = new TestStateService(

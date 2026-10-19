@@ -9,6 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <Compile Include="..\TestSupport\ComposedTestContainer.cs" Link="TestSupport\ComposedTestContainer.cs" />
       <ProjectReference Include="..\Hagalaz.Game.Scripts\Hagalaz.Game.Scripts.csproj" />
       <ProjectReference Include="..\Hagalaz.Game.Abstractions\Hagalaz.Game.Abstractions.csproj" />
       <ProjectReference Include="..\Hagalaz.Services.GameWorld\Hagalaz.Services.GameWorld.csproj" />
