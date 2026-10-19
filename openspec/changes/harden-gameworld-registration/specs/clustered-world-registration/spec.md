@@ -38,7 +38,7 @@ Consumers SHALL track live registrations by logical world and process instance. 
 - **THEN** the conflict is observable and neither conflicting local generation is considered world-ready
 
 ### Requirement: World-list reconstruction is deterministic
-A GameWorld that successfully registers SHALL request current world status from all live worlds. Status consumers SHALL republish complete current snapshots, expire leases locally, and update the world-list cache immediately when metadata, endpoint, or availability changes. Identical snapshots SHALL be idempotent and checksums SHALL change only after an actual cache-visible change. The shared cache key and checksum SHALL be derived deterministically from the metadata snapshot and MUST NOT depend on process-local counters.
+After registration, GameWorld SHALL request status from all live worlds. Consumers republish complete snapshots, expire leases locally, and update cache when metadata, endpoint, or availability changes. Identical snapshots are idempotent; checksums change only with cache-visible changes and derive deterministically from snapshot metadata, never process counters.
 
 #### Scenario: Restarted world reconstructs the list
 - **WHEN** a world restarts while another world is already online
@@ -64,7 +64,7 @@ A GameWorld that successfully registers SHALL request current world status from 
 - **THEN** readiness and world sign-in admission are removed, the existing durable snapshot flush runs, and the matching offline status is published while MassTransit is still available
 
 ### Requirement: Contacts cleanup is generation-aware
-Contacts SHALL retain the existing contact sign-out behavior for a graceful world-offline event, expire sessions whose leases are not renewed, and SHALL remove a world session only when the offline event matches the currently observed instance and generation. `IContactSessionService` SHALL own contact-session removal and sign-out message construction. Consumers SHALL resolve it with their normal scoped lifetime, and hosted lease expiry SHALL create a scope before invoking it. Bulk cleanup SHALL remove a session only if its key still contains the snapshotted expected value, and SHALL publish sign-out only after that conditional removal succeeds. Each stored contact session SHALL have an immutable identity included in expected-value equality so a same-world reconnect cannot match a stale snapshot.
+Contacts MUST retain graceful offline sign-outs and lease expiry, but MUST remove a session only when the event instance and generation match. IContactSessionService owns conditional removal and sign-out construction; consumers resolve it in scope, including hosted expiry. Bulk cleanup compares snapshotted values and publishes only after removal succeeds. Immutable session identity prevents stale same-world reconnect snapshots from matching.
 
 #### Scenario: Graceful contacts cleanup
 - **WHEN** the current generation publishes offline
@@ -116,7 +116,7 @@ The 742 world-list and lobby response wire contracts SHALL continue to advertise
 - **THEN** it connects to the configured client port using that world's advertised loopback host
 
 ### Requirement: Deployment configuration enforces unique local world resources
-Version-controlled local deployment configuration SHALL show at least two GameWorld resources with unique world IDs and collision-free TCP, HTTPS, and HTTP endpoints. Local TCP endpoints SHALL be explicit proxyless target-port 443 endpoints when both worlds use the legacy fixed client port. GameWorld SHALL apply `World:ListenHost` only to the legacy TCP listener; HTTP and HTTPS management listeners SHALL bind loopback for Aspire proxy compatibility. Deployment documentation SHALL require one serving workload per identity, automatic restart, and world-aware readiness/liveness probes.
+Version-controlled local deployment MUST define at least two GameWorlds with unique IDs and collision-free TCP, HTTP, and HTTPS endpoints. Legacy TCP uses explicit proxyless target port 443. World:ListenHost affects only TCP; management listeners bind loopback for Aspire proxies. Docs require one serving workload per identity, automatic restart, and world-aware readiness/liveness.
 
 #### Scenario: Two local worlds
 - **WHEN** the Aspire app is started with the checked-in multi-world configuration

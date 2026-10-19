@@ -3,18 +3,7 @@
 ## ADDED Requirements
 
 ### Requirement: Reconnect is classified before logical connection creation
-
-The GameWorld connection delegate MUST process opcode 14 and send its existing
-acknowledgement before reading the following authentication request. It MUST
-then classify that request before creating a logical Raido context. The raw
-classification MUST inspect opcode 19 without full authentication decoding and
-wait for its complete declared authentication frame before dispatching. It
-MUST inspect opcode 16 only far enough to validate its packet framing/header
-and read the reconnect flag. Opcode 16 with flag 0 and opcode 19 MUST retain
-their complete authentication bytes for the normal logical reader. Opcode 16
-with reconnect flag 1 MUST then invoke the full world decoder exactly once and
-go to the reconnect handler with the raw `ConnectionContext`; it MUST NOT
-create a temporary candidate context or invoke fresh world sign-in.
+After opcode 14 and its acknowledgement, GameWorld MUST classify the next authentication frame before creating a Raido context. Raw framing recognizes complete opcode 19 and reads only framing/header plus the reconnect flag for opcode 16. Fresh opcode 16/0 and opcode 19 retain bytes for the normal reader; opcode 16/1 is fully decoded once and sent with the raw context to reconnect handling, never a candidate context or fresh sign-in.
 
 #### Scenario: Reconnect flag selects raw reconnect handling
 
@@ -76,18 +65,7 @@ reconnect handler. It MUST NOT create or fake a caller context.
 - AND no fresh world session or character hydration is performed
 
 ### Requirement: Reconnect reuses exact GameWorld state
-
-The handler MUST resolve the existing world session by authenticated master ID,
-then re-resolve and verify its stable connection ID, expected session claim,
-exact logical target, character reference, and authentication subject inside the
-existing session-claim critical section. It MUST invoke Raido's existing
-awaiting-reconnect preflight before GameWorld mutation and MUST complete the
-internal physical attach before the claim action returns.
-
-It MUST NOT hydrate, register, publish fresh-login messages, remove the existing
-session on rejected raw-connection cleanup, or use `Items` for reconnect
-coordination. The outer handshake cancellation token MUST remain in force
-through the claim action, preparation, response flush, and final attach.
+Reconnect MUST locate the session by master ID, then revalidate its stable connection ID, exact claim, logical target, character, and authentication subject inside the existing claim critical section. Raido preflight precedes GameWorld mutation and internal attach completes before the claim returns. Do not hydrate, register, publish fresh-login messages, remove the session on rejected raw cleanup, or use Items. Keep handshake cancellation active through claim, preparation, flush, and attach.
 
 #### Scenario: Matching session resumes
 
@@ -146,15 +124,7 @@ creation. Lobby authentication MUST remain non-reconnectable.
   not
 
 ### Requirement: Reconnect response and protocol ordering are preserved
-
-Successful reconnect MUST send response 15 as plain handshake framing with a
-two-byte payload length and exactly the 4,608-byte player-entry payload. The
-candidate MUST pass authoritative session-claim revalidation and Raido's
-awaiting-reconnect preflight before GameWorld preparation. The winner MUST
-install the fresh protocol and metadata, flush response 15, and then perform the
-existing single physical attach internally. A response flush is successful only
-when it is neither canceled nor completed; a completed writer MUST be treated as
-failed response delivery and MUST prevent final attach.
+Reconnect success MUST send response 15 as plain handshake framing with a two-byte length and exactly 4,608 payload bytes. Revalidate the claim and pass Raido preflight before preparation. Install fresh protocol/metadata, flush the response, then attach internally once. A canceled or completed flush fails delivery and prevents attach.
 
 #### Scenario: Response precedes resumed input
 
@@ -204,16 +174,7 @@ target. It MUST NOT attempt protocol rollback.
 - AND no second session, character, marker, or reconnect transition is created
 
 ### Requirement: Preparation failure follows the mutation boundary
-
-If preparation is canceled or fails before `SetProtocolAsync` commits the fresh
-protocol, the logical target MUST remain non-terminal with its old protocol and
-metadata intact. The replacement physical connection MUST be aborted and the
-incoming protocol scope MUST be disposed exactly once according to the existing
-`SetProtocolAsync` ownership contract. If preparation fails after the protocol
-transition commits, GameWorld MUST terminalize the target without attempting
-protocol rollback. `SetProtocolAsync` commits the new protocol before disposing
-the previous protocol lifetime, so a cleanup exception after that commit MUST be
-treated as a committed mutation by checking the target's current protocol.
+Before SetProtocolAsync commits, preparation failure or cancellation MUST leave the target nonterminal with old protocol/metadata; abort the replacement and dispose the incoming protocol scope once. After commit, terminalize without rollback. Since commit precedes old-lifetime disposal, classify cleanup errors by checking the target current protocol.
 
 #### Scenario: Cancellation before protocol mutation
 

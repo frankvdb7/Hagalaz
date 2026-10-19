@@ -53,10 +53,10 @@ jobs:
           node-version: 24
 
       - name: Validate active OpenSpec artifacts
-        run: npx --yes @fission-ai/openspec@1.10.0 validate --all --strict --no-interactive
+        run: npx --yes @fission-ai/openspec@1.14.3 validate --all --strict --no-interactive
 
       - name: Validate archived OpenSpec tasks
-        run: npx --yes @fission-ai/openspec@1.10.0 validate --archived --no-interactive
+        run: npx --yes @fission-ai/openspec@1.14.3 validate --archived --no-interactive
 
   duplication:
     name: C# Duplication

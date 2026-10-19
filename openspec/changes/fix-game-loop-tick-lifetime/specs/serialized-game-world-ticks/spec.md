@@ -62,10 +62,7 @@ The hosted GameWorld worker MUST retain ownership of its execution task and MUST
 - **THEN** the request returns without throwing so the owned tick can complete
 
 ### Requirement: Viewport map updates stay synchronous at the render boundary
-
-Character map rebuilding and packet construction MUST be synchronous within the render phase. A map-update service MUST orchestrate the viewport rebuild, map packet send, synchronous non-blocking region-load requests, and full region-part updates during that same synchronous operation; the actual region data load MUST be owned by a dedicated asynchronous scheduler. `Viewport` MUST remain responsible only for visible-region state, bounds, and visibility calculations.
-
-The `ICharacter` model contract MUST expose only a synchronous map-update operation. `IViewport` MUST NOT expose map-update orchestration, and callers MUST NOT use sync-over-async waits for map updates. The region-load scheduler MUST accept requests synchronously without blocking the game tick or creating detached tasks, skip ready or already scheduled regions, deduplicate pending and in-flight requests, and own the asynchronous loader operation. `IMapRegion.State == Ready` remains the authoritative indication that a region should not be admitted again; this requirement does not define recovery for a loader that marks a region ready before a later population step fails.
+Render-phase map rebuilding and packets MUST stay synchronous. MapUpdateService rebuilds the viewport, sends map/full-region packets, and requests loads; its async scheduler owns loading, deduplicates requests, and skips ready/scheduled regions without detached tasks or blocking waits. Viewport owns visible-region state, bounds, and visibility calculations only; ICharacter exposes synchronous update, not IViewport orchestration. Ready is authoritative; post-ready recovery is out of scope.
 
 #### Scenario: A character crosses a viewport rebuild boundary
 

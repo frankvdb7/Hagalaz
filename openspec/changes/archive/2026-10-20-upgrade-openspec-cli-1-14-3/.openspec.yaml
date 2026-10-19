@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-10-20
+goal: Upgrade the repository OpenSpec integration to the current CLI release and
+  refresh its generated Codex workflows.
+skip_specs: true

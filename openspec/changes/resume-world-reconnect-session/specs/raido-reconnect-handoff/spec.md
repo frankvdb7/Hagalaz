@@ -3,29 +3,7 @@
 ## ADDED Requirements
 
 ### Requirement: Dispatcher owns physical lifecycle and attachment
-
-The Raido listener composition API MUST own each accepted physical connection
-through an internal dispatcher implementation, create one application scope,
-and invoke a scoped application delegate with a per-connection dispatch
-context. The dispatcher implementation MUST NOT be part of the public API. The
-context MUST expose only high-level logical
-operations for new and existing connections; its constructor MUST be internal
-and it MUST NOT publicly expose the physical `ConnectionContext`, physical
-attachment, reconnect state, or transport state.
-
-The existing-dispatch operation MUST first derive an awaiting-reconnect
-preflight from the existing Raido TCP state under its existing state lock, then
-invoke GameWorld preparation, and finally delegate to the existing internal
-`TryAttachPhysicalConnection` operation. A preparation exception MUST abort the
-replacement physical connection without assuming that the logical target was
-mutated. A failed final attach MUST terminalize the logical target and abort
-the replacement. GameWorld MUST NOT call physical
-attachment on `RaidoHubConnectionContext` and MUST NOT receive a public
-reconnect-state query.
-
-There MUST be no connection-selection result DTO, GameWorld reconnect marker,
-`Items`-based coordination, reservation, lease, or second reconnect state
-machine. The infrastructure operation MUST remain application-neutral.
+Raido MUST own accepted transports via a nonpublic dispatcher, one application scope, and an internal context exposing only logical new/existing operations. Reconnect preflights under lock, prepares GameWorld, then attaches internally. The API hides physical/reconnect state; preparation failure aborts candidate, attach failure terminalizes target and candidate. No public reconnect query, DTO, marker, Items coordination, reservation, lease, or second state machine; infrastructure stays neutral.
 
 #### Scenario: Concurrent reconnects have one existing-lifecycle winner
 

@@ -58,8 +58,7 @@ Replacing a physical transport SHALL preserve the connection ID, features, items
 - **THEN** local and remote endpoints reflect the currently published physical transport, and are unavailable while detached
 
 ### Requirement: Reconnect publication and ownership
-
-A replacement SHALL become the current usable transport only after its physical registrations have been installed and it has won the active reconnect window under synchronized publication. The final successful validation and claim under `_reconnectLock` is the replacement publication linearization point; state is published and the reconnect waiter is completed before that lock is released. Exactly one candidate may win a reconnect window. A rejected candidate SHALL remain the caller's responsibility to close.
+A candidate SHALL become the current transport only after physical registrations succeed and it atomically claims the active reconnect window under _reconnectLock. This claim is the publication linearization point: Raido publishes state and completes the waiter before unlocking. Only one candidate wins; the caller remains responsible for closing rejected candidates.
 
 #### Scenario: Concurrent candidates
 

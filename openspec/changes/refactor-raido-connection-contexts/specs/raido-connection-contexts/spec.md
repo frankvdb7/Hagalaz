@@ -154,8 +154,7 @@ The system SHALL keep heartbeat handlers on the stable TCP context. A physical h
 - **THEN** later replacement heartbeats invoke the stable handlers normally
 
 ### Requirement: Stable infrastructure features remain stable
-
-The system SHALL provide connection-owned infrastructure features from the stable TCP context. Transport and infrastructure features SHALL remain physical unless explicitly represented by the stable TCP context. Arbitrary physical or custom features SHALL NOT be implicitly promoted into the stable logical feature collection; the current narrow bootstrap projection SHALL explicitly include only `IConnectionUserFeature`. Application features added to `RaidoHubConnectionContext.Features` SHALL be logical state and SHALL remain stable across physical replacement.
+The stable TCP context MUST own connection-scoped infrastructure features. Transport and infrastructure features remain physical unless explicitly represented by that context; bootstrap projects only IConnectionUserFeature. Application features added to RaidoHubConnectionContext.Features are logical and persist across physical replacement.
 
 #### Scenario: Stable features do not alias physical infrastructure
 

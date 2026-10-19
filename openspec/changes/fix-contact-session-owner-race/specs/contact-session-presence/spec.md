@@ -1,24 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Contacts presence is owned by an exact game-session generation
-
-The GameWorld session owner MUST admit every lobby or world lifecycle through
-the existing distributed per-account session claim and assign it a
-monotonically increasing `SessionGeneration` for the account. A generation
-becomes authoritative only after that account-session lifecycle is successfully
-admitted. Contacts MUST associate every presence with that generation and retain
-its connection ID for exact sign-out validation.
-
-Separate GameWorld instances MUST NOT establish a newer authoritative lobby or
-world lifecycle while an older lifecycle still owns the account. After exact
-ownership release, a newer lifecycle MAY acquire the next generation and
-replace stale presence.
-
-The lobby handshake MUST carry the exact opaque lobby claim into a world
-handshake when world selection crosses GameWorld processes. A world lifecycle
-MUST replace a lobby claim only when the presented claim is the current exact
-owner. Missing, stale, or unrelated handoff identities MUST be rejected
-without changing the current owner.
+GameWorld MUST admit each lobby or world lifecycle through the distributed per-account claim and assign a monotonic SessionGeneration only after admission. Contacts binds presence to that generation and connection for exact sign-out. No GameWorld may supersede a live account owner; after exact release, a newer generation may. Cross-process lobby-to-world promotion MUST present and atomically replace the exact current lobby claim; missing, stale, or unrelated claims are rejected.
 
 #### Scenario: active world blocks a lobby on another GameWorld instance
 
@@ -194,14 +177,7 @@ claim ID is the GameWorld ownership fact and is not used as a replacement for
 generation ordering.
 
 ### Requirement: Contacts owns presence fencing at the feature boundary
-
-The connection's `IContactsFeature` MUST atomically validate session identity
-and update its contact collection under one owner-level synchronization boundary.
-`Friend` and `ContactList` MUST remain simple domain/collection objects and MUST
-NOT own presence locks or session metadata. Consumers MUST use the feature's
-atomic apply operations rather than performing a separate check and mutation.
-Every operation that changes friend membership MUST update or prune exact
-presence ownership under the same `IContactsFeature` owner boundary.
+IContactsFeature MUST atomically validate session identity, mutate contacts, and update or prune exact presence under its owner synchronization. Friend and ContactList remain simple objects without presence locks or metadata. Consumers MUST use atomic feature operations; they MUST NOT separate validation from mutation or change friend membership outside that boundary.
 
 #### Scenario: Concurrent replacement preserves the newer owner
 

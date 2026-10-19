@@ -20,18 +20,7 @@ the instance that won the active-dictionary insertion.
 - **AND** the active dimension MUST contain exactly one region for that ID
 
 ### Requirement: Residency transitions preserve canonical ownership
-
-For each `(dimension, regionId)`, active and idle residency MUST be owned by
-`MapRegionService`. An active-to-idle transfer, idle-to-active resume, or
-idle-to-destroy claim MUST use exact-instance ownership semantics and MUST NOT
-allow two independently owned live canonical instances. A stale reference MUST
-not move, remove, or destroy a newer canonical instance. Idle destruction MUST
-successfully claim the exact idle instance before handing it to the background
-destruction worker.
-Obtaining canonical active residency and applying any mutation that relies on
-that active ownership MUST be serialized by the same owner boundary. Live
-item/object callbacks MUST remain on the GameWorld worker boundary and MUST
-not execute while the residency gate is held.
+For each (dimension, regionId), MapRegionService MUST exclusively own active and idle residency. Transfers, resumes, and destruction claims use exact-instance ownership so stale references cannot alter a newer canonical instance. Destruction workers receive only the exact claimed idle instance; active acquisition and dependent mutation share the owner gate. Live item and object callbacks run on the GameWorld worker, outside that gate.
 
 #### Scenario: A resumed region cannot be destroyed by stale cleanup
 
@@ -150,14 +139,7 @@ MUST NOT publish into a dimension that has been detached during construction.
 - **AND** D2 MUST remain current
 
 ### Requirement: Terminal destruction attempts all cleanup
-
-Once an idle region is successfully claimed for destruction, it MUST NOT return
-to active or idle residency. The background owner MUST invoke synchronous
-`MapRegion.Destroy` for the exact detached region. `MapRegion.Destroy` MUST
-unregister every owned NPC through `INpcService` and destroy its ground items
-and game objects, even when an individual cleanup fails. The first cleanup
-failure MUST be reported after all attempts, while the region remains detached
-and non-canonical even when cleanup is incomplete.
+After an exact idle destruction claim, a region MUST NOT reenter residency; the background owner calls synchronous Destroy on that instance. Destroy attempts NPC unregister and ground-item/object cleanup despite individual failures, then reports the first failure. The region stays detached and noncanonical even when cleanup is incomplete.
 
 #### Scenario: One NPC cleanup fails
 
@@ -247,19 +229,7 @@ during decoding.
 - **AND** the region MUST NOT publish readiness
 
 ### Requirement: Fatal load failures discard the failed instance
-
-An unexpected database, cache, decode, map-apply, cancellation, or shutdown
-failure MUST leave the region not ready. The loader MUST attempt to unregister
-every NPC successfully registered by that attempt, log cleanup failures as
-secondary diagnostics, roll back exact objects and ground items applied by the
-attempt, and exact-remove the failed region only if the active service entry is
-that same instance. The original load failure MUST be re-thrown unchanged. The
-failed instance MUST NOT be reset or reused.
-
-The preparation accumulator retains rollback responsibility until readiness is
-successfully published. The region may reference those resources after apply;
-this is not a runtime ownership transfer. After successful publication the
-accumulator is disarmed and normal region lifecycle owns terminal cleanup.
+Unexpected database, cache, decode, apply, cancellation, or shutdown failure MUST leave the region not ready. The loader unregisters every NPC registered by the attempt, rolls back its exact objects and ground items, logs cleanup failures as secondary diagnostics, removes only the same active instance, and rethrows the original failure unchanged. Failed instances are discarded. Preparation owns rollback until Ready publishes; normal region lifecycle owns cleanup afterward.
 
 #### Scenario: Required source preparation fails
 
@@ -303,17 +273,7 @@ accumulator is disarmed and normal region lifecycle owns terminal cleanup.
 - **AND** registered NPC compensation MUST remain a separate operation
 
 ### Requirement: Failed instances cannot be scheduled or consumed
-
-The load scheduler MUST coalesce requests for each region instance and reject
-discarded instances. `Ready` regions are already loaded. `MapRegionLoader` MUST
-validate that an initializing instance remains canonical for its ID and
-dimension, rejecting stale instances before applying data.
-Viewport and map-update processing MUST resolve retained stale references to
-the canonical current instance where possible. Dynamic/standard map identity
-is selected from canonical region metadata independently of readiness. Only
-`Ready` regions may contribute normal creatures, full region updates, or world
-ticks. An `Initializing` or `Discarded` region MUST never be treated as ready
-world state.
+The scheduler MUST coalesce requests by region instance and rejects discarded instances. The loader applies data only while the initializing instance remains canonical. Viewport and map updates resolve stale references to the current canonical instance when possible. Dynamic identity comes from canonical metadata, not readiness. Only Ready regions provide normal creatures, full updates, or ticks.
 
 #### Scenario: A discarded region is submitted again
 
@@ -397,15 +357,7 @@ and MUST coalesce duplicate requests for one active region instance.
 - **THEN** the scheduler MUST NOT invoke the loader again
 
 ### Requirement: Dynamic destinations have a separate readiness path
-
-Normal region loading MUST remain owned by `MapRegionLoadScheduler` and
-`MapRegionLoader`. A dynamic destination MUST be published as an exact
-canonical `Initializing` dynamic region without being submitted to the normal
-loader. The source MUST be awaited through the existing load scheduler and
-MUST be revalidated as the exact canonical active `Ready` instance before any
-block data is consumed. Dynamic block population MUST run through the
-serialized GameWorker boundary, and the destination MUST publish `Ready` only
-after the copy completes successfully.
+Normal loads MUST remain owned by MapRegionLoadScheduler and MapRegionLoader. Dynamic destinations publish as exact canonical Initializing regions and bypass that loader. The source must be awaited and revalidated as the exact canonical active Ready instance before copying. Copy runs on serialized GameWorker; the destination becomes Ready only after success.
 
 #### Scenario: A fresh dynamic destination is created
 
@@ -430,16 +382,7 @@ after the copy completes successfully.
 - **AND** the destination MUST NOT publish `Ready`
 
 ### Requirement: Late visible regions receive complete state
-
-`MapUpdateService.UpdateMap` MUST remain synchronous and MUST only rebuild or
-refresh the viewport, send the map packet, and begin a new viewport-owned map
-region synchronization epoch. It MUST NOT initiate or await region loading,
-queue a character task for region readiness, or retain character state for that
-purpose. A character `Viewport` MUST observe its canonical visible regions on
-the existing serialized GameWorker tick and send full server-owned part state
-once for each exact `Ready` region instance in the current map epoch. It MUST
-not send initializing or discarded instances and MUST not couple one region's
-readiness to another region's completion.
+UpdateMap MUST stay synchronous for viewport refresh, packet send, and a new viewport-owned sync epoch; it never starts or awaits loads or queues/retains characters. On the serialized tick, the viewport sends full server-owned part state once per current-epoch canonical Ready region. It skips initializing or discarded regions and does not couple one region readiness to another.
 
 #### Scenario: A visible neighbor becomes ready after the map packet
 

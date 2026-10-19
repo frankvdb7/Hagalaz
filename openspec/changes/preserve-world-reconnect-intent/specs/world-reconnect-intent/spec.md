@@ -43,16 +43,7 @@ The request-side correction MUST prevent `WorldReconnectRequest` from being disp
 - **AND** the reconnect message remains intentionally unhandled until issue #478 establishes its production behavior
 
 ### Requirement: Characterization evidence remains qualified
-
-The characterization artifacts MUST distinguish observed client requests and trace facts, controlled-peer stimuli, client-side observations, client-code facts, and unknown production-server behavior. None of the first four categories MAY be promoted to a production-server requirement without new evidence.
-
-The fixture MUST keep these evidence categories distinct:
-
-1. Observed client requests and trace facts: handshake opcode 14, authentication opcode 16 with flags 0 and 1, and no authentication-header opcode 18 in the characterized reconnect trace.
-2. Controlled-peer stimuli: fresh-login response 2 and reconnect response 15 supplied by the controlled peer.
-3. Client-side observations: world-entry read sizes, authentication reset, protocol preservation, temporary-key clearing, fresh client/server ISAAC instances, RSA/XTEA boundaries, server-key `+50`, and client-observed event ordering.
-4. Client-code facts: authentication opcode 18 is absent from the revision-742 authentication protocol registry, and a separate ISAAC-framed game-channel opcode 18 exists without being claimed as observed in the reconnect trace.
-5. Unknown production-server behavior: production acceptance, response/payload ordering, cipher, authentication/session ownership, transport handoff/adoption, lifecycle, resumed I/O, and resynchronization behavior.
+Characterization MUST distinguish observed requests and traces, controlled-peer stimuli, client observations, client-code facts, and unknown production-server behavior. Evidence from these first four categories MUST NOT become a production-server requirement without new evidence.
 
 #### Scenario: Request and observation evidence stays separated
 
@@ -61,6 +52,7 @@ The fixture MUST keep these evidence categories distinct:
 - **AND** it records `authentication.header.opcode18.observed=false` as a trace observation
 - **AND** it records `controlled.peer.fresh.response=2` and `controlled.peer.reconnect.response=15` as controlled-peer stimuli
 - **AND** it qualifies the 4,656-byte and 4,608-byte world-entry reads as client-side observations
+- **AND** it records authentication reset, protocol preservation, temporary-key clearing, fresh client/server ISAAC instances, RSA/XTEA boundaries, server-key +50, and client-observed event ordering
 - **AND** it records `authentication.header.opcode18.presentInRegistry=false` as a client-code fact
 - **AND** it records the separate ISAAC-framed game-channel opcode 18 without claiming it appeared in the authentication trace
 

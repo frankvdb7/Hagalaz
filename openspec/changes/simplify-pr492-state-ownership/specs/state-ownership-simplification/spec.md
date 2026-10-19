@@ -7,17 +7,7 @@ cleanup, generation, retry, cancellation, and distributed ownership behavior.
 ## ADDED Requirements
 
 ### Requirement: MapRegionService owns residency coordination
-
-`IDimension` MUST expose identity without owning a synchronization primitive.
-`MapRegionService` MUST use one service-owned gate for the dimension registry,
-active residency, idle residency, creation, suspension, resumption, removal,
-and enumeration. Region construction and loading MUST NOT occur while that
-gate is held.
-
-Active-region housekeeping MUST run at the GameWorld worker execution boundary,
-after the worker has completed the active-region tick. An independent cleanup
-loop MUST NOT change residency while the worker is selecting or ticking active
-regions.
+One MapRegionService-owned gate MUST protect the dimension registry and active/idle residency operations; IDimension exposes identity only. Do not construct or load regions under the gate. The GameWorker performs active-region housekeeping after its tick; no independent cleanup loop may race active-region selection or ticking.
 
 #### Scenario: Region enumeration returns an explicit snapshot
 
@@ -186,14 +176,7 @@ persisted fingerprints or revision allocation state.
 - **AND** it does not reread, rehydrate, or re-add the Character
 
 ### Requirement: Live Character ownership belongs to the GameWorker
-
-Live Character state MUST be mutated only by work admitted to the serialized
-GameWorker boundary. Each concrete Creature MUST privately own cancellation for
-work queued through it. `Creature.QueueTask` MUST supply its cancellation token
-to `ICreatureTaskService`, which MUST only provide cancellation-aware wrapping
-over the one shared generic scheduler. `Creature.Destroy()` MUST cancel that
-token during terminal cleanup. Creature, Character, and NPC MUST NOT expose a
-lifecycle flag or cancellation token for callers to use as a validity protocol.
+Live Character mutation MUST occur only on the serialized GameWorker. Each Creature privately owns queued-work cancellation; QueueTask passes its token to the cancellation-aware ICreatureTaskService wrapper over the shared scheduler, and Destroy cancels it. Creature, Character, and NPC expose no lifecycle validity flag or token to callers.
 
 #### Scenario: Gameplay already admitted runs before terminal logout
 
@@ -211,16 +194,7 @@ lifecycle flag or cancellation token for callers to use as a validity protocol.
   token and cannot receive it
 
 ### Requirement: Final logout is one GameWorker-owned handoff
-
-Final logout MUST synchronously capture a detached `CharacterModel`, remove
-exact active Character ownership, remove required world/region membership, and
-perform terminal Character cleanup in one GameWorker-owned operation. Successful
-terminal removal MUST be followed by `Character.Destroy()`, which cancels
-Creature-owned work. No await or externally scheduled asynchronous gap MAY
-occur between final snapshot capture and ownership removal. After removal,
-logout persistence MUST use only the retained snapshot, master/session data,
-and persistence receipt; it MUST NOT read the Character or its service scope
-again.
+Final logout MUST capture a detached CharacterModel, remove exact active Character and required world/region ownership, and clean up Character in one GameWorker operation. Destroy follows successful removal and cancels Creature work. No await or scheduled gap separates snapshot from removal. Persistence afterward uses only the snapshot, master/session data, and receipt, never Character or its scope.
 
 #### Scenario: Persistence cannot race a later live mutation
 
