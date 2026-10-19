@@ -2,7 +2,9 @@ using System.Buffers;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.IO.Pipelines;
+using System.Linq;
 using System.Reflection;
+using System.Threading;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -134,6 +136,42 @@ public sealed class RaidoRemainingCoverageTests
         Assert.AreNotSame(connection.Transport.Input, built.TransportInput);
         Assert.IsInstanceOfType<TestProtocol>(built.Protocol);
         Assert.AreEqual("factory", built.ConnectionId);
+    }
+
+    [TestMethod]
+    public void ConnectionFactory_RecordsDetachThatOccursDuringInitialPhysicalActivation()
+    {
+        using var metrics = new RaidoMetricsTestContext();
+        using var closed = new CancellationTokenSource();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        using var provider = services.BuildServiceProvider();
+        var factory = new DefaultRaidoHubConnectionContextFactory(
+            provider.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>(),
+            Options.Create(new RaidoOptions()),
+            metrics.Metrics);
+        var physicalConnection = CreateRawConnection("already-closed");
+        physicalConnection.ConnectionClosed.Returns(closed.Token);
+        closed.Cancel();
+
+        var built = factory.Create(
+            physicalConnection,
+            new TestProtocol(),
+            new RaidoConnectionContextOptions
+            {
+                KeepAliveInterval = TimeSpan.FromMinutes(1),
+                ClientTimeoutInterval = TimeSpan.FromMinutes(1),
+                StatefulReconnectEnabled = true,
+                StatefulReconnectTimeout = TimeSpan.FromSeconds(5)
+            });
+        _connections.Add(built);
+
+        var detach = metrics.Listener.Measurements.Single(measurement =>
+            measurement.InstrumentName == "raido.server.reconnect.events" &&
+            Equals(measurement.Tags["outcome"], "detached"));
+        Assert.AreEqual(1, detach.Value);
+        Assert.AreEqual(1, detach.Tags.Count);
+        Assert.IsTrue(built.IsAwaitingReconnect);
     }
 
     [TestMethod]

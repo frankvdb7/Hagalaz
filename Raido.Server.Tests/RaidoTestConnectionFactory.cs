@@ -13,13 +13,14 @@ internal static class RaidoTestConnectionFactory
         RaidoConnectionContextOptions? options = null,
         ILoggerFactory? loggerFactory = null,
         TimeProvider? timeProvider = null,
-        IRaidoProtocol? protocol = null)
+        IRaidoProtocol? protocol = null,
+        RaidoMetrics? metrics = null)
     {
         options ??= new RaidoConnectionContextOptions();
         loggerFactory ??= NullLoggerFactory.Instance;
         timeProvider ??= TimeProvider.System;
 
-        var tcpConnection = new RaidoTcpConnectionContext(options, loggerFactory, timeProvider);
+        var tcpConnection = new RaidoTcpConnectionContext(options, loggerFactory, timeProvider, metrics);
         if (!tcpConnection.TryAttachPhysicalConnection(physicalConnection))
         {
             throw new InvalidOperationException("The initial physical connection could not be activated.");

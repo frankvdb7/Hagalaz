@@ -1,7 +1,9 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 using System.IO.Pipelines;
+using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using Microsoft.AspNetCore.Connections;
@@ -52,6 +54,7 @@ public sealed class RaidoHubConnectionContextAdditionalTests
     {
         public string Name => "writing";
         public int Version => 1;
+        public bool ThrowOnWrite { get; set; }
         public bool TryParseMessage(in ReadOnlySequence<byte> input, ref SequencePosition consumed, ref SequencePosition examined, out RaidoMessage message)
         {
             consumed = input.End;
@@ -61,6 +64,11 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         }
         public void WriteMessage(RaidoMessage message, IBufferWriter<byte> output)
         {
+            if (ThrowOnWrite)
+            {
+                throw new InvalidOperationException("Write failed.");
+            }
+
             output.GetSpan(1)[0] = 42;
             output.Advance(1);
         }
@@ -104,7 +112,11 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         public ValueTask DisposeAsync() => ValueTask.FromException(Exception);
     }
 
-    private (RaidoHubConnectionContext Context, Pipe Output, FeatureCollection Features, ConnectionContext Connection) CreateContext(TimeSpan? keepAlive = null, TimeSpan? timeout = null)
+    private (RaidoHubConnectionContext Context, Pipe Output, FeatureCollection Features, ConnectionContext Connection) CreateContext(
+        TimeSpan? keepAlive = null,
+        TimeSpan? timeout = null,
+        bool statefulReconnect = false,
+        RaidoMetrics? metrics = null)
     {
         var input = new Pipe();
         var output = new Pipe();
@@ -121,8 +133,9 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         var context = RaidoTestConnectionFactory.Create(connection, new RaidoConnectionContextOptions
         {
             KeepAliveInterval = keepAlive ?? TimeSpan.FromMinutes(1),
-            ClientTimeoutInterval = timeout ?? TimeSpan.FromMinutes(1)
-        }, NullLoggerFactory.Instance, protocol: new WritingProtocol());
+            ClientTimeoutInterval = timeout ?? TimeSpan.FromMinutes(1),
+            StatefulReconnectEnabled = statefulReconnect
+        }, NullLoggerFactory.Instance, protocol: new WritingProtocol(), metrics: metrics);
         _contexts.Add(context);
         _connectionClosedSources.Add(connectionClosed);
         _transports.Add((input, output));
@@ -145,6 +158,59 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         CollectionAssert.AreEqual(new byte[] { 42 }, result.Buffer.ToArray());
         output.Reader.AdvanceTo(result.Buffer.End);
         await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    public async Task Context_RecordsOneOutboundWritePerConnectionAndBoundedOutcomes()
+    {
+        using var metrics = new RaidoMetricsTestContext();
+        var (first, _, _, _) = CreateContext(metrics: metrics.Metrics);
+        var (second, _, _, _) = CreateContext(metrics: metrics.Metrics);
+
+        await first.WriteAsync(new TestMessage());
+        await second.WriteAsync(new TestMessage());
+
+        var measurements = metrics.Listener.Measurements
+            .Where(measurement => measurement.InstrumentName == "raido.server.outbound_messages")
+            .ToArray();
+        Assert.AreEqual(2, measurements.Length);
+        Assert.IsTrue(measurements.All(measurement => measurement.Tags.Count == 2));
+        Assert.IsTrue(measurements.All(measurement => Equals(measurement.Tags["message.type"], "TestMessage")));
+        Assert.IsTrue(measurements.All(measurement => Equals(measurement.Tags["outcome"], "sent")));
+        Assert.AreEqual(2, metrics.Listener.Measurements.Count(measurement => measurement.InstrumentName == "raido.server.outbound_message.duration"));
+    }
+
+    [TestMethod]
+    public async Task Context_RecordsCanceledFailedAndDetachedOutboundWrites()
+    {
+        using var metrics = new RaidoMetricsTestContext();
+        var (canceled, _, _, _) = CreateContext(metrics: metrics.Metrics);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await canceled.WriteAsync(new TestMessage(), cancellation.Token));
+
+        var (failed, _, _, _) = CreateContext(metrics: metrics.Metrics);
+        ((WritingProtocol)failed.Protocol).ThrowOnWrite = true;
+        await failed.WriteAsync(new TestMessage());
+
+        var outcomes = metrics.Listener.Measurements
+            .Where(measurement => measurement.InstrumentName == "raido.server.outbound_messages")
+            .Select(measurement => measurement.Tags["outcome"])
+            .ToArray();
+        CollectionAssert.AreEquivalent(new object[] { "cancelled", "failed" }, outcomes);
+    }
+
+    [TestMethod]
+    public async Task Context_SkipsOutboundMetricWorkWhenInstrumentsAreDisabled()
+    {
+        var meter = new Meter($"Raido.Server.Tests.{Guid.NewGuid():N}");
+        var meterFactory = Substitute.For<IMeterFactory>();
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var (context, _, _, _) = CreateContext(metrics: metrics);
+
+        Assert.IsFalse(context.MetricsContext.OutboundWriteEnabled);
+        await context.WriteAsync(new TestMessage());
     }
 
     [TestMethod]

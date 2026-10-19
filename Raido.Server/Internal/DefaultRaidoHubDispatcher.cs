@@ -168,6 +168,7 @@ namespace Raido.Server.Internal
             var messageType = message.GetType();
             if (!_messageHandlers.TryGetValue(messageType, out var descriptor))
             {
+                connection.MarkMessageDispatchOutcome(RaidoMessageDispatchOutcome.Unhandled);
                 return;
             }
 
@@ -204,8 +205,11 @@ namespace Raido.Server.Internal
                 if (!await IsHubMethodAuthorized(scope.ServiceProvider, connection, descriptor, arguments, hub))
                 {
                     Log.HubMethodNotAuthorized(_logger, descriptor.MethodExecutor.MethodInfo.Name);
+                    connection.MarkMessageDispatchOutcome(RaidoMessageDispatchOutcome.Unauthorized);
                     return;
                 }
+
+                connection.MarkMessageDispatchOutcome(RaidoMessageDispatchOutcome.Handled);
 
                 var contextAccessor = scope.ServiceProvider.GetRequiredService<IRaidoCallerContextAccessor>();
 
@@ -231,6 +235,7 @@ namespace Raido.Server.Internal
                 }
                 catch (Exception ex)
                 {
+                    connection.MarkMessageDispatchOutcome(RaidoMessageDispatchOutcome.Error);
                     SetActivityError(activity, ex);
                     Log.FailedInvokingHubMethod(_logger, methodExecutor.MethodInfo.Name, ex);
                 }

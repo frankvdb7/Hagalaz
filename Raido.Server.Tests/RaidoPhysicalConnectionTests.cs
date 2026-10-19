@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using System.IO;
 using System.IO.Pipelines;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using Microsoft.AspNetCore.Connections;
@@ -922,6 +923,110 @@ public sealed class RaidoPhysicalConnectionTests
 
         await context.AbortAsync();
         Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    public async Task ReconnectMetricsRecordDetachAndCompletionOutcomesFromTheDetachTimestamp()
+    {
+        using var metrics = new RaidoMetricsTestContext();
+        var clock = new ManualTimeProvider();
+
+        var successfulInitial = CreatePhysicalConnection("metrics-success-initial");
+        var successfulReplacement = CreatePhysicalConnection("metrics-success-replacement");
+        var successful = CreateContext(
+            successfulInitial.Connection,
+            reconnectEnabled: true,
+            timeout: TimeSpan.FromSeconds(5),
+            timeProvider: clock,
+            metrics: metrics.Metrics);
+        successful.TcpConnection.OnPhysicalConnectionClosed(successfulInitial.Connection);
+        clock.Advance(TimeSpan.FromSeconds(2));
+        Assert.IsTrue(successful.TcpConnection.TryAttachPhysicalConnection(successfulReplacement.Connection));
+        await successful.CleanupAsync();
+
+        var timedOutInitial = CreatePhysicalConnection("metrics-timeout-initial");
+        var timedOut = CreateContext(
+            timedOutInitial.Connection,
+            reconnectEnabled: true,
+            timeout: TimeSpan.FromSeconds(5),
+            timeProvider: clock,
+            metrics: metrics.Metrics);
+        timedOut.TcpConnection.OnPhysicalConnectionClosed(timedOutInitial.Connection);
+        clock.Advance(TimeSpan.FromSeconds(6));
+        Assert.IsFalse(await timedOut.TcpConnection.WaitForReconnectAsync(TimeSpan.FromSeconds(10)));
+        await timedOut.CleanupAsync();
+
+        var failedInitial = CreatePhysicalConnection("metrics-failure-initial");
+        var failed = CreateContext(
+            failedInitial.Connection,
+            reconnectEnabled: true,
+            timeout: TimeSpan.FromSeconds(5),
+            timeProvider: clock,
+            metrics: metrics.Metrics);
+        failed.TcpConnection.OnPhysicalConnectionClosed(failedInitial.Connection);
+        clock.Advance(TimeSpan.FromSeconds(3));
+        failed.Abort();
+        await failed.CleanupAsync();
+
+        var measurements = metrics.Listener.Measurements;
+        var events = measurements.Where(measurement => measurement.InstrumentName == "raido.server.reconnect.events").ToArray();
+        Assert.AreEqual(6, events.Length);
+        Assert.AreEqual(3, events.Count(measurement => Equals(measurement.Tags["outcome"], "detached")));
+        Assert.AreEqual(1, events.Count(measurement => Equals(measurement.Tags["outcome"], "success")));
+        Assert.AreEqual(1, events.Count(measurement => Equals(measurement.Tags["outcome"], "timeout")));
+        Assert.AreEqual(1, events.Count(measurement => Equals(measurement.Tags["outcome"], "failure")));
+
+        var durations = measurements.Where(measurement => measurement.InstrumentName == "raido.server.reconnect.duration").ToArray();
+        Assert.AreEqual(3, durations.Length);
+        Assert.AreEqual(2, durations.Single(measurement => Equals(measurement.Tags["outcome"], "success")).Value, 0.001);
+        Assert.AreEqual(6, durations.Single(measurement => Equals(measurement.Tags["outcome"], "timeout")).Value, 0.001);
+        Assert.AreEqual(3, durations.Single(measurement => Equals(measurement.Tags["outcome"], "failure")).Value, 0.001);
+    }
+
+    [TestMethod]
+    public async Task ClientTimeoutMetricCountsOnlyTheSuccessfulTerminalTransition()
+    {
+        using var metrics = new RaidoMetricsTestContext();
+        var clock = new ManualTimeProvider();
+        var physical = CreatePhysicalConnection("metrics-client-timeout");
+        var heartbeat = new RecordingHeartbeatFeature();
+        physical.Connection.Features.Set<IConnectionHeartbeatFeature>(heartbeat);
+        var context = CreateContext(
+            physical.Connection,
+            reconnectEnabled: false,
+            clientTimeout: TimeSpan.FromSeconds(1),
+            timeProvider: clock,
+            metrics: metrics.Metrics);
+
+        context.StartClientTimeout();
+        context.BeginClientTimeout();
+        clock.Advance(TimeSpan.FromSeconds(2));
+        heartbeat.Run();
+        heartbeat.Run();
+
+        Assert.AreEqual(1, metrics.Listener.Measurements.Count(measurement => measurement.InstrumentName == "raido.server.client_timeouts"));
+        Assert.IsTrue(context.TcpConnection.IsTerminal);
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    public async Task DetachedWriteMetricRecordsUnavailableOutcomeOnce()
+    {
+        using var metrics = new RaidoMetricsTestContext();
+        var initial = CreatePhysicalConnection("metrics-detached-write");
+        var context = CreateContext(
+            initial.Connection,
+            reconnectEnabled: true,
+            timeProvider: new ManualTimeProvider(),
+            metrics: metrics.Metrics);
+
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        await context.WriteAsync(new TestMessage());
+
+        var write = metrics.Listener.Measurements.Single(measurement => measurement.InstrumentName == "raido.server.outbound_messages");
+        Assert.AreEqual("unavailable-detached", write.Tags["outcome"]);
+        Assert.AreEqual("TestMessage", write.Tags["message.type"]);
         await context.CleanupAsync();
     }
 
@@ -3271,7 +3376,8 @@ public sealed class RaidoPhysicalConnectionTests
         bool reconnectEnabled,
         TimeSpan? timeout = null,
         TimeSpan? clientTimeout = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        RaidoMetrics? metrics = null)
     {
         var options = new RaidoConnectionContextOptions
         {
@@ -3280,9 +3386,11 @@ public sealed class RaidoPhysicalConnectionTests
             StatefulReconnectEnabled = reconnectEnabled,
             StatefulReconnectTimeout = timeout ?? TimeSpan.FromSeconds(5)
         };
-        var tcpConnection = timeProvider is null
-            ? new RaidoTcpConnectionContext(options, NullLoggerFactory.Instance)
-            : new RaidoTcpConnectionContext(options, NullLoggerFactory.Instance, timeProvider);
+        var tcpConnection = new RaidoTcpConnectionContext(
+            options,
+            NullLoggerFactory.Instance,
+            timeProvider ?? TimeProvider.System,
+            metrics);
         Assert.IsTrue(tcpConnection.TryAttachPhysicalConnection(connection));
         var context = new TestHubConnectionContext(
             tcpConnection,

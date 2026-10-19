@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using Raido.Common.Messages;
 using Raido.Common.Protocol;
 using Raido.Server.Extensions;
 using Raido.Server.Internal;
@@ -665,6 +666,37 @@ public sealed class RaidoHubDispatcherTests
         await dispatcher.DispatchMessageAsync(CreateConnection(), new DispatchMessage());
 
         Assert.AreEqual(1, DispatchHub.Invoked);
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_ReportsBoundedMessageOutcomes()
+    {
+        using var provider = CreateProvider().Provider;
+        using var metrics = new RaidoMetricsTestContext();
+        var dispatcher = CreateDispatcher(provider);
+        var connection = CreateConnection();
+        connection.InitializeMetrics(metrics.Metrics);
+
+        connection.BeginMessageDispatch();
+        await dispatcher.DispatchMessageAsync(connection, new DispatchMessage());
+        Assert.AreEqual("handled", connection.GetMessageDispatchOutcome());
+
+        connection.BeginMessageDispatch();
+        await dispatcher.DispatchMessageAsync(connection, new DerivedMessage());
+        Assert.AreEqual("unhandled", connection.GetMessageDispatchOutcome());
+
+        connection.BeginMessageDispatch();
+        await dispatcher.DispatchMessageAsync(connection, new OtherMessage());
+        Assert.AreEqual("unauthorized", connection.GetMessageDispatchOutcome());
+
+        DispatchHub.ThrowFromHandler = true;
+        connection.BeginMessageDispatch();
+        await dispatcher.DispatchMessageAsync(connection, new DispatchMessage());
+        Assert.AreEqual("error", connection.GetMessageDispatchOutcome());
+
+        connection.BeginMessageDispatch();
+        await new DefaultRaidoDispatcher(Array.Empty<IRaidoHubDispatcher>()).DispatchMessageAsync(connection, PingMessage.Instance);
+        Assert.AreEqual("handled", connection.GetMessageDispatchOutcome());
     }
 
     [TestMethod]

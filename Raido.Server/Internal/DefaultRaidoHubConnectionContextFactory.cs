@@ -11,13 +11,16 @@ namespace Raido.Server.Internal
     {
         private readonly ILoggerFactory _loggerFactory;
         private readonly IOptions<RaidoOptions> _options;
+        private readonly RaidoMetrics? _metrics;
 
         public DefaultRaidoHubConnectionContextFactory(
             ILoggerFactory loggerFactory,
-            IOptions<RaidoOptions> options)
+            IOptions<RaidoOptions> options,
+            RaidoMetrics? metrics = null)
         {
             _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
             _options = options ?? throw new ArgumentNullException(nameof(options));
+            _metrics = metrics;
         }
 
         public RaidoHubConnectionContext Create(
@@ -47,7 +50,7 @@ namespace Raido.Server.Internal
             ArgumentNullException.ThrowIfNull(protocol);
             ArgumentNullException.ThrowIfNull(contextOptions);
 
-            var tcpConnection = new RaidoTcpConnectionContext(contextOptions, _loggerFactory);
+            var tcpConnection = new RaidoTcpConnectionContext(contextOptions, _loggerFactory, TimeProvider.System, _metrics);
             if (!tcpConnection.TryAttachPhysicalConnection(connection))
             {
                 throw new InvalidOperationException("The initial physical connection could not be activated.");
