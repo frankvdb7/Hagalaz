@@ -703,6 +703,62 @@ public sealed class RaidoHubDispatcherTests
     }
 
     [TestMethod]
+    public async Task ConnectionHandler_RecordsMetricsForRealDispatcherOutcomes()
+    {
+        using var provider = CreateProvider().Provider;
+        using var metrics = new RaidoMetricsTestContext();
+        var dispatcher = CreateDispatcher(provider);
+        var handler = new RaidoHubConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoHubLifetimeManager>(),
+            dispatcher,
+            metrics.Metrics);
+
+        await RunMessageThroughConnectionAsync(new DerivedMessage());
+        await RunMessageThroughConnectionAsync(new OtherMessage());
+
+        var measurements = metrics.Listener.Measurements;
+        var counts = measurements
+            .Where(measurement => measurement.InstrumentName == "raido.server.inbound_messages")
+            .ToArray();
+        var durations = measurements
+            .Where(measurement => measurement.InstrumentName == "raido.server.inbound_message.duration")
+            .ToArray();
+        Assert.AreEqual(2, counts.Length);
+        Assert.AreEqual(2, durations.Length);
+
+        foreach (var (messageType, expectedOutcome) in new[]
+        {
+            (nameof(DerivedMessage), "unhandled"),
+            (nameof(OtherMessage), "unauthorized")
+        })
+        {
+            var count = counts.Single(measurement => Equals(measurement.Tags["message.type"], messageType));
+            Assert.AreEqual(1d, count.Value);
+            Assert.AreEqual(2, count.Tags.Count);
+            Assert.AreEqual(expectedOutcome, count.Tags["outcome"]);
+
+            var duration = durations.Single(measurement => Equals(measurement.Tags["message.type"], messageType));
+            Assert.IsTrue(duration.Value >= 0);
+            Assert.AreEqual(2, duration.Tags.Count);
+            Assert.AreEqual(expectedOutcome, duration.Tags["outcome"]);
+        }
+
+        async Task RunMessageThroughConnectionAsync(RaidoMessage message)
+        {
+            var input = new Pipe();
+            var connection = CreateConnection(
+                protocol: new TestProtocol { MessageToReturn = message },
+                input: input);
+            var run = handler.ConnectAsync(connection);
+            await input.Writer.WriteAsync(new byte[] { 1 });
+            input.Writer.Complete();
+            await run;
+        }
+    }
+
+    [TestMethod]
     public void Dispatcher_RejectsInvalidHubDefinitions()
     {
         using var provider = CreateProvider().Provider;
