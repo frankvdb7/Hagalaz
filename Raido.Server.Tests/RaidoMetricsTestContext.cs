@@ -79,6 +79,8 @@ internal sealed class RaidoMetricsTestListener : IDisposable
         }
     }
 
+    public event Action<MetricMeasurement>? MeasurementRecorded;
+
     public void Dispose() => _listener.Dispose();
 
     private void Record(Instrument instrument, long value, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state) =>
@@ -92,10 +94,13 @@ internal sealed class RaidoMetricsTestListener : IDisposable
             copiedTags[tag.Key] = tag.Value;
         }
 
+        var measurement = new MetricMeasurement(instrument.Name, value, copiedTags);
         lock (_sync)
         {
-            _measurements.Add(new MetricMeasurement(instrument.Name, value, copiedTags));
+            _measurements.Add(measurement);
         }
+
+        MeasurementRecorded?.Invoke(measurement);
     }
 }
 

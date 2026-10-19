@@ -715,8 +715,8 @@ public sealed class RaidoHubDispatcherTests
             dispatcher,
             metrics.Metrics);
 
-        var unhandled = await RunMessageThroughConnectionAsync(new DerivedMessage(), "unhandled");
-        var unauthorized = await RunMessageThroughConnectionAsync(new OtherMessage(), "unauthorized");
+        var unhandled = await RunMessageThroughConnectionAsync(new DerivedMessage());
+        var unauthorized = await RunMessageThroughConnectionAsync(new OtherMessage());
         Assert.IsTrue(unhandled.MetricsContext.InboundDispatchEnabled);
         Assert.AreEqual("unhandled", unhandled.GetMessageDispatchOutcome());
         Assert.IsTrue(unauthorized.MetricsContext.InboundDispatchEnabled);
@@ -749,25 +749,37 @@ public sealed class RaidoHubDispatcherTests
             Assert.AreEqual(expectedOutcome, duration.Tags["outcome"]);
         }
 
-        async Task<RaidoHubConnectionContext> RunMessageThroughConnectionAsync(
-            RaidoMessage message,
-            string expectedOutcome)
+        async Task<RaidoHubConnectionContext> RunMessageThroughConnectionAsync(RaidoMessage message)
         {
             var input = new Pipe();
             var connection = CreateConnection(
                 protocol: new TestProtocol { MessageToReturn = message },
                 input: input);
-            var run = handler.ConnectAsync(connection);
-            await input.Writer.WriteAsync(new byte[] { 1 });
-            var timeout = Stopwatch.StartNew();
-            while (connection.GetMessageDispatchOutcome() != expectedOutcome)
+            var dispatchRecorded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            void OnMeasurement(MetricMeasurement measurement)
             {
-                Assert.IsTrue(timeout.Elapsed < TimeSpan.FromSeconds(1), $"Expected dispatch outcome '{expectedOutcome}'.");
-                await Task.Delay(1);
+                if (measurement.InstrumentName == "raido.server.inbound_messages" &&
+                    measurement.Tags.TryGetValue("message.type", out var messageType) &&
+                    Equals(messageType, message.GetType().Name))
+                {
+                    dispatchRecorded.TrySetResult();
+                }
             }
 
-            input.Writer.Complete();
-            await run;
+            metrics.Listener.MeasurementRecorded += OnMeasurement;
+            var run = handler.ConnectAsync(connection);
+            try
+            {
+                await input.Writer.WriteAsync(new byte[] { 1 });
+                await dispatchRecorded.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            }
+            finally
+            {
+                input.Writer.Complete();
+                metrics.Listener.MeasurementRecorded -= OnMeasurement;
+                await run;
+            }
+
             return connection;
         }
     }
