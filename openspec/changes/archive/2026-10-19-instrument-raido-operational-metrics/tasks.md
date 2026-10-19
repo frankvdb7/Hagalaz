@@ -7,7 +7,7 @@
 ## 2. Instrument message dispatch and writes
 
 - [x] 2.1 Record one inbound dispatch measurement at the receive boundary and propagate built-in dispatcher outcomes without changing the public dispatcher contract; verify handled, unhandled, unauthorized, error, and control-message outcomes with `MeterListener` tests.
-- [x] 2.2 Record one outbound measurement per connection write at `RaidoHubConnectionContext.WriteAsync`; verify direct and multi-client sends plus sent, canceled, failed, detached, and disabled-instrument behavior with `MeterListener` tests.
+- [x] 2.2 Record one outbound measurement per connection write at `RaidoHubConnectionContext.WriteAsync`; verify direct and multi-client sends plus accepted, canceled, failed, detached, and disabled-instrument behavior with `MeterListener` tests.
 
 ## 3. Instrument reconnect and timeout lifecycle
 

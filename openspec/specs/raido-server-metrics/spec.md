@@ -26,7 +26,7 @@ The Raido server SHALL record one inbound dispatch count and duration for each r
 - **THEN** the server records one inbound dispatch with outcome `handled`
 
 ### Requirement: Outbound message write metrics
-The Raido server SHALL record each per-connection application message write at the shared write boundary, tagged only with bounded message type and outcome, with duration measured through write completion.
+The Raido server SHALL record each per-connection application message write at the shared write boundary, tagged only with bounded message type and outcome, with duration measured through completion of the stable logical transport flush.
 
 #### Scenario: Multi-client send
 - **WHEN** one message is sent to multiple connected clients
@@ -34,8 +34,9 @@ The Raido server SHALL record each per-connection application message write at t
 - **AND** no recipient identity or payload data is recorded
 
 #### Scenario: Write completion outcomes
-- **WHEN** a write is sent, canceled, fails, or cannot be admitted because the logical connection is detached or already terminal
-- **THEN** the write is recorded with the corresponding bounded outcome `sent`, `cancelled`, `failed`, `unavailable-detached`, or `unavailable` for an already-terminal connection
+- **WHEN** a write completes its stable logical transport flush, is canceled, fails, or cannot be admitted because the logical connection is detached or already terminal
+- **THEN** the write is recorded with the corresponding bounded outcome `accepted`, `cancelled`, `failed`, `unavailable-detached`, or `unavailable` for an already-terminal connection
+- **AND** `accepted` means the stable logical transport accepted the write and does not guarantee a physical transport write or client delivery
 
 ### Requirement: Stateful reconnect metrics
 The Raido server SHALL record entry into the logical detached state and each reconnect completion outcome, with completion duration measured from detach until rebind or terminal completion.

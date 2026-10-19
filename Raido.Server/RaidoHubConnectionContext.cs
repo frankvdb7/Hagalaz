@@ -153,7 +153,7 @@ namespace Raido.Server
             private int _recorded;
 
             public void Record(FlushResult result) =>
-                Record(result.IsCanceled ? "cancelled" : result.IsCompleted ? "failed" : "sent");
+                Record(result.IsCanceled ? "cancelled" : result.IsCompleted ? "failed" : "accepted");
 
             public void Record(string outcome)
             {

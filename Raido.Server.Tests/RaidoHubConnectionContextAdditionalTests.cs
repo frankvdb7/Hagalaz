@@ -176,7 +176,7 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         Assert.AreEqual(2, measurements.Length);
         Assert.IsTrue(measurements.All(measurement => measurement.Tags.Count == 2));
         Assert.IsTrue(measurements.All(measurement => Equals(measurement.Tags["message.type"], "TestMessage")));
-        Assert.IsTrue(measurements.All(measurement => Equals(measurement.Tags["outcome"], "sent")));
+        Assert.IsTrue(measurements.All(measurement => Equals(measurement.Tags["outcome"], "accepted")));
         Assert.AreEqual(2, metrics.Listener.Measurements.Count(measurement => measurement.InstrumentName == "raido.server.outbound_message.duration"));
     }
 

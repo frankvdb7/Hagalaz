@@ -125,7 +125,7 @@ namespace Raido.Server
 
             _outboundWriteDuration = _meter.CreateHistogram<double>("raido.server.outbound_message.duration",
                 unit: "s",
-                description: "The duration of outbound Raido message writes per connection.");
+                description: "The duration of outbound Raido message writes through the stable logical transport.");
 
             _reconnectEvents = _meter.CreateCounter<long>("raido.server.reconnect.events",
                 unit: "{event}",
