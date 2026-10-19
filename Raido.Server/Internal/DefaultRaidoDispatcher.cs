@@ -27,6 +27,7 @@ namespace Raido.Server.Internal
             }
 
             // message is a ping message
+            connection.MarkMessageDispatchOutcome(RaidoMessageDispatchOutcome.Handled);
             connection.StartClientTimeout();
             return Task.CompletedTask;
 

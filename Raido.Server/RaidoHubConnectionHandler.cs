@@ -49,7 +49,7 @@ namespace Raido.Server
         /// <returns>A <see cref="Task"/> that represents the asynchronous connection handling.</returns>
         public async Task ConnectAsync(RaidoHubConnectionContext connection)
         {
-            connection.MetricsContext = _metrics.CreateContext();
+            connection.InitializeMetrics(_metrics);
 
             Log.ConnectedStarting(_logger, connection);
             RaidoEventSource.Log.ConnectionStart(connection.ConnectionId);
@@ -169,7 +169,7 @@ namespace Raido.Server
                                 {
                                     connection.StopClientTimeout();
                                     Log.ReceivedMessage(_logger, bufferedResult.Message);
-                                    await _dispatcher.DispatchMessageAsync(connection, bufferedResult.Message);
+                                    await DispatchMessageAsync(connection, bufferedResult.Message);
                                 }
 
                                 protocolReader.Advance();
@@ -197,7 +197,7 @@ namespace Raido.Server
 
                         Log.ReceivedMessage(_logger, result.Message);
 
-                        await _dispatcher.DispatchMessageAsync(connection, result.Message);
+                        await DispatchMessageAsync(connection, result.Message);
 
                         if (result.IsCompleted)
                         {
@@ -231,6 +231,39 @@ namespace Raido.Server
             {
                 await protocolReader.DisposeAsync();
                 connection.CompleteTransportInput();
+            }
+        }
+
+        private async Task DispatchMessageAsync(RaidoHubConnectionContext connection, RaidoMessage message)
+        {
+            var metricsContext = connection.MetricsContext;
+            if (!metricsContext.InboundDispatchEnabled)
+            {
+                await _dispatcher.DispatchMessageAsync(connection, message);
+                return;
+            }
+
+            connection.BeginMessageDispatch();
+            var startTimestamp = metricsContext.InboundDispatchDurationEnabled ? _timeProvider.GetTimestamp() : 0;
+            try
+            {
+                await _dispatcher.DispatchMessageAsync(connection, message);
+            }
+            catch
+            {
+                connection.MarkMessageDispatchOutcome(RaidoMessageDispatchOutcome.Error);
+                throw;
+            }
+            finally
+            {
+                var durationSeconds = metricsContext.InboundDispatchDurationEnabled
+                    ? _timeProvider.GetElapsedTime(startTimestamp).TotalSeconds
+                    : 0;
+                _metrics.RecordInboundDispatch(
+                    metricsContext,
+                    message.GetType().Name,
+                    connection.GetMessageDispatchOutcome(),
+                    durationSeconds);
             }
         }
 

@@ -44,6 +44,11 @@ namespace Raido.Server
         private readonly Lock _stateLock = new();
         private readonly TimeProvider _timeProvider;
         private readonly TimeSpan _statefulReconnectTimeout;
+        private RaidoMetrics? _metrics;
+        private MetricsContext _metricsContext;
+        private ReconnectCompletion? _pendingReconnectCompletion;
+
+        private readonly record struct ReconnectCompletion(long StartTimestamp, long EndTimestamp, string Outcome);
 
         private CancellationTokenRegistration? _closedRequestedRegistration;
         private CancellationTokenRegistration? _connectionClosedRegistration;
@@ -70,7 +75,7 @@ namespace Raido.Server
         private List<(Action<object> Callback, object State)>? _heartbeatHandlers;
 
         internal RaidoTcpConnectionContext(RaidoConnectionContextOptions contextOptions, ILoggerFactory loggerFactory)
-            : this(contextOptions, loggerFactory, TimeProvider.System)
+            : this(contextOptions, loggerFactory, TimeProvider.System, metrics: null)
         {
         }
 
@@ -78,6 +83,15 @@ namespace Raido.Server
             RaidoConnectionContextOptions contextOptions,
             ILoggerFactory loggerFactory,
             TimeProvider timeProvider)
+            : this(contextOptions, loggerFactory, timeProvider, metrics: null)
+        {
+        }
+
+        internal RaidoTcpConnectionContext(
+            RaidoConnectionContextOptions contextOptions,
+            ILoggerFactory loggerFactory,
+            TimeProvider timeProvider,
+            RaidoMetrics? metrics)
         {
             if (contextOptions.StatefulReconnectEnabled &&
                 (contextOptions.StatefulReconnectTimeout <= TimeSpan.Zero ||
@@ -93,6 +107,8 @@ namespace Raido.Server
             _statefulReconnectTimeout = contextOptions.StatefulReconnectTimeout;
             _reconnectEnabled = contextOptions.StatefulReconnectEnabled;
             _timeProvider = timeProvider;
+            _metrics = metrics;
+            _metricsContext = metrics?.CreateContext() ?? default;
             var input = new Pipe();
             var output = new Pipe();
             _transport = new LocalDuplexPipe(input.Reader, output.Writer);
@@ -156,6 +172,8 @@ namespace Raido.Server
             Task<bool>? outputBoundaryTask = null;
             ConnectionContext? detachedConnection = null;
             CancellationToken? detachedCloseRequestedToken = null;
+            long? reconnectStartTimestamp = null;
+            long reconnectEndTimestamp = 0;
             bool initialActivation;
             lock (_stateLock)
             {
@@ -282,6 +300,15 @@ namespace Raido.Server
                     {
                         obsoleteClosedRequestedRegistration = _closedRequestedRegistration;
                         obsoleteConnectionClosedRegistration = _connectionClosedRegistration;
+                        if (_metricsContext.ReconnectEnabled)
+                        {
+                            reconnectStartTimestamp = _reconnectWindowStartTimestamp;
+                            if (_metricsContext.ReconnectDurationEnabled)
+                            {
+                                reconnectEndTimestamp = _timeProvider.GetTimestamp();
+                            }
+                        }
+
                         _currentPhysicalConnection = replacement;
                         Volatile.Write(ref _hasInherentKeepAlive, HasInherentKeepAlive(replacement));
                         _detachedPhysicalConnection = null;
@@ -304,7 +331,8 @@ namespace Raido.Server
                             out terminalConnection,
                             out terminalClosedRequestedRegistration,
                             out terminalConnectionClosedRegistration,
-                            out queueAbortCallback);
+                            out queueAbortCallback,
+                            reconnectOutcome: "timeout");
                     }
                 }
 
@@ -321,6 +349,11 @@ namespace Raido.Server
                 }
                 else if (published)
                 {
+                    if (reconnectStartTimestamp is long reconnectStart)
+                    {
+                        RecordReconnectCompletion("success", reconnectStart, reconnectEndTimestamp);
+                    }
+
                     StartPhysicalInputPump();
                 }
 
@@ -680,6 +713,23 @@ namespace Raido.Server
             }
         }
 
+        internal RaidoMetrics? Metrics => _metrics;
+
+        internal MetricsContext MetricsContext => _metricsContext;
+
+        internal void InitializeMetrics(RaidoMetrics metrics)
+        {
+            if (_metrics is not null)
+            {
+                return;
+            }
+
+            _metrics = metrics;
+            _metricsContext = metrics.CreateContext();
+        }
+
+        internal void RecordClientTimeout() => _metrics?.RecordClientTimeout(_metricsContext);
+
         internal bool IsAwaitingReconnect
         {
             get
@@ -690,6 +740,17 @@ namespace Raido.Server
                         _reconnectWaiter is TaskCompletionSource<bool> reconnectWaiter &&
                         !reconnectWaiter.Task.IsCompleted && _detachedPhysicalConnection is not null &&
                         !IsReconnectWindowExpiredLocked();
+                }
+            }
+        }
+
+        internal bool IsDetached
+        {
+            get
+            {
+                lock (_stateLock)
+                {
+                    return !_disposed && _detachedPhysicalConnection is not null;
                 }
             }
         }
@@ -787,7 +848,8 @@ namespace Raido.Server
                     out currentConnection,
                     out closedRequestedRegistration,
                     out connectionClosedRegistration,
-                    out queueAbortCallback);
+                    out queueAbortCallback,
+                    reconnectOutcome: "timeout");
             }
 
             if (timedOut)
@@ -854,6 +916,11 @@ namespace Raido.Server
 
             if (reconnecting)
             {
+                if (_metricsContext.ReconnectEventEnabled)
+                {
+                    _metrics!.RecordReconnectEvent(_metricsContext, "detached");
+                }
+
                 // Set the current connection to null before waking the old transport so resulting completions are stale.
                 connection.Transport.Input.CancelPendingRead();
                 connection.Transport.Output.CancelPendingFlush();
@@ -879,7 +946,8 @@ namespace Raido.Server
             out ConnectionContext? currentConnection,
             out CancellationTokenRegistration? closedRequestedRegistration,
             out CancellationTokenRegistration? connectionClosedRegistration,
-            out bool queueAbortCallback)
+            out bool queueAbortCallback,
+            string reconnectOutcome = "failure")
         {
             currentConnection = null;
             closedRequestedRegistration = null;
@@ -907,6 +975,17 @@ namespace Raido.Server
 
             var reconnectWaiter = _reconnectWaiter;
             _reconnectWaiter = null;
+            if (_metricsContext.ReconnectEnabled && _reconnectWindowStartTimestamp is long reconnectStartTimestamp)
+            {
+                var reconnectEndTimestamp = _metricsContext.ReconnectDurationEnabled
+                    ? _timeProvider.GetTimestamp()
+                    : 0;
+                _pendingReconnectCompletion = new ReconnectCompletion(
+                    reconnectStartTimestamp,
+                    reconnectEndTimestamp,
+                    reconnectOutcome);
+            }
+
             _reconnectWindowStartTimestamp = null;
             reconnectWaiter?.TrySetResult(false);
 
@@ -925,6 +1004,21 @@ namespace Raido.Server
             CancellationTokenRegistration? connectionClosedRegistration,
             bool queueAbortCallback)
         {
+            ReconnectCompletion? reconnectCompletion;
+            lock (_stateLock)
+            {
+                reconnectCompletion = _pendingReconnectCompletion;
+                _pendingReconnectCompletion = null;
+            }
+
+            if (reconnectCompletion is ReconnectCompletion completion)
+            {
+                RecordReconnectCompletion(
+                    completion.Outcome,
+                    completion.StartTimestamp,
+                    completion.EndTimestamp);
+            }
+
             closedRequestedRegistration?.Dispose();
             connectionClosedRegistration?.Dispose();
             AcknowledgeInputBoundary();
@@ -944,6 +1038,17 @@ namespace Raido.Server
             {
                 // We fire and forget since this can trigger user code to run.
                 ThreadPool.QueueUserWorkItem(_abortedCallback, this);
+            }
+        }
+
+        private void RecordReconnectCompletion(string outcome, long startTimestamp, long endTimestamp)
+        {
+            if (_metricsContext.ReconnectEnabled)
+            {
+                var durationSeconds = _metricsContext.ReconnectDurationEnabled
+                    ? _timeProvider.GetElapsedTime(startTimestamp, endTimestamp).TotalSeconds
+                    : 0;
+                _metrics!.RecordReconnectCompletion(_metricsContext, outcome, durationSeconds);
             }
         }
 

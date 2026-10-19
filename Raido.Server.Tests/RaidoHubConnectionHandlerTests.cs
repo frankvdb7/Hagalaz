@@ -90,7 +90,7 @@ namespace Raido.Server.Tests
             _lifetimeManager = Substitute.For<IRaidoHubLifetimeManager>();
             _dispatcher = Substitute.For<IRaidoDispatcher>();
             _meterFactory = Substitute.For<IMeterFactory>();
-            _meter = new Meter("Raido.Server.Tests");
+            _meter = new Meter($"Raido.Server.Tests.{Guid.NewGuid():N}");
             _meterFactory.Create(Arg.Any<MeterOptions>()).Returns(_meter);
             _metrics = new RaidoMetrics(_meterFactory);
 
@@ -219,6 +219,95 @@ namespace Raido.Server.Tests
 
             // Assert
             await _dispatcher.Received(1).DispatchMessageAsync(_connection, message);
+        }
+
+        [TestMethod]
+        public async Task ConnectAsync_RecordsHandledInboundDispatchCountAndDuration()
+        {
+            using var listener = new RaidoMetricsTestListener(_meter.Name);
+            var message = new TestMessage();
+            await _connection.SetProtocolAsync(new TestProtocol { MessageToReturn = message }, CancellationToken.None);
+            var dispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _dispatcher.DispatchMessageAsync(_connection, message).Returns(_ =>
+            {
+                dispatched.TrySetResult();
+                return Task.CompletedTask;
+            });
+
+            var run = _connectionHandler.ConnectAsync(_connection);
+            await _input.Writer.WriteAsync(new byte[] { 1 });
+            await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            _input.Writer.Complete();
+            await run;
+
+            var measurements = listener.Measurements;
+            var count = measurements.Single(measurement => measurement.InstrumentName == "raido.server.inbound_messages");
+            var duration = measurements.Single(measurement => measurement.InstrumentName == "raido.server.inbound_message.duration");
+            Assert.AreEqual(2, count.Tags.Count);
+            Assert.AreEqual("TestMessage", count.Tags["message.type"]);
+            Assert.AreEqual("handled", count.Tags["outcome"]);
+            Assert.IsTrue(duration.Value >= 0);
+            Assert.AreEqual(count.Tags["message.type"], duration.Tags["message.type"]);
+            Assert.AreEqual(count.Tags["outcome"], duration.Tags["outcome"]);
+        }
+
+        [TestMethod]
+        public Task ConnectAsync_RecordsUnhandledInboundDispatchMeasurements() =>
+            AssertInboundDispatchMeasurementsAsync("unhandled", RaidoMessageDispatchOutcome.Unhandled);
+
+        [TestMethod]
+        public Task ConnectAsync_RecordsUnauthorizedInboundDispatchMeasurements() =>
+            AssertInboundDispatchMeasurementsAsync("unauthorized", RaidoMessageDispatchOutcome.Unauthorized);
+
+        private async Task AssertInboundDispatchMeasurementsAsync(
+            string expectedOutcome,
+            RaidoMessageDispatchOutcome dispatchOutcome)
+        {
+            using var listener = new RaidoMetricsTestListener(_meter.Name);
+            var message = new TestMessage();
+            await _connection.SetProtocolAsync(new TestProtocol { MessageToReturn = message }, CancellationToken.None);
+            var dispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _dispatcher.DispatchMessageAsync(_connection, message).Returns(_ =>
+            {
+                _connection.MarkMessageDispatchOutcome(dispatchOutcome);
+                dispatched.TrySetResult();
+                return Task.CompletedTask;
+            });
+
+            var run = _connectionHandler.ConnectAsync(_connection);
+            await _input.Writer.WriteAsync(new byte[] { 1 });
+            await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            _input.Writer.Complete();
+            await run;
+            await _dispatcher.Received(1).DispatchMessageAsync(_connection, message);
+            Assert.IsTrue(_connection.MetricsContext.InboundDispatchEnabled);
+
+            var measurements = listener.Measurements;
+            var count = measurements.Single(measurement => measurement.InstrumentName == "raido.server.inbound_messages");
+            var duration = measurements.Single(measurement => measurement.InstrumentName == "raido.server.inbound_message.duration");
+            Assert.AreEqual(2, count.Tags.Count);
+            Assert.AreEqual(nameof(TestMessage), count.Tags["message.type"]);
+            Assert.AreEqual(expectedOutcome, count.Tags["outcome"]);
+            Assert.AreEqual(2, duration.Tags.Count);
+            Assert.AreEqual(nameof(TestMessage), duration.Tags["message.type"]);
+            Assert.AreEqual(expectedOutcome, duration.Tags["outcome"]);
+            Assert.IsTrue(duration.Value >= 0);
+        }
+
+        [TestMethod]
+        public async Task ConnectAsync_RecordsDispatchFailureOutcome()
+        {
+            using var listener = new RaidoMetricsTestListener(_meter.Name);
+            var message = new TestMessage();
+            await _connection.SetProtocolAsync(new TestProtocol { MessageToReturn = message }, CancellationToken.None);
+            _dispatcher.DispatchMessageAsync(_connection, message).Returns(Task.FromException(new InvalidOperationException("dispatch failed")));
+
+            var run = _connectionHandler.ConnectAsync(_connection);
+            await _input.Writer.WriteAsync(new byte[] { 1 });
+            await run;
+
+            var count = listener.Measurements.Single(measurement => measurement.InstrumentName == "raido.server.inbound_messages");
+            Assert.AreEqual("error", count.Tags["outcome"]);
         }
 
         [TestMethod]

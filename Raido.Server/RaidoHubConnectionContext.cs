@@ -17,6 +17,15 @@ using Raido.Server.Internal;
 
 namespace Raido.Server
 {
+    internal enum RaidoMessageDispatchOutcome
+    {
+        Unspecified,
+        Unhandled,
+        Unauthorized,
+        Handled,
+        Error
+    }
+
     /// <summary>
     /// Represents one logical connection to a Raido Hub.
     /// </summary>
@@ -39,12 +48,13 @@ namespace Raido.Server
         private TimeSpan _receivedMessageElapsed;
         private bool _receivedMessageTimeoutEnabled;
         private long _receivedMessageTick;
+        private int _messageDispatchOutcome;
 
         internal long StartTimestamp { get; set; }
         internal RaidoCallerContext RaidoCallerContext { get; }
         internal IRaidoCallerClients RaidoCallerClients { get; set; } = null!;
         internal Activity? OriginalActivity { get; set; }
-        internal MetricsContext MetricsContext { get; set; }
+        internal MetricsContext MetricsContext => _tcpConnection.MetricsContext;
 
         public CancellationToken ConnectionAborted => _connectionContext.ConnectionClosed;
         public string ConnectionId => _connectionContext.ConnectionId;
@@ -77,6 +87,87 @@ namespace Raido.Server
         internal bool IsReconnectEnabled => _tcpConnection.IsReconnectEnabled;
         internal bool IsAwaitingReconnect => _tcpConnection.IsAwaitingReconnect;
         internal Exception? TerminalException => _tcpConnection.TerminalException;
+
+        internal void InitializeMetrics(RaidoMetrics metrics) => _tcpConnection.InitializeMetrics(metrics);
+
+        internal void BeginMessageDispatch()
+        {
+            if (MetricsContext.InboundDispatchEnabled)
+            {
+                Volatile.Write(ref _messageDispatchOutcome, (int)RaidoMessageDispatchOutcome.Unspecified);
+            }
+        }
+
+        internal void MarkMessageDispatchOutcome(RaidoMessageDispatchOutcome outcome)
+        {
+            if (!MetricsContext.InboundDispatchEnabled)
+            {
+                return;
+            }
+
+            var target = (int)outcome;
+            var current = Volatile.Read(ref _messageDispatchOutcome);
+            while (current < target)
+            {
+                var observed = Interlocked.CompareExchange(ref _messageDispatchOutcome, target, current);
+                if (observed == current)
+                {
+                    return;
+                }
+
+                current = observed;
+            }
+        }
+
+        internal string GetMessageDispatchOutcome() =>
+            (RaidoMessageDispatchOutcome)Volatile.Read(ref _messageDispatchOutcome) switch
+            {
+                RaidoMessageDispatchOutcome.Unhandled => "unhandled",
+                RaidoMessageDispatchOutcome.Unauthorized => "unauthorized",
+                RaidoMessageDispatchOutcome.Error => "error",
+                _ => "handled"
+            };
+
+        private WriteMetricAttempt? CreateWriteMetrics<TMessage>(TMessage message)
+            where TMessage : RaidoMessage
+        {
+            var metricsContext = MetricsContext;
+            var metrics = _tcpConnection.Metrics;
+            return metricsContext.OutboundWriteEnabled && metrics is not null
+                ? new WriteMetricAttempt(metrics, metricsContext, _timeProvider, message.GetType().Name)
+                : null;
+        }
+
+        private string GetUnavailableWriteOutcome() =>
+            _tcpConnection.IsDetached ? "unavailable-detached" : "unavailable";
+
+        private sealed class WriteMetricAttempt(
+            RaidoMetrics metrics,
+            MetricsContext metricsContext,
+            TimeProvider timeProvider,
+            string messageType)
+        {
+            private readonly long _startTimestamp = metricsContext.OutboundWriteDurationEnabled
+                ? timeProvider.GetTimestamp()
+                : 0;
+            private int _recorded;
+
+            public void Record(FlushResult result) =>
+                Record(result.IsCanceled ? "cancelled" : result.IsCompleted ? "failed" : "accepted");
+
+            public void Record(string outcome)
+            {
+                if (Interlocked.Exchange(ref _recorded, 1) != 0)
+                {
+                    return;
+                }
+
+                var durationSeconds = metricsContext.OutboundWriteDurationEnabled
+                    ? timeProvider.GetElapsedTime(_startTimestamp).TotalSeconds
+                    : 0;
+                metrics.RecordOutboundWrite(metricsContext, messageType, outcome, durationSeconds);
+            }
+        }
 
         internal RaidoHubConnectionContext(
             RaidoTcpConnectionContext connection,
@@ -217,33 +308,37 @@ namespace Raido.Server
         internal ValueTask WriteAsync<TMessage>(TMessage message, bool ignoreAbort, CancellationToken cancellationToken = default)
             where TMessage : RaidoMessage
         {
+            var writeMetrics = CreateWriteMetrics(message);
+
             // Try to grab the lock synchronously, if we fail, go to the slower path
 #pragma warning disable CA2016 // This will always finish synchronously so we do not need to both with cancel
             if (!_writeLock.Wait(0))
 #pragma warning restore CA2016
             {
-                return new ValueTask(WriteSlowAsync(message, ignoreAbort, cancellationToken));
+                return new ValueTask(WriteSlowAsync(message, ignoreAbort, cancellationToken, writeMetrics));
             }
 
             if (ConnectionAborted.IsCancellationRequested && !ignoreAbort)
             {
+                writeMetrics?.Record(GetUnavailableWriteOutcome());
                 _writeLock.Release();
                 return default;
             }
 
             // This method should never throw synchronously
-            var task = WriteCore(message, cancellationToken);
+            var task = WriteCore(message, cancellationToken, writeMetrics);
 
             // The write didn't complete synchronously so await completion
             if (!task.IsCompletedSuccessfully)
             {
-                return new ValueTask(CompleteWriteAndReleaseAsync(task, cancellationToken));
+                return new ValueTask(CompleteWriteAndReleaseAsync(task, cancellationToken, writeMetrics));
             }
             else
             {
                 // If it's a IValueTaskSource backed ValueTask,
                 // inform it its result has been read so it can reset
-                task.GetAwaiter().GetResult();
+                var result = task.GetAwaiter().GetResult();
+                writeMetrics?.Record(result);
             }
 
             // Otherwise, release the lock acquired when entering WriteAsync
@@ -252,7 +347,10 @@ namespace Raido.Server
             return default;
         }
 
-        private ValueTask<FlushResult> WriteCore<TMessage>(TMessage message, CancellationToken cancellationToken)
+        private ValueTask<FlushResult> WriteCore<TMessage>(
+            TMessage message,
+            CancellationToken cancellationToken,
+            WriteMetricAttempt? writeMetrics)
             where TMessage : RaidoMessage
         {
             bool hasWrittenBytes;
@@ -267,11 +365,13 @@ namespace Raido.Server
                         out hasWrittenBytes,
                         out flushTask))
                 {
+                    writeMetrics?.Record(GetUnavailableWriteOutcome());
                     return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: false));
                 }
             }
             catch (Exception ex)
             {
+                writeMetrics?.Record("failed");
                 Log.FailedWritingMessage(_logger, ex);
                 _tcpConnection.AbortWithException(ex);
                 return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: true));
@@ -286,6 +386,7 @@ namespace Raido.Server
             }
             catch (Exception ex)
             {
+                writeMetrics?.Record("failed");
                 Log.FailedWritingMessage(_logger, ex);
                 _tcpConnection.AbortWithException(ex);
                 return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: true));
@@ -299,23 +400,9 @@ namespace Raido.Server
             {
                 return new ValueTask<FlushResult>(Task.FromCanceled<FlushResult>(cancellationToken));
             }
-            catch (OperationCanceledException ex)
-            {
-                Log.FailedWritingMessage(_logger, ex);
-                _tcpConnection.AbortWithException(ex);
-            }
-            catch (IOException ex)
-            {
-                Log.FailedWritingMessage(_logger, ex);
-                _tcpConnection.AbortWithException(ex);
-            }
-            catch (ObjectDisposedException ex)
-            {
-                Log.FailedWritingMessage(_logger, ex);
-                _tcpConnection.AbortWithException(ex);
-            }
             catch (Exception ex)
             {
+                writeMetrics?.Record("failed");
                 Log.FailedWritingMessage(_logger, ex);
                 _tcpConnection.AbortWithException(ex);
             }
@@ -323,11 +410,14 @@ namespace Raido.Server
             return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: true));
         }
 
-        private async Task CompleteWriteAndReleaseAsync(ValueTask<FlushResult> task, CancellationToken cancellationToken)
+        private async Task CompleteWriteAndReleaseAsync(
+            ValueTask<FlushResult> task,
+            CancellationToken cancellationToken,
+            WriteMetricAttempt? writeMetrics)
         {
             try
             {
-                await CompleteWriteAsync(task, cancellationToken);
+                await CompleteWriteAsync(task, cancellationToken, writeMetrics);
             }
             finally
             {
@@ -336,50 +426,55 @@ namespace Raido.Server
             }
         }
 
-        private async Task CompleteWriteAsync(ValueTask<FlushResult> task, CancellationToken cancellationToken)
+        private async Task CompleteWriteAsync(
+            ValueTask<FlushResult> task,
+            CancellationToken cancellationToken,
+            WriteMetricAttempt? writeMetrics)
         {
             try
             {
-                await task;
+                var result = await task;
+                writeMetrics?.Record(result);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                writeMetrics?.Record("cancelled");
                 throw;
-            }
-            catch (OperationCanceledException ex)
-            {
-                Log.FailedWritingMessage(_logger, ex);
-                _tcpConnection.AbortWithException(ex);
-            }
-            catch (IOException ex)
-            {
-                Log.FailedWritingMessage(_logger, ex);
-                _tcpConnection.AbortWithException(ex);
-            }
-            catch (ObjectDisposedException ex)
-            {
-                Log.FailedWritingMessage(_logger, ex);
-                _tcpConnection.AbortWithException(ex);
             }
             catch (Exception ex)
             {
+                writeMetrics?.Record("failed");
                 Log.FailedWritingMessage(_logger, ex);
                 _tcpConnection.AbortWithException(ex);
             }
         }
 
-        private async Task WriteSlowAsync<TMessage>(TMessage message, bool ignoreAbort, CancellationToken cancellationToken) where TMessage : RaidoMessage
+        private async Task WriteSlowAsync<TMessage>(
+            TMessage message,
+            bool ignoreAbort,
+            CancellationToken cancellationToken,
+            WriteMetricAttempt? writeMetrics) where TMessage : RaidoMessage
         {
             // Failed to get the lock immediately when entering WriteAsync so await until it is available
-            await _writeLock.WaitAsync(cancellationToken);
+            try
+            {
+                await _writeLock.WaitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                writeMetrics?.Record("cancelled");
+                throw;
+            }
+
             try
             {
                 if (ConnectionAborted.IsCancellationRequested && !ignoreAbort)
                 {
+                    writeMetrics?.Record(GetUnavailableWriteOutcome());
                     return;
                 }
 
-                await CompleteWriteAsync(WriteCore(message, cancellationToken), cancellationToken);
+                await CompleteWriteAsync(WriteCore(message, cancellationToken, writeMetrics), cancellationToken, writeMetrics);
             }
             finally
             {
@@ -468,6 +563,11 @@ namespace Raido.Server
 
             if (timeoutException is not null && _tcpConnection.TryAbortIfActive(timeoutException))
             {
+                if (MetricsContext.ClientTimeoutEnabled)
+                {
+                    _tcpConnection.RecordClientTimeout();
+                }
+
                 Log.ClientTimeout(_logger, _clientTimeoutInterval);
                 RaidoEventSource.Log.ConnectionTimedOut(ConnectionId);
             }

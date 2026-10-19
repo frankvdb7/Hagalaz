@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO.Pipelines;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
@@ -299,16 +300,32 @@ public sealed class RaidoHagalazUsageTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task LifetimeManager_BroadcastsAndTargetsConnectionsLikeServiceClientProxies()
+    public async Task LifetimeManager_BroadcastsAndTargetsConnectionsAndRecordsOutboundWrites()
     {
         using var provider = CreateProvider();
+        using var metrics = new RaidoMetricsTestContext();
         var protocol = provider.GetRequiredService<UsageProtocol>();
-        var (first, firstOutput) = CreateConnection("first", protocol);
-        var (second, secondOutput) = CreateConnection("second", protocol);
+        var (first, firstOutput) = CreateConnection("first", protocol, metrics.Metrics);
+        var (second, secondOutput) = CreateConnection("second", protocol, metrics.Metrics);
         var manager = new DefaultRaidoHubLifetimeManager(new RaidoHubConnectionStore());
 
         await manager.OnConnectedAsync(first);
         await manager.OnConnectedAsync(second);
+
+        await manager.SendAllAsync(new UsageResponse { Value = 4 }, CancellationToken.None);
+
+        var writes = metrics.Listener.Measurements
+            .Where(measurement => measurement.InstrumentName == "raido.server.outbound_messages")
+            .ToArray();
+        Assert.AreEqual(2, writes.Length);
+        Assert.IsTrue(writes.All(measurement =>
+            measurement.Tags.Count == 2 &&
+            Equals(measurement.Tags["message.type"], nameof(UsageResponse)) &&
+            Equals(measurement.Tags["outcome"], "accepted")));
+
+        CollectionAssert.AreEqual(new byte[] { 2, 1, 4 }, await ReadPacketAsync(firstOutput));
+        CollectionAssert.AreEqual(new byte[] { 2, 1, 4 }, await ReadPacketAsync(secondOutput));
+
         await manager.SendAllExceptAsync(new UsageResponse { Value = 5 }, new[] { "first" }, CancellationToken.None);
 
         CollectionAssert.AreEqual(new byte[] { 2, 1, 5 }, await ReadPacketAsync(secondOutput));
@@ -355,14 +372,18 @@ public sealed class RaidoHagalazUsageTests
         return (context, input, output);
     }
 
-    private (RaidoHubConnectionContext Connection, PipeReader Output) CreateConnection(string connectionId, IRaidoProtocol protocol)
+    private (RaidoHubConnectionContext Connection, PipeReader Output) CreateConnection(
+        string connectionId,
+        IRaidoProtocol protocol,
+        RaidoMetrics? metrics = null)
     {
         var raw = CreateRawConnection(connectionId);
         var connection = RaidoTestConnectionFactory.Create(
             raw.Connection,
             new RaidoConnectionContextOptions(),
             NullLoggerFactory.Instance,
-            protocol: protocol);
+            protocol: protocol,
+            metrics: metrics);
         _connections.Add(connection);
         return (connection, raw.Output.Reader);
     }
