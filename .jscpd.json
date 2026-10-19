@@ -2,10 +2,10 @@
   "format": ["csharp"],
   "minLines": 10,
   "minTokens": 80,
-  "mode": "mild",
+  "mode": "weak",
   "reporters": ["console", "json", "sarif"],
   "failOnEmpty": true,
-  "summary": true,
+  "similarity": 0.8,
   "ignore": [
     "**/bin/**",
     "**/obj/**",
