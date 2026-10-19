@@ -400,24 +400,6 @@ namespace Raido.Server
             {
                 return new ValueTask<FlushResult>(Task.FromCanceled<FlushResult>(cancellationToken));
             }
-            catch (OperationCanceledException ex)
-            {
-                writeMetrics?.Record("failed");
-                Log.FailedWritingMessage(_logger, ex);
-                _tcpConnection.AbortWithException(ex);
-            }
-            catch (IOException ex)
-            {
-                writeMetrics?.Record("failed");
-                Log.FailedWritingMessage(_logger, ex);
-                _tcpConnection.AbortWithException(ex);
-            }
-            catch (ObjectDisposedException ex)
-            {
-                writeMetrics?.Record("failed");
-                Log.FailedWritingMessage(_logger, ex);
-                _tcpConnection.AbortWithException(ex);
-            }
             catch (Exception ex)
             {
                 writeMetrics?.Record("failed");
@@ -458,24 +440,6 @@ namespace Raido.Server
             {
                 writeMetrics?.Record("cancelled");
                 throw;
-            }
-            catch (OperationCanceledException ex)
-            {
-                writeMetrics?.Record("failed");
-                Log.FailedWritingMessage(_logger, ex);
-                _tcpConnection.AbortWithException(ex);
-            }
-            catch (IOException ex)
-            {
-                writeMetrics?.Record("failed");
-                Log.FailedWritingMessage(_logger, ex);
-                _tcpConnection.AbortWithException(ex);
-            }
-            catch (ObjectDisposedException ex)
-            {
-                writeMetrics?.Record("failed");
-                Log.FailedWritingMessage(_logger, ex);
-                _tcpConnection.AbortWithException(ex);
             }
             catch (Exception ex)
             {

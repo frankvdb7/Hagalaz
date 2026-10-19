@@ -175,14 +175,7 @@ public sealed class RaidoPhysicalConnectionTests
 
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
-        Assert.IsTrue(context.TcpConnection.IsTerminal);
-        Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
-        Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
-
-        await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
-        await context.CleanupAsync();
+        await AssertTerminalConnectionCannotReconnectAsync(context, replacement.Connection);
     }
 
     [TestMethod]
@@ -216,14 +209,7 @@ public sealed class RaidoPhysicalConnectionTests
         await context.WriteAsync(new TestMessage());
 
         Assert.AreSame(failure, context.TcpConnection.TerminalException);
-        Assert.IsTrue(context.TcpConnection.IsTerminal);
-        Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
-        Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
-
-        await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
-        await context.CleanupAsync();
+        await AssertTerminalConnectionCannotReconnectAsync(context, replacement.Connection);
     }
 
     [TestMethod]
@@ -238,14 +224,7 @@ public sealed class RaidoPhysicalConnectionTests
         await context.WriteAsync(new TestMessage());
 
         Assert.AreSame(failure, context.TcpConnection.TerminalException);
-        Assert.IsTrue(context.TcpConnection.IsTerminal);
-        Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
-        Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
-
-        await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
-        await context.CleanupAsync();
+        await AssertTerminalConnectionCannotReconnectAsync(context, replacement.Connection);
     }
 
     [TestMethod]
@@ -876,14 +855,7 @@ public sealed class RaidoPhysicalConnectionTests
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
 
-        Assert.IsTrue(context.TcpConnection.IsTerminal);
-        Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
-        Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
-
-        await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
-        await context.CleanupAsync();
+        await AssertTerminalConnectionCannotReconnectAsync(context, replacement.Connection);
     }
 
     [TestMethod]
@@ -916,14 +888,7 @@ public sealed class RaidoPhysicalConnectionTests
         context.Abort();
 
         Assert.IsFalse(await physicalConnectionWindow.WaitAsync(TimeSpan.FromSeconds(1)));
-        Assert.IsTrue(context.TcpConnection.IsTerminal);
-        Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
-        Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
-
-        await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
-        await context.CleanupAsync();
+        await AssertTerminalConnectionCannotReconnectAsync(context, replacement.Connection);
     }
 
     [TestMethod]
@@ -2891,13 +2856,7 @@ public sealed class RaidoPhysicalConnectionTests
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
 
         Assert.IsFalse(await context.TcpConnection.WaitForReconnectAsync(TimeSpan.Zero));
-        Assert.IsTrue(context.TcpConnection.IsTerminal);
-        Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
-        Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
-        await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
-        await context.CleanupAsync();
+        await AssertTerminalConnectionCannotReconnectAsync(context, replacement.Connection);
     }
 
     [TestMethod]
@@ -3174,14 +3133,7 @@ public sealed class RaidoPhysicalConnectionTests
         await InvokePingAsync(context);
 
         Assert.AreSame(failure, context.TcpConnection.TerminalException);
-        Assert.IsTrue(context.TcpConnection.IsTerminal);
-        Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
-        Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
-
-        await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
-        await context.CleanupAsync();
+        await AssertTerminalConnectionCannotReconnectAsync(context, replacement.Connection);
     }
 
     [TestMethod]
@@ -3400,6 +3352,20 @@ public sealed class RaidoPhysicalConnectionTests
 
         _connections.Add(context);
         return context;
+    }
+
+    private static async Task AssertTerminalConnectionCannotReconnectAsync(
+        TestHubConnectionContext context,
+        ConnectionContext replacement)
+    {
+        Assert.IsTrue(context.TcpConnection.IsTerminal);
+        Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
+        Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement));
+
+        await context.AbortAsync();
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
+        await context.CleanupAsync();
     }
 
     private sealed class TestHubConnectionContext(
