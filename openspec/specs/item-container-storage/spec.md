@@ -7,7 +7,7 @@ Defines the ownership boundary and correctness guarantees for item storage share
 ## Requirements
 
 ### Requirement: Equipment exposes semantic mutation operations
-`IEquipmentContainer` MUST expose domain-specific mutation operations rather than generic `Add`, `Replace`, `Remove`, and `Clear` commands. Direct restoration, in-place transformation, removal, and clearing MUST use explicitly named equipment operations. Equipment replacement MUST require the caller's expected current item instance so a stale command cannot replace a different equipped item. Simple Equipment storage operations MUST participate when Equipment storage is enlisted; typed lifecycle completion MUST be deferred through the owning transaction. When unbound, lifecycle completion and publication occur immediately. `TryMoveTo(...)` MUST use direct two-boundary ownership when standalone, participate without committing or disposing when both belong to the same active current-thread transaction, and throw before mutation for partial or conflicting participation. Full removal MUST defer lifecycle completion until the owning transaction commits or run the standalone lifecycle effect before publication. `EquipItem()` and `UnEquipItem()` MUST remain standalone gameplay commands and MUST NOT participate in a caller-owned transaction over their required storage.
+`IEquipmentContainer` MUST expose domain-specific mutation operations rather than generic `Add`, `Replace`, `Remove`, and `Clear` commands. Direct restoration, in-place transformation, removal, and clearing MUST use explicitly named equipment operations. Equipment replacement MUST require the caller's expected current item instance so a stale command cannot replace a different equipped item. Simple Equipment storage operations MUST participate when Equipment storage is enlisted; typed lifecycle completion MUST be deferred through the owning transaction. When unbound, lifecycle completion and publication occur immediately. `TryMoveTo(...)` MUST require a caller-owned transaction containing Equipment and destination, participate without committing or disposing it, and throw before mutation when the transaction is absent, partial, or conflicting. Full removal MUST defer lifecycle completion until the owning transaction commits or run the standalone lifecycle effect before publication. `EquipItem()` and `UnEquipItem()` MUST remain standalone gameplay commands and MUST NOT participate in a caller-owned transaction over their required storage.
 
 #### Scenario: Stale equipment replacement is rejected
 - **WHEN** the expected item instance no longer occupies the requested slot
@@ -17,9 +17,9 @@ Defines the ownership boundary and correctness guarantees for item storage share
 - **WHEN** restoration, replacement, removal, or clearing is called while Equipment storage belongs to an active transaction
 - **THEN** the storage mutation participates in that transaction, with lifecycle completion and publication deferred until commit
 
-#### Scenario: Equipment transfer uses direct standalone ownership
-- **WHEN** `TryMoveTo(...)` moves an equipped item while neither Equipment nor destination belongs to a current-thread transaction
-- **THEN** it atomically mutates both storages without creating an `ItemContainerTransaction`, runs `OnUnequipped` before publication for full removal, and retains both synchronization owners through publication
+#### Scenario: Equipment transfer requires a caller-owned transaction
+- **WHEN** `TryMoveTo(...)` is called while neither Equipment nor destination belongs to a current-thread transaction
+- **THEN** it throws before changing either storage
 
 #### Scenario: Equipment transfer participates in a caller-owned transaction
 - **WHEN** `TryMoveTo(...)` moves an equipped item while Equipment and destination belong to the same active current-thread transaction
@@ -142,9 +142,9 @@ Storage MUST own its mutation revision, which invalidates active enumerators aft
 - **AND** the pre-existing enumerators remain valid
 - **AND** no participant publishes a committed mutation or runs a committed domain effect
 
-#### Scenario: Trade publication invalidates acceptance
-- **WHEN** a trade offer publishes a content update
-- **THEN** its acceptance revision advances independently of the storage enumeration revision
+#### Scenario: Trade acceptance follows committed offer storage
+- **WHEN** a trade offer's storage mutation commits, whether or not its notification is published
+- **THEN** its acceptance revision advances with the committed storage revision, independently of notification publication
 
 ### Requirement: Multi-container mutations use one explicit transaction
 `ItemContainerTransaction` MUST provide one synchronous atomic scope around existing domain operations. Callers MUST supply every participant needed by a multi-storage operation before Begin; operations MUST NOT dynamically enlist storage. Domain operations retain item semantics, while the transaction owns atomicity and lifecycle. Ordinary container operations MUST participate automatically when their boundary is enlisted and remain standalone otherwise. A helper with missing or differently bound required storage MUST fail before mutation. Transaction misuse, including wrong-thread use, MUST fail before mutation. The public lifecycle is Begin, Commit, and Dispose; callers MUST NOT need a separate unit of work, publication call, or committed-state query. Async, savepoint, and distributed transaction support MUST NOT be introduced.

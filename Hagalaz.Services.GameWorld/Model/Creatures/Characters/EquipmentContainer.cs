@@ -268,22 +268,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             ArgumentNullException.ThrowIfNull(destination);
             ArgumentNullException.ThrowIfNull(item);
             var destinationSynchronization = ItemContainerTransaction.ResolveSingleSynchronization(destination);
-            var transaction = _synchronization.GetSharedCurrentThreadTransaction(destinationSynchronization);
-            using var ownedTransaction = transaction == null
-                ? ItemContainerTransaction.Begin(this, destination)
-                : null;
-            transaction ??= ownedTransaction;
+            var transaction = _synchronization.GetSharedCurrentThreadTransaction(destinationSynchronization)
+                ?? throw new InvalidOperationException("Equipment transfers require a caller-owned transaction.");
 
             if (count <= 0 || this[slot] is not { } equippedItem || !ReferenceEquals(equippedItem, item)) return false;
             var fullyRemoved = count == equippedItem.Count;
             if (!ItemContainerTransfer.TryTransferTo(_synchronization, destinationSynchronization, equippedItem, count,
                     (int)slot, -1, destinationItem)) return false;
-            if (fullyRemoved) DeferEquipmentEffects(transaction!, new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem));
-
-            if (ownedTransaction != null)
-            {
-                ownedTransaction.Commit();
-            }
+            if (fullyRemoved) DeferEquipmentEffects(transaction, new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItem));
 
             return true;
         }

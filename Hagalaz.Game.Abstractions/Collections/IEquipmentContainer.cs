@@ -39,7 +39,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         bool UnEquipItem(IItem item, int toInventorySlot = -1);
 
         /// <summary>Moves an equipped item to another ordinary item container, preserving equipment callbacks.</summary>
-        /// <remarks>When standalone, owns both mutation boundaries through lifecycle completion and publication without creating a transaction. Participates without committing when Equipment and destination are in the same current-thread transaction. Partial or conflicting participation throws before mutation.</remarks>
+        /// <remarks>Requires a caller-owned transaction containing both Equipment and destination. The operation participates in that transaction without committing or disposing it. Missing, partial, or conflicting participation throws before mutation.</remarks>
         bool TryMoveTo(IItemContainer destination, IItem item, int count, EquipmentSlot slot, IItem? destinationItem = null);
 
         /// <summary>

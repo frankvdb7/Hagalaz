@@ -169,7 +169,7 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    public void TryMoveTo_StandaloneTransferUsesTransactionOwnershipAndPublishesAfterUnequip()
+    public void TryMoveTo_CallerTransactionPublishesAfterUnequip()
     {
         using var scenario = new Scenario();
         var order = new List<string>();
@@ -195,7 +195,12 @@ public sealed class CharacterItemTransferTests
             order.Add("equipment");
         });
 
+        using var transaction = ItemContainerTransaction.Begin(equipment, destination);
         Assert.IsTrue(equipment.TryMoveTo(destination, item, item.Count, EquipmentSlot.Hat));
+
+        item.EquipmentScript.DidNotReceive().OnUnequipped(item, scenario.Owner);
+        eventManager.DidNotReceive().SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+        transaction.Commit();
 
         Assert.IsNull(equipment[EquipmentSlot.Hat]);
         Assert.AreSame(item, destination[0]);
@@ -207,18 +212,34 @@ public sealed class CharacterItemTransferTests
     }
 
     [TestMethod]
-    public void TryMoveTo_PartialStandaloneRemovalDoesNotRunUnequipped()
+    public void TryMoveTo_PartialRemovalWithinCallerTransactionDoesNotRunUnequipped()
     {
         using var scenario = new Scenario();
         var (equipment, eventManager, destination, item) = CreateEquipmentMoveScenario(scenario, count: 3);
 
+        using var transaction = ItemContainerTransaction.Begin(equipment, destination);
         Assert.IsTrue(equipment.TryMoveTo(destination, item, 2, EquipmentSlot.Hat));
 
         Assert.AreSame(item, equipment[EquipmentSlot.Hat]);
         Assert.AreEqual(1, item.Count);
         Assert.AreEqual(2, destination[0]!.Count);
         item.EquipmentScript.DidNotReceive().OnUnequipped(item, scenario.Owner);
+        eventManager.DidNotReceive().SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+        transaction.Commit();
         eventManager.Received(1).SendEvent(Arg.Is<IEvent>(gameEvent => gameEvent is EquipmentChangedEvent));
+        AssertMutationLocksReleased(equipment, destination);
+    }
+
+    [TestMethod]
+    public void TryMoveTo_WithoutCallerTransactionRejectsBeforeMutation()
+    {
+        using var scenario = new Scenario();
+        var (equipment, eventManager, destination, item) = CreateEquipmentMoveScenario(scenario);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            equipment.TryMoveTo(destination, item, item.Count, EquipmentSlot.Hat));
+
+        AssertMoveRejectedWithoutMutation(equipment, eventManager, destination, item, scenario.Owner);
         AssertMutationLocksReleased(equipment, destination);
     }
 
@@ -240,11 +261,13 @@ public sealed class CharacterItemTransferTests
             sawLockedCountRead = true;
         };
 
+        using var transaction = ItemContainerTransaction.Begin(equipment, destination);
         Assert.IsTrue(equipment.TryMoveTo(destination, item, 3, EquipmentSlot.Hat));
 
         Assert.IsTrue(sawLockedCountRead, "Equipment's expected-instance/count validation must run under both mutation locks.");
         Assert.IsNull(equipment[EquipmentSlot.Hat]);
         Assert.AreSame(item, destination[0]);
+        transaction.Commit();
         AssertMutationLocksReleased(equipment, destination);
     }
 
@@ -256,8 +279,9 @@ public sealed class CharacterItemTransferTests
         var hookFailure = new InvalidOperationException("Unequip hook failed.");
         item.EquipmentScript.When(script => script.OnUnequipped(item, scenario.Owner)).Do(_ => throw hookFailure);
 
-        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(
-            () => equipment.TryMoveTo(destination, item, 1, EquipmentSlot.Hat));
+        using var transaction = ItemContainerTransaction.Begin(equipment, destination);
+        Assert.IsTrue(equipment.TryMoveTo(destination, item, 1, EquipmentSlot.Hat));
+        var postCommitException = Assert.ThrowsExactly<ItemContainerPostCommitPublicationException>(transaction.Commit);
         Assert.AreSame(hookFailure, postCommitException.InnerException);
 
         Assert.IsNull(equipment[EquipmentSlot.Hat]);
