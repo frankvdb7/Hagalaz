@@ -55,9 +55,7 @@ jobs:
       - name: Validate active OpenSpec artifacts
         run: npx --yes @fission-ai/openspec@1.14.3 validate --all --strict --no-interactive
 
-      # Archives may intentionally preserve unfinished work; keep this report visible without blocking CI.
-      - name: Report archived OpenSpec task status (non-blocking)
-        continue-on-error: true
+      - name: Validate archived OpenSpec tasks
         run: npx --yes @fission-ai/openspec@1.14.3 validate --archived --no-interactive
 
   duplication:
