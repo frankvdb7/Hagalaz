@@ -47,15 +47,16 @@ Both participants MUST accept the current offers before completion. Any committe
 Completion MUST deliver both complete opposite offers and clear both escrow containers only after both checked deliveries succeed. A failed completion MUST leave recipient storage unchanged and retain the original offers for cancellation.
 
 #### Scenario: Items and coins are exchanged
-- **WHEN** both offers contain stackable, non-stackable, or coin values
-- **THEN** each recipient receives exactly the other offer and escrow is empty
+- **WHEN** both offers contain stackable, non-stackable, or coin values and each recipient can receive them
+- **THEN** each recipient receives exactly the other offer and both offers are empty
 
 #### Scenario: A checked delivery fails
 - **WHEN** a recipient cannot receive an offered item or coin value
 - **THEN** the transaction rolls back recipient changes and both original offers remain available for cancellation
 
 ### Requirement: Cancellation returns each offer to its owner
-Cancellation MUST refund each offer to its original owner exactly once in one transaction and become terminal only after both refunds commit. Active trade preserves capacity freed by funded non-coin offers: pouch withdrawals and familiar Take BoB cannot consume it through any interface, while equipment-tab aura unequip interrupts/refunds before moving the aura. A familiar inventory overlay alone does not block withdrawals when gameplay is not busy.
+
+Cancellation MUST return each offer to its original owner exactly once in one transaction and become terminal only after both refunds commit. While active, a trade reserves freed capacity from pouch withdrawals, familiar take actions, and aura unequips, which first refund the trade. Familiar inventory overlays do not block withdrawals when no gameplay action is busy. Detach refunds before the final snapshot; destruction callbacks remain tied to character destruction.
 
 #### Scenario: An active trade is cancelled
 - **WHEN** either participant cancels an active trade
@@ -86,11 +87,12 @@ Cancellation MUST refund each offer to its original owner exactly once in one tr
 - **THEN** the busy check leaves Inventory capacity available, detach refunds the offer before dehydration, and the snapshot contains the refunded item
 
 ### Requirement: Committed trade operations reach a terminal state
-Trade owners MUST run checked completion/refund under the session gate in one disposable transaction: Active→Completing→Completed/Active; cancellation becomes Cancelled only after refund. Set terminal state just before Commit; storage is irreversible, locks release, bindings persist to Dispose. Publish domains in order and clean up once. Post-commit failures cannot replay value; transaction errors keep phase/exact cause; owner publishers propagate directly. Dispose failed attempts before retry.
+
+Trade completion and refunds MUST use checked mutations under the session gate and one transaction. Completion enters Completing and becomes Completed only after commit, or returns to Active on failure; cancellation is terminal only after both refunds succeed. Owners publish affected domains before disposal and clean up once after publication failure. Post-commit failures cannot retry committed value; publication exceptions propagate unchanged. Failed attempts dispose before retry.
 
 #### Scenario: Completion publication fails after commit
-- **WHEN** recipient credit and escrow clearing commit but an explicit domain publisher throws
-- **THEN** the recipients retain the exchanged value, escrow stays cleared, the trade completes and cleans up once, remaining required publishers follow the established attempt policy, and the publication exception propagates
+- **WHEN** recipient credit and offer clearing commit but an explicit domain publisher throws
+- **THEN** recipients retain the exchanged value, offers stay cleared, the trade completes and cleans up once, remaining required publishers follow the established attempt policy, and the publication exception propagates
 
 #### Scenario: Refund publication fails after commit
 - **WHEN** an owner refund commits but an explicit domain publisher throws

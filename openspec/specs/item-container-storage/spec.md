@@ -336,7 +336,7 @@ Duel cancellation MUST refund both players' stakes atomically. If a destination 
 - **THEN** the committed storage change remains, both first-stage acceptances are cleared, and the typed post-commit exception propagates
 
 ### Requirement: Duel victory stakes are credited atomically
-Duel victory MUST atomically transfer and consumes all stakes once; rejected payout leaves stakes and winner unchanged. Before confirmation, inventory must fit non-coin stakes, returned equipment, and coins beyond remaining pouch capacity. Active duel reports participants busy so equipment access and familiar withdrawals cannot consume reserved capacity.
+Duel victory settlement MUST transfer all stakes to the winner atomically and exactly once. If any destination cannot accept the payout, all stakes and winner storage MUST remain unchanged. Confirmation MUST reserve inventory for non-coin stakes, returned equipment, and coins beyond remaining pouch capacity. Active participants MUST be busy to protect reserved capacity.
 
 #### Scenario: Duel confirmation includes returned equipment in payout capacity
 - **WHEN** rule-removed equipment and the full stake each fit in a participant's inventory separately but do not fit together
@@ -535,7 +535,7 @@ TryTransferTo MUST atomically transfer storage under deterministic locks. It joi
 - **THEN** the operation returns false without changing either storage or tracker
 
 ### Requirement: Transaction construction and commit preserve storage state
-Validation/deduplication MUST precede ordered locks. Snapshot then bind; construction failure unlocks unchanged. Dispose restores storage/provisional changes. Commit irreversibly promotes changes and unlocks; owner effects precede publication in encounter order, with bindings until Dispose. Callback errors become sealed direct-Exception phase wrappers with exact inner errors; no rollback/replay, pre-callback errors unwrapped. Snapshots restore topology/refs/counts/revision, not mutable metadata.
+Construction MUST validate participants and snapshot before mutation; failure releases locks. Rollback restores slots, references, counts, revisions, and provisional tracker state, but not mutable item metadata. Commit makes storage irreversible, releases locks, then runs owner effects before publication. Post-commit failures use distinct completion or publication exceptions with the original cause; earlier failures stay unwrapped. Callbacks fail fast and are not retried.
 
 #### Scenario: Construction fails during snapshot capture
 - **WHEN** snapshot capture throws after locks have been acquired
@@ -558,26 +558,30 @@ Validation/deduplication MUST precede ordered locks. Snapshot then bind; constru
 - **THEN** each reference-distinct owner receives one effects-phase invocation followed by one publication-phase invocation in resolved-synchronization encounter order, before lock-order sorting
 
 #### Scenario: Completion callback failure identifies committed storage
-- **WHEN** a completion-effects callback throws after the transaction becomes irreversible
-- **THEN** `Commit()` throws sealed direct-`Exception` `ItemContainerPostCommitCompletionException` with the exact callback exception as `InnerException`
-- **AND** publication does not begin, committed storage remains changed, and disposal does not roll it back or retry the callback
+- **WHEN** a completion callback throws after storage becomes irreversible
+- **THEN** `Commit()` throws `ItemContainerPostCommitCompletionException` with the exact callback exception as `InnerException`
+- **AND** publication does not begin, storage remains changed, and disposal does not roll it back or retry the callback
 
 #### Scenario: Publication-phase failure identifies committed storage
-- **WHEN** an exception escapes a publication callback after completion-effects callbacks succeed
-- **THEN** `Commit()` throws sealed direct-`Exception` `ItemContainerPostCommitPublicationException` with the exact exception reported by the owner as `InnerException`
-- **AND** committed storage remains changed, later publishers are skipped, and disposal does not roll it back or retry the callback
+- **WHEN** an exception escapes a publication callback after completion succeeds
+- **THEN** `Commit()` throws `ItemContainerPostCommitPublicationException` with the exact exception reported by the owner as `InnerException`
+- **AND** earlier completion effects remain complete, later publishers are skipped, and disposal does not roll back or retry the committed operation
+
+#### Scenario: Equipment reports retained hook failure from publication phase
+- **WHEN** an Equipment lifecycle hook fails but Equipment state publication succeeds
+- **THEN** Equipment reports the retained hook failure after publication and `Commit()` throws `ItemContainerPostCommitPublicationException` with that hook failure as `InnerException`
 
 #### Scenario: Callback aggregate remains the inner exception
-- **WHEN** a transaction-owned callback throws an `AggregateException`
-- **THEN** the corresponding post-commit exception retains the same aggregate instance as `InnerException` without flattening
+- **WHEN** a completion or publication callback throws an `AggregateException`
+- **THEN** the corresponding post-commit exception retains the same aggregate instance as `InnerException` without flattening or replacing its contents
+
+#### Scenario: Rejected mutation rolls back without a post-commit exception
+- **WHEN** a staged operation returns false and the active scope is disposed without `Commit()`
+- **THEN** all enlisted storage is restored and neither post-commit exception is thrown or publication occurs
 
 #### Scenario: Pre-commit failure remains unwrapped
 - **WHEN** a domain mutation throws before `Commit()` is called
 - **THEN** the original exception propagates unchanged, disposal restores storage, and no completion or publication occurs
-
-#### Scenario: Rejected mutation rolls back without a post-commit exception
-- **WHEN** an operation is rejected and the active transaction is disposed without `Commit()`
-- **THEN** storage is restored and neither post-commit exception is thrown
 
 #### Scenario: Foreign operations wait through committed owner completion
 - **WHEN** an owner completes changes after Commit but before transaction disposal
