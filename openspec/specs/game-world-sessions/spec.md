@@ -30,7 +30,7 @@ The system MUST promote a pending world session only while its exact distributed
 
 ### Requirement: Lost connections are reconciled
 
-The system MUST retain a local abort reservation until the old connection has been given an abort opportunity and the reservation has been completed.
+The game-session lease cycle MUST own retries for deferred aborts and exact-session cleanup. A single processor may claim each pending abort with a store-owned marker. Failures release the marker for retry; claim, completion, and release verify the exact session instance so stale work cannot affect a replacement. Connection aborts MUST be idempotent.
 
 #### Scenario: Aborting a lost connection fails temporarily
 
@@ -45,6 +45,28 @@ The system MUST retain a local abort reservation until the old connection has be
 - WHEN the connection abort succeeds
 - THEN the reservation is cleared
 - AND the connection identifier can be reused
+
+#### Scenario: Deferred abort is retried by the lease cycle
+
+- GIVEN an abort reservation whose previous abort attempt failed
+- WHEN the next lease cycle runs
+- THEN the reservation is processed again
+- AND a successful abort clears the reservation
+
+#### Scenario: Abort failure does not create a second retry subsystem
+
+- GIVEN an abort attempt fails
+- WHEN the failure is recorded
+- THEN the local reservation remains available for lease reconciliation
+- AND no separate retry queue or retry worker is created
+
+#### Scenario: A stale session cannot complete a newer reservation
+
+- GIVEN a pending abort processor releases its processing marker after failure
+- WHEN the lease cycle claims the reservation for a different session instance
+- AND the previous processor later reports completion
+- THEN the stale completion is rejected
+- AND the newer reservation remains owned by the new processing marker
 
 ### Requirement: Cleanup is exact-owner and recoverable
 
@@ -62,6 +84,16 @@ The system MUST remove only the local session or distributed claim belonging to 
 - WHEN cleanup returns
 - THEN the local state needed to retry the cleanup is retained
 - AND the existing lease cycle can retry the cleanup
+
+#### Scenario: Failed admission completes after GameWorker termination
+
+- GIVEN world admission registered a character, failed before session promotion, and scheduled rollback
+- AND GameWorker execution has definitively completed before the rollback task receives a tick
+- WHEN admission compensation runs
+- THEN the registered character's exact local ownership is removed and its owned resources are disposed
+- AND the exact persistence lifecycle and session ownership are released or retained for the existing recovery path
+- AND compensation completes without requiring another GameWorker tick
+- AND compensation never mutates GameWorld state while GameWorker execution may still run
 
 ### Requirement: Final logout snapshots include script detach cleanup
 
