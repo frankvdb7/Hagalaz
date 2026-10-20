@@ -14,6 +14,24 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class CharacterStatisticsTests
 {
     [TestMethod]
+    public void BaseCombatLevel_UsesTheSharedCombatCalculation()
+    {
+        var statistics = CreateStatistics();
+
+        Assert.AreEqual(3, statistics.BaseCombatLevel);
+    }
+
+    [TestMethod]
+    public void FullCombatLevel_AddsSummoningBeforeTruncating()
+    {
+        var statistics = CreateStatistics();
+        statistics.SetSkillExperience(StatisticsConstants.Summoning, 14_000_000);
+
+        Assert.AreEqual(3, statistics.BaseCombatLevel);
+        Assert.AreEqual(16, statistics.FullCombatLevel);
+    }
+
+    [TestMethod]
     public void GetRunEnergyRestoreRate_RestingStateUsesRestingRecoveryRate()
     {
         var character = Substitute.For<ICharacter>();
@@ -30,4 +48,10 @@ public sealed class CharacterStatisticsTests
 
         Assert.AreEqual(350, statistics.GetRunEnergyRestoreRate());
     }
+
+    private static CharacterStatistics CreateStatistics() => new(
+        Substitute.For<ICharacter>(),
+        Options.Create(new CombatOptions()),
+        Options.Create(new SkillOptions()),
+        Substitute.For<IHitSplatBuilder>());
 }

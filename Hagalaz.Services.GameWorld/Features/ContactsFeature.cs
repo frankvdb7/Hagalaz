@@ -6,15 +6,29 @@ using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 
 namespace Hagalaz.Services.GameWorld.Features
 {
-    public class LobbyContactsFeature : IContactsFeature
+    public sealed class ContactsFeature : IContactsFeature
     {
-        private readonly IContactList<Friend> _friends = new ContactList<Friend>();
-        private readonly IContactList<Ignore> _ignores = new ContactList<Ignore>();
         private readonly ContactPresenceState _presence = new();
+        private readonly ICharacter? _character;
+        private readonly IContactList<Friend> _friends;
+        private readonly IContactList<Ignore> _ignores;
 
-        public IContactList<Friend> Friends => _friends;
+        public ContactsFeature()
+        {
+            _friends = new ContactList<Friend>();
+            _ignores = new ContactList<Ignore>();
+        }
 
-        public IContactList<Ignore> Ignores => _ignores;
+        public ContactsFeature(ICharacter character)
+        {
+            _character = character;
+            _friends = character.Friends;
+            _ignores = character.Ignores;
+        }
+
+        public IContactList<Friend> Friends => _character is null ? _friends : _character.Friends;
+
+        public IContactList<Ignore> Ignores => _character is null ? _ignores : _character.Ignores;
 
         public long CaptureObservationBoundary() => _presence.CaptureObservationBoundary();
 
@@ -37,10 +51,10 @@ namespace Hagalaz.Services.GameWorld.Features
 
         public bool RemoveFriend(uint masterId) => _presence.RemoveFriend(Friends, masterId);
 
-        public Friend? TryApplySignIn(uint masterId, long sessionGeneration, string connectionId, int? worldId = null, string? worldName = null)
-            => _presence.TrySignIn(masterId, sessionGeneration, connectionId, worldId, worldName, Friends);
+        public Friend? TryApplySignIn(uint masterId, long sessionGeneration, string connectionId, int? worldId = null, string? worldName = null) =>
+            _presence.TrySignIn(masterId, sessionGeneration, connectionId, worldId, worldName, Friends);
 
-        public Friend? TryApplySignOut(uint masterId, long sessionGeneration, string connectionId)
-            => _presence.TrySignOut(masterId, sessionGeneration, connectionId, Friends);
+        public Friend? TryApplySignOut(uint masterId, long sessionGeneration, string connectionId) =>
+            _presence.TrySignOut(masterId, sessionGeneration, connectionId, Friends);
     }
 }

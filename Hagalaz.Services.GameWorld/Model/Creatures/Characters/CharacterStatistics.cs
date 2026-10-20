@@ -97,27 +97,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <value>The full combat level.</value>
         public int FullCombatLevel
         {
-            get
-            {
-                int attack = LevelForExperience(Attack);
-                int defence = LevelForExperience(Defence);
-                int strength = LevelForExperience(Strength);
-                int hp = LevelForExperience(Constitution);
-                int prayer = LevelForExperience(Prayer);
-                int ranged = LevelForExperience(Ranged);
-                int magic = LevelForExperience(StatisticsConstants.Magic);
-                var melee = (attack + strength) * 0.325;
-                var ranger = Math.Floor(ranged * 1.5) * 0.325;
-                var mage = Math.Floor(magic * 1.5) * 0.325;
-                var combatLevel = (defence + hp + Math.Floor(prayer / 2.0)) * 0.25 + 1;
-
-                if (melee >= ranger && melee >= mage)
-                    combatLevel += (int)melee;
-                else if (ranger >= melee && ranger >= mage)
-                    combatLevel += (int)ranger;
-                else if (mage >= melee && mage >= ranger) combatLevel += (int)mage;
-                return (int)(combatLevel + LevelForExperience(Summoning) / 8.0);
-            }
+            get => (int)(CalculateCombatLevelWithoutSummoning() + LevelForExperience(Summoning) / 8.0);
         }
 
         /// <summary>
@@ -126,27 +106,31 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <value>The base combat level.</value>
         public int BaseCombatLevel
         {
-            get
-            {
-                int attack = LevelForExperience(Attack);
-                int defence = LevelForExperience(Defence);
-                int strength = LevelForExperience(Strength);
-                int hp = LevelForExperience(Constitution);
-                int prayer = LevelForExperience(Prayer);
-                int ranged = LevelForExperience(Ranged);
-                int magic = LevelForExperience(StatisticsConstants.Magic);
-                var melee = (attack + strength) * 0.325;
-                var ranger = Math.Floor(ranged * 1.5) * 0.325;
-                var mage = Math.Floor(magic * 1.5) * 0.325;
-                var combatLevel = (defence + hp + Math.Floor(prayer / 2.0)) * 0.25 + 1;
+            get => (int)CalculateCombatLevelWithoutSummoning();
+        }
 
-                if (melee >= ranger && melee >= mage)
-                    combatLevel += (int)melee;
-                else if (ranger >= melee && ranger >= mage)
-                    combatLevel += (int)ranger;
-                else if (mage >= melee && mage >= ranger) combatLevel += (int)mage;
-                return (int)combatLevel;
-            }
+        private double CalculateCombatLevelWithoutSummoning()
+        {
+            int attack = LevelForExperience(Attack);
+            int defence = LevelForExperience(Defence);
+            int strength = LevelForExperience(Strength);
+            int hp = LevelForExperience(Constitution);
+            int prayer = LevelForExperience(Prayer);
+            int ranged = LevelForExperience(Ranged);
+            int magic = LevelForExperience(StatisticsConstants.Magic);
+            var melee = (attack + strength) * 0.325;
+            var ranger = Math.Floor(ranged * 1.5) * 0.325;
+            var mage = Math.Floor(magic * 1.5) * 0.325;
+            var combatLevel = (defence + hp + Math.Floor(prayer / 2.0)) * 0.25 + 1;
+
+            if (melee >= ranger && melee >= mage)
+                combatLevel += (int)melee;
+            else if (ranger >= melee && ranger >= mage)
+                combatLevel += (int)ranger;
+            else if (mage >= melee && mage >= ranger)
+                combatLevel += (int)mage;
+
+            return combatLevel;
         }
 
         /// <summary>

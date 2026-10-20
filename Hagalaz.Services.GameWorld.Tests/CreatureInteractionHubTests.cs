@@ -139,6 +139,59 @@ public sealed class CreatureInteractionHubTests
     }
 
     [TestMethod]
+    public async Task OnComponentUseOnNpc_WhenTargetRemainsOwned_InvokesCurrentTarget()
+    {
+        using var provider = CreateProvider(out _, out var npcService);
+        var npcStore = provider.GetRequiredService<INpcStore>();
+        var entityStore = provider.GetRequiredService<IEntityStore>();
+        var target = EntityTestFactory.Create<INpc>();
+        Assert.IsTrue(npcStore.Add(target));
+        entityStore.Add(target);
+#pragma warning disable CA2012 // NSubstitute configures ValueTask-returning members through the call specification.
+        npcService.FindByIndexAsync(target.Index).Returns(new ValueTask<INpc?>(target));
+#pragma warning restore CA2012
+
+        var widget = CreateOpenWidget(out var widgets);
+        var character = CreateCharacter(out var queuedTasks, widgets: widgets);
+        var connection = CreateConnection(character);
+        await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(connection, CreateNpcUseMessage(target.Index));
+
+        queuedTasks[0].Tick();
+
+        widget.Received(1).OnComponentUsedOnCreature(7, target, false, 1, 2);
+    }
+
+    [TestMethod]
+    public async Task OnComponentUseOnNpc_WhenWidgetIsClosed_DropsTheInteraction()
+    {
+        using var provider = CreateProvider(out _, out var npcService);
+        var npcStore = provider.GetRequiredService<INpcStore>();
+        var entityStore = provider.GetRequiredService<IEntityStore>();
+        var target = EntityTestFactory.Create<INpc>();
+        Assert.IsTrue(npcStore.Add(target));
+        entityStore.Add(target);
+#pragma warning disable CA2012 // NSubstitute configures ValueTask-returning members through the call specification.
+        npcService.FindByIndexAsync(target.Index).Returns(new ValueTask<INpc?>(target));
+#pragma warning restore CA2012
+
+        var widget = Substitute.For<IWidget>();
+        var widgets = Substitute.For<IWidgetContainer>();
+        widgets.TryGetOpenWidget(10, out Arg.Any<IWidget>()).Returns(callInfo =>
+        {
+            callInfo[1] = widget;
+            return false;
+        });
+        var character = CreateCharacter(out var queuedTasks, widgets: widgets);
+        var connection = CreateConnection(character);
+        await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(connection, CreateNpcUseMessage(target.Index));
+
+        queuedTasks[0].Tick();
+
+        widget.DidNotReceive().OnComponentUsedOnCreature(
+            Arg.Any<int>(), Arg.Any<ICreature>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<int>());
+    }
+
+    [TestMethod]
     public async Task OnComponentUseOnCharacter_WhenTargetSlotIsReused_DropsTheOriginalInteraction()
     {
         using var provider = CreateProvider(out var characterService, out _);

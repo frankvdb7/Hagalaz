@@ -346,6 +346,44 @@ public sealed class FusionCacheGameSessionClaimStoreTests
     }
 
     [TestMethod]
+    public async Task RenewAsync_WhenOwnerDoesNotMatch_ReturnsFalseWithoutRefreshing()
+    {
+        var (store, cache, _) = CreateStore();
+        cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.FromValue("owner")));
+
+        Assert.IsFalse(await store.RenewAsync(42, "other"));
+        await cache.DidNotReceive().SetAsync(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<FusionCacheEntryOptions>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ExecuteIfOwnerAsync_WhenOwnerDoesNotMatch_DoesNotRefreshOrInvokeCallback()
+    {
+        var (store, cache, _) = CreateStore();
+        cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.FromValue("owner")));
+        var callbackCalled = false;
+
+        var result = await store.ExecuteIfOwnerAsync(42, "other", _ =>
+        {
+            callbackCalled = true;
+            return Task.FromResult(true);
+        });
+
+        Assert.IsFalse(result);
+        Assert.IsFalse(callbackCalled);
+        await cache.DidNotReceive().SetAsync(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<FusionCacheEntryOptions>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public async Task ExecuteIfOwnerAsync_RenewsExactOwnerAndPreservesSuccessfulCallbackWhenLockReleaseFails()
     {
         var (store, cache, locker) = CreateStore();

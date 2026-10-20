@@ -135,7 +135,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 {
                     Session = session
                 });
-                context.Features.Set<IContactsFeature>(new LobbyContactsFeature());
+                context.Features.Set<IContactsFeature>(new ContactsFeature());
                 context.Features.Set<IUserProfileFeature>(new UserProfileFeature()); // TODO
                 return result;
             });

@@ -241,7 +241,7 @@ public sealed class WorldSignInCommandConsumerTests
         character.Session.Returns(session);
         character.Viewport.Returns(viewport);
 
-        var contacts = new LobbyContactsFeature();
+        var contacts = new ContactsFeature();
         var connection = CreateConnection(contacts);
         var connectionService = Substitute.For<IGameConnectionService>();
         connectionService.FindById("world-connection").Returns(Task.FromResult<IGameConnection?>(connection));
@@ -279,7 +279,7 @@ public sealed class WorldSignInCommandConsumerTests
         character.Session.Returns(session);
         character.Viewport.Returns(viewport);
 
-        var contacts = new LobbyContactsFeature();
+        var contacts = new ContactsFeature();
         var connection = CreateConnection(contacts);
         var connectionService = Substitute.For<IGameConnectionService>();
         connectionService.FindById("world-connection").Returns(Task.FromResult<IGameConnection?>(connection));
@@ -349,7 +349,7 @@ public sealed class WorldSignInCommandConsumerTests
         character.Session.Returns(session);
         character.Viewport.Returns(viewport);
 
-        var contacts = new LobbyContactsFeature();
+        var contacts = new ContactsFeature();
         var connection = CreateConnection(contacts);
         var connectionService = Substitute.For<IGameConnectionService>();
         connectionService.FindById("world-connection").Returns(Task.FromResult<IGameConnection?>(connection));

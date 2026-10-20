@@ -468,6 +468,10 @@ public sealed class AuthenticationSignInTests
         Assert.AreEqual(
             "authorization-id",
             contextAccessor.Context.Features.Get<IAuthenticationFeature>()!.AuthenticationProperties.AuthorizationId);
+        var contacts = Assert.IsInstanceOfType<ContactsFeature>(
+            contextAccessor.Context.Features.Get<IContactsFeature>());
+        Assert.IsNotNull(contacts.Friends);
+        Assert.IsNotNull(contacts.Ignores);
         Assert.IsNull(contextAccessor.Context.Features.Get<PendingAuthorizationCleanup>());
         await revokeClient.DidNotReceive().GetResponse<RevokeTokenResponseMessage>(
             Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>());

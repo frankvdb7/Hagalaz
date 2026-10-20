@@ -14,6 +14,7 @@ using Hagalaz.Services.GameWorld.Factories;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
 using Hagalaz.Services.GameWorld.Model;
+using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Services.Model;
 using MassTransit;
@@ -31,6 +32,10 @@ public sealed class WorldSessionAdmissionServiceTests
     public async Task AdmitAsync_WhenAdmissionSucceeds_CommitsSessionAndPublishesFeatures()
     {
         var fixture = CreateFixture(commitResult: true);
+        var friends = new ContactList<Friend>();
+        var ignores = new ContactList<Ignore>();
+        fixture.Character.Friends.Returns(friends);
+        fixture.Character.Ignores.Returns(ignores);
 
         var result = await fixture.Service.AdmitAsync(
             CreateSignInRequest(),
@@ -42,6 +47,9 @@ public sealed class WorldSessionAdmissionServiceTests
         await fixture.GameSessionService.Received(1).CommitWorldSession(fixture.Session, Arg.Any<CancellationToken>());
         Assert.AreSame(fixture.Character, fixture.Context.Features.Get<ICharacterFeature>()!.Character);
         Assert.AreSame(fixture.Session, fixture.Context.Features.Get<Hagalaz.Services.GameWorld.Features.ISessionFeature>()!.Session);
+        var contacts = Assert.IsInstanceOfType<ContactsFeature>(fixture.Context.Features.Get<IContactsFeature>());
+        Assert.AreSame(friends, contacts.Friends);
+        Assert.AreSame(ignores, contacts.Ignores);
     }
 
     [TestMethod]

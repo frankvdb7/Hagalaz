@@ -85,18 +85,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             if (!obj.Definition.Gateway)
                 flag |= CollisionFlag.ObjectAllowRange;
 
-            int sizeX;
-            int sizeY;
-            if (obj.Rotation == 1 || obj.Rotation == 3)
-            {
-                sizeX = obj.Definition.SizeY;
-                sizeY = obj.Definition.SizeX;
-            }
-            else
-            {
-                sizeX = obj.Definition.SizeX;
-                sizeY = obj.Definition.SizeY;
-            }
+            var (sizeX, sizeY) = GetStandardObjectDimensions(obj);
 
             for (var xcalc = obj.Location.X; xcalc < obj.Location.X + sizeX; xcalc++)
                 for (var ycalc = obj.Location.Y; ycalc < obj.Location.Y + sizeY; ycalc++)
@@ -115,22 +104,21 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             if (!obj.Definition.Gateway)
                 flag |= CollisionFlag.ObjectAllowRange;
 
-            int sizeX;
-            int sizeY;
-            if (obj.Rotation == 1 || obj.Rotation == 3)
-            {
-                sizeX = obj.Definition.SizeY;
-                sizeY = obj.Definition.SizeX;
-            }
-            else
-            {
-                sizeX = obj.Definition.SizeX;
-                sizeY = obj.Definition.SizeY;
-            }
+            var (sizeX, sizeY) = GetStandardObjectDimensions(obj);
 
             for (int xcalc = obj.Location.X; xcalc < obj.Location.X + sizeX; xcalc++)
                 for (int ycalc = obj.Location.Y; ycalc < obj.Location.Y + sizeY; ycalc++)
                     _regionService.UnFlagCollision(Location.Create(xcalc, ycalc, obj.Location.Z, obj.Location.Dimension), flag);
+        }
+
+        private (int SizeX, int SizeY) GetStandardObjectDimensions(IGameObject obj)
+        {
+            if (obj.Rotation == 1 || obj.Rotation == 3)
+            {
+                return (obj.Definition.SizeY, obj.Definition.SizeX);
+            }
+
+            return (obj.Definition.SizeX, obj.Definition.SizeY);
         }
 
         public void FlagWallObject(IGameObject obj)
