@@ -1,10 +1,10 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable, inject } from "@angular/core";
+import { inject, Service } from "@angular/core";
 import type { Observable } from "rxjs";
 import { environment } from "../../../../environments/environment";
 import type { SearchResultDto, SpriteMutationResultDto } from "./cache.models";
 
-@Injectable({ providedIn: "root" })
+@Service()
 export class CacheSpritesService {
     private readonly http = inject(HttpClient);
     private readonly baseUrl = `${environment.cacheApiUrl}types/sprites`;

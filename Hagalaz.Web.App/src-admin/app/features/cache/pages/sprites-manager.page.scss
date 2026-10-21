@@ -7,6 +7,12 @@
     background: rgba(18, 13, 8, 0.86);
 }
 
+@media (min-width: 48rem) {
+    .sprite-upload-form {
+        grid-template-columns: 1fr 1fr auto;
+    }
+}
+
 .placeholder {
     margin: 0.65rem 0 0;
     color: rgba(255, 234, 178, 0.72);

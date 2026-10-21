@@ -4,7 +4,7 @@
             <mat-progress-bar mode="indeterminate"></mat-progress-bar>
         }
 
-        <div class="grid lg:grid-cols-[1.1fr_1fr]">
+        <div class="login-layout grid">
             <aside class="brand-panel">
                 <p class="eyebrow">Hagalaz Admin</p>
                 <h1>Welcome Back</h1>
@@ -19,16 +19,16 @@
                 <h2>Sign In</h2>
                 <p class="subtitle">Use your Hagalaz account credentials.</p>
 
-                <form class="grid gap-3 mt-4" [formGroup]="form" (ngSubmit)="submit()">
+                <form class="grid gap-3 mt-4" novalidate (submit)="submit($event)">
                     <mat-form-field appearance="outline" subscriptSizing="dynamic">
                         <mat-label>Email</mat-label>
-                        <input matInput autocomplete="username" type="email" formControlName="email" />
+                        <input matInput autocomplete="username" type="email" [formField]="form.email" />
                         <mat-error>{{ hasError("email") ? "Enter a valid email address." : "" }}</mat-error>
                     </mat-form-field>
 
                     <mat-form-field appearance="outline" subscriptSizing="dynamic">
                         <mat-label>Password</mat-label>
-                        <input matInput autocomplete="current-password" [type]="hidePassword() ? 'password' : 'text'" formControlName="password" />
+                        <input matInput autocomplete="current-password" [type]="hidePassword() ? 'password' : 'text'" [formField]="form.password" />
                         <button mat-icon-button matSuffix type="button" (click)="togglePasswordVisibility()" [attr.aria-label]="hidePassword() ? 'Show password' : 'Hide password'">
                             <mat-icon>{{ hidePassword() ? "visibility" : "visibility_off" }}</mat-icon>
                         </button>
@@ -36,13 +36,13 @@
                     </mat-form-field>
 
                     <div class="captcha-wrap">
-                        <ng-hcaptcha theme="dark" formControlName="captcha" (error)="markForCheck()" (expired)="markForCheck()" (verify)="markForCheck()"></ng-hcaptcha>
+                        <ng-hcaptcha theme="dark" [formField]="form.captcha" (error)="markForCheck()" (expired)="markForCheck()" (verify)="markForCheck()"></ng-hcaptcha>
                         @if (hasError("captcha")) {
                             <p class="captcha-error">Complete the captcha challenge.</p>
                         }
                     </div>
 
-                    <button mat-flat-button type="submit" [disabled]="store.loading() || form.invalid">
+                    <button mat-flat-button type="submit" [disabled]="store.loading() || form().invalid()">
                         {{ store.loading() ? "Signing In..." : "Sign In" }}
                     </button>
                 </form>

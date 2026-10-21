@@ -13,8 +13,8 @@
         <mat-card class="panel-card">
             <mat-card-header><mat-card-title>Sprite By Id</mat-card-title></mat-card-header>
             <mat-card-content>
-                <form class="grid gap-2" [formGroup]="spriteIdForm" (ngSubmit)="loadSprite()">
-                    <mat-form-field appearance="outline"><mat-label>Sprite Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
+                <form class="grid gap-2" novalidate (submit)="$event.preventDefault(); loadSprite()">
+                    <mat-form-field appearance="outline"><mat-label>Sprite Id</mat-label><input matInput type="number" [formField]="spriteIdForm.id" /></mat-form-field>
                     <button mat-flat-button type="submit" [disabled]="loading()">Fetch</button>
                 </form>
                 @if (spriteInfo()) { <pre>{{ spriteInfo() | json }}</pre> } @else { <p class="placeholder">No sprite loaded yet.</p> }
@@ -24,11 +24,11 @@
         <mat-card class="panel-card">
             <mat-card-header><mat-card-title>Search Sprites</mat-card-title></mat-card-header>
             <mat-card-content>
-                <form class="grid gap-2" [formGroup]="spriteSearchForm" (ngSubmit)="searchSprites()">
-                    <mat-form-field appearance="outline"><mat-label>Query</mat-label><input matInput type="text" formControlName="query" /></mat-form-field>
+                <form class="grid gap-2" novalidate (submit)="$event.preventDefault(); searchSprites()">
+                    <mat-form-field appearance="outline"><mat-label>Query</mat-label><input matInput type="text" [formField]="spriteSearchForm.query" /></mat-form-field>
                     <div class="grid grid-cols-2 gap-2">
-                        <mat-form-field appearance="outline"><mat-label>Offset</mat-label><input matInput type="number" formControlName="offset" /></mat-form-field>
-                        <mat-form-field appearance="outline"><mat-label>Limit</mat-label><input matInput type="number" formControlName="limit" /></mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>Offset</mat-label><input matInput type="number" [formField]="spriteSearchForm.offset" /></mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>Limit</mat-label><input matInput type="number" [formField]="spriteSearchForm.limit" /></mat-form-field>
                     </div>
                     <button mat-flat-button type="submit" [disabled]="loading()">Search</button>
                 </form>
@@ -39,9 +39,9 @@
         <mat-card class="panel-card">
             <mat-card-header><mat-card-title>PNG Preview</mat-card-title></mat-card-header>
             <mat-card-content>
-                <form class="grid gap-2" [formGroup]="spriteImageForm" (ngSubmit)="previewSpriteImage()">
-                    <mat-form-field appearance="outline"><mat-label>Sprite Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
-                    <mat-form-field appearance="outline"><mat-label>Frame</mat-label><input matInput type="number" formControlName="frame" /></mat-form-field>
+                <form class="grid gap-2" novalidate (submit)="$event.preventDefault(); previewSpriteImage()">
+                    <mat-form-field appearance="outline"><mat-label>Sprite Id</mat-label><input matInput type="number" [formField]="spriteImageForm.id" /></mat-form-field>
+                    <mat-form-field appearance="outline"><mat-label>Frame</mat-label><input matInput type="number" [formField]="spriteImageForm.frame" /></mat-form-field>
                     <button mat-flat-button type="submit" [disabled]="loading()">Load PNG</button>
                 </form>
                 @if (imageUrl()) {
@@ -56,8 +56,8 @@
     <mat-card class="panel-card">
         <mat-card-header><mat-card-title>Sprite Mutation Forge</mat-card-title></mat-card-header>
         <mat-card-content class="space-y-4">
-            <form class="grid gap-2 md:grid-cols-[1fr_1fr_auto] md:items-center" [formGroup]="spriteUploadForm" (ngSubmit)="uploadSpriteImage()">
-                <mat-form-field appearance="outline"><mat-label>Sprite Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
+            <form class="sprite-upload-form grid gap-2 md:items-center" novalidate (submit)="$event.preventDefault(); uploadSpriteImage()">
+                <mat-form-field appearance="outline"><mat-label>Sprite Id</mat-label><input matInput type="number" [formField]="spriteUploadForm.id" /></mat-form-field>
                 <input class="file-input" type="file" accept="image/png" (change)="onFileSelected($event)" />
                 <button mat-stroked-button type="submit" [disabled]="loading()">Upload PNG</button>
             </form>

@@ -1,10 +1,10 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable, inject } from "@angular/core";
+import { inject, Service } from "@angular/core";
 import type { Observable } from "rxjs";
 import { environment } from "../../../../environments/environment";
 import type { ArchiveSizesDto, SearchResultDto, TypeKind, TypeMutationResultDto } from "./cache.models";
 
-@Injectable({ providedIn: "root" })
+@Service()
 export class CacheTypesService {
     private readonly http = inject(HttpClient);
     private readonly baseUrl = `${environment.cacheApiUrl}types/`;

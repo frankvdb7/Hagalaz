@@ -43,3 +43,20 @@ body {
     background: #0b0704;
     color: #f7e8b4;
 }
+
+admin-login-page .mdc-text-field--outlined {
+    background: rgba(11, 8, 5, 0.74);
+}
+
+admin-login-page .mat-mdc-form-field-error {
+    color: #fda4af;
+}
+
+cache-shell-page .mat-toolbar {
+    min-height: 86px;
+}
+
+cache-shell-page .mdc-button--filled {
+    --mdc-filled-button-container-color: #f2c44a;
+    --mdc-filled-button-label-text-color: rgb(31 22 9);
+}

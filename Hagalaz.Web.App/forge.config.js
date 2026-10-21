@@ -1,4 +1,4 @@
-module.exports = {
+export default {
     packagerConfig: {},
     rebuildConfig: {},
     makers: [],

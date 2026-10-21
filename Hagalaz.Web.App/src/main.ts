@@ -1,11 +1,19 @@
-import { provideHttpClient, withFetch, withInterceptors, withInterceptorsFromDi } from "@angular/common/http";
+import { provideHttpClient, withInterceptors, withInterceptorsFromDi } from "@angular/common/http";
 
-import { enableProdMode, importProvidersFrom, provideAppInitializer, inject, provideZonelessChangeDetection } from "@angular/core";
+import { enableProdMode, importProvidersFrom, inject, provideAppInitializer, provideZonelessChangeDetection } from "@angular/core";
+import { MatIconRegistry } from "@angular/material/icon";
 import { bootstrapApplication } from "@angular/platform-browser";
-import { provideRouter, TitleStrategy, withComponentInputBinding, withViewTransitions } from "@angular/router";
+import {
+    provideRouter,
+    TitleStrategy,
+    withAutoCleanupInjectors,
+    withComponentInputBinding,
+    withExperimentalPlatformNavigation,
+    withViewTransitions,
+} from "@angular/router";
 import { provideServiceWorker } from "@angular/service-worker";
-import { getAppRoutes } from "@app/app-routing";
 import { AppComponent } from "@app/app.component";
+import { getAppRoutes } from "@app/app-routing";
 import { initAuthStore } from "@app/core/auth/auth.init";
 import { authInterceptor } from "@app/core/auth/auth.interceptor";
 import { TemplatePageTitleStrategy } from "@app/core/router/template-page-title.strategy";
@@ -13,7 +21,6 @@ import { environment } from "@environment/environment";
 import { provideLoadingBarInterceptor } from "@ngx-loading-bar/http-client";
 import { provideLoadingBarRouter } from "@ngx-loading-bar/router";
 import { NgHcaptchaModule } from "ng-hcaptcha";
-import { MatIconRegistry } from "@angular/material/icon";
 
 if (environment.production) {
     enableProdMode();
@@ -21,9 +28,9 @@ if (environment.production) {
 
 async function bootstrap() {
     const providers = [
-        provideRouter(getAppRoutes(), withViewTransitions(), withComponentInputBinding()),
+        provideRouter(getAppRoutes(), withExperimentalPlatformNavigation(), withAutoCleanupInjectors(), withViewTransitions(), withComponentInputBinding()),
         provideZonelessChangeDetection(),
-        provideHttpClient(withFetch(), withInterceptors([authInterceptor]), withInterceptorsFromDi()),
+        provideHttpClient(withInterceptors([authInterceptor]), withInterceptorsFromDi()),
         provideLoadingBarRouter(),
         provideLoadingBarInterceptor(),
         importProvidersFrom(

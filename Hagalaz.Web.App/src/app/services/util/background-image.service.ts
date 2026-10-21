@@ -1,8 +1,6 @@
-import { Injectable, signal } from "@angular/core";
+import { signal, Service } from "@angular/core";
 
-@Injectable({
-    providedIn: "root",
-})
+@Service()
 export class BackgroundImageService {
     private readonly defaultBackgroundImageUrl = "assets/images/bg.jpg";
     public readonly backgroundImageUrl = signal<string>(this.defaultBackgroundImageUrl);

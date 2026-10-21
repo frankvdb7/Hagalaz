@@ -3,7 +3,6 @@ import { it, describe, beforeEach, expect } from "vitest";
 import { LoginFormComponent } from "./login-form.component";
 import { importProvidersFrom, NO_ERRORS_SCHEMA } from "@angular/core";
 import { NgHcaptchaModule } from "ng-hcaptcha";
-import { ReactiveFormsModule } from "@angular/forms";
 
 describe("LoginFormComponent", () => {
     let component: LoginFormComponent;
@@ -11,7 +10,7 @@ describe("LoginFormComponent", () => {
 
     beforeEach(async () => {
         await TestBed.configureTestingModule({
-            imports: [LoginFormComponent, ReactiveFormsModule],
+            imports: [LoginFormComponent],
             providers: [
                 importProvidersFrom(
                     NgHcaptchaModule.forRoot({

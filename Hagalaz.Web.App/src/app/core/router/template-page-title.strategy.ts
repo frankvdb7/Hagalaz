@@ -1,8 +1,8 @@
-import { Injectable, inject } from "@angular/core";
+import { inject, Service } from "@angular/core";
 import { Title } from "@angular/platform-browser";
 import { type RouterStateSnapshot, TitleStrategy } from "@angular/router";
 
-@Injectable({ providedIn: "root" })
+@Service()
 export class TemplatePageTitleStrategy extends TitleStrategy {
     private readonly title = inject(Title);
 

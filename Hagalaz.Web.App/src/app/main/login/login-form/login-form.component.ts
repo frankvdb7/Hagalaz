@@ -1,5 +1,5 @@
-import { Component, ChangeDetectionStrategy, ChangeDetectorRef, inject, input, output } from "@angular/core";
-import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from "@angular/forms";
+import { Component, ChangeDetectionStrategy, ChangeDetectorRef, inject, input, output, signal } from "@angular/core";
+import { email, form, FormField, required } from "@angular/forms/signals";
 import { MatButton } from "@angular/material/button";
 import { MatError, MatFormField, MatLabel, MatSuffix } from "@angular/material/form-field";
 import { MatIcon } from "@angular/material/icon";
@@ -16,45 +16,48 @@ export interface LoginFormModel {
     selector: "app-login-form",
     templateUrl: "./login-form.component.html",
     styleUrls: ["./login-form.component.scss"],
-    imports: [MatFormField, MatIcon, MatLabel, MatError, NgHcaptchaModule, FormsModule, ReactiveFormsModule, MatInput, MatButton, MatSuffix],
+    imports: [MatFormField, MatIcon, MatLabel, MatError, NgHcaptchaModule, FormField, MatInput, MatButton, MatSuffix],
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LoginFormComponent {
-    private formBuilder = inject(FormBuilder);
     private change = inject(ChangeDetectorRef);
 
     get emailControl() {
-        return this.form.get("email");
+        return this.form.email;
     }
 
     get passwordControl() {
-        return this.form.get("password");
+        return this.form.password;
     }
 
     get captchaControl() {
-        return this.form.get("captcha");
+        return this.form.captcha;
     }
 
     readonly error = input<unknown>();
     readonly loginSubmit = output<LoginFormModel>();
 
-    submitted: boolean = false;
+    submitted = false;
 
-    readonly form = this.formBuilder.group({
-        email: this.formBuilder.control("", [Validators.required, Validators.email]),
-        password: this.formBuilder.control("", Validators.required),
-        captcha: this.formBuilder.control("", Validators.required),
+    private readonly model = signal<LoginFormModel>({ email: "", password: "", captcha: "" });
+
+    readonly form = form(this.model, (path) => {
+        required(path.email);
+        email(path.email);
+        required(path.password);
+        required(path.captcha);
     });
 
     markForCheck() {
         this.change.markForCheck();
     }
 
-    onSubmit() {
+    onSubmit(event: SubmitEvent) {
+        event.preventDefault();
         this.submitted = true;
-        if (!this.form.valid) {
+        if (this.form().invalid()) {
             return;
         }
-        this.loginSubmit.emit(this.form.value as LoginFormModel);
+        this.loginSubmit.emit(this.model());
     }
 }
