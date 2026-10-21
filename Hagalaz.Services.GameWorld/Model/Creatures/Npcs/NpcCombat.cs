@@ -466,18 +466,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             var myAttackLevel = GetAttackLevel();
             var enemyDefenceLevel = target.Combat.GetDefenceLevel();
 
-            if (GetAttackStyle() == AttackStyle.MeleeAccurate)
-                myAttackLevel += 3;
-            else if (GetAttackStyle() == AttackStyle.MeleeControlled) myAttackLevel++;
-            if (target.Combat.GetAttackStyle() == AttackStyle.MeleeDefensive)
-                enemyDefenceLevel += 3;
-            else if (target.Combat.GetAttackStyle() == AttackStyle.MeleeControlled) enemyDefenceLevel += 1;
-
             var accuracy = CombatRules.CalculateMeleeAccuracy(
                 myAttackLevel,
                 enemyDefenceLevel,
+                GetAttackStyle(),
+                target.Combat.GetAttackStyle(),
                 GetAttackBonus(),
-                target.Combat.GetDefenceBonus(GetAttackBonusType()));
+                target.Combat.GetDefenceBonus(GetAttackBonusType()),
+                1.0,
+                1.0);
 
             if (RandomStatic.Generator.NextDouble() > accuracy) return -1;
 

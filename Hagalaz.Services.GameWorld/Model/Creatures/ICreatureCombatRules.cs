@@ -1,4 +1,5 @@
 using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Abstractions.Model.Combat;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures
 {
@@ -13,9 +14,19 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         string GetCurseSkillName(BonusPrayerType curseType);
 
         /// <summary>
-        /// Calculates melee hit accuracy from the attack and defence levels and bonuses.
+        /// Calculates melee hit accuracy with attack and target defence style adjustments.
         /// </summary>
-        double CalculateMeleeAccuracy(double attackLevel, int defenceLevel, double attackBonus, double defenceBonus);
+        /// <param name="attackLevelMultiplier">Applied after attack-style adjustments.</param>
+        /// <param name="attackRollMultiplier">Applied after calculating the attack roll.</param>
+        double CalculateMeleeAccuracy(
+            double attackLevel,
+            int defenceLevel,
+            AttackStyle attackStyle,
+            AttackStyle targetDefenceStyle,
+            double attackBonus,
+            double defenceBonus,
+            double attackLevelMultiplier,
+            double attackRollMultiplier);
 
         /// <summary>
         /// Calculates ranged hit accuracy from the attack and defence levels and bonuses.

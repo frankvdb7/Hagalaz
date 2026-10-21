@@ -1117,44 +1117,25 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public int GetMeleeDamage(ICreature target, bool specialAttack)
         {
             var owner = (ICharacter)Owner;
-
-            double myAttackLevel = GetAttackLevel();
+            var myAttackLevel = GetAttackLevel();
             var enemyDefenceLevel = target.Combat.GetDefenceLevel();
-
-            if (GetAttackStyle() == AttackStyle.MeleeAccurate)
-                myAttackLevel += 3;
-            else if (GetAttackStyle() == AttackStyle.MeleeControlled) myAttackLevel++;
-            if (target.Combat.GetAttackStyle() == AttackStyle.MeleeDefensive)
-                enemyDefenceLevel += 3;
-            else if (target.Combat.GetAttackStyle() == AttackStyle.MeleeControlled) enemyDefenceLevel += 1;
-
-            if (owner.HasState<VoidMeleeEquippedState>()) myAttackLevel *= 1.1;
-
-            var effectiveAttack = myAttackLevel;
-            effectiveAttack += 8.0;
-            effectiveAttack += GetAttackBonus();
-            effectiveAttack = Math.Round(effectiveAttack);
-
-
-            double effectiveDefence = enemyDefenceLevel;
-            effectiveDefence += 8.0;
-            effectiveDefence += target.Combat.GetDefenceBonus(GetAttackBonusType());
-            effectiveDefence = Math.Round(effectiveDefence);
-
-
-            double attackersRoll = (int)Math.Round(effectiveAttack * (1.0 + GetAttackBonus() / 16.0) * 10.0); // / 64
-            double defendersRoll = (int)Math.Round(effectiveDefence * (1.0 + target.Combat.GetDefenceBonus(GetAttackBonusType()) / 64.0) * 10.0);
-
+            var attackLevelMultiplier = owner.HasState<VoidMeleeEquippedState>() ? 1.1 : 1.0;
+            var attackRollMultiplier = 1.0;
             if (specialAttack)
             {
-                if (owner.HasState<DragonDaggerEquippedState>()) attackersRoll *= 1.1;
-                if (owner.HasState<AbyssalWhipEquippedState>()) attackersRoll *= 1.1;
+                if (owner.HasState<DragonDaggerEquippedState>()) attackRollMultiplier *= 1.1;
+                if (owner.HasState<AbyssalWhipEquippedState>()) attackRollMultiplier *= 1.1;
             }
 
-            var accuracy = 0.5;
-            if (attackersRoll < defendersRoll)
-                accuracy = (attackersRoll - 1.0) / (2.0 * defendersRoll);
-            else if (attackersRoll > defendersRoll) accuracy = 1.0 - (defendersRoll + 1.0) / (2.0 * attackersRoll);
+            var accuracy = CombatRules.CalculateMeleeAccuracy(
+                myAttackLevel,
+                enemyDefenceLevel,
+                GetAttackStyle(),
+                target.Combat.GetAttackStyle(),
+                GetAttackBonus(),
+                target.Combat.GetDefenceBonus(GetAttackBonusType()),
+                attackLevelMultiplier,
+                attackRollMultiplier);
 
             if (specialAttack)
             {

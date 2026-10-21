@@ -1,4 +1,5 @@
 using System;
+using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Common;
 
@@ -47,9 +48,30 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             return CalculateAccuracy((int)attackersRoll, (int)defendersRoll);
         }
 
-        public double CalculateMeleeAccuracy(double attackLevel, int defenceLevel, double attackBonus, double defenceBonus)
+        public double CalculateMeleeAccuracy(
+            double attackLevel,
+            int defenceLevel,
+            AttackStyle attackStyle,
+            AttackStyle targetDefenceStyle,
+            double attackBonus,
+            double defenceBonus,
+            double attackLevelMultiplier,
+            double attackRollMultiplier)
         {
+            if (attackStyle == AttackStyle.MeleeAccurate)
+                attackLevel += 3;
+            else if (attackStyle == AttackStyle.MeleeControlled)
+                attackLevel++;
+
+            if (targetDefenceStyle == AttackStyle.MeleeDefensive)
+                defenceLevel += 3;
+            else if (targetDefenceStyle == AttackStyle.MeleeControlled)
+                defenceLevel++;
+
+            attackLevel *= attackLevelMultiplier;
+
             var (attackersRoll, defendersRoll) = CalculateRolls(attackLevel, defenceLevel, attackBonus, defenceBonus);
+            attackersRoll *= attackRollMultiplier;
             return CalculateAccuracy(attackersRoll, defendersRoll);
         }
 

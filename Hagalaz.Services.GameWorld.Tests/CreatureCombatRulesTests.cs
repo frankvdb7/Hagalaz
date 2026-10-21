@@ -1,4 +1,5 @@
 using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Services.GameWorld.Model.Creatures;
 
 namespace Hagalaz.Services.GameWorld.Tests;
@@ -39,18 +40,46 @@ public sealed class CreatureCombatRulesTests
     [DataRow(10.0, 10, 0.0, 0.0, 0.5, DisplayName = "equal rolls")]
     [DataRow(10.0, 0, 0.0, 0.0, 0.775, DisplayName = "attack roll is higher")]
     [DataRow(0.0, 20, 0.0, 0.0, 79.0 / 560.0, DisplayName = "defence roll is higher")]
-    public void MeleeAndRangedAccuracy_ReturnExpectedValues(
+    public void CalculateRangedAccuracy_ReturnsExpectedValues(
         double attackLevel,
         int defenceLevel,
         double attackBonus,
         double defenceBonus,
         double expected)
     {
-        var meleeAccuracy = _rules.CalculateMeleeAccuracy(attackLevel, defenceLevel, attackBonus, defenceBonus);
         var rangedAccuracy = _rules.CalculateRangedAccuracy(attackLevel, defenceLevel, attackBonus, defenceBonus);
 
-        Assert.AreEqual(expected, meleeAccuracy, 0.0000000001, "Melee accuracy");
         Assert.AreEqual(expected, rangedAccuracy, 0.0000000001, "Ranged accuracy");
+    }
+
+    [TestMethod]
+    [DataRow(10.0, 10, AttackStyle.None, AttackStyle.None, 1.0, 1.0, 0.5, DisplayName = "equal rolls")]
+    [DataRow(10.0, 10, AttackStyle.MeleeAccurate, AttackStyle.None, 1.0, 1.0, 239.0 / 420.0, DisplayName = "accurate attack style")]
+    [DataRow(10.0, 10, AttackStyle.MeleeControlled, AttackStyle.None, 1.0, 1.0, 199.0 / 380.0, DisplayName = "controlled attack style")]
+    [DataRow(10.0, 10, AttackStyle.None, AttackStyle.MeleeDefensive, 1.0, 1.0, 179.0 / 420.0, DisplayName = "defensive target style")]
+    [DataRow(10.0, 10, AttackStyle.None, AttackStyle.MeleeControlled, 1.0, 1.0, 179.0 / 380.0, DisplayName = "controlled target style")]
+    [DataRow(10.0, 0, AttackStyle.None, AttackStyle.None, 1.1, 1.0, 299.0 / 380.0, DisplayName = "void melee multiplier")]
+    [DataRow(10.0, 0, AttackStyle.None, AttackStyle.None, 1.0, 1.1, 35.0 / 44.0, DisplayName = "special attack roll multiplier")]
+    public void CalculateMeleeAccuracy_AppliesStyleAndAttackLevelAdjustments(
+        double attackLevel,
+        int defenceLevel,
+        AttackStyle attackStyle,
+        AttackStyle targetDefenceStyle,
+        double attackLevelMultiplier,
+        double attackRollMultiplier,
+        double expected)
+    {
+        var accuracy = _rules.CalculateMeleeAccuracy(
+            attackLevel,
+            defenceLevel,
+            attackStyle,
+            targetDefenceStyle,
+            0.0,
+            0.0,
+            attackLevelMultiplier,
+            attackRollMultiplier);
+
+        Assert.AreEqual(expected, accuracy, 0.0000000001);
     }
 
     [TestMethod]
