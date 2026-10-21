@@ -67,40 +67,20 @@ public sealed class CreatureTaskService(IRsTaskService scheduler) : ICreatureTas
 
     private sealed class CreatureTask<TResult>(ITaskItem<TResult> inner, CancellationToken cancellationToken) : ITaskItem<TResult>, IDisposable
     {
-        private bool _lifetimeCancellationHandled;
+        private readonly CreatureTask _task = new(inner, cancellationToken);
 
-        public bool IsCancelled => _lifetimeCancellationHandled || inner.IsCancelled;
+        public bool IsCancelled => _task.IsCancelled;
 
-        public bool IsCompleted => inner.IsCompleted;
+        public bool IsCompleted => _task.IsCompleted;
 
-        public bool IsFaulted => inner.IsFaulted;
+        public bool IsFaulted => _task.IsFaulted;
 
-        public void Tick()
-        {
-            if (cancellationToken.IsCancellationRequested)
-            {
-                if (!_lifetimeCancellationHandled)
-                {
-                    _lifetimeCancellationHandled = true;
-                    inner.Cancel();
-                }
+        public void Tick() => _task.Tick();
 
-                return;
-            }
-
-            inner.Tick();
-        }
-
-        public void Cancel() => inner.Cancel();
+        public void Cancel() => _task.Cancel();
 
         public void RegisterResultHandler(Action<TResult> resultHandler) => inner.RegisterResultHandler(resultHandler);
 
-        public void Dispose()
-        {
-            if (inner is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
-        }
+        public void Dispose() => _task.Dispose();
     }
 }
