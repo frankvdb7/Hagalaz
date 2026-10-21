@@ -268,42 +268,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
             }
 
-            var stack = withdrawed.ItemDefinition.Stackable || withdrawed.ItemDefinition.Noted;
-            var needSlots = 0;
-            if (stack)
-            {
-                if (_owner.Inventory.Items.GetSlotByItem(withdrawed) != -1)
-                {
-                    long total = _owner.Inventory.Items.GetCount(withdrawed) + (long)count;
-                    if (total > int.MaxValue)
-                    {
-                        withdrawed = null;
-                        return false;
-                    }
-                }
-                else
-                    needSlots = 1;
-            }
-            else
-            {
-                needSlots = count;
-            }
-
-            int freeSlots;
-            if ((freeSlots = _owner.Inventory.Items.FreeSlots) < needSlots)
+            var canTransfer = _owner.Inventory.Items.TryGetTransferableItemCount(withdrawed, count,
+                out var transferCount, out var wasLimitedByFreeSlots);
+            if (wasLimitedByFreeSlots)
             {
                 _owner.SendChatMessage(GameStrings.InventoryFull);
-                if (stack || freeSlots <= 0) // we can't do anything since decreasing item count won't decrease needSlots.
-                {
-                    withdrawed = null;
-                    return false;
-                }
-
-                count = freeSlots;
-                withdrawed.Count = count;
-                toRemove.Count = count;
+                if (canTransfer) toRemove.Count = transferCount;
             }
 
+            if (!canTransfer)
+            {
+                withdrawed = null;
+                return false;
+            }
+
+            count = transferCount;
             withdrawed.Count = count;
             using (var transaction = ItemContainerTransaction.Begin(this, _owner.Inventory))
             {
