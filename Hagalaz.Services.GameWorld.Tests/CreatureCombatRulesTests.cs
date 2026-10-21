@@ -1,6 +1,9 @@
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Services.GameWorld.Model.Creatures;
+using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests;
 
@@ -8,6 +11,96 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class CreatureCombatRulesTests
 {
     private readonly ICreatureCombatRules _rules = new CreatureCombatRules();
+
+    [TestMethod]
+    public void GetCurseInstantBonusEffects_WhenNoCurseStatesAreActive_ReturnsNoEffects()
+    {
+        var creature = Substitute.For<ICreature>();
+
+        var effects = _rules.GetCurseInstantBonusEffects(creature);
+
+        Assert.AreEqual((false, false, false, false, false), effects);
+    }
+
+    [TestMethod]
+    public void GetCurseInstantBonusEffects_WhenSapWarriorIsActive_AffectsAttackStrengthAndDefence()
+    {
+        var creature = CreatureWithState<SapWarriorState>();
+
+        var effects = _rules.GetCurseInstantBonusEffects(creature);
+
+        Assert.AreEqual((true, true, true, false, false), effects);
+    }
+
+    [TestMethod]
+    public void GetCurseInstantBonusEffects_WhenSapRangerIsActive_AffectsDefenceAndRanged()
+    {
+        var creature = CreatureWithState<SapRangerState>();
+
+        var effects = _rules.GetCurseInstantBonusEffects(creature);
+
+        Assert.AreEqual((false, false, true, true, false), effects);
+    }
+
+    [TestMethod]
+    public void GetCurseInstantBonusEffects_WhenSapMagerIsActive_AffectsDefenceAndMagic()
+    {
+        var creature = CreatureWithState<SapMagerState>();
+
+        var effects = _rules.GetCurseInstantBonusEffects(creature);
+
+        Assert.AreEqual((false, false, true, false, true), effects);
+    }
+
+    [TestMethod]
+    public void GetCurseInstantBonusEffects_WhenLeechAttackIsActive_AffectsAttack()
+    {
+        var creature = CreatureWithState<LeechAttackState>();
+
+        var effects = _rules.GetCurseInstantBonusEffects(creature);
+
+        Assert.AreEqual((true, false, false, false, false), effects);
+    }
+
+    [TestMethod]
+    public void GetCurseInstantBonusEffects_WhenLeechStrengthIsActive_AffectsStrength()
+    {
+        var creature = CreatureWithState<LeechStrengthState>();
+
+        var effects = _rules.GetCurseInstantBonusEffects(creature);
+
+        Assert.AreEqual((false, true, false, false, false), effects);
+    }
+
+    [TestMethod]
+    public void GetCurseInstantBonusEffects_WhenLeechDefenceIsActive_AffectsDefence()
+    {
+        var creature = CreatureWithState<LeechDefenceState>();
+
+        var effects = _rules.GetCurseInstantBonusEffects(creature);
+
+        Assert.AreEqual((false, false, true, false, false), effects);
+    }
+
+    [TestMethod]
+    public void GetCurseInstantBonusEffects_WhenLeechRangedIsActive_AffectsRanged()
+    {
+        var creature = CreatureWithState<LeechRangedState>();
+
+        var effects = _rules.GetCurseInstantBonusEffects(creature);
+
+        Assert.AreEqual((false, false, false, true, false), effects);
+    }
+
+    [TestMethod]
+    public void GetCurseInstantBonusEffects_WhenLeechMagicIsActive_AffectsMagic()
+    {
+        var creature = CreatureWithState<LeechMagicState>();
+
+        var effects = _rules.GetCurseInstantBonusEffects(creature);
+
+        Assert.AreEqual((false, false, false, false, true), effects);
+    }
 
     [TestMethod]
     [DataRow(7, 8, 1.0, 7, DisplayName = "single possible damage roll")]
@@ -173,5 +266,12 @@ public sealed class CreatureCombatRulesTests
         var name = _rules.GetCurseSkillName(curseType);
 
         Assert.AreEqual(expected, name);
+    }
+
+    private static ICreature CreatureWithState<TState>() where TState : IState
+    {
+        var creature = Substitute.For<ICreature>();
+        creature.HasState<TState>().Returns(true);
+        return creature;
     }
 }

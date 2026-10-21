@@ -717,30 +717,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         protected override void CursesTick()
         {
-            var attackers = RecentAttackers;
-            bool attack = false, defence = false, strength = false, ranged = false, magic = false;
+            var (attack, strength, defence, ranged, magic) = GetRecentAttackerCurseInstantBonusEffects();
             var self = new bool[5];
-            foreach (var attacker in attackers)
-            {
-                var att = attacker.Attacker;
-                if (att.HasState<SapWarriorState>() || att.HasState<LeechAttackState>()) attack = true;
-                if (att.HasState<SapWarriorState>() || att.HasState<LeechStrengthState>()) strength = true;
-                if (att.HasState<SapWarriorState>() || att.HasState<SapRangerState>() || att.HasState<SapMagerState>()
-                    || att.HasState<LeechDefenceState>())
-                    defence = true;
-                if (att.HasState<SapRangerState>() || att.HasState<LeechRangedState>()) ranged = true;
-                if (att.HasState<SapMagerState>() || att.HasState<LeechMagicState>()) magic = true;
-            }
 
-            {
-                if (Owner.HasState<SapWarriorState>() || Owner.HasState<LeechAttackState>()) self[0] = true;
-                if (Owner.HasState<SapWarriorState>() || Owner.HasState<LeechStrengthState>()) self[1] = true;
-                if (Owner.HasState<SapWarriorState>() || Owner.HasState<SapRangerState>() || Owner.HasState<SapMagerState>()
-                    || Owner.HasState<LeechDefenceState>())
-                    self[2] = true;
-                if (Owner.HasState<SapRangerState>() || Owner.HasState<LeechRangedState>()) self[3] = true;
-                if (Owner.HasState<SapMagerState>() || Owner.HasState<LeechMagicState>()) self[4] = true;
-            }
+            var selfEffects = CombatRules.GetCurseInstantBonusEffects(Owner);
+            self[0] = selfEffects.Attack;
+            self[1] = selfEffects.Strength;
+            self[2] = selfEffects.Defence;
+            self[3] = selfEffects.Ranged;
+            self[4] = selfEffects.Magic;
 
             if (!attack && GetPrayerBonus(BonusPrayerType.CurseInstantAttack) != 0)
                 _character.Statistics.SetInstantCursePrayerBonus(BonusPrayerType.CurseInstantAttack, 0);

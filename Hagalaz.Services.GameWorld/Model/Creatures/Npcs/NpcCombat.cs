@@ -159,19 +159,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         protected override void CursesTick()
         {
-            var attackers = RecentAttackers;
-            bool attack = false, defence = false, strength = false, ranged = false, magic = false;
-            foreach (var attacker in attackers)
-            {
-                var att = attacker.Attacker;
-                if (att.HasState<SapWarriorState>() || att.HasState<LeechAttackState>()) attack = true;
-                if (att.HasState<SapWarriorState>() || att.HasState<LeechStrengthState>()) strength = true;
-                if (att.HasState<SapWarriorState>() || att.HasState<SapRangerState>() || att.HasState<SapMagerState>()
-                    || att.HasState<LeechDefenceState>())
-                    defence = true;
-                if (att.HasState<SapRangerState>() || att.HasState<LeechRangedState>()) ranged = true;
-                if (att.HasState<SapMagerState>() || att.HasState<LeechMagicState>()) magic = true;
-            }
+            var (attack, strength, defence, ranged, magic) = GetRecentAttackerCurseInstantBonusEffects();
 
             if (!attack && GetPrayerBonus(BonusPrayerType.CurseInstantAttack) != 0)
                 _npc.Statistics.SetInstantCursePrayerBonus(BonusPrayerType.CurseInstantAttack, 0);

@@ -9,6 +9,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
     public interface ICreatureCombatRules
     {
         /// <summary>
+        /// Gets which instant combat bonuses are affected by the creature's active curse states.
+        /// </summary>
+        (bool Attack, bool Strength, bool Defence, bool Ranged, bool Magic) GetCurseInstantBonusEffects(ICreature creature);
+
+        /// <summary>
         /// Gets the display name associated with a curse bonus type.
         /// </summary>
         string GetCurseSkillName(BonusPrayerType curseType);

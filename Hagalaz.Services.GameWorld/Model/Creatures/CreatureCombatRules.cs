@@ -1,4 +1,5 @@
 using System;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Common;
@@ -7,6 +8,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 {
     internal sealed class CreatureCombatRules : ICreatureCombatRules
     {
+        public (bool Attack, bool Strength, bool Defence, bool Ranged, bool Magic) GetCurseInstantBonusEffects(ICreature creature)
+        {
+            var sapWarrior = creature.HasState<SapWarriorState>();
+            var sapRanger = creature.HasState<SapRangerState>();
+            var sapMager = creature.HasState<SapMagerState>();
+
+            return (
+                sapWarrior || creature.HasState<LeechAttackState>(),
+                sapWarrior || creature.HasState<LeechStrengthState>(),
+                sapWarrior || sapRanger || sapMager || creature.HasState<LeechDefenceState>(),
+                sapRanger || creature.HasState<LeechRangedState>(),
+                sapMager || creature.HasState<LeechMagicState>());
+        }
+
         public string GetCurseSkillName(BonusPrayerType curseType)
         {
             switch (curseType)

@@ -114,6 +114,22 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </value>
         public IEnumerable<ICreatureAttackerInfo> RecentAttackers => _recentAttackers.AsEnumerable();
 
+        protected (bool Attack, bool Strength, bool Defence, bool Ranged, bool Magic) GetRecentAttackerCurseInstantBonusEffects()
+        {
+            bool attack = false, strength = false, defence = false, ranged = false, magic = false;
+            foreach (var attacker in RecentAttackers)
+            {
+                var effects = CombatRules.GetCurseInstantBonusEffects(attacker.Attacker);
+                attack |= effects.Attack;
+                strength |= effects.Strength;
+                defence |= effects.Defence;
+                ranged |= effects.Ranged;
+                magic |= effects.Magic;
+            }
+
+            return (attack, strength, defence, ranged, magic);
+        }
+
         protected CreatureCombat(
             ICreature owner,
             IEntityService entityService,
