@@ -25,6 +25,35 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             }
         }
 
+        public double CalculateMagicAccuracy(double attackLevel, int magicDefenceLevel, int defenceLevel, double attackBonus, double defenceBonus)
+        {
+            var effectiveAttack = Math.Round(attackLevel + 8.0 + attackBonus);
+
+            double effectiveDefence = defenceLevel;
+            effectiveDefence += 8.0;
+            effectiveDefence += defenceBonus;
+            effectiveDefence = Math.Round(effectiveDefence);
+
+            var effectiveMagicDefence = Math.Round((double)magicDefenceLevel);
+            effectiveMagicDefence *= 0.7;
+            effectiveDefence *= 0.3;
+
+            effectiveDefence = Math.Round(effectiveDefence);
+            effectiveMagicDefence = Math.Round(effectiveMagicDefence);
+            effectiveDefence += effectiveMagicDefence;
+
+            double attackersRoll = (int)Math.Round(effectiveAttack * (1.0 + attackBonus / 16.0) * 10.0);
+            double defendersRoll = (int)Math.Round(effectiveDefence * (1.0 + defenceBonus / 64.0) * 10.0);
+
+            var accuracy = 0.5;
+            if (attackersRoll < defendersRoll)
+                accuracy = (attackersRoll - 1.0) / (2.0 * defendersRoll);
+            else if (attackersRoll > defendersRoll)
+                accuracy = 1.0 - (defendersRoll + 1.0) / (2.0 * attackersRoll);
+
+            return accuracy;
+        }
+
         public int PerformMagicDamageCalculation(int minimum, int maximum, double accuracy)
         {
             return PerformDamageCalculation(minimum, maximum, accuracy, 1.0, 1.75);

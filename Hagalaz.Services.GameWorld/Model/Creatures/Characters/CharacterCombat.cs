@@ -1258,33 +1258,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (owner.HasState<VoidMagicEquippedState>()) myAttackLevel *= 1.3;
 
-            var effectiveAttack = myAttackLevel;
-            effectiveAttack += 8.0;
-            effectiveAttack += GetAttackBonus();
-            effectiveAttack = Math.Round(effectiveAttack);
-
-            double effectiveDefence = enemyDefenceLevel;
-            effectiveDefence += 8.0;
-            effectiveDefence += target.Combat.GetDefenceBonus(GetAttackBonusType());
-            effectiveDefence = Math.Round(effectiveDefence);
-
-            var effectiveMagicDefence = Math.Round((double)enemyMagicDefenceLevel);
-            effectiveMagicDefence *= 0.7;
-            effectiveDefence *= 0.3;
-
-            effectiveDefence = Math.Round(effectiveDefence);
-            effectiveMagicDefence = Math.Round(effectiveMagicDefence);
-
-            effectiveDefence += effectiveMagicDefence;
-
-
-            double attackersRoll = (int)Math.Round(effectiveAttack * (1.0 + GetAttackBonus() / 16.0) * 10.0); // / 64
-            double defendersRoll = (int)Math.Round(effectiveDefence * (1.0 + target.Combat.GetDefenceBonus(GetAttackBonusType()) / 64.0) * 10.0);
-
-            var accuracy = 0.5;
-            if (attackersRoll < defendersRoll)
-                accuracy = (attackersRoll - 1.0) / (2.0 * defendersRoll);
-            else if (attackersRoll > defendersRoll) accuracy = 1.0 - (defendersRoll + 1.0) / (2.0 * attackersRoll);
+            var accuracy = CombatRules.CalculateMagicAccuracy(
+                myAttackLevel,
+                enemyMagicDefenceLevel,
+                enemyDefenceLevel,
+                GetAttackBonus(),
+                target.Combat.GetDefenceBonus(GetAttackBonusType()));
 
             if (RandomStatic.Generator.NextDouble() > accuracy) return -1;
 

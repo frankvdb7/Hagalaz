@@ -36,6 +36,23 @@ public sealed class CreatureCombatRulesTests
     }
 
     [TestMethod]
+    [DataRow(10.0, 0, 53, 0.0, 0.0, 0.5, DisplayName = "equal rolls")]
+    [DataRow(0.0, 0, 0, 0.0, 0.0, 0.86875, DisplayName = "attack roll is higher")]
+    [DataRow(0.0, 100, 100, 0.0, 0.0, 79.0 / 2040.0, DisplayName = "defence roll is higher")]
+    public void CalculateMagicAccuracy_ReturnsExpectedAccuracy(
+        double attackLevel,
+        int magicDefenceLevel,
+        int defenceLevel,
+        double attackBonus,
+        double defenceBonus,
+        double expected)
+    {
+        var accuracy = _rules.CalculateMagicAccuracy(attackLevel, magicDefenceLevel, defenceLevel, attackBonus, defenceBonus);
+
+        Assert.AreEqual(expected, accuracy, 0.0000000001);
+    }
+
+    [TestMethod]
     [DataRow(BonusPrayerType.CurseAttack, "Attack")]
     [DataRow(BonusPrayerType.CurseStrength, "Strength")]
     [DataRow(BonusPrayerType.CurseDefence, "Defence")]
