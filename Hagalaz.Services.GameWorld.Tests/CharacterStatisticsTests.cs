@@ -3,6 +3,7 @@ using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Services.GameWorld.Model.Creatures;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -44,7 +45,8 @@ public sealed class CharacterStatisticsTests
             character,
             Options.Create(new CombatOptions()),
             Options.Create(new SkillOptions()),
-            Substitute.For<IHitSplatBuilder>());
+            Substitute.For<IHitSplatBuilder>(),
+            new CreatureCombatRules());
 
         Assert.AreEqual(350, statistics.GetRunEnergyRestoreRate());
     }
@@ -53,5 +55,6 @@ public sealed class CharacterStatisticsTests
         Substitute.For<ICharacter>(),
         Options.Create(new CombatOptions()),
         Options.Create(new SkillOptions()),
-        Substitute.For<IHitSplatBuilder>());
+        Substitute.For<IHitSplatBuilder>(),
+        new CreatureCombatRules());
 }

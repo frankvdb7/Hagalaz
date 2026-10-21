@@ -27,6 +27,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         protected readonly ICreature Owner;
 
+        private protected readonly ICreatureCombatRules CombatRules;
+
         /// <summary>
         ///     Contains all attackers.
         /// </summary>
@@ -118,7 +120,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             IProjectilePathFinder projectilePathFinder,
             ISmartPathFinder smartPathFinder,
             IOptions<CombatOptions> combatOptions,
-            IHitSplatBuilder hitSplatBuilder)
+            IHitSplatBuilder hitSplatBuilder,
+            ICreatureCombatRules combatRules)
         {
             Owner = owner;
             _entityService = entityService;
@@ -128,6 +131,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             _projectilePathFinder = projectilePathFinder;
             _smartPathFinder = smartPathFinder;
             _combatOptions = combatOptions;
+            CombatRules = combatRules;
         }
 
         /// <summary>

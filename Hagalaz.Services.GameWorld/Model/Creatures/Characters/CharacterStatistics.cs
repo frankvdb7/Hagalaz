@@ -28,6 +28,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// </summary>
     public class CharacterStatistics : ICharacterStatistics, IHydratable<HydratedStatisticsDto>, IDehydratable<HydratedStatisticsDto>
     {
+        private readonly ICreatureCombatRules _combatRules;
+
         /// <summary>
         /// Represents a single skill.
         /// </summary>
@@ -262,9 +264,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             ICharacter owner,
             IOptions<CombatOptions> combatOptions,
             IOptions<SkillOptions> skillOptions,
-            IHitSplatBuilder hitSplatBuilder)
+            IHitSplatBuilder hitSplatBuilder,
+            ICreatureCombatRules combatRules)
         {
             _owner = owner;
+            _combatRules = combatRules;
             Bonuses = new Bonuses();
             PrayerBonuses = new PrayerBonuses();
             for (var i = 0; i < SkillsCount; i++)
@@ -1363,7 +1367,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
                     if (wasAffected && bonus == 0)
                         _owner.SendChatMessage(
-                            "Your " + CreatureHelperTwo.GetCurseSkillName((BonusPrayerType)i) + " is now unaffected by sap and leech curses.");
+                            "Your " + _combatRules.GetCurseSkillName((BonusPrayerType)i) + " is now unaffected by sap and leech curses.");
                 }
             }
 

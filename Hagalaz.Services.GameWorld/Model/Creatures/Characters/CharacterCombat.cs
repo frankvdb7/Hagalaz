@@ -62,8 +62,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             IHitSplatBuilder hitSplatBuilder,
             IProjectilePathFinder projectilePathFinder,
             ISmartPathFinder smartPathFinder,
-            IOptions<CombatOptions> combatOptions)
-            : base(owner, entityService, projectilePathFinder, smartPathFinder, combatOptions, hitSplatBuilder)
+            IOptions<CombatOptions> combatOptions,
+            ICreatureCombatRules combatRules)
+            : base(owner, entityService, projectilePathFinder, smartPathFinder, combatOptions, hitSplatBuilder, combatRules)
         {
             _character = owner;
             _animationBuilder = animationBuilder;
@@ -874,7 +875,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                             else if (LastAttacked is INpc npc) drained = npc.Statistics.DecreaseCursePrayerBonus(drainType, -10);
 
                             if (drained)
-                                _character.SendChatMessage("Your curse drains the enemy's " + CreatureHelperTwo.GetCurseSkillName(drainType) + ".");
+                                _character.SendChatMessage("Your curse drains the enemy's " + CombatRules.GetCurseSkillName(drainType) + ".");
                             else
                                 _character.SendChatMessage("Your opponent has been weakened so much that your sap curse has no effect.");
                         }
@@ -956,11 +957,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                             if (drained)
                             {
                                 if (_character.Statistics.IncreaseCursePrayerBonus(drainType, 10))
-                                    _character.SendChatMessage("Your curse drains " + CreatureHelperTwo.GetCurseSkillName(drainType) +
+                                    _character.SendChatMessage("Your curse drains " + CombatRules.GetCurseSkillName(drainType) +
                                                                " from the enemy, boosting your " +
-                                                               CreatureHelperTwo.GetCurseSkillName(drainType) + ".");
+                                                               CombatRules.GetCurseSkillName(drainType) + ".");
                                 else
-                                    _character.SendChatMessage("Your curse drains " + CreatureHelperTwo.GetCurseSkillName(drainType) +
+                                    _character.SendChatMessage("Your curse drains " + CombatRules.GetCurseSkillName(drainType) +
                                                                " from the enemy, but has already made you so strong that it can improve you no further.");
                             }
                             else
@@ -1057,7 +1058,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (RandomStatic.Generator.NextDouble() > accuracy) return -1;
 
             var max = GetRangedMaxHit(target, specialAttack);
-            return CreatureHelperTwo.PerformRangedDamageCalculation(1, max, accuracy);
+            return CombatRules.PerformRangedDamageCalculation(1, max, accuracy);
         }
 
         /// <summary>
@@ -1163,7 +1164,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (RandomStatic.Generator.NextDouble() > accuracy) return -1;
 
             var max = GetMeleeMaxHit(target, specialAttack);
-            return CreatureHelperTwo.PerformMeleeDamageCalculation(1, max, accuracy);
+            return CombatRules.PerformMeleeDamageCalculation(1, max, accuracy);
         }
 
         /// <summary>
@@ -1288,7 +1289,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (RandomStatic.Generator.NextDouble() > accuracy) return -1;
 
             var max = GetMagicMaxHit(target, baseDamage);
-            return CreatureHelperTwo.PerformMagicDamageCalculation(1, max, accuracy);
+            return CombatRules.PerformMagicDamageCalculation(1, max, accuracy);
         }
 
 

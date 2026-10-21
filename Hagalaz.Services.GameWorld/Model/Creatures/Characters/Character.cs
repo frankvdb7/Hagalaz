@@ -337,11 +337,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             Bank = new BankContainer(this, 500, itemBuilder);
             Rewards = new RewardContainer(this, itemBuilder);
             MoneyPouch = new MoneyPouchContainer(this, itemBuilder);
-            Statistics = new CharacterStatistics(this, combatOptions, skillOptions, hitSplatBuilder);
+            var combatRules = new CreatureCombatRules();
+            Statistics = new CharacterStatistics(this, combatOptions, skillOptions, hitSplatBuilder, combatRules);
             Appearance = new CharacterAppearance(this, npcService, bodyDataRepository, characterNpcScriptProvider, characterNpcScriptActivator, itemPartFactory);
             Prayers = new Prayers(this, animationBuilder, graphicBuilder);
             Combat = new CharacterCombat(this, entityService, animationBuilder, graphicBuilder, projectileBuilder, mapRegionService, groundItemBuilder, hitSplatBuilder,
-                projectilePathFinder, pathFinder, combatOptions);
+                projectilePathFinder, pathFinder, combatOptions, combatRules);
             Quests = new Quests(this);
             Farming = new Farming(this, farmingService, gameObjectService);
             Slayer = new Slayer(this, slayerService, ratesService, slayerTaskGenerator, slayerTaskCompletedDialogue, mediator);

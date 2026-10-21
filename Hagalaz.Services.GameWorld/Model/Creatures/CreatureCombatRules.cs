@@ -1,17 +1,12 @@
-﻿using System;
+using System;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Common;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures
 {
-    public static class CreatureHelperTwo
+    internal sealed class CreatureCombatRules : ICreatureCombatRules
     {
-        /// <summary>
-        ///     Get's name of the skill by curse type.
-        /// </summary>
-        /// <param name="curseType">Type of the curse.</param>
-        /// <returns>String.</returns>
-        public static string GetCurseSkillName(BonusPrayerType curseType)
+        public string GetCurseSkillName(BonusPrayerType curseType)
         {
             switch (curseType)
             {
@@ -30,38 +25,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             }
         }
 
-        /// <summary>
-        ///     Calculate's random amount of damage between minimum and maximum.
-        /// </summary>
-        /// <param name="minimum">The minimum.</param>
-        /// <param name="maximum">The maximum.</param>
-        /// <param name="accuracy">The accuracy.</param>
-        /// <returns>System.Int32.</returns>
-        public static int PerformMagicDamageCalculation(int minimum, int maximum, double accuracy)
+        public int PerformMagicDamageCalculation(int minimum, int maximum, double accuracy)
         {
             return PerformDamageCalculation(minimum, maximum, accuracy, 1.0, 1.75);
         }
 
-        /// <summary>
-        ///     Calculate's random amount of damage between minimum and maximum.
-        /// </summary>
-        /// <param name="minimum">The minimum.</param>
-        /// <param name="maximum">The maximum.</param>
-        /// <param name="accuracy">The accuracy.</param>
-        /// <returns>System.Int32.</returns>
-        public static int PerformMeleeDamageCalculation(int minimum, int maximum, double accuracy)
+        public int PerformMeleeDamageCalculation(int minimum, int maximum, double accuracy)
         {
             return PerformDamageCalculation(minimum, maximum, accuracy, 2.0, 4.0);
         }
 
-        /// <summary>
-        ///     Calculate's random amount of damage between minimum and maximum.
-        /// </summary>
-        /// <param name="minimum">The minimum.</param>
-        /// <param name="maximum">The maximum.</param>
-        /// <param name="accuracy">The accuracy.</param>
-        /// <returns>System.Int32.</returns>
-        public static int PerformRangedDamageCalculation(int minimum, int maximum, double accuracy)
+        public int PerformRangedDamageCalculation(int minimum, int maximum, double accuracy)
         {
             return PerformDamageCalculation(minimum, maximum, accuracy, 2.0, 4.0);
         }

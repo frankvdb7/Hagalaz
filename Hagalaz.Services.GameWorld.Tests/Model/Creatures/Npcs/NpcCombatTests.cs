@@ -15,6 +15,7 @@ using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Services.GameWorld.Configuration.Model;
+using Hagalaz.Services.GameWorld.Model.Creatures;
 using Hagalaz.Services.GameWorld.Model.Creatures.Npcs;
 using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Store;
@@ -64,7 +65,8 @@ public sealed class NpcCombatTests
             Substitute.For<IProjectilePathFinder>(),
             Substitute.For<ISmartPathFinder>(),
             Options.Create(new CombatOptions()),
-            Substitute.For<IHitSplatBuilder>());
+            Substitute.For<IHitSplatBuilder>(),
+            new CreatureCombatRules());
 
         combat.OnDeath();
 
@@ -141,7 +143,8 @@ public sealed class NpcCombatTests
                 Substitute.For<IProjectilePathFinder>(),
                 Substitute.For<ISmartPathFinder>(),
                 Options.Create(new CombatOptions()),
-                Substitute.For<IHitSplatBuilder>())
+                Substitute.For<IHitSplatBuilder>(),
+                new CreatureCombatRules())
         {
         }
 

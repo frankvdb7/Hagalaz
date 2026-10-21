@@ -754,7 +754,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             ISmartPathFinder smartPathFinder,
             IOptions<CombatOptions> combatOptions)
             : base(owner, entityService, animationBuilder, graphicBuilder, projectileBuilder, mapRegionService, groundItemBuilder,
-                hitSplatBuilder, projectilePathFinder, smartPathFinder, combatOptions)
+                hitSplatBuilder, projectilePathFinder, smartPathFinder, combatOptions, new CreatureCombatRules())
         {
         }
 

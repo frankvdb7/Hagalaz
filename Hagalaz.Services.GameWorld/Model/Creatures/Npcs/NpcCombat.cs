@@ -54,8 +54,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             IProjectilePathFinder projectilePathFinder,
             ISmartPathFinder smartPathFinder,
             IOptions<CombatOptions> combatOptions,
-            IHitSplatBuilder hitSplatBuilder)
-            : base(owner, entityService, projectilePathFinder, smartPathFinder, combatOptions, hitSplatBuilder)
+            IHitSplatBuilder hitSplatBuilder,
+            ICreatureCombatRules combatRules)
+            : base(owner, entityService, projectilePathFinder, smartPathFinder, combatOptions, hitSplatBuilder, combatRules)
         {
             _npc = owner;
             _npcService = npcService;
@@ -441,7 +442,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             if (RandomStatic.Generator.NextDouble() > accuracy) return -1;
 
             var max = GetMagicMaxHit(target, baseDamage);
-            return CreatureHelperTwo.PerformMagicDamageCalculation(1, max, accuracy);
+            return CombatRules.PerformMagicDamageCalculation(1, max, accuracy);
         }
 
 
@@ -483,7 +484,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             if (RandomStatic.Generator.NextDouble() > accuracy) return -1;
 
             var max = GetRangeMaxHit(target);
-            return CreatureHelperTwo.PerformRangedDamageCalculation(1, max, accuracy);
+            return CombatRules.PerformRangedDamageCalculation(1, max, accuracy);
         }
 
 
@@ -529,7 +530,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
 
             if (RandomStatic.Generator.NextDouble() > accuracy) return -1;
 
-            return CreatureHelperTwo.PerformMeleeDamageCalculation(1, maxDamage, accuracy);
+            return CombatRules.PerformMeleeDamageCalculation(1, maxDamage, accuracy);
         }
 
         /// <summary>
