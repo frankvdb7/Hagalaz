@@ -42,9 +42,47 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             effectiveMagicDefence = Math.Round(effectiveMagicDefence);
             effectiveDefence += effectiveMagicDefence;
 
-            double attackersRoll = (int)Math.Round(effectiveAttack * (1.0 + attackBonus / 16.0) * 10.0);
-            double defendersRoll = (int)Math.Round(effectiveDefence * (1.0 + defenceBonus / 64.0) * 10.0);
+            var (attackersRoll, defendersRoll) = CalculateRollsFromEffectiveLevels(effectiveAttack, effectiveDefence, attackBonus, defenceBonus);
 
+            return CalculateAccuracy((int)attackersRoll, (int)defendersRoll);
+        }
+
+        public double CalculateMeleeAccuracy(double attackLevel, int defenceLevel, double attackBonus, double defenceBonus)
+        {
+            var (attackersRoll, defendersRoll) = CalculateRolls(attackLevel, defenceLevel, attackBonus, defenceBonus);
+            return CalculateAccuracy(attackersRoll, defendersRoll);
+        }
+
+        public double CalculateRangedAccuracy(double attackLevel, int defenceLevel, double attackBonus, double defenceBonus)
+        {
+            var (attackersRoll, defendersRoll) = CalculateRolls(attackLevel, defenceLevel, attackBonus, defenceBonus);
+            return CalculateAccuracy((int)attackersRoll, (int)defendersRoll);
+        }
+
+        private (double AttackersRoll, double DefendersRoll) CalculateRolls(
+            double attackLevel,
+            int defenceLevel,
+            double attackBonus,
+            double defenceBonus)
+        {
+            var effectiveAttack = Math.Round(attackLevel + 8.0 + attackBonus);
+            var effectiveDefence = Math.Round(defenceLevel + 8.0 + defenceBonus);
+            return CalculateRollsFromEffectiveLevels(effectiveAttack, effectiveDefence, attackBonus, defenceBonus);
+        }
+
+        private (double AttackersRoll, double DefendersRoll) CalculateRollsFromEffectiveLevels(
+            double effectiveAttack,
+            double effectiveDefence,
+            double attackBonus,
+            double defenceBonus)
+        {
+            var attackersRoll = Math.Round(effectiveAttack * (1.0 + attackBonus / 16.0) * 10.0);
+            var defendersRoll = Math.Round(effectiveDefence * (1.0 + defenceBonus / 64.0) * 10.0);
+            return (attackersRoll, defendersRoll);
+        }
+
+        private double CalculateAccuracy(double attackersRoll, double defendersRoll)
+        {
             var accuracy = 0.5;
             if (attackersRoll < defendersRoll)
                 accuracy = (attackersRoll - 1.0) / (2.0 * defendersRoll);

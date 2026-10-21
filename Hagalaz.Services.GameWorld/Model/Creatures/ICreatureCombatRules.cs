@@ -13,6 +13,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         string GetCurseSkillName(BonusPrayerType curseType);
 
         /// <summary>
+        /// Calculates melee hit accuracy from the attack and defence levels and bonuses.
+        /// </summary>
+        double CalculateMeleeAccuracy(double attackLevel, int defenceLevel, double attackBonus, double defenceBonus);
+
+        /// <summary>
+        /// Calculates ranged hit accuracy from the attack and defence levels and bonuses.
+        /// </summary>
+        double CalculateRangedAccuracy(double attackLevel, int defenceLevel, double attackBonus, double defenceBonus);
+
+        /// <summary>
         /// Calculates magic hit accuracy from the attack and defence levels and bonuses.
         /// </summary>
         double CalculateMagicAccuracy(double attackLevel, int magicDefenceLevel, int defenceLevel, double attackBonus, double defenceBonus);

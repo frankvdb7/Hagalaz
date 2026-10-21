@@ -36,6 +36,24 @@ public sealed class CreatureCombatRulesTests
     }
 
     [TestMethod]
+    [DataRow(10.0, 10, 0.0, 0.0, 0.5, DisplayName = "equal rolls")]
+    [DataRow(10.0, 0, 0.0, 0.0, 0.775, DisplayName = "attack roll is higher")]
+    [DataRow(0.0, 20, 0.0, 0.0, 79.0 / 560.0, DisplayName = "defence roll is higher")]
+    public void MeleeAndRangedAccuracy_ReturnExpectedValues(
+        double attackLevel,
+        int defenceLevel,
+        double attackBonus,
+        double defenceBonus,
+        double expected)
+    {
+        var meleeAccuracy = _rules.CalculateMeleeAccuracy(attackLevel, defenceLevel, attackBonus, defenceBonus);
+        var rangedAccuracy = _rules.CalculateRangedAccuracy(attackLevel, defenceLevel, attackBonus, defenceBonus);
+
+        Assert.AreEqual(expected, meleeAccuracy, 0.0000000001, "Melee accuracy");
+        Assert.AreEqual(expected, rangedAccuracy, 0.0000000001, "Ranged accuracy");
+    }
+
+    [TestMethod]
     [DataRow(10.0, 0, 53, 0.0, 0.0, 0.5, DisplayName = "equal rolls")]
     [DataRow(0.0, 0, 0, 0.0, 0.0, 0.86875, DisplayName = "attack roll is higher")]
     [DataRow(0.0, 100, 100, 0.0, 0.0, 79.0 / 2040.0, DisplayName = "defence roll is higher")]
