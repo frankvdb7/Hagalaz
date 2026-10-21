@@ -144,6 +144,9 @@ public sealed class ItemContainer : IItemContainer, IItemTransactionSource
     public int GetSlotByItem(IItem item, bool ignoreCount = true) => _storage.GetSlotByItem(item, ignoreCount);
     public bool HasSpaceFor(IItem item) => _storage.HasSpaceFor(item);
     public bool HasSpaceForRange(IEnumerable<IItem?> items) => _storage.HasSpaceForRange(items);
+    public bool TryGetTransferableItemCount(IItem item, int requestedCount, out int transferCount,
+        out bool wasLimitedByFreeSlots) =>
+        _storage.TryGetTransferableItemCount(item, requestedCount, out transferCount, out wasLimitedByFreeSlots);
 
     public void Clear(bool publishChanges = true)
     {

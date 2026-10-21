@@ -45,7 +45,10 @@ public sealed class CharacterHydrationEndpointIntegrationTests
         try
         {
             foreach (var bus in buses)
-                await bus.StartAsync();
+            {
+                var busHandle = await bus.StartAsync();
+                await busHandle.Ready;
+            }
 
             await Task.WhenAll(
                 Hydrate(first, firstIdentity, 1, replies),
@@ -60,7 +63,8 @@ public sealed class CharacterHydrationEndpointIntegrationTests
             var replacementBus = replacement.GetRequiredService<IBusControl>();
             try
             {
-                await replacementBus.StartAsync();
+                var replacementBusHandle = await replacementBus.StartAsync();
+                await replacementBusHandle.Ready;
                 await Task.WhenAll(
                     Hydrate(replacement, replacementIdentity, 5, replies),
                     Hydrate(second, secondIdentity, 6, replies));

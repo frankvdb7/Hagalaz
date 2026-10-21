@@ -231,7 +231,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public void OlderOfflineSnapshotDoesNotClearNewerLiveSignIn()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
         feature.Friends.Add(CreateFriend());
         var boundary = feature.CaptureObservationBoundary();
 
@@ -245,7 +245,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public void NewerOfflineSnapshotClearsOlderLiveSignIn()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
         feature.Friends.Add(CreateFriend());
 
         Assert.IsNotNull(feature.TryApplySignIn(42, 10, "live"));
@@ -259,7 +259,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public void SnapshotReplacementRetainsAnOfflineGenerationFence()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
         feature.Friends.Add(CreateFriend());
 
         Assert.IsNull(feature.TryApplySignOut(42, 10, "old"));
@@ -275,7 +275,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public void NewerSignOutTakesAnOlderOwnerOffline()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
         feature.Friends.Add(CreateFriend());
 
         Assert.IsNotNull(feature.TryApplySignIn(42, 10, "old"));
@@ -285,9 +285,9 @@ public sealed class ContactPresenceConsumerTests
     }
 
     [TestMethod]
-    public void LobbyContactsFeature_UsesTheSamePresenceFence()
+    public void ContactsFeature_UsesTheSamePresenceFence()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
         feature.Friends.Add(new Friend
         {
             MasterId = 42,
@@ -305,7 +305,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public void AddFriend_SeedsExactOnlineOwner()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
 
         feature.AddFriend(CreateFriend(), new ContactPresenceOwner(42, 11, "new"));
 
@@ -317,7 +317,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public void RemoveFriend_PrunesOwnerBeforeReAdd()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
 
         feature.AddFriend(CreateFriend(), new ContactPresenceOwner(42, 11, "old"));
         Assert.IsTrue(feature.RemoveFriend(42));
@@ -330,7 +330,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public void AddFriend_OfflineFriendClearsPreviousOwner()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
 
         feature.AddFriend(CreateFriend(), new ContactPresenceOwner(42, 11, "old"));
         feature.AddFriend(CreateFriend(), null, feature.CaptureObservationBoundary());
@@ -341,7 +341,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public void AddFriend_StaleOfflineResponseDoesNotClearNewerLivePresence()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
         feature.Friends.Add(CreateFriend());
         var boundary = feature.CaptureObservationBoundary();
 
@@ -354,7 +354,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public void AddFriend_CurrentOfflineResponseClearsOlderLivePresence()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
         feature.Friends.Add(CreateFriend());
         Assert.IsNotNull(feature.TryApplySignIn(42, 10, "live"));
         var boundary = feature.CaptureObservationBoundary();
@@ -367,7 +367,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public void AddFriend_WhenSignInIsBufferedDuringObservation_PreservesReconciledPresence()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
         var boundary = feature.BeginObservationWindow();
 
         Assert.IsNull(feature.TryApplySignIn(42, 10, "live", 5, "World 5"));
@@ -384,7 +384,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public void LiveUnknownPresenceDuringSnapshotWindowIsAppliedWhenSnapshotAddsFriend()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
         var boundary = feature.BeginObservationWindow();
 
         Assert.IsNull(feature.TryApplySignIn(42, 10, "live"));
@@ -397,7 +397,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public void LiveUnknownPresenceOutsideSnapshotWindowIsIgnored()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
 
         Assert.IsNull(feature.TryApplySignIn(42, 10, "live"));
         feature.ReplaceFriends([CreateFriend()], []);
@@ -408,7 +408,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public void UnknownPresenceIsPrunedWhenSnapshotDoesNotContainTheContact()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
         var boundary = feature.BeginObservationWindow();
 
         Assert.IsNull(feature.TryApplySignIn(42, 10, "live"));
@@ -422,7 +422,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public async Task InitialSnapshotGateCompletesWhenTheFirstSnapshotIsApplied()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
         var wait = feature.WaitForInitialSnapshotAsync();
 
         Assert.IsFalse(wait.IsCompleted);
@@ -435,7 +435,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public void PendingSameGenerationSignInCannotResurrectSignOut()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
         var boundary = feature.BeginObservationWindow();
 
         Assert.IsNull(feature.TryApplySignOut(42, 10, "live"));
@@ -451,7 +451,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public void PendingSameGenerationWrongConnectionSignOutCannotKillOwner()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
         var boundary = feature.BeginObservationWindow();
 
         Assert.IsNull(feature.TryApplySignIn(42, 10, "connection-a", 5, "World 5"));
@@ -469,7 +469,7 @@ public sealed class ContactPresenceConsumerTests
     [TestMethod]
     public void PendingHigherGenerationSupersedesOlderObservation()
     {
-        var feature = new LobbyContactsFeature();
+        var feature = new ContactsFeature();
         var boundary = feature.BeginObservationWindow();
 
         Assert.IsNull(feature.TryApplySignOut(42, 10, "connection-a"));
@@ -483,6 +483,42 @@ public sealed class ContactPresenceConsumerTests
         feature.EndObservationWindow();
     }
 
+    [TestMethod]
+    public void ContactsFeatureReflectsReplacementContactLists()
+    {
+        var character = Substitute.For<ICharacter>();
+        var originalFriends = new ContactList<Friend>();
+        var originalIgnores = new ContactList<Ignore>();
+        character.Friends.Returns(originalFriends);
+        character.Ignores.Returns(originalIgnores);
+        var feature = new ContactsFeature(character);
+
+        var currentFriends = new ContactList<Friend>();
+        var currentIgnores = new ContactList<Ignore>();
+        character.Friends.Returns(currentFriends);
+        character.Ignores.Returns(currentIgnores);
+
+        Assert.AreSame(currentFriends, feature.Friends);
+        Assert.AreSame(currentIgnores, feature.Ignores);
+    }
+
+    [TestMethod]
+    public void ContactsFeature_LobbyInstancesKeepTheirFriendsAndIgnoresIndependent()
+    {
+        var first = new ContactsFeature();
+        var second = new ContactsFeature();
+        var friend = CreateFriend();
+        var ignore = new Ignore { MasterId = 43 };
+
+        first.Friends.Add(friend);
+        first.Ignores.Add(ignore);
+
+        Assert.AreSame(friend, first.Friends.Get(42));
+        Assert.IsNull(second.Friends.Get(42));
+        Assert.AreSame(ignore, first.Ignores.Get(43));
+        Assert.IsNull(second.Ignores.Get(43));
+    }
+
     private static IGameConnection CreateConnection(IContactList<Friend> contacts)
     {
         var connection = Substitute.For<IGameConnection>();
@@ -490,7 +526,7 @@ public sealed class ContactPresenceConsumerTests
         var character = Substitute.For<ICharacter>();
         character.Friends.Returns(contacts);
         character.Ignores.Returns(new ContactList<Ignore>());
-        features.Set<IContactsFeature>(new WorldContactsFeature(character));
+        features.Set<IContactsFeature>(new ContactsFeature(character));
         connection.Features.Returns(features);
         connection.SendMessage(Arg.Any<RaidoMessage>()).Returns(Task.CompletedTask);
         return connection;

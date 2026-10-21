@@ -27,6 +27,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         protected readonly ICreature Owner;
 
+        private protected readonly ICreatureCombatRules CombatRules;
+
         /// <summary>
         ///     Contains all attackers.
         /// </summary>
@@ -112,13 +114,30 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </value>
         public IEnumerable<ICreatureAttackerInfo> RecentAttackers => _recentAttackers.AsEnumerable();
 
+        protected (bool Attack, bool Strength, bool Defence, bool Ranged, bool Magic) GetRecentAttackerCurseInstantBonusEffects()
+        {
+            bool attack = false, strength = false, defence = false, ranged = false, magic = false;
+            foreach (var attacker in RecentAttackers)
+            {
+                var effects = CombatRules.GetCurseInstantBonusEffects(attacker.Attacker);
+                attack |= effects.Attack;
+                strength |= effects.Strength;
+                defence |= effects.Defence;
+                ranged |= effects.Ranged;
+                magic |= effects.Magic;
+            }
+
+            return (attack, strength, defence, ranged, magic);
+        }
+
         protected CreatureCombat(
             ICreature owner,
             IEntityService entityService,
             IProjectilePathFinder projectilePathFinder,
             ISmartPathFinder smartPathFinder,
             IOptions<CombatOptions> combatOptions,
-            IHitSplatBuilder hitSplatBuilder)
+            IHitSplatBuilder hitSplatBuilder,
+            ICreatureCombatRules combatRules)
         {
             Owner = owner;
             _entityService = entityService;
@@ -128,6 +147,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             _projectilePathFinder = projectilePathFinder;
             _smartPathFinder = smartPathFinder;
             _combatOptions = combatOptions;
+            CombatRules = combatRules;
         }
 
         /// <summary>

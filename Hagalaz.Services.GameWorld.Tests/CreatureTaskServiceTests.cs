@@ -114,6 +114,27 @@ public sealed class CreatureTaskServiceTests
     }
 
     [TestMethod]
+    public void Queue_GenericTask_WithAlreadyCancelledToken_CancelsBeforeRunning()
+    {
+        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var service = new CreatureTaskService(scheduler);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var executed = false;
+        var task = new RsTask<int>(() =>
+        {
+            executed = true;
+            return 42;
+        }, 1);
+
+        service.Queue(task, cancellation.Token);
+        scheduler.Tick();
+
+        Assert.IsTrue(task.IsCancelled);
+        Assert.IsFalse(executed);
+    }
+
+    [TestMethod]
     public async Task Queue_CancellationAwareAsyncTaskReceivesTokenCancellation()
     {
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);

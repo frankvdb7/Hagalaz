@@ -118,8 +118,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             Bounds = new Bounds(definition.BoundsType, defaultLocation.Clone(), minimumLocation, maximumLocation);
             Statistics = new NpcStatistics(this, eventManager, hitSplatBuilder);
             Appearance = new NpcAppearance(this, npcService);
+            var combatRules = new CreatureCombatRules();
             Combat = new NpcCombat(this, entityService, npcService, lootService, lootGenerator, groundItemBuilder, projectilePathFinder,
-                smartPathFinder, combatOptions, hitSplatBuilder);
+                smartPathFinder, combatOptions, hitSplatBuilder, combatRules);
             SpawnFaceDirection = spawnFaceDirection is DirectionFlag.None or null
                 ? DirectionHelper.GetNpcFaceDirection(definition.SpawnFaceDirection)
                 : spawnFaceDirection.Value;

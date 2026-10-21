@@ -32,6 +32,7 @@ using Hagalaz.Game.Scripts.Npcs.Familiars;
 using Hagalaz.Game.Scripts.Widgets.Orbs;
 using Hagalaz.Game.Scripts.Widgets.Tabs;
 using Hagalaz.Services.GameWorld.Data;
+using Hagalaz.Services.GameWorld.Model.Creatures;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
@@ -1299,7 +1300,8 @@ public sealed class DuelArenaInteractionRegressionTests
                 Substitute.For<IHitSplatBuilder>(),
                 Substitute.For<IProjectilePathFinder>(),
                 Substitute.For<ISmartPathFinder>(),
-                Options.Create(new CombatOptions()))
+                Options.Create(new CombatOptions()),
+                Substitute.For<ICreatureCombatRules>())
         {
         }
 

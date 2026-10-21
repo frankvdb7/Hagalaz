@@ -117,8 +117,7 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
     public Task<bool> ReleaseAsync(uint masterId, string claimId, CancellationToken cancellationToken = default) =>
         WithClaimLockAsync(masterId, async token =>
         {
-            var current = await _cache.TryGetAsync<string>(GetKey(masterId), EntryOptions, token);
-            if (!current.HasValue || current.Value != claimId)
+            if (!await IsClaimOwnerAsync(masterId, claimId, token))
             {
                 return false;
             }
@@ -130,8 +129,7 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
     public Task<bool> RenewAsync(uint masterId, string claimId, CancellationToken cancellationToken = default) =>
         WithClaimLockAsync(masterId, async token =>
         {
-            var current = await _cache.TryGetAsync<string>(GetKey(masterId), EntryOptions, token);
-            if (!current.HasValue || current.Value != claimId)
+            if (!await IsClaimOwnerAsync(masterId, claimId, token))
             {
                 return false;
             }
@@ -147,8 +145,7 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
         CancellationToken cancellationToken = default) =>
         WithClaimLockAsync(masterId, async token =>
         {
-            var current = await _cache.TryGetAsync<string>(GetKey(masterId), EntryOptions, token);
-            if (!current.HasValue || current.Value != claimId)
+            if (!await IsClaimOwnerAsync(masterId, claimId, token))
             {
                 return false;
             }
@@ -156,6 +153,12 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
             await _cache.SetAsync(GetKey(masterId), claimId, EntryOptions, token);
             return await action(token);
         }, cancellationToken);
+
+    private async Task<bool> IsClaimOwnerAsync(uint masterId, string claimId, CancellationToken token)
+    {
+        var current = await _cache.TryGetAsync<string>(GetKey(masterId), EntryOptions, token);
+        return current.HasValue && current.Value == claimId;
+    }
 
     private async Task<T> WithClaimLockAsync<T>(uint masterId, Func<CancellationToken, Task<T>> action, CancellationToken token)
     {

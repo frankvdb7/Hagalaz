@@ -137,7 +137,7 @@ public sealed class WorldSessionAdmissionService : IWorldSessionAdmissionService
 
             context.Features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
             context.Features.Set<ISessionFeature>(new SessionFeature { Session = session });
-            context.Features.Set<IContactsFeature>(new WorldContactsFeature(character));
+            context.Features.Set<IContactsFeature>(new ContactsFeature(character));
             context.Features.Set<IUserProfileFeature>(new UserProfileFeature());
             signInSucceeded = true;
             return SignInResult.Success;

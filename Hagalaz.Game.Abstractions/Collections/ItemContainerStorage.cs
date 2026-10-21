@@ -514,6 +514,46 @@ namespace Hagalaz.Game.Abstractions.Collections
             return FreeSlots >= item.Count;
         }
 
+        public bool TryGetTransferableItemCount(IItem item, int requestedCount, out int transferCount,
+            out bool wasLimitedByFreeSlots)
+        {
+            ArgumentNullException.ThrowIfNull(item);
+            transferCount = 0;
+            wasLimitedByFreeSlots = false;
+            if (requestedCount <= 0) return false;
+
+            var stack = Type == StorageType.AlwaysStack || item.ItemDefinition.Stackable || item.ItemDefinition.Noted;
+            var requiredSlots = 0;
+            if (stack)
+            {
+                if (GetSlotByItem(item) != -1)
+                {
+                    var total = GetCount(item) + (long)requestedCount;
+                    if (total > int.MaxValue) return false;
+                }
+                else
+                {
+                    requiredSlots = 1;
+                }
+            }
+            else
+            {
+                requiredSlots = requestedCount;
+            }
+
+            var freeSlots = FreeSlots;
+            if (freeSlots < requiredSlots)
+            {
+                wasLimitedByFreeSlots = true;
+                if (stack || freeSlots <= 0) return false;
+                transferCount = freeSlots;
+                return true;
+            }
+
+            transferCount = requestedCount;
+            return true;
+        }
+
         /// <summary>
         /// Checks if the container has enough space to add a collection of items.
         /// </summary>

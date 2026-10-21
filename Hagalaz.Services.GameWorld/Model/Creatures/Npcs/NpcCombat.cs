@@ -54,8 +54,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             IProjectilePathFinder projectilePathFinder,
             ISmartPathFinder smartPathFinder,
             IOptions<CombatOptions> combatOptions,
-            IHitSplatBuilder hitSplatBuilder)
-            : base(owner, entityService, projectilePathFinder, smartPathFinder, combatOptions, hitSplatBuilder)
+            IHitSplatBuilder hitSplatBuilder,
+            ICreatureCombatRules combatRules)
+            : base(owner, entityService, projectilePathFinder, smartPathFinder, combatOptions, hitSplatBuilder, combatRules)
         {
             _npc = owner;
             _npcService = npcService;
@@ -158,19 +159,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         protected override void CursesTick()
         {
-            var attackers = RecentAttackers;
-            bool attack = false, defence = false, strength = false, ranged = false, magic = false;
-            foreach (var attacker in attackers)
-            {
-                var att = attacker.Attacker;
-                if (att.HasState<SapWarriorState>() || att.HasState<LeechAttackState>()) attack = true;
-                if (att.HasState<SapWarriorState>() || att.HasState<LeechStrengthState>()) strength = true;
-                if (att.HasState<SapWarriorState>() || att.HasState<SapRangerState>() || att.HasState<SapMagerState>()
-                    || att.HasState<LeechDefenceState>())
-                    defence = true;
-                if (att.HasState<SapRangerState>() || att.HasState<LeechRangedState>()) ranged = true;
-                if (att.HasState<SapMagerState>() || att.HasState<LeechMagicState>()) magic = true;
-            }
+            var (attack, strength, defence, ranged, magic) = GetRecentAttackerCurseInstantBonusEffects();
 
             if (!attack && GetPrayerBonus(BonusPrayerType.CurseInstantAttack) != 0)
                 _npc.Statistics.SetInstantCursePrayerBonus(BonusPrayerType.CurseInstantAttack, 0);
@@ -410,38 +399,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
                 enemyDefenceLevel += 3;
             else if (target.Combat.GetAttackStyle() == AttackStyle.MeleeControlled) enemyDefenceLevel += 1;
 
-            double effectiveAttack = myAttackLevel;
-            effectiveAttack += 8.0;
-            effectiveAttack += GetAttackBonus();
-            effectiveAttack = Math.Round(effectiveAttack);
-
-            double effectiveDefence = enemyDefenceLevel;
-            effectiveDefence += 8.0;
-            effectiveDefence += target.Combat.GetDefenceBonus(GetAttackBonusType());
-            effectiveDefence = Math.Round(effectiveDefence);
-
-            var effectiveMagicDefence = Math.Round((double)enemyMagicDefenceLevel);
-            effectiveMagicDefence *= 0.7;
-            effectiveDefence *= 0.3;
-
-            effectiveDefence = Math.Round(effectiveDefence);
-            effectiveMagicDefence = Math.Round(effectiveMagicDefence);
-
-            effectiveDefence += effectiveMagicDefence;
-
-
-            double attackersRoll = (int)Math.Round(effectiveAttack * (1.0 + GetAttackBonus() / 16.0) * 10.0); // / 64
-            double defendersRoll = (int)Math.Round(effectiveDefence * (1.0 + target.Combat.GetDefenceBonus(GetAttackBonusType()) / 64.0) * 10.0);
-
-            var accuracy = 0.5;
-            if (attackersRoll < defendersRoll)
-                accuracy = (attackersRoll - 1.0) / (2.0 * defendersRoll);
-            else if (attackersRoll > defendersRoll) accuracy = 1.0 - (defendersRoll + 1.0) / (2.0 * attackersRoll);
+            var accuracy = CombatRules.CalculateMagicAccuracy(
+                myAttackLevel,
+                enemyMagicDefenceLevel,
+                enemyDefenceLevel,
+                GetAttackBonus(),
+                target.Combat.GetDefenceBonus(GetAttackBonusType()));
 
             if (RandomStatic.Generator.NextDouble() > accuracy) return -1;
 
             var max = GetMagicMaxHit(target, baseDamage);
-            return CreatureHelperTwo.PerformMagicDamageCalculation(1, max, accuracy);
+            return CombatRules.PerformMagicDamageCalculation(1, max, accuracy);
         }
 
 
@@ -460,30 +428,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
                 enemyDefenceLevel += 3;
             else if (target.Combat.GetAttackStyle() == AttackStyle.MeleeControlled) enemyDefenceLevel += 1;
 
-            double effectiveAttack = myAttackLevel;
-            effectiveAttack += 8.0;
-            effectiveAttack += GetAttackBonus();
-            effectiveAttack = Math.Round(effectiveAttack);
-
-
-            double effectiveDefence = enemyDefenceLevel;
-            effectiveDefence += 8.0;
-            effectiveDefence += target.Combat.GetDefenceBonus(GetAttackBonusType());
-            effectiveDefence = Math.Round(effectiveDefence);
-
-
-            double attackersRoll = (int)Math.Round(effectiveAttack * (1.0 + GetAttackBonus() / 16.0) * 10.0); // / 64
-            double defendersRoll = (int)Math.Round(effectiveDefence * (1.0 + target.Combat.GetDefenceBonus(GetAttackBonusType()) / 64.0) * 10.0);
-
-            var accuracy = 0.5;
-            if (attackersRoll < defendersRoll)
-                accuracy = (attackersRoll - 1.0) / (2.0 * defendersRoll);
-            else if (attackersRoll > defendersRoll) accuracy = 1.0 - (defendersRoll + 1.0) / (2.0 * attackersRoll);
+            var accuracy = CombatRules.CalculateRangedAccuracy(
+                myAttackLevel,
+                enemyDefenceLevel,
+                GetAttackBonus(),
+                target.Combat.GetDefenceBonus(GetAttackBonusType()));
 
             if (RandomStatic.Generator.NextDouble() > accuracy) return -1;
 
             var max = GetRangeMaxHit(target);
-            return CreatureHelperTwo.PerformRangedDamageCalculation(1, max, accuracy);
+            return CombatRules.PerformRangedDamageCalculation(1, max, accuracy);
         }
 
 
@@ -500,36 +454,19 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             var myAttackLevel = GetAttackLevel();
             var enemyDefenceLevel = target.Combat.GetDefenceLevel();
 
-            if (GetAttackStyle() == AttackStyle.MeleeAccurate)
-                myAttackLevel += 3;
-            else if (GetAttackStyle() == AttackStyle.MeleeControlled) myAttackLevel++;
-            if (target.Combat.GetAttackStyle() == AttackStyle.MeleeDefensive)
-                enemyDefenceLevel += 3;
-            else if (target.Combat.GetAttackStyle() == AttackStyle.MeleeControlled) enemyDefenceLevel += 1;
-
-            double effectiveAttack = myAttackLevel;
-            effectiveAttack += 8.0;
-            effectiveAttack += GetAttackBonus();
-            effectiveAttack = Math.Round(effectiveAttack);
-
-
-            double effectiveDefence = enemyDefenceLevel;
-            effectiveDefence += 8.0;
-            effectiveDefence += target.Combat.GetDefenceBonus(GetAttackBonusType());
-            effectiveDefence = Math.Round(effectiveDefence);
-
-
-            double attackersRoll = Math.Round(effectiveAttack * (1.0 + GetAttackBonus() / 16.0) * 10.0); // / 64
-            double defendersRoll = Math.Round(effectiveDefence * (1.0 + target.Combat.GetDefenceBonus(GetAttackBonusType()) / 64.0) * 10.0);
-
-            var accuracy = 0.5;
-            if (attackersRoll < defendersRoll)
-                accuracy = (attackersRoll - 1.0) / (2.0 * defendersRoll);
-            else if (attackersRoll > defendersRoll) accuracy = 1.0 - (defendersRoll + 1.0) / (2.0 * attackersRoll);
+            var accuracy = CombatRules.CalculateMeleeAccuracy(
+                myAttackLevel,
+                enemyDefenceLevel,
+                GetAttackStyle(),
+                target.Combat.GetAttackStyle(),
+                GetAttackBonus(),
+                target.Combat.GetDefenceBonus(GetAttackBonusType()),
+                1.0,
+                1.0);
 
             if (RandomStatic.Generator.NextDouble() > accuracy) return -1;
 
-            return CreatureHelperTwo.PerformMeleeDamageCalculation(1, maxDamage, accuracy);
+            return CombatRules.PerformMeleeDamageCalculation(1, maxDamage, accuracy);
         }
 
         /// <summary>
@@ -600,10 +537,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             var myMagicLevel = _npc.Statistics.GetSkillLevel(NpcStatisticsConstants.Magic);
             var myMaxMagicLevel = _npc.Statistics.GetMaxSkillLevel(NpcStatisticsConstants.Magic);
             var myMagicDamageBonus = GetBonus(BonusType.MagicDamage);
-            double damage = baseDamage;
-            for (var i = myMaxMagicLevel + 1; i <= myMagicLevel; i++) damage *= 1.03;
-            damage *= 1.0 + myMagicDamageBonus / 100.0;
-            return (int)Math.Truncate(damage);
+            return CombatRules.CalculateMagicMaxHit(baseDamage, myMagicLevel, myMaxMagicLevel, myMagicDamageBonus);
         }
 
         /// <summary>
@@ -648,34 +582,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             AddAttacker(attacker);
 
             damage = _npc.Script.OnAttack(attacker, damageType, damage);
-
-            damageSoaked = -1;
-            double soakPercent = 0;
-            switch (damageType)
-            {
-                case DamageType.FullMelee:
-                case DamageType.StandardMelee:
-                    soakPercent = GetBonus(BonusType.AbsorbMelee) * 0.01;
-                    break;
-                case DamageType.FullRange:
-                case DamageType.StandardRange:
-                    soakPercent = GetBonus(BonusType.AbsorbRange) * 0.01;
-                    break;
-                case DamageType.FullMagic:
-                case DamageType.StandardMagic:
-                    soakPercent = GetBonus(BonusType.AbsorbMagic) * 0.01;
-                    break;
-            }
-
-            if (damage > 200)
-            {
-                var soak = (int)(damage * soakPercent);
-                if (soak > 0)
-                {
-                    damageSoaked = soak;
-                    damage -= soak;
-                }
-            }
+            var (damageAfterAbsorption, soaked) = CombatRules.CalculateDamageAbsorption(
+                damageType,
+                damage,
+                GetBonus(BonusType.AbsorbMelee),
+                GetBonus(BonusType.AbsorbRange),
+                GetBonus(BonusType.AbsorbMagic));
+            damage = damageAfterAbsorption;
+            damageSoaked = soaked;
 
             if (damage != -1)
             {

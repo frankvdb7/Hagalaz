@@ -52,38 +52,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (toRemove.Count < count) count = toRemove.Count;
             toRemove.Count = count;
 
-            var stack = toRemove.ItemDefinition.Stackable || toRemove.ItemDefinition.Noted;
-            var needSlots = 0;
-            if (stack)
-            {
-                if (_owner.Inventory.Items.GetSlotByItem(toRemove) != -1)
-                {
-                    var total = _owner.Inventory.Items.GetCount(toRemove) + (long)count;
-                    if (total > int.MaxValue)
-                    {
-                        return -1;
-                    }
-                }
-                else
-                    needSlots = 1;
-            }
-            else
-            {
-                needSlots = count;
-            }
-
-            int freeSlots;
-            if ((freeSlots = _owner.Inventory.Items.FreeSlots) < needSlots)
+            var canTransfer = _owner.Inventory.Items.TryGetTransferableItemCount(toRemove, count,
+                out var transferCount, out var wasLimitedByFreeSlots);
+            if (wasLimitedByFreeSlots)
             {
                 _owner.SendChatMessage(GameStrings.InventoryFull);
-                if (stack || freeSlots <= 0) // we can't do anything since decreasing item count won't decrease needSlots.
-                {
-                    return -1;
-                }
-
-                count = freeSlots;
-                toRemove.Count = count;
             }
+
+            if (!canTransfer) return -1;
+
+            count = transferCount;
+            if (wasLimitedByFreeSlots) toRemove.Count = count;
 
             using var transaction = ItemContainerTransaction.Begin(_items, _owner.Inventory);
             if (!_owner.Inventory.TryTransferItemFrom(_items, item, count, slot))

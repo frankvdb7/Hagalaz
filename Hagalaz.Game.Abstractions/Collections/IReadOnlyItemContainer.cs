@@ -27,4 +27,15 @@ public interface IReadOnlyItemContainer : IContainer<IItem?>
     bool HasSpaceFor(IItem item);
 
     bool HasSpaceForRange(IEnumerable<IItem?> items);
+
+    /// <summary>
+    /// Determines how many requested items can be transferred into this container.
+    /// </summary>
+    /// <param name="item">The item to transfer.</param>
+    /// <param name="requestedCount">The requested item count.</param>
+    /// <param name="transferCount">The count that can be transferred.</param>
+    /// <param name="wasLimitedByFreeSlots">Whether free slots limited the request.</param>
+    /// <returns><c>true</c> if at least one item can be transferred; otherwise, <c>false</c>.</returns>
+    bool TryGetTransferableItemCount(IItem item, int requestedCount, out int transferCount,
+        out bool wasLimitedByFreeSlots);
 }

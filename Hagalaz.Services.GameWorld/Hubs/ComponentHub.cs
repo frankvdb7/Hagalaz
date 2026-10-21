@@ -76,19 +76,14 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 return;
             }
             var targetHandle = target.Handle;
-            character.QueueTask(new RsTask(() =>
-            {
-                if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
-                {
-                    return;
-                }
-
-                if (_entityService.TryResolve<ICreature>(targetHandle, out var currentTarget)
-                    && currentTarget is not null)
-                {
-                    @interface.OnComponentUsedOnCreature(message.ComponentId, currentTarget, message.ForceRun, message.ExtraData1, message.ExtraData2);
-                }
-            }, 1));
+            QueueComponentUseOnCreature(
+                character,
+                targetHandle,
+                message.InterfaceId,
+                message.ComponentId,
+                message.ForceRun,
+                message.ExtraData1,
+                message.ExtraData2);
         }
 
         [RaidoMessageHandler(typeof(InterfaceComponentUseOnNpcMessage))]
@@ -101,9 +96,28 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 return;
             }
             var targetHandle = target.Handle;
+            QueueComponentUseOnCreature(
+                character,
+                targetHandle,
+                message.InterfaceId,
+                message.ComponentId,
+                message.ForceRun,
+                message.ExtraData1,
+                message.ExtraData2);
+        }
+
+        private void QueueComponentUseOnCreature(
+            ICharacter character,
+            EntityHandle<ICreature> targetHandle,
+            int interfaceId,
+            int componentId,
+            bool forceRun,
+            int extraData1,
+            int extraData2)
+        {
             character.QueueTask(new RsTask(() =>
             {
-                if (!character.Widgets.TryGetOpenWidget(message.InterfaceId, out var @interface))
+                if (!character.Widgets.TryGetOpenWidget(interfaceId, out var @interface))
                 {
                     return;
                 }
@@ -111,7 +125,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 if (_entityService.TryResolve<ICreature>(targetHandle, out var currentTarget)
                     && currentTarget is not null)
                 {
-                    @interface.OnComponentUsedOnCreature(message.ComponentId, currentTarget, message.ForceRun, message.ExtraData1, message.ExtraData2);
+                    @interface.OnComponentUsedOnCreature(componentId, currentTarget, forceRun, extraData1, extraData2);
                 }
             }, 1));
         }

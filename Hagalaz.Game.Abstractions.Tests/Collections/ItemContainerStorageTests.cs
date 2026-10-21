@@ -1014,6 +1014,114 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
+        public void TryGetTransferableItemCount_NonstackableUsesAvailableSlotsAndRejectsWhenFull()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+            Assert.IsTrue(container.Items.Add(CreateItem(2, 1)));
+            var item = CreateItem(1, 4, stackable: false);
+
+            Assert.IsTrue(container.Items.TryGetTransferableItemCount(item, 4, out var partialCount,
+                out var partialWasLimitedByFreeSlots));
+
+            Assert.AreEqual(1, partialCount);
+            Assert.IsTrue(partialWasLimitedByFreeSlots);
+
+            Assert.IsTrue(container.Items.Add(CreateItem(3, 1)));
+
+            Assert.IsFalse(container.Items.TryGetTransferableItemCount(item, 1, out var fullCount,
+                out var fullWasLimitedByFreeSlots));
+
+            Assert.AreEqual(0, fullCount);
+            Assert.IsTrue(fullWasLimitedByFreeSlots);
+        }
+
+        [TestMethod]
+        public void TryGetTransferableItemCount_StackableNeedsOneFreeSlotAndRejectsWhenFull()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+            Assert.IsTrue(container.Items.Add(CreateItem(1, 1)));
+            var item = CreateItem(2, 3, stackable: true);
+
+            Assert.IsTrue(container.Items.TryGetTransferableItemCount(item, 3, out var availableCount,
+                out var wasLimitedByFreeSlots));
+
+            Assert.AreEqual(3, availableCount);
+            Assert.IsFalse(wasLimitedByFreeSlots);
+
+            Assert.IsTrue(container.Items.Add(CreateItem(3, 1)));
+
+            Assert.IsFalse(container.Items.TryGetTransferableItemCount(item, 3, out var fullCount,
+                out var fullWasLimitedByFreeSlots));
+
+            Assert.AreEqual(0, fullCount);
+            Assert.IsTrue(fullWasLimitedByFreeSlots);
+        }
+
+        [TestMethod]
+        public void TryGetTransferableItemCount_ExistingStackAllowsExactMaximumButRejectsOverflow()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 1);
+            Assert.IsTrue(container.Items.Add(CreateItem(1, int.MaxValue - 1, stackable: true)));
+
+            Assert.IsTrue(container.Items.TryGetTransferableItemCount(CreateItem(1, 1, stackable: true), 1,
+                out var exactMaximumCount, out var exactMaximumWasLimitedByFreeSlots));
+
+            Assert.AreEqual(1, exactMaximumCount);
+            Assert.IsFalse(exactMaximumWasLimitedByFreeSlots);
+
+            Assert.IsFalse(container.Items.TryGetTransferableItemCount(CreateItem(1, 2, stackable: true), 2,
+                out var overflowCount, out var overflowWasLimitedByFreeSlots));
+
+            Assert.AreEqual(0, overflowCount);
+            Assert.IsFalse(overflowWasLimitedByFreeSlots);
+        }
+
+        [TestMethod]
+        public void TryGetTransferableItemCount_NotedItemUsesOneSlotForTheRequestedStack()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 1);
+            var item = CreateItem(1, 5, noted: true);
+
+            Assert.IsTrue(container.Items.TryGetTransferableItemCount(item, 5, out var transferCount,
+                out var wasLimitedByFreeSlots));
+
+            Assert.AreEqual(5, transferCount);
+            Assert.IsFalse(wasLimitedByFreeSlots);
+        }
+
+        [TestMethod]
+        public void TryGetTransferableItemCount_AlwaysStackCanExtendAnExistingStackWithoutFreeSlots()
+        {
+            var container = new TestableItemContainer(StorageType.AlwaysStack, 1);
+            Assert.IsTrue(container.Items.Add(CreateItem(1, 1)));
+
+            Assert.IsTrue(container.Items.TryGetTransferableItemCount(CreateItem(1, 4), 4,
+                out var transferCount, out var wasLimitedByFreeSlots));
+
+            Assert.AreEqual(4, transferCount);
+            Assert.IsFalse(wasLimitedByFreeSlots);
+        }
+
+        [TestMethod]
+        public void TryGetTransferableItemCount_NonPositiveRequestReturnsFalse()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 1);
+            var item = CreateItem(1, 1);
+
+            Assert.IsFalse(container.Items.TryGetTransferableItemCount(item, 0, out var zeroCount,
+                out var zeroWasLimitedByFreeSlots));
+
+            Assert.AreEqual(0, zeroCount);
+            Assert.IsFalse(zeroWasLimitedByFreeSlots);
+
+            Assert.IsFalse(container.Items.TryGetTransferableItemCount(item, -1, out var negativeCount,
+                out var negativeWasLimitedByFreeSlots));
+
+            Assert.AreEqual(0, negativeCount);
+            Assert.IsFalse(negativeWasLimitedByFreeSlots);
+        }
+
+        [TestMethod]
         public void Remove_NonStackableItemsFromMultipleSlots_Success()
         {
             // Arrange
