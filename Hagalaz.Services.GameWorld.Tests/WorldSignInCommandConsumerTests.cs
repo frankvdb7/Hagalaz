@@ -73,16 +73,7 @@ public sealed class WorldSignInCommandConsumerTests
     [TestMethod]
     public async Task Consume_WhenRegistrationSucceeds_PublishesContactsAndWorldPresenceOnce()
     {
-        var character = Substitute.For<ICharacter>();
-        var session = Substitute.For<IGameSession>();
-        var viewport = Substitute.For<IViewport>();
-        viewport.VisibleRegions.Returns(Array.Empty<IMapRegion>());
-        session.ConnectionId.Returns("world-connection");
-        session.MasterId.Returns(42u);
-        session.SessionGeneration.Returns(2L);
-        character.MasterId.Returns(42u);
-        character.Session.Returns(session);
-        character.Viewport.Returns(viewport);
+        var (character, session) = CreateWorldCharacterSession();
 
         var publishEndpoint = Substitute.For<IBus>();
         var contactsClient = CreateContactsClient();
@@ -230,21 +221,8 @@ public sealed class WorldSignInCommandConsumerTests
     [TestMethod]
     public async Task Consume_WhenSignInCancellationIsRequested_PropagatesCancellationAfterClosingSnapshotWindow()
     {
-        var character = Substitute.For<ICharacter>();
-        var session = Substitute.For<IGameSession>();
-        var viewport = Substitute.For<IViewport>();
-        viewport.VisibleRegions.Returns(Array.Empty<IMapRegion>());
-        session.ConnectionId.Returns("world-connection");
-        session.MasterId.Returns(42u);
-        session.SessionGeneration.Returns(2L);
-        character.MasterId.Returns(42u);
-        character.Session.Returns(session);
-        character.Viewport.Returns(viewport);
-
-        var contacts = new ContactsFeature();
-        var connection = CreateConnection(contacts);
-        var connectionService = Substitute.For<IGameConnectionService>();
-        connectionService.FindById("world-connection").Returns(Task.FromResult<IGameConnection?>(connection));
+        var (character, _) = CreateWorldCharacterSession();
+        var (contacts, connectionService) = CreateContactConnection();
         using var cancellationSource = new CancellationTokenSource();
         var contactsClient = Substitute.For<IRequestClient<GetContactsRequest>>();
         contactsClient.GetResponse<GetContactsResponse>(
@@ -268,21 +246,8 @@ public sealed class WorldSignInCommandConsumerTests
     [TestMethod]
     public async Task Consume_WhenPresenceChangesDuringContactsRequest_SendsReconciledFriendSnapshot()
     {
-        var character = Substitute.For<ICharacter>();
-        var session = Substitute.For<IGameSession>();
-        var viewport = Substitute.For<IViewport>();
-        viewport.VisibleRegions.Returns(Array.Empty<IMapRegion>());
-        session.ConnectionId.Returns("world-connection");
-        session.MasterId.Returns(42u);
-        session.SessionGeneration.Returns(2L);
-        character.MasterId.Returns(42u);
-        character.Session.Returns(session);
-        character.Viewport.Returns(viewport);
-
-        var contacts = new ContactsFeature();
-        var connection = CreateConnection(contacts);
-        var connectionService = Substitute.For<IGameConnectionService>();
-        connectionService.FindById("world-connection").Returns(Task.FromResult<IGameConnection?>(connection));
+        var (character, session) = CreateWorldCharacterSession();
+        var (contacts, connectionService) = CreateContactConnection();
 
         var response = Substitute.For<Response<GetContactsResponse>>();
         response.Message.Returns(new GetContactsResponse
@@ -338,21 +303,8 @@ public sealed class WorldSignInCommandConsumerTests
 
     private async Task Consume_WhenContactsRequestFails_ContinuesLoginAndCompletesSnapshotGate(Exception failure)
     {
-        var character = Substitute.For<ICharacter>();
-        var session = Substitute.For<IGameSession>();
-        var viewport = Substitute.For<IViewport>();
-        viewport.VisibleRegions.Returns(Array.Empty<IMapRegion>());
-        session.ConnectionId.Returns("world-connection");
-        session.MasterId.Returns(42u);
-        session.SessionGeneration.Returns(2L);
-        character.MasterId.Returns(42u);
-        character.Session.Returns(session);
-        character.Viewport.Returns(viewport);
-
-        var contacts = new ContactsFeature();
-        var connection = CreateConnection(contacts);
-        var connectionService = Substitute.For<IGameConnectionService>();
-        connectionService.FindById("world-connection").Returns(Task.FromResult<IGameConnection?>(connection));
+        var (character, _) = CreateWorldCharacterSession();
+        var (contacts, connectionService) = CreateContactConnection();
         var contactsClient = Substitute.For<IRequestClient<GetContactsRequest>>();
         contactsClient.GetResponse<GetContactsResponse>(
                 Arg.Any<GetContactsRequest>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
@@ -370,6 +322,30 @@ public sealed class WorldSignInCommandConsumerTests
 
         character.Received(1).OnRegistered();
         terminator.DidNotReceive().Abort(Arg.Any<IGameSession>());
+    }
+
+    private static (ICharacter Character, IGameSession Session) CreateWorldCharacterSession()
+    {
+        var character = Substitute.For<ICharacter>();
+        var session = Substitute.For<IGameSession>();
+        var viewport = Substitute.For<IViewport>();
+        viewport.VisibleRegions.Returns(Array.Empty<IMapRegion>());
+        session.ConnectionId.Returns("world-connection");
+        session.MasterId.Returns(42u);
+        session.SessionGeneration.Returns(2L);
+        character.MasterId.Returns(42u);
+        character.Session.Returns(session);
+        character.Viewport.Returns(viewport);
+        return (character, session);
+    }
+
+    private static (ContactsFeature Contacts, IGameConnectionService ConnectionService) CreateContactConnection()
+    {
+        var contacts = new ContactsFeature();
+        var connection = CreateConnection(contacts);
+        var connectionService = Substitute.For<IGameConnectionService>();
+        connectionService.FindById("world-connection").Returns(Task.FromResult<IGameConnection?>(connection));
+        return (contacts, connectionService);
     }
 
     private static WorldSignInCommandConsumer CreateConsumer(

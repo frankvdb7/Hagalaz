@@ -142,14 +142,7 @@ public sealed class CreatureInteractionHubTests
     public async Task OnComponentUseOnNpc_WhenTargetRemainsOwned_InvokesCurrentTarget()
     {
         using var provider = CreateProvider(out _, out var npcService);
-        var npcStore = provider.GetRequiredService<INpcStore>();
-        var entityStore = provider.GetRequiredService<IEntityStore>();
-        var target = EntityTestFactory.Create<INpc>();
-        Assert.IsTrue(npcStore.Add(target));
-        entityStore.Add(target);
-#pragma warning disable CA2012 // NSubstitute configures ValueTask-returning members through the call specification.
-        npcService.FindByIndexAsync(target.Index).Returns(new ValueTask<INpc?>(target));
-#pragma warning restore CA2012
+        var target = CreateOwnedNpcTarget(provider, npcService);
 
         var widget = CreateOpenWidget(out var widgets);
         var character = CreateCharacter(out var queuedTasks, widgets: widgets);
@@ -165,14 +158,7 @@ public sealed class CreatureInteractionHubTests
     public async Task OnComponentUseOnNpc_WhenWidgetIsClosed_DropsTheInteraction()
     {
         using var provider = CreateProvider(out _, out var npcService);
-        var npcStore = provider.GetRequiredService<INpcStore>();
-        var entityStore = provider.GetRequiredService<IEntityStore>();
-        var target = EntityTestFactory.Create<INpc>();
-        Assert.IsTrue(npcStore.Add(target));
-        entityStore.Add(target);
-#pragma warning disable CA2012 // NSubstitute configures ValueTask-returning members through the call specification.
-        npcService.FindByIndexAsync(target.Index).Returns(new ValueTask<INpc?>(target));
-#pragma warning restore CA2012
+        var target = CreateOwnedNpcTarget(provider, npcService);
 
         var widget = Substitute.For<IWidget>();
         var widgets = Substitute.For<IWidgetContainer>();
@@ -260,6 +246,17 @@ public sealed class CreatureInteractionHubTests
         Index = index,
         ForceRun = false
     };
+
+    private static INpc CreateOwnedNpcTarget(ServiceProvider provider, INpcService npcService)
+    {
+        var target = EntityTestFactory.Create<INpc>();
+        Assert.IsTrue(provider.GetRequiredService<INpcStore>().Add(target));
+        provider.GetRequiredService<IEntityStore>().Add(target);
+#pragma warning disable CA2012 // NSubstitute configures ValueTask-returning members through the call specification.
+        npcService.FindByIndexAsync(target.Index).Returns(new ValueTask<INpc?>(target));
+#pragma warning restore CA2012
+        return target;
+    }
 
     private static InterfaceComponentUseOnNpcMessage CreateNpcUseMessage(int index) => new()
     {
