@@ -14,6 +14,22 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         string GetCurseSkillName(BonusPrayerType curseType);
 
         /// <summary>
+        /// Calculates absorbed damage and the remaining damage for a hit.
+        /// </summary>
+        /// <returns>The damage after absorption and the absorbed amount, or -1 when no damage was absorbed.</returns>
+        (int Damage, int DamageSoaked) CalculateDamageAbsorption(
+            DamageType damageType,
+            int damage,
+            int meleeAbsorptionBonus,
+            int rangedAbsorptionBonus,
+            int magicAbsorptionBonus);
+
+        /// <summary>
+        /// Calculates maximum spell damage after magic-level and damage bonuses.
+        /// </summary>
+        int CalculateMagicMaxHit(int baseDamage, int magicLevel, int baseMagicLevel, int magicDamageBonus);
+
+        /// <summary>
         /// Calculates melee hit accuracy with attack and target defence style adjustments.
         /// </summary>
         /// <param name="attackLevelMultiplier">Applied after attack-style adjustments.</param>

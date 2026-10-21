@@ -100,6 +100,68 @@ public sealed class CreatureCombatRulesTests
     }
 
     [TestMethod]
+    [DataRow(DamageType.FullMelee, 900, 100)]
+    [DataRow(DamageType.StandardMelee, 900, 100)]
+    [DataRow(DamageType.FullRange, 800, 200)]
+    [DataRow(DamageType.StandardRange, 800, 200)]
+    [DataRow(DamageType.FullMagic, 700, 300)]
+    [DataRow(DamageType.StandardMagic, 700, 300)]
+    [DataRow(DamageType.StandardSummoning, 1000, -1)]
+    [DataRow(DamageType.FullSummoning, 1000, -1)]
+    [DataRow(DamageType.Reflected, 1000, -1)]
+    [DataRow(DamageType.Standard, 1000, -1)]
+    [DataRow(DamageType.DragonFire, 1000, -1)]
+    public void CalculateDamageAbsorption_SelectsBonusByDamageType_ReturnsExpectedDamageAndSoak(
+        DamageType damageType,
+        int expectedDamage,
+        int expectedDamageSoaked)
+    {
+        var result = _rules.CalculateDamageAbsorption(damageType, 1000, 10, 20, 30);
+
+        Assert.AreEqual(expectedDamage, result.Damage, "Damage after absorption");
+        Assert.AreEqual(expectedDamageSoaked, result.DamageSoaked, "Damage soaked");
+    }
+
+    [TestMethod]
+    [DataRow(200, 50, 200, -1, DisplayName = "damage at threshold is not soaked")]
+    [DataRow(201, 10, 181, 20, DisplayName = "soak truncates fractional damage")]
+    [DataRow(201, 0, 201, -1, DisplayName = "zero absorption reports no soak")]
+    [DataRow(-1, 50, -1, -1, DisplayName = "miss damage remains unchanged")]
+    public void CalculateDamageAbsorption_AppliesStrictThresholdAndPositiveSoakOnly(
+        int damage,
+        int meleeAbsorptionBonus,
+        int expectedDamage,
+        int expectedDamageSoaked)
+    {
+        var result = _rules.CalculateDamageAbsorption(
+            DamageType.FullMelee,
+            damage,
+            meleeAbsorptionBonus,
+            0,
+            0);
+
+        Assert.AreEqual(expectedDamage, result.Damage, "Damage after absorption");
+        Assert.AreEqual(expectedDamageSoaked, result.DamageSoaked, "Damage soaked");
+    }
+
+    [TestMethod]
+    [DataRow(1000, 50, 50, 0, 1000, DisplayName = "unboosted magic level")]
+    [DataRow(1000, 52, 50, 0, 1060, DisplayName = "multiple boosted levels truncate")]
+    [DataRow(1000, 52, 50, 10, 1166, DisplayName = "damage bonus follows level boosts")]
+    [DataRow(1000, 45, 50, 10, 1100, DisplayName = "lower current level has no level boost")]
+    public void CalculateMagicMaxHit_AppliesLevelAndDamageBonusesInOrder(
+        int baseDamage,
+        int magicLevel,
+        int baseMagicLevel,
+        int magicDamageBonus,
+        int expected)
+    {
+        var result = _rules.CalculateMagicMaxHit(baseDamage, magicLevel, baseMagicLevel, magicDamageBonus);
+
+        Assert.AreEqual(expected, result);
+    }
+
+    [TestMethod]
     [DataRow(BonusPrayerType.CurseAttack, "Attack")]
     [DataRow(BonusPrayerType.CurseStrength, "Strength")]
     [DataRow(BonusPrayerType.CurseDefence, "Defence")]

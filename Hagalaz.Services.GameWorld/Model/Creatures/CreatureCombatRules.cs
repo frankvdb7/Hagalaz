@@ -26,6 +26,47 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             }
         }
 
+        public (int Damage, int DamageSoaked) CalculateDamageAbsorption(
+            DamageType damageType,
+            int damage,
+            int meleeAbsorptionBonus,
+            int rangedAbsorptionBonus,
+            int magicAbsorptionBonus)
+        {
+            var soakPercent = damageType switch
+            {
+                DamageType.FullMelee or DamageType.StandardMelee => meleeAbsorptionBonus * 0.01,
+                DamageType.FullRange or DamageType.StandardRange => rangedAbsorptionBonus * 0.01,
+                DamageType.FullMagic or DamageType.StandardMagic => magicAbsorptionBonus * 0.01,
+                _ => 0.0
+            };
+
+            var damageSoaked = -1;
+            if (damage > 200)
+            {
+                var soak = (int)(damage * soakPercent);
+                if (soak > 0)
+                {
+                    damageSoaked = soak;
+                    damage -= soak;
+                }
+            }
+
+            return (damage, damageSoaked);
+        }
+
+        public int CalculateMagicMaxHit(int baseDamage, int magicLevel, int baseMagicLevel, int magicDamageBonus)
+        {
+            double damage = baseDamage;
+            for (var level = baseMagicLevel + 1; level <= magicLevel; level++)
+            {
+                damage *= 1.03;
+            }
+
+            damage *= 1.0 + magicDamageBonus / 100.0;
+            return (int)Math.Truncate(damage);
+        }
+
         public double CalculateMagicAccuracy(double attackLevel, int magicDefenceLevel, int defenceLevel, double attackBonus, double defenceBonus)
         {
             var effectiveAttack = Math.Round(attackLevel + 8.0 + attackBonus);

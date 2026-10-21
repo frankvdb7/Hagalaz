@@ -549,10 +549,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             var myMagicLevel = _npc.Statistics.GetSkillLevel(NpcStatisticsConstants.Magic);
             var myMaxMagicLevel = _npc.Statistics.GetMaxSkillLevel(NpcStatisticsConstants.Magic);
             var myMagicDamageBonus = GetBonus(BonusType.MagicDamage);
-            double damage = baseDamage;
-            for (var i = myMaxMagicLevel + 1; i <= myMagicLevel; i++) damage *= 1.03;
-            damage *= 1.0 + myMagicDamageBonus / 100.0;
-            return (int)Math.Truncate(damage);
+            return CombatRules.CalculateMagicMaxHit(baseDamage, myMagicLevel, myMaxMagicLevel, myMagicDamageBonus);
         }
 
         /// <summary>
@@ -597,34 +594,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             AddAttacker(attacker);
 
             damage = _npc.Script.OnAttack(attacker, damageType, damage);
-
-            damageSoaked = -1;
-            double soakPercent = 0;
-            switch (damageType)
-            {
-                case DamageType.FullMelee:
-                case DamageType.StandardMelee:
-                    soakPercent = GetBonus(BonusType.AbsorbMelee) * 0.01;
-                    break;
-                case DamageType.FullRange:
-                case DamageType.StandardRange:
-                    soakPercent = GetBonus(BonusType.AbsorbRange) * 0.01;
-                    break;
-                case DamageType.FullMagic:
-                case DamageType.StandardMagic:
-                    soakPercent = GetBonus(BonusType.AbsorbMagic) * 0.01;
-                    break;
-            }
-
-            if (damage > 200)
-            {
-                var soak = (int)(damage * soakPercent);
-                if (soak > 0)
-                {
-                    damageSoaked = soak;
-                    damage -= soak;
-                }
-            }
+            var (damageAfterAbsorption, soaked) = CombatRules.CalculateDamageAbsorption(
+                damageType,
+                damage,
+                GetBonus(BonusType.AbsorbMelee),
+                GetBonus(BonusType.AbsorbRange),
+                GetBonus(BonusType.AbsorbMagic));
+            damage = damageAfterAbsorption;
+            damageSoaked = soaked;
 
             if (damage != -1)
             {
