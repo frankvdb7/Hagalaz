@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, inject, signal } from "@angular/core";
-import { email, form, FormField, required } from "@angular/forms/signals";
-import { Router } from "@angular/router";
+import { email, FormField, form, required } from "@angular/forms/signals";
 import { MatButtonModule } from "@angular/material/button";
 import { MatCardModule } from "@angular/material/card";
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
+import { Router } from "@angular/router";
 import { NgHcaptchaModule } from "ng-hcaptcha";
 import { AuthStore } from "../core/auth/auth.store";
 
@@ -37,6 +37,9 @@ export class LoginPageComponent {
 
     async submit(event: SubmitEvent): Promise<void> {
         event.preventDefault();
+        if (this.store.loading()) {
+            return;
+        }
         this.submitted.set(true);
         if (this.form().invalid()) {
             this.form().markAsTouched();
@@ -58,10 +61,5 @@ export class LoginPageComponent {
 
     markForCheck(): void {
         this.change.markForCheck();
-    }
-
-    hasError(controlName: "email" | "password" | "captcha"): boolean {
-        const field = this.form[controlName]();
-        return field.invalid() && (field.touched() || this.submitted());
     }
 }

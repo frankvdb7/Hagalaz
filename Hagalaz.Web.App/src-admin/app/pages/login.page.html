@@ -1,56 +1,43 @@
-<section class="min-h-screen grid place-items-center p-4 lg:p-8">
-    <mat-card class="login-frame w-full max-w-5xl overflow-hidden">
+<section class="min-h-screen grid place-items-center px-4 py-8" aria-labelledby="login-title">
+    <mat-card appearance="outlined" class="w-full max-w-md">
         @if (store.loading()) {
-            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            <mat-progress-bar mode="indeterminate" aria-label="Signing in"></mat-progress-bar>
         }
-
-        <div class="login-layout grid">
-            <aside class="brand-panel">
-                <p class="eyebrow">Hagalaz Admin</p>
-                <h1>Welcome Back</h1>
-                <p class="intro">Sign in to manage cache content and keep the realm data consistent.</p>
-
-                <div class="access-note">
-                    Access is limited to authorized staff accounts.
-                </div>
-            </aside>
-
-            <section class="form-panel">
-                <h2>Sign In</h2>
-                <p class="subtitle">Use your Hagalaz account credentials.</p>
-
-                <form class="grid gap-3 mt-4" novalidate (submit)="submit($event)">
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                        <mat-label>Email</mat-label>
-                        <input matInput autocomplete="username" type="email" [formField]="form.email" />
-                        <mat-error>{{ hasError("email") ? "Enter a valid email address." : "" }}</mat-error>
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                        <mat-label>Password</mat-label>
-                        <input matInput autocomplete="current-password" [type]="hidePassword() ? 'password' : 'text'" [formField]="form.password" />
-                        <button mat-icon-button matSuffix type="button" (click)="togglePasswordVisibility()" [attr.aria-label]="hidePassword() ? 'Show password' : 'Hide password'">
-                            <mat-icon>{{ hidePassword() ? "visibility" : "visibility_off" }}</mat-icon>
-                        </button>
-                        <mat-error>{{ hasError("password") ? "Password is required." : "" }}</mat-error>
-                    </mat-form-field>
-
-                    <div class="captcha-wrap">
-                        <ng-hcaptcha theme="dark" [formField]="form.captcha" (error)="markForCheck()" (expired)="markForCheck()" (verify)="markForCheck()"></ng-hcaptcha>
-                        @if (hasError("captcha")) {
-                            <p class="captcha-error">Complete the captcha challenge.</p>
-                        }
-                    </div>
-
-                    <button mat-flat-button type="submit" [disabled]="store.loading() || form().invalid()">
-                        {{ store.loading() ? "Signing In..." : "Sign In" }}
+        <mat-card-header>
+            <mat-card-title><h1 id="login-title">Hagalaz admin</h1></mat-card-title>
+            <mat-card-subtitle>Sign in to manage cache types and sprites.</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+            <form class="grid gap-4" novalidate (submit)="submit($event)" [attr.aria-busy]="store.loading()">
+                <mat-form-field appearance="outline">
+                    <mat-label>Email</mat-label>
+                    <input matInput autocomplete="username" type="email" [formField]="form.email" />
+                    <mat-error>Enter a valid email address.</mat-error>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                    <mat-label>Password</mat-label>
+                    <input matInput autocomplete="current-password" [type]="hidePassword() ? 'password' : 'text'" [formField]="form.password" />
+                    <button mat-icon-button matSuffix type="button" (click)="togglePasswordVisibility()" [attr.aria-label]="hidePassword() ? 'Show password' : 'Hide password'" [attr.aria-pressed]="!hidePassword()">
+                        <mat-icon>{{ hidePassword() ? "visibility" : "visibility_off" }}</mat-icon>
                     </button>
-                </form>
-
-                @if (store.error()) {
-                    <p class="text-rose-300 mt-3 text-sm">Unable to sign in. Check your credentials and try again.</p>
-                }
-            </section>
-        </div>
+                    <mat-error>Password is required.</mat-error>
+                </mat-form-field>
+                <div class="captcha-wrap">
+                    <ng-hcaptcha theme="dark" size="compact" [formField]="form.captcha" (error)="markForCheck()" (expired)="markForCheck()" (verify)="markForCheck()"></ng-hcaptcha>
+                    @if (submitted() && form.captcha().invalid()) {
+                        <p role="alert">Complete the security check to sign in.</p>
+                    }
+                </div>
+                <button mat-flat-button type="submit" [disabled]="store.loading() || form().invalid()">
+                    {{ store.loading() ? "Signing in…" : "Sign in" }}
+                </button>
+            </form>
+            @if (store.error()) {
+                <mat-card appearance="outlined" class="request-error mt-4">
+                    <mat-card-content><p role="alert">{{ store.error() }} Check your details and access permissions, then try again.</p></mat-card-content>
+                </mat-card>
+            }
+            <p class="supporting-text mt-6 text-sm">A staff account with cache administration access is required.</p>
+        </mat-card-content>
     </mat-card>
 </section>
