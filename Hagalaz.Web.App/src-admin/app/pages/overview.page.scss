@@ -1,0 +1,108 @@
+.hero {
+    background:
+        radial-gradient(ellipse at 90% 40%, color-mix(in srgb, var(--portal-violet) 20%, transparent), transparent 55%),
+        radial-gradient(ellipse at 20% 100%, color-mix(in srgb, var(--portal-cyan) 12%, transparent), transparent 65%),
+        var(--mat-sys-surface-container);
+}
+.hero h1 {
+    max-width: 20rem;
+    font: var(--mat-sys-headline-large);
+    font-weight: 700;
+}
+.hero p {
+    line-height: 1.7;
+}
+.sigil {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 190px;
+    height: 190px;
+    margin: 12px auto;
+    border: 1px solid var(--portal-violet);
+    border-radius: 50%;
+    outline: 1px solid var(--mat-sys-outline);
+    outline-offset: 15px;
+    box-shadow: 0 0 60px color-mix(in srgb, var(--portal-violet) 15%, transparent);
+}
+.sigil::before,
+.sigil::after {
+    content: "";
+    position: absolute;
+    inset: 22px;
+    border: 1px solid var(--mat-sys-primary);
+    border-radius: 50%;
+}
+.sigil::after {
+    inset: -8px;
+    border-color: var(--mat-sys-outline);
+    border-radius: 35%;
+    transform: rotate(35deg);
+}
+.sigil-runes {
+    position: absolute;
+    top: -30px;
+    color: var(--portal-violet);
+    font-size: 0.875rem;
+    letter-spacing: 0.3em;
+    white-space: nowrap;
+}
+.hero-runes {
+    position: absolute;
+    inset-inline: 24px;
+    bottom: 8px;
+    opacity: 0.15;
+    color: var(--portal-cyan);
+    overflow: hidden;
+    white-space: nowrap;
+}
+.metric {
+    position: relative;
+    overflow: hidden;
+    color: var(--portal-accent, var(--mat-sys-primary));
+}
+.metric::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 20px;
+    height: 3px;
+    width: 40%;
+    background: currentColor;
+}
+.metric-label {
+    font: var(--mat-sys-body-small);
+    color: var(--mat-sys-on-surface-variant);
+}
+.metric-value {
+    font: var(--mat-sys-title-large);
+    font-weight: 700;
+    color: var(--mat-sys-on-surface);
+}
+.quick-action {
+    color: var(--mat-sys-on-surface);
+    text-decoration: none;
+    background: var(--mat-sys-surface-container-high);
+    border: 1px solid var(--mat-sys-outline-variant);
+    font: var(--mat-sys-label-large);
+}
+.quick-action:hover {
+    border-color: var(--mat-sys-primary);
+    background: var(--mat-sys-surface-container-highest);
+}
+.quick-action > mat-icon {
+    color: var(--portal-accent, var(--mat-sys-primary));
+}
+.metrics-empty {
+    border-top: 1px solid var(--mat-sys-outline-variant);
+}
+.metrics-empty h3 {
+    margin: 0;
+    font: var(--mat-sys-title-medium);
+}
+@media (max-width: 599px) {
+    .sigil {
+        width: 140px;
+        height: 140px;
+    }
+}

@@ -54,7 +54,7 @@ describe("CacheSpritesStore", () => {
         { name: "empty", query: "", offset: 0, items: [], totalMatches: 0 },
     ])("publishes $name sprite searches with the requested paging", async ({ query, offset, items, totalMatches }) => {
         const result: SearchResultDto<unknown> = { query, offset, limit: 10, totalMatches, items };
-        const pending = store.searchSprites(query, offset, 10);
+        const pending = store.searchSprites({ query: query, offset: offset, limit: 10 });
         const request = http.expectOne((req) => req.url === `${baseUrl}/search`);
         expect(request.request.params.get("query")).toBe(query);
         expect(request.request.params.get("offset")).toBe(String(offset));
@@ -67,7 +67,7 @@ describe("CacheSpritesStore", () => {
 
     it("loads the requested PNG frame and publishes its matching description", async () => {
         const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/png" });
-        const pending = store.previewSpriteImage(12, 2);
+        const pending = store.previewSpriteImage({ id: 12, frame: 2 });
         expect(store.loading()).toBe(true);
         expect(store.imageBlob()).toBeNull();
         const request = http.expectOne((req) => req.url === `${baseUrl}/12/image`);
@@ -83,11 +83,11 @@ describe("CacheSpritesStore", () => {
 
     it("keeps the previous preview when the next image request fails", async () => {
         const blob = new Blob(["first"], { type: "image/png" });
-        const first = store.previewSpriteImage(12, 0);
+        const first = store.previewSpriteImage({ id: 12, frame: 0 });
         http.expectOne((req) => req.url === `${baseUrl}/12/image`).flush(blob);
         await first;
 
-        const failed = store.previewSpriteImage(99, 1);
+        const failed = store.previewSpriteImage({ id: 99, frame: 1 });
         http.expectOne((req) => req.url === `${baseUrl}/99/image`).error(new ProgressEvent("error"));
         await failed;
         expect(store.imageBlob()).toBe(blob);
@@ -99,7 +99,7 @@ describe("CacheSpritesStore", () => {
     it("uploads the selected PNG and publishes the server dimensions", async () => {
         const file = new File([new Uint8Array([1, 2, 3])], "sprite.png", { type: "image/png" });
         const result: SpriteMutationResultDto = { operation: "sprite-image-replaced", type: "sprite", id: 99, width: 32, height: 16, frameCount: 2 };
-        const pending = store.uploadSpriteImage(99, file);
+        const pending = store.uploadSpriteImage({ id: 99, file: file });
         expect(store.loading()).toBe(true);
         expect(store.mutationResult()).toBeNull();
         const request = http.expectOne(`${baseUrl}/99/image`);
@@ -114,7 +114,7 @@ describe("CacheSpritesStore", () => {
     });
 
     it("rejects an upload without a file before sending a request", async () => {
-        await store.uploadSpriteImage(99, null);
+        await store.uploadSpriteImage({ id: 99, file: null });
         http.expectNone(() => true);
         expect(store.error()).toBe("Select a PNG file before uploading.");
         expect(store.loading()).toBe(false);
@@ -125,7 +125,7 @@ describe("CacheSpritesStore", () => {
         const pending = store.loadSprite(12);
         http.expectOne(`${baseUrl}/12`).flush({ id: 12 });
         await pending;
-        await store.uploadSpriteImage(12, null);
+        await store.uploadSpriteImage({ id: 12, file: null });
         expect(store.error()).toBe("Select a PNG file before uploading.");
         store.clearError();
         expect(store.error()).toBeNull();
@@ -134,7 +134,7 @@ describe("CacheSpritesStore", () => {
 
     it("ignores a preview while metadata is pending and accepts it afterward", async () => {
         const metadata = store.loadSprite(12);
-        await store.previewSpriteImage(12, 0);
+        await store.previewSpriteImage({ id: 12, frame: 0 });
         http.expectNone((req) => req.url === `${baseUrl}/12/image`);
         expect(store.loading()).toBe(true);
         expect(store.imageBlob()).toBeNull();
@@ -142,7 +142,7 @@ describe("CacheSpritesStore", () => {
         await metadata;
 
         const blob = new Blob(["image"], { type: "image/png" });
-        const preview = store.previewSpriteImage(12, 0);
+        const preview = store.previewSpriteImage({ id: 12, frame: 0 });
         http.expectOne((req) => req.url === `${baseUrl}/12/image`).flush(blob);
         await preview;
         expect(store.imageBlob()).toBe(blob);

@@ -1,0 +1,131 @@
+@use "@angular/material" as mat;
+
+:host {
+    display: block;
+}
+.portal-container {
+    height: 100dvh;
+}
+.portal-drawer {
+    width: 248px;
+}
+.portal-content {
+    box-sizing: border-box;
+}
+.portal-toolbar {
+    height: auto;
+    min-height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+.toolbar-search {
+    flex-shrink: 0;
+    @include mat.form-field-overrides(
+        (
+            outlined-container-shape: 18px,
+            container-height: 36px,
+            container-vertical-padding: 6px,
+            container-text-size: 12px,
+            container-text-line-height: 24px,
+            outlined-outline-color: var(--mat-sys-outline-variant),
+        )
+    );
+    background: var(--mat-sys-surface-container-high);
+    border-radius: 999px;
+}
+.toolbar-search mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+}
+.account-trigger {
+    @include mat.icon-button-overrides(
+        (
+            icon-size: 32px,
+        )
+    );
+}
+.account-avatar {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+    border: 1px solid var(--mat-sys-outline-variant);
+    font: var(--mat-sys-label-small);
+    font-weight: 700;
+}
+.route-title {
+    font: var(--mat-sys-title-small);
+}
+.breadcrumb {
+    font-size: 0.75rem;
+}
+.brand {
+    text-decoration: none;
+    color: var(--mat-sys-primary);
+}
+.brand strong {
+    font-size: 1.25rem;
+    letter-spacing: 0.15em;
+}
+.brand small {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.625rem;
+    letter-spacing: 0.2em;
+    color: var(--mat-sys-on-surface-variant);
+}
+.brand-mark {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 48px;
+    border: 1px solid var(--mat-sys-primary);
+    border-radius: 14px;
+    background: var(--mat-sys-primary-container);
+}
+.rune-band {
+    padding-block: 12px;
+    text-align: center;
+    letter-spacing: 0.7em;
+    color: var(--mat-sys-outline);
+    border-block: 1px solid var(--mat-sys-outline-variant);
+    font-size: 0.75rem;
+}
+.nav-group {
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--mat-sys-on-surface-variant);
+}
+.connection-note {
+    background: var(--mat-sys-surface-container-high);
+    border: 1px solid var(--mat-sys-outline-variant);
+}
+.identity {
+    border-top: 1px solid var(--mat-sys-outline-variant);
+    font: var(--mat-sys-label-large);
+}
+.skip-link {
+    position: fixed;
+    left: 16px;
+    top: -100px;
+    z-index: 100;
+    padding: 12px;
+    background: var(--mat-sys-primary);
+    color: var(--mat-sys-on-primary);
+}
+.skip-link:focus {
+    top: 8px;
+}
+@media (max-width: 599px) {
+    .breadcrumb {
+        display: none;
+    }
+}

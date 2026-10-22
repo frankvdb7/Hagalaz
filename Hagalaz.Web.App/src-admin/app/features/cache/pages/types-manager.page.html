@@ -1,104 +1,42 @@
-<section [attr.aria-busy]="store.loading()" aria-labelledby="types-title">
-    <div class="mb-6">
-        <h1 id="types-title">Cache types</h1>
-        <p class="supporting-text mt-2">Find definitions by ID or name, inspect their data, and edit individual values.</p>
-    </div>
-    <div class="h-1 mb-4">
-        @if (store.loading()) { <mat-progress-bar mode="indeterminate" aria-label="Processing cache request"></mat-progress-bar> }
-    </div>
-    @if (store.error()) {
-        <mat-card appearance="outlined" class="request-error mb-4">
-            <mat-card-content class="flex items-start gap-3"><mat-icon class="shrink-0">error_outline</mat-icon><div role="alert"><p>Cache request failed</p><p>{{ store.error() }}</p><p>Check the values and try again.</p></div></mat-card-content>
-        </mat-card>
-    }
-    <mat-tab-group mat-stretch-tabs="false" animationDuration="0ms" [preserveContent]="true">
-        <mat-tab label="Browse">
-            <div class="grid gap-6 py-6">
-                <div class="grid items-start gap-6 lg:grid-cols-2">
-                    <mat-card appearance="outlined">
-                        <mat-card-header><mat-card-title><h2>Find by ID</h2></mat-card-title><mat-card-subtitle>Inspect a single cache definition.</mat-card-subtitle></mat-card-header>
-                        <mat-card-content>
-                            <form class="grid gap-2" novalidate (submit)="$event.preventDefault(); loadById()">
-                                <div class="grid gap-2 sm:grid-cols-2"><mat-form-field appearance="outline"><mat-label>Type</mat-label><mat-select [formField]="byIdForm.kind">@for (kind of kinds; track kind) { <mat-option [value]="kind">{{ kindLabels[kind] }}</mat-option> }</mat-select></mat-form-field><mat-form-field appearance="outline"><mat-label>Definition ID</mat-label><input matInput type="number" [formField]="byIdForm.id" /><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field></div>
-                                <div><button mat-flat-button type="submit" [disabled]="store.loading() || byIdForm().invalid()"><mat-icon>search</mat-icon>Find definition</button></div>
-                            </form>
-                            @if (store.byIdResult() !== null) { <output class="block mt-6">Definition loaded.</output><mat-form-field appearance="outline" class="json-result mt-6"><mat-label>Definition result</mat-label><textarea matInput readonly rows="10" wrap="off" [value]="store.byIdResult() | json"></textarea></mat-form-field> } @else { <p class="supporting-text mt-6">Choose a type and ID to inspect its definition.</p> }
-                        </mat-card-content>
-                    </mat-card>
-                    <mat-card appearance="outlined">
-                        <mat-card-header><mat-card-title><h2>Search by name</h2></mat-card-title><mat-card-subtitle>Search items, NPCs, or sprites.</mat-card-subtitle></mat-card-header>
-                        <mat-card-content>
-                            <form class="grid gap-2" novalidate (submit)="$event.preventDefault(); search()">
-                                <div class="grid gap-2 sm:grid-cols-2"><mat-form-field appearance="outline"><mat-label>Type</mat-label><mat-select [formField]="searchForm.kind">@for (kind of searchableKinds; track kind) { <mat-option [value]="kind">{{ kindLabels[kind] }}</mat-option> }</mat-select></mat-form-field><mat-form-field appearance="outline"><mat-label>Name or keyword</mat-label><input matInput type="text" [formField]="searchForm.query" /><mat-error>Enter a name or keyword.</mat-error></mat-form-field></div>
-                                <div class="grid gap-2 sm:grid-cols-2"><mat-form-field appearance="outline"><mat-label>Offset</mat-label><input matInput type="number" [formField]="searchForm.offset" /><mat-hint>Results to skip</mat-hint><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field><mat-form-field appearance="outline"><mat-label>Results per request</mat-label><input matInput type="number" [formField]="searchForm.limit" /><mat-error>Enter a value from 1 to 200.</mat-error></mat-form-field></div>
-                                <div><button mat-flat-button type="submit" [disabled]="store.loading() || searchForm().invalid()"><mat-icon>search</mat-icon>Search</button></div>
-                            </form>
-                            @if (store.searchResult(); as result) {
-                                <output class="mt-6">{{ result.totalMatches }} matches. {{ result.items.length }} results returned.</output>
-                                @if (result.items.length) { <mat-form-field appearance="outline" class="json-result mt-6"><mat-label>Search results</mat-label><textarea matInput readonly rows="10" wrap="off" [value]="result.items | json"></textarea></mat-form-field> } @else { <p class="supporting-text mt-2">No definitions match this search. Try another name or reset the offset to zero.</p> }
-                            } @else { <p class="supporting-text mt-6">Enter a name or keyword to search the cache.</p> }
-                        </mat-card-content>
-                    </mat-card>
+<section [attr.aria-busy]="loading()" aria-label="Definition workspace">
+    <mat-card appearance="outlined" class="studio-search mb-5 overflow-hidden">
+        <nav mat-tab-nav-bar mat-stretch-tabs="false" [tabPanel]="workspacePanel" aria-label="Definition type">
+            @for (kind of kinds; track kind; let index = $index) {
+                <button mat-tab-link type="button" [active]="activeKind() === kind" [disabled]="loading()" (click)="selectKind(index)">{{ kindLabels[kind] }}</button>
+            }
+        </nav>
+        <mat-card-content>
+            <form novalidate (submit)="$event.preventDefault(); browse()">
+                <div class="flex flex-col gap-3 sm:flex-row">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="grow"><mat-label>Name or ID</mat-label><mat-icon matPrefix>search</mat-icon><input matInput [formField]="searchForm.query" placeholder="Search by name or ID…" (input)="browseError.set(null)" /></mat-form-field>
+                    <button mat-flat-button class="shrink-0 whitespace-nowrap" type="submit" [disabled]="loading() || searchForm.offset().invalid() || searchForm.limit().invalid()"><mat-icon>search</mat-icon>Find definitions</button>
                 </div>
-                <mat-accordion>
-                    <mat-expansion-panel>
-                        <mat-expansion-panel-header><mat-panel-title>Read an ID range</mat-panel-title><mat-panel-description class="supporting-description">Inspect consecutive definitions</mat-panel-description></mat-expansion-panel-header>
-                        <form class="grid gap-2 mt-2" novalidate (submit)="$event.preventDefault(); loadRange()">
-                            <div class="grid gap-2 sm:grid-cols-3"><mat-form-field appearance="outline"><mat-label>Type</mat-label><mat-select [formField]="rangeForm.kind">@for (kind of kinds; track kind) { <mat-option [value]="kind">{{ kindLabels[kind] }}</mat-option> }</mat-select></mat-form-field><mat-form-field appearance="outline"><mat-label>Start ID</mat-label><input matInput type="number" [formField]="rangeForm.startId" /><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field><mat-form-field appearance="outline"><mat-label>End ID</mat-label><input matInput type="number" [formField]="rangeForm.endIdExclusive" /><mat-hint>End ID is excluded</mat-hint><mat-error>End ID must be greater than the start ID.</mat-error></mat-form-field></div>
-                            <div><button mat-stroked-button type="submit" [disabled]="store.loading() || rangeForm().invalid()">Load range</button></div>
-                        </form>
-                        @if (store.rangeResult(); as result) {
-                            @if (result.length) { <mat-form-field appearance="outline" class="json-result mt-6"><mat-label>ID range results</mat-label><textarea matInput readonly rows="10" wrap="off" [value]="result | json"></textarea></mat-form-field> } @else { <output class="supporting-text mt-6">No definitions in this range. Try a different type or range.</output> }
-                        } @else { <p class="supporting-text mt-6">Choose a type and range to load definitions.</p> }
-                    </mat-expansion-panel>
-                    <mat-expansion-panel>
-                        <mat-expansion-panel-header><mat-panel-title>Archive sizes</mat-panel-title><mat-panel-description class="supporting-description">Check the number of definitions</mat-panel-description></mat-expansion-panel-header>
-                        <button type="button" mat-stroked-button (click)="store.loadArchiveSizes()" [disabled]="store.loading()">{{ store.archiveSizes() ? "Refresh archive sizes" : "Load archive sizes" }}</button>
-                        @if (store.archiveSizes()) { <mat-form-field appearance="outline" class="json-result mt-6"><mat-label>Archive sizes</mat-label><textarea matInput readonly rows="10" wrap="off" [value]="store.archiveSizes() | json"></textarea></mat-form-field> } @else { <p class="supporting-text mt-6">Load archive sizes to see the available definition counts.</p> }
-                    </mat-expansion-panel>
-                </mat-accordion>
-            </div>
-        </mat-tab>
-        <mat-tab label="Edit definitions">
-            <div class="grid gap-6 py-6">
-                <p class="supporting-text">Changes update the cache immediately. Check the definition ID and values before saving.</p>
-                @if (store.mutationResult(); as result) {
-                    <mat-card appearance="outlined" class="request-success"><mat-card-content class="flex items-center gap-3"><mat-icon class="shrink-0">check_circle</mat-icon><output>Saved changes to {{ result.type }} #{{ result.id }}.</output></mat-card-content></mat-card>
-                }
-                <mat-accordion>
-                    <mat-expansion-panel [expanded]="true">
-                        <mat-expansion-panel-header><mat-panel-title>NPC combat level</mat-panel-title><mat-panel-description class="supporting-description">Change an NPC's combat level</mat-panel-description></mat-expansion-panel-header>
-                        <form class="grid gap-2 mt-2" novalidate (submit)="$event.preventDefault(); setNpcCombatLevel()">
-                            <div class="grid gap-2 sm:grid-cols-2"><mat-form-field appearance="outline"><mat-label>NPC ID</mat-label><input matInput type="number" [formField]="npcMutationForm.id" /><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field><mat-form-field appearance="outline"><mat-label>Combat level</mat-label><input matInput type="number" [formField]="npcMutationForm.combatLevel" /><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field></div>
-                            <div><button mat-flat-button type="submit" [disabled]="store.loading() || npcMutationForm().invalid()">Save combat level</button></div>
-                        </form>
-                    </mat-expansion-panel>
-                    <mat-expansion-panel>
-                        <mat-expansion-panel-header><mat-panel-title>Object name</mat-panel-title><mat-panel-description class="supporting-description">Rename a cache object</mat-panel-description></mat-expansion-panel-header>
-                        <form class="grid gap-2 mt-2" novalidate (submit)="$event.preventDefault(); setObjectName()">
-                            <div class="grid gap-2 sm:grid-cols-2"><mat-form-field appearance="outline"><mat-label>Object ID</mat-label><input matInput type="number" [formField]="objectMutationForm.id" /><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field><mat-form-field appearance="outline"><mat-label>Name</mat-label><input matInput type="text" [formField]="objectMutationForm.name" /><mat-error>Enter an object name.</mat-error></mat-form-field></div>
-                            <div><button mat-flat-button type="submit" [disabled]="store.loading() || objectMutationForm().invalid()">Save object name</button></div>
-                        </form>
-                    </mat-expansion-panel>
-                    <mat-expansion-panel>
-                        <mat-expansion-panel-header><mat-panel-title>Varp bit</mat-panel-title><mat-panel-description class="supporting-description">Update the config and bit range</mat-panel-description></mat-expansion-panel-header>
-                        <form class="grid gap-2 mt-2" novalidate (submit)="$event.preventDefault(); setVarpBit()">
-                            <div class="grid gap-2 sm:grid-cols-2"><mat-form-field appearance="outline"><mat-label>Varp bit ID</mat-label><input matInput type="number" [formField]="varpMutationForm.id" /><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field><mat-form-field appearance="outline"><mat-label>Config ID</mat-label><input matInput type="number" [formField]="varpMutationForm.configId" /><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field><mat-form-field appearance="outline"><mat-label>Bit length</mat-label><input matInput type="number" [formField]="varpMutationForm.bitLength" /><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field><mat-form-field appearance="outline"><mat-label>Bit offset</mat-label><input matInput type="number" [formField]="varpMutationForm.bitOffset" /><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field></div>
-                            <div><button mat-flat-button type="submit" [disabled]="store.loading() || varpMutationForm().invalid()">Save varp bit</button></div>
-                        </form>
-                    </mat-expansion-panel>
-                    <mat-expansion-panel>
-                        <mat-expansion-panel-header><mat-panel-title>Config definition</mat-panel-title><mat-panel-description class="supporting-description">Update the default value and type</mat-panel-description></mat-expansion-panel-header>
-                        <form class="grid gap-2 mt-2" novalidate (submit)="$event.preventDefault(); setConfigDefinition()">
-                            <div class="grid gap-2 sm:grid-cols-3"><mat-form-field appearance="outline"><mat-label>Config ID</mat-label><input matInput type="number" [formField]="configMutationForm.id" /><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field><mat-form-field appearance="outline"><mat-label>Default value</mat-label><input matInput type="number" [formField]="configMutationForm.defaultValue" /><mat-error>Enter a default value.</mat-error></mat-form-field><mat-form-field appearance="outline"><mat-label>Value type</mat-label><input matInput type="text" [formField]="configMutationForm.valueType" /><mat-hint>One-character type code</mat-hint><mat-error>Enter one character.</mat-error></mat-form-field></div>
-                            <div><button mat-flat-button type="submit" [disabled]="store.loading() || configMutationForm().invalid()">Save config definition</button></div>
-                        </form>
-                    </mat-expansion-panel>
-                </mat-accordion>
-                @if (store.mutationResult()) {
-                    <mat-expansion-panel><mat-expansion-panel-header><mat-panel-title>Last save details</mat-panel-title></mat-expansion-panel-header><mat-form-field appearance="outline" class="json-result mt-6"><mat-label>Last save details</mat-label><textarea matInput readonly rows="10" wrap="off" [value]="store.mutationResult() | json"></textarea></mat-form-field></mat-expansion-panel>
-                }
-            </div>
-        </mat-tab>
-    </mat-tab-group>
+                <p class="supporting-text mt-4 text-xs">Enter an ID, search a name, or leave blank to browse.</p>
+            </form>
+        </mat-card-content>
+    </mat-card>
+    <mat-tab-nav-panel #workspacePanel>
+    @if (browseError(); as error) { <p role="alert" class="notice mb-4">{{ error }}</p> }
+    @if (error()) { <mat-card appearance="outlined" class="request-error mb-4"><mat-card-content><p role="alert">{{ error() }} Check the query and try again.</p></mat-card-content></mat-card> }
+    <div class="studio-panels">
+        <mat-card appearance="outlined" class="definition-list overflow-hidden">
+            @if (loading()) { <mat-progress-bar mode="indeterminate" aria-label="Processing cache request" /> }
+            <mat-card-header class="items-center"><div class="grow"><mat-card-title><h2>{{ kindLabels[activeKind()] }} definitions</h2></mat-card-title></div><mat-icon class="supporting-text">database</mat-icon></mat-card-header>
+            @if (rows().length) {
+                <div class="overflow-x-auto">
+                    <table mat-table [dataSource]="rows()" aria-label="Matching definitions">
+                        <ng-container matColumnDef="id"><th mat-header-cell *matHeaderCellDef>ID</th><td mat-cell *matCellDef="let row">#{{ row.id }}</td></ng-container>
+                        <ng-container matColumnDef="name"><th mat-header-cell *matHeaderCellDef>Definition</th><td mat-cell *matCellDef="let row"><a mat-button class="definition-name" href="/cache/types/{{ activeKind() }}/{{ row.id }}" [routerLink]="['/cache/types', activeKind(), row.id]" [attr.aria-label]="'Inspect definition ' + row.id"><strong>{{ row.name ?? kindLabels[activeKind()] + ' #' + row.id }}</strong></a></td></ng-container>
+                        <tr mat-header-row class="definition-table-header" *matHeaderRowDef="resultColumns"></tr><tr mat-row *matRowDef="let row; columns: resultColumns"></tr>
+                    </table>
+                </div>
+            } @else {
+                <mat-card-content class="py-10 text-center"><mat-icon class="supporting-text">search</mat-icon><p class="mt-3">No definitions listed.</p><p class="supporting-text mt-2">Use the search above to load this archive. Clear the query to browse by ID range.</p></mat-card-content>
+            }
+            @if (paginated()) {
+                <mat-paginator aria-label="Definition pages" [length]="paginationLength()" [pageIndex]="pageIndex()" [pageSize]="searchForm.limit().value()" [pageSizeOptions]="[10, 25, 50, 100, 200]" [disabled]="loading() || resultKind() !== activeKind()" showFirstLastButtons (page)="changePage($event)" />
+            }
+        </mat-card>
+    </div>
+    </mat-tab-nav-panel>
 </section>

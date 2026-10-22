@@ -1,6 +1,7 @@
 @use "@angular/material" as mat;
 @use "../src/theming/colors" as colors;
 @use "../src/theming/typography" as typography;
+@use "portal-theme" as portal;
 
 @import "../src/tailwind.css";
 
@@ -19,6 +20,8 @@ html {
             density: 0,
         )
     );
+    @include portal.colors();
+    background: var(--mat-sys-surface);
     @include mat.button-overrides(
         (
             filled-label-text-transform: none,
@@ -99,12 +102,16 @@ mat-card-header {
     }
 }
 
-output { display: block; }
+output {
+    display: block;
+}
 
 .json-result {
-    @include mat.form-field-overrides((
-        container-text-font: monospace,
-        container-text-size: 0.8125rem,
-        container-text-line-height: 1.5rem,
-    ));
+    @include mat.form-field-overrides(
+        (
+            container-text-font: monospace,
+            container-text-size: 0.8125rem,
+            container-text-line-height: 1.5rem,
+        )
+    );
 }

@@ -36,6 +36,11 @@ export interface SearchResultDto<T> {
     items: T[];
 }
 
+export interface DefinitionSummaryDto {
+    id: number;
+    name?: string;
+}
+
 export interface TypeMutationResultDto {
     operation: string;
     type: string;
@@ -47,3 +52,18 @@ export interface SpriteMutationResultDto extends TypeMutationResultDto {
     height: number;
     frameCount: number;
 }
+export const cacheTypeLabels: Record<TypeKind, string> = {
+    items: "Items",
+    npcs: "NPCs",
+    objects: "Objects",
+    sprites: "Sprites",
+    quests: "Quests",
+    animations: "Animations",
+    graphics: "Graphics",
+    maps: "Maps",
+    "varp-bits": "Varp bits",
+    "client-map-definitions": "Client map definitions",
+    "config-definitions": "Config definitions",
+    cs2: "CS2 scripts",
+    "cs2-int": "CS2 integers",
+};

@@ -1,25 +1,4 @@
 :host {
     display: block;
-}
-
-.admin-toolbar {
-    justify-content: space-between;
-    gap: 1rem;
-    padding-inline: 0;
-}
-
-.account-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-size: 0.875rem;
-}
-
-@media (max-width: 36rem) {
-    .admin-toolbar {
-        height: auto;
-        min-height: 64px;
-        flex-wrap: wrap;
-        gap: 0;
-        padding-block: 0.5rem;
-    }
+    min-width: 0;
 }

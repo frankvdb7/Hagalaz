@@ -81,7 +81,7 @@ This document follows the [Google DESIGN.md format](https://github.com/google-la
 
 Implementation sources remain authoritative for generated values. `src/styles.scss` configures Material, `src/theming/colors.scss` owns the palettes, `src/theming/typography/` loads fonts, and `src/tailwind.css` maps Material system tokens to utilities. The values above describe the standard dark Material roles from those palettes, selected Material typography defaults, and the existing spacing vocabulary. They are reference values, not a separate theme to copy into components. Resolve final appearance through Material, including its component defaults and state layers.
 
-The admin app in `src-admin/` shares the brand palette and fonts but uses its own stylesheet. Its cache tools prioritize clear forms and results. Do not transfer the public site's decorative imagery or launcher chrome into every admin panel.
+The admin app in `src-admin/` shares the brand palette and fonts but uses its own stylesheet. Its Runic Material portal uses a persistent Material drawer, rounded outlined cards, and a lightning sigil on the overview. Its cache tools prioritize clear forms and results. Keep the public site's background artwork and launcher chrome out of operational panels.
 
 ## Colors
 
@@ -90,6 +90,8 @@ Amber `#ffb300` is the palette seed and primary tone 80. Use the primary role fo
 Dark surfaces use warm neutrals, including surface tone 6 `#181209` and low container tone 10 `#211b11`. Primary text uses neutral tone 90 `#eee0d0`; supporting text uses neutral-variant tone 80 `#d6c4ac`. The generated palette also contains a yellow-green tertiary family. Let Material assign its semantic roles instead of introducing unrelated accent colors.
 
 Use Material error roles for validation and failed requests. Explain errors in text and preserve the user's input. Color alone must not convey success, error, selection, or disabled state.
+
+The admin portal deliberately overrides neutral roles with navy/slate: background `#0b111b`, low containers `#161f2d`, elevated containers `#1e2a3a`, and outlines `#39485c`. `src-admin/portal-theme.scss` owns these scoped Material overrides. Amber remains the primary brand color. Cyan `#7bd8e9` identifies players/worlds, emerald `#7adcb0` health, violet `#c7adff` analytics, and ember `#ff9993` warnings. Pair accents with text and icons; never imply live health or metrics when no source is connected. These admin values do not replace the public theme tokens above.
 
 Cards currently use 75% opacity over artwork. The solid panel token above is the underlying color, not the composited result. Check contrast against the actual image and overlay. Increase containment through a public Material override when artwork makes text hard to read.
 

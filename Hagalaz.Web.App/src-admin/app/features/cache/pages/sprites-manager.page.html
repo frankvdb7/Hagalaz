@@ -1,8 +1,10 @@
-<section [attr.aria-busy]="store.loading()" aria-labelledby="sprites-title">
+<section [attr.aria-busy]="store.loading()" aria-label="Sprite images">
+    @if (spriteId() === null) {
     <div class="mb-6">
-        <h1 id="sprites-title">Sprites</h1>
+        <h2 id="sprites-title">Sprites</h2>
         <p class="supporting-text mt-2">Inspect sprite metadata, preview PNG frames, and replace sprite images.</p>
     </div>
+    }
     <div class="h-1 mb-4">
         @if (store.loading()) { <mat-progress-bar mode="indeterminate" aria-label="Processing sprite request"></mat-progress-bar> }
     </div>
@@ -10,24 +12,26 @@
         <mat-card appearance="outlined" class="request-error mb-4"><mat-card-content class="flex items-start gap-3"><mat-icon class="shrink-0">error_outline</mat-icon><div role="alert"><p>Sprite request failed</p><p>{{ store.error() }}</p><p>Check the values and try again.</p></div></mat-card-content></mat-card>
     }
     <mat-tab-group mat-stretch-tabs="false" animationDuration="0ms" [preserveContent]="true">
-        <mat-tab label="Browse">
-            <div class="grid gap-6 py-6">
-                <div class="grid items-start gap-6 lg:grid-cols-2">
+        <mat-tab label="Image preview">
+            <div class="grid grid-cols-1 gap-6 py-6">
+                <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+                    @if (spriteId() === null) {
                     <mat-card appearance="outlined">
                         <mat-card-header><mat-card-title><h2>Find by ID</h2></mat-card-title><mat-card-subtitle>Inspect a sprite's metadata.</mat-card-subtitle></mat-card-header>
                         <mat-card-content>
-                            <form class="grid gap-2" novalidate (submit)="$event.preventDefault(); loadSprite()">
+                            <form class="grid grid-cols-1 gap-2" novalidate (submit)="$event.preventDefault(); loadSprite()">
                                 <mat-form-field appearance="outline"><mat-label>Sprite ID</mat-label><input matInput type="number" [formField]="spriteIdForm.id" /><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field>
                                 <div><button mat-flat-button type="submit" [disabled]="store.loading() || spriteIdForm().invalid()"><mat-icon>search</mat-icon>Find sprite</button></div>
                             </form>
                             @if (store.spriteInfo() !== null) { <output class="block mt-6">Sprite metadata loaded.</output><mat-form-field appearance="outline" class="json-result mt-6"><mat-label>Sprite metadata</mat-label><textarea matInput readonly rows="10" wrap="off" [value]="store.spriteInfo() | json"></textarea></mat-form-field> } @else { <p class="supporting-text mt-6">Enter a sprite ID to inspect its dimensions and frames.</p> }
                         </mat-card-content>
                     </mat-card>
-                    <mat-card appearance="outlined">
+                    }
+                    <mat-card appearance="outlined" [class.lg:col-span-2]="spriteId() !== null">
                         <mat-card-header><mat-card-title><h2>Preview image</h2></mat-card-title><mat-card-subtitle>Frames start at zero.</mat-card-subtitle></mat-card-header>
                         <mat-card-content>
-                            <form class="grid gap-2" novalidate (submit)="$event.preventDefault(); previewSpriteImage()">
-                                <div class="grid gap-2 sm:grid-cols-2"><mat-form-field appearance="outline"><mat-label>Sprite ID</mat-label><input matInput type="number" [formField]="spriteImageForm.id" /><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field><mat-form-field appearance="outline"><mat-label>Frame</mat-label><input matInput type="number" [formField]="spriteImageForm.frame" /><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field></div>
+                            <form class="grid grid-cols-1 gap-2" novalidate (submit)="$event.preventDefault(); previewSpriteImage()">
+                                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2"><mat-form-field appearance="outline"><mat-label>Sprite ID</mat-label><input matInput type="number" [formField]="spriteImageForm.id" /><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field><mat-form-field appearance="outline"><mat-label>Frame</mat-label><input matInput type="number" [formField]="spriteImageForm.frame" /><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field></div>
                                 <div><button mat-flat-button type="submit" [disabled]="store.loading() || spriteImageForm().invalid()"><mat-icon>image</mat-icon>Load preview</button></div>
                             </form>
                             @if (imageUrl(); as url) {
@@ -39,11 +43,12 @@
                         </mat-card-content>
                     </mat-card>
                 </div>
+                @if (spriteId() === null) {
                 <mat-expansion-panel>
                     <mat-expansion-panel-header><mat-panel-title>Search sprites</mat-panel-title><mat-panel-description class="supporting-description">Find sprites by name</mat-panel-description></mat-expansion-panel-header>
-                    <form class="grid gap-2 mt-2" novalidate (submit)="$event.preventDefault(); searchSprites()">
+                    <form class="grid grid-cols-1 gap-2 mt-2" novalidate (submit)="$event.preventDefault(); searchSprites()">
                         <mat-form-field appearance="outline"><mat-label>Name or keyword</mat-label><input matInput type="text" [formField]="spriteSearchForm.query" /><mat-hint>Leave empty to browse all sprites</mat-hint><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field>
-                        <div class="grid gap-2 sm:grid-cols-2"><mat-form-field appearance="outline"><mat-label>Offset</mat-label><input matInput type="number" [formField]="spriteSearchForm.offset" /><mat-hint>Results to skip</mat-hint><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field><mat-form-field appearance="outline"><mat-label>Results per request</mat-label><input matInput type="number" [formField]="spriteSearchForm.limit" /><mat-error>Enter a value from 1 to 200.</mat-error></mat-form-field></div>
+                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2"><mat-form-field appearance="outline"><mat-label>Offset</mat-label><input matInput type="number" [formField]="spriteSearchForm.offset" /><mat-hint>Results to skip</mat-hint><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field><mat-form-field appearance="outline"><mat-label>Results per request</mat-label><input matInput type="number" [formField]="spriteSearchForm.limit" /><mat-error>Enter a value from 1 to 200.</mat-error></mat-form-field></div>
                         <div><button mat-stroked-button type="submit" [disabled]="store.loading() || spriteSearchForm().invalid()">Search sprites</button></div>
                     </form>
                     @if (store.searchResult(); as result) {
@@ -51,10 +56,11 @@
                         @if (result.items.length) { <mat-form-field appearance="outline" class="json-result mt-6"><mat-label>Sprite search results</mat-label><textarea matInput readonly rows="10" wrap="off" [value]="result.items | json"></textarea></mat-form-field> } @else { <p class="supporting-text mt-2">No sprites match this search. Try another name or reset the offset to zero.</p> }
                     } @else { <p class="supporting-text mt-6">Search by name or leave the query empty to browse sprites.</p> }
                 </mat-expansion-panel>
+                }
             </div>
         </mat-tab>
         <mat-tab label="Replace image">
-            <div class="grid gap-6 py-6">
+            <div class="grid grid-cols-1 gap-6 py-6">
                 <p class="supporting-text">Uploading replaces the sprite image immediately. Check the sprite ID and preview the current image before replacing it.</p>
                 @if (store.mutationResult(); as result) {
                     <mat-card appearance="outlined" class="request-success"><mat-card-content class="flex items-center gap-3"><mat-icon class="shrink-0">check_circle</mat-icon><output>Replaced sprite #{{ result.id }}. {{ result.width }} × {{ result.height }} pixels, {{ result.frameCount }} {{ result.frameCount === 1 ? "frame" : "frames" }}.</output></mat-card-content></mat-card>
@@ -62,7 +68,7 @@
                 <mat-card appearance="outlined">
                     <mat-card-header><mat-card-title><h2>Upload replacement</h2></mat-card-title><mat-card-subtitle>Select a PNG file for the target sprite.</mat-card-subtitle></mat-card-header>
                     <mat-card-content>
-                        <form class="grid gap-4" novalidate (submit)="$event.preventDefault(); uploadSpriteImage()">
+                        <form class="grid grid-cols-1 gap-4" novalidate (submit)="$event.preventDefault(); uploadSpriteImage()">
                             <mat-form-field appearance="outline"><mat-label>Sprite ID</mat-label><input matInput type="number" [formField]="spriteUploadForm.id" /><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field>
                             <div class="flex flex-wrap items-center gap-3">
                                 <button mat-stroked-button type="button" (click)="fileInput.click()" [disabled]="store.loading()"><mat-icon>attach_file</mat-icon>Choose PNG</button>

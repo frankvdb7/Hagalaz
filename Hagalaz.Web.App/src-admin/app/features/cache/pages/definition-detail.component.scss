@@ -1,0 +1,28 @@
+@use "@angular/material" as mat;
+:host {
+    display: block;
+    min-width: 0;
+}
+.definition-detail {
+    min-width: 0;
+}
+.definition-detail h2 {
+    font: var(--mat-sys-title-medium);
+    font-weight: 700;
+}
+.definition-detail mat-card-header {
+    padding: 24px 24px 0;
+}
+.definition-detail mat-card-content {
+    padding-inline: 24px;
+}
+.definition-detail mat-form-field {
+    @include mat.form-field-overrides(
+        (
+            container-text-size: 13px,
+        )
+    );
+}
+.detail-divider {
+    border-top: 1px solid var(--mat-sys-outline-variant);
+}

@@ -1,4 +1,44 @@
+@use "@angular/material" as mat;
 :host {
     display: block;
     min-width: 0;
+}
+.studio-search form {
+    padding-top: 16px;
+}
+.studio-search button[type="submit"] {
+    align-self: center;
+}
+.definition-list {
+    min-width: 0;
+    @include mat.paginator-overrides(
+        (
+            container-background-color: transparent,
+        )
+    );
+    @include mat.table-overrides(
+        (
+            header-headline-size: 11px,
+            row-item-label-text-size: 13px,
+            row-item-container-height: 64px,
+        )
+    );
+}
+.definition-list h2 {
+    font: var(--mat-sys-title-medium);
+    font-weight: 700;
+}
+.definition-list mat-card-header {
+    padding: 20px;
+    margin-bottom: 0;
+}
+.definition-table-header {
+    background: var(--mat-sys-surface-container-high);
+}
+.definition-name {
+    @include mat.button-overrides(
+        (
+            text-label-text-color: var(--mat-sys-on-surface),
+        )
+    );
 }
