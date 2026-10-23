@@ -126,6 +126,7 @@ jobs:
         with:
           root: Hagalaz.Web.App
           command: audit
+          type-aware: 'true'
       - name: Test webapp
         run: pnpm run test
       - name: Test admin webapp
