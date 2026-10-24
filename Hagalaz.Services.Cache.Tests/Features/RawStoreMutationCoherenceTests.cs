@@ -177,7 +177,11 @@ public sealed class RawStoreMutationCoherenceTests
             }
         }
 
-        public void Set(int indexId, int fileId, byte[] data) => Write(indexId, fileId, new MemoryStream(data));
+        public void Set(int indexId, int fileId, byte[] data)
+        {
+            using var stream = new MemoryStream(data);
+            Write(indexId, fileId, stream);
+        }
 
         public byte[] GetBytes(int indexId, int fileId)
         {

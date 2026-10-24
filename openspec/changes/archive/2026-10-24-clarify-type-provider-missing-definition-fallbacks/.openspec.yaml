@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-24
+goal: Specify and test missing archive, missing child, and corrupt mapped
+  archive behavior.
