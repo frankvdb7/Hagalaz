@@ -73,6 +73,8 @@ namespace Hagalaz.Cache.Tests
             table.AddEntry(100, CreateEntry(1, "high"));
 
             Assert.Equal(2, table.Count);
+            IReferenceTable referenceTable = table;
+            Assert.Equal(2, referenceTable.Count);
             Assert.Equal(101, table.Capacity);
             Assert.Equal(100, table.GetFileId("high"));
             Assert.Null(table.GetEntry(50));

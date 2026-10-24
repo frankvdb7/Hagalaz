@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Hagalaz.Cache.Abstractions.Model
 {
@@ -8,7 +7,8 @@ namespace Hagalaz.Cache.Abstractions.Model
         int Version { get; set; }
         byte Protocol { get; }
         ReferenceTableFlags Flags { get; }
-        int Count => Entries.Count();
+        /// <summary>Gets the number of archive groups present in this table.</summary>
+        int Count { get; }
         int Capacity { get; }
         IEnumerable<KeyValuePair<int, IReferenceTableEntry>> Entries { get; }
         int GetFileId(string fileName);
