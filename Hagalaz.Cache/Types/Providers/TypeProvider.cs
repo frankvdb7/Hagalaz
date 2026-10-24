@@ -35,17 +35,28 @@ namespace Hagalaz.Cache.Types.Providers
                 return _customDecoder.Get(typeId);
             }
 
-            var table = _cache.ReadReferenceTable(_typeData.IndexId);
-            var archiveId = _typeData.GetArchiveId(typeId);
-            var archive = _cache.ReadArchive(_typeData.IndexId, archiveId);
-            var entry = table.GetEntry(archiveId, _typeData.GetArchiveEntryId(typeId));
+            return DecodeFromCache(this, _cache, _typeData, _typeFactory, _codec, _typeEventHook, typeId);
+        }
+
+        internal static T DecodeFromCache(
+            ITypeProvider<T> provider,
+            ICacheAPI cache,
+            ITypeData typeData,
+            ITypeFactory<T> typeFactory,
+            ITypeCodec<T> codec,
+            ITypeEventHook<T>? typeEventHook,
+            int typeId)
+        {
+            var archiveId = typeData.GetArchiveId(typeId);
+            var entry = cache.ReadReferenceTable(typeData.IndexId).GetEntry(archiveId, typeData.GetArchiveEntryId(typeId));
             if (entry == null)
             {
-                return _typeFactory.CreateType(typeId);
+                return typeFactory.CreateType(typeId);
             }
 
-            var type = _codec.Decode(typeId, archive.GetEntry(entry.Index));
-            _typeEventHook?.AfterDecode(this, [type]);
+            using var stream = cache.Read(typeData.IndexId, archiveId, entry.Index);
+            var type = codec.Decode(typeId, stream);
+            typeEventHook?.AfterDecode(provider, [type]);
             return type;
         }
 
