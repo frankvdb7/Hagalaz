@@ -7,6 +7,7 @@ using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests
@@ -41,7 +42,7 @@ namespace Hagalaz.Cache.Tests
             _containerDecoderMock = new Mock<IContainerDecoder>();
             _referenceTableCodecMock = new Mock<IReferenceTableCodec>();
             _archiveDecoderMock = new Mock<IArchiveDecoder>();
-            _cacheApi = new CacheApi(_fileStoreMock.Object, _referenceTableProviderMock.Object, _cacheWriterMock.Object, _containerDecoderMock.Object, _referenceTableCodecMock.Object, _archiveDecoderMock.Object);
+            _cacheApi = new CacheApi(_fileStoreMock.Object, _referenceTableProviderMock.Object, _cacheWriterMock.Object, _containerDecoderMock.Object, _referenceTableCodecMock.Object, _archiveDecoderMock.Object, Options.Create(new CacheOptions()));
         }
 
         [Fact]

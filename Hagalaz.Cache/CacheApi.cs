@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
@@ -9,6 +10,7 @@ using Hagalaz.Cache.Metrics;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Utilities;
 using Hagalaz.Security;
+using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Cache
 {
@@ -24,13 +26,15 @@ namespace Hagalaz.Cache
         private readonly IContainerDecoder _containerFactory;
         private readonly IArchiveDecoder _archiveDecoder;
         private readonly IReferenceTableCodec _referenceTableFactory;
+        private readonly ReaderWriterLockSlim _snapshotReadWriteLock = new(LockRecursionPolicy.NoRecursion);
+        private readonly ArchiveSnapshotCache _archiveSnapshotCache;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CacheApi"/> class.
         /// </summary>
         public CacheApi(
             IFileStore store, IReferenceTableProvider referenceTableProvider, ICacheWriter cacheWriter, IContainerDecoder containerFactory,
-            IReferenceTableCodec referenceTableFactory, IArchiveDecoder archiveDecoder)
+            IReferenceTableCodec referenceTableFactory, IArchiveDecoder archiveDecoder, IOptions<CacheOptions> options)
         {
             _store = store;
             _referenceTableProvider = referenceTableProvider;
@@ -38,6 +42,7 @@ namespace Hagalaz.Cache
             _containerFactory = containerFactory;
             _referenceTableFactory = referenceTableFactory;
             _archiveDecoder = archiveDecoder;
+            _archiveSnapshotCache = new ArchiveSnapshotCache(options.Value.ArchiveSnapshotCacheSizeBytes);
         }
 
         /// <summary>
@@ -157,19 +162,42 @@ namespace Hagalaz.Cache
         /// <exception cref="FileNotFoundException">Thrown if the index, file, archive entry, or sub-file does not exist.</exception>
         public MemoryStream Read(int indexId, int fileId, int subFileId)
         {
-            /* check if the file/subfile are valid */
-            if (indexId >= _store.IndexFileCount) throw new FileNotFoundException();
-            var table = _referenceTableProvider.ReadReferenceTable(indexId);
-            if (fileId < 0 || fileId >= table.Capacity) throw new FileNotFoundException();
-            var entry = table.GetEntry(fileId);
-            if (entry == null || subFileId < 0 || subFileId >= entry.Capacity) throw new FileNotFoundException();
-
-            /* grab the container and the reference table sub file count */
-            using (var container = ReadContainer(indexId, fileId))
+            _snapshotReadWriteLock.EnterReadLock();
+            try
             {
-                /* extract the entry from the archive */
-                var archive = _archiveDecoder.Decode(container, entry.Capacity);
-                return archive.GetEntry(subFileId);
+                /* check if the file/subfile are valid */
+                if (indexId >= _store.IndexFileCount) throw new FileNotFoundException();
+                var table = _referenceTableProvider.ReadReferenceTable(indexId);
+                if (fileId < 0 || fileId >= table.Capacity) throw new FileNotFoundException();
+                var entry = table.GetEntry(fileId);
+                if (entry == null || subFileId < 0 || subFileId >= entry.Capacity) throw new FileNotFoundException();
+
+                return _archiveSnapshotCache.ReadMember(
+                    new ArchiveKey(indexId, fileId),
+                    subFileId,
+                    () => LoadArchiveSnapshot(indexId, fileId, entry.Capacity));
+            }
+            finally
+            {
+                _snapshotReadWriteLock.ExitReadLock();
+            }
+        }
+
+        private ArchiveSnapshot LoadArchiveSnapshot(int indexId, int archiveId, int memberCount)
+        {
+            var loadStart = Stopwatch.GetTimestamp();
+            var loadSucceeded = false;
+            try
+            {
+                using var container = ReadContainer(indexId, archiveId);
+                using var archive = _archiveDecoder.Decode(container, memberCount);
+                var snapshot = ArchiveSnapshot.Create(archive);
+                loadSucceeded = true;
+                return snapshot;
+            }
+            finally
+            {
+                CacheMetrics.RecordArchiveLoad(loadSucceeded, Stopwatch.GetElapsedTime(loadStart).TotalSeconds);
             }
         }
 
@@ -232,7 +260,25 @@ namespace Hagalaz.Cache
         /// <param name="indexId">The identifier of the index (cache) to write to.</param>
         /// <param name="fileId">The identifier of the file to write.</param>
         /// <param name="container">The container holding the data to be written.</param>
-        public void Write(int indexId, int fileId, IContainer container) => _cacheWriter.Write(indexId, fileId, container);
+        public void Write(int indexId, int fileId, IContainer container)
+        {
+            _snapshotReadWriteLock.EnterWriteLock();
+            try
+            {
+                try
+                {
+                    _cacheWriter.Write(indexId, fileId, container);
+                }
+                finally
+                {
+                    _archiveSnapshotCache.Invalidate(new ArchiveKey(indexId, fileId));
+                }
+            }
+            finally
+            {
+                _snapshotReadWriteLock.ExitWriteLock();
+            }
+        }
 
         /// <summary>
         /// Computes the <see cref="ChecksumTable"/> for the entire cache. The checksum table
@@ -280,6 +326,10 @@ namespace Hagalaz.Cache
         /// <summary>
         /// Disposes of the underlying file store, releasing any file handles.
         /// </summary>
-        public void Dispose() => _store.Dispose();
+        public void Dispose()
+        {
+            _snapshotReadWriteLock.Dispose();
+            _store.Dispose();
+        }
     }
 }
