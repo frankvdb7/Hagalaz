@@ -7,6 +7,7 @@ using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types;
 using Hagalaz.Services.Cache.Features;
+using Hagalaz.TestSupport;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -144,55 +145,4 @@ public sealed class RawStoreMutationCoherenceTests
         return container.Encode();
     }
 
-    private sealed class MemoryFileStore : IFileStore
-    {
-        private readonly object _sync = new();
-        private readonly Dictionary<(int IndexId, int FileId), byte[]> _files = [];
-
-        public int IndexFileCount => 255;
-
-        public int GetFileCount(int indexId)
-        {
-            lock (_sync)
-            {
-                return _files.Keys.Where(key => key.IndexId == indexId).Select(key => key.FileId).DefaultIfEmpty(-1).Max() + 1;
-            }
-        }
-
-        public MemoryStream Read(int indexId, int fileId)
-        {
-            lock (_sync)
-            {
-                return _files.TryGetValue((indexId, fileId), out var data)
-                    ? new MemoryStream(data, writable: false)
-                    : throw new FileNotFoundException($"Cache file {indexId}:{fileId} was not found.");
-            }
-        }
-
-        public void Write(int indexId, int fileId, MemoryStream data)
-        {
-            lock (_sync)
-            {
-                _files[(indexId, fileId)] = data.ToArray();
-            }
-        }
-
-        public void Set(int indexId, int fileId, byte[] data)
-        {
-            using var stream = new MemoryStream(data);
-            Write(indexId, fileId, stream);
-        }
-
-        public byte[] GetBytes(int indexId, int fileId)
-        {
-            lock (_sync)
-            {
-                return _files[(indexId, fileId)].ToArray();
-            }
-        }
-
-        public void Dispose()
-        {
-        }
-    }
 }

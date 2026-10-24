@@ -15,5 +15,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Hagalaz.Services.Cache\Hagalaz.Services.Cache.csproj" />
+    <Compile Include="..\TestSupport\MemoryFileStore.cs" Link="TestSupport\MemoryFileStore.cs" />
   </ItemGroup>
 </Project>
