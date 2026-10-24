@@ -50,6 +50,122 @@ public sealed class CacheApiSnapshotTests
     }
 
     [Fact]
+    public void ReadReferenceTable_ReturnsOneMemoizedTablePerIndexAndSkipsWarmProviderReads()
+    {
+        using var fixture = new CacheApiFixture();
+
+        var first = fixture.Cache.ReadReferenceTable(16);
+        var warm = fixture.Cache.ReadReferenceTable(16);
+        var otherIndex = fixture.Cache.ReadReferenceTable(17);
+
+        Assert.Same(first, warm);
+        Assert.NotSame(first, otherIndex);
+        Assert.Equal(2, fixture.ReferenceTableReadCount);
+    }
+
+    [Fact]
+    public void ReadReferenceTable_RetriesAfterProviderFailureWithoutPublishingFailure()
+    {
+        using var fixture = new CacheApiFixture();
+        var failure = new InvalidDataException("corrupt reference table");
+        var attempts = 0;
+        fixture.BeforeReferenceTableRead = () =>
+        {
+            if (Interlocked.Increment(ref attempts) == 1)
+            {
+                throw failure;
+            }
+        };
+
+        var actual = Assert.Throws<InvalidDataException>(() => fixture.Cache.ReadReferenceTable(16));
+        var table = fixture.Cache.ReadReferenceTable(16);
+        var warm = fixture.Cache.ReadReferenceTable(16);
+
+        Assert.Same(failure, actual);
+        Assert.Same(table, warm);
+        Assert.Equal(2, fixture.ReferenceTableReadCount);
+    }
+
+    [Fact]
+    public async Task ReadReferenceTable_ConcurrentColdLookupsShareOneDecodeForAnIndex()
+    {
+        const int readerCount = 6;
+        using var fixture = new CacheApiFixture();
+        using var startGate = new Barrier(readerCount + 1);
+        using var readersReady = new CountdownEvent(readerCount);
+        using var providerReadStarted = new ManualResetEventSlim();
+        using var releaseProviderRead = new ManualResetEventSlim();
+        fixture.BeforeReferenceTableRead = () =>
+        {
+            providerReadStarted.Set();
+            if (!releaseProviderRead.Wait(TimeSpan.FromSeconds(10)))
+            {
+                throw new TimeoutException("The test did not release the reference-table decode.");
+            }
+        };
+        var readers = Enumerable.Range(0, readerCount)
+            .Select(_ => StartLongRunning(() =>
+            {
+                if (!startGate.SignalAndWait(TimeSpan.FromSeconds(10)))
+                {
+                    throw new TimeoutException("The reference-table readers did not reach the start gate.");
+                }
+
+                readersReady.Signal();
+                return fixture.Cache.ReadReferenceTable(16);
+            }))
+            .ToArray();
+
+        try
+        {
+            Assert.True(startGate.SignalAndWait(TimeSpan.FromSeconds(10)));
+            Assert.True(readersReady.Wait(TimeSpan.FromSeconds(10)));
+            Assert.True(providerReadStarted.Wait(TimeSpan.FromSeconds(10)));
+        }
+        finally
+        {
+            releaseProviderRead.Set();
+        }
+
+        var results = await Task.WhenAll(readers);
+
+        Assert.All(results, result => Assert.Same(results[0], result));
+        Assert.Equal(1, fixture.ReferenceTableReadCount);
+    }
+
+    [Fact]
+    public async Task ReadReferenceTable_ColdLoadsDifferentIndexesInParallel()
+    {
+        using var fixture = new CacheApiFixture();
+        using var bothReadsStarted = new CountdownEvent(2);
+        using var releaseReads = new ManualResetEventSlim();
+        fixture.BeforeReferenceTableRead = () =>
+        {
+            bothReadsStarted.Signal();
+            if (!releaseReads.Wait(TimeSpan.FromSeconds(10)))
+            {
+                throw new TimeoutException("The test did not release both reference-table decodes.");
+            }
+        };
+
+        var first = StartLongRunning(() => fixture.Cache.ReadReferenceTable(16));
+        var second = StartLongRunning(() => fixture.Cache.ReadReferenceTable(17));
+        try
+        {
+            Assert.True(bothReadsStarted.Wait(TimeSpan.FromSeconds(10)));
+        }
+        finally
+        {
+            releaseReads.Set();
+        }
+
+        var results = await Task.WhenAll(first, second);
+
+        Assert.NotSame(results[0], results[1]);
+        Assert.Equal(2, fixture.ReferenceTableReadCount);
+    }
+
+    [Fact]
     public void Write_InvalidatesOnlyAffectedSnapshotAndExistingStreamsStayUsable()
     {
         using var fixture = new CacheApiFixture();
@@ -57,6 +173,8 @@ public sealed class CacheApiSnapshotTests
         var newArchive = ArchiveTestData.EncodeArchive([8, 9], [10, 11]);
         fixture.SetArchive(8, 1, oldArchive, 2);
         fixture.SetArchive(8, 2, ArchiveTestData.EncodeArchive([5], [6]), 2);
+        var cachedTable = fixture.Cache.ReadReferenceTable(8);
+        var unrelatedTable = fixture.Cache.ReadReferenceTable(17);
 
         using var oldStream = fixture.Cache.Read(8, 1, 0);
         using (fixture.Cache.Read(8, 2, 0)) { }
@@ -70,9 +188,13 @@ public sealed class CacheApiSnapshotTests
 
         using var unrelated = fixture.Cache.Read(8, 2, 1);
         using var refreshed = fixture.Cache.Read(8, 1, 0);
+        var refreshedTable = fixture.Cache.ReadReferenceTable(8);
         Assert.Equal(new byte[] { 1, 2 }, oldStream.ToArray());
         Assert.Equal(new byte[] { 6 }, unrelated.ToArray());
         Assert.Equal(new byte[] { 8, 9 }, refreshed.ToArray());
+        Assert.NotSame(cachedTable, refreshedTable);
+        Assert.Same(unrelatedTable, fixture.Cache.ReadReferenceTable(17));
+        Assert.Equal(3, fixture.ReferenceTableReadCount);
         Assert.Equal(3, fixture.ArchiveDecodeCount);
     }
 
@@ -81,6 +203,7 @@ public sealed class CacheApiSnapshotTests
     {
         using var fixture = new CacheApiFixture();
         fixture.SetArchive(9, 3, [1, 2], 1);
+        var cachedTable = fixture.Cache.ReadReferenceTable(9);
         using var beforeWrite = fixture.Cache.Read(9, 3, 0);
         var failure = new IOException("reference table write failed");
         fixture.WriteAction = (indexId, archiveId, _) =>
@@ -96,8 +219,11 @@ public sealed class CacheApiSnapshotTests
         }
 
         using var afterWrite = fixture.Cache.Read(9, 3, 0);
+        var refreshedTable = fixture.Cache.ReadReferenceTable(9);
         Assert.Equal(new byte[] { 1, 2 }, beforeWrite.ToArray());
         Assert.Equal(new byte[] { 7, 8 }, afterWrite.ToArray());
+        Assert.NotSame(cachedTable, refreshedTable);
+        Assert.Equal(2, fixture.ReferenceTableReadCount);
         Assert.Equal(2, fixture.ArchiveDecodeCount);
     }
 
@@ -149,7 +275,7 @@ public sealed class CacheApiSnapshotTests
             });
             Assert.False(rawWriteStarted.Wait(TimeSpan.FromMilliseconds(200)));
             releaseFirstLookup.Set();
-            await firstLookup;
+            var initialTable = await firstLookup;
             Assert.True(rawWriteStarted.Wait(TimeSpan.FromSeconds(10)));
 
             secondLookup = StartLongRunning(() => fixture.Cache.ReadReferenceTable(16));
@@ -158,7 +284,8 @@ public sealed class CacheApiSnapshotTests
 
             Assert.True(secondLookupStarted.Wait(TimeSpan.FromSeconds(10)));
             await rawWrite;
-            await secondLookup;
+            var refreshedTable = await secondLookup;
+            Assert.NotSame(initialTable, refreshedTable);
         }
         finally
         {
@@ -175,7 +302,7 @@ public sealed class CacheApiSnapshotTests
             }
         }
 
-        fixture.VerifyReferenceTableInvalidated(16);
+        Assert.Equal(2, fixture.ReferenceTableReadCount);
     }
 
     [Fact]
@@ -183,6 +310,7 @@ public sealed class CacheApiSnapshotTests
     {
         using var fixture = new CacheApiFixture();
         fixture.SetArchive(9, 3, [1, 2], 1);
+        var cachedTable = fixture.Cache.ReadReferenceTable(9);
         using var beforeWrite = fixture.Cache.Read(9, 3, 0);
         var failure = new IOException("raw file write failed");
         fixture.RawWriteAction = (indexId, archiveId, _) =>
@@ -195,10 +323,120 @@ public sealed class CacheApiSnapshotTests
         var actual = Assert.Throws<IOException>(() => fixture.Cache.WriteRawFile(9, 3, data));
 
         using var afterWrite = fixture.Cache.Read(9, 3, 0);
+        var stillCachedTable = fixture.Cache.ReadReferenceTable(9);
         Assert.Same(failure, actual);
+        Assert.Same(cachedTable, stillCachedTable);
+        Assert.Equal(1, fixture.ReferenceTableReadCount);
         Assert.Equal(new byte[] { 1, 2 }, beforeWrite.ToArray());
         Assert.Equal(new byte[] { 7, 8 }, afterWrite.ToArray());
         Assert.Equal(2, fixture.ArchiveDecodeCount);
+    }
+
+    [Fact]
+    public void WriteRawFile_ReferenceTableTargetClearsItsTableAndAllIndexSnapshots()
+    {
+        using var fixture = new CacheApiFixture();
+        fixture.SetArchive(16, 1, ArchiveTestData.EncodeArchive([1], [2]), 2);
+        fixture.SetArchive(16, 2, ArchiveTestData.EncodeArchive([3], [4]), 2);
+        fixture.SetArchive(17, 1, [5], 1);
+        using (fixture.Cache.Read(16, 1, 0)) { }
+        using (fixture.Cache.Read(16, 2, 0)) { }
+        using (fixture.Cache.Read(17, 1, 0)) { }
+        var index16Table = fixture.Cache.ReadReferenceTable(16);
+        var otherIndexTable = fixture.Cache.ReadReferenceTable(17);
+
+        using var rawTable = new MemoryStream([7, 8]);
+        fixture.Cache.WriteRawFile(255, 16, rawTable);
+
+        AssertReferenceTableMutationInvalidatedIndex16(fixture, index16Table, otherIndexTable);
+    }
+
+    [Fact]
+    public void CopyRawFile_PreservesSourceAndInvalidatesOnlyDestinationSnapshot()
+    {
+        using var fixture = new CacheApiFixture();
+        var destinationArchive = ArchiveTestData.EncodeArchive([1, 2], [3]);
+        var sourceArchive = ArchiveTestData.EncodeArchive([8, 9], [10, 11]);
+        fixture.SetArchive(8, 1, destinationArchive, 2);
+        fixture.SetArchive(8, 2, sourceArchive, 2);
+        var cachedTable = fixture.Cache.ReadReferenceTable(8);
+        using var sourceBefore = fixture.Cache.Read(8, 2, 0);
+        using var destinationBefore = fixture.Cache.Read(8, 1, 0);
+
+        fixture.Cache.CopyRawFile(8, 1, 8, 2);
+
+        Assert.Same(fixture.LastStoreReadStream, fixture.LastStoreWriteStream);
+        Assert.Equal(sourceArchive, fixture.GetStoredBytes(8, 1));
+        Assert.Equal(sourceArchive, fixture.GetStoredBytes(8, 2));
+        Assert.Same(cachedTable, fixture.Cache.ReadReferenceTable(8));
+        using var sourceAfter = fixture.Cache.Read(8, 2, 1);
+        using var destinationAfter = fixture.Cache.Read(8, 1, 0);
+        Assert.Equal(new byte[] { 8, 9 }, sourceBefore.ToArray());
+        Assert.Equal(new byte[] { 10, 11 }, sourceAfter.ToArray());
+        Assert.Equal(new byte[] { 8, 9 }, destinationAfter.ToArray());
+        Assert.Equal(new byte[] { 1, 2 }, destinationBefore.ToArray());
+        Assert.Equal(3, fixture.ArchiveDecodeCount);
+    }
+
+    [Fact]
+    public void CopyRawFile_SupportsSelfCopyAndInvalidatesDestinationSnapshot()
+    {
+        using var fixture = new CacheApiFixture();
+        var archive = ArchiveTestData.EncodeArchive([4, 5], [6]);
+        fixture.SetArchive(8, 1, archive, 2);
+        using var beforeCopy = fixture.Cache.Read(8, 1, 0);
+
+        fixture.Cache.CopyRawFile(8, 1, 8, 1);
+
+        using var afterCopy = fixture.Cache.Read(8, 1, 1);
+        Assert.Equal(archive, fixture.GetStoredBytes(8, 1));
+        Assert.Equal(new byte[] { 4, 5 }, beforeCopy.ToArray());
+        Assert.Equal(new byte[] { 6 }, afterCopy.ToArray());
+        Assert.Equal(2, fixture.ArchiveDecodeCount);
+    }
+
+    [Fact]
+    public void CopyRawFile_InvalidatesDestinationAfterStoreFailureAndPropagatesOriginalException()
+    {
+        using var fixture = new CacheApiFixture();
+        var updatedArchive = ArchiveTestData.EncodeArchive([7], [8]);
+        fixture.SetArchive(8, 1, ArchiveTestData.EncodeArchive([1], [2]), 2);
+        fixture.SetArchive(8, 2, ArchiveTestData.EncodeArchive([3], [4]), 2);
+        using var beforeCopy = fixture.Cache.Read(8, 1, 0);
+        var failure = new IOException("raw copy failed");
+        fixture.RawWriteAction = (indexId, archiveId, _) =>
+        {
+            fixture.SetArchive(indexId, archiveId, updatedArchive, 2);
+            throw failure;
+        };
+
+        var actual = Assert.Throws<IOException>(() => fixture.Cache.CopyRawFile(8, 1, 8, 2));
+
+        using var afterCopy = fixture.Cache.Read(8, 1, 0);
+        Assert.Same(failure, actual);
+        Assert.Equal(new byte[] { 1 }, beforeCopy.ToArray());
+        Assert.Equal(new byte[] { 7 }, afterCopy.ToArray());
+        Assert.Equal(2, fixture.ArchiveDecodeCount);
+    }
+
+    [Fact]
+    public void CopyRawFile_ReferenceTableTargetClearsTableAndIndexSnapshots()
+    {
+        using var fixture = new CacheApiFixture();
+        fixture.SetArchive(16, 1, [1], 1);
+        fixture.SetArchive(16, 2, [2], 1);
+        fixture.SetArchive(17, 1, [3], 1);
+        fixture.SetArchive(255, 17, [7, 8], 0);
+        using (fixture.Cache.Read(16, 1, 0)) { }
+        using (fixture.Cache.Read(16, 2, 0)) { }
+        using (fixture.Cache.Read(17, 1, 0)) { }
+        var originalTable = fixture.Cache.ReadReferenceTable(16);
+        var otherIndexTable = fixture.Cache.ReadReferenceTable(17);
+
+        fixture.Cache.CopyRawFile(255, 16, 255, 17);
+
+        Assert.Equal(new byte[] { 7, 8 }, fixture.GetStoredBytes(255, 16));
+        AssertReferenceTableMutationInvalidatedIndex16(fixture, originalTable, otherIndexTable);
     }
 
     [Fact]
@@ -356,6 +594,20 @@ public sealed class CacheApiSnapshotTests
         TaskCreationOptions.LongRunning,
         TaskScheduler.Default);
 
+    private static void AssertReferenceTableMutationInvalidatedIndex16(
+        CacheApiFixture fixture,
+        IReferenceTable originalTable,
+        IReferenceTable otherIndexTable)
+    {
+        Assert.NotSame(originalTable, fixture.Cache.ReadReferenceTable(16));
+        Assert.Same(otherIndexTable, fixture.Cache.ReadReferenceTable(17));
+        using (fixture.Cache.Read(16, 1, 0)) { }
+        using (fixture.Cache.Read(16, 2, 0)) { }
+        using (fixture.Cache.Read(17, 1, 0)) { }
+        Assert.Equal(5, fixture.ArchiveDecodeCount);
+        Assert.Equal(3, fixture.ReferenceTableReadCount);
+    }
+
     private static void UpdateMaximum(ref int maximum, int value)
     {
         var current = Volatile.Read(ref maximum);
@@ -382,6 +634,9 @@ public sealed class CacheApiSnapshotTests
         private readonly System.Collections.Concurrent.ConcurrentDictionary<(int IndexId, int ArchiveId), byte[]> _archiveBytes = new();
         private readonly System.Collections.Concurrent.ConcurrentDictionary<(int IndexId, int ArchiveId), int> _memberCounts = new();
         private int _archiveDecodeCount;
+        private int _referenceTableReadCount;
+        private MemoryStream? _lastStoreReadStream;
+        private MemoryStream? _lastStoreWriteStream;
 
         public CacheApiFixture(long capacityBytes = 1024 * 1024)
         {
@@ -394,13 +649,21 @@ public sealed class CacheApiSnapshotTests
                         throw new FileNotFoundException();
                     }
 
-                    return new MemoryStream(bytes, writable: false);
+                    var stream = new MemoryStream(bytes, writable: false);
+                    Volatile.Write(ref _lastStoreReadStream, stream);
+                    return stream;
                 });
             _store.Setup(store => store.Write(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<MemoryStream>()))
-                .Callback<int, int, MemoryStream>((indexId, fileId, data) => RawWriteAction?.Invoke(indexId, fileId, data));
+                .Callback<int, int, MemoryStream>((indexId, fileId, data) =>
+                {
+                    Volatile.Write(ref _lastStoreWriteStream, data);
+                    RawWriteAction?.Invoke(indexId, fileId, data);
+                    _archiveBytes[(indexId, fileId)] = data.ToArray();
+                });
             _referenceTableProvider.Setup(provider => provider.ReadReferenceTable(It.IsAny<int>()))
                 .Returns((int indexId) =>
                 {
+                    Interlocked.Increment(ref _referenceTableReadCount);
                     BeforeReferenceTableRead?.Invoke();
                     var table = new Mock<IReferenceTable>();
                     table.SetupGet(referenceTable => referenceTable.Capacity).Returns(4096);
@@ -445,19 +708,21 @@ public sealed class CacheApiSnapshotTests
 
         public CacheApi Cache { get; }
         public int ArchiveDecodeCount => Volatile.Read(ref _archiveDecodeCount);
+        public int ReferenceTableReadCount => Volatile.Read(ref _referenceTableReadCount);
+        public MemoryStream? LastStoreReadStream => Volatile.Read(ref _lastStoreReadStream);
+        public MemoryStream? LastStoreWriteStream => Volatile.Read(ref _lastStoreWriteStream);
         public Action? BeforeContainerDecode { get; set; }
         public Action? BeforeReferenceTableRead { get; set; }
         public Action<int, int, IContainer>? WriteAction { get; set; }
         public Action<int, int, MemoryStream>? RawWriteAction { get; set; }
-
-        public void VerifyReferenceTableInvalidated(int indexId) =>
-            _referenceTableProvider.Verify(provider => provider.Invalidate(indexId), Times.Once);
 
         public void SetArchive(int indexId, int archiveId, byte[] data, int memberCount)
         {
             _archiveBytes[(indexId, archiveId)] = data;
             _memberCounts[(indexId, archiveId)] = memberCount;
         }
+
+        public byte[] GetStoredBytes(int indexId, int archiveId) => _archiveBytes[(indexId, archiveId)];
 
         public void Dispose() => Cache.Dispose();
     }

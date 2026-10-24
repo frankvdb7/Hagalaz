@@ -73,6 +73,15 @@ public sealed class RawStoreMutationCoherenceTests
 
         Assert.AreEqual("copy-1", await ReadObjectNameAsync(client));
         CollectionAssert.AreEqual(copySourceArchive, store.GetBytes(16, 1));
+
+        var copiedReferenceTable = EncodeReferenceTable(referenceTableCodec, memberCount: 2, mapObjectToLastMember: false);
+        store.Set(255, 17, copiedReferenceTable);
+        var referenceTableCopyResponse = await client.PostAsJsonAsync(
+            "/api/v1/cache/store/indexes/255/files/16/actions/copy-raw",
+            new StoreMutationEndpoints.CopyRawFileRequest(255, 17));
+        Assert.AreEqual(HttpStatusCode.OK, referenceTableCopyResponse.StatusCode, await referenceTableCopyResponse.Content.ReadAsStringAsync());
+        Assert.AreEqual("copy-0", await ReadObjectNameAsync(client));
+        CollectionAssert.AreEqual(copiedReferenceTable, store.GetBytes(255, 16));
     }
 
     private static async Task<string> ReadObjectNameAsync(HttpClient client)

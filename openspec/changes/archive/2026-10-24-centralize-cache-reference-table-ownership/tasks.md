@@ -1,0 +1,5 @@
+- [x] 1. Move reference-table memoization to `CacheApi`; make the provider decode-only and remove public invalidation. (AC1, AC2)
+- [x] 2. Invalidate table and snapshot state for high-level/raw writes under the existing writer lock; stream raw copy input directly. (AC3)
+- [x] 3. Add provider, memoization, mutation, raw-copy, and real writer regressions while retaining service and GameWorld integration coverage. (AC4, AC5)
+- [x] 4. Revert only the unrelated Angular assertion hunk and update canonical cache specifications. (AC5)
+- [x] 5. Review the complete cumulative diff and run focused/full validation, OpenSpec, jscpd, and diff checks. (AC1-AC5)

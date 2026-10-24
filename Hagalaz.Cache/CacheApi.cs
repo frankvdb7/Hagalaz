@@ -28,6 +28,8 @@ namespace Hagalaz.Cache
         private readonly IReferenceTableCodec _referenceTableFactory;
         private readonly ReaderWriterLockSlim _snapshotReadWriteLock = new(LockRecursionPolicy.NoRecursion);
         private readonly ArchiveSnapshotCache _archiveSnapshotCache;
+        private readonly IReferenceTable?[] _referenceTables;
+        private readonly object[] _referenceTableLocks;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CacheApi"/> class.
@@ -43,6 +45,12 @@ namespace Hagalaz.Cache
             _referenceTableFactory = referenceTableFactory;
             _archiveDecoder = archiveDecoder;
             _archiveSnapshotCache = new ArchiveSnapshotCache(options.Value.ArchiveSnapshotCacheSizeBytes);
+            _referenceTables = new IReferenceTable?[store.IndexFileCount];
+            _referenceTableLocks = new object[_referenceTables.Length];
+            for (var indexId = 0; indexId < _referenceTableLocks.Length; indexId++)
+            {
+                _referenceTableLocks[indexId] = new object();
+            }
         }
 
         /// <summary>
@@ -88,7 +96,7 @@ namespace Hagalaz.Cache
             _snapshotReadWriteLock.EnterReadLock();
             try
             {
-                return _referenceTableProvider.ReadReferenceTable(indexId);
+                return GetOrLoadReferenceTable(indexId);
             }
             finally
             {
@@ -178,7 +186,7 @@ namespace Hagalaz.Cache
             {
                 /* check if the file/subfile are valid */
                 if (indexId >= _store.IndexFileCount) throw new FileNotFoundException();
-                var table = _referenceTableProvider.ReadReferenceTable(indexId);
+                var table = GetOrLoadReferenceTable(indexId);
                 if (fileId < 0 || fileId >= table.Capacity) throw new FileNotFoundException();
                 var entry = table.GetEntry(fileId);
                 if (entry == null || subFileId < 0 || subFileId >= entry.Capacity) throw new FileNotFoundException();
@@ -282,6 +290,7 @@ namespace Hagalaz.Cache
                 }
                 finally
                 {
+                    ClearCachedReferenceTable(indexId);
                     _archiveSnapshotCache.Invalidate(new ArchiveKey(indexId, fileId));
                 }
             }
@@ -325,8 +334,7 @@ namespace Hagalaz.Cache
                 try
                 {
                     using var source = _store.Read(sourceIndexId, sourceFileId);
-                    using var copy = new MemoryStream(source.ToArray());
-                    _store.Write(indexId, fileId, copy);
+                    _store.Write(indexId, fileId, source);
                 }
                 finally
                 {
@@ -343,9 +351,9 @@ namespace Hagalaz.Cache
         {
             if (indexId == 255)
             {
-                if (fileId >= 0 && fileId < _store.IndexFileCount)
+                if (fileId >= 0 && fileId < _referenceTables.Length && fileId != 255)
                 {
-                    _referenceTableProvider.Invalidate(fileId);
+                    ClearCachedReferenceTable(fileId);
                     _archiveSnapshotCache.InvalidateIndex(fileId);
                 }
 
@@ -353,6 +361,45 @@ namespace Hagalaz.Cache
             }
 
             _archiveSnapshotCache.Invalidate(new ArchiveKey(indexId, fileId));
+        }
+
+        private IReferenceTable GetOrLoadReferenceTable(int indexId)
+        {
+            if (indexId >= _referenceTables.Length)
+            {
+                throw new FileNotFoundException();
+            }
+
+            if (indexId < 0)
+            {
+                throw new IndexOutOfRangeException();
+            }
+
+            var table = Volatile.Read(ref _referenceTables[indexId]);
+            if (table is not null)
+            {
+                return table;
+            }
+
+            lock (_referenceTableLocks[indexId])
+            {
+                table = Volatile.Read(ref _referenceTables[indexId]);
+                if (table is null)
+                {
+                    table = _referenceTableProvider.ReadReferenceTable(indexId);
+                    Volatile.Write(ref _referenceTables[indexId], table);
+                }
+
+                return table;
+            }
+        }
+
+        private void ClearCachedReferenceTable(int indexId)
+        {
+            if (indexId >= 0 && indexId < _referenceTables.Length && indexId != 255)
+            {
+                Volatile.Write(ref _referenceTables[indexId], null);
+            }
         }
 
         /// <summary>

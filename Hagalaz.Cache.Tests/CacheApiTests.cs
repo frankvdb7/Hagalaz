@@ -43,6 +43,7 @@ namespace Hagalaz.Cache.Tests
             _containerDecoderMock = new Mock<IContainerDecoder>();
             _referenceTableCodecMock = new Mock<IReferenceTableCodec>();
             _archiveDecoderMock = new Mock<IArchiveDecoder>();
+            _fileStoreMock.SetupGet(store => store.IndexFileCount).Returns(255);
             _cacheApi = new CacheApi(_fileStoreMock.Object, _referenceTableProviderMock.Object, _cacheWriterMock.Object, _containerDecoderMock.Object, _referenceTableCodecMock.Object, _archiveDecoderMock.Object, Options.Create(new CacheOptions()));
         }
 
