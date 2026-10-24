@@ -1,4 +1,5 @@
 using System.IO;
+using System.Threading;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
@@ -11,13 +12,20 @@ namespace Hagalaz.Cache.Types.Providers
         private readonly IContainerDecoder _containerFactory;
         private readonly IReferenceTableCodec _referenceTableFactory;
         private readonly IReferenceTable?[] _referenceTables;
+        private readonly object[] _referenceTableLocks;
 
         public ReferenceTableProvider(IFileStore store, IContainerDecoder containerFactory, IReferenceTableCodec referenceTableFactory)
         {
             _store = store;
             _containerFactory = containerFactory;
             _referenceTableFactory = referenceTableFactory;
-            _referenceTables = new IReferenceTable[store.IndexFileCount];
+            var indexFileCount = store.IndexFileCount;
+            _referenceTables = new IReferenceTable?[indexFileCount];
+            _referenceTableLocks = new object[indexFileCount];
+            for (var indexId = 0; indexId < indexFileCount; indexId++)
+            {
+                _referenceTableLocks[indexId] = new object();
+            }
         }
 
         public IReferenceTable ReadReferenceTable(int indexId)
@@ -27,14 +35,33 @@ namespace Hagalaz.Cache.Types.Providers
             if (indexId == 255)
                 throw new IOException("Checksum tables can not be read by this method!");
 
-            return _referenceTables[indexId] ??= DecodeReferenceTable(indexId);
+            var cachedTable = Volatile.Read(ref _referenceTables[indexId]);
+            if (cachedTable != null)
+            {
+                return cachedTable;
+            }
+
+            lock (_referenceTableLocks[indexId])
+            {
+                cachedTable = _referenceTables[indexId];
+                if (cachedTable == null)
+                {
+                    cachedTable = DecodeReferenceTable(indexId);
+                    Volatile.Write(ref _referenceTables[indexId], cachedTable);
+                }
+
+                return cachedTable;
+            }
         }
 
         public void Invalidate(int indexId)
         {
             if (indexId >= 0 && indexId < _referenceTables.Length && indexId != 255)
             {
-                _referenceTables[indexId] = null;
+                lock (_referenceTableLocks[indexId])
+                {
+                    Volatile.Write(ref _referenceTables[indexId], null);
+                }
             }
         }
 

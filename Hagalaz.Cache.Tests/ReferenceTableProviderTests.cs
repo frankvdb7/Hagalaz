@@ -1,10 +1,12 @@
-using Moq;
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types.Providers;
+using Moq;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests
@@ -80,6 +82,140 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(1, first.Version);
             Assert.Equal(2, refreshed.Version);
             Assert.Equal(2, decodeCount);
+        }
+
+        [Fact]
+        public async Task ReadReferenceTable_ConcurrentColdReadsDecodeOnlyOnceForAnIndex()
+        {
+            const int workerCount = 8;
+            using var startGate = new Barrier(workerCount + 1);
+            using var decodeStarted = new ManualResetEventSlim();
+            using var releaseDecode = new ManualResetEventSlim();
+            using var duplicateRead = new ManualResetEventSlim();
+            var readCount = 0;
+            var fileStoreMock = new Mock<IFileStore>();
+            var containerDecoderMock = new Mock<IContainerDecoder>();
+            var codec = new ReferenceTableCodec();
+            var encoded = EncodeTable(codec, 1);
+
+            fileStoreMock.SetupGet(store => store.IndexFileCount).Returns(255);
+            fileStoreMock.Setup(store => store.Read(255, 16)).Returns(() =>
+            {
+                if (Interlocked.Increment(ref readCount) > 1)
+                {
+                    duplicateRead.Set();
+                }
+
+                decodeStarted.Set();
+                if (!releaseDecode.Wait(TimeSpan.FromSeconds(10)))
+                {
+                    throw new TimeoutException("The test did not release the first reference-table decode.");
+                }
+
+                return new MemoryStream([1]);
+            });
+            containerDecoderMock.Setup(decoder => decoder.Decode(It.IsAny<MemoryStream>()))
+                .Returns(() => new Container(new MemoryStream(encoded)));
+
+            var provider = new ReferenceTableProvider(fileStoreMock.Object, containerDecoderMock.Object, codec);
+            var readers = Enumerable.Range(0, workerCount)
+                .Select(_ => Task.Factory.StartNew(
+                    () =>
+                    {
+                        if (!startGate.SignalAndWait(TimeSpan.FromSeconds(10)))
+                        {
+                            throw new TimeoutException("The test readers did not reach the start gate.");
+                        }
+
+                        return provider.ReadReferenceTable(16);
+                    },
+                    CancellationToken.None,
+                    TaskCreationOptions.LongRunning,
+                    TaskScheduler.Default))
+                .ToArray();
+
+            var allReadersReady = startGate.SignalAndWait(TimeSpan.FromSeconds(10));
+            var firstDecodeStarted = decodeStarted.Wait(TimeSpan.FromSeconds(10));
+            var duplicateReadObserved = duplicateRead.Wait(TimeSpan.FromMilliseconds(200));
+            releaseDecode.Set();
+            var results = await Task.WhenAll(readers);
+
+            Assert.True(allReadersReady);
+            Assert.True(firstDecodeStarted);
+            Assert.False(duplicateReadObserved);
+            Assert.Equal(1, readCount);
+            Assert.All(results, result => Assert.Same(results[0], result));
+        }
+
+        [Fact]
+        public async Task Invalidate_WaitsForColdInitializationAndClearsPublishedTable()
+        {
+            using var readStarted = new ManualResetEventSlim();
+            using var releaseRead = new ManualResetEventSlim();
+            using var invalidateStarted = new ManualResetEventSlim();
+            var readCount = 0;
+            var fileStoreMock = new Mock<IFileStore>();
+            var containerDecoderMock = new Mock<IContainerDecoder>();
+            var codec = new ReferenceTableCodec();
+            var encodedTables = new[] { EncodeTable(codec, 1), EncodeTable(codec, 2) };
+
+            fileStoreMock.SetupGet(store => store.IndexFileCount).Returns(255);
+            fileStoreMock.Setup(store => store.Read(255, 16)).Returns(() =>
+            {
+                var currentRead = Interlocked.Increment(ref readCount);
+                if (currentRead == 1)
+                {
+                    readStarted.Set();
+                    if (!releaseRead.Wait(TimeSpan.FromSeconds(10)))
+                    {
+                        throw new TimeoutException("The test did not release the initial reference-table read.");
+                    }
+                }
+
+                return new MemoryStream([1]);
+            });
+            containerDecoderMock.Setup(decoder => decoder.Decode(It.IsAny<MemoryStream>()))
+                .Returns(() => new Container(new MemoryStream(encodedTables[Volatile.Read(ref readCount) - 1])));
+
+            var provider = new ReferenceTableProvider(fileStoreMock.Object, containerDecoderMock.Object, codec);
+            var firstRead = Task.Factory.StartNew(
+                () => provider.ReadReferenceTable(16),
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
+            Task invalidation = Task.CompletedTask;
+            var invalidationCompletedDuringRead = false;
+            try
+            {
+                Assert.True(readStarted.Wait(TimeSpan.FromSeconds(10)));
+
+                invalidation = Task.Factory.StartNew(
+                    () =>
+                    {
+                        invalidateStarted.Set();
+                        provider.Invalidate(16);
+                    },
+                    CancellationToken.None,
+                    TaskCreationOptions.LongRunning,
+                    TaskScheduler.Default);
+                Assert.True(invalidateStarted.Wait(TimeSpan.FromSeconds(10)));
+                var completedBeforeRead = await Task.WhenAny(invalidation, Task.Delay(TimeSpan.FromMilliseconds(200)));
+                invalidationCompletedDuringRead = completedBeforeRead == invalidation;
+            }
+            finally
+            {
+                releaseRead.Set();
+            }
+
+            var initialTable = await firstRead;
+            await invalidation;
+            var refreshedTable = provider.ReadReferenceTable(16);
+
+            Assert.False(invalidationCompletedDuringRead);
+            Assert.NotSame(initialTable, refreshedTable);
+            Assert.Equal(1, initialTable.Version);
+            Assert.Equal(2, refreshedTable.Version);
+            Assert.Equal(2, readCount);
         }
 
         private static byte[] EncodeTable(ReferenceTableCodec codec, int version)
