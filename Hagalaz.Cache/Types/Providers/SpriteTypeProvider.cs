@@ -27,7 +27,7 @@ namespace Hagalaz.Cache.Types.Providers
 
         public ISpriteType Get(int typeId)
         {
-            return TypeProvider<ISpriteType, SpriteTypeData>.DecodeFromCache(this, _cache, _typeData, _typeFactory, _codec, _typeEventHook, typeId);
+            return TypeProvider<ISpriteType, SpriteTypeData>.DecodeFromCacheWithRequiredArchive(this, _cache, _typeData, _typeFactory, _codec, _typeEventHook, typeId);
         }
 
         public ISpriteType[] GetRange(int startTypeId, int endTypeId)

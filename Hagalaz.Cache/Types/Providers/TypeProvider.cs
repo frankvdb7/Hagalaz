@@ -1,4 +1,5 @@
-﻿using Hagalaz.Cache.Abstractions;
+using System.IO;
+using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Abstractions.Types;
@@ -35,7 +36,7 @@ namespace Hagalaz.Cache.Types.Providers
                 return _customDecoder.Get(typeId);
             }
 
-            return DecodeFromCache(this, _cache, _typeData, _typeFactory, _codec, _typeEventHook, typeId);
+            return DecodeFromCacheWithRequiredArchive(this, _cache, _typeData, _typeFactory, _codec, _typeEventHook, typeId);
         }
 
         internal static T DecodeFromCache(
@@ -47,8 +48,41 @@ namespace Hagalaz.Cache.Types.Providers
             ITypeEventHook<T>? typeEventHook,
             int typeId)
         {
+            var table = cache.ReadReferenceTable(typeData.IndexId);
+            return DecodeFromCache(provider, cache, table, typeData, typeFactory, codec, typeEventHook, typeId);
+        }
+
+        internal static T DecodeFromCacheWithRequiredArchive(
+            ITypeProvider<T> provider,
+            ICacheAPI cache,
+            ITypeData typeData,
+            ITypeFactory<T> typeFactory,
+            ITypeCodec<T> codec,
+            ITypeEventHook<T>? typeEventHook,
+            int typeId)
+        {
+            var table = cache.ReadReferenceTable(typeData.IndexId);
             var archiveId = typeData.GetArchiveId(typeId);
-            var entry = cache.ReadReferenceTable(typeData.IndexId).GetEntry(archiveId, typeData.GetArchiveEntryId(typeId));
+            if (table.GetEntry(archiveId) is null)
+            {
+                throw new FileNotFoundException();
+            }
+
+            return DecodeFromCache(provider, cache, table, typeData, typeFactory, codec, typeEventHook, typeId);
+        }
+
+        private static T DecodeFromCache(
+            ITypeProvider<T> provider,
+            ICacheAPI cache,
+            IReferenceTable table,
+            ITypeData typeData,
+            ITypeFactory<T> typeFactory,
+            ITypeCodec<T> codec,
+            ITypeEventHook<T>? typeEventHook,
+            int typeId)
+        {
+            var archiveId = typeData.GetArchiveId(typeId);
+            var entry = table.GetEntry(archiveId, typeData.GetArchiveEntryId(typeId));
             if (entry == null)
             {
                 return typeFactory.CreateType(typeId);

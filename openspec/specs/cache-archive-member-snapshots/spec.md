@@ -106,31 +106,44 @@ Reading a complete archive MUST continue to return independently owned mutable d
 - **WHEN** a caller reads an archive twice and mutates one result
 - **THEN** the other result and later single-member reads remain unchanged
 
-### Requirement: Type providers decode each requested member independently
+### Requirement: Generic and sprite reads require a parent archive
 
-Providers MUST resolve requested children through the reference table and return factory fallbacks when the parent archive or child mapping is absent. For mapped entries, they MUST decode the mapped physical member into a fresh definition and propagate read or decode failures. Existing custom-provider delegation and post-decode behavior MUST remain intact.
+Generic `TypeProvider<T, TD>` and `SpriteTypeProvider` single-definition reads MUST fail with `FileNotFoundException` when the parent archive has no reference-table entry. Generic `TypeProvider<T, TD>.GetRange` MUST preserve the same missing-parent failure.
 
-#### Scenario: A provider decodes a present definition
+#### Scenario: A generic individual and range request target a missing parent archive
 
-- **WHEN** a generic or specialized provider reads a present definition
-- **THEN** it decodes the mapped physical member into a fresh definition and invokes the existing post-decode behavior once
+- **WHEN** `TypeProvider.Get` and `TypeProvider.GetRange` request a definition whose parent archive is absent from the reference table
+- **THEN** both requests report `FileNotFoundException` and neither returns a factory fallback
 
-#### Scenario: The parent archive has no reference-table entry
+#### Scenario: A sprite request targets a missing parent archive
 
-- **WHEN** a provider requests a definition whose parent archive is absent from the reference table
-- **THEN** it returns a factory fallback without attempting to read an archive file
+- **WHEN** `SpriteTypeProvider.Get` requests a definition whose parent archive is absent from the reference table
+- **THEN** it reports `FileNotFoundException` and does not return a factory fallback
+
+### Requirement: Missing child mappings use provider fallbacks
+
+Generic and sprite providers MUST return factory fallbacks when a parent archive exists but the requested child mapping is absent. Item, NPC, and object providers MUST retain factory fallbacks when either the parent archive or child mapping is absent.
 
 #### Scenario: A child is absent from an existing archive
 
-- **WHEN** a provider requests a definition whose parent archive exists but whose logical child has no reference-table entry
-- **THEN** it returns a factory fallback without attempting to read an archive file
+- **WHEN** a generic, sprite, item, NPC, or object provider requests a definition whose parent archive exists but whose child mapping is absent
+- **THEN** it returns a factory fallback without reading a physical member
 
-#### Scenario: A mapped archive file is missing
+#### Scenario: A specialized provider's parent archive is absent
 
-- **WHEN** a provider requests a mapped definition but its archive file is missing from storage
-- **THEN** the cache's file-not-found failure propagates and the provider does not use the factory fallback
+- **WHEN** an item, NPC, or object provider requests a definition whose parent archive is absent from the reference table
+- **THEN** the provider returns its existing factory fallback
 
-#### Scenario: A mapped archive is corrupt
+### Requirement: Mapped definitions decode through the cache API
 
-- **WHEN** a provider requests a mapped definition but its archive data cannot be decoded
-- **THEN** the cache's decoding failure propagates and the provider does not use the factory fallback
+Providers MUST decode mapped physical members through `ICacheAPI.Read` and propagate missing-file or decode failures. Existing custom-provider delegation and post-decode behavior MUST remain intact.
+
+#### Scenario: A provider decodes a present definition
+
+- **WHEN** a provider reads a present definition
+- **THEN** it decodes the mapped physical member into a fresh definition and invokes existing post-decode behavior once
+
+#### Scenario: A mapped archive file is missing or corrupt
+
+- **WHEN** a provider requests a mapped definition but its archive file is missing or its data cannot be decoded
+- **THEN** the cache's file-not-found or decoding failure propagates and the provider does not use a factory fallback

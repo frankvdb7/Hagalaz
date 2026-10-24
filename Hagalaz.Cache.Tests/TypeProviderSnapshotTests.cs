@@ -59,7 +59,7 @@ public sealed class TypeProviderSnapshotTests
     }
 
     [Fact]
-    public void GenericGet_ReturnsFactoryFallbackForAbsentParentOrChild()
+    public void GenericGetAndRange_ThrowForAbsentParentAndGetFallsBackForAbsentChild()
     {
         const int typeId = 10;
         var typeData = new QuestTypeData();
@@ -72,9 +72,8 @@ public sealed class TypeProviderSnapshotTests
         Assert.Null(absentChild.GetEntry(archiveId, childId));
 
         var cache = new Mock<ICacheAPI>();
-        cache.SetupSequence(current => current.ReadReferenceTable(2))
-            .Returns(absentParent)
-            .Returns(absentChild);
+        cache.Setup(current => current.ReadReferenceTable(2)).Returns(absentParent);
+        cache.Setup(current => current.ReadArchive(2, archiveId)).Throws<FileNotFoundException>();
         var fallback = new Mock<IQuestType>().Object;
         var factory = new Mock<ITypeFactory<IQuestType>>();
         factory.Setup(current => current.CreateType(typeId)).Returns(fallback);
@@ -83,19 +82,28 @@ public sealed class TypeProviderSnapshotTests
             factory.Object,
             new Mock<ITypeCodec<IQuestType>>().Object);
 
-        Assert.Same(fallback, provider.Get(typeId));
+        Assert.Throws<FileNotFoundException>(() => provider.Get(typeId));
+        Assert.Throws<FileNotFoundException>(() => provider.GetRange(typeId, typeId + 1));
+        cache.Verify(current => current.ReadArchive(2, archiveId), Times.Once);
+        cache.Verify(current => current.Read(2, archiveId, It.IsAny<int>()), Times.Never);
+        factory.Verify(current => current.CreateType(typeId), Times.Never);
+
+        cache.Setup(current => current.ReadReferenceTable(2)).Returns(absentChild);
         Assert.Same(fallback, provider.Get(typeId));
 
         cache.Verify(current => current.Read(2, archiveId, It.IsAny<int>()), Times.Never);
-        factory.Verify(current => current.CreateType(typeId), Times.Exactly(2));
+        factory.Verify(current => current.CreateType(typeId), Times.Once);
     }
 
     [Fact]
-    public void SpriteGet_WhenParentArchiveIsAbsent_ReturnsFactoryFallback()
+    public void SpriteGet_RequiresParentArchiveAndFallsBackForAbsentChild()
     {
         const int spriteId = 5;
+        const int childId = 0;
         var cache = new Mock<ICacheAPI>();
-        cache.Setup(current => current.ReadReferenceTable(8)).Returns(ReferenceTableWithoutArchive(spriteId));
+        cache.SetupSequence(current => current.ReadReferenceTable(8))
+            .Returns(ReferenceTableWithoutArchive(spriteId))
+            .Returns(ReferenceTableWithArchiveWithoutChild(spriteId, childId));
         var fallback = new Mock<ISpriteType>().Object;
         var factory = new Mock<ITypeFactory<ISpriteType>>();
         factory.Setup(current => current.CreateType(spriteId)).Returns(fallback);
@@ -104,10 +112,30 @@ public sealed class TypeProviderSnapshotTests
             new Mock<ISpriteTypeCodec>().Object,
             factory.Object);
 
+        Assert.Throws<FileNotFoundException>(() => provider.Get(spriteId));
         Assert.Same(fallback, provider.Get(spriteId));
 
         cache.Verify(current => current.Read(8, spriteId, It.IsAny<int>()), Times.Never);
         factory.Verify(current => current.CreateType(spriteId), Times.Once);
+    }
+
+    [Fact]
+    public void ItemGet_PreservesFactoryFallbackWhenParentArchiveIsAbsent()
+    {
+        const int itemId = 259;
+        var typeData = new ItemTypeData();
+        var archiveId = typeData.GetArchiveId(itemId);
+        var cache = new Mock<ICacheAPI>();
+        cache.Setup(current => current.ReadReferenceTable(typeData.IndexId)).Returns(ReferenceTableWithoutArchive(archiveId));
+        var fallback = new Mock<IItemType>().Object;
+        var factory = new Mock<ITypeFactory<IItemType>>();
+        factory.Setup(current => current.CreateType(itemId)).Returns(fallback);
+        var provider = new ItemTypeProvider(cache.Object, new Mock<IItemTypeCodec>().Object, factory.Object);
+
+        Assert.Same(fallback, provider.Get(itemId));
+
+        cache.Verify(current => current.Read(typeData.IndexId, archiveId, It.IsAny<int>()), Times.Never);
+        factory.Verify(current => current.CreateType(itemId), Times.Once);
     }
 
     [Fact]
@@ -261,6 +289,7 @@ public sealed class TypeProviderSnapshotTests
     private static Mock<IReferenceTable> ReferenceTableWithChild(int archiveId, int childId, int? physicalIndex)
     {
         var table = new Mock<IReferenceTable>();
+        table.Setup(current => current.GetEntry(archiveId)).Returns(new Mock<IReferenceTableEntry>().Object);
         if (physicalIndex is not null)
         {
             table.Setup(current => current.GetEntry(archiveId, childId)).Returns(CreateChild(physicalIndex.Value));
