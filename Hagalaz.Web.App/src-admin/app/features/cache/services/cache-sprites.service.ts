@@ -1,6 +1,6 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Service, type Signal } from "@angular/core";
-import type { Observable } from "rxjs";
+import { catchError, type Observable, shareReplay, tap, throwError } from "rxjs";
 import { environment } from "../../../../environments/environment";
 import type { DefinitionSummaryDto, SearchResultDto, SpriteMutationResultDto } from "./cache.models";
 import { cacheDefinitionResource, cacheQueryResource } from "./cache-resource";
@@ -9,6 +9,7 @@ import { cacheDefinitionResource, cacheQueryResource } from "./cache-resource";
 export class CacheSpritesService {
     private readonly http = inject(HttpClient);
     private readonly baseUrl = `${environment.cacheApiUrl}types/sprites`;
+    private readonly frameRequests = new Map<string, Observable<Blob>>();
 
     definitionResource(id: Signal<number | null>) {
         return cacheDefinitionResource<unknown>(this.baseUrl, id);
@@ -37,15 +38,24 @@ export class CacheSpritesService {
     }
 
     getSpriteImage(id: number, frame: number): Observable<Blob> {
-        return this.http.get(`${this.baseUrl}/${id}/image`, {
-            params: { frame },
-            responseType: "blob",
-        });
+        const key = `${id}:${frame}`;
+        let request = this.frameRequests.get(key);
+        if (!request) {
+            request = this.http.get(`${this.baseUrl}/${id}/image`, { params: { frame }, responseType: "blob" }).pipe(
+                catchError((error: unknown) => {
+                    this.frameRequests.delete(key);
+                    return throwError(() => error);
+                }),
+                shareReplay({ bufferSize: 1, refCount: true })
+            );
+            this.frameRequests.set(key, request);
+        }
+        return request;
     }
 
     replaceSpriteImage(id: number, file: File): Observable<SpriteMutationResultDto> {
         const formData = new FormData();
         formData.append("file", file);
-        return this.http.post<SpriteMutationResultDto>(`${this.baseUrl}/${id}/image`, formData);
+        return this.http.post<SpriteMutationResultDto>(`${this.baseUrl}/${id}/image`, formData).pipe(tap(() => this.frameRequests.clear()));
     }
 }

@@ -1,0 +1,3 @@
+- [x] 1. Add exclusive in-card states and same-request Retry; test delayed range/search requests and archive retry (AC1, AC2).
+- [x] 2. Correct search capability wording and modern sprite entry points; verify legacy routes remain reachable (AC3, AC4).
+- [x] 3. Run checks, coverage and desktop/mobile evidence; self-review and submit supervisor checkpoint (AC5).

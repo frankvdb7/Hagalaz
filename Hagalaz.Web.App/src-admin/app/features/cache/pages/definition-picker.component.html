@@ -1,0 +1,24 @@
+<button mat-button type="button" cdkOverlayOrigin #origin="cdkOverlayOrigin" class="definition-trigger" aria-current="page" aria-haspopup="dialog" [attr.aria-expanded]="opened()" [attr.aria-label]="'Choose ' + typeName() + '. ' + caption()" (click)="open()"><span class="truncate">{{ caption() }}</span><mat-icon iconPositionEnd>expand_more</mat-icon></button>
+<ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="origin" [cdkConnectedOverlayOpen]="opened()" [cdkConnectedOverlayHasBackdrop]="true" cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop" [cdkConnectedOverlayViewportMargin]="16" [cdkConnectedOverlayWidth]="360" cdkConnectedOverlayMaxWidth="calc(100vw - 32px)" [cdkConnectedOverlayPush]="true" (backdropClick)="close()" (overlayKeydown)="$event.key === 'Escape' && close()">
+    <div role="dialog" aria-modal="true" [attr.aria-label]="'Choose ' + typeName()" cdkTrapFocus [cdkTrapFocusAutoCapture]="true"><mat-card appearance="outlined" class="definition-picker p-4">
+        <div class="mb-3 flex items-center justify-between gap-3"><h2>Jump to {{ typeName() }}</h2><button mat-icon-button type="button" aria-label="Close definition picker" (click)="close()"><mat-icon>close</mat-icon></button></div>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>{{ inputLabel() }}</mat-label><mat-icon matPrefix>search</mat-icon>
+            <input matInput type="search" cdkFocusInitial [formField]="searchForm.query" [matAutocomplete]="items" (keydown.escape)="close()" />
+            <mat-autocomplete #items="matAutocomplete" (optionSelected)="choose($event.option.value)">
+                @if (directId() !== null) { <mat-option [value]="'' + directId()">Open {{ typeName() }} #{{ directId() }}</mat-option> }
+                @else if (!query()) { <mat-option disabled>{{ prompt() }}</mat-option> }
+                @else if (!canSearch()) { <mat-option disabled>Enter a nonnegative whole-number ID</mat-option> }
+                @else if (loading()) { <mat-option disabled>Searching…</mat-option> }
+                @else if (error()) { <mat-option disabled>Search unavailable</mat-option> }
+                @else {
+                    @for (item of results(); track item.id) { <mat-option [value]="'' + item.id">{{ item.name || typeName() }} · #{{ item.id }}</mat-option> }
+                    @empty { <mat-option disabled>No matching items</mat-option> }
+                }
+            </mat-autocomplete>
+        </mat-form-field>
+        @if (loading() && query() && directId() === null) { <mat-progress-bar class="mt-3" mode="indeterminate" aria-label="Searching definitions" /> }
+        @if (error(); as error) { <div class="mt-3" role="alert"><p>{{ error }}</p><button mat-button type="button" (click)="retry()">Retry search</button></div> }
+        <p class="supporting-text mt-3 text-xs">{{ help() }}</p>
+    </mat-card></div>
+</ng-template>

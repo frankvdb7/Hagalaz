@@ -43,4 +43,46 @@ describe("CacheSpritesService", () => {
         request.flush({ operation: "sprite-image-replaced", type: "sprite", id: 99, width: 1, height: 1, frameCount: 1 });
         http.verify();
     });
+    it("shares decoded frame requests and invalidates them after a successful replacement", () => {
+        TestBed.configureTestingModule({ providers: [provideHttpClient(withXhr()), provideHttpClientTesting(), CacheSpritesService] });
+        const service = TestBed.inject(CacheSpritesService);
+        const http = TestBed.inject(HttpTestingController);
+        const blobs: Blob[] = [];
+        service.getSpriteImage(12, 0).subscribe((blob) => blobs.push(blob));
+        service.getSpriteImage(12, 0).subscribe((blob) => blobs.push(blob));
+        const original = new Blob(["original"], { type: "image/png" });
+        http.expectOne((r) => r.url.endsWith("/sprites/12/image")).flush(original);
+        service.getSpriteImage(12, 0).subscribe((blob) => blobs.push(blob));
+        expect(blobs).toEqual([original, original, original]);
+        http.expectNone(() => true);
+        service.replaceSpriteImage(12, new File(["png"], "sprite.png", { type: "image/png" })).subscribe();
+        http.expectOne((r) => r.method === "POST").flush({ operation: "sprite-image-replaced", type: "sprite", id: 12, width: 1, height: 1, frameCount: 1 });
+        service.getSpriteImage(12, 0).subscribe((blob) => blobs.push(blob));
+        const replacement = new Blob(["new"], { type: "image/png" });
+        http.expectOne((r) => r.method === "GET").flush(replacement);
+        expect(blobs.at(-1)).toBe(replacement);
+        http.verify();
+    });
+
+    it("allows a failed frame request to be retried", () => {
+        TestBed.configureTestingModule({ providers: [provideHttpClient(withXhr()), provideHttpClientTesting(), CacheSpritesService] });
+        const service = TestBed.inject(CacheSpritesService);
+        const http = TestBed.inject(HttpTestingController);
+        let failed = false;
+        service.getSpriteImage(12, 0).subscribe({
+            error: () => {
+                failed = true;
+            },
+        });
+        http.expectOne((r) => r.url.endsWith("/sprites/12/image")).error(new ProgressEvent("error"));
+        expect(failed).toBe(true);
+        let loaded: Blob | null = null;
+        service.getSpriteImage(12, 0).subscribe((blob) => {
+            loaded = blob;
+        });
+        const replacement = new Blob(["png"], { type: "image/png" });
+        http.expectOne((r) => r.url.endsWith("/sprites/12/image")).flush(replacement);
+        expect(loaded).toBe(replacement);
+        http.verify();
+    });
 });

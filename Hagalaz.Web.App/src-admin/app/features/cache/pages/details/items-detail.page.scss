@@ -1,0 +1,104 @@
+@use "@angular/material" as mat;
+
+:host {
+    display: block;
+    min-width: 0;
+    container-type: inline-size;
+}
+h2 {
+    font: var(--mat-sys-headline-medium);
+    font-weight: 700;
+}
+h3 {
+    font: var(--mat-sys-title-large);
+    font-weight: 700;
+}
+h4,
+h5 {
+    font: var(--mat-sys-title-small);
+    font-weight: 700;
+}
+.forge-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 16px;
+    align-items: start;
+}
+.forge-mark,
+.identity-mark {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    color: var(--mat-sys-primary);
+    background: var(--mat-sys-primary-container);
+    border-radius: 14px;
+    width: 52px;
+    height: 52px;
+}
+.forge-mark {
+    font-size: 30px;
+    border: 1px solid var(--mat-sys-primary);
+}
+.identity-mark {
+    width: 42px;
+    height: 42px;
+}
+.definition-heading {
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    background: var(--mat-sys-surface-container-high);
+}
+.definition-panel {
+    min-height: 650px;
+}
+.context-note {
+    display: flex;
+    align-items: start;
+    gap: 12px;
+    background: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+    font: var(--mat-sys-body-small);
+}
+.context-note mat-icon {
+    flex-shrink: 0;
+}
+.action-slot {
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+.slot-number {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--mat-sys-surface-container-highest);
+    color: var(--mat-sys-primary);
+}
+.preview-space {
+    min-height: 220px;
+    border: 1px dashed var(--mat-sys-outline);
+    background: radial-gradient(ellipse at center, var(--mat-sys-tertiary-container), var(--mat-sys-surface-container-low));
+}
+.preview-rune {
+    font-size: 56px;
+    color: var(--mat-sys-primary);
+}
+.raw-data {
+    overflow: auto;
+    max-height: 650px;
+    background: var(--mat-sys-surface-container-lowest);
+    font: var(--mat-sys-body-small);
+}
+.raw-data pre {
+    white-space: pre-wrap;
+}
+@container (max-width: 680px) {
+    .forge-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    aside {
+        grid-column: auto;
+    }
+    .definition-panel {
+        min-height: 0;
+    }
+}

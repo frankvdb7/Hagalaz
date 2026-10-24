@@ -1,0 +1,3 @@
+- [x] 1. Make browsing URL-owned and preserve detail-return context; cover initialization, pagination and history restoration (AC1).
+- [x] 2. Protect all existing editable values and staged files across route reuse, shell exits and unload; cover cancellation, failure and successful saves (AC2, AC3).
+- [x] 3. Run checks and coverage, repeat desktop/mobile reproductions, self-review, and submit evidence to supervisor (AC4).

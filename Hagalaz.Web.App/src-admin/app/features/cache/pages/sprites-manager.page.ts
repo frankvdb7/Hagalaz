@@ -1,5 +1,5 @@
 import { JsonPipe } from "@angular/common";
-import { Component, effect, inject, input, output, signal, untracked } from "@angular/core";
+import { Component, DestroyRef, effect, inject, input, output, signal, untracked } from "@angular/core";
 import { FormField, form, max, min, readonly as readOnly, required } from "@angular/forms/signals";
 import { MatButtonModule } from "@angular/material/button";
 import { MatCardModule } from "@angular/material/card";
@@ -11,7 +11,9 @@ import { MatInputModule } from "@angular/material/input";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatTabsModule } from "@angular/material/tabs";
 import { firstValueFrom } from "rxjs";
+import { CachePendingChangesService } from "../cache-pending-changes.service";
 import type { SpriteMutationResultDto } from "../services/cache.models";
+import { CacheSpritesService } from "../services/cache-sprites.service";
 import { CacheSpritesStore } from "../stores/cache-sprites.store";
 import { CacheWriteDialogComponent } from "./cache-write-dialog";
 
@@ -29,7 +31,7 @@ import { CacheWriteDialogComponent } from "./cache-write-dialog";
         MatInputModule,
         MatProgressBarModule,
     ],
-    providers: [CacheSpritesStore],
+    providers: [CacheSpritesService, CacheSpritesStore],
     templateUrl: "./sprites-manager.page.html",
     styleUrl: "./sprites-manager.page.scss",
 })
@@ -38,6 +40,7 @@ export class SpritesManagerPageComponent {
     readonly spriteId = input<number | null>(null);
     readonly imageReplaced = output<SpriteMutationResultDto>();
     private readonly dialog = inject(MatDialog);
+    private readonly pendingChanges = inject(CachePendingChangesService);
 
     private readonly spriteIdModel = signal({ id: 0 });
     readonly spriteIdForm = form(this.spriteIdModel, (path) => {
@@ -71,6 +74,10 @@ export class SpritesManagerPageComponent {
     readonly imageUrl = signal<string | null>(null);
 
     constructor() {
+        this.pendingChanges.register({ dirty: () => this.selectedFile() !== null, saving: () => this.store.saving() }, inject(DestroyRef));
+        effect(() => {
+            if (this.store.mutationResult()) untracked(() => this.selectedFile.set(null));
+        });
         effect(() => {
             const id = this.spriteId();
             if (id === null) return;

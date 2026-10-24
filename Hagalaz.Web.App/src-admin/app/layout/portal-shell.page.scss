@@ -65,6 +65,13 @@
 .breadcrumb {
     font-size: 0.75rem;
 }
+.breadcrumb-separator {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+    line-height: 18px;
+    flex-shrink: 0;
+}
 .brand {
     text-decoration: none;
     color: var(--mat-sys-primary);

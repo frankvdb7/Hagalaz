@@ -45,16 +45,16 @@
                 </div>
                 @if (spriteId() === null) {
                 <mat-expansion-panel>
-                    <mat-expansion-panel-header><mat-panel-title>Search sprites</mat-panel-title><mat-panel-description class="supporting-description">Find sprites by name</mat-panel-description></mat-expansion-panel-header>
+                    <mat-expansion-panel-header><mat-panel-title>Search sprites</mat-panel-title><mat-panel-description class="supporting-description">Find sprites by ID</mat-panel-description></mat-expansion-panel-header>
                     <form class="grid grid-cols-1 gap-2 mt-2" novalidate (submit)="$event.preventDefault(); searchSprites()">
-                        <mat-form-field appearance="outline"><mat-label>Name or keyword</mat-label><input matInput type="text" [formField]="spriteSearchForm.query" /><mat-hint>Leave empty to browse all sprites</mat-hint><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>ID or ID fragment</mat-label><input matInput type="text" [formField]="spriteSearchForm.query" /><mat-hint>Leave empty to browse all sprites</mat-hint><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field>
                         <div class="grid grid-cols-1 gap-2 sm:grid-cols-2"><mat-form-field appearance="outline"><mat-label>Offset</mat-label><input matInput type="number" [formField]="spriteSearchForm.offset" /><mat-hint>Results to skip</mat-hint><mat-error>Enter a value of zero or greater.</mat-error></mat-form-field><mat-form-field appearance="outline"><mat-label>Results per request</mat-label><input matInput type="number" [formField]="spriteSearchForm.limit" /><mat-error>Enter a value from 1 to 200.</mat-error></mat-form-field></div>
                         <div><button mat-stroked-button type="submit" [disabled]="store.loading() || spriteSearchForm().invalid()">Search sprites</button></div>
                     </form>
                     @if (store.searchResult(); as result) {
                         <output class="mt-6">{{ result.totalMatches }} matches. {{ result.items.length }} results returned.</output>
-                        @if (result.items.length) { <mat-form-field appearance="outline" class="json-result mt-6"><mat-label>Sprite search results</mat-label><textarea matInput readonly rows="10" wrap="off" [value]="result.items | json"></textarea></mat-form-field> } @else { <p class="supporting-text mt-2">No sprites match this search. Try another name or reset the offset to zero.</p> }
-                    } @else { <p class="supporting-text mt-6">Search by name or leave the query empty to browse sprites.</p> }
+                        @if (result.items.length) { <mat-form-field appearance="outline" class="json-result mt-6"><mat-label>Sprite search results</mat-label><textarea matInput readonly rows="10" wrap="off" [value]="result.items | json"></textarea></mat-form-field> } @else { <p class="supporting-text mt-2">No sprites match this search. Try another ID fragment or reset the offset to zero.</p> }
+                    } @else { <p class="supporting-text mt-6">Search by ID fragment or leave the query empty to browse sprites.</p> }
                 </mat-expansion-panel>
                 }
             </div>

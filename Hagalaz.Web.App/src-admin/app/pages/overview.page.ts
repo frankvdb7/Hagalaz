@@ -20,7 +20,7 @@ export class OverviewPageComponent {
     ];
     readonly actions = [
         { label: "Browse definitions", path: "/cache/types", icon: "database", accent: "" },
-        { label: "Edit sprites", path: "/cache/sprites", icon: "image", accent: "accent-violet" },
+        { label: "Edit sprites", path: "/cache/types", queryParams: { kind: "sprites" }, icon: "image", accent: "accent-violet" },
         { label: "Explore worlds", path: "/worlds", icon: "public", accent: "accent-emerald" },
         { label: "Audit capabilities", path: "/audit", icon: "history", accent: "accent-cyan" },
     ];

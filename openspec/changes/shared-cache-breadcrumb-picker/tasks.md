@@ -1,0 +1,3 @@
+- [x] 1. Generalize the picker and page-owned template registration; integrate every detail type. (AC1, AC2, AC3)
+- [x] 2. Add type-routing, capability and lifecycle regression tests. (AC1, AC2, AC3)
+- [x] 3. Run admin coverage/build, Biome, Fallow and OpenSpec checks; inspect desktop/mobile and self-review. (AC4)

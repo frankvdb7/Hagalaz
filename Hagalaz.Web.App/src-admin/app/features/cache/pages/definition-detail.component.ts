@@ -1,6 +1,5 @@
 import { JsonPipe } from "@angular/common";
 import { Component, computed, effect, inject, input, type Signal, untracked } from "@angular/core";
-import { toSignal } from "@angular/core/rxjs-interop";
 import { MatButtonModule } from "@angular/material/button";
 import { MatCardModule } from "@angular/material/card";
 import { MatChipsModule } from "@angular/material/chips";
@@ -9,8 +8,12 @@ import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
-import { ActivatedRoute, RouterLink } from "@angular/router";
+import { RouterLink } from "@angular/router";
+import { PortalBreadcrumbDirective } from "../../../layout/portal-breadcrumb.directive";
 import { cacheTypeLabels, type TypeKind, type TypeMutationResultDto } from "../services/cache.models";
+import { CachePendingChangesService } from "../cache-pending-changes.service";
+import { injectCacheDefinitionId } from "./cache-definition-id";
+import { DefinitionPickerComponent } from "./definition-picker.component";
 
 type DetailStore = {
     byIdResult: Signal<unknown>;
@@ -25,6 +28,8 @@ type DetailStore = {
     selector: "cache-definition-detail",
     imports: [
         JsonPipe,
+        DefinitionPickerComponent,
+        PortalBreadcrumbDirective,
         RouterLink,
         MatButtonModule,
         MatCardModule,
@@ -39,17 +44,12 @@ type DetailStore = {
     styleUrl: "./definition-detail.component.scss",
 })
 export class DefinitionDetailComponent {
+    private readonly pendingChanges = inject(CachePendingChangesService);
     readonly store = input.required<DetailStore>();
     readonly kind = input.required<TypeKind>();
     readonly excludedFields = input<string[]>([]);
     readonly accessLabel = input("Read only");
-    private readonly route = inject(ActivatedRoute);
-    private readonly params = toSignal(this.route.paramMap);
-    readonly id = computed(() => {
-        const raw = this.params()?.get("id") ?? this.route.snapshot.paramMap.get("id") ?? "";
-        const id = Number(raw);
-        return /^\d+$/.test(raw) && Number.isSafeInteger(id) ? id : null;
-    });
+    readonly id = injectCacheDefinitionId();
     readonly kindLabels = cacheTypeLabels;
     readonly record = computed(() => {
         const value = this.store().byIdResult();
@@ -78,8 +78,8 @@ export class DefinitionDetailComponent {
             if (id !== null) untracked(() => store.loadById(id));
         });
     }
-    reload(): void {
+    async reload(): Promise<void> {
         const id = this.id();
-        if (id !== null && !this.store().loading()) this.store().loadById(id);
+        if (id !== null && !this.store().loading() && (await this.pendingChanges.canLeave())) this.store().loadById(id);
     }
 }

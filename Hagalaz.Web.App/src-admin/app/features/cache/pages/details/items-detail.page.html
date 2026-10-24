@@ -1,0 +1,40 @@
+<ng-template portalBreadcrumb><cache-definition-picker [store]="store" kind="items" [id]="id()" /></ng-template>
+<section aria-labelledby="forge-title">
+    <header class="forge-heading mb-5 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-4"><span class="forge-mark" aria-hidden="true">ᚺ</span><div><p class="eyebrow">Item definitions</p><h2 id="forge-title">Item Forge</h2><p class="supporting-text mt-1 text-sm">Inspect the archive. Understand every item.</p></div></div>
+        <a mat-stroked-button href="/cache/types?kind=items" routerLink="/cache/types" queryParamsHandling="merge" [queryParams]="{ kind: 'items' }"><mat-icon>arrow_back</mat-icon>All items</a>
+    </header>
+    <div class="forge-layout">
+        <mat-card appearance="outlined" class="definition-panel min-w-0 overflow-hidden" [attr.aria-busy]="store.loading()">
+            @if (store.loading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading item definition" /> }
+            @if (id() === null) {
+                <div class="p-6" role="alert"><h3>Invalid item ID</h3><p class="supporting-text mt-2">Choose a nonnegative item ID from the archive.</p></div>
+            } @else if (store.error(); as error) {
+                <div class="p-6" role="alert"><h3>Could not load item #{{ id() }}</h3><p class="supporting-text mt-2">{{ error }}</p><button mat-button type="button" (click)="reload()">Retry item</button></div>
+            } @else if (item(); as item) {
+                <div class="definition-heading flex flex-wrap items-center justify-between gap-3 p-5"><div><p class="eyebrow">Definition #{{ item.id }}</p><h3 class="mt-1">{{ item.name || 'Unnamed item' }}</h3></div><mat-chip-set aria-label="Workspace capabilities"><mat-chip>Read only</mat-chip></mat-chip-set></div>
+                <mat-tab-group dynamicHeight aria-label="Item definition sections">
+                    <mat-tab label="Overview"><ng-template matTabContent><div class="p-5"><h4>Base definition</h4><cache-item-fields [fields]="overview()" /><div class="context-note mt-5 rounded-xl p-4"><mat-icon aria-hidden="true">info</mat-icon><p>Cache base value is the definition's value. Market and trade prices come from separate server data.</p></div><p class="supporting-text mt-4 text-sm">Quantity, ownership and remaining charges belong to individual item instances and are not part of this definition.</p></div></ng-template></mat-tab>
+                    <mat-tab label="Interactions"><ng-template matTabContent><div class="p-5"><h4>Action slots</h4><p class="supporting-text mt-2 text-sm">Slots retain their original order, including empty positions.</p><div class="action-groups mt-4 grid gap-5">
+                        @for (group of actions(); track group.label) { <section><h5>{{ group.label }}</h5><ol class="mt-3">
+                            @for (action of group.slots; track $index) { <li class="action-slot flex items-center gap-3 py-3"><span class="slot-number">{{ $index + 1 }}</span><span [class.supporting-text]="!action">{{ action || 'Empty slot' }}</span></li> }
+                            @empty { <li class="supporting-text py-3">{{ group.slots == null ? 'Not supplied' : 'No action slots returned' }}</li> }
+                        </ol></section> }
+                    </div></div></ng-template></mat-tab>
+                    <mat-tab label="Equipment"><ng-template matTabContent><div class="p-5"><h4>Equipment metadata</h4><cache-item-fields [fields]="equipment()" /><p class="supporting-text mt-5 text-sm">These are cache slot, type and animation identifiers. Gameplay bonuses, requirements and weight are not exposed by this endpoint.</p></div></ng-template></mat-tab>
+                    <mat-tab label="Variants"><ng-template matTabContent><div class="p-5"><h4>Explicit relationships</h4><p class="supporting-text mt-2 text-sm">Item and template references are distinct. A reference does not guarantee a reciprocal link or that the target is available.</p><cache-item-fields [fields]="relationships()" /><p class="supporting-text mt-5 text-sm">Stack-amount model variants are decoded in the cache but are not exposed by this API.</p></div></ng-template></mat-tab>
+                    <mat-tab label="Raw data"><ng-template matTabContent><div class="p-5"><h4>API response</h4><p class="supporting-text mt-2 text-sm">Read-only JSON returned for this item.</p><section class="raw-data mt-4 rounded-xl p-4" aria-label="Raw item response"><pre>{{ item | json }}</pre></section></div></ng-template></mat-tab>
+                </mat-tab-group>
+            } @else { <p class="supporting-text p-6" role="status">Loading item #{{ id() }}…</p> }
+        </mat-card>
+        <aside aria-label="Item inspector" class="min-w-0">
+            <mat-card appearance="outlined" class="overflow-hidden p-5">
+                <div class="flex items-center gap-3"><span class="identity-mark"><mat-icon aria-hidden="true">deployed_code</mat-icon></span><div class="min-w-0"><p class="eyebrow">Item identity</p><h3 class="mt-1 break-words">{{ item() ? (item()?.name || 'Unnamed item') : 'No item loaded' }}</h3><p class="supporting-text mt-1 text-xs">Definition #{{ id() ?? 'Invalid' }}</p></div></div>
+                @if (item()) { <cache-item-fields class="mt-4" [fields]="overview().slice(2)" /> }
+                <div class="preview-space mt-5 flex flex-col items-center justify-center gap-3 rounded-2xl p-5 text-center"><span class="preview-rune" aria-hidden="true">ᚺ</span><h4>Visual preview</h4><p class="supporting-text text-xs">Reserved for a future item renderer. The API does not provide rendered item images.</p></div>
+                @if (item()) { <cache-item-fields [fields]="visual()" /> }
+                <p class="supporting-text mt-4 text-xs">Inventory model references cannot be used as sprite IDs.</p>
+            </mat-card>
+        </aside>
+    </div>
+</section>

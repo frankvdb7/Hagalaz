@@ -1,0 +1,27 @@
+@use "@angular/material" as mat;
+
+:host {
+    display: block;
+    min-width: 0;
+}
+.definition-trigger {
+    @include mat.button-overrides(
+        (
+            text-label-text-color: var(--mat-sys-on-surface),
+        )
+    );
+    max-width: 260px;
+}
+.definition-picker {
+    width: 100%;
+    max-width: calc(100vw - 32px);
+}
+h2 {
+    font: var(--mat-sys-title-medium);
+    font-weight: 700;
+}
+@media (max-width: 599px) {
+    .definition-trigger {
+        max-width: 180px;
+    }
+}

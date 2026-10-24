@@ -26,7 +26,14 @@
     <mat-sidenav-content #content>
         <mat-toolbar class="portal-toolbar flex-wrap gap-x-1 gap-y-3 px-4 py-3 sm:flex-nowrap sm:gap-x-2 sm:px-6 sm:py-0">
             @if (compact()) { <button mat-icon-button type="button" aria-label="Open navigation" (click)="drawer.open()"><mat-icon>menu</mat-icon></button> }
-            <span class="breadcrumb supporting-text">Workspace</span><mat-icon class="breadcrumb supporting-text">chevron_right</mat-icon><span class="route-title truncate">{{ title() }}</span>
+            <nav class="flex min-w-0 items-center gap-2" aria-label="Breadcrumb">
+                <span class="breadcrumb supporting-text">Workspace</span><mat-icon class="breadcrumb breadcrumb-separator supporting-text" aria-hidden="true">chevron_right</mat-icon>
+                @if (definitionCrumb(); as crumb) {
+                    <a class="breadcrumb supporting-text" href="/cache/types?kind={{ crumb.kind }}" routerLink="/cache/types" queryParamsHandling="merge" [queryParams]="{ kind: crumb.kind }">Cache Studio</a><mat-icon class="breadcrumb breadcrumb-separator supporting-text" aria-hidden="true">chevron_right</mat-icon>
+                    @if (breadcrumb.template(); as template) { <ng-container [ngTemplateOutlet]="template" /> }
+                    @else { <span class="route-title truncate" aria-current="page">{{ crumb.label }} #{{ crumb.id }}</span> }
+                } @else { <span class="route-title truncate" aria-current="page">{{ title() }}</span> }
+            </nav>
             <span class="grow"></span>
             <mat-form-field appearance="outline" subscriptSizing="dynamic" class="toolbar-search order-last w-full sm:order-none sm:w-52 lg:w-64">
                 <mat-icon matPrefix>search</mat-icon>

@@ -132,23 +132,62 @@ describe("CacheSpritesStore", () => {
         expect(store.spriteInfo()).toEqual({ id: 12 });
     });
 
-    it("ignores a preview while metadata is pending and accepts it afterward", async () => {
-        const metadata = store.loadSprite(12);
-        await store.previewSpriteImage({ id: 12, frame: 0 });
-        http.expectNone((req) => req.url === `${baseUrl}/12/image`);
-        expect(store.loading()).toBe(true);
-        expect(store.imageBlob()).toBeNull();
-        http.expectOne(`${baseUrl}/12`).flush({ id: 12 });
-        await metadata;
-
+    it("loads previews independently while metadata is pending", () => {
+        store.loadSprite(12);
+        store.previewSpriteImage({ id: 12, frame: 0 });
+        expect(store.metadataLoading()).toBe(true);
+        expect(store.previewLoading()).toBe(true);
         const blob = new Blob(["image"], { type: "image/png" });
-        const preview = store.previewSpriteImage({ id: 12, frame: 0 });
         http.expectOne((req) => req.url === `${baseUrl}/12/image`).flush(blob);
-        await preview;
         expect(store.imageBlob()).toBe(blob);
+        expect(store.loading()).toBe(true);
+        http.expectOne(`${baseUrl}/12`).flush({ id: 12 });
         expect(store.loading()).toBe(false);
     });
 
+    it("cancels earlier previews and displays the latest selected frame", () => {
+        store.previewSpriteImage({ id: 12, frame: 0 });
+        const first = http.expectOne((req) => req.url === `${baseUrl}/12/image`);
+        store.previewSpriteImage({ id: 12, frame: 2 });
+        expect(first.cancelled).toBe(true);
+        expect(store.previewLoading()).toBe(true);
+        const blob = new Blob(["latest"], { type: "image/png" });
+        const latest = http.expectOne((req) => req.url === `${baseUrl}/12/image`);
+        expect(latest.request.params.get("frame")).toBe("2");
+        latest.flush(blob);
+        expect(store.imageBlob()).toBe(blob);
+        expect(store.imageFrame()).toBe(2);
+        expect(store.previewLoading()).toBe(false);
+    });
+
+    it("cancels a preview and clears image identity when the selection is cleared", () => {
+        store.previewSpriteImage({ id: 12, frame: 0 });
+        const request = http.expectOne((req) => req.url === `${baseUrl}/12/image`);
+        store.previewSpriteImage(null);
+        expect(request.cancelled).toBe(true);
+        expect(store.imageBlob()).toBeNull();
+        expect(store.imageId()).toBeNull();
+        expect(store.previewLoading()).toBe(false);
+    });
+
+    it("keeps a failed mutation distinct from a prior successful response and allows retry", () => {
+        const file = new File(["png"], "sprite.png", { type: "image/png" });
+        const result = { operation: "replaced", type: "sprite", id: 12, width: 32, height: 32, frameCount: 1 };
+        store.uploadSpriteImage({ id: 12, file });
+        http.expectOne(`${baseUrl}/12/image`).flush(result);
+        store.uploadSpriteImage({ id: 12, file });
+        store.uploadSpriteImage({ id: 12, file });
+        expect(store.mutationResult()).toBeNull();
+        const failed = http.expectOne(`${baseUrl}/12/image`);
+        failed.flush({ detail: "Invalid PNG" }, { status: 400, statusText: "Bad Request" });
+        expect(store.mutationError()).toContain("Invalid PNG");
+        expect(store.saving()).toBe(false);
+        expect(store.mutationResult()).toBeNull();
+        store.uploadSpriteImage({ id: 12, file });
+        expect(store.mutationError()).toBeNull();
+        http.expectOne(`${baseUrl}/12/image`).flush(result);
+        expect(store.mutationResult()).toEqual(result);
+    });
     it("reports a network failure and clears it when retrying", async () => {
         const failed = store.loadSprite(12);
         http.expectOne(`${baseUrl}/12`).error(new ProgressEvent("error"));
@@ -164,6 +203,19 @@ describe("CacheSpritesStore", () => {
         http.expectOne(`${baseUrl}/12`).flush({ id: 12 });
         await retry;
         expect(store.spriteInfo()).toEqual({ id: 12 });
+        expect(store.loading()).toBe(false);
+    });
+
+    it("reports a failed search independently and clears it on retry", () => {
+        const query = { query: "", offset: 0, limit: 10 };
+        store.searchSprites(query);
+        http.expectOne((r) => r.url.endsWith("/sprites/search")).error(new ProgressEvent("error"));
+        expect(store.searchError()).toContain("/sprites/search");
+        expect(store.searchLoading()).toBe(false);
+        store.searchSprites(query);
+        expect(store.searchError()).toBeNull();
+        http.expectOne((r) => r.url.endsWith("/sprites/search")).flush({ ...query, totalMatches: 0, items: [] });
+        expect(store.searchResult()?.items).toEqual([]);
         expect(store.loading()).toBe(false);
     });
 });

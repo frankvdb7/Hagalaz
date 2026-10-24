@@ -1,4 +1,4 @@
-import { Component, inject, linkedSignal } from "@angular/core";
+import { Component, DestroyRef, inject, linkedSignal } from "@angular/core";
 import { FormField, form, min, required } from "@angular/forms/signals";
 import { MatButtonModule } from "@angular/material/button";
 import { MatDialog } from "@angular/material/dialog";
@@ -6,6 +6,7 @@ import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatInputModule } from "@angular/material/input";
 import { firstValueFrom } from "rxjs";
 import { CacheObjectsStore } from "../../stores/cache-objects.store";
+import { CachePendingChangesService } from "../../cache-pending-changes.service";
 import { CacheWriteDialogComponent } from "../cache-write-dialog";
 
 @Component({
@@ -16,6 +17,7 @@ import { CacheWriteDialogComponent } from "../cache-write-dialog";
 export class ObjectEditorComponent {
     readonly store = inject(CacheObjectsStore);
     private readonly dialog = inject(MatDialog);
+    private readonly pendingChanges = inject(CachePendingChangesService);
     private readonly objectMutationModel = linkedSignal(() => {
         const value = (this.store.byIdResult() ?? {}) as Record<string, unknown>;
         return { id: this.store.definitionId() ?? 0, name: (value.name ?? "") as string };
@@ -25,6 +27,20 @@ export class ObjectEditorComponent {
         min(path.id, 0);
         required(path.name);
     });
+
+    constructor() {
+        this.pendingChanges.register(
+            {
+                dirty: () => {
+                    const v = this.objectMutationModel();
+                    const record = (this.store.byIdResult() ?? {}) as Record<string, unknown>;
+                    return v.name !== (record.name ?? "");
+                },
+                saving: () => this.store.saving(),
+            },
+            inject(DestroyRef)
+        );
+    }
 
     async setObjectName(): Promise<void> {
         if (this.objectMutationForm().invalid() || this.store.loading()) return;

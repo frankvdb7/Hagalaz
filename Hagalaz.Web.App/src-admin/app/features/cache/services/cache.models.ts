@@ -41,6 +41,28 @@ export interface DefinitionSummaryDto {
     name?: string;
 }
 
+/** Read-only cache definition. Server prices, bonuses and instance state are separate. */
+export interface ItemDefinitionDto {
+    id: number;
+    name?: string;
+    value?: number | null;
+    stackable?: boolean | null;
+    noted?: boolean | null;
+    noteId?: number | null;
+    membersOnly?: boolean | null;
+    equipSlot?: number | null;
+    equipType?: number | null;
+    renderAnimationId?: number | null;
+    inventoryOptions?: (string | null)[] | null;
+    groundOptions?: (string | null)[] | null;
+    noteTemplateId?: number | null;
+    lendId?: number | null;
+    lendTemplateId?: number | null;
+    boughtItemId?: number | null;
+    boughtTemplateId?: number | null;
+    interfaceModelId?: number | null;
+}
+
 export interface TypeMutationResultDto {
     operation: string;
     type: string;
@@ -67,3 +89,26 @@ export const cacheTypeLabels: Record<TypeKind, string> = {
     cs2: "CS2 scripts",
     "cs2-int": "CS2 integers",
 };
+
+export const cacheTypeNames: Record<TypeKind, string> = {
+    items: "Item",
+    npcs: "NPC",
+    objects: "Object",
+    sprites: "Sprite",
+    quests: "Quest",
+    animations: "Animation",
+    graphics: "Graphic",
+    maps: "Map",
+    "varp-bits": "Varp bit",
+    "client-map-definitions": "Client map definition",
+    "config-definitions": "Config definition",
+    cs2: "CS2 script",
+    "cs2-int": "CS2 integer",
+};
+
+export interface SpriteMetadataDto {
+    id: number;
+    width: number;
+    height: number;
+    frameCount: number;
+}

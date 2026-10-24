@@ -1,4 +1,4 @@
-import { Component, inject, linkedSignal } from "@angular/core";
+import { Component, DestroyRef, inject, linkedSignal } from "@angular/core";
 import { FormField, form, min, required } from "@angular/forms/signals";
 import { MatButtonModule } from "@angular/material/button";
 import { MatDialog } from "@angular/material/dialog";
@@ -6,6 +6,7 @@ import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatInputModule } from "@angular/material/input";
 import { firstValueFrom } from "rxjs";
 import { CacheVarpBitsStore } from "../../stores/cache-varp-bits.store";
+import { CachePendingChangesService } from "../../cache-pending-changes.service";
 import { CacheWriteDialogComponent } from "../cache-write-dialog";
 
 @Component({
@@ -16,6 +17,7 @@ import { CacheWriteDialogComponent } from "../cache-write-dialog";
 export class VarpBitEditorComponent {
     readonly store = inject(CacheVarpBitsStore);
     private readonly dialog = inject(MatDialog);
+    private readonly pendingChanges = inject(CachePendingChangesService);
     private readonly varpMutationModel = linkedSignal(() => {
         const value = (this.store.byIdResult() ?? {}) as Record<string, unknown>;
         return {
@@ -35,6 +37,20 @@ export class VarpBitEditorComponent {
         required(path.bitOffset);
         min(path.bitOffset, 0);
     });
+
+    constructor() {
+        this.pendingChanges.register(
+            {
+                dirty: () => {
+                    const v = this.varpMutationModel();
+                    const record = (this.store.byIdResult() ?? {}) as Record<string, unknown>;
+                    return v.configId !== (record.configId ?? 0) || v.bitLength !== (record.bitLength ?? 0) || v.bitOffset !== (record.bitOffset ?? 0);
+                },
+                saving: () => this.store.saving(),
+            },
+            inject(DestroyRef)
+        );
+    }
 
     async setVarpBit(): Promise<void> {
         if (this.varpMutationForm().invalid() || this.store.loading()) return;
