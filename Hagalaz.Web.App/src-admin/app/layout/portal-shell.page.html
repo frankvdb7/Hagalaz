@@ -1,0 +1,48 @@
+<a class="skip-link" href="{{ currentUrl() }}#portal-content">Skip to content</a>
+<mat-sidenav-container class="portal-container">
+    <mat-sidenav #drawer [mode]="compact() ? 'over' : 'side'" [opened]="!compact()" class="portal-drawer">
+        <div class="flex h-full flex-col p-4">
+            <a href="/overview" routerLink="/overview" class="brand flex items-center gap-3 px-2 py-4" aria-label="Hagalaz World Admin overview" (click)="compact() && drawer.close()">
+                <span class="brand-mark"><img ngSrc="/assets/icons/logo.svg" width="25" height="40" alt="" priority /></span>
+                <span><strong>HAGALAZ</strong><small>WORLD ADMIN</small></span>
+            </a>
+            <div class="rune-band my-4" aria-hidden="true">ᚺ ᚠ ᚷ ᚨ ᛚ ᚨ ᛉ</div>
+            <nav aria-label="Administration" class="grow">
+                @for (group of navigation; track group.label) {
+                    <p class="nav-group px-4 pt-5 pb-2">{{ group.label }}</p>
+                    <mat-nav-list>
+                        @for (link of group.links; track link.path) {
+                            <a mat-list-item href="{{ link.path }}" [routerLink]="link.path" routerLinkActive #active="routerLinkActive" [activated]="active.isActive" ariaCurrentWhenActive="page" (click)="compact() && drawer.close()">
+                                <mat-icon matListItemIcon>{{ link.icon }}</mat-icon><span matListItemTitle>{{ link.title }}</span>
+                            </a>
+                        }
+                    </mat-nav-list>
+                }
+            </nav>
+            <div class="connection-note mt-8 rounded-2xl p-4"><span class="eyebrow">Realm telemetry</span><p class="mt-2 flex items-center gap-2"><mat-icon>cloud_off</mat-icon>Not connected</p><p class="supporting-text mt-2 text-xs">Live status is not available.</p></div>
+            <div class="identity mt-4 flex items-center gap-3 px-2 pt-4"><mat-icon>account_circle</mat-icon><div class="min-w-0"><p class="truncate">{{ auth.user()?.preferred_username }}</p><p class="supporting-text text-xs">System administrator</p></div></div>
+        </div>
+    </mat-sidenav>
+    <mat-sidenav-content #content>
+        <mat-toolbar class="portal-toolbar flex-wrap gap-x-1 gap-y-3 px-4 py-3 sm:flex-nowrap sm:gap-x-2 sm:px-6 sm:py-0">
+            @if (compact()) { <button mat-icon-button type="button" aria-label="Open navigation" (click)="drawer.open()"><mat-icon>menu</mat-icon></button> }
+            <span class="breadcrumb supporting-text">Workspace</span><mat-icon class="breadcrumb supporting-text">chevron_right</mat-icon><span class="route-title truncate">{{ title() }}</span>
+            <span class="grow"></span>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="toolbar-search order-last w-full sm:order-none sm:w-52 lg:w-64">
+                <mat-icon matPrefix>search</mat-icon>
+                <input matInput type="search" aria-label="Search workspace pages" placeholder="Search the realm…" [formField]="searchForm.query" [matAutocomplete]="destinations" />
+                <mat-autocomplete #destinations="matAutocomplete" (optionSelected)="openDestination($event.option.value)">
+                    @for (link of searchDestinations(); track link.path) {
+                        <mat-option [value]="link.path"><mat-icon>{{ link.icon }}</mat-icon>{{ link.title }}</mat-option>
+                    } @empty { <mat-option disabled>No matching pages</mat-option> }
+                </mat-autocomplete>
+            </mat-form-field>
+            <button mat-icon-button type="button" aria-label="Notifications" [matMenuTriggerFor]="notifications"><mat-icon>notifications_none</mat-icon></button>
+            <a mat-icon-button href="/settings" routerLink="/settings" aria-label="Settings"><mat-icon>settings</mat-icon></a>
+            <button mat-icon-button class="account-trigger" type="button" aria-label="Account menu" [matMenuTriggerFor]="account"><span class="account-avatar">{{ initials() }}</span></button>
+            <mat-menu #notifications="matMenu"><div class="px-4 py-3"><p>Notifications</p><p class="supporting-text mt-1 text-sm">Notifications are not connected.</p></div></mat-menu>
+            <mat-menu #account="matMenu"><div class="px-4 py-3"><p>{{ auth.user()?.preferred_username }}</p><p class="supporting-text mt-1 text-xs">System administrator</p></div><button mat-menu-item type="button" (click)="logout()"><mat-icon>logout</mat-icon>Sign out</button></mat-menu>
+        </mat-toolbar>
+        <main id="portal-content" tabindex="-1" class="portal-content mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8"><router-outlet (activate)="content.getElementRef().nativeElement.scrollTop = 0" /></main>
+    </mat-sidenav-content>
+</mat-sidenav-container>

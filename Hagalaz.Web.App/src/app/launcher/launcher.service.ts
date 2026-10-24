@@ -1,9 +1,7 @@
-import { Injectable } from "@angular/core";
+import { Service } from "@angular/core";
 import type { ILauncherApi } from "../../typings/launcher-api";
 
-@Injectable({
-    providedIn: "root",
-})
+@Service()
 export class LauncherService {
     private readonly launcherApiProxy: ILauncherApi;
 

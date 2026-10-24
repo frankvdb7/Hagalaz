@@ -1,6 +1,6 @@
-import { TestBed } from "@angular/core/testing";
 import { provideHttpClient, withXhr } from "@angular/common/http";
-import { provideHttpClientTesting, HttpTestingController } from "@angular/common/http/testing";
+import { HttpTestingController, provideHttpClientTesting } from "@angular/common/http/testing";
+import { TestBed } from "@angular/core/testing";
 import { describe, expect, it } from "vitest";
 import { CacheSpritesService } from "./cache-sprites.service";
 

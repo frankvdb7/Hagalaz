@@ -996,7 +996,7 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public async Task ExpiredDetachedWriteMetricRemainsUnavailableDetachedUntilTerminalTransition()
+    public async Task ExpiredReconnectWriteMetricRecordsUnavailableAfterTerminalTransition()
     {
         using var metrics = new RaidoMetricsTestContext();
         var clock = new ManualTimeProvider();
@@ -1009,19 +1009,18 @@ public sealed class RaidoPhysicalConnectionTests
             metrics: metrics.Metrics);
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        var pendingReconnect = context.TcpConnection.WaitForReconnectAsync();
         clock.Advance(TimeSpan.FromMinutes(6));
 
         Assert.IsFalse(context.TcpConnection.IsAwaitingReconnect);
-        Assert.IsFalse(context.TcpConnection.IsTerminal);
+        Assert.IsFalse(await context.TcpConnection.WaitForReconnectAsync());
+        Assert.IsTrue(context.TcpConnection.IsTerminal);
         await context.WriteAsync(new TestMessage());
 
         var write = metrics.Listener.Measurements.Single(measurement => measurement.InstrumentName == "raido.server.outbound_messages");
-        Assert.AreEqual("unavailable-detached", write.Tags["outcome"]);
+        Assert.AreEqual("unavailable", write.Tags["outcome"]);
 
         context.Abort();
         await context.CleanupAsync();
-        Assert.IsFalse(await pendingReconnect);
     }
 
     [TestMethod]

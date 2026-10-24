@@ -41,3 +41,12 @@ The upgraded toolchain MUST continue to support the existing web, admin, unit-te
 
 - **WHEN** the existing admin and Electron launcher validation commands run after installation
 - **THEN** they resolve the upgraded dependency graph and either complete successfully or produce a documented environment/upstream compatibility limitation
+
+### Requirement: Both web app routers use platform navigation and injector cleanup
+
+The public and admin Angular application bootstraps MUST configure their routers with platform navigation and automatic cleanup for route-created injectors, using the non-deprecated `withAutoCleanupInjectors()` API.
+
+#### Scenario: Public and admin applications bootstrap their routers
+
+- **WHEN** either Angular application is bootstrapped
+- **THEN** its router is configured with `withExperimentalPlatformNavigation()` and `withAutoCleanupInjectors()`

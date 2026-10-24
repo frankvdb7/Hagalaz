@@ -24,6 +24,8 @@
     --color-surface-container-highest: var(--mat-sys-surface-container-highest);
     --color-surface-container-low: var(--mat-sys-surface-container-low);
     --color-surface-container-lowest: var(--mat-sys-surface-container-lowest);
+    --color-cache-toolbar: #1d160c;
+    --color-cache-panel: #120d08;
 
     /* typography */
     --text-body-small: var(--mat-sys-body-small-size);
@@ -41,6 +43,7 @@
     --text-title-small: var(--mat-sys-title-small-size);
     --text-title-medium: var(--mat-sys-title-medium-size);
     --text-title-large: var(--mat-sys-title-large-size);
+    --tracking-cache-title: 0.14em;
 }
 
 @layer base {

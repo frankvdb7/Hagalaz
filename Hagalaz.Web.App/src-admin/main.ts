@@ -1,8 +1,8 @@
-import { provideHttpClient, withFetch, withInterceptors } from "@angular/common/http";
-import { provideAppInitializer, provideZonelessChangeDetection, inject, importProvidersFrom } from "@angular/core";
+import { provideHttpClient, withInterceptors } from "@angular/common/http";
+import { importProvidersFrom, inject, provideAppInitializer, provideZonelessChangeDetection } from "@angular/core";
 import { MatIconRegistry } from "@angular/material/icon";
 import { bootstrapApplication } from "@angular/platform-browser";
-import { provideRouter } from "@angular/router";
+import { provideRouter, withAutoCleanupInjectors, withExperimentalPlatformNavigation } from "@angular/router";
 import { NgHcaptchaModule } from "ng-hcaptcha";
 import { AdminAppComponent } from "./app/app.component";
 import { routes } from "./app/app.routes";
@@ -12,9 +12,9 @@ import { environment } from "./environments/environment";
 
 bootstrapApplication(AdminAppComponent, {
     providers: [
-        provideRouter(routes),
+        provideRouter(routes, withExperimentalPlatformNavigation(), withAutoCleanupInjectors()),
         provideZonelessChangeDetection(),
-        provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
+        provideHttpClient(withInterceptors([authInterceptor])),
         importProvidersFrom(
             NgHcaptchaModule.forRoot({
                 siteKey:

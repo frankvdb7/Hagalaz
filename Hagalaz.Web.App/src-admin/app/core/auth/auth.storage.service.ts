@@ -1,8 +1,8 @@
-import { Injectable } from "@angular/core";
+import { Service } from "@angular/core";
 
 const refreshTokenKey = "hagalaz.admin.refresh_token";
 
-@Injectable({ providedIn: "root" })
+@Service()
 export class AuthStorageService {
     getRefreshToken(): string | null {
         return localStorage.getItem(refreshTokenKey);

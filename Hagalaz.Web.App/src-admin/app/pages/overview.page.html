@@ -1,0 +1,35 @@
+<section aria-labelledby="overview-title" class="grid gap-6">
+    <mat-card appearance="outlined" class="hero overflow-hidden">
+        <mat-card-content class="relative grid items-center gap-8 p-6 sm:p-8 lg:grid-cols-3">
+            <div class="relative z-10 lg:col-span-2">
+                <p class="eyebrow accent-cyan mb-3">✦ Hagalaz · World administration</p>
+                <h1 id="overview-title">The realm answers to you.</h1>
+                <p class="supporting-text mt-4 max-w-lg">Your workspace for game definitions, sprite assets, and the systems that keep Hagalaz alive.</p>
+                <div class="mt-6 flex flex-wrap gap-3"><a mat-flat-button href="/cache/types" routerLink="/cache/types"><mat-icon>auto_awesome</mat-icon>Open Cache Studio</a><a mat-stroked-button href="/worlds" routerLink="/worlds">Explore worlds<mat-icon iconPositionEnd>arrow_forward</mat-icon></a></div>
+            </div>
+            <div class="sigil" aria-hidden="true"><span class="sigil-runes">ᚺ · ᚠ · ᚷ · ᚨ · ᛚ · ᛉ</span><img ngSrc="/assets/icons/logo.svg" width="58" height="93" alt="" priority /></div>
+            <div class="hero-runes" aria-hidden="true">ᚺ　ᚠ　ᚷ　ᚨ　ᛚ　ᚨ　ᛉ　ᚱ　ᛟ　ᚹ　ᚦ</div>
+        </mat-card-content>
+    </mat-card>
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        @for (metric of metrics; track metric.label) {
+            <mat-card appearance="outlined" class="metric" [class]="metric.accent"><mat-card-content>
+                <div class="flex items-center justify-between gap-3"><h2 class="metric-label">{{ metric.label }}</h2><mat-icon>{{ metric.icon }}</mat-icon></div>
+                <p class="metric-value mt-6">Not connected</p><p class="supporting-text mt-2 text-xs">No live data source configured</p>
+            </mat-card-content></mat-card>
+        }
+        <admin-archive-count-card />
+    </div>
+    <div class="grid items-start gap-6 lg:grid-cols-5">
+        <mat-card appearance="outlined" class="lg:col-span-3"><mat-card-header><mat-card-title><h2>Realm activity</h2></mat-card-title><mat-card-subtitle>Player sessions and service telemetry</mat-card-subtitle></mat-card-header><mat-card-content>
+            <div class="metrics-empty flex flex-col items-center justify-center gap-3 py-12 text-center"><mat-icon class="accent-violet">query_stats</mat-icon><h3>Metrics not connected</h3><p class="supporting-text max-w-sm">Activity charts need a live telemetry API. No player counts or trends are being estimated.</p></div>
+        </mat-card-content></mat-card>
+        <mat-card appearance="outlined" class="lg:col-span-2"><mat-card-header><mat-card-title><h2>Quick actions</h2></mat-card-title><mat-card-subtitle>Your realm toolkit</mat-card-subtitle></mat-card-header><mat-card-content><div class="grid grid-cols-2 gap-3">
+            @for (action of actions; track action.path) { <a class="quick-action flex flex-col gap-4 rounded-2xl p-4" href="{{ action.path }}" [routerLink]="action.path"><mat-icon [class]="action.accent">{{ action.icon }}</mat-icon><span class="flex items-center justify-between gap-2">{{ action.label }}<mat-icon>arrow_forward</mat-icon></span></a> }
+        </div></mat-card-content></mat-card>
+    </div>
+    <div class="grid gap-6 md:grid-cols-2">
+        <mat-card appearance="outlined"><mat-card-header><mat-card-title><h2>Realm health</h2></mat-card-title></mat-card-header><mat-card-content><p class="supporting-text">Service health is not connected. Open Infrastructure for the required integration.</p><a mat-button href="/infrastructure" routerLink="/infrastructure" class="mt-4">View infrastructure<mat-icon iconPositionEnd>arrow_forward</mat-icon></a></mat-card-content></mat-card>
+        <mat-card appearance="outlined"><mat-card-header><mat-card-title><h2>Recent activity</h2></mat-card-title></mat-card-header><mat-card-content><p class="supporting-text">No audit feed is connected. Cache tools show the server confirmation for the latest operation on that page.</p><a mat-button href="/audit" routerLink="/audit" class="mt-4">View audit integration<mat-icon iconPositionEnd>arrow_forward</mat-icon></a></mat-card-content></mat-card>
+    </div>
+</section>

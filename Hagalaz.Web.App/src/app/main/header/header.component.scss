@@ -1,3 +1,9 @@
+@media (min-width: 48rem) {
+    .header-backdrop-mask {
+        mask: linear-gradient(to right, transparent, var(--color-surface), transparent);
+    }
+}
+
 .logo {
     &.play {
         #Text {

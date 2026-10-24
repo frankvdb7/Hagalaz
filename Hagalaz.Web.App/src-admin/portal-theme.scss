@@ -1,0 +1,140 @@
+@use "@angular/material" as mat;
+
+@mixin colors() {
+    @include mat.theme-overrides(
+        (
+            surface: #0b111b,
+            surface-dim: #0b111b,
+            surface-bright: #263446,
+            surface-container-lowest: #0b111b,
+            surface-container-low: #161f2d,
+            surface-container: #192433,
+            surface-container-high: #1e2a3a,
+            surface-container-highest: #29394b,
+            on-surface: #edf1fa,
+            on-surface-variant: #b9c9dd,
+            outline: #8293aa,
+            outline-variant: #39485c,
+            primary-container: #51432c,
+            on-primary-container: #ffdeac,
+            secondary-container: #283b4e,
+            on-secondary-container: #d4e7fa,
+        )
+    );
+}
+
+.admin-portal,
+.cdk-overlay-container {
+    @include mat.card-overrides(
+        (
+            outlined-container-shape: 24px,
+            outlined-container-color: var(--mat-sys-surface-container-low),
+            outlined-outline-color: var(--mat-sys-outline-variant),
+        )
+    );
+    @include mat.sidenav-overrides(
+        (
+            container-shape: 0,
+            container-background-color: var(--mat-sys-surface-container-low),
+            content-background-color: var(--mat-sys-surface),
+            container-divider-color: var(--mat-sys-outline-variant),
+        )
+    );
+    @include mat.toolbar-overrides(
+        (
+            container-background-color: var(--mat-sys-surface-container-low),
+        )
+    );
+    @include mat.list-overrides(
+        (
+            active-indicator-color: var(--mat-sys-primary-container),
+            list-item-leading-icon-color: var(--mat-sys-on-surface-variant),
+            list-item-label-text-color: var(--mat-sys-on-surface),
+            list-item-one-line-container-height: 48px,
+        )
+    );
+    @include mat.form-field-overrides(
+        (
+            outlined-container-shape: 12px,
+        )
+    );
+    @include mat.tabs-overrides(
+        (
+            divider-color: var(--mat-sys-outline-variant),
+        )
+    );
+    @include mat.table-overrides(
+        (
+            background-color: transparent,
+            row-item-outline-color: var(--mat-sys-outline-variant),
+        )
+    );
+    --portal-cyan: rgb(123 216 233);
+    --portal-emerald: rgb(122 220 176);
+    --portal-violet: #c7adff;
+    --portal-ember: #ff9993;
+    color: var(--mat-sys-on-surface);
+
+    .eyebrow {
+        color: var(--mat-sys-primary);
+        text-transform: uppercase;
+        font: var(--mat-sys-label-small);
+        font-weight: 700;
+        letter-spacing: 0.16em;
+    }
+    .feature-icon {
+        width: 44px;
+        height: 44px;
+        display: grid;
+        place-items: center;
+        border-radius: 14px;
+        color: var(--portal-accent, var(--mat-sys-primary));
+        background: color-mix(in srgb, var(--portal-accent, var(--mat-sys-primary)) 16%, transparent);
+    }
+    .accent-cyan {
+        --portal-accent: var(--portal-cyan);
+        color: var(--portal-cyan);
+    }
+    .accent-emerald {
+        --portal-accent: var(--portal-emerald);
+        color: var(--portal-emerald);
+    }
+    .accent-violet {
+        --portal-accent: var(--portal-violet);
+        color: var(--portal-violet);
+    }
+    .accent-ember {
+        --portal-accent: var(--portal-ember);
+        color: var(--portal-ember);
+    }
+    .notice {
+        border: 1px solid var(--mat-sys-outline);
+        border-radius: 16px;
+        background: var(--mat-sys-secondary-container);
+        padding: 16px;
+        color: var(--mat-sys-on-secondary-container);
+    }
+    a:focus-visible,
+    button:focus-visible {
+        outline: 2px solid var(--mat-sys-primary);
+        outline-offset: 4px;
+    }
+    h1 {
+        font-weight: 700;
+    }
+    h2 {
+        font-weight: 700;
+    }
+    mat-nav-list a[aria-current="page"] {
+        @include mat.list-overrides(
+            (
+                list-item-label-text-color: var(--mat-sys-on-primary-container),
+                list-item-leading-icon-color: var(--mat-sys-primary),
+            )
+        );
+    }
+}
+
+.admin-portal {
+    background: var(--mat-sys-surface);
+}

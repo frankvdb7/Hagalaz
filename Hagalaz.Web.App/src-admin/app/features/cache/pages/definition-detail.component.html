@@ -1,0 +1,23 @@
+<section [attr.aria-busy]="store().loading()" aria-label="Definition details" class="mx-auto max-w-4xl">
+    <a mat-button href="/cache/types" routerLink="/cache/types" [queryParams]="{ kind: kind() }" class="mb-4"><mat-icon>arrow_back</mat-icon>Back to {{ kindLabels[kind()] }} definitions</a>
+    @if (store().loading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading definition" /> }
+    @if (id() === null) { <p role="alert" class="notice mb-4">Enter a valid definition ID of zero or greater.</p> }
+    @if (store().error()) { <p role="alert" class="notice mb-4">{{ store().error() }}</p> }
+    @if (confirmation(); as result) { <p role="status" class="notice mb-4">Saved changes to {{ result.type }} #{{ result.id }}.</p> }
+    <mat-card appearance="outlined" class="definition-detail">
+        <mat-card-header class="items-center gap-3"><span class="feature-icon shrink-0"><mat-icon>deployed_code</mat-icon></span><div class="min-w-0 grow"><mat-card-title><h2 class="break-words">{{ selectedName() }}</h2></mat-card-title><mat-card-subtitle>{{ kindLabels[kind()] }} · #{{ id() }}</mat-card-subtitle></div></mat-card-header>
+        <mat-card-content class="pt-5">
+            <div class="detail-divider mb-5"></div>
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-2"><mat-chip-set aria-label="Definition access"><mat-chip>{{ accessLabel() }}</mat-chip></mat-chip-set><button mat-button type="button" [disabled]="store().loading() || id() === null" (click)="reload()"><mat-icon>refresh</mat-icon>Reload</button></div>
+            @if (store().definitionId() === id() && store().byIdResult() !== null) {
+                <div class="grid grid-cols-1 gap-x-4 sm:grid-cols-2"><mat-form-field appearance="outline"><mat-label>Definition ID</mat-label><input matInput readonly [value]="id()" /></mat-form-field><mat-form-field appearance="outline"><mat-label>Definition type</mat-label><input matInput readonly [value]="kindLabels[kind()]" /></mat-form-field></div>
+                <ng-content />
+                @if (detailFields().length) {
+                    <p class="supporting-text mb-4 text-xs">Read-only metadata</p>
+                    <div class="grid grid-cols-1 gap-x-4 sm:grid-cols-2">@for (field of detailFields(); track field.label) { <mat-form-field appearance="outline" [class]="field.layoutClass"><mat-label>{{ field.label }}</mat-label><input matInput readonly [value]="field.value" /></mat-form-field> }</div>
+                }
+                <mat-expansion-panel><mat-expansion-panel-header><mat-panel-title>Raw definition</mat-panel-title></mat-expansion-panel-header><mat-form-field appearance="outline" class="json-result mt-4"><mat-label>Definition result</mat-label><textarea matInput readonly rows="10" wrap="off" [value]="store().byIdResult() | json"></textarea></mat-form-field></mat-expansion-panel>
+            }
+        </mat-card-content>
+    </mat-card>
+</section>

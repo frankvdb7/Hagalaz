@@ -1,10 +1,10 @@
-import { computed, Injectable, signal, inject } from "@angular/core";
+import { computed, signal, inject, Service } from "@angular/core";
 import { firstValueFrom } from "rxjs";
 import { AuthService } from "./auth.service";
 import { AuthStorageService } from "./auth.storage.service";
 import type { AuthToken, UserInfo } from "./auth.models";
 
-@Injectable({ providedIn: "root" })
+@Service()
 export class AuthStore {
     private readonly authService = inject(AuthService);
     private readonly authStorage = inject(AuthStorageService);

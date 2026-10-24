@@ -1,19 +1,20 @@
 <mat-toolbar class="relative bg-transparent">
     <div
-        class="bg-surface/75 absolute inset-0 backdrop-blur-lg md:right-1/4 md:left-1/4 md:[mask:linear-gradient(to_right,transparent,var(--color-surface),transparent)]"
+        class="header-backdrop-mask bg-surface/75 absolute inset-0 backdrop-blur-lg md:inset-x-1/4"
     ></div>
 
     @let load = loadValue();
     <mat-progress-bar
         color="primary"
-        class="absolute top-0 right-0 left-0 z-10 w-auto p-0"
+        class="absolute top-0 inset-x-0 z-10 w-auto p-0"
         style="--mat-progress-bar-track-height: 0.125rem; --mat-progress-bar-active-indicator-height: 0.125rem"
         [class.opacity-0]="load === 0"
         mode="determinate"
         [value]="load"
     />
     <mat-toolbar-row class="relative container mx-auto flex">
-        <a class="logo z-10 w-48" href="/" aria-label="Home" routerLink="/" [ngClass]="logoAnimationClass || ''" (mouseenter)="playLogoAnimation()" (animationend)="stopLogoAnimation()">
+        <a class="logo z-10 w-48" href="/" routerLink="/" [ngClass]="logoAnimationClass || ''" (mouseenter)="playLogoAnimation()" (animationend)="stopLogoAnimation()">
+            <span class="sr-only">Home</span>
             <svg-icon svgClass="block overflow-visible align-middle" src="./assets/images/logo.svg"></svg-icon>
         </a>
         @if (!smallScreen()) {

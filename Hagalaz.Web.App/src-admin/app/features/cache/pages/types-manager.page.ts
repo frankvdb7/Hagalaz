@@ -1,149 +1,170 @@
-import { JsonPipe } from "@angular/common";
-import { ChangeDetectionStrategy, Component, inject, signal } from "@angular/core";
-import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
+import { Component, computed, effect, inject, signal, untracked } from "@angular/core";
+import { FormField, form, max, min, required } from "@angular/forms/signals";
 import { MatButtonModule } from "@angular/material/button";
 import { MatCardModule } from "@angular/material/card";
-import { MatChipsModule } from "@angular/material/chips";
-import { MatDividerModule } from "@angular/material/divider";
 import { MatFormFieldModule } from "@angular/material/form-field";
+import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
+import { MatPaginatorModule, type PageEvent } from "@angular/material/paginator";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
-import { MatSelectModule } from "@angular/material/select";
-import { firstValueFrom } from "rxjs";
-import type { TypeKind } from "../services/cache.models";
-import { CacheTypesService } from "../services/cache-types.service";
+import { MatTableModule } from "@angular/material/table";
+import { MatTabsModule } from "@angular/material/tabs";
+import { ActivatedRoute, Router, RouterLink } from "@angular/router";
+import { cacheTypeLabels, type TypeKind } from "../services/cache.models";
+import { CacheArchivesStore } from "../stores/cache-archives.store";
+import { cacheDefinitionStores } from "../stores/cache-definition-stores";
 
 @Component({
-    standalone: true,
     selector: "types-manager-page",
     imports: [
-        ReactiveFormsModule,
-        JsonPipe,
+        FormField,
+        RouterLink,
         MatButtonModule,
         MatCardModule,
-        MatChipsModule,
-        MatDividerModule,
+        MatIconModule,
+        MatTabsModule,
+        MatTableModule,
         MatFormFieldModule,
         MatInputModule,
+        MatPaginatorModule,
         MatProgressBarModule,
-        MatSelectModule,
     ],
+    providers: [CacheArchivesStore, ...Object.values(cacheDefinitionStores)],
     templateUrl: "./types-manager.page.html",
     styleUrl: "./types-manager.page.scss",
-    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TypesManagerPageComponent {
-    private readonly fb = inject(FormBuilder);
-    private readonly typesService = inject(CacheTypesService);
-
-    readonly kinds: TypeKind[] = [
-        "items",
-        "npcs",
-        "objects",
-        "sprites",
-        "quests",
-        "animations",
-        "graphics",
-        "maps",
-        "varp-bits",
-        "client-map-definitions",
-        "config-definitions",
-        "cs2",
-        "cs2-int",
-    ];
-    readonly searchableKinds: Array<"items" | "npcs" | "sprites"> = ["items", "npcs", "sprites"];
-
-    readonly archiveSizes = signal<unknown>(null);
-    readonly byIdResult = signal<unknown>(null);
-    readonly rangeResult = signal<unknown>(null);
-    readonly searchResult = signal<unknown>(null);
-    readonly mutationResult = signal<unknown>(null);
-    readonly error = signal<string | null>(null);
-    readonly loading = signal(false);
-
-    readonly byIdForm = this.fb.nonNullable.group({ kind: ["items" as TypeKind, Validators.required], id: [0, Validators.min(0)] });
-    readonly rangeForm = this.fb.nonNullable.group({
-        kind: ["items" as TypeKind, Validators.required],
-        startId: [0, Validators.min(0)],
-        endIdExclusive: [10, Validators.min(1)],
+    readonly archives = inject(CacheArchivesStore);
+    private readonly router = inject(Router);
+    readonly kinds = Object.keys(cacheDefinitionStores) as TypeKind[];
+    readonly kindLabels = cacheTypeLabels;
+    private readonly initialKind = inject(ActivatedRoute).snapshot.queryParamMap.get("kind");
+    readonly activeKind = signal<TypeKind>(this.kinds.find((kind) => kind === this.initialKind) ?? "items");
+    private readonly stores = {
+        items: inject(cacheDefinitionStores.items),
+        npcs: inject(cacheDefinitionStores.npcs),
+        objects: inject(cacheDefinitionStores.objects),
+        animations: inject(cacheDefinitionStores.animations),
+        maps: inject(cacheDefinitionStores.maps),
+        sprites: inject(cacheDefinitionStores.sprites),
+        quests: inject(cacheDefinitionStores.quests),
+        graphics: inject(cacheDefinitionStores.graphics),
+        "varp-bits": inject(cacheDefinitionStores["varp-bits"]),
+        "client-map-definitions": inject(cacheDefinitionStores["client-map-definitions"]),
+        "config-definitions": inject(cacheDefinitionStores["config-definitions"]),
+        cs2: inject(cacheDefinitionStores.cs2),
+        "cs2-int": inject(cacheDefinitionStores["cs2-int"]),
+    };
+    get store() {
+        return this.stores[this.activeKind()];
+    }
+    readonly resultKind = signal<TypeKind | null>(null);
+    readonly resultColumns = ["id", "name"];
+    readonly browseError = signal<string | null>(null);
+    private readonly appliedQuery = signal("");
+    readonly loading = computed(() => {
+        const store = this.store;
+        return this.archives.loading() || ("rangeLoading" in store && store.rangeLoading()) || ("searchLoading" in store && store.searchLoading());
     });
-    readonly searchForm = this.fb.nonNullable.group({
-        kind: ["items" as "items" | "npcs" | "sprites", Validators.required],
-        query: ["", Validators.required],
-        offset: [0, Validators.min(0)],
-        limit: [10, [Validators.min(1), Validators.max(200)]],
+    readonly error = computed(() => {
+        const store = this.store;
+        return (
+            this.archives.error() ??
+            (this.appliedQuery() ? ("searchError" in store ? store.searchError() : null) : "rangeError" in store ? store.rangeError() : null)
+        );
     });
-
-    readonly npcMutationForm = this.fb.nonNullable.group({ id: [0, Validators.min(0)], combatLevel: [1, Validators.min(0)] });
-    readonly objectMutationForm = this.fb.nonNullable.group({ id: [0, Validators.min(0)], name: ["", Validators.required] });
-    readonly varpMutationForm = this.fb.nonNullable.group({
-        id: [0, Validators.min(0)],
-        configId: [0, Validators.min(0)],
-        bitLength: [1, Validators.min(0)],
-        bitOffset: [0, Validators.min(0)],
+    readonly pageIndex = computed(() => Math.floor(this.searchForm.offset().value() / this.searchForm.limit().value()));
+    readonly paginated = computed(() => this.activeKind() !== "maps" && this.activeKind() !== "cs2-int");
+    readonly paginationLength = computed(() => {
+        if (this.resultKind() !== this.activeKind()) return 0;
+        const store = this.store;
+        if (this.appliedQuery()) return "searchResult" in store ? (store.searchResult()?.totalMatches ?? 0) : 0;
+        return this.archiveSize();
     });
-    readonly configMutationForm = this.fb.nonNullable.group({
-        id: [0, Validators.min(0)],
-        defaultValue: [0],
-        valueType: ["i", [Validators.required, Validators.minLength(1), Validators.maxLength(1)]],
+    readonly rows = computed(() => {
+        if (this.resultKind() !== this.activeKind() || this.error() || this.browseError()) return [];
+        const store = this.store;
+        const source = this.appliedQuery() ? ("searchResult" in store ? store.searchResult()?.items : []) : "rangeResult" in store ? store.rangeResult() : [];
+        return (source ?? []).filter(
+            (row): row is { id: number; name?: string } => row !== null && typeof row === "object" && "id" in row && typeof row.id === "number"
+        );
     });
-
-    async loadArchiveSizes(): Promise<void> {
-        await this.run(async () => this.archiveSizes.set(await firstValueFrom(this.typesService.getArchiveSizes())));
-    }
-    async loadById(): Promise<void> {
-        await this.run(async () => {
-            const v = this.byIdForm.getRawValue();
-            this.byIdResult.set(await firstValueFrom(this.typesService.getById(v.kind, v.id)));
-        });
-    }
-    async loadRange(): Promise<void> {
-        await this.run(async () => {
-            const v = this.rangeForm.getRawValue();
-            this.rangeResult.set(await firstValueFrom(this.typesService.getRange(v.kind, v.startId, v.endIdExclusive)));
-        });
-    }
-    async search(): Promise<void> {
-        await this.run(async () => {
-            const v = this.searchForm.getRawValue();
-            this.searchResult.set(await firstValueFrom(this.typesService.search(v.kind, v.query, v.offset, v.limit)));
-        });
-    }
-    async setNpcCombatLevel(): Promise<void> {
-        await this.run(async () => {
-            const v = this.npcMutationForm.getRawValue();
-            this.mutationResult.set(await firstValueFrom(this.typesService.updateNpcCombatLevel(v.id, v.combatLevel)));
-        });
-    }
-    async setObjectName(): Promise<void> {
-        await this.run(async () => {
-            const v = this.objectMutationForm.getRawValue();
-            this.mutationResult.set(await firstValueFrom(this.typesService.updateObjectName(v.id, v.name)));
-        });
-    }
-    async setVarpBit(): Promise<void> {
-        await this.run(async () => {
-            const v = this.varpMutationForm.getRawValue();
-            this.mutationResult.set(await firstValueFrom(this.typesService.updateVarpBit(v.id, v.configId, v.bitLength, v.bitOffset)));
-        });
-    }
-    async setConfigDefinition(): Promise<void> {
-        await this.run(async () => {
-            const v = this.configMutationForm.getRawValue();
-            this.mutationResult.set(await firstValueFrom(this.typesService.updateConfigDefinition(v.id, v.defaultValue, v.valueType)));
+    private readonly searchModel = signal({ query: "", offset: 0, limit: 10 });
+    readonly searchForm = form(this.searchModel, (path) => {
+        required(path.offset);
+        min(path.offset, 0);
+        required(path.limit);
+        min(path.limit, 1);
+        max(path.limit, 200);
+    });
+    constructor() {
+        this.archives.loadArchiveSizes();
+        effect(() => {
+            if (this.archives.archiveSizes()) untracked(() => this.loadPage());
         });
     }
 
-    private async run(action: () => Promise<void>): Promise<void> {
-        this.error.set(null);
-        this.loading.set(true);
-        try {
-            await action();
-        } catch (error: unknown) {
-            const response = error as { error?: { detail?: string; title?: string }; message?: string };
-            this.error.set(response.error?.detail ?? response.error?.title ?? response.message ?? "Request failed.");
-        } finally {
-            this.loading.set(false);
-        }
+    selectKind(index: number): void {
+        if (this.loading()) return;
+        const kind = this.kinds[index];
+        if (kind === this.activeKind()) return;
+        this.activeKind.set(kind);
+        this.resultKind.set(null);
+        this.searchModel.update((value) => ({ ...value, query: "", offset: 0 }));
+        this.appliedQuery.set("");
+        this.loadPage();
+    }
+    browse(): void {
+        if (this.loading() || this.searchForm().invalid()) return;
+        this.searchModel.update((value) => ({ ...value, offset: 0 }));
+        this.appliedQuery.set(this.searchModel().query.trim());
+        this.loadPage();
+    }
+    changePage(event: PageEvent): void {
+        if (this.loading()) return;
+        this.searchModel.update((value) => ({ ...value, offset: event.pageIndex * event.pageSize, limit: event.pageSize }));
+        this.loadPage();
+    }
+    private loadPage(): void {
+        if (this.searchForm().invalid()) return;
+        this.browseError.set(null);
+        const query = this.appliedQuery();
+        const store = this.store;
+        const { offset, limit } = this.searchModel();
+        if (/^-?\d+$/.test(query)) {
+            const id = Number(query);
+            if (!Number.isSafeInteger(id) || id < 0) {
+                this.browseError.set("Enter a valid definition ID of zero or greater.");
+                return;
+            }
+            void this.router.navigate(["/cache/types", this.activeKind(), id]);
+        } else if (query) {
+            if ("search" in store) {
+                this.resultKind.set(this.activeKind());
+                store.search(query, offset, limit);
+            } else this.browseError.set("Name search is available for items, NPCs and sprites. Enter an ID or clear the query to browse this type.");
+        } else if ("loadRange" in store) {
+            const size = this.archiveSize();
+            if (!size) {
+                this.browseError.set("This archive has no definitions to browse.");
+                return;
+            }
+            this.resultKind.set(this.activeKind());
+            store.loadRange(offset, Math.min(offset + limit, size));
+        } else this.browseError.set("This type supports lookup by ID. Enter a definition ID above.");
+    }
+    private archiveSize(): number {
+        const sizes = this.archives.archiveSizes();
+        const kind = this.activeKind();
+        if (!sizes || kind === "cs2-int") return 0;
+        const key =
+            kind === "varp-bits"
+                ? "varpBits"
+                : kind === "client-map-definitions"
+                  ? "clientMapDefinitions"
+                  : kind === "config-definitions"
+                    ? "configDefinitions"
+                    : kind;
+        return sizes[key];
     }
 }

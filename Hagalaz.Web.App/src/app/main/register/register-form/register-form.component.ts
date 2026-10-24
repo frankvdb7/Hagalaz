@@ -1,5 +1,5 @@
-import { Component, ChangeDetectionStrategy, inject } from "@angular/core";
-import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from "@angular/forms";
+import { Component, ChangeDetectionStrategy, signal } from "@angular/core";
+import { email, form, FormField, required } from "@angular/forms/signals";
 import { MatButton } from "@angular/material/button";
 import { MatError, MatFormField, MatLabel, MatSuffix } from "@angular/material/form-field";
 import { MatInput } from "@angular/material/input";
@@ -11,21 +11,23 @@ import { MatIcon } from "@angular/material/icon";
     selector: "app-register-form",
     templateUrl: "./register-form.component.html",
     styleUrls: ["./register-form.component.scss"],
-    imports: [MatButton, MatInput, MatFormField, MatLabel, MatError, RouterLink, MatCheckbox, FormsModule, ReactiveFormsModule, MatIcon, MatSuffix],
+    imports: [MatButton, MatInput, MatFormField, MatLabel, MatError, RouterLink, MatCheckbox, FormField, MatIcon, MatSuffix],
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RegisterFormComponent {
-    private formBuilder = inject(FormBuilder);
+    private readonly model = signal({ email: "", password: "", passwordConfirm: "", accepted: false });
 
-    readonly form = this.formBuilder.group({
-        email: ["", [Validators.required, Validators.email]],
-        password: ["", Validators.required],
-        passwordConfirm: ["", Validators.required],
-        accepted: ["", Validators.requiredTrue],
+    readonly form = form(this.model, (path) => {
+        required(path.email);
+        email(path.email);
+        required(path.password);
+        required(path.passwordConfirm);
+        required(path.accepted);
     });
 
-    onSubmit() {
-        if (!this.form.valid) {
+    onSubmit(event: SubmitEvent) {
+        event.preventDefault();
+        if (this.form().invalid()) {
             return;
         }
     }
