@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-24
+goal: Decode, represent, and read sparse archive IDs without conflating the ID
+  space with the number of physical groups.

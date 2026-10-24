@@ -33,12 +33,14 @@ namespace Hagalaz.Cache.Models
         public ReferenceTableFlags Flags { get; }
 
         /// <summary>
-        /// Gets the maximum number of files in this table.
+        /// Gets the number of archive groups present in this table.
         /// </summary>
-        /// <value>
-        /// The maximum number of files.
-        /// </value>
-        public int Capacity => _entries.Capacity;
+        public int Count => _entries.Count;
+
+        /// <summary>
+        /// Gets one greater than the greatest archive identifier in this table, or zero when empty.
+        /// </summary>
+        public int Capacity => _entries.Count == 0 ? 0 : _entries.Keys[_entries.Count - 1] + 1;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ReferenceTable"/> class.
@@ -62,14 +64,10 @@ namespace Hagalaz.Cache.Models
             Protocol = table.Protocol;
             Version = table.Version;
             Flags = table.Flags;
-            _entries = new SortedList<int, IReferenceTableEntry>(table.Capacity);
-            for (int i = 0; i < table.Capacity; i++)
+            _entries = new SortedList<int, IReferenceTableEntry>(table.Count);
+            foreach (var (fileId, entry) in table.Entries)
             {
-                var entry = table.GetEntry(i);
-                if (entry != null)
-                {
-                    _entries.Add(i, entry);
-                }
+                _entries.Add(fileId, entry);
             }
         }
 
@@ -81,14 +79,9 @@ namespace Hagalaz.Cache.Models
         public int GetFileId(string fileName)
         {
             var hash = CalculateId(fileName);
-            for (var id = 0; id <= Capacity; id++)
+            foreach (var (id, entry) in _entries)
             {
-                if (!_entries.ContainsKey(id))
-                {
-                    continue;
-                }
-
-                if (_entries[id].Id == hash)
+                if (entry.Id == hash)
                 {
                     return id;
                 }
