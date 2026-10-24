@@ -7,6 +7,12 @@ namespace Hagalaz.Cache.Abstractions
     /// Defines the contract for a high-level API to interact with the game cache,
     /// providing methods for reading, writing, and managing cache files.
     /// </summary>
+    /// <remarks>
+    /// Same-instance writes are serialized with single-member reads and reference-table lookups. This does not make
+    /// <see cref="ReadArchive(int, int)"/>, <see cref="ReadContainer(int, int)"/>, or composed range and inspection
+    /// workflows atomic with concurrent writes; they do not hold that exclusion across their complete read and decode sequence.
+    /// Callers that require operation-wide consistency must coordinate those operations separately.
+    /// </remarks>
     public interface ICacheAPI
     {
         /// <summary>

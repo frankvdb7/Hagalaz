@@ -70,7 +70,7 @@ Concurrent callers attached to a cold archive load MUST share that reconstructio
 
 ### Requirement: Local writes invalidate affected snapshots before reads resume
 
-The cache MUST exclude single-member reads and Cache API reference-table lookups for the complete local `CacheApi.Write`, raw write, or raw copy operation and invalidate affected snapshots before releasing that exclusion, including when the write fails. A raw reference-table mutation MUST also refresh the memoized table and invalidate snapshots for its corresponding data index. This guarantee applies only to mutations through the same cache API instance.
+The cache MUST serialize same-instance local writes with single-member reads and Cache API reference-table lookups, invalidating affected snapshots before releasing that exclusion even when a write fails. A raw reference-table mutation MUST refresh the memoized table and invalidate snapshots for its data index.
 
 #### Scenario: A local archive write completes
 
@@ -96,6 +96,15 @@ The cache MUST exclude single-member reads and Cache API reference-table lookups
 
 - **WHEN** cache files are changed by an external process or by direct `IFileStore` use outside the owning cache API instance
 - **THEN** the running instance does not claim automatic snapshot or reference-table coherence
+
+### Requirement: Multi-operation reads are not atomic with local writes
+
+`ReadArchive`, `ReadContainer`, and composed range or inspection workflows MAY overlap same-instance local writes. The cache MUST NOT promise a before-or-after atomic result for these higher-level operations.
+
+#### Scenario: A higher-level read overlaps a local mutation
+
+- **WHEN** a `ReadArchive`, `ReadContainer`, or range/inspection workflow overlaps a local high-level write, raw write, or raw copy
+- **THEN** only individual member reads and reference-table lookups have the documented write serialization; no guarantee covers the complete higher-level read and decode sequence
 
 ### Requirement: Mutable archive reads remain detached from snapshots
 
