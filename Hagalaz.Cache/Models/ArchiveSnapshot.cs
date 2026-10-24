@@ -47,11 +47,6 @@ internal sealed class ArchiveSnapshot
             offset = checked(offset + length);
         }
 
-        if (offset != data.Length)
-        {
-            throw new InvalidDataException("Packed archive member lengths do not match the snapshot data.");
-        }
-
         return new ArchiveSnapshot(data, members);
     }
 
