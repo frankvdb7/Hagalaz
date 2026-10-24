@@ -30,9 +30,9 @@ namespace Hagalaz.Cache.Logic.Codecs
             }
 
             /* read the ids */
-            int[] ids = new int[table.Capacity];
+            int[] ids = new int[fileCount];
             int accumulator = 0, size = -1;
-            for (var i = 0; i < table.Capacity; i++)
+            for (var i = 0; i < fileCount; i++)
             {
                 int delta = table.Protocol >= 7 ? stream.ReadBigSmart() : (stream.ReadShort() & 0xFFFF);
                 ids[i] = accumulator += delta;
@@ -150,7 +150,7 @@ namespace Hagalaz.Cache.Logic.Codecs
             ew.WriteByte((byte)table.Flags);
 
             /* calculate and write the number of non-null entries */
-            ew.WriteBigSmart(table.Capacity);
+            ew.WriteBigSmart(table.Count);
 
             /* write the ids */
             int last = 0;

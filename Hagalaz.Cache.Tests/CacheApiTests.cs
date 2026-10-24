@@ -8,6 +8,7 @@ using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
 using Microsoft.Extensions.Options;
+using Hagalaz.Cache.Models;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests
@@ -135,6 +136,54 @@ namespace Hagalaz.Cache.Tests
                 measurement.InstrumentName == "hagalaz.cache.container.decode.duration");
             Assert.Equal("unknown", containerDuration.Tags["compression"]);
             Assert.Equal("failure", containerDuration.Tags["outcome"]);
+        }
+
+        [Fact]
+        public void SparseArchiveIds_CanBeReadAndMissingIdsRemainMissing()
+        {
+            const int highArchiveId = 100;
+            _fileStoreMock.SetupGet(store => store.IndexFileCount).Returns(1);
+            _fileStoreMock.Setup(store => store.Read(0, highArchiveId)).Returns(new MemoryStream());
+
+            var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 2);
+            table.AddEntry(1, CreateSparseArchiveEntry(0));
+            table.AddEntry(highArchiveId, CreateSparseArchiveEntry(1));
+            _referenceTableProviderMock.Setup(provider => provider.ReadReferenceTable(0)).Returns(table);
+
+            var container = new Mock<IContainer>();
+            _containerDecoderMock
+                .Setup(decoder => decoder.Decode(It.IsAny<MemoryStream>()))
+                .Returns(container.Object);
+            _archiveDecoderMock
+                .Setup(decoder => decoder.Decode(container.Object, 1))
+                .Returns(() =>
+                {
+                    var archive = new Archive(1);
+                    archive.Entries![0] = new MemoryStream([4, 5, 6]);
+                    return archive;
+                });
+
+            Assert.Equal(1, _cacheApi.GetFileCount(0, highArchiveId));
+            using (var archive = _cacheApi.ReadArchive(0, highArchiveId))
+            using (var member = archive.GetEntry(0))
+            {
+                Assert.Equal(new byte[] { 4, 5, 6 }, member.ToArray());
+            }
+
+            using var read = _cacheApi.Read(0, highArchiveId, 0);
+            Assert.Equal(new byte[] { 4, 5, 6 }, read.ToArray());
+
+            Assert.Equal(0, _cacheApi.GetFileCount(0, 50));
+            Assert.Throws<FileNotFoundException>(() => _cacheApi.ReadArchive(0, 50));
+            Assert.Throws<FileNotFoundException>(() => _cacheApi.Read(0, 50, 0));
+        }
+
+        private static ReferenceTableEntry CreateSparseArchiveEntry(int physicalIndex)
+        {
+            var entry = new ReferenceTableEntry(physicalIndex);
+            entry.InitializeEntries(1);
+            entry.AddEntry(0, new ReferenceTableChildEntry(0));
+            return entry;
         }
 
         private void SetupArchiveRead(CompressionType compression)

@@ -64,5 +64,44 @@ namespace Hagalaz.Cache.Tests
 
             Assert.Equal(originalChildEntry.Id, decodedChildEntry.Id);
         }
+
+        [Fact]
+        public void SparseArchiveIds_PreserveCapacityCountLookupAndRoundTrip()
+        {
+            var table = new ReferenceTable(7, 1, ReferenceTableFlags.Identifiers, 2);
+            table.AddEntry(1, CreateEntry(0, "low"));
+            table.AddEntry(100, CreateEntry(1, "high"));
+
+            Assert.Equal(2, table.Count);
+            Assert.Equal(101, table.Capacity);
+            Assert.Equal(100, table.GetFileId("high"));
+            Assert.Null(table.GetEntry(50));
+
+            var copy = new ReferenceTable(table);
+            Assert.Equal(2, copy.Count);
+            Assert.Equal(101, copy.Capacity);
+            Assert.NotNull(copy.GetEntry(100));
+
+            var codec = new ReferenceTableCodec();
+            using var encoded = codec.Encode(table);
+            var decoded = codec.Decode(encoded);
+
+            Assert.Equal(2, decoded.Count);
+            Assert.Equal(101, decoded.Capacity);
+            Assert.NotNull(decoded.GetEntry(1));
+            Assert.NotNull(decoded.GetEntry(100));
+            Assert.Null(decoded.GetEntry(50));
+        }
+
+        private static ReferenceTableEntry CreateEntry(int index, string name)
+        {
+            var entry = new ReferenceTableEntry(index)
+            {
+                Id = ReferenceTable.CalculateId(name)
+            };
+            entry.InitializeEntries(1);
+            entry.AddEntry(0, new ReferenceTableChildEntry(0));
+            return entry;
+        }
     }
 }
