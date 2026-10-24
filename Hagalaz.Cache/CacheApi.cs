@@ -51,7 +51,7 @@ namespace Hagalaz.Cache
         /// <param name="indexId">The identifier of the index (cache) to search within.</param>
         /// <param name="fileName">The name of the file to find.</param>
         /// <returns>The file's identifier, or -1 if no file with the given name is found.</returns>
-        public int GetFileId(int indexId, string fileName) => _referenceTableProvider.ReadReferenceTable(indexId).GetFileId(fileName);
+        public int GetFileId(int indexId, string fileName) => ReadReferenceTable(indexId).GetFileId(fileName);
 
         /// <summary>
         /// Gets the total number of files in a specified cache index.
@@ -68,7 +68,7 @@ namespace Hagalaz.Cache
         /// <returns>The number of member files in the specified archive.</returns>
         public int GetFileCount(int indexId, int fileId)
         {
-            var table = _referenceTableProvider.ReadReferenceTable(indexId);
+            var table = ReadReferenceTable(indexId);
             if (fileId < 0 || fileId >= table.Capacity)
             {
                 return 0;
@@ -83,7 +83,18 @@ namespace Hagalaz.Cache
         /// </summary>
         /// <param name="indexId">The identifier of the index whose reference table is to be read.</param>
         /// <returns>The decoded <see cref="IReferenceTable"/> for the specified index.</returns>
-        public IReferenceTable ReadReferenceTable(int indexId) => _referenceTableProvider.ReadReferenceTable(indexId);
+        public IReferenceTable ReadReferenceTable(int indexId)
+        {
+            _snapshotReadWriteLock.EnterReadLock();
+            try
+            {
+                return _referenceTableProvider.ReadReferenceTable(indexId);
+            }
+            finally
+            {
+                _snapshotReadWriteLock.ExitReadLock();
+            }
+        }
 
         /// <summary>
         /// Reads a file from the cache and decodes it into a container, which includes metadata and the file's data.
@@ -127,7 +138,7 @@ namespace Hagalaz.Cache
         {
             /* check if the index is valid */
             if (indexId >= _store.IndexFileCount) throw new FileNotFoundException();
-            var table = _referenceTableProvider.ReadReferenceTable(indexId);
+            var table = ReadReferenceTable(indexId);
             if (fileId < 0 || fileId >= table.Capacity) throw new FileNotFoundException();
             var entry = table.GetEntry(fileId);
             if (entry == null) throw new FileNotFoundException();
@@ -278,6 +289,70 @@ namespace Hagalaz.Cache
             {
                 _snapshotReadWriteLock.ExitWriteLock();
             }
+        }
+
+        /// <summary>
+        /// Writes raw file bytes without changing container versions or reference-table metadata.
+        /// </summary>
+        public void WriteRawFile(int indexId, int fileId, MemoryStream data)
+        {
+            _snapshotReadWriteLock.EnterWriteLock();
+            try
+            {
+                try
+                {
+                    _store.Write(indexId, fileId, data);
+                }
+                finally
+                {
+                    InvalidateRawMutation(indexId, fileId);
+                }
+            }
+            finally
+            {
+                _snapshotReadWriteLock.ExitWriteLock();
+            }
+        }
+
+        /// <summary>
+        /// Copies raw file bytes without changing container versions or reference-table metadata.
+        /// </summary>
+        public void CopyRawFile(int indexId, int fileId, int sourceIndexId, int sourceFileId)
+        {
+            _snapshotReadWriteLock.EnterWriteLock();
+            try
+            {
+                try
+                {
+                    using var source = _store.Read(sourceIndexId, sourceFileId);
+                    using var copy = new MemoryStream(source.ToArray());
+                    _store.Write(indexId, fileId, copy);
+                }
+                finally
+                {
+                    InvalidateRawMutation(indexId, fileId);
+                }
+            }
+            finally
+            {
+                _snapshotReadWriteLock.ExitWriteLock();
+            }
+        }
+
+        private void InvalidateRawMutation(int indexId, int fileId)
+        {
+            if (indexId == 255)
+            {
+                if (fileId >= 0 && fileId < _store.IndexFileCount)
+                {
+                    _referenceTableProvider.Invalidate(fileId);
+                    _archiveSnapshotCache.InvalidateIndex(fileId);
+                }
+
+                return;
+            }
+
+            _archiveSnapshotCache.Invalidate(new ArchiveKey(indexId, fileId));
         }
 
         /// <summary>

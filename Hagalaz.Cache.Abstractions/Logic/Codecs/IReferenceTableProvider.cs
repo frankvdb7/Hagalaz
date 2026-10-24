@@ -5,5 +5,7 @@ namespace Hagalaz.Cache.Abstractions.Logic.Codecs
     public interface IReferenceTableProvider
     {
         IReferenceTable ReadReferenceTable(int indexId);
+
+        void Invalidate(int indexId);
     }
 }

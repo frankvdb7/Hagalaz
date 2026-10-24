@@ -1,0 +1,194 @@
+using System.Net;
+using System.Net.Http.Json;
+using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Abstractions.Model;
+using Hagalaz.Cache.Extensions;
+using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Models;
+using Hagalaz.Cache.Types;
+using Hagalaz.Services.Cache.Features;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace Hagalaz.Services.Cache.Tests.Features;
+
+[TestClass]
+public sealed class RawStoreMutationCoherenceTests
+{
+    [TestMethod]
+    public async Task RawStoreMutations_RefreshObjectTypeReadsWithinSameServiceInstance()
+    {
+        var store = new MemoryFileStore();
+        var objectCodec = new ObjectTypeCodec();
+        var referenceTableCodec = new ReferenceTableCodec();
+        var initialArchive = EncodeContainer(EncodeArchive(
+            EncodeObject(objectCodec, "initial-0"),
+            EncodeObject(objectCodec, "initial-1")));
+        store.Set(255, 16, EncodeReferenceTable(referenceTableCodec, memberCount: 1, mapObjectToLastMember: false));
+        store.Set(16, 1, initialArchive);
+        store.Set(16, 2, EncodeContainer(EncodeArchive(
+            EncodeObject(objectCodec, "copy-0"),
+            EncodeObject(objectCodec, "copy-1"))));
+
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
+        builder.Services.AddSingleton<IFileStore>(store);
+        builder.Services.AddGameCache();
+
+        await using var app = builder.Build();
+        var cacheGroup = app.MapGroup("/api/v1/cache");
+        cacheGroup.MapStoreMutationEndpoints();
+        cacheGroup.MapTypeEndpoints();
+        await app.StartAsync();
+
+        var addresses = app.Services.GetRequiredService<IServer>()
+            .Features.Get<IServerAddressesFeature>()!.Addresses;
+        using var client = new HttpClient { BaseAddress = new Uri(addresses.Single()) };
+
+        Assert.AreEqual("initial-0", await ReadObjectNameAsync(client));
+
+        var updatedReferenceTable = EncodeReferenceTable(referenceTableCodec, memberCount: 2, mapObjectToLastMember: true);
+        await PostRawWriteAsync(client, "/api/v1/cache/store/indexes/255/files/16/actions/write-raw", updatedReferenceTable);
+        Assert.AreEqual("initial-1", await ReadObjectNameAsync(client));
+
+        var replacementArchive = EncodeContainer(EncodeArchive(
+            EncodeObject(objectCodec, "raw-write-0"),
+            EncodeObject(objectCodec, "raw-write-1")));
+        await PostRawWriteAsync(client, "/api/v1/cache/store/indexes/16/files/1/actions/write-raw", replacementArchive);
+        Assert.AreEqual("raw-write-1", await ReadObjectNameAsync(client));
+        CollectionAssert.AreEqual(replacementArchive, store.GetBytes(16, 1));
+
+        var copySourceArchive = EncodeContainer(EncodeArchive(
+            EncodeObject(objectCodec, "copy-0"),
+            EncodeObject(objectCodec, "copy-1")));
+        var copyResponse = await client.PostAsJsonAsync(
+            "/api/v1/cache/store/indexes/16/files/1/actions/copy-raw",
+            new StoreMutationEndpoints.CopyRawFileRequest(16, 2));
+        Assert.AreEqual(HttpStatusCode.OK, copyResponse.StatusCode, await copyResponse.Content.ReadAsStringAsync());
+
+        Assert.AreEqual("copy-1", await ReadObjectNameAsync(client));
+        CollectionAssert.AreEqual(copySourceArchive, store.GetBytes(16, 1));
+    }
+
+    private static async Task<string> ReadObjectNameAsync(HttpClient client)
+    {
+        var response = await client.GetFromJsonAsync<TypeEndpoints.ObjectTypeResponse>("/api/v1/cache/types/objects/259");
+        Assert.IsNotNull(response);
+        return response.Name;
+    }
+
+    private static async Task PostRawWriteAsync(HttpClient client, string path, byte[] bytes)
+    {
+        var response = await client.PostAsJsonAsync(path, new StoreMutationEndpoints.WriteRawFileRequest(Convert.ToBase64String(bytes)));
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
+    }
+
+    private static byte[] EncodeObject(ObjectTypeCodec codec, string name)
+    {
+        using var encoded = codec.Encode(new ObjectType(259) { Name = name });
+        return encoded.ToArray();
+    }
+
+    private static byte[] EncodeArchive(params byte[][] members)
+    {
+        using var archive = new MemoryStream();
+        foreach (var member in members)
+        {
+            archive.Write(member);
+        }
+
+        var previousMemberLength = 0;
+        foreach (var member in members)
+        {
+            archive.WriteInt(member.Length - previousMemberLength);
+            previousMemberLength = member.Length;
+        }
+
+        archive.WriteByte(1);
+        return archive.ToArray();
+    }
+
+    private static byte[] EncodeReferenceTable(ReferenceTableCodec codec, int memberCount, bool mapObjectToLastMember)
+    {
+        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 2);
+
+        var firstArchive = new ReferenceTableEntry(0);
+        firstArchive.InitializeEntries(1);
+        firstArchive.AddEntry(0, new ReferenceTableChildEntry(0));
+        table.AddEntry(0, firstArchive);
+
+        var objectArchive = new ReferenceTableEntry(1);
+        objectArchive.InitializeEntries(memberCount);
+        if (mapObjectToLastMember)
+        {
+            objectArchive.AddEntry(2, new ReferenceTableChildEntry(0));
+            objectArchive.AddEntry(3, new ReferenceTableChildEntry(1));
+        }
+        else
+        {
+            objectArchive.AddEntry(3, new ReferenceTableChildEntry(0));
+        }
+
+        table.AddEntry(1, objectArchive);
+        using var encoded = codec.Encode(table);
+        return EncodeContainer(encoded.ToArray());
+    }
+
+    private static byte[] EncodeContainer(byte[] data)
+    {
+        using var container = new Container(new MemoryStream(data));
+        return container.Encode();
+    }
+
+    private sealed class MemoryFileStore : IFileStore
+    {
+        private readonly object _sync = new();
+        private readonly Dictionary<(int IndexId, int FileId), byte[]> _files = [];
+
+        public int IndexFileCount => 255;
+
+        public int GetFileCount(int indexId)
+        {
+            lock (_sync)
+            {
+                return _files.Keys.Where(key => key.IndexId == indexId).Select(key => key.FileId).DefaultIfEmpty(-1).Max() + 1;
+            }
+        }
+
+        public MemoryStream Read(int indexId, int fileId)
+        {
+            lock (_sync)
+            {
+                return _files.TryGetValue((indexId, fileId), out var data)
+                    ? new MemoryStream(data, writable: false)
+                    : throw new FileNotFoundException($"Cache file {indexId}:{fileId} was not found.");
+            }
+        }
+
+        public void Write(int indexId, int fileId, MemoryStream data)
+        {
+            lock (_sync)
+            {
+                _files[(indexId, fileId)] = data.ToArray();
+            }
+        }
+
+        public void Set(int indexId, int fileId, byte[] data) => Write(indexId, fileId, new MemoryStream(data));
+
+        public byte[] GetBytes(int indexId, int fileId)
+        {
+            lock (_sync)
+            {
+                return _files[(indexId, fileId)].ToArray();
+            }
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+}

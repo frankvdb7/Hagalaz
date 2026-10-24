@@ -102,6 +102,106 @@ public sealed class CacheApiSnapshotTests
     }
 
     [Fact]
+    public async Task WriteRawFile_WaitsForReferenceTableLoadAndInvalidatesBeforeNextLookup()
+    {
+        using var fixture = new CacheApiFixture();
+        using var firstLookupStarted = new ManualResetEventSlim();
+        using var releaseFirstLookup = new ManualResetEventSlim();
+        using var rawWriteStarted = new ManualResetEventSlim();
+        using var releaseRawWrite = new ManualResetEventSlim();
+        using var secondLookupStarted = new ManualResetEventSlim();
+        var lookupCount = 0;
+        fixture.BeforeReferenceTableRead = () =>
+        {
+            if (Interlocked.Increment(ref lookupCount) == 1)
+            {
+                firstLookupStarted.Set();
+                if (!releaseFirstLookup.Wait(TimeSpan.FromSeconds(10)))
+                {
+                    throw new TimeoutException("The test did not release the initial reference-table lookup.");
+                }
+            }
+            else
+            {
+                secondLookupStarted.Set();
+            }
+        };
+        fixture.RawWriteAction = (_, _, _) =>
+        {
+            rawWriteStarted.Set();
+            if (!releaseRawWrite.Wait(TimeSpan.FromSeconds(10)))
+            {
+                throw new TimeoutException("The test did not release the raw table writer.");
+            }
+        };
+
+        var firstLookup = StartLongRunning(() => fixture.Cache.ReadReferenceTable(16));
+        Task? rawWrite = null;
+        Task<IReferenceTable>? secondLookup = null;
+
+        try
+        {
+            Assert.True(firstLookupStarted.Wait(TimeSpan.FromSeconds(10)));
+            rawWrite = StartLongRunning(() =>
+            {
+                using var data = new MemoryStream([7, 8]);
+                fixture.Cache.WriteRawFile(255, 16, data);
+            });
+            Assert.False(rawWriteStarted.Wait(TimeSpan.FromMilliseconds(200)));
+            releaseFirstLookup.Set();
+            await firstLookup;
+            Assert.True(rawWriteStarted.Wait(TimeSpan.FromSeconds(10)));
+
+            secondLookup = StartLongRunning(() => fixture.Cache.ReadReferenceTable(16));
+            Assert.False(secondLookupStarted.Wait(TimeSpan.FromMilliseconds(200)));
+            releaseRawWrite.Set();
+
+            Assert.True(secondLookupStarted.Wait(TimeSpan.FromSeconds(10)));
+            await rawWrite;
+            await secondLookup;
+        }
+        finally
+        {
+            releaseFirstLookup.Set();
+            releaseRawWrite.Set();
+            await firstLookup;
+            if (rawWrite is not null)
+            {
+                await rawWrite;
+            }
+            if (secondLookup is not null)
+            {
+                await secondLookup;
+            }
+        }
+
+        fixture.VerifyReferenceTableInvalidated(16);
+    }
+
+    [Fact]
+    public void WriteRawFile_InvalidatesSnapshotAfterStoreFailureAndPropagatesOriginalException()
+    {
+        using var fixture = new CacheApiFixture();
+        fixture.SetArchive(9, 3, [1, 2], 1);
+        using var beforeWrite = fixture.Cache.Read(9, 3, 0);
+        var failure = new IOException("raw file write failed");
+        fixture.RawWriteAction = (indexId, archiveId, _) =>
+        {
+            fixture.SetArchive(indexId, archiveId, [7, 8], 1);
+            throw failure;
+        };
+
+        using var data = new MemoryStream([7, 8]);
+        var actual = Assert.Throws<IOException>(() => fixture.Cache.WriteRawFile(9, 3, data));
+
+        using var afterWrite = fixture.Cache.Read(9, 3, 0);
+        Assert.Same(failure, actual);
+        Assert.Equal(new byte[] { 1, 2 }, beforeWrite.ToArray());
+        Assert.Equal(new byte[] { 7, 8 }, afterWrite.ToArray());
+        Assert.Equal(2, fixture.ArchiveDecodeCount);
+    }
+
+    [Fact]
     public void ReadArchive_RemainsDetachedMutableAndCannotChangeSnapshotBytes()
     {
         using var fixture = new CacheApiFixture();
@@ -296,6 +396,8 @@ public sealed class CacheApiSnapshotTests
 
                     return new MemoryStream(bytes, writable: false);
                 });
+            _store.Setup(store => store.Write(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<MemoryStream>()))
+                .Callback<int, int, MemoryStream>((indexId, fileId, data) => RawWriteAction?.Invoke(indexId, fileId, data));
             _referenceTableProvider.Setup(provider => provider.ReadReferenceTable(It.IsAny<int>()))
                 .Returns((int indexId) =>
                 {
@@ -346,6 +448,10 @@ public sealed class CacheApiSnapshotTests
         public Action? BeforeContainerDecode { get; set; }
         public Action? BeforeReferenceTableRead { get; set; }
         public Action<int, int, IContainer>? WriteAction { get; set; }
+        public Action<int, int, MemoryStream>? RawWriteAction { get; set; }
+
+        public void VerifyReferenceTableInvalidated(int indexId) =>
+            _referenceTableProvider.Verify(provider => provider.Invalidate(indexId), Times.Once);
 
         public void SetArchive(int indexId, int archiveId, byte[] data, int memberCount)
         {

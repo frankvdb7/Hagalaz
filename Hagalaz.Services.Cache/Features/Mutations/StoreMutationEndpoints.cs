@@ -17,7 +17,7 @@ public static class StoreMutationEndpoints
         return group;
     }
 
-    private static IResult WriteRawFile(int indexId, int fileId, WriteRawFileRequest request, IFileStore fileStore)
+    private static IResult WriteRawFile(int indexId, int fileId, WriteRawFileRequest request, ICacheAPI cache)
     {
         if (string.IsNullOrWhiteSpace(request.DataBase64))
         {
@@ -28,7 +28,7 @@ public static class StoreMutationEndpoints
         {
             var data = Convert.FromBase64String(request.DataBase64);
             using var stream = new MemoryStream(data);
-            fileStore.Write(indexId, fileId, stream);
+            cache.WriteRawFile(indexId, fileId, stream);
             return TypedResults.Ok(new StoreMutationResponse("write-raw", indexId, fileId));
         }
         catch (FormatException)
@@ -41,7 +41,7 @@ public static class StoreMutationEndpoints
         }
     }
 
-    private static IResult CopyRawFile(int indexId, int fileId, CopyRawFileRequest request, IFileStore fileStore)
+    private static IResult CopyRawFile(int indexId, int fileId, CopyRawFileRequest request, ICacheAPI cache)
     {
         if (request.SourceIndexId < 0 || request.SourceFileId < 0)
         {
@@ -50,9 +50,7 @@ public static class StoreMutationEndpoints
 
         try
         {
-            using var source = fileStore.Read(request.SourceIndexId, request.SourceFileId);
-            using var copy = new MemoryStream(source.ToArray());
-            fileStore.Write(indexId, fileId, copy);
+            cache.CopyRawFile(indexId, fileId, request.SourceIndexId, request.SourceFileId);
 
             return TypedResults.Ok(new StoreMutationResponse("copy-raw", indexId, fileId, request.SourceIndexId, request.SourceFileId));
         }

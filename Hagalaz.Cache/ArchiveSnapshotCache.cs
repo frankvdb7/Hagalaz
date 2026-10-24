@@ -105,6 +105,32 @@ internal sealed class ArchiveSnapshotCache
         CacheMetrics.RecordArchiveSnapshotRetainedBytes(retainedByteDelta);
     }
 
+    public void InvalidateIndex(int indexId)
+    {
+        long retainedByteDelta = 0;
+
+        lock (_sync)
+        {
+            var node = _lru.First;
+            while (node is not null)
+            {
+                var next = node.Next;
+                if (node.Value.IndexId == indexId)
+                {
+                    var entry = _entries[node.Value];
+                    _entries.Remove(node.Value);
+                    _lru.Remove(node);
+                    _retainedBytes -= entry.Snapshot.RetentionWeight;
+                    retainedByteDelta = checked(retainedByteDelta - entry.Snapshot.RetentionWeight);
+                }
+
+                node = next;
+            }
+        }
+
+        CacheMetrics.RecordArchiveSnapshotRetainedBytes(retainedByteDelta);
+    }
+
     private void CompleteSuccessfulFlight(ArchiveKey key, LoadFlight flight, ArchiveSnapshot snapshot)
     {
         long retainedByteDelta = 0;

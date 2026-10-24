@@ -64,6 +64,37 @@ public sealed class ArchiveSnapshotCacheTests
     }
 
     [Fact]
+    public void InvalidateIndex_RemovesOnlySnapshotsForThatIndex()
+    {
+        var cache = new ArchiveSnapshotCache(1024 * 1024);
+        var loads = new Dictionary<ArchiveKey, int>();
+        var keys = new[] { new ArchiveKey(16, 1), new ArchiveKey(16, 2), new ArchiveKey(17, 1) };
+
+        foreach (var key in keys)
+        {
+            using var stream = cache.ReadMember(key, 0, () => Load(key));
+        }
+
+        cache.InvalidateIndex(16);
+
+        foreach (var key in keys)
+        {
+            using var stream = cache.ReadMember(key, 0, () => Load(key));
+        }
+
+        Assert.Equal(2, loads[new ArchiveKey(16, 1)]);
+        Assert.Equal(2, loads[new ArchiveKey(16, 2)]);
+        Assert.Equal(1, loads[new ArchiveKey(17, 1)]);
+
+        ArchiveSnapshot Load(ArchiveKey key)
+        {
+            loads.TryGetValue(key, out var count);
+            loads[key] = count + 1;
+            return CreateSnapshot([(byte)key.ArchiveId]);
+        }
+    }
+
+    [Fact]
     public void ReadMember_EvictsLeastRecentlyUsedEntryAndRetainsFittingSnapshots()
     {
         var firstSnapshot = CreateSnapshot([1]);

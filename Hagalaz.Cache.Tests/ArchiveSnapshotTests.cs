@@ -78,7 +78,7 @@ public sealed class ArchiveSnapshotTests
     {
         var snapshot = DecodeSnapshot(ArchiveTestData.EncodeArchive([10, 11, 12], [20, 21]), 2);
 
-        var first = snapshot.OpenMember(0);
+        using var first = snapshot.OpenMember(0);
         Assert.Equal(0, first.Position);
         Assert.True(first.CanRead);
         Assert.True(first.CanSeek);

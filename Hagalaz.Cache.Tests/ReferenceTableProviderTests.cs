@@ -51,5 +51,42 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(table.Version, result.Version);
             Assert.Equal(table.Flags, result.Flags);
         }
+
+        [Fact]
+        public void Invalidate_CausesReferenceTableToBeReadAgain()
+        {
+            var fileStoreMock = new Mock<IFileStore>();
+            var containerDecoderMock = new Mock<IContainerDecoder>();
+            var codec = new ReferenceTableCodec();
+            var encodedTables = new[] { EncodeTable(codec, 1), EncodeTable(codec, 2) };
+            var decodeCount = 0;
+
+            fileStoreMock.SetupGet(store => store.IndexFileCount).Returns(255);
+            fileStoreMock.Setup(store => store.Read(255, 16)).Returns(() => new MemoryStream([1]));
+            containerDecoderMock.Setup(decoder => decoder.Decode(It.IsAny<MemoryStream>()))
+                .Returns(() => new Container(new MemoryStream(encodedTables[decodeCount++])));
+
+            var provider = new ReferenceTableProvider(fileStoreMock.Object, containerDecoderMock.Object, codec);
+
+            var first = provider.ReadReferenceTable(16);
+            var cached = provider.ReadReferenceTable(16);
+
+            provider.Invalidate(16);
+
+            var refreshed = provider.ReadReferenceTable(16);
+
+            Assert.Same(first, cached);
+            Assert.NotSame(first, refreshed);
+            Assert.Equal(1, first.Version);
+            Assert.Equal(2, refreshed.Version);
+            Assert.Equal(2, decodeCount);
+        }
+
+        private static byte[] EncodeTable(ReferenceTableCodec codec, int version)
+        {
+            var table = new ReferenceTable(7, version, (ReferenceTableFlags)0, 0);
+            using var encoded = codec.Encode(table);
+            return encoded.ToArray();
+        }
     }
 }

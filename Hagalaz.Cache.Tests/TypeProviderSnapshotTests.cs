@@ -65,8 +65,10 @@ public sealed class TypeProviderSnapshotTests
         table.Setup(current => current.GetEntry(1, 1)).Returns(CreateChild(5));
         cache.Setup(current => current.ReadReferenceTable(2)).Returns(table.Object);
         var archive = new Mock<IArchive>();
-        archive.Setup(current => current.GetEntry(3)).Returns(new MemoryStream([1]));
-        archive.Setup(current => current.GetEntry(5)).Returns(new MemoryStream([2]));
+        using var firstMember = new MemoryStream([1]);
+        using var secondMember = new MemoryStream([2]);
+        archive.Setup(current => current.GetEntry(3)).Returns(firstMember);
+        archive.Setup(current => current.GetEntry(5)).Returns(secondMember);
         cache.Setup(current => current.ReadArchive(2, 1)).Returns(archive.Object);
         var first = new Mock<IQuestType>().Object;
         var second = new Mock<IQuestType>().Object;
@@ -185,7 +187,7 @@ public sealed class TypeProviderSnapshotTests
         }
         else
         {
-            table.Setup(current => current.GetEntry(archiveId, childId)).Returns((IReferenceTableChildEntry?)null);
+            table.Setup(current => current.GetEntry(archiveId, childId)).Returns(() => null!);
         }
 
         return table;

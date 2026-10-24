@@ -90,6 +90,25 @@ namespace Hagalaz.Cache.Abstractions
         void Write(int indexId, int fileId, IContainer container);
 
         /// <summary>
+        /// Writes raw, already-encoded file bytes while invalidating local cached state affected by the target.
+        /// Container versions and reference-table metadata are not updated.
+        /// </summary>
+        /// <param name="indexId">The target index identifier.</param>
+        /// <param name="fileId">The target file identifier.</param>
+        /// <param name="data">The raw file bytes to write.</param>
+        void WriteRawFile(int indexId, int fileId, MemoryStream data);
+
+        /// <summary>
+        /// Copies raw, already-encoded file bytes while invalidating local cached state affected by the target.
+        /// Container versions and reference-table metadata are not updated.
+        /// </summary>
+        /// <param name="indexId">The target index identifier.</param>
+        /// <param name="fileId">The target file identifier.</param>
+        /// <param name="sourceIndexId">The source index identifier.</param>
+        /// <param name="sourceFileId">The source file identifier.</param>
+        void CopyRawFile(int indexId, int fileId, int sourceIndexId, int sourceFileId);
+
+        /// <summary>
         /// Computes the <see cref="IChecksumTable"/> for the entire cache.
         /// </summary>
         /// <returns>The generated <see cref="IChecksumTable"/>.</returns>

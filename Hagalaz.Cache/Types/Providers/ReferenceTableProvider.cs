@@ -10,7 +10,7 @@ namespace Hagalaz.Cache.Types.Providers
         private readonly IFileStore _store;
         private readonly IContainerDecoder _containerFactory;
         private readonly IReferenceTableCodec _referenceTableFactory;
-        private readonly IReferenceTable[] _referenceTables;
+        private readonly IReferenceTable?[] _referenceTables;
 
         public ReferenceTableProvider(IFileStore store, IContainerDecoder containerFactory, IReferenceTableCodec referenceTableFactory)
         {
@@ -28,6 +28,14 @@ namespace Hagalaz.Cache.Types.Providers
                 throw new IOException("Checksum tables can not be read by this method!");
 
             return _referenceTables[indexId] ??= DecodeReferenceTable(indexId);
+        }
+
+        public void Invalidate(int indexId)
+        {
+            if (indexId >= 0 && indexId < _referenceTables.Length && indexId != 255)
+            {
+                _referenceTables[indexId] = null;
+            }
         }
 
         private IReferenceTable DecodeReferenceTable(int indexId)
