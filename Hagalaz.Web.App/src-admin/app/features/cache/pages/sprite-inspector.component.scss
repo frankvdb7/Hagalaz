@@ -1,0 +1,34 @@
+:host { display: block; min-width: 0; }
+.properties {
+    margin-bottom: 0;
+}
+.properties div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding-block: 16px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+dt {
+    color: var(--mat-sys-on-surface-variant);
+    font: var(--mat-sys-body-small);
+}
+dd {
+    margin: 0;
+    font: var(--mat-sys-label-medium);
+}
+.comparison figure {
+    margin: 0;
+    min-width: 0;
+}
+.comparison figcaption {
+    font: var(--mat-sys-label-medium);
+    margin-bottom: 8px;
+}
+.comparison img {
+    width: 100%;
+    height: 100px;
+    object-fit: contain;
+    image-rendering: pixelated;
+    background: var(--mat-sys-surface-container-lowest);
+}

@@ -1,82 +1,106 @@
-import { inject } from "@angular/core";
+import { computed, inject } from "@angular/core";
 import { tapResponse } from "@ngrx/operators";
-import { patchState, signalStore, withMethods, withState } from "@ngrx/signals";
+import { patchState, signalStore, withComputed, withMethods, withState } from "@ngrx/signals";
 import { rxMethod } from "@ngrx/signals/rxjs-interop";
-import { exhaustMap, filter, type Observable, pipe } from "rxjs";
+import { EMPTY, exhaustMap, filter, pipe, switchMap } from "rxjs";
 import type { SearchResultDto, SpriteMutationResultDto } from "../services/cache.models";
 import { CacheSpritesService } from "../services/cache-sprites.service";
 import { getCacheErrorMessage } from "./cache-error";
 
-interface CacheSpritesState {
-    spriteInfo: unknown;
-    searchResult: SearchResultDto<unknown> | null;
-    mutationResult: SpriteMutationResultDto | null;
-    imageBlob: Blob | null;
-    imageDescription: string;
-    error: string | null;
-    loading: boolean;
-}
-
 export const CacheSpritesStore = signalStore(
-    withState<CacheSpritesState>({
-        spriteInfo: null,
-        searchResult: null,
-        mutationResult: null,
-        imageBlob: null,
+    withState({
+        spriteInfo: null as unknown,
+        searchResult: null as SearchResultDto<unknown> | null,
+        mutationResult: null as SpriteMutationResultDto | null,
+        mutationId: null as number | null,
+        imageBlob: null as Blob | null,
+        imageId: null as number | null,
+        imageFrame: null as number | null,
         imageDescription: "",
-        error: null,
-        loading: false,
+        metadataLoading: false,
+        searchLoading: false,
+        previewLoading: false,
+        saving: false,
+        metadataError: null as string | null,
+        searchError: null as string | null,
+        previewError: null as string | null,
+        mutationError: null as string | null,
     }),
-    withMethods((store, service = inject(CacheSpritesService)) => {
-        function imageRequest<T>(source: Observable<T>, next: (value: T) => void) {
-            patchState(store, { loading: true, error: null });
-            return source.pipe(
-                tapResponse({
-                    next,
-                    error: (error: unknown) => patchState(store, { error: getCacheErrorMessage(error) }),
-                    finalize: () => patchState(store, { loading: false }),
+    withComputed((store) => ({
+        loading: computed(() => store.metadataLoading() || store.searchLoading() || store.previewLoading() || store.saving()),
+        error: computed(() => store.mutationError() ?? store.previewError() ?? store.metadataError() ?? store.searchError()),
+    })),
+    withMethods((store, service = inject(CacheSpritesService)) => ({
+        clearError(): void {
+            patchState(store, { metadataError: null, searchError: null, previewError: null, mutationError: null });
+        },
+        loadSprite: rxMethod<number>(
+            pipe(
+                switchMap((id) => {
+                    patchState(store, { metadataLoading: true, metadataError: null });
+                    return service.getSprite(id).pipe(
+                        tapResponse({
+                            next: (spriteInfo) => patchState(store, { spriteInfo }),
+                            error: (error: unknown) => patchState(store, { metadataError: getCacheErrorMessage(error) }),
+                            finalize: () => patchState(store, { metadataLoading: false }),
+                        })
+                    );
                 })
-            );
-        }
-        return {
-            clearError(): void {
-                patchState(store, { error: null });
-            },
-            loadSprite: rxMethod<number>(
-                pipe(
-                    filter(() => !store.loading()),
-                    exhaustMap((id) => imageRequest(service.getSprite(id), (spriteInfo) => patchState(store, { spriteInfo })))
-                )
-            ),
-            searchSprites: rxMethod<{ query: string; offset: number; limit: number }>(
-                pipe(
-                    filter(() => !store.loading()),
-                    exhaustMap(({ query, offset, limit }) =>
-                        imageRequest(service.searchSprites(query, offset, limit), (searchResult) => patchState(store, { searchResult }))
-                    )
-                )
-            ),
-            previewSpriteImage: rxMethod<{ id: number; frame: number }>(
-                pipe(
-                    filter(() => !store.loading()),
-                    exhaustMap(({ id, frame }) =>
-                        imageRequest(service.getSpriteImage(id, frame), (imageBlob) =>
-                            patchState(store, { imageBlob, imageDescription: `Sprite #${id}, frame ${frame}` })
-                        )
-                    )
-                )
-            ),
-            uploadSpriteImage: rxMethod<{ id: number; file: File | null }>(
-                pipe(
-                    filter(() => !store.loading()),
-                    filter((value): value is { id: number; file: File } => {
-                        if (value.file) return true;
-                        patchState(store, { error: "Select a PNG file before uploading." });
-                        return false;
-                    }),
-                    exhaustMap(({ id, file }) => imageRequest(service.replaceSpriteImage(id, file), (mutationResult) => patchState(store, { mutationResult })))
-                )
-            ),
-        };
-    })
+            )
+        ),
+        searchSprites: rxMethod<{ query: string; offset: number; limit: number }>(
+            pipe(
+                switchMap(({ query, offset, limit }) => {
+                    patchState(store, { searchLoading: true, searchError: null });
+                    return service.searchSprites(query, offset, limit).pipe(
+                        tapResponse({
+                            next: (searchResult) => patchState(store, { searchResult }),
+                            error: (error: unknown) => patchState(store, { searchError: getCacheErrorMessage(error) }),
+                            finalize: () => patchState(store, { searchLoading: false }),
+                        })
+                    );
+                })
+            )
+        ),
+        previewSpriteImage: rxMethod<{ id: number; frame: number } | null>(
+            pipe(
+                switchMap((selection) => {
+                    if (!selection) {
+                        patchState(store, { imageBlob: null, imageId: null, imageFrame: null, imageDescription: "", previewError: null });
+                        return EMPTY;
+                    }
+                    const { id, frame } = selection;
+                    patchState(store, { previewLoading: true, previewError: null });
+                    return service.getSpriteImage(id, frame).pipe(
+                        tapResponse({
+                            next: (imageBlob) =>
+                                patchState(store, { imageBlob, imageId: id, imageFrame: frame, imageDescription: `Sprite #${id}, frame ${frame}` }),
+                            error: (error: unknown) => patchState(store, { previewError: getCacheErrorMessage(error) }),
+                            finalize: () => patchState(store, { previewLoading: false }),
+                        })
+                    );
+                })
+            )
+        ),
+        uploadSpriteImage: rxMethod<{ id: number; file: File | null }>(
+            pipe(
+                filter(() => !store.saving()),
+                filter((value): value is { id: number; file: File } => {
+                    if (value.file) return true;
+                    patchState(store, { mutationId: value.id, mutationError: "Select a PNG file before uploading." });
+                    return false;
+                }),
+                exhaustMap(({ id, file }) => {
+                    patchState(store, { mutationId: id, saving: true, mutationError: null, mutationResult: null });
+                    return service.replaceSpriteImage(id, file).pipe(
+                        tapResponse({
+                            next: (mutationResult) => patchState(store, { mutationResult }),
+                            error: (error: unknown) => patchState(store, { mutationError: getCacheErrorMessage(error) }),
+                            finalize: () => patchState(store, { saving: false }),
+                        })
+                    );
+                })
+            )
+        ),
+    }))
 );

@@ -1,0 +1,59 @@
+<ng-template portalBreadcrumb><cache-definition-picker [store]="store" kind="sprites" [id]="id()" /></ng-template>
+<mat-card appearance="outlined" class="studio">
+    <header class="studio-header flex flex-wrap items-center justify-between gap-4 p-6">
+        <div class="flex items-center gap-4"><div class="feature-icon"><mat-icon>image</mat-icon></div><div><h1>Sprite #{{ displayId() }}</h1><p class="supporting-text mt-1">Visual asset inspector @if (metadata(); as meta) { · {{ meta.frameCount }} frames · {{ meta.width }} × {{ meta.height }} px }</p></div></div>
+        <div class="flex flex-wrap gap-2">
+            <button type="button" mat-stroked-button [disabled]="!canDownload()" (click)="downloadFrame()"><mat-icon>download</mat-icon>Export frame</button>
+            <button type="button" mat-flat-button [disabled]="id() === null" (click)="inspectorTab.set(1)"><mat-icon>upload</mat-icon>Replace entire sprite</button>
+        </div>
+    </header>
+    <div class="h-1">@if (store.loading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading sprite metadata" /> }</div>
+    @if (id() === null) {
+        <p role="alert" class="p-6">Enter a valid sprite ID in the URL.</p>
+    } @else if (store.error()) {
+        <div role="alert" class="p-6"><p>{{ store.error() }}</p><button type="button" mat-stroked-button class="mt-3" (click)="reload()">Retry metadata</button></div>
+    } @else {
+        <div class="workspace">
+            <aside class="frames p-2" aria-label="Sprite frames">
+                <h2 class="frame-title text-center mb-3">Frames</h2>
+                <p id="frame-help" class="sr-only">Use up and down arrows, Home, and End to select a frame.</p>
+                <cdk-virtual-scroll-viewport itemSize="92" minBufferPx="92" maxBufferPx="184" class="frame-list" role="listbox" tabindex="0" aria-label="Sprite frames" aria-describedby="frame-help" [attr.aria-activedescendant]="activeFrameId()" (keydown)="onFrameKey($event)">
+                    <div *cdkVirtualFor="let frame of frames()" class="frame-row">
+                        <button type="button" mat-button role="option" tabindex="-1" class="frame-button" [id]="'sprite-frame-' + frame" [attr.aria-label]="'Frame ' + frame" [attr.aria-selected]="selectedFrame() === frame" [class.selected]="selectedFrame() === frame" (click)="selectFrame(frame)">
+                            <cache-sprite-frame-thumbnail [id]="id()!" [frame]="frame" [revision]="metadata()" />
+                            <span>{{ frame }}</span>
+                        </button>
+                    </div>
+                </cdk-virtual-scroll-viewport>
+            </aside>
+            <section class="preview-panel" aria-label="Frame preview" [attr.aria-busy]="images.previewLoading()">
+                <div class="preview-toolbar flex flex-wrap items-center justify-between gap-3 p-3">
+                    <mat-button-toggle-group aria-label="Preview background" [value]="background()" (change)="background.set($event.value)">
+                        <mat-button-toggle value="checkerboard">Checkerboard</mat-button-toggle><mat-button-toggle value="solid">Solid</mat-button-toggle>
+                    </mat-button-toggle-group>
+                    <div class="flex items-center gap-1">
+                        <button type="button" mat-icon-button aria-label="Zoom out" matTooltip="Zoom out" [disabled]="zoomOutDisabled()" (click)="changeZoom(0.5)"><mat-icon>remove</mat-icon></button>
+                        <output class="zoom-label">{{ zoomLabel() }}</output>
+                        <button type="button" mat-icon-button aria-label="Zoom in" matTooltip="Zoom in" [disabled]="zoomInDisabled()" (click)="changeZoom(2)"><mat-icon>add</mat-icon></button>
+                        <button type="button" mat-button [attr.aria-pressed]="fit()" (click)="fit.set(true)">Fit</button>
+                    </div>
+                </div>
+                <div class="h-1">@if (images.previewLoading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading selected frame" /> }</div>
+                <div class="image-viewport" [class.checkerboard]="background() === 'checkerboard'">
+                    @if (currentImageUrl(); as url) {
+                        <img class="sprite-image" [class.fit-image]="fit()" [style.width.px]="previewWidth()" [src]="url" alt="{{ images.imageDescription() }}" />
+                    } @else if (previewEmpty()) {
+                        <div class="empty-state p-6 text-center"><mat-icon>hide_image</mat-icon><h2>No frames to preview</h2><p>Choose a replacement PNG to give this sprite an image.</p></div>
+                    } @else { <p class="p-6" role="status">Loading sprite preview…</p> }
+                </div>
+                @if (images.previewError()) { <div role="alert" class="request-error p-4"><p>{{ images.previewError() }}</p><button type="button" mat-button (click)="retryPreview()">Retry frame</button></div> }
+                <footer class="preview-footer flex flex-wrap justify-between gap-2 p-4 supporting-text" aria-live="polite">
+                    <span>{{ previewDescription() }}</span><span>PNG · Transparency preserved</span>
+                </footer>
+            </section>
+            <aside class="inspector" aria-label="Sprite inspector">
+                <cache-sprite-inspector [id]="id()" [metadata]="metadata()" [selectedFrame]="selectedFrame()" [currentImageUrl]="currentImageUrl()" [(tab)]="inspectorTab" />
+            </aside>
+        </div>
+    }
+</mat-card>

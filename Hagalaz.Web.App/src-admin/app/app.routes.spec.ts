@@ -1,3 +1,5 @@
+import { Location } from "@angular/common";
+import { provideLocationMocks } from "@angular/common/testing";
 import { BreakpointObserver } from "@angular/cdk/layout";
 import { TestbedHarnessEnvironment } from "@angular/cdk/testing/testbed";
 import { provideHttpClient, withXhr } from "@angular/common/http";
@@ -5,6 +7,7 @@ import { HttpTestingController, provideHttpClientTesting } from "@angular/common
 import { ApplicationRef, Component, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { MatAutocompleteHarness } from "@angular/material/autocomplete/testing";
+import { MatDialog } from "@angular/material/dialog";
 import { MatMenuHarness } from "@angular/material/menu/testing";
 import { MatSidenav } from "@angular/material/sidenav";
 import { By } from "@angular/platform-browser";
@@ -12,6 +15,7 @@ import { provideRouter, Router } from "@angular/router";
 import { RouterTestingHarness } from "@angular/router/testing";
 import { of } from "rxjs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PortalShellPageComponent } from "./layout/portal-shell.page";
 import { routes } from "./app.routes";
 import { AuthStore } from "./core/auth/auth.store";
 
@@ -47,6 +51,7 @@ describe("admin portal routing", () => {
     const authenticated = signal(true);
     const authorized = signal(true);
     const logout = vi.fn(async () => {
+        expect(TestBed.inject(Router).url).toBe("/login");
         authenticated.set(false);
         authorized.set(false);
     });
@@ -58,6 +63,7 @@ describe("admin portal routing", () => {
         TestBed.configureTestingModule({
             providers: [
                 provideRouter(routes.map((route) => (route.path === "login" ? { path: "login", component: LoginBoundary } : route))),
+                provideLocationMocks(),
                 provideHttpClient(withXhr()),
                 provideHttpClientTesting(),
                 {
@@ -75,6 +81,39 @@ describe("admin portal routing", () => {
         expect(harness.routeNativeElement?.textContent).toContain("Metrics not connected");
         expect(routeElement(harness).querySelector('img[src="/assets/icons/logo.svg"]')).not.toBeNull();
         expect(routeElement(harness).querySelectorAll('nav[aria-label="Administration"] a')).toHaveLength(8);
+    });
+
+    it("uses only the main toolbar breadcrumb for Sprite Studio", async () => {
+        const opening = RouterTestingHarness.create("/cache/types/sprites/0");
+        await vi.waitFor(() =>
+            TestBed.inject(HttpTestingController)
+                .expectOne((req) => req.url.endsWith("/sprites/0"))
+                .flush({ id: 0, width: 0, height: 0, frameCount: 0 })
+        );
+        const harness = await opening;
+        const element = routeElement(harness);
+        expect(element.querySelectorAll('nav[aria-label="Breadcrumb"]')).toHaveLength(1);
+        const breadcrumb = element.querySelector('mat-toolbar nav[aria-label="Breadcrumb"]');
+        expect(breadcrumb?.textContent).toContain("Sprite #0");
+        expect(breadcrumb?.querySelector('a[href="/cache/types?kind=sprites"]')).not.toBeNull();
+        expect(element.querySelector("cache-sprites-detail-page nav")).toBeNull();
+    });
+
+    it("uses the main toolbar breadcrumb for Item Forge", async () => {
+        const opening = RouterTestingHarness.create("/cache/types/items/0");
+        const http = TestBed.inject(HttpTestingController);
+        await vi.waitFor(() => {
+            const requests = http.match((req) => req.url.endsWith("/items/0"));
+            expect(requests.length).toBe(1);
+            for (const request of requests) request.flush({ id: 0, name: "First item" });
+        });
+        const harness = await opening;
+        const element = routeElement(harness);
+        expect(element.querySelectorAll('nav[aria-label="Breadcrumb"]')).toHaveLength(1);
+        const breadcrumb = element.querySelector('mat-toolbar nav[aria-label="Breadcrumb"]');
+        await vi.waitFor(() => expect(breadcrumb?.textContent).toContain("First item #0"));
+        expect(breadcrumb?.querySelector('a[href="/cache/types?kind=items"]')).not.toBeNull();
+        expect(element.querySelector("cache-items-detail-page nav[aria-label=Breadcrumb]")).toBeNull();
     });
 
     it.each(["/cache/types", "/cache/sprites", "/characters", "/worlds", "/economy", "/infrastructure", "/audit", "/settings"])(
@@ -136,6 +175,51 @@ describe("admin portal routing", () => {
         expect(drawer.opened).toBe(false);
     });
 
+    it("replaces numeric deep-link history so Back does not reopen the definition", async () => {
+        await openRoute("/cache/types");
+        const router = TestBed.inject(Router);
+        router.setUpLocationChangeListener();
+        await router.navigateByUrl("/cache/types?kind=items&query=7");
+        const http = TestBed.inject(HttpTestingController);
+        await vi.waitFor(() =>
+            http.expectOne((r) => r.url.endsWith("/items/7")).flush({ id: 7, name: "Deep-linked item", inventoryOptions: [], groundOptions: [] })
+        );
+        await TestBed.inject(ApplicationRef).whenStable();
+        expect(router.url).toContain("/cache/types/items/7?");
+        expect(router.url).not.toContain("query=7");
+        TestBed.inject(Location).back();
+        await vi.waitFor(() => http.expectOne((r) => r.url.endsWith("/archive-sizes")).flush({ items: 23 }));
+        await vi.waitFor(() => http.expectOne((r) => r.url.endsWith("/items/range")).flush([]));
+        await TestBed.inject(ApplicationRef).whenStable();
+        expect(router.url).toBe("/cache/types");
+        http.expectNone((r) => r.url.endsWith("/items/7"));
+    });
+    it("opens the modern sprite browser from Overview and global page search", async () => {
+        const harness = await openRoute("/overview");
+        const link = routeElement(harness).querySelector<HTMLAnchorElement>('a[href="/cache/types?kind=sprites"]');
+        expect(link?.textContent).toContain("Edit sprites");
+        const http = TestBed.inject(HttpTestingController);
+        async function flushSprites() {
+            await vi.waitFor(() => http.expectOne((r) => r.url.endsWith("/archive-sizes")).flush({ sprites: 1 }));
+            await vi.waitFor(() => http.expectOne((r) => r.url.endsWith("/sprites/range")).flush([{ id: 0, frameCount: 0 }]));
+            await TestBed.inject(ApplicationRef).whenStable();
+            expect(TestBed.inject(Router).url).toBe("/cache/types?kind=sprites");
+            expect(routeElement(harness).querySelector('button[aria-selected="true"]')?.textContent).toContain("Sprites");
+        }
+        link?.click();
+        await flushSprites();
+        await harness.navigateByUrl("/overview");
+        const search = await TestbedHarnessEnvironment.loader(harness.fixture).getHarness(MatAutocompleteHarness);
+        await search.enterText("sprites");
+        expect(await Promise.all((await search.getOptions()).map((option) => option.getText()))).toEqual(["Sprites"]);
+        const selecting = search.selectOption({ text: /Sprites/ });
+        await flushSprites();
+        await selecting;
+        await harness.navigateByUrl("/cache/sprites");
+        expect(routeElement(harness).querySelector("sprites-manager-page")).not.toBeNull();
+        expect(routeElement(harness).textContent).not.toContain("Find sprites by name");
+        http.verify();
+    });
     it("searches existing workspace destinations and navigates to the selected page", async () => {
         const harness = await openRoute("/cache/types");
         const loader = TestbedHarnessEnvironment.loader(harness.fixture);
@@ -170,6 +254,45 @@ describe("admin portal routing", () => {
         expect(TestBed.inject(Router).url).toBe("/cache/types");
     });
 
+    it.each([false, true])("resolves dirty navigation before logout (discard=%s)", async (discard) => {
+        const opening = RouterTestingHarness.create("/cache/types/npcs/7");
+        await vi.waitFor(() =>
+            TestBed.inject(HttpTestingController)
+                .expectOne((r) => r.url.endsWith("/npcs/7"))
+                .flush({ id: 7, combatLevel: 3, name: "NPC" })
+        );
+        const harness = await opening;
+        await TestBed.inject(ApplicationRef).whenStable();
+        const input = routeElement(harness).querySelector<HTMLInputElement>("cache-npcs-editor input");
+        if (!input) throw new Error("Expected NPC combat editor");
+        input.value = "99";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        await harness.fixture.whenStable();
+        const shell = harness.fixture.debugElement.query(By.directive(PortalShellPageComponent)).componentInstance as PortalShellPageComponent;
+        const exiting = shell.logout();
+        await vi.waitFor(() => expect(TestBed.inject(MatDialog).openDialogs).toHaveLength(1));
+        expect(logout).not.toHaveBeenCalled();
+        TestBed.inject(MatDialog).openDialogs[0].close(discard);
+        await exiting;
+        expect(logout).toHaveBeenCalledTimes(discard ? 1 : 0);
+        expect(authenticated()).toBe(!discard);
+        expect(TestBed.inject(Router).url).toBe(discard ? "/login" : "/cache/types/npcs/7");
+        if (!discard) expect(input.value).toBe("99");
+    });
+    it("does not log out when login navigation is rejected or redirected", async () => {
+        const harness = await openRoute("/overview");
+        const shell = harness.fixture.debugElement.query(By.directive(PortalShellPageComponent)).componentInstance as PortalShellPageComponent;
+        const router = TestBed.inject(Router);
+        const base = router.config.filter((route) => route.path !== "login");
+        router.resetConfig([{ path: "login", component: LoginBoundary, canActivate: [() => false] }, ...base]);
+        await shell.logout();
+        expect(logout).not.toHaveBeenCalled();
+        expect(authenticated()).toBe(true);
+        router.resetConfig([{ path: "login", redirectTo: "overview" }, ...base]);
+        await shell.logout();
+        expect(logout).not.toHaveBeenCalled();
+        expect(authenticated()).toBe(true);
+    });
     it("signs out through the account menu and existing auth owner and returns to login", async () => {
         const harness = await openRoute("/overview");
         expect(routeElement(harness).querySelector(".account-avatar")?.textContent).toBe("TA");

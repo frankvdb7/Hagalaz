@@ -1,5 +1,6 @@
+<ng-template portalBreadcrumb><cache-definition-picker [store]="store()" [kind]="kind()" [id]="id()" /></ng-template>
 <section [attr.aria-busy]="store().loading()" aria-label="Definition details" class="mx-auto max-w-4xl">
-    <a mat-button href="/cache/types" routerLink="/cache/types" [queryParams]="{ kind: kind() }" class="mb-4"><mat-icon>arrow_back</mat-icon>Back to {{ kindLabels[kind()] }} definitions</a>
+    <a mat-button href="/cache/types" routerLink="/cache/types" queryParamsHandling="merge" [queryParams]="{ kind: kind() }" class="mb-4"><mat-icon>arrow_back</mat-icon>Back to {{ kindLabels[kind()] }} definitions</a>
     @if (store().loading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading definition" /> }
     @if (id() === null) { <p role="alert" class="notice mb-4">Enter a valid definition ID of zero or greater.</p> }
     @if (store().error()) { <p role="alert" class="notice mb-4">{{ store().error() }}</p> }

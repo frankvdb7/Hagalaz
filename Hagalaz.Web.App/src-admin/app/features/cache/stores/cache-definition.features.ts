@@ -14,6 +14,7 @@ export function withCacheDefinition(resource: (id: Signal<number | null>) => Htt
         withComputed((store) => ({
             byIdResult: computed(() => (store._definition.hasValue() ? store._definition.value() : null)),
             definitionId: computed(() => (store._definition.hasValue() ? store._id() : null)),
+            saving: computed(() => store._saving()),
             loading: computed(() => store._definition.isLoading() || store._saving()),
             error: computed(() => store._mutationError() ?? (store._definition.error() ? getCacheErrorMessage(store._definition.error()) : null)),
         })),

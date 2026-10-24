@@ -25,7 +25,7 @@
             <div class="metrics-empty flex flex-col items-center justify-center gap-3 py-12 text-center"><mat-icon class="accent-violet">query_stats</mat-icon><h3>Metrics not connected</h3><p class="supporting-text max-w-sm">Activity charts need a live telemetry API. No player counts or trends are being estimated.</p></div>
         </mat-card-content></mat-card>
         <mat-card appearance="outlined" class="lg:col-span-2"><mat-card-header><mat-card-title><h2>Quick actions</h2></mat-card-title><mat-card-subtitle>Your realm toolkit</mat-card-subtitle></mat-card-header><mat-card-content><div class="grid grid-cols-2 gap-3">
-            @for (action of actions; track action.path) { <a class="quick-action flex flex-col gap-4 rounded-2xl p-4" href="{{ action.path }}" [routerLink]="action.path"><mat-icon [class]="action.accent">{{ action.icon }}</mat-icon><span class="flex items-center justify-between gap-2">{{ action.label }}<mat-icon>arrow_forward</mat-icon></span></a> }
+            @for (action of actions; track action.label) { <a class="quick-action flex flex-col gap-4 rounded-2xl p-4" href="{{ action.path }}" [routerLink]="action.path" [queryParams]="action.queryParams"><mat-icon [class]="action.accent">{{ action.icon }}</mat-icon><span class="flex items-center justify-between gap-2">{{ action.label }}<mat-icon>arrow_forward</mat-icon></span></a> }
         </div></mat-card-content></mat-card>
     </div>
     <div class="grid gap-6 md:grid-cols-2">

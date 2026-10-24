@@ -1,4 +1,4 @@
-import { Component, inject, linkedSignal } from "@angular/core";
+import { Component, DestroyRef, inject, linkedSignal } from "@angular/core";
 import { FormField, form, maxLength, min, minLength, required } from "@angular/forms/signals";
 import { MatButtonModule } from "@angular/material/button";
 import { MatDialog } from "@angular/material/dialog";
@@ -6,6 +6,7 @@ import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatInputModule } from "@angular/material/input";
 import { firstValueFrom } from "rxjs";
 import { CacheConfigDefinitionsStore } from "../../stores/cache-config-definitions.store";
+import { CachePendingChangesService } from "../../cache-pending-changes.service";
 import { CacheWriteDialogComponent } from "../cache-write-dialog";
 
 @Component({
@@ -16,6 +17,7 @@ import { CacheWriteDialogComponent } from "../cache-write-dialog";
 export class ConfigDefinitionEditorComponent {
     readonly store = inject(CacheConfigDefinitionsStore);
     private readonly dialog = inject(MatDialog);
+    private readonly pendingChanges = inject(CachePendingChangesService);
     private readonly configMutationModel = linkedSignal(() => {
         const value = (this.store.byIdResult() ?? {}) as Record<string, unknown>;
         return { id: this.store.definitionId() ?? 0, defaultValue: (value.defaultValue ?? 0) as number, valueType: (value.valueType ?? "") as string };
@@ -28,6 +30,20 @@ export class ConfigDefinitionEditorComponent {
         minLength(path.valueType, 1);
         maxLength(path.valueType, 1);
     });
+
+    constructor() {
+        this.pendingChanges.register(
+            {
+                dirty: () => {
+                    const v = this.configMutationModel();
+                    const record = (this.store.byIdResult() ?? {}) as Record<string, unknown>;
+                    return v.defaultValue !== (record.defaultValue ?? 0) || v.valueType !== (record.valueType ?? "");
+                },
+                saving: () => this.store.saving(),
+            },
+            inject(DestroyRef)
+        );
+    }
 
     async setConfigDefinition(): Promise<void> {
         if (this.configMutationForm().invalid() || this.store.loading()) return;

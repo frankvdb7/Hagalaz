@@ -348,7 +348,13 @@ public static class TypeEndpoints
             item.EquipType,
             item.RenderAnimationId,
             item.InventoryOptions,
-            item.GroundOptions);
+            item.GroundOptions,
+            item.NoteTemplateId,
+            item.LendId,
+            item.LendTemplateId,
+            item.BoughtItemId,
+            item.BoughtTemplateId,
+            item.InterfaceModelId);
 
     private static NpcTypeResponse MapNpc(INpcType npc) =>
         new(npc.Id, npc.Name, npc.CombatLevel, npc.Size, npc.SpawnFaceDirection, npc.RenderId);
@@ -485,7 +491,13 @@ public static class TypeEndpoints
         sbyte EquipType,
         int RenderAnimationId,
         string?[] InventoryOptions,
-        string?[] GroundOptions);
+        string?[] GroundOptions,
+        int NoteTemplateId,
+        int LendId,
+        int LendTemplateId,
+        int BoughtItemId,
+        int BoughtTemplateId,
+        int InterfaceModelId);
 
     public sealed record NpcTypeResponse(int Id, string Name, int CombatLevel, int Size, sbyte SpawnFaceDirection, int RenderId);
 
