@@ -70,28 +70,34 @@ namespace Hagalaz.Cache.Tests
         {
             var table = new ReferenceTable(7, 1, ReferenceTableFlags.Identifiers, 2);
             table.AddEntry(1, CreateEntry(0, "low"));
-            table.AddEntry(100, CreateEntry(1, "high"));
+            table.AddEntry(1_000_000, CreateEntry(1, "high"));
 
             Assert.Equal(2, table.Count);
             IReferenceTable referenceTable = table;
             Assert.Equal(2, referenceTable.Count);
-            Assert.Equal(101, table.Capacity);
-            Assert.Equal(100, table.GetFileId("high"));
+            Assert.Equal(1_000_001, table.Capacity);
+            Assert.Equal(1_000_000, table.GetFileId("high"));
             Assert.Null(table.GetEntry(50));
 
             var copy = new ReferenceTable(table);
             Assert.Equal(2, copy.Count);
-            Assert.Equal(101, copy.Capacity);
-            Assert.NotNull(copy.GetEntry(100));
+            Assert.Equal(1_000_001, copy.Capacity);
+            Assert.NotNull(copy.GetEntry(1_000_000));
 
             var codec = new ReferenceTableCodec();
             using var encoded = codec.Encode(table);
+            var allocatedBeforeDecode = System.GC.GetAllocatedBytesForCurrentThread();
             var decoded = codec.Decode(encoded);
+            var allocatedDuringDecode = System.GC.GetAllocatedBytesForCurrentThread() - allocatedBeforeDecode;
 
+            Assert.True(allocatedDuringDecode < 1_000_000, $"Sparse archive IDs allocated {allocatedDuringDecode} bytes while decoding.");
             Assert.Equal(2, decoded.Count);
-            Assert.Equal(101, decoded.Capacity);
+            Assert.Equal(1_000_001, decoded.Capacity);
             Assert.NotNull(decoded.GetEntry(1));
-            Assert.NotNull(decoded.GetEntry(100));
+            Assert.Equal(0, ((ReferenceTableEntry)decoded.GetEntry(1)!).Index);
+            Assert.NotNull(decoded.GetEntry(1_000_000));
+            Assert.Equal(1, ((ReferenceTableEntry)decoded.GetEntry(1_000_000)!).Index);
+            Assert.Equal(0, decoded.GetEntry(1_000_000)!.GetEntry(0)!.Index);
             Assert.Null(decoded.GetEntry(50));
         }
 

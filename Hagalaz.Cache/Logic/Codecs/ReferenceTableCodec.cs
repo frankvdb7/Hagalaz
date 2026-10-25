@@ -32,16 +32,12 @@ namespace Hagalaz.Cache.Logic.Codecs
 
             /* read the ids */
             int[] ids = new int[fileCount];
-            int accumulator = 0, size = -1;
+            int accumulator = 0;
             for (var i = 0; i < fileCount; i++)
             {
                 int delta = table.Protocol >= 7 ? stream.ReadBigSmart() : (stream.ReadShort() & 0xFFFF);
                 ids[i] = accumulator += delta;
-
-                if (ids[i] > size)
-                    size = ids[i];
             }
-            size++;
 
             /* and allocate specific entries within that array */
             int index = 0;
@@ -85,38 +81,31 @@ namespace Hagalaz.Cache.Logic.Codecs
             }
 
             /* read the subfile sizes */
-            int[][] members = new int[size][];
-            foreach (var id in ids)
+            int[][] members = new int[fileCount][];
+            for (var archiveIndex = 0; archiveIndex < ids.Length; archiveIndex++)
             {
-                members[id] = new int[table.Protocol >= 7 ? stream.ReadBigSmart() : (stream.ReadShort() & 0xFFFF)];
+                var id = ids[archiveIndex];
+                members[archiveIndex] = new int[table.Protocol >= 7 ? stream.ReadBigSmart() : (stream.ReadShort() & 0xFFFF)];
                 var entry = table.GetEntry(id) ?? throw new InvalidDataException($"Corrupt reference table: entry {id} not found while reading subfile sizes.");
-                entry.InitializeEntries(members[id].Length);
+                entry.InitializeEntries(members[archiveIndex].Length);
             }
 
             /* read the child ids */
-            foreach (var id in ids)
+            for (var archiveIndex = 0; archiveIndex < ids.Length; archiveIndex++)
             {
-                /* reset the accumulator and size */
+                var id = ids[archiveIndex];
                 accumulator = 0;
-                size = -1;
 
-                /* loop through the array of ids */
-                for (var i = 0; i < members[id].Length; i++)
+                for (var i = 0; i < members[archiveIndex].Length; i++)
                 {
                     int delta = (table.Protocol >= 7 ? stream.ReadBigSmart() : (stream.ReadShort() & 0xFFFF));
-                    members[id][i] = accumulator += delta;
-
-                    if (members[id][i] > size)
-                        size = members[id][i];
+                    members[archiveIndex][i] = accumulator += delta;
                 }
-                size++;
-
-
 
                 /* and allocate specific entries within the array */
                 index = 0;
                 var parentEntry = table.GetEntry(id) ?? throw new InvalidDataException($"Corrupt reference table: entry {id} not found while allocating child entries.");
-                foreach (var childId in members[id])
+                foreach (var childId in members[archiveIndex])
                 {
                     parentEntry.AddEntry(childId, new ReferenceTableChildEntry(index++));
                 }
@@ -125,9 +114,10 @@ namespace Hagalaz.Cache.Logic.Codecs
             /* read the child identifiers if present */
             if (table.Flags.HasFlag(ReferenceTableFlags.Identifiers))
             {
-                foreach (var id in ids)
+                for (var archiveIndex = 0; archiveIndex < ids.Length; archiveIndex++)
                 {
-                    foreach (var child in members[id])
+                    var id = ids[archiveIndex];
+                    foreach (var child in members[archiveIndex])
                     {
                         var parentEntry = table.GetEntry(id) ?? throw new InvalidDataException($"Corrupt reference table: entry {id} not found while reading child identifiers.");
                         var entry = parentEntry.GetEntry(child) ?? throw new System.InvalidOperationException($"{nameof(ReferenceTableChildEntry)} with id {child} does not exist in {nameof(ReferenceTableEntry)} with id {id}");
