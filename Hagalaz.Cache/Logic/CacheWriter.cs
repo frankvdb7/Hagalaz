@@ -53,9 +53,8 @@ namespace Hagalaz.Cache.Logic
                 throw new IOException($"Cannot write archive {fileId} in index {indexId} without an existing reference-table entry.");
             }
 
-            /* increment the container's version and update the file metadata */
-            container.Version++;
-            entry.Version = container.Version;
+            /* the reference-table version remains authoritative when physical containers omit the version trailer */
+            entry.Version++;
 
             /* grab the bytes we need for the checksum */
             var bytes = container.Encode(false);

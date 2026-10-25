@@ -49,7 +49,7 @@ public sealed class CacheWriterIntegrationTests
         var refreshedEntry = refreshedTable.GetEntry(1)!;
         Assert.NotSame(cachedTable, refreshedTable);
         Assert.Equal(6, refreshedTable.Version);
-        Assert.Equal(6, refreshedEntry.Version);
+        Assert.Equal(5, refreshedEntry.Version);
         Assert.Equal(
             BufferUtilities.GetCrcChecksum(store.GetBytes(16, 1), 0, store.GetBytes(16, 1).Length),
             refreshedEntry.Crc32);
@@ -59,6 +59,38 @@ public sealed class CacheWriterIntegrationTests
         Assert.Equal(initialArchiveBytes, beforeWrite.ToArray());
         Assert.Equal(replacementArchiveBytes, afterWrite.ToArray());
         Assert.Equal(2, store.GetReadCount(16, 1));
+    }
+
+    [Fact]
+    public void ReplaceArchiveMember_AdvancesReferenceTableVersionAcrossTrailerFreeWrites()
+    {
+        using var store = new MemoryFileStore();
+        var tableCodec = new ReferenceTableCodec();
+        SeedCache(store, tableCodec, ArchiveTestData.EncodeArchive([1, 2, 3]), version: 5);
+        using var cache = CreateCache(store);
+        Assert.Equal(5, cache.ReadReferenceTable(16).GetEntry(1)!.Version);
+        using (var initialContainer = cache.ReadContainer(16, 1))
+        {
+            Assert.Equal((short)5, initialContainer.Version);
+        }
+
+        cache.ReplaceArchiveMember(16, 1, 0, new byte[] { 9, 8 });
+
+        Assert.Equal(6, cache.ReadReferenceTable(16).GetEntry(1)!.Version);
+        AssertTrailerFreeArchive(store);
+        using (var firstMember = cache.Read(16, 1, 0))
+        {
+            Assert.Equal(new byte[] { 9, 8 }, firstMember.ToArray());
+        }
+
+        cache.ReplaceArchiveMember(16, 1, 0, new byte[] { 7, 6 });
+
+        var updatedTable = cache.ReadReferenceTable(16);
+        Assert.Equal(7, updatedTable.GetEntry(1)!.Version);
+        Assert.Equal(7, updatedTable.Version);
+        AssertTrailerFreeArchive(store);
+        using var finalMember = cache.Read(16, 1, 0);
+        Assert.Equal(new byte[] { 7, 6 }, finalMember.ToArray());
     }
 
     [Fact]
@@ -213,12 +245,12 @@ public sealed class CacheWriterIntegrationTests
             Options.Create(new CacheOptions()));
     }
 
-    private static void SeedCache(MemoryFileStore store, ReferenceTableCodec tableCodec, byte[] archiveBytes)
+    private static void SeedCache(MemoryFileStore store, ReferenceTableCodec tableCodec, byte[] archiveBytes, short? version = null)
     {
         var table = new ReferenceTable(7, 5, (ReferenceTableFlags)0, 1);
         var entry = new ReferenceTableEntry(1)
         {
-            Version = 4,
+            Version = version ?? 4,
             Crc32 = 123
         };
         entry.InitializeEntries(1);
@@ -227,13 +259,21 @@ public sealed class CacheWriterIntegrationTests
 
         using var encodedTable = tableCodec.Encode(table);
         store.Set(255, 16, EncodeContainer(encodedTable.ToArray()));
-        store.Set(16, 1, EncodeContainer(archiveBytes));
+        store.Set(16, 1, EncodeContainer(archiveBytes, version));
     }
 
-    private static byte[] EncodeContainer(byte[] data)
+    private static byte[] EncodeContainer(byte[] data, short? version = null)
     {
         using var content = new MemoryStream(data);
-        using var container = new Container(content);
+        using var container = new Container(CompressionType.None, content, version ?? -1);
         return container.Encode();
+    }
+
+    private static void AssertTrailerFreeArchive(MemoryFileStore store)
+    {
+        var containerDecoder = new ContainerDecoder();
+        using var stream = new MemoryStream(store.GetBytes(16, 1));
+        using var container = containerDecoder.Decode(stream);
+        Assert.Equal((short)-1, container.Version);
     }
 }

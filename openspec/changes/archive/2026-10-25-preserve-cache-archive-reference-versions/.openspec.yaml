@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-25
+goal: Advance each rewritten archive version from its existing reference-table
+  metadata while preserving the current physical container encoding.
