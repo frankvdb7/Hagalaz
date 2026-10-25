@@ -92,35 +92,13 @@ namespace Hagalaz.Cache.Tests
         [Fact]
         public void DecodeRegion_WhenTerrainContainerCannotBeRead_PropagatesTheFailure()
         {
-            var failure = new InvalidDataException("invalid terrain container");
-            _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(1);
-            _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(-1);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Throws(failure);
-
-            var actual = Assert.Throws<InvalidDataException>(() => _provider.DecodeRegion(
-                257,
-                System.Array.Empty<int>(),
-                (_, _, _, _, _, _) => { },
-                (_, _, _) => { }));
-
-            Assert.Same(failure, actual);
+            AssertDecodeRegionPropagatesContainerFailure(terrainFileId: 1, objectFileId: -1);
         }
 
         [Fact]
         public void DecodeRegion_WhenObjectContainerCannotBeRead_PropagatesTheFailure()
         {
-            var failure = new InvalidDataException("invalid object container");
-            _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(-1);
-            _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 2)).Throws(failure);
-
-            var actual = Assert.Throws<InvalidDataException>(() => _provider.DecodeRegion(
-                257,
-                System.Array.Empty<int>(),
-                (_, _, _, _, _, _) => { },
-                (_, _, _) => { }));
-
-            Assert.Same(failure, actual);
+            AssertDecodeRegionPropagatesContainerFailure(terrainFileId: -1, objectFileId: 2);
         }
 
         [Fact]
@@ -295,6 +273,23 @@ namespace Hagalaz.Cache.Tests
 
             stream.Position = 0;
             return stream;
+        }
+
+        private void AssertDecodeRegionPropagatesContainerFailure(int terrainFileId, int objectFileId)
+        {
+            var failure = new InvalidDataException("invalid map container");
+            _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(terrainFileId);
+            _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(objectFileId);
+            var fileId = terrainFileId >= 0 ? terrainFileId : objectFileId;
+            _cacheApiMock.Setup(x => x.ReadContainer(5, fileId)).Throws(failure);
+
+            var actual = Assert.Throws<InvalidDataException>(() => _provider.DecodeRegion(
+                257,
+                System.Array.Empty<int>(),
+                (_, _, _, _, _, _) => { },
+                (_, _, _) => { }));
+
+            Assert.Same(failure, actual);
         }
     }
 }
