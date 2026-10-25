@@ -479,13 +479,20 @@ namespace Hagalaz.Cache
         /// </summary>
         /// <remarks>
         /// The injected file store is externally owned and must be disposed by its composition root.
-        /// The production DI registration keeps this instance as a singleton for the service process lifetime.
-        /// Snapshot retained-byte measurements use a process-wide meter and are not reconciled here, so replacing
-        /// a cache instance within the same process requires adding the corresponding retained-byte cleanup.
+        /// Retained snapshot bytes are reconciled with the process-wide meter before this instance is disposed.
         /// </remarks>
         public void Dispose()
         {
-            _snapshotReadWriteLock.Dispose();
+            _snapshotReadWriteLock.EnterWriteLock();
+            try
+            {
+                _archiveSnapshotCache.Clear();
+            }
+            finally
+            {
+                _snapshotReadWriteLock.ExitWriteLock();
+                _snapshotReadWriteLock.Dispose();
+            }
         }
     }
 }

@@ -131,6 +131,24 @@ internal sealed class ArchiveSnapshotCache
         CacheMetrics.RecordArchiveSnapshotRetainedBytes(retainedByteDelta);
     }
 
+    public void Clear()
+    {
+        long retainedBytes;
+
+        lock (_sync)
+        {
+            retainedBytes = _retainedBytes;
+            _entries.Clear();
+            _lru.Clear();
+            _retainedBytes = 0;
+        }
+
+        if (retainedBytes > 0)
+        {
+            CacheMetrics.RecordArchiveSnapshotRetainedBytes(-retainedBytes);
+        }
+    }
+
     private void CompleteSuccessfulFlight(ArchiveKey key, LoadFlight flight, ArchiveSnapshot snapshot)
     {
         long retainedByteDelta = 0;

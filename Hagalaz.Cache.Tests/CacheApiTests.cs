@@ -172,6 +172,60 @@ namespace Hagalaz.Cache.Tests
         }
 
         [Fact]
+        public void Dispose_ReconcilesRetainedArchiveSnapshotBytes()
+        {
+            _fileStoreMock.SetupGet(store => store.IndexFileCount).Returns(1);
+            _fileStoreMock.Setup(store => store.Read(0, 0)).Returns(new MemoryStream([1, 2, 3]));
+            _fileStoreMock.Setup(store => store.Read(0, 1)).Returns(new MemoryStream([1, 2, 3]));
+            var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 2);
+            table.AddEntry(0, CreateSparseArchiveEntry(0));
+            table.AddEntry(1, CreateSparseArchiveEntry(0));
+            _referenceTableProviderMock.Setup(provider => provider.ReadReferenceTable(0)).Returns(table);
+
+            var container = new Mock<IContainer>().Object;
+            _containerDecoderMock.Setup(decoder => decoder.Decode(It.IsAny<MemoryStream>())).Returns(container);
+            _archiveDecoderMock.Setup(decoder => decoder.Decode(container, 1)).Returns(() =>
+            {
+                var archive = new Archive(1);
+                archive.Entries![0] = new MemoryStream([1, 2, 3]);
+                return archive;
+            });
+
+            using var measurements = new CacheMeterListener();
+            using (var cacheApi = new CacheApi(
+                       _fileStoreMock.Object,
+                       _referenceTableProviderMock.Object,
+                       _cacheWriterMock.Object,
+                       _containerDecoderMock.Object,
+                       _referenceTableCodecMock.Object,
+                       _archiveDecoderMock.Object,
+                       Options.Create(new CacheOptions())))
+            {
+                using (var firstMember = cacheApi.Read(0, 0, 0))
+                {
+                    Assert.Equal(new byte[] { 1, 2, 3 }, firstMember.ToArray());
+                }
+
+                using var secondMember = cacheApi.Read(0, 1, 0);
+                Assert.Equal(new byte[] { 1, 2, 3 }, secondMember.ToArray());
+            }
+
+            var retainedByteDeltas = new List<double>();
+            foreach (var measurement in measurements.Measurements)
+            {
+                if (measurement.InstrumentName == "hagalaz.cache.archive.snapshot.retained.bytes")
+                {
+                    retainedByteDeltas.Add(measurement.Value);
+                }
+            }
+
+            Assert.Equal(3, retainedByteDeltas.Count);
+            Assert.True(retainedByteDeltas[0] > 0);
+            Assert.True(retainedByteDeltas[1] > 0);
+            Assert.Equal(-(retainedByteDeltas[0] + retainedByteDeltas[1]), retainedByteDeltas[2]);
+        }
+
+        [Fact]
         public void SparseArchiveIds_CanBeReadAndMissingIdsRemainMissing()
         {
             const int highArchiveId = 100;
