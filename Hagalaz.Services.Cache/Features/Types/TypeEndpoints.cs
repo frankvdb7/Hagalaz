@@ -106,17 +106,12 @@ public static class TypeEndpoints
         return error ?? TypedResults.Ok(provider.GetRange(startId, endIdExclusive).Select(MapItem).ToArray());
     }
 
-    private static IResult SearchItemTypes(string query, int offset, int limit, ITypeProvider<IItemType> provider)
-    {
-        var error = ValidateSearch(query, offset, limit, provider.ArchiveSize, requireQuery: true);
-        if (error is not null) return error;
-
-        var matches = provider.GetRange(0, provider.ArchiveSize)
+    private static IResult SearchItemTypes(string query, int offset, int limit, ITypeProvider<IItemType> provider) =>
+        ValidateSearch(query, offset, limit, provider.ArchiveSize, requireQuery: true)
+        ?? CreateSearchResponse(query, offset, limit, provider.GetRange(0, provider.ArchiveSize)
             .Where(type => !string.IsNullOrWhiteSpace(type.Name) && type.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
             .Select(MapItem)
-            .ToArray();
-        return CreateSearchResponse(query, offset, limit, matches);
-    }
+            .ToArray());
 
     private static IResult GetNpcType(int id, ITypeProvider<INpcType> provider) => TypedResults.Ok(MapNpc(provider.Get(id)));
 
@@ -126,17 +121,12 @@ public static class TypeEndpoints
         return error ?? TypedResults.Ok(provider.GetRange(startId, endIdExclusive).Select(MapNpc).ToArray());
     }
 
-    private static IResult SearchNpcTypes(string query, int offset, int limit, ITypeProvider<INpcType> provider)
-    {
-        var error = ValidateSearch(query, offset, limit, provider.ArchiveSize, requireQuery: true);
-        if (error is not null) return error;
-
-        var matches = provider.GetRange(0, provider.ArchiveSize)
+    private static IResult SearchNpcTypes(string query, int offset, int limit, ITypeProvider<INpcType> provider) =>
+        ValidateSearch(query, offset, limit, provider.ArchiveSize, requireQuery: true)
+        ?? CreateSearchResponse(query, offset, limit, provider.GetRange(0, provider.ArchiveSize)
             .Where(type => !string.IsNullOrWhiteSpace(type.Name) && type.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
             .Select(MapNpc)
-            .ToArray();
-        return CreateSearchResponse(query, offset, limit, matches);
-    }
+            .ToArray());
 
     private static IResult GetObjectType(int id, ITypeProvider<IObjectType> provider) => TypedResults.Ok(MapObject(provider.Get(id)));
 

@@ -151,10 +151,7 @@ namespace Hagalaz.Cache.Tests
                 (1, 24, 40, 0, 10, 2),
                 (2, 9, 10, 2, 2, 3));
 
-            _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(1);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(terrainData));
-            _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 2)).Returns(new Container(objectData));
+            SetupRegionContainers(terrainData, objectData);
 
             // Act
             var decodedRegion = _provider.DecodeRegion(257, System.Array.Empty<int>(), CancellationToken.None);
@@ -175,10 +172,7 @@ namespace Hagalaz.Cache.Tests
             var terrainData = CreateTerrainData((0, 7, 8), (3, 9, 10));
             var objectData = new MemoryStream();
 
-            _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(1);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(terrainData));
-            _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 2)).Returns(new Container(objectData));
+            SetupRegionContainers(terrainData, objectData);
 
             // Act
             var decodedRegion = _provider.DecodeRegion(257, System.Array.Empty<int>(), CancellationToken.None);
@@ -186,6 +180,14 @@ namespace Hagalaz.Cache.Tests
             // Assert
             Assert.Equal([(7, 8, 0), (9, 10, 3)], decodedRegion.BlockedTiles.Select(tile => (tile.LocalX, tile.LocalY, tile.Z)));
             Assert.Empty(decodedRegion.ObjectPlacements);
+        }
+
+        private void SetupRegionContainers(MemoryStream terrainData, MemoryStream objectData)
+        {
+            _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(1);
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(terrainData));
+            _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 2)).Returns(new Container(objectData));
         }
 
         private static MemoryStream CreateObjectData(params (int Id, int X, int Y, int Z, int ShapeType, int Rotation)[] placements)
