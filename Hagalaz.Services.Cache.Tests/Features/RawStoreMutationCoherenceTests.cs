@@ -184,6 +184,43 @@ public sealed class RawStoreMutationCoherenceTests
         }
     }
 
+    [TestMethod]
+    public async Task ConfigDefinitionMutation_RejectsUnrepresentableValuesWithoutChangingCacheFiles()
+    {
+        var store = new MemoryFileStore();
+        var configCodec = new ConfigDefinitionCodec();
+        var referenceTableCodec = new ReferenceTableCodec();
+        using var encodedConfig = configCodec.Encode(new ConfigDefinition(0) { DefaultValue = 123, ValueType = 'A' });
+        var initialArchive = EncodeContainer(EncodeArchive(encodedConfig.ToArray()));
+        var initialReferenceTable = EncodeConfigReferenceTable(referenceTableCodec);
+        store.Set(255, 2, initialReferenceTable);
+        store.Set(2, 16, initialArchive);
+
+        await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        var initialDefinition = await client.GetFromJsonAsync<TypeEndpoints.ConfigDefinitionResponse>("/api/v1/cache/types/config-definitions/0");
+        Assert.IsNotNull(initialDefinition);
+        Assert.AreEqual(123, initialDefinition.DefaultValue);
+        Assert.AreEqual('A', initialDefinition.ValueType);
+
+        var invalidRequests = new[]
+        {
+            new TypeMutationEndpoints.UpdateConfigDefinitionRequest(-1, 'A'),
+            new TypeMutationEndpoints.UpdateConfigDefinitionRequest(65536, 'A'),
+            new TypeMutationEndpoints.UpdateConfigDefinitionRequest(123, '\x80'),
+            new TypeMutationEndpoints.UpdateConfigDefinitionRequest(123, '\u0100')
+        };
+
+        foreach (var request in invalidRequests)
+        {
+            using var response = await client.PostAsJsonAsync("/api/v1/cache/types/config-definitions/0", request);
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode, await response.Content.ReadAsStringAsync());
+            CollectionAssert.AreEqual(initialArchive, store.GetBytes(2, 16));
+            CollectionAssert.AreEqual(initialReferenceTable, store.GetBytes(255, 2));
+        }
+    }
+
     private static async Task<string> ReadObjectNameAsync(HttpClient client, int id = 259)
     {
         var response = await client.GetFromJsonAsync<TypeEndpoints.ObjectTypeResponse>($"/api/v1/cache/types/objects/{id}");
@@ -246,6 +283,17 @@ public sealed class RawStoreMutationCoherenceTests
         }
 
         table.AddEntry(1, objectArchive);
+        using var encoded = codec.Encode(table);
+        return EncodeContainer(encoded.ToArray());
+    }
+
+    private static byte[] EncodeConfigReferenceTable(ReferenceTableCodec codec)
+    {
+        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var configArchive = new ReferenceTableEntry(0);
+        configArchive.InitializeEntries(1);
+        configArchive.AddEntry(0, new ReferenceTableChildEntry(0));
+        table.AddEntry(16, configArchive);
         using var encoded = codec.Encode(table);
         return EncodeContainer(encoded.ToArray());
     }

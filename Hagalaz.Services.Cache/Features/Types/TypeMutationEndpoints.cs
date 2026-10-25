@@ -87,6 +87,16 @@ public static class TypeMutationEndpoints
         ITypeCodec<IConfigDefinition> codec,
         ICacheAPI cacheApi)
     {
+        if (request.DefaultValue is < ushort.MinValue or > ushort.MaxValue)
+        {
+            return TypedResults.BadRequest(EndpointErrors.Validation("defaultValue must be between 0 and 65535."));
+        }
+
+        if (request.ValueType > '\x7f')
+        {
+            return TypedResults.BadRequest(EndpointErrors.Validation("valueType must be an ASCII character."));
+        }
+
         var error = TryGetType(id, provider, out var config);
         if (error is not null) return error;
 
