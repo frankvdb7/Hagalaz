@@ -13,12 +13,16 @@ namespace Hagalaz.Services.Cache.Tests.Features;
 
 internal static class CacheServiceTestHost
 {
-    public static async Task<WebApplication> StartAsync(IFileStore store, Action<IEndpointRouteBuilder> mapEndpoints)
+    public static async Task<WebApplication> StartAsync(
+        IFileStore store,
+        Action<IEndpointRouteBuilder> mapEndpoints,
+        Action<IServiceCollection>? configureServices = null)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
         builder.Services.AddSingleton<IFileStore>(store);
         builder.Services.AddGameCache();
+        configureServices?.Invoke(builder.Services);
         builder.Services.AddProblemDetails();
         builder.Services.AddExceptionHandler<CacheExceptionHandler>();
 

@@ -2,7 +2,9 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Threading;
 using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
+using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
@@ -75,11 +77,20 @@ public sealed class RawStoreMutationCoherenceTests
         var store = new MemoryFileStore();
         var objectCodec = new ObjectTypeCodec();
         var referenceTableCodec = new ReferenceTableCodec();
+        var initialObject = EncodeGatewayObject("initial");
         var initialArchive = EncodeContainer(EncodeArchive(
             EncodeObject(objectCodec, 258, "sibling"),
-            EncodeObject(objectCodec, 259, "initial")));
+            initialObject));
         store.Set(255, 16, EncodeReferenceTable(referenceTableCodec, memberCount: 2, mapObjectToLastMember: true));
         store.Set(16, 1, initialArchive);
+
+        using (var originalStream = new MemoryStream(initialObject))
+        {
+            var original = (ObjectType)objectCodec.Decode(259, originalStream);
+            using var encodedRoundTrip = objectCodec.Encode(original);
+            using var roundTripStream = new MemoryStream(encodedRoundTrip.ToArray());
+            AssertGatewayRawFields((ObjectType)objectCodec.Decode(259, roundTripStream));
+        }
 
         await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
@@ -92,8 +103,43 @@ public sealed class RawStoreMutationCoherenceTests
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
 
         Assert.IsFalse(initialArchive.SequenceEqual(store.GetBytes(16, 1)), "The updated archive should be persisted to the file store.");
+        var cacheApi = app.Services.GetRequiredService<ICacheAPI>();
+        using (var persistedMember = cacheApi.Read(16, 1, 1))
+        {
+            var persistedObject = (ObjectType)objectCodec.Decode(259, persistedMember);
+            Assert.AreEqual("updated", persistedObject.Name);
+            AssertGatewayRawFields(persistedObject);
+        }
+
         Assert.AreEqual("updated", await ReadObjectNameAsync(client, 259));
         Assert.AreEqual("sibling", await ReadObjectNameAsync(client, 258));
+    }
+
+    [TestMethod]
+    public async Task ObjectNameMutation_DoesNotPersistWhenEncodedDefinitionCannotBeDecoded()
+    {
+        var store = new MemoryFileStore();
+        var referenceTableCodec = new ReferenceTableCodec();
+        var initialArchive = EncodeContainer(EncodeArchive(
+            EncodeObject(new ObjectTypeCodec(), 258, "sibling"),
+            EncodeGatewayObject("initial")));
+        var initialReferenceTable = EncodeReferenceTable(referenceTableCodec, memberCount: 2, mapObjectToLastMember: true);
+        store.Set(255, 16, initialReferenceTable);
+        store.Set(16, 1, initialArchive);
+
+        await using var app = await CacheServiceTestHost.StartAsync(
+            store,
+            cacheGroup => cacheGroup.MapTypeEndpoints(),
+            services => services.AddSingleton<IObjectTypeCodec>(new InvalidEncodedObjectTypeCodec()));
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/cache/types/objects/259/name",
+            new TypeMutationEndpoints.SetObjectNameRequest("updated"));
+
+        Assert.AreNotEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
+        CollectionAssert.AreEqual(initialArchive, store.GetBytes(16, 1));
+        CollectionAssert.AreEqual(initialReferenceTable, store.GetBytes(255, 16));
     }
 
     [TestMethod]
@@ -241,6 +287,34 @@ public sealed class RawStoreMutationCoherenceTests
     }
 
     private static byte[] EncodeObject(ObjectTypeCodec codec, string name) => EncodeObject(codec, 259, name);
+
+    private static byte[] EncodeGatewayObject(string name)
+    {
+        using var stream = new MemoryStream();
+        stream.WriteByte(2);
+        stream.WriteString(name);
+        stream.WriteByte(74);
+        stream.WriteByte(0);
+        return stream.ToArray();
+    }
+
+    private static void AssertGatewayRawFields(ObjectType objectType)
+    {
+        Assert.AreEqual(-1, objectType.Interactable);
+        Assert.AreEqual(-1, objectType.SupportItemsFlag);
+        Assert.AreEqual(2, objectType.ClipType);
+        Assert.IsTrue(objectType.Solid);
+        Assert.IsTrue(objectType.Gateway);
+    }
+
+    private sealed class InvalidEncodedObjectTypeCodec : IObjectTypeCodec
+    {
+        private readonly ObjectTypeCodec _decoder = new();
+
+        public IObjectType Decode(int id, MemoryStream stream) => _decoder.Decode(id, stream);
+
+        public MemoryStream Encode(IObjectType instance) => new([2]);
+    }
 
     private static byte[] EncodeArchive(params byte[][] members)
     {

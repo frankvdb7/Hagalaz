@@ -48,7 +48,6 @@ public static class TypeMutationEndpoints
     private static IResult SetObjectName(
         int id,
         SetObjectNameRequest request,
-        ITypeProvider<IObjectType> provider,
         IObjectTypeCodec codec,
         ICacheAPI cacheApi)
     {
@@ -57,11 +56,15 @@ public static class TypeMutationEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("name is required."));
         }
 
-        var error = TryGetType(id, provider, out var obj);
-        if (error is not null) return error;
+        if (id < 0)
+        {
+            return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
+        }
 
+        var typeData = new ObjectTypeData();
+        var obj = DecodeRawTypeEntry(id, codec, typeData, cacheApi);
         obj.Name = request.Name;
-        return PersistTypeEntry(id, obj, codec, new ObjectTypeData(), cacheApi, "object-name-updated", "object");
+        return PersistTypeEntry(id, obj, codec, typeData, cacheApi, "object-name-updated", "object");
     }
 
     private static IResult UpdateVarpBitDefinition(
@@ -127,7 +130,7 @@ public static class TypeMutationEndpoints
         sprite.ReplaceImage(sourceImage);
 
         using var encodedType = codec.Encode(sprite);
-        PersistTypeEntry(cacheApi, new SpriteTypeData(), id, encodedType);
+        PersistTypeEntry(cacheApi, new SpriteTypeData(), id, encodedType.ToArray());
 
         return TypedResults.Ok(new SpriteMutationResponse(
             Operation: "sprite-image-replaced",
@@ -151,6 +154,18 @@ public static class TypeMutationEndpoints
         return null;
     }
 
+    private static TType DecodeRawTypeEntry<TType>(int typeId, ITypeCodec<TType> codec, ITypeData typeData, ICacheAPI cacheApi)
+        where TType : IType
+    {
+        var archiveId = typeData.GetArchiveId(typeId);
+        var archiveEntryId = typeData.GetArchiveEntryId(typeId);
+        var entry = cacheApi.ReadReferenceTable(typeData.IndexId).GetEntry(archiveId, archiveEntryId)
+            ?? throw new FileNotFoundException($"No cache entry exists for type {typeId}.");
+
+        using var member = cacheApi.Read(typeData.IndexId, archiveId, entry.Index);
+        return codec.Decode(typeId, member);
+    }
+
     private static IResult PersistTypeEntry<TType>(
         int typeId,
         TType type,
@@ -162,17 +177,23 @@ public static class TypeMutationEndpoints
         where TType : IType
     {
         using var encodedType = codec.Encode(type);
-        PersistTypeEntry(cacheApi, typeData, typeId, encodedType);
+        var encodedBytes = encodedType.ToArray();
+        using (var validationStream = new MemoryStream(encodedBytes, writable: false))
+        {
+            _ = codec.Decode(typeId, validationStream);
+        }
+
+        PersistTypeEntry(cacheApi, typeData, typeId, encodedBytes);
         return TypedResults.Ok(new TypeMutationResponse(operation, typeName, typeId));
     }
 
-    private static void PersistTypeEntry(ICacheAPI cacheApi, ITypeData typeData, int typeId, MemoryStream encodedType)
+    private static void PersistTypeEntry(ICacheAPI cacheApi, ITypeData typeData, int typeId, ReadOnlyMemory<byte> encodedType)
     {
         var indexId = typeData.IndexId;
         var archiveId = typeData.GetArchiveId(typeId);
         var archiveEntryId = typeData.GetArchiveEntryId(typeId);
 
-        cacheApi.ReplaceArchiveMember(indexId, archiveId, archiveEntryId, encodedType.ToArray());
+        cacheApi.ReplaceArchiveMember(indexId, archiveId, archiveEntryId, encodedType);
     }
 
     public sealed record SetNpcCombatLevelRequest(int CombatLevel);
