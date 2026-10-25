@@ -111,7 +111,10 @@ public static class TypeEndpoints
         var error = ValidateSearch(query, offset, limit, provider.ArchiveSize, requireQuery: true);
         if (error is not null) return error;
 
-        var matches = FindNamedMatches(provider, query, static type => type.Name, MapItem);
+        var matches = provider.GetRange(0, provider.ArchiveSize)
+            .Where(type => !string.IsNullOrWhiteSpace(type.Name) && type.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Select(MapItem)
+            .ToArray();
         return CreateSearchResponse(query, offset, limit, matches);
     }
 
@@ -128,7 +131,10 @@ public static class TypeEndpoints
         var error = ValidateSearch(query, offset, limit, provider.ArchiveSize, requireQuery: true);
         if (error is not null) return error;
 
-        var matches = FindNamedMatches(provider, query, static type => type.Name, MapNpc);
+        var matches = provider.GetRange(0, provider.ArchiveSize)
+            .Where(type => !string.IsNullOrWhiteSpace(type.Name) && type.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Select(MapNpc)
+            .ToArray();
         return CreateSearchResponse(query, offset, limit, matches);
     }
 
@@ -321,22 +327,6 @@ public static class TypeEndpoints
         }
 
         return null;
-    }
-
-    private static TResponse[] FindNamedMatches<TType, TResponse>(
-        ITypeProvider<TType> provider,
-        string query,
-        Func<TType, string?> getName,
-        Func<TType, TResponse> map)
-    {
-        return provider.GetRange(0, provider.ArchiveSize)
-            .Where(type =>
-            {
-                var name = getName(type);
-                return !string.IsNullOrWhiteSpace(name) && name.Contains(query, StringComparison.OrdinalIgnoreCase);
-            })
-            .Select(map)
-            .ToArray();
     }
 
     private static IResult CreateSearchResponse<T>(string query, int offset, int limit, T[] matches)

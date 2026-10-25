@@ -27,7 +27,7 @@ Export one `object-definitions-742.csv` row per populated cache record with sour
 
 ## 3. World-map and collision correctness
 
-`MapProvider.DecodeRegion` decodes terrain and placed objects. `DecodePart` supports 8x8 chunks, rotation and bridge height adjustments, checking `terrainData[1]` bridge flags. `MapRegionLoader` calls `region.FlagCollision(..., CollisionFlag.FloorBlock)` for terrain restrictions. `MapRegionService` / `MapRegion` own object clipping, dynamic flags and region residency. World maps and dynamic instances must not be flattened to zero dimension.
+`MapProvider.DecodeRegion` decodes terrain and placed objects. `MapRegion` owns 8x8 dynamic chunk transforms and collision updates. `MapRegionLoader` calls `region.FlagCollision(..., CollisionFlag.FloorBlock)` for terrain restrictions. `MapRegionService` / `MapRegion` own object clipping, dynamic flags and region residency. World maps and dynamic instances must not be flattened to zero dimension.
 
 Object shapes and rotation affect what is blocked (tile, side, corner, wall projection, projectile), not simply `Solid=true` => entire tile blocked. For doors, test both player pathing and NPC line-of-sight before/after a rotation, including diagonal/corner cases, ranged projectiles, a second client in range and scene update. The current `GameObjectService.UpdateGameObject` changes ID and publishes an add update; rotation changes explicitly unflag and reflag collision. Changing ID without recomputing shape/definition/clipping deserves a focused characterization test before refactoring.
 

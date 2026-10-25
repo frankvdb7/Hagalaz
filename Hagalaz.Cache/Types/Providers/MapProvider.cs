@@ -16,8 +16,6 @@ namespace Hagalaz.Cache.Types.Providers
 {
     public class MapProvider : IMapProvider
     {
-        private const int ROTATION_MASK = 0x3;
-        private const int CHUNK_COORDINATE_MASK = 0x7;
         private const int BRIDGE_FLAG = 0x2;
 
         private readonly ICacheAPI _cache;
@@ -83,28 +81,6 @@ namespace Hagalaz.Cache.Types.Providers
             }
 
             return new DecodedMapRegion(objectPlacements, blockedTiles);
-        }
-
-        public void DecodePart(DecodePartRequest request)
-        {
-            var (terrainData, objects) = DecodeMapData(request.RegionID, request.XteaKeys);
-            foreach (var tile in EnumerateBlockedTiles(terrainData, CancellationToken.None))
-            {
-                request.GroundCallback.Invoke(tile.LocalX, tile.LocalY, tile.Z);
-            }
-
-            foreach (var obj in objects)
-            {
-                if (request.PartZ == obj.Z && obj.X >= request.MinX && obj.X <= request.MaxX && obj.Y >= request.MinY && obj.Y <= request.MaxY)
-                {
-                    int rotatedLocalX = request.MinX + request.PartRotationCallback.Invoke(obj.Id, obj.Rotation, obj.X & CHUNK_COORDINATE_MASK, obj.Y & CHUNK_COORDINATE_MASK, request.PartRotation, false);
-                    int rotatedLocalY = request.MinY + request.PartRotationCallback.Invoke(obj.Id, obj.Rotation, obj.X & CHUNK_COORDINATE_MASK, obj.Y & CHUNK_COORDINATE_MASK, request.PartRotation, true);
-                    int height = obj.Z;
-                    if (rotatedLocalX < 0 || rotatedLocalX >= 64 || rotatedLocalY < 0 || rotatedLocalY >= 64) continue;
-                    if ((terrainData[1, rotatedLocalX, rotatedLocalY] & BRIDGE_FLAG) != 0) height--;
-                    if (height >= 0) request.Callback.Invoke(obj.Id, obj.ShapeType, (request.PartRotation + obj.Rotation) & ROTATION_MASK, rotatedLocalX, rotatedLocalY, height);
-                }
-            }
         }
 
         private (sbyte[,,] TerrainData, System.Collections.Generic.List<MapObject> Objects) DecodeMapData(int regionId, int[] xteaKeys)

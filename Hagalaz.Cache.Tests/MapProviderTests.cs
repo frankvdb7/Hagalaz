@@ -143,45 +143,6 @@ namespace Hagalaz.Cache.Tests
         }
 
         [Fact]
-        public void DecodePart_ValidData_InvokesCallbacks()
-        {
-            // Arrange
-            var terrainData = new MemoryStream(new byte[] { 81, 0, 0, 0, 0 });
-            var objectData = new MemoryStream(new byte[] { 0x80, 0x01, 0x40, 0x01, 0x1C, 0x80, 0x00 });
-
-            _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(1);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(terrainData));
-            _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 2)).Returns(new Container(objectData));
-
-            var objectDecoded = new Mock<ObjectDecoded>();
-            var impassibleTerrainDecoded = new Mock<ImpassibleTerrainDecoded>();
-            var calcRotation = new Mock<CalculateObjectPartRotation>();
-
-            var request = new DecodePartRequest
-            {
-                RegionID = 257,
-                XteaKeys = System.Array.Empty<int>(),
-                MinX = 0,
-                MinY = 0,
-                MaxX = 63,
-                MaxY = 63,
-                PartZ = 0,
-                PartRotation = 0,
-                PartRotationCallback = calcRotation.Object,
-                Callback = objectDecoded.Object,
-                GroundCallback = impassibleTerrainDecoded.Object
-            };
-
-            // Act
-            _provider.DecodePart(request);
-
-            // Assert
-            objectDecoded.Verify(x => x(0, 0, 1, It.IsAny<int>(), It.IsAny<int>(), 0), Times.Once);
-            objectDecoded.Verify(x => x(0, 32, 0, It.IsAny<int>(), It.IsAny<int>(), 0), Times.Once);
-        }
-
-        [Fact]
         public void DecodeRegion_ReportsFullCoordinatesAcrossChunksAndPlanes()
         {
             // Arrange
@@ -225,41 +186,6 @@ namespace Hagalaz.Cache.Tests
             // Assert
             Assert.Equal([(7, 8, 0), (9, 10, 3)], decodedRegion.BlockedTiles.Select(tile => (tile.LocalX, tile.LocalY, tile.Z)));
             Assert.Empty(decodedRegion.ObjectPlacements);
-        }
-
-        [Fact]
-        public void DecodePart_PreservesChunkLocalCoordinatesForPartRotation()
-        {
-            // Arrange
-            var terrainData = new MemoryStream(new byte[] { 0 });
-            var objectData = CreateObjectData((1, 9, 10, 0, 10, 0));
-
-            _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(1);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(terrainData));
-            _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 2)).Returns(new Container(objectData));
-
-            var decodedObjects = new List<(int X, int Y)>();
-            var request = new DecodePartRequest
-            {
-                RegionID = 257,
-                XteaKeys = System.Array.Empty<int>(),
-                MinX = 8,
-                MinY = 8,
-                MaxX = 15,
-                MaxY = 15,
-                PartZ = 0,
-                PartRotation = 0,
-                PartRotationCallback = (_, _, x, y, _, calculateRotationY) => calculateRotationY ? y : x,
-                Callback = (_, _, _, x, y, _) => decodedObjects.Add((x, y)),
-                GroundCallback = (_, _, _) => { }
-            };
-
-            // Act
-            _provider.DecodePart(request);
-
-            // Assert
-            Assert.Equal([(9, 10)], decodedObjects);
         }
 
         private static MemoryStream CreateObjectData(params (int Id, int X, int Y, int Z, int ShapeType, int Rotation)[] placements)
