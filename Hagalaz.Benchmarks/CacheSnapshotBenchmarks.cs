@@ -15,6 +15,7 @@ using Hagalaz.Cache.Logic;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types;
+using Hagalaz.Cache.Types.Data;
 using Hagalaz.Cache.Types.Factories;
 using Hagalaz.Cache.Types.Providers;
 using Microsoft.Extensions.Options;
@@ -135,6 +136,8 @@ public class CacheSnapshotConcurrentReadBenchmarks
 }
 
 [MemoryDiagnoser]
+// This compares decoding every call with CacheApi's memoized read. The provider
+// before #559 also memoized reference tables, so this is not a PR baseline.
 public class CacheReferenceTableMemoizationBenchmarks
 {
     private CacheBenchmarkFixture _fixture = null!;
@@ -156,8 +159,8 @@ public class CacheReferenceTableMemoizationBenchmarks
             new ReferenceTableCodec());
     }
 
-    [Benchmark(Baseline = true)]
-    public int DecodeReferenceTableEachRead() =>
+    [Benchmark]
+    public int DecodeReferenceTableWithoutMemoization() =>
         _directProvider.ReadReferenceTable(CacheBenchmarkFixture.ObjectIndexId).Count;
 
     [Benchmark]
@@ -222,26 +225,37 @@ public class CacheArchiveSnapshotLruBenchmarks
 }
 
 [MemoryDiagnoser]
+// The baseline mirrors the pre-snapshot ObjectTypeProvider.Get read/decode path.
+// Its memoized reference-table reads match the provider behavior before #559.
 public class CacheObjectDefinitionWorkloadBenchmarks
 {
     private const int ObjectArchiveCount = 260;
     private const int LookupCount = CacheBenchmarkFixture.ObjectDefinitionLookupCount;
     private CacheBenchmarkFixture _fixture = null!;
-    private ObjectTypeProvider _noSnapshotProvider = null!;
+    private CacheApi _legacyCache = null!;
+    private ObjectTypeData _legacyTypeData = null!;
+    private ObjectTypeCodec _legacyCodec = null!;
+    private ObjectTypeFactory _legacyFactory = null!;
+    private ObjectTypeProvider _zeroRetentionProvider = null!;
     private ObjectTypeProvider _snapshotProvider = null!;
-    private CacheApi _noSnapshotCache = null!;
+    private CacheApi _zeroRetentionCache = null!;
     private CacheApi _snapshotCache = null!;
 
     [GlobalSetup]
     public void Setup()
     {
         _fixture = CacheBenchmarkFixture.CreateObjectDefinitions(ObjectArchiveCount, includeArchives: true);
-        _noSnapshotCache = _fixture.CreateCache(snapshotCapacityBytes: 0);
+        _legacyCache = _fixture.CreateCache(snapshotCapacityBytes: 0);
+        _zeroRetentionCache = _fixture.CreateCache(snapshotCapacityBytes: 0);
         _snapshotCache = _fixture.CreateCache(_fixture.TotalSnapshotWeight);
-        _noSnapshotProvider = CreateProvider(_noSnapshotCache);
+        _legacyTypeData = new ObjectTypeData();
+        _legacyCodec = new ObjectTypeCodec();
+        _legacyFactory = new ObjectTypeFactory();
+        _zeroRetentionProvider = CreateProvider(_zeroRetentionCache);
         _snapshotProvider = CreateProvider(_snapshotCache);
 
-        _noSnapshotCache.ReadReferenceTable(CacheBenchmarkFixture.ObjectIndexId);
+        _legacyCache.ReadReferenceTable(CacheBenchmarkFixture.ObjectIndexId);
+        _zeroRetentionCache.ReadReferenceTable(CacheBenchmarkFixture.ObjectIndexId);
         for (var archiveId = 0; archiveId < ObjectArchiveCount; archiveId++)
         {
             using var member = _snapshotCache.Read(CacheBenchmarkFixture.ObjectIndexId, archiveId, 0);
@@ -249,7 +263,10 @@ public class CacheObjectDefinitionWorkloadBenchmarks
     }
 
     [Benchmark(Baseline = true, OperationsPerInvoke = LookupCount)]
-    public long NoSnapshotObjectDefinitionWorkload() => RunLookupWorkload(_noSnapshotProvider, _fixture.ObjectTypeIds);
+    public long LegacyObjectDefinitionWorkload() => RunLegacyLookupWorkload(_fixture.ObjectTypeIds);
+
+    [Benchmark(OperationsPerInvoke = LookupCount)]
+    public long ZeroRetentionObjectDefinitionWorkload() => RunLookupWorkload(_zeroRetentionProvider, _fixture.ObjectTypeIds);
 
     [Benchmark(OperationsPerInvoke = LookupCount)]
     public long WarmSnapshotObjectDefinitionWorkload() => RunLookupWorkload(_snapshotProvider, _fixture.ObjectTypeIds);
@@ -257,7 +274,8 @@ public class CacheObjectDefinitionWorkloadBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        _noSnapshotCache.Dispose();
+        _legacyCache.Dispose();
+        _zeroRetentionCache.Dispose();
         _snapshotCache.Dispose();
     }
 
@@ -270,6 +288,28 @@ public class CacheObjectDefinitionWorkloadBenchmarks
         for (var index = 0; index < typeIds.Length; index++)
         {
             checksum += provider.Get(typeIds[index]).Id;
+        }
+
+        return checksum;
+    }
+
+    private long RunLegacyLookupWorkload(int[] typeIds)
+    {
+        long checksum = 0;
+        for (var index = 0; index < typeIds.Length; index++)
+        {
+            var typeId = typeIds[index];
+            var table = _legacyCache.ReadReferenceTable(_legacyTypeData.IndexId);
+            var archiveId = _legacyTypeData.GetArchiveId(typeId);
+            var entry = table.GetEntry(archiveId, _legacyTypeData.GetArchiveEntryId(typeId));
+            if (entry is null)
+            {
+                checksum += _legacyFactory.CreateType(typeId).Id;
+                continue;
+            }
+
+            var archive = _legacyCache.ReadArchive(_legacyTypeData.IndexId, archiveId);
+            checksum += _legacyCodec.Decode(typeId, archive.GetEntry(entry.Index)).Id;
         }
 
         return checksum;
