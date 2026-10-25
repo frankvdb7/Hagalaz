@@ -19,6 +19,14 @@ namespace Hagalaz.Cache.Logic.Codecs
         public MemoryStream Encode(INpcType npcType)
         {
             var npc = (NpcType)npcType;
+            if (npc.CombatLevel is < -1 or > ushort.MaxValue)
+            {
+                throw new System.ArgumentOutOfRangeException(
+                    nameof(npc.CombatLevel),
+                    npc.CombatLevel,
+                    "Combat level must be -1 or between 0 and 65535.");
+            }
+
             var writer = new MemoryStream();
 
             if (npc.ModelIDs != null)

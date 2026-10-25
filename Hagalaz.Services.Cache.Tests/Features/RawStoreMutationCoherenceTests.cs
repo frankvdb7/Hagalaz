@@ -188,6 +188,52 @@ public sealed class RawStoreMutationCoherenceTests
     }
 
     [TestMethod]
+    public async Task NpcCombatLevelMutation_RejectsOutOfRangeValueWithoutChangingCacheFiles()
+    {
+        var store = new MemoryFileStore();
+        var referenceTableCodec = new ReferenceTableCodec();
+        var initialReferenceTable = EncodeNpcReferenceTable(referenceTableCodec);
+        var initialArchive = EncodeContainer(EncodeArchive(EncodeNpc("sibling"), EncodeNpcWithRecognizedPayloads()));
+        store.Set(255, 18, initialReferenceTable);
+        store.Set(18, 0, initialArchive);
+
+        await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/cache/types/npcs/1/combat-level",
+            new TypeMutationEndpoints.SetNpcCombatLevelRequest(65536));
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode, await response.Content.ReadAsStringAsync());
+        CollectionAssert.AreEqual(initialArchive, store.GetBytes(18, 0));
+        CollectionAssert.AreEqual(initialReferenceTable, store.GetBytes(255, 18));
+    }
+
+    [TestMethod]
+    public async Task NpcCombatLevelMutation_AllowsOmittedCombatLevel()
+    {
+        var store = new MemoryFileStore();
+        var npcCodec = new NpcTypeCodec();
+        var referenceTableCodec = new ReferenceTableCodec();
+        using var originalNpc = npcCodec.Encode(new NpcType(1) { CombatLevel = 42 });
+        store.Set(255, 18, EncodeNpcReferenceTable(referenceTableCodec));
+        store.Set(18, 0, EncodeContainer(EncodeArchive(EncodeNpc("sibling"), originalNpc.ToArray())));
+
+        await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/cache/types/npcs/1/combat-level",
+            new TypeMutationEndpoints.SetNpcCombatLevelRequest(-1));
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
+        var cacheApi = app.Services.GetRequiredService<ICacheAPI>();
+        using var persistedMember = cacheApi.Read(18, 0, 1);
+        var persistedNpc = (NpcType)npcCodec.Decode(1, persistedMember);
+        Assert.AreEqual(-1, persistedNpc.CombatLevel);
+    }
+
+    [TestMethod]
     public async Task RawStoreMutations_RefreshObjectTypeReadsWithinSameServiceInstance()
     {
         var store = new MemoryFileStore();

@@ -84,6 +84,33 @@ namespace Hagalaz.Cache.Tests
             Assert.Null(decodedNpc.ExtraData);
         }
 
+        [Theory]
+        [InlineData(-1)]
+        [InlineData(0)]
+        [InlineData(65535)]
+        public void TestEncodeDecode_CombatLevelBoundaries(int combatLevel)
+        {
+            var codec = new NpcTypeCodec();
+            var npc = new NpcType(1) { CombatLevel = combatLevel };
+
+            using var encoded = codec.Encode(npc);
+            using var encodedSource = new MemoryStream(encoded.ToArray());
+            var roundTripped = (NpcType)codec.Decode(1, encodedSource);
+
+            Assert.Equal(combatLevel, roundTripped.CombatLevel);
+        }
+
+        [Theory]
+        [InlineData(-2)]
+        [InlineData(65536)]
+        public void TestEncode_RejectsOutOfRangeCombatLevel(int combatLevel)
+        {
+            var codec = new NpcTypeCodec();
+            var npc = new NpcType(1) { CombatLevel = combatLevel };
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => codec.Encode(npc));
+        }
+
         [Fact]
         public void TestEncodeDecode_EmptyCollections()
         {

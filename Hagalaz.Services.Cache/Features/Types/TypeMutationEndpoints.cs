@@ -42,6 +42,11 @@ public static class TypeMutationEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
         }
 
+        if (request.CombatLevel is < -1 or > ushort.MaxValue)
+        {
+            return TypedResults.BadRequest(EndpointErrors.Validation("combatLevel must be -1 or between 0 and 65535."));
+        }
+
         var npc = DecodeRawTypeEntry(id, codec, new NpcTypeData(), cacheApi);
         npc.CombatLevel = request.CombatLevel;
         return PersistTypeEntry(id, npc, codec, new NpcTypeData(), cacheApi, "npc-combat-level-updated", "npc");
