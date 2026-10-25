@@ -107,17 +107,27 @@ namespace Hagalaz.Cache.Tests
         public void DecodeRegion_WhenMapArchivesAreAbsent_UsesEmptyMapData()
         {
             _cacheApiMock.Setup(x => x.GetFileId(5, It.IsAny<string>())).Returns(-1);
-            var callbackCount = 0;
 
-            _provider.DecodeRegion(
-                257,
-                System.Array.Empty<int>(),
-                (_, _, _, _, _, _) => callbackCount++,
-                (_, _, _) => callbackCount++);
+            var decodedRegion = _provider.DecodeRegion(257, System.Array.Empty<int>(), CancellationToken.None);
 
-            Assert.Equal(0, callbackCount);
+            Assert.Empty(decodedRegion.ObjectPlacements);
+            Assert.Empty(decodedRegion.BlockedTiles);
             _cacheApiMock.Verify(x => x.ReadContainer(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
             _cacheApiMock.Verify(x => x.ReadContainer(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int[]>()), Times.Never);
+        }
+
+        [Fact]
+        public void DecodeRegion_WhenCancellationIsRequested_DoesNotReadMapArchives()
+        {
+            using var cancellation = new CancellationTokenSource();
+            cancellation.Cancel();
+
+            Assert.Throws<OperationCanceledException>(() => _provider.DecodeRegion(
+                257,
+                System.Array.Empty<int>(),
+                cancellation.Token));
+
+            _cacheApiMock.Verify(x => x.GetFileId(It.IsAny<int>(), It.IsAny<string>()), Times.Never);
         }
 
         [Fact]
@@ -185,19 +195,14 @@ namespace Hagalaz.Cache.Tests
             _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
             _cacheApiMock.Setup(x => x.ReadContainer(5, 2)).Returns(new Container(objectData));
 
-            var decodedObjects = new List<(int Id, int ShapeType, int Rotation, int X, int Y, int Z)>();
-
             // Act
-            _provider.DecodeRegion(
-                257,
-                System.Array.Empty<int>(),
-                (id, shapeType, rotation, x, y, z) => decodedObjects.Add((id, shapeType, rotation, x, y, z)),
-                (_, _, _) => { });
+            var decodedRegion = _provider.DecodeRegion(257, System.Array.Empty<int>(), CancellationToken.None);
 
             // Assert
-            Assert.Collection(decodedObjects,
-                obj => Assert.Equal((1, 10, 2, 24, 40, 0), obj),
-                obj => Assert.Equal((2, 2, 3, 9, 10, 2), obj));
+            Assert.Collection(decodedRegion.ObjectPlacements,
+                obj => Assert.Equal((1, 10, 2, 24, 40, 0), (obj.Id, obj.ShapeType, obj.Rotation, obj.X, obj.Y, obj.Z)),
+                obj => Assert.Equal((2, 2, 3, 9, 10, 2), (obj.Id, obj.ShapeType, obj.Rotation, obj.X, obj.Y, obj.Z)));
+            Assert.Empty(decodedRegion.BlockedTiles);
             Assert.Throws<ObjectDisposedException>(() => _ = terrainData.Length);
             Assert.Throws<ObjectDisposedException>(() => _ = objectData.Length);
         }
@@ -214,17 +219,12 @@ namespace Hagalaz.Cache.Tests
             _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
             _cacheApiMock.Setup(x => x.ReadContainer(5, 2)).Returns(new Container(objectData));
 
-            var flaggedTiles = new List<(int X, int Y, int Z)>();
-
             // Act
-            _provider.DecodeRegion(
-                257,
-                System.Array.Empty<int>(),
-                (_, _, _, _, _, _) => { },
-                (x, y, z) => flaggedTiles.Add((x, y, z)));
+            var decodedRegion = _provider.DecodeRegion(257, System.Array.Empty<int>(), CancellationToken.None);
 
             // Assert
-            Assert.Equal([(7, 8, 0), (9, 10, 3)], flaggedTiles);
+            Assert.Equal([(7, 8, 0), (9, 10, 3)], decodedRegion.BlockedTiles.Select(tile => (tile.LocalX, tile.LocalY, tile.Z)));
+            Assert.Empty(decodedRegion.ObjectPlacements);
         }
 
         [Fact]
@@ -319,8 +319,7 @@ namespace Hagalaz.Cache.Tests
             var actual = Assert.Throws<InvalidDataException>(() => _provider.DecodeRegion(
                 257,
                 System.Array.Empty<int>(),
-                (_, _, _, _, _, _) => { },
-                (_, _, _) => { }));
+                CancellationToken.None));
 
             Assert.Same(failure, actual);
         }

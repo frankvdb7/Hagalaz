@@ -186,19 +186,24 @@ namespace Hagalaz.Services.GameWorld.Data
             var staticObjectSpawns = new List<StaticObjectSpawn>();
             var collisionTiles = new List<CollisionTile>();
             cancellationToken.ThrowIfCancellationRequested();
-            _mapProvider.DecodeRegion(
-                region.Id,
-                region.XteaKeys,
-                (objectId, shapeType, rotation, localX, localY, z) =>
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    staticObjectSpawns.Add(new StaticObjectSpawn(objectId, shapeType, rotation, localX, localY, z));
-                },
-                (localX, localY, z) =>
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    collisionTiles.Add(new CollisionTile(localX, localY, z));
-                });
+            var decodedRegion = _mapProvider.DecodeRegion(region.Id, region.XteaKeys, cancellationToken);
+            foreach (var objectPlacement in decodedRegion.ObjectPlacements)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                staticObjectSpawns.Add(new StaticObjectSpawn(
+                    objectPlacement.Id,
+                    objectPlacement.ShapeType,
+                    objectPlacement.Rotation,
+                    objectPlacement.X,
+                    objectPlacement.Y,
+                    objectPlacement.Z));
+            }
+
+            foreach (var blockedTile in decodedRegion.BlockedTiles)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                collisionTiles.Add(new CollisionTile(blockedTile.LocalX, blockedTile.LocalY, blockedTile.Z));
+            }
 
             cancellationToken.ThrowIfCancellationRequested();
             var objectIds = staticObjectSpawns.Select(spawn => spawn.Id)

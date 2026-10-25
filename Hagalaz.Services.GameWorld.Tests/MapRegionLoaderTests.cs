@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq.Expressions;
 using AutoMapper;
+using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Data.Entities;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
@@ -52,10 +53,7 @@ public sealed class MapRegionLoaderTests
             }
         };
         ActivitySource.AddActivityListener(listener);
-        var mapProvider = Substitute.For<IMapProvider>();
-        mapProvider.When(provider => provider.DecodeRegion(
-                Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<ObjectDecoded>(), Arg.Any<ImpassibleTerrainDecoded>()))
-            .Do(_ => { });
+        var mapProvider = CreateMapProvider();
         var fixture = CreateLoader(mapProvider: mapProvider);
 
         await fixture.Loader.LoadAsync(region);
@@ -82,14 +80,13 @@ public sealed class MapRegionLoaderTests
         var decodeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseDecode = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var region = CreateRegion();
-        var mapProvider = Substitute.For<IMapProvider>();
-        mapProvider.When(provider => provider.DecodeRegion(
-                Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<ObjectDecoded>(), Arg.Any<ImpassibleTerrainDecoded>()))
-            .Do(callInfo =>
+        var mapProvider = CreateMapProvider();
+        mapProvider.DecodeRegion(Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
             {
                 decodeStarted.TrySetResult();
                 releaseDecode.Task.GetAwaiter().GetResult();
-                callInfo.Arg<ImpassibleTerrainDecoded>()(1, 1, 0);
+                return new DecodedMapRegion([], [new BlockedTerrainTile(1, 1, 0)]);
             });
         var fixture = CreateLoader(mapProvider: mapProvider);
 
@@ -129,16 +126,10 @@ public sealed class MapRegionLoaderTests
         var region = CreateRegion();
         var gameObject = Substitute.For<IGameObject>();
         var gameObjectBuilder = ConfigureStaticGameObjectBuilder(gameObject);
-        var mapProvider = Substitute.For<IMapProvider>();
+        var mapProvider = CreateMapProvider();
         var failure = new InvalidDataException("corrupt map data");
-        mapProvider.When(provider => provider.DecodeRegion(
-                Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<ObjectDecoded>(), Arg.Any<ImpassibleTerrainDecoded>()))
-            .Do(callInfo =>
-            {
-                callInfo.Arg<ImpassibleTerrainDecoded>()(2, 2, 0);
-                callInfo.Arg<ObjectDecoded>()(100, 0, 0, 3, 3, 0);
-                throw failure;
-            });
+        mapProvider.DecodeRegion(Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<CancellationToken>())
+            .Returns(_ => throw failure);
         var fixture = CreateLoader(mapProvider: mapProvider, gameObjectBuilder: gameObjectBuilder);
 
         var actual = await Assert.ThrowsExactlyAsync<InvalidDataException>(() => fixture.Loader.LoadAsync(region));
@@ -166,14 +157,12 @@ public sealed class MapRegionLoaderTests
         var firstObject = Substitute.For<IGameObject>();
         var constructionFailure = new InvalidOperationException("second object could not be constructed");
         var gameObjectBuilder = ConfigureStaticGameObjectBuilderWithFailure(firstObject, constructionFailure);
-        var mapProvider = Substitute.For<IMapProvider>();
-        mapProvider.When(provider => provider.DecodeRegion(
-                Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<ObjectDecoded>(), Arg.Any<ImpassibleTerrainDecoded>()))
-            .Do(callInfo =>
-            {
-                callInfo.Arg<ObjectDecoded>()(100, 0, 0, 3, 3, 0);
-                callInfo.Arg<ObjectDecoded>()(101, 0, 0, 4, 4, 0);
-            });
+        var mapProvider = CreateMapProvider();
+        var decodedRegion = new DecodedMapRegion(
+            [CreateMapObject(100, 0, 0, 3, 3, 0), CreateMapObject(101, 0, 0, 4, 4, 0)],
+            []);
+        mapProvider.DecodeRegion(Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<CancellationToken>())
+            .Returns(decodedRegion);
         var fixture = CreateLoader(mapProvider: mapProvider, gameObjectBuilder: gameObjectBuilder);
 
         var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => fixture.Loader.LoadAsync(region));
@@ -210,15 +199,16 @@ public sealed class MapRegionLoaderTests
     public async Task LoadAsync_ResolvesDistinctStaticAndDatabaseSpawnIdsInOneRegionBatch()
     {
         var region = CreateRegion();
-        var mapProvider = Substitute.For<IMapProvider>();
-        mapProvider.When(provider => provider.DecodeRegion(
-                Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<ObjectDecoded>(), Arg.Any<ImpassibleTerrainDecoded>()))
-            .Do(callInfo =>
-            {
-                callInfo.Arg<ObjectDecoded>()(100, 0, 0, 1, 1, 0);
-                callInfo.Arg<ObjectDecoded>()(100, 0, 0, 2, 2, 0);
-                callInfo.Arg<ObjectDecoded>()(101, 0, 0, 3, 3, 0);
-            });
+        var mapProvider = CreateMapProvider();
+        var decodedRegion = new DecodedMapRegion(
+            [
+                CreateMapObject(100, 0, 0, 1, 1, 0),
+                CreateMapObject(100, 0, 0, 2, 2, 0),
+                CreateMapObject(101, 0, 0, 3, 3, 0)
+            ],
+            []);
+        mapProvider.DecodeRegion(Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<CancellationToken>())
+            .Returns(decodedRegion);
         var definitions = new Dictionary<int, IGameObjectDefinition>
         {
             [100] = Substitute.For<IGameObjectDefinition>(),
@@ -426,10 +416,7 @@ public sealed class MapRegionLoaderTests
         var gameObject = Substitute.For<IGameObject>();
         gameObject.IsStatic.Returns(true);
         var gameObjectBuilder = ConfigureStaticGameObjectBuilder(gameObject);
-        var mapProvider = Substitute.For<IMapProvider>();
-        mapProvider.When(provider => provider.DecodeRegion(
-                Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<ObjectDecoded>(), Arg.Any<ImpassibleTerrainDecoded>()))
-            .Do(callInfo => callInfo.Arg<ObjectDecoded>()(100, 0, 0, 3, 3, 0));
+        var mapProvider = CreateMapProvider(new DecodedMapRegion([CreateMapObject(100, 0, 0, 3, 3, 0)], []));
         var item = Substitute.For<Hagalaz.Game.Abstractions.Model.Items.IGroundItem>();
         item.Location.Returns(Location.Create(65, 65, 0, 0));
         var groundItemBuilder = Substitute.For<IGroundItemBuilder>();
@@ -480,10 +467,7 @@ public sealed class MapRegionLoaderTests
             0,
             regionService);
         var gameObject = CreateConcreteGameObject(Location.Create(67, 67, 0, 0));
-        var mapProvider = Substitute.For<IMapProvider>();
-        mapProvider.When(provider => provider.DecodeRegion(
-                Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<ObjectDecoded>(), Arg.Any<ImpassibleTerrainDecoded>()))
-            .Do(callInfo => callInfo.Arg<ObjectDecoded>()(100, 0, 0, 3, 3, 0));
+        var mapProvider = CreateMapProvider(new DecodedMapRegion([CreateMapObject(100, 0, 0, 3, 3, 0)], []));
         var fixture = CreateLoader(
             mapProvider: mapProvider,
             gameObjectBuilder: ConfigureStaticGameObjectBuilder(gameObject),
@@ -504,6 +488,26 @@ public sealed class MapRegionLoaderTests
 
         Assert.IsFalse(store.TryResolve(itemHandle, out _));
         Assert.IsFalse(store.TryResolve(gameObjectHandle, out _));
+    }
+
+    private static IMapProvider CreateMapProvider(DecodedMapRegion? decodedRegion = null)
+    {
+        var provider = Substitute.For<IMapProvider>();
+        provider.DecodeRegion(Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<CancellationToken>())
+            .Returns(decodedRegion ?? DecodedMapRegion.Empty);
+        return provider;
+    }
+
+    private static IMapObject CreateMapObject(int id, int shapeType, int rotation, int x, int y, int z)
+    {
+        var mapObject = Substitute.For<IMapObject>();
+        mapObject.Id.Returns(id);
+        mapObject.ShapeType.Returns(shapeType);
+        mapObject.Rotation.Returns(rotation);
+        mapObject.X.Returns(x);
+        mapObject.Y.Returns(y);
+        mapObject.Z.Returns(z);
+        return mapObject;
     }
 
     private static IMapRegion CreateRegion(Exception? loadFailure = null)
@@ -707,7 +711,7 @@ public sealed class MapRegionLoaderTests
             itemRepository,
             objectRepository,
             gameObjectService,
-            mapProvider ?? Substitute.For<IMapProvider>(),
+            mapProvider ?? CreateMapProvider(),
             new LocationBuilder(),
             groundItemBuilder ?? Substitute.For<IGroundItemBuilder>(),
             gameObjectBuilder ?? Substitute.For<IGameObjectBuilder>(),

@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
@@ -67,21 +69,29 @@ namespace Hagalaz.Cache.Types.Providers
         }
         public IMapType[] GetAll() => throw new NotSupportedException("Cannot get all maps at once.");
 
-        public void DecodeRegion(int regionId, int[] xteaKeys, ObjectDecoded callback, ImpassibleTerrainDecoded groundCallback)
+        public DecodedMapRegion DecodeRegion(int regionId, int[] xteaKeys, CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var (terrainData, objects) = DecodeMapData(regionId, xteaKeys);
-            DecodeGround(terrainData, groundCallback);
+            var blockedTiles = DecodeGround(terrainData, cancellationToken);
+            var objectPlacements = new List<IMapObject>(objects.Count);
 
             foreach (var obj in objects)
             {
-                callback.Invoke(obj.Id, obj.ShapeType, obj.Rotation, obj.X, obj.Y, obj.Z);
+                cancellationToken.ThrowIfCancellationRequested();
+                objectPlacements.Add(obj);
             }
+
+            return new DecodedMapRegion(objectPlacements, blockedTiles);
         }
 
         public void DecodePart(DecodePartRequest request)
         {
             var (terrainData, objects) = DecodeMapData(request.RegionID, request.XteaKeys);
-            DecodeGround(terrainData, request.GroundCallback);
+            foreach (var tile in EnumerateBlockedTiles(terrainData, CancellationToken.None))
+            {
+                request.GroundCallback.Invoke(tile.LocalX, tile.LocalY, tile.Z);
+            }
 
             foreach (var obj in objects)
             {
@@ -118,19 +128,25 @@ namespace Hagalaz.Cache.Types.Providers
             return (terrainData, objects);
         }
 
-        private static void DecodeGround(sbyte[,,] terrainData, ImpassibleTerrainDecoded groundCallback)
+        private static List<BlockedTerrainTile> DecodeGround(sbyte[,,] terrainData, CancellationToken cancellationToken)
+        {
+            return new List<BlockedTerrainTile>(EnumerateBlockedTiles(terrainData, cancellationToken));
+        }
+
+        private static IEnumerable<BlockedTerrainTile> EnumerateBlockedTiles(sbyte[,,] terrainData, CancellationToken cancellationToken)
         {
             for (var z = 0; z < 4; z++)
             {
                 for (var localX = 0; localX < 64; localX++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     for (var localY = 0; localY < 64; localY++)
                     {
                         if ((terrainData[z, localX, localY] & 0x1) != 0)
                         {
                             int height = z;
                             if ((terrainData[1, localX, localY] & BRIDGE_FLAG) != 0) height--;
-                            if (height >= 0) groundCallback.Invoke(localX, localY, height);
+                            if (height >= 0) yield return new BlockedTerrainTile(localX, localY, height);
                         }
                     }
                 }

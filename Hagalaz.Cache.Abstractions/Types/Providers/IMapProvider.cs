@@ -1,3 +1,5 @@
+using System.Threading;
+
 namespace Hagalaz.Cache.Abstractions.Types.Providers
 {
     public delegate void ObjectDecoded(int id, int type, int rotation, int localX, int localY, int z);
@@ -28,7 +30,7 @@ namespace Hagalaz.Cache.Abstractions.Types.Providers
         /// <param name="xteaKeys">Four XTEA keys, or null/an empty array to read unencrypted object data.</param>
         /// <returns>The decoded map definition.</returns>
         IMapType Get(int typeId, int[]? xteaKeys = null);
-        void DecodeRegion(int regionId, int[] xteaKeys, ObjectDecoded callback, ImpassibleTerrainDecoded groundCallback);
+        DecodedMapRegion DecodeRegion(int regionId, int[] xteaKeys, CancellationToken cancellationToken);
         void DecodePart(DecodePartRequest request);
     }
 }
