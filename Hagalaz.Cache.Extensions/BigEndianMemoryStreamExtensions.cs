@@ -152,13 +152,13 @@ namespace Hagalaz.Cache.Extensions
         public static void WriteBytes(this MemoryStream stream, ReadOnlySpan<byte> span) => stream.Write(span);
 
         /// <summary>
-        /// Writes a string to the stream as a sequence of ASCII bytes, terminated by a null byte (0).
+        /// Writes a string to the stream as single-byte characters, terminated by a null byte (0).
         /// </summary>
         /// <param name="stream">The memory stream.</param>
         /// <param name="value">The string to write.</param>
         public static void WriteString(this MemoryStream stream, string value)
         {
-            stream.WriteBytes(Encoding.ASCII.GetBytes(value));
+            stream.WriteBytes(Encoding.Latin1.GetBytes(value));
             stream.WriteByte(0);
         }
 

@@ -143,6 +143,37 @@ public sealed class RawStoreMutationCoherenceTests
     }
 
     [TestMethod]
+    public async Task NpcCombatLevelMutation_PreservesRecognizedOpcodePayloads()
+    {
+        var store = new MemoryFileStore();
+        var npcCodec = new NpcTypeCodec();
+        var referenceTableCodec = new ReferenceTableCodec();
+        var originalNpc = EncodeNpcWithRecognizedPayloads();
+        store.Set(255, 18, EncodeNpcReferenceTable(referenceTableCodec));
+        store.Set(18, 0, EncodeContainer(EncodeArchive(EncodeNpc("sibling"), originalNpc)));
+
+        await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/cache/types/npcs/1/combat-level",
+            new TypeMutationEndpoints.SetNpcCombatLevelRequest(77));
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
+        var cacheApi = app.Services.GetRequiredService<ICacheAPI>();
+        using var persistedMember = cacheApi.Read(18, 0, 1);
+        var persistedNpc = (NpcType)npcCodec.Decode(1, persistedMember);
+        Assert.AreEqual(77, persistedNpc.CombatLevel);
+        Assert.AreEqual((ushort)0x1234, persistedNpc.Opcode44Payload);
+        Assert.AreEqual((ushort)0xABCD, persistedNpc.Opcode45Payload);
+        CollectionAssert.AreEqual(
+            new ushort?[] { 1, 2, 3, ushort.MaxValue, 5, 6 },
+            persistedNpc.Opcode170To175Payloads);
+        Assert.IsTrue(persistedNpc.HasAnIntArrayArray1449);
+        CollectionAssert.AreEqual(new[] { -1, 2, -3 }, persistedNpc.AnIntArrayArray1449[0]);
+    }
+
+    [TestMethod]
     public async Task RawStoreMutations_RefreshObjectTypeReadsWithinSameServiceInstance()
     {
         var store = new MemoryFileStore();
@@ -291,6 +322,15 @@ public sealed class RawStoreMutationCoherenceTests
     private static byte[] EncodeGatewayObject(string name)
     {
         using var stream = new MemoryStream();
+        stream.WriteByte(44);
+        stream.WriteShort(0x1234);
+        stream.WriteByte(45);
+        stream.WriteShort(0xABCD);
+        for (var opcode = 190; opcode < 196; opcode++)
+        {
+            stream.WriteByte((byte)opcode);
+            stream.WriteShort(opcode - 180);
+        }
         stream.WriteByte(2);
         stream.WriteString(name);
         stream.WriteByte(74);
@@ -305,6 +345,32 @@ public sealed class RawStoreMutationCoherenceTests
         Assert.AreEqual(2, objectType.ClipType);
         Assert.IsTrue(objectType.Solid);
         Assert.IsTrue(objectType.Gateway);
+        Assert.AreEqual((ushort)0x1234, objectType.Opcode44Payload);
+        Assert.AreEqual((ushort)0xABCD, objectType.Opcode45Payload);
+        CollectionAssert.AreEqual(new ushort?[] { 10, 11, 12, 13, 14, 15 }, objectType.Opcode190To195Payloads);
+    }
+
+    private static byte[] EncodeNpcWithRecognizedPayloads() =>
+    [
+        121, 1, 0, 0xFF, 2, 0xFD,
+        44, 0x12, 0x34,
+        45, 0xAB, 0xCD,
+        170, 0, 1,
+        171, 0, 2,
+        172, 0, 3,
+        173, 0xFF, 0xFF,
+        174, 0, 5,
+        175, 0, 6,
+        0
+    ];
+
+    private static byte[] EncodeNpc(string name)
+    {
+        using var encoded = new MemoryStream();
+        encoded.WriteByte(2);
+        encoded.WriteString(name);
+        encoded.WriteByte(0);
+        return encoded.ToArray();
     }
 
     private sealed class InvalidEncodedObjectTypeCodec : IObjectTypeCodec
@@ -368,6 +434,18 @@ public sealed class RawStoreMutationCoherenceTests
         configArchive.InitializeEntries(1);
         configArchive.AddEntry(0, new ReferenceTableChildEntry(0));
         table.AddEntry(16, configArchive);
+        using var encoded = codec.Encode(table);
+        return EncodeContainer(encoded.ToArray());
+    }
+
+    private static byte[] EncodeNpcReferenceTable(ReferenceTableCodec codec)
+    {
+        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var archive = new ReferenceTableEntry(0);
+        archive.InitializeEntries(2);
+        archive.AddEntry(0, new ReferenceTableChildEntry(0));
+        archive.AddEntry(1, new ReferenceTableChildEntry(1));
+        table.AddEntry(0, archive);
         using var encoded = codec.Encode(table);
         return EncodeContainer(encoded.ToArray());
     }

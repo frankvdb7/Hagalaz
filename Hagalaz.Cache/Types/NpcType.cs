@@ -23,6 +23,12 @@ namespace Hagalaz.Cache.Types
         /// </summary>
         /// <value>The name.</value>
         public string Name { get; internal set; }
+        /// <summary>Retains the payload of cache opcode 44.</summary>
+        public ushort? Opcode44Payload { get; internal set; }
+        /// <summary>Retains the payload of cache opcode 45.</summary>
+        public ushort? Opcode45Payload { get; internal set; }
+        /// <summary>Retains the payloads of cache opcodes 170 through 175.</summary>
+        public ushort?[]? Opcode170To175Payloads { get; internal set; }
         /// <summary>
         /// Gets the actions.
         /// </summary>
@@ -53,6 +59,8 @@ namespace Hagalaz.Cache.Types
         /// </summary>
         /// <value>An int array array1449.</value>
         public int[][] AnIntArrayArray1449 { get; internal set; }
+        /// <summary>Indicates whether opcode 121 was present, including when it has no entries.</summary>
+        public bool HasAnIntArrayArray1449 { get; internal set; }
         /// <summary>
         /// Gets an int array1451.
         /// </summary>

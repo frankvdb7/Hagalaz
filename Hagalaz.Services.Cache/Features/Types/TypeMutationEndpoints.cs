@@ -34,13 +34,15 @@ public static class TypeMutationEndpoints
     private static IResult SetNpcCombatLevel(
         int id,
         SetNpcCombatLevelRequest request,
-        ITypeProvider<INpcType> provider,
         INpcTypeCodec codec,
         ICacheAPI cacheApi)
     {
-        var error = TryGetType(id, provider, out var npc);
-        if (error is not null) return error;
+        if (id < 0)
+        {
+            return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
+        }
 
+        var npc = DecodeRawTypeEntry(id, codec, new NpcTypeData(), cacheApi);
         npc.CombatLevel = request.CombatLevel;
         return PersistTypeEntry(id, npc, codec, new NpcTypeData(), cacheApi, "npc-combat-level-updated", "npc");
     }

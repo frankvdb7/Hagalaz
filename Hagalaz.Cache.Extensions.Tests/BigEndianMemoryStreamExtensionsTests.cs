@@ -156,6 +156,18 @@ namespace Hagalaz.Cache.Extensions.Tests
         }
 
         [Fact]
+        public void WriteAndReadString_PreservesLatin1Characters()
+        {
+            using var stream = new MemoryStream();
+            const string testString = "Naïve";
+
+            stream.WriteString(testString);
+            stream.Position = 0;
+
+            Assert.Equal(testString, stream.ReadString());
+        }
+
+        [Fact]
         public void ReadUnsignedByte_ReturnsCorrectValue()
         {
             var stream = new MemoryStream(new byte[] { 0xFF });
