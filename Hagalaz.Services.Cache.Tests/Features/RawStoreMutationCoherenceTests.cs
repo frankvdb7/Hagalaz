@@ -119,14 +119,7 @@ public sealed class RawStoreMutationCoherenceTests
     [TestMethod]
     public async Task ObjectNameMutation_RejectsInvalidSingleByteStringsWithoutWriting()
     {
-        var store = new MemoryFileStore();
-        var referenceTableCodec = new ReferenceTableCodec();
-        var initialArchive = EncodeContainer(EncodeArchive(
-            EncodeObject(new ObjectTypeCodec(), 258, "sibling"),
-            EncodeGatewayObject("initial")));
-        var initialReferenceTable = EncodeReferenceTable(referenceTableCodec, memberCount: 2, mapObjectToLastMember: true);
-        store.Set(255, 16, initialReferenceTable);
-        store.Set(16, 1, initialArchive);
+        var store = CreateObjectMutationStore(out var initialArchive, out var initialReferenceTable);
 
         await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
@@ -146,14 +139,7 @@ public sealed class RawStoreMutationCoherenceTests
     [TestMethod]
     public async Task ObjectNameMutation_DoesNotPersistWhenEncodedDefinitionCannotBeDecoded()
     {
-        var store = new MemoryFileStore();
-        var referenceTableCodec = new ReferenceTableCodec();
-        var initialArchive = EncodeContainer(EncodeArchive(
-            EncodeObject(new ObjectTypeCodec(), 258, "sibling"),
-            EncodeGatewayObject("initial")));
-        var initialReferenceTable = EncodeReferenceTable(referenceTableCodec, memberCount: 2, mapObjectToLastMember: true);
-        store.Set(255, 16, initialReferenceTable);
-        store.Set(16, 1, initialArchive);
+        var store = CreateObjectMutationStore(out var initialArchive, out var initialReferenceTable);
 
         await using var app = await CacheServiceTestHost.StartAsync(
             store,
@@ -331,6 +317,19 @@ public sealed class RawStoreMutationCoherenceTests
         var response = await client.GetFromJsonAsync<TypeEndpoints.ObjectTypeResponse>($"/api/v1/cache/types/objects/{id}");
         Assert.IsNotNull(response);
         return response.Name;
+    }
+
+    private static MemoryFileStore CreateObjectMutationStore(out byte[] initialArchive, out byte[] initialReferenceTable)
+    {
+        var store = new MemoryFileStore();
+        var referenceTableCodec = new ReferenceTableCodec();
+        initialArchive = EncodeContainer(EncodeArchive(
+            EncodeObject(new ObjectTypeCodec(), 258, "sibling"),
+            EncodeGatewayObject("initial")));
+        initialReferenceTable = EncodeReferenceTable(referenceTableCodec, memberCount: 2, mapObjectToLastMember: true);
+        store.Set(255, 16, initialReferenceTable);
+        store.Set(16, 1, initialArchive);
+        return store;
     }
 
     private static async Task PostRawWriteAsync(HttpClient client, string path, byte[] bytes)
