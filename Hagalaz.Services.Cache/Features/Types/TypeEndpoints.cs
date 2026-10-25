@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Providers;
+using Hagalaz.Cache.Types.Data;
 using Hagalaz.Services.Cache.Features.Shared;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -163,16 +165,25 @@ public static class TypeEndpoints
         return error ?? TypedResults.Ok(MapSpritesAndDispose(provider.GetRange(startId, endIdExclusive)));
     }
 
-    private static IResult SearchSpriteTypes(string? query, int offset, int limit, ITypeProvider<ISpriteType> provider)
+    private static IResult SearchSpriteTypes(string? query, int offset, int limit, ITypeProvider<ISpriteType> provider, ICacheAPI cache)
     {
         var error = ValidateSearch(query, offset, limit, provider.ArchiveSize, requireQuery: false);
         if (error is not null) return error;
 
-        var all = MapSpritesAndDispose(provider.GetRange(0, provider.ArchiveSize));
-        var matches = string.IsNullOrWhiteSpace(query)
-            ? all
-            : all.Where(type => type.Id.ToString().Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
-        return CreateSearchResponse(query ?? string.Empty, offset, limit, matches);
+        var matchingIds = cache.ReadReferenceTable(new SpriteTypeData().IndexId).Entries
+            .Select(entry => entry.Key)
+            .Where(id => string.IsNullOrWhiteSpace(query)
+                || id.ToString().Contains(query, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        var pageIds = matchingIds.Skip(offset).Take(limit).ToArray();
+        var page = new SpriteTypeResponse[pageIds.Length];
+        for (var i = 0; i < pageIds.Length; i++)
+        {
+            using var sprite = provider.Get(pageIds[i]);
+            page[i] = MapSprite(sprite);
+        }
+
+        return TypedResults.Ok(new SearchResponse<SpriteTypeResponse>(query ?? string.Empty, matchingIds.Length, offset, limit, page));
     }
 
     private static IResult GetQuestType(int id, ITypeProvider<IQuestType> provider) => TypedResults.Ok(new QuestTypeResponse(provider.Get(id).Id));
