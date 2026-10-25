@@ -63,6 +63,29 @@ namespace Hagalaz.Cache.Tests.Types
             Assert.Equal(6, GetArchiveSize(new ConfigDefinitionData(), ArchiveGroup(16, 0, 5)));
         }
 
+        [Theory]
+        [InlineData(0, 35, 0)]
+        [InlineData(35, 35, 35)]
+        [InlineData(207, 35, 207)]
+        public void QuestTypeData_UsesFixedArchive35(int typeId, int expectedArchiveId, int expectedEntryId)
+        {
+            var typeData = new QuestTypeData();
+
+            Assert.Equal(expectedArchiveId, typeData.GetArchiveId(typeId));
+            Assert.Equal(expectedEntryId, typeData.GetArchiveEntryId(typeId));
+        }
+
+        [Fact]
+        public void QuestTypeData_GetArchiveSize_IgnoresUnrelatedIndex2Archives()
+        {
+            var unrelatedConfigArchive = Enumerable.Range(0, 256).ToArray();
+
+            Assert.Equal(3, GetArchiveSize(
+                new QuestTypeData(),
+                ArchiveGroup(35, 0, 2),
+                ArchiveGroup(16, unrelatedConfigArchive)));
+        }
+
         [Fact]
         public void ObjectTypeData_GetArchiveSize_WithEmptyReferenceTable_ReturnsZero()
         {

@@ -21,11 +21,11 @@ public sealed class TypeProviderSnapshotTests
     public void GenericGet_UsesPhysicalMemberAndKeepsFallbackCustomDelegationAndHookFrequency()
     {
         var cache = new Mock<ICacheAPI>();
-        var table = ReferenceTableWithChild(1, 2, 11);
+        var table = ReferenceTableWithChild(35, 10, 11);
         cache.Setup(current => current.ReadReferenceTable(2)).Returns(table.Object);
         var firstStream = new MemoryStreamSpy();
         var secondStream = new MemoryStreamSpy();
-        cache.SetupSequence(current => current.Read(2, 1, 11)).Returns(firstStream).Returns(secondStream);
+        cache.SetupSequence(current => current.Read(2, 35, 11)).Returns(firstStream).Returns(secondStream);
 
         var first = new Mock<IQuestType>().Object;
         var second = new Mock<IQuestType>().Object;
@@ -39,15 +39,15 @@ public sealed class TypeProviderSnapshotTests
         Assert.Same(second, provider.Get(10));
         Assert.True(firstStream.IsDisposed);
         Assert.True(secondStream.IsDisposed);
-        cache.Verify(current => current.Read(2, 1, 11), Times.Exactly(2));
+        cache.Verify(current => current.Read(2, 35, 11), Times.Exactly(2));
         hook.Verify(current => current.AfterDecode(provider, It.Is<IQuestType[]>(types => types.Length == 1)), Times.Exactly(2));
 
         var fallback = new Mock<IQuestType>().Object;
-        table = ReferenceTableWithChild(1, 2, null);
+        table = ReferenceTableWithChild(35, 10, null);
         cache.Setup(current => current.ReadReferenceTable(2)).Returns(table.Object);
         factory.Setup(current => current.CreateType(10)).Returns(fallback);
         Assert.Same(fallback, provider.Get(10));
-        cache.Verify(current => current.Read(2, 1, It.IsAny<int>()), Times.Exactly(2));
+        cache.Verify(current => current.Read(2, 35, It.IsAny<int>()), Times.Exactly(2));
         hook.Verify(current => current.AfterDecode(provider, It.IsAny<IQuestType[]>()), Times.Exactly(2));
 
         var customType = new Mock<IQuestType>().Object;
@@ -276,15 +276,15 @@ public sealed class TypeProviderSnapshotTests
     public void GenericGetRange_KeepsArchiveBatchReadAndSingleHookCall()
     {
         var cache = new Mock<ICacheAPI>();
-        var table = ReferenceTableWithChild(1, 0, 3);
-        table.Setup(current => current.GetEntry(1, 1)).Returns(CreateChild(5));
+        var table = ReferenceTableWithChild(35, 8, 3);
+        table.Setup(current => current.GetEntry(35, 9)).Returns(CreateChild(5));
         cache.Setup(current => current.ReadReferenceTable(2)).Returns(table.Object);
         var archive = new Mock<IArchive>();
         using var firstMember = new MemoryStream([1]);
         using var secondMember = new MemoryStream([2]);
         archive.Setup(current => current.GetEntry(3)).Returns(firstMember);
         archive.Setup(current => current.GetEntry(5)).Returns(secondMember);
-        cache.Setup(current => current.ReadArchive(2, 1)).Returns(archive.Object);
+        cache.Setup(current => current.ReadArchive(2, 35)).Returns(archive.Object);
         var first = new Mock<IQuestType>().Object;
         var second = new Mock<IQuestType>().Object;
         var codec = new Mock<ITypeCodec<IQuestType>>();
@@ -302,8 +302,8 @@ public sealed class TypeProviderSnapshotTests
         Assert.Equal(new[] { first, second }, result);
         archive.Verify(current => current.GetEntry(3), Times.Once);
         archive.Verify(current => current.GetEntry(5), Times.Once);
-        cache.Verify(current => current.ReadArchive(2, 1), Times.Once);
-        cache.Verify(current => current.Read(2, 1, It.IsAny<int>()), Times.Never);
+        cache.Verify(current => current.ReadArchive(2, 35), Times.Once);
+        cache.Verify(current => current.Read(2, 35, It.IsAny<int>()), Times.Never);
         hook.Verify(current => current.AfterDecode(provider, It.Is<IQuestType[]>(types => types.Length == 2)), Times.Once);
     }
 
