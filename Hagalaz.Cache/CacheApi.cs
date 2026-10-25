@@ -277,8 +277,16 @@ namespace Hagalaz.Cache
         /// <param name="xteaKeys">The set of four integer keys used for XTEA decryption.</param>
         /// <returns>A decoded <see cref="IContainer"/> containing the decrypted file data.</returns>
         /// <exception cref="IOException">Thrown if attempting to read the master checksum table.</exception>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="xteaKeys"/> is null.</exception>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="xteaKeys"/> does not contain exactly four keys.</exception>
         public IContainer ReadContainer(int indexId, int fileId, int[] xteaKeys)
         {
+            ArgumentNullException.ThrowIfNull(xteaKeys);
+            if (xteaKeys.Length != 4)
+            {
+                throw new ArgumentException("Exactly four XTEA keys are required.", nameof(xteaKeys));
+            }
+
             /* we don't want people reading/manipulating these manually */
             if (indexId == 255 && fileId == 255) throw new IOException("Checksum tables can only be read with the low level FileStore API!");
 

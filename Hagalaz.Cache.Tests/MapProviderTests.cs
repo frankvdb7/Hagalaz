@@ -47,6 +47,32 @@ namespace Hagalaz.Cache.Tests
         }
 
         [Fact]
+        public void Get_WithoutXteaKeys_ReadsObjectDataWithoutDecryption()
+        {
+            _cacheApiMock.Setup(x => x.GetFileId(5, "m0_123")).Returns(-1);
+            _cacheApiMock.Setup(x => x.GetFileId(5, "l0_123")).Returns(1);
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(new MemoryStream()));
+
+            _provider.Get(123);
+
+            _cacheApiMock.Verify(x => x.ReadContainer(5, 1), Times.Once);
+            _cacheApiMock.Verify(x => x.ReadContainer(5, 1, It.IsAny<int[]>()), Times.Never);
+        }
+
+        [Fact]
+        public void Get_WithEmptyXteaKeys_ReadsObjectDataWithoutDecryption()
+        {
+            _cacheApiMock.Setup(x => x.GetFileId(5, "m0_123")).Returns(-1);
+            _cacheApiMock.Setup(x => x.GetFileId(5, "l0_123")).Returns(1);
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(new MemoryStream()));
+
+            _provider.Get(123, System.Array.Empty<int>());
+
+            _cacheApiMock.Verify(x => x.ReadContainer(5, 1), Times.Once);
+            _cacheApiMock.Verify(x => x.ReadContainer(5, 1, It.IsAny<int[]>()), Times.Never);
+        }
+
+        [Fact]
         public void DecodeRegion_WhenMapArchivesAreAbsent_UsesEmptyMapData()
         {
             _cacheApiMock.Setup(x => x.GetFileId(5, It.IsAny<string>())).Returns(-1);
@@ -86,7 +112,7 @@ namespace Hagalaz.Cache.Tests
             var failure = new InvalidDataException("invalid object container");
             _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(-1);
             _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 2, It.IsAny<int[]>())).Throws(failure);
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 2)).Throws(failure);
 
             var actual = Assert.Throws<InvalidDataException>(() => _provider.DecodeRegion(
                 257,
@@ -107,7 +133,7 @@ namespace Hagalaz.Cache.Tests
             _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(1);
             _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(terrainData));
             _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 2, It.IsAny<int[]>())).Returns(new Container(objectData));
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 2)).Returns(new Container(objectData));
 
             var objectDecoded = new Mock<ObjectDecoded>();
             var impassibleTerrainDecoded = new Mock<ImpassibleTerrainDecoded>();
@@ -148,7 +174,7 @@ namespace Hagalaz.Cache.Tests
             _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(1);
             _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(terrainData));
             _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 2, It.IsAny<int[]>())).Returns(new Container(objectData));
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 2)).Returns(new Container(objectData));
 
             var decodedObjects = new List<(int Id, int ShapeType, int Rotation, int X, int Y, int Z)>();
 
@@ -175,7 +201,7 @@ namespace Hagalaz.Cache.Tests
             _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(1);
             _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(terrainData));
             _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 2, It.IsAny<int[]>())).Returns(new Container(objectData));
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 2)).Returns(new Container(objectData));
 
             var flaggedTiles = new List<(int X, int Y, int Z)>();
 
@@ -200,7 +226,7 @@ namespace Hagalaz.Cache.Tests
             _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(1);
             _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(terrainData));
             _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 2, It.IsAny<int[]>())).Returns(new Container(objectData));
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 2)).Returns(new Container(objectData));
 
             var decodedObjects = new List<(int X, int Y)>();
             var request = new DecodePartRequest

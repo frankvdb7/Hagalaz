@@ -78,6 +78,8 @@ namespace Hagalaz.Cache.Abstractions
         /// <param name="fileId">The identifier of the file to read.</param>
         /// <param name="xteaKeys">The set of four integer keys used for XTEA decryption.</param>
         /// <returns>A decoded <see cref="IContainer"/> containing the decrypted file data.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="xteaKeys"/> is null.</exception>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="xteaKeys"/> does not contain exactly four keys.</exception>
         IContainer ReadContainer(int indexId, int fileId, int[] xteaKeys);
 
         /// <summary>

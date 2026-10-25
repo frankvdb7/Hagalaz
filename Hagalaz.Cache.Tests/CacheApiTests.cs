@@ -95,6 +95,32 @@ namespace Hagalaz.Cache.Tests
             Assert.True(streamSpy.IsDisposed);
         }
 
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(3)]
+        [InlineData(5)]
+        public void ReadContainer_WithInvalidXteaKeyCount_ThrowsArgumentException(int keyCount)
+        {
+            var exception = Assert.Throws<ArgumentException>(() =>
+                _cacheApi.ReadContainer(0, 0, new int[keyCount]));
+
+            Assert.Equal("xteaKeys", exception.ParamName);
+            _fileStoreMock.Verify(store => store.Read(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
+        public void ReadContainer_WithFourZeroXteaKeys_DoesNotDecrypt()
+        {
+            var expectedContainer = new Mock<IContainer>().Object;
+            _fileStoreMock.Setup(store => store.Read(0, 0)).Returns(new MemoryStream());
+            _containerDecoderMock.Setup(decoder => decoder.Decode(It.IsAny<MemoryStream>())).Returns(expectedContainer);
+
+            var actualContainer = _cacheApi.ReadContainer(0, 0, new int[4]);
+
+            Assert.Same(expectedContainer, actualContainer);
+        }
+
         [Fact]
         public void ReadArchive_RecordsSuccessfulArchiveAndContainerDecodeMetrics()
         {

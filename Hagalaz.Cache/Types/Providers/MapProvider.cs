@@ -141,7 +141,10 @@ namespace Hagalaz.Cache.Types.Providers
                 return null;
             }
 
-            return _cache.ReadContainer(5, fileId, xteaKeys ?? []).Data;
+            var container = xteaKeys is null || xteaKeys.Length == 0
+                ? _cache.ReadContainer(5, fileId)
+                : _cache.ReadContainer(5, fileId, xteaKeys);
+            return container.Data;
         }
         private MemoryStream? ReadTerrainData(int regionId)
         {
