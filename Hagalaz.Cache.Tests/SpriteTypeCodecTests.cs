@@ -113,6 +113,20 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(new Rgba32(0,0,0,0), decodedSprite.Image.Frames[0][0, 0]);
         }
 
+        [Fact]
+        public void Decode_InvalidPaletteIndex_Throws()
+        {
+            var codec = new SpriteTypeCodec();
+            using var originalSprite = new SpriteType(1, 1, 1);
+            originalSprite.Image[0, 0] = new Rgba32(255, 0, 0);
+            using var encoded = codec.Encode(originalSprite);
+            var corruptData = encoded.ToArray();
+            corruptData[1] = byte.MaxValue;
+            using var corruptStream = new MemoryStream(corruptData);
+
+            Assert.Throws<IndexOutOfRangeException>(() => codec.Decode(1, corruptStream));
+        }
+
         private static SpriteType RoundTrip(SpriteTypeCodec codec, SpriteType originalSprite)
         {
             using var encodedStream = codec.Encode(originalSprite);

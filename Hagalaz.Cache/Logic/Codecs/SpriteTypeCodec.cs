@@ -61,60 +61,33 @@ namespace Hagalaz.Cache.Logic.Codecs
 
             var spriteType = new SpriteType(id, Width, Height);
 
-            /* read the pixels themselves */
-            stream.Position = 0;
-            for (var i = 0; i < size; i++)
+            try
             {
-                /* grab some frequently used values */
-                int subWidth = subWidths[i], subHeight = subHeights[i];
-                int offsetX = offsetsX[i], offsetY = offsetsY[i];
-
-                using var frameImage = new Image<Rgba32>(Width, Height);
-
-                /* allocate an array for the palette indices */
-                int[,] indices = new int[subWidth, subHeight];
-
-                /* read the flags so we know whether to read horizontally or vertically */
-                SpriteType.Flags flags = (SpriteType.Flags)stream.ReadUnsignedByte();
-
-                /* now read the image */
-                /* read the palette indices */
-                if (flags.HasFlag(SpriteType.Flags.Vertical))
+                /* read the pixels themselves */
+                stream.Position = 0;
+                for (var i = 0; i < size; i++)
                 {
-                    for (var x = 0; x < subWidth; x++)
-                    {
-                        for (var y = 0; y < subHeight; y++)
-                        {
-                            indices[x, y] = stream.ReadUnsignedByte();
-                        }
-                    }
-                }
-                else
-                {
-                    for (var y = 0; y < subHeight; y++)
-                    {
-                        for (var x = 0; x < subWidth; x++)
-                        {
-                            indices[x, y] = stream.ReadUnsignedByte();
-                        }
-                    }
-                }
+                    /* grab some frequently used values */
+                    int subWidth = subWidths[i], subHeight = subHeights[i];
+                    int offsetX = offsetsX[i], offsetY = offsetsY[i];
 
-                /* read the alpha (if there is alpha) and convert values to BGRA */
-                if (flags.HasFlag(SpriteType.Flags.Alpha))
-                {
+                    using var frameImage = new Image<Rgba32>(Width, Height);
+
+                    /* allocate an array for the palette indices */
+                    int[,] indices = new int[subWidth, subHeight];
+
+                    /* read the flags so we know whether to read horizontally or vertically */
+                    SpriteType.Flags flags = (SpriteType.Flags)stream.ReadUnsignedByte();
+
+                    /* now read the image */
+                    /* read the palette indices */
                     if (flags.HasFlag(SpriteType.Flags.Vertical))
                     {
                         for (var x = 0; x < subWidth; x++)
                         {
                             for (var y = 0; y < subHeight; y++)
                             {
-                                int alpha = stream.ReadUnsignedByte();
-                                int c = palette[indices[x, y]];
-                                var r = (byte)(c >> 16);
-                                var g = (byte)(c >> 8);
-                                var b = (byte)c;
-                                frameImage[x + offsetX, y + offsetY] = new Rgba32(r, g, b, (byte)alpha);
+                                indices[x, y] = stream.ReadUnsignedByte();
                             }
                         }
                     }
@@ -124,40 +97,75 @@ namespace Hagalaz.Cache.Logic.Codecs
                         {
                             for (var x = 0; x < subWidth; x++)
                             {
-                                int alpha = stream.ReadUnsignedByte();
+                                indices[x, y] = stream.ReadUnsignedByte();
+                            }
+                        }
+                    }
+
+                    /* read the alpha (if there is alpha) and convert values to BGRA */
+                    if (flags.HasFlag(SpriteType.Flags.Alpha))
+                    {
+                        if (flags.HasFlag(SpriteType.Flags.Vertical))
+                        {
+                            for (var x = 0; x < subWidth; x++)
+                            {
+                                for (var y = 0; y < subHeight; y++)
+                                {
+                                    int alpha = stream.ReadUnsignedByte();
+                                    int c = palette[indices[x, y]];
+                                    var r = (byte)(c >> 16);
+                                    var g = (byte)(c >> 8);
+                                    var b = (byte)c;
+                                    frameImage[x + offsetX, y + offsetY] = new Rgba32(r, g, b, (byte)alpha);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            for (var y = 0; y < subHeight; y++)
+                            {
+                                for (var x = 0; x < subWidth; x++)
+                                {
+                                    int alpha = stream.ReadUnsignedByte();
+                                    int c = palette[indices[x, y]];
+                                    var r = (byte)(c >> 16);
+                                    var g = (byte)(c >> 8);
+                                    var b = (byte)c;
+                                    frameImage[x + offsetX, y + offsetY] = new Rgba32(r, g, b, (byte)alpha);
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        for (var x = 0; x < subWidth; x++)
+                        {
+                            for (var y = 0; y < subHeight; y++)
+                            {
+                                int index = indices[x, y];
                                 int c = palette[indices[x, y]];
                                 var r = (byte)(c >> 16);
                                 var g = (byte)(c >> 8);
                                 var b = (byte)c;
-                                frameImage[x + offsetX, y + offsetY] = new Rgba32(r, g, b, (byte)alpha);
+                                frameImage[x + offsetX, y + offsetY] = new Rgba32(r, g, b, (byte)(index == 0 ? 0 : 255));
                             }
                         }
                     }
+                    spriteType.Image.Frames.AddFrame(frameImage.Frames.RootFrame);
                 }
-                else
+
+                if (size > 0)
                 {
-                    for (var x = 0; x < subWidth; x++)
-                    {
-                        for (var y = 0; y < subHeight; y++)
-                        {
-                            int index = indices[x, y];
-                            int c = palette[indices[x, y]];
-                            var r = (byte)(c >> 16);
-                            var g = (byte)(c >> 8);
-                            var b = (byte)c;
-                            frameImage[x + offsetX, y + offsetY] = new Rgba32(r, g, b, (byte)(index == 0 ? 0 : 255));
-                        }
-                    }
+                    spriteType.Image.Frames.RemoveFrame(0);
                 }
-                spriteType.Image.Frames.AddFrame(frameImage.Frames.RootFrame);
-            }
 
-            if (size > 0)
+                return spriteType;
+            }
+            catch
             {
-                spriteType.Image.Frames.RemoveFrame(0);
+                spriteType.Dispose();
+                throw;
             }
-
-            return spriteType;
         }
 
         public MemoryStream Encode(ISpriteType instance)
