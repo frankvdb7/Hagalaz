@@ -94,12 +94,13 @@ public sealed class RawStoreMutationCoherenceTests
 
         await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
+        const string updatedName = "updated café";
 
         Assert.AreEqual("initial", await ReadObjectNameAsync(client, 259));
 
         using var response = await client.PostAsJsonAsync(
             "/api/v1/cache/types/objects/259/name",
-            new TypeMutationEndpoints.SetObjectNameRequest("updated"));
+            new TypeMutationEndpoints.SetObjectNameRequest(updatedName));
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
 
         Assert.IsFalse(initialArchive.SequenceEqual(store.GetBytes(16, 1)), "The updated archive should be persisted to the file store.");
@@ -107,12 +108,39 @@ public sealed class RawStoreMutationCoherenceTests
         using (var persistedMember = cacheApi.Read(16, 1, 1))
         {
             var persistedObject = (ObjectType)objectCodec.Decode(259, persistedMember);
-            Assert.AreEqual("updated", persistedObject.Name);
+            Assert.AreEqual(updatedName, persistedObject.Name);
             AssertGatewayRawFields(persistedObject);
         }
 
-        Assert.AreEqual("updated", await ReadObjectNameAsync(client, 259));
+        Assert.AreEqual(updatedName, await ReadObjectNameAsync(client, 259));
         Assert.AreEqual("sibling", await ReadObjectNameAsync(client, 258));
+    }
+
+    [TestMethod]
+    public async Task ObjectNameMutation_RejectsInvalidSingleByteStringsWithoutWriting()
+    {
+        var store = new MemoryFileStore();
+        var referenceTableCodec = new ReferenceTableCodec();
+        var initialArchive = EncodeContainer(EncodeArchive(
+            EncodeObject(new ObjectTypeCodec(), 258, "sibling"),
+            EncodeGatewayObject("initial")));
+        var initialReferenceTable = EncodeReferenceTable(referenceTableCodec, memberCount: 2, mapObjectToLastMember: true);
+        store.Set(255, 16, initialReferenceTable);
+        store.Set(16, 1, initialArchive);
+
+        await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        foreach (var invalidName in new[] { "before\0after", "outside Latin-1 \u0100" })
+        {
+            using var response = await client.PostAsJsonAsync(
+                "/api/v1/cache/types/objects/259/name",
+                new TypeMutationEndpoints.SetObjectNameRequest(invalidName));
+
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode, await response.Content.ReadAsStringAsync());
+            CollectionAssert.AreEqual(initialArchive, store.GetBytes(16, 1));
+            CollectionAssert.AreEqual(initialReferenceTable, store.GetBytes(255, 16));
+        }
     }
 
     [TestMethod]
@@ -331,6 +359,8 @@ public sealed class RawStoreMutationCoherenceTests
             stream.WriteByte((byte)opcode);
             stream.WriteShort(opcode - 180);
         }
+        stream.WriteByte(30);
+        stream.WriteString("Entrée");
         stream.WriteByte(2);
         stream.WriteString(name);
         stream.WriteByte(74);
@@ -345,6 +375,7 @@ public sealed class RawStoreMutationCoherenceTests
         Assert.AreEqual(2, objectType.ClipType);
         Assert.IsTrue(objectType.Solid);
         Assert.IsTrue(objectType.Gateway);
+        Assert.AreEqual("Entrée", objectType.Actions[0]);
         Assert.AreEqual((ushort)0x1234, objectType.Opcode44Payload);
         Assert.AreEqual((ushort)0xABCD, objectType.Opcode45Payload);
         CollectionAssert.AreEqual(new ushort?[] { 10, 11, 12, 13, 14, 15 }, objectType.Opcode190To195Payloads);

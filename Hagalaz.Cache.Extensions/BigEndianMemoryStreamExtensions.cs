@@ -152,12 +152,21 @@ namespace Hagalaz.Cache.Extensions
         public static void WriteBytes(this MemoryStream stream, ReadOnlySpan<byte> span) => stream.Write(span);
 
         /// <summary>
-        /// Writes a string to the stream as single-byte characters, terminated by a null byte (0).
+        /// Writes a string to the stream as non-null Latin-1 characters, terminated by a null byte (0).
         /// </summary>
         /// <param name="stream">The memory stream.</param>
         /// <param name="value">The string to write.</param>
+        /// <exception cref="ArgumentException">The value contains a null character or a character outside Latin-1.</exception>
         public static void WriteString(this MemoryStream stream, string value)
         {
+            for (var i = 0; i < value.Length; i++)
+            {
+                if (value[i] == '\0' || value[i] > byte.MaxValue)
+                {
+                    throw new ArgumentException("The string must contain only non-null Latin-1 characters.", nameof(value));
+                }
+            }
+
             stream.WriteBytes(Encoding.Latin1.GetBytes(value));
             stream.WriteByte(0);
         }
@@ -222,7 +231,7 @@ namespace Hagalaz.Cache.Extensions
         }
         
         /// <summary>
-        /// Reads a null-terminated ASCII string from the stream.
+        /// Reads a null-terminated Latin-1 string from the stream.
         /// </summary>
         /// <param name="stream">The memory stream.</param>
         /// <returns>The decoded string.</returns>

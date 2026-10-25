@@ -159,12 +159,38 @@ namespace Hagalaz.Cache.Extensions.Tests
         public void WriteAndReadString_PreservesLatin1Characters()
         {
             using var stream = new MemoryStream();
-            const string testString = "Naïve";
+            const string testString = "Naïve café ÿ";
 
             stream.WriteString(testString);
             stream.Position = 0;
 
             Assert.Equal(testString, stream.ReadString());
+        }
+
+        [Fact]
+        public void ReadString_PreservesHighBytesAsLatin1Characters()
+        {
+            using var stream = new MemoryStream([0xE9, 0xFF, 0]);
+
+            Assert.Equal("éÿ", stream.ReadString());
+        }
+
+        [Fact]
+        public void WriteString_RejectsEmbeddedNullCharacter()
+        {
+            using var stream = new MemoryStream();
+
+            Assert.Throws<ArgumentException>(() => stream.WriteString("before\0after"));
+            Assert.Equal(0, stream.Length);
+        }
+
+        [Fact]
+        public void WriteString_RejectsCharactersOutsideLatin1()
+        {
+            using var stream = new MemoryStream();
+
+            Assert.Throws<ArgumentException>(() => stream.WriteString("cache \u0100 name"));
+            Assert.Equal(0, stream.Length);
         }
 
         [Fact]

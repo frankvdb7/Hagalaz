@@ -58,6 +58,19 @@ public static class TypeMutationEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("name is required."));
         }
 
+        for (var i = 0; i < request.Name.Length; i++)
+        {
+            if (request.Name[i] == '\0')
+            {
+                return TypedResults.BadRequest(EndpointErrors.Validation("name must not contain a null character."));
+            }
+
+            if (request.Name[i] > byte.MaxValue)
+            {
+                return TypedResults.BadRequest(EndpointErrors.Validation("name must contain only Latin-1 characters."));
+            }
+        }
+
         if (id < 0)
         {
             return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
