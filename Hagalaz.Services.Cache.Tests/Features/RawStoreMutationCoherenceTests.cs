@@ -117,6 +117,46 @@ public sealed class RawStoreMutationCoherenceTests
     }
 
     [TestMethod]
+    public async Task ObjectNameMutation_Revision742FixturePreservesDefinitionAndArchiveSibling()
+    {
+        var store = new MemoryFileStore();
+        var objectCodec = new ObjectTypeCodec();
+        var referenceTableCodec = new ReferenceTableCodec();
+        // Captured from index 16, archive 0, member 1 in the revision-742 cache.
+        var originalObjectBytes = Convert.FromHexString(
+            "4100644200644300641E53656172636800180C8628061614151C16181518159C199A15A11D1C152521211529151801010A013C2A02437261746500BE00386700");
+        using var originalObjectStream = new MemoryStream(originalObjectBytes);
+        var originalObject = (ObjectType)objectCodec.Decode(1, originalObjectStream);
+        Assert.AreEqual("Crate", originalObject.Name);
+        Assert.AreEqual("Search", originalObject.Actions[0]);
+        var initialArchive = EncodeContainer(EncodeArchive(EncodeObject(objectCodec, 0, "sibling"), originalObjectBytes));
+        var initialReferenceTable = EncodeSingleArchiveReferenceTable(referenceTableCodec, archiveId: 0, memberCount: 2);
+        store.Set(255, 16, initialReferenceTable);
+        store.Set(16, 0, initialArchive);
+
+        await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/cache/types/objects/1/name",
+            new TypeMutationEndpoints.SetObjectNameRequest("Edited crate"));
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
+        Assert.IsFalse(initialArchive.SequenceEqual(store.GetBytes(16, 0)));
+
+        var cacheApi = app.Services.GetRequiredService<ICacheAPI>();
+        using (var persistedMember = cacheApi.Read(16, 0, 1))
+        {
+            var persistedObject = (ObjectType)objectCodec.Decode(1, persistedMember);
+            Assert.AreEqual("Edited crate", persistedObject.Name);
+            CollectionAssert.AreEqual(originalObject.Actions, persistedObject.Actions);
+            Assert.AreEqual(originalObject.Opcode190To195Payloads![0], persistedObject.Opcode190To195Payloads![0]);
+        }
+
+        using var siblingMember = cacheApi.Read(16, 0, 0);
+        Assert.AreEqual("sibling", objectCodec.Decode(0, siblingMember).Name);
+    }
+
+    [TestMethod]
     public async Task ObjectNameMutation_RejectsInvalidSingleByteStringsWithoutWriting()
     {
         var store = CreateObjectMutationStore(out var initialArchive, out var initialReferenceTable);
@@ -185,6 +225,46 @@ public sealed class RawStoreMutationCoherenceTests
             persistedNpc.Opcode170To175Payloads);
         Assert.IsTrue(persistedNpc.HasAnIntArrayArray1449);
         CollectionAssert.AreEqual(new[] { -1, 2, -3 }, persistedNpc.AnIntArrayArray1449[0]);
+    }
+
+    [TestMethod]
+    public async Task NpcCombatLevelMutation_Revision742FixturePreservesDefinitionAndArchiveSibling()
+    {
+        var store = new MemoryFileStore();
+        var npcCodec = new NpcTypeCodec();
+        var referenceTableCodec = new ReferenceTableCodec();
+        // Captured from index 18, archive 0, member 0 in the revision-742 cache.
+        var originalNpcBytes = Convert.FromHexString(
+            "7F05925F00000C011E54616C6B2D746F0098427579206361706573002805140D1A8E192B0619151C061919A3061315940613290200FF012400FB01060248616E7300010680009D897071707C80009DB2705F708A3C0180009A977702AA002C00");
+        using var originalNpcStream = new MemoryStream(originalNpcBytes);
+        var originalNpc = (NpcType)npcCodec.Decode(0, originalNpcStream);
+        Assert.AreEqual((ushort)44, originalNpc.Opcode170To175Payloads![0]);
+        var initialArchive = EncodeContainer(EncodeArchive(originalNpcBytes, EncodeNpc("sibling")));
+        var initialReferenceTable = EncodeNpcReferenceTable(referenceTableCodec);
+        store.Set(255, 18, initialReferenceTable);
+        store.Set(18, 0, initialArchive);
+
+        await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/cache/types/npcs/0/combat-level",
+            new TypeMutationEndpoints.SetNpcCombatLevelRequest(77));
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
+        Assert.IsFalse(initialArchive.SequenceEqual(store.GetBytes(18, 0)));
+
+        var cacheApi = app.Services.GetRequiredService<ICacheAPI>();
+        using (var persistedMember = cacheApi.Read(18, 0, 0))
+        {
+            var persistedNpc = (NpcType)npcCodec.Decode(0, persistedMember);
+            Assert.AreEqual(77, persistedNpc.CombatLevel);
+            Assert.AreEqual(originalNpc.Name, persistedNpc.Name);
+            CollectionAssert.AreEqual(originalNpc.Actions, persistedNpc.Actions);
+            CollectionAssert.AreEqual(originalNpc.Opcode170To175Payloads, persistedNpc.Opcode170To175Payloads);
+        }
+
+        using var siblingMember = cacheApi.Read(18, 0, 1);
+        Assert.AreEqual("sibling", npcCodec.Decode(1, siblingMember).Name);
     }
 
     [TestMethod]
@@ -360,6 +440,78 @@ public sealed class RawStoreMutationCoherenceTests
         }
     }
 
+    [TestMethod]
+    public async Task ConfigDefinitionMutation_PersistsCodecRoundTripAndPreservesArchiveSibling()
+    {
+        var store = new MemoryFileStore();
+        var configCodec = new ConfigDefinitionCodec();
+        var referenceTableCodec = new ReferenceTableCodec();
+        using var sibling = configCodec.Encode(new ConfigDefinition(0) { DefaultValue = 123, ValueType = 'A' });
+        using var originalTarget = configCodec.Encode(new ConfigDefinition(1) { DefaultValue = 456, ValueType = 'B' });
+        var initialArchive = EncodeContainer(EncodeArchive(sibling.ToArray(), originalTarget.ToArray()));
+        store.Set(255, 2, EncodeConfigReferenceTable(referenceTableCodec, memberCount: 2));
+        store.Set(2, 16, initialArchive);
+
+        await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/cache/types/config-definitions/1",
+            new TypeMutationEndpoints.UpdateConfigDefinitionRequest(ushort.MaxValue, 'Z'));
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
+        Assert.IsFalse(initialArchive.SequenceEqual(store.GetBytes(2, 16)));
+
+        var cacheApi = app.Services.GetRequiredService<ICacheAPI>();
+        using (var persistedTarget = cacheApi.Read(2, 16, 1))
+        {
+            var decoded = configCodec.Decode(1, persistedTarget);
+            Assert.AreEqual((int)ushort.MaxValue, decoded.DefaultValue);
+            Assert.AreEqual('Z', decoded.ValueType);
+        }
+
+        using var persistedSibling = cacheApi.Read(2, 16, 0);
+        var unchangedSibling = configCodec.Decode(0, persistedSibling);
+        Assert.AreEqual(123, unchangedSibling.DefaultValue);
+        Assert.AreEqual('A', unchangedSibling.ValueType);
+    }
+
+    [TestMethod]
+    public async Task VarpBitMutation_PersistsCodecRoundTripAndPreservesArchiveSibling()
+    {
+        var store = new MemoryFileStore();
+        var codec = new VarpBitDefinitionCodec();
+        var referenceTableCodec = new ReferenceTableCodec();
+        using var sibling = codec.Encode(new VarpBitDefinition(0) { ConfigID = 123, BitOffset = 4, BitLength = 8 });
+        using var originalTarget = codec.Encode(new VarpBitDefinition(1) { ConfigID = 456, BitOffset = 2, BitLength = 6 });
+        var initialArchive = EncodeContainer(EncodeArchive(sibling.ToArray(), originalTarget.ToArray()));
+        store.Set(255, 22, EncodeSingleArchiveReferenceTable(referenceTableCodec, archiveId: 0, memberCount: 2));
+        store.Set(22, 0, initialArchive);
+
+        await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/cache/types/varp-bits/1",
+            new TypeMutationEndpoints.UpdateVarpBitDefinitionRequest(789, 9, 7));
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
+        Assert.IsFalse(initialArchive.SequenceEqual(store.GetBytes(22, 0)));
+
+        var cacheApi = app.Services.GetRequiredService<ICacheAPI>();
+        using (var persistedTarget = cacheApi.Read(22, 0, 1))
+        {
+            var decoded = codec.Decode(1, persistedTarget);
+            Assert.AreEqual((short)789, decoded.ConfigID);
+            Assert.AreEqual((byte)7, decoded.BitOffset);
+            Assert.AreEqual((byte)9, decoded.BitLength);
+        }
+
+        using var persistedSibling = cacheApi.Read(22, 0, 0);
+        var unchangedSibling = codec.Decode(0, persistedSibling);
+        Assert.AreEqual((short)123, unchangedSibling.ConfigID);
+        Assert.AreEqual((byte)4, unchangedSibling.BitOffset);
+        Assert.AreEqual((byte)8, unchangedSibling.BitLength);
+    }
+
     private static async Task<string> ReadObjectNameAsync(HttpClient client, int id = 259)
     {
         using var httpResponse = await client.GetAsync($"/api/v1/cache/types/objects/{id}");
@@ -510,25 +662,22 @@ public sealed class RawStoreMutationCoherenceTests
         return EncodeContainer(encoded.ToArray());
     }
 
-    private static byte[] EncodeConfigReferenceTable(ReferenceTableCodec codec)
-    {
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
-        var configArchive = new ReferenceTableEntry(0);
-        configArchive.InitializeEntries(1);
-        configArchive.AddEntry(0, new ReferenceTableChildEntry(0));
-        table.AddEntry(16, configArchive);
-        using var encoded = codec.Encode(table);
-        return EncodeContainer(encoded.ToArray());
-    }
+    private static byte[] EncodeConfigReferenceTable(ReferenceTableCodec codec, int memberCount = 1) =>
+        EncodeSingleArchiveReferenceTable(codec, archiveId: 16, memberCount);
 
-    private static byte[] EncodeNpcReferenceTable(ReferenceTableCodec codec)
+    private static byte[] EncodeNpcReferenceTable(ReferenceTableCodec codec) =>
+        EncodeSingleArchiveReferenceTable(codec, archiveId: 0, memberCount: 2);
+
+    private static byte[] EncodeSingleArchiveReferenceTable(ReferenceTableCodec codec, int archiveId, int memberCount)
     {
         var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
-        var archive = new ReferenceTableEntry(0);
-        archive.InitializeEntries(2);
-        archive.AddEntry(0, new ReferenceTableChildEntry(0));
-        archive.AddEntry(1, new ReferenceTableChildEntry(1));
-        table.AddEntry(0, archive);
+        var archive = new ReferenceTableEntry(archiveId);
+        archive.InitializeEntries(memberCount);
+        for (var memberIndex = 0; memberIndex < memberCount; memberIndex++)
+        {
+            archive.AddEntry(memberIndex, new ReferenceTableChildEntry(memberIndex));
+        }
+        table.AddEntry(archiveId, archive);
         using var encoded = codec.Encode(table);
         return EncodeContainer(encoded.ToArray());
     }
