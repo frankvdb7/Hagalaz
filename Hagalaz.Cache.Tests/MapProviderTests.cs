@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
@@ -34,16 +35,46 @@ namespace Hagalaz.Cache.Tests
         {
             // Arrange
             var xteaKeys = new[] { 1, 2, 3, 4 };
-            _cacheApiMock.Setup(x => x.GetFileId(5, It.IsAny<string>())).Returns(1);
+            _cacheApiMock.Setup(x => x.GetFileId(5, "m0_123")).Returns(-1);
+            _cacheApiMock.Setup(x => x.GetFileId(5, "l0_123")).Returns(1);
             var container = new Container(new MemoryStream());
             _cacheApiMock.Setup(x => x.ReadContainer(5, 1, xteaKeys)).Returns(container);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(container);
 
             // Act
             _provider.Get(123, xteaKeys);
 
             // Assert
             _cacheApiMock.Verify(x => x.ReadContainer(5, 1, xteaKeys), Times.Once);
+        }
+
+        [Fact]
+        public void Get_DisposesInputContainersAndCombinedStreamAfterDecode()
+        {
+            var terrainData = new MemoryStream(new byte[] { 81, 0, 0, 0, 0 });
+            var objectData = new MemoryStream(new byte[] { 0x80, 0x00 });
+            var terrainContainer = new Container(terrainData);
+            var objectContainer = new Container(objectData);
+            MemoryStream combinedStream = null!;
+            var decodedMap = _typeFactory.CreateType(123);
+
+            _cacheApiMock.Setup(x => x.GetFileId(5, "m0_123")).Returns(1);
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(terrainContainer);
+            _cacheApiMock.Setup(x => x.GetFileId(5, "l0_123")).Returns(2);
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 2)).Returns(objectContainer);
+            _codecMock.Setup(codec => codec.Decode(123, It.IsAny<MemoryStream>()))
+                .Callback<int, MemoryStream>((_, stream) =>
+                {
+                    combinedStream = stream;
+                    Assert.True(stream.CanRead);
+                })
+                .Returns(decodedMap);
+
+            var actual = _provider.Get(123);
+
+            Assert.Same(decodedMap, actual);
+            Assert.Throws<ObjectDisposedException>(() => _ = terrainData.Length);
+            Assert.Throws<ObjectDisposedException>(() => _ = objectData.Length);
+            Assert.Throws<ObjectDisposedException>(() => _ = combinedStream.Length);
         }
 
         [Fact]
@@ -167,6 +198,8 @@ namespace Hagalaz.Cache.Tests
             Assert.Collection(decodedObjects,
                 obj => Assert.Equal((1, 10, 2, 24, 40, 0), obj),
                 obj => Assert.Equal((2, 2, 3, 9, 10, 2), obj));
+            Assert.Throws<ObjectDisposedException>(() => _ = terrainData.Length);
+            Assert.Throws<ObjectDisposedException>(() => _ = objectData.Length);
         }
 
         [Fact]

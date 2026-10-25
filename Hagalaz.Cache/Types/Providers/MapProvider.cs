@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
+using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Factories;
 using Hagalaz.Cache.Abstractions.Types.Providers;
@@ -32,15 +33,17 @@ namespace Hagalaz.Cache.Types.Providers
         public IMapType Get(int typeId) => Get(typeId, null);
         public IMapType Get(int typeId, int[]? xteaKeys = null)
         {
-            var terrainData = ReadTerrainData(typeId);
-            var objectData = ReadObjectData(typeId, xteaKeys);
+            using var terrainContainer = ReadTerrainContainer(typeId);
+            using var objectContainer = ReadObjectContainer(typeId, xteaKeys);
+            var terrainData = terrainContainer?.Data;
+            var objectData = objectContainer?.Data;
 
             if (terrainData == null && objectData == null)
             {
                 return _typeFactory.CreateType(typeId);
             }
 
-            var combinedStream = new MemoryStream();
+            using var combinedStream = new MemoryStream();
             var terrainBytes = terrainData?.ToArray() ?? [];
             combinedStream.WriteInt(terrainBytes.Length);
             combinedStream.Write(terrainBytes, 0, terrainBytes.Length);
@@ -96,8 +99,10 @@ namespace Hagalaz.Cache.Types.Providers
 
         private (sbyte[,,] TerrainData, System.Collections.Generic.List<MapObject> Objects) DecodeMapData(int regionId, int[] xteaKeys)
         {
-            var terrainDataStream = ReadTerrainData(regionId);
-            var objectDataStream = ReadObjectData(regionId, xteaKeys);
+            using var terrainContainer = ReadTerrainContainer(regionId);
+            using var objectContainer = ReadObjectContainer(regionId, xteaKeys);
+            var terrainDataStream = terrainContainer?.Data;
+            var objectDataStream = objectContainer?.Data;
             var terrainData = new sbyte[4, 64, 64];
             if (terrainDataStream != null && terrainDataStream.Length > 0)
             {
@@ -132,7 +137,7 @@ namespace Hagalaz.Cache.Types.Providers
             }
         }
 
-        private MemoryStream? ReadObjectData(int regionId, int[]? xteaKeys)
+        private IContainer? ReadObjectContainer(int regionId, int[]? xteaKeys)
         {
             var fileId = _cache.GetFileId(5, "l" + (regionId >> 8) + "_" + (regionId & 0xFF));
             if (fileId == -1)
@@ -141,12 +146,11 @@ namespace Hagalaz.Cache.Types.Providers
                 return null;
             }
 
-            var container = xteaKeys is null || xteaKeys.Length == 0
+            return xteaKeys is null || xteaKeys.Length == 0
                 ? _cache.ReadContainer(5, fileId)
                 : _cache.ReadContainer(5, fileId, xteaKeys);
-            return container.Data;
         }
-        private MemoryStream? ReadTerrainData(int regionId)
+        private IContainer? ReadTerrainContainer(int regionId)
         {
             var fileId = _cache.GetFileId(5, "m" + (regionId >> 8) + "_" + (regionId & 0xFF));
             if (fileId == -1)
@@ -155,7 +159,7 @@ namespace Hagalaz.Cache.Types.Providers
                 return null;
             }
 
-            return _cache.ReadContainer(5, fileId).Data;
+            return _cache.ReadContainer(5, fileId);
         }
     }
 }
