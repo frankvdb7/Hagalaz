@@ -37,11 +37,27 @@ public static class TypeMutationEndpoints
         ITypeProvider<INpcType> provider,
         INpcTypeCodec codec,
         ICacheAPI cacheApi)
-        => MutateType(id, provider, codec, new NpcTypeData(), cacheApi, npc =>
+    {
+        if (id < 0)
         {
+            return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
+        }
+
+        try
+        {
+            var npc = provider.Get(id);
             npc.CombatLevel = request.CombatLevel;
-            return new TypeMutationResponse("npc-combat-level-updated", "npc", id);
-        });
+
+            using var encodedType = codec.Encode(npc);
+            PersistTypeEntry(cacheApi, new NpcTypeData(), id, encodedType);
+
+            return TypedResults.Ok(new TypeMutationResponse("npc-combat-level-updated", "npc", id));
+        }
+        catch (Exception ex)
+        {
+            return EndpointErrors.MapException(ex);
+        }
+    }
 
     private static IResult SetObjectName(
         int id,
@@ -55,11 +71,25 @@ public static class TypeMutationEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("name is required."));
         }
 
-        return MutateType(id, provider, codec, new ObjectTypeData(), cacheApi, obj =>
+        if (id < 0)
         {
+            return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
+        }
+
+        try
+        {
+            var obj = provider.Get(id);
             obj.Name = request.Name;
-            return new TypeMutationResponse("object-name-updated", "object", id);
-        });
+
+            using var encodedType = codec.Encode(obj);
+            PersistTypeEntry(cacheApi, new ObjectTypeData(), id, encodedType);
+
+            return TypedResults.Ok(new TypeMutationResponse("object-name-updated", "object", id));
+        }
+        catch (Exception ex)
+        {
+            return EndpointErrors.MapException(ex);
+        }
     }
 
     private static IResult UpdateVarpBitDefinition(
@@ -68,13 +98,29 @@ public static class TypeMutationEndpoints
         IVarpBitDefinitionProvider provider,
         ITypeCodec<IVarpBitDefinition> codec,
         ICacheAPI cacheApi)
-        => MutateType(id, provider, codec, new VarpBitDefinitionData(), cacheApi, varpBit =>
+    {
+        if (id < 0)
         {
+            return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
+        }
+
+        try
+        {
+            var varpBit = provider.Get(id);
             varpBit.ConfigID = request.ConfigId;
             varpBit.BitLength = request.BitLength;
             varpBit.BitOffset = request.BitOffset;
-            return new TypeMutationResponse("varp-bit-updated", "varp-bit", id);
-        });
+
+            using var encodedType = codec.Encode(varpBit);
+            PersistTypeEntry(cacheApi, new VarpBitDefinitionData(), id, encodedType);
+
+            return TypedResults.Ok(new TypeMutationResponse("varp-bit-updated", "varp-bit", id));
+        }
+        catch (Exception ex)
+        {
+            return EndpointErrors.MapException(ex);
+        }
+    }
 
     private static IResult UpdateConfigDefinition(
         int id,
@@ -82,12 +128,28 @@ public static class TypeMutationEndpoints
         IConfigDefinitionProvider provider,
         ITypeCodec<IConfigDefinition> codec,
         ICacheAPI cacheApi)
-        => MutateType(id, provider, codec, new ConfigDefinitionData(), cacheApi, config =>
+    {
+        if (id < 0)
         {
+            return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
+        }
+
+        try
+        {
+            var config = provider.Get(id);
             config.DefaultValue = request.DefaultValue;
             config.ValueType = request.ValueType;
-            return new TypeMutationResponse("config-definition-updated", "config-definition", id);
-        });
+
+            using var encodedType = codec.Encode(config);
+            PersistTypeEntry(cacheApi, new ConfigDefinitionData(), id, encodedType);
+
+            return TypedResults.Ok(new TypeMutationResponse("config-definition-updated", "config-definition", id));
+        }
+        catch (Exception ex)
+        {
+            return EndpointErrors.MapException(ex);
+        }
+    }
 
     private static async Task<IResult> ReplaceSpriteImage(
         int id,
@@ -122,36 +184,6 @@ public static class TypeMutationEndpoints
                 Width: sprite.Image.Width,
                 Height: sprite.Image.Height,
                 FrameCount: sprite.Image.Frames.Count));
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
-    }
-
-    private static IResult MutateType<TType>(
-        int typeId,
-        ITypeProvider<TType> provider,
-        ITypeCodec<TType> codec,
-        ITypeData typeData,
-        ICacheAPI cacheApi,
-        Func<TType, TypeMutationResponse> mutate)
-        where TType : IType
-    {
-        if (typeId < 0)
-        {
-            return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
-        }
-
-        try
-        {
-            var type = provider.Get(typeId);
-            var result = mutate(type);
-
-            using var encodedType = codec.Encode(type);
-            PersistTypeEntry(cacheApi, typeData, typeId, encodedType);
-
-            return TypedResults.Ok(result);
         }
         catch (Exception ex)
         {
