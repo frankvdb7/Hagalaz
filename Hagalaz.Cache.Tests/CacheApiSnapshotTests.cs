@@ -33,6 +33,22 @@ public sealed class CacheApiSnapshotTests
     }
 
     [Fact]
+    public void Read_DoesNotCacheArchiveWhenUncompressedContainerPayloadIsTruncated()
+    {
+        using var fixture = new CacheApiFixture(containerDecoder: new ContainerDecoder());
+        using var truncatedContainer = new MemoryStream();
+        truncatedContainer.WriteByte((byte)CompressionType.None);
+        truncatedContainer.WriteInt(3);
+        fixture.SetArchive(16, 7, truncatedContainer.ToArray(), 1);
+
+        Assert.Throws<EndOfStreamException>(() => fixture.Cache.Read(16, 7, 0));
+        Assert.Throws<EndOfStreamException>(() => fixture.Cache.Read(16, 7, 0));
+
+        Assert.Equal(2, fixture.StoreReadCount);
+        Assert.Equal(0, fixture.ArchiveDecodeCount);
+    }
+
+    [Fact]
     public void Read_PreservesMissingAndCorruptArchiveFailuresAndReleasesReadLock()
     {
         using var fixture = new CacheApiFixture();
@@ -635,15 +651,17 @@ public sealed class CacheApiSnapshotTests
         private readonly System.Collections.Concurrent.ConcurrentDictionary<(int IndexId, int ArchiveId), int> _memberCounts = new();
         private int _archiveDecodeCount;
         private int _referenceTableReadCount;
+        private int _storeReadCount;
         private MemoryStream? _lastStoreReadStream;
         private MemoryStream? _lastStoreWriteStream;
 
-        public CacheApiFixture(long capacityBytes = 1024 * 1024)
+        public CacheApiFixture(long capacityBytes = 1024 * 1024, IContainerDecoder? containerDecoder = null)
         {
             _store.SetupGet(store => store.IndexFileCount).Returns(255);
             _store.Setup(store => store.Read(It.IsAny<int>(), It.IsAny<int>()))
                 .Returns((int indexId, int archiveId) =>
                 {
+                    Interlocked.Increment(ref _storeReadCount);
                     if (!_archiveBytes.TryGetValue((indexId, archiveId), out var bytes))
                     {
                         throw new FileNotFoundException();
@@ -700,7 +718,7 @@ public sealed class CacheApiSnapshotTests
                 _store.Object,
                 _referenceTableProvider.Object,
                 _writer.Object,
-                _containerDecoder.Object,
+                containerDecoder ?? _containerDecoder.Object,
                 _referenceTableCodec.Object,
                 _archiveDecoder.Object,
                 Options.Create(new CacheOptions { ArchiveSnapshotCacheSizeBytes = capacityBytes }));
@@ -709,6 +727,7 @@ public sealed class CacheApiSnapshotTests
         public CacheApi Cache { get; }
         public int ArchiveDecodeCount => Volatile.Read(ref _archiveDecodeCount);
         public int ReferenceTableReadCount => Volatile.Read(ref _referenceTableReadCount);
+        public int StoreReadCount => Volatile.Read(ref _storeReadCount);
         public MemoryStream? LastStoreReadStream => Volatile.Read(ref _lastStoreReadStream);
         public MemoryStream? LastStoreWriteStream => Volatile.Read(ref _lastStoreWriteStream);
         public Action? BeforeContainerDecode { get; set; }

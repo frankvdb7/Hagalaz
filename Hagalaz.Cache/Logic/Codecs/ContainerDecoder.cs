@@ -29,7 +29,7 @@ namespace Hagalaz.Cache.Logic.Codecs
             {
                 /* simply grab the data and wrap it in a buffer */
                 byte[] data = new byte[compressedLength];
-                stream.Read(data, 0, compressedLength);
+                stream.ReadExactly(data);
 
                 /* decode the version if present */
                 short version = -1;
@@ -46,7 +46,7 @@ namespace Hagalaz.Cache.Logic.Codecs
 
                 /* grab the data */
                 var compressed = new byte[compressedLength];
-                stream.Read(compressed, 0, compressedLength);
+                stream.ReadExactly(compressed);
 
                 /* uncompress it */
                 var decompressed = type switch
