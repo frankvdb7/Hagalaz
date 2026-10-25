@@ -38,25 +38,11 @@ public static class TypeMutationEndpoints
         INpcTypeCodec codec,
         ICacheAPI cacheApi)
     {
-        if (id < 0)
-        {
-            return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
-        }
+        var error = TryGetType(id, provider, out var npc);
+        if (error is not null) return error;
 
-        try
-        {
-            var npc = provider.Get(id);
-            npc.CombatLevel = request.CombatLevel;
-
-            using var encodedType = codec.Encode(npc);
-            PersistTypeEntry(cacheApi, new NpcTypeData(), id, encodedType);
-
-            return TypedResults.Ok(new TypeMutationResponse("npc-combat-level-updated", "npc", id));
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        npc.CombatLevel = request.CombatLevel;
+        return PersistTypeEntry(id, npc, codec, new NpcTypeData(), cacheApi, "npc-combat-level-updated", "npc");
     }
 
     private static IResult SetObjectName(
@@ -71,25 +57,11 @@ public static class TypeMutationEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("name is required."));
         }
 
-        if (id < 0)
-        {
-            return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
-        }
+        var error = TryGetType(id, provider, out var obj);
+        if (error is not null) return error;
 
-        try
-        {
-            var obj = provider.Get(id);
-            obj.Name = request.Name;
-
-            using var encodedType = codec.Encode(obj);
-            PersistTypeEntry(cacheApi, new ObjectTypeData(), id, encodedType);
-
-            return TypedResults.Ok(new TypeMutationResponse("object-name-updated", "object", id));
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        obj.Name = request.Name;
+        return PersistTypeEntry(id, obj, codec, new ObjectTypeData(), cacheApi, "object-name-updated", "object");
     }
 
     private static IResult UpdateVarpBitDefinition(
@@ -99,27 +71,13 @@ public static class TypeMutationEndpoints
         ITypeCodec<IVarpBitDefinition> codec,
         ICacheAPI cacheApi)
     {
-        if (id < 0)
-        {
-            return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
-        }
+        var error = TryGetType(id, provider, out var varpBit);
+        if (error is not null) return error;
 
-        try
-        {
-            var varpBit = provider.Get(id);
-            varpBit.ConfigID = request.ConfigId;
-            varpBit.BitLength = request.BitLength;
-            varpBit.BitOffset = request.BitOffset;
-
-            using var encodedType = codec.Encode(varpBit);
-            PersistTypeEntry(cacheApi, new VarpBitDefinitionData(), id, encodedType);
-
-            return TypedResults.Ok(new TypeMutationResponse("varp-bit-updated", "varp-bit", id));
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        varpBit.ConfigID = request.ConfigId;
+        varpBit.BitLength = request.BitLength;
+        varpBit.BitOffset = request.BitOffset;
+        return PersistTypeEntry(id, varpBit, codec, new VarpBitDefinitionData(), cacheApi, "varp-bit-updated", "varp-bit");
     }
 
     private static IResult UpdateConfigDefinition(
@@ -129,26 +87,12 @@ public static class TypeMutationEndpoints
         ITypeCodec<IConfigDefinition> codec,
         ICacheAPI cacheApi)
     {
-        if (id < 0)
-        {
-            return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
-        }
+        var error = TryGetType(id, provider, out var config);
+        if (error is not null) return error;
 
-        try
-        {
-            var config = provider.Get(id);
-            config.DefaultValue = request.DefaultValue;
-            config.ValueType = request.ValueType;
-
-            using var encodedType = codec.Encode(config);
-            PersistTypeEntry(cacheApi, new ConfigDefinitionData(), id, encodedType);
-
-            return TypedResults.Ok(new TypeMutationResponse("config-definition-updated", "config-definition", id));
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        config.DefaultValue = request.DefaultValue;
+        config.ValueType = request.ValueType;
+        return PersistTypeEntry(id, config, codec, new ConfigDefinitionData(), cacheApi, "config-definition-updated", "config-definition");
     }
 
     private static async Task<IResult> ReplaceSpriteImage(
@@ -184,6 +128,48 @@ public static class TypeMutationEndpoints
                 Width: sprite.Image.Width,
                 Height: sprite.Image.Height,
                 FrameCount: sprite.Image.Frames.Count));
+        }
+        catch (Exception ex)
+        {
+            return EndpointErrors.MapException(ex);
+        }
+    }
+
+    private static IResult? TryGetType<TType>(int typeId, ITypeProvider<TType> provider, out TType type)
+        where TType : IType
+    {
+        type = default!;
+        if (typeId < 0)
+        {
+            return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
+        }
+
+        try
+        {
+            type = provider.Get(typeId);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return EndpointErrors.MapException(ex);
+        }
+    }
+
+    private static IResult PersistTypeEntry<TType>(
+        int typeId,
+        TType type,
+        ITypeCodec<TType> codec,
+        ITypeData typeData,
+        ICacheAPI cacheApi,
+        string operation,
+        string typeName)
+        where TType : IType
+    {
+        try
+        {
+            using var encodedType = codec.Encode(type);
+            PersistTypeEntry(cacheApi, typeData, typeId, encodedType);
+            return TypedResults.Ok(new TypeMutationResponse(operation, typeName, typeId));
         }
         catch (Exception ex)
         {
