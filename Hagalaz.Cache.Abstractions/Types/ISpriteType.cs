@@ -7,11 +7,12 @@ namespace Hagalaz.Cache.Abstractions.Types
     /// Defines the contract for a sprite type, which represents a single sprite or a collection of frames
     /// for an animated sprite from the game cache.
     /// </summary>
-    public interface ISpriteType : IType
+    public interface ISpriteType : IType, System.IDisposable
     {
         /// <summary>
         /// Gets the underlying <see cref="Image{Rgba32}"/> that contains the sprite's pixel data.
-        /// For animated sprites, this image will contain multiple frames.
+        /// For animated sprites, this image will contain multiple frames. The sprite owns the image
+        /// and keeps it alive until the sprite is disposed.
         /// </summary>
         Image<Rgba32> Image { get; }
 

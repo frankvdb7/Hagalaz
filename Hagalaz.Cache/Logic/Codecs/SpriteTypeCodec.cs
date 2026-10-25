@@ -59,10 +59,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                     palette[index] = 1;
             }
 
-            var spriteType = new SpriteType(id)
-            {
-                Image = new Image<Rgba32>(Width, Height)
-            };
+            var spriteType = new SpriteType(id, Width, Height);
 
             /* read the pixels themselves */
             stream.Position = 0;
@@ -72,7 +69,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                 int subWidth = subWidths[i], subHeight = subHeights[i];
                 int offsetX = offsetsX[i], offsetY = offsetsY[i];
 
-                var frameImage = new Image<Rgba32>(Width, Height);
+                using var frameImage = new Image<Rgba32>(Width, Height);
 
                 /* allocate an array for the palette indices */
                 int[,] indices = new int[subWidth, subHeight];

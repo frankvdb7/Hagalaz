@@ -109,17 +109,8 @@ public static class TypeMutationEndpoints
             }
 
             using var sourceImage = await Image.LoadAsync<Rgba32>(input);
-            var sprite = new SpriteType(id);
-
-            while (sprite.Image.Frames.Count > 0)
-            {
-                sprite.Image.Frames.RemoveFrame(0);
-            }
-
-            for (var frameIndex = 0; frameIndex < sourceImage.Frames.Count; frameIndex++)
-            {
-                sprite.InsertFrame(frameIndex, sourceImage.Frames[frameIndex]);
-            }
+            using var sprite = new SpriteType(id);
+            sprite.ReplaceImage(sourceImage);
 
             using var encodedType = codec.Encode(sprite);
             PersistTypeEntry(cacheApi, new SpriteTypeData(), id, encodedType);

@@ -133,12 +133,16 @@ public static class TypeEndpoints
     private static IResult GetObjectTypeRange(int startId, int endIdExclusive, ITypeProvider<IObjectType> provider)
         => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(MapObject).ToArray());
 
-    private static IResult GetSpriteType(int id, ITypeProvider<ISpriteType> provider) => Resolve(() => TypedResults.Ok(MapSprite(provider.Get(id))));
+    private static IResult GetSpriteType(int id, ITypeProvider<ISpriteType> provider) => Resolve(() =>
+    {
+        using var sprite = provider.Get(id);
+        return TypedResults.Ok(MapSprite(sprite));
+    });
 
     private static IResult GetSpriteTypeImage(int id, int? frame, ITypeProvider<ISpriteType> provider)
         => Resolve(() =>
         {
-            var sprite = provider.Get(id);
+            using var sprite = provider.Get(id);
             var frameIndex = frame ?? 0;
             if (frameIndex < 0 || frameIndex >= sprite.Image.Frames.Count)
             {
@@ -152,12 +156,12 @@ public static class TypeEndpoints
         });
 
     private static IResult GetSpriteTypeRange(int startId, int endIdExclusive, ITypeProvider<ISpriteType> provider)
-        => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(MapSprite).ToArray());
+        => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => MapSpritesAndDispose(provider.GetRange(startId, endIdExclusive)));
 
     private static IResult SearchSpriteTypes(string? query, int offset, int limit, ITypeProvider<ISpriteType> provider)
         => ResolveIndexSearch(query, offset, limit, provider.ArchiveSize, () =>
         {
-            var all = provider.GetRange(0, provider.ArchiveSize).Select(MapSprite);
+            var all = MapSpritesAndDispose(provider.GetRange(0, provider.ArchiveSize));
             if (string.IsNullOrWhiteSpace(query))
             {
                 return all.ToArray();
@@ -364,6 +368,21 @@ public static class TypeEndpoints
 
     private static SpriteTypeResponse MapSprite(ISpriteType sprite) =>
         new(sprite.Id, sprite.Image.Width, sprite.Image.Height, sprite.Image.Frames.Count);
+
+    private static SpriteTypeResponse[] MapSpritesAndDispose(ISpriteType[] sprites)
+    {
+        try
+        {
+            return sprites.Select(MapSprite).ToArray();
+        }
+        finally
+        {
+            foreach (var sprite in sprites)
+            {
+                sprite.Dispose();
+            }
+        }
+    }
 
     private static Image<Rgba32> RenderSpriteFrame(Image<Rgba32> source, int frameIndex)
     {
