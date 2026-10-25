@@ -14,18 +14,18 @@ internal static class TypeMutationUtilities
         }
 
         using var output = new MemoryStream();
-        var cumulative = 0;
-
         for (var i = 0; i < entries.Length; i++)
         {
             var data = entries[i].ToArray();
             output.Write(data, 0, data.Length);
         }
 
+        var previousMemberLength = 0;
         for (var i = 0; i < entries.Length; i++)
         {
-            cumulative += (int)entries[i].Length;
-            WriteInt32BigEndian(output, cumulative);
+            var memberLength = checked((int)entries[i].Length);
+            WriteInt32BigEndian(output, memberLength - previousMemberLength);
+            previousMemberLength = memberLength;
         }
 
         output.WriteByte(1); // chunk count

@@ -21,6 +21,43 @@ namespace Hagalaz.Services.Cache.Tests.Features;
 public sealed class RawStoreMutationCoherenceTests
 {
     [TestMethod]
+    public async Task ObjectNameMutation_PersistsReadableMultiMemberArchive()
+    {
+        var store = new MemoryFileStore();
+        var objectCodec = new ObjectTypeCodec();
+        var referenceTableCodec = new ReferenceTableCodec();
+        var initialArchive = EncodeContainer(EncodeArchive(
+            EncodeObject(objectCodec, 258, "sibling"),
+            EncodeObject(objectCodec, 259, "initial")));
+        store.Set(255, 16, EncodeReferenceTable(referenceTableCodec, memberCount: 2, mapObjectToLastMember: true));
+        store.Set(16, 1, initialArchive);
+
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
+        builder.Services.AddSingleton<IFileStore>(store);
+        builder.Services.AddGameCache();
+
+        await using var app = builder.Build();
+        app.MapGroup("/api/v1/cache").MapTypeEndpoints();
+        await app.StartAsync();
+
+        var addresses = app.Services.GetRequiredService<IServer>()
+            .Features.Get<IServerAddressesFeature>()!.Addresses;
+        using var client = new HttpClient { BaseAddress = new Uri(addresses.Single()) };
+
+        Assert.AreEqual("initial", await ReadObjectNameAsync(client, 259));
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/cache/types/objects/259/name",
+            new TypeMutationEndpoints.SetObjectNameRequest("updated"));
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
+
+        Assert.IsFalse(initialArchive.SequenceEqual(store.GetBytes(16, 1)), "The updated archive should be persisted to the file store.");
+        Assert.AreEqual("updated", await ReadObjectNameAsync(client, 259));
+        Assert.AreEqual("sibling", await ReadObjectNameAsync(client, 258));
+    }
+
+    [TestMethod]
     public async Task RawStoreMutations_RefreshObjectTypeReadsWithinSameServiceInstance()
     {
         var store = new MemoryFileStore();
@@ -84,9 +121,9 @@ public sealed class RawStoreMutationCoherenceTests
         CollectionAssert.AreEqual(copiedReferenceTable, store.GetBytes(255, 16));
     }
 
-    private static async Task<string> ReadObjectNameAsync(HttpClient client)
+    private static async Task<string> ReadObjectNameAsync(HttpClient client, int id = 259)
     {
-        var response = await client.GetFromJsonAsync<TypeEndpoints.ObjectTypeResponse>("/api/v1/cache/types/objects/259");
+        var response = await client.GetFromJsonAsync<TypeEndpoints.ObjectTypeResponse>($"/api/v1/cache/types/objects/{id}");
         Assert.IsNotNull(response);
         return response.Name;
     }
@@ -97,11 +134,13 @@ public sealed class RawStoreMutationCoherenceTests
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
     }
 
-    private static byte[] EncodeObject(ObjectTypeCodec codec, string name)
+    private static byte[] EncodeObject(ObjectTypeCodec codec, int id, string name)
     {
-        using var encoded = codec.Encode(new ObjectType(259) { Name = name });
+        using var encoded = codec.Encode(new ObjectType(id) { Name = name });
         return encoded.ToArray();
     }
+
+    private static byte[] EncodeObject(ObjectTypeCodec codec, string name) => EncodeObject(codec, 259, name);
 
     private static byte[] EncodeArchive(params byte[][] members)
     {
