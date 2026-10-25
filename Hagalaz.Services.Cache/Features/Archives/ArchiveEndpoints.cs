@@ -19,15 +19,8 @@ public static class ArchiveEndpoints
 
     private static IResult GetArchive(int indexId, int fileId, ICacheAPI cacheApi)
     {
-        try
-        {
-            using var archive = cacheApi.ReadArchive(indexId, fileId);
-            return TypedResults.Ok(MapArchive(fileId, archive));
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        using var archive = cacheApi.ReadArchive(indexId, fileId);
+        return TypedResults.Ok(MapArchive(fileId, archive));
     }
 
     private static ArchiveResponse MapArchive(int fileId, IArchive archive)

@@ -22,15 +22,8 @@ public static class ReferenceTableEndpoints
         int indexId,
         ICacheAPI cacheApi)
     {
-        try
-        {
-            var table = cacheApi.ReadReferenceTable(indexId);
-            return TypedResults.Ok(MapReferenceTable(table));
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        var table = cacheApi.ReadReferenceTable(indexId);
+        return TypedResults.Ok(MapReferenceTable(table));
     }
 
     private static ReferenceTableResponse MapReferenceTable(IReferenceTable table)

@@ -1,6 +1,7 @@
 using System.Net;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Extensions;
+using Hagalaz.Services.Cache.Features.Shared;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -18,8 +19,11 @@ internal static class CacheServiceTestHost
         builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
         builder.Services.AddSingleton<IFileStore>(store);
         builder.Services.AddGameCache();
+        builder.Services.AddProblemDetails();
+        builder.Services.AddExceptionHandler<CacheExceptionHandler>();
 
         var app = builder.Build();
+        app.UseExceptionHandler();
         mapEndpoints(app.MapGroup("/api/v1/cache"));
         await app.StartAsync();
         return app;

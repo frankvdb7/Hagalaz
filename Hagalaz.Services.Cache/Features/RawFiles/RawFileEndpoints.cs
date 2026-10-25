@@ -18,27 +18,13 @@ public static class RawFileEndpoints
 
     private static IResult GetRawFile(int indexId, int fileId, ICacheAPI cacheApi)
     {
-        try
-        {
-            using var stream = cacheApi.Read(indexId, fileId);
-            return TypedResults.File(stream.ToArray(), "application/octet-stream", $"index-{indexId}-file-{fileId}.bin");
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        using var stream = cacheApi.Read(indexId, fileId);
+        return TypedResults.File(stream.ToArray(), "application/octet-stream", $"index-{indexId}-file-{fileId}.bin");
     }
 
     private static IResult GetRawSubFile(int indexId, int fileId, int subFileId, ICacheAPI cacheApi)
     {
-        try
-        {
-            using var stream = cacheApi.Read(indexId, fileId, subFileId);
-            return TypedResults.File(stream.ToArray(), "application/octet-stream", $"index-{indexId}-file-{fileId}-sub-file-{subFileId}.bin");
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        using var stream = cacheApi.Read(indexId, fileId, subFileId);
+        return TypedResults.File(stream.ToArray(), "application/octet-stream", $"index-{indexId}-file-{fileId}-sub-file-{subFileId}.bin");
     }
 }

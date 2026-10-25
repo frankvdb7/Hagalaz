@@ -116,33 +116,26 @@ public static class TypeMutationEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
         }
 
-        try
+        await using var input = await TypeMutationUtilities.ReadImageRequestStreamAsync(request);
+        if (input.Length == 0)
         {
-            await using var input = await TypeMutationUtilities.ReadImageRequestStreamAsync(request);
-            if (input.Length == 0)
-            {
-                return TypedResults.BadRequest(EndpointErrors.Validation("Request body/form file is empty."));
-            }
-
-            using var sourceImage = await Image.LoadAsync<Rgba32>(input);
-            using var sprite = new SpriteType(id);
-            sprite.ReplaceImage(sourceImage);
-
-            using var encodedType = codec.Encode(sprite);
-            PersistTypeEntry(cacheApi, new SpriteTypeData(), id, encodedType);
-
-            return TypedResults.Ok(new SpriteMutationResponse(
-                Operation: "sprite-image-replaced",
-                Type: "sprite",
-                Id: id,
-                Width: sprite.Image.Width,
-                Height: sprite.Image.Height,
-                FrameCount: sprite.Image.Frames.Count));
+            return TypedResults.BadRequest(EndpointErrors.Validation("Request body/form file is empty."));
         }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+
+        using var sourceImage = await Image.LoadAsync<Rgba32>(input);
+        using var sprite = new SpriteType(id);
+        sprite.ReplaceImage(sourceImage);
+
+        using var encodedType = codec.Encode(sprite);
+        PersistTypeEntry(cacheApi, new SpriteTypeData(), id, encodedType);
+
+        return TypedResults.Ok(new SpriteMutationResponse(
+            Operation: "sprite-image-replaced",
+            Type: "sprite",
+            Id: id,
+            Width: sprite.Image.Width,
+            Height: sprite.Image.Height,
+            FrameCount: sprite.Image.Frames.Count));
     }
 
     private static IResult? TryGetType<TType>(int typeId, ITypeProvider<TType> provider, out TType type)
@@ -154,15 +147,8 @@ public static class TypeMutationEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
         }
 
-        try
-        {
-            type = provider.Get(typeId);
-            return null;
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        type = provider.Get(typeId);
+        return null;
     }
 
     private static IResult PersistTypeEntry<TType>(
@@ -175,16 +161,9 @@ public static class TypeMutationEndpoints
         string typeName)
         where TType : IType
     {
-        try
-        {
-            using var encodedType = codec.Encode(type);
-            PersistTypeEntry(cacheApi, typeData, typeId, encodedType);
-            return TypedResults.Ok(new TypeMutationResponse(operation, typeName, typeId));
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        using var encodedType = codec.Encode(type);
+        PersistTypeEntry(cacheApi, typeData, typeId, encodedType);
+        return TypedResults.Ok(new TypeMutationResponse(operation, typeName, typeId));
     }
 
     private static void PersistTypeEntry(ICacheAPI cacheApi, ITypeData typeData, int typeId, MemoryStream encodedType)

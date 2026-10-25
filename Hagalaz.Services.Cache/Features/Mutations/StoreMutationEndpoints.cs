@@ -29,21 +29,19 @@ public static class StoreMutationEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("dataBase64 is required."));
         }
 
+        byte[] data;
         try
         {
-            var data = Convert.FromBase64String(request.DataBase64);
-            using var stream = new MemoryStream(data);
-            cache.WriteRawFile(indexId, fileId, stream);
-            return TypedResults.Ok(new StoreMutationResponse("write-raw", indexId, fileId));
+            data = Convert.FromBase64String(request.DataBase64);
         }
         catch (FormatException)
         {
             return TypedResults.BadRequest(EndpointErrors.Validation("dataBase64 is not a valid base64 string."));
         }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+
+        using var stream = new MemoryStream(data);
+        cache.WriteRawFile(indexId, fileId, stream);
+        return TypedResults.Ok(new StoreMutationResponse("write-raw", indexId, fileId));
     }
 
     private static IResult CopyRawFile(int indexId, int fileId, CopyRawFileRequest request, ICacheAPI cache)
@@ -58,16 +56,8 @@ public static class StoreMutationEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("sourceIndexId and sourceFileId must be greater than or equal to 0."));
         }
 
-        try
-        {
-            cache.CopyRawFile(indexId, fileId, request.SourceIndexId, request.SourceFileId);
-
-            return TypedResults.Ok(new StoreMutationResponse("copy-raw", indexId, fileId, request.SourceIndexId, request.SourceFileId));
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        cache.CopyRawFile(indexId, fileId, request.SourceIndexId, request.SourceFileId);
+        return TypedResults.Ok(new StoreMutationResponse("copy-raw", indexId, fileId, request.SourceIndexId, request.SourceFileId));
     }
 
     public sealed record WriteRawFileRequest(string DataBase64);
