@@ -8,7 +8,8 @@
     public interface ITypeProvider<out T>
     {
         /// <summary>
-        /// Gets the total number of entries available for this type in its corresponding cache archive.
+        /// Gets the exclusive upper bound of this provider's type IDs (one greater than the highest mapped ID).
+        /// Sparse IDs are included in the range, so this is not necessarily the count of mapped definitions.
         /// </summary>
         int ArchiveSize { get; }
 

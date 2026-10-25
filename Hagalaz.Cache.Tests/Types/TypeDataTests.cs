@@ -1,6 +1,9 @@
 using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Abstractions.Model;
+using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Types.Data;
+using Moq;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests.Types
@@ -53,5 +56,79 @@ namespace Hagalaz.Cache.Tests.Types
             Assert.Equal(expectedArchiveId, archiveId);
             Assert.Equal(expectedEntryId, entryId);
         }
+
+        [Fact]
+        public void ConfigDefinitionData_GetArchiveSize_WithSparseDefinitions_ReturnsHighestMappedIdPlusOne()
+        {
+            Assert.Equal(6, GetArchiveSize(new ConfigDefinitionData(), ArchiveGroup(16, 0, 5)));
+        }
+
+        [Fact]
+        public void ObjectTypeData_GetArchiveSize_WithEmptyReferenceTable_ReturnsZero()
+        {
+            Assert.Equal(0, GetObjectArchiveSize());
+        }
+
+        [Fact]
+        public void ObjectTypeData_GetArchiveSize_WithSingleArchive_ReturnsHighestMappedIdPlusOne()
+        {
+            Assert.Equal(2, GetObjectArchiveSize(ArchiveGroup(0, 0, 1)));
+        }
+
+        [Fact]
+        public void ObjectTypeData_GetArchiveSize_WithFullArchives_ReturnsExclusiveUpperBound()
+        {
+            var fullArchive = Enumerable.Range(0, 256).ToArray();
+
+            Assert.Equal(512, GetObjectArchiveSize(
+                (0, fullArchive),
+                (1, fullArchive)));
+        }
+
+        [Fact]
+        public void ObjectTypeData_GetArchiveSize_WithPartialFinalArchive_ReturnsHighestMappedIdPlusOne()
+        {
+            var fullArchive = Enumerable.Range(0, 256).ToArray();
+
+            Assert.Equal(259, GetObjectArchiveSize(
+                (0, fullArchive),
+                ArchiveGroup(1, 0, 1, 2)));
+        }
+
+        [Fact]
+        public void ObjectTypeData_GetArchiveSize_WithSparseFinalGroups_IncludesIdentifierGaps()
+        {
+            var fullArchive = Enumerable.Range(0, 256).ToArray();
+
+            Assert.Equal(515, GetObjectArchiveSize(
+                (0, fullArchive),
+                ArchiveGroup(2, 0, 2)));
+        }
+
+        private static int GetObjectArchiveSize(params (int ArchiveId, int[] ChildIds)[] groups)
+            => GetArchiveSize(new ObjectTypeData(), groups);
+
+        private static int GetArchiveSize(TypeData typeData, params (int ArchiveId, int[] ChildIds)[] groups)
+        {
+            var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, groups.Length);
+            foreach (var (archiveId, childIds) in groups)
+            {
+                var archive = new ReferenceTableEntry(archiveId);
+                archive.InitializeEntries(childIds.Length);
+                for (var index = 0; index < childIds.Length; index++)
+                {
+                    archive.AddEntry(childIds[index], new ReferenceTableChildEntry(index));
+                }
+
+                table.AddEntry(archiveId, archive);
+            }
+
+            var cache = new Mock<ICacheAPI>();
+            cache.Setup(current => current.ReadReferenceTable(typeData.IndexId)).Returns(table);
+            return typeData.GetArchiveSize(cache.Object);
+        }
+
+        private static (int ArchiveId, int[] ChildIds) ArchiveGroup(int archiveId, params int[] childIds) =>
+            (archiveId, childIds);
     }
 }

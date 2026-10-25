@@ -1,4 +1,5 @@
 using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Abstractions.Types.Data;
 
 namespace Hagalaz.Cache.Types
@@ -32,14 +33,49 @@ namespace Hagalaz.Cache.Types
         public abstract int ArchiveEntrySize { get; }
 
         /// <summary>
-        /// Gets the size of the archive.
+        /// Gets the exclusive upper bound of the type IDs represented by this cache index.
         /// </summary>
         /// <param name="cache">The cache.</param>
         /// <returns></returns>
         public virtual int GetArchiveSize(ICacheAPI cache)
         {
-            var lastFileId = cache.GetFileCount(IndexId) - 1;
-            return (lastFileId * ArchiveEntrySize) + cache.GetFileCount(IndexId, lastFileId - 1);
+            var archiveSize = 0;
+            foreach (var (archiveId, archive) in cache.ReadReferenceTable(IndexId).Entries)
+            {
+                var archiveEntrySize = GetArchiveEntryIdUpperBound(archive);
+                if (archiveEntrySize == 0)
+                {
+                    continue;
+                }
+
+                var archiveUpperBound = checked((archiveId * ArchiveEntrySize) + archiveEntrySize);
+                if (archiveUpperBound > archiveSize)
+                {
+                    archiveSize = archiveUpperBound;
+                }
+            }
+
+            return archiveSize;
+        }
+
+        protected static int GetArchiveEntryIdUpperBound(IReferenceTableEntry? archive)
+        {
+            var upperBound = 0;
+            if (archive is null)
+            {
+                return upperBound;
+            }
+
+            foreach (var (entryId, _) in archive.Entries)
+            {
+                var entryUpperBound = checked(entryId + 1);
+                if (entryUpperBound > upperBound)
+                {
+                    upperBound = entryUpperBound;
+                }
+            }
+
+            return upperBound;
         }
 
         /// <summary>
