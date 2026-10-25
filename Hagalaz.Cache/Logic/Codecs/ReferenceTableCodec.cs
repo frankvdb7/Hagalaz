@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
@@ -139,6 +140,11 @@ namespace Hagalaz.Cache.Logic.Codecs
 
         public MemoryStream Encode(IReferenceTable table)
         {
+            if (table.Protocol < 5 || table.Protocol > 7)
+            {
+                throw new InvalidDataException("Invalid reference table protocol!");
+            }
+
             /* we can't (easily) predict the size ahead of time, so we write to a
                stream and then to the buffer */
             var ew = new MemoryStream();
@@ -150,14 +156,14 @@ namespace Hagalaz.Cache.Logic.Codecs
             ew.WriteByte((byte)table.Flags);
 
             /* calculate and write the number of non-null entries */
-            ew.WriteBigSmart(table.Count);
+            WriteProtocolUnsignedValue(ew, table.Protocol, table.Count);
 
             /* write the ids */
             int last = 0;
             foreach (var (id, entry) in table.Entries)
             {
                 int delta = id - last;
-                ew.WriteBigSmart(delta);
+                WriteProtocolUnsignedValue(ew, table.Protocol, delta);
                 last = id;
             }
 
@@ -181,7 +187,7 @@ namespace Hagalaz.Cache.Logic.Codecs
 
             /* calculate and write the number of non-null child entries */
             foreach (var (_, entry) in table.Entries)
-                ew.WriteBigSmart(entry.Capacity);
+                WriteProtocolUnsignedValue(ew, table.Protocol, entry.Capacity);
 
             /* write the child ids */
             foreach (var (_, entry) in table.Entries)
@@ -190,7 +196,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                 foreach (var (childId, _) in entry.Entries)
                 {
                     int delta = childId - last;
-                    ew.WriteBigSmart(delta);
+                    WriteProtocolUnsignedValue(ew, table.Protocol, delta);
                     last = childId;
                 }
             }
@@ -205,6 +211,26 @@ namespace Hagalaz.Cache.Logic.Codecs
             /* flip the buffer and return the stream */
             ew.Flip();
             return ew;
+        }
+
+        private static void WriteProtocolUnsignedValue(MemoryStream stream, byte protocol, int value)
+        {
+            if (value < 0 || (protocol < 7 && value > ushort.MaxValue))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(value),
+                    value,
+                    $"Value cannot be encoded by reference table protocol {protocol}.");
+            }
+
+            if (protocol >= 7)
+            {
+                stream.WriteBigSmart(value);
+            }
+            else
+            {
+                stream.WriteShort(value);
+            }
         }
     }
 }

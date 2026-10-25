@@ -95,6 +95,81 @@ namespace Hagalaz.Cache.Tests
             Assert.Null(decoded.GetEntry(50));
         }
 
+        [Theory]
+        [InlineData((byte)5, 0)]
+        [InlineData((byte)6, 42)]
+        [InlineData((byte)7, 42)]
+        public void EncodeDecode_PreservesLargeSparseArchiveAndChildIds(byte protocol, int version)
+        {
+            const int largeId = 40000;
+            var table = new ReferenceTable(protocol, version, (ReferenceTableFlags)0, 1);
+            var archive = new ReferenceTableEntry(0);
+            archive.InitializeEntries(1);
+            archive.AddEntry(largeId, new ReferenceTableChildEntry(0));
+            table.AddEntry(largeId, archive);
+            var codec = new ReferenceTableCodec();
+
+            using var encoded = codec.Encode(table);
+            var decoded = codec.Decode(encoded);
+
+            Assert.Equal(protocol, decoded.Protocol);
+            Assert.Equal(version, decoded.Version);
+            Assert.NotNull(decoded.GetEntry(largeId));
+            Assert.NotNull(decoded.GetEntry(largeId)?.GetEntry(largeId));
+        }
+
+        [Theory]
+        [InlineData((byte)5, 0)]
+        [InlineData((byte)6, 42)]
+        public void EncodeDecode_PreservesCountsAtBigSmartThreshold(byte protocol, int version)
+        {
+            const int threshold = short.MaxValue;
+            var table = new ReferenceTable(protocol, version, (ReferenceTableFlags)0, threshold);
+
+            for (var archiveId = 0; archiveId < threshold; archiveId++)
+            {
+                var memberCount = archiveId == threshold - 1 ? threshold : 0;
+                var archive = new ReferenceTableEntry(archiveId);
+                archive.InitializeEntries(memberCount);
+                for (var memberId = 0; memberId < memberCount; memberId++)
+                {
+                    archive.AddEntry(memberId, new ReferenceTableChildEntry(memberId));
+                }
+
+                table.AddEntry(archiveId, archive);
+            }
+
+            var codec = new ReferenceTableCodec();
+            using var encoded = codec.Encode(table);
+            var decoded = codec.Decode(encoded);
+
+            Assert.Equal(threshold, decoded.Count);
+            var lastArchive = decoded.GetEntry(threshold - 1);
+            Assert.NotNull(lastArchive);
+            Assert.Equal(threshold, lastArchive!.Capacity);
+        }
+
+        [Fact]
+        public void Encode_RejectsLegacyProtocolIdsOutsideUnsignedShortRange()
+        {
+            var table = new ReferenceTable(6, 42, (ReferenceTableFlags)0, 1);
+            var archive = new ReferenceTableEntry(0);
+            archive.InitializeEntries(0);
+            table.AddEntry(ushort.MaxValue + 1, archive);
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => new ReferenceTableCodec().Encode(table));
+        }
+
+        [Theory]
+        [InlineData((byte)4)]
+        [InlineData((byte)8)]
+        public void Encode_RejectsProtocolsNotSupportedByDecoder(byte protocol)
+        {
+            var table = new ReferenceTable(protocol, 42, (ReferenceTableFlags)0, 0);
+
+            Assert.Throws<System.IO.InvalidDataException>(() => new ReferenceTableCodec().Encode(table));
+        }
+
         private static ReferenceTableEntry CreateEntry(int index, string name)
         {
             var entry = new ReferenceTableEntry(index)
