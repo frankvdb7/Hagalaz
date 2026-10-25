@@ -6,32 +6,6 @@ namespace Hagalaz.Services.Cache.Features;
 
 internal static class TypeMutationUtilities
 {
-    internal static MemoryStream BuildSingleChunkArchive(MemoryStream[] entries)
-    {
-        if (entries.Length == 1)
-        {
-            return new MemoryStream(entries[0].ToArray());
-        }
-
-        using var output = new MemoryStream();
-        for (var i = 0; i < entries.Length; i++)
-        {
-            var data = entries[i].ToArray();
-            output.Write(data, 0, data.Length);
-        }
-
-        var previousMemberLength = 0;
-        for (var i = 0; i < entries.Length; i++)
-        {
-            var memberLength = checked((int)entries[i].Length);
-            WriteInt32BigEndian(output, memberLength - previousMemberLength);
-            previousMemberLength = memberLength;
-        }
-
-        output.WriteByte(1); // chunk count
-        return new MemoryStream(output.ToArray());
-    }
-
     internal static async Task<MemoryStream> ReadImageRequestStreamAsync(HttpRequest request)
     {
         var stream = new MemoryStream();
@@ -51,13 +25,5 @@ internal static class TypeMutationUtilities
         await request.Body.CopyToAsync(stream, request.HttpContext.RequestAborted);
         stream.Position = 0;
         return stream;
-    }
-
-    private static void WriteInt32BigEndian(Stream stream, int value)
-    {
-        stream.WriteByte((byte)(value >> 24));
-        stream.WriteByte((byte)(value >> 16));
-        stream.WriteByte((byte)(value >> 8));
-        stream.WriteByte((byte)value);
     }
 }

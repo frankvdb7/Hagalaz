@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Threading;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Extensions;
@@ -19,61 +20,46 @@ public sealed class RawStoreMutationCoherenceTests
     [TestMethod]
     public async Task ConcurrentArchiveMemberUpdates_PreserveChangesToDifferentMembers()
     {
-        var store = new MemoryFileStore();
+        var memoryStore = new MemoryFileStore();
         var objectCodec = new ObjectTypeCodec();
         var referenceTableCodec = new ReferenceTableCodec();
-        store.Set(255, 16, EncodeReferenceTable(referenceTableCodec, memberCount: 2, mapObjectToLastMember: true));
-        store.Set(16, 1, EncodeContainer(EncodeArchive(
+        memoryStore.Set(255, 16, EncodeReferenceTable(referenceTableCodec, memberCount: 2, mapObjectToLastMember: true));
+        memoryStore.Set(16, 1, EncodeContainer(EncodeArchive(
             EncodeObject(objectCodec, 258, "initial-0"),
             EncodeObject(objectCodec, 259, "initial-1"))));
 
+        using var firstArchiveReadEntered = new ManualResetEventSlim();
+        using var releaseFirstArchiveRead = new ManualResetEventSlim();
+        var store = new BlockingArchiveReadFileStore(memoryStore, firstArchiveReadEntered, releaseFirstArchiveRead);
         var services = new ServiceCollection();
         services.AddSingleton<IFileStore>(store);
         services.AddGameCache();
         using var serviceProvider = services.BuildServiceProvider();
         var cacheApi = serviceProvider.GetRequiredService<ICacheAPI>();
+        _ = cacheApi.ReadReferenceTable(16);
 
-        using var firstEntered = new ManualResetEventSlim();
-        using var releaseFirst = new ManualResetEventSlim();
         using var secondAttempted = new ManualResetEventSlim();
-        using var secondEntered = new ManualResetEventSlim();
 
-        var firstMutation = Task.Run(() => cacheApi.UpdateArchiveMember(16, 1, 2, (archive, memberIndex) =>
-        {
-            var entries = archive.Entries ?? throw new InvalidOperationException("Archive entries are not available.");
-            entries[memberIndex] = new MemoryStream(EncodeObject(objectCodec, 258, "updated-0"));
-            firstEntered.Set();
-            if (!releaseFirst.Wait(TimeSpan.FromSeconds(5)))
-            {
-                throw new TimeoutException("The first archive mutation was not released.");
-            }
-
-            return TypeMutationUtilities.BuildSingleChunkArchive(entries);
-        }));
+        var firstMutation = Task.Run(() => cacheApi.ReplaceArchiveMember(16, 1, 2, EncodeObject(objectCodec, 258, "updated-0")));
 
         Task secondMutation = Task.CompletedTask;
         try
         {
-            Assert.IsTrue(firstEntered.Wait(TimeSpan.FromSeconds(5)), "The first mutation should enter the archive update callback.");
+            Assert.IsTrue(firstArchiveReadEntered.Wait(TimeSpan.FromSeconds(5)), "The first mutation should begin reading the archive.");
 
             secondMutation = Task.Run(() =>
             {
                 secondAttempted.Set();
-                cacheApi.UpdateArchiveMember(16, 1, 3, (archive, memberIndex) =>
-                {
-                    secondEntered.Set();
-                    var entries = archive.Entries ?? throw new InvalidOperationException("Archive entries are not available.");
-                    entries[memberIndex] = new MemoryStream(EncodeObject(objectCodec, 259, "updated-1"));
-                    return TypeMutationUtilities.BuildSingleChunkArchive(entries);
-                });
+                cacheApi.ReplaceArchiveMember(16, 1, 3, EncodeObject(objectCodec, 259, "updated-1"));
             });
 
             Assert.IsTrue(secondAttempted.Wait(TimeSpan.FromSeconds(5)), "The second mutation should start.");
-            Assert.IsFalse(secondEntered.Wait(TimeSpan.FromMilliseconds(200)), "A same-archive mutation must wait for the current update to finish.");
+            await Task.Delay(TimeSpan.FromMilliseconds(200));
+            Assert.AreEqual(1, store.ArchiveReadAttempts, "A same-archive mutation must wait for the current archive read-modify-write to finish.");
         }
         finally
         {
-            releaseFirst.Set();
+            releaseFirstArchiveRead.Set();
             await Task.WhenAll(firstMutation, secondMutation);
         }
 
@@ -268,6 +254,41 @@ public sealed class RawStoreMutationCoherenceTests
     {
         using var container = new Container(new MemoryStream(data));
         return container.Encode();
+    }
+
+    private sealed class BlockingArchiveReadFileStore(
+        IFileStore inner,
+        ManualResetEventSlim firstArchiveReadEntered,
+        ManualResetEventSlim releaseFirstArchiveRead) : IFileStore
+    {
+        private int _archiveReadAttempts;
+
+        public int IndexFileCount => inner.IndexFileCount;
+
+        public int ArchiveReadAttempts => Volatile.Read(ref _archiveReadAttempts);
+
+        public int GetFileCount(int indexId) => inner.GetFileCount(indexId);
+
+        public MemoryStream Read(int indexId, int fileId)
+        {
+            if (indexId == 16 && fileId == 1)
+            {
+                if (Interlocked.Increment(ref _archiveReadAttempts) == 1)
+                {
+                    firstArchiveReadEntered.Set();
+                    if (!releaseFirstArchiveRead.Wait(TimeSpan.FromSeconds(5)))
+                    {
+                        throw new TimeoutException("The first archive read was not released.");
+                    }
+                }
+            }
+
+            return inner.Read(indexId, fileId);
+        }
+
+        public void Write(int indexId, int fileId, MemoryStream data) => inner.Write(indexId, fileId, data);
+
+        public void Dispose() => inner.Dispose();
     }
 
 }

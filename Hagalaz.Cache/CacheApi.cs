@@ -6,6 +6,7 @@ using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
+using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Metrics;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Utilities;
@@ -24,6 +25,7 @@ namespace Hagalaz.Cache
         private readonly ICacheWriter _cacheWriter;
         private readonly IContainerDecoder _containerFactory;
         private readonly IArchiveDecoder _archiveDecoder;
+        private readonly ArchiveEncoder _archiveEncoder = new();
         private readonly IReferenceTableCodec _referenceTableFactory;
         private readonly ReaderWriterLockSlim _snapshotReadWriteLock = new(LockRecursionPolicy.NoRecursion);
         private readonly ArchiveSnapshotCache _archiveSnapshotCache;
@@ -164,13 +166,13 @@ namespace Hagalaz.Cache
         }
 
         /// <summary>
-        /// Updates one member of an archive and persists the rebuilt archive under the cache write lock.
+        /// Replaces one member of an archive and persists the rebuilt archive under the cache write lock.
         /// </summary>
         /// <param name="indexId">The index containing the archive.</param>
         /// <param name="fileId">The archive identifier.</param>
         /// <param name="archiveEntryId">The member identifier from the reference table.</param>
-        /// <param name="updateArchive">Builds the updated archive data from the current archive.</param>
-        public void UpdateArchiveMember(int indexId, int fileId, int archiveEntryId, Func<IArchive, int, MemoryStream> updateArchive)
+        /// <param name="replacement">The replacement member bytes.</param>
+        public void ReplaceArchiveMember(int indexId, int fileId, int archiveEntryId, ReadOnlyMemory<byte> replacement)
         {
             _snapshotReadWriteLock.EnterWriteLock();
             try
@@ -186,7 +188,11 @@ namespace Hagalaz.Cache
                 using (container)
                 using (archive)
                 {
-                    using var archiveData = updateArchive(archive, childEntry.Index);
+                    var entries = archive.Entries ?? throw new InvalidDataException("Archive entries are not available.");
+                    entries[childEntry.Index].Dispose();
+                    entries[childEntry.Index] = new MemoryStream(replacement.ToArray());
+
+                    using var archiveData = _archiveEncoder.Encode(archive);
                     using var updatedContainer = new Container(container.CompressionType, archiveData, container.Version);
                     WriteAndInvalidateUnderLock(indexId, fileId, updatedContainer);
                 }

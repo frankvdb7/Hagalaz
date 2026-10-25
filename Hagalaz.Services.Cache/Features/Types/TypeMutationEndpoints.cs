@@ -165,13 +165,7 @@ public static class TypeMutationEndpoints
         var archiveId = typeData.GetArchiveId(typeId);
         var archiveEntryId = typeData.GetArchiveEntryId(typeId);
 
-        cacheApi.UpdateArchiveMember(indexId, archiveId, archiveEntryId, (archive, memberIndex) =>
-        {
-            var entries = archive.Entries ?? throw new InvalidOperationException("Archive entries are not available.");
-            entries[memberIndex] = new MemoryStream(encodedType.ToArray());
-
-            return TypeMutationUtilities.BuildSingleChunkArchive(entries);
-        });
+        cacheApi.ReplaceArchiveMember(indexId, archiveId, archiveEntryId, encodedType.ToArray());
     }
 
     public sealed record SetNpcCombatLevelRequest(int CombatLevel);
