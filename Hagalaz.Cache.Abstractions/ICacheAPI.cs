@@ -8,7 +8,8 @@ namespace Hagalaz.Cache.Abstractions
     /// providing methods for reading, writing, and managing cache files.
     /// </summary>
     /// <remarks>
-    /// Same-instance writes are serialized with single-member reads and reference-table lookups. This does not make
+    /// Same-instance writes are serialized with single-member reads and reference-table lookups. <see cref="UpdateArchiveMember"/>
+    /// keeps that boundary across the archive read, rebuild, and write. This does not make
     /// <see cref="ReadArchive(int, int)"/>, <see cref="ReadContainer(int, int)"/>, or composed range and inspection
     /// workflows atomic with concurrent writes; they do not hold that exclusion across their complete read and decode sequence.
     /// Callers that require operation-wide consistency must coordinate those operations separately.
@@ -94,6 +95,17 @@ namespace Hagalaz.Cache.Abstractions
         /// <param name="fileId">The identifier of the file to write.</param>
         /// <param name="container">The container holding the data to be written.</param>
         void Write(int indexId, int fileId, IContainer container);
+
+        /// <summary>
+        /// Updates one member of an archive and persists the rebuilt archive while holding the cache's write boundary.
+        /// The callback receives the decoded archive and the physical member index, and returns the rebuilt archive data.
+        /// </summary>
+        /// <param name="indexId">The identifier of the index containing the archive.</param>
+        /// <param name="fileId">The archive identifier.</param>
+        /// <param name="archiveEntryId">The member identifier from the reference table.</param>
+        /// <param name="updateArchive">Builds the updated archive data from the current archive.</param>
+        /// <remarks>The callback runs while the cache write boundary is held and must not call this cache API.</remarks>
+        void UpdateArchiveMember(int indexId, int fileId, int archiveEntryId, global::System.Func<IArchive, int, MemoryStream> updateArchive);
 
         /// <summary>
         /// Writes raw, already-encoded file bytes while invalidating local cached state affected by the target.

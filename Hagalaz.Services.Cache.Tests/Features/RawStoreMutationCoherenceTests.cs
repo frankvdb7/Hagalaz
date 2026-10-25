@@ -21,6 +21,73 @@ namespace Hagalaz.Services.Cache.Tests.Features;
 public sealed class RawStoreMutationCoherenceTests
 {
     [TestMethod]
+    public async Task ConcurrentArchiveMemberUpdates_PreserveChangesToDifferentMembers()
+    {
+        var store = new MemoryFileStore();
+        var objectCodec = new ObjectTypeCodec();
+        var referenceTableCodec = new ReferenceTableCodec();
+        store.Set(255, 16, EncodeReferenceTable(referenceTableCodec, memberCount: 2, mapObjectToLastMember: true));
+        store.Set(16, 1, EncodeContainer(EncodeArchive(
+            EncodeObject(objectCodec, 258, "initial-0"),
+            EncodeObject(objectCodec, 259, "initial-1"))));
+
+        var services = new ServiceCollection();
+        services.AddSingleton<IFileStore>(store);
+        services.AddGameCache();
+        using var serviceProvider = services.BuildServiceProvider();
+        var cacheApi = serviceProvider.GetRequiredService<ICacheAPI>();
+
+        using var firstEntered = new ManualResetEventSlim();
+        using var releaseFirst = new ManualResetEventSlim();
+        using var secondAttempted = new ManualResetEventSlim();
+        using var secondEntered = new ManualResetEventSlim();
+
+        var firstMutation = Task.Run(() => cacheApi.UpdateArchiveMember(16, 1, 2, (archive, memberIndex) =>
+        {
+            var entries = archive.Entries ?? throw new InvalidOperationException("Archive entries are not available.");
+            entries[memberIndex] = new MemoryStream(EncodeObject(objectCodec, 258, "updated-0"));
+            firstEntered.Set();
+            if (!releaseFirst.Wait(TimeSpan.FromSeconds(5)))
+            {
+                throw new TimeoutException("The first archive mutation was not released.");
+            }
+
+            return TypeMutationUtilities.BuildSingleChunkArchive(entries);
+        }));
+
+        Task secondMutation = Task.CompletedTask;
+        try
+        {
+            Assert.IsTrue(firstEntered.Wait(TimeSpan.FromSeconds(5)), "The first mutation should enter the archive update callback.");
+
+            secondMutation = Task.Run(() =>
+            {
+                secondAttempted.Set();
+                cacheApi.UpdateArchiveMember(16, 1, 3, (archive, memberIndex) =>
+                {
+                    secondEntered.Set();
+                    var entries = archive.Entries ?? throw new InvalidOperationException("Archive entries are not available.");
+                    entries[memberIndex] = new MemoryStream(EncodeObject(objectCodec, 259, "updated-1"));
+                    return TypeMutationUtilities.BuildSingleChunkArchive(entries);
+                });
+            });
+
+            Assert.IsTrue(secondAttempted.Wait(TimeSpan.FromSeconds(5)), "The second mutation should start.");
+            Assert.IsFalse(secondEntered.Wait(TimeSpan.FromMilliseconds(200)), "A same-archive mutation must wait for the current update to finish.");
+        }
+        finally
+        {
+            releaseFirst.Set();
+            await Task.WhenAll(firstMutation, secondMutation);
+        }
+
+        using var firstMember = cacheApi.Read(16, 1, 0);
+        using var secondMember = cacheApi.Read(16, 1, 1);
+        Assert.AreEqual("updated-0", objectCodec.Decode(258, firstMember).Name);
+        Assert.AreEqual("updated-1", objectCodec.Decode(259, secondMember).Name);
+    }
+
+    [TestMethod]
     public async Task ObjectNameMutation_PersistsReadableMultiMemberArchive()
     {
         var store = new MemoryFileStore();

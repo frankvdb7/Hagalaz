@@ -8,7 +8,6 @@ using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Data;
 using Hagalaz.Cache.Abstractions.Types.Providers;
-using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Types.Data;
 using Hagalaz.Services.Cache.Features.Shared;
@@ -175,22 +174,13 @@ public static class TypeMutationEndpoints
         var archiveId = typeData.GetArchiveId(typeId);
         var archiveEntryId = typeData.GetArchiveEntryId(typeId);
 
-        var table = cacheApi.ReadReferenceTable(indexId);
-        var childEntry = table.GetEntry(archiveId, archiveEntryId);
-        if (childEntry is null)
+        cacheApi.UpdateArchiveMember(indexId, archiveId, archiveEntryId, (archive, memberIndex) =>
         {
-            throw new FileNotFoundException($"Unable to locate archive entry for type {typeId}.");
-        }
+            var entries = archive.Entries ?? throw new InvalidOperationException("Archive entries are not available.");
+            entries[memberIndex] = new MemoryStream(encodedType.ToArray());
 
-        using var container = cacheApi.ReadContainer(indexId, archiveId);
-        using var archive = cacheApi.ReadArchive(indexId, archiveId);
-
-        var entries = archive.Entries ?? throw new InvalidOperationException("Archive entries are not available.");
-        entries[childEntry.Index] = new MemoryStream(encodedType.ToArray());
-
-        using var rebuiltArchive = TypeMutationUtilities.BuildSingleChunkArchive(entries);
-        using var writeContainer = new Container(container.CompressionType, rebuiltArchive, container.Version);
-        cacheApi.Write(indexId, archiveId, writeContainer);
+            return TypeMutationUtilities.BuildSingleChunkArchive(entries);
+        });
     }
 
     public sealed record SetNpcCombatLevelRequest(int CombatLevel);

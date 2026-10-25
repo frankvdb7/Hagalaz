@@ -164,6 +164,63 @@ namespace Hagalaz.Cache
         }
 
         /// <summary>
+        /// Updates one member of an archive and persists the rebuilt archive under the cache write lock.
+        /// </summary>
+        /// <param name="indexId">The index containing the archive.</param>
+        /// <param name="fileId">The archive identifier.</param>
+        /// <param name="archiveEntryId">The member identifier from the reference table.</param>
+        /// <param name="updateArchive">Builds the updated archive data from the current archive.</param>
+        public void UpdateArchiveMember(int indexId, int fileId, int archiveEntryId, Func<IArchive, int, MemoryStream> updateArchive)
+        {
+            _snapshotReadWriteLock.EnterWriteLock();
+            try
+            {
+                var tableEntry = _referenceTableCache.Get(indexId).GetEntry(fileId);
+                var childEntry = tableEntry?.GetEntry(archiveEntryId);
+                if (tableEntry is null || childEntry is null)
+                {
+                    throw new FileNotFoundException($"Unable to locate archive entry {archiveEntryId} in archive {fileId}.");
+                }
+
+                var (container, archive) = ReadArchiveData(indexId, fileId, tableEntry);
+                using (container)
+                using (archive)
+                {
+                    using var archiveData = updateArchive(archive, childEntry.Index);
+                    using var updatedContainer = new Container(container.CompressionType, archiveData, container.Version);
+                    WriteAndInvalidateUnderLock(indexId, fileId, updatedContainer);
+                }
+            }
+            finally
+            {
+                _snapshotReadWriteLock.ExitWriteLock();
+            }
+        }
+
+        private (IContainer Container, IArchive Archive) ReadArchiveData(int indexId, int fileId, IReferenceTableEntry tableEntry)
+        {
+            var loadStart = Stopwatch.GetTimestamp();
+            var loadSucceeded = false;
+            IContainer? container = null;
+            try
+            {
+                container = ReadContainer(indexId, fileId);
+                var archive = _archiveDecoder.Decode(container, tableEntry.Capacity);
+                loadSucceeded = true;
+                return (container, archive);
+            }
+            catch
+            {
+                container?.Dispose();
+                throw;
+            }
+            finally
+            {
+                CacheMetrics.RecordArchiveLoad(loadSucceeded, Stopwatch.GetElapsedTime(loadStart).TotalSeconds);
+            }
+        }
+
+        /// <summary>
         /// Reads a single member file from within an archive in the cache.
         /// </summary>
         /// <param name="indexId">The identifier of the index (cache) containing the archive.</param>
@@ -276,19 +333,24 @@ namespace Hagalaz.Cache
             _snapshotReadWriteLock.EnterWriteLock();
             try
             {
-                try
-                {
-                    _cacheWriter.Write(indexId, fileId, container);
-                }
-                finally
-                {
-                    _referenceTableCache.Clear(indexId);
-                    _archiveSnapshotCache.Invalidate(new ArchiveKey(indexId, fileId));
-                }
+                WriteAndInvalidateUnderLock(indexId, fileId, container);
             }
             finally
             {
                 _snapshotReadWriteLock.ExitWriteLock();
+            }
+        }
+
+        private void WriteAndInvalidateUnderLock(int indexId, int fileId, IContainer container)
+        {
+            try
+            {
+                _cacheWriter.Write(indexId, fileId, container);
+            }
+            finally
+            {
+                _referenceTableCache.Clear(indexId);
+                _archiveSnapshotCache.Invalidate(new ArchiveKey(indexId, fileId));
             }
         }
 
