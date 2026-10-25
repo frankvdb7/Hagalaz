@@ -393,6 +393,31 @@ public sealed class TypeProviderSnapshotTests
         hook.Verify(current => current.AfterDecode(provider, It.Is<ISpriteType[]>(types => types.Length == 1)), Times.Once);
     }
 
+    [Fact]
+    public void SpriteGetRange_DisposesEarlierSpritesWhenLaterDecodeFails()
+    {
+        const int firstSpriteId = 5;
+        const int secondSpriteId = 6;
+        var cache = new Mock<ICacheAPI>();
+        cache.Setup(current => current.ReadReferenceTable(8))
+            .Returns(ReferenceTableWithMappings((firstSpriteId, 0, 13), (secondSpriteId, 0, 14)).Object);
+        cache.Setup(current => current.Read(8, firstSpriteId, 13)).Returns(new MemoryStream());
+        cache.Setup(current => current.Read(8, secondSpriteId, 14)).Returns(new MemoryStream());
+        var firstSprite = new Mock<ISpriteType>();
+        var codec = new Mock<ISpriteTypeCodec>();
+        codec.SetupSequence(current => current.Decode(It.IsAny<int>(), It.IsAny<MemoryStream>()))
+            .Returns(firstSprite.Object)
+            .Throws(new InvalidDataException("corrupt sprite"));
+        var provider = new SpriteTypeProvider(
+            cache.Object,
+            codec.Object,
+            new Mock<ITypeFactory<ISpriteType>>().Object);
+
+        Assert.Throws<InvalidDataException>(() => provider.GetRange(firstSpriteId, secondSpriteId + 1));
+
+        firstSprite.Verify(current => current.Dispose(), Times.Once);
+    }
+
     private static Mock<IReferenceTable> ReferenceTableWithChild(int archiveId, int childId, int? physicalIndex)
     {
         var table = new Mock<IReferenceTable>();

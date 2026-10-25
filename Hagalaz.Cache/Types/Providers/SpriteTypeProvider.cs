@@ -29,10 +29,20 @@ namespace Hagalaz.Cache.Types.Providers
         public ISpriteType[] GetRange(int startTypeId, int endTypeId)
         {
             var types = new List<ISpriteType>();
-            for (var id = startTypeId; id < endTypeId; id++)
-                types.Add(Get(id));
+            try
+            {
+                for (var id = startTypeId; id < endTypeId; id++)
+                    types.Add(Get(id));
 
-            return types.ToArray();
+                return types.ToArray();
+            }
+            catch
+            {
+                foreach (var type in types)
+                    type.Dispose();
+
+                throw;
+            }
         }
 
         public ISpriteType[] GetAll() => GetRange(0, ArchiveSize);
