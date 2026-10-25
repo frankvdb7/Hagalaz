@@ -67,6 +67,15 @@ namespace Hagalaz.Cache.Tests
         }
 
         [Fact]
+        public void Decode_WithUnterminatedName_ThrowsEndOfStreamException()
+        {
+            var codec = new ObjectTypeCodec();
+            using var stream = new MemoryStream([2, (byte)'N', (byte)'o']);
+
+            Assert.Throws<EndOfStreamException>(() => codec.Decode(1, stream));
+        }
+
+        [Fact]
         public void Encode_Decode_ClipType1_ShouldRestoreSameData()
         {
             // Arrange

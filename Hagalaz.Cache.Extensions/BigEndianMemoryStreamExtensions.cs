@@ -226,16 +226,25 @@ namespace Hagalaz.Cache.Extensions
         /// </summary>
         /// <param name="stream">The memory stream.</param>
         /// <returns>The decoded string.</returns>
+        /// <exception cref="EndOfStreamException">The stream ends before the null terminator.</exception>
         public static string ReadString(this MemoryStream stream)
         {
             var sb = new StringBuilder();
-            byte b;
-
-            while ((b = (byte)stream.ReadSignedByte()) != 0)
+            while (true)
             {
-                sb.Append((char)b);
+                var value = stream.ReadByte();
+                if (value < 0)
+                {
+                    throw new EndOfStreamException("Null-terminated string is missing its terminator.");
+                }
+
+                if (value == 0)
+                {
+                    return sb.ToString();
+                }
+
+                sb.Append((char)value);
             }
-            return sb.ToString();
         }
         
         /// <summary>
