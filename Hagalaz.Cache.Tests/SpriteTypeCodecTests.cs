@@ -127,6 +127,34 @@ namespace Hagalaz.Cache.Tests
             Assert.Throws<IndexOutOfRangeException>(() => codec.Decode(1, corruptStream));
         }
 
+        [Fact]
+        public void Decode_HorizontalAlphaPixels_PreservesPixelOrder()
+        {
+            var codec = new SpriteTypeCodec();
+            using var originalSprite = new SpriteType(1, 2, 2);
+            originalSprite.Image[0, 0] = new Rgba32(255, 0, 0, 64);
+            originalSprite.Image[0, 1] = new Rgba32(0, 255, 0, 128);
+            originalSprite.Image[1, 0] = new Rgba32(0, 0, 255, 192);
+            originalSprite.Image[1, 1] = new Rgba32(255, 255, 0, 255);
+
+            using var encoded = codec.Encode(originalSprite);
+            var horizontalData = encoded.ToArray();
+            horizontalData[0] = (byte)SpriteType.Flags.Alpha;
+            (horizontalData[2], horizontalData[3]) = (horizontalData[3], horizontalData[2]);
+            (horizontalData[6], horizontalData[7]) = (horizontalData[7], horizontalData[6]);
+            using var horizontalStream = new MemoryStream(horizontalData);
+
+            using var decodedSprite = (SpriteType)codec.Decode(originalSprite.Id, horizontalStream);
+
+            for (var y = 0; y < 2; y++)
+            {
+                for (var x = 0; x < 2; x++)
+                {
+                    Assert.Equal(originalSprite.Image[x, y], decodedSprite.Image.Frames[0][x, y]);
+                }
+            }
+        }
+
         private static SpriteType RoundTrip(SpriteTypeCodec codec, SpriteType originalSprite)
         {
             using var encodedStream = codec.Encode(originalSprite);
