@@ -10,7 +10,7 @@ using Hagalaz.Security;
 namespace Hagalaz.Cache.Logic
 {
     /// <summary>
-    /// Handles writing data to the cache, updating the necessary reference tables and checksums.
+    /// Handles writing data to existing cache archives, updating the necessary reference tables and checksums.
     /// </summary>
     public class CacheWriter : ICacheWriter
     {
@@ -31,32 +31,30 @@ namespace Hagalaz.Cache.Logic
         }
 
         /// <summary>
-        /// Writes a data container to a specific file in the cache, automatically updating the version, CRC, and whirlpool digest in the corresponding reference table.
+        /// Writes a data container to an existing archive in the cache, automatically updating the version, CRC, and whirlpool digest in the corresponding reference table.
         /// </summary>
         /// <param name="indexId">The identifier of the index (cache) to write to.</param>
         /// <param name="fileId">The identifier of the file to write.</param>
         /// <param name="container">The container holding the data to be written.</param>
-        /// <exception cref="IOException">Thrown if attempting to write to the master checksum table, which is managed automatically.</exception>
+        /// <exception cref="IOException">Thrown when attempting to write to the master checksum table or to an archive without an existing reference-table entry.</exception>
         public void Write(int indexId, int fileId, IContainer container)
         {
             /* we don't want people reading/manipulating these manually */
             if (indexId == 255 && fileId == 255)
                 throw new IOException("Checksum tables can only be read with the low level FileStore API!");
 
-            /* increment the container's version */
-            container.Version++;
-
             /* decode the reference table for this index */
             var table = _referenceTableProvider.ReadReferenceTable(indexId);
 
-            /* update the version and checksum for this file */
+            /* child member mappings cannot be inferred from a container write */
             var entry = table.GetEntry(fileId);
             if (entry == null)
             {
-                /* create a new entry for the file */
-                entry = new ReferenceTableEntry(fileId);
-                table.AddEntry(fileId, entry);
+                throw new IOException($"Cannot write archive {fileId} in index {indexId} without an existing reference-table entry.");
             }
+
+            /* increment the container's version and update the file metadata */
+            container.Version++;
             entry.Version = container.Version;
 
             /* grab the bytes we need for the checksum */

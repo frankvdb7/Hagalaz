@@ -110,6 +110,26 @@ public sealed class CacheWriterIntegrationTests
     }
 
     [Fact]
+    public void Write_WhenArchiveEntryIsMissing_RejectsBeforeWritingAnything()
+    {
+        var store = new MemoryFileStore();
+        var tableCodec = new ReferenceTableCodec();
+        SeedCache(store, tableCodec, ArchiveTestData.EncodeArchive([1, 2]));
+        var originalReferenceTableBytes = store.GetBytes(255, 16);
+        using var cache = CreateCache(store);
+        using var data = new MemoryStream([9, 8, 7]);
+        using var container = new Container(CompressionType.None, data, 5);
+
+        var exception = Assert.Throws<IOException>(() => cache.Write(16, 2, container));
+
+        Assert.Contains("reference-table entry", exception.Message);
+        Assert.Equal((short)5, container.Version);
+        Assert.Throws<FileNotFoundException>(() => store.Read(16, 2));
+        Assert.Equal(originalReferenceTableBytes, store.GetBytes(255, 16));
+        Assert.Null(cache.ReadReferenceTable(16).GetEntry(2));
+    }
+
+    [Fact]
     public async Task ConcurrentColdLookupsReadOnePhysicalReferenceTablePerIndex()
     {
         const int readerCount = 8;
