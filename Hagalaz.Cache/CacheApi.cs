@@ -28,6 +28,7 @@ namespace Hagalaz.Cache
         private readonly ArchiveEncoder _archiveEncoder = new();
         private readonly IReferenceTableCodec _referenceTableFactory;
         private readonly ReaderWriterLockSlim _snapshotReadWriteLock = new(LockRecursionPolicy.NoRecursion);
+        private readonly ArchiveSnapshotLoader _archiveSnapshotLoader;
         private readonly ArchiveSnapshotCache _archiveSnapshotCache;
         private readonly ReferenceTableCache _referenceTableCache;
 
@@ -43,7 +44,10 @@ namespace Hagalaz.Cache
             _containerFactory = containerFactory;
             _referenceTableFactory = referenceTableFactory;
             _archiveDecoder = archiveDecoder;
-            _archiveSnapshotCache = new ArchiveSnapshotCache(options.Value.ArchiveSnapshotCacheSizeBytes);
+            _archiveSnapshotLoader = new ArchiveSnapshotLoader(store, containerFactory, archiveDecoder);
+            _archiveSnapshotCache = new ArchiveSnapshotCache(
+                options.Value.ArchiveSnapshotCacheSizeBytes,
+                _archiveSnapshotLoader);
             _referenceTableCache = new ReferenceTableCache(referenceTableProvider, store.IndexFileCount);
         }
 
@@ -106,8 +110,7 @@ namespace Hagalaz.Cache
         /// <returns>A decoded <see cref="IContainer"/> containing the file's data.</returns>
         public IContainer ReadContainer(int indexId, int fileId)
         {
-            using var stream = Read(indexId, fileId);
-            return DecodeContainer(stream);
+            return _archiveSnapshotLoader.ReadContainer(indexId, fileId);
         }
 
         /// <summary>
@@ -249,29 +252,11 @@ namespace Hagalaz.Cache
                 return _archiveSnapshotCache.ReadMember(
                     new ArchiveKey(indexId, fileId),
                     subFileId,
-                    () => LoadArchiveSnapshot(indexId, fileId, entry.Capacity));
+                    entry.Capacity);
             }
             finally
             {
                 _snapshotReadWriteLock.ExitReadLock();
-            }
-        }
-
-        private ArchiveSnapshot LoadArchiveSnapshot(int indexId, int archiveId, int memberCount)
-        {
-            var loadStart = Stopwatch.GetTimestamp();
-            var loadSucceeded = false;
-            try
-            {
-                using var container = ReadContainer(indexId, archiveId);
-                using var archive = _archiveDecoder.Decode(container, memberCount);
-                var snapshot = ArchiveSnapshot.Create(archive);
-                loadSucceeded = true;
-                return snapshot;
-            }
-            finally
-            {
-                CacheMetrics.RecordArchiveLoad(loadSucceeded, Stopwatch.GetElapsedTime(loadStart).TotalSeconds);
             }
         }
 
@@ -287,53 +272,7 @@ namespace Hagalaz.Cache
         /// <exception cref="ArgumentException">Thrown if <paramref name="xteaKeys"/> does not contain exactly four keys.</exception>
         public IContainer ReadContainer(int indexId, int fileId, int[] xteaKeys)
         {
-            ArgumentNullException.ThrowIfNull(xteaKeys);
-            if (xteaKeys.Length != 4)
-            {
-                throw new ArgumentException("Exactly four XTEA keys are required.", nameof(xteaKeys));
-            }
-
-            /* we don't want people reading/manipulating these manually */
-            if (indexId == 255 && fileId == 255) throw new IOException("Checksum tables can only be read with the low level FileStore API!");
-
-            /* read the full compressed file */
-            using (var compressedFile = _store.Read(indexId, fileId))
-            {
-                /* if the xtea keys are not defined, return decoded container data as is */
-                if (xteaKeys[0] == 0 && xteaKeys[1] == 0 && xteaKeys[2] == 0 && xteaKeys[3] == 0) return DecodeContainer(compressedFile);
-
-                /* decrypt the compressed stream, starting at offset 5 to skip the header */
-                var buffer = compressedFile.ToArray();
-                var decrypted = XteaDecryptor.DecryptXtea(xteaKeys, buffer, 5, buffer.Length);
-
-                /* decode and return the decrypted data */
-                using (var stream = new MemoryStream(decrypted))
-                {
-                    /* decode and return the decrypted data */
-                    return DecodeContainer(stream);
-                }
-            }
-        }
-
-        private IContainer DecodeContainer(MemoryStream stream)
-        {
-            var decodeStart = Stopwatch.GetTimestamp();
-            Hagalaz.Cache.Abstractions.Model.CompressionType? compression = null;
-            var outcome = "failure";
-            try
-            {
-                var container = _containerFactory.Decode(stream);
-                compression = container.CompressionType;
-                outcome = "success";
-                return container;
-            }
-            finally
-            {
-                CacheMetrics.RecordContainerDecode(
-                    compression,
-                    outcome,
-                    Stopwatch.GetElapsedTime(decodeStart).TotalSeconds);
-            }
+            return _archiveSnapshotLoader.ReadContainer(indexId, fileId, xteaKeys);
         }
 
         /// <summary>

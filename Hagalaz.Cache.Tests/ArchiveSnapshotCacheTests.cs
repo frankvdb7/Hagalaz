@@ -3,7 +3,7 @@ using System.Diagnostics.Metrics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Hagalaz.Cache.Extensions;
+using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Metrics;
 using Hagalaz.Cache.Models;
@@ -17,8 +17,11 @@ public sealed class ArchiveSnapshotCacheTests
     [Fact]
     public void ReadMember_RetainsExactBudgetAndReportsAccessAndByteAccounting()
     {
+        var key = new ArchiveKey(0, 0);
         var snapshot = CreateSnapshot([1, 2, 3]);
-        var cache = new ArchiveSnapshotCache(snapshot.RetentionWeight);
+        using var fixture = new SnapshotCacheFixture();
+        fixture.SetArchive(key, [1, 2, 3]);
+        var cache = fixture.CreateCache(snapshot.RetentionWeight);
         var retainedBytes = new ConcurrentQueue<long>();
         var accesses = new ConcurrentQueue<string>();
         using var listener = CreateListener((instrument, value, tags) =>
@@ -38,89 +41,84 @@ public sealed class ArchiveSnapshotCacheTests
                 }
             }
         });
-        var loads = 0;
 
-        using (cache.ReadMember(new ArchiveKey(0, 0), 0, () =>
-               {
-                   Interlocked.Increment(ref loads);
-                   return snapshot;
-               }))
-        {
-        }
+        using (cache.ReadMember(key, 0, 1)) { }
+        using (cache.ReadMember(key, 0, 1)) { }
+        cache.Invalidate(key);
 
-        using (cache.ReadMember(new ArchiveKey(0, 0), 0, () =>
-               {
-                   Interlocked.Increment(ref loads);
-                   return snapshot;
-               }))
-        {
-        }
-
-        cache.Invalidate(new ArchiveKey(0, 0));
-
-        Assert.Equal(1, loads);
+        Assert.Equal(1, fixture.GetReadCount(key));
         Assert.Equal(new[] { "miss", "hit" }, accesses.ToArray());
         Assert.Equal(new[] { snapshot.RetentionWeight, -snapshot.RetentionWeight }, retainedBytes.ToArray());
     }
 
     [Fact]
+    public void ReadMember_RecordsContainerDecodeOnlyForColdArchiveLoad()
+    {
+        var key = new ArchiveKey(0, 0);
+        using var fixture = new SnapshotCacheFixture();
+        fixture.SetArchive(key, [1, 2, 3]);
+        var cache = fixture.CreateCache(1024);
+        var measurements = new ConcurrentQueue<string>();
+        using var listener = CreateDurationListener(instrument => measurements.Enqueue(instrument.Name));
+
+        using (cache.ReadMember(key, 0, 1)) { }
+        using (cache.ReadMember(key, 0, 1)) { }
+
+        Assert.Equal(1, measurements.Count(name => name == "hagalaz.cache.container.decode.duration"));
+        Assert.Equal(1, measurements.Count(name => name == "hagalaz.cache.archive.load.duration"));
+    }
+
+    [Fact]
     public void InvalidateIndex_RemovesOnlySnapshotsForThatIndex()
     {
-        var cache = new ArchiveSnapshotCache(1024 * 1024);
-        var loads = new Dictionary<ArchiveKey, int>();
+        using var fixture = new SnapshotCacheFixture();
+        var cache = fixture.CreateCache(1024 * 1024);
         var keys = new[] { new ArchiveKey(16, 1), new ArchiveKey(16, 2), new ArchiveKey(17, 1) };
 
         foreach (var key in keys)
         {
-            using var stream = cache.ReadMember(key, 0, () => Load(key));
+            fixture.SetArchive(key, [(byte)key.ArchiveId]);
+            using var stream = cache.ReadMember(key, 0, 1);
         }
 
         cache.InvalidateIndex(16);
 
         foreach (var key in keys)
         {
-            using var stream = cache.ReadMember(key, 0, () => Load(key));
+            using var stream = cache.ReadMember(key, 0, 1);
         }
 
-        Assert.Equal(2, loads[new ArchiveKey(16, 1)]);
-        Assert.Equal(2, loads[new ArchiveKey(16, 2)]);
-        Assert.Equal(1, loads[new ArchiveKey(17, 1)]);
-
-        ArchiveSnapshot Load(ArchiveKey key)
-        {
-            loads.TryGetValue(key, out var count);
-            loads[key] = count + 1;
-            return CreateSnapshot([(byte)key.ArchiveId]);
-        }
+        Assert.Equal(2, fixture.GetReadCount(new ArchiveKey(16, 1)));
+        Assert.Equal(2, fixture.GetReadCount(new ArchiveKey(16, 2)));
+        Assert.Equal(1, fixture.GetReadCount(new ArchiveKey(17, 1)));
     }
 
     [Fact]
     public void ReadMember_EvictsLeastRecentlyUsedEntryAndRetainsFittingSnapshots()
     {
         var firstSnapshot = CreateSnapshot([1]);
-        var secondSnapshot = CreateSnapshot([2]);
-        var thirdSnapshot = CreateSnapshot([3]);
-        var cache = new ArchiveSnapshotCache(firstSnapshot.RetentionWeight * 2);
-        var loads = new int[3];
+        var cacheCapacity = firstSnapshot.RetentionWeight * 2;
+        using var fixture = new SnapshotCacheFixture();
+        var cache = fixture.CreateCache(cacheCapacity);
+        var keys = new[] { new ArchiveKey(0, 1), new ArchiveKey(0, 2), new ArchiveKey(0, 3) };
+        fixture.SetArchive(keys[0], [1]);
+        fixture.SetArchive(keys[1], [2]);
+        fixture.SetArchive(keys[2], [3]);
 
-        using (cache.ReadMember(new ArchiveKey(0, 1), 0, Load(0, firstSnapshot))) { }
-        using (cache.ReadMember(new ArchiveKey(0, 2), 0, Load(1, secondSnapshot))) { }
-        using (cache.ReadMember(new ArchiveKey(0, 1), 0, Load(0, firstSnapshot))) { }
-        using (cache.ReadMember(new ArchiveKey(0, 3), 0, Load(2, thirdSnapshot))) { }
-        using (cache.ReadMember(new ArchiveKey(0, 1), 0, Load(0, firstSnapshot))) { }
-        using (cache.ReadMember(new ArchiveKey(0, 3), 0, Load(2, thirdSnapshot))) { }
+        using (cache.ReadMember(keys[0], 0, 1)) { }
+        using (cache.ReadMember(keys[1], 0, 1)) { }
+        using (cache.ReadMember(keys[0], 0, 1)) { }
+        using (cache.ReadMember(keys[2], 0, 1)) { }
+        using (cache.ReadMember(keys[0], 0, 1)) { }
+        using (cache.ReadMember(keys[2], 0, 1)) { }
 
-        Assert.Equal(new[] { 1, 1, 1 }, loads);
+        Assert.Equal(1, fixture.GetReadCount(keys[0]));
+        Assert.Equal(1, fixture.GetReadCount(keys[1]));
+        Assert.Equal(1, fixture.GetReadCount(keys[2]));
 
-        using (cache.ReadMember(new ArchiveKey(0, 2), 0, Load(1, secondSnapshot))) { }
+        using (cache.ReadMember(keys[1], 0, 1)) { }
 
-        Assert.Equal(new[] { 1, 2, 1 }, loads);
-
-        Func<ArchiveSnapshot> Load(int index, ArchiveSnapshot snapshot) => () =>
-        {
-            Interlocked.Increment(ref loads[index]);
-            return snapshot;
-        };
+        Assert.Equal(2, fixture.GetReadCount(keys[1]));
     }
 
     [Fact]
@@ -131,39 +129,47 @@ public sealed class ArchiveSnapshotCacheTests
 
         foreach (var capacity in new[] { 0L, snapshot.RetentionWeight - 1 })
         {
-            var cache = new ArchiveSnapshotCache(capacity);
-            var loads = 0;
-            using (cache.ReadMember(new ArchiveKey(0, 0), 0, Load)) { }
-            using (cache.ReadMember(new ArchiveKey(0, 0), 0, Load)) { }
-            Assert.Equal(2, loads);
+            using var fixture = new SnapshotCacheFixture();
+            var key = new ArchiveKey(0, 0);
+            fixture.SetArchive(key, [1, 2]);
+            var cache = fixture.CreateCache(capacity);
 
-            ArchiveSnapshot Load()
-            {
-                loads++;
-                return snapshot;
-            }
+            using (cache.ReadMember(key, 0, 1)) { }
+            using (cache.ReadMember(key, 0, 1)) { }
+
+            Assert.Equal(2, fixture.GetReadCount(key));
         }
     }
 
     [Fact]
     public void Constructor_RejectsNegativeCapacity()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new ArchiveSnapshotCache(-1));
+        using var fixture = new SnapshotCacheFixture();
+        Assert.Throws<ArgumentOutOfRangeException>(() => fixture.CreateCache(-1));
     }
 
     [Fact]
     public async Task ReadMember_SharesAnAttachedColdLoadAndPublishesOnlyOnce()
     {
-        var snapshot = CreateSnapshot([1, 2, 3]);
-        var cache = new ArchiveSnapshotCache(snapshot.RetentionWeight * 2);
+        var key = new ArchiveKey(0, 1);
+        using var fixture = new SnapshotCacheFixture();
+        fixture.SetArchive(key, [1, 2, 3]);
+        var cache = fixture.CreateCache(1024);
         using var loaderStarted = new ManualResetEventSlim();
         using var releaseLoader = new ManualResetEventSlim();
         using var joinSignal = new FlightJoinSignal();
-        var loads = 0;
-        var first = Task.Run(() => cache.ReadMember(new ArchiveKey(0, 1), 0, Load));
-        Assert.True(loaderStarted.Wait(TimeSpan.FromSeconds(10)));
+        fixture.BeforeRead = (_, _) =>
+        {
+            loaderStarted.Set();
+            if (!releaseLoader.Wait(TimeSpan.FromSeconds(10)))
+            {
+                throw new TimeoutException("The test did not release the gated snapshot load.");
+            }
+        };
 
-        var second = Task.Run(() => cache.ReadMember(new ArchiveKey(0, 1), 0, Load));
+        var first = Task.Run(() => cache.ReadMember(key, 0, 1));
+        Assert.True(loaderStarted.Wait(TimeSpan.FromSeconds(10)));
+        var second = Task.Run(() => cache.ReadMember(key, 0, 1));
         try
         {
             Assert.True(joinSignal.Joined.Wait(TimeSpan.FromSeconds(10)));
@@ -177,22 +183,10 @@ public sealed class ArchiveSnapshotCacheTests
         using var secondStream = await second;
         Assert.Equal(new byte[] { 1, 2, 3 }, firstStream.ToArray());
         Assert.Equal(new byte[] { 1, 2, 3 }, secondStream.ToArray());
-        Assert.Equal(1, loads);
+        Assert.Equal(1, fixture.GetReadCount(key));
 
-        using var retainedStream = cache.ReadMember(new ArchiveKey(0, 1), 0, Load);
-        Assert.Equal(1, loads);
-
-        ArchiveSnapshot Load()
-        {
-            Interlocked.Increment(ref loads);
-            loaderStarted.Set();
-            if (!releaseLoader.Wait(TimeSpan.FromSeconds(10)))
-            {
-                throw new TimeoutException("The test did not release the gated snapshot load.");
-            }
-
-            return snapshot;
-        }
+        using var retainedStream = cache.ReadMember(key, 0, 1);
+        Assert.Equal(1, fixture.GetReadCount(key));
     }
 
     [Theory]
@@ -200,17 +194,26 @@ public sealed class ArchiveSnapshotCacheTests
     [InlineData(-1)]
     public async Task ReadMember_SharesUnretainedFlightOnlyWhileCallersAreAttached(long capacityOffset)
     {
-        var snapshot = CreateSnapshot([7, 8], []);
-        var capacity = capacityOffset == 0 ? 0 : snapshot.RetentionWeight - 1;
-        var cache = new ArchiveSnapshotCache(capacity);
+        var key = new ArchiveKey(3, 4);
+        using var fixture = new SnapshotCacheFixture();
+        fixture.SetArchive(key, [7, 8], []);
         using var loaderStarted = new ManualResetEventSlim();
         using var releaseLoader = new ManualResetEventSlim();
         using var joinSignal = new FlightJoinSignal();
-        var loads = 0;
+        fixture.BeforeRead = (_, _) =>
+        {
+            loaderStarted.Set();
+            if (!releaseLoader.Wait(TimeSpan.FromSeconds(10)))
+            {
+                throw new TimeoutException("The test did not release the gated snapshot load.");
+            }
+        };
+        var capacity = capacityOffset == 0 ? 0 : CreateSnapshot([7, 8], []).RetentionWeight - 1;
+        var cache = fixture.CreateCache(capacity);
 
-        var first = Task.Run(() => cache.ReadMember(new ArchiveKey(3, 4), 0, Load));
+        var first = Task.Run(() => cache.ReadMember(key, 0, 2));
         Assert.True(loaderStarted.Wait(TimeSpan.FromSeconds(10)));
-        var second = Task.Run(() => cache.ReadMember(new ArchiveKey(3, 4), 1, Load));
+        var second = Task.Run(() => cache.ReadMember(key, 1, 2));
         try
         {
             Assert.True(joinSignal.Joined.Wait(TimeSpan.FromSeconds(10)));
@@ -224,81 +227,65 @@ public sealed class ArchiveSnapshotCacheTests
         using var secondStream = await second;
         Assert.Equal(new byte[] { 7, 8 }, firstStream.ToArray());
         Assert.Equal(0, secondStream.Length);
-        Assert.Equal(1, loads);
+        Assert.Equal(1, fixture.GetReadCount(key));
 
-        using var laterStream = cache.ReadMember(new ArchiveKey(3, 4), 0, Load);
-        Assert.Equal(2, loads);
-
-        ArchiveSnapshot Load()
-        {
-            Interlocked.Increment(ref loads);
-            loaderStarted.Set();
-            if (!releaseLoader.Wait(TimeSpan.FromSeconds(10)))
-            {
-                throw new TimeoutException("The test did not release the gated snapshot load.");
-            }
-
-            return snapshot;
-        }
+        using var laterStream = cache.ReadMember(key, 0, 2);
+        Assert.Equal(2, fixture.GetReadCount(key));
     }
 
     [Fact]
     public async Task ReadMember_LoadsDifferentArchivesIndependently()
     {
-        var cache = new ArchiveSnapshotCache(0);
-        using var bothLoadersStarted = new CountdownEvent(2);
-        using var releaseLoaders = new ManualResetEventSlim();
-        var firstSnapshot = CreateSnapshot([1]);
-        var secondSnapshot = CreateSnapshot([2]);
+        var firstKey = new ArchiveKey(0, 1);
+        var secondKey = new ArchiveKey(0, 2);
+        using var fixture = new SnapshotCacheFixture();
+        fixture.SetArchive(firstKey, [1]);
+        fixture.SetArchive(secondKey, [2]);
+        var cache = fixture.CreateCache(0);
+        using var bothLoadsStarted = new CountdownEvent(2);
+        using var releaseLoads = new ManualResetEventSlim();
+        fixture.BeforeRead = (_, _) =>
+        {
+            bothLoadsStarted.Signal();
+            if (!releaseLoads.Wait(TimeSpan.FromSeconds(10)))
+            {
+                throw new TimeoutException("The test did not release the gated snapshot loads.");
+            }
+        };
 
-        var first = Task.Run(() => cache.ReadMember(new ArchiveKey(0, 1), 0, Load(firstSnapshot)));
-        var second = Task.Run(() => cache.ReadMember(new ArchiveKey(0, 2), 0, Load(secondSnapshot)));
+        var first = Task.Run(() => cache.ReadMember(firstKey, 0, 1));
+        var second = Task.Run(() => cache.ReadMember(secondKey, 0, 1));
         try
         {
-            Assert.True(bothLoadersStarted.Wait(TimeSpan.FromSeconds(10)));
+            Assert.True(bothLoadsStarted.Wait(TimeSpan.FromSeconds(10)));
         }
         finally
         {
-            releaseLoaders.Set();
+            releaseLoads.Set();
         }
 
         using var firstStream = await first;
         using var secondStream = await second;
         Assert.Equal(new byte[] { 1 }, firstStream.ToArray());
         Assert.Equal(new byte[] { 2 }, secondStream.ToArray());
-
-        Func<ArchiveSnapshot> Load(ArchiveSnapshot snapshot) => () =>
-        {
-            bothLoadersStarted.Signal();
-            if (!releaseLoaders.Wait(TimeSpan.FromSeconds(10)))
-            {
-                throw new TimeoutException("The test did not release the gated snapshot loads.");
-            }
-
-            return snapshot;
-        };
     }
 
     [Fact]
     public void ReadMember_FailedLoadDoesNotPoisonRetryOrRetainFailure()
     {
-        var cache = new ArchiveSnapshotCache(1024);
-        var failure = new InvalidDataException("invalid archive");
-        var actual = Assert.Throws<InvalidDataException>(() => cache.ReadMember(
-            new ArchiveKey(0, 0), 0, () => throw failure));
+        var key = new ArchiveKey(0, 0);
+        using var fixture = new SnapshotCacheFixture();
+        fixture.SetArchiveData(key, [1]);
+        var cache = fixture.CreateCache(1024);
 
-        Assert.Same(failure, actual);
+        var actual = Assert.Throws<InvalidDataException>(() => cache.ReadMember(key, 0, 2));
+        Assert.Contains("footer", actual.Message);
 
-        var loads = 0;
-        var snapshot = CreateSnapshot([9]);
-        using var stream = cache.ReadMember(new ArchiveKey(0, 0), 0, () =>
-        {
-            loads++;
-            return snapshot;
-        });
+        fixture.SetArchive(key, [9]);
+        using var stream = cache.ReadMember(key, 0, 1);
 
         Assert.Equal(new byte[] { 9 }, stream.ToArray());
-        Assert.Equal(1, loads);
+        Assert.Equal(2, fixture.GetReadCount(key));
     }
 
     private static ArchiveSnapshot CreateSnapshot(params byte[][] members)
@@ -323,6 +310,66 @@ public sealed class ArchiveSnapshotCacheTests
         listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) => measurement(instrument, value, tags.ToArray()));
         listener.Start();
         return listener;
+    }
+
+    private static MeterListener CreateDurationListener(Action<Instrument> measurement)
+    {
+        var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, currentListener) =>
+        {
+            if (instrument.Meter.Name == CacheMetrics.MeterName)
+            {
+                currentListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<double>((instrument, _, _, _) => measurement(instrument));
+        listener.Start();
+        return listener;
+    }
+
+    private sealed class SnapshotCacheFixture : IFileStore
+    {
+        private readonly ConcurrentDictionary<ArchiveKey, byte[]> _files = new();
+        private readonly ConcurrentDictionary<ArchiveKey, int> _readCounts = new();
+
+        public int IndexFileCount => 255;
+        public Action<int, int>? BeforeRead { get; set; }
+
+        public ArchiveSnapshotCache CreateCache(long capacityBytes) => new(
+            capacityBytes,
+            new ArchiveSnapshotLoader(this, new ContainerDecoder(), new ArchiveDecoder()));
+
+        public void SetArchive(ArchiveKey key, params byte[][] members) =>
+            SetArchiveData(key, ArchiveTestData.EncodeArchive(members));
+
+        public void SetArchiveData(ArchiveKey key, byte[] archiveData)
+        {
+            using var data = new MemoryStream(archiveData);
+            using var container = new Container(data);
+            _files[key] = container.Encode();
+        }
+
+        public int GetReadCount(ArchiveKey key) => _readCounts.GetValueOrDefault(key);
+
+        public int GetFileCount(int indexId) => _files.Keys.Count(key => key.IndexId == indexId);
+
+        public MemoryStream Read(int indexId, int fileId)
+        {
+            var key = new ArchiveKey(indexId, fileId);
+            BeforeRead?.Invoke(indexId, fileId);
+            if (!_files.TryGetValue(key, out var data))
+            {
+                throw new FileNotFoundException();
+            }
+
+            _readCounts.AddOrUpdate(key, 1, (_, count) => count + 1);
+            return new MemoryStream(data, writable: false);
+        }
+
+        public void Write(int indexId, int fileId, MemoryStream data) =>
+            _files[new ArchiveKey(indexId, fileId)] = data.ToArray();
+
+        public void Dispose() { }
     }
 
     private sealed class FlightJoinSignal : IDisposable

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
+using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Metrics;
 using Hagalaz.Cache.Models;
 
@@ -13,12 +14,13 @@ internal sealed class ArchiveSnapshotCache
 {
     private readonly object _sync = new();
     private readonly long _capacityBytes;
+    private readonly ArchiveSnapshotLoader _loader;
     private readonly Dictionary<ArchiveKey, CacheEntry> _entries = [];
     private readonly LinkedList<ArchiveKey> _lru = [];
     private readonly Dictionary<ArchiveKey, LoadFlight> _flights = [];
     private long _retainedBytes;
 
-    public ArchiveSnapshotCache(long capacityBytes)
+    public ArchiveSnapshotCache(long capacityBytes, ArchiveSnapshotLoader loader)
     {
         if (capacityBytes < 0)
         {
@@ -26,9 +28,10 @@ internal sealed class ArchiveSnapshotCache
         }
 
         _capacityBytes = capacityBytes;
+        _loader = loader;
     }
 
-    public MemoryStream ReadMember(ArchiveKey key, int physicalMemberIndex, Func<ArchiveSnapshot> loadSnapshot)
+    public MemoryStream ReadMember(ArchiveKey key, int physicalMemberIndex, int memberCount)
     {
         ArchiveSnapshot? retainedSnapshot = null;
         LoadFlight? flight = null;
@@ -49,7 +52,7 @@ internal sealed class ArchiveSnapshotCache
             }
             else
             {
-                flight = new LoadFlight(loadSnapshot);
+                flight = new LoadFlight(() => _loader.LoadSnapshot(key, memberCount));
                 _flights.Add(key, flight);
             }
         }
