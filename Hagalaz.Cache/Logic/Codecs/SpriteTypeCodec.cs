@@ -55,8 +55,6 @@ namespace Hagalaz.Cache.Logic.Codecs
             for (var index = 1; index < palette.Length; index++)
             {
                 palette[index] = stream.ReadMedInt();
-                if (palette[index] == 0)
-                    palette[index] = 1;
             }
 
             var spriteType = new SpriteType(id, Width, Height);

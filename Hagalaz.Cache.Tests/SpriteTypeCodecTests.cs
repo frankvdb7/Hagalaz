@@ -67,6 +67,62 @@ namespace Hagalaz.Cache.Tests
         }
 
         [Fact]
+        public void Encode_Decode_OpaqueBlack_ShouldRemainBlackWithoutAlphaPlane()
+        {
+            var codec = new SpriteTypeCodec();
+            using var originalSprite = new SpriteType(1, 1, 1);
+            originalSprite.Image[0, 0] = new Rgba32(0, 0, 0, 255);
+
+            using var decodedSprite = RoundTrip(codec, originalSprite);
+
+            Assert.Equal(new Rgba32(0, 0, 0, 255), decodedSprite.Image.Frames[0][0, 0]);
+        }
+
+        [Fact]
+        public void Encode_Decode_BlackWithTransparencyAndPartialAlpha_ShouldPreservePixels()
+        {
+            var codec = new SpriteTypeCodec();
+            using var originalSprite = new SpriteType(1, 3, 1);
+            originalSprite.Image[0, 0] = new Rgba32(0, 0, 0, 128);
+            originalSprite.Image[1, 0] = new Rgba32(0, 0, 0, 0);
+            originalSprite.Image[2, 0] = new Rgba32(0, 0, 0, 255);
+
+            using var decodedSprite = RoundTrip(codec, originalSprite);
+
+            for (var x = 0; x < originalSprite.Image.Width; x++)
+            {
+                Assert.Equal(originalSprite.Image[x, 0], decodedSprite.Image.Frames[0][x, 0]);
+            }
+        }
+
+        [Fact]
+        public void Encode_Decode_AnimatedBlackPixels_ShouldPreserveColorAndAlphaInEveryFrame()
+        {
+            var codec = new SpriteTypeCodec();
+            using var originalSprite = new SpriteType(1, 3, 1);
+            originalSprite.Image[0, 0] = new Rgba32(0, 0, 0, 255);
+            originalSprite.Image[1, 0] = new Rgba32(0, 0, 0, 0);
+            originalSprite.Image[2, 0] = new Rgba32(0, 0, 0, 255);
+
+            using var secondFrame = new Image<Rgba32>(3, 1);
+            secondFrame[0, 0] = new Rgba32(0, 0, 0, 128);
+            secondFrame[1, 0] = new Rgba32(0, 0, 0, 0);
+            secondFrame[2, 0] = new Rgba32(0, 0, 0, 255);
+            originalSprite.Image.Frames.AddFrame(secondFrame.Frames.RootFrame);
+
+            using var decodedSprite = RoundTrip(codec, originalSprite);
+
+            Assert.Equal(2, decodedSprite.Image.Frames.Count);
+            for (var frameIndex = 0; frameIndex < originalSprite.Image.Frames.Count; frameIndex++)
+            {
+                for (var x = 0; x < originalSprite.Image.Width; x++)
+                {
+                    Assert.Equal(originalSprite.Image.Frames[frameIndex][x, 0], decodedSprite.Image.Frames[frameIndex][x, 0]);
+                }
+            }
+        }
+
+        [Fact]
         public void Encode_Decode_FullyTransparentRgbWithoutAlphaPlane_ShouldRemainTransparent()
         {
             var codec = new SpriteTypeCodec();
