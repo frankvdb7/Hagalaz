@@ -148,7 +148,7 @@ public static class TypeMutationEndpoints
             var type = provider.Get(typeId);
             var result = mutate(type);
 
-            var encodedType = codec.Encode(type);
+            using var encodedType = codec.Encode(type);
             PersistTypeEntry(cacheApi, typeData, typeId, encodedType);
 
             return TypedResults.Ok(result);
