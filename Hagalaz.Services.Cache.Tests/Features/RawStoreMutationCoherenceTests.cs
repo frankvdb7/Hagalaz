@@ -188,6 +188,48 @@ public sealed class RawStoreMutationCoherenceTests
         CollectionAssert.AreEqual(copiedReferenceTable, store.GetBytes(255, 16));
     }
 
+    [TestMethod]
+    public async Task RawMutationEndpoints_RejectNegativeDestinationIds()
+    {
+        var store = new MemoryFileStore();
+        store.Set(0, 0, [1]);
+
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
+        builder.Services.AddSingleton<IFileStore>(store);
+        builder.Services.AddGameCache();
+
+        await using var app = builder.Build();
+        app.MapGroup("/api/v1/cache").MapStoreMutationEndpoints();
+        await app.StartAsync();
+
+        var addresses = app.Services.GetRequiredService<IServer>()
+            .Features.Get<IServerAddressesFeature>()!.Addresses;
+        using var client = new HttpClient { BaseAddress = new Uri(addresses.Single()) };
+        var writeRequest = new StoreMutationEndpoints.WriteRawFileRequest(Convert.ToBase64String([2]));
+        var copyRequest = new StoreMutationEndpoints.CopyRawFileRequest(0, 0);
+
+        foreach (var path in new[]
+        {
+            "/api/v1/cache/store/indexes/-1/files/0/actions/write-raw",
+            "/api/v1/cache/store/indexes/0/files/-1/actions/write-raw"
+        })
+        {
+            using var response = await client.PostAsJsonAsync(path, writeRequest);
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode, await response.Content.ReadAsStringAsync());
+        }
+
+        foreach (var path in new[]
+        {
+            "/api/v1/cache/store/indexes/-1/files/0/actions/copy-raw",
+            "/api/v1/cache/store/indexes/0/files/-1/actions/copy-raw"
+        })
+        {
+            using var response = await client.PostAsJsonAsync(path, copyRequest);
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode, await response.Content.ReadAsStringAsync());
+        }
+    }
+
     private static async Task<string> ReadObjectNameAsync(HttpClient client, int id = 259)
     {
         var response = await client.GetFromJsonAsync<TypeEndpoints.ObjectTypeResponse>($"/api/v1/cache/types/objects/{id}");

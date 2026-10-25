@@ -19,6 +19,11 @@ public static class StoreMutationEndpoints
 
     private static IResult WriteRawFile(int indexId, int fileId, WriteRawFileRequest request, ICacheAPI cache)
     {
+        if (indexId < 0 || fileId < 0)
+        {
+            return TypedResults.BadRequest(EndpointErrors.Validation("indexId and fileId must be greater than or equal to 0."));
+        }
+
         if (string.IsNullOrWhiteSpace(request.DataBase64))
         {
             return TypedResults.BadRequest(EndpointErrors.Validation("dataBase64 is required."));
@@ -43,6 +48,11 @@ public static class StoreMutationEndpoints
 
     private static IResult CopyRawFile(int indexId, int fileId, CopyRawFileRequest request, ICacheAPI cache)
     {
+        if (indexId < 0 || fileId < 0)
+        {
+            return TypedResults.BadRequest(EndpointErrors.Validation("indexId and fileId must be greater than or equal to 0."));
+        }
+
         if (request.SourceIndexId < 0 || request.SourceFileId < 0)
         {
             return TypedResults.BadRequest(EndpointErrors.Validation("sourceIndexId and sourceFileId must be greater than or equal to 0."));
