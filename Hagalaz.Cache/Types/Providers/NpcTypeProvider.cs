@@ -17,6 +17,7 @@ namespace Hagalaz.Cache.Types.Providers
         private readonly INpcTypeCodec _codec;
         private readonly ITypeFactory<INpcType> _typeFactory;
         private readonly ITypeEventHook<INpcType>? _typeEventHook;
+        private readonly CacheTypeDecoder<INpcType> _decoder;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="NpcTypeProvider"/> class.
@@ -31,6 +32,7 @@ namespace Hagalaz.Cache.Types.Providers
             _codec = codec;
             _typeFactory = typeFactory;
             _typeEventHook = typeEventHook;
+            _decoder = new CacheTypeDecoder<INpcType>(_cache, _typeData, _typeFactory, _codec, _typeEventHook);
         }
 
         /// <inheritdoc />
@@ -39,7 +41,7 @@ namespace Hagalaz.Cache.Types.Providers
         /// <inheritdoc />
         public INpcType Get(int typeId)
         {
-            return TypeProvider<INpcType, NpcTypeData>.DecodeFromCache(this, _cache, _typeData, _typeFactory, _codec, _typeEventHook, typeId);
+            return _decoder.Decode(this, typeId);
         }
 
         /// <inheritdoc />
@@ -49,29 +51,43 @@ namespace Hagalaz.Cache.Types.Providers
             var table = _cache.ReadReferenceTable(_typeData.IndexId);
             IArchive? archive = null;
             var currentArchiveId = -1;
+            var typeId = startTypeId;
 
-            for (var typeId = startTypeId; typeId < endTypeId; typeId++)
+            try
             {
-                var archiveId = _typeData.GetArchiveId(typeId);
-                if (archiveId != currentArchiveId)
+                while (typeId < endTypeId)
                 {
-                    archive = _cache.ReadArchive(_typeData.IndexId, archiveId);
-                    currentArchiveId = archiveId;
+                    var archiveId = _typeData.GetArchiveId(typeId);
+                    if (archiveId != currentArchiveId)
+                    {
+                        var previousArchive = archive;
+                        archive = null;
+                        previousArchive?.Dispose();
+                        archive = _cache.ReadArchive(_typeData.IndexId, archiveId);
+                        currentArchiveId = archiveId;
+                    }
+
+                    var entry = table.GetEntry(archiveId, _typeData.GetArchiveEntryId(typeId));
+                    if (entry is not null && archive is not null)
+                    {
+                        var stream = archive.GetEntry(entry.Index);
+                        types[typeId - startTypeId] = _codec.Decode(typeId, stream);
+                    }
+                    else
+                    {
+                        types[typeId - startTypeId] = _typeFactory.CreateType(typeId);
+                    }
+
+                    typeId++;
                 }
 
-                var entry = table.GetEntry(archiveId, _typeData.GetArchiveEntryId(typeId));
-                if (entry == null || archive == null)
-                {
-                    types[typeId - startTypeId] = _typeFactory.CreateType(typeId);
-                    continue;
-                }
-
-                var stream = archive.GetEntry(entry.Index);
-                types[typeId - startTypeId] = _codec.Decode(typeId, stream);
+                _typeEventHook?.AfterDecode(this, types);
+                return types;
             }
-
-            _typeEventHook?.AfterDecode(this, types);
-            return types;
+            finally
+            {
+                archive?.Dispose();
+            }
         }
 
         /// <inheritdoc />

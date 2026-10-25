@@ -8,6 +8,7 @@ using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Types.Data;
+using Hagalaz.Cache.Types.Hooks;
 using Hagalaz.Cache.Types.Providers;
 using Moq;
 using Xunit;
@@ -136,6 +137,112 @@ public sealed class TypeProviderSnapshotTests
 
         cache.Verify(current => current.Read(typeData.IndexId, archiveId, It.IsAny<int>()), Times.Never);
         factory.Verify(current => current.CreateType(itemId), Times.Once);
+    }
+
+    [Fact]
+    public void NpcAndObjectGet_PreserveFactoryFallbackWhenParentArchiveIsAbsent()
+    {
+        const int npcId = 133;
+        const int objectId = 259;
+        var cache = new Mock<ICacheAPI>();
+        cache.Setup(current => current.ReadReferenceTable(18)).Returns(ReferenceTableWithoutArchive(1));
+        cache.Setup(current => current.ReadReferenceTable(16)).Returns(ReferenceTableWithoutArchive(1));
+        var npcFallback = new Mock<INpcType>().Object;
+        var objectFallback = new Mock<IObjectType>().Object;
+        var npcFactory = new Mock<ITypeFactory<INpcType>>();
+        npcFactory.Setup(current => current.CreateType(npcId)).Returns(npcFallback);
+        var objectFactory = new Mock<ITypeFactory<IObjectType>>();
+        objectFactory.Setup(current => current.CreateType(objectId)).Returns(objectFallback);
+        var npcProvider = new NpcTypeProvider(cache.Object, new Mock<INpcTypeCodec>().Object, npcFactory.Object);
+        var objectProvider = new ObjectTypeProvider(cache.Object, new Mock<IObjectTypeCodec>().Object, objectFactory.Object);
+
+        Assert.Same(npcFallback, npcProvider.Get(npcId));
+        Assert.Same(objectFallback, objectProvider.Get(objectId));
+
+        cache.Verify(current => current.Read(18, 1, It.IsAny<int>()), Times.Never);
+        cache.Verify(current => current.Read(16, 1, It.IsAny<int>()), Times.Never);
+        npcFactory.Verify(current => current.CreateType(npcId), Times.Once);
+        objectFactory.Verify(current => current.CreateType(objectId), Times.Once);
+    }
+
+    [Fact]
+    public void ItemNpcAndObjectGet_FallBackForMissingChildMappings()
+    {
+        const int itemId = 259;
+        const int npcId = 133;
+        const int objectId = 259;
+        var cache = new Mock<ICacheAPI>();
+        cache.Setup(current => current.ReadReferenceTable(19)).Returns(ReferenceTableWithChild(1, 3, null).Object);
+        cache.Setup(current => current.ReadReferenceTable(18)).Returns(ReferenceTableWithChild(1, 5, null).Object);
+        cache.Setup(current => current.ReadReferenceTable(16)).Returns(ReferenceTableWithChild(1, 3, null).Object);
+        var itemFallback = new Mock<IItemType>().Object;
+        var npcFallback = new Mock<INpcType>().Object;
+        var objectFallback = new Mock<IObjectType>().Object;
+        var itemFactory = new Mock<ITypeFactory<IItemType>>();
+        var npcFactory = new Mock<ITypeFactory<INpcType>>();
+        var objectFactory = new Mock<ITypeFactory<IObjectType>>();
+        itemFactory.Setup(current => current.CreateType(itemId)).Returns(itemFallback);
+        npcFactory.Setup(current => current.CreateType(npcId)).Returns(npcFallback);
+        objectFactory.Setup(current => current.CreateType(objectId)).Returns(objectFallback);
+        var itemProvider = new ItemTypeProvider(cache.Object, new Mock<IItemTypeCodec>().Object, itemFactory.Object);
+        var npcProvider = new NpcTypeProvider(cache.Object, new Mock<INpcTypeCodec>().Object, npcFactory.Object);
+        var objectProvider = new ObjectTypeProvider(cache.Object, new Mock<IObjectTypeCodec>().Object, objectFactory.Object);
+
+        Assert.Same(itemFallback, itemProvider.Get(itemId));
+        Assert.Same(npcFallback, npcProvider.Get(npcId));
+        Assert.Same(objectFallback, objectProvider.Get(objectId));
+
+        cache.Verify(current => current.Read(19, 1, It.IsAny<int>()), Times.Never);
+        cache.Verify(current => current.Read(18, 1, It.IsAny<int>()), Times.Never);
+        cache.Verify(current => current.Read(16, 1, It.IsAny<int>()), Times.Never);
+        itemFactory.Verify(current => current.CreateType(itemId), Times.Once);
+        npcFactory.Verify(current => current.CreateType(npcId), Times.Once);
+        objectFactory.Verify(current => current.CreateType(objectId), Times.Once);
+    }
+
+    [Fact]
+    public void ItemGet_RealRelationshipHookResolvesRelatedItemsThroughTheOwningProvider()
+    {
+        const int itemId = 259;
+        const int noteId = 2;
+        const int noteTemplateId = 1;
+        var table = ReferenceTableWithMappings((1, 3, 7), (0, noteId, 8), (0, noteTemplateId, 9));
+        var cache = new Mock<ICacheAPI>();
+        cache.Setup(current => current.ReadReferenceTable(19)).Returns(table.Object);
+        var rootStream = new MemoryStreamSpy();
+        var noteStream = new MemoryStreamSpy();
+        var templateStream = new MemoryStreamSpy();
+        cache.Setup(current => current.Read(19, 1, 7)).Returns(rootStream);
+        cache.Setup(current => current.Read(19, 0, 8)).Returns(noteStream);
+        cache.Setup(current => current.Read(19, 0, 9)).Returns(templateStream);
+
+        var root = new Mock<IItemType>();
+        root.SetupGet(current => current.NoteId).Returns(noteId);
+        root.SetupGet(current => current.NoteTemplateId).Returns(noteTemplateId);
+        root.SetupGet(current => current.LendTemplateId).Returns(-1);
+        root.SetupGet(current => current.BoughtTemplateId).Returns(-1);
+        var note = ItemWithoutRelationships();
+        var template = ItemWithoutRelationships();
+        var decodedById = new Dictionary<int, IItemType>
+        {
+            [itemId] = root.Object,
+            [noteId] = note.Object,
+            [noteTemplateId] = template.Object
+        };
+        var codec = new Mock<IItemTypeCodec>();
+        codec.Setup(current => current.Decode(It.IsAny<int>(), It.IsAny<MemoryStream>()))
+            .Returns((int typeId, MemoryStream _) => decodedById[typeId]);
+        var provider = new ItemTypeProvider(cache.Object, codec.Object, new Mock<ITypeFactory<IItemType>>().Object, new ItemTypeEventHook());
+
+        Assert.Same(root.Object, provider.Get(itemId));
+
+        root.Verify(current => current.MakeNote(note.Object, template.Object), Times.Once);
+        Assert.True(rootStream.IsDisposed);
+        Assert.True(noteStream.IsDisposed);
+        Assert.True(templateStream.IsDisposed);
+        cache.Verify(current => current.Read(19, 1, 7), Times.Once);
+        cache.Verify(current => current.Read(19, 0, 8), Times.Once);
+        cache.Verify(current => current.Read(19, 0, 9), Times.Once);
     }
 
     [Fact]
@@ -300,6 +407,27 @@ public sealed class TypeProviderSnapshotTests
         }
 
         return table;
+    }
+
+    private static Mock<IReferenceTable> ReferenceTableWithMappings(params (int ArchiveId, int ChildId, int PhysicalIndex)[] mappings)
+    {
+        var table = new Mock<IReferenceTable>();
+        foreach (var (archiveId, childId, physicalIndex) in mappings)
+        {
+            table.Setup(current => current.GetEntry(archiveId)).Returns(new Mock<IReferenceTableEntry>().Object);
+            table.Setup(current => current.GetEntry(archiveId, childId)).Returns(CreateChild(physicalIndex));
+        }
+
+        return table;
+    }
+
+    private static Mock<IItemType> ItemWithoutRelationships()
+    {
+        var item = new Mock<IItemType>();
+        item.SetupGet(current => current.NoteTemplateId).Returns(-1);
+        item.SetupGet(current => current.LendTemplateId).Returns(-1);
+        item.SetupGet(current => current.BoughtTemplateId).Returns(-1);
+        return item;
     }
 
     private static ReferenceTable ReferenceTableWithoutArchive(int archiveId) =>

@@ -1,0 +1,6 @@
+- [x] 1. Add the focused archive-batch disposal behavior to the cache/provider specification and create this ownership-focused change record. A5.
+- [x] 2. Add `CacheTypeDecoder<T>`, compose it in the five existing providers, and remove the static decoding methods without changing provider behavior. A1, A2.
+- [x] 3. Extract `ReferenceTableCache`, compose it in `CacheApi`, and preserve mutation invalidation and lock order. A3, A4.
+- [x] 4. Dispose archives on switches and all exits in generic and NPC range reads; add success, decode-failure, and hook-failure regression coverage. A5.
+- [x] 5. Run focused tests, full build and solution tests, strict OpenSpec validation, baseline-relative jscpd, and `git diff --check`. A6.
+- [x] 6. Complete cumulative self-review, verify public and DI boundaries, and report benchmark availability. A6.

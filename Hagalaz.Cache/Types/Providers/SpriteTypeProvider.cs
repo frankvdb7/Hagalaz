@@ -11,23 +11,19 @@ namespace Hagalaz.Cache.Types.Providers
     {
         private readonly SpriteTypeData _typeData = new();
         private readonly ICacheAPI _cache;
-        private readonly ISpriteTypeCodec _codec;
-        private readonly ITypeFactory<ISpriteType> _typeFactory;
-        private readonly ITypeEventHook<ISpriteType>? _typeEventHook;
+        private readonly CacheTypeDecoder<ISpriteType> _decoder;
 
         public SpriteTypeProvider(ICacheAPI cache, ISpriteTypeCodec codec, ITypeFactory<ISpriteType> typeFactory, ITypeEventHook<ISpriteType>? typeEventHook = null)
         {
             _cache = cache;
-            _codec = codec;
-            _typeFactory = typeFactory;
-            _typeEventHook = typeEventHook;
+            _decoder = new CacheTypeDecoder<ISpriteType>(_cache, _typeData, typeFactory, codec, typeEventHook);
         }
 
         public int ArchiveSize => _typeData.GetArchiveSize(_cache);
 
         public ISpriteType Get(int typeId)
         {
-            return TypeProvider<ISpriteType, SpriteTypeData>.DecodeFromCacheWithRequiredArchive(this, _cache, _typeData, _typeFactory, _codec, _typeEventHook, typeId);
+            return _decoder.DecodeWithRequiredArchive(this, typeId);
         }
 
         public ISpriteType[] GetRange(int startTypeId, int endTypeId)

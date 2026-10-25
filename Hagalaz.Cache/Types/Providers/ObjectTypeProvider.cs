@@ -13,9 +13,7 @@ namespace Hagalaz.Cache.Types.Providers
     {
         private readonly ObjectTypeData _typeData = new();
         private readonly ICacheAPI _cache;
-        private readonly IObjectTypeCodec _codec;
-        private readonly ITypeFactory<IObjectType> _typeFactory;
-        private readonly ITypeEventHook<IObjectType>? _typeEventHook;
+        private readonly CacheTypeDecoder<IObjectType> _decoder;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ObjectTypeProvider"/> class.
@@ -27,9 +25,7 @@ namespace Hagalaz.Cache.Types.Providers
         public ObjectTypeProvider(ICacheAPI cache, IObjectTypeCodec codec, ITypeFactory<IObjectType> typeFactory, ITypeEventHook<IObjectType>? typeEventHook = null)
         {
             _cache = cache;
-            _codec = codec;
-            _typeFactory = typeFactory;
-            _typeEventHook = typeEventHook;
+            _decoder = new CacheTypeDecoder<IObjectType>(_cache, _typeData, typeFactory, codec, typeEventHook);
         }
 
         /// <inheritdoc />
@@ -38,7 +34,7 @@ namespace Hagalaz.Cache.Types.Providers
         /// <inheritdoc />
         public IObjectType Get(int typeId)
         {
-            return TypeProvider<IObjectType, ObjectTypeData>.DecodeFromCache(this, _cache, _typeData, _typeFactory, _codec, _typeEventHook, typeId);
+            return _decoder.Decode(this, typeId);
         }
 
         /// <inheritdoc />
