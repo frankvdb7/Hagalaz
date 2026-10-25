@@ -183,22 +183,9 @@ namespace Hagalaz.Services.GameWorld.Data
                 })
                 .ToArrayAsync(cancellationToken);
 
-            var staticObjectSpawns = new List<StaticObjectSpawn>();
             var collisionTiles = new List<CollisionTile>();
             cancellationToken.ThrowIfCancellationRequested();
             var decodedRegion = _mapProvider.DecodeRegion(region.Id, region.XteaKeys, cancellationToken);
-            foreach (var objectPlacement in decodedRegion.ObjectPlacements)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                staticObjectSpawns.Add(new StaticObjectSpawn(
-                    objectPlacement.Id,
-                    objectPlacement.ShapeType,
-                    objectPlacement.Rotation,
-                    objectPlacement.X,
-                    objectPlacement.Y,
-                    objectPlacement.Z));
-            }
-
             foreach (var blockedTile in decodedRegion.BlockedTiles)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -206,13 +193,13 @@ namespace Hagalaz.Services.GameWorld.Data
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            var objectIds = staticObjectSpawns.Select(spawn => spawn.Id)
+            var objectIds = decodedRegion.ObjectPlacements.Select(placement => placement.Id)
                 .Concat(objectSpawns.Select(spawn => (int)spawn.GameobjectId))
                 .Distinct()
                 .ToArray();
-            activity?.SetTag("map.region.static_gameobject_placement_count", staticObjectSpawns.Count);
+            activity?.SetTag("map.region.static_gameobject_placement_count", decodedRegion.ObjectPlacements.Count);
             activity?.SetTag("map.region.database_gameobject_spawn_count", objectSpawns.Length);
-            activity?.SetTag("map.region.gameobject_placement_count", staticObjectSpawns.Count + objectSpawns.Length);
+            activity?.SetTag("map.region.gameobject_placement_count", decodedRegion.ObjectPlacements.Count + objectSpawns.Length);
             activity?.SetTag("map.region.gameobject.definition_id_count", objectIds.Length);
             activity?.SetTag("map.region.npc_spawn_count", npcSpawns.Length);
 
@@ -227,13 +214,13 @@ namespace Hagalaz.Services.GameWorld.Data
             }
             cancellationToken.ThrowIfCancellationRequested();
 
-            foreach (var spawn in staticObjectSpawns)
+            foreach (var spawn in decodedRegion.ObjectPlacements)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var location = _locationBuilder.Create()
                     .FromLocation(region.BaseLocation)
                     .WithZ(spawn.Z)
-                    .ToRegionCoordinates(spawn.LocalX, spawn.LocalY, region.Size.X, region.Size.Y)
+                    .ToRegionCoordinates(spawn.X, spawn.Y, region.Size.X, region.Size.Y)
                     .Build();
                 var gameObject = _gameObjectBuilder
                     .Create()
@@ -383,7 +370,6 @@ namespace Hagalaz.Services.GameWorld.Data
             NpcSpawnDto[] NpcSpawns,
             List<CollisionTile> CollisionTiles);
 
-        private readonly record struct StaticObjectSpawn(int Id, int ShapeType, int Rotation, int LocalX, int LocalY, int Z);
         private readonly record struct CollisionTile(int LocalX, int LocalY, int Z);
     }
 }

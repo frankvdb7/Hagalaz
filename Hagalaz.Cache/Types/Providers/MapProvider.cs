@@ -72,15 +72,12 @@ namespace Hagalaz.Cache.Types.Providers
             cancellationToken.ThrowIfCancellationRequested();
             var (terrainData, objects) = DecodeMapData(regionId, xteaKeys);
             var blockedTiles = DecodeGround(terrainData, cancellationToken);
-            var objectPlacements = new List<IMapObject>(objects.Count);
-
-            foreach (var obj in objects)
+            foreach (var _ in objects)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                objectPlacements.Add(obj);
             }
 
-            return new DecodedMapRegion(objectPlacements, blockedTiles);
+            return new DecodedMapRegion(objects, blockedTiles);
         }
 
         private (sbyte[,,] TerrainData, System.Collections.Generic.List<MapObject> Objects) DecodeMapData(int regionId, int[] xteaKeys)
