@@ -196,3 +196,12 @@ High-level writes to an existing archive MUST advance that archive's reference-t
 
 - **WHEN** two high-level writes replace members of an archive whose reference-table entry starts at version 5
 - **THEN** the entry version is 7, the final member bytes are readable, and the physical container keeps the existing trailer-free encoding
+
+### Requirement: Checksum generation coordinates with local cache writes
+
+The Cache API MUST prevent local writes from interleaving with a checksum-table calculation performed by the same cache instance.
+
+#### Scenario: Checksum generation overlaps an archive mutation
+
+- **WHEN** a local archive mutation begins while the Cache API is calculating the checksum table
+- **THEN** the mutation waits until checksum generation finishes, and the checksum uses a consistent set of reference-table bytes

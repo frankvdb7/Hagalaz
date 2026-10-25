@@ -162,6 +162,61 @@ public sealed class CacheWriterIntegrationTests
     }
 
     [Fact]
+    public async Task CreateChecksumTable_WaitsForConcurrentArchiveMutationToFinish()
+    {
+        using var backingStore = new MemoryFileStore();
+        var tableCodec = new ReferenceTableCodec();
+        SeedCache(backingStore, tableCodec, ArchiveTestData.EncodeArchive([1, 2, 3]));
+        var originalReferenceTable = backingStore.GetBytes(255, 16);
+        using var store = new BlockingChecksumFileStore(backingStore);
+        using var cache = CreateCache(store);
+        _ = cache.ReadReferenceTable(16);
+        store.BlockNextChecksumRead();
+
+        var checksumTask = Task.Factory.StartNew(
+            cache.CreateChecksumTable,
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+        Task? mutationTask = null;
+
+        try
+        {
+            Assert.True(store.ChecksumReferenceReadEntered.Wait(TimeSpan.FromSeconds(10)));
+            using var mutationStarted = new ManualResetEventSlim();
+            mutationTask = Task.Factory.StartNew(
+                () =>
+                {
+                    mutationStarted.Set();
+                    cache.ReplaceArchiveMember(16, 1, 0, new byte[] { 9, 8, 7 });
+                },
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
+
+            Assert.True(mutationStarted.Wait(TimeSpan.FromSeconds(10)));
+            Assert.False(
+                store.ArchiveWriteEntered.Wait(TimeSpan.FromMilliseconds(200)),
+                "The archive mutation must wait until checksum generation releases its read lock.");
+        }
+        finally
+        {
+            store.ReleaseChecksumReferenceRead.Set();
+            await checksumTask;
+            if (mutationTask is not null)
+            {
+                await mutationTask;
+            }
+        }
+
+        var checksumTable = await checksumTask;
+        Assert.Equal(
+            BufferUtilities.GetCrcChecksum(originalReferenceTable, 0, originalReferenceTable.Length),
+            checksumTable[16].Crc32);
+        Assert.True(store.ArchiveWriteEntered.IsSet);
+    }
+
+    [Fact]
     public async Task ConcurrentColdLookupsReadOnePhysicalReferenceTablePerIndex()
     {
         const int readerCount = 8;
@@ -275,5 +330,58 @@ public sealed class CacheWriterIntegrationTests
         using var stream = new MemoryStream(store.GetBytes(16, 1));
         using var container = containerDecoder.Decode(stream);
         Assert.Equal((short)-1, container.Version);
+    }
+
+    private sealed class BlockingChecksumFileStore(MemoryFileStore inner) : IFileStore
+    {
+        private int _blockChecksumRead;
+
+        public ManualResetEventSlim ChecksumReferenceReadEntered { get; } = new();
+        public ManualResetEventSlim ReleaseChecksumReferenceRead { get; } = new();
+        public ManualResetEventSlim ArchiveWriteEntered { get; } = new();
+
+        public int IndexFileCount => inner.IndexFileCount;
+
+        public int GetFileCount(int indexId) => inner.GetFileCount(indexId);
+
+        public MemoryStream Read(int indexId, int fileId)
+        {
+            if (indexId == 255 && fileId == 16 && Interlocked.Exchange(ref _blockChecksumRead, 0) == 1)
+            {
+                ChecksumReferenceReadEntered.Set();
+                if (!ReleaseChecksumReferenceRead.Wait(TimeSpan.FromSeconds(10)))
+                {
+                    throw new TimeoutException("The checksum-table read was not released.");
+                }
+            }
+
+            try
+            {
+                return inner.Read(indexId, fileId);
+            }
+            catch (FileNotFoundException) when (indexId == 255)
+            {
+                return new MemoryStream();
+            }
+        }
+
+        public void Write(int indexId, int fileId, MemoryStream data)
+        {
+            if (indexId == 16 && fileId == 1)
+            {
+                ArchiveWriteEntered.Set();
+            }
+
+            inner.Write(indexId, fileId, data);
+        }
+
+        public void Dispose()
+        {
+            ChecksumReferenceReadEntered.Dispose();
+            ReleaseChecksumReferenceRead.Dispose();
+            ArchiveWriteEntered.Dispose();
+        }
+
+        public void BlockNextChecksumRead() => Interlocked.Exchange(ref _blockChecksumRead, 1);
     }
 }

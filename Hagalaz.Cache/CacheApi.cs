@@ -377,40 +377,48 @@ namespace Hagalaz.Cache
         /// <returns>The generated <see cref="ChecksumTable"/>.</returns>
         public IChecksumTable CreateChecksumTable()
         {
-            /* create the checksum table */
-            int size = _store.IndexFileCount;
-            var table = new ChecksumTable(size);
-
-            /* loop through all the reference tables and get their CRC and versions */
-            for (var cacheId = 0; cacheId < size; cacheId++)
+            _snapshotReadWriteLock.EnterReadLock();
+            try
             {
-                int crc32 = 0;
-                int version = 0;
-                var whirlpool = new byte[64];
+                /* create the checksum table */
+                int size = _store.IndexFileCount;
+                var table = new ChecksumTable(size);
 
-                using (var buffer = _store.Read(255, cacheId))
+                /* loop through all the reference tables and get their CRC and versions */
+                for (var cacheId = 0; cacheId < size; cacheId++)
                 {
-                    // if there is actually a reference table, calculate the CRC,
-                    // version and whirlpool hash
-                    if (buffer.Length > 0)
-                    {
-                        using (var dataStream = _containerFactory.Decode(buffer).Data)
-                        {
-                            var referenceTable = _referenceTableFactory.Decode(dataStream, false);
+                    int crc32 = 0;
+                    int version = 0;
+                    var whirlpool = new byte[64];
 
-                            var data = buffer.ToArray();
-                            version = referenceTable.Version;
-                            crc32 = BufferUtilities.GetCrcChecksum(data, 0, data.Length);
-                            whirlpool = Whirlpool.GenerateDigest(data, 0, data.Length);
+                    using (var buffer = _store.Read(255, cacheId))
+                    {
+                        // if there is actually a reference table, calculate the CRC,
+                        // version and whirlpool hash
+                        if (buffer.Length > 0)
+                        {
+                            using (var dataStream = _containerFactory.Decode(buffer).Data)
+                            {
+                                var referenceTable = _referenceTableFactory.Decode(dataStream, false);
+
+                                var data = buffer.ToArray();
+                                version = referenceTable.Version;
+                                crc32 = BufferUtilities.GetCrcChecksum(data, 0, data.Length);
+                                whirlpool = Whirlpool.GenerateDigest(data, 0, data.Length);
+                            }
                         }
                     }
+
+                    table.SetEntry(cacheId, new ChecksumTableEntry(crc32, version, whirlpool));
                 }
 
-                table.SetEntry(cacheId, new ChecksumTableEntry(crc32, version, whirlpool));
+                /* return the table */
+                return table;
             }
-
-            /* return the table */
-            return table;
+            finally
+            {
+                _snapshotReadWriteLock.ExitReadLock();
+            }
         }
 
         /// <summary>
