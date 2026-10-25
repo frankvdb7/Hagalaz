@@ -25,7 +25,7 @@ namespace Hagalaz.Cache.Tests
     }
 
     [Collection(CacheApiTelemetryCollection.Name)]
-    public class CacheApiTests
+    public class CacheApiTests : IDisposable
     {
         private readonly Mock<IFileStore> _fileStoreMock;
         private readonly Mock<IReferenceTableProvider> _referenceTableProviderMock;
@@ -45,6 +45,12 @@ namespace Hagalaz.Cache.Tests
             _archiveDecoderMock = new Mock<IArchiveDecoder>();
             _fileStoreMock.SetupGet(store => store.IndexFileCount).Returns(255);
             _cacheApi = new CacheApi(_fileStoreMock.Object, _referenceTableProviderMock.Object, _cacheWriterMock.Object, _containerDecoderMock.Object, _referenceTableCodecMock.Object, _archiveDecoderMock.Object, Options.Create(new CacheOptions()));
+        }
+
+        public void Dispose()
+        {
+            _cacheApi.Dispose();
+            _fileStoreMock.Object.Dispose();
         }
 
         [Fact]

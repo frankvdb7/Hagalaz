@@ -13,6 +13,7 @@ using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Abstractions.Types.Factories;
 using Hagalaz.Cache.Abstractions.Types.Providers;
+using Hagalaz.Cache;
 using Hagalaz.Cache.Types.Factories;
 using Hagalaz.Cache.Models;
 
@@ -81,6 +82,40 @@ namespace Hagalaz.Cache.Extensions.Tests
             Assert.Equal(ServiceLifetime.Transient, _services.GetLifetime<ITypeEventHook<IItemType>>());
             Assert.Equal(ServiceLifetime.Transient, _services.GetLifetime<ITypeEventHook<IObjectType>>());
             Assert.Equal(ServiceLifetime.Transient, _services.GetLifetime<ITypeEventHook<IAnimationType>>());
+        }
+
+        [Fact]
+        public void AddGameCache_DisposesFileStoreOnceWhenServiceProviderIsDisposed()
+        {
+            var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+
+            FileStream OpenStoreFile(string fileName) => new(
+                Path.Combine(directory, fileName),
+                FileMode.Create,
+                FileAccess.ReadWrite,
+                FileShare.ReadWrite);
+
+            var loader = new Mock<IFileStoreLoader>();
+            loader.Setup(current => current.Open(It.IsAny<string>())).Returns(() => new FileStore(
+                    OpenStoreFile("main_file_cache.dat2"),
+                    [OpenStoreFile("main_file_cache.idx0")],
+                    OpenStoreFile("main_file_cache.idx255"),
+                    new IndexCodec(),
+                    new SectorCodec()));
+            _services.AddSingleton(loader.Object);
+            _services.AddGameCache();
+
+            try
+            {
+                using var serviceProvider = _services.BuildServiceProvider();
+                serviceProvider.GetRequiredService<ICacheAPI>();
+                serviceProvider.GetRequiredService<IFileStore>();
+            }
+            finally
+            {
+                Directory.Delete(directory, recursive: true);
+            }
         }
 
         [Fact]

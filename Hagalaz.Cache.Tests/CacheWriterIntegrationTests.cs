@@ -23,7 +23,7 @@ public sealed class CacheWriterIntegrationTests
     [Fact]
     public void Write_RefreshesMemoizedTableAndSnapshotWithPersistedVersionAndChecksum()
     {
-        var store = new MemoryFileStore();
+        using var store = new MemoryFileStore();
         var tableCodec = new ReferenceTableCodec();
         var initialArchiveBytes = ArchiveTestData.EncodeArchive([1, 2, 3]);
         SeedCache(store, tableCodec, initialArchiveBytes);
@@ -64,7 +64,7 @@ public sealed class CacheWriterIntegrationTests
     [Fact]
     public void Write_WhenReferenceTablePersistenceFailsDoesNotMutateCachedTableObject()
     {
-        var backingStore = new MemoryFileStore();
+        using var backingStore = new MemoryFileStore();
         var tableCodec = new ReferenceTableCodec();
         var initialArchiveBytes = ArchiveTestData.EncodeArchive([1, 2]);
         SeedCache(backingStore, tableCodec, initialArchiveBytes);
@@ -83,7 +83,7 @@ public sealed class CacheWriterIntegrationTests
 
                 backingStore.Write(indexId, fileId, data);
             });
-        store.Setup(current => current.Dispose()).Callback(backingStore.Dispose);
+        using var storeObject = store.Object;
         using var cache = CreateCache(store.Object);
 
         var cachedTable = cache.ReadReferenceTable(16);
@@ -112,7 +112,7 @@ public sealed class CacheWriterIntegrationTests
     [Fact]
     public void Write_WhenArchiveEntryIsMissing_RejectsBeforeWritingAnything()
     {
-        var store = new MemoryFileStore();
+        using var store = new MemoryFileStore();
         var tableCodec = new ReferenceTableCodec();
         SeedCache(store, tableCodec, ArchiveTestData.EncodeArchive([1, 2]));
         var originalReferenceTableBytes = store.GetBytes(255, 16);
@@ -133,7 +133,7 @@ public sealed class CacheWriterIntegrationTests
     public async Task ConcurrentColdLookupsReadOnePhysicalReferenceTablePerIndex()
     {
         const int readerCount = 8;
-        var store = new MemoryFileStore();
+        using var store = new MemoryFileStore();
         var tableCodec = new ReferenceTableCodec();
         SeedCache(store, tableCodec, ArchiveTestData.EncodeArchive([1]));
         using var decoderStarted = new ManualResetEventSlim();

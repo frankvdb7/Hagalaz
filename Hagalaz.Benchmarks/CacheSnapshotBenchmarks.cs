@@ -70,6 +70,7 @@ public class CacheSnapshotMemberReadBenchmarks
         _archiveReconstructionCache.Dispose();
         _coldSnapshotCache.Dispose();
         _warmSnapshotCache.Dispose();
+        _fixture.Dispose();
     }
 }
 
@@ -132,6 +133,7 @@ public class CacheSnapshotConcurrentReadBenchmarks
         _archiveReconstructionCache.Dispose();
         _coldSnapshotCache.Dispose();
         _warmSnapshotCache.Dispose();
+        _fixture.Dispose();
     }
 }
 
@@ -172,6 +174,7 @@ public class CacheReferenceTableMemoizationBenchmarks
     {
         _memoizedCache.Dispose();
         _directStore.Dispose();
+        _fixture.Dispose();
     }
 }
 
@@ -208,6 +211,7 @@ public class CacheArchiveSnapshotLruBenchmarks
     {
         _archiveReconstructionCache.Dispose();
         _lruCache.Dispose();
+        _fixture.Dispose();
     }
 
     private static long ReadThreeArchives(CacheApi cache, bool useSnapshots)
@@ -277,6 +281,7 @@ public class CacheObjectDefinitionWorkloadBenchmarks
         _legacyCache.Dispose();
         _zeroRetentionCache.Dispose();
         _snapshotCache.Dispose();
+        _fixture.Dispose();
     }
 
     private static ObjectTypeProvider CreateProvider(CacheApi cache) =>
@@ -360,13 +365,14 @@ internal static class CacheBenchmarkReads
     }
 }
 
-internal sealed class CacheBenchmarkFixture
+internal sealed class CacheBenchmarkFixture : IDisposable
 {
     public const int ObjectIndexId = 16;
     public const int ObjectMembersPerArchive = 256;
     public const int ObjectDefinitionLookupCount = 19_967;
 
     private readonly Dictionary<(int IndexId, int FileId), byte[]> _files;
+    private readonly List<IFileStore> _cacheStores = [];
 
     private CacheBenchmarkFixture(
         int indexId,
@@ -423,6 +429,7 @@ internal sealed class CacheBenchmarkFixture
     public CacheApi CreateCache(long snapshotCapacityBytes)
     {
         var store = CreateStore();
+        _cacheStores.Add(store);
         var containerDecoder = new ContainerDecoder();
         var referenceTableCodec = new ReferenceTableCodec();
         var referenceTableProvider = new ReferenceTableProvider(store, containerDecoder, referenceTableCodec);
@@ -439,6 +446,16 @@ internal sealed class CacheBenchmarkFixture
     }
 
     public IFileStore CreateStore() => new BenchmarkFileStore(_files);
+
+    public void Dispose()
+    {
+        foreach (var store in _cacheStores)
+        {
+            store.Dispose();
+        }
+
+        _cacheStores.Clear();
+    }
 
     private static CacheBenchmarkFixture CreateFixture(
         int indexId,

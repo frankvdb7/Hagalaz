@@ -724,6 +724,10 @@ public sealed class CacheApiSnapshotTests
 
         public byte[] GetStoredBytes(int indexId, int archiveId) => _archiveBytes[(indexId, archiveId)];
 
-        public void Dispose() => Cache.Dispose();
+        public void Dispose()
+        {
+            Cache.Dispose();
+            _store.Object.Dispose();
+        }
     }
 }

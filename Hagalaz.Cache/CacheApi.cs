@@ -475,9 +475,10 @@ namespace Hagalaz.Cache
         }
 
         /// <summary>
-        /// Disposes of the underlying file store, releasing any file handles.
+        /// Disposes resources owned by this cache API instance.
         /// </summary>
         /// <remarks>
+        /// The injected file store is externally owned and must be disposed by its composition root.
         /// The production DI registration keeps this instance as a singleton for the service process lifetime.
         /// Snapshot retained-byte measurements use a process-wide meter and are not reconciled here, so replacing
         /// a cache instance within the same process requires adding the corresponding retained-byte cleanup.
@@ -485,7 +486,6 @@ namespace Hagalaz.Cache
         public void Dispose()
         {
             _snapshotReadWriteLock.Dispose();
-            _store.Dispose();
         }
     }
 }
