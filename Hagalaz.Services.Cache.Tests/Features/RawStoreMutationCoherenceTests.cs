@@ -8,10 +8,6 @@ using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types;
 using Hagalaz.Services.Cache.Features;
 using Hagalaz.TestSupport;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Hosting.Server;
-using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -99,18 +95,8 @@ public sealed class RawStoreMutationCoherenceTests
         store.Set(255, 16, EncodeReferenceTable(referenceTableCodec, memberCount: 2, mapObjectToLastMember: true));
         store.Set(16, 1, initialArchive);
 
-        var builder = WebApplication.CreateBuilder();
-        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
-        builder.Services.AddSingleton<IFileStore>(store);
-        builder.Services.AddGameCache();
-
-        await using var app = builder.Build();
-        app.MapGroup("/api/v1/cache").MapTypeEndpoints();
-        await app.StartAsync();
-
-        var addresses = app.Services.GetRequiredService<IServer>()
-            .Features.Get<IServerAddressesFeature>()!.Addresses;
-        using var client = new HttpClient { BaseAddress = new Uri(addresses.Single()) };
+        await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
 
         Assert.AreEqual("initial", await ReadObjectNameAsync(client, 259));
 
@@ -139,20 +125,12 @@ public sealed class RawStoreMutationCoherenceTests
             EncodeObject(objectCodec, "copy-0"),
             EncodeObject(objectCodec, "copy-1"))));
 
-        var builder = WebApplication.CreateBuilder();
-        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
-        builder.Services.AddSingleton<IFileStore>(store);
-        builder.Services.AddGameCache();
-
-        await using var app = builder.Build();
-        var cacheGroup = app.MapGroup("/api/v1/cache");
-        cacheGroup.MapStoreMutationEndpoints();
-        cacheGroup.MapTypeEndpoints();
-        await app.StartAsync();
-
-        var addresses = app.Services.GetRequiredService<IServer>()
-            .Features.Get<IServerAddressesFeature>()!.Addresses;
-        using var client = new HttpClient { BaseAddress = new Uri(addresses.Single()) };
+        await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup =>
+        {
+            cacheGroup.MapStoreMutationEndpoints();
+            cacheGroup.MapTypeEndpoints();
+        });
+        using var client = CacheServiceTestHost.CreateClient(app);
 
         Assert.AreEqual("initial-0", await ReadObjectNameAsync(client));
 
@@ -194,18 +172,8 @@ public sealed class RawStoreMutationCoherenceTests
         var store = new MemoryFileStore();
         store.Set(0, 0, [1]);
 
-        var builder = WebApplication.CreateBuilder();
-        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
-        builder.Services.AddSingleton<IFileStore>(store);
-        builder.Services.AddGameCache();
-
-        await using var app = builder.Build();
-        app.MapGroup("/api/v1/cache").MapStoreMutationEndpoints();
-        await app.StartAsync();
-
-        var addresses = app.Services.GetRequiredService<IServer>()
-            .Features.Get<IServerAddressesFeature>()!.Addresses;
-        using var client = new HttpClient { BaseAddress = new Uri(addresses.Single()) };
+        await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapStoreMutationEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
         var writeRequest = new StoreMutationEndpoints.WriteRawFileRequest(Convert.ToBase64String([2]));
         var copyRequest = new StoreMutationEndpoints.CopyRawFileRequest(0, 0);
 

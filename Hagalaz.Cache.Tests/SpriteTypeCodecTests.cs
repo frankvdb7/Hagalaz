@@ -17,9 +17,7 @@ namespace Hagalaz.Cache.Tests
             originalSprite.Image[0, 0] = new Rgba32(255, 0, 0);
 
             // Act
-            using var encodedStream = codec.Encode(originalSprite);
-            encodedStream.Position = 0;
-            using var decodedSprite = (SpriteType)codec.Decode(originalSprite.Id, encodedStream);
+            using var decodedSprite = RoundTrip(codec, originalSprite);
 
             // Assert
             Assert.Equal(originalSprite.Image[0,0], decodedSprite.Image.Frames[0][0, 0]);
@@ -41,9 +39,7 @@ namespace Hagalaz.Cache.Tests
             originalSprite.Image.Frames.AddFrame(secondImage.Frames.RootFrame);
 
             // Act
-            using var encodedStream = codec.Encode(originalSprite);
-            encodedStream.Position = 0;
-            using var decodedSprite = (SpriteType)codec.Decode(originalSprite.Id, encodedStream);
+            using var decodedSprite = RoundTrip(codec, originalSprite);
 
             // Assert
             Assert.Equal(originalSprite.Image.Frames.Count, decodedSprite.Image.Frames.Count);
@@ -63,9 +59,7 @@ namespace Hagalaz.Cache.Tests
             originalSprite.Image[0, 0] = new Rgba32(255, 0, 0, 128);
 
             // Act
-            using var encodedStream = codec.Encode(originalSprite);
-            encodedStream.Position = 0;
-            using var decodedSprite = (SpriteType)codec.Decode(originalSprite.Id, encodedStream);
+            using var decodedSprite = RoundTrip(codec, originalSprite);
 
             // Assert
             Assert.Equal(originalSprite.Image[0,0], decodedSprite.Image.Frames[0][0,0]);
@@ -81,9 +75,7 @@ namespace Hagalaz.Cache.Tests
             originalSprite.Image[5, 10] = new Rgba32(128, 0, 128);
 
             // Act
-            using var encodedStream = codec.Encode(originalSprite);
-            encodedStream.Position = 0;
-            using var decodedSprite = (SpriteType)codec.Decode(originalSprite.Id, encodedStream);
+            using var decodedSprite = RoundTrip(codec, originalSprite);
 
             // Assert
             Assert.Equal(originalSprite.Image.Width, decodedSprite.Image.Width);
@@ -105,9 +97,7 @@ namespace Hagalaz.Cache.Tests
             originalSprite.Image[6, 9] = new Rgba32(255, 0, 0);
 
             // Act
-            using var encodedStream = codec.Encode(originalSprite);
-            encodedStream.Position = 0;
-            using var decodedSprite = (SpriteType)codec.Decode(originalSprite.Id, encodedStream);
+            using var decodedSprite = RoundTrip(codec, originalSprite);
 
             // Assert
             Assert.Equal(originalSprite.Image.Width, decodedSprite.Image.Width);
@@ -121,6 +111,13 @@ namespace Hagalaz.Cache.Tests
 
             // Check a pixel outside the square to ensure it's transparent
             Assert.Equal(new Rgba32(0,0,0,0), decodedSprite.Image.Frames[0][0, 0]);
+        }
+
+        private static SpriteType RoundTrip(SpriteTypeCodec codec, SpriteType originalSprite)
+        {
+            using var encodedStream = codec.Encode(originalSprite);
+            encodedStream.Position = 0;
+            return (SpriteType)codec.Decode(originalSprite.Id, encodedStream);
         }
     }
 }

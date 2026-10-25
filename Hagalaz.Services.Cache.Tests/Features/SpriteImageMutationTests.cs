@@ -1,17 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
-using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Model;
-using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Services.Cache.Features;
 using Hagalaz.TestSupport;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Hosting.Server;
-using Microsoft.AspNetCore.Hosting.Server.Features;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -54,18 +47,8 @@ public sealed class SpriteImageMutationTests
 
         store.Set(8, 0, EncodeContainer([0]));
 
-        var builder = WebApplication.CreateBuilder();
-        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
-        builder.Services.AddSingleton<IFileStore>(store);
-        builder.Services.AddGameCache();
-
-        await using var app = builder.Build();
-        app.MapGroup("/api/v1/cache").MapTypeEndpoints();
-        await app.StartAsync();
-
-        var addresses = app.Services.GetRequiredService<IServer>()
-            .Features.Get<IServerAddressesFeature>()!.Addresses;
-        using var client = new HttpClient { BaseAddress = new Uri(addresses.Single()) };
+        await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
 
         using var content = new ByteArrayContent(sourceBytes);
         using var mutationResponse = await client.PostAsync($"/api/v1/cache/types/sprites/{spriteId}/image", content);
