@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Extensions;
@@ -163,7 +162,8 @@ namespace Hagalaz.Cache.Logic.Codecs
             using var metaDataStream = new MemoryStream();
 
             const int maxPaletteEntries = byte.MaxValue + 1;
-            var paletteSet = new HashSet<Rgba32> { new Rgba32(0, 0, 0, 0) };
+            var palette = new List<int> { 0 };
+            var paletteMap = new Dictionary<int, byte>();
             bool hasAlpha = false;
 
             foreach (var frame in instance.Image.Frames)
@@ -177,21 +177,28 @@ namespace Hagalaz.Cache.Logic.Codecs
                         {
                             hasAlpha = true;
                         }
-                        if (paletteSet.Add(rgba) && paletteSet.Count > maxPaletteEntries)
+
+                        if (rgba.A == 0)
                         {
-                            throw new ArgumentException(
-                                $"Sprite images support at most {maxPaletteEntries} palette entries, including the reserved transparent entry.",
-                                nameof(instance));
+                            continue;
+                        }
+
+                        var color = rgba.R << 16 | rgba.G << 8 | rgba.B;
+                        if (!paletteMap.ContainsKey(color))
+                        {
+                            if (palette.Count == maxPaletteEntries)
+                            {
+                                throw new ArgumentException(
+                                    $"Sprite images support at most {maxPaletteEntries - 1} visible RGB colors plus the reserved transparent entry ({maxPaletteEntries} palette entries total).",
+                                    nameof(instance));
+                            }
+
+                            var paletteIndex = (byte)palette.Count;
+                            palette.Add(color);
+                            paletteMap.Add(color, paletteIndex);
                         }
                     }
                 }
-            }
-
-            var palette = paletteSet.ToList();
-            var paletteMap = new Dictionary<Rgba32, byte>();
-            for (int i = 0; i < palette.Count; i++)
-            {
-                paletteMap[palette[i]] = (byte)i;
             }
 
             var offsetsX = new int[instance.Image.Frames.Count];
@@ -221,7 +228,9 @@ namespace Hagalaz.Cache.Logic.Codecs
                 {
                     for (var y = 0; y < height; y++)
                     {
-                        pixelDataStream.WriteByte(paletteMap[frame[x + minX, y + minY]]);
+                        var rgba = frame[x + minX, y + minY];
+                        var color = rgba.R << 16 | rgba.G << 8 | rgba.B;
+                        pixelDataStream.WriteByte(rgba.A == 0 ? (byte)0 : paletteMap[color]);
                     }
                 }
 
@@ -239,8 +248,7 @@ namespace Hagalaz.Cache.Logic.Codecs
 
             for (var i = 1; i < palette.Count; i++)
             {
-                var color = palette[i];
-                paletteDataStream.WriteMedInt(color.R << 16 | color.G << 8 | color.B);
+                paletteDataStream.WriteMedInt(palette[i]);
             }
 
             metaDataStream.WriteShort(instance.Image.Width);

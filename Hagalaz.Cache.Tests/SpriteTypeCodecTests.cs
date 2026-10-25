@@ -67,6 +67,71 @@ namespace Hagalaz.Cache.Tests
         }
 
         [Fact]
+        public void Encode_Decode_FullyTransparentRgbWithoutAlphaPlane_ShouldRemainTransparent()
+        {
+            var codec = new SpriteTypeCodec();
+            using var originalSprite = new SpriteType(1, 3, 1);
+            originalSprite.Image[0, 0] = new Rgba32(255, 0, 0, 255);
+            originalSprite.Image[1, 0] = new Rgba32(255, 0, 255, 0);
+            originalSprite.Image[2, 0] = new Rgba32(0, 255, 0, 255);
+
+            using var decodedSprite = RoundTrip(codec, originalSprite);
+
+            Assert.Equal(new Rgba32(0, 0, 0, 0), decodedSprite.Image.Frames[0][1, 0]);
+        }
+
+        [Fact]
+        public void Encode_Decode_AnimatedFramesWithTransparentRgbAndAlphaVariants_ShouldPreserveVisiblePixels()
+        {
+            var codec = new SpriteTypeCodec();
+            using var originalSprite = new SpriteType(1, 257, 1);
+            using var secondFrame = new Image<Rgba32>(257, 1);
+
+            for (var x = 0; x < 257; x++)
+            {
+                originalSprite.Image[x, 0] = x switch
+                {
+                    0 => new Rgba32(20, 40, 60, 255),
+                    1 => new Rgba32(255, 0, 255, 0),
+                    _ => new Rgba32(20, 40, 60, (byte)(x - 1))
+                };
+
+                secondFrame[x, 0] = x switch
+                {
+                    0 => new Rgba32(20, 40, 60, 255),
+                    1 => new Rgba32(255, 0, 255, 0),
+                    _ => new Rgba32(20, 40, 60, (byte)(257 - x))
+                };
+            }
+
+            originalSprite.Image.Frames.AddFrame(secondFrame.Frames.RootFrame);
+
+            using var decodedSprite = RoundTrip(codec, originalSprite);
+
+            Assert.Equal(2, decodedSprite.Image.Frames.Count);
+            for (var frameIndex = 0; frameIndex < originalSprite.Image.Frames.Count; frameIndex++)
+            {
+                for (var x = 0; x < originalSprite.Image.Width; x++)
+                {
+                    var expected = originalSprite.Image.Frames[frameIndex][x, 0];
+                    var actual = decodedSprite.Image.Frames[frameIndex][x, 0];
+
+                    Assert.Equal(expected.A, actual.A);
+                    if (expected.A == 0)
+                    {
+                        Assert.Equal(new Rgba32(0, 0, 0, 0), actual);
+                    }
+                    else
+                    {
+                        Assert.Equal(expected.R, actual.R);
+                        Assert.Equal(expected.G, actual.G);
+                        Assert.Equal(expected.B, actual.B);
+                    }
+                }
+            }
+        }
+
+        [Fact]
         public void Encode_Decode_DifferentDimensions_ShouldRestoreCorrectly()
         {
             // Arrange
@@ -172,7 +237,26 @@ namespace Hagalaz.Cache.Tests
 
             var exception = Assert.Throws<ArgumentException>(() => codec.Encode(sprite));
 
-            Assert.Contains("256 palette entries", exception.Message);
+            Assert.Contains("255 visible RGB colors", exception.Message);
+        }
+
+        [Fact]
+        public void Encode_Decode_MaximumPaletteColorCount_ShouldSucceed()
+        {
+            var codec = new SpriteTypeCodec();
+            using var originalSprite = new SpriteType(1, 255, 1);
+
+            for (var x = 0; x < 255; x++)
+            {
+                originalSprite.Image[x, 0] = new Rgba32(10, 0, (byte)x);
+            }
+
+            using var decodedSprite = RoundTrip(codec, originalSprite);
+
+            for (var x = 0; x < 255; x++)
+            {
+                Assert.Equal(originalSprite.Image[x, 0], decodedSprite.Image.Frames[0][x, 0]);
+            }
         }
 
         private static SpriteType RoundTrip(SpriteTypeCodec codec, SpriteType originalSprite)
