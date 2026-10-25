@@ -186,7 +186,17 @@ namespace Hagalaz.Cache.Extensions
         /// </summary>
         /// <param name="stream">The memory stream.</param>
         /// <returns>The signed byte as an integer.</returns>
-        public static int ReadSignedByte(this MemoryStream stream) => (sbyte)stream.ReadByte();
+        /// <exception cref="EndOfStreamException">The stream ends before a byte can be read.</exception>
+        public static int ReadSignedByte(this MemoryStream stream)
+        {
+            var value = stream.ReadByte();
+            if (value < 0)
+            {
+                throw new EndOfStreamException("Cannot read a signed byte past the end of the stream.");
+            }
+
+            return (sbyte)value;
+        }
         
         /// <summary>
         /// Reads a single unsigned byte from the stream.

@@ -324,9 +324,12 @@ namespace Hagalaz.Cache.Tests
             var codec = new ObjectTypeCodec();
 
             var decoded = (ObjectType)codec.Decode(1, new MemoryStream(definitionBytes));
+            decoded.Name = "Edited crate";
             using var encoded = codec.Encode(decoded);
             var roundTripped = (ObjectType)codec.Decode(1, new MemoryStream(encoded.ToArray()));
 
+            Assert.Equal("Edited crate", roundTripped.Name);
+            Assert.Equal("Search", roundTripped.Actions[0]);
             Assert.Equal((ushort)56, roundTripped.Opcode190To195Payloads![0]);
         }
 

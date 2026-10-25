@@ -206,9 +206,11 @@ namespace Hagalaz.Cache.Tests
             var codec = new NpcTypeCodec();
 
             var decoded = (NpcType)codec.Decode(0, new MemoryStream(definitionBytes));
+            decoded.CombatLevel = 77;
             using var encoded = codec.Encode(decoded);
             var roundTripped = (NpcType)codec.Decode(0, new MemoryStream(encoded.ToArray()));
 
+            Assert.Equal(77, roundTripped.CombatLevel);
             Assert.Equal((ushort)44, roundTripped.Opcode170To175Payloads![0]);
         }
 

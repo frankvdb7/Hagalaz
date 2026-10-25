@@ -118,6 +118,30 @@ namespace Hagalaz.Cache.Extensions.Tests
             Assert.Equal(-10, stream.ReadSignedByte());
         }
 
+        [Fact]
+        public void ReadSignedByte_ThrowsAtEndOfStream()
+        {
+            using var stream = new MemoryStream();
+
+            Assert.Throws<EndOfStreamException>(() => stream.ReadSignedByte());
+        }
+
+        [Fact]
+        public void ReadUnsignedByte_ThrowsAtEndOfStream()
+        {
+            using var stream = new MemoryStream();
+
+            Assert.Throws<EndOfStreamException>(() => stream.ReadUnsignedByte());
+        }
+
+        [Fact]
+        public void ReadUnsignedShort_ThrowsWhenInputIsTruncated()
+        {
+            using var stream = new MemoryStream([0x12]);
+
+            Assert.Throws<EndOfStreamException>(() => stream.ReadUnsignedShort());
+        }
+
         [Theory]
         [InlineData(100)]
         [InlineData(200)]

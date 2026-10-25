@@ -233,12 +233,14 @@ public sealed class RawStoreMutationCoherenceTests
         Assert.AreEqual("copy-1", await ReadObjectNameAsync(client));
         CollectionAssert.AreEqual(copySourceArchive, store.GetBytes(16, 1));
 
-        var copiedReferenceTable = EncodeReferenceTable(referenceTableCodec, memberCount: 2, mapObjectToLastMember: false);
+        var copiedReferenceTable = EncodeReferenceTable(referenceTableCodec, memberCount: 1, mapObjectToLastMember: false);
         store.Set(255, 17, copiedReferenceTable);
         var referenceTableCopyResponse = await client.PostAsJsonAsync(
             "/api/v1/cache/store/indexes/255/files/16/actions/copy-raw",
             new StoreMutationEndpoints.CopyRawFileRequest(255, 17));
         Assert.AreEqual(HttpStatusCode.OK, referenceTableCopyResponse.StatusCode, await referenceTableCopyResponse.Content.ReadAsStringAsync());
+        var cacheApi = app.Services.GetRequiredService<ICacheAPI>();
+        Assert.IsNotNull(cacheApi.ReadReferenceTable(16).GetEntry(1, 3));
         Assert.AreEqual("copy-0", await ReadObjectNameAsync(client));
         CollectionAssert.AreEqual(copiedReferenceTable, store.GetBytes(255, 16));
     }
@@ -314,7 +316,12 @@ public sealed class RawStoreMutationCoherenceTests
 
     private static async Task<string> ReadObjectNameAsync(HttpClient client, int id = 259)
     {
-        var response = await client.GetFromJsonAsync<TypeEndpoints.ObjectTypeResponse>($"/api/v1/cache/types/objects/{id}");
+        using var httpResponse = await client.GetAsync($"/api/v1/cache/types/objects/{id}");
+        var responseBody = await httpResponse.Content.ReadAsStringAsync();
+        Assert.AreEqual(HttpStatusCode.OK, httpResponse.StatusCode, responseBody);
+        var response = System.Text.Json.JsonSerializer.Deserialize<TypeEndpoints.ObjectTypeResponse>(
+            responseBody,
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
         Assert.IsNotNull(response);
         return response.Name;
     }
