@@ -29,23 +29,28 @@ public sealed class SpriteImageMutationTests
         await AssertReplacementRoundTripsAsync(CreateAnimatedGif(firstFrameColor, secondFrameColor), [firstFrameColor, secondFrameColor]);
     }
 
+    [TestMethod]
+    public async Task ReplaceSpriteImage_WithTooManyColorsReturnsBadRequest()
+    {
+        var store = CreateStore();
+        var initialArchive = store.GetBytes(8, 0);
+
+        await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var content = new ByteArrayContent(CreateHighColorPng());
+
+        using var response = await client.PostAsync("/api/v1/cache/types/sprites/0/image", content);
+
+        var responseBody = await response.Content.ReadAsStringAsync();
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode, responseBody);
+        Assert.IsTrue(responseBody.Contains("256 palette entries", StringComparison.Ordinal), responseBody);
+        CollectionAssert.AreEqual(initialArchive, store.GetBytes(8, 0), "A rejected upload must not alter the existing archive.");
+    }
+
     private static async Task AssertReplacementRoundTripsAsync(byte[] sourceBytes, Rgba32[] expectedFrameColors)
     {
         const int spriteId = 0;
-        var store = new MemoryFileStore();
-        var referenceTableCodec = new ReferenceTableCodec();
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
-        var archiveEntry = new ReferenceTableEntry(0);
-        archiveEntry.InitializeEntries(1);
-        archiveEntry.AddEntry(0, new ReferenceTableChildEntry(0));
-        table.AddEntry(0, archiveEntry);
-
-        using (var encodedTable = referenceTableCodec.Encode(table))
-        {
-            store.Set(255, 8, EncodeContainer(encodedTable.ToArray()));
-        }
-
-        store.Set(8, 0, EncodeContainer([0]));
+        var store = CreateStore();
 
         await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
@@ -80,6 +85,25 @@ public sealed class SpriteImageMutationTests
         }
     }
 
+    private static MemoryFileStore CreateStore()
+    {
+        var store = new MemoryFileStore();
+        var referenceTableCodec = new ReferenceTableCodec();
+        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var archiveEntry = new ReferenceTableEntry(0);
+        archiveEntry.InitializeEntries(1);
+        archiveEntry.AddEntry(0, new ReferenceTableChildEntry(0));
+        table.AddEntry(0, archiveEntry);
+
+        using (var encodedTable = referenceTableCodec.Encode(table))
+        {
+            store.Set(255, 8, EncodeContainer(encodedTable.ToArray()));
+        }
+
+        store.Set(8, 0, EncodeContainer([0]));
+        return store;
+    }
+
     private static byte[] CreatePng(Rgba32 color)
     {
         using var image = new Image<Rgba32>(2, 1);
@@ -100,6 +124,19 @@ public sealed class SpriteImageMutationTests
 
         using var output = new MemoryStream();
         image.SaveAsGif(output);
+        return output.ToArray();
+    }
+
+    private static byte[] CreateHighColorPng()
+    {
+        using var image = new Image<Rgba32>(257, 1);
+        for (var x = 0; x < image.Width; x++)
+        {
+            image[x, 0] = new Rgba32((byte)x, (byte)(x >> 8), 0, 255);
+        }
+
+        using var output = new MemoryStream();
+        image.SaveAsPng(output);
         return output.ToArray();
     }
 

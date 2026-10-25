@@ -155,6 +155,26 @@ namespace Hagalaz.Cache.Tests
             }
         }
 
+        [Fact]
+        public void Encode_TooManyColorsAcrossFrames_ThrowsArgumentException()
+        {
+            var codec = new SpriteTypeCodec();
+            using var sprite = new SpriteType(1, 129, 1);
+            using var secondFrame = new Image<Rgba32>(129, 1);
+
+            for (var x = 0; x < 129; x++)
+            {
+                sprite.Image[x, 0] = new Rgba32((byte)x, 0, 0, 255);
+                secondFrame[x, 0] = new Rgba32((byte)x, 1, 0, 255);
+            }
+
+            sprite.Image.Frames.AddFrame(secondFrame.Frames.RootFrame);
+
+            var exception = Assert.Throws<ArgumentException>(() => codec.Encode(sprite));
+
+            Assert.Contains("256 palette entries", exception.Message);
+        }
+
         private static SpriteType RoundTrip(SpriteTypeCodec codec, SpriteType originalSprite)
         {
             using var encodedStream = codec.Encode(originalSprite);

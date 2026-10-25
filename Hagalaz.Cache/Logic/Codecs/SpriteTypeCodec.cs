@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -161,6 +162,7 @@ namespace Hagalaz.Cache.Logic.Codecs
             using var paletteDataStream = new MemoryStream();
             using var metaDataStream = new MemoryStream();
 
+            const int maxPaletteEntries = byte.MaxValue + 1;
             var paletteSet = new HashSet<Rgba32> { new Rgba32(0, 0, 0, 0) };
             bool hasAlpha = false;
 
@@ -175,9 +177,11 @@ namespace Hagalaz.Cache.Logic.Codecs
                         {
                             hasAlpha = true;
                         }
-                        if (paletteSet.Count < 256)
+                        if (paletteSet.Add(rgba) && paletteSet.Count > maxPaletteEntries)
                         {
-                            paletteSet.Add(rgba);
+                            throw new ArgumentException(
+                                $"Sprite images support at most {maxPaletteEntries} palette entries, including the reserved transparent entry.",
+                                nameof(instance));
                         }
                     }
                 }
