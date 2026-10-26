@@ -22,16 +22,20 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Herblore;
 public sealed class HerbloreSkillServiceTests
 {
     [TestMethod]
-    public void MakePotion_WithFewerThanFiveSpikes_DoesNotMutateInventoryOrGrantExperience()
+    [DataRow(1)]
+    [DataRow(2)]
+    [DataRow(3)]
+    [DataRow(4)]
+    public void MakePotion_WithFewerThanFiveSpikes_DoesNotMutateInventoryOrGrantExperience(int spikes)
     {
-        var (scenario, task) = PrepareExtremeRangingTask(spikes: 4, rangingPotions: 1, requestedCount: 1);
+        var (scenario, task) = PrepareExtremeRangingTask(spikes: spikes, rangingPotions: 1, requestedCount: 1);
 
         task.Tick();
         task.Tick();
 
         Assert.IsTrue(task.IsCancelled, "Task should be cancelled when spikes are fewer than required 5.");
-        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(2444), "Ranging potion (3) should remain untouched.");
-        Assert.AreEqual(4, scenario.Inventory.Items.GetCountById(12539), "4 Grenwall spikes should remain untouched.");
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(169), "Ranging potion (3) should remain untouched.");
+        Assert.AreEqual(spikes, scenario.Inventory.Items.GetCountById(12539), $"{spikes} Grenwall spikes should remain untouched.");
         Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(15325), "No Extreme ranging potion should be created.");
         scenario.Character.Statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
     }
@@ -45,7 +49,7 @@ public sealed class HerbloreSkillServiceTests
         task.Tick();
 
         Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(12539), "5 spikes should be consumed.");
-        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(2444), "Source potion (3) should be transformed.");
+        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(169), "Source potion (3) should be transformed.");
         Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(15325), "1 Extreme ranging potion (3) should be created.");
         scenario.Character.Statistics.Received(1).AddExperience(StatisticsConstants.Herblore, 260);
     }
@@ -60,7 +64,7 @@ public sealed class HerbloreSkillServiceTests
         task.Tick();
 
         Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(12539), "5 spikes consumed in first iteration, leaving 1 spike.");
-        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(2444), "1 Ranging potion (3) remaining.");
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(169), "1 Ranging potion (3) remaining.");
         Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(15325), "1 Extreme ranging potion (3) created.");
         scenario.Character.Statistics.Received(1).AddExperience(StatisticsConstants.Herblore, 260);
 
@@ -70,15 +74,46 @@ public sealed class HerbloreSkillServiceTests
 
         Assert.IsTrue(task.IsCancelled, "Task should be cancelled on second iteration due to insufficient spikes.");
         Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(12539), "1 final spike remains.");
-        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(2444), "1 source potion remains.");
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(169), "1 source potion remains.");
         Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(15325), "Only 1 Extreme ranging potion (3) created in total.");
         scenario.Character.Statistics.Received(1).AddExperience(StatisticsConstants.Herblore, 260);
     }
 
     [TestMethod]
+    public void MakePotion_WhenInterruptedBeforeCompletion_LeavesInventoryUnchanged()
+    {
+        var (scenario, task) = PrepareExtremeRangingTask(spikes: 5, rangingPotions: 1, requestedCount: 1);
+
+        task.Cancel();
+
+        Assert.IsTrue(task.IsCancelled);
+        Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(12539), "Spikes remain unconsumed when task is cancelled before completion.");
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(169), "Ranging potion (3) remains untouched.");
+        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(15325), "No Extreme ranging potion created.");
+        scenario.Character.Statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
+    }
+
+    [TestMethod]
+    public void MakePotion_WhenIngredientsAreLostAfterSelection_DoesNotConsumeRemainingOrTransform()
+    {
+        var (scenario, task) = PrepareExtremeRangingTask(spikes: 5, rangingPotions: 1, requestedCount: 1);
+
+        // Simulate spikes lost before task tick executes
+        scenario.Inventory.Items.Remove(scenario.Items[^1], 0);
+
+        task.Tick();
+        task.Tick();
+
+        Assert.IsTrue(task.IsCancelled);
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(169), "Ranging potion (3) remains untouched.");
+        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(15325), "No Extreme ranging potion created.");
+        scenario.Character.Statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
+    }
+
+    [TestMethod]
     public void MakePotion_CalculatesCorrectDialogueMaxCountForSpikes()
     {
-        var scenario = CreateScenario((2444, 1), (2444, 1), (2444, 1), (12539, 12));
+        var scenario = CreateScenario((169, 1), (169, 1), (169, 1), (12539, 12));
         var vial = scenario.Items[0];
         var spikes = scenario.Items[3];
         var potionDto = CreateExtremeRangingDto();
@@ -119,9 +154,9 @@ public sealed class HerbloreSkillServiceTests
         var itemSpecs = new List<(int Id, int Count)>();
         for (var i = 0; i < rangingPotions; i++)
         {
-            itemSpecs.Add((2444, 1));
+            itemSpecs.Add((169, 1)); // Ranging potion (3)
         }
-        itemSpecs.Add((12539, spikes));
+        itemSpecs.Add((12539, spikes)); // Grenwall spikes
 
         var scenario = CreateScenario([.. itemSpecs]);
         var vial = scenario.Items[0];
@@ -136,8 +171,8 @@ public sealed class HerbloreSkillServiceTests
 
     private static PotionDto CreateExtremeRangingDto() => new(
         PotionId: 15325,
-        UnfinishedPotionId: 0,
-        RequiredLevel: 1,
+        UnfinishedPotionId: 169,
+        RequiredLevel: 92,
         Experience: 260,
         PrimaryItemIds: [],
         SecondaryItemIds: [12539]);
