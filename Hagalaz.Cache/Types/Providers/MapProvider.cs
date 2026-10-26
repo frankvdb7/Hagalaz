@@ -72,10 +72,7 @@ namespace Hagalaz.Cache.Types.Providers
             cancellationToken.ThrowIfCancellationRequested();
             var (terrainData, objects) = DecodeMapData(regionId, xteaKeys);
             var blockedTiles = DecodeGround(terrainData, cancellationToken);
-            foreach (var _ in objects)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-            }
+            cancellationToken.ThrowIfCancellationRequested();
 
             return new DecodedMapRegion(objects, blockedTiles);
         }
