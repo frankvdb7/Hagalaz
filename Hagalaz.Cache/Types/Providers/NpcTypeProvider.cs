@@ -63,7 +63,11 @@ namespace Hagalaz.Cache.Types.Providers
                         var previousArchive = archive;
                         archive = null;
                         previousArchive?.Dispose();
-                        archive = _cache.ReadArchive(_typeData.IndexId, archiveId);
+                        if (table.GetEntry(archiveId) is not null)
+                        {
+                            archive = _cache.ReadArchive(_typeData.IndexId, archiveId);
+                        }
+
                         currentArchiveId = archiveId;
                     }
 
