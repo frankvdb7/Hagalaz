@@ -84,7 +84,10 @@ public sealed class HerbloreSkillServiceTests
     {
         var (scenario, task) = PrepareExtremeRangingTask(spikes: 5, rangingPotions: 1, requestedCount: 1);
 
+        task.Tick(); // The first tick does not complete the potion (delay 2).
+        Assert.IsFalse(task.IsCancelled);
         task.Cancel();
+        task.Tick(); // A cancelled task must not run its completion callback.
 
         Assert.IsTrue(task.IsCancelled);
         Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(12539), "Spikes remain unconsumed when task is cancelled before completion.");
@@ -98,13 +101,15 @@ public sealed class HerbloreSkillServiceTests
     {
         var (scenario, task) = PrepareExtremeRangingTask(spikes: 5, rangingPotions: 1, requestedCount: 1);
 
-        // Simulate spikes lost before task tick executes
-        scenario.Inventory.Items.Remove(scenario.Items[^1], 0);
+        // A different inventory action consumes one spike after the player selects the recipe.
+        Assert.AreEqual(1, scenario.Inventory.RemoveItem(scenario.Items[^1].Clone(1)));
+        Assert.AreEqual(4, scenario.Inventory.Items.GetCountById(12539));
 
         task.Tick();
         task.Tick();
 
         Assert.IsTrue(task.IsCancelled);
+        Assert.AreEqual(4, scenario.Inventory.Items.GetCountById(12539), "Four remaining spikes must not be partially consumed.");
         Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(169), "Ranging potion (3) remains untouched.");
         Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(15325), "No Extreme ranging potion created.");
         scenario.Character.Statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
@@ -175,7 +180,7 @@ public sealed class HerbloreSkillServiceTests
         RequiredLevel: 92,
         Experience: 260,
         PrimaryItemIds: [],
-        SecondaryItemIds: [12539]);
+        SecondaryItemIds: []);
 
     private static Scenario CreateScenario(params (int Id, int Count)[] itemSpecs)
     {
