@@ -232,10 +232,12 @@ namespace Hagalaz.Cache.Tests
                 "7F05925F00000C011E54616C6B2D746F0098427579206361706573002805140D1A8E192B0619151C061919A3061315940613290200FF012400FB01060248616E7300010680009D897071707C80009DB2705F708A3C0180009A977702AA002C00");
             var codec = new NpcTypeCodec();
 
-            var decoded = (NpcType)codec.Decode(0, new MemoryStream(definitionBytes));
+            using var source = new MemoryStream(definitionBytes);
+            var decoded = (NpcType)codec.Decode(0, source);
             decoded.CombatLevel = 77;
             using var encoded = codec.Encode(decoded);
-            var roundTripped = (NpcType)codec.Decode(0, new MemoryStream(encoded.ToArray()));
+            using var encodedSource = new MemoryStream(encoded.ToArray());
+            var roundTripped = (NpcType)codec.Decode(0, encodedSource);
 
             Assert.Equal(77, roundTripped.CombatLevel);
             Assert.Equal((ushort)44, roundTripped.Opcode170To175Payloads![0]);
@@ -249,9 +251,11 @@ namespace Hagalaz.Cache.Tests
                 "635D1E496E746572616374005F00007F06D98D024E61EF766520626C6F6F6472616765720001018000D8293C018000D919F90D0000028100000000000000040000000000000283000000000000000300000000000003C50000000000000006000000800000000500000080000000070000008000000009000000C000000008000000000000000E00000006000001A80000002D0000018A00000015770100");
             var codec = new NpcTypeCodec();
 
-            var decoded = (NpcType)codec.Decode(11110, new MemoryStream(definitionBytes));
+            using var source = new MemoryStream(definitionBytes);
+            var decoded = (NpcType)codec.Decode(11110, source);
             using var encoded = codec.Encode(decoded);
-            var roundTripped = (NpcType)codec.Decode(11110, new MemoryStream(encoded.ToArray()));
+            using var encodedSource = new MemoryStream(encoded.ToArray());
+            var roundTripped = (NpcType)codec.Decode(11110, encodedSource);
 
             Assert.Equal("Naïve bloodrager", roundTripped.Name);
         }
@@ -264,7 +268,8 @@ namespace Hagalaz.Cache.Tests
 
             var decoded = (NpcType)codec.Decode(1, source);
             using var encoded = codec.Encode(decoded);
-            var roundTripped = (NpcType)codec.Decode(1, new MemoryStream(encoded.ToArray()));
+            using var encodedSource = new MemoryStream(encoded.ToArray());
+            var roundTripped = (NpcType)codec.Decode(1, encodedSource);
 
             Assert.Equal((sbyte)7, roundTripped.SpawnFaceDirection);
         }

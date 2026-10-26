@@ -401,21 +401,27 @@ public sealed class TypeProviderSnapshotTests
         var cache = new Mock<ICacheAPI>();
         cache.Setup(current => current.ReadReferenceTable(8))
             .Returns(ReferenceTableWithMappings((firstSpriteId, 0, 13), (secondSpriteId, 0, 14)).Object);
-        cache.Setup(current => current.Read(8, firstSpriteId, 13)).Returns(new MemoryStream());
-        cache.Setup(current => current.Read(8, secondSpriteId, 14)).Returns(new MemoryStream());
+        var firstStream = new MemoryStreamSpy();
+        var secondStream = new MemoryStreamSpy();
+        cache.Setup(current => current.Read(8, firstSpriteId, 13)).Returns(firstStream);
+        cache.Setup(current => current.Read(8, secondSpriteId, 14)).Returns(secondStream);
         var firstSprite = new Mock<ISpriteType>();
+        var decodingFailure = new InvalidDataException("corrupt sprite");
         var codec = new Mock<ISpriteTypeCodec>();
         codec.SetupSequence(current => current.Decode(It.IsAny<int>(), It.IsAny<MemoryStream>()))
             .Returns(firstSprite.Object)
-            .Throws(new InvalidDataException("corrupt sprite"));
+            .Throws(decodingFailure);
         var provider = new SpriteTypeProvider(
             cache.Object,
             codec.Object,
             new Mock<ITypeFactory<ISpriteType>>().Object);
 
-        Assert.Throws<InvalidDataException>(() => provider.GetRange(firstSpriteId, secondSpriteId + 1));
+        var actualFailure = Assert.Throws<InvalidDataException>(() => provider.GetRange(firstSpriteId, secondSpriteId + 1));
 
+        Assert.Same(decodingFailure, actualFailure);
         firstSprite.Verify(current => current.Dispose(), Times.Once);
+        Assert.True(firstStream.IsDisposed);
+        Assert.True(secondStream.IsDisposed);
     }
 
     private static Mock<IReferenceTable> ReferenceTableWithChild(int archiveId, int childId, int? physicalIndex)

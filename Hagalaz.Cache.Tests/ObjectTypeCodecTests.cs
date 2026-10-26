@@ -323,10 +323,12 @@ namespace Hagalaz.Cache.Tests
                 "4100644200644300641E53656172636800180C8628061614151C16181518159C199A15A11D1C152521211529151801010A013C2A02437261746500BE00386700");
             var codec = new ObjectTypeCodec();
 
-            var decoded = (ObjectType)codec.Decode(1, new MemoryStream(definitionBytes));
+            using var source = new MemoryStream(definitionBytes);
+            var decoded = (ObjectType)codec.Decode(1, source);
             decoded.Name = "Edited crate";
             using var encoded = codec.Encode(decoded);
-            var roundTripped = (ObjectType)codec.Decode(1, new MemoryStream(encoded.ToArray()));
+            using var encodedSource = new MemoryStream(encoded.ToArray());
+            var roundTripped = (ObjectType)codec.Decode(1, encodedSource);
 
             Assert.Equal("Edited crate", roundTripped.Name);
             Assert.Equal("Search", roundTripped.Actions[0]);
@@ -341,7 +343,8 @@ namespace Hagalaz.Cache.Tests
 
             var decoded = (ObjectType)codec.Decode(1, source);
             using var encoded = codec.Encode(decoded);
-            var roundTripped = (ObjectType)codec.Decode(1, new MemoryStream(encoded.ToArray()));
+            using var encodedSource = new MemoryStream(encoded.ToArray());
+            var roundTripped = (ObjectType)codec.Decode(1, encodedSource);
 
             Assert.Equal(new byte[] { 2, 3, 4 }, roundTripped.AnimationWeightBytes);
             Assert.Equal(decoded.AnIntArray784, roundTripped.AnIntArray784);
@@ -355,9 +358,11 @@ namespace Hagalaz.Cache.Tests
                 "13001D19270F1B0E0201010A018000B6CA6A032DBB502DBC0F2DBD056700");
             var codec = new ObjectTypeCodec();
 
-            var decoded = (ObjectType)codec.Decode(33512, new MemoryStream(definitionBytes));
+            using var source = new MemoryStream(definitionBytes);
+            var decoded = (ObjectType)codec.Decode(33512, source);
             using var encoded = codec.Encode(decoded);
-            var roundTripped = (ObjectType)codec.Decode(33512, new MemoryStream(encoded.ToArray()));
+            using var encodedSource = new MemoryStream(encoded.ToArray());
+            var roundTripped = (ObjectType)codec.Decode(33512, encodedSource);
 
             Assert.Equal(new byte[] { 0x50, 0x0F, 0x05 }, roundTripped.AnimationWeightBytes);
             Assert.Equal(decoded.AnIntArray784, roundTripped.AnIntArray784);
