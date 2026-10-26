@@ -17,11 +17,12 @@ namespace Hagalaz.Cache.Types.Data
         public override int ArchiveEntrySize => 1;
 
         /// <summary>
-        /// Gets the total number of definitions based on the number of files in the archive.
+        /// Gets the exclusive upper bound of the definition IDs mapped in archive 16.
         /// </summary>
         /// <param name="cache">The cache API.</param>
         /// <returns>The total number of definitions.</returns>
-        public override int GetArchiveSize(ICacheAPI cache) => cache.GetFileCount(IndexId, 16);
+        public override int GetArchiveSize(ICacheAPI cache) =>
+            GetArchiveEntryIdUpperBound(cache.ReadReferenceTable(IndexId).GetEntry(16));
 
         /// <summary>
         /// Gets the archive identifier for the specified type identifier.

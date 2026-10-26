@@ -17,49 +17,47 @@ public static class StoreMutationEndpoints
         return group;
     }
 
-    private static IResult WriteRawFile(int indexId, int fileId, WriteRawFileRequest request, IFileStore fileStore)
+    private static IResult WriteRawFile(int indexId, int fileId, WriteRawFileRequest request, ICacheAPI cache)
     {
+        if (indexId < 0 || fileId < 0)
+        {
+            return TypedResults.BadRequest(EndpointErrors.Validation("indexId and fileId must be greater than or equal to 0."));
+        }
+
         if (string.IsNullOrWhiteSpace(request.DataBase64))
         {
             return TypedResults.BadRequest(EndpointErrors.Validation("dataBase64 is required."));
         }
 
+        byte[] data;
         try
         {
-            var data = Convert.FromBase64String(request.DataBase64);
-            using var stream = new MemoryStream(data);
-            fileStore.Write(indexId, fileId, stream);
-            return TypedResults.Ok(new StoreMutationResponse("write-raw", indexId, fileId));
+            data = Convert.FromBase64String(request.DataBase64);
         }
         catch (FormatException)
         {
             return TypedResults.BadRequest(EndpointErrors.Validation("dataBase64 is not a valid base64 string."));
         }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+
+        using var stream = new MemoryStream(data);
+        cache.WriteRawFile(indexId, fileId, stream);
+        return TypedResults.Ok(new StoreMutationResponse("write-raw", indexId, fileId));
     }
 
-    private static IResult CopyRawFile(int indexId, int fileId, CopyRawFileRequest request, IFileStore fileStore)
+    private static IResult CopyRawFile(int indexId, int fileId, CopyRawFileRequest request, ICacheAPI cache)
     {
+        if (indexId < 0 || fileId < 0)
+        {
+            return TypedResults.BadRequest(EndpointErrors.Validation("indexId and fileId must be greater than or equal to 0."));
+        }
+
         if (request.SourceIndexId < 0 || request.SourceFileId < 0)
         {
             return TypedResults.BadRequest(EndpointErrors.Validation("sourceIndexId and sourceFileId must be greater than or equal to 0."));
         }
 
-        try
-        {
-            using var source = fileStore.Read(request.SourceIndexId, request.SourceFileId);
-            using var copy = new MemoryStream(source.ToArray());
-            fileStore.Write(indexId, fileId, copy);
-
-            return TypedResults.Ok(new StoreMutationResponse("copy-raw", indexId, fileId, request.SourceIndexId, request.SourceFileId));
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        cache.CopyRawFile(indexId, fileId, request.SourceIndexId, request.SourceFileId);
+        return TypedResults.Ok(new StoreMutationResponse("copy-raw", indexId, fileId, request.SourceIndexId, request.SourceFileId));
     }
 
     public sealed record WriteRawFileRequest(string DataBase64);

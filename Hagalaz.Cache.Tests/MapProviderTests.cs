@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
@@ -34,10 +35,10 @@ namespace Hagalaz.Cache.Tests
         {
             // Arrange
             var xteaKeys = new[] { 1, 2, 3, 4 };
-            _cacheApiMock.Setup(x => x.GetFileId(5, It.IsAny<string>())).Returns(1);
+            _cacheApiMock.Setup(x => x.GetFileId(5, "m0_123")).Returns(-1);
+            _cacheApiMock.Setup(x => x.GetFileId(5, "l0_123")).Returns(1);
             var container = new Container(new MemoryStream());
             _cacheApiMock.Setup(x => x.ReadContainer(5, 1, xteaKeys)).Returns(container);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(container);
 
             // Act
             _provider.Get(123, xteaKeys);
@@ -47,93 +48,98 @@ namespace Hagalaz.Cache.Tests
         }
 
         [Fact]
+        public void Get_DisposesInputContainersAndCombinedStreamAfterDecode()
+        {
+            var terrainData = new MemoryStream(new byte[] { 81, 0, 0, 0, 0 });
+            var objectData = new MemoryStream(new byte[] { 0x80, 0x00 });
+            var terrainContainer = new Container(terrainData);
+            var objectContainer = new Container(objectData);
+            MemoryStream combinedStream = null!;
+            var decodedMap = _typeFactory.CreateType(123);
+
+            _cacheApiMock.Setup(x => x.GetFileId(5, "m0_123")).Returns(1);
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(terrainContainer);
+            _cacheApiMock.Setup(x => x.GetFileId(5, "l0_123")).Returns(2);
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 2)).Returns(objectContainer);
+            _codecMock.Setup(codec => codec.Decode(123, It.IsAny<MemoryStream>()))
+                .Callback<int, MemoryStream>((_, stream) =>
+                {
+                    combinedStream = stream;
+                    Assert.True(stream.CanRead);
+                })
+                .Returns(decodedMap);
+
+            var actual = _provider.Get(123);
+
+            Assert.Same(decodedMap, actual);
+            Assert.Throws<ObjectDisposedException>(() => _ = terrainData.Length);
+            Assert.Throws<ObjectDisposedException>(() => _ = objectData.Length);
+            Assert.Throws<ObjectDisposedException>(() => _ = combinedStream.Length);
+        }
+
+        [Fact]
+        public void Get_WithoutXteaKeys_ReadsObjectDataWithoutDecryption()
+        {
+            _cacheApiMock.Setup(x => x.GetFileId(5, "m0_123")).Returns(-1);
+            _cacheApiMock.Setup(x => x.GetFileId(5, "l0_123")).Returns(1);
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(new MemoryStream()));
+
+            _provider.Get(123);
+
+            _cacheApiMock.Verify(x => x.ReadContainer(5, 1), Times.Once);
+            _cacheApiMock.Verify(x => x.ReadContainer(5, 1, It.IsAny<int[]>()), Times.Never);
+        }
+
+        [Fact]
+        public void Get_WithEmptyXteaKeys_ReadsObjectDataWithoutDecryption()
+        {
+            _cacheApiMock.Setup(x => x.GetFileId(5, "m0_123")).Returns(-1);
+            _cacheApiMock.Setup(x => x.GetFileId(5, "l0_123")).Returns(1);
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(new MemoryStream()));
+
+            _provider.Get(123, System.Array.Empty<int>());
+
+            _cacheApiMock.Verify(x => x.ReadContainer(5, 1), Times.Once);
+            _cacheApiMock.Verify(x => x.ReadContainer(5, 1, It.IsAny<int[]>()), Times.Never);
+        }
+
+        [Fact]
         public void DecodeRegion_WhenMapArchivesAreAbsent_UsesEmptyMapData()
         {
             _cacheApiMock.Setup(x => x.GetFileId(5, It.IsAny<string>())).Returns(-1);
-            var callbackCount = 0;
 
-            _provider.DecodeRegion(
-                257,
-                System.Array.Empty<int>(),
-                (_, _, _, _, _, _) => callbackCount++,
-                (_, _, _) => callbackCount++);
+            var decodedRegion = _provider.DecodeRegion(257, System.Array.Empty<int>(), CancellationToken.None);
 
-            Assert.Equal(0, callbackCount);
+            Assert.Empty(decodedRegion.ObjectPlacements);
+            Assert.Empty(decodedRegion.BlockedTiles);
             _cacheApiMock.Verify(x => x.ReadContainer(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
             _cacheApiMock.Verify(x => x.ReadContainer(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int[]>()), Times.Never);
         }
 
         [Fact]
-        public void DecodeRegion_WhenTerrainContainerCannotBeRead_PropagatesTheFailure()
+        public void DecodeRegion_WhenCancellationIsRequested_DoesNotReadMapArchives()
         {
-            var failure = new InvalidDataException("invalid terrain container");
-            _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(1);
-            _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(-1);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Throws(failure);
+            using var cancellation = new CancellationTokenSource();
+            cancellation.Cancel();
 
-            var actual = Assert.Throws<InvalidDataException>(() => _provider.DecodeRegion(
+            Assert.Throws<OperationCanceledException>(() => _provider.DecodeRegion(
                 257,
                 System.Array.Empty<int>(),
-                (_, _, _, _, _, _) => { },
-                (_, _, _) => { }));
+                cancellation.Token));
 
-            Assert.Same(failure, actual);
+            _cacheApiMock.Verify(x => x.GetFileId(It.IsAny<int>(), It.IsAny<string>()), Times.Never);
+        }
+
+        [Fact]
+        public void DecodeRegion_WhenTerrainContainerCannotBeRead_PropagatesTheFailure()
+        {
+            AssertDecodeRegionPropagatesContainerFailure(terrainFileId: 1, objectFileId: -1);
         }
 
         [Fact]
         public void DecodeRegion_WhenObjectContainerCannotBeRead_PropagatesTheFailure()
         {
-            var failure = new InvalidDataException("invalid object container");
-            _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(-1);
-            _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 2, It.IsAny<int[]>())).Throws(failure);
-
-            var actual = Assert.Throws<InvalidDataException>(() => _provider.DecodeRegion(
-                257,
-                System.Array.Empty<int>(),
-                (_, _, _, _, _, _) => { },
-                (_, _, _) => { }));
-
-            Assert.Same(failure, actual);
-        }
-
-        [Fact]
-        public void DecodePart_ValidData_InvokesCallbacks()
-        {
-            // Arrange
-            var terrainData = new MemoryStream(new byte[] { 81, 0, 0, 0, 0 });
-            var objectData = new MemoryStream(new byte[] { 0x80, 0x01, 0x40, 0x01, 0x1C, 0x80, 0x00 });
-
-            _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(1);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(terrainData));
-            _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 2, It.IsAny<int[]>())).Returns(new Container(objectData));
-
-            var objectDecoded = new Mock<ObjectDecoded>();
-            var impassibleTerrainDecoded = new Mock<ImpassibleTerrainDecoded>();
-            var calcRotation = new Mock<CalculateObjectPartRotation>();
-
-            var request = new DecodePartRequest
-            {
-                RegionID = 257,
-                XteaKeys = System.Array.Empty<int>(),
-                MinX = 0,
-                MinY = 0,
-                MaxX = 63,
-                MaxY = 63,
-                PartZ = 0,
-                PartRotation = 0,
-                PartRotationCallback = calcRotation.Object,
-                Callback = objectDecoded.Object,
-                GroundCallback = impassibleTerrainDecoded.Object
-            };
-
-            // Act
-            _provider.DecodePart(request);
-
-            // Assert
-            objectDecoded.Verify(x => x(0, 0, 1, It.IsAny<int>(), It.IsAny<int>(), 0), Times.Once);
-            objectDecoded.Verify(x => x(0, 32, 0, It.IsAny<int>(), It.IsAny<int>(), 0), Times.Once);
+            AssertDecodeRegionPropagatesContainerFailure(terrainFileId: -1, objectFileId: 2);
         }
 
         [Fact]
@@ -145,24 +151,18 @@ namespace Hagalaz.Cache.Tests
                 (1, 24, 40, 0, 10, 2),
                 (2, 9, 10, 2, 2, 3));
 
-            _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(1);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(terrainData));
-            _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 2, It.IsAny<int[]>())).Returns(new Container(objectData));
-
-            var decodedObjects = new List<(int Id, int ShapeType, int Rotation, int X, int Y, int Z)>();
+            SetupRegionContainers(terrainData, objectData);
 
             // Act
-            _provider.DecodeRegion(
-                257,
-                System.Array.Empty<int>(),
-                (id, shapeType, rotation, x, y, z) => decodedObjects.Add((id, shapeType, rotation, x, y, z)),
-                (_, _, _) => { });
+            var decodedRegion = _provider.DecodeRegion(257, System.Array.Empty<int>(), CancellationToken.None);
 
             // Assert
-            Assert.Collection(decodedObjects,
-                obj => Assert.Equal((1, 10, 2, 24, 40, 0), obj),
-                obj => Assert.Equal((2, 2, 3, 9, 10, 2), obj));
+            Assert.Collection(decodedRegion.ObjectPlacements,
+                obj => Assert.Equal((1, 10, 2, 24, 40, 0), (obj.Id, obj.ShapeType, obj.Rotation, obj.X, obj.Y, obj.Z)),
+                obj => Assert.Equal((2, 2, 3, 9, 10, 2), (obj.Id, obj.ShapeType, obj.Rotation, obj.X, obj.Y, obj.Z)));
+            Assert.Empty(decodedRegion.BlockedTiles);
+            Assert.Throws<ObjectDisposedException>(() => _ = terrainData.Length);
+            Assert.Throws<ObjectDisposedException>(() => _ = objectData.Length);
         }
 
         [Fact]
@@ -172,57 +172,22 @@ namespace Hagalaz.Cache.Tests
             var terrainData = CreateTerrainData((0, 7, 8), (3, 9, 10));
             var objectData = new MemoryStream();
 
-            _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(1);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(terrainData));
-            _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 2, It.IsAny<int[]>())).Returns(new Container(objectData));
-
-            var flaggedTiles = new List<(int X, int Y, int Z)>();
+            SetupRegionContainers(terrainData, objectData);
 
             // Act
-            _provider.DecodeRegion(
-                257,
-                System.Array.Empty<int>(),
-                (_, _, _, _, _, _) => { },
-                (x, y, z) => flaggedTiles.Add((x, y, z)));
+            var decodedRegion = _provider.DecodeRegion(257, System.Array.Empty<int>(), CancellationToken.None);
 
             // Assert
-            Assert.Equal([(7, 8, 0), (9, 10, 3)], flaggedTiles);
+            Assert.Equal([(7, 8, 0), (9, 10, 3)], decodedRegion.BlockedTiles.Select(tile => (tile.LocalX, tile.LocalY, tile.Z)));
+            Assert.Empty(decodedRegion.ObjectPlacements);
         }
 
-        [Fact]
-        public void DecodePart_PreservesChunkLocalCoordinatesForPartRotation()
+        private void SetupRegionContainers(MemoryStream terrainData, MemoryStream objectData)
         {
-            // Arrange
-            var terrainData = new MemoryStream(new byte[] { 0 });
-            var objectData = CreateObjectData((1, 9, 10, 0, 10, 0));
-
             _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(1);
             _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(terrainData));
             _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
-            _cacheApiMock.Setup(x => x.ReadContainer(5, 2, It.IsAny<int[]>())).Returns(new Container(objectData));
-
-            var decodedObjects = new List<(int X, int Y)>();
-            var request = new DecodePartRequest
-            {
-                RegionID = 257,
-                XteaKeys = System.Array.Empty<int>(),
-                MinX = 8,
-                MinY = 8,
-                MaxX = 15,
-                MaxY = 15,
-                PartZ = 0,
-                PartRotation = 0,
-                PartRotationCallback = (_, _, x, y, _, calculateRotationY) => calculateRotationY ? y : x,
-                Callback = (_, _, _, x, y, _) => decodedObjects.Add((x, y)),
-                GroundCallback = (_, _, _) => { }
-            };
-
-            // Act
-            _provider.DecodePart(request);
-
-            // Assert
-            Assert.Equal([(9, 10)], decodedObjects);
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 2)).Returns(new Container(objectData));
         }
 
         private static MemoryStream CreateObjectData(params (int Id, int X, int Y, int Z, int ShapeType, int Rotation)[] placements)
@@ -269,6 +234,22 @@ namespace Hagalaz.Cache.Tests
 
             stream.Position = 0;
             return stream;
+        }
+
+        private void AssertDecodeRegionPropagatesContainerFailure(int terrainFileId, int objectFileId)
+        {
+            var failure = new InvalidDataException("invalid map container");
+            _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(terrainFileId);
+            _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(objectFileId);
+            var fileId = terrainFileId >= 0 ? terrainFileId : objectFileId;
+            _cacheApiMock.Setup(x => x.ReadContainer(5, fileId)).Throws(failure);
+
+            var actual = Assert.Throws<InvalidDataException>(() => _provider.DecodeRegion(
+                257,
+                System.Array.Empty<int>(),
+                CancellationToken.None));
+
+            Assert.Same(failure, actual);
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Abstractions.Types;
@@ -14,6 +14,7 @@ namespace Hagalaz.Cache.Types.Providers
         private readonly ITypeFactory<T> _typeFactory;
         private readonly ITypeEventHook<T>? _typeEventHook;
         private readonly ITypeProvider<T>? _customDecoder;
+        private readonly CacheTypeDecoder<T> _decoder;
 
         public int ArchiveSize => _customDecoder?.ArchiveSize ?? _typeData.GetArchiveSize(_cache);
 
@@ -26,6 +27,7 @@ namespace Hagalaz.Cache.Types.Providers
             _codec = codec;
             _typeEventHook = typeEventHook;
             _customDecoder = customDecoder;
+            _decoder = new CacheTypeDecoder<T>(_cache, _typeData, _typeFactory, _codec, _typeEventHook);
         }
 
         public T Get(int typeId)
@@ -35,18 +37,7 @@ namespace Hagalaz.Cache.Types.Providers
                 return _customDecoder.Get(typeId);
             }
 
-            var table = _cache.ReadReferenceTable(_typeData.IndexId);
-            var archiveId = _typeData.GetArchiveId(typeId);
-            var archive = _cache.ReadArchive(_typeData.IndexId, archiveId);
-            var entry = table.GetEntry(archiveId, _typeData.GetArchiveEntryId(typeId));
-            if (entry == null)
-            {
-                return _typeFactory.CreateType(typeId);
-            }
-
-            var type = _codec.Decode(typeId, archive.GetEntry(entry.Index));
-            _typeEventHook?.AfterDecode(this, [type]);
-            return type;
+            return _decoder.DecodeWithRequiredArchive(this, typeId);
         }
 
         public T[] GetRange(int startTypeId, int endTypeId)
@@ -60,26 +51,36 @@ namespace Hagalaz.Cache.Types.Providers
             var table = _cache.ReadReferenceTable(_typeData.IndexId);
             IArchive? archive = null;
             var currentArchiveId = -1;
-            for (var typeId = startTypeId; typeId < endTypeId; typeId++)
+            try
             {
-                var archiveId = _typeData.GetArchiveId(typeId);
-                if (archiveId != currentArchiveId)
+                for (var typeId = startTypeId; typeId < endTypeId; typeId++)
                 {
-                    archive = _cache.ReadArchive(_typeData.IndexId, archiveId);
-                    currentArchiveId = archiveId;
-                }
-                var entry = table.GetEntry(archiveId, _typeData.GetArchiveEntryId(typeId));
-                if (entry == null || archive == null)
-                {
-                    types[typeId - startTypeId] = _typeFactory.CreateType(typeId);
-                    continue;
+                    var archiveId = _typeData.GetArchiveId(typeId);
+                    if (archiveId != currentArchiveId)
+                    {
+                        var previousArchive = archive;
+                        archive = null;
+                        previousArchive?.Dispose();
+                        archive = _cache.ReadArchive(_typeData.IndexId, archiveId);
+                        currentArchiveId = archiveId;
+                    }
+                    var entry = table.GetEntry(archiveId, _typeData.GetArchiveEntryId(typeId));
+                    if (entry == null || archive == null)
+                    {
+                        types[typeId - startTypeId] = _typeFactory.CreateType(typeId);
+                        continue;
+                    }
+
+                    types[typeId - startTypeId] = _codec.Decode(typeId, archive.GetEntry(entry.Index));
                 }
 
-                types[typeId - startTypeId] = _codec.Decode(typeId, archive.GetEntry(entry.Index));
+                _typeEventHook?.AfterDecode(this, types);
+                return types;
             }
-            _typeEventHook?.AfterDecode(this, types);
-
-            return types;
+            finally
+            {
+                archive?.Dispose();
+            }
         }
 
         public T[] GetAll()

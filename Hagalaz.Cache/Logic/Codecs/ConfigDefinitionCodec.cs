@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
@@ -30,6 +31,22 @@ namespace Hagalaz.Cache.Logic.Codecs
         /// <inheritdoc />
         public MemoryStream Encode(IConfigDefinition definition)
         {
+            if (definition.DefaultValue is < ushort.MinValue or > ushort.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(definition.DefaultValue),
+                    definition.DefaultValue,
+                    "must be representable as an unsigned 16-bit value.");
+            }
+
+            if (definition.ValueType > '\x7f')
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(definition.ValueType),
+                    definition.ValueType,
+                    "must be an ASCII character.");
+            }
+
             var stream = new MemoryStream();
             if (definition.ValueType != default)
             {

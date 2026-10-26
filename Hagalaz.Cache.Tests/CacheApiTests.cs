@@ -7,6 +7,8 @@ using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
+using Microsoft.Extensions.Options;
+using Hagalaz.Cache.Models;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests
@@ -23,7 +25,7 @@ namespace Hagalaz.Cache.Tests
     }
 
     [Collection(CacheApiTelemetryCollection.Name)]
-    public class CacheApiTests
+    public class CacheApiTests : IDisposable
     {
         private readonly Mock<IFileStore> _fileStoreMock;
         private readonly Mock<IReferenceTableProvider> _referenceTableProviderMock;
@@ -41,7 +43,14 @@ namespace Hagalaz.Cache.Tests
             _containerDecoderMock = new Mock<IContainerDecoder>();
             _referenceTableCodecMock = new Mock<IReferenceTableCodec>();
             _archiveDecoderMock = new Mock<IArchiveDecoder>();
-            _cacheApi = new CacheApi(_fileStoreMock.Object, _referenceTableProviderMock.Object, _cacheWriterMock.Object, _containerDecoderMock.Object, _referenceTableCodecMock.Object, _archiveDecoderMock.Object);
+            _fileStoreMock.SetupGet(store => store.IndexFileCount).Returns(255);
+            _cacheApi = new CacheApi(_fileStoreMock.Object, _referenceTableProviderMock.Object, _cacheWriterMock.Object, _containerDecoderMock.Object, _referenceTableCodecMock.Object, _archiveDecoderMock.Object, Options.Create(new CacheOptions()));
+        }
+
+        public void Dispose()
+        {
+            _cacheApi.Dispose();
+            _fileStoreMock.Object.Dispose();
         }
 
         [Fact]
@@ -66,10 +75,10 @@ namespace Hagalaz.Cache.Tests
             var expectedContainer = new Mock<IContainer>().Object;
             _containerDecoderMock.Setup(f => f.Decode(It.IsAny<System.IO.MemoryStream>())).Returns(expectedContainer);
             _fileStoreMock.SetupGet(fs => fs.IndexFileCount).Returns(1);
-            _fileStoreMock.Setup(fs => fs.Read(It.IsAny<int>(), It.IsAny<int>())).Returns(new System.IO.MemoryStream());
+            _fileStoreMock.Setup(fs => fs.Read(It.IsAny<int>(), It.IsAny<int>())).Returns(() => new System.IO.MemoryStream());
 
             // Act
-            var result = _cacheApi.ReadContainer(0, 0);
+            using var result = _cacheApi.ReadContainer(0, 0);
 
             // Assert
             Assert.NotNull(result);
@@ -86,10 +95,36 @@ namespace Hagalaz.Cache.Tests
             _containerDecoderMock.Setup(f => f.Decode(It.IsAny<System.IO.MemoryStream>())).Returns(new Mock<IContainer>().Object);
 
             // Act
-            _cacheApi.ReadContainer(0, 0);
+            using var result = _cacheApi.ReadContainer(0, 0);
 
             // Assert
             Assert.True(streamSpy.IsDisposed);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(3)]
+        [InlineData(5)]
+        public void ReadContainer_WithInvalidXteaKeyCount_ThrowsArgumentException(int keyCount)
+        {
+            var exception = Assert.Throws<ArgumentException>(() =>
+                _cacheApi.ReadContainer(0, 0, new int[keyCount]));
+
+            Assert.Equal("xteaKeys", exception.ParamName);
+            _fileStoreMock.Verify(store => store.Read(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
+        public void ReadContainer_WithFourZeroXteaKeys_DoesNotDecrypt()
+        {
+            var expectedContainer = new Mock<IContainer>().Object;
+            _fileStoreMock.Setup(store => store.Read(0, 0)).Returns(() => new MemoryStream());
+            _containerDecoderMock.Setup(decoder => decoder.Decode(It.IsAny<MemoryStream>())).Returns(expectedContainer);
+
+            using var actualContainer = _cacheApi.ReadContainer(0, 0, new int[4]);
+
+            Assert.Same(expectedContainer, actualContainer);
         }
 
         [Fact]
@@ -98,7 +133,7 @@ namespace Hagalaz.Cache.Tests
             SetupArchiveRead(CompressionType.Gzip);
             using var measurements = new CacheMeterListener();
 
-            _cacheApi.ReadArchive(0, 0);
+            using var archive = _cacheApi.ReadArchive(0, 0);
 
             var archiveLoad = Assert.Single(measurements.Measurements, measurement =>
                 measurement.InstrumentName == "hagalaz.cache.archive.load");
@@ -136,10 +171,119 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal("failure", containerDuration.Tags["outcome"]);
         }
 
+        [Fact]
+        public void Dispose_ReconcilesRetainedArchiveSnapshotBytes()
+        {
+            _fileStoreMock.SetupGet(store => store.IndexFileCount).Returns(1);
+            _fileStoreMock.Setup(store => store.Read(0, 0)).Returns(() => new MemoryStream([1, 2, 3]));
+            _fileStoreMock.Setup(store => store.Read(0, 1)).Returns(() => new MemoryStream([1, 2, 3]));
+            var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 2);
+            table.AddEntry(0, CreateSparseArchiveEntry(0));
+            table.AddEntry(1, CreateSparseArchiveEntry(0));
+            _referenceTableProviderMock.Setup(provider => provider.ReadReferenceTable(0)).Returns(table);
+
+            _containerDecoderMock
+                .Setup(decoder => decoder.Decode(It.IsAny<MemoryStream>()))
+                .Returns(() => new Mock<IContainer>().Object);
+            var archiveMembers = new List<MemoryStreamSpy>();
+            _archiveDecoderMock.Setup(decoder => decoder.Decode(It.IsAny<IContainer>(), 1)).Returns(() =>
+            {
+                var archive = new Archive(1);
+                var member = new MemoryStreamSpy();
+                member.Write([1, 2, 3]);
+                member.Position = 0;
+                archive.Entries![0] = member;
+                archiveMembers.Add(member);
+                return archive;
+            });
+
+            using var measurements = new CacheMeterListener();
+            using (var cacheApi = new CacheApi(
+                       _fileStoreMock.Object,
+                       _referenceTableProviderMock.Object,
+                       _cacheWriterMock.Object,
+                       _containerDecoderMock.Object,
+                       _referenceTableCodecMock.Object,
+                       _archiveDecoderMock.Object,
+                       Options.Create(new CacheOptions())))
+            {
+                using (var firstMember = cacheApi.Read(0, 0, 0))
+                {
+                    Assert.Equal(new byte[] { 1, 2, 3 }, firstMember.ToArray());
+                }
+
+                using var secondMember = cacheApi.Read(0, 1, 0);
+                Assert.Equal(new byte[] { 1, 2, 3 }, secondMember.ToArray());
+            }
+
+            Assert.Equal(2, archiveMembers.Count);
+            Assert.All(archiveMembers, member => Assert.True(member.IsDisposed));
+
+            var retainedByteDeltas = new List<double>();
+            foreach (var measurement in measurements.Measurements)
+            {
+                if (measurement.InstrumentName == "hagalaz.cache.archive.snapshot.retained.bytes")
+                {
+                    retainedByteDeltas.Add(measurement.Value);
+                }
+            }
+
+            Assert.Equal(3, retainedByteDeltas.Count);
+            Assert.True(retainedByteDeltas[0] > 0);
+            Assert.True(retainedByteDeltas[1] > 0);
+            Assert.Equal(-(retainedByteDeltas[0] + retainedByteDeltas[1]), retainedByteDeltas[2]);
+        }
+
+        [Fact]
+        public void SparseArchiveIds_CanBeReadAndMissingIdsRemainMissing()
+        {
+            const int highArchiveId = 100;
+            _fileStoreMock.SetupGet(store => store.IndexFileCount).Returns(1);
+            _fileStoreMock.Setup(store => store.Read(0, highArchiveId)).Returns(() => new MemoryStream());
+
+            var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 2);
+            table.AddEntry(1, CreateSparseArchiveEntry(0));
+            table.AddEntry(highArchiveId, CreateSparseArchiveEntry(1));
+            _referenceTableProviderMock.Setup(provider => provider.ReadReferenceTable(0)).Returns(table);
+
+            _containerDecoderMock
+                .Setup(decoder => decoder.Decode(It.IsAny<MemoryStream>()))
+                .Returns(() => new Mock<IContainer>().Object);
+            _archiveDecoderMock
+                .Setup(decoder => decoder.Decode(It.IsAny<IContainer>(), 1))
+                .Returns(() =>
+                {
+                    var archive = new Archive(1);
+                    archive.Entries![0] = new MemoryStream([4, 5, 6]);
+                    return archive;
+                });
+
+            Assert.Equal(1, _cacheApi.GetFileCount(0, highArchiveId));
+            using (var archive = _cacheApi.ReadArchive(0, highArchiveId))
+            {
+                Assert.Equal(new byte[] { 4, 5, 6 }, archive.GetEntry(0).ToArray());
+            }
+
+            using var read = _cacheApi.Read(0, highArchiveId, 0);
+            Assert.Equal(new byte[] { 4, 5, 6 }, read.ToArray());
+
+            Assert.Equal(0, _cacheApi.GetFileCount(0, 50));
+            Assert.Throws<FileNotFoundException>(() => _cacheApi.ReadArchive(0, 50));
+            Assert.Throws<FileNotFoundException>(() => _cacheApi.Read(0, 50, 0));
+        }
+
+        private static ReferenceTableEntry CreateSparseArchiveEntry(int physicalIndex)
+        {
+            var entry = new ReferenceTableEntry(physicalIndex);
+            entry.InitializeEntries(1);
+            entry.AddEntry(0, new ReferenceTableChildEntry(0));
+            return entry;
+        }
+
         private void SetupArchiveRead(CompressionType compression)
         {
             _fileStoreMock.SetupGet(store => store.IndexFileCount).Returns(1);
-            _fileStoreMock.Setup(store => store.Read(0, 0)).Returns(new System.IO.MemoryStream());
+            _fileStoreMock.Setup(store => store.Read(0, 0)).Returns(() => new System.IO.MemoryStream());
 
             var entry = new Mock<IReferenceTableEntry>();
             entry.SetupGet(reference => reference.Capacity).Returns(1);
@@ -148,14 +292,17 @@ namespace Hagalaz.Cache.Tests
             table.Setup(reference => reference.GetEntry(0)).Returns(entry.Object);
             _referenceTableProviderMock.Setup(provider => provider.ReadReferenceTable(0)).Returns(table.Object);
 
-            var container = new Mock<IContainer>();
-            container.SetupGet(decoded => decoded.CompressionType).Returns(compression);
             _containerDecoderMock
                 .Setup(decoder => decoder.Decode(It.IsAny<System.IO.MemoryStream>()))
-                .Returns(container.Object);
+                .Returns(() =>
+                {
+                    var container = new Mock<IContainer>();
+                    container.SetupGet(decoded => decoded.CompressionType).Returns(compression);
+                    return container.Object;
+                });
             _archiveDecoderMock
-                .Setup(decoder => decoder.Decode(container.Object, 1))
-                .Returns(new Mock<IArchive>().Object);
+                .Setup(decoder => decoder.Decode(It.IsAny<IContainer>(), 1))
+                .Returns(() => new Mock<IArchive>().Object);
         }
 
         private sealed class CacheMeterListener : IDisposable

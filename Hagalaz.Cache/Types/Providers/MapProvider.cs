@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
+using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Factories;
 using Hagalaz.Cache.Abstractions.Types.Providers;
@@ -13,8 +16,6 @@ namespace Hagalaz.Cache.Types.Providers
 {
     public class MapProvider : IMapProvider
     {
-        private const int ROTATION_MASK = 0x3;
-        private const int CHUNK_COORDINATE_MASK = 0x7;
         private const int BRIDGE_FLAG = 0x2;
 
         private readonly ICacheAPI _cache;
@@ -32,15 +33,17 @@ namespace Hagalaz.Cache.Types.Providers
         public IMapType Get(int typeId) => Get(typeId, null);
         public IMapType Get(int typeId, int[]? xteaKeys = null)
         {
-            var terrainData = ReadTerrainData(typeId);
-            var objectData = ReadObjectData(typeId, xteaKeys);
+            using var terrainContainer = ReadTerrainContainer(typeId);
+            using var objectContainer = ReadObjectContainer(typeId, xteaKeys);
+            var terrainData = terrainContainer?.Data;
+            var objectData = objectContainer?.Data;
 
             if (terrainData == null && objectData == null)
             {
                 return _typeFactory.CreateType(typeId);
             }
 
-            var combinedStream = new MemoryStream();
+            using var combinedStream = new MemoryStream();
             var terrainBytes = terrainData?.ToArray() ?? [];
             combinedStream.WriteInt(terrainBytes.Length);
             combinedStream.Write(terrainBytes, 0, terrainBytes.Length);
@@ -64,40 +67,22 @@ namespace Hagalaz.Cache.Types.Providers
         }
         public IMapType[] GetAll() => throw new NotSupportedException("Cannot get all maps at once.");
 
-        public void DecodeRegion(int regionId, int[] xteaKeys, ObjectDecoded callback, ImpassibleTerrainDecoded groundCallback)
+        public DecodedMapRegion DecodeRegion(int regionId, int[] xteaKeys, CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var (terrainData, objects) = DecodeMapData(regionId, xteaKeys);
-            DecodeGround(terrainData, groundCallback);
+            var blockedTiles = DecodeGround(terrainData, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
-            foreach (var obj in objects)
-            {
-                callback.Invoke(obj.Id, obj.ShapeType, obj.Rotation, obj.X, obj.Y, obj.Z);
-            }
-        }
-
-        public void DecodePart(DecodePartRequest request)
-        {
-            var (terrainData, objects) = DecodeMapData(request.RegionID, request.XteaKeys);
-            DecodeGround(terrainData, request.GroundCallback);
-
-            foreach (var obj in objects)
-            {
-                if (request.PartZ == obj.Z && obj.X >= request.MinX && obj.X <= request.MaxX && obj.Y >= request.MinY && obj.Y <= request.MaxY)
-                {
-                    int rotatedLocalX = request.MinX + request.PartRotationCallback.Invoke(obj.Id, obj.Rotation, obj.X & CHUNK_COORDINATE_MASK, obj.Y & CHUNK_COORDINATE_MASK, request.PartRotation, false);
-                    int rotatedLocalY = request.MinY + request.PartRotationCallback.Invoke(obj.Id, obj.Rotation, obj.X & CHUNK_COORDINATE_MASK, obj.Y & CHUNK_COORDINATE_MASK, request.PartRotation, true);
-                    int height = obj.Z;
-                    if (rotatedLocalX < 0 || rotatedLocalX >= 64 || rotatedLocalY < 0 || rotatedLocalY >= 64) continue;
-                    if ((terrainData[1, rotatedLocalX, rotatedLocalY] & BRIDGE_FLAG) != 0) height--;
-                    if (height >= 0) request.Callback.Invoke(obj.Id, obj.ShapeType, (request.PartRotation + obj.Rotation) & ROTATION_MASK, rotatedLocalX, rotatedLocalY, height);
-                }
-            }
+            return new DecodedMapRegion(objects, blockedTiles);
         }
 
         private (sbyte[,,] TerrainData, System.Collections.Generic.List<MapObject> Objects) DecodeMapData(int regionId, int[] xteaKeys)
         {
-            var terrainDataStream = ReadTerrainData(regionId);
-            var objectDataStream = ReadObjectData(regionId, xteaKeys);
+            using var terrainContainer = ReadTerrainContainer(regionId);
+            using var objectContainer = ReadObjectContainer(regionId, xteaKeys);
+            var terrainDataStream = terrainContainer?.Data;
+            var objectDataStream = objectContainer?.Data;
             var terrainData = new sbyte[4, 64, 64];
             if (terrainDataStream != null && terrainDataStream.Length > 0)
             {
@@ -113,26 +98,32 @@ namespace Hagalaz.Cache.Types.Providers
             return (terrainData, objects);
         }
 
-        private static void DecodeGround(sbyte[,,] terrainData, ImpassibleTerrainDecoded groundCallback)
+        private static List<BlockedTerrainTile> DecodeGround(sbyte[,,] terrainData, CancellationToken cancellationToken)
+        {
+            return new List<BlockedTerrainTile>(EnumerateBlockedTiles(terrainData, cancellationToken));
+        }
+
+        private static IEnumerable<BlockedTerrainTile> EnumerateBlockedTiles(sbyte[,,] terrainData, CancellationToken cancellationToken)
         {
             for (var z = 0; z < 4; z++)
             {
                 for (var localX = 0; localX < 64; localX++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     for (var localY = 0; localY < 64; localY++)
                     {
                         if ((terrainData[z, localX, localY] & 0x1) != 0)
                         {
                             int height = z;
                             if ((terrainData[1, localX, localY] & BRIDGE_FLAG) != 0) height--;
-                            if (height >= 0) groundCallback.Invoke(localX, localY, height);
+                            if (height >= 0) yield return new BlockedTerrainTile(localX, localY, height);
                         }
                     }
                 }
             }
         }
 
-        private MemoryStream? ReadObjectData(int regionId, int[]? xteaKeys)
+        private IContainer? ReadObjectContainer(int regionId, int[]? xteaKeys)
         {
             var fileId = _cache.GetFileId(5, "l" + (regionId >> 8) + "_" + (regionId & 0xFF));
             if (fileId == -1)
@@ -141,9 +132,11 @@ namespace Hagalaz.Cache.Types.Providers
                 return null;
             }
 
-            return _cache.ReadContainer(5, fileId, xteaKeys ?? []).Data;
+            return xteaKeys is null || xteaKeys.Length == 0
+                ? _cache.ReadContainer(5, fileId)
+                : _cache.ReadContainer(5, fileId, xteaKeys);
         }
-        private MemoryStream? ReadTerrainData(int regionId)
+        private IContainer? ReadTerrainContainer(int regionId)
         {
             var fileId = _cache.GetFileId(5, "m" + (regionId >> 8) + "_" + (regionId & 0xFF));
             if (fileId == -1)
@@ -152,7 +145,7 @@ namespace Hagalaz.Cache.Types.Providers
                 return null;
             }
 
-            return _cache.ReadContainer(5, fileId).Data;
+            return _cache.ReadContainer(5, fileId);
         }
     }
 }

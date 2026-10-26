@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-25
+goal: Make null-terminated cache string decoding throw at EOF instead of reading
+  indefinitely.

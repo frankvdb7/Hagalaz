@@ -1,5 +1,6 @@
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
+using System.IO;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests
@@ -64,6 +65,15 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(defaultObject.Id, decodedObject.Id);
             Assert.Equal(defaultObject.Name, decodedObject.Name);
             Assert.Equal(defaultObject.SizeX, decodedObject.SizeX);
+        }
+
+        [Fact]
+        public void Decode_WithUnterminatedName_ThrowsEndOfStreamException()
+        {
+            var codec = new ObjectTypeCodec();
+            using var stream = new MemoryStream([2, (byte)'N', (byte)'o']);
+
+            Assert.Throws<EndOfStreamException>(() => codec.Decode(1, stream));
         }
 
         [Fact]
@@ -275,6 +285,87 @@ namespace Hagalaz.Cache.Tests
 
             // Act & Assert
             codec.Encode(obj);
+        }
+
+        [Fact]
+        public void TestEncodeDecode_RetainsRecognizedOpcodePayloads()
+        {
+            var codec = new ObjectTypeCodec();
+            byte[] definitionBytes =
+            [
+                44, 0x12, 0x34,
+                45, 0xAB, 0xCD,
+                190, 0, 10,
+                191, 0, 11,
+                192, 0, 12,
+                193, 0, 13,
+                194, 0, 14,
+                195, 0, 15,
+                0
+            ];
+
+            using var source = new MemoryStream(definitionBytes);
+            var decoded = (ObjectType)codec.Decode(1, source);
+            using var encoded = codec.Encode(decoded);
+            using var encodedSource = new MemoryStream(encoded.ToArray());
+            var roundTripped = (ObjectType)codec.Decode(1, encodedSource);
+
+            Assert.Equal((ushort)0x1234, roundTripped.Opcode44Payload);
+            Assert.Equal((ushort)0xABCD, roundTripped.Opcode45Payload);
+            Assert.Equal(new ushort?[] { 10, 11, 12, 13, 14, 15 }, roundTripped.Opcode190To195Payloads);
+        }
+
+        [Fact]
+        public void TestEncodeDecode_Revision742ObjectRetainsOpcode190Payload()
+        {
+            // Captured from index 16, archive 0, member 1 in the revision-742 cache.
+            byte[] definitionBytes = Convert.FromHexString(
+                "4100644200644300641E53656172636800180C8628061614151C16181518159C199A15A11D1C152521211529151801010A013C2A02437261746500BE00386700");
+            var codec = new ObjectTypeCodec();
+
+            using var source = new MemoryStream(definitionBytes);
+            var decoded = (ObjectType)codec.Decode(1, source);
+            decoded.Name = "Edited crate";
+            using var encoded = codec.Encode(decoded);
+            using var encodedSource = new MemoryStream(encoded.ToArray());
+            var roundTripped = (ObjectType)codec.Decode(1, encodedSource);
+
+            Assert.Equal("Edited crate", roundTripped.Name);
+            Assert.Equal("Search", roundTripped.Actions[0]);
+            Assert.Equal((ushort)56, roundTripped.Opcode190To195Payloads![0]);
+        }
+
+        [Fact]
+        public void TestEncodeDecode_RetainsAnimationWeightBytes()
+        {
+            var codec = new ObjectTypeCodec();
+            using var source = new MemoryStream([106, 3, 0, 1, 2, 0, 2, 3, 0, 3, 4, 0]);
+
+            var decoded = (ObjectType)codec.Decode(1, source);
+            using var encoded = codec.Encode(decoded);
+            using var encodedSource = new MemoryStream(encoded.ToArray());
+            var roundTripped = (ObjectType)codec.Decode(1, encodedSource);
+
+            Assert.Equal(new byte[] { 2, 3, 4 }, roundTripped.AnimationWeightBytes);
+            Assert.Equal(decoded.AnIntArray784, roundTripped.AnIntArray784);
+        }
+
+        [Fact]
+        public void TestEncodeDecode_Revision742ObjectRetainsAnimationWeights()
+        {
+            // Captured from object 33512 in the revision-742 cache.
+            byte[] definitionBytes = Convert.FromHexString(
+                "13001D19270F1B0E0201010A018000B6CA6A032DBB502DBC0F2DBD056700");
+            var codec = new ObjectTypeCodec();
+
+            using var source = new MemoryStream(definitionBytes);
+            var decoded = (ObjectType)codec.Decode(33512, source);
+            using var encoded = codec.Encode(decoded);
+            using var encodedSource = new MemoryStream(encoded.ToArray());
+            var roundTripped = (ObjectType)codec.Decode(33512, encodedSource);
+
+            Assert.Equal(new byte[] { 0x50, 0x0F, 0x05 }, roundTripped.AnimationWeightBytes);
+            Assert.Equal(decoded.AnIntArray784, roundTripped.AnIntArray784);
         }
 
     }

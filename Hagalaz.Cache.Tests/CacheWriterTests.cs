@@ -31,6 +31,7 @@ namespace Hagalaz.Cache.Tests
             var containerMock = new Mock<IContainer>();
             containerMock.Setup(c => c.Encode(false)).Returns(new byte[0]);
             var referenceTableMock = new Mock<IReferenceTable>();
+            referenceTableMock.Setup(table => table.GetEntry(1)).Returns(new Mock<IReferenceTableEntry>().Object);
             _referenceTableCodecMock.Setup(rt => rt.Encode(referenceTableMock.Object)).Returns(new MemoryStream());
             _referenceTableProviderMock.Setup(rtm => rtm.ReadReferenceTable(1)).Returns(referenceTableMock.Object);
 

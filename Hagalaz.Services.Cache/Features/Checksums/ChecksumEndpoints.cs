@@ -19,15 +19,8 @@ public static class ChecksumEndpoints
 
     private static IResult GetChecksumTable(ICacheAPI cacheApi)
     {
-        try
-        {
-            var table = cacheApi.CreateChecksumTable();
-            return TypedResults.Ok(MapChecksumTable(table));
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        var table = cacheApi.CreateChecksumTable();
+        return TypedResults.Ok(MapChecksumTable(table));
     }
 
     private static ChecksumTableResponse MapChecksumTable(IChecksumTable table)

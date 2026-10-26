@@ -130,6 +130,30 @@ namespace Hagalaz.Cache.Logic.Codecs
                 }
             }
 
+            if (obj.Opcode44Payload.HasValue)
+            {
+                writer.WriteByte(44);
+                writer.WriteShort(obj.Opcode44Payload.Value);
+            }
+
+            if (obj.Opcode45Payload.HasValue)
+            {
+                writer.WriteByte(45);
+                writer.WriteShort(obj.Opcode45Payload.Value);
+            }
+
+            if (obj.Opcode190To195Payloads is not null)
+            {
+                for (var i = 0; i < obj.Opcode190To195Payloads.Length; i++)
+                {
+                    if (obj.Opcode190To195Payloads[i] is ushort payload)
+                    {
+                        writer.WriteByte((byte)(190 + i));
+                        writer.WriteShort(payload);
+                    }
+                }
+            }
+
             if (obj.OriginalColors != null && obj.ModifiedColors != null && obj.OriginalColors.Length == obj.ModifiedColors.Length)
             {
                 writer.WriteByte(ObjectTypeOpcodes.Colors);
@@ -369,7 +393,9 @@ namespace Hagalaz.Cache.Logic.Codecs
                 for (int i = 0; i < obj.AnimationIDs.Length; i++)
                 {
                     writer.WriteBigSmart(obj.AnimationIDs[i] == -1 ? 65535 : obj.AnimationIDs[i]);
-                    writer.WriteByte((byte)obj.AnIntArray784[i]);
+                    writer.WriteByte(obj.AnimationWeightBytes is { Length: > 0 } weights && weights.Length == obj.AnimationIDs.Length
+                        ? weights[i]
+                        : (byte)obj.AnIntArray784[i]);
                 }
             }
 
@@ -564,11 +590,11 @@ namespace Hagalaz.Cache.Logic.Codecs
                                                             {
                                                                 if (opcode == 44)
                                                                 {
-                                                                    int i16 = buffer.ReadUnsignedShort();
+                                                                    objectType.Opcode44Payload = (ushort)buffer.ReadUnsignedShort();
                                                                 }
                                                                 else if (opcode == 45)
                                                                 {
-                                                                    int i21 = buffer.ReadUnsignedShort();
+                                                                    objectType.Opcode45Payload = (ushort)buffer.ReadUnsignedShort();
                                                                 }
                                                                 else if (opcode == ObjectTypeOpcodes.Inverted)
                                                                     objectType.Inverted = true;
@@ -644,6 +670,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                                                                                                                                             {
                                                                                                                                                 int count = buffer.ReadUnsignedByte();
                                                                                                                                                 objectType.AnIntArray784 = new int[count];
+                                                                                                                                                objectType.AnimationWeightBytes = new byte[count];
                                                                                                                                                 objectType.AnimationIDs = new int[count];
                                                                                                                                                 int total = 0;
                                                                                                                                                 for (int i = 0; i < count; i++)
@@ -653,7 +680,9 @@ namespace Hagalaz.Cache.Logic.Codecs
                                                                                                                                                     {
                                                                                                                                                         objectType.AnimationIDs[i] = -1;
                                                                                                                                                     }
-                                                                                                                                                    total += objectType.AnIntArray784[i] = buffer.ReadUnsignedByte();
+                                                                                                                                                    var weight = (byte)buffer.ReadUnsignedByte();
+                                                                                                                                                    objectType.AnimationWeightBytes[i] = weight;
+                                                                                                                                                    total += objectType.AnIntArray784[i] = weight;
                                                                                                                                                 }
                                                                                                                                                 if (total > 0)
                                                                                                                                                 {
@@ -713,7 +742,8 @@ namespace Hagalaz.Cache.Logic.Codecs
                                                                                                                                                                         }
                                                                                                                                                                         else if (opcode >= 190 && opcode < 196)
                                                                                                                                                                         {
-                                                                                                                                                                            buffer.ReadUnsignedShort();
+                                                                                                                                                                            objectType.Opcode190To195Payloads ??= new ushort?[6];
+                                                                                                                                                                            objectType.Opcode190To195Payloads[opcode - 190] = (ushort)buffer.ReadUnsignedShort();
                                                                                                                                                                         }
                                                                                                                                                                         else if (opcode == ObjectTypeOpcodes.ExtraData)
                                                                                                                                                                         {

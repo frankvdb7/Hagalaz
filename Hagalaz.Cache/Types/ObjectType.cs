@@ -23,6 +23,12 @@ namespace Hagalaz.Cache.Types
         /// </summary>
         /// <value>The name.</value>
         public string Name { get; set; }
+        /// <summary>Retains the payload of cache opcode 44.</summary>
+        public ushort? Opcode44Payload { get; internal set; }
+        /// <summary>Retains the payload of cache opcode 45.</summary>
+        public ushort? Opcode45Payload { get; internal set; }
+        /// <summary>Retains the payloads of cache opcodes 190 through 195.</summary>
+        public ushort?[]? Opcode190To195Payloads { get; internal set; }
         /// <summary>
         /// Gets an int759.
         /// </summary>
@@ -138,6 +144,8 @@ namespace Hagalaz.Cache.Types
         /// </summary>
         /// <value>An int array784.</value>
         public int[]? AnIntArray784 { get; internal set; }
+        /// <summary>Retains the original byte weights used to derive <see cref="AnIntArray784"/>.</summary>
+        public byte[]? AnimationWeightBytes { get; internal set; }
         /// <summary>
         /// Gets a value indicating whether [members only].
         /// </summary>

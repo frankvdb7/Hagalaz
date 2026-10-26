@@ -28,8 +28,9 @@ namespace Hagalaz.Cache.Logic.Codecs
             if (type == CompressionType.None)
             {
                 /* simply grab the data and wrap it in a buffer */
+                ValidatePayloadLength(stream, compressedLength);
                 byte[] data = new byte[compressedLength];
-                stream.Read(data, 0, compressedLength);
+                stream.ReadExactly(data);
 
                 /* decode the version if present */
                 short version = -1;
@@ -45,8 +46,9 @@ namespace Hagalaz.Cache.Logic.Codecs
                 var decompressedLength = stream.ReadInt();
 
                 /* grab the data */
+                ValidatePayloadLength(stream, compressedLength);
                 var compressed = new byte[compressedLength];
-                stream.Read(compressed, 0, compressedLength);
+                stream.ReadExactly(compressed);
 
                 /* uncompress it */
                 var decompressed = type switch
@@ -67,6 +69,14 @@ namespace Hagalaz.Cache.Logic.Codecs
 
                 /* and return the decoded container */
                 return new Container(type, new MemoryStream(decompressed), version);
+            }
+        }
+
+        private static void ValidatePayloadLength(MemoryStream stream, int payloadLength)
+        {
+            if (payloadLength < 0 || payloadLength > stream.Remaining())
+            {
+                throw new InvalidDataException("Container payload length is invalid.");
             }
         }
     }

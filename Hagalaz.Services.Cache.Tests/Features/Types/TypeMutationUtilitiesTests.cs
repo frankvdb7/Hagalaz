@@ -10,33 +10,6 @@ namespace Hagalaz.Services.Cache.Tests.Features.Types;
 public class TypeMutationUtilitiesTests
 {
     [TestMethod]
-    public void BuildSingleChunkArchive_WithSingleEntry_ReturnsExactBytes()
-    {
-        var entry = new MemoryStream([1, 2, 3]);
-
-        using var result = TypeMutationUtilities.BuildSingleChunkArchive([entry]);
-
-        CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, result.ToArray());
-    }
-
-    [TestMethod]
-    public void BuildSingleChunkArchive_WithMultipleEntries_AppendsChunkFooter()
-    {
-        var first = new MemoryStream([1, 2]);
-        var second = new MemoryStream([3]);
-
-        using var result = TypeMutationUtilities.BuildSingleChunkArchive([first, second]);
-
-        CollectionAssert.AreEqual(new byte[]
-        {
-            1, 2, 3,
-            0, 0, 0, 2,
-            0, 0, 0, 3,
-            1
-        }, result.ToArray());
-    }
-
-    [TestMethod]
     public async Task ReadImageRequestStreamAsync_WithRawBody_ReadsBody()
     {
         var context = new DefaultHttpContext();

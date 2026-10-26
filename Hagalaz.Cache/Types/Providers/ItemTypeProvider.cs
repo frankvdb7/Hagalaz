@@ -13,9 +13,7 @@ namespace Hagalaz.Cache.Types.Providers
     {
         private readonly ItemTypeData _typeData = new();
         private readonly ICacheAPI _cache;
-        private readonly IItemTypeCodec _codec;
-        private readonly ITypeFactory<IItemType> _typeFactory;
-        private readonly ITypeEventHook<IItemType>? _typeEventHook;
+        private readonly CacheTypeDecoder<IItemType> _decoder;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ItemTypeProvider"/> class.
@@ -27,9 +25,7 @@ namespace Hagalaz.Cache.Types.Providers
         public ItemTypeProvider(ICacheAPI cache, IItemTypeCodec codec, ITypeFactory<IItemType> typeFactory, ITypeEventHook<IItemType>? typeEventHook = null)
         {
             _cache = cache;
-            _codec = codec;
-            _typeFactory = typeFactory;
-            _typeEventHook = typeEventHook;
+            _decoder = new CacheTypeDecoder<IItemType>(_cache, _typeData, typeFactory, codec, typeEventHook);
         }
 
         /// <inheritdoc />
@@ -38,20 +34,7 @@ namespace Hagalaz.Cache.Types.Providers
         /// <inheritdoc />
         public IItemType Get(int typeId)
         {
-            var table = _cache.ReadReferenceTable(_typeData.IndexId);
-            var archiveId = _typeData.GetArchiveId(typeId);
-            var entry = table.GetEntry(archiveId, _typeData.GetArchiveEntryId(typeId));
-            if (entry == null)
-            {
-                return _typeFactory.CreateType(typeId);
-            }
-
-            var archive = _cache.ReadArchive(_typeData.IndexId, archiveId);
-            var stream = archive.GetEntry(entry.Index);
-            var type = _codec.Decode(typeId, stream);
-
-            _typeEventHook?.AfterDecode(this, [type]);
-            return type;
+            return _decoder.Decode(this, typeId);
         }
 
         /// <inheritdoc />

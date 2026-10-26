@@ -1,6 +1,6 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Extensions;
@@ -55,63 +55,63 @@ namespace Hagalaz.Cache.Logic.Codecs
             for (var index = 1; index < palette.Length; index++)
             {
                 palette[index] = stream.ReadMedInt();
-                if (palette[index] == 0)
-                    palette[index] = 1;
             }
 
-            var spriteType = new SpriteType(id)
+            var spriteType = new SpriteType(id, Width, Height);
+
+            try
             {
-                Image = new Image<Rgba32>(Width, Height)
-            };
-
-            /* read the pixels themselves */
-            stream.Position = 0;
-            for (var i = 0; i < size; i++)
-            {
-                /* grab some frequently used values */
-                int subWidth = subWidths[i], subHeight = subHeights[i];
-                int offsetX = offsetsX[i], offsetY = offsetsY[i];
-
-                var frameImage = new Image<Rgba32>(Width, Height);
-
-                /* allocate an array for the palette indices */
-                int[,] indices = new int[subWidth, subHeight];
-
-                /* read the flags so we know whether to read horizontally or vertically */
-                SpriteType.Flags flags = (SpriteType.Flags)stream.ReadUnsignedByte();
-
-                /* now read the image */
-                /* read the palette indices */
-                if (flags.HasFlag(SpriteType.Flags.Vertical))
+                /* read the pixels themselves */
+                stream.Position = 0;
+                for (var i = 0; i < size; i++)
                 {
-                    for (var x = 0; x < subWidth; x++)
-                    {
-                        for (var y = 0; y < subHeight; y++)
-                        {
-                            indices[x, y] = stream.ReadUnsignedByte();
-                        }
-                    }
-                }
-                else
-                {
-                    for (var y = 0; y < subHeight; y++)
-                    {
-                        for (var x = 0; x < subWidth; x++)
-                        {
-                            indices[x, y] = stream.ReadUnsignedByte();
-                        }
-                    }
-                }
+                    /* grab some frequently used values */
+                    int subWidth = subWidths[i], subHeight = subHeights[i];
+                    int offsetX = offsetsX[i], offsetY = offsetsY[i];
 
-                /* read the alpha (if there is alpha) and convert values to BGRA */
-                if (flags.HasFlag(SpriteType.Flags.Alpha))
-                {
-                    if (flags.HasFlag(SpriteType.Flags.Vertical))
+                    using var frameImage = new Image<Rgba32>(Width, Height);
+
+                    /* allocate an array for the palette indices */
+                    int[,] indices = new int[subWidth, subHeight];
+
+                    /* read the flags so we know whether to read horizontally or vertically */
+                    SpriteType.Flags flags = (SpriteType.Flags)stream.ReadUnsignedByte();
+                    var isVertical = flags.HasFlag(SpriteType.Flags.Vertical);
+
+                    /* now read the image */
+                    /* read the palette indices */
+                    if (isVertical)
                     {
                         for (var x = 0; x < subWidth; x++)
                         {
                             for (var y = 0; y < subHeight; y++)
                             {
+                                indices[x, y] = stream.ReadUnsignedByte();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        for (var y = 0; y < subHeight; y++)
+                        {
+                            for (var x = 0; x < subWidth; x++)
+                            {
+                                indices[x, y] = stream.ReadUnsignedByte();
+                            }
+                        }
+                    }
+
+                    /* read the alpha (if there is alpha) and convert values to BGRA */
+                    if (flags.HasFlag(SpriteType.Flags.Alpha))
+                    {
+                        var outerLength = isVertical ? subWidth : subHeight;
+                        var innerLength = isVertical ? subHeight : subWidth;
+                        for (var outer = 0; outer < outerLength; outer++)
+                        {
+                            for (var inner = 0; inner < innerLength; inner++)
+                            {
+                                var x = isVertical ? outer : inner;
+                                var y = isVertical ? inner : outer;
                                 int alpha = stream.ReadUnsignedByte();
                                 int c = palette[indices[x, y]];
                                 var r = (byte)(c >> 16);
@@ -123,53 +123,60 @@ namespace Hagalaz.Cache.Logic.Codecs
                     }
                     else
                     {
-                        for (var y = 0; y < subHeight; y++)
+                        for (var x = 0; x < subWidth; x++)
                         {
-                            for (var x = 0; x < subWidth; x++)
+                            for (var y = 0; y < subHeight; y++)
                             {
-                                int alpha = stream.ReadUnsignedByte();
+                                int index = indices[x, y];
                                 int c = palette[indices[x, y]];
                                 var r = (byte)(c >> 16);
                                 var g = (byte)(c >> 8);
                                 var b = (byte)c;
-                                frameImage[x + offsetX, y + offsetY] = new Rgba32(r, g, b, (byte)alpha);
+                                frameImage[x + offsetX, y + offsetY] = new Rgba32(r, g, b, (byte)(index == 0 ? 0 : 255));
                             }
                         }
                     }
+                    spriteType.Image.Frames.AddFrame(frameImage.Frames.RootFrame);
                 }
-                else
+
+                if (size > 0)
                 {
-                    for (var x = 0; x < subWidth; x++)
-                    {
-                        for (var y = 0; y < subHeight; y++)
-                        {
-                            int index = indices[x, y];
-                            int c = palette[indices[x, y]];
-                            var r = (byte)(c >> 16);
-                            var g = (byte)(c >> 8);
-                            var b = (byte)c;
-                            frameImage[x + offsetX, y + offsetY] = new Rgba32(r, g, b, (byte)(index == 0 ? 0 : 255));
-                        }
-                    }
+                    spriteType.Image.Frames.RemoveFrame(0);
                 }
-                spriteType.Image.Frames.AddFrame(frameImage.Frames.RootFrame);
-            }
 
-            if (size > 0)
+                return spriteType;
+            }
+            catch
             {
-                spriteType.Image.Frames.RemoveFrame(0);
+                spriteType.Dispose();
+                throw;
             }
-
-            return spriteType;
         }
 
         public MemoryStream Encode(ISpriteType instance)
         {
+            ArgumentNullException.ThrowIfNull(instance);
+            ValidateFormatLimits(instance.Image.Width, instance.Image.Height, instance.Image.Frames.Count);
+            foreach (var frame in instance.Image.Frames)
+            {
+                if (frame.Width is < 1 or > ushort.MaxValue || frame.Height is < 1 or > ushort.MaxValue)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(instance), "Sprite frame dimensions must be between 1 and 65535 pixels.");
+                }
+
+                if (frame.Width != instance.Image.Width || frame.Height != instance.Image.Height)
+                {
+                    throw new IOException("All frames must have the same dimensions!");
+                }
+            }
+
             using var pixelDataStream = new MemoryStream();
             using var paletteDataStream = new MemoryStream();
             using var metaDataStream = new MemoryStream();
 
-            var paletteSet = new HashSet<Rgba32> { new Rgba32(0, 0, 0, 0) };
+            const int maxPaletteEntries = byte.MaxValue + 1;
+            var palette = new List<int> { 0 };
+            var paletteMap = new Dictionary<int, byte>();
             bool hasAlpha = false;
 
             foreach (var frame in instance.Image.Frames)
@@ -183,19 +190,28 @@ namespace Hagalaz.Cache.Logic.Codecs
                         {
                             hasAlpha = true;
                         }
-                        if (paletteSet.Count < 256)
+
+                        if (rgba.A == 0)
                         {
-                            paletteSet.Add(rgba);
+                            continue;
+                        }
+
+                        var color = rgba.R << 16 | rgba.G << 8 | rgba.B;
+                        if (!paletteMap.ContainsKey(color))
+                        {
+                            if (palette.Count == maxPaletteEntries)
+                            {
+                                throw new ArgumentException(
+                                    $"Sprite images support at most {maxPaletteEntries - 1} visible RGB colors plus the reserved transparent entry ({maxPaletteEntries} palette entries total).",
+                                    nameof(instance));
+                            }
+
+                            var paletteIndex = (byte)palette.Count;
+                            palette.Add(color);
+                            paletteMap.Add(color, paletteIndex);
                         }
                     }
                 }
-            }
-
-            var palette = paletteSet.ToList();
-            var paletteMap = new Dictionary<Rgba32, byte>();
-            for (int i = 0; i < palette.Count; i++)
-            {
-                paletteMap[palette[i]] = (byte)i;
             }
 
             var offsetsX = new int[instance.Image.Frames.Count];
@@ -206,8 +222,6 @@ namespace Hagalaz.Cache.Logic.Codecs
             for (int i = 0; i < instance.Image.Frames.Count; i++)
             {
                 var frame = instance.Image.Frames[i];
-                if (frame.Width != instance.Image.Width || frame.Height != instance.Image.Height)
-                    throw new IOException("All frames must have the same dimensions!");
 
                 var (minX, minY, width, height) = GetBoundingBox(frame);
                 offsetsX[i] = minX;
@@ -225,7 +239,9 @@ namespace Hagalaz.Cache.Logic.Codecs
                 {
                     for (var y = 0; y < height; y++)
                     {
-                        pixelDataStream.WriteByte(paletteMap[frame[x + minX, y + minY]]);
+                        var rgba = frame[x + minX, y + minY];
+                        var color = rgba.R << 16 | rgba.G << 8 | rgba.B;
+                        pixelDataStream.WriteByte(rgba.A == 0 ? (byte)0 : paletteMap[color]);
                     }
                 }
 
@@ -243,8 +259,7 @@ namespace Hagalaz.Cache.Logic.Codecs
 
             for (var i = 1; i < palette.Count; i++)
             {
-                var color = palette[i];
-                paletteDataStream.WriteMedInt(color.R << 16 | color.G << 8 | color.B);
+                paletteDataStream.WriteMedInt(palette[i]);
             }
 
             metaDataStream.WriteShort(instance.Image.Width);
@@ -270,6 +285,24 @@ namespace Hagalaz.Cache.Logic.Codecs
 
             finalStream.Position = 0;
             return finalStream;
+        }
+
+        internal static void ValidateFormatLimits(int width, int height, int frameCount)
+        {
+            if (width is < 1 or > ushort.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException(nameof(width), width, $"Sprite width must be between 1 and {ushort.MaxValue} pixels.");
+            }
+
+            if (height is < 1 or > ushort.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException(nameof(height), height, $"Sprite height must be between 1 and {ushort.MaxValue} pixels.");
+            }
+
+            if (frameCount is < 1 or > ushort.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException(nameof(frameCount), frameCount, $"Sprite frame count must be between 1 and {ushort.MaxValue}.");
+            }
         }
 
         private (int, int, int, int) GetBoundingBox(ImageFrame<Rgba32> frame)

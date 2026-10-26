@@ -118,6 +118,30 @@ namespace Hagalaz.Cache.Extensions.Tests
             Assert.Equal(-10, stream.ReadSignedByte());
         }
 
+        [Fact]
+        public void ReadSignedByte_ThrowsAtEndOfStream()
+        {
+            using var stream = new MemoryStream();
+
+            Assert.Throws<EndOfStreamException>(() => stream.ReadSignedByte());
+        }
+
+        [Fact]
+        public void ReadUnsignedByte_ThrowsAtEndOfStream()
+        {
+            using var stream = new MemoryStream();
+
+            Assert.Throws<EndOfStreamException>(() => stream.ReadUnsignedByte());
+        }
+
+        [Fact]
+        public void ReadUnsignedShort_ThrowsWhenInputIsTruncated()
+        {
+            using var stream = new MemoryStream([0x12]);
+
+            Assert.Throws<EndOfStreamException>(() => stream.ReadUnsignedShort());
+        }
+
         [Theory]
         [InlineData(100)]
         [InlineData(200)]
@@ -153,6 +177,44 @@ namespace Hagalaz.Cache.Extensions.Tests
             stream.WriteString(testString);
             stream.Position = 0;
             Assert.Equal(testString, stream.ReadString());
+        }
+
+        [Fact]
+        public void WriteAndReadString_PreservesLatin1Characters()
+        {
+            using var stream = new MemoryStream();
+            const string testString = "Naïve café ÿ";
+
+            stream.WriteString(testString);
+            stream.Position = 0;
+
+            Assert.Equal(testString, stream.ReadString());
+        }
+
+        [Fact]
+        public void ReadString_PreservesHighBytesAsLatin1Characters()
+        {
+            using var stream = new MemoryStream([0xE9, 0xFF, 0]);
+
+            Assert.Equal("éÿ", stream.ReadString());
+        }
+
+        [Fact]
+        public void WriteString_RejectsEmbeddedNullCharacter()
+        {
+            using var stream = new MemoryStream();
+
+            Assert.Throws<ArgumentException>(() => stream.WriteString("before\0after"));
+            Assert.Equal(0, stream.Length);
+        }
+
+        [Fact]
+        public void WriteString_RejectsCharactersOutsideLatin1()
+        {
+            using var stream = new MemoryStream();
+
+            Assert.Throws<ArgumentException>(() => stream.WriteString("cache \u0100 name"));
+            Assert.Equal(0, stream.Length);
         }
 
         [Fact]

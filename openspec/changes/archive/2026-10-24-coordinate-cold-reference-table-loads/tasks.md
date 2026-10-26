@@ -1,0 +1,3 @@
+- [x] 1. Coordinate per-index reference-table initialization and invalidation in `ReferenceTableProvider`.
+- [x] 2. Add deterministic tests for one decode across concurrent cold reads and invalidation ordering.
+- [x] 3. Re-run the real-cache cold/warm profile and focused provider tests; record post-change evidence.

@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Providers;
+using Hagalaz.Cache.Types.Data;
 using Hagalaz.Services.Cache.Features.Shared;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -98,95 +100,121 @@ public static class TypeEndpoints
             maps.ArchiveSize));
     }
 
-    private static IResult GetItemType(int id, ITypeProvider<IItemType> provider) => Resolve(() => TypedResults.Ok(MapItem(provider.Get(id))));
+    private static IResult GetItemType(int id, ITypeProvider<IItemType> provider) => TypedResults.Ok(MapItem(provider.Get(id)));
 
     private static IResult GetItemTypeRange(int startId, int endIdExclusive, ITypeProvider<IItemType> provider)
-        => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(MapItem).ToArray());
+    {
+        var error = ValidateRange(startId, endIdExclusive, provider.ArchiveSize);
+        return error ?? TypedResults.Ok(provider.GetRange(startId, endIdExclusive).Select(MapItem).ToArray());
+    }
 
-    private static IResult SearchItemTypes(string query, int offset, int limit, ITypeProvider<IItemType> provider)
-        => ResolveSearch(query, offset, limit, provider.ArchiveSize, () =>
-        {
-            var matches = provider.GetRange(0, provider.ArchiveSize)
-                .Where(type => !string.IsNullOrWhiteSpace(type.Name) && type.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
-                .Select(MapItem)
-                .ToArray();
-            return matches;
-        });
+    private static IResult SearchItemTypes(string query, int offset, int limit, ITypeProvider<IItemType> provider) =>
+        ValidateSearch(query, offset, limit, provider.ArchiveSize, requireQuery: true)
+        ?? CreateSearchResponse(query, offset, limit, provider.GetRange(0, provider.ArchiveSize)
+            .Where(type => !string.IsNullOrWhiteSpace(type.Name) && type.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Select(MapItem)
+            .ToArray());
 
-    private static IResult GetNpcType(int id, ITypeProvider<INpcType> provider) => Resolve(() => TypedResults.Ok(MapNpc(provider.Get(id))));
+    private static IResult GetNpcType(int id, ITypeProvider<INpcType> provider) => TypedResults.Ok(MapNpc(provider.Get(id)));
 
     private static IResult GetNpcTypeRange(int startId, int endIdExclusive, ITypeProvider<INpcType> provider)
-        => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(MapNpc).ToArray());
+    {
+        var error = ValidateRange(startId, endIdExclusive, provider.ArchiveSize);
+        return error ?? TypedResults.Ok(provider.GetRange(startId, endIdExclusive).Select(MapNpc).ToArray());
+    }
 
-    private static IResult SearchNpcTypes(string query, int offset, int limit, ITypeProvider<INpcType> provider)
-        => ResolveSearch(query, offset, limit, provider.ArchiveSize, () =>
-        {
-            var matches = provider.GetRange(0, provider.ArchiveSize)
-                .Where(type => !string.IsNullOrWhiteSpace(type.Name) && type.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
-                .Select(MapNpc)
-                .ToArray();
-            return matches;
-        });
+    private static IResult SearchNpcTypes(string query, int offset, int limit, ITypeProvider<INpcType> provider) =>
+        ValidateSearch(query, offset, limit, provider.ArchiveSize, requireQuery: true)
+        ?? CreateSearchResponse(query, offset, limit, provider.GetRange(0, provider.ArchiveSize)
+            .Where(type => !string.IsNullOrWhiteSpace(type.Name) && type.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Select(MapNpc)
+            .ToArray());
 
-    private static IResult GetObjectType(int id, ITypeProvider<IObjectType> provider) => Resolve(() => TypedResults.Ok(MapObject(provider.Get(id))));
+    private static IResult GetObjectType(int id, ITypeProvider<IObjectType> provider) => TypedResults.Ok(MapObject(provider.Get(id)));
 
     private static IResult GetObjectTypeRange(int startId, int endIdExclusive, ITypeProvider<IObjectType> provider)
-        => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(MapObject).ToArray());
+    {
+        var error = ValidateRange(startId, endIdExclusive, provider.ArchiveSize);
+        return error ?? TypedResults.Ok(provider.GetRange(startId, endIdExclusive).Select(MapObject).ToArray());
+    }
 
-    private static IResult GetSpriteType(int id, ITypeProvider<ISpriteType> provider) => Resolve(() => TypedResults.Ok(MapSprite(provider.Get(id))));
+    private static IResult GetSpriteType(int id, ITypeProvider<ISpriteType> provider)
+    {
+        using var sprite = provider.Get(id);
+        return TypedResults.Ok(MapSprite(sprite));
+    }
 
     private static IResult GetSpriteTypeImage(int id, int? frame, ITypeProvider<ISpriteType> provider)
-        => Resolve(() =>
+    {
+        using var sprite = provider.Get(id);
+        var frameIndex = frame ?? 0;
+        if (frameIndex < 0 || frameIndex >= sprite.Image.Frames.Count)
         {
-            var sprite = provider.Get(id);
-            var frameIndex = frame ?? 0;
-            if (frameIndex < 0 || frameIndex >= sprite.Image.Frames.Count)
-            {
-                return TypedResults.BadRequest(EndpointErrors.Validation($"frame must be between 0 and {sprite.Image.Frames.Count - 1}."));
-            }
+            return TypedResults.BadRequest(EndpointErrors.Validation($"frame must be between 0 and {sprite.Image.Frames.Count - 1}."));
+        }
 
-            using var image = RenderSpriteFrame(sprite.Image, frameIndex);
-            using var buffer = new MemoryStream();
-            image.SaveAsPng(buffer);
-            return TypedResults.File(buffer.ToArray(), "image/png", $"sprite-{id}-frame-{frameIndex}.png");
-        });
+        using var image = RenderSpriteFrame(sprite.Image, frameIndex);
+        using var buffer = new MemoryStream();
+        image.SaveAsPng(buffer);
+        return TypedResults.File(buffer.ToArray(), "image/png", $"sprite-{id}-frame-{frameIndex}.png");
+    }
 
     private static IResult GetSpriteTypeRange(int startId, int endIdExclusive, ITypeProvider<ISpriteType> provider)
-        => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(MapSprite).ToArray());
+    {
+        var error = ValidateRange(startId, endIdExclusive, provider.ArchiveSize);
+        return error ?? TypedResults.Ok(MapSpritesAndDispose(provider.GetRange(startId, endIdExclusive)));
+    }
 
-    private static IResult SearchSpriteTypes(string? query, int offset, int limit, ITypeProvider<ISpriteType> provider)
-        => ResolveIndexSearch(query, offset, limit, provider.ArchiveSize, () =>
+    private static IResult SearchSpriteTypes(string? query, int offset, int limit, ITypeProvider<ISpriteType> provider, ICacheAPI cache)
+    {
+        var error = ValidateSearch(query, offset, limit, provider.ArchiveSize, requireQuery: false);
+        if (error is not null) return error;
+
+        var matchingIds = cache.ReadReferenceTable(new SpriteTypeData().IndexId).Entries
+            .Select(entry => entry.Key)
+            .Where(id => string.IsNullOrWhiteSpace(query)
+                || id.ToString().Contains(query, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        var pageIds = matchingIds.Skip(offset).Take(limit).ToArray();
+        var page = new SpriteTypeResponse[pageIds.Length];
+        for (var i = 0; i < pageIds.Length; i++)
         {
-            var all = provider.GetRange(0, provider.ArchiveSize).Select(MapSprite);
-            if (string.IsNullOrWhiteSpace(query))
-            {
-                return all.ToArray();
-            }
+            using var sprite = provider.Get(pageIds[i]);
+            page[i] = MapSprite(sprite);
+        }
 
-            return all.Where(type => type.Id.ToString().Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
-        });
+        return TypedResults.Ok(new SearchResponse<SpriteTypeResponse>(query ?? string.Empty, matchingIds.Length, offset, limit, page));
+    }
 
-    private static IResult GetQuestType(int id, ITypeProvider<IQuestType> provider) => Resolve(() => TypedResults.Ok(new QuestTypeResponse(provider.Get(id).Id)));
+    private static IResult GetQuestType(int id, ITypeProvider<IQuestType> provider) => TypedResults.Ok(new QuestTypeResponse(provider.Get(id).Id));
 
     private static IResult GetQuestTypeRange(int startId, int endIdExclusive, ITypeProvider<IQuestType> provider)
-        => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(q => new QuestTypeResponse(q.Id)).ToArray());
+    {
+        var error = ValidateRange(startId, endIdExclusive, provider.ArchiveSize);
+        return error ?? TypedResults.Ok(provider.GetRange(startId, endIdExclusive).Select(q => new QuestTypeResponse(q.Id)).ToArray());
+    }
 
     private static IResult GetAnimationType(int id, ITypeProvider<IAnimationType> provider)
-        => Resolve(() =>
-        {
-            var animation = provider.Get(id);
-            return TypedResults.Ok(new AnimationTypeResponse(animation.Id, animation.Priority));
-        });
+    {
+        var animation = provider.Get(id);
+        return TypedResults.Ok(new AnimationTypeResponse(animation.Id, animation.Priority));
+    }
 
     private static IResult GetAnimationTypeRange(int startId, int endIdExclusive, ITypeProvider<IAnimationType> provider)
-        => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(a => new AnimationTypeResponse(a.Id, a.Priority)).ToArray());
+    {
+        var error = ValidateRange(startId, endIdExclusive, provider.ArchiveSize);
+        return error ?? TypedResults.Ok(provider.GetRange(startId, endIdExclusive).Select(a => new AnimationTypeResponse(a.Id, a.Priority)).ToArray());
+    }
 
-    private static IResult GetGraphicType(int id, ITypeProvider<IGraphicType> provider) => Resolve(() => TypedResults.Ok(MapGraphic(provider.Get(id))));
+    private static IResult GetGraphicType(int id, ITypeProvider<IGraphicType> provider) => TypedResults.Ok(MapGraphic(provider.Get(id)));
 
     private static IResult GetGraphicTypeRange(int startId, int endIdExclusive, ITypeProvider<IGraphicType> provider)
-        => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(MapGraphic).ToArray());
+    {
+        var error = ValidateRange(startId, endIdExclusive, provider.ArchiveSize);
+        return error ?? TypedResults.Ok(provider.GetRange(startId, endIdExclusive).Select(MapGraphic).ToArray());
+    }
 
-    private static IResult GetMapType(int id, IMapProvider provider) => Resolve(() => TypedResults.Ok(MapMap(provider.Get(id))));
+    private static IResult GetMapType(int id, IMapProvider provider) => TypedResults.Ok(MapMap(provider.Get(id)));
 
     private static IResult DecodeMapType(int id, MapDecodeRequest request, IMapProvider provider)
     {
@@ -195,72 +223,69 @@ public static class TypeEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("xteaKeys must contain exactly 4 integers."));
         }
 
-        return Resolve(() => TypedResults.Ok(MapMap(provider.Get(id, request.XteaKeys))));
+        return TypedResults.Ok(MapMap(provider.Get(id, request.XteaKeys)));
     }
 
-    private static IResult GetVarpBitType(int id, IVarpBitDefinitionProvider provider) => Resolve(() => TypedResults.Ok(MapVarpBit(provider.Get(id))));
+    private static IResult GetVarpBitType(int id, IVarpBitDefinitionProvider provider) => TypedResults.Ok(MapVarpBit(provider.Get(id)));
 
     private static IResult GetVarpBitTypeRange(int startId, int endIdExclusive, IVarpBitDefinitionProvider provider)
-        => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(MapVarpBit).ToArray());
-
-    private static IResult GetClientMapDefinitionType(int id, IClientMapDefinitionProvider provider)
-        => Resolve(() => TypedResults.Ok(MapClientMapDefinition(provider.Get(id))));
-
-    private static IResult GetClientMapDefinitionTypeRange(int startId, int endIdExclusive, IClientMapDefinitionProvider provider)
-        => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(MapClientMapDefinition).ToArray());
-
-    private static IResult GetConfigDefinitionType(int id, IConfigDefinitionProvider provider)
-        => Resolve(() => TypedResults.Ok(MapConfigDefinition(provider.Get(id))));
-
-    private static IResult GetConfigDefinitionTypeRange(int startId, int endIdExclusive, IConfigDefinitionProvider provider)
-        => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(MapConfigDefinition).ToArray());
-
-    private static IResult GetCs2Type(int id, ITypeProvider<ICs2Definition> provider)
-        => Resolve(() => TypedResults.Ok(MapCs2(provider.Get(id))));
-
-    private static IResult GetCs2TypeRange(int startId, int endIdExclusive, ITypeProvider<ICs2Definition> provider)
-        => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(MapCs2).ToArray());
-
-    private static IResult GetCs2IntType(int id, ICs2IntDefinitionProvider provider)
-        => Resolve(() =>
-        {
-            var result = provider.GetCs2IntDefinition(id);
-            return TypedResults.Ok(new Cs2IntDefinitionResponse(result.Id, result.AChar327, result.AnInt325));
-        });
-
-    private static IResult GetEquipmentDefaults(IEquipmentDefaultsProvider provider)
-        => Resolve(() =>
-        {
-            var defaults = provider.Get();
-            return TypedResults.Ok(new EquipmentDefaultsResponse(
-                defaults.Id,
-                defaults.BodySlotData,
-                defaults.MainHandSlot,
-                defaults.WeaponData,
-                defaults.ShieldData,
-                defaults.OffHandSlot));
-        });
-
-    private static IResult GetHuffmanCoding(IHuffmanCodeProvider provider)
-        => Resolve(() =>
-        {
-            var coding = provider.GetCoding();
-            return TypedResults.Ok(new HuffmanCodingResponse(coding.BitSizes, coding.Masks, coding.DecryptKeys));
-        });
-
-    private static IResult Resolve(Func<IResult> operation)
     {
-        try
-        {
-            return operation();
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        var error = ValidateRange(startId, endIdExclusive, provider.ArchiveSize);
+        return error ?? TypedResults.Ok(provider.GetRange(startId, endIdExclusive).Select(MapVarpBit).ToArray());
     }
 
-    private static IResult ResolveRange<T>(int startId, int endIdExclusive, int archiveSize, Func<T[]> fetch)
+    private static IResult GetClientMapDefinitionType(int id, IClientMapDefinitionProvider provider)
+        => TypedResults.Ok(MapClientMapDefinition(provider.Get(id)));
+
+    private static IResult GetClientMapDefinitionTypeRange(int startId, int endIdExclusive, IClientMapDefinitionProvider provider)
+    {
+        var error = ValidateRange(startId, endIdExclusive, provider.ArchiveSize);
+        return error ?? TypedResults.Ok(provider.GetRange(startId, endIdExclusive).Select(MapClientMapDefinition).ToArray());
+    }
+
+    private static IResult GetConfigDefinitionType(int id, IConfigDefinitionProvider provider)
+        => TypedResults.Ok(MapConfigDefinition(provider.Get(id)));
+
+    private static IResult GetConfigDefinitionTypeRange(int startId, int endIdExclusive, IConfigDefinitionProvider provider)
+    {
+        var error = ValidateRange(startId, endIdExclusive, provider.ArchiveSize);
+        return error ?? TypedResults.Ok(provider.GetRange(startId, endIdExclusive).Select(MapConfigDefinition).ToArray());
+    }
+
+    private static IResult GetCs2Type(int id, ITypeProvider<ICs2Definition> provider)
+        => TypedResults.Ok(MapCs2(provider.Get(id)));
+
+    private static IResult GetCs2TypeRange(int startId, int endIdExclusive, ITypeProvider<ICs2Definition> provider)
+    {
+        var error = ValidateRange(startId, endIdExclusive, provider.ArchiveSize);
+        return error ?? TypedResults.Ok(provider.GetRange(startId, endIdExclusive).Select(MapCs2).ToArray());
+    }
+
+    private static IResult GetCs2IntType(int id, ICs2IntDefinitionProvider provider)
+    {
+        var result = provider.GetCs2IntDefinition(id);
+        return TypedResults.Ok(new Cs2IntDefinitionResponse(result.Id, result.AChar327, result.AnInt325));
+    }
+
+    private static IResult GetEquipmentDefaults(IEquipmentDefaultsProvider provider)
+    {
+        var defaults = provider.Get();
+        return TypedResults.Ok(new EquipmentDefaultsResponse(
+            defaults.Id,
+            defaults.BodySlotData,
+            defaults.MainHandSlot,
+            defaults.WeaponData,
+            defaults.ShieldData,
+            defaults.OffHandSlot));
+    }
+
+    private static IResult GetHuffmanCoding(IHuffmanCodeProvider provider)
+    {
+        var coding = provider.GetCoding();
+        return TypedResults.Ok(new HuffmanCodingResponse(coding.BitSizes, coding.Masks, coding.DecryptKeys));
+    }
+
+    private static IResult? ValidateRange(int startId, int endIdExclusive, int archiveSize)
     {
         if (startId < 0 || endIdExclusive < 0)
         {
@@ -277,17 +302,17 @@ public static class TypeEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation($"endIdExclusive must be less than or equal to archive size {archiveSize}."));
         }
 
-        return Resolve(() => TypedResults.Ok(fetch()));
+        return null;
     }
 
-    private static IResult ResolveSearch<T>(string query, int offset, int limit, int archiveSize, Func<T[]> fetch)
+    private static IResult? ValidateSearch(string? query, int offset, int limit, int archiveSize, bool requireQuery)
     {
         if (archiveSize <= 0)
         {
             return TypedResults.BadRequest(EndpointErrors.Validation("Archive size is 0. Search is not supported for this type."));
         }
 
-        if (string.IsNullOrWhiteSpace(query))
+        if (requireQuery && string.IsNullOrWhiteSpace(query))
         {
             return TypedResults.BadRequest(EndpointErrors.Validation("query is required."));
         }
@@ -302,37 +327,13 @@ public static class TypeEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("limit must be between 1 and 200."));
         }
 
-        return Resolve(() =>
-        {
-            var matches = fetch();
-            var page = matches.Skip(offset).Take(limit).ToArray();
-            return TypedResults.Ok(new SearchResponse<T>(query, matches.Length, offset, limit, page));
-        });
+        return null;
     }
 
-    private static IResult ResolveIndexSearch<T>(string? query, int offset, int limit, int archiveSize, Func<T[]> fetch)
+    private static IResult CreateSearchResponse<T>(string query, int offset, int limit, T[] matches)
     {
-        if (archiveSize <= 0)
-        {
-            return TypedResults.BadRequest(EndpointErrors.Validation("Archive size is 0. Search is not supported for this type."));
-        }
-
-        if (offset < 0)
-        {
-            return TypedResults.BadRequest(EndpointErrors.Validation("offset must be greater than or equal to 0."));
-        }
-
-        if (limit <= 0 || limit > 200)
-        {
-            return TypedResults.BadRequest(EndpointErrors.Validation("limit must be between 1 and 200."));
-        }
-
-        return Resolve(() =>
-        {
-            var matches = fetch();
-            var page = matches.Skip(offset).Take(limit).ToArray();
-            return TypedResults.Ok(new SearchResponse<T>(query ?? string.Empty, matches.Length, offset, limit, page));
-        });
+        var page = matches.Skip(offset).Take(limit).ToArray();
+        return TypedResults.Ok(new SearchResponse<T>(query, matches.Length, offset, limit, page));
     }
 
     private static ItemTypeResponse MapItem(IItemType item) =>
@@ -364,6 +365,21 @@ public static class TypeEndpoints
 
     private static SpriteTypeResponse MapSprite(ISpriteType sprite) =>
         new(sprite.Id, sprite.Image.Width, sprite.Image.Height, sprite.Image.Frames.Count);
+
+    private static SpriteTypeResponse[] MapSpritesAndDispose(ISpriteType[] sprites)
+    {
+        try
+        {
+            return sprites.Select(MapSprite).ToArray();
+        }
+        finally
+        {
+            foreach (var sprite in sprites)
+            {
+                sprite.Dispose();
+            }
+        }
+    }
 
     private static Image<Rgba32> RenderSpriteFrame(Image<Rgba32> source, int frameIndex)
     {

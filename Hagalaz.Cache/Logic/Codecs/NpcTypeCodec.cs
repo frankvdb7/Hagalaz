@@ -19,6 +19,14 @@ namespace Hagalaz.Cache.Logic.Codecs
         public MemoryStream Encode(INpcType npcType)
         {
             var npc = (NpcType)npcType;
+            if (npc.CombatLevel is < -1 or > ushort.MaxValue)
+            {
+                throw new System.ArgumentOutOfRangeException(
+                    nameof(npc.CombatLevel),
+                    npc.CombatLevel,
+                    "Combat level must be -1 or between 0 and 65535.");
+            }
+
             var writer = new MemoryStream();
 
             if (npc.ModelIDs != null)
@@ -82,6 +90,30 @@ namespace Hagalaz.Cache.Logic.Codecs
                 foreach (var val in npc.AByteArray1446)
                 {
                     writer.WriteByte((byte)val);
+                }
+            }
+
+            if (npc.Opcode44Payload.HasValue)
+            {
+                writer.WriteByte(44);
+                writer.WriteShort(npc.Opcode44Payload.Value);
+            }
+
+            if (npc.Opcode45Payload.HasValue)
+            {
+                writer.WriteByte(45);
+                writer.WriteShort(npc.Opcode45Payload.Value);
+            }
+
+            if (npc.Opcode170To175Payloads is not null)
+            {
+                for (var i = 0; i < npc.Opcode170To175Payloads.Length; i++)
+                {
+                    if (npc.Opcode170To175Payloads[i] is ushort payload)
+                    {
+                        writer.WriteByte((byte)(170 + i));
+                        writer.WriteShort(payload);
+                    }
                 }
             }
 
@@ -209,7 +241,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                 writer.WriteByte((byte)npc.WalkingProperties);
             }
 
-            if (npc.AnIntArrayArray1449 != null && npc.ModelIDs != null)
+            if (npc.HasAnIntArrayArray1449 || (npc.AnIntArrayArray1449.Length > 0 && npc.ModelIDs != null))
             {
                 writer.WriteByte(NpcTypeOpcodes.AnIntArrayArray1449);
                 int count = 0;
@@ -240,7 +272,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                 writer.WriteShort(npc.AnInt1462);
             }
 
-            if (npc.SpawnFaceDirection != 7)
+            if (npc.SpawnFaceDirection != 4)
             {
                 writer.WriteByte(NpcTypeOpcodes.SpawnFaceDirection);
                 writer.WriteByte((byte)npc.SpawnFaceDirection);
@@ -448,11 +480,11 @@ namespace Hagalaz.Cache.Logic.Codecs
                             }
                             else if (opcode == 44)
                             {
-                                int i152 = stream.ReadUnsignedShort();
+                                npcType.Opcode44Payload = (ushort)stream.ReadUnsignedShort();
                             }
                             else if (opcode == 45)
                             {
-                                int i157 = stream.ReadUnsignedShort();
+                                npcType.Opcode45Payload = (ushort)stream.ReadUnsignedShort();
                             }
                             else if (opcode == NpcTypeOpcodes.InterfaceModelIDs)
                             {
@@ -521,26 +553,18 @@ namespace Hagalaz.Cache.Logic.Codecs
                                                             else if (opcode == NpcTypeOpcodes.AnIntArrayArray1449)
                                                             {
                                                                 int i11 = stream.ReadUnsignedByte();
-                                                                if (npcType.ModelIDs == null)
-                                                                {
-                                                                    for (int i12 = 0; i12 < i11; i12++)
-                                                                    {
-                                                                        stream.ReadUnsignedByte();
-                                                                        stream.ReadSignedByte();
-                                                                        stream.ReadSignedByte();
-                                                                        stream.ReadSignedByte();
-                                                                    }
-                                                                    continue;
-                                                                }
-                                                                npcType.AnIntArrayArray1449 = new int[npcType.ModelIDs.Length][];
+                                                                var entries = new (int Index, int[] Values)[i11];
+                                                                var maxIndex = -1;
                                                                 for (int i12 = 0; i12 < i11; i12++)
                                                                 {
                                                                     int i13 = stream.ReadUnsignedByte();
-                                                                    int[] isa = (npcType.AnIntArrayArray1449[i13] = new int[3]);
-                                                                    isa[0] = (sbyte)stream.ReadSignedByte();
-                                                                    isa[1] = (sbyte)stream.ReadSignedByte();
-                                                                    isa[2] = (sbyte)stream.ReadSignedByte();
+                                                                    entries[i12] = (i13, [(sbyte)stream.ReadSignedByte(), (sbyte)stream.ReadSignedByte(), (sbyte)stream.ReadSignedByte()]);
+                                                                    maxIndex = System.Math.Max(maxIndex, i13);
                                                                 }
+                                                                npcType.AnIntArrayArray1449 = new int[System.Math.Max(npcType.ModelIDs?.Length ?? 0, maxIndex + 1)][];
+                                                                foreach (var entry in entries)
+                                                                    npcType.AnIntArrayArray1449[entry.Index] = entry.Values;
+                                                                npcType.HasAnIntArrayArray1449 = true;
                                                             }
                                                             else if (opcode != 122)
                                                             {
@@ -625,9 +649,8 @@ namespace Hagalaz.Cache.Logic.Codecs
                                                                                                             }
                                                                                                             else if (opcode >= 170 && opcode < 176)
                                                                                                             {
-                                                                                                                int unknownShort = stream.ReadUnsignedShort();
-                                                                                                                if (unknownShort == 65535)
-                                                                                                                    unknownShort = -1;
+                                                                                                                npcType.Opcode170To175Payloads ??= new ushort?[6];
+                                                                                                                npcType.Opcode170To175Payloads[opcode - 170] = (ushort)stream.ReadUnsignedShort();
                                                                                                             }
                                                                                                             else if (opcode == NpcTypeOpcodes.ExtraData)
                                                                                                             {

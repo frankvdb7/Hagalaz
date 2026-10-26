@@ -7,6 +7,13 @@ namespace Hagalaz.Cache.Abstractions
     /// Defines the contract for a high-level API to interact with the game cache,
     /// providing methods for reading, writing, and managing cache files.
     /// </summary>
+    /// <remarks>
+    /// Same-instance writes are serialized with single-member reads and reference-table lookups. <see cref="ReplaceArchiveMember"/>
+    /// keeps that boundary across the archive read, rebuild, and write. This does not make
+    /// <see cref="ReadArchive(int, int)"/>, <see cref="ReadContainer(int, int)"/>, or composed range and inspection
+    /// workflows atomic with concurrent writes; they do not hold that exclusion across their complete read and decode sequence.
+    /// Callers that require operation-wide consistency must coordinate those operations separately.
+    /// </remarks>
     public interface ICacheAPI
     {
         /// <summary>
@@ -71,6 +78,8 @@ namespace Hagalaz.Cache.Abstractions
         /// <param name="fileId">The identifier of the file to read.</param>
         /// <param name="xteaKeys">The set of four integer keys used for XTEA decryption.</param>
         /// <returns>A decoded <see cref="IContainer"/> containing the decrypted file data.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="xteaKeys"/> is null.</exception>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="xteaKeys"/> does not contain exactly four keys.</exception>
         IContainer ReadContainer(int indexId, int fileId, int[] xteaKeys);
 
         /// <summary>
@@ -82,12 +91,41 @@ namespace Hagalaz.Cache.Abstractions
         MemoryStream Read(int indexId, int fileId);
 
         /// <summary>
-        /// Writes a data container to a specific file in the cache.
+        /// Writes a data container to an existing archive in the cache. Its reference-table entry must already exist because this operation does not supply child-member mappings.
         /// </summary>
         /// <param name="indexId">The identifier of the index to write to.</param>
         /// <param name="fileId">The identifier of the file to write.</param>
         /// <param name="container">The container holding the data to be written.</param>
+        /// <exception cref="IOException">Thrown if the archive has no existing reference-table entry.</exception>
         void Write(int indexId, int fileId, IContainer container);
+
+        /// <summary>
+        /// Replaces one member of an archive and persists the rebuilt archive while holding the cache's write boundary.
+        /// </summary>
+        /// <param name="indexId">The identifier of the index containing the archive.</param>
+        /// <param name="fileId">The archive identifier.</param>
+        /// <param name="archiveEntryId">The member identifier from the reference table.</param>
+        /// <param name="replacement">The replacement member bytes.</param>
+        void ReplaceArchiveMember(int indexId, int fileId, int archiveEntryId, global::System.ReadOnlyMemory<byte> replacement);
+
+        /// <summary>
+        /// Writes raw, already-encoded file bytes while invalidating local cached state affected by the target.
+        /// Container versions and reference-table metadata are not updated.
+        /// </summary>
+        /// <param name="indexId">The target index identifier.</param>
+        /// <param name="fileId">The target file identifier.</param>
+        /// <param name="data">The raw file bytes to write.</param>
+        void WriteRawFile(int indexId, int fileId, MemoryStream data);
+
+        /// <summary>
+        /// Copies raw, already-encoded file bytes while invalidating local cached state affected by the target.
+        /// Container versions and reference-table metadata are not updated.
+        /// </summary>
+        /// <param name="indexId">The target index identifier.</param>
+        /// <param name="fileId">The target file identifier.</param>
+        /// <param name="sourceIndexId">The source index identifier.</param>
+        /// <param name="sourceFileId">The source file identifier.</param>
+        void CopyRawFile(int indexId, int fileId, int sourceIndexId, int sourceFileId);
 
         /// <summary>
         /// Computes the <see cref="IChecksumTable"/> for the entire cache.

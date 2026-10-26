@@ -11,43 +11,38 @@ namespace Hagalaz.Cache.Types.Providers
     {
         private readonly SpriteTypeData _typeData = new();
         private readonly ICacheAPI _cache;
-        private readonly ISpriteTypeCodec _codec;
-        private readonly ITypeFactory<ISpriteType> _typeFactory;
-        private readonly ITypeEventHook<ISpriteType>? _typeEventHook;
+        private readonly CacheTypeDecoder<ISpriteType> _decoder;
 
         public SpriteTypeProvider(ICacheAPI cache, ISpriteTypeCodec codec, ITypeFactory<ISpriteType> typeFactory, ITypeEventHook<ISpriteType>? typeEventHook = null)
         {
             _cache = cache;
-            _codec = codec;
-            _typeFactory = typeFactory;
-            _typeEventHook = typeEventHook;
+            _decoder = new CacheTypeDecoder<ISpriteType>(_cache, _typeData, typeFactory, codec, typeEventHook);
         }
 
         public int ArchiveSize => _typeData.GetArchiveSize(_cache);
 
         public ISpriteType Get(int typeId)
         {
-            var table = _cache.ReadReferenceTable(_typeData.IndexId);
-            var archiveId = _typeData.GetArchiveId(typeId);
-            var archive = _cache.ReadArchive(_typeData.IndexId, archiveId);
-            var entry = table.GetEntry(archiveId, _typeData.GetArchiveEntryId(typeId));
-            if (entry == null)
-            {
-                return _typeFactory.CreateType(typeId);
-            }
-            var type = _codec.Decode(typeId, archive.GetEntry(entry.Index));
-            _typeEventHook?.AfterDecode(this, [type]);
-
-            return type;
+            return _decoder.DecodeWithRequiredArchive(this, typeId);
         }
 
         public ISpriteType[] GetRange(int startTypeId, int endTypeId)
         {
             var types = new List<ISpriteType>();
-            for (var id = startTypeId; id < endTypeId; id++)
-                types.Add(Get(id));
+            try
+            {
+                for (var id = startTypeId; id < endTypeId; id++)
+                    types.Add(Get(id));
 
-            return types.ToArray();
+                return types.ToArray();
+            }
+            catch
+            {
+                foreach (var type in types)
+                    type.Dispose();
+
+                throw;
+            }
         }
 
         public ISpriteType[] GetAll() => GetRange(0, ArchiveSize);

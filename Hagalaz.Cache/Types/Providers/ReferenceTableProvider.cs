@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
@@ -10,14 +11,12 @@ namespace Hagalaz.Cache.Types.Providers
         private readonly IFileStore _store;
         private readonly IContainerDecoder _containerFactory;
         private readonly IReferenceTableCodec _referenceTableFactory;
-        private readonly IReferenceTable[] _referenceTables;
 
         public ReferenceTableProvider(IFileStore store, IContainerDecoder containerFactory, IReferenceTableCodec referenceTableFactory)
         {
             _store = store;
             _containerFactory = containerFactory;
             _referenceTableFactory = referenceTableFactory;
-            _referenceTables = new IReferenceTable[store.IndexFileCount];
         }
 
         public IReferenceTable ReadReferenceTable(int indexId)
@@ -26,8 +25,10 @@ namespace Hagalaz.Cache.Types.Providers
                 throw new FileNotFoundException();
             if (indexId == 255)
                 throw new IOException("Checksum tables can not be read by this method!");
+            if (indexId < 0)
+                throw new IndexOutOfRangeException();
 
-            return _referenceTables[indexId] ??= DecodeReferenceTable(indexId);
+            return DecodeReferenceTable(indexId);
         }
 
         private IReferenceTable DecodeReferenceTable(int indexId)

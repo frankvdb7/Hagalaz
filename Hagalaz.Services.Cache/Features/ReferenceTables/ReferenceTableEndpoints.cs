@@ -22,20 +22,13 @@ public static class ReferenceTableEndpoints
         int indexId,
         ICacheAPI cacheApi)
     {
-        try
-        {
-            var table = cacheApi.ReadReferenceTable(indexId);
-            return TypedResults.Ok(MapReferenceTable(table));
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        var table = cacheApi.ReadReferenceTable(indexId);
+        return TypedResults.Ok(MapReferenceTable(table));
     }
 
     private static ReferenceTableResponse MapReferenceTable(IReferenceTable table)
     {
-        var entries = new List<ReferenceTableEntryResponse>(table.Entries.Count());
+        var entries = new List<ReferenceTableEntryResponse>(table.Count);
 
         foreach (var pair in table.Entries)
         {
@@ -62,7 +55,8 @@ public static class ReferenceTableEndpoints
             Protocol: table.Protocol,
             Flags: table.Flags,
             Capacity: table.Capacity,
-            Entries: entries);
+            Entries: entries,
+            Count: table.Count);
     }
 
     public sealed record ReferenceTableResponse(
@@ -70,7 +64,8 @@ public static class ReferenceTableEndpoints
         byte Protocol,
         ReferenceTableFlags Flags,
         int Capacity,
-        IReadOnlyList<ReferenceTableEntryResponse> Entries);
+        IReadOnlyList<ReferenceTableEntryResponse> Entries,
+        int Count);
 
     public sealed record ReferenceTableEntryResponse(
         int FileId,

@@ -1,25 +1,29 @@
-﻿namespace Hagalaz.Cache.Types.Data
+using Hagalaz.Cache.Abstractions;
+
+namespace Hagalaz.Cache.Types.Data
 {
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <seealso cref="TypeData" />
+    /// <summary>Provides the cache location for quest definitions.</summary>
     public class QuestTypeData : TypeData
     {
-        /// <summary>
-        /// The index identifier
-        /// </summary>
+        private const int QuestArchiveId = 35;
+
+        /// <inheritdoc />
         public override byte IndexId => 2;
-        /// <summary>
-        /// The archive entry offset
-        /// </summary>
-        public override int ArchiveEntryOffset => 35;
-        /// <summary>
-        /// Gets the size of the archive entry.
-        /// </summary>
-        /// <value>
-        /// The size of the archive entry.
-        /// </value>
-        public override int ArchiveEntrySize => 0;
+
+        /// <inheritdoc />
+        public override int ArchiveEntryOffset => 0;
+
+        /// <inheritdoc />
+        public override int ArchiveEntrySize => 1;
+
+        /// <inheritdoc />
+        public override int GetArchiveSize(ICacheAPI cache) =>
+            GetArchiveEntryIdUpperBound(cache.ReadReferenceTable(IndexId).GetEntry(QuestArchiveId));
+
+        /// <inheritdoc />
+        public override int GetArchiveId(int typeId) => QuestArchiveId;
+
+        /// <inheritdoc />
+        public override int GetArchiveEntryId(int typeId) => typeId;
     }
 }

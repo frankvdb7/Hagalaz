@@ -14,5 +14,10 @@
         /// Gets or sets the file system path to the game cache directory.
         /// </summary>
         public string Path { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the maximum retained archive snapshot weight in bytes.
+        /// </summary>
+        public long ArchiveSnapshotCacheSizeBytes { get; set; } = 64L * 1024 * 1024;
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Logic.Codecs;
+using System.IO;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests
@@ -83,6 +84,33 @@ namespace Hagalaz.Cache.Tests
             Assert.Null(decodedNpc.ExtraData);
         }
 
+        [Theory]
+        [InlineData(-1)]
+        [InlineData(0)]
+        [InlineData(65535)]
+        public void TestEncodeDecode_CombatLevelBoundaries(int combatLevel)
+        {
+            var codec = new NpcTypeCodec();
+            var npc = new NpcType(1) { CombatLevel = combatLevel };
+
+            using var encoded = codec.Encode(npc);
+            using var encodedSource = new MemoryStream(encoded.ToArray());
+            var roundTripped = (NpcType)codec.Decode(1, encodedSource);
+
+            Assert.Equal(combatLevel, roundTripped.CombatLevel);
+        }
+
+        [Theory]
+        [InlineData(-2)]
+        [InlineData(65536)]
+        public void TestEncode_RejectsOutOfRangeCombatLevel(int combatLevel)
+        {
+            var codec = new NpcTypeCodec();
+            var npc = new NpcType(1) { CombatLevel = combatLevel };
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => codec.Encode(npc));
+        }
+
         [Fact]
         public void TestEncodeDecode_EmptyCollections()
         {
@@ -163,6 +191,87 @@ namespace Hagalaz.Cache.Tests
 
             // Act & Assert
             codec.Encode(npc);
+        }
+
+        [Fact]
+        public void TestEncodeDecode_RetainsRecognizedOpcodePayloads()
+        {
+            var codec = new NpcTypeCodec();
+            byte[] definitionBytes =
+            [
+                121, 1, 0, 0xFF, 2, 0xFD,
+                44, 0x12, 0x34,
+                45, 0xAB, 0xCD,
+                170, 0, 1,
+                171, 0, 2,
+                172, 0, 3,
+                173, 0xFF, 0xFF,
+                174, 0, 5,
+                175, 0, 6,
+                0
+            ];
+
+            using var source = new MemoryStream(definitionBytes);
+            var decoded = (NpcType)codec.Decode(1, source);
+            using var encoded = codec.Encode(decoded);
+            using var encodedSource = new MemoryStream(encoded.ToArray());
+            var roundTripped = (NpcType)codec.Decode(1, encodedSource);
+
+            Assert.Equal((ushort)0x1234, roundTripped.Opcode44Payload);
+            Assert.Equal((ushort)0xABCD, roundTripped.Opcode45Payload);
+            Assert.Equal(new ushort?[] { 1, 2, 3, ushort.MaxValue, 5, 6 }, roundTripped.Opcode170To175Payloads);
+            Assert.True(roundTripped.HasAnIntArrayArray1449);
+            Assert.Equal(new[] { -1, 2, -3 }, roundTripped.AnIntArrayArray1449[0]);
+        }
+
+        [Fact]
+        public void TestEncodeDecode_Revision742NpcRetainsOpcode170Payload()
+        {
+            // Captured from index 18, archive 0, member 0 in the revision-742 cache.
+            byte[] definitionBytes = Convert.FromHexString(
+                "7F05925F00000C011E54616C6B2D746F0098427579206361706573002805140D1A8E192B0619151C061919A3061315940613290200FF012400FB01060248616E7300010680009D897071707C80009DB2705F708A3C0180009A977702AA002C00");
+            var codec = new NpcTypeCodec();
+
+            using var source = new MemoryStream(definitionBytes);
+            var decoded = (NpcType)codec.Decode(0, source);
+            decoded.CombatLevel = 77;
+            using var encoded = codec.Encode(decoded);
+            using var encodedSource = new MemoryStream(encoded.ToArray());
+            var roundTripped = (NpcType)codec.Decode(0, encodedSource);
+
+            Assert.Equal(77, roundTripped.CombatLevel);
+            Assert.Equal((ushort)44, roundTripped.Opcode170To175Payloads![0]);
+        }
+
+        [Fact]
+        public void TestEncodeDecode_Revision742NpcRetainsLatin1Name()
+        {
+            // Captured from NPC 11110 in the revision-742 cache.
+            byte[] definitionBytes = Convert.FromHexString(
+                "635D1E496E746572616374005F00007F06D98D024E61EF766520626C6F6F6472616765720001018000D8293C018000D919F90D0000028100000000000000040000000000000283000000000000000300000000000003C50000000000000006000000800000000500000080000000070000008000000009000000C000000008000000000000000E00000006000001A80000002D0000018A00000015770100");
+            var codec = new NpcTypeCodec();
+
+            using var source = new MemoryStream(definitionBytes);
+            var decoded = (NpcType)codec.Decode(11110, source);
+            using var encoded = codec.Encode(decoded);
+            using var encodedSource = new MemoryStream(encoded.ToArray());
+            var roundTripped = (NpcType)codec.Decode(11110, encodedSource);
+
+            Assert.Equal("Naïve bloodrager", roundTripped.Name);
+        }
+
+        [Fact]
+        public void TestEncodeDecode_PreservesSpawnDirectionSeven()
+        {
+            var codec = new NpcTypeCodec();
+            using var source = new MemoryStream([125, 7, 0]);
+
+            var decoded = (NpcType)codec.Decode(1, source);
+            using var encoded = codec.Encode(decoded);
+            using var encodedSource = new MemoryStream(encoded.ToArray());
+            var roundTripped = (NpcType)codec.Decode(1, encodedSource);
+
+            Assert.Equal((sbyte)7, roundTripped.SpawnFaceDirection);
         }
 
     }

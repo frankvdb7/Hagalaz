@@ -3,6 +3,7 @@ using Hagalaz.Cache;
 using Hagalaz.Cache.Extensions;
 using Hagalaz.ServiceDefaults;
 using Hagalaz.Services.Cache.Features;
+using Hagalaz.Services.Cache.Features.Shared;
 using Hagalaz.Services.Cache.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -16,6 +17,8 @@ builder.AddServiceDefaults();
 
 builder.Services.Configure<CacheOptions>(builder.Configuration.GetSection(CacheOptions.Key));
 builder.Services.AddGameCache();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<CacheExceptionHandler>();
 
 builder.Services.AddAuthentication(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
 builder.Services.AddOpenIddict()
@@ -42,6 +45,7 @@ builder.Services.AddCacheAuthorization();
 var app = builder.Build();
 
 app.UseServiceDefaults();
+app.UseExceptionHandler();
 app.MapCacheEndpoints();
 
 await app.RunAsync();

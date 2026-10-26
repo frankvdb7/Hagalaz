@@ -30,7 +30,7 @@ namespace Hagalaz.Cache.Abstractions.Types.Data
         int ArchiveEntrySize { get; }
 
         /// <summary>
-        /// Gets the size of the archive.
+        /// Gets the exclusive upper bound of the type IDs represented by this cache index.
         /// </summary>
         /// <param name="cache">The cache.</param>
         /// <returns></returns>

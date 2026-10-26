@@ -22,15 +22,8 @@ public static class ContainerEndpoints
 
     private static IResult GetContainer(int indexId, int fileId, ICacheAPI cacheApi)
     {
-        try
-        {
-            using var container = cacheApi.ReadContainer(indexId, fileId);
-            return TypedResults.Ok(MapContainer(container));
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        using var container = cacheApi.ReadContainer(indexId, fileId);
+        return TypedResults.Ok(MapContainer(container));
     }
 
     private static IResult GetContainerWithXtea(int indexId, int fileId, ReadContainerWithXteaRequest request, ICacheAPI cacheApi)
@@ -40,15 +33,8 @@ public static class ContainerEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("xteaKeys must contain exactly 4 integers."));
         }
 
-        try
-        {
-            using var container = cacheApi.ReadContainer(indexId, fileId, request.XteaKeys);
-            return TypedResults.Ok(MapContainer(container));
-        }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+        using var container = cacheApi.ReadContainer(indexId, fileId, request.XteaKeys);
+        return TypedResults.Ok(MapContainer(container));
     }
 
     private static IResult WriteContainer(int indexId, int fileId, WriteContainerRequest request, ICacheAPI cacheApi)
@@ -58,25 +44,23 @@ public static class ContainerEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("dataBase64 is required."));
         }
 
+        byte[] data;
         try
         {
-            var data = Convert.FromBase64String(request.DataBase64);
-            using var payload = new MemoryStream(data);
-            using var container = new Container(request.CompressionType, payload, request.Version ?? -1);
-            cacheApi.Write(indexId, fileId, container);
-            return TypedResults.Ok(new CacheMutationResponse(
-                Action: "write-container",
-                IndexId: indexId,
-                FileId: fileId));
+            data = Convert.FromBase64String(request.DataBase64);
         }
         catch (FormatException)
         {
             return TypedResults.BadRequest(EndpointErrors.Validation("dataBase64 is not a valid base64 string."));
         }
-        catch (Exception ex)
-        {
-            return EndpointErrors.MapException(ex);
-        }
+
+        using var payload = new MemoryStream(data);
+        using var container = new Container(request.CompressionType, payload, request.Version ?? -1);
+        cacheApi.Write(indexId, fileId, container);
+        return TypedResults.Ok(new CacheMutationResponse(
+            Action: "write-container",
+            IndexId: indexId,
+            FileId: fileId));
     }
 
     private static ContainerResponse MapContainer(IContainer container)
