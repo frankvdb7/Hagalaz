@@ -82,7 +82,7 @@ describe("Item Forge", () => {
     it("preserves all ordered inventory and ground action slots", async () => {
         const { element, loader } = await open();
         await (await loader.getHarness(MatTabGroupHarness)).selectTab({ label: "Interactions" });
-        await vi.waitFor(() => expect(element.querySelector(".action-groups")).not.toBeNull());
+        await vi.waitFor(() => expect(element.querySelectorAll(".action-groups ol").length).toBeGreaterThanOrEqual(2));
         const groups = element.querySelectorAll(".action-groups ol");
         expect([...groups[0].querySelectorAll("li")].map((slot) => text(slot))).toEqual(["1Wield", "2Emptyslot", "3Check", "4Emptyslot", "5Drop"]);
         expect([...groups[1].querySelectorAll("li")].map((slot) => text(slot))).toEqual(["1Emptyslot", "2Emptyslot", "3Take", "4Emptyslot", "5Emptyslot"]);
@@ -94,7 +94,7 @@ describe("Item Forge", () => {
         expect(text(element)).toContain("CachebasevalueNotsupplied");
         expect(text(element)).toContain("StackableNotsupplied");
         await (await loader.getHarness(MatTabGroupHarness)).selectTab({ label: "Interactions" });
-        await vi.waitFor(() => expect(element.querySelector(".action-groups")).not.toBeNull());
+        await vi.waitFor(() => expect(element.querySelectorAll(".action-groups ol").length).toBeGreaterThanOrEqual(2));
         await vi.waitFor(() => expect(element.querySelectorAll(".action-groups li")).toHaveLength(2));
         expect(element.querySelector(".action-groups")?.textContent).toContain("Not supplied");
     });
