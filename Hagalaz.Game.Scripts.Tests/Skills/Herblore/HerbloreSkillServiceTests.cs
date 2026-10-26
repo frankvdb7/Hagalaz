@@ -24,22 +24,8 @@ public sealed class HerbloreSkillServiceTests
     [TestMethod]
     public void MakePotion_WithFewerThanFiveSpikes_DoesNotMutateInventoryOrGrantExperience()
     {
-        // 1 Ranging potion (3) [ID 2444] and 4 Grenwall spikes [ID 12539]
-        var scenario = CreateScenario((2444, 1), (12539, 4));
-        var vial = scenario.Items[0];
-        var spikes = scenario.Items[1];
-        var potionDto = new PotionDto(
-            PotionId: 15325, // Extreme ranging (3)
-            UnfinishedPotionId: 0,
-            RequiredLevel: 1,
-            Experience: 260,
-            PrimaryItemIds: [],
-            SecondaryItemIds: [12539]);
+        var (scenario, task) = PrepareExtremeRangingTask(spikes: 4, rangingPotions: 1, requestedCount: 1);
 
-        scenario.Service.MakePotion(scenario.Character, vial, spikes, potionDto, makeUnfinished: false);
-        scenario.Dialogue.PerformMakeProductCallback(15325, 1);
-
-        var task = scenario.QueuedTasks.Single();
         task.Tick();
         task.Tick();
 
@@ -53,22 +39,8 @@ public sealed class HerbloreSkillServiceTests
     [TestMethod]
     public void MakePotion_WithExactlyFiveSpikes_ConsumesFiveSpikesAndTransformsPotionAndGrantsExperience()
     {
-        // 1 Ranging potion (3) and 5 Grenwall spikes
-        var scenario = CreateScenario((2444, 1), (12539, 5));
-        var vial = scenario.Items[0];
-        var spikes = scenario.Items[1];
-        var potionDto = new PotionDto(
-            PotionId: 15325,
-            UnfinishedPotionId: 0,
-            RequiredLevel: 1,
-            Experience: 260,
-            PrimaryItemIds: [],
-            SecondaryItemIds: [12539]);
+        var (scenario, task) = PrepareExtremeRangingTask(spikes: 5, rangingPotions: 1, requestedCount: 1);
 
-        scenario.Service.MakePotion(scenario.Character, vial, spikes, potionDto, makeUnfinished: false);
-        scenario.Dialogue.PerformMakeProductCallback(15325, 1);
-
-        var task = scenario.QueuedTasks.Single();
         task.Tick();
         task.Tick();
 
@@ -81,22 +53,7 @@ public sealed class HerbloreSkillServiceTests
     [TestMethod]
     public void MakePotion_WithSixSpikesAndTwoRequestedPotions_TransformsFirstPotionOnly()
     {
-        // 2 Ranging potion (3) and 6 Grenwall spikes
-        var scenario = CreateScenario((2444, 1), (2444, 1), (12539, 6));
-        var vial = scenario.Items[0];
-        var spikes = scenario.Items[2];
-        var potionDto = new PotionDto(
-            PotionId: 15325,
-            UnfinishedPotionId: 0,
-            RequiredLevel: 1,
-            Experience: 260,
-            PrimaryItemIds: [],
-            SecondaryItemIds: [12539]);
-
-        scenario.Service.MakePotion(scenario.Character, vial, spikes, potionDto, makeUnfinished: false);
-        scenario.Dialogue.PerformMakeProductCallback(15325, 2);
-
-        var task = scenario.QueuedTasks.Single();
+        var (scenario, task) = PrepareExtremeRangingTask(spikes: 6, rangingPotions: 2, requestedCount: 2);
 
         // First completion iteration (delay 2)
         task.Tick();
@@ -121,28 +78,19 @@ public sealed class HerbloreSkillServiceTests
     [TestMethod]
     public void MakePotion_CalculatesCorrectDialogueMaxCountForSpikes()
     {
-        // 3 Ranging potions and 12 Grenwall spikes
         var scenario = CreateScenario((2444, 1), (2444, 1), (2444, 1), (12539, 12));
         var vial = scenario.Items[0];
         var spikes = scenario.Items[3];
-        var potionDto = new PotionDto(
-            PotionId: 15325,
-            UnfinishedPotionId: 0,
-            RequiredLevel: 1,
-            Experience: 260,
-            PrimaryItemIds: [],
-            SecondaryItemIds: [12539]);
+        var potionDto = CreateExtremeRangingDto();
 
         scenario.Service.MakePotion(scenario.Character, vial, spikes, potionDto, makeUnfinished: false);
 
-        // 12 spikes / 5 = 2 max potions possible
         scenario.Dialogue.Received(1).SetMaxCount(2, false);
     }
 
     [TestMethod]
     public void MakePotion_WithGenericSingleIngredient_ConsumesOneIngredientAndTransformsPotion()
     {
-        // 1 Vial of water [ID 227] and 1 Ranarr weed [ID 257]
         var scenario = CreateScenario((227, 1), (257, 1));
         var vial = scenario.Items[0];
         var herb = scenario.Items[1];
@@ -166,13 +114,41 @@ public sealed class HerbloreSkillServiceTests
         Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(299), "Unfinished potion created.");
     }
 
+    private static (Scenario Scenario, ITaskItem Task) PrepareExtremeRangingTask(int spikes, int rangingPotions, int requestedCount)
+    {
+        var itemSpecs = new List<(int Id, int Count)>();
+        for (var i = 0; i < rangingPotions; i++)
+        {
+            itemSpecs.Add((2444, 1));
+        }
+        itemSpecs.Add((12539, spikes));
+
+        var scenario = CreateScenario([.. itemSpecs]);
+        var vial = scenario.Items[0];
+        var spikeItem = scenario.Items[^1];
+        var potionDto = CreateExtremeRangingDto();
+
+        scenario.Service.MakePotion(scenario.Character, vial, spikeItem, potionDto, makeUnfinished: false);
+        scenario.Dialogue.PerformMakeProductCallback(15325, requestedCount);
+
+        return (scenario, scenario.QueuedTasks.Single());
+    }
+
+    private static PotionDto CreateExtremeRangingDto() => new(
+        PotionId: 15325,
+        UnfinishedPotionId: 0,
+        RequiredLevel: 1,
+        Experience: 260,
+        PrimaryItemIds: [],
+        SecondaryItemIds: [12539]);
+
     private static Scenario CreateScenario(params (int Id, int Count)[] itemSpecs)
     {
         var inventory = new ComposedTestContainer(28);
         var items = new List<IItem>();
         for (var slot = 0; slot < itemSpecs.Length; slot++)
         {
-            var item = CreateItem(itemSpecs[slot].Id, itemSpecs[slot].Count);
+            var item = CreateHerbloreMockItem(itemSpecs[slot].Id, itemSpecs[slot].Count);
             items.Add(item);
             inventory.SetItem(slot, item);
         }
@@ -192,8 +168,7 @@ public sealed class HerbloreSkillServiceTests
         character.Configurations.Returns(configurations);
 
         var widgets = Substitute.For<IWidgetContainer>();
-        var dialogueWidget = Substitute.For<IWidget>();
-        widgets.GetOpenWidget(Arg.Any<int>()).Returns(dialogueWidget);
+        widgets.GetOpenWidget(Arg.Any<int>()).Returns(Substitute.For<IWidget>());
         widgets.OpenWidget(Arg.Any<int>(), Arg.Any<IWidget>(), Arg.Any<int>(), Arg.Any<int>(),
             Arg.Any<IWidgetScript>(), Arg.Any<bool>()).Returns(true);
         character.Widgets.Returns(widgets);
@@ -218,30 +193,34 @@ public sealed class HerbloreSkillServiceTests
         var tasks = new List<ITaskItem>();
         character.QueueTask(Arg.Do<ITaskItem>(tasks.Add)).Returns(Substitute.For<IRsTaskHandle>());
 
-        var builder = new TestItemBuilder((id, count) => CreateItem(id, count));
+        var builder = new TestItemBuilder((id, count) => CreateHerbloreMockItem(id, count));
         var service = new HerbloreSkillService(provider, builder);
 
         return new Scenario(character, inventory, items.ToArray(), dialogue, tasks, service, configurations);
     }
 
-    private static IItem CreateItem(int id, int count)
+    private static IItem CreateHerbloreMockItem(int itemId, int quantity)
     {
-        var item = Substitute.For<IItem>();
-        item.Id.Returns(id);
-        item.Count.Returns(count);
-        item.Name.Returns($"Item {id}");
-        var definition = Substitute.For<IItemDefinition>();
-        definition.Stackable.Returns(id == 12539); // Grenwall spikes are stackable
-        item.ItemDefinition.Returns(definition);
-        var script = Substitute.For<IItemScript>();
-        script.CanStackItem(Arg.Any<IItem>(), Arg.Any<IItem>(), Arg.Any<bool>()).Returns(id == 12539);
-        item.ItemScript.Returns(script);
-        item.Equals(Arg.Any<IItem>(), Arg.Any<bool>()).Returns(call =>
-            call.ArgAt<IItem>(0) is { } other && other.Id == id &&
-            (call.ArgAt<bool>(1) || other.Count == count));
-        item.Clone().Returns(_ => CreateItem(id, count));
-        item.Clone(Arg.Any<int>()).Returns(call => CreateItem(id, call.ArgAt<int>(0)));
-        return item;
+        var mockItem = Substitute.For<IItem, IItemScript, IItemDefinition>();
+        var definition = (IItemDefinition)mockItem;
+        var script = (IItemScript)mockItem;
+
+        var isStackable = itemId == 12539;
+        mockItem.Id.Returns(itemId);
+        mockItem.Count.Returns(quantity);
+        mockItem.Name.Returns($"HerbloreItem_{itemId}");
+        mockItem.ItemDefinition.Returns(definition);
+        mockItem.ItemScript.Returns(script);
+
+        definition.Stackable.Returns(isStackable);
+        script.CanStackItem(Arg.Any<IItem>(), Arg.Any<IItem>(), Arg.Any<bool>()).Returns(isStackable);
+
+        mockItem.Equals(Arg.Any<IItem>(), Arg.Any<bool>()).Returns(call =>
+            call.ArgAt<IItem>(0) is { } target && target.Id == itemId && (call.ArgAt<bool>(1) || target.Count == quantity));
+
+        mockItem.Clone().Returns(_ => CreateHerbloreMockItem(itemId, quantity));
+        mockItem.Clone(Arg.Any<int>()).Returns(call => CreateHerbloreMockItem(itemId, call.ArgAt<int>(0)));
+        return mockItem;
     }
 
     private sealed record Scenario(
