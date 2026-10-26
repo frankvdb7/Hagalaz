@@ -41,8 +41,8 @@ public sealed class CacheApiSnapshotTests
         truncatedContainer.WriteInt(3);
         fixture.SetArchive(16, 7, truncatedContainer.ToArray(), 1);
 
-        Assert.Throws<EndOfStreamException>(() => fixture.Cache.Read(16, 7, 0));
-        Assert.Throws<EndOfStreamException>(() => fixture.Cache.Read(16, 7, 0));
+        Assert.Throws<InvalidDataException>(() => fixture.Cache.Read(16, 7, 0));
+        Assert.Throws<InvalidDataException>(() => fixture.Cache.Read(16, 7, 0));
 
         Assert.Equal(2, fixture.StoreReadCount);
         Assert.Equal(0, fixture.ArchiveDecodeCount);
