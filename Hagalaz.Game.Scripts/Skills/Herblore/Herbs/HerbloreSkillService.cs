@@ -1,3 +1,4 @@
+using Hagalaz.Game.Abstractions.Collections;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -190,36 +191,36 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                     2,
                     () =>
                     {
-                        var inventoryResource = character.Inventory.Items.GetById(ingredient.Id);
-                        if (inventoryResource == null)
+                        var requiredIngredientCount = ingredient.Id == HerbloreConstants.Grenwallspikes ? 5 : 1;
+                        using var transaction = ItemContainerTransaction.Begin(character.Inventory);
+
+                        var inventoryVial = character.Inventory.Items.GetById(vial.Id);
+                        if (inventoryVial == null)
                         {
                             return true;
                         }
 
-                        var inventoryVail = character.Inventory.Items.GetById(vial.Id);
-                        if (inventoryVail == null)
-                        {
-                            return true;
-                        }
-
-                        var itemSlot = character.Inventory.Items.GetSlotByItem(inventoryResource);
-                        if (itemSlot == -1)
-                        {
-                            return true;
-                        }
-
-                        var vialSlot = character.Inventory.Items.GetSlotByItem(inventoryVail);
+                        var vialSlot = character.Inventory.Items.GetSlotByItem(inventoryVial);
                         if (vialSlot == -1)
                         {
                             return true;
                         }
 
-                        character.Inventory.RemoveItem(inventoryResource.Id == HerbloreConstants.Grenwallspikes
-                                ? _itemBuilder.Create().WithId(HerbloreConstants.Grenwallspikes).WithCount(5).Build()
-                                : inventoryResource,
-                            itemSlot);
+                        var requiredIngredient = _itemBuilder.Create()
+                            .WithId(ingredient.Id)
+                            .WithCount(requiredIngredientCount)
+                            .Build();
+
+                        if (!character.Inventory.TryRemoveItemExact(requiredIngredient))
+                        {
+                            return true;
+                        }
+
                         character.Inventory.ReplaceItem(vialSlot,
-                            _itemBuilder.Create().WithId(makeUnfinished ? potion.UnfinishedPotionId : potion.PotionId).Build());
+                            _itemBuilder.Create().WithId(makeUnfinished ? potion.UnfinishedPotionId : potion.PotionId).WithCount(1).Build());
+
+                        transaction.Commit();
+
                         character.QueueAnimation(Animation.Create(HerbloreConstants.MakePotionAnimation));
                         if (!makeUnfinished)
                         {
@@ -230,7 +231,12 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                     }));
                 return true;
             };
-            var resCount = character.Inventory.Items.GetCountById(ingredient.Id);
+
+            var requiredIngredientCount = ingredient.Id == HerbloreConstants.Grenwallspikes ? 5 : 1;
+            var availableIngredientCount = character.Inventory.Items.GetCountById(ingredient.Id) / requiredIngredientCount;
+            var availableVialCount = character.Inventory.Items.GetCountById(vial.Id);
+            var resCount = Math.Min(availableIngredientCount, availableVialCount);
+
             dialogue.SetMaxCount(resCount, false);
             dialogue.SetCurrentCount(resCount, false);
 
