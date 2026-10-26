@@ -1,4 +1,3 @@
-using System;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Items;
 
@@ -9,12 +8,7 @@ internal sealed class TestItemBuilder(Func<int, int, IItem> createItem) : IItemB
     private int _id;
     private int _count = 1;
 
-    public IItemId Create()
-    {
-        _id = 0;
-        _count = 1;
-        return this;
-    }
+    public IItemId Create() => this;
 
     public IItemOptional WithId(int id)
     {

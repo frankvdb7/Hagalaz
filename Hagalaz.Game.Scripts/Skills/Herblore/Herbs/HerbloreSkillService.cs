@@ -217,7 +217,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                         }
 
                         character.Inventory.ReplaceItem(vialSlot,
-                            _itemBuilder.Create().WithId(makeUnfinished ? potion.UnfinishedPotionId : potion.PotionId).Build());
+                            _itemBuilder.Create().WithId(makeUnfinished ? potion.UnfinishedPotionId : potion.PotionId).WithCount(1).Build());
 
                         transaction.Commit();
 
