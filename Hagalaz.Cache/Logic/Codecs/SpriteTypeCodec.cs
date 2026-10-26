@@ -155,6 +155,21 @@ namespace Hagalaz.Cache.Logic.Codecs
 
         public MemoryStream Encode(ISpriteType instance)
         {
+            ArgumentNullException.ThrowIfNull(instance);
+            ValidateFormatLimits(instance.Image.Width, instance.Image.Height, instance.Image.Frames.Count);
+            foreach (var frame in instance.Image.Frames)
+            {
+                if (frame.Width is < 1 or > ushort.MaxValue || frame.Height is < 1 or > ushort.MaxValue)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(instance), "Sprite frame dimensions must be between 1 and 65535 pixels.");
+                }
+
+                if (frame.Width != instance.Image.Width || frame.Height != instance.Image.Height)
+                {
+                    throw new IOException("All frames must have the same dimensions!");
+                }
+            }
+
             using var pixelDataStream = new MemoryStream();
             using var paletteDataStream = new MemoryStream();
             using var metaDataStream = new MemoryStream();
@@ -207,8 +222,6 @@ namespace Hagalaz.Cache.Logic.Codecs
             for (int i = 0; i < instance.Image.Frames.Count; i++)
             {
                 var frame = instance.Image.Frames[i];
-                if (frame.Width != instance.Image.Width || frame.Height != instance.Image.Height)
-                    throw new IOException("All frames must have the same dimensions!");
 
                 var (minX, minY, width, height) = GetBoundingBox(frame);
                 offsetsX[i] = minX;
@@ -272,6 +285,24 @@ namespace Hagalaz.Cache.Logic.Codecs
 
             finalStream.Position = 0;
             return finalStream;
+        }
+
+        internal static void ValidateFormatLimits(int width, int height, int frameCount)
+        {
+            if (width is < 1 or > ushort.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException(nameof(width), width, $"Sprite width must be between 1 and {ushort.MaxValue} pixels.");
+            }
+
+            if (height is < 1 or > ushort.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException(nameof(height), height, $"Sprite height must be between 1 and {ushort.MaxValue} pixels.");
+            }
+
+            if (frameCount is < 1 or > ushort.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException(nameof(frameCount), frameCount, $"Sprite frame count must be between 1 and {ushort.MaxValue}.");
+            }
         }
 
         private (int, int, int, int) GetBoundingBox(ImageFrame<Rgba32> frame)

@@ -47,6 +47,26 @@ public sealed class SpriteImageMutationTests
         CollectionAssert.AreEqual(initialArchive, store.GetBytes(8, 0), "A rejected upload must not alter the existing archive.");
     }
 
+    [TestMethod]
+    public async Task ReplaceSpriteImage_WidthAboveFormatLimitReturnsBadRequestWithoutWriting()
+    {
+        var store = CreateStore();
+        var initialArchive = store.GetBytes(8, 0);
+        var initialReferenceTable = store.GetBytes(255, 8);
+
+        await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var content = new ByteArrayContent(CreatePng(ushort.MaxValue + 1, 1));
+
+        using var response = await client.PostAsync("/api/v1/cache/types/sprites/0/image", content);
+
+        var responseBody = await response.Content.ReadAsStringAsync();
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode, responseBody);
+        Assert.IsTrue(responseBody.Contains("65535", StringComparison.Ordinal), responseBody);
+        CollectionAssert.AreEqual(initialArchive, store.GetBytes(8, 0), "A rejected upload must not alter the archive.");
+        CollectionAssert.AreEqual(initialReferenceTable, store.GetBytes(255, 8), "A rejected upload must not alter the reference table.");
+    }
+
     private static async Task AssertReplacementRoundTripsAsync(byte[] sourceBytes, Rgba32[] expectedFrameColors)
     {
         const int spriteId = 0;
@@ -108,6 +128,14 @@ public sealed class SpriteImageMutationTests
     {
         using var image = new Image<Rgba32>(2, 1);
         Fill(image.Frames.RootFrame, color);
+        using var output = new MemoryStream();
+        image.SaveAsPng(output);
+        return output.ToArray();
+    }
+
+    private static byte[] CreatePng(int width, int height)
+    {
+        using var image = new Image<Rgba32>(width, height);
         using var output = new MemoryStream();
         image.SaveAsPng(output);
         return output.ToArray();

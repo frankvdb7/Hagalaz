@@ -315,6 +315,49 @@ namespace Hagalaz.Cache.Tests
             }
         }
 
+        [Theory]
+        [InlineData(ushort.MaxValue, 1)]
+        [InlineData(1, ushort.MaxValue)]
+        public void Encode_Decode_MaximumDimensions_ShouldSucceed(int width, int height)
+        {
+            var codec = new SpriteTypeCodec();
+            using var originalSprite = new SpriteType(1, width, height);
+
+            using var encoded = codec.Encode(originalSprite);
+            using var decoded = codec.Decode(originalSprite.Id, encoded);
+
+            Assert.Equal(width, decoded.Image.Width);
+            Assert.Equal(height, decoded.Image.Height);
+        }
+
+        [Theory]
+        [InlineData(ushort.MaxValue + 1, 1)]
+        [InlineData(1, ushort.MaxValue + 1)]
+        public void Encode_DimensionsAboveUnsignedShort_ShouldThrow(int width, int height)
+        {
+            var codec = new SpriteTypeCodec();
+            using var sprite = new SpriteType(1, width, height);
+
+            var exception = Assert.Throws<ArgumentOutOfRangeException>(() => codec.Encode(sprite));
+
+            Assert.Contains("65535", exception.Message);
+        }
+
+        [Fact]
+        public void ValidateFormatLimits_FrameCountAtUnsignedShortMaximum_ShouldSucceed()
+        {
+            SpriteTypeCodec.ValidateFormatLimits(1, 1, ushort.MaxValue);
+        }
+
+        [Fact]
+        public void ValidateFormatLimits_FrameCountAboveUnsignedShort_ShouldThrow()
+        {
+            var exception = Assert.Throws<ArgumentOutOfRangeException>(() =>
+                SpriteTypeCodec.ValidateFormatLimits(1, 1, ushort.MaxValue + 1));
+
+            Assert.Equal("frameCount", exception.ParamName);
+        }
+
         private static SpriteType RoundTrip(SpriteTypeCodec codec, SpriteType originalSprite)
         {
             using var encodedStream = codec.Encode(originalSprite);
