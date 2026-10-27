@@ -1,14 +1,16 @@
-import { Location } from "@angular/common";
-import { provideLocationMocks } from "@angular/common/testing";
 import { TestbedHarnessEnvironment } from "@angular/cdk/testing/testbed";
+import { Location } from "@angular/common";
 import { provideHttpClient, withXhr } from "@angular/common/http";
 import { HttpTestingController, provideHttpClientTesting, type TestRequest } from "@angular/common/http/testing";
+import { provideLocationMocks } from "@angular/common/testing";
 import { ApplicationRef, Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { MatPaginatorHarness } from "@angular/material/paginator/testing";
 import { provideRouter, Router } from "@angular/router";
+import { EMPTY } from "rxjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { environment } from "../../../../environments/environment";
+import { CacheItemsService } from "../services/cache-items.service";
 import { TypesManagerPageComponent } from "./types-manager.page";
 
 @Component({ template: "" })
@@ -31,10 +33,12 @@ describe("TypesManagerPage per-type navigation", () => {
                 provideHttpClientTesting(),
             ],
         });
+        vi.spyOn(TestBed.inject(CacheItemsService), "getItemSpriteImage").mockReturnValue(EMPTY);
         http = TestBed.inject(HttpTestingController);
     });
     afterEach(() => {
         http.verify();
+        vi.restoreAllMocks();
         vi.unstubAllGlobals();
     });
     async function createPage(sprites = 20) {
@@ -384,6 +388,15 @@ describe("TypesManagerPage per-type navigation", () => {
         expect(fixture.nativeElement.querySelector('a[href^="/cache/types/sprites/10?"]')).not.toBeNull();
         fixture.destroy();
         expect(URL.revokeObjectURL).toHaveBeenCalledTimes(2);
+    });
+    it("renders an item sprite thumbnail in item rows", async () => {
+        const fixture = await createPage();
+        fixture.detectChanges();
+
+        expect(fixture.componentInstance.resultColumns()).toEqual(["id", "preview", "name"]);
+        expect(fixture.nativeElement.querySelector("th.mat-column-preview")?.textContent).toContain("Item sprite");
+        expect(fixture.nativeElement.querySelector("td cache-item-sprite-thumbnail")).not.toBeNull();
+        expect(fixture.nativeElement.querySelector("td img")).toBeNull();
     });
     it("pages sprites without gaps, caps the last range, and cancels previews from the previous page", async () => {
         let urlIndex = 0;

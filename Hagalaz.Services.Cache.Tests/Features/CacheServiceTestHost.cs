@@ -16,9 +16,12 @@ internal static class CacheServiceTestHost
     public static async Task<WebApplication> StartAsync(
         IFileStore store,
         Action<IEndpointRouteBuilder> mapEndpoints,
-        Action<IServiceCollection>? configureServices = null)
+        Action<IServiceCollection>? configureServices = null,
+        string? webRootPath = null)
     {
-        var builder = WebApplication.CreateBuilder();
+        var builder = webRootPath is null
+            ? WebApplication.CreateBuilder()
+            : WebApplication.CreateBuilder(new WebApplicationOptions { WebRootPath = webRootPath });
         builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
         builder.Services.AddSingleton<IFileStore>(store);
         builder.Services.AddGameCache();

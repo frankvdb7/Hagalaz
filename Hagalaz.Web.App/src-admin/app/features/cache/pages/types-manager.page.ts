@@ -15,6 +15,7 @@ import { cacheTypeLabels, type TypeKind } from "../services/cache.models";
 import { CacheSpritesService } from "../services/cache-sprites.service";
 import { CacheArchivesStore } from "../stores/cache-archives.store";
 import { cacheDefinitionStores } from "../stores/cache-definition-stores";
+import { ItemSpriteThumbnailComponent } from "./item-sprite-thumbnail.component";
 import { SpriteFrameThumbnailComponent } from "./sprite-frame-thumbnail.component";
 
 @Component({
@@ -32,6 +33,7 @@ import { SpriteFrameThumbnailComponent } from "./sprite-frame-thumbnail.componen
         MatPaginatorModule,
         MatProgressBarModule,
         SpriteFrameThumbnailComponent,
+        ItemSpriteThumbnailComponent,
     ],
     providers: [CacheSpritesService, CacheArchivesStore, ...Object.values(cacheDefinitionStores)],
     templateUrl: "./types-manager.page.html",
@@ -79,7 +81,7 @@ export class TypesManagerPageComponent {
         return this.stores[this.activeKind()];
     }
     readonly resultKind = signal<TypeKind | null>(null);
-    readonly resultColumns = computed(() => (this.activeKind() === "sprites" ? ["id", "preview", "name"] : ["id", "name"]));
+    readonly resultColumns = computed(() => (this.activeKind() === "sprites" || this.activeKind() === "items" ? ["id", "preview", "name"] : ["id", "name"]));
     readonly browseError = signal<string | null>(null);
     readonly loading = computed(() => {
         const store = this.store;
