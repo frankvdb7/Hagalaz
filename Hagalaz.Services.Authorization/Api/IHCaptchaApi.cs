@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Services.Authorization.Model;
@@ -8,10 +9,11 @@ namespace Hagalaz.Services.Authorization.Api
     public interface IHCaptchaApi
     {
         /// <summary>
-        /// The endpoint expects a POST request with two parameters: your <paramref name="secret"/> API key and the h-captcha-response token (<paramref name="response"/> POSTed from your HTML page. You can optionally include the user's IP address (<paramref name="remoteIp"/>) as an additional security check. Do not send JSON data: the endpoint expects a standard URL-encoded form POST.
+        /// The endpoint expects a URL-encoded form POST containing the secret API key and hCaptcha response token. The user's IP address may be included as an additional security check.
         /// </summary>
         [Post("/siteverify")]
-        Task<HCaptchaVerifyResult> Verify(string secret, string response, string? remoteIp = null,
+        Task<HCaptchaVerifyResult> Verify(
+            [Body(BodySerializationMethod.UrlEncoded)] Dictionary<string, object> form,
             CancellationToken cancellationToken = default);
     }
 }

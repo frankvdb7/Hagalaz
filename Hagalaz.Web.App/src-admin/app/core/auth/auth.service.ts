@@ -1,6 +1,6 @@
 import { HttpClient, HttpHeaders, HttpParams } from "@angular/common/http";
 import { inject, Service } from "@angular/core";
-import type { Observable } from "rxjs";
+import { map, type Observable } from "rxjs";
 import { environment } from "../../../environments/environment";
 import type { AuthToken, ResultDto, UserInfo } from "./auth.models";
 
@@ -32,6 +32,7 @@ export class AuthService {
         data: { username: string; password: string } | { refresh_token: string },
         grantType: "password" | "refresh_token"
     ): Observable<AuthToken> {
+        const requestedScope = "openid offline_access email profile roles characters_api cache_api";
         const options = {
             headers: new HttpHeaders({
                 "Content-Type": "application/x-www-form-urlencoded",
@@ -40,12 +41,17 @@ export class AuthService {
 
         Object.assign(data, {
             grant_type: grantType,
-            scope: "openid offline_access email profile roles characters_api cache_api",
-            client_id: "storm-app",
+            scope: requestedScope,
+            client_id: "storm-admin",
         });
 
         const body = Object.entries(data).reduce((params, [key, value]) => params.set(key, value as string), new HttpParams());
 
-        return this.http.post<AuthToken>(`${environment.authApiUrl}connect/token`, body, options);
+        return this.http.post<AuthToken>(`${environment.authApiUrl}connect/token`, body, options).pipe(
+            map((token) => ({
+                ...token,
+                scope: token.scope ?? requestedScope,
+            }))
+        );
     }
 }

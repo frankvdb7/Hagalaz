@@ -90,6 +90,7 @@ export class TypesManagerPageComponent {
             (this.appliedQuery() ? "searchLoading" in store && store.searchLoading() : "rangeLoading" in store && store.rangeLoading())
         );
     });
+    readonly loadingFeedbackVisible = signal(false);
     readonly error = computed(() => {
         const store = this.store;
         return (
@@ -120,6 +121,14 @@ export class TypesManagerPageComponent {
     readonly searchForm = form(this.searchModel);
     constructor() {
         this.archives.loadArchiveSizes();
+        effect((onCleanup) => {
+            if (!this.loading()) {
+                this.loadingFeedbackVisible.set(false);
+                return;
+            }
+            const timeout = setTimeout(() => this.loadingFeedbackVisible.set(true), 200);
+            onCleanup(() => clearTimeout(timeout));
+        });
         effect(() => {
             this.activeKind();
             this.appliedQuery();

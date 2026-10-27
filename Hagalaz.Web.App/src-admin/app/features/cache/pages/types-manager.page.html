@@ -18,10 +18,14 @@
     <mat-tab-nav-panel #workspacePanel>
     <div class="studio-panels">
         <mat-card appearance="outlined" class="definition-list overflow-hidden">
-            @if (loading()) { <mat-progress-bar mode="indeterminate" aria-label="Processing cache request" /> }
+            @if (loading() && loadingFeedbackVisible()) { <mat-progress-bar mode="indeterminate" aria-label="Processing cache request" /> }
             <mat-card-header class="items-center"><div class="grow"><mat-card-title><h2>{{ kindLabels[activeKind()] }} definitions</h2></mat-card-title></div><mat-icon class="supporting-text">database</mat-icon></mat-card-header>
             @if (loading()) {
-                <mat-card-content class="py-10 text-center"><p role="status">Loading definitions…</p></mat-card-content>
+                @if (loadingFeedbackVisible()) {
+                    <mat-card-content class="py-10 text-center"><p role="status">Loading definitions…</p></mat-card-content>
+                } @else {
+                    <mat-card-content class="min-h-28 py-10" aria-hidden="true"></mat-card-content>
+                }
             } @else if (browseError(); as message) {
                 <mat-card-content class="py-6"><p role="alert" class="notice">{{ message }}</p></mat-card-content>
             } @else if (error(); as message) {

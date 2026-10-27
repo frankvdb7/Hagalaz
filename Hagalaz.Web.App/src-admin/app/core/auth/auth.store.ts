@@ -15,7 +15,7 @@ export class AuthStore {
     readonly user = signal<UserInfo | null>(null);
 
     readonly authenticated = computed(() => this.token() !== null);
-    readonly hasCacheScope = computed(() => this.token()?.scope.split(" ").includes("cache_api") ?? false);
+    readonly hasCacheScope = computed(() => this.token()?.scope?.split(" ").includes("cache_api") ?? false);
     readonly isSystemAdministrator = computed(() => this.user()?.role?.includes("SystemAdministrator") ?? false);
     readonly isAuthorizedAdmin = computed(() => this.authenticated() && this.hasCacheScope() && this.isSystemAdministrator());
 

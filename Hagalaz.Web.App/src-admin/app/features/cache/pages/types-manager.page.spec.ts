@@ -40,6 +40,7 @@ describe("TypesManagerPage per-type navigation", () => {
         http.verify();
         vi.restoreAllMocks();
         vi.unstubAllGlobals();
+        vi.useRealTimers();
     });
     async function createPage(sprites = 20) {
         const fixture = TestBed.createComponent(TypesManagerPageComponent);
@@ -137,14 +138,28 @@ describe("TypesManagerPage per-type navigation", () => {
     it("shows exclusive request feedback and retries the applied page without using draft text", async () => {
         const fixture = await createPage();
         const page = fixture.componentInstance;
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
         await page.changePage({ pageIndex: 1, pageSize: 10, length: 23 });
         TestBed.tick();
         const delayed = http.expectOne((r) => r.url === `${baseUrl}items/range`);
-        expect(fixture.nativeElement.textContent).toContain("Loading definitions");
+        expect(page.loading()).toBe(true);
+        expect(fixture.nativeElement.querySelector('section[aria-label="Definition workspace"]')?.getAttribute("aria-busy")).toBe("true");
+        expect(fixture.nativeElement.querySelector('button[type="submit"]')?.disabled).toBe(true);
+        expect(fixture.nativeElement.querySelector("mat-progress-bar")).toBeNull();
+        expect(fixture.nativeElement.textContent).not.toContain("Loading definitions");
         expect(fixture.nativeElement.textContent).not.toContain("Initial sword");
         expect(fixture.nativeElement.textContent).not.toContain("No matching definitions");
+        await vi.advanceTimersByTimeAsync(200);
+        TestBed.tick();
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector("mat-progress-bar")).not.toBeNull();
+        expect(fixture.nativeElement.textContent).toContain("Loading definitions");
         delayed.flush({ detail: "Unavailable" }, { status: 503, statusText: "Unavailable" });
+        TestBed.tick();
         await stable();
+        fixture.detectChanges();
+        expect(fixture.nativeElement.textContent).not.toContain("Loading definitions");
+        expect(fixture.nativeElement.querySelector("mat-progress-bar")).toBeNull();
         expect(fixture.nativeElement.querySelector("mat-card.definition-list [role=alert]")?.textContent).toContain("Unavailable");
         expect(fixture.nativeElement.textContent).not.toContain("No matching definitions");
         page.searchForm.query().value.set("unsubmitted");
@@ -161,9 +176,34 @@ describe("TypesManagerPage per-type navigation", () => {
         expect(fixture.nativeElement.querySelector("[role=alert]")).toBeNull();
         expect(fixture.nativeElement.querySelector("mat-progress-bar")).toBeNull();
     });
+    it("does not show loading feedback when a request finishes before the debounce", async () => {
+        const fixture = await createPage();
+        const page = fixture.componentInstance;
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+
+        await page.changePage({ pageIndex: 1, pageSize: 10, length: 23 });
+        TestBed.tick();
+        const request = http.expectOne((r) => r.url === `${baseUrl}items/range`);
+        expect(page.loading()).toBe(true);
+        expect(fixture.nativeElement.textContent).not.toContain("Loading definitions");
+
+        request.flush([{ id: 10, name: "Quick response" }]);
+        TestBed.tick();
+        await stable();
+        await vi.advanceTimersByTimeAsync(200);
+        TestBed.tick();
+        fixture.detectChanges();
+
+        expect(page.loading()).toBe(false);
+        expect(fixture.nativeElement.querySelector('section[aria-label="Definition workspace"]')?.getAttribute("aria-busy")).toBe("false");
+        expect(fixture.nativeElement.textContent).toContain("Quick response");
+        expect(fixture.nativeElement.textContent).not.toContain("Loading definitions");
+        expect(fixture.nativeElement.querySelector("mat-progress-bar")).toBeNull();
+    });
     it("hides previous search results while a different query is delayed and retries that query", async () => {
         const fixture = await createPage();
         const page = fixture.componentInstance;
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
         page.searchForm.query().value.set("sword");
         await page.browse();
         TestBed.tick();
@@ -176,8 +216,13 @@ describe("TypesManagerPage per-type navigation", () => {
         const delayed = http.expectOne((r) => r.url === `${baseUrl}items/search`);
         expect(delayed.request.params.get("query")).toBe("coin");
         expect(fixture.nativeElement.textContent).not.toContain("Old search sword");
+        expect(fixture.nativeElement.textContent).not.toContain("Loading definitions");
+        await vi.advanceTimersByTimeAsync(200);
+        TestBed.tick();
+        fixture.detectChanges();
         expect(fixture.nativeElement.textContent).toContain("Loading definitions");
         delayed.flush({ detail: "Search offline" }, { status: 503, statusText: "Unavailable" });
+        TestBed.tick();
         await stable();
         page.searchForm.query().value.set("draft");
         page.retry();
