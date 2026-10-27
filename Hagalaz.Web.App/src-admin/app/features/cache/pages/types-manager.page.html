@@ -30,7 +30,16 @@
                 <div class="overflow-x-auto">
                     <table mat-table [dataSource]="rows()" aria-label="Matching definitions">
                         <ng-container matColumnDef="id"><th mat-header-cell *matHeaderCellDef>ID</th><td mat-cell *matCellDef="let row">#{{ row.id }}</td></ng-container>
-                        <ng-container matColumnDef="preview"><th mat-header-cell *matHeaderCellDef>Preview</th><td mat-cell *matCellDef="let row"><cache-sprite-frame-thumbnail class="w-12" [id]="row.id" [frame]="spritePreviewFrame(row.frameCount)" /></td></ng-container>
+                        <ng-container matColumnDef="preview">
+                            <th mat-header-cell *matHeaderCellDef>{{ activeKind() === "items" ? "Item sprite" : "Preview" }}</th>
+                            <td mat-cell *matCellDef="let row">
+                                @if (activeKind() === "items") {
+                                    <cache-item-sprite-thumbnail [id]="row.id" [name]="row.name ?? ''" />
+                                } @else {
+                                    <cache-sprite-frame-thumbnail class="w-12" [id]="row.id" [frame]="spritePreviewFrame(row.frameCount)" />
+                                }
+                            </td>
+                        </ng-container>
                         <ng-container matColumnDef="name"><th mat-header-cell *matHeaderCellDef>Definition</th><td mat-cell *matCellDef="let row"><a mat-button class="definition-name" href="/cache/types/{{ activeKind() }}/{{ row.id }}" [routerLink]="['/cache/types', activeKind(), row.id]" queryParamsHandling="preserve" [attr.aria-label]="'Inspect definition ' + row.id"><strong>{{ row.name ?? kindLabels[activeKind()] + ' #' + row.id }}</strong></a></td></ng-container>
                         <tr mat-header-row class="definition-table-header" *matHeaderRowDef="resultColumns()"></tr><tr mat-row *matRowDef="let row; columns: resultColumns()"></tr>
                     </table>
