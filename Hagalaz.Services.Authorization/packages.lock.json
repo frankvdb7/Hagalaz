@@ -83,6 +83,16 @@
           "Refit": "14.0.1"
         }
       },
+      "Refit.Reflection": {
+        "type": "Direct",
+        "requested": "[14.0.1, )",
+        "resolved": "14.0.1",
+        "contentHash": "MSZ8YJbnZ7U9ObK2jGlzzeR2/kpcHtCizVMiHFnRh3zstxFphtUvSHjvGh1hl1LsBJP2au+09soY58xOjRRcJg==",
+        "dependencies": {
+          "ReactiveUI.Primitives": "7.0.0",
+          "Refit": "14.0.1"
+        }
+      },
       "System.Linq.Async": {
         "type": "Direct",
         "requested": "[7.0.1, )",

@@ -8,6 +8,8 @@ public static class AppHostConfiguration
 {
     public static void Configure(IDistributedApplicationBuilder builder, bool includeHealthChecks = true)
     {
+        var cacheIntrospectionClientSecret = builder.AddParameter("cache-introspection-client-secret", secret: true);
+
         var database = builder.AddMySql("mysql")
             .WithImage("mysql", "8.4")
             .WithEnvironment("MYSQL_DATABASE", "hagalaz-db")
@@ -93,6 +95,7 @@ public static class AppHostConfiguration
             .WithScalarDocs();
 
         authService.WithEnvironment("OpenIddict__Issuer", authService.GetEndpoint("https"));
+        authService.WithEnvironment("Security__Introspection__ClientSecret", cacheIntrospectionClientSecret);
 
         if (includeHealthChecks)
         {
@@ -128,6 +131,7 @@ public static class AppHostConfiguration
         var cacheService = builder.AddProject<Projects.Hagalaz_Services_Cache>("hagalaz-services-cache")
             .WaitFor(authService)
             .WithReference(authService)
+            .WithEnvironment("Security__Introspection__ClientSecret", cacheIntrospectionClientSecret)
             .WithEnvironment("HAGALAZ_Hagalaz.Cache__Path", "../Cache")
             .WithScalarDocs();
 
@@ -152,14 +156,14 @@ public static class AppHostConfiguration
             .WithReference(cacheService)
             .WithReference(contactsService)
             .WithReference(charactersService)
-            .WithHttpsEndpoint(targetPort: 4400, env: "PORT")
+            .WithHttpEndpoint(targetPort: 4400, env: "PORT")
             .WithExternalHttpEndpoints()
             .PublishAsDockerFile();
 
         var webAdminApp = builder.AddJavaScriptApp("hagalaz-web-admin", "../Hagalaz.Web.App", "start:aspire:admin")
             .WithReference(authService)
             .WithReference(cacheService)
-            .WithHttpsEndpoint(targetPort: 4410, env: "PORT")
+            .WithHttpEndpoint(targetPort: 4410, env: "PORT")
             .WithExternalHttpEndpoints()
             .PublishAsDockerFile();
 

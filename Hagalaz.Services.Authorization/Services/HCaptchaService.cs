@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Services.Authorization.Api;
@@ -21,7 +22,18 @@ namespace Hagalaz.Services.Authorization.Services
         public async Task<HCaptchaVerifyResult> Verify(string token, string? remoteIp = null, CancellationToken cancellationToken = default)
         {
             var options = _options.Value;
-            return await _captchaApi.Verify(options.Secret, token, remoteIp, cancellationToken);
+            var form = new Dictionary<string, object>
+            {
+                ["secret"] = options.Secret,
+                ["response"] = token
+            };
+
+            if (!string.IsNullOrWhiteSpace(remoteIp))
+            {
+                form["remoteip"] = remoteIp;
+            }
+
+            return await _captchaApi.Verify(form, cancellationToken);
         }
     }
 }

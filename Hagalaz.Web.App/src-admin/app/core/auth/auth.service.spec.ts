@@ -18,8 +18,9 @@ describe("Admin AuthService", () => {
         const request = http.expectOne((req) => req.url.endsWith("connect/token"));
         expect(request.request.method).toBe("POST");
 
+        expect(request.request.body.get("client_id")).toBe("storm-admin");
         const scope = request.request.body.get("scope");
-        expect(scope).toContain("cache_api");
+        expect(scope).toBe("openid offline_access email profile roles characters_api cache_api");
 
         request.flush({
             access_token: "token",

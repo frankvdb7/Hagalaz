@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Threading.Tasks;
 using MassTransit;
 using Microsoft.AspNetCore;
@@ -11,6 +12,7 @@ using OpenIddict.Server.AspNetCore;
 using Hagalaz.Data.Entities;
 using Hagalaz.Services.Authorization.Mediator.Commands;
 using Hagalaz.Services.Authorization.Model;
+using Hagalaz.Services.Authorization.Services;
 
 namespace Hagalaz.Services.Authorization.Mediator.Consumers
 {
@@ -18,6 +20,7 @@ namespace Hagalaz.Services.Authorization.Mediator.Consumers
     {
         private readonly IHttpContextAccessor _contextAccessor;
         private readonly SignInManager<Character> _signInManager;
+        private readonly AccessTokenClaimDestinationService _claimDestinationService = new();
 
         public RefreshTokenGrantCommandConsumer(
             IHttpContextAccessor contextAccessor,
@@ -65,6 +68,12 @@ namespace Hagalaz.Services.Authorization.Mediator.Consumers
             // Create a new ClaimsPrincipal containing the claims that
             // will be used to create an id_token, a token or a code.
             var principal = await _signInManager.CreateUserPrincipalAsync(user);
+            var grantedScopes = info.Principal is null
+                ? ImmutableArray<string>.Empty
+                : info.Principal.GetScopes();
+            _claimDestinationService.IncludeRoleClaimsWhenGranted(
+                principal,
+                grantedScopes);
             await context.RespondAsync(new RefreshTokenGrantResult(principal));
         }
     }

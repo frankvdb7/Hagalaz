@@ -5,6 +5,7 @@ using Hagalaz.Authorization.Constants;
 using Hagalaz.Services.Authorization.Identity;
 using Hagalaz.Services.Authorization.Mediator.Commands;
 using Hagalaz.Services.Authorization.Model;
+using Hagalaz.Services.Authorization.Services;
 using MassTransit;
 using OpenIddict.Abstractions;
 using OpenIddict.Core;
@@ -17,6 +18,7 @@ namespace Hagalaz.Services.Authorization.Mediator.Consumers
         private readonly CharacterManager _characterManager;
         private readonly CharacterSignInManager _signInManager;
         private readonly OpenIddictScopeManager<OpenIddictEntityFrameworkCoreScope> _scopeManager;
+        private readonly AccessTokenClaimDestinationService _claimDestinationService = new();
 
         public PasswordGrantCommandConsumer(
             CharacterManager characterManager,
@@ -60,6 +62,7 @@ namespace Hagalaz.Services.Authorization.Mediator.Consumers
             var scopes = message.Scopes;
 
             principal.SetScopes(scopes);
+            _claimDestinationService.IncludeRoleClaimsWhenGranted(principal, scopes);
 
             var resources = (await _scopeManager.ListResourcesAsync(scopes, context.CancellationToken).ToListAsync(context.CancellationToken)).ToHashSet();
 

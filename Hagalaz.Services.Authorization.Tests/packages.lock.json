@@ -859,6 +859,15 @@
           "Refit": "14.0.1"
         }
       },
+      "Refit.Reflection": {
+        "type": "Transitive",
+        "resolved": "14.0.1",
+        "contentHash": "MSZ8YJbnZ7U9ObK2jGlzzeR2/kpcHtCizVMiHFnRh3zstxFphtUvSHjvGh1hl1LsBJP2au+09soY58xOjRRcJg==",
+        "dependencies": {
+          "ReactiveUI.Primitives": "7.0.0",
+          "Refit": "14.0.1"
+        }
+      },
       "Scalar.AspNetCore": {
         "type": "Transitive",
         "resolved": "2.16.16",
@@ -997,6 +1006,7 @@
           "Quartz.Extensions.Hosting": "[3.19.1, )",
           "Refit": "[14.0.1, )",
           "Refit.HttpClientFactory": "[14.0.1, )",
+          "Refit.Reflection": "[14.0.1, )",
           "System.Linq.Async": "[7.0.1, )"
         }
       },
