@@ -49,3 +49,30 @@ Blocker: the in-app browser's URL policy rejected the local-file comparison page
 - Follow-up: refine orbit art and hero treatment, and verify in an authenticated session. Preserve the truthful disconnected state.
 
 final result: blocked
+
+## Cache Studio reference QA
+
+- Source: `C:/Users/fmavd/AppData/Local/Temp/codex-clipboard-a78f8890-d883-444f-adb5-c254f9bb115d.png`; implementation: `C:/Users/fmavd/AppData/Local/Temp/cache-studio-final2.png`. Both are 1649×954 pixels at a 1649×954 CSS viewport and density 1. Full comparison: `C:/Users/fmavd/AppData/Local/Temp/cache-studio-comparison-final2.png`; focused comparison: `C:/Users/fmavd/AppData/Local/Temp/cache-studio-focus-final2.png`.
+- State differs: the isolated fixture bypasses authentication, returns sample rows and archive sizes, and returns 404 for item image requests. The reference shows real item artwork and a named account. The fixture repeats its sample rows on later pages and is not evidence of live data correctness.
+- Layout and spacing: initial preview showed a narrower workspace, oversized search and wide ID columns. Widened the cache workspace, separated tabs and search, adjusted Material density, and resized columns and item thumbnails. The final focused comparison shows the same broad panel order and ten rows with pagination in the viewport. At 390px there was no page-level horizontal overflow.
+- Typography and colors: the implementation uses bundled Semplicita Pro and existing Material navy/amber roles. Text and cards are readable; the source has smaller text and darker surfaces. The shared login backdrop is intentionally retained per the user's earlier request.
+- Copy and controls: real category tabs, search, pagination and detail links are preserved. The source's descriptions, sorting, filters, count badge and view modes are not present because their behavior or data is not provided by the current contracts; no speculative data or controls were added.
+- Images: the source contains actual item images. The fixture did not supply PNGs, so its visible unavailable indicators cannot establish image scale or fidelity against real results. The app continues to use its existing thumbnail endpoint and cleanup.
+- Interactions: category selection, name search and pagination navigation were checked in the isolated fixture. The mobile layout was inspected. Fixture image 404 errors are expected; live authenticated data and image rendering were not checked.
+- Remaining P2: real thumbnail rendering and the populated live table need a reference-sized comparison. Do not infer that image fidelity passed from the fixture.
+- Follow-up: inspect actual cache thumbnails and result states against the reference using a connected admin session, then update this QA result.
+
+final result: blocked
+
+## Cache Studio live browser QA follow-up
+
+- Source: `C:/Users/fmavd/AppData/Local/Temp/codex-clipboard-a78f8890-d883-444f-adb5-c254f9bb115d.png`. Live capture: `C:/Users/fmavd/AppData/Local/Temp/cache-studio-live-final.png`. Both 1649×954 pixels at a 1649×954 CSS viewport. Full comparison: `C:/Users/fmavd/AppData/Local/Temp/cache-studio-live-final-comparison.png`; focused comparison: `C:/Users/fmavd/AppData/Local/Temp/cache-studio-live-final-focus.png`.
+- State: authenticated Items page, first ten definitions and 25,478 ID slots. Real item thumbnails loaded. The viewport override was reset after capture.
+- Comparison history: the fixture pass could not verify thumbnails. The first live comparison showed all thumbnails but clipped the paginator at the bottom. Reduced the item thumbnail box from 40px to 36px and aligned it within the row; the final comparison shows all ten rows and the paginator at the reference viewport.
+- Typography and layout: Semplicita Pro, panel order, labels, category navigation, search and table align with the intended admin design. The app retains 13 categories and scrollable navigation; the reference shows fewer categories. Narrow layout and category, search and pagination interactions were checked in the prior fixture pass.
+- Colors and imagery: the shared navy/amber theme and user-requested login backdrop remain. The live sprites correspond to the pictured item identities. The source uses a darker canvas; this is an intentional theme difference.
+- Copy and controls: names and ID range match. Reference descriptions, filters, sorting, view modes and an extra actions column are omitted because the current API or workflow does not support them. Existing names link directly to the detail page. This is an intentional scope difference rather than a live-data claim.
+- Runtime: no browser errors were returned by the browser log. Five Angular NG0912 component-ID collision warnings were observed in the development session; they are not attributed to this styling change. Focused admin tests: 20 passed; build and lint passed. The test build reports the existing `src/polyfills.ts` TypeScript compilation warning.
+- Remaining P3: the Material paginator alignment and text sizing are not identical to the mockup. No actionable P0/P1/P2 visual issue remains within the supported scope. Live interaction and mutation flows were not exercised.
+
+final result: passed

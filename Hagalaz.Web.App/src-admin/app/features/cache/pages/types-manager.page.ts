@@ -6,12 +6,13 @@ import { MatCardModule } from "@angular/material/card";
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
+import { MatMenuModule } from "@angular/material/menu";
 import { MatPaginatorModule, type PageEvent } from "@angular/material/paginator";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatTableModule } from "@angular/material/table";
 import { MatTabsModule } from "@angular/material/tabs";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
-import { cacheTypeLabels, type TypeKind } from "../services/cache.models";
+import { cacheTypeLabels, cacheTypeNames, type TypeKind } from "../services/cache.models";
 import { CacheSpritesService } from "../services/cache-sprites.service";
 import { CacheArchivesStore } from "../stores/cache-archives.store";
 import { cacheDefinitionStores } from "../stores/cache-definition-stores";
@@ -30,6 +31,7 @@ import { SpriteFrameThumbnailComponent } from "./sprite-frame-thumbnail.componen
         MatTableModule,
         MatFormFieldModule,
         MatInputModule,
+        MatMenuModule,
         MatPaginatorModule,
         MatProgressBarModule,
         SpriteFrameThumbnailComponent,
@@ -44,6 +46,12 @@ export class TypesManagerPageComponent {
     private readonly router = inject(Router);
     readonly kinds = Object.keys(cacheDefinitionStores) as TypeKind[];
     readonly kindLabels = cacheTypeLabels;
+    readonly kindNames = cacheTypeNames;
+    readonly kindIcons: Record<TypeKind, string> = {
+        items: "deployed_code", npcs: "group", objects: "deployed_code", animations: "animation", maps: "map", sprites: "image",
+        quests: "task_alt", graphics: "auto_awesome", "varp-bits": "view_kanban", "client-map-definitions": "map",
+        "config-definitions": "settings", cs2: "code", "cs2-int": "numbers",
+    };
     readonly supportsNameSearch = computed(() => this.activeKind() === "items" || this.activeKind() === "npcs");
     readonly searchLabel = computed(() => (this.supportsNameSearch() ? "Name or ID" : "Definition ID"));
     readonly searchHelp = computed(() =>
@@ -81,7 +89,7 @@ export class TypesManagerPageComponent {
         return this.stores[this.activeKind()];
     }
     readonly resultKind = signal<TypeKind | null>(null);
-    readonly resultColumns = computed(() => (this.activeKind() === "sprites" || this.activeKind() === "items" ? ["id", "preview", "name"] : ["id", "name"]));
+    readonly resultColumns = computed(() => (this.activeKind() === "sprites" || this.activeKind() === "items" ? ["id", "preview", "name", "actions"] : ["id", "name", "actions"]));
     readonly browseError = signal<string | null>(null);
     readonly loading = computed(() => {
         const store = this.store;
