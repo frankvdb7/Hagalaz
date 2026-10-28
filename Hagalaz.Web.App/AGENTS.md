@@ -23,7 +23,7 @@ Use `angular.json` to resolve project targets and `package.json` for installed v
 
 ## Material UI and styling
 
-- Before designing or changing UI/UX, read [DESIGN.md](DESIGN.md) and follow its visual identity, component patterns, layout, and accessibility guidance for the affected application.
+- Before designing or changing UI/UX, read [src/DESIGN.md](src/DESIGN.md) for the public app and launcher, or [src-admin/DESIGN.md](src-admin/DESIGN.md) for the admin app. Follow the affected application's design guidance.
 - Use Angular Material as the visual foundation. Reuse existing components, palettes, and typography before introducing another visual treatment.
 - Use Tailwind utilities for layout, spacing, sizing, and responsive behavior. Set Material appearance through its public Sass theme and component override APIs.
 - Keep color and typography customization in SCSS using Material design tokens and overrides. Do not put CSS custom properties or token expressions in HTML.
