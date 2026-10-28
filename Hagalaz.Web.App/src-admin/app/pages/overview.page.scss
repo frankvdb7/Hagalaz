@@ -1,8 +1,16 @@
+@use "@angular/material" as mat;
+
+.overview {
+    max-width: 64rem;
+    margin-inline: auto;
+    @include mat.card-overrides((outlined-container-elevation: none));
+}
 .hero {
-    background:
-        radial-gradient(ellipse at 90% 40%, color-mix(in srgb, var(--portal-violet) 20%, transparent), transparent 55%),
-        radial-gradient(ellipse at 20% 100%, color-mix(in srgb, var(--portal-cyan) 12%, transparent), transparent 65%),
-        var(--mat-sys-surface-container);
+    background: var(--mat-sys-surface-container);
+    @include mat.button-overrides((filled-container-height: 42px, outlined-container-height: 42px));
+}
+.hero-content {
+    padding: 20px 42px;
 }
 .hero h1 {
     max-width: 20rem;
@@ -10,51 +18,15 @@
     font-weight: 700;
 }
 .hero p {
-    line-height: 1.7;
+    line-height: 1.45;
 }
 .sigil {
-    position: relative;
     display: grid;
     place-items: center;
-    width: 190px;
-    height: 190px;
-    margin: 12px auto;
-    border: 1px solid var(--portal-violet);
-    border-radius: 50%;
-    outline: 1px solid var(--mat-sys-outline);
-    outline-offset: 15px;
-    box-shadow: 0 0 60px color-mix(in srgb, var(--portal-violet) 15%, transparent);
-}
-.sigil::before,
-.sigil::after {
-    content: "";
-    position: absolute;
-    inset: 22px;
-    border: 1px solid var(--mat-sys-primary);
-    border-radius: 50%;
-}
-.sigil::after {
-    inset: -8px;
-    border-color: var(--mat-sys-outline);
-    border-radius: 35%;
-    transform: rotate(35deg);
-}
-.sigil-runes {
-    position: absolute;
-    top: -30px;
-    color: var(--portal-violet);
-    font-size: 0.875rem;
-    letter-spacing: 0.3em;
-    white-space: nowrap;
-}
-.hero-runes {
-    position: absolute;
-    inset-inline: 24px;
-    bottom: 8px;
-    opacity: 0.15;
-    color: var(--portal-cyan);
-    overflow: hidden;
-    white-space: nowrap;
+    width: 200px;
+    height: 200px;
+    margin: 0 auto;
+    background: url("/assets/images/admin-orbit.png") center / 135% no-repeat;
 }
 .metric {
     position: relative;
@@ -79,12 +51,20 @@
     font-weight: 700;
     color: var(--mat-sys-on-surface);
 }
+.metric mat-card-content {
+    padding: 16px 18px;
+}
 .quick-action {
     color: var(--mat-sys-on-surface);
     text-decoration: none;
     background: var(--mat-sys-surface-container-high);
     border: 1px solid var(--mat-sys-outline-variant);
-    font: var(--mat-sys-label-large);
+    gap: 0.5rem;
+    padding: 0.75rem;
+    font: var(--mat-sys-body-small);
+    min-height: 84px;
+    height: 84px;
+    box-sizing: border-box;
 }
 .quick-action:hover {
     border-color: var(--mat-sys-primary);
@@ -92,6 +72,7 @@
 }
 .quick-action > mat-icon {
     color: var(--portal-accent, var(--mat-sys-primary));
+    flex-shrink: 0;
 }
 .metrics-empty {
     border-top: 1px solid var(--mat-sys-outline-variant);
@@ -100,7 +81,25 @@
     margin: 0;
     font: var(--mat-sys-title-medium);
 }
+.panel-icon {
+    color: var(--mat-sys-primary);
+    width: 28px;
+    height: 28px;
+    font-size: 28px;
+    margin-right: 12px;
+    margin-bottom: 0;
+}
+.overview mat-card-header {
+    margin-bottom: 1rem;
+}
+.overview mat-card-title h2 {
+    font: var(--mat-sys-title-medium);
+    font-weight: 700;
+}
 @media (max-width: 599px) {
+    .hero-content {
+        padding: 24px;
+    }
     .sigil {
         width: 140px;
         height: 140px;

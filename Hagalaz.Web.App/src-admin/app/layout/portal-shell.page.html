@@ -6,7 +6,6 @@
                 <span class="brand-mark"><img ngSrc="/assets/icons/logo.svg" width="25" height="40" alt="" priority /></span>
                 <span><strong>HAGALAZ</strong><small>WORLD ADMIN</small></span>
             </a>
-            <div class="rune-band my-4" aria-hidden="true">ᚺ ᚠ ᚷ ᚨ ᛚ ᚨ ᛉ</div>
             <nav aria-label="Administration" class="grow">
                 @for (group of navigation; track group.label) {
                     <p class="nav-group px-4 pt-5 pb-2">{{ group.label }}</p>
@@ -50,6 +49,6 @@
             <mat-menu #notifications="matMenu"><div class="px-4 py-3"><p>Notifications</p><p class="supporting-text mt-1 text-sm">Notifications are not connected.</p></div></mat-menu>
             <mat-menu #account="matMenu"><div class="px-4 py-3"><p>{{ auth.user()?.preferred_username }}</p><p class="supporting-text mt-1 text-xs">System administrator</p></div><button mat-menu-item type="button" (click)="logout()"><mat-icon>logout</mat-icon>Sign out</button></mat-menu>
         </mat-toolbar>
-        <main id="portal-content" tabindex="-1" class="portal-content mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8"><router-outlet (activate)="content.getElementRef().nativeElement.scrollTop = 0" /></main>
+        <main id="portal-content" tabindex="-1" class="portal-content mx-auto w-full max-w-7xl"><router-outlet (activate)="content.getElementRef().nativeElement.scrollTop = 0" /></main>
     </mat-sidenav-content>
 </mat-sidenav-container>

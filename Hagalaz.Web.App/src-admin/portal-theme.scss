@@ -1,6 +1,6 @@
 @use "@angular/material" as mat;
 
-@mixin colors() {
+@mixin theme() {
     @include mat.theme-overrides(
         (
             surface: #0b111b,
@@ -21,15 +21,30 @@
             on-secondary-container: #d4e7fa,
         )
     );
-}
-
-.admin-portal,
-.cdk-overlay-container {
     @include mat.card-overrides(
         (
-            outlined-container-shape: 24px,
+            outlined-container-shape: 16px,
             outlined-container-color: var(--mat-sys-surface-container-low),
             outlined-outline-color: var(--mat-sys-outline-variant),
+            outlined-container-elevation: var(--admin-panel-shadow),
+            subtitle-text-color: var(--mat-sys-on-surface-variant),
+        )
+    );
+    @include mat.form-field-overrides(
+        (
+            outlined-container-shape: 12px,
+            container-height: 4rem,
+        )
+    );
+    @include mat.button-overrides(
+        (
+            filled-container-shape: 12px,
+            filled-container-height: 3.25rem,
+            filled-container-color: var(--mat-sys-primary),
+            filled-label-text-color: var(--mat-sys-on-primary),
+            filled-label-text-transform: none,
+            outlined-label-text-transform: none,
+            text-label-text-transform: none,
         )
     );
     @include mat.sidenav-overrides(
@@ -53,11 +68,6 @@
             list-item-one-line-container-height: 48px,
         )
     );
-    @include mat.form-field-overrides(
-        (
-            outlined-container-shape: 12px,
-        )
-    );
     @include mat.tabs-overrides(
         (
             divider-color: var(--mat-sys-outline-variant),
@@ -73,6 +83,12 @@
     --portal-emerald: rgb(122 220 176);
     --portal-violet: #c7adff;
     --portal-ember: #ff9993;
+    --admin-background: url("/assets/images/admin-login-background.png");
+    --admin-panel-shadow: 0 20px 70px rgb(0 0 0 / 22%);
+}
+
+.admin-portal,
+.cdk-overlay-container {
     color: var(--mat-sys-on-surface);
 
     .eyebrow {

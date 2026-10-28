@@ -6,15 +6,29 @@
 .portal-container {
     height: 100dvh;
 }
+mat-sidenav-content {
+    background-image: var(--admin-background);
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+}
 .portal-drawer {
-    width: 248px;
+    width: 228px;
 }
 .portal-content {
     box-sizing: border-box;
+    padding: 1rem;
+}
+@media (min-width: 640px) {
+    .portal-content { padding: 1rem 1.5rem 1.5rem; }
+}
+@media (min-width: 1024px) {
+    .portal-content { padding: 1rem 2rem 2rem; }
 }
 .portal-toolbar {
     height: auto;
-    min-height: 64px;
+    min-height: 54px;
     position: sticky;
     top: 0;
     z-index: 20;
@@ -92,17 +106,6 @@
     place-items: center;
     width: 44px;
     height: 48px;
-    border: 1px solid var(--mat-sys-primary);
-    border-radius: 14px;
-    background: var(--mat-sys-primary-container);
-}
-.rune-band {
-    padding-block: 12px;
-    text-align: center;
-    letter-spacing: 0.7em;
-    color: var(--mat-sys-outline);
-    border-block: 1px solid var(--mat-sys-outline-variant);
-    font-size: 0.75rem;
 }
 .nav-group {
     font-size: 0.625rem;

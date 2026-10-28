@@ -20,20 +20,8 @@ html {
             density: 0,
         )
     );
-    @include portal.colors();
+    @include portal.theme();
     background: var(--mat-sys-surface);
-    @include mat.button-overrides(
-        (
-            filled-label-text-transform: none,
-            outlined-label-text-transform: none,
-            text-label-text-transform: none,
-        )
-    );
-    @include mat.form-field-overrides(
-        (
-            outlined-container-shape: 8px,
-        )
-    );
     @include typography.material-icons();
     @include typography.semplicita-pro();
 }

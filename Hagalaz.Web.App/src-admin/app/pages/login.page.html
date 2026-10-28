@@ -1,35 +1,54 @@
-<section class="min-h-screen grid place-items-center px-4 py-8" aria-labelledby="login-title">
-    <mat-card appearance="outlined" class="w-full max-w-md">
+<section class="login-page" aria-labelledby="login-title">
+    <div class="login-layout">
+        <div class="login-brand">
+            <img src="/assets/icons/logo.svg" width="44" height="64" alt="" />
+            <div><strong>Hagalaz</strong><span class="supporting-text">World admin</span></div>
+        </div>
+    <mat-card appearance="outlined" class="login-card">
         @if (store.loading()) {
             <mat-progress-bar mode="indeterminate" aria-label="Signing in"></mat-progress-bar>
         }
         <mat-card-header>
-            <mat-card-title><h1 id="login-title">Hagalaz admin</h1></mat-card-title>
-            <mat-card-subtitle>Sign in to manage cache types and sprites.</mat-card-subtitle>
+            <mat-card-title><h1 id="login-title">Sign in</h1></mat-card-title>
+            <mat-card-subtitle>Use your staff account to access the Hagalaz admin tools.</mat-card-subtitle>
         </mat-card-header>
         <mat-card-content>
-            <form class="grid gap-4" novalidate (submit)="submit($event)" [attr.aria-busy]="store.loading()">
-                <mat-form-field appearance="outline">
-                    <mat-label>Email</mat-label>
-                    <input matInput autocomplete="username" type="email" [formField]="form.email" />
-                    <mat-error>Enter a valid email address.</mat-error>
-                </mat-form-field>
-                <mat-form-field appearance="outline">
-                    <mat-label>Password</mat-label>
-                    <input matInput autocomplete="current-password" [type]="hidePassword() ? 'password' : 'text'" [formField]="form.password" />
-                    <button mat-icon-button matSuffix type="button" (click)="togglePasswordVisibility()" [attr.aria-label]="hidePassword() ? 'Show password' : 'Hide password'" [attr.aria-pressed]="!hidePassword()">
-                        <mat-icon>{{ hidePassword() ? "visibility" : "visibility_off" }}</mat-icon>
-                    </button>
-                    <mat-error>Password is required.</mat-error>
-                </mat-form-field>
+            <form class="login-form" novalidate (submit)="submit($event)" [attr.aria-busy]="store.loading()">
+                <div class="login-input-field" [class.login-input-field--invalid]="form.email().invalid() && form.email().touched()">
+                    <label class="login-field-label" for="admin-email">Email address</label>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                        <mat-icon matPrefix aria-hidden="true">mail_outline</mat-icon>
+                        <input id="admin-email" matInput autocomplete="username" type="email" placeholder="name@domain.com" [formField]="form.email" />
+                        <mat-error>Enter a valid email address.</mat-error>
+                    </mat-form-field>
+                </div>
+                <div class="login-input-field" [class.login-input-field--invalid]="form.password().invalid() && form.password().touched()">
+                    <label class="login-field-label" for="admin-password">Password</label>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                        <mat-icon matPrefix aria-hidden="true">lock_outline</mat-icon>
+                        <input id="admin-password" matInput autocomplete="current-password" placeholder="Enter your password" [type]="hidePassword() ? 'password' : 'text'" [formField]="form.password" />
+                        <button mat-icon-button matSuffix type="button" (click)="togglePasswordVisibility()" [attr.aria-label]="hidePassword() ? 'Show password' : 'Hide password'" [attr.aria-pressed]="!hidePassword()">
+                            <mat-icon>{{ hidePassword() ? "visibility" : "visibility_off" }}</mat-icon>
+                        </button>
+                        <mat-error>Password is required.</mat-error>
+                    </mat-form-field>
+                </div>
                 <div class="captcha-wrap">
-                    <ng-hcaptcha theme="dark" size="compact" [formField]="form.captcha" (error)="markForCheck()" (expired)="markForCheck()" (verify)="markForCheck()"></ng-hcaptcha>
+                    <ng-hcaptcha
+                        theme="dark"
+                        size="normal"
+                        [formField]="form.captcha"
+                        (error)="markForCheck()"
+                        (expired)="markForCheck()"
+                        (verify)="markForCheck()"
+                    ></ng-hcaptcha>
                     @if (submitted() && form.captcha().invalid()) {
                         <p role="alert">Complete the security check to sign in.</p>
                     }
                 </div>
-                <button mat-flat-button type="submit" [disabled]="store.loading() || form().invalid()">
+                <button mat-flat-button class="sign-in-button" type="submit" [disabled]="store.loading() || form().invalid()">
                     {{ store.loading() ? "Signing in…" : "Sign in" }}
+                    <mat-icon iconPositionEnd aria-hidden="true">arrow_forward</mat-icon>
                 </button>
             </form>
             @if (store.error()) {
@@ -37,7 +56,8 @@
                     <mat-card-content><p role="alert">{{ store.error() }} Check your details and access permissions, then try again.</p></mat-card-content>
                 </mat-card>
             }
-            <p class="supporting-text mt-6 text-sm">A staff account with cache administration access is required.</p>
+            <p class="login-note supporting-text"><mat-icon aria-hidden="true">lock_outline</mat-icon><span>A staff account with cache administration access is required.</span></p>
         </mat-card-content>
     </mat-card>
+    </div>
 </section>
