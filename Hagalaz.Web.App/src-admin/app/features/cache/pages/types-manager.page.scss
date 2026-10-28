@@ -35,10 +35,3 @@
 .definition-table-header {
     background: var(--mat-sys-surface-container-high);
 }
-.definition-name {
-    @include mat.button-overrides(
-        (
-            text-label-text-color: var(--mat-sys-on-surface),
-        )
-    );
-}

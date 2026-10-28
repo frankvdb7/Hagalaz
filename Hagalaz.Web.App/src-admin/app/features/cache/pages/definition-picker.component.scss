@@ -1,15 +1,8 @@
-@use "@angular/material" as mat;
-
 :host {
     display: block;
     min-width: 0;
 }
 .definition-trigger {
-    @include mat.button-overrides(
-        (
-            text-label-text-color: var(--mat-sys-on-surface),
-        )
-    );
     max-width: 260px;
 }
 .definition-picker {

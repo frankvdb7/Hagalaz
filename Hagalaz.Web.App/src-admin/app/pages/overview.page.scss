@@ -6,7 +6,7 @@
     @include mat.card-overrides((outlined-container-elevation: none));
 }
 .hero {
-    background: var(--mat-sys-surface-container);
+    @include mat.card-overrides((outlined-container-color: var(--mat-sys-surface-container)));
     @include mat.button-overrides((filled-container-height: 42px, outlined-container-height: 42px));
 }
 .hero-content {
