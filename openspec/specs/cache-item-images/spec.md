@@ -14,6 +14,14 @@ The Cache service MUST return the supplied GIF image for an item through the exi
 
 - **WHEN** an authorized caller requests the image for an item with a supplied sprite
 - **THEN** the service returns HTTP 200, the exact GIF bytes, and the `image/gif` content type
+- **AND** the response sets `Cache-Control: public, max-age=86400` so caches can reuse the image for one day
+- **AND** the response includes `Last-Modified` so the browser can revalidate an expired cached image
+
+#### Scenario: An unchanged item sprite is revalidated
+
+- **WHEN** an authorized caller requests an unchanged item image with its `If-Modified-Since` value
+- **THEN** the service returns HTTP 304 without an image body
+- **AND** the response includes `Cache-Control: public, max-age=86400`
 
 #### Scenario: An item sprite is missing
 

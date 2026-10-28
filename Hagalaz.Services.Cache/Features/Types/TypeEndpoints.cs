@@ -7,6 +7,7 @@ using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Cache.Types.Data;
 using Hagalaz.Services.Cache.Features.Shared;
+using Hagalaz.Services.Extensions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -25,7 +26,8 @@ public static class TypeEndpoints
         types.MapGet("/archive-sizes", GetArchiveSizes);
 
         types.MapGet("/items/{id:int}", GetItemType);
-        types.MapGet("/items/{id:int}/image", GetItemTypeImage);
+        types.MapGet("/items/{id:int}/image", GetItemTypeImage)
+            .WithCacheControl(TimeSpan.FromDays(1), isPublic: true);
         types.MapGet("/items/range", GetItemTypeRange);
         types.MapGet("/items/search", SearchItemTypes);
 
@@ -106,10 +108,11 @@ public static class TypeEndpoints
 
     private static IResult GetItemTypeImage(int id, IWebHostEnvironment environment)
     {
-        var file = environment.WebRootFileProvider.GetFileInfo($"images/items/{id}.gif");
-        return file.Exists
-            ? TypedResults.Stream(file.CreateReadStream(), "image/gif")
-            : TypedResults.NotFound();
+        var path = $"images/items/{id}.gif";
+        var file = environment.WebRootFileProvider.GetFileInfo(path);
+        if (!file.Exists) return TypedResults.NotFound();
+
+        return TypedResults.VirtualFile(path, "image/gif", lastModified: file.LastModified);
     }
 
     private static IResult GetItemTypeRange(int startId, int endIdExclusive, ITypeProvider<IItemType> provider)
