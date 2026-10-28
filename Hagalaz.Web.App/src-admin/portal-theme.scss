@@ -87,6 +87,14 @@
     --admin-panel-shadow: 0 20px 70px rgb(0 0 0 / 22%);
 }
 
+.admin-neutral-action {
+    @include mat.button-overrides(
+        (
+            text-label-text-color: var(--mat-sys-on-surface),
+        )
+    );
+}
+
 .admin-portal,
 .cdk-overlay-container {
     color: var(--mat-sys-on-surface);
