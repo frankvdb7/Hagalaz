@@ -6,6 +6,7 @@ import { provideLocationMocks } from "@angular/common/testing";
 import { ApplicationRef, Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { MatPaginatorHarness } from "@angular/material/paginator/testing";
+import { MatMenuHarness } from "@angular/material/menu/testing";
 import { provideRouter, Router } from "@angular/router";
 import { EMPTY } from "rxjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -254,11 +255,33 @@ describe("TypesManagerPage per-type navigation", () => {
         expect(page.browseError()).toContain("Name search is available for items and NPCs");
         http.expectNone((r) => r.url === `${baseUrl}sprites/search`);
     });
-    it("automatically loads the first ten definitions and keeps tabs inside the search card", async () => {
+    it("automatically loads the first ten definitions with separate category and search panels", async () => {
         const fixture = await createPage();
-        expect(fixture.nativeElement.querySelector('mat-card.studio-search nav[aria-label="Definition type"]')).not.toBeNull();
+        expect(fixture.nativeElement.querySelector('mat-card.studio-tabs nav[aria-label="Definition type"]')).not.toBeNull();
+        expect(fixture.nativeElement.querySelector("mat-card.studio-search form")).not.toBeNull();
         expect(fixture.componentInstance.kinds).toHaveLength(13);
         expect(fixture.componentInstance.rows()).toEqual([{ id: 0, name: "Initial sword" }]);
+    });
+    it("opens the selected row from its actions menu and preserves browse context", async () => {
+        const router = TestBed.inject(Router);
+        await router.navigateByUrl("/?kind=items&offset=10&limit=10");
+        const fixture = TestBed.createComponent(TypesManagerPageComponent);
+        fixture.detectChanges();
+        http.expectOne(`${baseUrl}archive-sizes`).flush({ items: 23 });
+        TestBed.tick();
+        await vi.waitFor(() => http.expectOne((r) => r.url === `${baseUrl}items/range`).flush([{ id: 10, name: "First" }, { id: 12, name: "Second" }]));
+        await stable();
+        const menu = await TestbedHarnessEnvironment.loader(fixture).getHarness(MatMenuHarness.with({ selector: 'button[aria-label="Actions for definition 12"]' }));
+        await menu.open();
+        const items = await menu.getItems();
+        expect(items).toHaveLength(1);
+        expect(await items[0].getText()).toContain("Inspect definition");
+        await items[0].click();
+        await stable();
+        expect(router.url).toContain("/cache/types/items/12?");
+        expect(router.url).toContain("kind=items");
+        expect(router.url).toContain("offset=10");
+        expect(router.url).toContain("limit=10");
     });
     it("pages ID ranges and links rows to their dedicated detail route", async () => {
         const fixture = await createPage(),
@@ -427,7 +450,7 @@ describe("TypesManagerPage per-type navigation", () => {
             for (const request of requests) request.flush(new Blob(["png"], { type: "image/png" }));
         });
         await stable();
-        expect(page.resultColumns()).toEqual(["id", "preview", "name"]);
+        expect(page.resultColumns()).toEqual(["id", "preview", "name", "actions"]);
         expect(fixture.nativeElement.querySelectorAll("td cache-sprite-frame-thumbnail img")).toHaveLength(2);
         expect(fixture.nativeElement.textContent).toContain("No frames");
         expect(fixture.nativeElement.querySelector('a[href^="/cache/types/sprites/10?"]')).not.toBeNull();
@@ -438,7 +461,7 @@ describe("TypesManagerPage per-type navigation", () => {
         const fixture = await createPage();
         fixture.detectChanges();
 
-        expect(fixture.componentInstance.resultColumns()).toEqual(["id", "preview", "name"]);
+        expect(fixture.componentInstance.resultColumns()).toEqual(["id", "preview", "name", "actions"]);
         expect(fixture.nativeElement.querySelector("th.mat-column-preview")?.textContent).toContain("Item sprite");
         expect(fixture.nativeElement.querySelector("td cache-item-sprite-thumbnail")).not.toBeNull();
         expect(fixture.nativeElement.querySelector("td img")).toBeNull();
