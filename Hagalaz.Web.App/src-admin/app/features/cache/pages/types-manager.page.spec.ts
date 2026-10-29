@@ -154,6 +154,8 @@ describe("TypesManagerPage per-type navigation", () => {
         expect(fixture.nativeElement.textContent).not.toContain("Loading definitions");
         expect(fixture.nativeElement.textContent).toContain("Initial sword");
         expect(fixture.nativeElement.textContent).not.toContain("No matching definitions");
+        expect(page.paginatorPageIndex()).toBe(0);
+        expect(fixture.nativeElement.querySelector("mat-paginator .mat-mdc-paginator-range-label")?.textContent.trim()).toBe("1 – 10 of 23");
         await vi.advanceTimersByTimeAsync(200);
         TestBed.tick();
         fixture.detectChanges();
@@ -177,6 +179,8 @@ describe("TypesManagerPage per-type navigation", () => {
         await stable();
         expect(page.searchForm.query().value()).toBe("unsubmitted");
         expect(page.pageIndex()).toBe(1);
+        expect(page.paginatorPageIndex()).toBe(1);
+        expect(fixture.nativeElement.querySelector("mat-paginator .mat-mdc-paginator-range-label")?.textContent.trim()).toBe("11 – 20 of 23");
         expect(fixture.nativeElement.textContent).toContain("No matching definitions");
         expect(fixture.nativeElement.querySelector("[role=alert]")).toBeNull();
         expect(fixture.nativeElement.querySelector("mat-progress-bar")).toBeNull();
@@ -287,7 +291,7 @@ describe("TypesManagerPage per-type navigation", () => {
         expect(router.url).toContain("offset=10");
         expect(router.url).toContain("limit=10");
     });
-    it("pages ID ranges and links rows to their dedicated detail route", async () => {
+    it("pages ID ranges without gaps and caps the final range", async () => {
         const fixture = await createPage(),
             page = fixture.componentInstance;
         await page.browse();
@@ -306,11 +310,8 @@ describe("TypesManagerPage per-type navigation", () => {
         last.flush([{ id: 20, name: "Last sword" }]);
         await changing;
         await stable();
-        const link = fixture.nativeElement.querySelector('a[aria-label="Inspect definition 20"]') as HTMLAnchorElement;
-        expect(link.getAttribute("href")).toContain("/cache/types/items/20?");
-        link.click();
-        await stable();
-        expect(TestBed.inject(Router).url).toContain("/cache/types/items/20?");
+        expect(page.rows().map((row) => row.id)).toEqual([20]);
+        expect(await paginator.getRangeLabel()).toBe("21 – 23 of 23");
     });
     it("paginates the submitted query, changes page size and resets category state", async () => {
         const fixture = await createPage(),
@@ -457,7 +458,7 @@ describe("TypesManagerPage per-type navigation", () => {
         expect(page.resultColumns()).toEqual(["id", "preview", "name", "actions"]);
         expect(fixture.nativeElement.querySelectorAll("td cache-sprite-frame-thumbnail img")).toHaveLength(2);
         expect(fixture.nativeElement.textContent).toContain("No frames");
-        expect(fixture.nativeElement.querySelector('a[href^="/cache/types/sprites/10?"]')).not.toBeNull();
+        expect(fixture.nativeElement.querySelector('button[aria-label="Actions for definition 10"]')).not.toBeNull();
         fixture.destroy();
         expect(URL.revokeObjectURL).toHaveBeenCalledTimes(2);
     });
@@ -501,12 +502,15 @@ describe("TypesManagerPage per-type navigation", () => {
         ids.push(...page.rows().map((row) => row.id));
         (fixture.nativeElement.querySelector('button[aria-label="Next page"]') as HTMLButtonElement).click();
         TestBed.tick();
+        let nextRange!: TestRequest;
         await vi.waitFor(() => {
-            const request = http.expectOne((r) => r.url === `${baseUrl}sprites/range`);
-            expect(request.request.params.get("startId")).toBe("10");
-            expect(request.request.params.get("endIdExclusive")).toBe("20");
-            request.flush(spriteRows(10, 10));
+            nextRange = http.expectOne((r) => r.url === `${baseUrl}sprites/range`);
         });
+        expect(nextRange.request.params.get("startId")).toBe("10");
+        expect(nextRange.request.params.get("endIdExclusive")).toBe("20");
+        expect(oldPreview.cancelled).toBe(false);
+        nextRange.flush(spriteRows(10, 10));
+        await stable();
         expect(oldPreview.cancelled).toBe(true);
         await vi.waitFor(() => {
             const previews = http.match((r) => r.url.endsWith("/image"));
