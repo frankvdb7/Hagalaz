@@ -80,6 +80,9 @@ mat-form-field {
     min-width: 0;
     width: 100%;
 }
+.definition-paginator .mat-mdc-paginator-page-size {
+    margin-right: auto;
+}
 mat-card-header {
     margin-bottom: 1.5rem;
 }

@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, linkedSignal, signal, untracked } from "@angular/core";
+import { Component, computed, effect, inject, linkedSignal, signal, untracked, viewChild } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { FormField, form } from "@angular/forms/signals";
 import { MatButtonModule } from "@angular/material/button";
@@ -7,7 +7,7 @@ import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
 import { MatMenuModule } from "@angular/material/menu";
-import { MatPaginatorModule, type PageEvent } from "@angular/material/paginator";
+import { MatPaginator, MatPaginatorModule, type PageEvent } from "@angular/material/paginator";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatTableModule } from "@angular/material/table";
 import { MatTabsModule } from "@angular/material/tabs";
@@ -114,6 +114,14 @@ export class TypesManagerPageComponent {
         if (this.appliedQuery()) return "searchResult" in store ? (store.searchResult()?.totalMatches ?? 0) : 0;
         return this.archiveSize();
     });
+    private readonly paginator = viewChild(MatPaginator);
+    readonly visiblePagination = computed(() => {
+        const store = this.store;
+        if (this.appliedQuery()) return "searchPagination" in store ? store.searchPagination() : null;
+        return "rangePagination" in store ? store.rangePagination() : null;
+    });
+    readonly paginatorPageIndex = computed(() => this.visiblePagination()?.pageIndex ?? this.pageIndex());
+    readonly paginatorPageSize = computed(() => this.visiblePagination()?.pageSize ?? this.pageSize());
     readonly rows = computed(() => {
         if (this.resultKind() !== this.activeKind() || this.error() || this.browseError()) return [];
         const store = this.store;
@@ -159,7 +167,13 @@ export class TypesManagerPageComponent {
         else await this.navigate({ query: query || null, offset: 0 });
     }
     async changePage(event: PageEvent): Promise<void> {
-        if (!this.loading()) await this.navigate({ offset: event.pageIndex * event.pageSize, limit: event.pageSize });
+        const paginator = this.paginator();
+        if (paginator) {
+            paginator.pageIndex = this.paginatorPageIndex();
+            paginator.pageSize = this.paginatorPageSize();
+        }
+        if (this.loading()) return;
+        await this.navigate({ offset: event.pageIndex * event.pageSize, limit: event.pageSize });
     }
     retry(): void {
         if (this.loading()) return;
@@ -207,7 +221,7 @@ export class TypesManagerPageComponent {
                 return;
             }
             this.resultKind.set(this.activeKind());
-            store.loadRange(offset, Math.min(offset + limit, size));
+            store.loadRange(offset, Math.min(offset + limit, size), limit);
         } else this.browseError.set("This type supports lookup by ID. Enter a definition ID above.");
     }
     private openDefinition(query: string, options: { replaceUrl?: boolean } = {}): void {

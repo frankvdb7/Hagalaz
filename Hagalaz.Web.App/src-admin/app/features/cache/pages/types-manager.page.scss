@@ -34,24 +34,15 @@
             header-headline-size: 11px,
             header-container-height: 40px,
             row-item-label-text-size: 13px,
-            row-item-container-height: 42px,
+            row-item-container-height: 52px,
         )
     );
 }
-.list-icon {
-    color: var(--mat-sys-primary);
-    margin-right: 16px;
-}
-.definition-list h2 {
-    font: var(--mat-sys-title-medium);
-    font-weight: 700;
-}
-.definition-list mat-card-header {
-    padding: 20px;
-    margin-bottom: 0;
-}
 .definition-table-header {
     background: var(--mat-sys-surface-container-high);
+}
+.definition-list .mat-mdc-row:last-child .mat-mdc-cell {
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
 }
 .mat-column-id {
     width: 7rem;

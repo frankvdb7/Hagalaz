@@ -1,10 +1,14 @@
 ## Design
 
-The existing cache types page and page-scoped stores remain the sole owners of navigation and request state. Separate the category navigation and search into Material cards, add relevant Material icons and compact table presentation. Preserve all 13 supported categories, query behavior, pagination and real item/sprite thumbnail components. Display only returned data; the API does not expose the screenshot's item descriptions and the app has no equivalent sort, filter or view mode, so do not fabricate those controls.
+The existing cache types page and page-scoped stores remain the sole owners of navigation and request state. Separate the category navigation and search into Material cards, and use a results table with 52px rows that starts directly with results or its current state, without repeating the selected category as a card heading. Use 44px item thumbnails. Preserve all 13 supported categories, query behavior, pagination and real item/sprite thumbnail components. Display only returned data; the API does not expose the screenshot's item descriptions and the app has no equivalent sort, filter or view mode, so do not fabricate those controls.
 
 Reuse Material theme overrides and existing components instead of another design system. No new retry or data owner is introduced. Update the existing test that asserts the previous tab containment to verify the new layout and existing category behavior.
 
 Each row has a Material menu with an inspect action using the same detail route and preserved query parameters as the existing name link. A shared lazy menu receives the selected row and kind from the trigger. No unsupported mutations or extra routes are added.
+
+The page-scoped definition stores retain the last successful range result and its pagination context while the next range request is loading. They retain a search result and its pagination context only while the incoming request uses the same query. The page continues to render available rows and keeps the paginator on their page until the response arrives; a new query shows its normal loading state instead of stale matches.
+
+While a request is active, category tabs, the search action, and the paginator use `aria-disabled` and rely on their handler guards. This preserves their Material appearance without allowing overlapping requests. The paginator stays aligned to the page whose rows are visible and updates when the new result arrives.
 
 ## Verification
 

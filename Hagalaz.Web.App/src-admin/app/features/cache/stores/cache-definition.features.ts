@@ -52,16 +52,42 @@ export function withCacheDefinition(resource: (id: Signal<number | null>) => Htt
 
 export function withCacheRange(resource: (range: Signal<{ startId: number; endIdExclusive: number } | null>) => HttpResourceRef<unknown[] | undefined>) {
     return signalStoreFeature(
-        withState({ _range: null as { startId: number; endIdExclusive: number } | null }),
+        withState({
+            _range: null as { startId: number; endIdExclusive: number } | null,
+            _rangePageSize: 10,
+            _previousRangeResult: null as unknown[] | null,
+            _previousRangeRequest: null as { startId: number; pageSize: number } | null,
+        }),
         withProps((store) => ({ _rangeResource: resource(store._range) })),
         withComputed((store) => ({
-            rangeResult: computed(() => (store._rangeResource.hasValue() ? store._rangeResource.value() : null)),
+            rangeResult: computed(() => {
+                if (store._rangeResource.isLoading()) return store._previousRangeResult();
+                return store._rangeResource.hasValue() ? (store._rangeResource.value() ?? null) : null;
+            }),
+            rangePagination: computed(() => {
+                if (store._rangeResource.isLoading()) {
+                    const previous = store._previousRangeRequest();
+                    return previous ? { pageIndex: Math.floor(previous.startId / previous.pageSize), pageSize: previous.pageSize } : null;
+                }
+                const range = store._range();
+                const pageSize = store._rangePageSize();
+                return range ? { pageIndex: Math.floor(range.startId / pageSize), pageSize } : null;
+            }),
             rangeLoading: computed(() => store._rangeResource.isLoading()),
             rangeError: computed(() => (store._rangeResource.error() ? getCacheErrorMessage(store._rangeResource.error()) : null)),
         })),
         withMethods((store) => ({
-            loadRange(startId: number, endIdExclusive: number): void {
-                patchState(store, { _range: { startId, endIdExclusive } });
+            loadRange(startId: number, endIdExclusive: number, pageSize = Math.max(1, endIdExclusive - startId)): void {
+                if (store._rangeResource.hasValue()) {
+                    const range = store._range();
+                    if (range) {
+                        patchState(store, {
+                            _previousRangeResult: store._rangeResource.value() ?? null,
+                            _previousRangeRequest: { startId: range.startId, pageSize: store._rangePageSize() },
+                        });
+                    }
+                }
+                patchState(store, { _range: { startId, endIdExclusive }, _rangePageSize: pageSize });
             },
         }))
     );
@@ -71,15 +97,36 @@ export function withCacheSearch(
     resource: (search: Signal<{ query: string; offset: number; limit: number } | null>) => HttpResourceRef<SearchResultDto<DefinitionSummaryDto> | undefined>
 ) {
     return signalStoreFeature(
-        withState({ _search: null as { query: string; offset: number; limit: number } | null }),
+        withState({
+            _search: null as { query: string; offset: number; limit: number } | null,
+            _previousSearchResult: null as { request: { query: string; offset: number; limit: number }; result: SearchResultDto<DefinitionSummaryDto> } | null,
+        }),
         withProps((store) => ({ _searchResource: resource(store._search) })),
         withComputed((store) => ({
-            searchResult: computed(() => (store._searchResource.hasValue() ? store._searchResource.value() : null)),
+            searchResult: computed(() => {
+                const request = store._search();
+                const previous = store._previousSearchResult();
+                if (store._searchResource.isLoading()) return previous && request && previous.request.query === request.query ? previous.result : null;
+                return store._searchResource.hasValue() ? (store._searchResource.value() ?? null) : null;
+            }),
+            searchPagination: computed(() => {
+                const request = store._search();
+                if (!request) return null;
+                const previous = store._previousSearchResult();
+                const displayedRequest =
+                    store._searchResource.isLoading() && previous?.request.query === request.query ? previous.request : request;
+                return { pageIndex: Math.floor(displayedRequest.offset / displayedRequest.limit), pageSize: displayedRequest.limit };
+            }),
             searchLoading: computed(() => store._searchResource.isLoading()),
             searchError: computed(() => (store._searchResource.error() ? getCacheErrorMessage(store._searchResource.error()) : null)),
         })),
         withMethods((store) => ({
             search(query: string, offset: number, limit: number): void {
+                const request = store._search();
+                if (store._searchResource.hasValue() && request) {
+                    const result = store._searchResource.value();
+                    if (result) patchState(store, { _previousSearchResult: { request, result } });
+                }
                 patchState(store, { _search: { query, offset, limit } });
             },
         }))

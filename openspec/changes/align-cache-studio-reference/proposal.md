@@ -26,6 +26,7 @@ The Angular admin cache shell and types manager presentation. Reuse existing ser
 - A2: All existing categories, search, pagination, real thumbnails, detail links, loading and errors retain their behavior.
 - A3: Build, lint, focused tests, strict validation and fixture browser checks pass, with visual and live-service limitations recorded.
 - A4: Each result exposes an accessible actions menu that navigates to that row's existing detail route and preserves browse context.
+- A5: While paging the same category and search query, the store keeps the last successful results and pagination context until the new page loads, so the paginator stays aligned with those rows and keeps its normal appearance; changing the search query does not display stale matches.
 
 ## Non-goals and stop conditions
 
