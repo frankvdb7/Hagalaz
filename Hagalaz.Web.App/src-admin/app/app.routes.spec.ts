@@ -4,7 +4,7 @@ import { BreakpointObserver } from "@angular/cdk/layout";
 import { TestbedHarnessEnvironment } from "@angular/cdk/testing/testbed";
 import { provideHttpClient, withXhr } from "@angular/common/http";
 import { HttpTestingController, provideHttpClientTesting } from "@angular/common/http/testing";
-import { ApplicationRef, Component, signal } from "@angular/core";
+import { ApplicationRef, Component, input, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { MatAutocompleteHarness } from "@angular/material/autocomplete/testing";
 import { MatDialog } from "@angular/material/dialog";
@@ -18,9 +18,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PortalShellPageComponent } from "./layout/portal-shell.page";
 import { routes } from "./app.routes";
 import { AuthStore } from "./core/auth/auth.store";
+import { CacheModelPreviewComponent } from "./features/cache/pages/cache-model-preview.component";
+import { NpcsDetailPageComponent } from "./features/cache/pages/details/npcs-detail.page";
+import { ItemsDetailPageComponent } from "./features/cache/pages/details/items-detail.page";
 
 @Component({ template: "<h1>Login boundary</h1>" })
 class LoginBoundary {}
+
+@Component({ selector: "cache-model-preview", template: "" })
+class ModelPreviewBoundary {
+    readonly definition = input<unknown>();
+    readonly modelId = input<number | null>(null);
+    readonly itemId = input<number | null>(null);
+}
 
 async function openRoute(path: string): Promise<RouterTestingHarness> {
     const harness = await RouterTestingHarness.create(path);
@@ -72,6 +82,8 @@ describe("admin portal routing", () => {
                 },
             ],
         });
+        TestBed.overrideComponent(NpcsDetailPageComponent, { remove: { imports: [CacheModelPreviewComponent] }, add: { imports: [ModelPreviewBoundary] } });
+        TestBed.overrideComponent(ItemsDetailPageComponent, { remove: { imports: [CacheModelPreviewComponent] }, add: { imports: [ModelPreviewBoundary] } });
     });
 
     it("opens the overview with real branding and honest telemetry states", async () => {

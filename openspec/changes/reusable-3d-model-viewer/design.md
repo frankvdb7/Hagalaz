@@ -43,3 +43,9 @@ Item inventory previews use the same assembly path as NPCs and objects: normaliz
 ## Animation coordinate fidelity
 
 Frame translation and pivot offsets are already in the normalized client coordinate units. CoordinateScale is 1 for assembled or modern raw geometry and 0.25 for pre-version-13 raw geometry. Posing follows Model_Sub3.method4470: 4-bit intermediate precision, integer sine/cosine coefficients, rotation rounding and final (value + 7) >> 4 reduction. NPC scale is returned as a renderer-neutral scale factor and applied after posing, as in NPCDefinition. Item/object assembly uses signed arithmetic-shift scale rounding. Tweening remains explicitly unsupported in the UI.
+
+## Material contracts and request ownership
+
+The authenticated GET /textures/{id}/material endpoint exposes alpha mode, color blend, brightness, raw effect ID/parameter, signed UV scroll values, independent repeat flags and HDR presence. Existing PNG routes and appearance headers remain compatible. Repeat flags follow TextureLoader and Class287_Sub1.method109: true selects REPEAT, false CLAMP_TO_EDGE. Admin combines metadata and image data; the shared renderer accepts both without HTTP or authentication dependencies. Nonzero effects, scrolling and HDR produce visible unsupported/unverified messages. No approximation is presented as client parity.
+
+The admin texture resource subscription owns decoded bitmaps until replacement or destruction. Cancellation closes already decoded images and any image whose decoding finishes afterward. Error templates read resource values only when hasValue is true, so missing assets retain their retry UI. Angular rxResource resolves on its first emission; retaining its subscription for bitmap ownership does not retain the initial loading promise.

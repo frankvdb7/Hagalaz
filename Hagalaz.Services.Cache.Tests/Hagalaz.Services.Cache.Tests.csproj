@@ -17,4 +17,5 @@
     <ProjectReference Include="..\Hagalaz.Services.Cache\Hagalaz.Services.Cache.csproj" />
     <Compile Include="..\TestSupport\MemoryFileStore.cs" Link="TestSupport\MemoryFileStore.cs" />
   </ItemGroup>
+  <ItemGroup><None Include="..\TestSupport\Fixtures\particles\*" Link="Fixtures\particles\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

@@ -15,7 +15,7 @@ export class CacheTextureThumbnailComponent {
     readonly url = signal<string | null>(null);
     constructor() {
         effect(cleanup => {
-            const blob = this.image.value();
+            const blob = this.image.hasValue() ? this.image.value() : undefined;
             this.url.set(null);
             if (!blob) return;
             const url = URL.createObjectURL(blob);

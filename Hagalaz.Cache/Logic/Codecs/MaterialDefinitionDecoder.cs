@@ -7,7 +7,8 @@ namespace Hagalaz.Cache.Logic.Codecs;
 /// <summary>Reads the columnar material appearance fields from revision-742 index 26, archive 0.</summary>
 public static class MaterialDefinitionDecoder
 {
-    public sealed record Material(int AlphaMode, int ColorBlend, int Brightness);
+    public sealed record Material(int AlphaMode, int ColorBlend, int Brightness, int EffectId, int EffectParameter,
+        int ScrollU, int ScrollV, bool RepeatU, bool RepeatV, bool HasHdr, int EffectParameter2 = 0);
 
     public static Material Decode(ReadOnlySpan<byte> data, int id)
     {
@@ -29,6 +30,9 @@ public static class MaterialDefinitionDecoder
         var mode = data[offset];
         if (mode > 2) throw new NotSupportedException($"Unsupported material alpha mode {mode}.");
         var columns = 2 + count;
-        return new Material(mode, data[columns + present * 4 + ordinal], data[columns + present * 3 + ordinal]);
+        return new Material(mode, data[columns + present * 4 + ordinal], data[columns + present * 3 + ordinal], data[columns + present * 5 + ordinal], data[columns + present * 6 + ordinal],
+            (sbyte)data[columns + present * 9 + ordinal], (sbyte)data[columns + present * 10 + ordinal], data[columns + present * 14 + ordinal] == 1, data[columns + present * 15 + ordinal] == 1, data[columns + present * 16 + ordinal] == 1,
+            BinaryPrimitives.ReadInt32BigEndian(data.Slice(columns + present * 18 + ordinal * 4, 4)));
+
     }
 }

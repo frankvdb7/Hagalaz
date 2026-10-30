@@ -13,8 +13,12 @@ public sealed class ModelAssetEndpointsTests
     [DataRow("models/-1", HttpStatusCode.BadRequest)]
     [DataRow("models/999", HttpStatusCode.NotFound)]
     [DataRow("textures/-1/image", HttpStatusCode.BadRequest)]
+    [DataRow("textures/-1/material", HttpStatusCode.BadRequest)]
+    [DataRow("textures/-1/hdr", HttpStatusCode.BadRequest)]
+    [DataRow("textures/999/hdr", HttpStatusCode.NotFound)]
     [DataRow("textures/999/image", HttpStatusCode.NotFound)]
     [DataRow("types/items/-1/model", HttpStatusCode.BadRequest)]
+    [DataRow("types/items/-1/model-appearances", HttpStatusCode.BadRequest)]
     [DataRow("types/npcs/-1/model", HttpStatusCode.BadRequest)]
     [DataRow("types/objects/-1/model", HttpStatusCode.BadRequest)]
     public async Task AssetRequest_InvalidOrMissingIdReturnsExpectedStatus(string path, HttpStatusCode expected)
