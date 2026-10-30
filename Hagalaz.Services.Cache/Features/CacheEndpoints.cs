@@ -22,6 +22,8 @@ public static class CacheEndpoints
         group.MapRawFileEndpoints();
         group.MapChecksumEndpoints();
         group.MapTypeEndpoints();
+        group.MapModelEndpoints();
+        group.MapTextureEndpoints();
 
         return app;
     }
