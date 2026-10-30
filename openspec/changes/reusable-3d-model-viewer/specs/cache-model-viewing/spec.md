@@ -31,6 +31,10 @@ The viewer SHALL identify missing assets and unsupported or unverified formats a
 - **WHEN** an asset or required rendering feature cannot be loaded or supported
 - **THEN** the viewer reports the relevant limitation and allows another selection
 
+#### Scenario: Material fidelity gaps
+- **WHEN** a referenced material contains an unverified effect, UV scrolling or HDR data
+- **THEN** the viewer identifies the affected texture and limitation while retaining decoded metadata
+
 ### Requirement: Rendering components are reusable
 The model viewing component SHALL be usable by both web applications independently of admin routes and authentication.
 
@@ -44,3 +48,12 @@ Rendering endpoints SHALL follow the existing cache authorization policy and exp
 #### Scenario: Unauthorized request
 - **WHEN** a client without the required authorization requests rendering data
 - **THEN** access is denied
+
+
+
+### Requirement: Texture addressing follows material metadata
+The shared renderer SHALL apply independent texture addressing flags supplied in material metadata.
+
+#### Scenario: Texture addressing
+- **WHEN** a material specifies repeat or clamp independently for either texture axis
+- **THEN** the shared renderer applies that addressing mode

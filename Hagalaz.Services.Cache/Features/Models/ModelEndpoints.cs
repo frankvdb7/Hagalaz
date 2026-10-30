@@ -18,6 +18,7 @@ public static class ModelEndpoints
     {
         group.MapGet("/models/{id:int}", GetModel);
         group.MapGet("/types/items/{id:int}/model", GetItemModel);
+        group.MapGet("/types/items/{id:int}/model-appearances", GetItemAppearances);
         group.MapGet("/types/npcs/{id:int}/model", GetNpcModel);
         group.MapGet("/types/objects/{id:int}/model", GetObjectModel);
         group.MapGet("/animation-frames/{id:int}", GetAnimationFrame);
@@ -46,14 +47,42 @@ public static class ModelEndpoints
         return TypedResults.Ok(new { Frame = AnimationFrameDecoder.DecodeFrame(bytes, skeleton), Skeleton = skeleton });
     }
 
-    private static IResult GetItemModel(int id, ICacheAPI cache, ITypeProvider<IItemType> items)
+    private static IResult GetItemAppearances(int id, ITypeProvider<IItemType> items)
+    {
+        if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Item ID must be nonnegative."));
+        return TypedResults.Ok(ItemAppearances(items.Get(id)));
+    }
+
+    private static ItemAppearance[] ItemAppearances(IItemType item) =>
+    [
+        new("inventory", "Inventory", Parts(item.InterfaceModelId)),
+        new("male-equipped", "Male equipped", Parts(item.MaleWornModelId1, item.MaleWornModelId2, item.MaleWornModelId3), item.MaleWearXOffset, item.MaleWearYOffset, item.MaleWearZOffset),
+        new("female-equipped", "Female equipped", Parts(item.FemaleWornModelId1, item.FemaleWornModelId2, item.FemaleWornModelId3), item.FemaleWearXOffset, item.FemaleWearYOffset, item.FemaleWearZOffset),
+        new("male-head", "Male head", Parts(item.MaleHeadModel, item.MaleHeadModel2)),
+        new("female-head", "Female head", Parts(item.FemaleHeadModel, item.FemaleHeadModel2)),
+    ];
+
+    // The client ignores secondary/tertiary references after the first absent part.
+    private static int[] Parts(params int[] ids) => ids.TakeWhile(id => id >= 0).ToArray();
+
+    public sealed record ItemAppearance(string Key, string Label, int[] ModelIds, int OffsetX = 0, int OffsetY = 0, int OffsetZ = 0)
+    {
+        public bool Available => ModelIds.Length > 0;
+    }
+
+    private static IResult GetItemModel(int id, string? appearance, ICacheAPI cache, ITypeProvider<IItemType> items)
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Item ID must be nonnegative."));
         var item = (ItemType)items.Get(id);
-        if (item.InterfaceModelId < 0) return TypedResults.NotFound();
-        return AssembleModel(item.InterfaceModelId, [item.InterfaceModelId], cache, item.ScaleX, item.ScaleY, item.ScaleZ, 0, 0, 0,
+        var selected = ItemAppearances(item).FirstOrDefault(value => value.Key == (appearance ?? "inventory"));
+        if (selected is null) return TypedResults.BadRequest(EndpointErrors.Validation("Unknown item model appearance."));
+        if (!selected.Available) return TypedResults.NotFound();
+        var inventory = selected.Key == "inventory";
+        // Item offsets have already been shifted by two in the definition codec; assembly offsets use unshifted units.
+        return AssembleModel(selected.ModelIds[0], selected.ModelIds, cache, inventory ? item.ScaleX : 128, inventory ? item.ScaleY : 128, inventory ? item.ScaleZ : 128,
+            selected.OffsetX / 4, selected.OffsetY / 4, selected.OffsetZ / 4,
             Pairs(item.OriginalModelColors), Pairs(item.ModifiedModelColors), Pairs(item.OriginalTextureColors), Pairs(item.ModifiedTextureColors), [],
-            "Inventory model with definition scale, recolors and retextures. Client lighting and transparency ordering are not yet supported."
+            $"{selected.Label} model with definition recolors and retextures. Equipped/head models are isolated item parts, without a player body or customization. Client lighting and transparency ordering are not yet supported."
                 + (item.UnknownArray1 is { Length: > 0 } ? " Palette-index recolor overrides are not yet supported." : ""));
 
         static short[]? Pairs(int[]? values) => values?.Select(value => (short)value).ToArray();
@@ -67,7 +96,7 @@ public static class ModelEndpoints
         {
             var geometry = ModelGeometryDecoder.Decode(container.Data.ToArray());
             return TypedResults.Ok(new ModelResponse(id, geometry.Positions, geometry.Indices, geometry.FaceColors, geometry.FaceAlpha, geometry.VertexSkins,
-                new[] { "Geometry, projected textures and ordinary transparency preview. Client lighting and transparency ordering are not yet supported." }, CoordinateScale: geometry.Version < 13 ? 0.25f : 1, FaceSkins: geometry.FaceSkins, FaceTextureIds: geometry.FaceTextureIds, FaceTextureVertices: geometry.FaceTextureVertices, FaceTextureUvs: geometry.FaceTextureUvs));
+                new[] { "Geometry, projected textures and ordinary transparency preview. Client lighting and transparency ordering are not yet supported." }, CoordinateScale: geometry.Version < 13 ? 0.25f : 1, FaceSkins: geometry.FaceSkins, FaceTextureIds: geometry.FaceTextureIds, FaceTextureVertices: geometry.FaceTextureVertices, FaceTextureUvs: geometry.FaceTextureUvs, Particles: ReadParticles(cache, geometry.Emitters ?? [])));
         }
         catch (NotSupportedException exception)
         {
@@ -125,6 +154,7 @@ public static class ModelEndpoints
         var textureIds = new List<int>();
         var textureVertices = new List<int>();
         var textureUvs = new List<float>();
+        var emitters = new List<ModelGeometryDecoder.EmitterAttachment>();
         try
         {
             foreach (var modelId in modelIds.Where(modelId => modelId >= 0))
@@ -132,6 +162,8 @@ public static class ModelEndpoints
                 using var container = cache.ReadContainer(7, modelId);
                 var part = ModelGeometryDecoder.Decode(container.Data.ToArray());
                 var vertexOffset = positions.Count / 3;
+                var faceOffset = colors.Count;
+                emitters.AddRange((part.Emitters ?? []).Select(emitter => emitter with { Face = emitter.Face + faceOffset }));
                 for (var coordinate = 0; coordinate < part.Positions.Length; coordinate++)
                 {
                     var axis = coordinate % 3;
@@ -154,7 +186,7 @@ public static class ModelEndpoints
             for (var face = 0; face < textureIds.Count; face++)
                 if (textureIds[face] == 65535) textureIds[face] = -1;
             return TypedResults.Ok(new ModelResponse(id, positions.ToArray(), indices.ToArray(), colors.ToArray(), alpha.ToArray(), skins.Any(skin => skin >= 0) ? skins.ToArray() : null,
-                new[] { warning }, animationIds.Where(animationId => animationId >= 0).Distinct().ToArray(), 1, faceSkins.ToArray(), textureIds.ToArray(), textureVertices.ToArray(), textureUvs.ToArray(), scale));
+                new[] { warning }, animationIds.Where(animationId => animationId >= 0).Distinct().ToArray(), 1, faceSkins.ToArray(), textureIds.ToArray(), textureVertices.ToArray(), textureUvs.ToArray(), scale, ReadParticles(cache, emitters)));
         }
         catch (NotSupportedException exception)
         {
@@ -171,5 +203,29 @@ public static class ModelEndpoints
                 if (values[face] == (originals[pair] & 65535)) values[face] = replacements[pair] & 65535;
     }
 
-    public sealed record ModelResponse(int Id, int[] Positions, int[] Indices, int[] FaceColors, int[] FaceAlpha, int[]? VertexSkins, string[] Warnings, int[]? AnimationIds = null, float CoordinateScale = 1, int[]? FaceSkins = null, int[]? FaceTextureIds = null, int[]? FaceTextureVertices = null, float[]? FaceTextureUvs = null, float[]? Scale = null);
+    private static ModelParticle[] ReadParticles(ICacheAPI cache, IEnumerable<ModelGeometryDecoder.EmitterAttachment> attachments)
+    {
+        var result = new List<ModelParticle>();
+        foreach (var group in attachments.GroupBy(attachment => attachment.EmitterId))
+        {
+            ParticleEmitterDecoder.Definition? definition = null;
+            string? warning = null;
+            try
+            {
+                var member = cache.ReadReferenceTable(27).GetEntry(0)?.GetEntry(group.Key)
+                    ?? throw new System.IO.FileNotFoundException($"Particle emitter #{group.Key} is absent from the cache reference table.");
+                using var data = cache.Read(27, 0, member.Index);
+                definition = ParticleEmitterDecoder.Decode(data.ToArray());
+            }
+            catch (Exception exception) when (exception is System.IO.IOException or NotSupportedException)
+            {
+                warning = $"Particle emitter #{group.Key} is unavailable: {exception.Message}";
+            }
+            result.AddRange(group.Select(attachment => new ModelParticle(attachment.EmitterId, attachment.Face, definition, warning)));
+        }
+        return result.ToArray();
+    }
+
+    public sealed record ModelParticle(int EmitterId, int Face, ParticleEmitterDecoder.Definition? Definition, string? Warning);
+    public sealed record ModelResponse(int Id, int[] Positions, int[] Indices, int[] FaceColors, int[] FaceAlpha, int[]? VertexSkins, string[] Warnings, int[]? AnimationIds = null, float CoordinateScale = 1, int[]? FaceSkins = null, int[]? FaceTextureIds = null, int[]? FaceTextureVertices = null, float[]? FaceTextureUvs = null, float[]? Scale = null, ModelParticle[]? Particles = null);
 }

@@ -28,4 +28,5 @@
     <None Include="..\TestSupport\Fixtures\black-demon-animation.json" Link="Fixtures\black-demon-animation.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup><None Include="..\TestSupport\Fixtures\particles\*" Link="Fixtures\particles\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

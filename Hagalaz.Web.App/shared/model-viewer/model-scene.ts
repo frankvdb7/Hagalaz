@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { sampleMaterialEffect, type MaterialEffect } from "./material-effects";
+import {ModelParticles, type ModelParticle} from "./model-particles";
 
 /** Renderer-neutral geometry accepted by both web applications. */
 export interface ModelGeometry {
@@ -10,9 +12,19 @@ export interface ModelGeometry {
     opacities?: readonly number[];
     uvs?: readonly number[];
     textureIds?: readonly number[];
+    particles?: readonly ModelParticle[];
+    particleScale?: number;
 }
 
-export interface ModelTexture { image: ImageBitmap; alphaMode: 0 | 1 | 2; colorBlend?: number; brightness?: number; }
+export interface ModelTexture extends MaterialEffect {
+    image: ImageBitmap;
+    alphaMode: 0 | 1 | 2;
+    colorBlend?: number;
+    brightness?: number;
+    repeatU?: boolean;
+    repeatV?: boolean;
+    hdr?: {width: number; height: number; rgba: number[]};
+}
 
 /** Owns the canvas and GPU resources for a single model inspection surface. */
 export class ModelScene {
@@ -21,7 +33,12 @@ export class ModelScene {
     private readonly camera = new THREE.PerspectiveCamera(40, 1, 0.01, 100000);
     private readonly controls: OrbitControls;
     private readonly resizeObserver: ResizeObserver;
-    private mesh?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial[]>;
+    private mesh?: THREE.Mesh<THREE.BufferGeometry, (THREE.MeshStandardMaterial | THREE.MeshBasicMaterial)[]>;
+    private epoch?: number;
+    private lastTime?: number;
+    private currentModel?: ModelGeometry;
+    private particles?: ModelParticles;
+    private readonly effectUpdates: ((seconds: number) => void)[] = [];
     private disposed = false;
     private textureImages?: ReadonlyMap<number, ModelTexture>;
     private readonly textures = new Map<number, THREE.Texture>();
@@ -33,9 +50,21 @@ export class ModelScene {
         this.textures.clear();
         this.textureImages = images;
         for (const [id, asset] of images) {
-            const texture = new THREE.Texture(asset.image);
-            texture.colorSpace = THREE.SRGBColorSpace;
-            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            let texture: THREE.Texture;
+            if (asset.hdr) {
+                const {width, height, rgba} = asset.hdr;
+                // Match the vertically flipped ImageBitmap upload; DataTexture does not flip on upload.
+                const data = new Float32Array(rgba.length);
+                for (let y = 0; y < height; y++)
+                    data.set(rgba.slice(y * width * 4, (y + 1) * width * 4), (height - y - 1) * width * 4);
+                texture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat, THREE.FloatType);
+                texture.colorSpace = THREE.LinearSRGBColorSpace;
+            } else {
+                texture = new THREE.Texture(asset.image);
+                texture.colorSpace = THREE.SRGBColorSpace;
+            }
+            texture.wrapS = asset.repeatU === false ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
+            texture.wrapT = asset.repeatV === false ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
             texture.needsUpdate = true;
             this.textures.set(id, texture);
         }
@@ -54,7 +83,17 @@ export class ModelScene {
         this.resizeObserver = new ResizeObserver(() => this.resize());
         this.resizeObserver.observe(host);
         this.resize();
-        this.renderer.setAnimationLoop(() => {
+        this.renderer.setAnimationLoop(time => {
+            this.epoch ??= time;
+            const seconds = (time - this.epoch) / 1000;
+            for (const [id, texture] of this.textures) {
+                const phase = sampleMaterialEffect(this.textureImages?.get(id) ?? {}, seconds);
+                texture.offset.set(phase.u, phase.v);
+            }
+            for (const update of this.effectUpdates) update(seconds);
+            if (this.currentModel) this.particles?.update(this.lastTime === undefined ? 0 : (time-this.lastTime)/1000, this.currentModel,
+                this.host.clientHeight * Math.min(window.devicePixelRatio,2) * this.camera.projectionMatrix.elements[5] / 2);
+            this.lastTime = time;
             this.controls.update();
             this.renderer.render(this.scene, this.camera);
         });
@@ -62,6 +101,7 @@ export class ModelScene {
 
     setGeometry(model: ModelGeometry): void {
         if (this.disposed) throw new Error("The model scene has been disposed.");
+        this.currentModel = model;
         const existing = this.mesh;
         if (existing && model.sourceId !== undefined && existing.name === String(model.sourceId)
             && existing.geometry.index?.count === model.indices.length
@@ -86,6 +126,8 @@ export class ModelScene {
             }
         }
         this.clear();
+        this.epoch = undefined;
+        this.lastTime = undefined;
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute("position", new THREE.Float32BufferAttribute(model.positions, 3));
         geometry.setIndex(Array.from(model.indices));
@@ -102,20 +144,29 @@ export class ModelScene {
         geometry.computeVertexNormals();
         geometry.computeBoundingSphere();
         const options = { vertexColors: !!model.colors || !!model.opacities, roughness: 0.8 };
-        const materials = [
+        const materials: (THREE.MeshStandardMaterial | THREE.MeshBasicMaterial)[] = [
             new THREE.MeshStandardMaterial({ ...options, transparent: false, depthWrite: true }),
             new THREE.MeshStandardMaterial({ ...options, transparent: true, depthWrite: false }),
         ];
         for (const [id, texture] of this.textures) {
             const mode = this.textureImages?.get(id)?.alphaMode ?? 0;
             const alphaTest = mode === 1 ? 0.5 : 0;
-            materials.push(new THREE.MeshStandardMaterial({ ...options, map: texture, alphaTest, transparent: mode === 2, depthWrite: mode !== 2 }));
-            materials.push(new THREE.MeshStandardMaterial({ ...options, map: texture, alphaTest, transparent: true, depthWrite: false }));
+            const asset: MaterialEffect = this.textureImages?.get(id) ?? {};
+            const create = (transparent: boolean) => {
+                const appearance = {...options, map: texture, alphaTest, transparent, depthWrite: !transparent};
+                if (asset.effectId === 6) return new THREE.MeshBasicMaterial({vertexColors: appearance.vertexColors, map: texture, alphaTest, transparent, depthWrite: !transparent});
+                const material = new THREE.MeshStandardMaterial(appearance);
+                this.applyEffect(material, asset);
+                return material;
+            };
+            materials.push(create(mode === 2));
+            materials.push(create(true));
         }
         this.assignSurfaceGroups(geometry, model);
         this.mesh = new THREE.Mesh(geometry, materials);
         this.mesh.name = model.sourceId === undefined ? "" : String(model.sourceId);
         this.scene.add(this.mesh);
+        if (model.particles?.length) this.particles = new ModelParticles(this.scene, model.particles, this.textures);
         this.resetCamera();
     }
 
@@ -148,11 +199,60 @@ export class ModelScene {
     }
 
     private clear(): void {
+        this.particles?.dispose();
+        this.particles = undefined;
+        this.effectUpdates.length = 0;
         if (!this.mesh) return;
         this.scene.remove(this.mesh);
         this.mesh.geometry.dispose();
         for (const material of this.mesh.material) material.dispose();
         this.mesh = undefined;
+    }
+
+    private applyEffect(material: THREE.MeshStandardMaterial, asset: MaterialEffect): void {
+        const id = asset.effectId ?? 0;
+        if (![1, 2, 4, 5, 7, 8, 9].includes(id)) return;
+        const phase = {value: new THREE.Vector4()};
+        const wave = {value: new THREE.Vector3()};
+        const lake = {value: new THREE.Vector2()};
+        const update = (seconds: number) => {
+            const sample = sampleMaterialEffect(asset, seconds);
+            phase.value.set(
+                id === 4 ? sample.underwater : id === 5 ? sample.lakeNoise : id >= 8 ? sample.hdPhase : sample.animateWater ? sample.secondary : 0,
+                id === 5 ? sample.lakeShift : sample.noise,
+                id >= 8 ? sample.hdScale : sample.distortion,
+                asset.effectParameter ?? 0);
+            wave.value.set(sample.waveIntensity[0], sample.waveIntensity[1], sample.waveExponent);
+            lake.value.set(sample.lakeScale, sample.lakeXAxis ? 1 : 0);
+        };
+        update(0);
+        this.effectUpdates.push(update);
+        material.customProgramCacheKey = () => `cache-effect-${id}`;
+        material.onBeforeCompile = shader => {
+            shader.uniforms.cachePhase = phase;
+            shader.uniforms.cacheWave = wave;
+            shader.uniforms.cacheLake = lake;
+            shader.vertexShader = `varying vec3 cachePosition;\n${shader.vertexShader}`.replace("#include <begin_vertex>", "#include <begin_vertex>\ncachePosition = vec3(position.x, -position.y, position.z);");
+            shader.fragmentShader = `uniform vec4 cachePhase;\nuniform vec3 cacheWave;\nuniform vec2 cacheLake;\nvarying vec3 cachePosition;\n${shader.fragmentShader}`;
+            if ([2, 4, 5, 8, 9].includes(id)) {
+                // Procedural inspection noise replaces the client's unavailable generated volume texture.
+                shader.fragmentShader = shader.fragmentShader.replace("#include <normal_fragment_maps>", `
+                    #include <normal_fragment_maps>
+                    vec2 cachePoint = ${id === 5 ? "vec2(mix(cachePosition.z, cachePosition.x, cacheLake.y), cachePosition.y) * cacheLake.x" : "cachePosition.xz * " + (id >= 8 ? "cachePhase.z" : "0.025")};
+                    normal = normalize(normal + vec3(sin(cachePoint.x + cachePhase.x * 6.2831853), cos(cachePoint.y + cachePhase.y * 6.2831853), 0.0) * ${id >= 8 ? "0.18" : "cachePhase.z"});
+                `);
+            }
+            if ([1, 7, 8, 9].includes(id)) {
+                shader.fragmentShader = shader.fragmentShader.replace("#include <opaque_fragment>", `
+                    vec3 cacheReflection = inverseTransformDirection(reflect(-normalize(vViewPosition), normal), viewMatrix);
+                    vec3 cacheSky = mix(vec3(0.035, 0.055, 0.08), vec3(0.55, 0.72, 0.9), clamp(cacheReflection.y * 0.5 + 0.5, 0.0, 1.0));
+                    float cacheFresnel = pow(1.0 - abs(dot(normalize(vViewPosition), normal)), ${id === 8 ? "2.0" : "1.0"});
+                    ${id === 9 ? "float cacheWaveShape = pow(0.5 + 0.5 * sin(cachePoint.x + cachePhase.x * 6.2831853), max(cacheWave.z, 1.0)); cacheSky += vec3(cacheWave.x * cacheWaveShape + cacheWave.y);" : ""}
+                    outgoingLight = mix(outgoingLight, cacheSky, ${id === 1 ? "clamp(cachePhase.w / 3.0, 0.0, 1.0) * 0.5" : "0.2 + cacheFresnel * 0.6"});
+                    #include <opaque_fragment>
+                `);
+            }
+        };
     }
 
     private resize(): void {

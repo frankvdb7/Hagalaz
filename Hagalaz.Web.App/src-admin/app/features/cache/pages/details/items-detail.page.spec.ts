@@ -12,6 +12,15 @@ import { environment } from "../../../../../environments/environment";
 import { PortalBreadcrumb } from "../../../../layout/portal-breadcrumb";
 import { ItemsDetailPageComponent } from "./items-detail.page";
 
+import { Component, input } from "@angular/core";
+import { CacheModelPreviewComponent } from "../cache-model-preview.component";
+
+@Component({ selector: "cache-model-preview", template: "" })
+class ModelPreviewBoundary {
+    readonly modelId = input<number | null>(null);
+    readonly itemId = input<number | null>(null);
+}
+
 const text = (element: Element | null) => element?.textContent?.replace(/\s+/g, "").trim();
 const baseUrl = `${environment.cacheApiUrl}types`;
 const item = {
@@ -45,6 +54,7 @@ describe("Item Forge", () => {
                 provideHttpClientTesting(),
             ],
         });
+        TestBed.overrideComponent(ItemsDetailPageComponent, { remove: { imports: [CacheModelPreviewComponent] }, add: { imports: [ModelPreviewBoundary] } });
         http = TestBed.inject(HttpTestingController);
     });
     afterEach(() => {
@@ -67,7 +77,10 @@ describe("Item Forge", () => {
     }
 
     it("shows actual zero/false values and keeps the workspace read only", async () => {
-        const { element, loader } = await open();
+        const { element, loader, harness } = await open();
+        const preview = harness.fixture.debugElement.query(By.directive(ModelPreviewBoundary)).componentInstance as ModelPreviewBoundary;
+        expect(preview.modelId()).toBe(42);
+        expect(preview.itemId()).toBe(7);
         expect(element.querySelector("h3")?.textContent).toBe("Runic blade");
         expect(text(element)).toContain("Cachebasevalue0");
         expect(text(element)).toContain("StackableNo");

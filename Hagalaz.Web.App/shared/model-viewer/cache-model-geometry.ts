@@ -1,4 +1,5 @@
 import type { ModelGeometry } from "./model-scene";
+import type {ModelParticle} from "./model-particles";
 
 export interface CacheModelGeometry {
     id?: number;
@@ -9,6 +10,8 @@ export interface CacheModelGeometry {
     faceAlpha?: readonly number[];
     faceTextureIds?: readonly number[] | null;
     faceTextureUvs?: readonly number[] | null;
+    particles?: readonly ModelParticle[];
+    coordinateScale?: number;
 }
 
 /** Converts the cache's downward Y axis and reverses winding exactly once. */
@@ -28,8 +31,8 @@ export function prepareCacheModel(model: CacheModelGeometry, materials?: Readonl
             const material = textured ? materials?.get(model.faceTextureIds![face]) : undefined;
             const rgb = textured && !material ? [1, 1, 1] : packedHslColor(model.faceColors[face], material);
             const alpha = model.faceAlpha?.[face] ?? 0;
-            // 254/255 have special client meanings, not ordinary opacity.
-            const opacity = alpha < 254 ? (255 - alpha) / 255 : 1;
+            // Client alpha -1 hides helper faces; -2 uses constant shading rather than transparency.
+            const opacity = alpha === 255 ? 0 : alpha === 254 ? 1 : (255 - alpha) / 255;
             for (const corner of [0, 2, 1]) {
                 const vertex = model.indices[face * 3 + corner] * 3;
                 positions.push(coordinate(vertex), -coordinate(vertex + 1), coordinate(vertex + 2));
@@ -39,10 +42,12 @@ export function prepareCacheModel(model: CacheModelGeometry, materials?: Readonl
                 uvs.push(...(textured ? decodedUvs!.slice(corner * 2, corner * 2 + 2) : [0, 0]));
             }
         }
-        return { sourceId: model.id, positions, indices, colors, opacities, uvs, textureIds };
+        return { sourceId: model.id, positions, indices, colors, opacities, uvs, textureIds, particles: model.particles, particleScale: model.coordinateScale ?? 1 };
     }
     return {
         sourceId: model.id,
+        particles: model.particles,
+        particleScale: model.coordinateScale ?? 1,
         positions: model.positions.map((_, index) => index % 3 === 1 ? -coordinate(index) : coordinate(index)),
         indices: model.indices.flatMap((_, index, source) => index % 3 === 0 ? [source[index], source[index + 2], source[index + 1]] : []),
     };

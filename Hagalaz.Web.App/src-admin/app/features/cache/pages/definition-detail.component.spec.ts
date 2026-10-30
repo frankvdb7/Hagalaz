@@ -3,7 +3,7 @@ import { provideLocationMocks } from "@angular/common/testing";
 import { TestbedHarnessEnvironment } from "@angular/cdk/testing/testbed";
 import { provideHttpClient, withXhr } from "@angular/common/http";
 import { HttpTestingController, provideHttpClientTesting, type TestRequest } from "@angular/common/http/testing";
-import { ApplicationRef, signal } from "@angular/core";
+import { ApplicationRef, Component, input, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { MatButtonHarness } from "@angular/material/button/testing";
 import { MatDialog } from "@angular/material/dialog";
@@ -20,6 +20,18 @@ import { cacheDefinitionStores } from "../stores/cache-definition-stores";
 import { SpriteInspectorComponent } from "./sprite-inspector.component";
 import { SpritesManagerPageComponent } from "./sprites-manager.page";
 import { DefinitionDetailComponent } from "./definition-detail.component";
+
+import { CacheModelPreviewComponent } from "./cache-model-preview.component";
+import { NpcsDetailPageComponent } from "./details/npcs-detail.page";
+import { ObjectsDetailPageComponent } from "./details/objects-detail.page";
+import { ItemsDetailPageComponent } from "./details/items-detail.page";
+
+@Component({ selector: "cache-model-preview", template: "" })
+class ModelPreviewBoundary {
+    readonly modelId = input<number | null>(null);
+    readonly itemId = input<number | null>(null);
+    readonly definition = input<unknown>();
+}
 
 const baseUrl = `${environment.cacheApiUrl}types/`;
 const stable = () => TestBed.inject(ApplicationRef).whenStable();
@@ -47,6 +59,8 @@ describe("dedicated cache detail routes", () => {
                 },
             ],
         });
+        for (const page of [NpcsDetailPageComponent, ObjectsDetailPageComponent, ItemsDetailPageComponent])
+            TestBed.overrideComponent(page, { remove: { imports: [CacheModelPreviewComponent] }, add: { imports: [ModelPreviewBoundary] } });
         http = TestBed.inject(HttpTestingController);
     });
     afterEach(() => {
@@ -84,6 +98,10 @@ describe("dedicated cache detail routes", () => {
         );
         const element = harness.routeNativeElement as HTMLElement;
         expect(element.querySelector(`cache-${kind}-detail-page`)).not.toBeNull();
+        if (kind === "npcs" || kind === "objects") {
+            const preview = harness.fixture.debugElement.query(By.directive(ModelPreviewBoundary)).componentInstance as ModelPreviewBoundary;
+            expect(preview.definition()).toEqual(kind === "objects" ? { kind, id: 7, shape: undefined } : { kind, id: 7 });
+        }
         expect(element.querySelectorAll("mat-toolbar cache-definition-picker")).toHaveLength(1);
         expect(element.querySelector("mat-toolbar cache-definition-picker button")?.getAttribute("aria-label")).toContain(`Choose ${cacheTypeNames[kind]}.`);
         expect(element.querySelector(`a[href="/cache/types?kind=${kind}"]`)).not.toBeNull();

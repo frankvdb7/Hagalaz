@@ -7,7 +7,8 @@ namespace Hagalaz.Cache.Logic.Codecs;
 /// <summary>Decodes model topology used by the revision-742 client.</summary>
 public static class ModelGeometryDecoder
 {
-    public sealed record Geometry(int[] Positions, int[] Indices, int[] FaceColors, int[] FaceAlpha, int[]? VertexSkins, int Version = 12, int[]? FaceSkins = null, int[]? FaceTextureIds = null, int[]? FaceTextureVertices = null, float[]? FaceTextureUvs = null);
+    public sealed record EmitterAttachment(int EmitterId, int Face);
+    public sealed record Geometry(int[] Positions, int[] Indices, int[] FaceColors, int[] FaceAlpha, int[]? VertexSkins, int Version = 12, int[]? FaceSkins = null, int[]? FaceTextureIds = null, int[]? FaceTextureVertices = null, float[]? FaceTextureUvs = null, EmitterAttachment[]? Emitters = null);
 
     public static Geometry Decode(byte[] data)
     {
@@ -71,18 +72,18 @@ public static class ModelGeometryDecoder
         var textureVertices = new int[faces * 3];
         float[]? textureUvs = null;
         Array.Fill(textureVertices, -1);
+        var simpleCount = 0; var complexCount = 0; var boxCount = 0;
+        for (var mapping = 0; mapping < textureCount; mapping++)
+        {
+            if (data[mapping] == 0) simpleCount++;
+            else if (data[mapping] <= 3) { complexCount++; if (data[mapping] == 2) boxCount++; }
+            else throw new NotSupportedException($"Unsupported texture projection {data[mapping]}.");
+        }
         if (textures == 1)
         {
             textureIds = new int[faces];
             var textureReader = new Reader(data, indicesOffset + indexLength);
             for (var face = 0; face < faces; face++) textureIds[face] = textureReader.Short() - 1;
-            var simpleCount = 0; var complexCount = 0; var boxCount = 0;
-            for (var mapping = 0; mapping < textureCount; mapping++)
-            {
-                if (data[mapping] == 0) simpleCount++;
-                else if (data[mapping] <= 3) { complexCount++; if (data[mapping] == 2) boxCount++; }
-                else throw new NotSupportedException($"Unsupported texture projection {data[mapping]}.");
-            }
             var mappings = new ModelTextureCoordinates.Mapping[textureCount];
             var simpleReader = new Reader(data, geometryEnd);
             var complexReader = new Reader(data, geometryEnd + simpleCount * 6);
@@ -137,7 +138,22 @@ public static class ModelGeometryDecoder
             }
             textureUvs = ModelTextureCoordinates.Generate(projectionPositions, result.Indices, textureIds, pointers, mappings);
         }
-        return result with { Version = version, FaceTextureIds = textureIds, FaceTextureVertices = textureVertices, FaceTextureUvs = textureUvs };
+        var attachmentOffset = geometryEnd + simpleCount * 6 + complexCount * (6 + (version >= 15 ? 9 : version == 14 ? 7 : 6) + 3) + boxCount * 2;
+        EmitterAttachment[]? emitters = null;
+        if ((flags & 2) != 0)
+        {
+            var attachments = new Reader(data, attachmentOffset);
+            emitters = new EmitterAttachment[attachments.Byte()];
+            for (var emitter = 0; emitter < emitters.Length; emitter++)
+            {
+                var emitterId = attachments.Short(); var face = attachments.Short();
+                if (face >= faces) throw new InvalidDataException("Particle emitter references a missing face.");
+                emitters[emitter] = new(emitterId, face);
+            }
+            var effectors = attachments.Byte();
+            for (var effector = 0; effector < effectors; effector++) { attachments.Short(); attachments.Short(); }
+        }
+        return result with { Version = version, FaceTextureIds = textureIds, FaceTextureVertices = textureVertices, FaceTextureUvs = textureUvs, Emitters = emitters };
 
         void Copy(int offset, int length)
         {

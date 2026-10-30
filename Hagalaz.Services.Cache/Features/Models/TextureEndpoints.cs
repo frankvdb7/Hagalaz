@@ -13,7 +13,42 @@ public static class TextureEndpoints
     public static IEndpointRouteBuilder MapTextureEndpoints(this IEndpointRouteBuilder group)
     {
         group.MapGet("/textures/{id:int}/image", GetTextureImage);
+        group.MapGet("/textures/{id:int}/material", GetMaterial);
+        group.MapGet("/textures/{id:int}/hdr", GetHdr);
         return group;
+    }
+
+    private static IResult GetHdr(int id, ICacheAPI cache)
+    {
+        if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Texture ID must be nonnegative."));
+        using var materials = cache.Read(26, 0, 0);
+        try
+        {
+            var material = MaterialDefinitionDecoder.Decode(materials.ToArray(), id);
+            if (!material.HasHdr) return TypedResults.NotFound();
+            using var image = cache.ReadContainer(9, id);
+            using var companion = cache.ReadContainer(37, id);
+            return TypedResults.Ok(TextureImageDecoder.ToHdr(image.Data.ToArray(), companion.Data.ToArray(), material.AlphaMode));
+        }
+        catch (UnknownImageFormatException)
+        {
+            return TypedResults.Problem(title: "Unsupported HDR image", statusCode: 422);
+        }
+        catch (System.NotSupportedException exception)
+        {
+            return TypedResults.Problem(title: "Unsupported HDR texture", detail: exception.Message, statusCode: 422);
+        }
+    }
+
+    private static IResult GetMaterial(int id, ICacheAPI cache)
+    {
+        if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Texture ID must be nonnegative."));
+        using var materials = cache.Read(26, 0, 0);
+        try { return TypedResults.Ok(MaterialDefinitionDecoder.Decode(materials.ToArray(), id)); }
+        catch (System.NotSupportedException exception)
+        {
+            return TypedResults.Problem(title: "Unsupported texture material", detail: exception.Message, statusCode: 422);
+        }
     }
 
     private static IResult GetTextureImage(int id, ICacheAPI cache, HttpContext context)

@@ -37,7 +37,12 @@ describe("prepareCacheModel", () => {
         expect(prepareCacheModel({ ...triangle, faceAlpha: [128] }).opacities).toEqual([127 / 255, 127 / 255, 127 / 255]);
     });
 
-    it("does not interpret special client alpha as ordinary transparency", () => {
-        expect(prepareCacheModel({ ...triangle, faceAlpha: [255] }).opacities).toEqual([1, 1, 1]);
+    it("hides alpha-255 helper faces without removing attachment geometry and retains alpha-254 shading faces", () => {
+        const result = prepareCacheModel({ ...triangle, faceColors: [20287], faceAlpha: [255], particles: [{emitterId:403,face:0,definition:null}] });
+        expect(result.opacities).toEqual([0, 0, 0]);
+        expect(result.indices).toEqual([0, 1, 2]);
+        expect(result.positions).toHaveLength(9);
+        expect(result.particles?.[0].face).toBe(0);
+        expect(prepareCacheModel({...triangle,faceAlpha:[254]}).opacities).toEqual([1,1,1]);
     });
 });

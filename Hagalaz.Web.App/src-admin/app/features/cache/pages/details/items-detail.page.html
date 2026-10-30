@@ -31,7 +31,7 @@
             <mat-card appearance="outlined" class="overflow-hidden p-5">
                 <div class="flex items-center gap-3"><span class="identity-mark"><mat-icon aria-hidden="true">deployed_code</mat-icon></span><div class="min-w-0"><p class="eyebrow">Item identity</p><h3 class="mt-1 break-words">{{ item() ? (item()?.name || 'Unnamed item') : 'No item loaded' }}</h3><p class="supporting-text mt-1 text-xs">Definition #{{ id() ?? 'Invalid' }}</p></div></div>
                 @if (item()) { <cache-item-fields class="mt-4" [fields]="overview().slice(2)" /> }
-                <div class="mt-5"><h4>Inventory model preview</h4><cache-model-preview [modelId]="item()?.interfaceModelId ?? null" [itemId]="item()?.id ?? null" /></div>
+                <div class="mt-5"><h4>Model preview</h4><cache-model-preview [modelId]="item()?.interfaceModelId ?? null" [itemId]="item()?.id ?? null" /></div>
                 @if (item()) { <cache-item-fields [fields]="visual()" /> }
                 <p class="supporting-text mt-4 text-xs">Inventory model references cannot be used as sprite IDs.</p>
             </mat-card>
