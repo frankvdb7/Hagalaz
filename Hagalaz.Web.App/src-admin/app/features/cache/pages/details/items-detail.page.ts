@@ -13,6 +13,7 @@ import { CacheItemsStore } from "../../stores/cache-items.store";
 import { injectCacheDefinitionId } from "../cache-definition-id";
 import { DefinitionPickerComponent } from "../definition-picker.component";
 import { type ItemField, ItemFieldsComponent } from "../item-fields.component";
+import { CacheModelPreviewComponent } from "../cache-model-preview.component";
 
 @Component({
     selector: "cache-items-detail-page",
@@ -28,6 +29,7 @@ import { type ItemField, ItemFieldsComponent } from "../item-fields.component";
         ItemFieldsComponent,
         DefinitionPickerComponent,
         PortalBreadcrumbDirective,
+        CacheModelPreviewComponent,
     ],
     providers: [CacheItemsStore],
     templateUrl: "./items-detail.page.html",

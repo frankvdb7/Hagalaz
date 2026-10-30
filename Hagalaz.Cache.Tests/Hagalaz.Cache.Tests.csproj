@@ -25,6 +25,7 @@
     <ProjectReference Include="..\Hagalaz.Cache.Extensions\Hagalaz.Cache.Extensions.csproj" />
     <ProjectReference Include="..\Hagalaz.Cache.Abstractions\Hagalaz.Cache.Abstractions.csproj" />
     <Compile Include="..\TestSupport\MemoryFileStore.cs" Link="TestSupport\MemoryFileStore.cs" />
+    <None Include="..\TestSupport\Fixtures\black-demon-animation.json" Link="Fixtures\black-demon-animation.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
