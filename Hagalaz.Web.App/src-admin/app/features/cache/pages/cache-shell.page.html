@@ -1,4 +1,8 @@
-<section aria-labelledby="cache-title">
-    <header class="cache-heading mb-4 flex items-start gap-4"><mat-icon aria-hidden="true">database</mat-icon><div><h1 id="cache-title">Cache Studio</h1><p class="supporting-text mt-2">Browse game definitions and edit supported fields.</p></div></header>
-    <router-outlet />
-</section>
+<mat-card appearance="outlined" class="studio-tabs mb-4 overflow-hidden">
+    <nav mat-tab-nav-bar mat-stretch-tabs="false" [tabPanel]="cachePanel" aria-label="Cache type">
+        @for (kind of kinds; track kind) {
+            <a mat-tab-link [attr.aria-label]="kindLabels[kind]" href="{{ kind === 'models' ? '/cache/models' : '/cache/types?kind=' + kind }}" [routerLink]="kind === 'models' ? '/cache/models' : '/cache/types'" [queryParams]="{kind: kind === 'models' ? null : kind, query: null, offset: null}" queryParamsHandling="merge" [active]="activeKind() === kind"><mat-icon aria-hidden="true">{{kindIcons[kind]}}</mat-icon>{{kindLabels[kind]}}</a>
+        }
+    </nav>
+</mat-card>
+<mat-tab-nav-panel #cachePanel><router-outlet /></mat-tab-nav-panel>

@@ -19,7 +19,6 @@ import { AuthStore } from "../../../core/auth/auth.store";
 import { cacheTypeNames } from "../services/cache.models";
 import { cacheDefinitionStores } from "../stores/cache-definition-stores";
 import { SpriteInspectorComponent } from "./sprite-inspector.component";
-import { SpritesManagerPageComponent } from "./sprites-manager.page";
 import { DefinitionDetailComponent } from "./definition-detail.component";
 
 import { CacheModelPreviewComponent } from "./cache-model-preview.component";
@@ -27,8 +26,12 @@ import { NpcsDetailPageComponent } from "./details/npcs-detail.page";
 import { ObjectsDetailPageComponent } from "./details/objects-detail.page";
 import { ItemsDetailPageComponent } from "./details/items-detail.page";
 
-@Component({selector: "cache-item-sprite-thumbnail", template: ""})
-class ItemSpriteBoundary { readonly id=input.required<number>(); readonly name=input(""); readonly size=input(44); }
+@Component({ selector: "cache-item-sprite-thumbnail", template: "" })
+class ItemSpriteBoundary {
+    readonly id = input.required<number>();
+    readonly name = input("");
+    readonly size = input(44);
+}
 
 @Component({ selector: "cache-model-preview", template: "" })
 class ModelPreviewBoundary {
@@ -66,7 +69,7 @@ describe("dedicated cache detail routes", () => {
         });
         for (const page of [NpcsDetailPageComponent, ObjectsDetailPageComponent, ItemsDetailPageComponent])
             TestBed.overrideComponent(page, { remove: { imports: [CacheModelPreviewComponent] }, add: { imports: [ModelPreviewBoundary] } });
-        TestBed.overrideComponent(ItemsDetailPageComponent, {remove: {imports: [ItemSpriteThumbnailComponent]}, add: {imports: [ItemSpriteBoundary]}});
+        TestBed.overrideComponent(ItemsDetailPageComponent, { remove: { imports: [ItemSpriteThumbnailComponent] }, add: { imports: [ItemSpriteBoundary] } });
         http = TestBed.inject(HttpTestingController);
     });
     afterEach(() => {
@@ -295,15 +298,9 @@ describe("dedicated cache detail routes", () => {
         expect(await leaving).toBe(false);
         expect(input.value).toBe(value);
     });
-    it.each(["studio", "legacy"])("protects a staged PNG in the %s sprite workflow", async (workflow) => {
-        const harness =
-            workflow === "studio"
-                ? await open("sprites", { id: 7, width: 32, height: 32, frameCount: 1 })
-                : await RouterTestingHarness.create("/cache/sprites");
-        const component =
-            workflow === "studio"
-                ? (harness.fixture.debugElement.query(By.directive(SpriteInspectorComponent)).componentInstance as SpriteInspectorComponent)
-                : (harness.fixture.debugElement.query(By.directive(SpritesManagerPageComponent)).componentInstance as SpritesManagerPageComponent);
+    it("protects a staged PNG in the current Sprite Studio", async () => {
+        const harness = await open("sprites", { id: 7, width: 32, height: 32, frameCount: 1 });
+        const component = harness.fixture.debugElement.query(By.directive(SpriteInspectorComponent)).componentInstance as SpriteInspectorComponent;
         const file = new File(["png"], "replacement.png", { type: "image/png" });
         component.onFileSelected({ target: { files: [file], value: "" } } as unknown as Event);
         TestBed.tick();

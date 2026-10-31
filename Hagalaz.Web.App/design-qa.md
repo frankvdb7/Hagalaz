@@ -93,3 +93,96 @@ Implemented structure: source-backed item portrait/header/chips, save/duplicate 
 Intentional behavior differences: noted remains derived; descriptions are unavailable in this cache format and are labeled accordingly. Save sends the full ItemType, per the user's explicit correction. Cache writes are exercised only in isolated test stores. Existing application shell remains unchanged.
 
 Follow-up visual gate: capture this route at 1651x953 with item0 and compare it alongside the supplied source, then check a narrow viewport and primary interaction states. No visual findings are invented from source code alone.
+
+
+---
+
+# Unified Material admin and Item Forge QA, 2026-10-31
+
+This is the latest QA result. The current request explicitly calls for existing Material components and unified styles across the admin app. It supersedes pixel-exact custom-control styling from the reference. Earlier QA sections above remain historical records.
+
+## Source, state and normalization
+
+- Source: `C:/Users/fmavd/AppData/Local/Temp/codex-clipboard-56eca79f-b8e4-4628-a64a-f20728307ac4.png`, 1651 x 953 pixels.
+- Implementation: `http://localhost:4318/cache/types/items/0`, actual Angular admin components compiled with an isolated fixture entry point under ignored `node_modules/.cache/forge-preview`. Production bootstrap, authorization and API configuration are unchanged.
+- Desktop capture: `C:/Users/fmavd/.codex/visualizations/2026/10/31/01a19264-ebde-7101-9f0c-c53b7278cfed/admin-material-desktop.png`, 1651 x 953 pixels at 1651 x 953 CSS px, density 1. No density resampling.
+- State: item 0, Dwarf remains, value 1, members only, Overview selected, no unsaved draft, inspector collapsed. Save is correctly disabled until edited. Description remains honestly unavailable.
+- Phone: 390 x 844 CSS px, density 1. `admin-material-phone.png` and `admin-material-phone-fields.png` in the same evidence directory. Observed document width 390 px, no horizontal page overflow.
+
+## Visual comparison
+
+Opened the source and rendered capture together in `admin-material-comparison.png`, 3302 x 953 pixels, source left and implementation right. Also opened `admin-material-fields-comparison.png`, with actual source and implementation form crops stacked without resampling, to inspect labels, field outlines, typography, toggles and helper text.
+
+- Fonts and typography: existing Semplicita Pro and Material Symbols load correctly. Standard Material label and body roles now own controls. No handwritten icon replacements or additional fonts.
+- Spacing and layout rhythm: identity, actions, tabs, two-column form and inspector retain the reference hierarchy. Standard 48px fields, 44px actions and accessible icon controls intentionally replace the reference's smaller custom controls. Phone fields stack and remain readable.
+- Colors and tokens: shared navy surfaces, amber actions, outline roles and semantic error/success colors. All admin Material overrides live in `src-admin/portal-theme.scss`; no page-local Material overrides remain.
+- Image quality: production reuses the existing item sprite renderer, logo and backdrop. Fixture sprite is an 88px source crop used only in the ignored preview harness. Its baked navy background and enlarged appearance in Sprite Studio are fixture limitations; production uses API images.
+- Copy and content: actual field values and character counts are retained, including the correct 13/50 name length. Description is readonly and unavailable, noted status remains derived, and no archive count is fabricated in production.
+
+## Intentional differences from the source
+
+Material outlines, chips, toggles, slider, card corners and expansion panel follow the user's explicit correction. The existing shared Cache Studio heading, navigation drawer width and backdrop remain. These increase vertical content compared with the mock. The complete technical metadata and quick actions remain reachable through normal scrolling. The source's save dropdown and unsupported description editing were not invented.
+
+## Additional admin surfaces
+
+Captured and inspected `admin-material-overview.png`, `admin-material-cache-studio.png`, `admin-material-sprite-studio.png` and `admin-material-login.png` in the same evidence directory. Shared field and action sizing, card surfaces, tab treatment and typography remain coherent. Sprite preview geometry/checkerboard remains specialized. Login now uses native Material labels and no positioned substitute labels.
+
+## Interaction evidence
+
+- Edited the name, opened the existing confirmation dialog, confirmed a fixture-only save and observed success feedback and the updated title.
+- Edited and discarded a draft at phone width.
+- Keyboard-adjusted the Material slider from 1 to 1.05 and observed its accessible value update.
+- Expanded the Material inspector and switched to Interactions; ordered inventory and ground slots were visible.
+- Navigated from overview to Cache Studio and inspected its populated fixture table and paginator.
+- Entered a synthetic email and tabbed into the password control to inspect login labels and focus. No sign-in or CAPTCHA completion was performed.
+- Browser console error log was empty for the editor interaction checks.
+
+## Findings and comparison history
+
+No actionable P0/P1/P2 visual findings remain within the revised Material-first scope. No visual fix loop was required after the combined comparison. Earlier custom-control styling and the stylesheet budget issue were removed during implementation before this comparison. Production build now has no budget warning.
+
+P3 follow-up: tighten the existing mobile toolbar's account wrapping if a denser toolbar is desired. It remains visible and operable. Exact mock spacing is intentionally secondary to shared Material defaults.
+
+## Validation and limits
+
+- Admin suite: 19 files, 243 tests passed.
+- Focused Item Forge tests cover Material inputs, readonly derived fields, inspector expansion/collapse and slider updates, alongside existing full-definition save and navigation behavior.
+- Focused measured coverage after final formatting: 89.28% lines, 88.15% statements, 74.28% branches, 89.28% functions. Remaining uncovered behavior is pre-existing fallback/guard logic; templates and styles have browser evidence rather than inferred coverage.
+- Production admin build passes without warnings. Biome has no errors; existing non-null assertion warnings remain. Angular tests retain the pre-existing polyfills compilation warning.
+- Fallow audit passes with zero introduced findings and four inherited findings.
+- Live authentication, live cache writes and actual 3D model content were not verified. The isolated preview uses fixture responses, and no production cache was changed.
+
+final result: passed
+
+
+Requirement coverage tests: `edits through Material inputs and keeps derived fields readonly`, `reveals the existing model preview through the Material inspector`, and `zooms the actual item preview and opens the full raw definition from quick actions`. The final focused coverage run passed all 15 tests. The line-count change from the earlier 92.3% result reflects source formatting; statement and branch coverage are unchanged.
+
+
+---
+
+# Cache resource navigation follow-up, 2026-10-31
+
+Added the approved Definitions, Models and Sprites hierarchy using the shared Material tab navbar and existing routes. Definition-type tabs remain inside Definitions. The removed Cache Studio heading/subtitle remains absent. Current route ownership supplies selection; canceled guarded transitions retain the current tab.
+
+Inspected actual browser rendering at 1651 x 953 CSS px and 390 x 844 CSS px. Desktop evidence: `C:/Users/fmavd/.codex/visualizations/2026/10/31/01a19264-ebde-7101-9f0c-c53b7278cfed/cache-resource-tabs-desktop.png`. Phone evidence: `C:/Users/fmavd/.codex/visualizations/2026/10/31/01a19264-ebde-7101-9f0c-c53b7278cfed/cache-resource-tabs-phone.png`. Both are density 1. Verified existing Models and Sprites destinations, return to Definitions, nested definition-type navigation and no horizontal page overflow at phone width. Browser console error log was empty. This checks the approved navigation addition, not a claim of pixel identity to the original mock.
+
+The routing tests verify filtered/nested active sections and rejection by the existing dirty-draft guard. Admin suite passes 248 tests, production build passes, lint has no errors, strict OpenSpec passes and Fallow has zero introduced findings. The preview uses isolated fixtures; no live cache or authentication changes were made.
+
+final result: passed
+
+
+---
+
+# Final navigation correction and legacy sprite retirement, 2026-10-31
+
+The user's annotated screenshot explicitly removes the upper Definitions/Models/Sprites row and adds Models to the existing type row. This supersedes earlier two-level navigation QA. The cache shell now owns one outlined, icon-bearing Material type row; the definition browser no longer renders a duplicate. Models uses the same outlined search card, Material input/button and outlined result card as the other tools.
+
+Verified one `nav[mat-tab-nav-bar]` in the browser, Models selected in the same row, and navigation to the current sprite browser and Sprite Studio. The legacy sprite manager component, template, stylesheet, test suite, route and orphaned metadata/search APIs are deleted. No compatibility page or route was added.
+
+Desktop evidence: `C:/Users/fmavd/.codex/visualizations/2026/10/31/01a19264-ebde-7101-9f0c-c53b7278cfed/single-cache-tabs-models.png`, a content-only crop of the browser showing the single row and matching model search structure. Phone evidence: `single-cache-tabs-phone.png` in the same directory, at 390 x 844 CSS px, density 1. Document width was 390px. The long row uses Material's native pagination controls.
+
+234 tests pass, including `loads and reloads a model through the shared Material form`, `disables invalid model lookups without opening a preview`, `does not expose the retired sprite manager route`, `protects a staged PNG in the current Sprite Studio` and the shared navbar's guarded-transition cases. Changed-page coverage is 100% lines, 93.58% statements, 89.83% branches and 93.87% functions. The build and lint error gate pass; Fallow reports zero introduced findings. Existing test polyfills warning remains.
+
+No actionable visual issue was found within the requested structure. The local preview is fixture-backed; live authentication, actual model rendering and cache persistence were not verified. No live data was modified.
+
+final result: passed

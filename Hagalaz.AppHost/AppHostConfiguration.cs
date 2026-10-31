@@ -156,14 +156,14 @@ public static class AppHostConfiguration
             .WithReference(cacheService)
             .WithReference(contactsService)
             .WithReference(charactersService)
-            .WithHttpEndpoint(targetPort: 4400, env: "PORT")
+            .WithHttpEndpoint(port: 4400, env: "PORT")
             .WithExternalHttpEndpoints()
             .PublishAsDockerFile();
 
         var webAdminApp = builder.AddJavaScriptApp("hagalaz-web-admin", "../Hagalaz.Web.App", "start:aspire:admin")
             .WithReference(authService)
             .WithReference(cacheService)
-            .WithHttpEndpoint(targetPort: 4410, env: "PORT")
+            .WithHttpEndpoint(port: 4410, env: "PORT")
             .WithExternalHttpEndpoints()
             .PublishAsDockerFile();
 

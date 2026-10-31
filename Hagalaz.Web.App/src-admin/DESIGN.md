@@ -1,110 +1,111 @@
 ---
+
 version: alpha
 name: Hagalaz World Admin
 description: Dark Material interface for administering Hagalaz game data.
 colors:
-  primary: "#ffb300"
-  on-primary: "#432c00"
-  primary-container: "#51432c"
-  on-primary-container: "#ffdeac"
-  surface: "#0b111b"
-  surface-low: "#161f2d"
-  surface-container: "#192433"
-  surface-high: "#1e2a3a"
-  surface-highest: "#29394b"
-  on-surface: "#edf1fa"
-  muted: "#b9c9dd"
-  outline: "#8293aa"
-  outline-variant: "#39485c"
-  secondary-container: "#283b4e"
-  on-secondary-container: "#d4e7fa"
-  error: "#ffb4ab"
-  on-error: "#690005"
-  error-container: "#93000a"
-  on-error-container: "#ffdad6"
-  cyan: "#7bd8e9"
-  emerald: "#7adcb0"
-  violet: "#c7adff"
-  ember: "#ff9993"
+primary: "#ffb300"
+on-primary: "#432c00"
+primary-container: "#51432c"
+on-primary-container: "#ffdeac"
+surface: "#0b111b"
+surface-low: "#161f2d"
+surface-container: "#192433"
+surface-high: "#1e2a3a"
+surface-highest: "#29394b"
+on-surface: "#edf1fa"
+muted: "#b9c9dd"
+outline: "#8293aa"
+outline-variant: "#39485c"
+secondary-container: "#283b4e"
+on-secondary-container: "#d4e7fa"
+error: "#ffb4ab"
+on-error: "#690005"
+error-container: "#93000a"
+on-error-container: "#ffdad6"
+cyan: "#7bd8e9"
+emerald: "#7adcb0"
+violet: "#c7adff"
+ember: "#ff9993"
 typography:
-  headline-large:
-    fontFamily: Semplicita Pro
-    fontSize: 32px
-    fontWeight: 400
-    lineHeight: 40px
-  headline-medium:
-    fontFamily: Semplicita Pro
-    fontSize: 28px
-    fontWeight: 400
-    lineHeight: 36px
-  title-large:
-    fontFamily: Semplicita Pro
-    fontSize: 22px
-    fontWeight: 400
-    lineHeight: 28px
-  body-large:
-    fontFamily: Semplicita Pro
-    fontSize: 16px
-    fontWeight: 400
-    lineHeight: 24px
-  body-medium:
-    fontFamily: Semplicita Pro
-    fontSize: 14px
-    fontWeight: 400
-    lineHeight: 20px
-  label-large:
-    fontFamily: Semplicita Pro
-    fontSize: 14px
-    fontWeight: 500
-    lineHeight: 20px
+headline-large:
+fontFamily: Semplicita Pro
+fontSize: 32px
+fontWeight: 400
+lineHeight: 40px
+headline-medium:
+fontFamily: Semplicita Pro
+fontSize: 28px
+fontWeight: 400
+lineHeight: 36px
+title-large:
+fontFamily: Semplicita Pro
+fontSize: 22px
+fontWeight: 400
+lineHeight: 28px
+body-large:
+fontFamily: Semplicita Pro
+fontSize: 16px
+fontWeight: 400
+lineHeight: 24px
+body-medium:
+fontFamily: Semplicita Pro
+fontSize: 14px
+fontWeight: 400
+lineHeight: 20px
+label-large:
+fontFamily: Semplicita Pro
+fontSize: 14px
+fontWeight: 500
+lineHeight: 20px
 spacing:
-  xs: 4px
-  sm: 8px
-  md: 16px
-  lg: 24px
-  xl: 32px
+xs: 4px
+sm: 8px
+md: 16px
+lg: 24px
+xl: 32px
 rounded:
-  card: 16px
-  field: 12px
-  button: 12px
-  full: 9999px
+card: 16px
+field: 12px
+button: 12px
+full: 9999px
 components:
-  page:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.on-surface}"
-    typography: "{typography.body-medium}"
-  outlined-card:
-    backgroundColor: "{colors.surface-low}"
-    textColor: "{colors.on-surface}"
-    rounded: "{rounded.card}"
-  primary-button:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.on-primary}"
-    typography: "{typography.label-large}"
-    rounded: "{rounded.button}"
-  outlined-field:
-    textColor: "{colors.on-surface}"
-    rounded: "{rounded.field}"
-  error:
-    backgroundColor: "{colors.error-container}"
-    textColor: "{colors.on-error-container}"
-  supporting-text:
-    textColor: "{colors.muted}"
-    typography: "{typography.body-medium}"
-  quick-action:
-    backgroundColor: "{colors.surface-high}"
-    textColor: "{colors.on-surface}"
-  quick-action-hover:
-    backgroundColor: "{colors.surface-highest}"
-    textColor: "{colors.on-surface}"
-  cyan-accent:
-    textColor: "{colors.cyan}"
-  emerald-accent:
-    textColor: "{colors.emerald}"
-  violet-accent:
-    textColor: "{colors.violet}"
-  ember-accent:
-    textColor: "{colors.ember}"
+page:
+backgroundColor: "{colors.surface}"
+textColor: "{colors.on-surface}"
+typography: "{typography.body-medium}"
+outlined-card:
+backgroundColor: "{colors.surface-low}"
+textColor: "{colors.on-surface}"
+rounded: "{rounded.card}"
+primary-button:
+backgroundColor: "{colors.primary}"
+textColor: "{colors.on-primary}"
+typography: "{typography.label-large}"
+rounded: "{rounded.button}"
+outlined-field:
+textColor: "{colors.on-surface}"
+rounded: "{rounded.field}"
+error:
+backgroundColor: "{colors.error-container}"
+textColor: "{colors.on-error-container}"
+supporting-text:
+textColor: "{colors.muted}"
+typography: "{typography.body-medium}"
+quick-action:
+backgroundColor: "{colors.surface-high}"
+textColor: "{colors.on-surface}"
+quick-action-hover:
+backgroundColor: "{colors.surface-highest}"
+textColor: "{colors.on-surface}"
+cyan-accent:
+textColor: "{colors.cyan}"
+emerald-accent:
+textColor: "{colors.emerald}"
+violet-accent:
+textColor: "{colors.violet}"
+ember-accent:
+textColor: "{colors.ember}"
 ---
 
 # Hagalaz World Admin design
@@ -133,11 +134,11 @@ The overview centers a 64rem column with a hero, metric cards, activity and quic
 
 ## Elevation & Depth
 
-Outlined cards use the low surface role, outline-variant border and shared shadow `0 20px 70px rgb(0 0 0 / 22%)` through a Material override. Outlined fields use the outline role. The overview removes the shadow from its compact panels. Use surface contrast and outlines to separate content. The shared background is decorative and must not reduce content readability.
+Outlined cards use the low surface role, outline-variant border and no elevation through shared Material overrides. Outlined fields use the outline role. Use surface contrast and outlines to separate content. The shared background is decorative and must not reduce content readability.
 
 ## Shapes
 
-Outlined cards use 16px corners; outlined fields and filled actions use 12px corners. Default fields are 64px high and filled actions 52px high. Compact controls may use local Material overrides where the layout requires them.
+Outlined cards use 16px corners; outlined fields and actions use 12px corners. Default fields are 48px high, with 12px vertical padding. Filled and outlined actions are 44px high with 12px corners. Shared contextual overrides, including the 36px toolbar search, live in `portal-theme.scss`. Page styles own layout and specialized preview geometry rather than repeated component appearance.
 
 ## Components
 
@@ -153,3 +154,7 @@ Outlined cards use 16px corners; outlined fields and filled actions use 12px cor
 - Preserve keyboard access, focus visibility, error messages and narrow-screen usability.
 - Do not invent telemetry, authentication states or backend capabilities to fill a design.
 - Do not copy public-app translucent panels or launcher chrome into the admin workspace.
+
+## Shared component ownership
+
+`portal-theme.scss` owns all admin Material component overrides, including cards, fields, buttons, tabs, tables, paginators, expansion panels and request feedback. Global element layout and typography live in `styles.scss`. Use Material labels, hints and errors rather than positioned substitute labels, and Material sliders and expansion panels for editor controls. Keep icons, fonts and asset sources shared across tools. Retain page-specific preview canvases, sprite transparency backgrounds, grid tracks and responsive breakpoints.
