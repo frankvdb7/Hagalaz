@@ -1,11 +1,10 @@
-using System;
 using Hagalaz.Cache.Abstractions;
-using Hagalaz.Services.Cache.Features.Shared;
+using Hagalaz.Services.Cache.Features.RawFiles.Dtos;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
-namespace Hagalaz.Services.Cache.Features;
+namespace Hagalaz.Services.Cache.Features.RawFiles;
 
 public static class RawFileEndpoints
 {
@@ -16,15 +15,15 @@ public static class RawFileEndpoints
         return group;
     }
 
-    private static IResult GetRawFile(int indexId, int fileId, ICacheAPI cacheApi)
+    private static IResult GetRawFile([AsParameters] GetRawFileDto request, ICacheAPI cacheApi)
     {
-        using var stream = cacheApi.Read(indexId, fileId);
-        return TypedResults.File(stream.ToArray(), "application/octet-stream", $"index-{indexId}-file-{fileId}.bin");
+        using var stream = cacheApi.Read(request.IndexId, request.FileId);
+        return TypedResults.File(stream.ToArray(), "application/octet-stream", $"index-{request.IndexId}-file-{request.FileId}.bin");
     }
 
-    private static IResult GetRawSubFile(int indexId, int fileId, int subFileId, ICacheAPI cacheApi)
+    private static IResult GetRawSubFile([AsParameters] GetRawSubFileDto request, ICacheAPI cacheApi)
     {
-        using var stream = cacheApi.Read(indexId, fileId, subFileId);
-        return TypedResults.File(stream.ToArray(), "application/octet-stream", $"index-{indexId}-file-{fileId}-sub-file-{subFileId}.bin");
+        using var stream = cacheApi.Read(request.IndexId, request.FileId, request.SubFileId);
+        return TypedResults.File(stream.ToArray(), "application/octet-stream", $"index-{request.IndexId}-file-{request.FileId}-sub-file-{request.SubFileId}.bin");
     }
 }

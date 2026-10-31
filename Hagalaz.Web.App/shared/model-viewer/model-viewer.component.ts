@@ -3,10 +3,11 @@ import type { ModelGeometry, ModelTexture } from "./model-scene";
 
 @Component({
     selector: "hagalaz-model-viewer",
-    template: `<div #viewport class="viewport"></div>@if (error()) { <p role="alert">{{ error() }}</p> }<button type="button" (click)="reset()">Reset camera</button>`,
+    template: `<div #viewport class="viewport" [style.height.px]="height()"></div>@if (error()) { <p role="alert">{{ error() }}</p> }<button type="button" (click)="reset()">Reset camera</button>`,
     styles: `:host { display: block; } .viewport { width: 100%; height: 360px; min-width: 0; } button { display: block; margin: 8px 0 12px; padding: 8px 12px; border: 1px solid currentColor; border-radius: 4px; }`,
 })
 export class ModelViewerComponent implements OnDestroy {
+    readonly height = input(360);
     readonly geometry = input<ModelGeometry | null>(null);
     readonly textures = input<ReadonlyMap<number, ModelTexture>>(new Map());
     readonly error = signal<string | null>(null);

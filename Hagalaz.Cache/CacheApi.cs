@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -206,6 +207,59 @@ namespace Hagalaz.Cache
             }
         }
 
+        /// <summary>Appends a member copy, allocating its destination under the cache write lock.</summary>
+        public (int FileId, int EntryId) AppendArchiveMemberCopy(int index, int sourceFileId, int sourceEntryId, int archiveMemberLimit)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(archiveMemberLimit);
+            _snapshotReadWriteLock.EnterWriteLock();
+            try
+            {
+                using var encodedTable = _referenceTableFactory.Encode(_referenceTableCache.Get(index));
+                encodedTable.Position = 0;
+                var table = _referenceTableFactory.Decode(encodedTable);
+                var sourceGroup = table.GetEntry(sourceFileId);
+                var sourceMember = sourceGroup?.GetEntry(sourceEntryId)
+                    ?? throw new FileNotFoundException($"Archive member {index}/{sourceFileId}/{sourceEntryId} does not exist.");
+                using var source = _archiveSnapshotCache.ReadMember(new ArchiveKey(index, sourceFileId), sourceMember.Index, sourceGroup!.Capacity);
+                var targetGroup = table.Entries.Max(entry => entry.Key);
+                var memberId = table.GetEntry(targetGroup)!.Entries.Max(entry => entry.Key) + 1;
+                if (memberId >= archiveMemberLimit)
+                {
+                    targetGroup = checked(targetGroup + 1);
+                    memberId = 0;
+                }
+                var targetEntry = table.GetEntry(targetGroup);
+                var previous = targetEntry;
+                var oldMappings = previous?.Entries.ToArray() ?? [];
+                using var combined = new Archive(oldMappings.Length + 1);
+                var compression = CompressionType.Gzip;
+                short version = -1;
+                if (previous is not null)
+                {
+                    var (container, archive) = ReadArchiveData(index, targetGroup, previous);
+                    using (container) using (archive)
+                    {
+                        compression = container.CompressionType; version = container.Version;
+                        for (var i = 0; i < oldMappings.Length; i++) combined.Entries![i] = new MemoryStream(archive.GetEntry(i).ToArray());
+                    }
+                }
+                combined.Entries![oldMappings.Length] = new MemoryStream(source.ToArray());
+                if (targetEntry is null)
+                {
+                    targetEntry = new ReferenceTableEntry(targetGroup);
+                    table.AddEntry(targetGroup, targetEntry);
+                }
+                targetEntry.InitializeEntries(oldMappings.Length + 1);
+                foreach (var pair in oldMappings) targetEntry.AddEntry(pair.Key, pair.Value);
+                targetEntry.AddEntry(memberId, new ReferenceTableChildEntry(oldMappings.Length));
+                using var data = _archiveEncoder.Encode(combined);
+                using var updated = new Container(compression, data, version);
+                WriteAndInvalidateUnderLock(index, targetGroup, updated, table);
+                return (targetGroup, memberId);
+            }
+            finally {_snapshotReadWriteLock.ExitWriteLock();}
+        }
+
         private (IContainer Container, IArchive Archive) ReadArchiveData(int indexId, int fileId, IReferenceTableEntry tableEntry)
         {
             var loadStart = Stopwatch.GetTimestamp();
@@ -294,11 +348,12 @@ namespace Hagalaz.Cache
             }
         }
 
-        private void WriteAndInvalidateUnderLock(int indexId, int fileId, IContainer container)
+        private void WriteAndInvalidateUnderLock(int indexId, int fileId, IContainer container, IReferenceTable? table = null)
         {
             try
             {
-                _cacheWriter.Write(indexId, fileId, container);
+                if (table is null) _cacheWriter.Write(indexId, fileId, container);
+                else _cacheWriter.Write(indexId, fileId, container, table);
             }
             finally
             {

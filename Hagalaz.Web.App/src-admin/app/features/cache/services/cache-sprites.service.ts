@@ -1,8 +1,9 @@
+import type { GetSpriteDefinitionDto } from "./dtos";
 import { HttpClient } from "@angular/common/http";
 import { inject, Service, type Signal } from "@angular/core";
 import { catchError, type Observable, shareReplay, tap, throwError } from "rxjs";
 import { environment } from "../../../../environments/environment";
-import type { DefinitionSummaryDto, SearchResultDto, SpriteMutationResultDto } from "./cache.models";
+import type { SearchDefinitionsDto, ReplaceSpriteImageResultDto } from "./cache.models";
 import { cacheDefinitionResource, cacheQueryResource } from "./cache-resource";
 
 @Service()
@@ -12,23 +13,23 @@ export class CacheSpritesService {
     private readonly frameRequests = new Map<string, Observable<Blob>>();
 
     definitionResource(id: Signal<number | null>) {
-        return cacheDefinitionResource<unknown>(this.baseUrl, id);
+        return cacheDefinitionResource<GetSpriteDefinitionDto>(this.baseUrl, id);
     }
 
     rangeResource(range: Signal<{ startId: number; endIdExclusive: number } | null>) {
-        return cacheQueryResource<unknown[]>(`${this.baseUrl}/range`, range);
+        return cacheQueryResource<GetSpriteDefinitionDto[]>(`${this.baseUrl}/range`, range);
     }
 
     searchResource(search: Signal<{ query: string; offset: number; limit: number } | null>) {
-        return cacheQueryResource<SearchResultDto<DefinitionSummaryDto>>(`${this.baseUrl}/search`, search);
+        return cacheQueryResource<SearchDefinitionsDto<GetSpriteDefinitionDto>>(`${this.baseUrl}/search`, search);
     }
 
-    getSprite(id: number): Observable<unknown> {
-        return this.http.get<unknown>(`${this.baseUrl}/${id}`);
+    getSprite(id: number): Observable<GetSpriteDefinitionDto> {
+        return this.http.get<GetSpriteDefinitionDto>(`${this.baseUrl}/${id}`);
     }
 
-    searchSprites(query: string, offset: number, limit: number): Observable<SearchResultDto<unknown>> {
-        return this.http.get<SearchResultDto<unknown>>(`${this.baseUrl}/search`, {
+    searchSprites(query: string, offset: number, limit: number): Observable<SearchDefinitionsDto<GetSpriteDefinitionDto>> {
+        return this.http.get<SearchDefinitionsDto<GetSpriteDefinitionDto>>(`${this.baseUrl}/search`, {
             params: {
                 query,
                 offset,
@@ -53,9 +54,9 @@ export class CacheSpritesService {
         return request;
     }
 
-    replaceSpriteImage(id: number, file: File): Observable<SpriteMutationResultDto> {
+    replaceSpriteImage(id: number, file: File): Observable<ReplaceSpriteImageResultDto> {
         const formData = new FormData();
         formData.append("file", file);
-        return this.http.post<SpriteMutationResultDto>(`${this.baseUrl}/${id}/image`, formData).pipe(tap(() => this.frameRequests.clear()));
+        return this.http.post<ReplaceSpriteImageResultDto>(`${this.baseUrl}/${id}/image`, formData).pipe(tap(() => this.frameRequests.clear()));
     }
 }

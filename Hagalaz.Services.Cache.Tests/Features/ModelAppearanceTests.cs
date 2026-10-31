@@ -1,8 +1,10 @@
+using Hagalaz.Services.Cache.Features.Models.Dtos;
 using System.Net.Http.Json;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Services.Cache.Features;
+using Hagalaz.Services.Cache.Features.Models;
 using Hagalaz.TestSupport;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -28,7 +30,7 @@ public sealed class ModelAppearanceTests
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
-        var result = await client.GetFromJsonAsync<ModelEndpoints.ModelResponse>($"/api/v1/cache/types/{kind}/0/model");
+        var result = await client.GetFromJsonAsync<GetModelDto>($"/api/v1/cache/types/{kind}/0/model");
 
         Assert.IsNotNull(result);
         CollectionAssert.AreEqual(new[] { 60000 }, result.FaceTextureIds);
@@ -40,7 +42,7 @@ public sealed class ModelAppearanceTests
         Assert.IsNull(result.VertexSkins, "A definition with no skinned vertices must not offer manual animation posing.");
         CollectionAssert.AreEqual(new float[] { 0, 0, 1, 0, 0, 1 }, result.FaceTextureUvs);
 
-        var raw = await client.GetFromJsonAsync<ModelEndpoints.ModelResponse>("/api/v1/cache/models/0");
+        var raw = await client.GetFromJsonAsync<GetModelDto>("/api/v1/cache/models/0");
         Assert.IsNotNull(raw);
         Assert.AreEqual(0.25f, raw.CoordinateScale);
         CollectionAssert.AreEqual(new[] { 42 }, raw.FaceTextureIds);
@@ -58,7 +60,7 @@ public sealed class ModelAppearanceTests
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
-        var result = await client.GetFromJsonAsync<ModelEndpoints.ModelResponse>("/api/v1/cache/types/npcs/0/model");
+        var result = await client.GetFromJsonAsync<GetModelDto>("/api/v1/cache/types/npcs/0/model");
 
         Assert.IsNotNull(result);
         CollectionAssert.AreEqual(new[] { 0, 0, 0, 40, 0, 0, 0, 80, 0, 0, 0, 0, 10, 0, 0, 0, 20, 0 }, result.Positions);
@@ -79,7 +81,7 @@ public sealed class ModelAppearanceTests
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
-        var result = await client.GetFromJsonAsync<ModelEndpoints.ModelResponse>("/api/v1/cache/types/objects/0/model?shape=20");
+        var result = await client.GetFromJsonAsync<GetModelDto>("/api/v1/cache/types/objects/0/model?shape=20");
 
         Assert.IsNotNull(result);
         CollectionAssert.AreEqual(new[] { 0, 0, 0, 20, 0, 0, 0, 10, 0 }, result.Positions);
@@ -104,14 +106,14 @@ public sealed class ModelAppearanceTests
         store.Set(7, 2, ContainerBytes(LegacyModel));
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
-        var metadata = await client.GetFromJsonAsync<ModelEndpoints.ItemAppearance[]>("/api/v1/cache/types/items/0/model-appearances");
+        var metadata = await client.GetFromJsonAsync<GetItemModelAppearanceDto[]>("/api/v1/cache/types/items/0/model-appearances");
         Assert.IsNotNull(metadata); Assert.HasCount(5, metadata);
         var selected = metadata.Single(value => value.Key == appearance);
         Assert.IsTrue(selected.Available); Assert.HasCount(parts, selected.ModelIds);
         CollectionAssert.AreEqual(appearance switch {
             "male-equipped" => new[] {0,1,2}, "female-equipped" => new[] {1,0,2},
             "male-head" => new[] {0,1}, _ => new[] {1,0}}, selected.ModelIds);
-        var result = await client.GetFromJsonAsync<ModelEndpoints.ModelResponse>($"/api/v1/cache/types/items/0/model?appearance={appearance}");
+        var result = await client.GetFromJsonAsync<GetModelDto>($"/api/v1/cache/types/items/0/model?appearance={appearance}");
         Assert.IsNotNull(result); Assert.HasCount(parts * 9, result.Positions);
         CollectionAssert.AreEqual(new[] {x,y,z, x+firstWidth,y,z}, result.Positions.Take(6).ToArray());
         for (var part = 0; part < parts; part++)
@@ -132,11 +134,11 @@ public sealed class ModelAppearanceTests
         store.Set(7,0,ContainerBytes(LegacyModel));
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
-        var metadata = await client.GetFromJsonAsync<ModelEndpoints.ItemAppearance[]>("/api/v1/cache/types/items/0/model-appearances");
+        var metadata = await client.GetFromJsonAsync<GetItemModelAppearanceDto[]>("/api/v1/cache/types/items/0/model-appearances");
         Assert.IsNotNull(metadata);
         CollectionAssert.AreEqual(new[] {0}, metadata.Single(value => value.Key == "male-equipped").ModelIds);
         Assert.IsFalse(metadata.Single(value => value.Key == "female-equipped").Available);
-        var male = await client.GetFromJsonAsync<ModelEndpoints.ModelResponse>("/api/v1/cache/types/items/0/model?appearance=male-equipped");
+        var male = await client.GetFromJsonAsync<GetModelDto>("/api/v1/cache/types/items/0/model?appearance=male-equipped");
         Assert.IsNotNull(male); Assert.HasCount(9, male.Positions);
         using var absent = await client.GetAsync("/api/v1/cache/types/items/0/model?appearance=female-equipped");
         Assert.AreEqual(System.Net.HttpStatusCode.NotFound, absent.StatusCode);

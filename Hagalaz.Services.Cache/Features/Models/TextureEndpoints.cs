@@ -1,12 +1,13 @@
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Services.Cache.Features.Shared;
+using Hagalaz.Services.Cache.Features.Models.Dtos;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using SixLabors.ImageSharp;
 
-namespace Hagalaz.Services.Cache.Features;
+namespace Hagalaz.Services.Cache.Features.Models;
 
 public static class TextureEndpoints
 {
@@ -28,7 +29,8 @@ public static class TextureEndpoints
             if (!material.HasHdr) return TypedResults.NotFound();
             using var image = cache.ReadContainer(9, id);
             using var companion = cache.ReadContainer(37, id);
-            return TypedResults.Ok(TextureImageDecoder.ToHdr(image.Data.ToArray(), companion.Data.ToArray(), material.AlphaMode));
+            var hdr = TextureImageDecoder.ToHdr(image.Data.ToArray(), companion.Data.ToArray(), material.AlphaMode);
+            return TypedResults.Ok(new GetTextureHdrDto(hdr.Width, hdr.Height, hdr.Rgba));
         }
         catch (UnknownImageFormatException)
         {
@@ -44,7 +46,13 @@ public static class TextureEndpoints
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Texture ID must be nonnegative."));
         using var materials = cache.Read(26, 0, 0);
-        try { return TypedResults.Ok(MaterialDefinitionDecoder.Decode(materials.ToArray(), id)); }
+        try
+        {
+            var material = MaterialDefinitionDecoder.Decode(materials.ToArray(), id);
+            return TypedResults.Ok(new GetTextureMaterialDto(material.AlphaMode, material.ColorBlend, material.Brightness,
+                material.EffectId, material.EffectParameter, material.ScrollU, material.ScrollV, material.RepeatU,
+                material.RepeatV, material.HasHdr, material.EffectParameter2));
+        }
         catch (System.NotSupportedException exception)
         {
             return TypedResults.Problem(title: "Unsupported texture material", detail: exception.Message, statusCode: 422);

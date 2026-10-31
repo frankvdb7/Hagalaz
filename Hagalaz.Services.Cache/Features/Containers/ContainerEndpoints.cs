@@ -1,3 +1,4 @@
+using Hagalaz.Services.Cache.Features.Containers.Dtos;
 using System;
 using System.IO;
 using Hagalaz.Cache.Abstractions;
@@ -8,7 +9,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
-namespace Hagalaz.Services.Cache.Features;
+namespace Hagalaz.Services.Cache.Features.Containers;
 
 public static class ContainerEndpoints
 {
@@ -26,7 +27,7 @@ public static class ContainerEndpoints
         return TypedResults.Ok(MapContainer(container));
     }
 
-    private static IResult GetContainerWithXtea(int indexId, int fileId, ReadContainerWithXteaRequest request, ICacheAPI cacheApi)
+    private static IResult GetContainerWithXtea(int indexId, int fileId, DecryptContainerDto request, ICacheAPI cacheApi)
     {
         if (request.XteaKeys is null || request.XteaKeys.Length != 4)
         {
@@ -37,7 +38,7 @@ public static class ContainerEndpoints
         return TypedResults.Ok(MapContainer(container));
     }
 
-    private static IResult WriteContainer(int indexId, int fileId, WriteContainerRequest request, ICacheAPI cacheApi)
+    private static IResult WriteContainer(int indexId, int fileId, WriteContainerDto request, ICacheAPI cacheApi)
     {
         if (string.IsNullOrWhiteSpace(request.DataBase64))
         {
@@ -55,35 +56,22 @@ public static class ContainerEndpoints
         }
 
         using var payload = new MemoryStream(data);
-        using var container = new Container(request.CompressionType, payload, request.Version ?? -1);
+        using var container = new Container((CompressionType)request.CompressionType, payload, request.Version ?? -1);
         cacheApi.Write(indexId, fileId, container);
-        return TypedResults.Ok(new CacheMutationResponse(
+        return TypedResults.Ok(new WriteContainerResultDto(
             Action: "write-container",
             IndexId: indexId,
             FileId: fileId));
     }
 
-    private static ContainerResponse MapContainer(IContainer container)
+    private static GetContainerDto MapContainer(IContainer container)
     {
         var buffer = container.Data.ToArray();
-        return new ContainerResponse(
-            CompressionType: container.CompressionType,
+        return new GetContainerDto(
+            CompressionType: (byte)container.CompressionType,
             Version: container.Version,
             IsVersioned: container.IsVersioned(),
             DataBase64: Convert.ToBase64String(buffer),
             DataLength: buffer.Length);
     }
-
-    public sealed record WriteContainerRequest(string DataBase64, CompressionType CompressionType = CompressionType.None, short? Version = null);
-
-    public sealed record ReadContainerWithXteaRequest(int[] XteaKeys);
-
-    public sealed record ContainerResponse(
-        CompressionType CompressionType,
-        short Version,
-        bool IsVersioned,
-        string DataBase64,
-        int DataLength);
-
-    public sealed record CacheMutationResponse(string Action, int IndexId, int FileId);
 }

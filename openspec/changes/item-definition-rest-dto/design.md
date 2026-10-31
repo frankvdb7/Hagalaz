@@ -1,0 +1,8 @@
+# Design
+Use one explicit full ItemDefinitionDto for the existing GET/PUT JSON shape, with stored fields and mapped derived fields. Keep direct FromItem and ApplyTo mappings alongside the DTO; no reflection or mapper package in production. ApplyTo changes stored fields on the decoded item and leaves codec-only metadata untouched. ExtraData converts JSON values into the existing integer/string codec values at this mapping boundary. PreservedOpcodes becomes internal again, without JSON attributes in the cache model. Other definition endpoints already map to dedicated response records and accept dedicated mutation requests; preserve those existing contracts.
+
+## Verification
+74 cache-service tests and 6 focused item codec tests passed. FullDefinitionDto_RoundTripsEveryStoredFieldAndPreservesResponseShape checks all public stored fields, derived JSON fields and JSON extra-data mapping. SaveFullDefinition_ChangesModelFieldsAndPreservesLegacyBytes uses the DTO over HTTP and verifies opaque metadata stays out of responses and survives writes. No new source compiler warnings; pre-existing dependency/test warnings remain. The test command built the affected service and cache projects in isolated artifact output. Existing frontend JSON property names and types are unchanged, so no frontend implementation change is needed. No browser tests, service restart or live cache mutation performed.
+
+## Operation contract refinement
+The approved follow-up separates the original full item contract into GetItemDefinitionDto (stored and derived response fields plus FromItem) and UpdateItemDefinitionDto (stored request fields plus ApplyTo), under Types/Dtos. The full-field/extra-data mapping and internal opcode preservation remain unchanged.

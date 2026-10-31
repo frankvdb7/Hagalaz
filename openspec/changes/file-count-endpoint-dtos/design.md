@@ -1,0 +1,5 @@
+# Design
+Use GetFileCountDto(Count) and GetSubFileCountDto(Count) in the existing typed result signatures. Keep existing validation, routes and cache counting methods. Test both real routes over a sparse isolated file store, missing archive zero and invalid IDs. Preserve current file-ID upper-bound and physical member-count semantics without introducing a new counting mechanism.
+
+## Verification
+Service/test projects built successfully through dotnet test; all 87 service tests passed. CountDtos_RetainSparseFileCountsMemberCountsAndMissingArchiveZero exercises both real routes and checks existing sparse-file count semantics, physical member count, missing archive zero and exact count JSON. CountDtos_RetainNegativeIdValidation covers negative index IDs on both routes and negative file IDs. Strict OpenSpec validation and git diff --check passed, with the existing Git line-ending notice. No new source compiler warnings; existing NuGet warnings remain. Isolated stores only; no live cache mutation or service restart.

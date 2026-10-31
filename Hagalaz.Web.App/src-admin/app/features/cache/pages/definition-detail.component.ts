@@ -10,7 +10,7 @@ import { MatInputModule } from "@angular/material/input";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { RouterLink } from "@angular/router";
 import { PortalBreadcrumbDirective } from "../../../layout/portal-breadcrumb.directive";
-import { cacheTypeLabels, type TypeKind, type TypeMutationResultDto } from "../services/cache.models";
+import { cacheTypeLabels, type TypeKind, type DefinitionMutationResult } from "../services/cache.models";
 import { CachePendingChangesService } from "../cache-pending-changes.service";
 import { injectCacheDefinitionId } from "./cache-definition-id";
 import { DefinitionPickerComponent } from "./definition-picker.component";
@@ -20,7 +20,7 @@ type DetailStore = {
     definitionId: Signal<number | null>;
     loading: Signal<boolean>;
     error: Signal<string | null>;
-    mutationResult: Signal<TypeMutationResultDto | null>;
+    mutationResult: Signal<DefinitionMutationResult | null>;
     loadById(id: number): void;
 };
 

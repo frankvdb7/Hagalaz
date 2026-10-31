@@ -1,6 +1,7 @@
 using System.Net;
 using Hagalaz.Cache.Models;
 using Hagalaz.Services.Cache.Features;
+using Hagalaz.Services.Cache.Features.Models;
 using Hagalaz.TestSupport;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -11,6 +12,8 @@ public sealed class ModelAssetEndpointsTests
 {
     [TestMethod]
     [DataRow("models/-1", HttpStatusCode.BadRequest)]
+    [DataRow("animation-frames/-1", HttpStatusCode.BadRequest)]
+    [DataRow("types/animations/-1/sequence", HttpStatusCode.BadRequest)]
     [DataRow("models/999", HttpStatusCode.NotFound)]
     [DataRow("textures/-1/image", HttpStatusCode.BadRequest)]
     [DataRow("textures/-1/material", HttpStatusCode.BadRequest)]

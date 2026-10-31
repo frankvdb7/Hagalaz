@@ -19,12 +19,12 @@ export class VarpBitEditorComponent {
     private readonly dialog = inject(MatDialog);
     private readonly pendingChanges = inject(CachePendingChangesService);
     private readonly varpMutationModel = linkedSignal(() => {
-        const value = (this.store.byIdResult() ?? {}) as Record<string, unknown>;
+        const value = this.store.byIdResult();
         return {
             id: this.store.definitionId() ?? 0,
-            configId: (value.configId ?? 0) as number,
-            bitLength: (value.bitLength ?? 0) as number,
-            bitOffset: (value.bitOffset ?? 0) as number,
+            configId: (value?.configId ?? 0),
+            bitLength: (value?.bitLength ?? 0),
+            bitOffset: (value?.bitOffset ?? 0),
         };
     });
     readonly varpMutationForm = form(this.varpMutationModel, (path) => {
@@ -43,8 +43,8 @@ export class VarpBitEditorComponent {
             {
                 dirty: () => {
                     const v = this.varpMutationModel();
-                    const record = (this.store.byIdResult() ?? {}) as Record<string, unknown>;
-                    return v.configId !== (record.configId ?? 0) || v.bitLength !== (record.bitLength ?? 0) || v.bitOffset !== (record.bitOffset ?? 0);
+                    const record = this.store.byIdResult();
+                    return v.configId !== (record?.configId ?? 0) || v.bitLength !== (record?.bitLength ?? 0) || v.bitOffset !== (record?.bitOffset ?? 0);
                 },
                 saving: () => this.store.saving(),
             },

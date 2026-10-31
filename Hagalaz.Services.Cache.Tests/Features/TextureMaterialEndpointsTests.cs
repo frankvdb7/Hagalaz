@@ -1,3 +1,4 @@
+using Hagalaz.Services.Cache.Features.Models.Dtos;
 using System.Net.Http.Json;
 using System.Net;
 using SixLabors.ImageSharp;
@@ -6,6 +7,7 @@ using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Services.Cache.Features;
+using Hagalaz.Services.Cache.Features.Models;
 using Hagalaz.TestSupport;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -21,10 +23,10 @@ public sealed class TextureMaterialEndpointsTests
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTextureEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
-        var result = await client.GetFromJsonAsync<MaterialDefinitionDecoder.Material>("/api/v1/cache/textures/0/material");
+        var result = await client.GetFromJsonAsync<GetTextureMaterialDto>("/api/v1/cache/textures/0/material");
 
         Assert.IsNotNull(result);
-        Assert.AreEqual(new MaterialDefinitionDecoder.Material(1, 170, 25, 2, 12, -1, 4, true, false, true, 0x12345678), result);
+        Assert.AreEqual(new GetTextureMaterialDto(1, 170, 25, 2, 12, -1, 4, true, false, true, 0x12345678), result);
     }
 
     [TestMethod]
@@ -35,13 +37,16 @@ public sealed class TextureMaterialEndpointsTests
         AddImage(store, 37, 1, new Rgba32(0, 8, 0, 255));
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTextureEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
-        var result = await client.GetFromJsonAsync<TextureImageDecoder.HdrImage>("/api/v1/cache/textures/0/hdr");
+        var result = await client.GetFromJsonAsync<GetTextureHdrDto>("/api/v1/cache/textures/0/hdr");
         Assert.IsNotNull(result);
         Assert.AreEqual(1, result.Width); Assert.AreEqual(1, result.Height);
         CollectionAssert.AreEqual(new float[] {16.5f, 128/255f*16.5f, 0, 1}, result.Rgba);
         using var png = await client.GetAsync("/api/v1/cache/textures/0/image");
         Assert.AreEqual(HttpStatusCode.OK, png.StatusCode);
         Assert.AreEqual("image/png", png.Content.Headers.ContentType!.MediaType);
+        Assert.AreEqual("1", png.Headers.GetValues("X-Texture-Alpha-Mode").Single());
+        Assert.AreEqual("170", png.Headers.GetValues("X-Texture-Color-Blend").Single());
+        Assert.AreEqual("25", png.Headers.GetValues("X-Texture-Brightness").Single());
         using var decoded = Image.Load<Rgba32>(await png.Content.ReadAsByteArrayAsync());
         Assert.AreEqual(new Rgba32(255, 128, 0, 255), decoded[0,0]);
     }

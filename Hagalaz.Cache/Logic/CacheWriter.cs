@@ -39,12 +39,14 @@ namespace Hagalaz.Cache.Logic
         /// <exception cref="IOException">Thrown when attempting to write to the master checksum table or to an archive without an existing reference-table entry.</exception>
         public void Write(int indexId, int fileId, IContainer container)
         {
-            /* we don't want people reading/manipulating these manually */
-            if (indexId == 255 && fileId == 255)
-                throw new IOException("Checksum tables can only be read with the low level FileStore API!");
+            ValidateTarget(indexId, fileId);
+            Write(indexId, fileId, container, _referenceTableProvider.ReadReferenceTable(indexId));
+        }
 
-            /* decode the reference table for this index */
-            var table = _referenceTableProvider.ReadReferenceTable(indexId);
+        /// <inheritdoc />
+        public void Write(int indexId, int fileId, IContainer container, IReferenceTable table)
+        {
+            ValidateTarget(indexId, fileId);
 
             /* child member mappings cannot be inferred from a container write */
             var entry = table.GetEntry(fileId);
@@ -86,6 +88,11 @@ namespace Hagalaz.Cache.Logic
                 using (MemoryStream refStream = new MemoryStream(referenceTableContainer.Encode()))
                     _store.Write(255, indexId, refStream);
             }
+        }
+        private static void ValidateTarget(int indexId, int fileId)
+        {
+            if (indexId == 255 && fileId == 255)
+                throw new IOException("Checksum tables can only be read with the low level FileStore API!");
         }
     }
 }

@@ -1,5 +1,6 @@
 using System.Net;
 using Hagalaz.Services.Cache.Features;
+using Hagalaz.Services.Cache.Features.Types;
 using Hagalaz.Services.Cache.Tests.Features;
 using Hagalaz.TestSupport;
 using Microsoft.AspNetCore.Builder;

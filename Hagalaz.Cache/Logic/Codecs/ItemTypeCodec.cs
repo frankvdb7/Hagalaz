@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
@@ -28,7 +29,7 @@ namespace Hagalaz.Cache.Logic.Codecs
             writer.WriteByte(1);
             writer.WriteBigSmart(itemType.InterfaceModelId);
 
-            if (!itemType.Name.Equals("null") && itemType.NoteTemplateId == -1)
+            if (!itemType.Name.Equals("null"))
             {
                 writer.WriteByte(2);
                 writer.WriteString(itemType.Name);
@@ -70,7 +71,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                 writer.WriteShort(value);
             }
 
-            if (itemType.StackableType >= 1 && itemType.NoteTemplateId == -1)
+            if (itemType.StackableType >= 1)
             {
                 writer.WriteByte(11);
             }
@@ -78,25 +79,25 @@ namespace Hagalaz.Cache.Logic.Codecs
             if (itemType.MaleHeadModel != -1)
             {
                 writer.WriteByte(90);
-                writer.WriteShort((ushort)itemType.MaleHeadModel);
+                writer.WriteBigSmart(itemType.MaleHeadModel);
             }
 
             if (itemType.FemaleHeadModel != -1)
             {
                 writer.WriteByte(91);
-                writer.WriteShort((ushort)itemType.FemaleHeadModel);
+                writer.WriteBigSmart(itemType.FemaleHeadModel);
             }
 
             if (itemType.MaleHeadModel2 != -1)
             {
                 writer.WriteByte(92);
-                writer.WriteShort((ushort)itemType.MaleHeadModel2);
+                writer.WriteBigSmart(itemType.MaleHeadModel2);
             }
 
             if (itemType.FemaleHeadModel2 != -1)
             {
                 writer.WriteByte(93);
-                writer.WriteShort((ushort)itemType.FemaleHeadModel2);
+                writer.WriteBigSmart(itemType.FemaleHeadModel2);
             }
 
             if (itemType.Zan2D != -1)
@@ -111,7 +112,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                 writer.WriteByte((byte)itemType.UnknownInt6);
             }
 
-            if (itemType.Value != 1 && itemType.LendTemplateId == -1)
+            if (itemType.Value != 1)
             {
                 writer.WriteByte(12);
                 writer.WriteInt(itemType.Value);
@@ -135,7 +136,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                 writer.WriteByte((byte)itemType.SomeEquipInt);
             }
 
-            if (itemType.MembersOnly && itemType.NoteId == -1)
+            if (itemType.MembersOnly)
             {
                 writer.WriteByte(16);
             }
@@ -325,28 +326,28 @@ namespace Hagalaz.Cache.Logic.Codecs
                 writer.WriteSignedByte((sbyte)(itemType.FemaleWearZOffset >> 2));
             }
 
-            if (itemType.UnknownInt18 != 0 && itemType.UnknownInt19 != 0)
+            if (itemType.UnknownInt18 != 0 || itemType.UnknownInt19 != 0)
             {
                 writer.WriteByte(127);
                 writer.WriteByte((byte)itemType.UnknownInt18);
                 writer.WriteShort(itemType.UnknownInt19);
             }
 
-            if (itemType.UnknownInt20 != 0 && itemType.UnknownInt21 != 0)
+            if (itemType.UnknownInt20 != 0 || itemType.UnknownInt21 != 0)
             {
                 writer.WriteByte(128);
                 writer.WriteByte((byte)itemType.UnknownInt20);
                 writer.WriteShort(itemType.UnknownInt21);
             }
 
-            if (itemType.UnknownInt22 != 0 && itemType.UnknownInt23 != 0)
+            if (itemType.UnknownInt22 != 0 || itemType.UnknownInt23 != 0)
             {
                 writer.WriteByte(129);
                 writer.WriteByte((byte)itemType.UnknownInt22);
                 writer.WriteShort(itemType.UnknownInt23);
             }
 
-            if (itemType.UnknownInt24 != 0 && itemType.UnknownInt25 != 0)
+            if (itemType.UnknownInt24 != 0 || itemType.UnknownInt25 != 0)
             {
                 writer.WriteByte(130);
                 writer.WriteByte((byte)itemType.UnknownInt24);
@@ -400,14 +401,18 @@ namespace Hagalaz.Cache.Logic.Codecs
                     }
                 }
             }
+            foreach (var opcode in itemType.PreservedOpcodes ?? []) writer.Write(opcode);
             writer.WriteByte(0);
             return writer;
         }
 
         private void Decode(ItemType itemType, MemoryStream stream)
         {
+            var preserved = new List<byte[]>();
+            byte[]? original = null;
             while (true)
             {
+                var start = (int)stream.Position;
                 int opcode = stream.ReadUnsignedByte();
                 if (opcode == 0)
                 {
@@ -687,7 +692,13 @@ namespace Hagalaz.Cache.Logic.Codecs
                 {
                     throw new IOException("Unknown opcode:" + opcode);
                 }
+                if (opcode is 43 or 44 or 45 or >= 142 and < 147 or >= 150 and < 155 or >= 242 and <= 248 or >= 250 and <= 253)
+                {
+                    original ??= stream.ToArray();
+                    preserved.Add(original.AsSpan(start, (int)stream.Position - start).ToArray());
+                }
             }
+            itemType.PreservedOpcodes = preserved.ToArray();
         }
     }
 }

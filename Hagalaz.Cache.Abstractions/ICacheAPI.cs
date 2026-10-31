@@ -108,6 +108,13 @@ namespace Hagalaz.Cache.Abstractions
         /// <param name="replacement">The replacement member bytes.</param>
         void ReplaceArchiveMember(int indexId, int fileId, int archiveEntryId, global::System.ReadOnlyMemory<byte> replacement);
 
+        /// <summary>Appends a persisted member copy after the last mapped member, allocating and writing under the cache write lock.</summary>
+        /// <param name="indexId">The source and destination index.</param>
+        /// <param name="sourceFileId">The source archive ID.</param>
+        /// <param name="sourceEntryId">The source member ID.</param>
+        /// <param name="archiveMemberLimit">The exclusive member ID limit; starts a new archive when reached.</param>
+        (int FileId, int EntryId) AppendArchiveMemberCopy(int indexId, int sourceFileId, int sourceEntryId, int archiveMemberLimit);
+
         /// <summary>
         /// Writes raw, already-encoded file bytes while invalidating local cached state affected by the target.
         /// Container versions and reference-table metadata are not updated.

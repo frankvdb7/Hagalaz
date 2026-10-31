@@ -1,8 +1,10 @@
+using Hagalaz.Services.Cache.Features.Models.Dtos;
 using System.Net.Http.Json;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Services.Cache.Features;
+using Hagalaz.Services.Cache.Features.Models;
 using Hagalaz.TestSupport;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -21,13 +23,15 @@ public class ModelParticleEndpointsTests
         if(state!="missing") Seed(store,27,403,state=="valid"?Fixture("emitter-403.dat"):[99,0]);
         await using var app=await CacheServiceTestHost.StartAsync(store,group=>group.MapModelEndpoints());
         using var client=CacheServiceTestHost.CreateClient(app);
-        var result=await client.GetFromJsonAsync<ModelEndpoints.ModelResponse>("/api/v1/cache/models/65297");
+        var result=await client.GetFromJsonAsync<GetModelDto>("/api/v1/cache/models/65297");
         Assert.IsNotNull(result);Assert.HasCount(7,result.Particles!);
         CollectionAssert.AreEqual(Enumerable.Range(785,7).ToArray(),result.Particles!.Select(p=>p.Face).ToArray());
-        foreach(var particle in result.Particles)
+        foreach(var particle in result.Particles!)
         {
             Assert.AreEqual(403,particle.EmitterId);
-            if(state=="valid") {Assert.IsNotNull(particle.Definition,particle.Warning);Assert.AreEqual(744,particle.Definition.TextureId);Assert.IsNull(particle.Warning);}
+            if(state=="valid") {Assert.IsNotNull(particle.Definition,particle.Warning);Assert.AreEqual(744,particle.Definition.TextureId);Assert.IsTrue(System.Text.Json.Nodes.JsonNode.DeepEquals(
+                System.Text.Json.JsonSerializer.SerializeToNode(ParticleEmitterDecoder.Decode(Fixture("emitter-403.dat"))),
+                System.Text.Json.JsonSerializer.SerializeToNode(particle.Definition)), "Particle DTO must retain every decoder field.");Assert.IsNull(particle.Warning);}
             else {Assert.IsNull(particle.Definition);StringAssert.Contains(particle.Warning,"is unavailable");}
         }
     }
@@ -41,7 +45,7 @@ public class ModelParticleEndpointsTests
         store.Set(7,0,ContainerBytes(bytes));store.Set(7,1,ContainerBytes(bytes));
         await using var app=await CacheServiceTestHost.StartAsync(store,group=>group.MapModelEndpoints());
         using var client=CacheServiceTestHost.CreateClient(app);
-        var result=await client.GetFromJsonAsync<ModelEndpoints.ModelResponse>("/api/v1/cache/types/items/0/model?appearance=male-equipped");
+        var result=await client.GetFromJsonAsync<GetModelDto>("/api/v1/cache/types/items/0/model?appearance=male-equipped");
         Assert.IsNotNull(result);Assert.HasCount(14,result.Particles!);
         var faces=ModelGeometryDecoder.Decode(bytes).FaceColors.Length;
         CollectionAssert.AreEqual(Enumerable.Range(785,7).Concat(Enumerable.Range(faces+785,7)).ToArray(),result.Particles!.Select(p=>p.Face).ToArray());

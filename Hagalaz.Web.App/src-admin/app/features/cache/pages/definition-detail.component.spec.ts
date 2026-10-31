@@ -1,3 +1,4 @@
+import { ItemSpriteThumbnailComponent } from "./item-sprite-thumbnail.component";
 import { Location } from "@angular/common";
 import { provideLocationMocks } from "@angular/common/testing";
 import { TestbedHarnessEnvironment } from "@angular/cdk/testing/testbed";
@@ -26,10 +27,14 @@ import { NpcsDetailPageComponent } from "./details/npcs-detail.page";
 import { ObjectsDetailPageComponent } from "./details/objects-detail.page";
 import { ItemsDetailPageComponent } from "./details/items-detail.page";
 
+@Component({selector: "cache-item-sprite-thumbnail", template: ""})
+class ItemSpriteBoundary { readonly id=input.required<number>(); readonly name=input(""); readonly size=input(44); }
+
 @Component({ selector: "cache-model-preview", template: "" })
 class ModelPreviewBoundary {
     readonly modelId = input<number | null>(null);
     readonly itemId = input<number | null>(null);
+    readonly height = input(360);
     readonly definition = input<unknown>();
 }
 
@@ -61,6 +66,7 @@ describe("dedicated cache detail routes", () => {
         });
         for (const page of [NpcsDetailPageComponent, ObjectsDetailPageComponent, ItemsDetailPageComponent])
             TestBed.overrideComponent(page, { remove: { imports: [CacheModelPreviewComponent] }, add: { imports: [ModelPreviewBoundary] } });
+        TestBed.overrideComponent(ItemsDetailPageComponent, {remove: {imports: [ItemSpriteThumbnailComponent]}, add: {imports: [ItemSpriteBoundary]}});
         http = TestBed.inject(HttpTestingController);
     });
     afterEach(() => {

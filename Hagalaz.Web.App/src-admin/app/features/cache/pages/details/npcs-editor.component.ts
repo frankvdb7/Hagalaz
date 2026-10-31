@@ -19,8 +19,8 @@ export class NpcEditorComponent {
     private readonly dialog = inject(MatDialog);
     private readonly pendingChanges = inject(CachePendingChangesService);
     private readonly npcMutationModel = linkedSignal(() => {
-        const value = (this.store.byIdResult() ?? {}) as Record<string, unknown>;
-        return { id: this.store.definitionId() ?? 0, combatLevel: (value.combatLevel ?? 0) as number };
+        const value = this.store.byIdResult();
+        return { id: this.store.definitionId() ?? 0, combatLevel: (value?.combatLevel ?? 0) };
     });
     readonly npcMutationForm = form(this.npcMutationModel, (path) => {
         required(path.id);
@@ -34,8 +34,8 @@ export class NpcEditorComponent {
             {
                 dirty: () => {
                     const v = this.npcMutationModel();
-                    const record = (this.store.byIdResult() ?? {}) as Record<string, unknown>;
-                    return v.combatLevel !== (record.combatLevel ?? 0);
+                    const record = this.store.byIdResult();
+                    return v.combatLevel !== (record?.combatLevel ?? 0);
                 },
                 saving: () => this.store.saving(),
             },

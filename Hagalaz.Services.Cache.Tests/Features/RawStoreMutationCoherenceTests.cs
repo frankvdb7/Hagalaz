@@ -1,3 +1,4 @@
+using Hagalaz.Services.Cache.Features.Mutations.Dtos;
 using System.Net;
 using System.Net.Http.Json;
 using System.Threading;
@@ -10,6 +11,9 @@ using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types;
 using Hagalaz.Services.Cache.Features;
+using Hagalaz.Services.Cache.Features.Mutations;
+using Hagalaz.Services.Cache.Features.Types;
+using Hagalaz.Services.Cache.Features.Types.Dtos;
 using Hagalaz.TestSupport;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -100,7 +104,7 @@ public sealed class RawStoreMutationCoherenceTests
 
         using var response = await client.PostAsJsonAsync(
             "/api/v1/cache/types/objects/259/name",
-            new TypeMutationEndpoints.SetObjectNameRequest(updatedName));
+            new UpdateObjectNameDto(updatedName));
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
 
         Assert.IsFalse(initialArchive.SequenceEqual(store.GetBytes(16, 1)), "The updated archive should be persisted to the file store.");
@@ -138,7 +142,7 @@ public sealed class RawStoreMutationCoherenceTests
         using var client = CacheServiceTestHost.CreateClient(app);
         using var response = await client.PostAsJsonAsync(
             "/api/v1/cache/types/objects/1/name",
-            new TypeMutationEndpoints.SetObjectNameRequest("Edited crate"));
+            new UpdateObjectNameDto("Edited crate"));
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
         Assert.IsFalse(initialArchive.SequenceEqual(store.GetBytes(16, 0)));
@@ -168,7 +172,7 @@ public sealed class RawStoreMutationCoherenceTests
         {
             using var response = await client.PostAsJsonAsync(
                 "/api/v1/cache/types/objects/259/name",
-                new TypeMutationEndpoints.SetObjectNameRequest(invalidName));
+                new UpdateObjectNameDto(invalidName));
 
             Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode, await response.Content.ReadAsStringAsync());
             CollectionAssert.AreEqual(initialArchive, store.GetBytes(16, 1));
@@ -189,7 +193,7 @@ public sealed class RawStoreMutationCoherenceTests
 
         using var response = await client.PostAsJsonAsync(
             "/api/v1/cache/types/objects/259/name",
-            new TypeMutationEndpoints.SetObjectNameRequest("updated"));
+            new UpdateObjectNameDto("updated"));
 
         Assert.AreNotEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
         CollectionAssert.AreEqual(initialArchive, store.GetBytes(16, 1));
@@ -211,7 +215,7 @@ public sealed class RawStoreMutationCoherenceTests
 
         using var response = await client.PostAsJsonAsync(
             "/api/v1/cache/types/npcs/1/combat-level",
-            new TypeMutationEndpoints.SetNpcCombatLevelRequest(77));
+            new UpdateNpcCombatLevelDto(77));
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
         var cacheApi = app.Services.GetRequiredService<ICacheAPI>();
@@ -248,7 +252,7 @@ public sealed class RawStoreMutationCoherenceTests
         using var client = CacheServiceTestHost.CreateClient(app);
         using var response = await client.PostAsJsonAsync(
             "/api/v1/cache/types/npcs/0/combat-level",
-            new TypeMutationEndpoints.SetNpcCombatLevelRequest(77));
+            new UpdateNpcCombatLevelDto(77));
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
         Assert.IsFalse(initialArchive.SequenceEqual(store.GetBytes(18, 0)));
@@ -282,7 +286,7 @@ public sealed class RawStoreMutationCoherenceTests
 
         using var response = await client.PostAsJsonAsync(
             "/api/v1/cache/types/npcs/1/combat-level",
-            new TypeMutationEndpoints.SetNpcCombatLevelRequest(65536));
+            new UpdateNpcCombatLevelDto(65536));
 
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode, await response.Content.ReadAsStringAsync());
         CollectionAssert.AreEqual(initialArchive, store.GetBytes(18, 0));
@@ -304,7 +308,7 @@ public sealed class RawStoreMutationCoherenceTests
 
         using var response = await client.PostAsJsonAsync(
             "/api/v1/cache/types/npcs/1/combat-level",
-            new TypeMutationEndpoints.SetNpcCombatLevelRequest(-1));
+            new UpdateNpcCombatLevelDto(-1));
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
         var cacheApi = app.Services.GetRequiredService<ICacheAPI>();
@@ -353,7 +357,7 @@ public sealed class RawStoreMutationCoherenceTests
             EncodeObject(objectCodec, "copy-1")));
         var copyResponse = await client.PostAsJsonAsync(
             "/api/v1/cache/store/indexes/16/files/1/actions/copy-raw",
-            new StoreMutationEndpoints.CopyRawFileRequest(16, 2));
+            new CopyRawFileDto(16, 2));
         Assert.AreEqual(HttpStatusCode.OK, copyResponse.StatusCode, await copyResponse.Content.ReadAsStringAsync());
 
         Assert.AreEqual("copy-1", await ReadObjectNameAsync(client));
@@ -363,7 +367,7 @@ public sealed class RawStoreMutationCoherenceTests
         store.Set(255, 17, copiedReferenceTable);
         var referenceTableCopyResponse = await client.PostAsJsonAsync(
             "/api/v1/cache/store/indexes/255/files/16/actions/copy-raw",
-            new StoreMutationEndpoints.CopyRawFileRequest(255, 17));
+            new CopyRawFileDto(255, 17));
         Assert.AreEqual(HttpStatusCode.OK, referenceTableCopyResponse.StatusCode, await referenceTableCopyResponse.Content.ReadAsStringAsync());
         var cacheApi = app.Services.GetRequiredService<ICacheAPI>();
         Assert.IsNotNull(cacheApi.ReadReferenceTable(16).GetEntry(1, 3));
@@ -379,8 +383,8 @@ public sealed class RawStoreMutationCoherenceTests
 
         await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapStoreMutationEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
-        var writeRequest = new StoreMutationEndpoints.WriteRawFileRequest(Convert.ToBase64String([2]));
-        var copyRequest = new StoreMutationEndpoints.CopyRawFileRequest(0, 0);
+        var writeRequest = new WriteRawFileDto(Convert.ToBase64String([2]));
+        var copyRequest = new CopyRawFileDto(0, 0);
 
         foreach (var path in new[]
         {
@@ -418,17 +422,17 @@ public sealed class RawStoreMutationCoherenceTests
         await using var app = await CacheServiceTestHost.StartAsync(store, cacheGroup => cacheGroup.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
-        var initialDefinition = await client.GetFromJsonAsync<TypeEndpoints.ConfigDefinitionResponse>("/api/v1/cache/types/config-definitions/0");
+        var initialDefinition = await client.GetFromJsonAsync<GetConfigDefinitionDto>("/api/v1/cache/types/config-definitions/0");
         Assert.IsNotNull(initialDefinition);
         Assert.AreEqual(123, initialDefinition.DefaultValue);
         Assert.AreEqual('A', initialDefinition.ValueType);
 
         var invalidRequests = new[]
         {
-            new TypeMutationEndpoints.UpdateConfigDefinitionRequest(-1, 'A'),
-            new TypeMutationEndpoints.UpdateConfigDefinitionRequest(65536, 'A'),
-            new TypeMutationEndpoints.UpdateConfigDefinitionRequest(123, '\x80'),
-            new TypeMutationEndpoints.UpdateConfigDefinitionRequest(123, '\u0100')
+            new UpdateConfigDefinitionDto(-1, 'A'),
+            new UpdateConfigDefinitionDto(65536, 'A'),
+            new UpdateConfigDefinitionDto(123, '\x80'),
+            new UpdateConfigDefinitionDto(123, '\u0100')
         };
 
         foreach (var request in invalidRequests)
@@ -456,7 +460,7 @@ public sealed class RawStoreMutationCoherenceTests
         using var client = CacheServiceTestHost.CreateClient(app);
         using var response = await client.PostAsJsonAsync(
             "/api/v1/cache/types/config-definitions/1",
-            new TypeMutationEndpoints.UpdateConfigDefinitionRequest(ushort.MaxValue, 'Z'));
+            new UpdateConfigDefinitionDto(ushort.MaxValue, 'Z'));
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
         Assert.IsFalse(initialArchive.SequenceEqual(store.GetBytes(2, 16)));
@@ -491,7 +495,7 @@ public sealed class RawStoreMutationCoherenceTests
         using var client = CacheServiceTestHost.CreateClient(app);
         using var response = await client.PostAsJsonAsync(
             "/api/v1/cache/types/varp-bits/1",
-            new TypeMutationEndpoints.UpdateVarpBitDefinitionRequest(789, 9, 7));
+            new UpdateVarpBitDefinitionDto(789, 9, 7));
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
         Assert.IsFalse(initialArchive.SequenceEqual(store.GetBytes(22, 0)));
@@ -517,7 +521,7 @@ public sealed class RawStoreMutationCoherenceTests
         using var httpResponse = await client.GetAsync($"/api/v1/cache/types/objects/{id}");
         var responseBody = await httpResponse.Content.ReadAsStringAsync();
         Assert.AreEqual(HttpStatusCode.OK, httpResponse.StatusCode, responseBody);
-        var response = System.Text.Json.JsonSerializer.Deserialize<TypeEndpoints.ObjectTypeResponse>(
+        var response = System.Text.Json.JsonSerializer.Deserialize<GetObjectDefinitionDto>(
             responseBody,
             new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
         Assert.IsNotNull(response);
@@ -539,7 +543,7 @@ public sealed class RawStoreMutationCoherenceTests
 
     private static async Task PostRawWriteAsync(HttpClient client, string path, byte[] bytes)
     {
-        var response = await client.PostAsJsonAsync(path, new StoreMutationEndpoints.WriteRawFileRequest(Convert.ToBase64String(bytes)));
+        var response = await client.PostAsJsonAsync(path, new WriteRawFileDto(Convert.ToBase64String(bytes)));
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
     }
 

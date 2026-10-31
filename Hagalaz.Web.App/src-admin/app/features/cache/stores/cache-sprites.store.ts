@@ -1,17 +1,18 @@
+import type { GetSpriteDefinitionDto } from "../services/dtos";
 import { computed, inject } from "@angular/core";
 import { tapResponse } from "@ngrx/operators";
 import { patchState, signalStore, withComputed, withMethods, withState } from "@ngrx/signals";
 import { rxMethod } from "@ngrx/signals/rxjs-interop";
 import { EMPTY, exhaustMap, filter, pipe, switchMap } from "rxjs";
-import type { SearchResultDto, SpriteMutationResultDto } from "../services/cache.models";
+import type { SearchDefinitionsDto, ReplaceSpriteImageResultDto } from "../services/cache.models";
 import { CacheSpritesService } from "../services/cache-sprites.service";
 import { getCacheErrorMessage } from "./cache-error";
 
 export const CacheSpritesStore = signalStore(
     withState({
-        spriteInfo: null as unknown,
-        searchResult: null as SearchResultDto<unknown> | null,
-        mutationResult: null as SpriteMutationResultDto | null,
+        spriteInfo: null as GetSpriteDefinitionDto | null,
+        searchResult: null as SearchDefinitionsDto<GetSpriteDefinitionDto> | null,
+        mutationResult: null as ReplaceSpriteImageResultDto | null,
         mutationId: null as number | null,
         imageBlob: null as Blob | null,
         imageId: null as number | null,

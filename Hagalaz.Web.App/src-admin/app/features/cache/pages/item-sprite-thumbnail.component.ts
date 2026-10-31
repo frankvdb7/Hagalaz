@@ -3,12 +3,14 @@ import { CacheItemsService } from "../services/cache-items.service";
 
 @Component({
     selector: "cache-item-sprite-thumbnail",
-    template: `@if (imageUrl(); as source) { <img [src]="source" [alt]="'Item sprite for ' + (name() || 'item #' + id())" loading="lazy" width="44" height="44" /> } @else if (failed()) { <span role="img" [attr.aria-label]="'Item sprite unavailable for item #' + id()">!</span> } @else { <span role="status" aria-label="Loading item sprite">…</span> }`,
+    template: `@if (imageUrl(); as source) { <img [src]="source" [alt]="'Item sprite for ' + (name() || 'item #' + id())" loading="lazy" [width]="size()" [height]="size()" /> } @else if (failed()) { <span role="img" [attr.aria-label]="'Item sprite unavailable for item #' + id()">!</span> } @else { <span role="status" aria-label="Loading item sprite">…</span> }`,
+    host: {"[style.width.px]": "size()", "[style.height.px]": "size()"},
     styles: `:host { display: inline-grid; place-items: center; width: 44px; height: 44px; vertical-align: middle; } img { max-width: 100%; max-height: 100%; image-rendering: pixelated; object-fit: contain; }`,
 })
 export class ItemSpriteThumbnailComponent {
     readonly id = input.required<number>();
     readonly name = input("");
+    readonly size = input(44);
     readonly imageUrl = signal<string | null>(null);
     readonly failed = signal(false);
     private readonly items = inject(CacheItemsService);
