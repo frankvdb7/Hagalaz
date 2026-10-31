@@ -1,10 +1,12 @@
+import type { GetTextureMaterialDto, GetTextureHdrDto } from "../services/dtos";
+import type { GetModelDto, GetAnimationSequenceDto, GetAnimationFrameDto, GetItemModelAppearanceDto } from "../services/dtos";
 import { HttpClient, httpResource } from "@angular/common/http";
 import { Component, computed, effect, inject, input, linkedSignal, signal, untracked } from "@angular/core";
 import { rxResource } from "@angular/core/rxjs-interop";
 import { forkJoin, map, of, from, switchMap, Observable, catchError } from "rxjs";
 import { describeMaterialEffect } from "../../../../../shared/model-viewer/material-effects";
 import { FormsModule } from "@angular/forms";
-import { type AnimationFrameData, poseModel, poseFaceAlpha } from "../../../../../shared/model-viewer/model-pose";
+import { poseModel, poseFaceAlpha } from "../../../../../shared/model-viewer/model-pose";
 import { RouterLink } from "@angular/router";
 import { ModelViewerComponent } from "../../../../../shared/model-viewer/model-viewer.component";
 import { environment } from "../../../../environments/environment";
@@ -12,14 +14,9 @@ import { prepareCacheModel } from "../../../../../shared/model-viewer/cache-mode
 import { getCacheErrorMessage } from "../stores/cache-error";
 import { CacheTextureThumbnailComponent } from "./cache-texture-thumbnail.component";
 
-import type {ModelParticle} from "../../../../../shared/model-viewer/model-particles";
 import type { ModelTexture } from "../../../../../shared/model-viewer/model-scene";
 
-interface ModelResponse { particles?: ModelParticle[]; id: number; positions: number[]; scale?: number[] | null; indices: number[]; faceColors: number[]; faceAlpha: number[]; faceSkins?: number[] | null; faceTextureIds?: number[] | null; faceTextureVertices?: number[] | null; faceTextureUvs?: number[] | null; vertexSkins: number[] | null; warnings: string[]; animationIds?: number[]; coordinateScale?: number; }
-interface CacheMaterial { alphaMode: 0 | 1 | 2; colorBlend: number; brightness: number; effectId: number; effectParameter: number; effectParameter2?: number; scrollU: number; scrollV: number; repeatU: boolean; repeatV: boolean; hasHdr: boolean; }
-type CacheTexture = ModelTexture & CacheMaterial & {hdrError?: boolean};
-interface AnimationSequence { id: number; frameIds: number[]; frameDurations: number[]; loop: number; isTweened: boolean; }
-interface ItemAppearance { key: string; label: string; modelIds: number[]; available: boolean; }
+type CacheTexture = ModelTexture & GetTextureMaterialDto & {hdrError?: boolean};
 
 @Component({
     selector: "cache-model-preview",
@@ -33,7 +30,7 @@ interface ItemAppearance { key: string; label: string; modelIds: number[]; avail
         @if (appearances.error(); as error) { <p role="alert">Appearance choices are unavailable. {{errorMessage(error)}}</p><button type="button" (click)="appearances.reload()">Retry appearances</button> }
         @if (model.isLoading()) { <p role="status">Loading model…</p> }
         @if (model.error(); as error) { <p role="alert">Model preview is unavailable. {{ errorMessage(error) }}</p><button type="button" (click)="model.reload()">Retry model</button> }
-        @if (modelValue(); as value) { @for (warning of value.warnings; track warning) { <p class="supporting-text text-xs">{{warning}}</p> }<hagalaz-model-viewer [geometry]="geometry()" [textures]="textureImages()" />
+        @if (modelValue(); as value) { @for (warning of value.warnings; track warning) { <p class="supporting-text text-xs">{{warning}}</p> }<hagalaz-model-viewer [height]="height()" [geometry]="geometry()" [textures]="textureImages()" />
             @if (value.animationIds?.length) { <h3>Associated animations</h3><ul>@for (animationId of value.animationIds; track animationId) { <li><button type="button" (click)="selectAnimation(animationId)">Play animation #{{animationId}}</button> <a [routerLink]="['/cache/types/animations', animationId]">Definition</a></li> }</ul> }
         }
         @if (!definition() && itemId() === null && (modelId() === null || modelId()! < 0)) { <p>No inventory model is available.</p> }
@@ -69,15 +66,16 @@ export class CacheModelPreviewComponent {
             let cancelled = false;
             const requests = forkJoin(params.map(id => forkJoin({
                 response: this.http.get(`${environment.cacheApiUrl}textures/${id}/image`, {responseType: "blob", observe: "response"}),
-                material: this.http.get<CacheMaterial>(`${environment.cacheApiUrl}textures/${id}/material`),
+                material: this.http.get<GetTextureMaterialDto>(`${environment.cacheApiUrl}textures/${id}/material`),
             }).pipe(
                 switchMap(({response, material}) => {
-                    if (material.alphaMode !== 0 && material.alphaMode !== 1 && material.alphaMode !== 2) throw new Error("Unsupported texture alpha mode.");
+                    const alphaMode = material.alphaMode;
+                    if (alphaMode !== 0 && alphaMode !== 1 && alphaMode !== 2) throw new Error("Unsupported texture alpha mode.");
                     const bitmap = from(createImageBitmap(response.body!, {imageOrientation: "flipY"}).then(image => {
                         if (cancelled) { image.close(); return; }
-                        images.set(id, {image, ...material});
+                        images.set(id, {image, ...material, alphaMode});
                     }));
-                    const hdr = material.hasHdr ? this.http.get<NonNullable<ModelTexture["hdr"]>>(`${environment.cacheApiUrl}textures/${id}/hdr`).pipe(
+                    const hdr = material.hasHdr ? this.http.get<GetTextureHdrDto>(`${environment.cacheApiUrl}textures/${id}/hdr`).pipe(
                         map(value => ({hdr: value, hdrError: false})),
                         catchError(() => of({hdr: undefined, hdrError: true})),
                     ) : of({hdr: undefined, hdrError: false});
@@ -108,21 +106,21 @@ export class CacheModelPreviewComponent {
     readonly animationId = signal<number | null>(null);
     readonly frameIndex = signal(0);
     readonly playing = signal(false);
-    readonly sequence = httpResource<AnimationSequence>(() => this.animationId() === null ? undefined : `${environment.cacheApiUrl}types/animations/${this.animationId()}/sequence`);
+    readonly sequence = httpResource<GetAnimationSequenceDto>(() => this.animationId() === null ? undefined : `${environment.cacheApiUrl}types/animations/${this.animationId()}/sequence`);
     readonly sequenceValue = computed(() => this.sequence.hasValue() ? this.sequence.value() : undefined);
     readonly clip = rxResource({
         params: () => this.sequenceValue()?.frameIds,
         stream: ({ params }) => {
             const uniqueIds = [...new Set(params)];
-            if (!uniqueIds.length) return of([] as AnimationFrameData[]);
-            return forkJoin(uniqueIds.map(id => this.http.get<AnimationFrameData>(`${environment.cacheApiUrl}animation-frames/${id}`))).pipe(
+            if (!uniqueIds.length) return of([] as GetAnimationFrameDto[]);
+            return forkJoin(uniqueIds.map(id => this.http.get<GetAnimationFrameDto>(`${environment.cacheApiUrl}animation-frames/${id}`))).pipe(
                 map(frames => params.map(id => frames[uniqueIds.indexOf(id)])),
             );
         },
     });
     readonly clipValue = computed(() => this.clip.hasValue() ? this.clip.value() : undefined);
     readonly frameId = computed(() => this.manualFrameId());
-    readonly frame = httpResource<AnimationFrameData>(() => this.frameId() === null ? undefined : `${environment.cacheApiUrl}animation-frames/${this.frameId()}`);
+    readonly frame = httpResource<GetAnimationFrameDto>(() => this.frameId() === null ? undefined : `${environment.cacheApiUrl}animation-frames/${this.frameId()}`);
     readonly frameValue = computed(() => this.frame.hasValue() ? this.frame.value() : undefined);
     readonly posed = computed(() => {
         const model = this.modelValue();
@@ -132,16 +130,17 @@ export class CacheModelPreviewComponent {
         catch (error) { return { model, error: error instanceof Error ? error.message : "Frame could not be applied." }; }
     });
     readonly poseError = computed(() => this.posed().error);
+    readonly height = input(360);
     readonly modelId = input<number | null>(null);
     readonly itemId = input<number | null>(null);
     readonly appearance = linkedSignal(() => { this.itemId(); return "inventory"; });
-    readonly appearances = httpResource<ItemAppearance[]>(() => {
+    readonly appearances = httpResource<GetItemModelAppearanceDto[]>(() => {
         const id = this.itemId();
         return id === null || id < 0 ? undefined : `${environment.cacheApiUrl}types/items/${id}/model-appearances`;
     });
     readonly selectedAppearance = computed(() => this.appearances.hasValue() ? this.appearances.value().find(choice => choice.key === this.appearance()) : undefined);
     readonly definition = input<{ kind: "npcs" | "objects"; id: number; shape?: number } | null>(null);
-    readonly model = httpResource<ModelResponse>(() => {
+    readonly model = httpResource<GetModelDto>(() => {
         const id = this.modelId();
         const definition = this.definition();
         if (definition && definition.id >= 0) return `${environment.cacheApiUrl}types/${definition.kind}/${definition.id}/model${definition.shape === undefined ? "" : `?shape=${definition.shape}`}`;
@@ -153,7 +152,7 @@ export class CacheModelPreviewComponent {
     readonly geometry = computed(() => {
         const value = this.posed().model;
         if (!value) return null;
-        return prepareCacheModel(value, this.textureImages());
+        return prepareCacheModel({...value, particles: value.particles ?? []}, this.textureImages());
     });
 
     constructor() {

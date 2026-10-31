@@ -1,3 +1,6 @@
+import { ItemSpriteThumbnailComponent } from "../item-sprite-thumbnail.component";
+import { MatDialog } from "@angular/material/dialog";
+import { CachePendingChangesService } from "../../cache-pending-changes.service";
 import { TestbedHarnessEnvironment } from "@angular/cdk/testing/testbed";
 import { provideHttpClient, withXhr } from "@angular/common/http";
 import { HttpTestingController, provideHttpClientTesting } from "@angular/common/http/testing";
@@ -15,10 +18,14 @@ import { ItemsDetailPageComponent } from "./items-detail.page";
 import { Component, input } from "@angular/core";
 import { CacheModelPreviewComponent } from "../cache-model-preview.component";
 
+@Component({selector: "cache-item-sprite-thumbnail", template: ""})
+class ItemSpriteBoundary { readonly id=input.required<number>(); readonly name=input(""); readonly size=input(44); }
+
 @Component({ selector: "cache-model-preview", template: "" })
 class ModelPreviewBoundary {
     readonly modelId = input<number | null>(null);
     readonly itemId = input<number | null>(null);
+    readonly height = input(360);
 }
 
 const text = (element: Element | null) => element?.textContent?.replace(/\s+/g, "").trim();
@@ -54,7 +61,7 @@ describe("Item Forge", () => {
                 provideHttpClientTesting(),
             ],
         });
-        TestBed.overrideComponent(ItemsDetailPageComponent, { remove: { imports: [CacheModelPreviewComponent] }, add: { imports: [ModelPreviewBoundary] } });
+        TestBed.overrideComponent(ItemsDetailPageComponent, { remove: { imports: [CacheModelPreviewComponent, ItemSpriteThumbnailComponent] }, add: { imports: [ModelPreviewBoundary, ItemSpriteBoundary] } });
         http = TestBed.inject(HttpTestingController);
     });
     afterEach(() => {
@@ -65,7 +72,7 @@ describe("Item Forge", () => {
     async function open(data: Record<string, unknown> = item, failure = false) {
         const opening = RouterTestingHarness.create("/cache/types/items/7");
         await vi.waitFor(() => {
-            const request = http.expectOne(`${baseUrl}/items/7`);
+            const request = http.expectOne(`${baseUrl}/items/7/definition`);
             if (failure) request.flush({ detail: "Item unavailable" }, { status: 503, statusText: "Unavailable" });
             else request.flush(data);
         });
@@ -76,25 +83,25 @@ describe("Item Forge", () => {
         return { harness, loader, page, element: harness.routeNativeElement as HTMLElement };
     }
 
-    it("shows actual zero/false values and keeps the workspace read only", async () => {
+    it("shows the reference editor with actual zero values and real preview wiring", async () => {
         const { element, loader, harness } = await open();
         const preview = harness.fixture.debugElement.query(By.directive(ModelPreviewBoundary)).componentInstance as ModelPreviewBoundary;
         expect(preview.modelId()).toBe(42);
         expect(preview.itemId()).toBe(7);
-        expect(element.querySelector("h3")?.textContent).toBe("Runic blade");
-        expect(text(element)).toContain("Cachebasevalue0");
-        expect(text(element)).toContain("StackableNo");
-        expect(text(element)).toContain("MembersonlyYes");
-        expect(element.textContent).toContain("Market and trade prices");
-        expect(element.querySelectorAll("img")).toHaveLength(0);
-        expect(element.querySelector("cache-item-navigator")).toBeNull();
-        expect(element.textContent).not.toContain("Save");
+        expect(element.querySelector("h2")?.textContent).toBe("Runic blade");
+        expect((element.querySelector("#item-value") as HTMLInputElement).value).toBe("0");
+        expect(text(element)).toContain("Stackable:No");
+        expect(text(element)).toContain("Membersonly:Yes");
+        expect(element.textContent).toContain("market and trade prices");
+        expect(element.querySelector("cache-item-sprite-thumbnail")).not.toBeNull();
+        expect(element.querySelector(".technical-panel")).not.toBeNull();
+        expect(element.querySelector(".save-action")?.hasAttribute("disabled")).toBe(true);
         expect(await (await loader.getHarness(MatTabGroupHarness)).getTabs()).toHaveLength(5);
     });
 
     it("preserves all ordered inventory and ground action slots", async () => {
         const { element, loader } = await open();
-        await (await loader.getHarness(MatTabGroupHarness)).selectTab({ label: "Interactions" });
+        await (await loader.getHarness(MatTabGroupHarness)).selectTab({ label: /Interactions/ });
         await vi.waitFor(() => expect(element.querySelectorAll(".action-groups ol")).toHaveLength(2));
         const groups = element.querySelectorAll(".action-groups ol");
         expect([...groups[0].querySelectorAll("li")].map((slot) => text(slot))).toEqual(["1Wield", "2Emptyslot", "3Check", "4Emptyslot", "5Drop"]);
@@ -104,9 +111,9 @@ describe("Item Forge", () => {
     it("shows absent fields without converting them to false or zero", async () => {
         const { element, loader } = await open({ id: 7, name: "" });
         expect(element.textContent).toContain("Unnamed item");
-        expect(text(element)).toContain("CachebasevalueNotsupplied");
-        expect(text(element)).toContain("StackableNotsupplied");
-        await (await loader.getHarness(MatTabGroupHarness)).selectTab({ label: "Interactions" });
+        expect(text(element)).toContain("Basevalue:Notsupplied");
+        expect(text(element)).toContain("Stackable:Notsupplied");
+        await (await loader.getHarness(MatTabGroupHarness)).selectTab({ label: /Interactions/ });
         await vi.waitFor(() => expect(element.querySelector(".action-groups")).not.toBeNull());
         await vi.waitFor(() => expect(element.querySelectorAll(".action-groups li")).toHaveLength(2));
         expect(element.querySelector(".action-groups")?.textContent).toContain("Not supplied");
@@ -114,7 +121,7 @@ describe("Item Forge", () => {
 
     it("maps equipment identifiers and distinguishes absent sentinels", async () => {
         const { element, loader } = await open();
-        await (await loader.getHarness(MatTabGroupHarness)).selectTab({ label: "Equipment" });
+        await (await loader.getHarness(MatTabGroupHarness)).selectTab({ label: /Equipment/ });
         await vi.waitFor(() => expect(text(element)).toContain("Equipslot0"));
         expect(text(element)).toContain("Equipslot0");
         expect(text(element)).toContain("EquiptypeNotset");
@@ -124,7 +131,7 @@ describe("Item Forge", () => {
 
     it("links only explicit relationships including item zero and navigates on the same route", async () => {
         const { element, loader, harness } = await open();
-        await (await loader.getHarness(MatTabGroupHarness)).selectTab({ label: "Variants" });
+        await (await loader.getHarness(MatTabGroupHarness)).selectTab({ label: /Variants/ });
         await vi.waitFor(() => expect(element.querySelectorAll(".definition-panel cache-item-fields a")).toHaveLength(3));
         const fields = element.querySelector(".definition-panel cache-item-fields");
         if (!fields) throw new Error("Expected relationship fields");
@@ -137,7 +144,7 @@ describe("Item Forge", () => {
         expect(text(fields)).toContain("BoughtitemNotsupplied");
         expect(text(fields)).toContain("BoughttemplateNotsupplied");
         (fields.querySelector("a") as HTMLAnchorElement).click();
-        await vi.waitFor(() => http.expectOne(`${baseUrl}/items/0`).flush({ ...item, id: 0, name: "Linked item" }));
+        await vi.waitFor(() => http.expectOne(`${baseUrl}/items/0/definition`).flush({ ...item, id: 0, name: "Linked item" }));
         await harness.fixture.whenStable();
         expect(TestBed.inject(Router).url).toBe("/cache/types/items/0");
         expect(element.textContent).toContain("Linked item");
@@ -145,7 +152,7 @@ describe("Item Forge", () => {
 
     it("shows the exact response in the raw tab", async () => {
         const { element, loader } = await open();
-        await (await loader.getHarness(MatTabGroupHarness)).selectTab({ label: "Raw data" });
+        await (await loader.getHarness(MatTabGroupHarness)).selectTab({ label: /Raw data/ });
         await vi.waitFor(() => expect(JSON.parse(element.querySelector("pre")?.textContent || "null")).toEqual(item));
     });
 
@@ -155,7 +162,7 @@ describe("Item Forge", () => {
         page.reload();
         TestBed.tick();
         expect(element.querySelector(".definition-panel mat-progress-bar")).not.toBeNull();
-        http.expectOne(`${baseUrl}/items/7`).flush(item);
+        http.expectOne(`${baseUrl}/items/7/definition`).flush(item);
         await harness.fixture.whenStable();
         expect(element.querySelector('[role="alert"]')).toBeNull();
         expect(element.textContent).toContain("Runic blade");
@@ -171,4 +178,68 @@ describe("Item Forge", () => {
             page.reload();
         }
     });
+    it("saves the complete definition after confirmation and keeps model data in the payload", async () => {
+        const data={...item,stackableType:0,scaleX:128,maleWornModelId1:456,extraData:{451:123},unknownArray1:[1,2]};
+        const {page,harness,element}=await open(data);
+        const name=element.querySelector<HTMLInputElement>("#item-name")!;
+        name.value="New blade";name.dispatchEvent(new Event("input"));
+        const value=element.querySelector<HTMLInputElement>("#item-value")!;
+        value.value="55";value.dispatchEvent(new Event("input"));TestBed.tick();
+        expect(page.dirty()).toBe(true);expect(page.canSave()).toBe(true);
+        element.querySelector<HTMLButtonElement>(".save-action")!.click();TestBed.tick();
+        expect(TestBed.inject(MatDialog).openDialogs).toHaveLength(1);
+        TestBed.inject(MatDialog).openDialogs[0].close(true);
+        const request=await vi.waitFor(()=>{TestBed.tick();return http.expectOne(`${baseUrl}/items/7/definition`);});
+        expect(request.request.method).toBe("PUT");
+        const {stackable, noted, renderAnimationId, ...stored} = data;
+        expect(JSON.parse(request.request.serializeBody() as string)).toEqual({...stored,name:"New blade",value:55});
+        expect(request.request.body).not.toHaveProperty("stackable");
+        expect(request.request.body).not.toHaveProperty("noted");
+        expect(request.request.body).not.toHaveProperty("renderAnimationId");
+        request.flush({operation:"item-updated",type:"item",id:7});
+        await harness.fixture.whenStable();
+        expect(page.dirty()).toBe(false);expect(element.textContent).toContain("Changes saved to the game cache");
+        expect(element.querySelector("h2")?.textContent).toBe("New blade");
+    });
+
+    it("retains drafts after failed saves and rejects invalid names and values", async () => {
+        const {page,harness,element}=await open();
+        page.updateDraft({name:"Invalid \u2603"});expect(page.canSave()).toBe(false);
+        page.updateDraft({name:"Valid",value:-1});expect(page.canSave()).toBe(false);
+        page.updateDraft({name:"Valid",value:1});
+        const saving=page.save();TestBed.tick();TestBed.inject(MatDialog).openDialogs[0].close(true);await saving;TestBed.tick();
+        http.expectOne(`${baseUrl}/items/7/definition`).flush({detail:"Write failed"},{status:503,statusText:"Unavailable"});
+        await harness.fixture.whenStable();
+        expect(element.textContent).toContain("Write failed");expect(element.textContent).toContain("Your draft has been retained");
+        expect(page.draft()?.name).toBe("Valid");expect(page.canSave()).toBe(true);
+    });
+
+    it("duplicates the persisted definition and opens its newly allocated ID", async () => {
+        const {page,harness}=await open();
+        const duplicating=page.duplicate();TestBed.tick();TestBed.inject(MatDialog).openDialogs[0].close(true);await duplicating;TestBed.tick();
+        const request=http.expectOne(`${baseUrl}/items/7/duplicate`);expect(request.request.method).toBe("POST");request.flush({operation:"item-duplicated",type:"item",id:8});
+        await vi.waitFor(()=>http.expectOne(`${baseUrl}/items/8/definition`).flush({...item,id:8}));
+        await harness.fixture.whenStable();expect(TestBed.inject(Router).url).toBe("/cache/types/items/8");expect(page.id()).toBe(8);
+    });
+
+    it("registers a dirty full-definition draft with the existing navigation guard", async () => {
+        const {page}=await open();page.updateDraft({name:"Unsaved"});TestBed.tick();
+        const leaving=TestBed.inject(CachePendingChangesService).canLeave();TestBed.tick();
+        TestBed.inject(MatDialog).openDialogs[0].close(false);
+        expect(await leaving).toBe(false);expect(page.draft()?.name).toBe("Unsaved");
+        await page.duplicate();http.expectNone(`${baseUrl}/items/7/duplicate`);
+    });
+
+    it("zooms the actual item preview and opens the full raw definition from quick actions", async () => {
+        const {page,harness,element}=await open();
+        const zoom=element.querySelector<HTMLInputElement>("#sprite-zoom")!;
+        zoom.value="1.5";zoom.dispatchEvent(new Event("input"));TestBed.tick();
+        expect(page.spriteZoom()).toBe(1.5);
+        expect(element.querySelector(".preview-image > div")?.getAttribute("style")).toContain("scale(1.5)");
+        element.querySelector<HTMLButtonElement>(".quick-panel button")!.click();
+        await harness.fixture.whenStable();
+        expect(page.selectedTab()).toBe(4);
+        await vi.waitFor(()=>{TestBed.tick();expect(JSON.parse(element.querySelector("pre")?.textContent || "null")).toEqual(item);});
+    });
+
 });

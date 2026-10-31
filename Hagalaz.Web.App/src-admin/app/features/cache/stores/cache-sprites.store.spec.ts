@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from "@angular/common
 import { TestBed } from "@angular/core/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { environment } from "../../../../environments/environment";
-import type { SearchResultDto, SpriteMutationResultDto } from "../services/cache.models";
+import type { SearchDefinitionsDto, ReplaceSpriteImageResultDto } from "../services/cache.models";
 import { CacheSpritesStore } from "./cache-sprites.store";
 
 const baseUrl = `${environment.cacheApiUrl}types/sprites`;
@@ -53,7 +53,7 @@ describe("CacheSpritesStore", () => {
         { name: "matching", query: "bronze sword", offset: 5, items: [{ id: 12 }], totalMatches: 20 },
         { name: "empty", query: "", offset: 0, items: [], totalMatches: 0 },
     ])("publishes $name sprite searches with the requested paging", async ({ query, offset, items, totalMatches }) => {
-        const result: SearchResultDto<unknown> = { query, offset, limit: 10, totalMatches, items };
+        const result: SearchDefinitionsDto<unknown> = { query, offset, limit: 10, totalMatches, items };
         const pending = store.searchSprites({ query: query, offset: offset, limit: 10 });
         const request = http.expectOne((req) => req.url === `${baseUrl}/search`);
         expect(request.request.params.get("query")).toBe(query);
@@ -98,7 +98,7 @@ describe("CacheSpritesStore", () => {
 
     it("uploads the selected PNG and publishes the server dimensions", async () => {
         const file = new File([new Uint8Array([1, 2, 3])], "sprite.png", { type: "image/png" });
-        const result: SpriteMutationResultDto = { operation: "sprite-image-replaced", type: "sprite", id: 99, width: 32, height: 16, frameCount: 2 };
+        const result: ReplaceSpriteImageResultDto = { operation: "sprite-image-replaced", type: "sprite", id: 99, width: 32, height: 16, frameCount: 2 };
         const pending = store.uploadSpriteImage({ id: 99, file: file });
         expect(store.loading()).toBe(true);
         expect(store.mutationResult()).toBeNull();

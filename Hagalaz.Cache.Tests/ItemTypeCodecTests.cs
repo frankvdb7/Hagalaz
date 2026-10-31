@@ -101,16 +101,8 @@ namespace Hagalaz.Cache.Tests
             ms.Position = 0;
             var decoded = (ItemType)codec.Decode(100, ms);
 
-            // Adjust expected item because Noted items skip Name, StackableType, and MembersOnly in Encode
-            var expected = CreateFullyPopulatedItem(100);
-            expected.NoteId = 101;
-            expected.NoteTemplateId = 799;
-            expected.Name = "null"; // Default in constructor
-            expected.StackableType = 0; // Default in constructor
-            expected.MembersOnly = false; // Default in constructor
-
-            // Assert
-            AssertEqualAllProperties(expected, decoded);
+            // Raw codec round trips retain stored fields; template resolution belongs to the provider.
+            AssertEqualAllProperties(item, decoded);
         }
 
         [Fact]
@@ -127,14 +119,8 @@ namespace Hagalaz.Cache.Tests
             ms.Position = 0;
             var decoded = (ItemType)codec.Decode(200, ms);
 
-            // Adjust expected item because Lent items skip Value in Encode
-            var expected = CreateFullyPopulatedItem(200);
-            expected.LendId = 201;
-            expected.LendTemplateId = 899;
-            expected.Value = 1; // Default in constructor
-
-            // Assert
-            AssertEqualAllProperties(expected, decoded);
+            // A full-definition save must not erase the stored base value.
+            AssertEqualAllProperties(item, decoded);
         }
 
         private void AssertEqualAllProperties(ItemType expected, ItemType actual)

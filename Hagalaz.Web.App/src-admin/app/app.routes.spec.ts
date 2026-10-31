@@ -1,3 +1,4 @@
+import { ItemSpriteThumbnailComponent } from "./features/cache/pages/item-sprite-thumbnail.component";
 import { Location } from "@angular/common";
 import { provideLocationMocks } from "@angular/common/testing";
 import { BreakpointObserver } from "@angular/cdk/layout";
@@ -25,11 +26,15 @@ import { ItemsDetailPageComponent } from "./features/cache/pages/details/items-d
 @Component({ template: "<h1>Login boundary</h1>" })
 class LoginBoundary {}
 
+@Component({selector: "cache-item-sprite-thumbnail", template: ""})
+class ItemSpriteBoundary { readonly id=input.required<number>(); readonly name=input(""); readonly size=input(44); }
+
 @Component({ selector: "cache-model-preview", template: "" })
 class ModelPreviewBoundary {
     readonly definition = input<unknown>();
     readonly modelId = input<number | null>(null);
     readonly itemId = input<number | null>(null);
+    readonly height = input(360);
 }
 
 async function openRoute(path: string): Promise<RouterTestingHarness> {
@@ -83,7 +88,7 @@ describe("admin portal routing", () => {
             ],
         });
         TestBed.overrideComponent(NpcsDetailPageComponent, { remove: { imports: [CacheModelPreviewComponent] }, add: { imports: [ModelPreviewBoundary] } });
-        TestBed.overrideComponent(ItemsDetailPageComponent, { remove: { imports: [CacheModelPreviewComponent] }, add: { imports: [ModelPreviewBoundary] } });
+        TestBed.overrideComponent(ItemsDetailPageComponent, { remove: { imports: [CacheModelPreviewComponent, ItemSpriteThumbnailComponent] }, add: { imports: [ModelPreviewBoundary, ItemSpriteBoundary] } });
     });
 
     it("opens the overview with real branding and honest telemetry states", async () => {
@@ -115,7 +120,7 @@ describe("admin portal routing", () => {
         const opening = RouterTestingHarness.create("/cache/types/items/0");
         const http = TestBed.inject(HttpTestingController);
         await vi.waitFor(() => {
-            const requests = http.match((req) => req.url.endsWith("/items/0"));
+            const requests = http.match((req) => req.url.endsWith("/items/0/definition"));
             expect(requests.length).toBe(1);
             for (const request of requests) request.flush({ id: 0, name: "First item" });
         });
@@ -194,7 +199,7 @@ describe("admin portal routing", () => {
         await router.navigateByUrl("/cache/types?kind=items&query=7");
         const http = TestBed.inject(HttpTestingController);
         await vi.waitFor(() =>
-            http.expectOne((r) => r.url.endsWith("/items/7")).flush({ id: 7, name: "Deep-linked item", inventoryOptions: [], groundOptions: [] })
+            http.expectOne((r) => r.url.endsWith("/items/7/definition")).flush({ id: 7, name: "Deep-linked item", inventoryOptions: [], groundOptions: [] })
         );
         await TestBed.inject(ApplicationRef).whenStable();
         expect(router.url).toContain("/cache/types/items/7?");
@@ -204,7 +209,7 @@ describe("admin portal routing", () => {
         await vi.waitFor(() => http.expectOne((r) => r.url.endsWith("/items/range")).flush([]));
         await TestBed.inject(ApplicationRef).whenStable();
         expect(router.url).toBe("/cache/types");
-        http.expectNone((r) => r.url.endsWith("/items/7"));
+        http.expectNone((r) => r.url.endsWith("/items/7/definition"));
     });
     it("opens the modern sprite browser from Overview and global page search", async () => {
         const harness = await openRoute("/overview");

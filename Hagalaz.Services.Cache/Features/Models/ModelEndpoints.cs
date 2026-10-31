@@ -1,16 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Types;
 using Hagalaz.Services.Cache.Features.Shared;
+using Hagalaz.Services.Cache.Features.Models.Dtos;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
-namespace Hagalaz.Services.Cache.Features;
+namespace Hagalaz.Services.Cache.Features.Models;
 
 public static class ModelEndpoints
 {
@@ -32,7 +33,7 @@ public static class ModelEndpoints
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Animation ID must be nonnegative."));
         var sequence = (AnimationType)animations.Get(id);
-        return TypedResults.Ok(new { sequence.Id, FrameIds = sequence.Frames ?? [], FrameDurations = sequence.Delays ?? [], sequence.Loop, sequence.IsTweened });
+        return TypedResults.Ok(new GetAnimationSequenceDto(sequence.Id, sequence.Frames ?? [], sequence.Delays ?? [], sequence.Loop, sequence.IsTweened));
     }
 
     private static IResult GetAnimationFrame(int id, ICacheAPI cache)
@@ -44,7 +45,11 @@ public static class ModelEndpoints
         var skeletonId = (bytes[1] << 8) | bytes[2];
         using var skeletonContainer = cache.ReadContainer(1, skeletonId);
         var skeleton = AnimationFrameDecoder.DecodeSkeleton(skeletonContainer.Data.ToArray());
-        return TypedResults.Ok(new { Frame = AnimationFrameDecoder.DecodeFrame(bytes, skeleton), Skeleton = skeleton });
+        var frame = AnimationFrameDecoder.DecodeFrame(bytes, skeleton);
+        return TypedResults.Ok(new GetAnimationFrameDto(
+            new AnimationFrameDto(frame.SkeletonId, frame.Transforms.Select(transform =>
+                new AnimationTransformDto(transform.Slot, transform.X, transform.Y, transform.Z, transform.PivotSlot, transform.TweenFlags)).ToArray()),
+            new AnimationSkeletonDto(skeleton.Types, skeleton.Enabled, skeleton.Masks, skeleton.Groups)));
     }
 
     private static IResult GetItemAppearances(int id, ITypeProvider<IItemType> items)
@@ -53,7 +58,7 @@ public static class ModelEndpoints
         return TypedResults.Ok(ItemAppearances(items.Get(id)));
     }
 
-    private static ItemAppearance[] ItemAppearances(IItemType item) =>
+    private static GetItemModelAppearanceDto[] ItemAppearances(IItemType item) =>
     [
         new("inventory", "Inventory", Parts(item.InterfaceModelId)),
         new("male-equipped", "Male equipped", Parts(item.MaleWornModelId1, item.MaleWornModelId2, item.MaleWornModelId3), item.MaleWearXOffset, item.MaleWearYOffset, item.MaleWearZOffset),
@@ -64,11 +69,6 @@ public static class ModelEndpoints
 
     // The client ignores secondary/tertiary references after the first absent part.
     private static int[] Parts(params int[] ids) => ids.TakeWhile(id => id >= 0).ToArray();
-
-    public sealed record ItemAppearance(string Key, string Label, int[] ModelIds, int OffsetX = 0, int OffsetY = 0, int OffsetZ = 0)
-    {
-        public bool Available => ModelIds.Length > 0;
-    }
 
     private static IResult GetItemModel(int id, string? appearance, ICacheAPI cache, ITypeProvider<IItemType> items)
     {
@@ -95,7 +95,7 @@ public static class ModelEndpoints
         try
         {
             var geometry = ModelGeometryDecoder.Decode(container.Data.ToArray());
-            return TypedResults.Ok(new ModelResponse(id, geometry.Positions, geometry.Indices, geometry.FaceColors, geometry.FaceAlpha, geometry.VertexSkins,
+            return TypedResults.Ok(new GetModelDto(id, geometry.Positions, geometry.Indices, geometry.FaceColors, geometry.FaceAlpha, geometry.VertexSkins,
                 new[] { "Geometry, projected textures and ordinary transparency preview. Client lighting and transparency ordering are not yet supported." }, CoordinateScale: geometry.Version < 13 ? 0.25f : 1, FaceSkins: geometry.FaceSkins, FaceTextureIds: geometry.FaceTextureIds, FaceTextureVertices: geometry.FaceTextureVertices, FaceTextureUvs: geometry.FaceTextureUvs, Particles: ReadParticles(cache, geometry.Emitters ?? [])));
         }
         catch (NotSupportedException exception)
@@ -185,7 +185,7 @@ public static class ModelEndpoints
             ReplaceValues(textureIds, originalTextures, replacementTextures);
             for (var face = 0; face < textureIds.Count; face++)
                 if (textureIds[face] == 65535) textureIds[face] = -1;
-            return TypedResults.Ok(new ModelResponse(id, positions.ToArray(), indices.ToArray(), colors.ToArray(), alpha.ToArray(), skins.Any(skin => skin >= 0) ? skins.ToArray() : null,
+            return TypedResults.Ok(new GetModelDto(id, positions.ToArray(), indices.ToArray(), colors.ToArray(), alpha.ToArray(), skins.Any(skin => skin >= 0) ? skins.ToArray() : null,
                 new[] { warning }, animationIds.Where(animationId => animationId >= 0).Distinct().ToArray(), 1, faceSkins.ToArray(), textureIds.ToArray(), textureVertices.ToArray(), textureUvs.ToArray(), scale, ReadParticles(cache, emitters)));
         }
         catch (NotSupportedException exception)
@@ -203,29 +203,28 @@ public static class ModelEndpoints
                 if (values[face] == (originals[pair] & 65535)) values[face] = replacements[pair] & 65535;
     }
 
-    private static ModelParticle[] ReadParticles(ICacheAPI cache, IEnumerable<ModelGeometryDecoder.EmitterAttachment> attachments)
+    private static ModelParticleDto[] ReadParticles(ICacheAPI cache, IEnumerable<ModelGeometryDecoder.EmitterAttachment> attachments)
     {
-        var result = new List<ModelParticle>();
+        var result = new List<ModelParticleDto>();
         foreach (var group in attachments.GroupBy(attachment => attachment.EmitterId))
         {
-            ParticleEmitterDecoder.Definition? definition = null;
+            ParticleEmitterDto? definition = null;
             string? warning = null;
             try
             {
                 var member = cache.ReadReferenceTable(27).GetEntry(0)?.GetEntry(group.Key)
                     ?? throw new System.IO.FileNotFoundException($"Particle emitter #{group.Key} is absent from the cache reference table.");
                 using var data = cache.Read(27, 0, member.Index);
-                definition = ParticleEmitterDecoder.Decode(data.ToArray());
+                var decoded = ParticleEmitterDecoder.Decode(data.ToArray());
+                definition = new ParticleEmitterDto(decoded.TextureId, decoded.ColorMin, decoded.ColorMax, decoded.LifeMin, decoded.LifeMax,
+                    decoded.RateMin, decoded.RateMax, decoded.SizeMin, decoded.SizeMax, decoded.SpeedMin, decoded.SpeedMax, decoded.Angles, decoded.UnsupportedOpcodes);
             }
             catch (Exception exception) when (exception is System.IO.IOException or NotSupportedException)
             {
                 warning = $"Particle emitter #{group.Key} is unavailable: {exception.Message}";
             }
-            result.AddRange(group.Select(attachment => new ModelParticle(attachment.EmitterId, attachment.Face, definition, warning)));
+            result.AddRange(group.Select(attachment => new ModelParticleDto(attachment.EmitterId, attachment.Face, definition, warning)));
         }
         return result.ToArray();
     }
-
-    public sealed record ModelParticle(int EmitterId, int Face, ParticleEmitterDecoder.Definition? Definition, string? Warning);
-    public sealed record ModelResponse(int Id, int[] Positions, int[] Indices, int[] FaceColors, int[] FaceAlpha, int[]? VertexSkins, string[] Warnings, int[]? AnimationIds = null, float CoordinateScale = 1, int[]? FaceSkins = null, int[]? FaceTextureIds = null, int[]? FaceTextureVertices = null, float[]? FaceTextureUvs = null, float[]? Scale = null, ModelParticle[]? Particles = null);
 }

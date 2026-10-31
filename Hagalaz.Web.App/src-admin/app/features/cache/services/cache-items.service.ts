@@ -1,9 +1,11 @@
-import { HttpClient } from "@angular/common/http";
+import type { UpdateItemDefinitionDto, UpdateItemDefinitionResultDto, DuplicateItemDefinitionResultDto } from "./dtos";
+import type { GetItemTypeDto } from "./dtos";
+import { HttpClient, httpResource } from "@angular/common/http";
 import { inject, Service, type Signal } from "@angular/core";
 import type { Observable } from "rxjs";
 import { environment } from "../../../../environments/environment";
-import type { ItemDefinitionDto, SearchResultDto } from "./cache.models";
-import { cacheDefinitionResource, cacheQueryResource } from "./cache-resource";
+import type { GetItemDefinitionDto, SearchDefinitionsDto } from "./cache.models";
+import { cacheQueryResource } from "./cache-resource";
 
 @Service()
 export class CacheItemsService {
@@ -15,14 +17,22 @@ export class CacheItemsService {
     }
 
     definitionResource(id: Signal<number | null>) {
-        return cacheDefinitionResource<ItemDefinitionDto>(this.baseUrl, id);
+        return httpResource<GetItemDefinitionDto>(() => id() === null ? undefined : `${this.baseUrl}/${id()}/definition`);
+    }
+
+    updateItem(item: UpdateItemDefinitionDto): Observable<UpdateItemDefinitionResultDto> {
+        return this.http.put<UpdateItemDefinitionResultDto>(`${this.baseUrl}/${item.id}/definition`, item);
+    }
+
+    duplicateItem(id: number): Observable<DuplicateItemDefinitionResultDto> {
+        return this.http.post<DuplicateItemDefinitionResultDto>(`${this.baseUrl}/${id}/duplicate`, {});
     }
 
     rangeResource(range: Signal<{ startId: number; endIdExclusive: number } | null>) {
-        return cacheQueryResource<ItemDefinitionDto[]>(`${this.baseUrl}/range`, range);
+        return cacheQueryResource<GetItemTypeDto[]>(`${this.baseUrl}/range`, range);
     }
 
     searchResource(search: Signal<{ query: string; offset: number; limit: number } | null>) {
-        return cacheQueryResource<SearchResultDto<ItemDefinitionDto>>(`${this.baseUrl}/search`, search);
+        return cacheQueryResource<SearchDefinitionsDto<GetItemTypeDto>>(`${this.baseUrl}/search`, search);
     }
 }

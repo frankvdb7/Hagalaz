@@ -4,12 +4,12 @@ import { tapResponse } from "@ngrx/operators";
 import { patchState, signalStoreFeature, withComputed, withMethods, withProps, withState } from "@ngrx/signals";
 import { rxMethod } from "@ngrx/signals/rxjs-interop";
 import { exhaustMap, filter, type Observable, pipe } from "rxjs";
-import type { DefinitionSummaryDto, SearchResultDto, TypeMutationResultDto } from "../services/cache.models";
+import type { DefinitionSummaryDto, SearchDefinitionsDto, DefinitionMutationResult } from "../services/cache.models";
 import { getCacheErrorMessage } from "./cache-error";
 
-export function withCacheDefinition(resource: (id: Signal<number | null>) => HttpResourceRef<unknown>) {
+export function withCacheDefinition<T extends object>(resource: (id: Signal<number | null>) => HttpResourceRef<T | undefined>) {
     return signalStoreFeature(
-        withState({ _id: null as number | null, _saving: false, _mutationError: null as string | null, mutationResult: null as TypeMutationResultDto | null }),
+        withState({ _id: null as number | null, _saving: false, _mutationError: null as string | null, mutationResult: null as DefinitionMutationResult | null }),
         withProps((store) => ({ _definition: resource(store._id) })),
         withComputed((store) => ({
             byIdResult: computed(() => (store._definition.hasValue() ? store._definition.value() : null)),
@@ -19,7 +19,7 @@ export function withCacheDefinition(resource: (id: Signal<number | null>) => Htt
             error: computed(() => store._mutationError() ?? (store._definition.error() ? getCacheErrorMessage(store._definition.error()) : null)),
         })),
         withMethods((store) => ({
-            _saveDefinition: rxMethod<{ id: number; changes: Record<string, unknown>; request: () => Observable<TypeMutationResultDto> }>(
+            _saveDefinition: rxMethod<{ id: number; changes: Partial<T>; request: () => Observable<DefinitionMutationResult> }>(
                 pipe(
                     filter(() => !store.loading()),
                     exhaustMap(({ id, changes, request }) => {
@@ -50,12 +50,12 @@ export function withCacheDefinition(resource: (id: Signal<number | null>) => Htt
     );
 }
 
-export function withCacheRange(resource: (range: Signal<{ startId: number; endIdExclusive: number } | null>) => HttpResourceRef<unknown[] | undefined>) {
+export function withCacheRange<T>(resource: (range: Signal<{ startId: number; endIdExclusive: number } | null>) => HttpResourceRef<T[] | undefined>) {
     return signalStoreFeature(
         withState({
             _range: null as { startId: number; endIdExclusive: number } | null,
             _rangePageSize: 10,
-            _previousRangeResult: null as unknown[] | null,
+            _previousRangeResult: null as T[] | null,
             _previousRangeRequest: null as { startId: number; pageSize: number } | null,
         }),
         withProps((store) => ({ _rangeResource: resource(store._range) })),
@@ -93,13 +93,13 @@ export function withCacheRange(resource: (range: Signal<{ startId: number; endId
     );
 }
 
-export function withCacheSearch(
-    resource: (search: Signal<{ query: string; offset: number; limit: number } | null>) => HttpResourceRef<SearchResultDto<DefinitionSummaryDto> | undefined>
+export function withCacheSearch<T extends DefinitionSummaryDto>(
+    resource: (search: Signal<{ query: string; offset: number; limit: number } | null>) => HttpResourceRef<SearchDefinitionsDto<T> | undefined>
 ) {
     return signalStoreFeature(
         withState({
             _search: null as { query: string; offset: number; limit: number } | null,
-            _previousSearchResult: null as { request: { query: string; offset: number; limit: number }; result: SearchResultDto<DefinitionSummaryDto> } | null,
+            _previousSearchResult: null as { request: { query: string; offset: number; limit: number }; result: SearchDefinitionsDto<T> } | null,
         }),
         withProps((store) => ({ _searchResource: resource(store._search) })),
         withComputed((store) => ({

@@ -12,6 +12,7 @@ import { CacheTextureThumbnailComponent } from "./cache-texture-thumbnail.compon
 
 @Component({ selector: "hagalaz-model-viewer", template: "" })
 class RendererBoundary {
+    readonly height = input(360);
     readonly geometry = input<ModelGeometry | null>(null);
     readonly textures = input<ReadonlyMap<number, ModelTexture>>(new Map());
 }

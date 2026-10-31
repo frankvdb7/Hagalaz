@@ -12,7 +12,7 @@ import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatTabsModule } from "@angular/material/tabs";
 import { firstValueFrom } from "rxjs";
 import { CachePendingChangesService } from "../cache-pending-changes.service";
-import type { SpriteMutationResultDto } from "../services/cache.models";
+import type { ReplaceSpriteImageResultDto } from "../services/cache.models";
 import { CacheSpritesService } from "../services/cache-sprites.service";
 import { CacheSpritesStore } from "../stores/cache-sprites.store";
 import { CacheWriteDialogComponent } from "./cache-write-dialog";
@@ -38,7 +38,7 @@ import { CacheWriteDialogComponent } from "./cache-write-dialog";
 export class SpritesManagerPageComponent {
     readonly store = inject(CacheSpritesStore);
     readonly spriteId = input<number | null>(null);
-    readonly imageReplaced = output<SpriteMutationResultDto>();
+    readonly imageReplaced = output<ReplaceSpriteImageResultDto>();
     private readonly dialog = inject(MatDialog);
     private readonly pendingChanges = inject(CachePendingChangesService);
 

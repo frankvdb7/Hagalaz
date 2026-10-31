@@ -19,8 +19,8 @@ export class ObjectEditorComponent {
     private readonly dialog = inject(MatDialog);
     private readonly pendingChanges = inject(CachePendingChangesService);
     private readonly objectMutationModel = linkedSignal(() => {
-        const value = (this.store.byIdResult() ?? {}) as Record<string, unknown>;
-        return { id: this.store.definitionId() ?? 0, name: (value.name ?? "") as string };
+        const value = this.store.byIdResult();
+        return { id: this.store.definitionId() ?? 0, name: (value?.name ?? "") };
     });
     readonly objectMutationForm = form(this.objectMutationModel, (path) => {
         required(path.id);
@@ -33,8 +33,8 @@ export class ObjectEditorComponent {
             {
                 dirty: () => {
                     const v = this.objectMutationModel();
-                    const record = (this.store.byIdResult() ?? {}) as Record<string, unknown>;
-                    return v.name !== (record.name ?? "");
+                    const record = this.store.byIdResult();
+                    return v.name !== (record?.name ?? "");
                 },
                 saving: () => this.store.saving(),
             },

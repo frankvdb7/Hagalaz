@@ -1,0 +1,5 @@
+# Design
+Extract table/entry/child response records into Features/ReferenceTables/Dtos. Use byte for Flags at the HTTP boundary and cast the cache enum during mapping, preserving existing numeric JSON. Keep sparse archive IDs, physical child indexes, capacity/count distinction and base64 digests unchanged. Retain the existing sparse-response test and add real cache/reference-codec HTTP coverage with identifiers/digests enabled. No client consumer or new client API is introduced.
+
+## Verification
+Service/test projects built through dotnet test; all 105 service tests passed. ReferenceDto_RetainsSparseIdsFlagsDigestsAndChildMetadata exercises real reference-table encoding/decoding over HTTP and verifies sparse file IDs, count/capacity distinction, numeric flags, identifiers, signed CRC, version, base64 digest, child IDs/indexes and exact table JSON fields. The original SparseReferenceTableResponse_ReportsCountAndIdCapacitySeparately regression remains green. Strict OpenSpec validation and git diff --check passed. No new source compiler warnings; existing NuGet warnings remain. Read-only isolated fixtures only, with no live cache mutation or service restart.

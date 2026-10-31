@@ -15,5 +15,8 @@ namespace Hagalaz.Cache.Abstractions.Logic
         /// <param name="container">The container holding the data to be written.</param>
         /// <exception cref="System.IO.IOException">Thrown if the archive has no existing reference-table entry.</exception>
         void Write(int indexId, int fileId, IContainer container);
+
+        /// <summary>Persists a container with explicit member mappings using the same checksum/version rules.</summary>
+        void Write(int indexId, int fileId, IContainer container, IReferenceTable table);
     }
 }

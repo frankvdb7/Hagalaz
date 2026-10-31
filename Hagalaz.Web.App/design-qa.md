@@ -76,3 +76,20 @@ final result: blocked
 - Remaining P3: the Material paginator alignment and text sizing are not identical to the mockup. No actionable P0/P1/P2 visual issue remains within the supported scope. Live interaction and mutation flows were not exercised.
 
 final result: passed
+
+---
+
+# Item Forge reference QA
+
+final result: blocked
+
+Source: user-selected codex-clipboard-07acb157-b7a8-4416-9c82-b0e9410197d3.png, 1651x953 desktop reference.
+Implementation: existing Angular admin Item Forge, /cache/types/items/0.
+
+The user previously instructed that browser checks be skipped. That instruction remains in effect, so no rendered screenshot, viewport/state comparison or visual design pass was performed. Automated tests and production builds do not substitute for visual QA. No pixel-fidelity or browser-interaction pass is claimed.
+
+Implemented structure: source-backed item portrait/header/chips, save/duplicate and navigation actions, icon tabs, two-column editor, compact zoomable inventory image, expandable existing 3D inspector, technical detail copy buttons and quick actions. Existing Material Symbols, supplied Hagalaz logo and Semplicita Pro fonts are reused. Small viewports stack the layout.
+
+Intentional behavior differences: noted remains derived; descriptions are unavailable in this cache format and are labeled accordingly. Save sends the full ItemType, per the user's explicit correction. Cache writes are exercised only in isolated test stores. Existing application shell remains unchanged.
+
+Follow-up visual gate: capture this route at 1651x953 with item0 and compare it alongside the supplied source, then check a narrow viewport and primary interaction states. No visual findings are invented from source code alone.

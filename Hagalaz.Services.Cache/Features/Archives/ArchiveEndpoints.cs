@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Model;
-using Hagalaz.Services.Cache.Features.Shared;
+using Hagalaz.Services.Cache.Features.Archives.Dtos;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
-namespace Hagalaz.Services.Cache.Features;
+namespace Hagalaz.Services.Cache.Features.Archives;
 
 public static class ArchiveEndpoints
 {
@@ -23,23 +23,19 @@ public static class ArchiveEndpoints
         return TypedResults.Ok(MapArchive(fileId, archive));
     }
 
-    private static ArchiveResponse MapArchive(int fileId, IArchive archive)
+    private static GetArchiveDto MapArchive(int fileId, IArchive archive)
     {
-        var results = new List<ArchiveEntryResponse>();
+        var results = new List<ArchiveEntryDto>();
 
         if (archive.Entries is not null)
         {
             for (var i = 0; i < archive.Entries.Length; i++)
             {
                 var data = archive.GetEntry(i).ToArray();
-                results.Add(new ArchiveEntryResponse(i, Convert.ToBase64String(data), data.Length));
+                results.Add(new ArchiveEntryDto(i, Convert.ToBase64String(data), data.Length));
             }
         }
 
-        return new ArchiveResponse(fileId, results);
+        return new GetArchiveDto(fileId, results);
     }
-
-    public sealed record ArchiveResponse(int FileId, IReadOnlyList<ArchiveEntryResponse> Entries);
-
-    public sealed record ArchiveEntryResponse(int SubFileId, string DataBase64, int DataLength);
 }
