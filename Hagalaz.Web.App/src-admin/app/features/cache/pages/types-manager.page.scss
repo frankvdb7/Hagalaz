@@ -1,4 +1,3 @@
-@use "@angular/material" as mat;
 :host {
     display: block;
     min-width: 0;
@@ -6,44 +5,17 @@
 .studio-search form {
     padding-top: 4px;
 }
-.studio-search {
-    @include mat.form-field-overrides((container-height: 46px, container-vertical-padding: 11px));
-    @include mat.button-overrides((filled-container-height: 46px));
-}
-.studio-tabs nav mat-icon {
-    margin-right: 8px;
-    width: 18px;
-    height: 18px;
-    font-size: 18px;
-}
-.studio-tabs .selected-kind mat-icon {
-    color: var(--mat-sys-primary);
-}
+
 .studio-search button[type="submit"] {
     align-self: center;
 }
 .definition-list {
     min-width: 0;
-    @include mat.paginator-overrides(
-        (
-            container-background-color: transparent,
-        )
-    );
-    @include mat.table-overrides(
-        (
-            header-headline-size: 11px,
-            header-container-height: 40px,
-            row-item-label-text-size: 13px,
-            row-item-container-height: 52px,
-        )
-    );
 }
 .definition-table-header {
     background: var(--mat-sys-surface-container-high);
 }
-.definition-list .mat-mdc-row:last-child .mat-mdc-cell {
-    border-bottom: 1px solid var(--mat-sys-outline-variant);
-}
+
 .mat-column-id {
     width: 7rem;
 }

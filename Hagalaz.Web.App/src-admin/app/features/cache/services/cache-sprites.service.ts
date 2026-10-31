@@ -24,20 +24,6 @@ export class CacheSpritesService {
         return cacheQueryResource<SearchDefinitionsDto<GetSpriteDefinitionDto>>(`${this.baseUrl}/search`, search);
     }
 
-    getSprite(id: number): Observable<GetSpriteDefinitionDto> {
-        return this.http.get<GetSpriteDefinitionDto>(`${this.baseUrl}/${id}`);
-    }
-
-    searchSprites(query: string, offset: number, limit: number): Observable<SearchDefinitionsDto<GetSpriteDefinitionDto>> {
-        return this.http.get<SearchDefinitionsDto<GetSpriteDefinitionDto>>(`${this.baseUrl}/search`, {
-            params: {
-                query,
-                offset,
-                limit,
-            },
-        });
-    }
-
     getSpriteImage(id: number, frame: number): Observable<Blob> {
         const key = `${id}:${frame}`;
         let request = this.frameRequests.get(key);

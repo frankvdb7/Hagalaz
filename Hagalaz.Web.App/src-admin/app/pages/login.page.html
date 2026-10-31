@@ -14,25 +14,21 @@
         </mat-card-header>
         <mat-card-content>
             <form class="login-form" novalidate (submit)="submit($event)" [attr.aria-busy]="store.loading()">
-                <div class="login-input-field" [class.login-input-field--invalid]="form.email().invalid() && form.email().touched()">
-                    <label class="login-field-label" for="admin-email">Email address</label>
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                        <mat-icon matPrefix aria-hidden="true">mail_outline</mat-icon>
-                        <input id="admin-email" matInput autocomplete="username" type="email" placeholder="name@domain.com" [formField]="form.email" />
-                        <mat-error>Enter a valid email address.</mat-error>
-                    </mat-form-field>
-                </div>
-                <div class="login-input-field" [class.login-input-field--invalid]="form.password().invalid() && form.password().touched()">
-                    <label class="login-field-label" for="admin-password">Password</label>
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                        <mat-icon matPrefix aria-hidden="true">lock_outline</mat-icon>
-                        <input id="admin-password" matInput autocomplete="current-password" placeholder="Enter your password" [type]="hidePassword() ? 'password' : 'text'" [formField]="form.password" />
-                        <button mat-icon-button matSuffix type="button" (click)="togglePasswordVisibility()" [attr.aria-label]="hidePassword() ? 'Show password' : 'Hide password'" [attr.aria-pressed]="!hidePassword()">
-                            <mat-icon>{{ hidePassword() ? "visibility" : "visibility_off" }}</mat-icon>
-                        </button>
-                        <mat-error>Password is required.</mat-error>
-                    </mat-form-field>
-                </div>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Email address</mat-label>
+                    <mat-icon matPrefix aria-hidden="true">mail_outline</mat-icon>
+                    <input id="admin-email" matInput autocomplete="username" type="email" placeholder="name@domain.com" [formField]="form.email" />
+                    <mat-error>Enter a valid email address.</mat-error>
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Password</mat-label>
+                    <mat-icon matPrefix aria-hidden="true">lock_outline</mat-icon>
+                    <input id="admin-password" matInput autocomplete="current-password" placeholder="Enter your password" [type]="hidePassword() ? 'password' : 'text'" [formField]="form.password" />
+                    <button mat-icon-button matSuffix type="button" (click)="togglePasswordVisibility()" [attr.aria-label]="hidePassword() ? 'Show password' : 'Hide password'" [attr.aria-pressed]="!hidePassword()">
+                        <mat-icon>{{ hidePassword() ? "visibility" : "visibility_off" }}</mat-icon>
+                    </button>
+                    <mat-error>Password is required.</mat-error>
+                </mat-form-field>
                 <div class="captcha-wrap">
                     <ng-hcaptcha
                         theme="dark"

@@ -41,7 +41,8 @@ h1 {
 
 h2 {
     margin: 0;
-    font: var(--mat-sys-title-large);
+    font: var(--mat-sys-title-medium);
+    font-weight: 700;
 }
 
 p {
@@ -52,26 +53,6 @@ p {
     color: var(--mat-sys-on-surface-variant);
 }
 
-.request-error {
-    @include mat.card-overrides(
-        (
-            outlined-container-color: var(--mat-sys-error-container),
-            outlined-outline-color: var(--mat-sys-error),
-        )
-    );
-    color: var(--mat-sys-on-error-container);
-}
-
-.request-success {
-    @include mat.card-overrides(
-        (
-            outlined-container-color: var(--mat-sys-secondary-container),
-            outlined-outline-color: var(--mat-sys-outline-variant),
-        )
-    );
-    color: var(--mat-sys-on-secondary-container);
-}
-
 textarea {
     resize: vertical;
 }
@@ -80,11 +61,9 @@ mat-form-field {
     min-width: 0;
     width: 100%;
 }
-.definition-paginator .mat-mdc-paginator-page-size {
-    margin-right: auto;
-}
+
 mat-card-header {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
 }
 
 @media (max-width: 40rem) {
@@ -97,12 +76,11 @@ output {
     display: block;
 }
 
-.json-result {
-    @include mat.form-field-overrides(
-        (
-            container-text-font: monospace,
-            container-text-size: 0.8125rem,
-            container-text-line-height: 1.5rem,
-        )
-    );
+h3 {
+    font: var(--mat-sys-title-medium);
+    font-weight: 700;
+}
+h4 {
+    font: var(--mat-sys-title-small);
+    font-weight: 600;
 }

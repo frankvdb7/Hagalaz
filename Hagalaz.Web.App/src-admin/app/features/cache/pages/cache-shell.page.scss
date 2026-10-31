@@ -2,13 +2,9 @@
     display: block;
     min-width: 0;
 }
-.cache-heading mat-icon {
-    color: var(--mat-sys-primary);
-    width: 36px;
-    height: 36px;
-    font-size: 36px;
-}
-.cache-heading h1 {
-    font: var(--mat-sys-title-large);
-    font-weight: 700;
+mat-icon {
+    margin-right: 8px;
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
 }

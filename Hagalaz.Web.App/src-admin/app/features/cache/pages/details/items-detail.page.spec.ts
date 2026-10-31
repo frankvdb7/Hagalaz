@@ -1,3 +1,6 @@
+import { MatSliderHarness } from "@angular/material/slider/testing";
+import { MatInputHarness } from "@angular/material/input/testing";
+import { MatExpansionPanelHarness } from "@angular/material/expansion/testing";
 import { ItemSpriteThumbnailComponent } from "../item-sprite-thumbnail.component";
 import { MatDialog } from "@angular/material/dialog";
 import { CachePendingChangesService } from "../../cache-pending-changes.service";
@@ -18,8 +21,12 @@ import { ItemsDetailPageComponent } from "./items-detail.page";
 import { Component, input } from "@angular/core";
 import { CacheModelPreviewComponent } from "../cache-model-preview.component";
 
-@Component({selector: "cache-item-sprite-thumbnail", template: ""})
-class ItemSpriteBoundary { readonly id=input.required<number>(); readonly name=input(""); readonly size=input(44); }
+@Component({ selector: "cache-item-sprite-thumbnail", template: "" })
+class ItemSpriteBoundary {
+    readonly id = input.required<number>();
+    readonly name = input("");
+    readonly size = input(44);
+}
 
 @Component({ selector: "cache-model-preview", template: "" })
 class ModelPreviewBoundary {
@@ -61,7 +68,10 @@ describe("Item Forge", () => {
                 provideHttpClientTesting(),
             ],
         });
-        TestBed.overrideComponent(ItemsDetailPageComponent, { remove: { imports: [CacheModelPreviewComponent, ItemSpriteThumbnailComponent] }, add: { imports: [ModelPreviewBoundary, ItemSpriteBoundary] } });
+        TestBed.overrideComponent(ItemsDetailPageComponent, {
+            remove: { imports: [CacheModelPreviewComponent, ItemSpriteThumbnailComponent] },
+            add: { imports: [ModelPreviewBoundary, ItemSpriteBoundary] },
+        });
         http = TestBed.inject(HttpTestingController);
     });
     afterEach(() => {
@@ -97,6 +107,37 @@ describe("Item Forge", () => {
         expect(element.querySelector(".technical-panel")).not.toBeNull();
         expect(element.querySelector(".save-action")?.hasAttribute("disabled")).toBe(true);
         expect(await (await loader.getHarness(MatTabGroupHarness)).getTabs()).toHaveLength(5);
+    });
+
+    it("edits through Material inputs and keeps derived fields readonly", async () => {
+        const { loader, page } = await open();
+        const id = await loader.getHarness(MatInputHarness.with({ selector: "#item-id" }));
+        const description = await loader.getHarness(MatInputHarness.with({ selector: "#item-description" }));
+        expect(await id.isReadonly()).toBe(true);
+        expect(await description.isReadonly()).toBe(true);
+        const name = await loader.getHarness(MatInputHarness.with({ selector: "#item-name" }));
+        const value = await loader.getHarness(MatInputHarness.with({ selector: "#item-value" }));
+        await name.setValue("Updated blade");
+        await value.setValue("125");
+        expect(page.draft()?.name).toBe("Updated blade");
+        expect(page.draft()?.value).toBe(125);
+        expect(page.canSave()).toBe(true);
+        await name.setValue("");
+        await name.blur();
+        expect(page.canSave()).toBe(false);
+    });
+
+    it("reveals the existing model preview through the Material inspector", async () => {
+        const { loader, harness } = await open();
+        const inspector = await loader.getHarness(MatExpansionPanelHarness);
+        expect(await inspector.isExpanded()).toBe(false);
+        await inspector.expand();
+        expect(await inspector.isExpanded()).toBe(true);
+        const preview = harness.fixture.debugElement.query(By.directive(ModelPreviewBoundary)).componentInstance as ModelPreviewBoundary;
+        expect(preview.modelId()).toBe(42);
+        expect(preview.itemId()).toBe(7);
+        await inspector.collapse();
+        expect(await inspector.isExpanded()).toBe(false);
     });
 
     it("preserves all ordered inventory and ground action slots", async () => {
@@ -179,67 +220,99 @@ describe("Item Forge", () => {
         }
     });
     it("saves the complete definition after confirmation and keeps model data in the payload", async () => {
-        const data={...item,stackableType:0,scaleX:128,maleWornModelId1:456,extraData:{451:123},unknownArray1:[1,2]};
-        const {page,harness,element}=await open(data);
-        const name=element.querySelector<HTMLInputElement>("#item-name")!;
-        name.value="New blade";name.dispatchEvent(new Event("input"));
-        const value=element.querySelector<HTMLInputElement>("#item-value")!;
-        value.value="55";value.dispatchEvent(new Event("input"));TestBed.tick();
-        expect(page.dirty()).toBe(true);expect(page.canSave()).toBe(true);
-        element.querySelector<HTMLButtonElement>(".save-action")!.click();TestBed.tick();
+        const data = { ...item, stackableType: 0, scaleX: 128, maleWornModelId1: 456, extraData: { 451: 123 }, unknownArray1: [1, 2] };
+        const { page, harness, element } = await open(data);
+        const name = element.querySelector<HTMLInputElement>("#item-name")!;
+        name.value = "New blade";
+        name.dispatchEvent(new Event("input"));
+        const value = element.querySelector<HTMLInputElement>("#item-value")!;
+        value.value = "55";
+        value.dispatchEvent(new Event("input"));
+        TestBed.tick();
+        expect(page.dirty()).toBe(true);
+        expect(page.canSave()).toBe(true);
+        element.querySelector<HTMLButtonElement>(".save-action")!.click();
+        TestBed.tick();
         expect(TestBed.inject(MatDialog).openDialogs).toHaveLength(1);
         TestBed.inject(MatDialog).openDialogs[0].close(true);
-        const request=await vi.waitFor(()=>{TestBed.tick();return http.expectOne(`${baseUrl}/items/7/definition`);});
+        const request = await vi.waitFor(() => {
+            TestBed.tick();
+            return http.expectOne(`${baseUrl}/items/7/definition`);
+        });
         expect(request.request.method).toBe("PUT");
-        const {stackable, noted, renderAnimationId, ...stored} = data;
-        expect(JSON.parse(request.request.serializeBody() as string)).toEqual({...stored,name:"New blade",value:55});
+        const { stackable, noted, renderAnimationId, ...stored } = data;
+        expect(JSON.parse(request.request.serializeBody() as string)).toEqual({ ...stored, name: "New blade", value: 55 });
         expect(request.request.body).not.toHaveProperty("stackable");
         expect(request.request.body).not.toHaveProperty("noted");
         expect(request.request.body).not.toHaveProperty("renderAnimationId");
-        request.flush({operation:"item-updated",type:"item",id:7});
+        request.flush({ operation: "item-updated", type: "item", id: 7 });
         await harness.fixture.whenStable();
-        expect(page.dirty()).toBe(false);expect(element.textContent).toContain("Changes saved to the game cache");
+        expect(page.dirty()).toBe(false);
+        expect(element.textContent).toContain("Changes saved to the game cache");
         expect(element.querySelector("h2")?.textContent).toBe("New blade");
     });
 
     it("retains drafts after failed saves and rejects invalid names and values", async () => {
-        const {page,harness,element}=await open();
-        page.updateDraft({name:"Invalid \u2603"});expect(page.canSave()).toBe(false);
-        page.updateDraft({name:"Valid",value:-1});expect(page.canSave()).toBe(false);
-        page.updateDraft({name:"Valid",value:1});
-        const saving=page.save();TestBed.tick();TestBed.inject(MatDialog).openDialogs[0].close(true);await saving;TestBed.tick();
-        http.expectOne(`${baseUrl}/items/7/definition`).flush({detail:"Write failed"},{status:503,statusText:"Unavailable"});
+        const { page, harness, element } = await open();
+        page.updateDraft({ name: "Invalid \u2603" });
+        expect(page.canSave()).toBe(false);
+        page.updateDraft({ name: "Valid", value: -1 });
+        expect(page.canSave()).toBe(false);
+        page.updateDraft({ name: "Valid", value: 1 });
+        const saving = page.save();
+        TestBed.tick();
+        TestBed.inject(MatDialog).openDialogs[0].close(true);
+        await saving;
+        TestBed.tick();
+        http.expectOne(`${baseUrl}/items/7/definition`).flush({ detail: "Write failed" }, { status: 503, statusText: "Unavailable" });
         await harness.fixture.whenStable();
-        expect(element.textContent).toContain("Write failed");expect(element.textContent).toContain("Your draft has been retained");
-        expect(page.draft()?.name).toBe("Valid");expect(page.canSave()).toBe(true);
+        expect(element.textContent).toContain("Write failed");
+        expect(element.textContent).toContain("Your draft has been retained");
+        expect(page.draft()?.name).toBe("Valid");
+        expect(page.canSave()).toBe(true);
     });
 
     it("duplicates the persisted definition and opens its newly allocated ID", async () => {
-        const {page,harness}=await open();
-        const duplicating=page.duplicate();TestBed.tick();TestBed.inject(MatDialog).openDialogs[0].close(true);await duplicating;TestBed.tick();
-        const request=http.expectOne(`${baseUrl}/items/7/duplicate`);expect(request.request.method).toBe("POST");request.flush({operation:"item-duplicated",type:"item",id:8});
-        await vi.waitFor(()=>http.expectOne(`${baseUrl}/items/8/definition`).flush({...item,id:8}));
-        await harness.fixture.whenStable();expect(TestBed.inject(Router).url).toBe("/cache/types/items/8");expect(page.id()).toBe(8);
+        const { page, harness } = await open();
+        const duplicating = page.duplicate();
+        TestBed.tick();
+        TestBed.inject(MatDialog).openDialogs[0].close(true);
+        await duplicating;
+        TestBed.tick();
+        const request = http.expectOne(`${baseUrl}/items/7/duplicate`);
+        expect(request.request.method).toBe("POST");
+        request.flush({ operation: "item-duplicated", type: "item", id: 8 });
+        await vi.waitFor(() => http.expectOne(`${baseUrl}/items/8/definition`).flush({ ...item, id: 8 }));
+        await harness.fixture.whenStable();
+        expect(TestBed.inject(Router).url).toBe("/cache/types/items/8");
+        expect(page.id()).toBe(8);
     });
 
     it("registers a dirty full-definition draft with the existing navigation guard", async () => {
-        const {page}=await open();page.updateDraft({name:"Unsaved"});TestBed.tick();
-        const leaving=TestBed.inject(CachePendingChangesService).canLeave();TestBed.tick();
+        const { page } = await open();
+        page.updateDraft({ name: "Unsaved" });
+        TestBed.tick();
+        const leaving = TestBed.inject(CachePendingChangesService).canLeave();
+        TestBed.tick();
         TestBed.inject(MatDialog).openDialogs[0].close(false);
-        expect(await leaving).toBe(false);expect(page.draft()?.name).toBe("Unsaved");
-        await page.duplicate();http.expectNone(`${baseUrl}/items/7/duplicate`);
+        expect(await leaving).toBe(false);
+        expect(page.draft()?.name).toBe("Unsaved");
+        await page.duplicate();
+        http.expectNone(`${baseUrl}/items/7/duplicate`);
     });
 
     it("zooms the actual item preview and opens the full raw definition from quick actions", async () => {
-        const {page,harness,element}=await open();
-        const zoom=element.querySelector<HTMLInputElement>("#sprite-zoom")!;
-        zoom.value="1.5";zoom.dispatchEvent(new Event("input"));TestBed.tick();
+        const { page, harness, element, loader } = await open();
+        const slider = await loader.getHarness(MatSliderHarness);
+        await (await slider.getEndThumb()).setValue(1.5);
         expect(page.spriteZoom()).toBe(1.5);
         expect(element.querySelector(".preview-image > div")?.getAttribute("style")).toContain("scale(1.5)");
         element.querySelector<HTMLButtonElement>(".quick-panel button")!.click();
         await harness.fixture.whenStable();
         expect(page.selectedTab()).toBe(4);
-        await vi.waitFor(()=>{TestBed.tick();expect(JSON.parse(element.querySelector("pre")?.textContent || "null")).toEqual(item);});
+        await vi.waitFor(() => {
+            TestBed.tick();
+            expect(JSON.parse(element.querySelector("pre")?.textContent || "null")).toEqual(item);
+        });
     });
-
 });

@@ -1,14 +1,8 @@
-@use "@angular/material" as mat;
-
 .overview {
     max-width: 64rem;
     margin-inline: auto;
-    @include mat.card-overrides((outlined-container-elevation: none));
 }
-.hero {
-    @include mat.card-overrides((outlined-container-color: var(--mat-sys-surface-container)));
-    @include mat.button-overrides((filled-container-height: 42px, outlined-container-height: 42px));
-}
+
 .hero-content {
     padding: 20px 42px;
 }
@@ -89,13 +83,7 @@
     margin-right: 12px;
     margin-bottom: 0;
 }
-.overview mat-card-header {
-    margin-bottom: 1rem;
-}
-.overview mat-card-title h2 {
-    font: var(--mat-sys-title-medium);
-    font-weight: 700;
-}
+
 @media (max-width: 599px) {
     .hero-content {
         padding: 24px;

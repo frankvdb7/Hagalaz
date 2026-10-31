@@ -1,11 +1,4 @@
 <section [attr.aria-busy]="loading()" aria-label="Definition workspace">
-    <mat-card appearance="outlined" class="studio-tabs mb-4 overflow-hidden">
-        <nav mat-tab-nav-bar mat-stretch-tabs="false" [tabPanel]="workspacePanel" aria-label="Definition type">
-            @for (kind of kinds; track kind; let index = $index) {
-                <button mat-tab-link type="button" [active]="activeKind() === kind" [class.selected-kind]="activeKind() === kind" [attr.aria-disabled]="loading() ? 'true' : null" (click)="selectKind(index)"><mat-icon aria-hidden="true">{{ kindIcons[kind] }}</mat-icon>{{ kindLabels[kind] }}</button>
-            }
-        </nav>
-    </mat-card>
     <mat-card appearance="outlined" class="studio-search mb-5 overflow-hidden">
         <mat-card-content>
             <form novalidate (submit)="$event.preventDefault(); browse()">
@@ -17,7 +10,6 @@
             </form>
         </mat-card-content>
     </mat-card>
-    <mat-tab-nav-panel #workspacePanel>
     <div class="studio-panels">
         <mat-card appearance="outlined" class="definition-list overflow-hidden">
             @if (loading() && loadingFeedbackVisible()) { <mat-progress-bar mode="indeterminate" aria-label="Processing cache request" /> }
@@ -59,5 +51,4 @@
             }
         </mat-card>
     </div>
-    </mat-tab-nav-panel>
 </section>

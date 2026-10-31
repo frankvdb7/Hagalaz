@@ -43,6 +43,9 @@ describe("TypesManagerPage per-type navigation", () => {
         vi.unstubAllGlobals();
         vi.useRealTimers();
     });
+    async function selectKind(kind: string) {
+        await TestBed.inject(Router).navigate([], { queryParams: { kind, query: null, offset: 0 }, queryParamsHandling: "merge" });
+    }
     async function createPage(sprites = 20) {
         const fixture = TestBed.createComponent(TypesManagerPageComponent);
         fixture.detectChanges();
@@ -147,9 +150,7 @@ describe("TypesManagerPage per-type navigation", () => {
         expect(fixture.nativeElement.querySelector('section[aria-label="Definition workspace"]')?.getAttribute("aria-busy")).toBe("true");
         expect(fixture.nativeElement.querySelector('button[type="submit"]')?.disabled).toBe(false);
         expect(fixture.nativeElement.querySelector('button[type="submit"]')?.getAttribute("aria-disabled")).toBe("true");
-        const categoryTab = fixture.nativeElement.querySelector('[role="tab"]') as HTMLButtonElement;
-        expect(categoryTab.disabled).toBe(false);
-        expect(categoryTab.getAttribute("aria-disabled")).toBe("true");
+        expect(fixture.nativeElement.querySelector('[role="tab"]')).toBeNull();
         expect(fixture.nativeElement.querySelector("mat-progress-bar")).toBeNull();
         expect(fixture.nativeElement.textContent).not.toContain("Loading definitions");
         expect(fixture.nativeElement.textContent).toContain("Initial sword");
@@ -250,7 +251,7 @@ describe("TypesManagerPage per-type navigation", () => {
     it("describes exact-ID lookup for sprites and rejects unsupported name searches", async () => {
         const fixture = await createPage();
         const page = fixture.componentInstance;
-        await page.selectKind(page.kinds.indexOf("sprites"));
+        await selectKind("sprites");
         TestBed.tick();
         http.expectOne((r) => r.url === `${baseUrl}sprites/range`).flush([]);
         await stable();
@@ -263,9 +264,9 @@ describe("TypesManagerPage per-type navigation", () => {
         expect(page.browseError()).toContain("Name search is available for items and NPCs");
         http.expectNone((r) => r.url === `${baseUrl}sprites/search`);
     });
-    it("automatically loads the first ten definitions with separate category and search panels", async () => {
+    it("automatically loads the first ten definitions inside the shared cache navigation", async () => {
         const fixture = await createPage();
-        expect(fixture.nativeElement.querySelector('mat-card.studio-tabs nav[aria-label="Definition type"]')).not.toBeNull();
+        expect(fixture.nativeElement.querySelector("nav")).toBeNull();
         expect(fixture.nativeElement.querySelector("mat-card.studio-search form")).not.toBeNull();
         expect(fixture.componentInstance.kinds).toHaveLength(13);
         expect(fixture.componentInstance.rows()).toEqual([{ id: 0, name: "Initial sword" }]);
@@ -277,9 +278,18 @@ describe("TypesManagerPage per-type navigation", () => {
         fixture.detectChanges();
         http.expectOne(`${baseUrl}archive-sizes`).flush({ items: 23 });
         TestBed.tick();
-        await vi.waitFor(() => http.expectOne((r) => r.url === `${baseUrl}items/range`).flush([{ id: 10, name: "First" }, { id: 12, name: "Second" }]));
+        await vi.waitFor(() =>
+            http
+                .expectOne((r) => r.url === `${baseUrl}items/range`)
+                .flush([
+                    { id: 10, name: "First" },
+                    { id: 12, name: "Second" },
+                ])
+        );
         await stable();
-        const menu = await TestbedHarnessEnvironment.loader(fixture).getHarness(MatMenuHarness.with({ selector: 'button[aria-label="Actions for definition 12"]' }));
+        const menu = await TestbedHarnessEnvironment.loader(fixture).getHarness(
+            MatMenuHarness.with({ selector: 'button[aria-label="Actions for definition 12"]' })
+        );
         await menu.open();
         const items = await menu.getItems();
         expect(items).toHaveLength(1);
@@ -358,7 +368,7 @@ describe("TypesManagerPage per-type navigation", () => {
         expect(first.request.params.get("offset")).toBe("0");
         first.flush({ query: "sword", totalMatches: 0, offset: 0, limit: 25, items: [] });
         await stable();
-        await page.selectKind(page.kinds.indexOf("npcs"));
+        await selectKind("npcs");
         expect(page.rows()).toEqual([]);
         expect(page.pageIndex()).toBe(0);
         TestBed.tick();
@@ -375,7 +385,7 @@ describe("TypesManagerPage per-type navigation", () => {
     it("opens numeric lookups as dedicated pages and rejects invalid IDs", async () => {
         const fixture = await createPage(),
             page = fixture.componentInstance;
-        await page.selectKind(page.kinds.indexOf("npcs"));
+        await selectKind("npcs");
         TestBed.tick();
         http.expectOne((r) => r.url === `${baseUrl}npcs/range`).flush([]);
         await stable();
@@ -392,7 +402,7 @@ describe("TypesManagerPage per-type navigation", () => {
     it.each(["maps", "cs2-int"] as const)("keeps %s as ID-only lookup", async (kind) => {
         const fixture = await createPage(),
             page = fixture.componentInstance;
-        await page.selectKind(page.kinds.indexOf(kind));
+        await selectKind(kind);
         await page.browse();
         expect(page.browseError()).toContain("lookup by ID");
         expect(page.paginated()).toBe(false);
@@ -436,7 +446,7 @@ describe("TypesManagerPage per-type navigation", () => {
         );
         const fixture = await createPage();
         const page = fixture.componentInstance;
-        await page.selectKind(page.kinds.indexOf("sprites"));
+        await selectKind("sprites");
         TestBed.tick();
         await vi.waitFor(() =>
             http
@@ -484,7 +494,7 @@ describe("TypesManagerPage per-type navigation", () => {
         const page = fixture.componentInstance;
         const spriteRows = (start: number, count: number) => Array.from({ length: count }, (_, index) => ({ id: start + index, frameCount: 2 }));
         const ids: number[] = [];
-        await page.selectKind(page.kinds.indexOf("sprites"));
+        await selectKind("sprites");
         TestBed.tick();
         await vi.waitFor(() => {
             const request = http.expectOne((r) => r.url === `${baseUrl}sprites/range`);
@@ -552,7 +562,7 @@ describe("TypesManagerPage per-type navigation", () => {
     it("keeps range pagination aligned when resizing the last page and navigating back", async () => {
         const fixture = await createPage(23);
         const page = fixture.componentInstance;
-        await page.selectKind(page.kinds.indexOf("sprites"));
+        await selectKind("sprites");
         TestBed.tick();
         await vi.waitFor(() => http.expectOne((r) => r.url === `${baseUrl}sprites/range`).flush([{ id: 0, frameCount: 0 }]));
         await stable();
@@ -593,7 +603,7 @@ describe("TypesManagerPage per-type navigation", () => {
     it("disables next and last page when the sprite archive contains one result", async () => {
         const fixture = await createPage(1);
         const page = fixture.componentInstance;
-        await page.selectKind(page.kinds.indexOf("sprites"));
+        await selectKind("sprites");
         TestBed.tick();
         await vi.waitFor(() => {
             const request = http.expectOne((r) => r.url === `${baseUrl}sprites/range`);

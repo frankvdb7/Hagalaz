@@ -25,7 +25,6 @@ export const routes: Routes = [
                     ...cacheDetailRoutes,
                     { path: "models", loadComponent: () => import("./features/cache/pages/models-manager.page").then((m) => m.ModelsManagerPageComponent) },
                     { path: "types", loadComponent: () => import("./features/cache/pages/types-manager.page").then((m) => m.TypesManagerPageComponent) },
-                    { path: "sprites", loadComponent: () => import("./features/cache/pages/sprites-manager.page").then((m) => m.SpritesManagerPageComponent) },
                     { path: "", pathMatch: "full", redirectTo: "types" },
                 ],
             },

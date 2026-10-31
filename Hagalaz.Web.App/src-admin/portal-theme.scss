@@ -26,20 +26,24 @@
             outlined-container-shape: 16px,
             outlined-container-color: var(--mat-sys-surface-container-low),
             outlined-outline-color: var(--mat-sys-outline-variant),
-            outlined-container-elevation: var(--admin-panel-shadow),
+            outlined-container-elevation: none,
             subtitle-text-color: var(--mat-sys-on-surface-variant),
         )
     );
     @include mat.form-field-overrides(
         (
             outlined-container-shape: 12px,
-            container-height: 4rem,
+            container-height: 48px,
+            container-vertical-padding: 12px,
         )
     );
     @include mat.button-overrides(
         (
             filled-container-shape: 12px,
-            filled-container-height: 3.25rem,
+            filled-container-height: 44px,
+            outlined-container-height: 44px,
+            outlined-container-shape: 12px,
+            text-container-shape: 12px,
             filled-container-color: var(--mat-sys-primary),
             filled-label-text-color: var(--mat-sys-on-primary),
             filled-label-text-transform: none,
@@ -71,20 +75,38 @@
     @include mat.tabs-overrides(
         (
             divider-color: var(--mat-sys-outline-variant),
+            active-indicator-color: var(--mat-sys-primary),
+            active-label-text-color: var(--mat-sys-on-surface),
+            inactive-label-text-color: var(--mat-sys-on-surface-variant),
+            container-height: 56px,
         )
     );
     @include mat.table-overrides(
         (
             background-color: transparent,
             row-item-outline-color: var(--mat-sys-outline-variant),
+            header-headline-size: 12px,
+            header-container-height: 48px,
+            row-item-label-text-size: 14px,
+            row-item-container-height: 52px,
         )
     );
+    @include mat.paginator-overrides(
+        (
+            container-background-color: transparent,
+        )
+    );
+    @include mat.expansion-overrides(
+        (
+            container-background-color: var(--mat-sys-surface-container-low),
+        )
+    );
+    --admin-radius: 12px;
     --portal-cyan: rgb(123 216 233);
     --portal-emerald: rgb(122 220 176);
     --portal-violet: #c7adff;
     --portal-ember: #ff9993;
     --admin-background: url("/assets/images/admin-login-background.png");
-    --admin-panel-shadow: 0 20px 70px rgb(0 0 0 / 22%);
 }
 
 .admin-neutral-action {
@@ -111,7 +133,7 @@
         height: 44px;
         display: grid;
         place-items: center;
-        border-radius: 14px;
+        border-radius: var(--admin-radius);
         color: var(--portal-accent, var(--mat-sys-primary));
         background: color-mix(in srgb, var(--portal-accent, var(--mat-sys-primary)) 16%, transparent);
     }
@@ -161,4 +183,93 @@
 
 .admin-portal {
     background: var(--mat-sys-surface);
+}
+
+// Contextual variants live with the shared theme, not in individual page styles.
+.toolbar-search {
+    @include mat.form-field-overrides(
+        (
+            outlined-container-shape: 18px,
+            container-height: 36px,
+            container-vertical-padding: 6px,
+            container-text-size: 12px,
+            container-text-line-height: 24px,
+            outlined-outline-color: var(--mat-sys-outline-variant),
+        )
+    );
+}
+.account-trigger {
+    @include mat.icon-button-overrides(
+        (
+            icon-size: 32px,
+        )
+    );
+}
+.hero {
+    @include mat.card-overrides(
+        (
+            outlined-container-color: var(--mat-sys-surface-container),
+        )
+    );
+}
+.frame-button {
+    @include mat.button-overrides(
+        (
+            text-label-text-color: var(--mat-sys-on-surface-variant),
+        )
+    );
+    border: 1px solid var(--mat-sys-outline-variant);
+    border-radius: var(--admin-radius);
+    background: var(--mat-sys-surface-container-high);
+}
+.frame-button.selected {
+    @include mat.button-overrides(
+        (
+            text-label-text-color: var(--mat-sys-on-primary-container),
+        )
+    );
+    border-color: var(--mat-sys-primary);
+    background: var(--mat-sys-primary-container);
+}
+.raw-data {
+    max-height: 650px;
+    overflow: auto;
+    padding: 16px;
+    border-radius: var(--admin-radius);
+    background: var(--mat-sys-surface-container-lowest);
+}
+.raw-data pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font: var(--mat-sys-body-small);
+}
+
+.request-error {
+    @include mat.card-overrides(
+        (
+            outlined-container-color: var(--mat-sys-error-container),
+            outlined-outline-color: var(--mat-sys-error),
+        )
+    );
+    color: var(--mat-sys-on-error-container);
+}
+
+.request-success {
+    @include mat.card-overrides(
+        (
+            outlined-container-color: var(--mat-sys-secondary-container),
+            outlined-outline-color: var(--mat-sys-outline-variant),
+        )
+    );
+    color: var(--mat-sys-on-secondary-container);
+}
+
+.json-result {
+    @include mat.form-field-overrides(
+        (
+            container-text-font: monospace,
+            container-text-size: 0.8125rem,
+            container-text-line-height: 1.5rem,
+        )
+    );
 }

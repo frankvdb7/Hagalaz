@@ -1,5 +1,3 @@
-@use "@angular/material" as mat;
-
 :host {
     display: block;
 }
@@ -25,10 +23,14 @@ mat-sidenav-content {
     max-width: none;
 }
 @media (min-width: 640px) {
-    .portal-content { padding: 1rem 1.5rem 1.5rem; }
+    .portal-content {
+        padding: 1rem 1.5rem 1.5rem;
+    }
 }
 @media (min-width: 1024px) {
-    .portal-content { padding: 1rem 2rem 2rem; }
+    .portal-content {
+        padding: 1rem 2rem 2rem;
+    }
 }
 .portal-toolbar {
     height: auto;
@@ -40,16 +42,6 @@ mat-sidenav-content {
 }
 .toolbar-search {
     flex-shrink: 0;
-    @include mat.form-field-overrides(
-        (
-            outlined-container-shape: 18px,
-            container-height: 36px,
-            container-vertical-padding: 6px,
-            container-text-size: 12px,
-            container-text-line-height: 24px,
-            outlined-outline-color: var(--mat-sys-outline-variant),
-        )
-    );
     background: var(--mat-sys-surface-container-high);
     border-radius: 999px;
 }
@@ -58,13 +50,7 @@ mat-sidenav-content {
     width: 18px;
     height: 18px;
 }
-.account-trigger {
-    @include mat.icon-button-overrides(
-        (
-            icon-size: 32px,
-        )
-    );
-}
+
 .account-avatar {
     display: grid;
     place-items: center;

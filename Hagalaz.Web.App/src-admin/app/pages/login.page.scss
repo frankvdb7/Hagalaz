@@ -66,37 +66,6 @@
     gap: 1rem;
 }
 
-.login-input-field {
-    position: relative;
-}
-
-.login-field-label {
-    position: absolute;
-    z-index: 1;
-    top: 0.625rem;
-    left: 3.75rem;
-    color: var(--mat-sys-on-surface-variant);
-    font: var(--mat-sys-body-small);
-    pointer-events: none;
-}
-
-.login-input-field--invalid .login-field-label {
-    color: var(--mat-sys-error);
-}
-
-.login-input-field input[matinput] {
-    position: relative;
-    top: 0.875rem;
-}
-
-.login-input-field mat-icon[matprefix] {
-    margin-inline-start: 0.5rem;
-}
-
-.login-form > .login-input-field:first-of-type {
-    margin-bottom: 0.5rem;
-}
-
 .captcha-wrap {
     display: grid;
     justify-content: center;
