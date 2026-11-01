@@ -23,7 +23,10 @@ $log = Join-Path $env:TEMP "hagalaz-test-$PID.log"
 dotnet test .\Hagalaz.Services.GameWorld.Tests\Hagalaz.Services.GameWorld.Tests.csproj --verbosity quiet *> $log
 $code = $LASTEXITCODE
 Write-Output "Exit: $code; full log: $log"
-Get-Content -Path $log -Tail 20
+$diagnostics = @(Select-String -Path $log -Pattern 'warning|error|failed|exception')
+Write-Output "Diagnostic lines: $($diagnostics.Count)"
+$diagnostics | Select-Object -First 30
+Get-Content -Path $log -Tail 15
 if ($code -ne 0) { exit $code }
 ```
 
