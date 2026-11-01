@@ -3,11 +3,14 @@ import { HttpTestingController, provideHttpClientTesting } from "@angular/common
 import { Component, input } from "@angular/core";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { provideRouter } from "@angular/router";
+import { By } from "@angular/platform-browser";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ModelViewerComponent } from "../../../../../shared/model-viewer/model-viewer.component";
 import type { ModelGeometry, ModelTexture } from "../../../../../shared/model-viewer/model-scene";
 import { environment } from "../../../../environments/environment";
 import { CacheModelPreviewComponent } from "./cache-model-preview.component";
+import { ModelWorkspaceComponent } from "./model-workspace.component";
+import { ModelTexturesComponent } from "./model-textures.component";
 import { CacheTextureThumbnailComponent } from "./cache-texture-thumbnail.component";
 
 @Component({ selector: "hagalaz-model-viewer", template: "" })
@@ -15,6 +18,10 @@ class RendererBoundary {
     readonly height = input(360);
     readonly geometry = input<ModelGeometry | null>(null);
     readonly textures = input<ReadonlyMap<number, ModelTexture>>(new Map());
+    readonly grid = input(false);
+    readonly wireframe = input(false);
+    readonly showReset = input(true);
+    reset = vi.fn();
 }
 
 @Component({ selector: "cache-texture-thumbnail", template: "" })
@@ -33,8 +40,10 @@ describe("CacheModelPreviewComponent playback", () => {
             imports: [CacheModelPreviewComponent],
             providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
         }).overrideComponent(CacheModelPreviewComponent, {
-            remove: { imports: [ModelViewerComponent, CacheTextureThumbnailComponent] }, add: { imports: [RendererBoundary, ThumbnailBoundary] },
+            remove: { imports: [ModelViewerComponent] }, add: { imports: [RendererBoundary] },
         });
+        TestBed.overrideComponent(ModelWorkspaceComponent, { remove: { imports: [ModelViewerComponent] }, add: { imports: [RendererBoundary] } });
+        TestBed.overrideComponent(ModelTexturesComponent, { remove: { imports: [CacheTextureThumbnailComponent] }, add: { imports: [ThumbnailBoundary] } });
         http = TestBed.inject(HttpTestingController);
         fixture = TestBed.createComponent(CacheModelPreviewComponent);
         fixture.componentRef.setInput("modelId", 7);
@@ -197,6 +206,18 @@ describe("CacheModelPreviewComponent playback", () => {
         expect(fixture.nativeElement.textContent).toContain("client forces, collision, prewarm");
     });
 
+    it("inspects a referenced texture using its actual material mode", async () => {
+        vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue({close: vi.fn()}));
+        await loadTexturedModel([8]);
+        http.expectOne(`${baseUrl}textures/8/image`).flush(new Blob());
+        await vi.waitFor(() => { settle(); expect(fixture.componentInstance.textureData.hasValue()).toBe(true); }, {interval: 1});
+        const choice = fixture.nativeElement.querySelector('[aria-label="Inspect texture 8"]') as HTMLButtonElement;
+        choice.click(); settle();
+        expect(choice.getAttribute("aria-pressed")).toBe("true");
+        expect(fixture.componentInstance.selectedTexture()).toBe(8);
+        expect(fixture.nativeElement.textContent).toContain("Cutout");
+    });
+
     it("releases already decoded bitmaps when another texture fails and renders the error", async () => {
         const close = vi.fn();
         vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue({close}));
@@ -239,5 +260,155 @@ describe("CacheModelPreviewComponent playback", () => {
         http.expectOne(`${baseUrl}textures/8/hdr`).flush({width: 1, height: 1, rgba: [2, 1, 0, 1]});
         await vi.waitFor(() => { settle(); expect(fixture.componentInstance.textureImages().get(8)?.hdr?.rgba).toEqual([2, 1, 0, 1]); }, {interval: 1});
         expect(fixture.nativeElement.textContent).not.toContain("HDR companion unavailable");
+    });
+});
+
+describe("Model inspection workspace", () => {
+    let http: HttpTestingController;
+    let fixture: ComponentFixture<CacheModelPreviewComponent>;
+    const source = {
+        id: 666,
+        positions: [2, -3, 4, 0, 0, 0, 0, -1, 0],
+        indices: [0, 1, 2],
+        faceColors: [127],
+        faceAlpha: [80],
+        vertexSkins: [2, 2, 5],
+        faceSkins: [1],
+        warnings: ["Client lighting is approximate."],
+        animationIds: [],
+        coordinateScale: 1,
+        faceTextureIds: null,
+        faceTextureUvs: null,
+        scale: null,
+        particles: [],
+    };
+    beforeEach(async () => {
+        TestBed.configureTestingModule({
+            imports: [CacheModelPreviewComponent],
+            providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+        }).overrideComponent(CacheModelPreviewComponent, {
+            remove: { imports: [ModelViewerComponent] },
+            add: { imports: [RendererBoundary] },
+        });
+        TestBed.overrideComponent(ModelWorkspaceComponent, { remove: { imports: [ModelViewerComponent] }, add: { imports: [RendererBoundary] } });
+        TestBed.overrideComponent(ModelTexturesComponent, { remove: { imports: [CacheTextureThumbnailComponent] }, add: { imports: [ThumbnailBoundary] } });
+        http = TestBed.inject(HttpTestingController);
+        fixture = TestBed.createComponent(CacheModelPreviewComponent);
+        fixture.componentRef.setInput("workspace", true);
+        fixture.componentRef.setInput("modelId", 666);
+        fixture.detectChanges();
+        TestBed.tick();
+        http.expectOne(`${baseUrl}models/666`).flush(source);
+        await fixture.whenStable();
+    });
+    afterEach(() => {
+        fixture.destroy();
+        http.verify();
+        TestBed.resetTestingModule();
+    });
+
+    it("shows actual properties and skin groups and explains unavailable writes", async () => {
+        const host = fixture.nativeElement as HTMLElement;
+        expect(host.querySelector("h1")?.textContent).toBe("Model #666");
+        expect(host.querySelectorAll(".group-row")).toHaveLength(2);
+        (host.querySelector(".group-row") as HTMLButtonElement).click();
+        await fixture.whenStable();
+        expect(host.textContent).toContain("Skin group 2 · 2 vertices");
+        const writes = Array.from(host.querySelectorAll("button")).filter((button) => /Save changes|Duplicate/.test(button.textContent ?? ""));
+        expect(writes).toHaveLength(2);
+        expect(writes.every((button) => button.disabled)).toBe(true);
+        expect(host.textContent).toContain("Transforms affect this preview only.");
+        const alpha = Array.from(host.querySelectorAll("mat-checkbox")).find(control => control.textContent?.includes("Uses alpha"));
+        expect(alpha?.querySelector<HTMLInputElement>("input")?.checked).toBe(true);
+    });
+
+    it("transforms and resets rendered geometry without changing the source or issuing writes", async () => {
+        const host = fixture.nativeElement as HTMLElement;
+        const control = host.querySelector('[aria-label="Model scale X"]') as HTMLInputElement;
+        control.value = "256";
+        control.dispatchEvent(new Event("input"));
+        await fixture.whenStable();
+        const preview = fixture.debugElement.query(By.directive(ModelWorkspaceComponent)).componentInstance as ModelWorkspaceComponent;
+        expect(preview.workspaceGeometry()?.positions.slice(0, 3)).toEqual([4, 3, 4]);
+        preview.updateTransform("rotation", 2, 90);
+        preview.updateTransform("offset", 0, 10);
+        await fixture.whenStable();
+        expect(preview.workspaceGeometry()?.positions[0]).toBeCloseTo(7);
+        expect(preview.workspaceGeometry()?.positions[1]).toBeCloseTo(4);
+        const before = preview.transform();
+        for (const value of [null, Number.NaN, Number.POSITIVE_INFINITY, -1, 1025]) preview.updateTransform("scale", 0, value);
+        expect(preview.transform()).toBe(before);
+        const reset = Array.from(host.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Reset preview");
+        reset?.click();
+        await fixture.whenStable();
+        expect(preview.workspaceGeometry()?.positions.map((value) => value || 0)).toEqual(preview.geometry()?.positions.map((value) => value || 0));
+        expect(fixture.componentInstance.modelValue()?.positions).toEqual(source.positions);
+        expect(fixture.componentInstance.modelValue()?.positions[0]).toBe(2);
+        http.expectNone((request) => request.method !== "GET");
+    });
+
+    it("clears invalid transform text when resetting an unchanged preview", async () => {
+        const host = fixture.nativeElement as HTMLElement;
+        const control = host.querySelector('[aria-label="Model scale X"]') as HTMLInputElement;
+        control.value = "0";
+        control.dispatchEvent(new Event("input"));
+        control.dispatchEvent(new Event("blur"));
+        await fixture.whenStable();
+        expect(control.getAttribute("aria-invalid")).toBe("true");
+        const reset = Array.from(host.querySelectorAll("button")).find(button => button.textContent?.trim() === "Reset preview");
+        reset?.click();
+        await fixture.whenStable();
+        expect(control.value).toBe("128");
+        expect(control.getAttribute("aria-invalid")).toBe("false");
+        const preview = fixture.debugElement.query(By.directive(ModelWorkspaceComponent)).componentInstance as ModelWorkspaceComponent;
+        expect(preview.workspaceGeometry()?.positions.map(value => value || 0)).toEqual(preview.geometry()?.positions.map(value => value || 0));
+    });
+
+    it("switches inspection tabs without replacing the viewer and forwards display toggles", async () => {
+        const host = fixture.nativeElement as HTMLElement;
+        const renderer = fixture.debugElement.query(By.directive(RendererBoundary)).componentInstance as RendererBoundary;
+        (host.querySelector('[aria-label="Toggle wireframe"]') as HTMLButtonElement).click();
+        (host.querySelector('[aria-label="Toggle grid"]') as HTMLButtonElement).click();
+        await fixture.whenStable();
+        expect(renderer.wireframe()).toBe(true);
+        expect(renderer.showReset()).toBe(false);
+        expect(renderer.grid()).toBe(false);
+        const tabs = host.querySelectorAll('[role="tab"]');
+        (tabs[2] as HTMLElement).click();
+        await fixture.whenStable();
+        expect(host.textContent).toContain("Recolors belong to definitions");
+        (tabs[1] as HTMLElement).click();
+        await fixture.whenStable();
+        expect(host.textContent).toContain("This model does not reference any texture images.");
+        (tabs[5] as HTMLElement).click();
+        await fixture.whenStable();
+        expect(host.textContent).toContain("Coordinate scale");
+        expect(fixture.debugElement.query(By.directive(RendererBoundary)).componentInstance).toBe(renderer);
+    });
+
+    it("resets inspection state on replacement and presents retryable model failures", async () => {
+        const preview = fixture.debugElement.query(By.directive(ModelWorkspaceComponent)).componentInstance as ModelWorkspaceComponent;
+        preview.updateTransform("offset", 1, 7);
+        preview.selectedGroup.set(2);
+        preview.selectedTexture.set(9);
+        fixture.componentRef.setInput("modelId", 777);
+        fixture.detectChanges();
+        TestBed.tick();
+        http.expectOne(`${baseUrl}models/777`).flush({}, { status: 404, statusText: "Not Found" });
+        await fixture.whenStable();
+        expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain("Model preview is unavailable");
+        const retry = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll("button")).find(
+            (button) => button.textContent?.trim() === "Retry model"
+        );
+        retry?.click();
+        fixture.detectChanges();
+        TestBed.tick();
+        http.expectOne(`${baseUrl}models/777`).flush({ ...source, id: 777, vertexSkins: null });
+        await fixture.whenStable();
+        expect(fixture.nativeElement.textContent).toContain("No vertex skin groups in this model.");
+        const replacement = fixture.debugElement.query(By.directive(ModelWorkspaceComponent)).componentInstance as ModelWorkspaceComponent;
+        expect(replacement.transform().offset).toEqual([0, 0, 0]);
+        expect(replacement.selectedGroup()).toBe(-1);
+        expect(replacement.selectedTexture()).toBe(-1);
     });
 });

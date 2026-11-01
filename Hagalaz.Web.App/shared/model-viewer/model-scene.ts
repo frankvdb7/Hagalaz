@@ -42,6 +42,31 @@ export class ModelScene {
     private disposed = false;
     private textureImages?: ReadonlyMap<number, ModelTexture>;
     private readonly textures = new Map<number, THREE.Texture>();
+    private grid?: THREE.GridHelper;
+    private wireframe = false;
+
+    setDisplay(grid: boolean, wireframe: boolean): void {
+        this.wireframe = wireframe;
+        if (grid && !this.grid) {
+            this.grid = new THREE.GridHelper(20, 40, 0x253141, 0x121a24);
+            this.scene.add(this.grid);
+            this.fitGrid();
+        }
+        if (this.grid) this.grid.visible = grid;
+        this.applyWireframe();
+    }
+
+    private applyWireframe(): void {
+        if (this.mesh) for (const material of this.mesh.material) material.wireframe = this.wireframe;
+    }
+
+    private fitGrid(): void {
+        const bounds = this.mesh?.geometry.boundingSphere;
+        if (this.grid && this.mesh && bounds) {
+            this.grid.scale.setScalar(Math.max(bounds.radius, 1) / 2);
+            this.grid.position.set(bounds.center.x, new THREE.Box3().setFromObject(this.mesh).min.y, bounds.center.z);
+        }
+    }
 
     setTextures(images: ReadonlyMap<number, ModelTexture>): void {
         if (images === this.textureImages) return;
@@ -164,8 +189,10 @@ export class ModelScene {
         }
         this.assignSurfaceGroups(geometry, model);
         this.mesh = new THREE.Mesh(geometry, materials);
+        this.applyWireframe();
         this.mesh.name = model.sourceId === undefined ? "" : String(model.sourceId);
         this.scene.add(this.mesh);
+        this.fitGrid();
         if (model.particles?.length) this.particles = new ModelParticles(this.scene, model.particles, this.textures);
         this.resetCamera();
     }
@@ -192,6 +219,12 @@ export class ModelScene {
         this.resizeObserver.disconnect();
         this.controls.dispose();
         this.clear();
+        if (this.grid) {
+            this.scene.remove(this.grid);
+            this.grid.geometry.dispose();
+            const materials = Array.isArray(this.grid.material) ? this.grid.material : [this.grid.material];
+            for (const material of materials) material.dispose();
+        }
         for (const texture of this.textures.values()) texture.dispose();
         this.textures.clear();
         this.renderer.dispose();

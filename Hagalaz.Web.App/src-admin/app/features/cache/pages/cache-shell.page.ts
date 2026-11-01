@@ -11,7 +11,7 @@ import { cacheTypeLabels, type TypeKind } from "../services/cache.models";
     selector: "cache-shell-page",
     imports: [MatTabsModule, MatCardModule, MatIconModule, RouterLink, RouterOutlet],
     templateUrl: "./cache-shell.page.html",
-    styleUrl: "./cache-shell.page.scss",
+    host: { class: "block min-w-0" },
 })
 export class CacheShellPageComponent {
     private readonly router = inject(Router);

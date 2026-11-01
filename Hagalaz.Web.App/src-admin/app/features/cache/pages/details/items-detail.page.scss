@@ -1,6 +1,4 @@
 :host {
-    display: block;
-    min-width: 0;
     container-type: inline-size;
 }
 h2,
@@ -93,7 +91,8 @@ mat-tab-group mat-icon {
     padding-bottom: 20px;
     border-bottom: 1px solid var(--mat-sys-outline-variant);
 }
-.panel-heading p {
+.panel-heading p,
+.preview-controls {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -200,12 +199,7 @@ aside h3 {
     background: var(--mat-sys-surface-container);
     border-radius: var(--admin-radius);
 }
-.preview-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font: var(--mat-sys-body-small);
-}
+
 .preview-controls > span {
     flex: 1;
 }

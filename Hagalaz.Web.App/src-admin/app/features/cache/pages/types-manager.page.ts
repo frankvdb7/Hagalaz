@@ -37,6 +37,7 @@ import { SpriteFrameThumbnailComponent } from "./sprite-frame-thumbnail.componen
     ],
     providers: [CacheSpritesService, CacheArchivesStore, ...Object.values(cacheDefinitionStores)],
     templateUrl: "./types-manager.page.html",
+    host: { class: "block min-w-0" },
     styleUrl: "./types-manager.page.scss",
 })
 export class TypesManagerPageComponent {

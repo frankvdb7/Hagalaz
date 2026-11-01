@@ -1,0 +1,27 @@
+.model-structure {
+    border-top: 1px solid var(--mat-sys-outline-variant);
+}
+summary {
+    cursor: pointer;
+    font: var(--mat-sys-label-medium);
+}
+
+.skin-groups {
+    max-height: 240px;
+    overflow: auto;
+}
+.group-row {
+    background: transparent;
+}
+.group-row.selected {
+    background: var(--mat-sys-secondary-container);
+}
+summary mat-icon {
+    vertical-align: middle;
+    margin: 0 8px;
+}
+.group-row mat-icon {
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+}

@@ -5,6 +5,8 @@ import { Component, computed, effect, inject, input, linkedSignal, signal, untra
 import { rxResource } from "@angular/core/rxjs-interop";
 import { forkJoin, map, of, from, switchMap, Observable, catchError } from "rxjs";
 import { describeMaterialEffect } from "../../../../../shared/model-viewer/material-effects";
+import { NgTemplateOutlet } from "@angular/common";
+import { MatButtonModule } from "@angular/material/button";
 import { FormsModule } from "@angular/forms";
 import { poseModel, poseFaceAlpha } from "../../../../../shared/model-viewer/model-pose";
 import { RouterLink } from "@angular/router";
@@ -12,7 +14,9 @@ import { ModelViewerComponent } from "../../../../../shared/model-viewer/model-v
 import { environment } from "../../../../environments/environment";
 import { prepareCacheModel } from "../../../../../shared/model-viewer/cache-model-geometry";
 import { getCacheErrorMessage } from "../stores/cache-error";
-import { CacheTextureThumbnailComponent } from "./cache-texture-thumbnail.component";
+import { ModelTexturesComponent } from "./model-textures.component";
+import { ModelWorkspaceComponent } from "./model-workspace.component";
+import { ModelAnimationsComponent } from "./model-animations.component";
 
 import type { ModelTexture } from "../../../../../shared/model-viewer/model-scene";
 
@@ -20,33 +24,9 @@ type CacheTexture = ModelTexture & GetTextureMaterialDto & {hdrError?: boolean};
 
 @Component({
     selector: "cache-model-preview",
-    imports: [ModelViewerComponent, RouterLink, FormsModule, CacheTextureThumbnailComponent],
-    template: `@if (appearances.hasValue()) {
-            <label>Model appearance <select [ngModel]="appearance()" (ngModelChange)="appearance.set($event)">
-                @for (choice of appearances.value(); track choice.key) { <option [value]="choice.key" [disabled]="!choice.available">{{choice.label}}{{choice.available ? '' : ' (unavailable)'}}</option> }
-            </select></label>
-            <p>Model IDs: @for (id of selectedAppearance()?.modelIds ?? []; track $index) { <span>#{{id}} </span> } @empty { <span>None for this appearance.</span> }</p>
-        }
-        @if (appearances.error(); as error) { <p role="alert">Appearance choices are unavailable. {{errorMessage(error)}}</p><button type="button" (click)="appearances.reload()">Retry appearances</button> }
-        @if (model.isLoading()) { <p role="status">Loading model…</p> }
-        @if (model.error(); as error) { <p role="alert">Model preview is unavailable. {{ errorMessage(error) }}</p><button type="button" (click)="model.reload()">Retry model</button> }
-        @if (modelValue(); as value) { @for (warning of value.warnings; track warning) { <p class="supporting-text text-xs">{{warning}}</p> }<hagalaz-model-viewer [height]="height()" [geometry]="geometry()" [textures]="textureImages()" />
-            @if (value.animationIds?.length) { <h3>Associated animations</h3><ul>@for (animationId of value.animationIds; track animationId) { <li><button type="button" (click)="selectAnimation(animationId)">Play animation #{{animationId}}</button> <a [routerLink]="['/cache/types/animations', animationId]">Definition</a></li> }</ul> }
-        }
-        @if (!definition() && itemId() === null && (modelId() === null || modelId()! < 0)) { <p>No inventory model is available.</p> }
-        @if (modelValue()?.vertexSkins) { <form (ngSubmit)="inspectFrame()"><label>Frame ID <input name="frame" type="number" min="0" [(ngModel)]="draftFrame" /></label><button type="submit">Inspect frame</button><button type="button" (click)="basePose()">Base pose</button></form> }
-        @if (sequenceValue(); as sequence) { <p>Animation #{{sequence.id}}, frame {{frameIndex() + 1}} of {{sequence.frameIds.length}}. Discrete frames; tweening is not applied.</p><button type="button" (click)="playing.set(!playing())" [disabled]="!sequence.frameIds.length || !!poseError()">{{playing() ? 'Pause' : 'Play'}}</button><button type="button" (click)="advance()" [disabled]="playing()">Next frame</button> }
-        @if (sequence.error(); as error) { <p role="alert">{{errorMessage(error)}}</p> }
-        @if (clip.isLoading()) { <p role="status">Loading animation frames…</p> }
-        @if (clip.error(); as error) { <p role="alert">{{errorMessage(error)}}</p><button type="button" (click)="clip.reload()">Retry animation</button> }
-        @if (frame.error(); as error) { <p role="alert">{{errorMessage(error)}}</p> }
-        @if (poseError(); as error) { <p role="alert">{{error}}</p> }
-        @if (textureIds().length) { <h3>Referenced texture images</h3>@for (textureId of textureIds(); track textureId) { <cache-texture-thumbnail [id]="textureId" />@if (textureImages().get(textureId); as texture) { <span>Alpha: {{texture.alphaMode === 0 ? "opaque" : texture.alphaMode === 1 ? "cutout" : "blended"}}</span> } } }
-        @for (warning of particleWarnings(); track warning) { <p class="supporting-text text-xs">{{warning}}</p> }
-        @for (warning of materialWarnings(); track warning) { <p class="supporting-text text-xs">{{warning}}</p> }
-        @if (textureData.error()) { <p role="alert">Some textures could not be loaded.</p> }
-        @if (textureData.error() || hasHdrError()) { <button type="button" (click)="textureData.reload()">Retry textures</button> }
-        <a routerLink="/cache/models">Open model browser</a>`,
+    imports: [ModelViewerComponent, RouterLink, FormsModule, ModelTexturesComponent, ModelWorkspaceComponent, ModelAnimationsComponent, NgTemplateOutlet, MatButtonModule],
+    templateUrl: "./cache-model-preview.component.html",
+    host: { class: "block min-w-0" },
 })
 export class CacheModelPreviewComponent {
     private readonly http = inject(HttpClient);
@@ -130,6 +110,19 @@ export class CacheModelPreviewComponent {
         catch (error) { return { model, error: error instanceof Error ? error.message : "Frame could not be applied." }; }
     });
     readonly poseError = computed(() => this.posed().error);
+    readonly workspace = input(false);
+    readonly showLookup = computed(() => this.workspace() && !this.modelValue());
+    readonly selectedTexture = linkedSignal(() => { this.modelId(); return -1; });
+    readonly previewNotes = computed(() => [...(this.modelValue()?.warnings ?? []), ...this.particleWarnings(), ...this.materialWarnings()]);
+    readonly sequenceErrorMessage = computed(() => this.sequence.error() ? this.errorMessage(this.sequence.error()) : null);
+    readonly clipErrorMessage = computed(() => this.clip.error() ? this.errorMessage(this.clip.error()) : null);
+    readonly frameErrorMessage = computed(() => this.frame.error() ? this.errorMessage(this.frame.error()) : null);
+    readonly appearanceChoices = computed(() => this.appearances.hasValue() ? this.appearances.value().map(choice => ({...choice, label: choice.label + (choice.available ? "" : " (unavailable)")})) : []);
+    readonly appearanceModelLabel = computed(() => this.selectedAppearance()?.modelIds.map(id => `#${id}`).join(" ") || "None for this appearance.");
+    readonly currentAnimationIds = computed(() => this.modelValue()?.animationIds ?? []);
+    readonly hasSkins = computed(() => !!this.modelValue()?.vertexSkins);
+    readonly missingModel = computed(() => !this.definition() && this.itemId() === null && (this.modelId() ?? -1) < 0);
+    readonly textureRetryAvailable = computed(() => !!this.textureData.error() || this.hasHdrError());
     readonly height = input(360);
     readonly modelId = input<number | null>(null);
     readonly itemId = input<number | null>(null);
