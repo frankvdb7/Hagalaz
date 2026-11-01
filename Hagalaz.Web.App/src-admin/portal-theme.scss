@@ -161,7 +161,9 @@
         color: var(--mat-sys-on-secondary-container);
     }
     a:focus-visible,
-    button:focus-visible {
+    button:focus-visible,
+    summary:focus-visible,
+    pre:focus-visible {
         outline: 2px solid var(--mat-sys-primary);
         outline-offset: 4px;
     }
@@ -272,4 +274,71 @@
             container-text-line-height: 1.5rem,
         )
     );
+}
+
+// Shared Cache Studio presentation. Components opt in without broad element overrides.
+.admin-portal {
+    .studio-section-title {
+        font: var(--mat-sys-title-small);
+        margin: 0;
+    }
+    .studio-icon-small {
+        width: 18px;
+        height: 18px;
+        font-size: 18px;
+    }
+    .studio-icon-large {
+        width: 36px;
+        height: 36px;
+        font-size: 36px;
+    }
+    .studio-surface,
+    .studio-control-surface {
+        border: 1px solid var(--mat-sys-outline-variant);
+    }
+    .studio-surface {
+        background: var(--mat-sys-surface-container-low);
+        border-radius: 8px;
+    }
+    .studio-control-surface {
+        background: var(--mat-sys-surface);
+        border-radius: 6px;
+    }
+    .studio-choice {
+        color: var(--mat-sys-on-surface);
+        font: var(--mat-sys-body-small);
+        text-align: left;
+        cursor: pointer;
+    }
+    .studio-choice:hover {
+        background: var(--mat-sys-surface-container-high);
+    }
+    .texture-choice.selected {
+        outline: 1px solid var(--mat-sys-primary);
+    }
+}
+
+.studio-compact-inspector {
+    @include mat.form-field-overrides(
+        (
+            container-height: 32px,
+            container-vertical-padding: 6px,
+            container-text-size: 12px,
+            container-text-line-height: 18px,
+            outlined-label-text-size: 12px,
+            outlined-container-shape: 6px,
+            outlined-outline-color: var(--mat-sys-outline-variant),
+        )
+    );
+    .model-options {
+        @include mat.checkbox-overrides(
+            (
+                disabled-selected-icon-color: var(--mat-sys-primary),
+                disabled-label-color: var(--mat-sys-on-surface-variant),
+                label-text-size: 12px,
+                label-text-line-height: 18px,
+                state-layer-size: 32px,
+            )
+        );
+    }
 }

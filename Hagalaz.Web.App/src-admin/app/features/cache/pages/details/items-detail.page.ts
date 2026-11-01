@@ -54,6 +54,7 @@ import { CacheModelPreviewComponent } from "../cache-model-preview.component";
     ],
     providers: [CacheItemsStore],
     templateUrl: "./items-detail.page.html",
+    host: { class: "block min-w-0" },
     styleUrl: "./items-detail.page.scss",
 })
 export class ItemsDetailPageComponent {

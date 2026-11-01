@@ -186,3 +186,99 @@ Desktop evidence: `C:/Users/fmavd/.codex/visualizations/2026/10/31/01a19264-ebde
 No actionable visual issue was found within the requested structure. The local preview is fixture-backed; live authentication, actual model rendering and cache persistence were not verified. No live data was modified.
 
 final result: passed
+
+
+---
+
+# Model workspace reference implementation, 2026-11-01
+
+The existing Angular Models page now uses the supplied editor composition: model header, inspection tabs, interactive geometry viewport, texture strip and properties/skin-group sidebar. This is an integration into the existing admin product, with its shared Material theme and cache-type navigation retained. It is not a claim of pixel identity to the standalone mock.
+
+## Source and capture normalization
+
+- Source visual truth: `C:/Users/fmavd/AppData/Local/Temp/codex-clipboard-e35b1d89-b75e-4378-b3fa-79c2744930a7.png`.
+- Implementation URL: `http://localhost:4301/cache/models`.
+- Evidence directory: `C:/Users/fmavd/.codex/visualizations/2026/10/31/01a192b4-4705-74c1-abce-e6998cda7f10/`.
+- Final implementation screenshot: `C:/Users/fmavd/.codex/visualizations/2026/10/31/01a192b4-4705-74c1-abce-e6998cda7f10/model-workspace-desktop.png`.
+- Full-view comparison: `model-workspace-comparison.png` in the evidence directory. Source and implementation were placed side by side in one image and opened together for review.
+- Readable properties comparison: `model-properties-comparison.png` in the evidence directory. Source crop is x=1230, y=155, width=428, height=765; implementation crop is x=1246, y=261, width=380, height=680. Neither crop is scaled; different dimensions reflect the existing product layout and real data.
+- Source and implementation are both 1672 x 941 pixels, desktop CSS viewport 1672 x 941, devicePixelRatio=1. No density resampling or browser chrome is included.
+- State: model 666 loaded, Model tab selected, perspective camera, grid on, wireframe off, scale 128/128/128, rotation and offset zero, preview notes collapsed. Texture IDs and group counts differ because the implementation uses actual cache data.
+- Phone evidence: `model-workspace-phone.png` and `model-workspace-phone-properties.png`, 390 x 844 CSS/pixel viewport. The settled document width is 390px; content width is 375px. Navigation collapses and properties stack below the viewport. An intermediate drawer animation was excluded from QA.
+
+## Comparison history and findings
+
+1. Initial comparison identified P2 excess vertical space and oversized property typography. Evidence is preserved in `model-workspace-before-density.png`, `model-workspace-before-density-comparison.png` and `model-properties-before-density-comparison.png`. The properties and texture strip were pushed below the desktop viewport. The lookup was moved into the header, toolbar/stats were overlaid on the canvas, the viewport height was adjusted to 430px, and the properties column widened to 380px. Material public overrides now set 12px property text, compact fields, subtle outline colors and denser checkboxes. Final full-view and focused comparisons were opened again after these fixes.
+2. A P2 interaction defect was reproduced by entering scale 0 and clicking Reset preview: geometry stayed valid but invalid input text remained. The properties form now resets its Angular form state and the canonical transform values together. The browser confirms value 128 and aria-invalid=false after reset. Regression: `clears invalid transform text when resetting an unchanged preview`.
+3. A P1 failure-recovery defect was found during cumulative flow review: a failed model request removed the projected lookup along with the model header. The lookup now remains available while loading and after failures. Browser evidence `model-workspace-lookup-error.png` shows an unavailable model with the lookup still visible; entering 666 and submitting with Enter recovers to the loaded workspace. Regression: `keeps lookup available after a failed request so another model can be loaded`.
+4. The combined template initially exceeded the Fallow complexity gate. Focused workspace, property, texture and animation presentation components now compose the existing request owner. No request, bitmap or playback store was duplicated. Fallow now passes with zero introduced findings, without suppressions or configuration changes.
+
+No actionable P0/P1/P2 issue remains within the recorded integration scope. The following differences are deliberate product/data constraints:
+
+- The existing sidebar, toolbar, branded background and cache-type navbar remain. They account for the additional vertical offset versus the source mock.
+- Original cache model 666 has 62 vertices, 54 triangles, one referenced texture (2), and no skin groups. The mock's four textures, 248 vertices, 426 triangles and invented bones are not substituted for actual data.
+- The original cache mesh and texture were exported read-only through the existing .NET cache implementation to the evidence directory. No generated wall image or substitute texture was used. Existing brand assets and Material Symbols were reused.
+- Save and Duplicate are disabled and explain the read-only model API. Name/description are inspection fields. Unsupported model mutation, texture upload, bone editing, alternate cameras and lighting gizmos were not fabricated.
+- Recolor and retexture tabs explain definition ownership and offer the existing item-definition destination. Preview transforms are reversible local inspection values, not cache writes.
+
+## Required fidelity surfaces
+
+- Fonts and typography: existing Semplicita Pro and Material Symbols are retained. The title uses the shared headline scale with weight 600. Property values are 12px, verified from browser computed style. Description wrapping and small-label hierarchy were reviewed in the focused comparison.
+- Layout and rhythm: viewport/sidebar/texture composition follows the reference. Panels use 8px corners and shared outline tokens; field corners use the public Material override. Wide content scrolls internally. Phone controls remain reachable without horizontal page overflow.
+- Colors and tokens: shared dark admin surfaces, muted text, amber active states and focus outlines are reused. The inherited background and Material surface palette intentionally remain rather than adding a second theme.
+- Image quality: a real WebGL canvas renders the decoded cache geometry and its original texture. The thumbnail uses the actual texture endpoint response. Differences in mesh orientation, counts and texture sharpness reflect real cache data and the existing inspection renderer. Client lighting/transparency limitations remain visible in Preview notes.
+- Copy and content: headings and tabs follow the source. Unsupported operations and unavailable data use explicit explanatory copy. Skin groups are labeled as groups, not falsely represented as bones.
+
+## Interaction and runtime verification
+
+Verified in the in-app browser: load 666, keyboard form submission, failed lookup and recovery to another ID, orbit, grid toggle, wireframe toggle, focus/reset, valid scale/rotation updates, invalid-input reset, texture selection/material mode, metadata, recolor/retexture explanation tabs, empty animation state, and phone property editing/reset. `model-workspace-wireframe.png` records the real wireframe state. Exactly one canvas is present. Browser console error log was empty after the checks.
+
+The browser uses an isolated local fixture server with exported real model/texture responses and a local fixture administrator session. Live authentication, live cache service connectivity and cache persistence were not verified. Application authorization and backend code were not changed.
+
+## Automated validation
+
+- `pnpm run admin:test:coverage`: 20 files, 241 tests passed. Overall collected coverage: 85.97% lines, 75.12% statements, 79.57% branches, 85.75% functions.
+- `pnpm exec vitest run shared/model-viewer/model-scene.spec.ts`: 16 tests passed. A separate measured renderer coverage run reports 97.9% lines, 94.57% statements, 77.94% branches and 95.23% functions. GPU operations are mocked in that suite; browser evidence verifies actual WebGL rendering.
+- Changed TypeScript coverage: preview owner 97.36% lines / 79.05% branches; workspace 100% / 73.91%; properties 100% / 92.85%; animation controls 100% / 100%; Models page 100% / 95%; texture panel 53.33% / 50%. The texture panel's inline template/style ranges and some material-label alternatives remain uncovered by automation; Opaque selection is verified in the browser and Cutout by a regression test. External template coverage mapping is incomplete, so no blanket UI-coverage claim is made.
+- Production `pnpm run admin:build` passes without compiler/style-budget warnings.
+- `pnpm run lint:biome` passes its error gate; 15 inherited warnings and two inherited informational diagnostics remain. No new warning is introduced.
+- Fallow audit passes with zero introduced dead-code, complexity, duplication or styling findings. Two test-boundary input findings and the existing renderer complexity finding remain inherited.
+- Strict `openspec validate model-workspace-reference --strict` and `git diff --check` pass.
+- The existing Angular test polyfills compilation warning remains. One intermediate test used a harness action that waited on its own pending HTTP request; that test was corrected to flush the request before waiting for stability. An interrupted coverage process briefly held the report directory; the final sequential run completed cleanly.
+
+| Requirement | Evidence |
+| --- | --- |
+| Validated lookup and reload | `loads and reloads a model through the shared Material form`; `disables invalid model lookups without opening a preview` |
+| Recover after failed lookup | `keeps lookup available after a failed request so another model can be loaded` |
+| Actual properties, groups and unavailable writes | `shows actual properties and skin groups and explains unavailable writes` |
+| Local transform/reset without writes | `transforms and resets rendered geometry without changing the source or issuing writes`; `clears invalid transform text when resetting an unchanged preview` |
+| Tabs and display settings preserve the viewer | `switches inspection tabs without replacing the viewer and forwards display toggles` |
+| Model replacement and retry | `resets inspection state on replacement and presents retryable model failures` |
+| Actual texture metadata | `inspects a referenced texture using its actual material mode` |
+| Renderer resource ownership | `toggles the grid and wireframe across mesh replacement and disposes helpers` |
+
+## Follow-up polish
+
+P3 only: a more compact thumbnail caption treatment could reduce the final strip's vertical height. Exact shader lighting, mock-only tools and backend editing are outside this change, not unfinished implementation tasks.
+
+## Implementation checklist
+
+- [x] Integrate the reference composition into the existing Models page.
+- [x] Retain one request/playback/bitmap owner and shared renderer defaults.
+- [x] Implement usable inspection, transform, validation and recovery controls.
+- [x] Fix the recorded P1/P2 findings and compare the revised captures.
+- [x] Verify desktop/phone rendering, automated tests, build, lint and Fallow.
+- [x] Keep the local preview open; do not publish or modify cache data.
+
+final result: passed
+
+
+---
+
+# Model properties field removal, 2026-11-01
+
+Applied the annotated correction from `C:/Users/fmavd/AppData/Local/Temp/codex-clipboard-bf8a06a0-2a08-4903-99a4-8d4fabb8e4ab.png`: removed Model ID, Name and Description from the properties sidebar and deleted their unused layout rule. The panel now starts with Model scale. Model identity remains in the existing page header and structure. No application logic changed.
+
+Verified the rendered panel in the in-app browser using exported model 666. Evidence: `C:/Users/fmavd/.codex/visualizations/2026/10/31/01a192b4-4705-74c1-abce-e6998cda7f10/model-properties-simplified.png`. The three fields are absent; scale, rotation, offset, reset, options and structure remain visible. Production admin build passes.
+
+final result: passed

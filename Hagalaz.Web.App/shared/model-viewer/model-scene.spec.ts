@@ -90,6 +90,25 @@ describe("ModelScene resource ownership", () => {
         return rendered.children.find(child => child instanceof THREE.Mesh) as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial[]>;
     }
 
+    it("toggles the grid and wireframe across mesh replacement and disposes helpers", () => {
+        scene.setDisplay(true, true);
+        scene.setGeometry(triangle);
+        expect(renderAt(0).material.every(material => material.wireframe)).toBe(true);
+        const rendered = gpu.render.mock.lastCall![0] as THREE.Scene;
+        const grid = rendered.children.find(child => child instanceof THREE.GridHelper) as THREE.GridHelper;
+        expect(grid.visible).toBe(true);
+        expect(grid.scale.x).toBeGreaterThan(1);
+        scene.setGeometry({...triangle, sourceId: 2});
+        expect(renderAt(1).material.every(material => material.wireframe)).toBe(true);
+        scene.setDisplay(false, false);
+        expect(grid.visible).toBe(false);
+        expect(renderAt(2).material.some(material => material.wireframe)).toBe(false);
+        const geometry = vi.spyOn(grid.geometry, "dispose");
+        const material = vi.spyOn(grid.material as THREE.Material, "dispose");
+        scene.dispose();
+        expect(geometry).toHaveBeenCalledOnce(); expect(material).toHaveBeenCalledOnce();
+    });
+
     it("scrolls on the existing loop, keeps time during posing and resets it on model replacement", () => {
         scene.setTextures(new Map([[8, {image: {} as ImageBitmap, alphaMode: 0, scrollU: -32, scrollV: 16}]]));
         scene.setGeometry({...triangle, textureIds: [8]});

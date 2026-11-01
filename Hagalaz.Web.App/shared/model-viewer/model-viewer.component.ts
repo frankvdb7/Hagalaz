@@ -3,11 +3,14 @@ import type { ModelGeometry, ModelTexture } from "./model-scene";
 
 @Component({
     selector: "hagalaz-model-viewer",
-    template: `<div #viewport class="viewport" [style.height.px]="height()"></div>@if (error()) { <p role="alert">{{ error() }}</p> }<button type="button" (click)="reset()">Reset camera</button>`,
+    template: `<div #viewport class="viewport" [style.height.px]="height()"></div>@if (error()) { <p role="alert">{{ error() }}</p> }@if (showReset()) { <button type="button" (click)="reset()">Reset camera</button> }`,
     styles: `:host { display: block; } .viewport { width: 100%; height: 360px; min-width: 0; } button { display: block; margin: 8px 0 12px; padding: 8px 12px; border: 1px solid currentColor; border-radius: 4px; }`,
 })
 export class ModelViewerComponent implements OnDestroy {
     readonly height = input(360);
+    readonly showReset = input(true);
+    readonly grid = input(false);
+    readonly wireframe = input(false);
     readonly geometry = input<ModelGeometry | null>(null);
     readonly textures = input<ReadonlyMap<number, ModelTexture>>(new Map());
     readonly error = signal<string | null>(null);
@@ -26,11 +29,20 @@ export class ModelViewerComponent implements OnDestroy {
         });
         effect(() => {
             const scene = this.scene();
+            scene?.setDisplay(this.grid(), this.wireframe());
+        });
+        effect(() => {
+            const scene = this.scene();
             const geometry = this.geometry();
             if (scene && geometry) { scene.setTextures(this.textures()); scene.setGeometry(geometry); }
         });
     }
 
-    reset(): void { this.scene()?.resetCamera(); }
+    reset(): void {
+        const scene = this.scene();
+        const geometry = this.geometry();
+        if (scene && geometry) scene.setGeometry(geometry);
+        scene?.resetCamera();
+    }
     ngOnDestroy(): void { this.destroyed = true; this.scene()?.dispose(); }
 }

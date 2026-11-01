@@ -33,6 +33,7 @@ import { SpriteInspectorComponent } from "../sprite-inspector.component";
     ],
     providers: [CacheSpritesService, CacheSpriteDefinitionsStore, CacheSpritesStore],
     templateUrl: "./sprites-detail.page.html",
+    host: { class: "block min-w-0" },
     styleUrl: "./sprites-detail.page.scss",
 })
 export class SpriteDefinitionsDetailPageComponent {

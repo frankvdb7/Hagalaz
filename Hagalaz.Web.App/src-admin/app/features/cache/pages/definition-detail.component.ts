@@ -41,6 +41,7 @@ type DetailStore = {
         MatProgressBarModule,
     ],
     templateUrl: "./definition-detail.component.html",
+    host: { class: "block min-w-0" },
     styleUrl: "./definition-detail.component.scss",
 })
 export class DefinitionDetailComponent {

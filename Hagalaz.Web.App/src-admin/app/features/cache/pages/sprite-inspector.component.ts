@@ -24,6 +24,7 @@ import { CacheWriteDialogComponent } from "./cache-write-dialog";
 
     templateUrl: "./sprite-inspector.component.html",
 
+    host: { class: "block min-w-0" },
     styleUrl: "./sprite-inspector.component.scss",
 })
 export class SpriteInspectorComponent {

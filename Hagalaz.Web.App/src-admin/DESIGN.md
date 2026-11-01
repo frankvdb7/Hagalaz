@@ -158,3 +158,5 @@ Outlined cards use 16px corners; outlined fields and actions use 12px corners. D
 ## Shared component ownership
 
 `portal-theme.scss` owns all admin Material component overrides, including cards, fields, buttons, tabs, tables, paginators, expansion panels and request feedback. Global element layout and typography live in `styles.scss`. Use Material labels, hints and errors rather than positioned substitute labels, and Material sliders and expansion panels for editor controls. Keep icons, fonts and asset sources shared across tools. Retain page-specific preview canvases, sprite transparency backgrounds, grid tracks and responsive breakpoints.
+
+Cache Studio section titles, small/large icons, panel/control surfaces and selectable controls use the shared `studio-*` classes in `portal-theme.scss`. The `studio-compact-inspector` variant owns compact Material field and checkbox appearance. Use existing Tailwind utilities for repeated host sizing, padding and row alignment. Component styles retain only specialized layout and context-specific states; the shared admin focus rule also covers disclosures and raw-data regions.

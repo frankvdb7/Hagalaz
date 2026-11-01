@@ -1,6 +1,4 @@
 :host {
-    display: block;
-    min-width: 0;
     container-type: inline-size;
 }
 .studio {
@@ -94,7 +92,7 @@ h1 {
 }
 .empty-state {
     background: var(--mat-sys-surface-container-low);
-    border-radius: 12px;
+    border-radius: var(--admin-radius);
 }
 @container (max-width: 800px) {
     .workspace {

@@ -36,6 +36,7 @@ export interface DefinitionPickerStore {
         MatProgressBarModule,
     ],
     templateUrl: "./definition-picker.component.html",
+    host: { class: "block min-w-0" },
     styleUrl: "./definition-picker.component.scss",
 })
 export class DefinitionPickerComponent {
