@@ -1,6 +1,6 @@
-# Engineering guidelines for Hagalaz agents
+# Engineering implementation details
 
-These detailed rules apply when designing or implementing non-trivial features and refactors. The root [`AGENTS.md`](../../AGENTS.md) contains the short, always-applicable guardrails. Read the relevant sections here when your change needs architectural, ownership, OpenSpec, or implementation guidance.
+The detailed guidance below was moved from `docs/agents/` without changing its requirements. This is a task-specific reference: consult the sections relevant to the current task rather than reading it for every edit.
 
 ### Change specifications and scope memory
 

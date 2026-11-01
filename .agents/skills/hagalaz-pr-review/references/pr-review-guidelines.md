@@ -1,6 +1,6 @@
-# PR review and remediation guidelines for Hagalaz agents
+# PR review and remediation details
 
-Use these detailed rules for pull-request reviews, investigation of alleged bugs, and remediation of review findings. The root [`AGENTS.md`](../../AGENTS.md) contains the short, always-applicable guardrails. This document expands on production evidence, scope retention, and cumulative review requirements.
+The detailed guidance below was moved from `docs/agents/` without changing its requirements. This is a task-specific reference: consult the sections relevant to the current task rather than reading it for every edit.
 
 ### Production relevance in code review
 
