@@ -13,4 +13,12 @@ Apply for code reviews and review-driven fixes. Read [review and remediation gui
 4. Read unresolved review threads together. Group findings by root cause and choose a minimal fix within the original scope, preferring simplification or removal of prior compensating changes.
 5. Verify affected runtime behavior and original acceptance criteria; check for new owners, duplicate mechanisms, excess abstractions, dead code, and warnings. Report checks that could not run.
 
+## Efficient full-PR coverage
+
+- Record the actual PR base/head, inventory all changed files and their sizes, and inspect the **complete cumulative diff** in manageable file or subsystem batches. Keep track of what was examined; never treat the latest commit or a truncated diff as full coverage.
+- Prefer targeted path/symbol searches and relevant source ranges to broad repository dumps. Expand into **all relevant production callers, tests, registrations, and failure paths** until each material finding is adequately grounded.
+- During follow-up rounds, use incremental diffs to locate changes and prioritize reinspection, then recheck the cumulative PR for architectural consistency and regressions. Reuse earlier evidence only if it remains valid; do not skip files that need renewed inspection.
+- Keep full diagnostic logs available and report exit status, relevant failures, warning deltas and checks not run. Avoid returning repetitive success output, but never suppress evidence or reduce review scope for token savings.
+- See [scoped git/rg and .NET output examples](../hagalaz-engineering-design/references/context-efficient-commands.md) when useful. Avoid rigid tool-call/read limits.
+
 Do not automatically broaden the original feature because review comments request it. If scope must expand materially, stop and explain the design decision. For substantial implementation design also use `hagalaz-engineering-design`.
