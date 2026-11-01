@@ -19,6 +19,29 @@ public sealed class ModelAppearanceTests
         0, 3, 0, 1, 0, 8, 0, 0, 0, 0, 1, 0, 2, 0, 1, 0, 0, 0, 3, 0, 0, 255, 255];
 
     [TestMethod]
+    [DataRow("items", 19, 113, 114, 738)]
+    [DataRow("npcs", 18, 100, 101, 820)]
+    [DataRow("objects", 16, 29, 39, 820)]
+    public async Task DefinitionModel_PreservesEffectiveClientLighting(string kind, int index, int ambientOpcode, int contrastOpcode, int contrast)
+    {
+        var store = new MemoryFileStore();
+        var definition = Definition(kind);
+        SeedDefinition(store, index, definition.Take(definition.Length - 1).Concat(new byte[] {(byte)ambientOpcode, 12, (byte)contrastOpcode, 250, 0}).ToArray());
+        var geometry = (byte[])LegacyModel.Clone();
+        geometry[4] = 3; // legacy flat shading plus existing texture flag
+        store.Set(7, 0, ContainerBytes(geometry));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        var result = await client.GetFromJsonAsync<GetModelDto>($"/api/v1/cache/types/{kind}/0/model");
+        Assert.IsNotNull(result);
+        Assert.AreEqual(76, result.Ambient);
+        Assert.AreEqual(contrast, result.Contrast);
+        CollectionAssert.AreEqual(new[] { 1 }, result.FaceShadingTypes);
+        CollectionAssert.AreEqual(new[] { 60000 }, result.FaceTextureIds);
+        StringAssert.Contains(result.Warnings[0], "fixed inspection light");
+    }
+
+    [TestMethod]
     [DataRow("items", 19)]
     [DataRow("npcs", 18)]
     [DataRow("objects", 16)]
@@ -46,6 +69,9 @@ public sealed class ModelAppearanceTests
         Assert.IsNotNull(raw);
         Assert.AreEqual(0.25f, raw.CoordinateScale);
         CollectionAssert.AreEqual(new[] { 42 }, raw.FaceTextureIds);
+        CollectionAssert.AreEqual(new[] { 0 }, raw.FacePriorities);
+        Assert.AreEqual(64, raw.Ambient); Assert.AreEqual(850, raw.Contrast);
+        StringAssert.Contains(raw.Warnings[0], "client priorities");
         CollectionAssert.AreEqual(new[] { 127 }, raw.FaceColors);
         CollectionAssert.AreEqual(new[] { 0, 0, 0, 10, 0, 0, 0, 20, 0 }, raw.Positions);
     }
@@ -56,7 +82,12 @@ public sealed class ModelAppearanceTests
         var store = new MemoryFileStore();
         SeedDefinition(store, 18, new byte[] { 1, 2, 0, 0, 0, 1 }.Concat(Definition("npcs").Skip(4)).ToArray());
         store.Set(7, 0, ContainerBytes(LegacyModel));
-        store.Set(7, 1, ContainerBytes(ModernSkinnedModel));
+        var first = (byte[])LegacyModel.Clone();
+        var second = (byte[])ModernSkinnedModel.Clone();
+        first[first.Length - 18 + 6] = 10;
+        second[second.Length - 23 + 6] = 11;
+        store.Set(7, 0, ContainerBytes(first));
+        store.Set(7, 1, ContainerBytes(second));
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
@@ -69,6 +100,7 @@ public sealed class ModelAppearanceTests
         CollectionAssert.AreEqual(new[] { 60000, -1 }, result.FaceTextureIds);
         CollectionAssert.AreEqual(new[] { 0, 1, 2, -1, -1, -1 }, result.FaceTextureVertices);
         Assert.HasCount(12, result.FaceTextureUvs!);
+        CollectionAssert.AreEqual(new[] { 10, 11 }, result.FacePriorities);
     }
 
     [TestMethod]

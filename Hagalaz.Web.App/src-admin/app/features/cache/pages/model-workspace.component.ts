@@ -1,4 +1,4 @@
-import { Component, computed, input, linkedSignal, output, signal, viewChild } from "@angular/core";
+import { Component, computed, input, linkedSignal, model, output, signal, viewChild } from "@angular/core";
 import { JsonPipe } from "@angular/common";
 import { MatButtonModule } from "@angular/material/button";
 import { MatIconModule } from "@angular/material/icon";
@@ -34,9 +34,8 @@ export class ModelWorkspaceComponent {
     readonly geometry = input<ModelGeometry | null>(null);
     readonly textureIds = input.required<readonly number[]>();
     readonly textureImages = input.required<ReadonlyMap<number, ModelTexture>>();
-    readonly previewNotes = input.required<readonly string[]>();
     readonly reload = output<void>();
-    readonly tab = signal(0);
+    readonly tab = model(0);
     readonly showGrid = signal(true);
     readonly wireframe = signal(false);
     readonly selectedGroup = linkedSignal(() => {

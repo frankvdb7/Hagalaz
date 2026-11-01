@@ -8,7 +8,7 @@ namespace Hagalaz.Cache.Logic.Codecs;
 public static class ModelGeometryDecoder
 {
     public sealed record EmitterAttachment(int EmitterId, int Face);
-    public sealed record Geometry(int[] Positions, int[] Indices, int[] FaceColors, int[] FaceAlpha, int[]? VertexSkins, int Version = 12, int[]? FaceSkins = null, int[]? FaceTextureIds = null, int[]? FaceTextureVertices = null, float[]? FaceTextureUvs = null, EmitterAttachment[]? Emitters = null);
+    public sealed record Geometry(int[] Positions, int[] Indices, int[] FaceColors, int[] FaceAlpha, int[]? VertexSkins, int Version = 12, int[]? FaceSkins = null, int[]? FaceTextureIds = null, int[]? FaceTextureVertices = null, float[]? FaceTextureUvs = null, EmitterAttachment[]? Emitters = null, int[]? FacePriorities = null, int[]? FaceShadingTypes = null);
 
     public static Geometry Decode(byte[] data)
     {
@@ -51,6 +51,7 @@ public static class ModelGeometryDecoder
         using var legacy = new MemoryStream();
         Copy(vertexFlagsOffset, vertices);
         Copy(codesOffset, faces);
+        if (priority == 255) Copy(priorityOffset, faces);
         if (faceSkins == 1) Copy(faceSkinOffset, faces);
         if (vertexSkins == 1) Copy(vertexSkinOffset, vertices);
         if (alpha == 1) Copy(alphaOffset, faces);
@@ -59,7 +60,7 @@ public static class ModelGeometryDecoder
         Copy(xOffset, xLength + yLength + zLength);
         WriteShort(vertices);
         WriteShort(faces);
-        legacy.Write(new byte[] { 0, 0, 0, (byte)alpha, (byte)faceSkins, (byte)vertexSkins });
+        legacy.Write(new byte[] { 0, 0, (byte)priority, (byte)alpha, (byte)faceSkins, (byte)vertexSkins });
         WriteShort(xLength);
         WriteShort(yLength);
         WriteShort(zLength);
@@ -139,6 +140,12 @@ public static class ModelGeometryDecoder
             textureUvs = ModelTextureCoordinates.Generate(projectionPositions, result.Indices, textureIds, pointers, mappings);
         }
         var attachmentOffset = geometryEnd + simpleCount * 6 + complexCount * (6 + (version >= 15 ? 9 : version == 14 ? 7 : 6) + 3) + boxCount * 2;
+        var shadingTypes = new int[faces];
+        if ((flags & 1) != 0)
+        {
+            var shading = new Reader(data, typeOffset);
+            for (var face = 0; face < faces; face++) shadingTypes[face] = shading.Byte();
+        }
         EmitterAttachment[]? emitters = null;
         if ((flags & 2) != 0)
         {
@@ -153,7 +160,7 @@ public static class ModelGeometryDecoder
             var effectors = attachments.Byte();
             for (var effector = 0; effector < effectors; effector++) { attachments.Short(); attachments.Short(); }
         }
-        return result with { Version = version, FaceTextureIds = textureIds, FaceTextureVertices = textureVertices, FaceTextureUvs = textureUvs, Emitters = emitters };
+        return result with { Version = version, FaceTextureIds = textureIds, FaceTextureVertices = textureVertices, FaceTextureUvs = textureUvs, Emitters = emitters, FaceShadingTypes = shadingTypes };
 
         void Copy(int offset, int length)
         {
@@ -230,6 +237,9 @@ public static class ModelGeometryDecoder
         var faceColors = new int[faces];
         var alphas = new Reader(data, alphaOffset);
         var faceAlpha = new int[faces];
+        var faceShadingTypes = new int[faces];
+        var priorities = new Reader(data, vertices + faces);
+        var facePriorities = new int[faces];
         var faceTextureIds = new int[faces];
         var faceTextureVertices = new int[faces * 3];
         var texturePointers = new int[faces];
@@ -257,8 +267,10 @@ public static class ModelGeometryDecoder
             indices[f * 3 + 1] = b;
             indices[f * 3 + 2] = c;
             faceColors[f] = colors.Short();
+            facePriorities[f] = priority == 255 ? priorities.Byte() : priority;
             if (hasAlpha == 1) faceAlpha[f] = alphas.Byte();
             var faceType = hasTypes == 1 ? types.Byte() : 0;
+            faceShadingTypes[f] = faceType & 1;
             if ((faceType & 2) != 0)
             {
                 faceTextureIds[f] = faceColors[f] == 65535 ? -1 : faceColors[f];
@@ -284,7 +296,7 @@ public static class ModelGeometryDecoder
             var groups = new Reader(data, faceSkinOffset);
             for (var face = 0; face < faces; face++) faceSkins[face] = groups.Byte();
         }
-        return new Geometry(positions, indices, faceColors, faceAlpha, vertexSkins, FaceSkins: faceSkins, FaceTextureIds: faceTextureIds, FaceTextureVertices: faceTextureVertices,
+        return new Geometry(positions, indices, faceColors, faceAlpha, vertexSkins, FaceShadingTypes: faceShadingTypes, FacePriorities: facePriorities, FaceSkins: faceSkins, FaceTextureIds: faceTextureIds, FaceTextureVertices: faceTextureVertices,
             FaceTextureUvs: textures == 0 ? null : ModelTextureCoordinates.Generate(positions, indices, faceTextureIds, texturePointers, textureMappings));
     }
 

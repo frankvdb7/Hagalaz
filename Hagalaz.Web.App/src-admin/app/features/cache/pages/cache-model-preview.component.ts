@@ -1,7 +1,7 @@
 import type { GetTextureMaterialDto, GetTextureHdrDto } from "../services/dtos";
 import type { GetModelDto, GetAnimationSequenceDto, GetAnimationFrameDto, GetItemModelAppearanceDto } from "../services/dtos";
 import { HttpClient, httpResource } from "@angular/common/http";
-import { Component, computed, effect, inject, input, linkedSignal, signal, untracked } from "@angular/core";
+import { Component, computed, effect, inject, input, linkedSignal, model, signal, untracked } from "@angular/core";
 import { rxResource } from "@angular/core/rxjs-interop";
 import { forkJoin, map, of, from, switchMap, Observable, catchError } from "rxjs";
 import { describeMaterialEffect } from "../../../../../shared/model-viewer/material-effects";
@@ -111,6 +111,7 @@ export class CacheModelPreviewComponent {
     });
     readonly poseError = computed(() => this.posed().error);
     readonly workspace = input(false);
+    readonly inspectionTab = model(0);
     readonly showLookup = computed(() => this.workspace() && !this.modelValue());
     readonly selectedTexture = linkedSignal(() => { this.modelId(); return -1; });
     readonly previewNotes = computed(() => [...(this.modelValue()?.warnings ?? []), ...this.particleWarnings(), ...this.materialWarnings()]);

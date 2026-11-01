@@ -18,6 +18,8 @@ public static class ModelEndpoints
     public static IEndpointRouteBuilder MapModelEndpoints(this IEndpointRouteBuilder group)
     {
         group.MapGet("/models/{id:int}", GetModel);
+        group.MapGet("/models/capacity", (ICacheAPI cache) => TypedResults.Ok(new GetModelCapacityDto(cache.ReadReferenceTable(7).Capacity)));
+        group.MapGet("/models/range", GetModelRange);
         group.MapGet("/types/items/{id:int}/model", GetItemModel);
         group.MapGet("/types/items/{id:int}/model-appearances", GetItemAppearances);
         group.MapGet("/types/npcs/{id:int}/model", GetNpcModel);
@@ -28,6 +30,15 @@ public static class ModelEndpoints
     }
 
     private static IResult GetModel(int id, ICacheAPI cache) => ReadModel(id, cache);
+
+    private static IResult GetModelRange(int startId, int endIdExclusive, ICacheAPI cache)
+    {
+        if (startId < 0 || endIdExclusive < startId || (long)endIdExclusive - startId > 200)
+            return TypedResults.BadRequest(EndpointErrors.Validation("Enter a model ID range of at most 200 IDs."));
+        var table = cache.ReadReferenceTable(7);
+        return TypedResults.Ok(table.Entries.Select(entry => entry.Key).Where(id => id >= startId && id < endIdExclusive)
+            .OrderBy(id => id).Select(id => new GetModelSummaryDto(id)).ToArray());
+    }
 
     private static IResult GetAnimationSequence(int id, ITypeProvider<IAnimationType> animations)
     {
@@ -82,8 +93,8 @@ public static class ModelEndpoints
         return AssembleModel(selected.ModelIds[0], selected.ModelIds, cache, inventory ? item.ScaleX : 128, inventory ? item.ScaleY : 128, inventory ? item.ScaleZ : 128,
             selected.OffsetX / 4, selected.OffsetY / 4, selected.OffsetZ / 4,
             Pairs(item.OriginalModelColors), Pairs(item.ModifiedModelColors), Pairs(item.OriginalTextureColors), Pairs(item.ModifiedTextureColors), [],
-            $"{selected.Label} model with definition recolors and retextures. Equipped/head models are isolated item parts, without a player body or customization. Client lighting and transparency ordering are not yet supported."
-                + (item.UnknownArray1 is { Length: > 0 } ? " Palette-index recolor overrides are not yet supported." : ""));
+            $"{selected.Label} model with definition recolors and retextures. Equipped/head models are isolated item parts, without a player body or customization. Transparent faces use client priorities and depth ordering within each priority. Intersecting triangles and full client rendering parity remain unverified. Client model lighting uses a fixed inspection light; map atmosphere and seam lighting remain unverified."
+                + (item.UnknownArray1 is { Length: > 0 } ? " Palette-index recolor overrides are not yet supported." : ""), ambient: 64 + item.Ambient, contrast: (inventory ? 768 : 850) + item.Contrast);
 
         static short[]? Pairs(int[]? values) => values?.Select(value => (short)value).ToArray();
     }
@@ -96,7 +107,7 @@ public static class ModelEndpoints
         {
             var geometry = ModelGeometryDecoder.Decode(container.Data.ToArray());
             return TypedResults.Ok(new GetModelDto(id, geometry.Positions, geometry.Indices, geometry.FaceColors, geometry.FaceAlpha, geometry.VertexSkins,
-                new[] { "Geometry, projected textures and ordinary transparency preview. Client lighting and transparency ordering are not yet supported." }, CoordinateScale: geometry.Version < 13 ? 0.25f : 1, FaceSkins: geometry.FaceSkins, FaceTextureIds: geometry.FaceTextureIds, FaceTextureVertices: geometry.FaceTextureVertices, FaceTextureUvs: geometry.FaceTextureUvs, Particles: ReadParticles(cache, geometry.Emitters ?? [])));
+                new[] { "Geometry, projected textures and ordinary transparency preview. Transparent faces use client priorities and depth ordering within each priority. Intersecting triangles and full client rendering parity remain unverified. Client model lighting uses a fixed inspection light; map atmosphere and seam lighting remain unverified." }, CoordinateScale: geometry.Version < 13 ? 0.25f : 1, FaceSkins: geometry.FaceSkins, FaceTextureIds: geometry.FaceTextureIds, FaceTextureVertices: geometry.FaceTextureVertices, FaceTextureUvs: geometry.FaceTextureUvs, Particles: ReadParticles(cache, geometry.Emitters ?? []), FacePriorities: geometry.FacePriorities, FaceShadingTypes: geometry.FaceShadingTypes));
         }
         catch (NotSupportedException exception)
         {
@@ -125,7 +136,7 @@ public static class ModelEndpoints
         }
         return AssembleModel(id, npc.ModelIDs, cache, 128, 128, 128, 0, 0, 0,
             npc.OriginalColours, npc.ModifiedColours, npc.AShortArray1508, npc.AShortArray1491, animationIds.ToArray(),
-            "Base NPC model preview with projected textures. Variant transforms, per-part offsets, client lighting are not yet supported." + animationWarning, [npc.ScaleX / 128f, npc.ScaleY / 128f, npc.ScaleX / 128f]);
+            "Base NPC model preview with projected textures. Variant transforms, per-part offsets are not yet supported. Client model lighting uses a fixed inspection light; map atmosphere and seam lighting remain unverified." + animationWarning, [npc.ScaleX / 128f, npc.ScaleY / 128f, npc.ScaleX / 128f], 64 + npc.LightModifier, 850 + npc.ShadowModifier);
     }
 
     private static IResult GetObjectModel(int id, int? shape, ICacheAPI cache, ITypeProvider<IObjectType> objects)
@@ -139,16 +150,18 @@ public static class ModelEndpoints
         if (definition.Inverted) return TypedResults.Problem(title: "Unsupported object appearance", detail: "Inverted object models are not yet supported.", statusCode: 422);
         return AssembleModel(id, definition.ModelIDs[group], cache, definition.ScaleX, definition.ScaleY, definition.ScaleZ,
             definition.OffsetX, definition.OffsetY, definition.OffsetZ, definition.OriginalColors, definition.ModifiedColors, definition.AShortArray831, definition.AShortArray762, definition.AnimationIDs ?? [],
-            $"Object shape {selectedShape} preview with projected textures. Placement rotation, contouring, variant transforms, client lighting are not yet supported.");
+            $"Object shape {selectedShape} preview with projected textures. Placement rotation, contouring, variant transforms are not yet supported. Client model lighting uses a fixed inspection light; map atmosphere and seam lighting remain unverified.", ambient: 64 + definition.Ambient, contrast: 850 + definition.Contrast);
     }
 
     private static IResult AssembleModel(int id, int[] modelIds, ICacheAPI cache, int scaleX, int scaleY, int scaleZ,
-        int offsetX, int offsetY, int offsetZ, short[]? originalColors, short[]? replacementColors, short[]? originalTextures, short[]? replacementTextures, int[] animationIds, string warning, float[]? scale = null)
+        int offsetX, int offsetY, int offsetZ, short[]? originalColors, short[]? replacementColors, short[]? originalTextures, short[]? replacementTextures, int[] animationIds, string warning, float[]? scale = null, int ambient = 64, int contrast = 850)
     {
         var positions = new List<int>();
         var indices = new List<int>();
         var colors = new List<int>();
         var alpha = new List<int>();
+        var priorities = new List<int>();
+        var shadingTypes = new List<int>();
         var skins = new List<int>();
         var faceSkins = new List<int>();
         var textureIds = new List<int>();
@@ -175,6 +188,8 @@ public static class ModelEndpoints
                 indices.AddRange(part.Indices.Select(index => index + vertexOffset));
                 colors.AddRange(part.FaceColors);
                 alpha.AddRange(part.FaceAlpha);
+                shadingTypes.AddRange(part.FaceShadingTypes ?? new int[part.FaceColors.Length]);
+                priorities.AddRange(part.FacePriorities ?? new int[part.FaceColors.Length]);
                 faceSkins.AddRange(part.FaceSkins ?? Enumerable.Repeat(-1, part.FaceColors.Length).ToArray());
                 textureIds.AddRange(part.FaceTextureIds ?? Enumerable.Repeat(-1, part.FaceColors.Length).ToArray());
                 textureVertices.AddRange((part.FaceTextureVertices ?? Enumerable.Repeat(-1, part.Indices.Length).ToArray()).Select(vertex => vertex < 0 ? -1 : vertex + vertexOffset));
@@ -186,7 +201,7 @@ public static class ModelEndpoints
             for (var face = 0; face < textureIds.Count; face++)
                 if (textureIds[face] == 65535) textureIds[face] = -1;
             return TypedResults.Ok(new GetModelDto(id, positions.ToArray(), indices.ToArray(), colors.ToArray(), alpha.ToArray(), skins.Any(skin => skin >= 0) ? skins.ToArray() : null,
-                new[] { warning }, animationIds.Where(animationId => animationId >= 0).Distinct().ToArray(), 1, faceSkins.ToArray(), textureIds.ToArray(), textureVertices.ToArray(), textureUvs.ToArray(), scale, ReadParticles(cache, emitters)));
+                new[] { warning }, animationIds.Where(animationId => animationId >= 0).Distinct().ToArray(), 1, faceSkins.ToArray(), textureIds.ToArray(), textureVertices.ToArray(), textureUvs.ToArray(), scale, ReadParticles(cache, emitters), priorities.ToArray(), shadingTypes.ToArray(), ambient, contrast));
         }
         catch (NotSupportedException exception)
         {

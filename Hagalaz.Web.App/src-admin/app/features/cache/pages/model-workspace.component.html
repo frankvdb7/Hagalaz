@@ -53,7 +53,6 @@
                 @if (tab() === 5) {
                     <section class="studio-surface p-4 mt-3"><h2 class="studio-section-title mb-3">Model metadata</h2><dl class="metadata-list"><div><dt>Model ID</dt><dd>{{ value.id }}</dd></div><div><dt>Coordinate scale</dt><dd>{{ value.coordinateScale }}</dd></div><div><dt>Face groups</dt><dd>{{ value.faceSkins?.length ?? 0 }} faces</dd></div><div><dt>Particle emitters</dt><dd>{{ value.particles?.length ?? 0 }}</dd></div></dl><details class="mt-4"><summary>Raw model response</summary><pre class="raw-model mt-3">{{ value | json }}</pre></details></section>
                 }
-                <details class="preview-notes mt-3" [hidden]="!previewNotes().length"><summary>Preview notes</summary>@for (warning of previewNotes(); track $index) { <p class="supporting-text text-xs mt-2">{{warning}}</p> }</details>
             </div>
             <aside cache-model-properties class="studio-surface p-4 properties-panel" aria-label="Model properties" [value]="value" [transform]="transform()" [(selectedGroup)]="selectedGroup" (transformInput)="updateTransform($event.key, $event.axis, $event.value)" (resetPreview)="resetPreview()"></aside>
         </div>

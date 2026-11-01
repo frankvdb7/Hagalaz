@@ -6,12 +6,14 @@ import {ModelParticles, type ModelParticle} from "./model-particles";
 /** Renderer-neutral geometry accepted by both web applications. */
 export interface ModelGeometry {
     sourceId?: number;
+    preparedLighting?: boolean;
     positions: readonly number[];
     indices: readonly number[];
     colors?: readonly number[];
     opacities?: readonly number[];
     uvs?: readonly number[];
     textureIds?: readonly number[];
+    facePriorities?: readonly number[];
     particles?: readonly ModelParticle[];
     particleScale?: number;
 }
@@ -34,6 +36,9 @@ export class ModelScene {
     private readonly controls: OrbitControls;
     private readonly resizeObserver: ResizeObserver;
     private mesh?: THREE.Mesh<THREE.BufferGeometry, (THREE.MeshStandardMaterial | THREE.MeshBasicMaterial)[]>;
+    private orderingDirty = true;
+    private readonly viewMatrix = new THREE.Matrix4();
+    private readonly centroid = new THREE.Vector3();
     private epoch?: number;
     private lastTime?: number;
     private currentModel?: ModelGeometry;
@@ -120,6 +125,7 @@ export class ModelScene {
                 this.host.clientHeight * Math.min(window.devicePixelRatio,2) * this.camera.projectionMatrix.elements[5] / 2);
             this.lastTime = time;
             this.controls.update();
+            this.orderSurfaces();
             this.renderer.render(this.scene, this.camera);
         });
     }
@@ -127,8 +133,9 @@ export class ModelScene {
     setGeometry(model: ModelGeometry): void {
         if (this.disposed) throw new Error("The model scene has been disposed.");
         this.currentModel = model;
+        this.orderingDirty = true;
         const existing = this.mesh;
-        if (existing && model.sourceId !== undefined && existing.name === String(model.sourceId)
+        if (existing && existing.userData["preparedLighting"] === !!model.preparedLighting && model.sourceId !== undefined && existing.name === String(model.sourceId)
             && existing.geometry.index?.count === model.indices.length
             && model.indices.every((index, offset) => existing.geometry.index?.getX(offset) === index)) {
             const positions = existing.geometry.getAttribute("position");
@@ -168,10 +175,11 @@ export class ModelScene {
         } else if (model.colors) geometry.setAttribute("color", new THREE.Float32BufferAttribute(model.colors, 3));
         geometry.computeVertexNormals();
         geometry.computeBoundingSphere();
-        const options = { vertexColors: !!model.colors || !!model.opacities, roughness: 0.8 };
+        const options = { vertexColors: !!model.colors || !!model.opacities, ...(model.preparedLighting ? {} : {roughness: 0.8}) };
+        const OrdinaryMaterial = model.preparedLighting ? THREE.MeshBasicMaterial : THREE.MeshStandardMaterial;
         const materials: (THREE.MeshStandardMaterial | THREE.MeshBasicMaterial)[] = [
-            new THREE.MeshStandardMaterial({ ...options, transparent: false, depthWrite: true }),
-            new THREE.MeshStandardMaterial({ ...options, transparent: true, depthWrite: false }),
+            new OrdinaryMaterial({ ...options, transparent: false, depthWrite: true }),
+            new OrdinaryMaterial({ ...options, transparent: true, depthWrite: false }),
         ];
         for (const [id, texture] of this.textures) {
             const mode = this.textureImages?.get(id)?.alphaMode ?? 0;
@@ -179,9 +187,9 @@ export class ModelScene {
             const asset: MaterialEffect = this.textureImages?.get(id) ?? {};
             const create = (transparent: boolean) => {
                 const appearance = {...options, map: texture, alphaTest, transparent, depthWrite: !transparent};
-                if (asset.effectId === 6) return new THREE.MeshBasicMaterial({vertexColors: appearance.vertexColors, map: texture, alphaTest, transparent, depthWrite: !transparent});
+                if (asset.effectId === 6 || (model.preparedLighting && ![1,2,4,5,7,8,9].includes(asset.effectId ?? 0))) return new THREE.MeshBasicMaterial({vertexColors: appearance.vertexColors, map: texture, alphaTest, transparent, depthWrite: !transparent});
                 const material = new THREE.MeshStandardMaterial(appearance);
-                this.applyEffect(material, asset);
+                this.applyEffect(material, asset, !!model.preparedLighting);
                 return material;
             };
             materials.push(create(mode === 2));
@@ -189,6 +197,7 @@ export class ModelScene {
         }
         this.assignSurfaceGroups(geometry, model);
         this.mesh = new THREE.Mesh(geometry, materials);
+        this.mesh.userData["preparedLighting"] = !!model.preparedLighting;
         this.applyWireframe();
         this.mesh.name = model.sourceId === undefined ? "" : String(model.sourceId);
         this.scene.add(this.mesh);
@@ -242,7 +251,7 @@ export class ModelScene {
         this.mesh = undefined;
     }
 
-    private applyEffect(material: THREE.MeshStandardMaterial, asset: MaterialEffect): void {
+    private applyEffect(material: THREE.MeshStandardMaterial, asset: MaterialEffect, preparedLighting = false): void {
         const id = asset.effectId ?? 0;
         if (![1, 2, 4, 5, 7, 8, 9].includes(id)) return;
         const phase = {value: new THREE.Vector4()};
@@ -260,13 +269,14 @@ export class ModelScene {
         };
         update(0);
         this.effectUpdates.push(update);
-        material.customProgramCacheKey = () => `cache-effect-${id}`;
+        material.customProgramCacheKey = () => `cache-effect-${id}-${preparedLighting}`;
         material.onBeforeCompile = shader => {
             shader.uniforms.cachePhase = phase;
             shader.uniforms.cacheWave = wave;
             shader.uniforms.cacheLake = lake;
             shader.vertexShader = `varying vec3 cachePosition;\n${shader.vertexShader}`.replace("#include <begin_vertex>", "#include <begin_vertex>\ncachePosition = vec3(position.x, -position.y, position.z);");
             shader.fragmentShader = `uniform vec4 cachePhase;\nuniform vec3 cacheWave;\nuniform vec2 cacheLake;\nvarying vec3 cachePosition;\n${shader.fragmentShader}`;
+            if (preparedLighting) shader.fragmentShader = shader.fragmentShader.replace("#include <opaque_fragment>", "outgoingLight = diffuseColor.rgb;\n#include <opaque_fragment>");
             if ([2, 4, 5, 8, 9].includes(id)) {
                 // Procedural inspection noise replaces the client's unavailable generated volume texture.
                 shader.fragmentShader = shader.fragmentShader.replace("#include <normal_fragment_maps>", `
@@ -296,20 +306,45 @@ export class ModelScene {
         this.camera.updateProjectionMatrix();
     }
 
+    private orderSurfaces(): void {
+        if (!this.mesh || !this.currentModel) return;
+        this.camera.updateMatrixWorld();
+        if (!this.orderingDirty && this.viewMatrix.equals(this.camera.matrixWorldInverse)) return;
+        this.viewMatrix.copy(this.camera.matrixWorldInverse);
+        this.orderingDirty = false;
+        this.assignSurfaceGroups(this.mesh.geometry, this.currentModel);
+    }
+
     private assignSurfaceGroups(geometry: THREE.BufferGeometry, model: ModelGeometry): void {
         geometry.clearGroups();
-        let start = 0;
-        let previous = -1;
-        for (let face = 0; face < model.indices.length; face += 3) {
-            const translucent = [0, 1, 2].some(corner => (model.opacities?.[model.indices[face + corner]] ?? 1) < 1);
-            const textureIndex = [...this.textures.keys()].indexOf(model.textureIds?.[face / 3] ?? -1);
+        const textureIds = [...this.textures.keys()];
+        const opaque: {start: number; material: number; depth: number; priority: number}[] = [];
+        const blended: typeof opaque = [];
+        for (let start = 0; start < model.indices.length; start += 3) {
+            const face = start / 3;
+            const translucent = [0, 1, 2].some(corner => (model.opacities?.[model.indices[start + corner]] ?? 1) < 1);
+            const textureId = model.textureIds?.[face] ?? -1;
+            const textureIndex = textureIds.indexOf(textureId);
             const material = (textureIndex < 0 ? 0 : (textureIndex + 1) * 2) + (translucent ? 1 : 0);
-            if (material !== previous) {
-                if (previous !== -1) geometry.addGroup(start, face - start, previous);
-                start = face;
-                previous = material;
+            const transparent = translucent || (textureIndex >= 0 && this.textureImages?.get(textureId)?.alphaMode === 2);
+            this.centroid.set(0, 0, 0);
+            for (let corner = 0; corner < 3; corner++) {
+                const vertex = model.indices[start + corner] * 3;
+                this.centroid.x += model.positions[vertex] / 3;
+                this.centroid.y += model.positions[vertex + 1] / 3;
+                this.centroid.z += model.positions[vertex + 2] / 3;
             }
+            this.centroid.applyMatrix4(this.viewMatrix);
+            (transparent ? blended : opaque).push({start, material, depth: -this.centroid.z, priority: model.facePriorities?.[face] ?? 0});
         }
-        if (previous !== -1) geometry.addGroup(start, model.indices.length - start, previous);
+        // Groups share one object/depth in Three's stable transparent render list.
+        // Keep source index offsets so animation and particle face IDs remain intact.
+        blended.sort((a, b) => a.priority - b.priority || b.depth - a.depth || a.start - b.start);
+        for (const face of [...opaque, ...blended]) {
+            const previous = geometry.groups.at(-1);
+            if (previous && previous.materialIndex === face.material && previous.start + previous.count === face.start)
+                previous.count += 3;
+            else geometry.addGroup(face.start, 3, face.material);
+        }
     }
 }
