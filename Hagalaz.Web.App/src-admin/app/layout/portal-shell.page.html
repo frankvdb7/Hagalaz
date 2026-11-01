@@ -28,7 +28,7 @@
             <nav class="flex min-w-0 items-center gap-2" aria-label="Breadcrumb">
                 <span class="breadcrumb supporting-text">Workspace</span><mat-icon class="breadcrumb breadcrumb-separator supporting-text" aria-hidden="true">chevron_right</mat-icon>
                 @if (definitionCrumb(); as crumb) {
-                    <a class="breadcrumb supporting-text" href="/cache/types?kind={{ crumb.kind }}" routerLink="/cache/types" queryParamsHandling="merge" [queryParams]="{ kind: crumb.kind }">Cache Studio</a><mat-icon class="breadcrumb breadcrumb-separator supporting-text" aria-hidden="true">chevron_right</mat-icon>
+                    <a class="breadcrumb supporting-text" [routerLink]="crumb.kind === 'models' ? '/cache/models' : '/cache/types'" [queryParamsHandling]="crumb.kind === 'models' ? '' : 'merge'" [queryParams]="crumb.kind === 'models' ? {} : { kind: crumb.kind }">Cache Studio</a><mat-icon class="breadcrumb breadcrumb-separator supporting-text" aria-hidden="true">chevron_right</mat-icon>
                     @if (breadcrumb.template(); as template) { <ng-container [ngTemplateOutlet]="template" /> }
                     @else { <span class="route-title truncate" aria-current="page">{{ crumb.label }} #{{ crumb.id }}</span> }
                 } @else { <span class="route-title truncate" aria-current="page">{{ title() }}</span> }

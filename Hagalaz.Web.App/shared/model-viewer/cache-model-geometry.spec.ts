@@ -46,3 +46,10 @@ describe("prepareCacheModel", () => {
         expect(prepareCacheModel({...triangle,faceAlpha:[254]}).opacities).toEqual([1,1,1]);
     });
 });
+
+it("preserves face priorities and source face order across winding conversion", () => {
+    const geometry = prepareCacheModel({positions: [0,0,0,1,0,0,0,1,0], indices: [0,1,2,0,2,1], faceColors: [127,127], facePriorities: [10,11]});
+    expect(geometry.facePriorities).toEqual([10,11]);
+    expect(geometry.positions.map(value => value || 0)).toEqual([0,0,0,0,-1,0,1,0,0,0,0,0,1,0,0,0,-1,0]);
+    expect(prepareCacheModel({positions: [], indices: []}).facePriorities).toBeUndefined();
+});

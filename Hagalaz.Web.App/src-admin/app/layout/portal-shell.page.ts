@@ -70,6 +70,8 @@ export class PortalShellPageComponent {
     private readonly navigationEnd = toSignal(this.router.events.pipe(filter((event) => event instanceof NavigationEnd)));
     readonly currentUrl = computed(() => (this.navigationEnd()?.urlAfterRedirects ?? this.router.url).split("#")[0]);
     readonly definitionCrumb = computed(() => {
+        const model = this.currentUrl().match(/^\/cache\/models\/([^/?]+)(?:[/?]|$)/);
+        if (model) return {kind: "models", label: "Model", id: model[1]};
         const match = this.currentUrl().match(/^\/cache\/types\/([^/]+)\/(\d+)(?:[/?]|$)/);
         if (!match || !Object.hasOwn(cacheTypeNames, match[1])) return null;
         const kind = match[1] as TypeKind;

@@ -5,6 +5,50 @@ namespace Hagalaz.Cache.Tests;
 
 public class ModelGeometryDecoderTests
 {
+    [Theory]
+    [InlineData(false, 0)]
+    [InlineData(false, 1)]
+    [InlineData(true, 0)]
+    [InlineData(true, 1)]
+    [InlineData(true, 2)]
+    public void Decode_PreservesFaceShadingWithoutChangingTopology(bool modern, byte shading)
+    {
+        byte[] legacy = [0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
+            0, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3];
+        byte[] newer = [0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
+            0, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3, 0, 0, 255, 255];
+        var data = modern ? newer : legacy;
+        data[data.Length - (modern ? 23 : 18) + 5] = 1;
+        var offset = modern ? 3 : 4;
+        data = data.Take(offset).Append(shading).Concat(data.Skip(offset)).ToArray();
+        var result = ModelGeometryDecoder.Decode(data);
+        Assert.Equal(new[] { (int)shading }, result.FaceShadingTypes);
+        Assert.Equal(new[] { 0, 1, 2 }, result.Indices);
+        Assert.Equal(new[] { 0x1234 }, result.FaceColors);
+        Assert.Equal(new[] { 0 }, result.FacePriorities);
+    }
+
+    [Theory]
+    [InlineData(false, false, 10)]
+    [InlineData(false, true, 11)]
+    [InlineData(true, false, 11)]
+    [InlineData(true, true, 10)]
+    public void Decode_PreservesUniformAndPerFacePriorities(bool modern, bool perFace, byte priority)
+    {
+        byte[] legacy = [0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
+            0, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3];
+        byte[] newer = [0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
+            0, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3, 0, 0, 255, 255];
+        var data = modern ? newer : legacy;
+        var header = data.Length - (modern ? 23 : 18);
+        data[header + 6] = perFace ? (byte)255 : priority;
+        if (perFace) data = data.Take(4).Append(priority).Concat(data.Skip(4)).ToArray();
+        var result = ModelGeometryDecoder.Decode(data);
+        Assert.Equal(new[] { (int)priority }, result.FacePriorities);
+        Assert.Equal(new[] { 0, 1, 2 }, result.Indices);
+        Assert.Equal(new[] { 0x1234 }, result.FaceColors);
+    }
+
     [Fact]
     public void DecodeLegacy_PreservesTextureReferenceSeparatelyFromFaceColor()
     {

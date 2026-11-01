@@ -5,7 +5,7 @@ import { BreakpointObserver } from "@angular/cdk/layout";
 import { TestbedHarnessEnvironment } from "@angular/cdk/testing/testbed";
 import { provideHttpClient, withXhr } from "@angular/common/http";
 import { HttpTestingController, provideHttpClientTesting } from "@angular/common/http/testing";
-import { ApplicationRef, Component, input, signal } from "@angular/core";
+import { ApplicationRef, Component, input, model, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { MatAutocompleteHarness } from "@angular/material/autocomplete/testing";
 import { MatDialog } from "@angular/material/dialog";
@@ -17,6 +17,7 @@ import { RouterTestingHarness } from "@angular/router/testing";
 import { of } from "rxjs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PortalShellPageComponent } from "./layout/portal-shell.page";
+import {ModelsDetailPageComponent} from "./features/cache/pages/details/models-detail.page";
 import { routes } from "./app.routes";
 import { AuthStore } from "./core/auth/auth.store";
 import { CacheModelPreviewComponent } from "./features/cache/pages/cache-model-preview.component";
@@ -35,6 +36,8 @@ class ItemSpriteBoundary {
 
 @Component({ selector: "cache-model-preview", template: "" })
 class ModelPreviewBoundary {
+    readonly workspace = input(false);
+    readonly inspectionTab = model(0);
     readonly definition = input<unknown>();
     readonly modelId = input<number | null>(null);
     readonly itemId = input<number | null>(null);
@@ -49,6 +52,10 @@ async function openRoute(path: string): Promise<RouterTestingHarness> {
         .forEach((req) => {
             req.flush({ items: 23, npcs: 20 });
         });
+    if (path === "/cache/models") {
+        TestBed.inject(HttpTestingController).expectOne(request => request.url.endsWith("/models/capacity")).flush({capacity:10});
+        await vi.waitFor(() => { TestBed.tick(); TestBed.inject(HttpTestingController).expectOne(request => request.url.endsWith("/models/range")).flush([{id:0}]); });
+    }
     if (path === "/cache/types") {
         await vi.waitFor(() => {
             TestBed.inject(HttpTestingController)
@@ -91,6 +98,7 @@ describe("admin portal routing", () => {
                 },
             ],
         });
+        TestBed.overrideComponent(ModelsDetailPageComponent, {remove:{imports:[CacheModelPreviewComponent]},add:{imports:[ModelPreviewBoundary]}});
         TestBed.overrideComponent(NpcsDetailPageComponent, { remove: { imports: [CacheModelPreviewComponent] }, add: { imports: [ModelPreviewBoundary] } });
         TestBed.overrideComponent(ItemsDetailPageComponent, {
             remove: { imports: [CacheModelPreviewComponent, ItemSpriteThumbnailComponent] },
@@ -143,6 +151,7 @@ describe("admin portal routing", () => {
     it.each([
         ["/cache/types", "Cache Studio", "Items"],
         ["/cache/models", "Cache Studio", "Models"],
+        ["/cache/models/666?tab=textures", "Cache Studio", "Models"],
         ["/cache/types?kind=sprites", "Cache Studio", "Sprites"],
         ["/characters", "Characters", ""],
         ["/worlds", "Worlds", ""],
@@ -161,6 +170,16 @@ describe("admin portal routing", () => {
         } else {
             expect(main?.textContent).toContain("not connected");
         }
+    });
+
+    it("shows model identity and lookup navigation in the toolbar breadcrumb", async () => {
+        const harness = await openRoute("/cache/models/666?tab=textures");
+        const breadcrumb = routeElement(harness).querySelector('nav[aria-label="Breadcrumb"]');
+        await vi.waitFor(() => expect(breadcrumb?.textContent).toContain("Model #666"));
+        expect(breadcrumb?.querySelector('a[href="/cache/models"]')).not.toBeNull();
+        const preview = harness.fixture.debugElement.query(By.directive(ModelPreviewBoundary)).componentInstance as ModelPreviewBoundary;
+        expect(preview.modelId()).toBe(666);
+        expect(preview.inspectionTab()).toBe(1);
     });
 
     it("does not expose the retired sprite manager route", async () => {

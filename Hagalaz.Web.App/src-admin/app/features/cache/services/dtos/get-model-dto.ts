@@ -6,6 +6,10 @@ export interface GetModelDto {
     indices: number[];
     faceColors: number[];
     faceAlpha: number[];
+    faceShadingTypes?: number[] | null;
+    ambient?: number;
+    contrast?: number;
+    facePriorities?: number[] | null;
     vertexSkins: number[] | null;
     warnings: string[];
     animationIds: number[] | null;

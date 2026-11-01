@@ -36,6 +36,75 @@ describe("ModelScene resource ownership", () => {
     });
     afterEach(() => { scene.dispose(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+    const layered = {
+        sourceId: 5,
+        positions: [0,0,0, 1,0,0, 0,1,0, 0,0,5, 1,0,5, 0,1,5, 0,0,0, 1,0,0, 0,1,0],
+        indices: [0,1,2,3,4,5,6,7,8],
+        opacities: Array(9).fill(0.5),
+    };
+    function faceOrder(mesh: THREE.Mesh<THREE.BufferGeometry>): number[] {
+        return mesh.geometry.groups.flatMap(group => Array.from({length: group.count / 3}, (_, i) => group.start / 3 + i));
+    }
+
+    it("orders blended faces by client priority before depth including priorities 10 and 11", () => {
+        scene.setGeometry({...layered, facePriorities: [11, 10, 0]});
+        const mesh = renderAt(0);
+        expect(faceOrder(mesh)).toEqual([2, 1, 0]);
+        expect(Array.from(mesh.geometry.index!.array)).toEqual(layered.indices);
+        expect(mesh.material[1]).toMatchObject({transparent: true, depthWrite: false, depthTest: true});
+    });
+
+    it("reorders equal-priority faces on camera reversal and retains source order for depth ties", () => {
+        scene.setGeometry(layered);
+        const mesh = renderAt(0);
+        expect(faceOrder(mesh)).toEqual([0, 2, 1]);
+        const camera = gpu.render.mock.lastCall![1] as THREE.PerspectiveCamera;
+        camera.position.set(0, 0, -20); camera.lookAt(0, 0, 0);
+        renderAt(16);
+        expect(faceOrder(mesh)).toEqual([1, 0, 2]);
+    });
+
+    it("updates animated alpha and depth without replacing geometry or altering source topology", () => {
+        scene.setGeometry(layered);
+        const mesh = renderAt(0), geometry = mesh.geometry;
+        const release = vi.spyOn(geometry, "dispose");
+        scene.setGeometry({...layered, opacities: [1,1,1,0.5,0.5,0.5,0.5,0.5,0.5], facePriorities: [11, 10, 0]});
+        expect(renderAt(16).geometry).toBe(geometry);
+        expect(faceOrder(mesh)).toEqual([0, 2, 1]);
+        expect(geometry.groups[0].materialIndex).toBe(0);
+        expect(release).not.toHaveBeenCalled();
+        expect(Array.from(geometry.index!.array)).toEqual(layered.indices);
+        scene.setGeometry(triangle);
+        expect(faceOrder(renderAt(32))).toEqual([0]);
+        expect(release).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps cutout faces opaque and orders texture-alpha faces with face-alpha faces", () => {
+        scene.setTextures(new Map([
+            [8, {image: {} as ImageBitmap, alphaMode: 1 as const}],
+            [9, {image: {} as ImageBitmap, alphaMode: 2 as const}],
+        ]));
+        scene.setGeometry({...layered, textureIds: [9, 8, -1], opacities: [1,1,1,1,1,1,0.5,0.5,0.5], facePriorities: [11,0,10]});
+        const mesh = renderAt(0);
+        expect(faceOrder(mesh)).toEqual([1,2,0]);
+        expect(mesh.geometry.groups.map(group => group.materialIndex)).toEqual([2,1,4]);
+        expect(mesh.material[2]).toMatchObject({alphaTest: 0.5, transparent: false, depthWrite: true});
+        expect(mesh.material[4]).toMatchObject({transparent: true, depthWrite: false});
+    });
+
+    it("renders client-lit colours once and preserves procedural effect shader hooks", () => {
+        scene.setGeometry({...triangle,preparedLighting:true,colors:Array(9).fill(0.5)});
+        expect(renderAt(0).material[0]).toBeInstanceOf(THREE.MeshBasicMaterial);
+        scene.setTextures(new Map([[8,{image:{} as ImageBitmap,alphaMode:0,effectId:1}]]));
+        scene.setGeometry({...triangle,preparedLighting:true,colors:Array(9).fill(0.5),textureIds:[8]});
+        const material = renderAt(16).material[2];
+        expect(material).toBeInstanceOf(THREE.MeshStandardMaterial);
+        const shader = {uniforms:{},vertexShader:THREE.ShaderLib.standard.vertexShader,fragmentShader:THREE.ShaderLib.standard.fragmentShader};
+        material.onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
+        expect(shader.fragmentShader.indexOf("outgoingLight = diffuseColor.rgb;")).toBeLessThan(shader.fragmentShader.indexOf("outgoingLight = mix(outgoingLight, cacheSky"));
+        expect(shader.fragmentShader).toContain("cacheReflection");
+    });
+
     it("updates animation positions without replacing the mesh resources", () => {
         const releaseGeometry = vi.spyOn(THREE.BufferGeometry.prototype, "dispose");
         const releaseMaterial = vi.spyOn(THREE.MeshStandardMaterial.prototype, "dispose");

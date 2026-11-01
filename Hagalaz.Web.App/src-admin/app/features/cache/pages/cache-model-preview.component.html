@@ -22,7 +22,7 @@
 
 <ng-template #workspaceView>
     @if (modelValue(); as value) {
-        <cache-model-workspace [modelData]="value" [modelId]="modelId()" [geometry]="geometry()" [textureIds]="textureIds()" [textureImages]="textureImages()" [previewNotes]="previewNotes()" (reload)="model.reload()">
+        <cache-model-workspace [modelData]="value" [(tab)]="inspectionTab" [modelId]="modelId()" [geometry]="geometry()" [textureIds]="textureIds()" [textureImages]="textureImages()" (reload)="model.reload()">
             <div modelLookup><ng-container [ngTemplateOutlet]="modelLookup" /></div>
             <div textureErrors><ng-container [ngTemplateOutlet]="textureErrors" /></div>
             <div animationControls><ng-container [ngTemplateOutlet]="animationControls" /></div>
