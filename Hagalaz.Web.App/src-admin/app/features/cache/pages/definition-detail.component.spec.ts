@@ -43,7 +43,7 @@ class ModelPreviewBoundary {
 
 const baseUrl = `${environment.cacheApiUrl}types/`;
 const stable = () => TestBed.inject(ApplicationRef).whenStable();
-const kinds = Object.keys(cacheDefinitionStores).filter((kind) => kind !== "sprites" && kind !== "items") as (keyof typeof cacheDefinitionStores)[];
+const kinds = Object.keys(cacheDefinitionStores).filter((kind) => kind !== "sprites" && kind !== "items" && kind !== "maps") as (keyof typeof cacheDefinitionStores)[];
 
 describe("dedicated cache detail routes", () => {
     let http: HttpTestingController;

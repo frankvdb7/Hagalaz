@@ -18,6 +18,7 @@ export interface GetModelDto {
     faceTextureIds: number[] | null;
     faceTextureVertices: number[] | null;
     faceTextureUvs: number[] | null;
+    firstTexelFaces?: number[] | null;
     scale: number[] | null;
     particles: ModelParticleDto[] | null;
 }

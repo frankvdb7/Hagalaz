@@ -2,6 +2,15 @@ import { describe, expect, it } from "vitest";
 import { prepareCacheModel } from "./cache-model-geometry";
 
 describe("prepareCacheModel", () => {
+    it("carries explicit first-texel faces through winding without changing valid UVs or alpha", () => {
+        const model = { positions: [0,0,0, 1,0,0, 0,1,0], indices: [0,1,2,0,2,1], faceColors: [127,127], faceAlpha: [128,0], faceTextureIds: [42,42], faceTextureUvs: [0,0,0,0,0,0, .1,.2,.3,.4,.5,.6], firstTexelFaces: [0] };
+        const prepared = prepareCacheModel(model);
+        expect(prepared.firstTexel).toEqual([1,1,1,0,0,0]);
+        expect(prepared.uvs?.slice(6)).toEqual([.1,.2,.5,.6,.3,.4]);
+        expect(prepared.textureIds).toEqual([42,42]);
+        expect(prepared.opacities?.[0]).toBeCloseTo(127/255);
+        expect(model.indices).toEqual([0,1,2,0,2,1]);
+    });
     it("preserves server-projected corner UVs while reversing face winding", () => {
         const model = { id: 1, positions: [0, 0, 0, 10, 0, 0, 0, 10, 0], indices: [0, 1, 2], faceColors: [127], faceTextureIds: [42], faceTextureUvs: [0.25, 0.5, 1.25, 0.5, 0.25, 1.5] };
         const result = prepareCacheModel(model);

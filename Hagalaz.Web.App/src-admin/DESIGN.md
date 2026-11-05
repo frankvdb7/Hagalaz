@@ -164,3 +164,7 @@ Cache Studio section titles, small/large icons, panel/control surfaces and selec
 ### Model detail URLs
 
 `/cache/models` uses the shared cache search/table browser with model ID range pagination; selecting an ID navigates to `/cache/models/:id`. Model details use the shared cache navigation and toolbar breadcrumb. The active inspection tab is addressable with `?tab=textures`, `recolors`, `retextures`, `animations` or `metadata`; the default Model tab omits the query parameter. Refresh and browser history restore model and tab. Camera, transforms, texture selection and playback remain local preview state.
+
+### Maps table and detail URLs
+
+`/cache/types?kind=maps` lists actual cache regions in the shared search/table/paginator flow. Region links open `/cache/types/maps/:id`, retaining list query/page context. Back to Maps restores that context. Detail `width` and `height` parameters default to one and select up to 3-by-3 adjacent regions without coordinate wrapping. Camera and plane/landscape visibility are local state. Region-key JSON stays in component memory and never enters URLs or storage. The viewport has named camera actions and keyboard alternatives; availability, warnings and retry remain readable outside the canvas. See `docs/3d-rendering/maps-workspace.md` for API contracts and ownership.

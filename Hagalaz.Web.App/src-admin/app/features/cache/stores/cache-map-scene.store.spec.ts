@@ -1,0 +1,388 @@
+import { provideHttpClient, withXhr } from "@angular/common/http";
+import { HttpTestingController, provideHttpClientTesting } from "@angular/common/http/testing";
+import { TestBed } from "@angular/core/testing";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { environment } from "../../../../environments/environment";
+import type { MapPlacement, MapRenderRegion, ObjectRenderAppearance } from "../services/map-render.models";
+import { CacheMapSceneStore } from "./cache-map-scene.store";
+
+const base = environment.cacheApiUrl;
+const batchUrl = `${base}types/objects/render-appearances`;
+const region = (id: number): MapRenderRegion => ({
+    id,
+    regionX: id >> 8,
+    regionY: id & 255,
+    terrainStatus: "available",
+    landscapeStatus: "available",
+    planes: [],
+    floors: [],
+    objects: [],
+    warnings: [],
+});
+const placement = (id = 1, plane = 0): MapPlacement => ({ id, plane, shape: 10, rotation: 0, x: 0, y: 0 });
+const appearance: ObjectRenderAppearance = {
+    id: 1,
+    shape: 10,
+    rotation: 0,
+    sizeX: 1,
+    sizeY: 1,
+    decorDisplacement: 64,
+    contourMode: 0,
+    contourParameter: 0,
+    parts: [],
+    warnings: [],
+};
+const success = (key: Pick<MapPlacement, "id" | "shape" | "rotation">) => ({ ...key, status: 200, appearance: { ...appearance, ...key }, problem: null });
+function textured(id: number, texture = 7): MapRenderRegion {
+    return {
+        ...region(id),
+        floors: [{ id: 1, overlay: false, rgb: 1, textureId: texture, textureScale: 512, secondaryRgb: null }],
+        planes: [{ cornerHeights: [], flags: [], underlays: [1], overlays: [], overlayShapes: [], overlayRotations: [] }],
+    };
+}
+
+describe("CacheMapSceneStore", () => {
+    let http: HttpTestingController;
+    beforeEach(() => {
+        vi.useFakeTimers();
+        TestBed.configureTestingModule({ providers: [CacheMapSceneStore, provideHttpClient(withXhr()), provideHttpClientTesting()] });
+        http = TestBed.inject(HttpTestingController);
+        vi.stubGlobal(
+            "createImageBitmap",
+            vi.fn(async () => ({ close: vi.fn() }))
+        );
+    });
+    afterEach(() => {
+        http.verify();
+        TestBed.resetTestingModule();
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
+    });
+    function texture(id: number, material = { alphaMode: 0 }) {
+        http.expectOne(`${base}textures/${id}/image`).flush(new Blob(["fixture"], { type: "image/png" }), {
+            headers: { "X-Texture-Material": JSON.stringify(material) },
+        });
+        http.expectNone(`${base}textures/${id}/material`);
+    }
+
+    it("loads complete texture material settings with one image request", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        http.expectOne(`${base}types/maps/258/render`).flush(textured(258));
+        const material = {
+            alphaMode: 1,
+            colorBlend: 170,
+            brightness: 25,
+            effectId: 2,
+            effectParameter: 12,
+            effectParameter2: 305419896,
+            scrollU: -1,
+            scrollV: 4,
+            repeatU: true,
+            repeatV: false,
+            hasHdr: true,
+        };
+        texture(7, material);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(store.textures().get(7)).toMatchObject(material);
+        expect(store.textures().get(7)?.image).toBeDefined();
+        expect(store.loading()).toBe(false);
+        expect(store.progress()).toMatchObject({ texturesSettled: 1, texturesTotal: 1, failures: 0 });
+    });
+
+    it("scans shared appearance texture faces once per selection across arrivals and visibility changes", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        const scans = vi.fn(() => [7,7,8,-1]);
+        const row = {
+            ...success(placement()),
+            appearance: {
+                ...appearance,
+                parts: [{
+                    id: 1, positions: [0,0,0,1,0,0,0,1,0], indices: [0,1,2],
+                    faceColors: [127], faceAlpha: [0], faceTextureUvs: [0,0,1,0,0,1], warnings: [],
+                    get faceTextureIds() { return scans(); },
+                }],
+            },
+        };
+        for (const id of [258,514]) {
+            store.load({ id, width: 1, height: 1, keys: {} });
+            const source = region(id);
+            source.objects = Array.from({ length: 50 }, (_, x) => ({ ...placement(), x }));
+            http.expectOne(`${base}types/maps/${id}/render`).flush(source);
+            const batch = http.expectOne(batchUrl);
+            expect(batch.request.body).toEqual([{ id: 1, shape: 10, rotation: 0 }]);
+            batch.flush([row]);
+            texture(7); texture(8);
+            await vi.advanceTimersByTimeAsync(250);
+            expect(store.loading()).toBe(false);
+            expect(store.progress()).toMatchObject({ appearancesSettled: 1, appearancesTotal: 1, texturesSettled: 2, texturesTotal: 2, failures: 0 });
+            store.setVisibility({ planes: [true], landscape: false });
+            store.setVisibility({ planes: [true], landscape: true });
+            http.expectNone(() => true);
+            expect(store.textures().size).toBe(2);
+            expect(scans).toHaveBeenCalledTimes(id === 258 ? 1 : 2);
+        }
+    });
+
+    it("reports missing image material metadata without a second request or bitmap decode", () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        http.expectOne(`${base}types/maps/258/render`).flush(textured(258));
+        http.expectOne(`${base}textures/7/image`).flush(new Blob(["fixture"]));
+        http.expectNone(`${base}textures/7/material`);
+        expect(createImageBitmap).not.toHaveBeenCalled();
+        expect(store.loading()).toBe(false);
+        expect(store.progress()).toMatchObject({ texturesSettled: 1, failures: 1 });
+        expect(store.warnings()).toContain("Texture 7: Texture image or material metadata is missing.");
+    });
+
+    it("publishes a region and its floor textures while another region and landscape batch remain pending", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        store.load({ id: 258, width: 2, height: 1, keys: { 258: [1, 2, 3, 4] } });
+        const left = http.expectOne(`${base}types/maps/258/render`),
+            right = http.expectOne(`${base}types/maps/514/render`);
+        expect(left.request.body).toEqual({ xteaKeys: [1, 2, 3, 4] });
+        const first = textured(258);
+        first.objects = [placement(), { ...placement(), x: 1 }];
+        left.flush(first);
+        expect(store.regions()).toEqual([first]);
+        expect(store.loading()).toBe(true);
+        const batch = http.expectOne(batchUrl);
+        expect(batch.request.body).toEqual([{ id: 1, shape: 10, rotation: 0 }]);
+        texture(7);
+        await vi.advanceTimersByTimeAsync(250);
+        expect(store.textures().size).toBe(1);
+        expect(store.appearances().size).toBe(0);
+        expect(store.loading()).toBe(true);
+        const next = region(514);
+        next.objects = [placement()];
+        right.flush(next);
+        http.expectNone(batchUrl);
+        batch.flush([success(placement())]);
+        expect(store.regions()).toHaveLength(2);
+        expect(store.appearances().size).toBe(1);
+        expect(store.loading()).toBe(false);
+        expect(store.progress()).toMatchObject({ regionsSettled: 2, regionsTotal: 2, appearancesSettled: 1, appearancesTotal: 1, failures: 0 });
+    });
+
+    it("defers hidden planes and loads newly visible assets once without reloading regions", () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        store.setVisibility({ planes: [true, false], landscape: false });
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        const source = region(258);
+        source.objects = [placement(1), placement(2, 1)];
+        http.expectOne(`${base}types/maps/258/render`).flush(source);
+        http.expectNone(batchUrl);
+        expect(store.loading()).toBe(false);
+        store.setVisibility({ planes: [true, false], landscape: true });
+        const ground = http.expectOne(batchUrl);
+        expect(ground.request.body).toEqual([{ id: 1, shape: 10, rotation: 0 }]);
+        ground.flush([success(placement(1))]);
+        store.setVisibility({ planes: [true, true], landscape: true });
+        const upper = http.expectOne(batchUrl);
+        expect(upper.request.body).toEqual([{ id: 2, shape: 10, rotation: 0 }]);
+        upper.flush([success(placement(2, 1))]);
+        store.setVisibility({ planes: [true, false], landscape: false });
+        store.setVisibility({ planes: [true, true], landscape: true });
+        http.expectNone(() => true);
+        expect(store.appearances().size).toBe(2);
+        expect(store.loading()).toBe(false);
+    });
+
+    it("bounds batches and concurrency and drops unstarted hidden work during loading", () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        const source = region(258);
+        source.objects = Array.from({ length: 70 }, (_, id) => placement(id));
+        http.expectOne(`${base}types/maps/258/render`).flush(source);
+        const batches = http.match(batchUrl);
+        expect(batches).toHaveLength(2);
+        expect(batches.map((batch) => batch.request.body.length)).toEqual([32, 32]);
+        store.setVisibility({ planes: [true], landscape: false });
+        for (const batch of batches) batch.flush(batch.request.body.map(success));
+        http.expectNone(batchUrl);
+        expect(store.loading()).toBe(false);
+        store.setVisibility({ planes: [true], landscape: true });
+        const remainder = http.expectOne(batchUrl);
+        expect(remainder.request.body).toHaveLength(6);
+        remainder.flush(remainder.request.body.map(success));
+        expect(store.appearances().size).toBe(70);
+    });
+
+    it("defers hidden floor textures and bounds image work ahead of object textures", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        const source = textured(258, 10);
+        source.objects = [placement()];
+        source.planes[0].underlays = [1, 2, 3, 4, 5, 6];
+        source.floors = Array.from({ length: 7 }, (_, index) => ({
+            id: index + 1,
+            overlay: false,
+            rgb: 1,
+            textureId: index + 10,
+            textureScale: 512,
+            secondaryRgb: null,
+        }));
+        source.planes.push({ ...source.planes[0], underlays: [7] });
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        http.expectOne(`${base}types/maps/258/render`).flush(source);
+        const fourth = http.expectOne(`${base}textures/13/image`);
+        http.expectNone(`${base}textures/14/image`);
+        http.expectNone(`${base}textures/16/image`);
+        const object = success(placement());
+        http.expectOne(batchUrl).flush([
+            {
+                ...object,
+                appearance: {
+                    ...object.appearance,
+                    parts: [
+                        {
+                            id: 1,
+                            positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+                            indices: [0, 1, 2],
+                            faceColors: [127],
+                            faceAlpha: [0],
+                            faceTextureIds: [100],
+                            faceTextureUvs: [0, 0, 1, 0, 0, 1],
+                            warnings: [],
+                        },
+                    ],
+                },
+            },
+        ]);
+        http.expectNone(`${base}textures/100/image`);
+        texture(10);
+        await vi.advanceTimersByTimeAsync(0);
+        http.expectNone(`${base}textures/100/image`);
+        texture(11);
+        await vi.advanceTimersByTimeAsync(0);
+        http.expectNone(`${base}textures/100/image`);
+        texture(12);
+        fourth.flush(new Blob(["fixture"]), { headers: { "X-Texture-Material": JSON.stringify({ alphaMode: 0 }) } });
+        texture(14);
+        texture(15);
+        await vi.advanceTimersByTimeAsync(0);
+        texture(100);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(store.textures().size).toBe(7);
+        store.setVisibility({ planes: [true, true], landscape: true });
+        texture(16);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(store.textures().size).toBe(8);
+        store.setVisibility({ planes: [true, false], landscape: true });
+        store.setVisibility({ planes: [true, true], landscape: true });
+        http.expectNone(() => true);
+    });
+
+    it("coalesces partial publications and flushes the last batch immediately", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        const source = region(258);
+        source.objects = Array.from({ length: 65 }, (_, id) => placement(id));
+        http.expectOne(`${base}types/maps/258/render`).flush(source);
+        const batches = http.match(batchUrl);
+        batches[0].flush(batches[0].request.body.map(success));
+        const final = http.expectOne(batchUrl);
+        expect(store.appearances().size).toBe(0);
+        await vi.advanceTimersByTimeAsync(249);
+        expect(store.appearances().size).toBe(0);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(store.appearances().size).toBe(32);
+        batches[1].flush(batches[1].request.body.map(success));
+        expect(store.appearances().size).toBe(32);
+        final.flush(final.request.body.map(success));
+        expect(store.appearances().size).toBe(65);
+        expect(store.loading()).toBe(false);
+    });
+
+    it("keeps partial region and appearance failures visible and retries without duplicate content", () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        const request = { id: 258, width: 1, height: 2, keys: {} };
+        store.load(request);
+        const valid = region(258);
+        valid.objects = [placement(1), placement(2)];
+        http.expectOne(`${base}types/maps/258/render`).flush(valid);
+        http.expectOne(`${base}types/maps/259/render`).flush({ detail: "Read failed" }, { status: 500, statusText: "Failure" });
+        http.expectOne(batchUrl).flush([
+            success(placement(1)),
+            { id: 2, shape: 10, rotation: 0, status: 422, appearance: null, problem: { detail: "Unsupported model" } },
+        ]);
+        expect(store.regions()).toEqual([valid]);
+        expect(store.appearances().size).toBe(1);
+        expect(store.warnings()).toEqual(expect.arrayContaining(["Region 259: Read failed", "Object 2, shape 10: Unsupported model"]));
+        expect(store.progress().failures).toBe(2);
+        store.load(request);
+        http.expectOne(`${base}types/maps/258/render`).flush(region(258));
+        http.expectOne(`${base}types/maps/259/render`).flush(region(259));
+        expect(store.regions()).toHaveLength(2);
+        expect(store.appearances().size).toBe(0);
+        expect(store.warnings()).toEqual([]);
+        expect(store.loading()).toBe(false);
+    });
+
+    it("rejects invalid rectangles and cancels superseded HTTP work and scheduled publications", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        store.load({ id: 65535, width: 2, height: 1, keys: {} });
+        expect(store.warnings()[0]).toContain("valid region rectangle");
+        http.expectNone(() => true);
+        store.load({ id: 258, width: 1, height: 2, keys: {} });
+        const oldRegion = http.expectOne(`${base}types/maps/259/render`);
+        const source = region(258);
+        source.objects = [placement()];
+        http.expectOne(`${base}types/maps/258/render`).flush(source);
+        const oldBatch = http.expectOne(batchUrl);
+        store.load({ id: 260, width: 1, height: 1, keys: {} });
+        expect(oldRegion.cancelled).toBe(true);
+        expect(oldBatch.cancelled).toBe(true);
+        http.expectOne(`${base}types/maps/260/render`).flush(region(260));
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(store.regions().map((region) => region.id)).toEqual([260]);
+        expect(store.appearances().size).toBe(0);
+    });
+
+    it("owns decoded bitmaps until replacement and closes late completions", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        const bitmap = { close: vi.fn() };
+        let resolve: (imageValue: typeof bitmap) => void = () => {
+            throw new Error("Bitmap was not requested");
+        };
+        vi.stubGlobal(
+            "createImageBitmap",
+            vi.fn(
+                () =>
+                    new Promise<typeof bitmap>((done) => {
+                        resolve = done;
+                    })
+            )
+        );
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        http.expectOne(`${base}types/maps/258/render`).flush(textured(258));
+        texture(7);
+        resolve(bitmap);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(store.textures().size).toBe(1);
+        expect(bitmap.close).not.toHaveBeenCalled();
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        expect(bitmap.close).toHaveBeenCalledOnce();
+        http.expectOne(`${base}types/maps/258/render`).flush(textured(258));
+        texture(7);
+        const late = { close: vi.fn() };
+        TestBed.resetTestingModule();
+        resolve(late);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(late.close).toHaveBeenCalledOnce();
+    });
+
+    it("reports texture and batch request errors and finishes visible work", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        const source = textured(258);
+        source.objects = [placement()];
+        http.expectOne(`${base}types/maps/258/render`).flush(source);
+        texture(7, { alphaMode: 9 });
+        http.expectOne(batchUrl).flush({ detail: "Batch unavailable" }, { status: 503, statusText: "Failure" });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(store.loading()).toBe(false);
+        expect(store.progress()).toMatchObject({ failures: 2, appearancesSettled: 1, texturesSettled: 1 });
+        expect(store.warnings()).toEqual(expect.arrayContaining(["Texture 7: Unsupported texture alpha mode.", "Object 1, shape 10: Batch unavailable"]));
+    });
+});

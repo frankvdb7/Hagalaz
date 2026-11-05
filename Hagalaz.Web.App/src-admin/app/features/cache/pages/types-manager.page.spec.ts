@@ -13,6 +13,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { environment } from "../../../../environments/environment";
 import { CacheItemsService } from "../services/cache-items.service";
 import { TypesManagerPageComponent } from "./types-manager.page";
+import { MapRegionsBrowserComponent } from "./map-regions-browser.component";
+import { By } from "@angular/platform-browser";
 
 @Component({ template: "" })
 class DetailBoundary {}
@@ -399,7 +401,60 @@ describe("TypesManagerPage per-type navigation", () => {
         expect(page.browseError()).toContain("zero or greater");
         http.expectNone(() => true);
     });
-    it.each(["maps", "cs2-int"] as const)("keeps %s as ID-only lookup", async (kind) => {
+    it("lists actual map regions without loading archive counts or scene assets and links to detail", async () => {
+        const router = TestBed.inject(Router);
+        await router.navigateByUrl("/?kind=maps&offset=10&limit=10");
+        const fixture = TestBed.createComponent(TypesManagerPageComponent);
+        fixture.detectChanges();
+        const request = http.expectOne(`${baseUrl}maps?offset=10&limit=10`);
+        request.flush({ items: [{ id: 258, regionX: 1, regionY: 2, terrainFileId: 12, landscapeFileId: null }], total: 23, offset: 10, limit: 10 });
+        await stable();
+        fixture.detectChanges();
+        const page = fixture.debugElement.query(By.directive(MapRegionsBrowserComponent)).componentInstance as MapRegionsBrowserComponent;
+        expect(page.paginationLength()).toBe(23);
+        const table = fixture.nativeElement.querySelector("table");
+        expect(table.textContent).toContain("Terrain file");
+        expect(table.textContent).toContain("Present");
+        expect(table.textContent).toContain("Absent");
+        const link = table.querySelector('a[aria-label="Open map 258"]') as HTMLAnchorElement;
+        expect(link.href).toContain("/cache/types/maps/258");
+        expect(link.href).toContain("offset=10");
+        const paginator = await TestbedHarnessEnvironment.loader(fixture).getHarness(MatPaginatorHarness);
+        expect(await paginator.getRangeLabel()).toBe("11 – 20 of 23");
+        http.expectNone(() => true);
+        link.click();
+        await stable();
+        expect(router.url).toContain("/cache/types/maps/258");
+        expect(router.url).toContain("offset=10");
+        expect(router.url).toContain("limit=10");
+    });
+    it("pages maps through sparse metadata and retries unavailable listings", async () => {
+        const router = TestBed.inject(Router);
+        await router.navigateByUrl("/?kind=maps");
+        const fixture = TestBed.createComponent(TypesManagerPageComponent);
+        fixture.detectChanges();
+        http.expectOne(`${baseUrl}maps?offset=0&limit=10`).flush({ detail: "No named metadata" }, { status: 422, statusText: "Unprocessable Entity" });
+        await stable();
+        const page = fixture.debugElement.query(By.directive(MapRegionsBrowserComponent)).componentInstance as MapRegionsBrowserComponent;
+        expect(page.store.rangeError()).toBe("No named metadata");
+        expect(page.rows()).toEqual([]);
+        page.store.loadPage(page.offset(), page.pageSize());
+        TestBed.tick();
+        http.expectOne(`${baseUrl}maps?offset=0&limit=10`).flush({ items: [], total: 0, offset: 0, limit: 10 });
+        await stable();
+        expect(page.store.rangeError()).toBeNull();
+        expect(page.paginationLength()).toBe(0);
+        await page.changePage({ pageIndex: 1, pageSize: 25, length: 50 });
+        TestBed.tick();
+        http.expectOne(`${baseUrl}maps?offset=25&limit=25`).flush({ items: [{ id: 65535, regionX: 255, regionY: 255, terrainFileId: null, landscapeFileId: 99 }], total: 50, offset: 25, limit: 25 });
+        await stable();
+        expect(page.rows()).toEqual([expect.objectContaining({ id: 65535 })]);
+        page.searchForm.query().value.set("65536");
+        await page.browse();
+        expect(page.browseError()).toBe("Enter a region ID between 0 and 65535.");
+        http.expectNone(() => true);
+    });
+    it.each(["cs2-int"] as const)("keeps %s as ID-only lookup", async (kind) => {
         const fixture = await createPage(),
             page = fixture.componentInstance;
         await selectKind(kind);

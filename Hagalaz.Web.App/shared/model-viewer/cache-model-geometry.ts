@@ -15,6 +15,7 @@ export interface CacheModelGeometry {
     facePriorities?: readonly number[] | null;
     faceTextureIds?: readonly number[] | null;
     faceTextureUvs?: readonly number[] | null;
+    firstTexelFaces?: readonly number[] | null;
     particles?: readonly ModelParticle[];
     coordinateScale?: number;
 }
@@ -31,6 +32,8 @@ export function prepareCacheModel(model: CacheModelGeometry, materials?: Readonl
         const opacities: number[] = [];
         const uvs: number[] = [];
         const textureIds: number[] = [];
+        const firstTexelFaces = new Set(model.firstTexelFaces ?? []);
+        const firstTexel: number[] = [];
         for (let face = 0; face < model.indices.length / 3; face++) {
             const decodedUvs = model.faceTextureUvs?.slice(face * 6, face * 6 + 6);
             const textured = (model.faceTextureIds?.[face] ?? -1) >= 0 && decodedUvs?.length === 6;
@@ -56,10 +59,11 @@ export function prepareCacheModel(model: CacheModelGeometry, materials?: Readonl
                 } else colors.push(...rgb);
                 indices.push(indices.length);
                 opacities.push(opacity);
+                firstTexel.push(firstTexelFaces.has(face) ? 1 : 0);
                 uvs.push(...(textured ? decodedUvs!.slice(corner * 2, corner * 2 + 2) : [0, 0]));
             }
         }
-        return { preparedLighting, sourceId: model.id, facePriorities: model.facePriorities ?? undefined, positions, indices, colors, opacities, uvs, textureIds, particles: model.particles, particleScale: model.coordinateScale ?? 1 };
+        return { preparedLighting, sourceId: model.id, facePriorities: model.facePriorities ?? undefined, positions, indices, colors, opacities, uvs, textureIds, firstTexel: firstTexelFaces.size ? firstTexel : undefined, particles: model.particles, particleScale: model.coordinateScale ?? 1 };
     }
     return {
         sourceId: model.id, facePriorities: model.facePriorities ?? undefined,

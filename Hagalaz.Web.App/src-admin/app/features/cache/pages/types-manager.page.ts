@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from "@angular/common";
 import { Component, computed, effect, inject, input, linkedSignal, signal, untracked, viewChild } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { FormField, form } from "@angular/forms/signals";
@@ -20,11 +21,15 @@ import { cacheDefinitionStores } from "../stores/cache-definition-stores";
 import { ItemSpriteThumbnailComponent } from "./item-sprite-thumbnail.component";
 import { SpriteFrameThumbnailComponent } from "./sprite-frame-thumbnail.component";
 
+import { MapRegionsBrowserComponent } from "./map-regions-browser.component";
+
 type BrowserKind = TypeKind | "models";
 
 @Component({
     selector: "types-manager-page",
     imports: [
+        NgTemplateOutlet,
+        MapRegionsBrowserComponent,
         FormField,
         RouterLink,
         MatButtonModule,
@@ -63,6 +68,7 @@ export class TypesManagerPageComponent {
     private readonly route = inject(ActivatedRoute);
     private readonly params = toSignal(this.route.queryParamMap, { initialValue: this.route.snapshot.queryParamMap });
     readonly activeKind = computed<BrowserKind>(() => this.models() ? "models" : this.kinds.find((kind) => kind === this.params().get("kind")) ?? "items");
+    readonly browserTemplateKey = computed(() => this.activeKind() === "maps" ? "maps" : "definitions");
     private readonly appliedQuery = computed(() => this.params().get("query")?.trim() ?? "");
     readonly pageSize = computed(() => this.validNumber(this.params().get("limit"), 10, 1, 200));
     private readonly offset = computed(() => {
@@ -138,7 +144,7 @@ export class TypesManagerPageComponent {
     });
     readonly searchForm = form(this.searchModel);
     constructor() {
-        effect(() => { if (!this.models()) untracked(() => this.archives.loadArchiveSizes()); });
+        effect(() => { if (!this.models() && this.activeKind() !== "maps") untracked(() => { if (!this.archives.archiveSizes() && !this.archives.loading() && !this.archives.error()) this.archives.loadArchiveSizes(); }); });
         effect((onCleanup) => {
             if (!this.loading()) {
                 this.loadingFeedbackVisible.set(false);
@@ -193,6 +199,7 @@ export class TypesManagerPageComponent {
         return frameCount === 1 ? 0 : 1;
     }
     private loadPage(): void {
+        if (this.activeKind() === "maps") return;
         this.browseError.set(null);
         const query = this.appliedQuery();
         const store = this.store;

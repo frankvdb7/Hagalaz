@@ -7,12 +7,339 @@ using Hagalaz.Services.Cache.Features;
 using Hagalaz.Services.Cache.Features.Models;
 using Hagalaz.TestSupport;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Cache.Types;
+using Hagalaz.Services.Cache.Security;
+using Microsoft.AspNetCore.Authentication.BearerToken;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+using System.Reflection;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
 
 [TestClass]
 public sealed class ModelAppearanceTests
 {
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void ObjectTransformId_DistinguishesHiddenShortFromRealExtendedId(bool extended)
+    {
+        byte[] prefix=[92,255,255,0,1,0,2,0];
+        byte[] target=extended?[128,0,127,255]:[127,255];
+        using var data=new MemoryStream(prefix.Concat(target).Append((byte)0).ToArray());
+        var definition=(ObjectType)new ObjectTypeCodec().Decode(0,data);
+        Assert.IsNotNull(definition.TransformToIDs);
+        CollectionAssert.AreEqual(new[]{extended?32767:-1,2},definition.TransformToIDs);
+    }
+
+    [TestMethod]
+    [DataRow(0)]
+    [DataRow(1)]
+    [DataRow(2)]
+    [DataRow(3)]
+    public async Task ObjectRenderAppearance_12163UsesZeroStateCanoeVariantInSingleAndBatch(int rotation)
+    {
+        var store=new MemoryFileStore();
+        SeedDefinitions(store,16,(12163,File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,"Fixtures","objects","object-12163.dat"))),
+            (12144,File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,"Fixtures","objects","object-12144.dat"))));
+        store.Set(7,11990,ContainerBytes(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,"Fixtures","models","model-11990.dat"))));
+        await using var app=await CacheServiceTestHost.StartAsync(store,group=>group.MapModelEndpoints());
+        using var client=CacheServiceTestHost.CreateClient(app);
+        var selected=await client.GetFromJsonAsync<GetObjectRenderAppearanceDto>($"/api/v1/cache/types/objects/12144/render-appearance?shape=10&rotation={rotation}");
+        var source=await client.GetFromJsonAsync<GetObjectRenderAppearanceDto>($"/api/v1/cache/types/objects/12163/render-appearance?shape=10&rotation={rotation}");
+        Assert.IsNotNull(selected);Assert.IsNotNull(source);
+        Assert.AreEqual(12163,source.Id);Assert.AreEqual(10,source.Shape);Assert.AreEqual(rotation,source.Rotation);
+        Assert.HasCount(1,source.Parts);Assert.IsTrue(source.Parts[0].Indices.Length>0);
+        Assert.AreEqual(12163,source.Parts[0].Id);
+        Assert.AreEqual(selected.SizeX,source.SizeX);Assert.AreEqual(selected.SizeY,source.SizeY);
+        Assert.AreEqual(selected.ContourMode,source.ContourMode);
+        CollectionAssert.AreEqual(selected.Parts[0].Positions,source.Parts[0].Positions);
+        CollectionAssert.AreEqual(selected.Parts[0].Indices,source.Parts[0].Indices);
+        CollectionAssert.AreEqual(selected.Parts[0].FaceTextureUvs,source.Parts[0].FaceTextureUvs);
+        Assert.IsTrue(source.Warnings.Any(warning=>warning.Contains("object 12144")&&warning.Contains("zero-valued")));
+        using var response=await client.PostAsJsonAsync("/api/v1/cache/types/objects/render-appearances",new[]{new ObjectRenderAppearanceKeyDto(12163,10,rotation)});
+        var rows=await response.Content.ReadFromJsonAsync<ObjectRenderAppearanceResultDto[]>();
+        Assert.IsNotNull(rows);Assert.HasCount(1,rows);Assert.AreEqual(200,rows[0].Status);
+        var batch=rows[0].Appearance;Assert.IsNotNull(batch);Assert.AreEqual(12163,batch.Id);
+        CollectionAssert.AreEqual(source.Parts[0].Positions,batch.Parts[0].Positions);
+        CollectionAssert.AreEqual(source.Warnings,batch.Warnings);
+    }
+
+    [TestMethod]
+    [DataRow(true,false)]
+    [DataRow(false,false)]
+    [DataRow(true,true)]
+    [DataRow(false,true)]
+    public async Task ObjectRenderAppearance_StaticTransformHonorsSelectorFallbackAndHiddenTargets(bool selector,bool hidden)
+    {
+        var store=new MemoryFileStore();
+        // Opcode 92: varbit, varp, fallback, one indexed target. Never choose an arbitrary visible child.
+        var indexed=selector&&hidden?32767:1;
+        var fallback=!selector&&hidden?32767:2;
+        byte[] root=[92,255,255,selector?(byte)0:(byte)255,selector?(byte)1:(byte)255,(byte)(fallback>>8),(byte)fallback,0,(byte)(indexed>>8),(byte)indexed,0];
+        SeedDefinitions(store,16,(0,root),(1,[1,1,10,1,0,0,14,2,0]),(2,[1,1,10,1,0,0,14,3,0]));
+        store.Set(7,0,ContainerBytes(LegacyModel));
+        await using var app=await CacheServiceTestHost.StartAsync(store,group=>group.MapModelEndpoints());
+        using var client=CacheServiceTestHost.CreateClient(app);
+        var appearance=await client.GetFromJsonAsync<GetObjectRenderAppearanceDto>("/api/v1/cache/types/objects/0/render-appearance?shape=10&rotation=0");
+        Assert.IsNotNull(appearance);Assert.AreEqual(0,appearance.Id);
+        if(hidden)
+        {
+            Assert.HasCount(0,appearance.Parts);Assert.IsTrue(appearance.Warnings.Any(w=>w.Contains("Hidden")));
+            using var response=await client.PostAsJsonAsync("/api/v1/cache/types/objects/render-appearances",new[]{new ObjectRenderAppearanceKeyDto(0,10,0)});
+            var rows=await response.Content.ReadFromJsonAsync<ObjectRenderAppearanceResultDto[]>();
+            Assert.IsNotNull(rows);Assert.HasCount(1,rows);Assert.AreEqual(200,rows[0].Status);Assert.IsNull(rows[0].Problem);
+            var invisible=rows[0].Appearance;Assert.IsNotNull(invisible);Assert.HasCount(0,invisible.Parts);
+            Assert.AreEqual(0,store.GetReadCount(7,0));
+        }
+        else {Assert.HasCount(1,appearance.Parts);Assert.AreEqual(selector?2:3,appearance.SizeX);Assert.IsTrue(appearance.Warnings.Any(w=>w.Contains(selector?"object 1":"object 2")));}
+    }
+
+    [TestMethod]
+    public async Task ObjectRenderAppearance_OffsetsFallbackFacesWhenCombiningModelParts()
+    {
+        var store = new MemoryFileStore();
+        SeedDefinition(store,16,[1,1,10,2,0x80,0,0xbe,0x67,0x80,0,0xbe,0x67,0],id:45291);
+        store.Set(7,48743,ContainerBytes(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,"Fixtures","models","model-48743.dat"))));
+        await using var app = await CacheServiceTestHost.StartAsync(store,group=>group.MapModelEndpoints());
+        using var client=CacheServiceTestHost.CreateClient(app);
+        var raw=await client.GetFromJsonAsync<GetModelDto>("/api/v1/cache/models/48743");
+        Assert.IsNotNull(raw);
+        Assert.IsNotNull(raw.FirstTexelFaces);
+        Assert.HasCount(47,raw.FirstTexelFaces);
+        Assert.IsTrue(raw.Warnings.Any(warning=>warning.Contains("First-texel texture fallback on 47 faces")));
+        var appearance=await client.GetFromJsonAsync<GetObjectRenderAppearanceDto>("/api/v1/cache/types/objects/45291/render-appearance?shape=10&rotation=0");
+        Assert.IsNotNull(appearance);
+        Assert.HasCount(1,appearance.Parts);
+        var part=appearance.Parts[0];
+        Assert.HasCount(342*3,part.Indices);
+        Assert.IsNotNull(part.FirstTexelFaces);
+        CollectionAssert.AreEqual(raw.FirstTexelFaces.Concat(raw.FirstTexelFaces.Select(face=>face+171)).ToArray(),part.FirstTexelFaces);
+        Assert.IsTrue(appearance.Warnings.Any(warning=>warning.Contains("First-texel texture fallback on 94 faces")));
+    }
+
+    [TestMethod]
+    [DataRow(33858, 36668, 0, 0, 84, 130)]
+    [DataRow(33858, 36668, 0, 1, 84, 130)]
+    [DataRow(33858, 36668, 0, 2, 84, 130)]
+    [DataRow(33858, 36668, 0, 3, 84, 130)]
+    [DataRow(45092, 48778, 0, 0, 277, 362)]
+    [DataRow(45092, 48778, 0, 1, 277, 362)]
+    [DataRow(45092, 48778, 0, 2, 277, 362)]
+    [DataRow(45092, 48778, 0, 3, 277, 362)]
+    [DataRow(45152, 48859, 22, 0, 29, 38)]
+    [DataRow(45152, 48859, 22, 1, 29, 38)]
+    [DataRow(45152, 48859, 22, 2, 29, 38)]
+    [DataRow(45152, 48859, 22, 3, 29, 38)]
+    [DataRow(45291, 48743, 10, 0, 111, 171)]
+    [DataRow(45291, 48743, 10, 1, 111, 171)]
+    [DataRow(45291, 48743, 10, 2, 111, 171)]
+    [DataRow(45291, 48743, 10, 3, 111, 171)]
+    public async Task ObjectRenderAppearance_ReportedProjectionIsFiniteInSingleAndBatch(int objectId, int modelId, int shape, int rotation, int vertices, int faces)
+    {
+        var store = new MemoryFileStore();
+        // Real failing model, with a minimal object definition decoded by the production provider.
+        SeedDefinition(store, 16, [1, 1, (byte)shape, 1, 0x80, (byte)(modelId >> 16), (byte)(modelId >> 8), (byte)modelId, 0], id: objectId);
+        store.Set(7, modelId, ContainerBytes(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "models", $"model-{modelId}.dat"))));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        using var singleResponse = await client.GetAsync($"/api/v1/cache/types/objects/{objectId}/render-appearance?shape={shape}&rotation={rotation}");
+        Assert.AreEqual(System.Net.HttpStatusCode.OK, singleResponse.StatusCode, await singleResponse.Content.ReadAsStringAsync());
+        var single = await singleResponse.Content.ReadFromJsonAsync<GetObjectRenderAppearanceDto>();
+        Assert.IsNotNull(single);
+        Assert.AreEqual(objectId, single.Id);
+        Assert.AreEqual(shape, single.Shape);
+        Assert.AreEqual(rotation, single.Rotation);
+        Assert.HasCount(1, single.Parts);
+        var part = single.Parts[0];
+        Assert.HasCount(vertices * 3, part.Positions);
+        Assert.HasCount(faces * 3, part.Indices);
+        Assert.IsNotNull(part.FaceTextureIds);
+        var affectedFace = modelId == 36668 ? 10 : modelId == 48778 ? 40 : 31;
+        Assert.IsTrue(part.FaceTextureIds[affectedFace] >= 0);
+        Assert.IsNotNull(part.FaceTextureUvs);
+        Assert.HasCount(part.Indices.Length * 2, part.FaceTextureUvs);
+        Assert.IsTrue(part.FaceTextureUvs.All(float.IsFinite));
+        if (modelId == 48743)
+        {
+            Assert.IsNotNull(part.FirstTexelFaces);
+            Assert.HasCount(47, part.FirstTexelFaces);
+            CollectionAssert.Contains(part.FirstTexelFaces, 31);
+            Assert.IsTrue(single.Warnings.Any(warning => warning.Contains("First-texel texture fallback on 47 faces")));
+            Assert.IsTrue(part.FaceTextureUvs.Take(6).Distinct().Count() > 1, "Valid faces must retain real UVs.");
+        }
+        else Assert.IsTrue(part.FaceTextureUvs.Skip(affectedFace * 6).Take(6).Distinct().Count() > 1, "The affected wall face must retain real UVs.");
+
+        using var batchResponse = await client.PostAsJsonAsync("/api/v1/cache/types/objects/render-appearances", new[] { new ObjectRenderAppearanceKeyDto(objectId, shape, rotation) });
+        Assert.AreEqual(System.Net.HttpStatusCode.OK, batchResponse.StatusCode, await batchResponse.Content.ReadAsStringAsync());
+        var rows = await batchResponse.Content.ReadFromJsonAsync<ObjectRenderAppearanceResultDto[]>();
+        Assert.IsNotNull(rows);
+        Assert.HasCount(1, rows);
+        Assert.AreEqual(200, rows[0].Status);
+        Assert.IsNull(rows[0].Problem);
+        var batchAppearance = rows[0].Appearance;
+        Assert.IsNotNull(batchAppearance);
+        Assert.AreEqual(objectId, batchAppearance.Id);
+        Assert.AreEqual(shape, batchAppearance.Shape);
+        Assert.AreEqual(rotation, batchAppearance.Rotation);
+        Assert.HasCount(1, batchAppearance.Parts);
+        var batchPart = batchAppearance.Parts[0];
+        CollectionAssert.AreEqual(part.Positions, batchPart.Positions);
+        CollectionAssert.AreEqual(part.Indices, batchPart.Indices);
+        CollectionAssert.AreEqual(part.FaceTextureIds, batchPart.FaceTextureIds);
+        CollectionAssert.AreEqual(part.FaceTextureUvs, batchPart.FaceTextureUvs);
+        CollectionAssert.AreEqual(part.FirstTexelFaces, batchPart.FirstTexelFaces);
+        CollectionAssert.AreEqual(single.Warnings, batchAppearance.Warnings);
+    }
+
+    [TestMethod]
+    [DataRow(10, 10, 1)]
+    [DataRow(2, 2, 0)]
+    [DataRow(8, 4, 2)]
+    [DataRow(6, 4, 3)]
+    [DataRow(11, 10, 2)]
+    public async Task AppearanceBatch_MatchesSingleMirroredWallsDecorationsAndContourMetadata(int shape, int modelShape, int rotation)
+    {
+        var store = new MemoryFileStore();
+        var definition = Definition("objects").SkipLast(1).Concat(new byte[] { 62, 21, 0 }).ToArray();
+        definition[2] = (byte)modelShape;
+        SeedDefinition(store, 16, definition);
+        store.Set(7, 0, ContainerBytes(LegacyModel));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var response = await client.PostAsJsonAsync("/api/v1/cache/types/objects/render-appearances", new[] { new ObjectRenderAppearanceKeyDto(0, shape, rotation) });
+        response.EnsureSuccessStatusCode();
+        var rows = await response.Content.ReadFromJsonAsync<ObjectRenderAppearanceResultDto[]>();
+        Assert.IsNotNull(rows); Assert.HasCount(1, rows);
+        Assert.AreEqual(200, rows[0].Status);
+        Assert.AreEqual(await client.GetStringAsync($"/api/v1/cache/types/objects/0/render-appearance?shape={shape}&rotation={rotation}"),
+            System.Text.Json.JsonSerializer.Serialize(rows[0].Appearance, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)));
+        Assert.AreEqual(1, rows[0].Appearance?.ContourMode);
+    }
+
+    [TestMethod]
+    public async Task AppearanceBatch_RequiresAuthenticationAndInheritsCachePolicy()
+    {
+        await using var app = await CacheServiceTestHost.StartAsync(new MemoryFileStore(), group => group.MapGroup("").RequireAuthorization(CacheAuthorization.PolicyName).MapModelEndpoints(), services => {
+            services.AddAuthentication(BearerTokenDefaults.AuthenticationScheme).AddBearerToken();
+            services.AddAuthorization(options => options.AddPolicy(CacheAuthorization.PolicyName, policy => policy.RequireAuthenticatedUser()));
+        });
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var response = await client.PostAsJsonAsync("/api/v1/cache/types/objects/render-appearances", new[] { new ObjectRenderAppearanceKeyDto(0, 10, 0) });
+        Assert.AreEqual(System.Net.HttpStatusCode.Unauthorized, response.StatusCode);
+        var endpoint = app.Services.GetRequiredService<EndpointDataSource>().Endpoints.OfType<RouteEndpoint>().Single(endpoint => endpoint.RoutePattern.RawText!.EndsWith("/render-appearances", StringComparison.Ordinal));
+        Assert.IsTrue(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>().Any(policy => policy.Policy == CacheAuthorization.PolicyName));
+    }
+
+    [TestMethod]
+    public async Task AppearanceBatch_CancellationStopsBeforeTheNextKey()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var provider = new CancellingObjects(cancellation);
+        await using var app = await CacheServiceTestHost.StartAsync(new MemoryFileStore(), group => group.MapModelEndpoints());
+        var endpoint = app.Services.GetRequiredService<EndpointDataSource>().Endpoints.OfType<RouteEndpoint>().Single(endpoint => endpoint.RoutePattern.RawText!.EndsWith("/render-appearances", StringComparison.Ordinal));
+        var handler = endpoint.Metadata.GetMetadata<MethodInfo>();
+        Assert.IsNotNull(handler);
+        var error = Assert.ThrowsExactly<TargetInvocationException>(() => handler.Invoke(null, new object[] {
+            new[] { new ObjectRenderAppearanceKeyDto(0, 10, 0), new ObjectRenderAppearanceKeyDto(1, 10, 0) },
+            app.Services.GetRequiredService<ICacheAPI>(), provider, cancellation.Token }));
+        Assert.IsInstanceOfType<OperationCanceledException>(error.InnerException);
+        Assert.AreEqual(1, provider.Reads);
+    }
+
+    private sealed class CancellingObjects(CancellationTokenSource cancellation) : ITypeProvider<IObjectType>
+    {
+        public int Reads { get; private set; }
+        public int ArchiveSize => 2;
+        public IObjectType Get(int id) { Reads++; cancellation.Cancel(); return new ObjectType(id); }
+        public IObjectType[] GetAll() => throw new NotSupportedException();
+        public IObjectType[] GetRange(int start, int end) => throw new NotSupportedException();
+    }
+
+    [TestMethod]
+    public async Task AppearanceBatch_MapsPerKeyExceptionsWithoutDiscardingOtherResults()
+    {
+        var store = new MemoryFileStore();
+        store.Set(7, 0, ContainerBytes(LegacyModel));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints(), services => services.AddSingleton<ITypeProvider<IObjectType>, FaultingObjects>());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var response = await client.PostAsJsonAsync("/api/v1/cache/types/objects/render-appearances", new[] {
+            new ObjectRenderAppearanceKeyDto(0, 10, 0), new ObjectRenderAppearanceKeyDto(1, 10, 0), new ObjectRenderAppearanceKeyDto(2, 10, 0) });
+        response.EnsureSuccessStatusCode();
+        var rows = await response.Content.ReadFromJsonAsync<ObjectRenderAppearanceResultDto[]>();
+        Assert.IsNotNull(rows);
+        CollectionAssert.AreEqual(new[] { 404, 200, 500 }, rows.Select(row => row.Status).ToArray());
+        Assert.IsNotNull(rows[1].Appearance);
+        Assert.AreEqual("Cache file not found.", rows[0].Problem?.Title);
+        Assert.AreEqual("Unexpected cache error.", rows[2].Problem?.Title);
+    }
+
+    private sealed class FaultingObjects : ITypeProvider<IObjectType>
+    {
+        public int ArchiveSize => 3;
+        public IObjectType Get(int id)
+        {
+            if (id == 0) throw new FileNotFoundException("Missing definition");
+            if (id == 2) throw new NotSupportedException("Unsupported definition");
+            using var bytes = new MemoryStream(Definition("objects"));
+            return new ObjectTypeCodec().Decode(id, bytes);
+        }
+        public IObjectType[] GetAll() => throw new NotSupportedException();
+        public IObjectType[] GetRange(int start, int end) => throw new NotSupportedException();
+    }
+
+    [TestMethod]
+    public async Task AppearanceBatch_PreservesSingleResultsDeduplicatesAndKeepsPartialFailures()
+    {
+        var store = new MemoryFileStore();
+        SeedDefinition(store, 16, Definition("objects"));
+        store.Set(7, 0, ContainerBytes(LegacyModel));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        var keys = new[] { new ObjectRenderAppearanceKeyDto(0, 10, 1), new ObjectRenderAppearanceKeyDto(0, 2, 0), new ObjectRenderAppearanceKeyDto(0, 10, 1) };
+        using var response = await client.PostAsJsonAsync("/api/v1/cache/types/objects/render-appearances", keys);
+        response.EnsureSuccessStatusCode();
+        var rows = await response.Content.ReadFromJsonAsync<ObjectRenderAppearanceResultDto[]>();
+        Assert.IsNotNull(rows);
+        Assert.HasCount(2, rows);
+        Assert.AreEqual(200, rows[0].Status);
+        var single = await client.GetStringAsync("/api/v1/cache/types/objects/0/render-appearance?shape=10&rotation=1");
+        Assert.AreEqual(single, System.Text.Json.JsonSerializer.Serialize(rows[0].Appearance, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)));
+        Assert.AreEqual(404, rows[1].Status);
+        Assert.IsNull(rows[1].Appearance);
+        Assert.AreEqual(404, rows[1].Problem?.Status);
+        Assert.AreEqual(2, rows[1].Shape);
+        Assert.AreEqual(2, store.GetReadCount(7, 0)); // one deduplicated batch read plus the comparison read
+    }
+
+    [TestMethod]
+    [DataRow("[]")]
+    [DataRow("[null]")]
+    [DataRow("[{\"id\":-1,\"shape\":10,\"rotation\":0}]")]
+    [DataRow("[{\"id\":0,\"shape\":23,\"rotation\":0}]")]
+    [DataRow("[{\"id\":0,\"shape\":10,\"rotation\":4}]")]
+    public async Task AppearanceBatch_RejectsInvalidInputBeforeDecoding(string json)
+    {
+        await using var app = await CacheServiceTestHost.StartAsync(new MemoryFileStore(), group => group.MapModelEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var response = await client.PostAsync("/api/v1/cache/types/objects/render-appearances", new StringContent(json, System.Text.Encoding.UTF8, "application/json"));
+        Assert.AreEqual(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task AppearanceBatch_RejectsOversizedInputBeforeDecoding()
+    {
+        await using var app = await CacheServiceTestHost.StartAsync(new MemoryFileStore(), group => group.MapModelEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var response = await client.PostAsJsonAsync("/api/v1/cache/types/objects/render-appearances", Enumerable.Repeat(new ObjectRenderAppearanceKeyDto(0, 10, 0), 33).ToArray());
+        Assert.AreEqual(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     private static readonly byte[] LegacyModel = [0, 1, 3, 1, 2, 64, 65, 65, 0, 42, 0, 0, 0, 1, 0, 2, 74, 54, 84,
             0, 3, 0, 1, 1, 1, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3];
     private static readonly byte[] ModernSkinnedModel = [0, 1, 3, 1, 1, 2, 3, 64, 65, 65, 0x12, 0x34, 74, 54, 84, 13,
@@ -178,6 +505,57 @@ public sealed class ModelAppearanceTests
         Assert.AreEqual(System.Net.HttpStatusCode.BadRequest, invalid.StatusCode);
     }
 
+    [TestMethod]
+    public async Task ObjectRenderAppearance_RotatesBeforeScaleAndAppliesDecodedOffsetsOnce()
+    {
+        var store = new MemoryFileStore();
+        SeedDefinition(store, 16, Definition("objects").SkipLast(1).Concat(new byte[] { 70, 0, 3, 21, 0 }).ToArray());
+        store.Set(7, 0, ContainerBytes(LegacyModel));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        var appearance = await client.GetFromJsonAsync<GetObjectRenderAppearanceDto>("/api/v1/cache/types/objects/0/render-appearance?shape=10&rotation=1");
+        Assert.IsNotNull(appearance);
+        Assert.AreEqual(1, appearance.ContourMode);
+        Assert.AreEqual(64, appearance.DecorDisplacement);
+        Assert.HasCount(1, appearance.Parts);
+        CollectionAssert.AreEqual(new[] { 12, 0, 0, 12, 0, -40, 12, 40, 0 }, appearance.Parts[0].Positions);
+        CollectionAssert.AreEqual(new[] { 50000 }, appearance.Parts[0].FaceColors);
+        // A later raw read must remain untransformed.
+        var raw = await client.GetFromJsonAsync<GetModelDto>("/api/v1/cache/models/0");
+        Assert.IsNotNull(raw);
+        CollectionAssert.AreEqual(new[] { 0, 0, 0, 10, 0, 0, 0, 20, 0 }, raw.Positions);
+    }
+
+    [TestMethod]
+    public async Task ObjectRenderAppearance_CombinesCornerWallPartsAndPreservesMirroredUvs()
+    {
+        var store = new MemoryFileStore();
+        var definition = Definition("objects");
+        definition[2] = 2;
+        SeedDefinition(store, 16, definition);
+        store.Set(7, 0, ContainerBytes(LegacyModel));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        var appearance = await client.GetFromJsonAsync<GetObjectRenderAppearanceDto>("/api/v1/cache/types/objects/0/render-appearance?shape=2&rotation=0");
+        Assert.IsNotNull(appearance);
+        Assert.HasCount(2, appearance.Parts);
+        CollectionAssert.AreEqual(new[] { 0, 2, 1 }, appearance.Parts[0].Indices);
+        CollectionAssert.AreEqual(new float[] { 0, 0, 0, 1, 1, 0 }, appearance.Parts[0].FaceTextureUvs);
+        CollectionAssert.AreEqual(new[] { 0, 0, 0, 0, 0, -40, 0, 40, 0 }, appearance.Parts[1].Positions);
+    }
+
+    [TestMethod]
+    [DataRow(-1, 10, 0)]
+    [DataRow(0, 23, 0)]
+    [DataRow(0, 10, 4)]
+    public async Task ObjectRenderAppearance_RejectsInvalidPlacementBeforeReadingAssets(int id, int shape, int rotation)
+    {
+        await using var app = await CacheServiceTestHost.StartAsync(new MemoryFileStore(), group => group.MapModelEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var response = await client.GetAsync($"/api/v1/cache/types/objects/{id}/render-appearance?shape={shape}&rotation={rotation}");
+        Assert.AreEqual(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     private static byte[] Definition(string kind)
     {
         using var stream = new MemoryStream();
@@ -196,16 +574,30 @@ public sealed class ModelAppearanceTests
         void Short(int value) { stream.WriteByte((byte)(value >> 8)); stream.WriteByte((byte)value); }
     }
 
-    private static void SeedDefinition(MemoryFileStore store, int index, byte[] data)
+    private static void SeedDefinition(MemoryFileStore store, int index, byte[] data, int id = 0)
+        => SeedDefinitions(store,index,(id,data));
+
+    private static void SeedDefinitions(MemoryFileStore store, int index, params (int Id,byte[] Data)[] definitions)
     {
         var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
-        var archive = new ReferenceTableEntry(0);
-        archive.InitializeEntries(1);
-        archive.AddEntry(0, new ReferenceTableChildEntry(0));
-        table.AddEntry(0, archive);
+        foreach(var group in definitions.GroupBy(definition=>definition.Id>>8))
+        {
+            var members=group.OrderBy(definition=>definition.Id).ToArray();
+            var archive=new ReferenceTableEntry(group.Key);archive.InitializeEntries(members.Length);
+            foreach(var member in members)archive.AddEntry(member.Id&255,new ReferenceTableChildEntry(member.Id&255));
+            table.AddEntry(group.Key,archive);
+            using var bytes=new MemoryStream();
+            foreach(var member in members)bytes.Write(member.Data);
+            if(members.Length>1)
+            {
+                var previous=0;
+                foreach(var member in members) {var delta=new byte[4];System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(delta,member.Data.Length-previous);bytes.Write(delta);previous=member.Data.Length;}
+                bytes.WriteByte(1);
+            }
+            store.Set(index,group.Key,ContainerBytes(bytes.ToArray()));
+        }
         using var encoded = new ReferenceTableCodec().Encode(table);
         store.Set(255, index, ContainerBytes(encoded.ToArray()));
-        store.Set(index, 0, ContainerBytes(data));
     }
 
     private static byte[] ContainerBytes(byte[] data)
