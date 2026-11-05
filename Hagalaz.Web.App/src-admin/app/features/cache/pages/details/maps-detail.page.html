@@ -1,0 +1,45 @@
+<ng-template portalBreadcrumb><span>Region {{ id() ?? 'Invalid ID' }}</span></ng-template>
+<section aria-label="Map region detail" [attr.aria-busy]="store.loading()">
+    <a mat-button href="/cache/types?kind=maps" routerLink="/cache/types" [queryParams]="returnParams()" class="mb-3">Back to Maps</a>
+    <mat-card appearance="outlined" class="mb-4">
+        <mat-card-header><mat-card-title><h2>Region {{ id() ?? 'Invalid ID' }}</h2></mat-card-title><mat-card-subtitle>3D terrain and landscape</mat-card-subtitle></mat-card-header>
+        <mat-card-content>
+            <form novalidate (submit)="$event.preventDefault(); apply()" class="mt-4 flex flex-wrap items-start gap-3">
+                <mat-form-field appearance="outline" class="w-36"><mat-label>Regions wide</mat-label><input matInput type="number" [formField]="dimensions.width" /></mat-form-field>
+                <mat-form-field appearance="outline" class="w-36"><mat-label>Regions high</mat-label><input matInput type="number" [formField]="dimensions.height" /></mat-form-field>
+                <button mat-flat-button type="submit">Load regions</button>
+            </form>
+            <p class="supporting-text">{{ selectedIds().length }} selected regions. Adjacent regions extend east and north from the selected map.</p>
+            @if (error(); as message) { <p role="alert">{{ message }}</p> }
+            @if (!selectedIds().length) { <p role="alert">Invalid region selection. Use a region ID from 0 to 65535 and dimensions from 1 to 3 without crossing coordinate 255.</p> }
+        </mat-card-content>
+    </mat-card>
+    @if (store.loading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading region scene" /><p role="status" class="my-2">{{ loadingText() }}</p> }
+    <div class="grid min-w-0 gap-4 xl:grid-cols-4">
+        <mat-card appearance="outlined" class="min-w-0 overflow-hidden xl:col-span-3">
+            <cache-map-viewport [geometry]="scene().geometry" [textures]="store.textures()" [selectionKey]="selectionKey()" />
+            @if (!store.loading() && !scene().geometry) { <mat-card-content><p role="status">No renderable tiles or objects. Check the region availability and warnings.</p></mat-card-content> }
+        </mat-card>
+        <div class="flex min-w-0 flex-col gap-4">
+            <mat-card appearance="outlined"><mat-card-header><mat-card-title>Visibility</mat-card-title></mat-card-header><mat-card-content>
+                @for (visible of planes(); track $index) { <mat-checkbox [checked]="visible" (change)="togglePlane($index, $event.checked)">Plane {{ $index }}</mat-checkbox> }
+                <mat-checkbox [checked]="landscape()" (change)="landscape.set($event.checked)">Landscape objects</mat-checkbox>
+            </mat-card-content></mat-card>
+            <mat-card appearance="outlined"><mat-card-header><mat-card-title>Regions</mat-card-title></mat-card-header><mat-card-content>
+                @for (region of store.regions(); track region.id) {
+                    <div class="my-3"><p>Region {{ region.id }} · {{ region.regionX }}, {{ region.regionY }}</p><p class="supporting-text text-sm">Terrain {{ region.terrainStatus }}. Landscape {{ region.landscapeStatus }}. {{ region.objects.length }} source placements.</p></div>
+                }
+                <button mat-stroked-button type="button" [disabled]="store.loading() || !selectedIds().length" (click)="retry()">Retry current selection</button>
+            </mat-card-content></mat-card>
+        </div>
+    </div>
+    <mat-expansion-panel class="mt-4"><mat-expansion-panel-header><mat-panel-title>Region keys</mat-panel-title></mat-expansion-panel-header>
+        <p class="supporting-text mb-3">Optional XTEA keys for encrypted landscape files. Enter a JSON object keyed by selected region ID, with four signed integers per region. Keys stay in this page's memory.</p>
+        <mat-form-field appearance="outline" class="w-full"><mat-label>Region keys JSON</mat-label><textarea matInput rows="4" [formField]="keyForm.text" placeholder='{"12850": [0, 0, 0, 0]}'></textarea></mat-form-field>
+        <button mat-stroked-button type="button" [disabled]="store.loading()" (click)="apply()">Apply keys and reload</button>
+    </mat-expansion-panel>
+    @if (warnings().length) {
+        <mat-expansion-panel class="mt-4"><mat-expansion-panel-header><mat-panel-title>{{ warnings().length }} scene warnings</mat-panel-title></mat-expansion-panel-header><ng-template matExpansionPanelContent><ul class="list-disc space-y-2 pl-5">@for (warning of warnings(); track warning) { <li>{{ warning }}</li> }</ul></ng-template></mat-expansion-panel>
+    }
+</section>
+

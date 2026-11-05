@@ -8,9 +8,9 @@ namespace Hagalaz.Cache.Logic.Codecs;
 public static class ModelGeometryDecoder
 {
     public sealed record EmitterAttachment(int EmitterId, int Face);
-    public sealed record Geometry(int[] Positions, int[] Indices, int[] FaceColors, int[] FaceAlpha, int[]? VertexSkins, int Version = 12, int[]? FaceSkins = null, int[]? FaceTextureIds = null, int[]? FaceTextureVertices = null, float[]? FaceTextureUvs = null, EmitterAttachment[]? Emitters = null, int[]? FacePriorities = null, int[]? FaceShadingTypes = null);
+    public sealed record Geometry(int[] Positions, int[] Indices, int[] FaceColors, int[] FaceAlpha, int[]? VertexSkins, int Version = 12, int[]? FaceSkins = null, int[]? FaceTextureIds = null, int[]? FaceTextureVertices = null, float[]? FaceTextureUvs = null, EmitterAttachment[]? Emitters = null, int[]? FacePriorities = null, int[]? FaceShadingTypes = null, int[]? FirstTexelFaces = null);
 
-    public static Geometry Decode(byte[] data)
+    public static Geometry Decode(byte[] data, bool allowFirstTexelFallback = false)
     {
         ArgumentNullException.ThrowIfNull(data);
         if (data.Length < 2 || data[^1] != 255 || data[^2] != 255) return DecodeLegacy(data);
@@ -72,6 +72,7 @@ public static class ModelGeometryDecoder
         int[]? textureIds = null;
         var textureVertices = new int[faces * 3];
         float[]? textureUvs = null;
+        int[]? firstTexelFaces = null;
         Array.Fill(textureVertices, -1);
         var simpleCount = 0; var complexCount = 0; var boxCount = 0;
         for (var mapping = 0; mapping < textureCount; mapping++)
@@ -137,7 +138,7 @@ public static class ModelGeometryDecoder
                 projectionPositions = (int[])result.Positions.Clone();
                 for (var coordinate = 0; coordinate < projectionPositions.Length; coordinate++) projectionPositions[coordinate] *= 4;
             }
-            textureUvs = ModelTextureCoordinates.Generate(projectionPositions, result.Indices, textureIds, pointers, mappings);
+            textureUvs = ModelTextureCoordinates.Generate(projectionPositions, result.Indices, textureIds, pointers, mappings, out firstTexelFaces, allowFirstTexelFallback);
         }
         var attachmentOffset = geometryEnd + simpleCount * 6 + complexCount * (6 + (version >= 15 ? 9 : version == 14 ? 7 : 6) + 3) + boxCount * 2;
         var shadingTypes = new int[faces];
@@ -160,7 +161,7 @@ public static class ModelGeometryDecoder
             var effectors = attachments.Byte();
             for (var effector = 0; effector < effectors; effector++) { attachments.Short(); attachments.Short(); }
         }
-        return result with { Version = version, FaceTextureIds = textureIds, FaceTextureVertices = textureVertices, FaceTextureUvs = textureUvs, Emitters = emitters, FaceShadingTypes = shadingTypes };
+        return result with { Version = version, FaceTextureIds = textureIds, FaceTextureVertices = textureVertices, FaceTextureUvs = textureUvs, Emitters = emitters, FaceShadingTypes = shadingTypes, FirstTexelFaces = firstTexelFaces };
 
         void Copy(int offset, int length)
         {
@@ -297,7 +298,7 @@ public static class ModelGeometryDecoder
             for (var face = 0; face < faces; face++) faceSkins[face] = groups.Byte();
         }
         return new Geometry(positions, indices, faceColors, faceAlpha, vertexSkins, FaceShadingTypes: faceShadingTypes, FacePriorities: facePriorities, FaceSkins: faceSkins, FaceTextureIds: faceTextureIds, FaceTextureVertices: faceTextureVertices,
-            FaceTextureUvs: textures == 0 ? null : ModelTextureCoordinates.Generate(positions, indices, faceTextureIds, texturePointers, textureMappings));
+            FaceTextureUvs: textures == 0 ? null : ModelTextureCoordinates.Generate(positions, indices, faceTextureIds, texturePointers, textureMappings, out _));
     }
 
     private sealed class Reader(byte[] data, int position)

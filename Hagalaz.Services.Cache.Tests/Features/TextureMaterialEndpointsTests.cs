@@ -1,15 +1,18 @@
 using Hagalaz.Services.Cache.Features.Models.Dtos;
 using System.Net.Http.Json;
 using System.Net;
+using System.Text.Json;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using Hagalaz.Cache.Abstractions.Model;
+using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Services.Cache.Features;
 using Hagalaz.Services.Cache.Features.Models;
 using Hagalaz.TestSupport;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
 
@@ -27,6 +30,150 @@ public sealed class TextureMaterialEndpointsTests
 
         Assert.IsNotNull(result);
         Assert.AreEqual(new GetTextureMaterialDto(1, 170, 25, 2, 12, -1, 4, true, false, true, 0x12345678), result);
+    }
+
+    [TestMethod]
+    public async Task ImageRequest_IncludesCompleteMaterialWithoutChangingPngOrLegacyHeaders()
+    {
+        var store = CreateStore();
+        AddImage(store, 9, 2, new Rgba32(0, 0, 0, 255));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTextureEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        using var response = await client.GetAsync("/api/v1/cache/textures/0/image");
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.AreEqual("image/png", response.Content.Headers.ContentType!.MediaType);
+        var header = response.Headers.GetValues("X-Texture-Material").Single();
+        using var json = JsonDocument.Parse(header);
+        Assert.AreEqual(0x12345678, json.RootElement.GetProperty("effectParameter2").GetInt32());
+        var material = JsonSerializer.Deserialize<GetTextureMaterialDto>(header, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var standalone = await client.GetFromJsonAsync<GetTextureMaterialDto>("/api/v1/cache/textures/0/material");
+        Assert.AreEqual(new GetTextureMaterialDto(1, 170, 25, 2, 12, -1, 4, true, false, true, 0x12345678), material);
+        Assert.AreEqual(standalone, material);
+        Assert.AreEqual("1", response.Headers.GetValues("X-Texture-Alpha-Mode").Single());
+        Assert.AreEqual("170", response.Headers.GetValues("X-Texture-Color-Blend").Single());
+        Assert.AreEqual("25", response.Headers.GetValues("X-Texture-Brightness").Single());
+        using var image = Image.Load<Rgba32>(await response.Content.ReadAsByteArrayAsync());
+        Assert.AreEqual(2, image.Width);
+        Assert.AreEqual(1, image.Height);
+        Assert.AreEqual(new Rgba32(0, 0, 0, 0), image[0, 0]);
+        Assert.AreEqual(new Rgba32(0, 0, 0, 0), image[1, 0]);
+    }
+
+    [TestMethod]
+    [DataRow("weak")]
+    [DataRow("strong")]
+    [DataRow("list")]
+    [DataRow("wildcard")]
+    public async Task ImageRequest_MatchingValidatorReturnsEmptyNotModifiedWithMaterial(string condition)
+    {
+        var store = CreateStore();
+        AddImage(store, 9, 1, new Rgba32(100, 110, 120));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTextureEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var initial = await client.GetAsync("/api/v1/cache/textures/0/image");
+        Assert.AreEqual(HttpStatusCode.OK, initial.StatusCode);
+        Assert.IsNotNull(initial.Headers.CacheControl);
+        Assert.IsTrue(initial.Headers.CacheControl.Private);
+        Assert.IsTrue(initial.Headers.CacheControl.NoCache);
+        Assert.IsNotNull(initial.Headers.ETag);
+        Assert.IsTrue(initial.Headers.ETag.IsWeak);
+        var etag = initial.Headers.ETag.ToString();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/cache/textures/0/image");
+        request.Headers.TryAddWithoutValidation("If-None-Match", condition switch
+        {
+            "weak" => etag,
+            "strong" => initial.Headers.ETag.Tag,
+            "list" => $"\"unrelated\", {etag}",
+            "wildcard" => "*",
+            _ => throw new ArgumentOutOfRangeException(nameof(condition))
+        });
+
+        using var response = await client.SendAsync(request);
+
+        Assert.AreEqual(HttpStatusCode.NotModified, response.StatusCode);
+        Assert.AreEqual(0, (await response.Content.ReadAsByteArrayAsync()).Length);
+        Assert.AreEqual(etag, response.Headers.ETag?.ToString());
+        Assert.AreEqual(initial.Headers.GetValues("X-Texture-Material").Single(), response.Headers.GetValues("X-Texture-Material").Single());
+        Assert.IsNotNull(response.Headers.CacheControl);
+        Assert.IsTrue(response.Headers.CacheControl.Private);
+        Assert.IsTrue(response.Headers.CacheControl.NoCache);
+    }
+
+    [TestMethod]
+    public async Task ImageRequest_NonmatchingValidatorReturnsPng()
+    {
+        var store = CreateStore();
+        AddImage(store, 9, 1, new Rgba32(100, 110, 120));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTextureEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/cache/textures/0/image");
+        request.Headers.TryAddWithoutValidation("If-None-Match", "W/\"unrelated\"");
+
+        using var response = await client.SendAsync(request);
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.IsNotNull(response.Headers.ETag);
+        using var image = Image.Load<Rgba32>(await response.Content.ReadAsByteArrayAsync());
+        Assert.AreEqual(new Rgba32(100, 110, 120, 255), image[0, 0]);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ImageRequest_CacheMutationInvalidatesValidator(bool changeMaterial)
+    {
+        var store = CreateStore();
+        AddImage(store, 9, 1, new Rgba32(100, 110, 120));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTextureEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var initial = await client.GetAsync("/api/v1/cache/textures/0/image");
+        Assert.AreEqual(HttpStatusCode.OK, initial.StatusCode);
+        Assert.IsNotNull(initial.Headers.ETag);
+        var oldPixels = await initial.Content.ReadAsByteArrayAsync();
+        var oldMaterial = initial.Headers.GetValues("X-Texture-Material").Single();
+        var cache = app.Services.GetRequiredService<ICacheAPI>();
+        if (changeMaterial)
+        {
+            using var source = cache.Read(26, 0, 0);
+            var data = source.ToArray();
+            data[3 + 3] = 90; // Brightness changes material semantics without changing image pixels.
+            cache.ReplaceArchiveMember(26, 0, 0, data);
+        }
+        else
+        {
+            using var image = new Image<Rgba32>(1, 1, new Rgba32(200, 210, 220));
+            using var bytes = new MemoryStream();
+            image.SaveAsPng(bytes);
+            using var container = new Container(new MemoryStream(bytes.ToArray()));
+            using var encoded = new MemoryStream(container.Encode());
+            cache.WriteRawFile(9, 0, encoded);
+        }
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/cache/textures/0/image");
+        request.Headers.IfNoneMatch.Add(initial.Headers.ETag);
+
+        using var response = await client.SendAsync(request);
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.IsNotNull(response.Headers.ETag);
+        Assert.AreNotEqual(initial.Headers.ETag, response.Headers.ETag);
+        var pixels = await response.Content.ReadAsByteArrayAsync();
+        using var decoded = Image.Load<Rgba32>(pixels);
+        if (changeMaterial)
+        {
+            Assert.AreNotEqual(oldMaterial, response.Headers.GetValues("X-Texture-Material").Single());
+            var material = JsonSerializer.Deserialize<GetTextureMaterialDto>(response.Headers.GetValues("X-Texture-Material").Single(), JsonSerializerOptions.Web);
+            Assert.IsNotNull(material);
+            Assert.AreEqual(90, material.Brightness);
+            CollectionAssert.AreEqual(oldPixels, pixels);
+        }
+        else
+        {
+            Assert.AreEqual(oldMaterial, response.Headers.GetValues("X-Texture-Material").Single());
+            Assert.AreEqual(new Rgba32(200, 210, 220, 255), decoded[0, 0]);
+            CollectionAssert.AreNotEqual(oldPixels, pixels);
+        }
     }
 
     [TestMethod]

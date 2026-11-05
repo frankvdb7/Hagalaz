@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic.Codecs;
@@ -9,12 +10,16 @@ using Hagalaz.Services.Cache.Features.Shared;
 using Hagalaz.Services.Cache.Features.Models.Dtos;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Hagalaz.Services.Cache.Features.Models;
 
 public static class ModelEndpoints
 {
+    private static string[] ProjectionWarnings(int[]? faces) => faces is { Length: > 0 }
+        ? [$"First-texel texture fallback on {faces.Length} faces with invalid projection coordinates."] : [];
     public static IEndpointRouteBuilder MapModelEndpoints(this IEndpointRouteBuilder group)
     {
         group.MapGet("/models/{id:int}", GetModel);
@@ -24,6 +29,8 @@ public static class ModelEndpoints
         group.MapGet("/types/items/{id:int}/model-appearances", GetItemAppearances);
         group.MapGet("/types/npcs/{id:int}/model", GetNpcModel);
         group.MapGet("/types/objects/{id:int}/model", GetObjectModel);
+        group.MapGet("/types/objects/{id:int}/render-appearance", GetObjectRenderAppearance);
+        group.MapPost("/types/objects/render-appearances", GetObjectRenderAppearances);
         group.MapGet("/animation-frames/{id:int}", GetAnimationFrame);
         group.MapGet("/types/animations/{id:int}/sequence", GetAnimationSequence);
         return group;
@@ -105,9 +112,9 @@ public static class ModelEndpoints
         using var container = cache.ReadContainer(7, id);
         try
         {
-            var geometry = ModelGeometryDecoder.Decode(container.Data.ToArray());
+            var geometry = ModelGeometryDecoder.Decode(container.Data.ToArray(), allowFirstTexelFallback: true);
             return TypedResults.Ok(new GetModelDto(id, geometry.Positions, geometry.Indices, geometry.FaceColors, geometry.FaceAlpha, geometry.VertexSkins,
-                new[] { "Geometry, projected textures and ordinary transparency preview. Transparent faces use client priorities and depth ordering within each priority. Intersecting triangles and full client rendering parity remain unverified. Client model lighting uses a fixed inspection light; map atmosphere and seam lighting remain unverified." }, CoordinateScale: geometry.Version < 13 ? 0.25f : 1, FaceSkins: geometry.FaceSkins, FaceTextureIds: geometry.FaceTextureIds, FaceTextureVertices: geometry.FaceTextureVertices, FaceTextureUvs: geometry.FaceTextureUvs, Particles: ReadParticles(cache, geometry.Emitters ?? []), FacePriorities: geometry.FacePriorities, FaceShadingTypes: geometry.FaceShadingTypes));
+                new[] { "Geometry, projected textures and ordinary transparency preview. Transparent faces use client priorities and depth ordering within each priority. Intersecting triangles and full client rendering parity remain unverified. Client model lighting uses a fixed inspection light; map atmosphere and seam lighting remain unverified." }.Concat(ProjectionWarnings(geometry.FirstTexelFaces)).ToArray(), CoordinateScale: geometry.Version < 13 ? 0.25f : 1, FaceSkins: geometry.FaceSkins, FaceTextureIds: geometry.FaceTextureIds, FaceTextureVertices: geometry.FaceTextureVertices, FaceTextureUvs: geometry.FaceTextureUvs, Particles: ReadParticles(cache, geometry.Emitters ?? []), FacePriorities: geometry.FacePriorities, FaceShadingTypes: geometry.FaceShadingTypes, FirstTexelFaces: geometry.FirstTexelFaces));
         }
         catch (NotSupportedException exception)
         {
@@ -153,8 +160,74 @@ public static class ModelEndpoints
             $"Object shape {selectedShape} preview with projected textures. Placement rotation, contouring, variant transforms are not yet supported. Client model lighting uses a fixed inspection light; map atmosphere and seam lighting remain unverified.", ambient: 64 + definition.Ambient, contrast: 850 + definition.Contrast);
     }
 
+    private static IResult GetObjectRenderAppearances(ObjectRenderAppearanceKeyDto?[]? request, ICacheAPI cache, ITypeProvider<IObjectType> objects, CancellationToken cancellationToken)
+    {
+        if (request is null || request.Length is < 1 or > 32 || request.Any(key => key is null || key.Id < 0 || key.Shape is < 0 or > 22 || key.Rotation is < 0 or > 3))
+            return TypedResults.BadRequest(EndpointErrors.Validation("Enter 1..32 appearance keys with nonnegative IDs, shapes 0..22 and rotations 0..3."));
+        var rows = new List<ObjectRenderAppearanceResultDto>();
+        foreach (var key in request.OfType<ObjectRenderAppearanceKeyDto>().Distinct())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            IResult result;
+            try { result = GetObjectRenderAppearance(key.Id, key.Shape, key.Rotation, cache, objects); }
+            catch (Exception error) when (error is not OperationCanceledException) { result = EndpointErrors.MapException(error); }
+            var status = (result as IStatusCodeHttpResult)?.StatusCode ?? 500;
+            var appearance = (result as Ok<GetObjectRenderAppearanceDto>)?.Value;
+            var problem = (result as ProblemHttpResult)?.ProblemDetails ?? (result as IValueHttpResult)?.Value as ProblemDetails;
+            if (appearance is null) problem ??= new ProblemDetails { Status = status, Title = "Object appearance unavailable." };
+            rows.Add(new ObjectRenderAppearanceResultDto(key.Id, key.Shape, key.Rotation, status, appearance, problem));
+        }
+        return TypedResults.Ok(rows.ToArray());
+    }
+
+    private static IResult GetObjectRenderAppearance(int id, int shape, int rotation, ICacheAPI cache, ITypeProvider<IObjectType> objects)
+    {
+        if (id < 0 || shape is < 0 or > 22 || rotation is < 0 or > 3)
+            return TypedResults.BadRequest(EndpointErrors.Validation("Enter a nonnegative object ID, shape 0..22 and rotation 0..3."));
+        var definition = (ObjectType)objects.Get(id);
+        var modelShape = shape is >= 4 and <= 8 ? 4 : shape == 11 ? 10 : shape;
+        var warnings = new List<string>();
+        if (definition.TransformToIDs is { Length: > 0 } variants)
+        {
+            // Match ObjectDefinition.getTransformToDefinition with zero-valued static preview state.
+            var hasSelector = definition.VarpBitFileId >= 0 || definition.VarpFileId >= 0;
+            var selected = hasSelector && variants.Length > 1 ? variants[0] : variants[^1];
+            var state = hasSelector ? "assumed zero-valued varp/varbit state" : "the definition's default transform fallback";
+            if (selected == -1)
+                return TypedResults.Ok(new GetObjectRenderAppearanceDto(id, shape, rotation, definition.SizeX, definition.SizeY, definition.DecorDisplacement,
+                    definition.GroundContoured, definition.AnInt780, [], [$"Hidden for {state}; live game state is unavailable."]));
+            definition = (ObjectType)objects.Get(selected);
+            warnings.Add($"Static preview uses object {selected} for {state}; live game state is unavailable.");
+        }
+        var group = Array.FindIndex(definition.Shapes ?? [], value => value == modelShape);
+        if (group < 0 || group >= definition.ModelIDs.Length) return TypedResults.NotFound();
+        if (definition.AByteArray816 is { Length: > 0 }) warnings.Add("Palette-index recolor overrides are unavailable.");
+        if (definition.AByte787 != 0) warnings.Add("The definition's additional color adjustment is unavailable.");
+        if (definition.GroundContoured > 2) warnings.Add($"Terrain contouring mode {definition.GroundContoured} is unavailable.");
+        var orientations = shape == 2 ? new[] { rotation + 4, (rotation + 1) & 3 }
+            : shape == 8 ? new[] { rotation + 4, ((rotation + 2) & 3) + 4 }
+            : new[] { shape == 6 ? rotation + 4 : shape == 7 ? ((rotation + 2) & 3) + 4 : rotation };
+        var parts = new List<GetModelDto>();
+        foreach (var orientation in orientations)
+        {
+            var mirrored = definition.Inverted || (modelShape == 2 && orientation > 3);
+            var result = AssembleModel(id, definition.ModelIDs[group], cache, definition.ScaleX, definition.ScaleY, definition.ScaleZ,
+                definition.OffsetX / 4, definition.OffsetY / 4, definition.OffsetZ / 4,
+                definition.OriginalColors, definition.ModifiedColors, definition.AShortArray831, definition.AShortArray762, [],
+                "Static region appearance. Scene atmosphere, animated variants and advanced lighting are not simulated.",
+                ambient: 64 + definition.Ambient, contrast: 850 + definition.Contrast,
+                placement: (modelShape, orientation, mirrored), extraRotation: shape == 11);
+            if (result is not Ok<GetModelDto> { Value: { } model }) return result;
+            parts.Add(model);
+            warnings.AddRange(ProjectionWarnings(model.FirstTexelFaces));
+        }
+        return TypedResults.Ok(new GetObjectRenderAppearanceDto(id, shape, rotation, definition.SizeX, definition.SizeY, definition.DecorDisplacement,
+            definition.GroundContoured, definition.AnInt780, parts.ToArray(), warnings.ToArray()));
+    }
+
     private static IResult AssembleModel(int id, int[] modelIds, ICacheAPI cache, int scaleX, int scaleY, int scaleZ,
-        int offsetX, int offsetY, int offsetZ, short[]? originalColors, short[]? replacementColors, short[]? originalTextures, short[]? replacementTextures, int[] animationIds, string warning, float[]? scale = null, int ambient = 64, int contrast = 850)
+        int offsetX, int offsetY, int offsetZ, short[]? originalColors, short[]? replacementColors, short[]? originalTextures, short[]? replacementTextures, int[] animationIds, string warning, float[]? scale = null, int ambient = 64, int contrast = 850,
+        (int Shape, int Orientation, bool Mirrored)? placement = null, bool extraRotation = false)
     {
         var positions = new List<int>();
         var indices = new List<int>();
@@ -167,22 +240,25 @@ public static class ModelEndpoints
         var textureIds = new List<int>();
         var textureVertices = new List<int>();
         var textureUvs = new List<float>();
+        var firstTexelFaces = new List<int>();
         var emitters = new List<ModelGeometryDecoder.EmitterAttachment>();
         try
         {
             foreach (var modelId in modelIds.Where(modelId => modelId >= 0))
             {
                 using var container = cache.ReadContainer(7, modelId);
-                var part = ModelGeometryDecoder.Decode(container.Data.ToArray());
+                var part = ModelGeometryDecoder.Decode(container.Data.ToArray(), allowFirstTexelFallback: true);
+                firstTexelFaces.AddRange((part.FirstTexelFaces ?? []).Select(face => face + colors.Count));
                 var vertexOffset = positions.Count / 3;
                 var faceOffset = colors.Count;
+                if (placement is { } transform) PrepareObjectPart(part.Positions, part.Indices, part.FaceTextureUvs, transform, part.Version < 13 ? 4 : 1);
                 emitters.AddRange((part.Emitters ?? []).Select(emitter => emitter with { Face = emitter.Face + faceOffset }));
                 for (var coordinate = 0; coordinate < part.Positions.Length; coordinate++)
                 {
                     var axis = coordinate % 3;
                     var axisScale = axis == 0 ? scaleX : axis == 1 ? scaleY : scaleZ;
                     var offset = axis == 0 ? offsetX : axis == 1 ? offsetY : offsetZ;
-                    var unitScale = part.Version < 13 ? 4 : 1;
+                    var unitScale = placement is null && part.Version < 13 ? 4 : 1;
                     positions.Add(((part.Positions[coordinate] * unitScale * axisScale) >> 7) + offset * 4);
                 }
                 indices.AddRange(part.Indices.Select(index => index + vertexOffset));
@@ -196,16 +272,53 @@ public static class ModelEndpoints
                 textureUvs.AddRange(part.FaceTextureUvs ?? new float[part.Indices.Length * 2]);
                 skins.AddRange(part.VertexSkins ?? Enumerable.Repeat(-1, part.Positions.Length / 3).ToArray());
             }
+            if (extraRotation)
+                for (var vertex = 0; vertex < positions.Count; vertex += 3)
+                {
+                    var x = positions[vertex];
+                    var z = positions[vertex + 2];
+                    positions[vertex] = ((x + z) * 11585) >> 14;
+                    positions[vertex + 2] = ((z - x) * 11585) >> 14;
+                }
             ReplaceValues(colors, originalColors, replacementColors);
             ReplaceValues(textureIds, originalTextures, replacementTextures);
             for (var face = 0; face < textureIds.Count; face++)
                 if (textureIds[face] == 65535) textureIds[face] = -1;
             return TypedResults.Ok(new GetModelDto(id, positions.ToArray(), indices.ToArray(), colors.ToArray(), alpha.ToArray(), skins.Any(skin => skin >= 0) ? skins.ToArray() : null,
-                new[] { warning }, animationIds.Where(animationId => animationId >= 0).Distinct().ToArray(), 1, faceSkins.ToArray(), textureIds.ToArray(), textureVertices.ToArray(), textureUvs.ToArray(), scale, ReadParticles(cache, emitters), priorities.ToArray(), shadingTypes.ToArray(), ambient, contrast));
+                new[] { warning }.Concat(ProjectionWarnings(firstTexelFaces.ToArray())).ToArray(), animationIds.Where(animationId => animationId >= 0).Distinct().ToArray(), 1, faceSkins.ToArray(), textureIds.ToArray(), textureVertices.ToArray(), textureUvs.ToArray(), scale, ReadParticles(cache, emitters), priorities.ToArray(), shadingTypes.ToArray(), ambient, contrast, firstTexelFaces.ToArray()));
         }
         catch (NotSupportedException exception)
         {
             return TypedResults.Problem(title: "Unsupported model format", detail: exception.Message, statusCode: 422);
+        }
+    }
+
+    private static void PrepareObjectPart(int[] positions, int[] indices, float[]? uvs, (int Shape, int Orientation, bool Mirrored) placement, int unitScale)
+    {
+        for (var vertex = 0; vertex < positions.Length; vertex += 3)
+        {
+            var x = positions[vertex] * unitScale;
+            var y = positions[vertex + 1] * unitScale;
+            var z = positions[vertex + 2] * unitScale;
+            if (placement.Mirrored) z = -z;
+            if (placement.Shape == 4 && placement.Orientation > 3)
+            {
+                var originalX = x;
+                x = (((x + z) * 11585) >> 14) + 180;
+                z = (((z - originalX) * 11585) >> 14) - 180;
+            }
+            (x, z) = (placement.Orientation & 3) switch { 1 => (z, -x), 2 => (-x, -z), 3 => (-z, x), _ => (x, z) };
+            positions[vertex] = x;
+            positions[vertex + 1] = y;
+            positions[vertex + 2] = z;
+        }
+        if (!placement.Mirrored) return;
+        for (var face = 0; face < indices.Length; face += 3)
+        {
+            (indices[face + 1], indices[face + 2]) = (indices[face + 2], indices[face + 1]);
+            if (uvs is not null)
+                for (var axis = 0; axis < 2; axis++)
+                    (uvs[face * 2 + 2 + axis], uvs[face * 2 + 4 + axis]) = (uvs[face * 2 + 4 + axis], uvs[face * 2 + 2 + axis]);
         }
     }
 

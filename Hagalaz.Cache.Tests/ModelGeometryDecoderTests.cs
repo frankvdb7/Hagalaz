@@ -1,4 +1,5 @@
 using Hagalaz.Cache.Logic.Codecs;
+using System.Security.Cryptography;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests;
@@ -174,13 +175,110 @@ public class ModelGeometryDecoderTests
         }
     }
 
-    private static byte[] ProjectionModel(int type, int version, int rotation, int direction)
+    [Theory]
+    [InlineData(36668, 84, 130, "522caf7881d2dfbcfebf8dfde37bfebc5d275514e4e69c25b760f731ec5e0077")]
+    [InlineData(48778, 277, 362, "a930adc149845e157cdaa773350eb481209d1773622869ab726a14aadc825205")]
+    [InlineData(48859, 29, 38, "b2b4400faba82a2eae8d7699c82a24d864c399ccc23914c9262ca2e96e251165")]
+    public void Decode_ReportedWallModelHasFiniteTextureProjection(int modelId, int vertices, int faces, string hash)
+    {
+        var data = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "models", $"model-{modelId}.dat"));
+        Assert.Equal(hash, Convert.ToHexStringLower(SHA256.HashData(data)));
+        var geometry = ModelGeometryDecoder.Decode(data);
+        Assert.Equal(vertices * 3, geometry.Positions.Length);
+        Assert.Equal(faces * 3, geometry.Indices.Length);
+        Assert.NotNull(geometry.FaceTextureIds);
+        Assert.Contains(geometry.FaceTextureIds, id => id >= 0);
+        Assert.NotNull(geometry.FaceTextureUvs);
+        Assert.Equal(geometry.Indices.Length * 2, geometry.FaceTextureUvs.Length);
+        Assert.All(geometry.FaceTextureUvs, coordinate => Assert.True(float.IsFinite(coordinate)));
+        var permissive = ModelGeometryDecoder.Decode(data, allowFirstTexelFallback: true);
+        Assert.Empty(permissive.FirstTexelFaces!);
+        Assert.Equal(geometry.FaceTextureUvs, permissive.FaceTextureUvs);
+    }
+
+    [Fact]
+    public void Decode_RenderOptInMarksExactlyTheClientNonfiniteFacesAndPreservesOtherUvs()
+    {
+        var data = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "models", "model-48743.dat"));
+        Assert.Equal("437f44670ef9de324c2cbaa8fc6a872646745ce366ef2e4473509502ca9b09ca", Convert.ToHexStringLower(SHA256.HashData(data)));
+        Assert.Throws<NotSupportedException>(() => ModelGeometryDecoder.Decode(data));
+        var geometry = ModelGeometryDecoder.Decode(data, allowFirstTexelFallback: true);
+        // Captured by the original GameClient projection helpers, not by this decoder.
+        int[] expected = [12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,31,32,35,50,51,52,55,56,57,58,59,60,64,65,66,112,113,120,121,122,123,124,126,157,158,162,164,165,166,169,170];
+        Assert.Equal(expected, geometry.FirstTexelFaces);
+        Assert.Equal(111 * 3, geometry.Positions.Length);
+        Assert.Equal(171 * 3, geometry.Indices.Length);
+        Assert.NotNull(geometry.FaceTextureUvs);
+        Assert.All(geometry.FaceTextureUvs, value => Assert.True(float.IsFinite(value)));
+        Assert.All(expected, face => Assert.All(geometry.FaceTextureUvs.Skip(face * 6).Take(6), value => Assert.Equal(0, value)));
+        float[] clientValidFace = [0.5f, 3.3405423E-4f, 0.5f, 1.0000176f, 0.44999024f, 0.9999298f];
+        for (var coordinate = 0; coordinate < clientValidFace.Length; coordinate++)
+            Assert.InRange(geometry.FaceTextureUvs[coordinate], clientValidFace[coordinate] - 0.00001f, clientValidFace[coordinate] + 0.00001f);
+        Assert.Equal(132, geometry.FaceTextureIds![31]);
+    }
+
+    [Theory]
+    [InlineData(12)]
+    [InlineData(14)]
+    [InlineData(15)]
+    public void Decode_BoxProjectionIgnoresZeroScaleOnUnusedNormalAxis(int version)
+    {
+        // Rotate the XY triangle onto the box's positive-Y side. Its UVs use X/Z,
+        // so a zero Y scale must not poison the normal used to select that side.
+        var geometry = ModelGeometryDecoder.Decode(ProjectionModel(2, version, 0, 0, orientationY: 0, orientationZ: 32767, scaleY: 0));
+
+        Assert.Equal(new[] { 42 }, geometry.FaceTextureIds);
+        Assert.Equal(new[] { 0, 1, 2 }, geometry.Indices);
+        Assert.Equal(new float[] { -4.5f, -9.5f, 5.5f, -9.5f, -4.5f, 10.5f }, geometry.FaceTextureUvs);
+    }
+
+    [Theory]
+    [InlineData(12)]
+    [InlineData(14)]
+    [InlineData(15)]
+    public void Decode_BoxProjectionPreservesClientNegativeXSideForCollapsedX(int version)
+    {
+        var geometry = ModelGeometryDecoder.Decode(ProjectionModel(2, version, 0, 0, orientationY: 0, orientationZ: 32767, scaleX: 0));
+        // This orientation maps Z = -Y, so the client's -X side has U = Y + 0.5.
+        Assert.Equal(new float[] { -9.5f, 0.5f, -9.5f, 0.5f, 10.5f, 0.5f }, geometry.FaceTextureUvs);
+    }
+
+    [Theory]
+    [InlineData(12)]
+    [InlineData(14)]
+    [InlineData(15)]
+    public void Decode_BoxProjectionUsesCollapsedYPlaneForSlopedFaces(int version)
+    {
+        // Tilt leaves a nonzero Y normal smaller than Z. A zero Y scale still projects onto X/Z.
+        var geometry = ModelGeometryDecoder.Decode(ProjectionModel(2, version, 0, 0, orientationY: 30000, orientationZ: 13177, scaleY: 0));
+        var cosine = 30000f / 32767f;
+        var slope = (float)Math.Sqrt(1 - cosine * cosine);
+        var expected = new float[] { -4.5f, 0.5f - 10 * slope, 5.5f, 0.5f - 10 * slope, -4.5f, 0.5f + 10 * slope };
+        Assert.NotNull(geometry.FaceTextureUvs);
+        for (var index = 0; index < expected.Length; index++)
+            Assert.InRange(geometry.FaceTextureUvs[index], expected[index] - 0.00001f, expected[index] + 0.00001f);
+    }
+
+    [Theory]
+    [InlineData(12)]
+    [InlineData(14)]
+    [InlineData(15)]
+    public void Decode_BoxProjectionStillRejectsZeroScaleOnUsedUvAxis(int version)
+    {
+        // The default orientation selects the Z side, which uses Y in its UVs.
+        var error = Assert.Throws<NotSupportedException>(() => ModelGeometryDecoder.Decode(ProjectionModel(2, version, 0, 0, scaleY: 0)));
+        Assert.Equal("Degenerate texture projection cannot produce finite coordinates.", error.Message);
+    }
+
+    private static byte[] ProjectionModel(int type, int version, int rotation, int direction, int orientationY = 32767, int orientationZ = 0, int? scaleY = null, int? scaleX = null)
     {
         using var stream = new MemoryStream();
         // One texture projection, three vertices and one triangle.
         stream.Write(new byte[] { (byte)type, 0, 1, 3, 1, 64, 65, 65, 0, 43, 1, 0, 127, 74, 54, 84 });
-        Short(0); Short(32767); Short(0); // Projection orientation: positive Y.
+        Short(0); Short(orientationY); Short(orientationZ); // Projection orientation: positive Y by default.
         var scales = type == 1 ? new[] { 0, 64, 1024 } : type == 2 ? new[] { 64, 64, 64 } : new[] { 1024, 1024, 1024 };
+        if (scaleY.HasValue) scales[1] = scaleY.Value;
+        if (scaleX.HasValue) scales[0] = scaleX.Value;
         for (var axis = 0; axis < 3; axis++)
         {
             if (version >= 15 || (version == 14 && axis == 1)) stream.WriteByte((byte)(scales[axis] >> 16));

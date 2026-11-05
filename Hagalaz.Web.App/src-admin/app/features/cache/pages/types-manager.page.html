@@ -1,3 +1,6 @@
+<ng-container [ngTemplateOutlet]="{ maps: mapsBrowser, definitions: definitionsBrowser }[browserTemplateKey()]" />
+<ng-template #mapsBrowser><cache-map-regions-browser /></ng-template>
+<ng-template #definitionsBrowser>
 <section [attr.aria-busy]="loading()" [attr.aria-label]="models() ? 'Model workspace' : 'Definition workspace'">
     <mat-card appearance="outlined" class="studio-search mb-5 overflow-hidden">
         <mat-card-content>
@@ -42,7 +45,7 @@
                         <tr mat-header-row class="definition-table-header" *matHeaderRowDef="resultColumns()"></tr><tr mat-row *matRowDef="let row; columns: resultColumns()"></tr>
                     </table>
                 </div>
-                <mat-menu #rowActions="matMenu"><ng-template matMenuContent let-id="id" let-kind="kind"><a mat-menu-item [routerLink]="kind === 'models' ? ['/cache/models', id] : ['/cache/types', kind, id]" queryParamsHandling="preserve"><mat-icon>visibility</mat-icon>{{ models() ? 'Inspect model' : 'Inspect definition' }}</a></ng-template></mat-menu>
+                <mat-menu #rowActions="matMenu"><ng-template matMenuContent let-id="id" let-kind="kind"><a mat-menu-item href="/cache/types" [routerLink]="kind === 'models' ? ['/cache/models', id] : ['/cache/types', kind, id]" queryParamsHandling="preserve"><mat-icon>visibility</mat-icon>{{ models() ? 'Inspect model' : 'Inspect definition' }}</a></ng-template></mat-menu>
             } @else {
                 <mat-card-content class="py-10 text-center"><mat-icon class="supporting-text">search</mat-icon><p class="mt-3">No matching definitions.</p><p class="supporting-text mt-2">Try another query or clear the search to browse ID ranges.</p></mat-card-content>
             }
@@ -52,3 +55,4 @@
         </mat-card>
     </div>
 </section>
+</ng-template>

@@ -54,14 +54,48 @@ export function clampLight(value: number): number { return Math.max(2, Math.min(
 export function litFaceColor(packed: number, intensity: number, textured: boolean, ambient = 64): number[] {
     if (textured) return paletteColor((packed & 0xff80) | clampLight((packed & 127) * intensity >> 7), false);
     const prepared = (packed & ~127) | ((packed & 127) * ambient >> 7);
-    const hue = prepared >> 10 & 63;
-    let saturation = prepared >> 3 & 112;
-    const lightness = prepared & 127;
+    const hsv = softwareHsv(prepared);
+    return paletteColor((hsv & 0xff80) | clampLight((hsv & 127) * intensity >> 7), true);
+}
+
+/** Class491.method6074 + Class230.method2338; unlit base tint for Class_xa_Sub3 floors. */
+export function floorPaletteColor(rgb: number): number[] {
+    const hsl = floorHsl(rgb);
+    return floorHslPaletteColor(Math.trunc(hsl[0] * 256 / hsl[3]), hsl[1], hsl[2]);
+}
+
+/** Weighted hue, saturation, lightness and hue multiplier, as stored by Class491. */
+export function floorHsl(rgb: number): readonly number[] {
+    const [r, g, b] = [(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255].map(channel => channel / 256);
+    const min = Math.min(r, g, b), max = Math.max(r, g, b);
+    const lightness = (max + min) / 2;
+    let hue = 0, saturation = 0;
+    if (max !== min) {
+        saturation = lightness < 0.5 ? (max - min) / (max + min) : (max - min) / (2 - max - min);
+        hue = (max === r ? (g - b) / (max - min) : max === g ? 2 + (b - r) / (max - min) : 4 + (r - g) / (max - min)) / 6;
+    }
+    const multiplier = Math.max(1, Math.trunc(saturation * (lightness > 0.5 ? 1 - lightness : lightness) * 512));
+    const weightedHue = Math.trunc(hue * multiplier);
+    return [weightedHue, Math.min(255, Math.trunc(saturation * 256)), Math.min(255, Math.trunc(lightness * 256)), multiplier];
+}
+
+/** Class230 packing followed by the software floor palette, after neighbourhood averaging. */
+export function floorHslPaletteColor(h: number, saturation: number, l: number): number[] {
+    let s = saturation;
+    s >>= l > 243 ? 4 : l > 217 ? 3 : l > 192 ? 2 : l > 179 ? 1 : 0;
+    const packed = ((h & 255) >> 2 << 10) + (s >> 5 << 7) + (l >> 1);
+    return paletteColor(softwareHsv(packed), true);
+}
+
+/** Class356.method4187, shared by software model and terrain palettes. */
+function softwareHsv(packed: number): number {
+    const hue = packed >> 10 & 63;
+    let saturation = packed >> 3 & 112;
+    const lightness = packed & 127;
     saturation = lightness <= 64 ? saturation * lightness >> 7 : saturation * (127 - lightness) >> 7;
     const value = saturation + lightness;
     const hsvSaturation = value !== 0 ? Math.trunc((saturation << 8) / value) : saturation << 1;
-    const hsv = (hue << 10 | (hsvSaturation >> 4) << 7 | value) & 65535;
-    return paletteColor((hsv & 0xff80) | clampLight((hsv & 127) * intensity >> 7), true);
+    return (hue << 10 | (hsvSaturation >> 4) << 7 | value) & 65535;
 }
 
 function paletteColor(packed: number, hsv: boolean): number[] {

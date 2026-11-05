@@ -8,11 +8,12 @@ internal static class ModelTextureCoordinates
     internal sealed record Mapping(int Type, int A, int B, int C, int ScaleX = 0, int ScaleY = 0, int ScaleZ = 0,
         int Rotation = 0, int Direction = 0, int Offset = 0, int OffsetY = 0, int OffsetZ = 0);
 
-    internal static float[] Generate(int[] positions, int[] indices, int[] textureIds, int[] pointers, Mapping[] mappings)
+    internal static float[] Generate(int[] positions, int[] indices, int[] textureIds, int[] pointers, Mapping[] mappings, out int[] firstTexelFaces, bool allowFirstTexelFallback = false)
     {
         var result = new float[indices.Length * 2];
         var centers = new int[mappings.Length][];
         var matrices = new float[mappings.Length][];
+        var boxOrientations = new float[mappings.Length][];
         for (var mapping = 0; mapping < mappings.Length; mapping++)
         {
             if (mappings[mapping].Type == 0) continue;
@@ -31,6 +32,7 @@ internal static class ModelTextureCoordinates
             }
             centers[mapping] = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2];
             matrices[mapping] = Matrix(mappings[mapping]);
+            if (mappings[mapping].Type == 2) boxOrientations[mapping] = Matrix(mappings[mapping], applyScale: false);
         }
         for (var face = 0; face < textureIds.Length; face++)
         {
@@ -52,11 +54,16 @@ internal static class ModelTextureCoordinates
                 var nx = (b[1] - a[1]) * (c[2] - a[2]) - (c[1] - a[1]) * (b[2] - a[2]);
                 var ny = (b[2] - a[2]) * (c[0] - a[0]) - (c[2] - a[2]) * (b[0] - a[0]);
                 var nz = (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
-                var matrix = matrices[pointer];
-                var x = (nx * matrix[0] + ny * matrix[1] + nz * matrix[2]) / (64f / map.ScaleX);
-                var y = (nx * matrix[3] + ny * matrix[4] + nz * matrix[5]) / (64f / map.ScaleY);
-                var z = (nx * matrix[6] + ny * matrix[7] + nz * matrix[8]) / (64f / map.ScaleZ);
-                boxSide = Math.Abs(y) > Math.Abs(x) && Math.Abs(y) > Math.Abs(z) ? (y > 0 ? 0 : 1)
+                // Box-side selection depends on orientation, not texture scale. Avoid infinity/infinity
+                // when an unused projection axis has zero scale (e.g. model 36668).
+                var matrix = boxOrientations[pointer];
+                var x = nx * matrix[0] + ny * matrix[1] + nz * matrix[2];
+                var y = nx * matrix[3] + ny * matrix[4] + nz * matrix[5];
+                var z = nx * matrix[6] + ny * matrix[7] + nz * matrix[8];
+                // A collapsed X axis falls through to the client's negative-X side. Keep that
+                // projection for sloped walls too, without relying on NaN comparisons.
+                boxSide = map.ScaleX == 0 ? 5 : map.ScaleY == 0 && y != 0 ? (y > 0 ? 0 : 1)
+                    : Math.Abs(y) > Math.Abs(x) && Math.Abs(y) > Math.Abs(z) ? (y > 0 ? 0 : 1)
                     : Math.Abs(z) > Math.Abs(x) && Math.Abs(z) > Math.Abs(y) ? (z > 0 ? 2 : 3) : x > 0 ? 4 : 5;
             }
             for (var corner = 0; corner < 3; corner++)
@@ -80,8 +87,18 @@ internal static class ModelTextureCoordinates
                 }
             }
         }
-        foreach (var coordinate in result)
-            if (!float.IsFinite(coordinate)) throw new NotSupportedException("Degenerate texture projection cannot produce finite coordinates.");
+        var fallbackFaces = new System.Collections.Generic.List<int>();
+        for (var face = 0; face < textureIds.Length; face++)
+        {
+            var coordinates = result.AsSpan(face * 6, 6);
+            var finite = true;
+            foreach (var coordinate in coordinates) finite &= float.IsFinite(coordinate);
+            if (finite) continue;
+            if (!allowFirstTexelFallback) throw new NotSupportedException("Degenerate texture projection cannot produce finite coordinates.");
+            coordinates.Clear();
+            fallbackFaces.Add(face);
+        }
+        firstTexelFaces = fallbackFaces.ToArray();
         return result;
 
         float[] Point(int vertex) => [positions[vertex * 3], positions[vertex * 3 + 1], positions[vertex * 3 + 2]];
@@ -129,7 +146,7 @@ internal static class ModelTextureCoordinates
         return map.Direction switch { 1 => [-v, u], 2 => [-u, -v], 3 => [v, -u], _ => [u, v] };
     }
 
-    private static float[] Matrix(Mapping map)
+    private static float[] Matrix(Mapping map, bool applyScale = true)
     {
         var cos = (float)Math.Cos(map.Rotation * 0.024543693f);
         var sin = (float)Math.Sin(map.Rotation * 0.024543693f);
@@ -151,6 +168,7 @@ internal static class ModelTextureCoordinates
                 for (var column = 0; column < 3; column++)
                     for (var k = 0; k < 3; k++) result[row * 3 + column] += rotation[row * 3 + k] * tilt[k * 3 + column];
         }
+        if (!applyScale) return result;
         float sx, sy, sz;
         if (map.Type == 1)
         {

@@ -14,6 +14,7 @@ export type { GetHuffmanCodingDto } from "./get-huffman-coding-dto";
 export type { GetItemDefinitionDto } from "./get-item-definition-dto";
 export type { GetItemTypeDto } from "./get-item-type-dto";
 export type { GetMapDefinitionDto } from "./get-map-definition-dto";
+export type { GetMapRegionsDto, MapRegionSummaryDto } from "./get-map-regions-dto";
 export type { GetNpcDefinitionDto } from "./get-npc-definition-dto";
 export type { GetObjectDefinitionDto } from "./get-object-definition-dto";
 export type { GetQuestDefinitionDto } from "./get-quest-definition-dto";
