@@ -106,3 +106,9 @@ The white-tint regression failed before the fix and passed after preserving deco
 - Production admin build and targeted Biome passed. Fallow audit has no introduced complexity findings; inherited findings and the previously documented Angular/NgRx false positives remain. Whitespace review passes. Existing polyfills and dependency warnings remain.
 - Region 12850 rendered the blended scene in the existing authenticated admin tab with no shader errors, and the user confirmed the result. Further browser inspection was skipped at the user's request. No new backend or authentication changes were required.
 - This is bounded interpolation for ordinary underlays, with full client smoothing/overlay/environment parity limits recorded in design and rendering guidance.
+
+## Region editor layout
+
+- [x] Align the region editor with the selected reference using the existing Cache Studio shell and live viewport. Verify region navigation and camera controls.
+
+- [ ] Compare the rendered Region 12850 screen with the supplied reference after a user-provided capture.

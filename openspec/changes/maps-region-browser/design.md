@@ -139,3 +139,7 @@ Provide named camera buttons as a keyboard alternative to pointer gestures, incl
 The first implementation assigned one flat tint/texture to each triangle. Ordinary opaque underlays now sample the four surrounding tile centers at each generated vertex, normalize available contributions and interpolate both decoded colour and texture in a single opaque shader pass. Shared world coordinates give selected adjacent regions the same seam samples. Each triangle uses at most eight contributing material layers; each layer retains its own texture scale. Existing ModelScene texture/GPU ownership remains authoritative. Overlays and transparent/special-effect underlays retain their existing path.
 
 This is a bounded web rendering improvement, not an implementation of the client's full 10-by-10 hue-weighted HSL smoothing, neighbor-aware overlay substitution or atmospheric/shadow lighting. Unknown or unselected neighboring floor data is not fetched implicitly or invented. Complete client appearance parity remains separate from this fix.
+
+### Region editor layout
+
+The region editor keeps the Cache Studio shell and the live map viewport. A compact selection row edits the region ID and dimensions, and the plane selector isolates a plane while the inspector supports multi-plane visibility. Camera and display controls sit above the canvas. Region availability and current selection counts use the scene's live data. The inspector stacks beneath the viewport on narrow screens.
