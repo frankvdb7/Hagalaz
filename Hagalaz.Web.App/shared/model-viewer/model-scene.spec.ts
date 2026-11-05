@@ -5,11 +5,13 @@ import { ModelScene, type ModelTexture } from "./model-scene";
 const gpu = vi.hoisted(() => ({
     setSize: vi.fn(), setAnimationLoop: vi.fn(), dispose: vi.fn(), remove: vi.fn(),
     disconnect: vi.fn(), controlsDispose: vi.fn(), render: vi.fn(),
+    gizmoRender: vi.fn(), gizmoDispose: vi.fn(),
 }));
 
 vi.mock("three", async importOriginal => {
     const actual = await importOriginal<typeof import("three")>();
     return { ...actual, WebGLRenderer: class {
+        autoClear = true;
         domElement = { setAttribute: vi.fn(), remove: gpu.remove };
         setPixelRatio = vi.fn(); setSize = gpu.setSize; setAnimationLoop = gpu.setAnimationLoop;
         render = gpu.render; dispose = gpu.dispose;
@@ -17,6 +19,10 @@ vi.mock("three", async importOriginal => {
 });
 vi.mock("three/addons/controls/OrbitControls.js", () => ({ OrbitControls: class {
     target = new THREE.Vector3(); update = vi.fn(); dispose = gpu.controlsDispose;
+} }));
+vi.mock("./orientation-gizmo", () => ({ OrientationGizmo: class {
+    render = gpu.gizmoRender;
+    dispose = gpu.gizmoDispose;
 } }));
 
 describe("ModelScene resource ownership", () => {
@@ -42,6 +48,20 @@ describe("ModelScene resource ownership", () => {
         indices: [0,1,2,3,4,5,6,7,8],
         opacities: Array(9).fill(0.5),
     };
+
+    it("draws the optional orientation gizmo after the scene without clearing the scene color", () => {
+        gpu.gizmoRender.mockImplementation((renderer: THREE.WebGLRenderer) => expect(renderer.autoClear).toBe(false));
+        scene.setGeometry(triangle);
+        renderAt(0);
+        expect(gpu.gizmoRender).not.toHaveBeenCalled();
+        scene.showOrientationGizmo();
+        renderAt(16);
+        expect(gpu.gizmoRender).toHaveBeenCalledOnce();
+        expect(gpu.gizmoRender.mock.invocationCallOrder[0]).toBeGreaterThan(gpu.render.mock.invocationCallOrder.at(-1)!);
+        expect(gpu.gizmoRender.mock.lastCall![0].autoClear).toBe(true);
+        scene.dispose();
+        expect(gpu.gizmoDispose).toHaveBeenCalledOnce();
+    });
     function faceOrder(mesh: THREE.Mesh<THREE.BufferGeometry>): number[] {
         return mesh.geometry.groups.flatMap(group => Array.from({length: group.count / 3}, (_, i) => mesh.geometry.index!.getX(group.start + i * 3) / 3));
     }
@@ -120,6 +140,24 @@ describe("ModelScene resource ownership", () => {
         expect(camera.position).toEqual(navigated);
         scene.setSceneGeometry(triangle, true);
         expect(camera.position).toEqual(initial);
+    });
+
+    it("frames a flat map tightly without clipping its bounds", () => {
+        const map = new ModelScene({ ...host, clientWidth: 792 } as unknown as HTMLElement, "Map", "map");
+        try {
+            map.setSceneGeometry({ positions: [0, 0, 0, 64, 0, 0, 64, 0, 64, 0, 0, 64], indices: [0, 1, 2, 0, 2, 3] }, true);
+            gpu.setAnimationLoop.mock.lastCall![0](0);
+            const camera = gpu.render.mock.lastCall![1] as THREE.PerspectiveCamera;
+            camera.lookAt(32, 0, 32);
+            camera.updateMatrixWorld();
+            const corners = [new THREE.Vector3(), new THREE.Vector3(64, 0, 0), new THREE.Vector3(64, 0, 64), new THREE.Vector3(0, 0, 64)];
+            const projected = corners.map(corner => corner.project(camera));
+            const extent = Math.max(...projected.flatMap(point => [Math.abs(point.x), Math.abs(point.y)]));
+            expect(Math.max(...projected.map(point => Math.abs(point.x)))).toBeGreaterThan(0.85);
+            expect(extent).toBeLessThan(1);
+        } finally {
+            map.dispose();
+        }
     });
 
     it("groups blended terrain separately and disposes its material on scene replacement", () => {

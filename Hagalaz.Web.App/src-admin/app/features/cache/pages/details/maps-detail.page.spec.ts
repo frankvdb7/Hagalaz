@@ -77,6 +77,20 @@ describe("MapsDetailPageComponent", () => {
         http.expectNone(() => true);
     });
 
+    it("navigates to a region entered in the editor and preserves table context", async () => {
+        const harness = await RouterTestingHarness.create();
+        await harness.navigateByUrl("/cache/types/maps/258?kind=maps&offset=25", MapsDetailPageComponent);
+        http.expectOne(`${base}258/render`).flush(region(258));
+        const root = harness.routeNativeElement!;
+        const input = root.querySelector<HTMLInputElement>('input[type="number"]')!;
+        input.value = "259";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        root.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        await harness.fixture.whenStable();
+        http.expectOne(`${base}259/render`).flush(region(259));
+        expect(TestBed.inject(Router).url).toBe("/cache/types/maps/259?kind=maps&offset=25");
+    });
+
     it("rejects wrapping detail links before requesting render data", async () => {
         const harness = await RouterTestingHarness.create();
         const page = await harness.navigateByUrl("/cache/types/maps/65535?height=2", MapsDetailPageComponent);

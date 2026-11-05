@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { sampleMaterialEffect, type MaterialEffect } from "./material-effects";
 import {ModelParticles, type ModelParticle} from "./model-particles";
+import { OrientationGizmo } from "./orientation-gizmo";
 import { applyTerrainMaterials, TerrainMaterial, terrainSurfaceMaterial, type TerrainBlend } from "./terrain-material";
 
 type SurfaceMaterial = THREE.MeshStandardMaterial | THREE.MeshBasicMaterial;
@@ -59,7 +60,13 @@ export class ModelScene {
     private textureImages?: ReadonlyMap<number, ModelTexture>;
     private readonly textures = new Map<number, THREE.Texture>();
     private grid?: THREE.GridHelper;
+    private orientationGizmo?: OrientationGizmo;
     private wireframe = false;
+
+    showOrientationGizmo(): void {
+        if (this.disposed || this.orientationGizmo) return;
+        this.orientationGizmo = new OrientationGizmo(this.camera);
+    }
 
     setDisplay(grid: boolean, wireframe: boolean): void {
         this.wireframe = wireframe;
@@ -111,7 +118,7 @@ export class ModelScene {
         }
     }
 
-    constructor(private readonly host: HTMLElement, label = "Interactive 3D model") {
+    constructor(private readonly host: HTMLElement, label = "Interactive 3D model", private readonly framing: "model" | "map" = "model") {
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.domElement.setAttribute("aria-label", label);
@@ -138,10 +145,19 @@ export class ModelScene {
             this.controls.update();
             this.orderSurfaces();
             this.renderer.render(this.scene, this.camera);
+            if (this.orientationGizmo) {
+                const autoClear = this.renderer.autoClear;
+                this.renderer.autoClear = false;
+                try {
+                    this.orientationGizmo.render(this.renderer);
+                } finally {
+                    this.renderer.autoClear = autoClear;
+                }
+            }
         });
     }
 
-    setGeometry(model: ModelGeometry): void {
+    setGeometry(model: ModelGeometry, fitCamera = true): void {
         if (this.disposed) throw new Error("The model scene has been disposed.");
         const previousModel = this.currentModel;
         if (previousModel === model && this.mesh && !this.texturesDirty) return;
@@ -175,6 +191,7 @@ export class ModelScene {
                 this.orderBlendedSurfaces(existing.geometry, model);
                 existing.geometry.computeVertexNormals();
                 existing.geometry.computeBoundingSphere();
+                if (existing.geometry.boundingBox) existing.geometry.computeBoundingBox();
                 return;
             }
         }
@@ -260,20 +277,12 @@ export class ModelScene {
         this.texturesDirty = false;
         this.fitGrid();
         if (model.particles?.length) this.particles = new ModelParticles(this.scene, model.particles, this.textures);
-        this.resetCamera();
+        if (fitCamera) this.resetCamera();
     }
 
     setSceneGeometry(model: ModelGeometry, fitCamera: boolean): void {
-        const position = this.camera.position.clone();
-        const target = this.controls.target.clone();
-        this.setGeometry(model);
-        if (fitCamera) {
-            this.resetCamera();
-            return;
-        }
-        this.camera.position.copy(position);
-        this.controls.target.copy(target);
-        this.controls.update();
+        this.setGeometry(model, false);
+        if (fitCamera) this.resetCamera();
     }
 
     resetCamera(): void {
@@ -283,12 +292,38 @@ export class ModelScene {
         this.controls.target.copy(bounds.center);
         const halfVerticalFov = THREE.MathUtils.degToRad(this.camera.fov / 2);
         const halfHorizontalFov = Math.atan(Math.tan(halfVerticalFov) * this.camera.aspect);
-        const distance = radius / Math.sin(Math.min(halfVerticalFov, halfHorizontalFov)) * 1.1;
-        this.camera.position.copy(bounds.center).add(new THREE.Vector3(1.5, 1, 3).normalize().multiplyScalar(distance));
+        const direction = (this.framing === "map" ? new THREE.Vector3(1, 0.4, 0.12) : new THREE.Vector3(1.5, 1, 3)).normalize();
+        const distance = this.framing === "map"
+            ? this.fitMapDistance(direction, Math.tan(halfHorizontalFov), Math.tan(halfVerticalFov))
+            : radius / Math.sin(Math.min(halfVerticalFov, halfHorizontalFov)) * 1.1;
+        this.camera.position.copy(this.controls.target).addScaledVector(direction, distance);
         this.camera.near = Math.max(radius / 1000, 0.01);
         this.camera.far = Math.max(radius * 100, distance * 2);
         this.camera.updateProjectionMatrix();
         this.controls.update();
+    }
+
+    private fitMapDistance(direction: THREE.Vector3, horizontalSlope: number, verticalSlope: number): number {
+        const geometry = this.mesh!.geometry;
+        if (!geometry.boundingBox) geometry.computeBoundingBox();
+        const box = geometry.boundingBox!;
+        if (box.isEmpty()) return 1;
+        const { min, max } = box;
+        box.getCenter(this.controls.target);
+        const right = new THREE.Vector3().crossVectors(this.camera.up, direction).normalize();
+        const up = new THREE.Vector3().crossVectors(direction, right);
+        const corner = new THREE.Vector3();
+        let distance = 1;
+        for (const x of [min.x, max.x]) {
+            for (const y of [min.y, max.y]) {
+                for (const z of [min.z, max.z]) {
+                    corner.set(x, y, z).sub(this.controls.target);
+                    const clearance = Math.max(Math.abs(corner.dot(right)) / horizontalSlope, Math.abs(corner.dot(up)) / verticalSlope);
+                    distance = Math.max(distance, corner.dot(direction) + clearance * 1.08);
+                }
+            }
+        }
+        return distance;
     }
 
     orbit(horizontal: number, vertical: number): void {
@@ -320,6 +355,7 @@ export class ModelScene {
         this.renderer.setAnimationLoop(null);
         this.resizeObserver.disconnect();
         this.controls.dispose();
+        this.orientationGizmo?.dispose();
         this.clear();
         if (this.grid) {
             this.scene.remove(this.grid);
