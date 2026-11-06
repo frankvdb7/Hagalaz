@@ -890,10 +890,11 @@
       },
       "MySqlConnector": {
         "type": "Transitive",
-        "resolved": "2.3.1",
-        "contentHash": "FYTnvNBbNSZotSWUerK22Ztsc3vx3wBRZ4veavkUbfCBNthtCr3CH5Wpoo4l5gBD2TmQD9JbL33Gf9kWko1yYw==",
+        "resolved": "2.6.1",
+        "contentHash": "MzNSfnHWBc0Mo3zVbYxG+556zuex9obs8NYtwcPCwFahel40e49stH+osjX4k/doEHp4LT/zTtGdax4nlGWhcw==",
         "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "7.0.1"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.2",
+          "Microsoft.Extensions.Logging.Abstractions": "8.0.2"
         }
       },
       "Nerdbank.MessagePack": {
@@ -1044,7 +1045,8 @@
           "Aspire.Hosting.MySql": "[13.4.6, )",
           "Aspire.Hosting.Orchestration.linux-x64": "[13.4.6, )",
           "Aspire.Hosting.RabbitMQ": "[13.4.6, )",
-          "Aspire.Hosting.Redis": "[13.4.6, )"
+          "Aspire.Hosting.Redis": "[13.4.6, )",
+          "MySqlConnector": "[2.6.1, )"
         }
       }
     }
