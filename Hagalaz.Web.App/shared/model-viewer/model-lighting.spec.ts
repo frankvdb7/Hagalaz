@@ -5,6 +5,12 @@ import {prepareCacheModel} from "./cache-model-geometry";
 const triangle = {positions: [0,0,0, 100,0,0, 0,100,0], indices: [0,1,2], faceColors: [0x1234], faceShadingTypes: [0]};
 
 describe("client model lighting", () => {
+    it("uses the supplied region direction and responses for prepared model faces", () => {
+        const light = { directionX: 0, directionY: 0, directionZ: 1, positiveResponse: 2, negativeResponse: 1 };
+        expect(lightModel(triangle, light)[0]).toBeGreaterThan(lightModel(triangle)[0]);
+        expect(lightModel(triangle, { ...light, directionZ: -1 })[0]).toBeLessThan(lightModel(triangle, light)[0]);
+        expect(lightModel(triangle, { ...light, negativeResponse: 0 })).toEqual([147, 147, 147]);
+    });
     // Original Class491/Class230/Class356 with Class393's gamma fixed at 0.7.
     it.each([
         [0x1c1813, [48,42,42]], // Region 12850 underlay 164, texture 929 (riverbank).

@@ -45,8 +45,68 @@ public static class MapRenderDecoder
                 }
             }
         }
-        // Real terrain can carry a revision-specific trailer after its tile stream.
         return planes;
+    }
+
+    public static MapAtmosphere? DecodeAtmosphere(Stream stream, CancellationToken cancellationToken = default)
+    {
+        MapAtmosphere? atmosphere = null;
+        // Revision 742 Map.decode consumes these records after the last terrain tile.
+        for (var opcode = stream.ReadByte(); opcode >= 0; opcode = stream.ReadByte())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            switch (opcode)
+            {
+                case 0:
+                    var flags = ReadByte(stream);
+                    var rgb = (flags & 1) != 0 ? (ReadByte(stream) << 24 | ReadMedium(stream)) & 0xffffff : 0xffffff;
+                    var intensity = (flags & 2) != 0 ? ReadShort(stream) / 256f : 1.1523438f;
+                    var positive = (flags & 4) != 0 ? ReadShort(stream) / 256f : 0.69921875f;
+                    var negative = (flags & 8) != 0 ? ReadShort(stream) / 256f : 1.2f;
+                    var x = (flags & 16) != 0 ? (short)ReadShort(stream) : -50;
+                    var y = (flags & 16) != 0 ? (short)ReadShort(stream) : -60;
+                    var z = (flags & 16) != 0 ? (short)ReadShort(stream) : -50;
+                    if ((flags & 32) != 0) SkipBytes(stream, 4); // Sky/fog RGB.
+                    if ((flags & 64) != 0) SkipBytes(stream, 2); // Fog distance input.
+                    if ((flags & 128) != 0) SkipBytes(stream, 12); // Environment-map faces.
+                    atmosphere = new MapAtmosphere(rgb, intensity, positive, negative, x, y, z);
+                    break;
+                case 1:
+                    var lights = ReadByte(stream);
+                    for (var i = 0; i < lights; i++)
+                    {
+                        SkipBytes(stream, 7);
+                        var radius = ReadByte(stream);
+                        SkipBytes(stream, 2 * (radius * 2 + 1) + 2);
+                        if ((ReadByte(stream) & 31) == 31) SkipBytes(stream, 2);
+                    }
+                    break;
+                case 2:
+                    SkipBytes(stream, 3);
+                    break;
+                case 128:
+                    SkipBytes(stream, 10);
+                    break;
+                case 129:
+                    for (var plane = 0; plane < 4; plane++)
+                        if (ReadByte(stream) == 1) SkipBytes(stream, 256);
+                    break;
+                default:
+                    return atmosphere;
+            }
+        }
+        return atmosphere;
+    }
+
+    private static void SkipBytes(Stream stream, int count)
+    {
+        Span<byte> buffer = stackalloc byte[256];
+        while (count > 0)
+        {
+            var length = Math.Min(count, buffer.Length);
+            stream.ReadExactly(buffer[..length]);
+            count -= length;
+        }
     }
 
     public static MapRenderPlacement[] DecodeLandscape(Stream stream, CancellationToken cancellationToken = default)

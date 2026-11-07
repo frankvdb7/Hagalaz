@@ -123,6 +123,12 @@ export class MapSceneLoad {
                 this.appearanceTextures(key, textures);
             }
         }
+        for (const placement of this.visibility.previewPlacements ?? []) {
+            const key = mapAppearanceKey(placement);
+            if (placements.has(key)) continue;
+            placements.set(key, placement);
+            this.appearanceTextures(key, textures);
+        }
         return { placements, textures };
     }
 

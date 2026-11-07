@@ -155,3 +155,27 @@ Validation: the latest HAR finishes 179 revalidated textures at 10.288 s versus 
 - [x] 10.16 Reduce allocations and index writes during surface grouping and verify draw order in the saved scene replay.
 
 Validation: Five paired offline replays of region 12850 gave median surface grouping times of 71 ms before and 48 ms after. Median setup and first-frame CPU time was 406 ms before and 369 ms after. The draw order and RGBA hashes matched. All 72 shared renderer tests and the admin production build passed.
+
+- [x] Bound map blend buffers to terrain vertices and reuse static source indices. Check draw ranges and measure memory in an offline multi-region replay.
+
+Validation: Three paired offline Node replays used region 12850 and a translated adjacent copy (3,170,196 vertices). Retained heap and ArrayBuffers fell from 925 MiB to 614 MiB after GC. The renderer weight buffer fell from 96.75 MiB to 3.01 MiB. Median assembly was 1084 ms versus 988 ms and renderer setup through the first frame callback was 637 ms versus 510 ms. Positions, colors, indices, draw groups, and the terrain weight prefix matched. The replay used a mocked WebGL renderer. All 106 focused tests and the admin production build passed.
+
+Orbit regression check: Five paired offline replays drove 16 identical camera moves after initial setup. Median render-loop CPU time was 1309 ms before and 1249 ms after. Both versions produced 13,512 draw groups at the final angle and matching draw-order hashes. Browser GPU timing remains pending.
+
+- [x] Stop continuous idle map rendering and verify redraws for camera and scene changes.
+
+Validation: Three paired replays of the two-region fixture showed no queued frame at rest. Compact byte markers reduced retained heap and buffers from 614 MiB to 575 MiB. Median assembly plus first frame was 1481 ms before and 1460 ms after; 16 camera moves took 1242 ms versus 1036 ms. Final draw hashes matched. All 103 focused tests and the admin production build passed. Chrome task manager and GPU timing still require a browser capture.
+
+- [x] Share static map color and UV buffers between the assembled scene and renderer. Verify draw and memory/CPU regressions.
+
+Validation: Four paired two-region offline replays retained 575 MiB before and 400 MiB after. Median assembly through the first frame was 1428.5 ms before and 1437.5 ms after. Median CPU time for 16 camera moves was 1003.5 ms before and 979 ms after. Position, color, UV, draw indices, blend weights and draw groups matched. The replay mocks WebGL. All 101 focused tests and both web builds passed.
+
+- [x] Reduce static vertex assembly work and pack sequential map indices directly. Compare memory, setup, orbit CPU and draw output.
+
+Validation: Four paired offline replays of two adjacent region copies retained 400 MiB before and 383 MiB after. Median setup through the first frame was 1400.5 ms versus 1324 ms. Median CPU time for 16 camera moves was 954 ms versus 950.5 ms. Draw data hashes and draw group counts matched. All 104 focused tests and both web builds passed. Browser GPU timing remains unverified.
+
+- [x] Compact prepared landscape parts while preserving per-corner attributes and cached reuse. Verify the real-data replay and focused tests.
+
+Validation: Region 12850 appearance data retained about 37 MiB in the prepared cache, down from 62 MiB. Two-region offline replay retained 358 MiB across heap and array buffers, down from 383 MiB, with identical draw data hashes and 15,108 draw groups. Median isolated preparation increased from 378 ms to 406 ms. Both measured full scene setups were faster. All 102 focused tests and the admin build passed. Browser and GPU timings remain unverified.
+
+- [x] Reuse successful unconditional texture GET responses with bounded ASP.NET Core Output Caching and preserve live conditional validation.

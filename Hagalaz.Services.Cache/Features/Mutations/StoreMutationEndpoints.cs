@@ -1,10 +1,16 @@
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Services.Cache.Features.Mutations.Dtos;
+using Hagalaz.Services.Cache.Features.Models;
 using Hagalaz.Services.Cache.Features.Shared;
+using Hagalaz.Services.Cache.Features.Types;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.Routing;
 
 namespace Hagalaz.Services.Cache.Features.Mutations;
@@ -18,7 +24,7 @@ public static class StoreMutationEndpoints
         return group;
     }
 
-    private static IResult WriteRawFile(int indexId, int fileId, WriteRawFileDto request, ICacheAPI cache)
+    private static async Task<IResult> WriteRawFile(int indexId, int fileId, WriteRawFileDto request, ICacheAPI cache, [FromServices] IOutputCacheStore outputCache, CancellationToken cancellationToken)
     {
         if (indexId < 0 || fileId < 0)
         {
@@ -42,10 +48,11 @@ public static class StoreMutationEndpoints
 
         using var stream = new MemoryStream(data);
         cache.WriteRawFile(indexId, fileId, stream);
+        await InvalidateDerivedReadsAsync(outputCache, cancellationToken);
         return TypedResults.Ok(new WriteRawFileResultDto("write-raw", indexId, fileId));
     }
 
-    private static IResult CopyRawFile(int indexId, int fileId, CopyRawFileDto request, ICacheAPI cache)
+    private static async Task<IResult> CopyRawFile(int indexId, int fileId, CopyRawFileDto request, ICacheAPI cache, [FromServices] IOutputCacheStore outputCache, CancellationToken cancellationToken)
     {
         if (indexId < 0 || fileId < 0)
         {
@@ -58,6 +65,14 @@ public static class StoreMutationEndpoints
         }
 
         cache.CopyRawFile(indexId, fileId, request.SourceIndexId, request.SourceFileId);
+        await InvalidateDerivedReadsAsync(outputCache, cancellationToken);
         return TypedResults.Ok(new CopyRawFileResultDto("copy-raw", indexId, fileId, request.SourceIndexId, request.SourceFileId));
+    }
+
+    // Raw writes bypass reference-table metadata, so drop read models derived from it.
+    private static async Task InvalidateDerivedReadsAsync(IOutputCacheStore outputCache, CancellationToken cancellationToken)
+    {
+        ObjectDefinitionsEndpoints.InvalidateCatalog();
+        await outputCache.EvictByTagAsync(TextureEndpoints.ImageCacheTag, cancellationToken);
     }
 }

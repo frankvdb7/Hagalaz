@@ -1,6 +1,6 @@
-import { prepareCacheModel } from "../../../../../shared/model-viewer/cache-model-geometry";
+import { modelFaceWinding, prepareCacheModel, type CacheModelGeometry } from "../../../../../shared/model-viewer/cache-model-geometry";
 import type { ModelGeometry, ModelTexture } from "../../../../../shared/model-viewer/model-scene";
-import { mapAppearanceKey, type MapPlacement, type MapRenderRegion, type ObjectRenderAppearance } from "../services/map-render.models";
+import { mapAppearanceKey, type MapAtmosphere, type MapPlacement, type MapRenderRegion, type ObjectRenderAppearance } from "../services/map-render.models";
 import { terrainSampler, linearFloorColor, isVisibleFloor, type VisibleFloor, type FloorSample } from "./terrain-blending";
 import type { TerrainBlend } from "../../../../../shared/model-viewer/terrain-material";
 
@@ -79,10 +79,34 @@ export function mapHeight(regions: readonly MapRenderRegion[], plane: number, wo
     return null;
 }
 
-type SceneGeometry = {
-    firstTexel: number[];
+export interface MapObjectRange {
+    regionId: number;
+    placement: MapPlacement;
+    startVertex: number;
+    endVertex: number;
+}
+
+export interface MapObjectTransform {
+    x: number;
+    y: number;
+    plane: number;
+    rotation: number;
+    scale: number;
+}
+
+export interface MapSceneDraft {
+    transforms: ReadonlyMap<MapPlacement, MapObjectTransform | null>;
+    additions: readonly Pick<MapObjectRange, "regionId" | "placement">[];
+}
+
+export interface MapSceneGeometry extends ModelGeometry {
+    placements: readonly MapObjectRange[];
+}
+
+type SceneGeometry = Omit<MapSceneGeometry, "uvs"> & {
+    placements: MapObjectRange[];
+    firstTexelVertices: number[];
     positions: number[];
-    indices: number[];
     colors: number[];
     opacities: number[];
     uvs: number[];
@@ -104,25 +128,77 @@ type SceneContext = {
     sampleTerrain: ReturnType<typeof terrainSampler>;
     blends: Map<string, TerrainBlend>;
     preparation: MapScenePreparation;
+    atmosphere?: MapAtmosphere;
+    lightTint?: readonly number[];
 };
 type ScenePoint = { x: number; y: number; z: number };
 
+interface PreparedMapPart {
+    positions: Float64Array;
+    positionIndices?: Uint16Array | Uint32Array;
+    indices: Uint16Array | Uint32Array;
+    colors?: Float64Array;
+    opacities?: Float64Array;
+    uvs?: Float64Array;
+    textureIds?: Int32Array;
+    firstTexel?: Uint8Array;
+    facePriorities?: readonly number[];
+    maxHeight: number;
+}
+
+function packMapPart(source: Pick<CacheModelGeometry, "positions" | "indices" | "faceColors">, prepared: ModelGeometry): PreparedMapPart {
+    let positions: Float64Array;
+    let positionIndices: PreparedMapPart["positionIndices"];
+    if (source.faceColors && source.positions.length < prepared.positions.length) {
+        const vertexCount = source.positions.length / 3;
+        const remap = new Int32Array(vertexCount).fill(-1);
+        const mapping = vertexCount <= 65536 ? new Uint16Array(prepared.indices.length) : new Uint32Array(prepared.indices.length);
+        const compact: number[] = [];
+        let expandedVertex = 0;
+        for (let face = 0; face < source.indices.length; face += 3) {
+            for (const corner of modelFaceWinding) {
+                const original = source.indices[face + corner];
+                if (remap[original] === -1) {
+                    remap[original] = compact.length / 3;
+                    const offset = expandedVertex * 3;
+                    compact.push(prepared.positions[offset], prepared.positions[offset + 1], prepared.positions[offset + 2]);
+                }
+                mapping[expandedVertex++] = remap[original];
+            }
+        }
+        positions = Float64Array.from(compact);
+        positionIndices = mapping;
+    } else positions = Float64Array.from(prepared.positions);
+    let maxHeight = 1;
+    for (let vertex = 1; vertex < positions.length; vertex += 3) maxHeight = Math.max(maxHeight, positions[vertex]);
+    const indices = prepared.positions.length / 3 <= 65536 ? Uint16Array.from(prepared.indices) : Uint32Array.from(prepared.indices);
+    return {
+        positions, positionIndices, indices, maxHeight,
+        colors: prepared.colors && Float64Array.from(prepared.colors),
+        opacities: prepared.opacities && Float64Array.from(prepared.opacities),
+        uvs: prepared.uvs && Float64Array.from(prepared.uvs),
+        textureIds: prepared.textureIds && Int32Array.from(prepared.textureIds),
+        firstTexel: prepared.firstTexel && Uint8Array.from(prepared.firstTexel),
+        facePriorities: prepared.facePriorities,
+    };
+}
+
 /** Selection-scoped reuse; no global model/terrain cache. */
 export class MapScenePreparation {
-    private ground?: { regions: readonly MapRenderRegion[]; planes: string; modes: string[]; geometry: SceneGeometry };
+    private ground?: { regions: readonly MapRenderRegion[]; planes: string; modes: string[]; atmosphere?: MapAtmosphere; geometry: SceneGeometry };
     private sampling?: { regions: readonly MapRenderRegion[]; sample: ReturnType<typeof terrainSampler> };
-    private readonly models = new WeakMap<ObjectRenderAppearance, { dependencies: { id: number; prepared: boolean }[]; modes: string[]; parts: ModelGeometry[] }>();
-    private combined?: { terrain: SceneGeometry; appearances: ReadonlyMap<string, ObjectRenderAppearance>; parts: ModelGeometry[][]; result: { geometry: SceneGeometry; warnings: string[] } };
+    private readonly models = new WeakMap<ObjectRenderAppearance, { dependencies: { id: number; prepared: boolean }[]; modes: string[]; atmosphere?: MapAtmosphere; parts: PreparedMapPart[] }>();
+    private combined?: { terrain: SceneGeometry; appearances: ReadonlyMap<string, ObjectRenderAppearance>; parts: PreparedMapPart[][]; draft?: MapSceneDraft; result: { geometry: MapSceneGeometry; warnings: string[] } };
 
-    terrain(regions: readonly MapRenderRegion[], textures: ReadonlyMap<number, ModelTexture>, planes: readonly boolean[], build: () => SceneGeometry): SceneGeometry {
+    terrain(regions: readonly MapRenderRegion[], textures: ReadonlyMap<number, ModelTexture>, planes: readonly boolean[], atmosphere: MapAtmosphere | undefined, build: () => SceneGeometry): SceneGeometry {
         const modes = regions.flatMap(region => region.floors.map(floor => {
             const texture = textures.get(floor.textureId);
             return `${texture?.alphaMode ?? 0}:${texture?.effectId ?? 0}`;
         }));
         const key = planes.join();
-        if (this.ground?.regions === regions && this.ground.planes === key && this.ground.modes.every((mode, index) => modes[index] === mode)) return this.ground.geometry;
+        if (this.ground?.regions === regions && this.ground.planes === key && this.ground.atmosphere === atmosphere && sameValues(this.ground.modes, modes)) return this.ground.geometry;
         const geometry = build();
-        this.ground = { regions, planes: key, modes, geometry };
+        this.ground = { regions, planes: key, modes, atmosphere, geometry };
         return geometry;
     }
 
@@ -131,7 +207,7 @@ export class MapScenePreparation {
         return this.sampling.sample;
     }
 
-    appearance(appearance: ObjectRenderAppearance, textures: ReadonlyMap<number, ModelTexture>): ModelGeometry[] {
+    appearance(appearance: ObjectRenderAppearance, textures: ReadonlyMap<number, ModelTexture>, atmosphere?: MapAtmosphere): PreparedMapPart[] {
         const previous = this.models.get(appearance);
         const dependencies = previous?.dependencies ?? appearance.parts.flatMap(part => part.faceColors ? [...new Set(part.faceTextureIds ?? [])]
             .filter(id => id >= 0)
@@ -142,18 +218,18 @@ export class MapScenePreparation {
             // Legacy unprepared colours still use white while material metadata is absent.
             return `${!prepared && !material ? "missing" : "present"}:${material?.colorBlend ?? 0}:${material?.brightness ?? 0}:${prepared && material?.effectId === 6}`;
         });
-        if (previous && sameValues(previous.modes, modes)) return previous.parts;
-        const parts = appearance.parts.map(part => prepareCacheModel({ ...part, particles: [] }, textures));
-        this.models.set(appearance, { dependencies, modes, parts });
+        if (previous && previous.atmosphere === atmosphere && sameValues(previous.modes, modes)) return previous.parts;
+        const parts = appearance.parts.map(part => packMapPart(part, prepareCacheModel({ ...part, particles: [] }, textures, atmosphere)));
+        this.models.set(appearance, { dependencies, modes, atmosphere, parts });
         return parts;
     }
 
-    landscape(terrain: SceneGeometry, appearances: ReadonlyMap<string, ObjectRenderAppearance>, textures: ReadonlyMap<number, ModelTexture>, build: () => { geometry: SceneGeometry; warnings: string[] }): { geometry: SceneGeometry; warnings: string[] } {
-        const parts = [...appearances.values()].map(appearance => this.appearance(appearance, textures));
+    landscape(terrain: SceneGeometry, appearances: ReadonlyMap<string, ObjectRenderAppearance>, textures: ReadonlyMap<number, ModelTexture>, atmosphere: MapAtmosphere | undefined, draft: MapSceneDraft | undefined, build: () => { geometry: MapSceneGeometry; warnings: string[] }): { geometry: MapSceneGeometry; warnings: string[] } {
+        const parts = [...appearances.values()].map(appearance => this.appearance(appearance, textures, atmosphere));
         const previous = this.combined;
-        if (previous?.terrain === terrain && previous.appearances === appearances && sameValues(previous.parts, parts)) return previous.result;
+        if (previous?.terrain === terrain && previous.appearances === appearances && previous.draft === draft && sameValues(previous.parts, parts)) return previous.result;
         const result = build();
-        this.combined = { terrain, appearances, parts, result };
+        this.combined = { terrain, appearances, parts, draft, result };
         return result;
     }
 }
@@ -163,7 +239,7 @@ function sameValues<T>(left: readonly T[], right: readonly T[]): boolean {
 }
 
 function copyTerrain(source: SceneGeometry): SceneGeometry {
-    return { firstTexel: source.firstTexel.slice(), positions: source.positions.slice(), indices: source.indices.slice(), colors: source.colors.slice(), opacities: source.opacities.slice(), uvs: source.uvs.slice(), textureIds: source.textureIds.slice(), facePriorities: source.facePriorities.slice(), terrainWeights: source.terrainWeights.slice(), terrainBlends: source.terrainBlends, preparedLighting: true };
+    return { placements: [], firstTexelVertices: [], positions: source.positions.slice(), indices: source.indices, colors: source.colors.slice(), opacities: source.opacities.slice(), uvs: source.uvs.slice(), textureIds: source.textureIds.slice(), facePriorities: source.facePriorities.slice(), terrainWeights: source.terrainWeights, terrainBlends: source.terrainBlends, preparedLighting: true };
 }
 
 export function buildMapScene(
@@ -172,11 +248,20 @@ export function buildMapScene(
     textures: ReadonlyMap<number, ModelTexture>,
     visiblePlanes: readonly boolean[],
     landscape: boolean,
-    preparation = new MapScenePreparation()
-): { geometry: ModelGeometry | null; warnings: string[] } {
+    preparation = new MapScenePreparation(),
+    atmosphereRegionId: number | null = regions[0]?.id ?? null,
+    draft?: MapSceneDraft,
+): { geometry: MapSceneGeometry | null; warnings: string[] } {
     if (!regions.length) return { geometry: null, warnings: [] };
+    const atmosphere = regions.find(region => region.id === atmosphereRegionId)?.atmosphere ?? undefined;
+    const lightTint = atmosphere && [16, 8, 0].map(shift => {
+        const value = ((atmosphere.lightRgb >> shift) & 255) / 255;
+        const linear = value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+        return linear * (atmosphere.intensity / 1.1523438);
+    });
     const geometry: SceneGeometry = {
-        firstTexel: [],
+        placements: [],
+        firstTexelVertices: [],
         positions: [],
         indices: [],
         colors: [],
@@ -201,29 +286,51 @@ export function buildMapScene(
         sampleTerrain: (...args) => { sampler ??= preparation.sampleTerrain(regions); return sampler(...args); },
         blends: new Map(),
         preparation,
+        atmosphere,
+        lightTint,
     };
-    const terrain = preparation.terrain(regions, textures, visiblePlanes, () => { addTerrain(context); return context.geometry; });
-    const result = landscape ? preparation.landscape(terrain, appearances, textures, () => {
+    const terrain = preparation.terrain(regions, textures, visiblePlanes, atmosphere, () => {
+        addTerrain(context);
+        context.geometry.indices = sequentialIndices(context.geometry.opacities.length);
+        return context.geometry;
+    });
+    const result = landscape ? preparation.landscape(terrain, appearances, textures, atmosphere, draft, () => {
         context.geometry = copyTerrain(terrain);
-        addLandscape(context);
-        const weights = context.geometry.terrainWeights;
-        const terrainWeightCount = weights.length;
-        weights.length = context.geometry.positions.length / 3 * 8;
-        weights.fill(0, terrainWeightCount);
-        return { geometry: context.geometry, warnings: [...context.warnings] };
+        addLandscape(context, draft);
+        const { firstTexelVertices, colors, opacities, uvs, ...attributes } = context.geometry;
+        const firstTexel = firstTexelVertices.length ? new Uint8Array(opacities.length) : undefined;
+        if (firstTexel) for (const vertex of firstTexelVertices) firstTexel[vertex] = 1;
+        const vertexRgba = new Float32Array(opacities.length * 4);
+        for (let vertex = 0; vertex < opacities.length; vertex++) {
+            const rgb = vertex * 3, rgba = vertex * 4;
+            vertexRgba[rgba] = colors[rgb];
+            vertexRgba[rgba + 1] = colors[rgb + 1];
+            vertexRgba[rgba + 2] = colors[rgb + 2];
+            vertexRgba[rgba + 3] = opacities[vertex];
+        }
+        const indices = sequentialIndices(opacities.length);
+        return { geometry: { ...attributes, indices, firstTexel, vertexRgba, uvs: Float32Array.from(uvs) }, warnings: [...context.warnings] };
     }) : { geometry: terrain, warnings: [...context.warnings] };
     return { geometry: result.geometry.positions.length ? result.geometry : null, warnings: result.warnings };
+}
+
+function sequentialIndices(count: number): Uint16Array | Uint32Array {
+    // The maximum 16-bit index is reserved for primitive restart.
+    const indices = count > 65535 ? new Uint32Array(count) : new Uint16Array(count);
+    for (let index = 0; index < count; index++) indices[index] = index;
+    return indices;
 }
 
 function addVertex(context: SceneContext, point: ScenePoint, color: readonly number[], opacity: number, uv: readonly number[], weights: readonly number[] | null = [], firstTexel = 0): void {
     const output = context.geometry;
     output.positions.push((point.x - context.originX) * 512, point.y, (point.z - context.originY) * 512);
-    output.colors.push(...color);
+    const light = context.lightTint;
+    if (light) output.colors.push(color[0] * light[0], color[1] * light[1], color[2] * light[2]);
+    else output.colors.push(color[0], color[1], color[2]);
+    if (firstTexel) output.firstTexelVertices.push(output.opacities.length);
     output.opacities.push(opacity);
-    output.uvs.push(...uv);
-    output.firstTexel.push(firstTexel);
-    output.indices.push(output.indices.length);
-    // Landscape's null weights are padded in one contiguous fill after assembly.
+    output.uvs.push(uv[0], uv[1]);
+    // Only the terrain blend shader reads these attributes.
     if (weights) for (let layer = 0; layer < 8; layer++) output.terrainWeights.push(weights[layer] ?? 0);
 }
 
@@ -320,24 +427,37 @@ function blendedFloorColor(samples: readonly FloorSample[]): number[] {
     return [0, 1, 2].map(channel => samples.reduce((sum, sample) => sum + sample.layer.color[channel] * sample.weight, 0));
 }
 
-function addLandscape(context: SceneContext): void {
-    const prepared = new Map<string, ModelGeometry[]>();
+function addLandscape(context: SceneContext, draft?: MapSceneDraft): void {
+    const prepared = new Map<string, PreparedMapPart[]>();
     for (const region of context.regions)
         for (const placement of region.objects) {
-            addPlacement(context, region, placement, prepared);
+            addPlacement(context, region, placement, prepared, draft?.transforms.get(placement));
         }
+    for (const { regionId, placement } of draft?.additions ?? []) {
+        const region = context.regions.find(candidate => candidate.id === regionId);
+        if (region) addPlacement(context, region, placement, prepared, draft?.transforms.get(placement));
+    }
 }
 
-function addPlacement(context: SceneContext, region: MapRenderRegion, placement: MapPlacement, prepared: Map<string, ModelGeometry[]>): void {
+function addPlacement(context: SceneContext, region: MapRenderRegion, source: MapPlacement, prepared: Map<string, PreparedMapPart[]>, transform?: MapObjectTransform | null): void {
+    if (transform === null) return;
+    // Rotation selects the server-rotated appearance, so footprint and decor offsets follow it.
+    let placement = transform ? { ...source, x: transform.x, y: transform.y, plane: transform.plane, rotation: transform.rotation } : source;
     if (!context.visiblePlanes[placement.plane]) return;
-    const key = mapAppearanceKey(placement),
+    let key = mapAppearanceKey(placement),
         appearance = context.appearances.get(key);
+    // Keep an edited object drawn (and selectable) at its source rotation until the rotated appearance arrives.
+    if (!appearance && placement.rotation !== source.rotation) {
+        placement = { ...placement, rotation: source.rotation };
+        key = mapAppearanceKey(placement);
+        appearance = context.appearances.get(key);
+    }
     if (!appearance) return;
     if (appearance.contourMode > 2) {
         context.warnings.add(`Object ${placement.id}: unsupported contour mode ${appearance.contourMode}.`);
         return;
     }
-    const parts = prepared.get(key) ?? context.preparation.appearance(appearance, context.textures);
+    const parts = prepared.get(key) ?? context.preparation.appearance(appearance, context.textures, context.atmosphere);
     prepared.set(key, parts);
     const center = placementCenter(region, placement, appearance);
     const base = mapHeight(context.regions, placement.plane, center[0], center[1]);
@@ -345,8 +465,9 @@ function addPlacement(context: SceneContext, region: MapRenderRegion, placement:
         context.warnings.add(`Region ${region.id}: some objects require unavailable terrain heights.`);
         return;
     }
+    const startVertex = context.geometry.positions.length / 3;
     for (const [partIndex, part] of parts.entries()) {
-        const projected = projectPart(context, placement, appearance, part, center, base);
+        const projected = projectPart(context, placement, appearance, part, center, base, transform);
         if (!projected) {
             context.warnings.add(`Region ${region.id}: some contoured objects require unavailable boundary data.`);
             continue;
@@ -354,41 +475,44 @@ function addPlacement(context: SceneContext, region: MapRenderRegion, placement:
         const offset = decorationOffset(region, placement, context.appearances, partIndex);
         appendPart(context, part, projected, offset);
     }
+    const endVertex = context.geometry.positions.length / 3;
+    if (endVertex > startVertex) context.geometry.placements.push({ regionId: region.id, placement: source, startVertex, endVertex });
 }
 
 function projectPart(
     context: SceneContext,
     placement: MapPlacement,
     appearance: ObjectRenderAppearance,
-    part: ModelGeometry,
+    part: PreparedMapPart,
     center: readonly number[],
-    base: number
+    base: number,
+    transform?: MapObjectTransform,
 ): ScenePoint[] | null {
     const projected: ScenePoint[] = [];
-    const maxHeight = part.positions.reduce((height, value, index) => (index % 3 === 1 ? Math.max(height, value) : height), 1);
+    const scale = transform?.scale ?? 1;
     for (let index = 0; index < part.positions.length; index += 3) {
-        const x = center[0] + part.positions[index] / 512,
-            y = center[1] + part.positions[index + 2] / 512;
+        const x = center[0] + part.positions[index] * scale / 512,
+            y = center[1] + part.positions[index + 2] * scale / 512;
         const up = part.positions[index + 1];
         const height = appearance.contourMode ? mapHeight(context.regions, placement.plane, x, y) : base;
-        if (height === null) return null;
-        let delta = base - height;
+        if (height === null && !transform) return null;
+        let delta = base - (height ?? base);
         if (appearance.contourMode === 2) {
-            const fraction = Math.trunc((up * 65536) / maxHeight);
+            const fraction = Math.trunc((up * 65536) / part.maxHeight);
             delta = fraction < appearance.contourParameter ? Math.trunc((delta * (appearance.contourParameter - fraction)) / appearance.contourParameter) : 0;
         }
-        projected.push({ x, y: up - base + delta, z: y });
+        projected.push({ x, y: up * scale - base + delta, z: y });
     }
     return projected;
 }
 
-function appendPart(context: SceneContext, part: ModelGeometry, projected: readonly ScenePoint[], offset: readonly number[]): void {
+function appendPart(context: SceneContext, part: PreparedMapPart, projected: readonly ScenePoint[], offset: readonly number[]): void {
     appendFaceData(context, part);
     const vertex: ScenePoint = { x: 0, y: 0, z: 0 };
     const uv = [0, 0], color = [1, 1, 1];
     const offsetX = offset[0] / 512, offsetZ = offset[1] / 512;
     for (const source of part.indices) {
-        const point = projected[source];
+        const point = projected[part.positionIndices?.[source] ?? source];
         vertex.x = point.x + offsetX;
         vertex.y = point.y;
         vertex.z = point.z + offsetZ;
@@ -399,7 +523,7 @@ function appendPart(context: SceneContext, part: ModelGeometry, projected: reado
     }
 }
 
-function appendFaceData(context: SceneContext, part: ModelGeometry): void {
+function appendFaceData(context: SceneContext, part: PreparedMapPart): void {
     for (let face = 0; face < part.indices.length / 3; face++) {
         context.geometry.textureIds.push(part.textureIds?.[face] ?? -1);
         context.geometry.facePriorities.push(part.facePriorities?.[face] ?? 0);

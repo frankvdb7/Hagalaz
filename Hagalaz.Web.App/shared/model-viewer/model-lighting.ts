@@ -7,6 +7,14 @@ export interface LightingModel {
     contrast?: number;
 }
 
+export interface ModelLight {
+    directionX: number;
+    directionY: number;
+    directionZ: number;
+    positiveResponse: number;
+    negativeResponse: number;
+}
+
 // Atmosphere defaults, GraphicsToolkit_Sub3.m/IA and Model_Sub3.method4549.
 const direction = [-50, -60, -50].map(value => Math.trunc(value * 65535 / Math.sqrt(8600)));
 const baseLight = Math.trunc(Math.fround(1.1523438) * 65535) >> 8;
@@ -14,7 +22,7 @@ const positive = Math.trunc(Math.fround(0.69921875) * 65535);
 const negative = Math.trunc(Math.fround(1.2) * 65535);
 
 /** Source face normals and smooth sums are calculated before expanding face corners. */
-export function lightModel(model: LightingModel): number[] {
+export function lightModel(model: LightingModel, light?: ModelLight): number[] {
     const sums = Array.from({length: model.positions.length / 3}, () => [0, 0, 0, 0]);
     const normals: number[][] = [];
     for (let face = 0; face < model.indices.length / 3; face++) {
@@ -36,13 +44,17 @@ export function lightModel(model: LightingModel): number[] {
         }
     }
     const contrast = model.contrast ?? 850;
-    const responses = contrast === 0 ? [0, 0] : [positive, negative].map(value => Math.trunc(value * 768 / contrast));
+    const vector = light ? [light.directionX, light.directionY, light.directionZ] : direction;
+    const length = Math.hypot(...vector);
+    const lightDirection = light && length ? vector.map(value => Math.trunc(value * 65535 / length)) : direction;
+    const response = light ? [light.positiveResponse, light.negativeResponse].map(value => Math.trunc(Math.fround(value) * 65535)) : [positive, negative];
+    const responses = contrast === 0 ? [0, 0] : response.map(value => Math.trunc(value * 768 / contrast));
     return model.indices.map((vertex, corner) => {
         const face = Math.trunc(corner / 3);
         const flat = model.faceShadingTypes?.[face] === 1;
         const normal = flat ? normals[face] : sums[vertex];
         const count = flat ? 1 : Math.max(1, normal[3]);
-        const dot = Math.trunc((Math.imul(direction[0], normal[0]) + Math.imul(direction[1], normal[1]) + Math.imul(direction[2], normal[2]) | 0) / count) >> 16;
+        const dot = Math.trunc((Math.imul(lightDirection[0], normal[0]) + Math.imul(lightDirection[1], normal[1]) + Math.imul(lightDirection[2], normal[2]) | 0) / count) >> 16;
         // This client threshold is 256, not the sign of the dot product.
         return (baseLight >> 1) + (Math.imul(responses[dot > 256 ? 0 : 1], dot) >> 17);
     });

@@ -57,6 +57,91 @@ function appearance(): ObjectRenderAppearance {
 }
 
 describe("map scene geometry", () => {
+    it("applies local transforms and additions without changing the source placements", () => {
+        const source = region();
+        const original = { id: 1, shape: 10, rotation: 0, plane: 0, x: 0, y: 3 };
+        const copy = { ...original, x: 2 };
+        source.objects = [original];
+        const appearances = new Map([[mapAppearanceKey(original), appearance()], [mapAppearanceKey({ ...original, rotation: 1 }), { ...appearance(), rotation: 1 }]]);
+        const preparation = new MapScenePreparation();
+        const regions = [source];
+        const draw = (draft?: Parameters<typeof buildMapScene>[7]) => buildMapScene(regions, appearances, new Map(), [true], true, preparation, source.id, draft).geometry!;
+        const initial = draw();
+        const edited = draw({
+            transforms: new Map([[original, { x: 1, y: 3, plane: 0, rotation: 1, scale: 2 }]]),
+            additions: [{ regionId: source.id, placement: copy }],
+        });
+        expect(edited.placements.map(item => item.placement)).toEqual([original, copy]);
+        const start = initial.placements[0].startVertex * 3;
+        expect(edited.positions.slice(0, start)).toEqual(initial.positions.slice(0, start));
+        expect(edited.positions[start] - initial.positions[start]).toBe(512);
+        expect(edited.positions.slice(start, start + 9)).not.toEqual(initial.positions.slice(start, start + 9));
+        expect(draw({ transforms: new Map([[original, null]]), additions: [] }).placements).toEqual([]);
+        expect(source.objects).toEqual([original]);
+        expect(draw().positions).toEqual(initial.positions);
+    });
+    it("draws rotation edits from the rotated appearance and footprint", () => {
+        const source = region();
+        const original = { id: 1, shape: 10, rotation: 0, plane: 0, x: 0, y: 0 };
+        source.objects = [original];
+        const unrotated = { ...appearance(), sizeX: 1, sizeY: 3, contourMode: 0 };
+        const rotated = { ...unrotated, rotation: 1, parts: [{ ...unrotated.parts[0], positions: [0, 0, 0, 0, 0, 512, 0, -512, 0] }] };
+        const appearances = new Map([[mapAppearanceKey(original), unrotated], [mapAppearanceKey({ ...original, rotation: 1 }), rotated]]);
+        const edited = buildMapScene([source], appearances, new Map(), [true], true, new MapScenePreparation(), source.id, {
+            transforms: new Map([[original, { x: 0, y: 0, plane: 0, rotation: 1, scale: 1 }]]),
+            additions: [],
+        }).geometry!;
+        const start = edited.placements[0].startVertex * 3;
+        // A rotated 1x3 footprint spans three tiles east and one north; its centre is (1.5, 0.5).
+        expect([edited.positions[start], edited.positions[start + 2]]).toEqual([768, 256]);
+        // Corners come from the rotated appearance, not a client-side spin of the original mesh.
+        const corners = [0, 1, 2].map(corner => [edited.positions[start + corner * 3], edited.positions[start + corner * 3 + 2]]);
+        expect(corners).toEqual(expect.arrayContaining([[768, 256], [768, 768]]));
+        expect(corners.every(([x]) => x === 768)).toBe(true);
+    });
+    it("keeps a rotation edit drawn at its source rotation until the rotated appearance loads", () => {
+        const source = region();
+        const original = { id: 1, shape: 10, rotation: 0, plane: 0, x: 0, y: 0 };
+        source.objects = [original];
+        const unrotated = { ...appearance(), sizeX: 1, sizeY: 3, contourMode: 0 };
+        const pending = buildMapScene([source], new Map([[mapAppearanceKey(original), unrotated]]), new Map(), [true], true, new MapScenePreparation(), source.id, {
+            transforms: new Map([[original, { x: 2, y: 0, plane: 0, rotation: 1, scale: 1 }]]),
+            additions: [],
+        }).geometry!;
+        expect(pending.placements.map(item => item.placement)).toEqual([original]);
+        const start = pending.placements[0].startVertex * 3;
+        // Source footprint (1x3) at the edited tile: centre (2.5, 1.5).
+        expect([pending.positions[start], pending.positions[start + 2]]).toEqual([1280, 768]);
+    });
+    it("records separate vertex ranges for copies of the same landscape object", () => {
+        const source = region();
+        const first = { id: 1, shape: 10, rotation: 0, plane: 0, x: 0, y: 0 };
+        const second = { ...first, x: 1 };
+        source.objects = [first, second];
+        const appearances = new Map([[mapAppearanceKey(first), appearance()]]);
+        const ground = buildMapScene([source], appearances, new Map(), [true], false).geometry!;
+        const scene = buildMapScene([source], appearances, new Map(), [true], true).geometry!;
+        const start = ground.positions.length / 3;
+        expect(scene.placements).toEqual([
+            { regionId: source.id, placement: first, startVertex: start, endVertex: start + 3 },
+            { regionId: source.id, placement: second, startVertex: start + 3, endVertex: start + 6 },
+        ]);
+        expect(ground.placements).toEqual([]);
+    });
+    it("uses only the selected anchor atmosphere, including when neighbors load first", () => {
+        const anchor = region(), neighbor = region(514);
+        neighbor.atmosphere = { lightRgb: 0xffffff, intensity: 0, positiveResponse: 1, negativeResponse: 1, directionX: 0, directionY: -1, directionZ: 0 };
+        anchor.atmosphere = { ...neighbor.atmosphere, intensity: 1.1523438, lightRgb: 0xff0000 };
+        const regions = [neighbor, anchor], preparation = new MapScenePreparation();
+        const draw = (loaded: MapRenderRegion[], id: number | null) => buildMapScene(loaded, new Map(), new Map(), [true], false, preparation, id).geometry!;
+        const partial = draw([neighbor], anchor.id);
+        expect(partial.colors![1]).toBeGreaterThan(0);
+        const lit = draw(regions, anchor.id);
+        expect(lit.colors!.slice(0, 3)).toEqual([partial.colors![0], 0, 0]);
+        expect(draw(regions, anchor.id)).toBe(lit);
+        expect(draw(regions, null).colors!.slice(0, 3)).toEqual(partial.colors!.slice(0, 3));
+        expect(draw(regions, neighbor.id).colors!.every(channel => channel === 0)).toBe(true);
+    });
     it("retains first-texel markers when prepared object faces join terrain", () => {
         const source = region();
         const object = appearance();
@@ -67,7 +152,7 @@ describe("map scene geometry", () => {
         const geometry = buildMapScene([source], new Map([[mapAppearanceKey(source.objects[0]),object]]), new Map(), [true], true).geometry;
         expect(geometry).not.toBeNull();
         if (!geometry) throw new Error("Expected terrain and object geometry");
-        expect(geometry.firstTexel?.slice(-3)).toEqual([1,1,1]);
+        expect(geometry.firstTexel?.slice(-3)).toEqual(Uint8Array.of(1,1,1));
         expect(geometry.firstTexel?.slice(0,-3).every(value=>value===0)).toBe(true);
         expect(geometry.firstTexel?.length).toBe(geometry.positions.length/3);
         expect(geometry.textureIds?.at(-1)).toBe(42);
@@ -121,6 +206,21 @@ describe("map scene geometry", () => {
         expect(source.parts[0].positions).toEqual(originalPositions);
     });
 
+    it("shares cached positions across face corners without merging their colors or UVs", () => {
+        const source = appearance(), preparation = new MapScenePreparation();
+        const part = source.parts[0];
+        part.indices = [0, 1, 2, 0, 1, 2];
+        part.faceColors = [0x1234, 0x4321];
+        part.faceTextureIds = [-1, 7];
+        part.faceTextureUvs = [0, 0, 0, 0, 0, 0, 0.25, 0.5, 1, 0, 0, 1];
+        const [packed] = preparation.appearance(source, new Map());
+        expect(packed.positions).toHaveLength(9);
+        expect(packed.positionIndices).toEqual(Uint16Array.of(0, 1, 2, 0, 1, 2));
+        expect(packed.indices).toEqual(Uint16Array.of(0, 1, 2, 3, 4, 5));
+        expect(packed.colors?.slice(0, 9)).not.toEqual(packed.colors?.slice(9));
+        expect(packed.uvs?.slice(6)).toEqual(Float64Array.of(0.25, 0.5, 0, 1, 1, 0));
+    });
+
     it("retains combined landscape geometry across ordinary image arrivals and replacements", () => {
         const source = region(), object = appearance(), preparation = new MapScenePreparation();
         const regions = [source];
@@ -147,7 +247,7 @@ describe("map scene geometry", () => {
         expect(buildMapScene(regions, appearances, new Map([[99, unrelated]]), [true], true, preparation).geometry).toBe(original.geometry);
     });
 
-    it("bulk pads landscape weights while preserving blended terrain and per-part attributes", () => {
+    it("reuses terrain weights without allocating weights for landscape vertices", () => {
         const source = region(), object = appearance();
         source.floors.push({ id: 2, overlay: false, rgb: 0x0000ff, textureId: 20, textureScale: 512, secondaryRgb: null });
         source.planes[0].underlays[1] = 2;
@@ -159,18 +259,22 @@ describe("map scene geometry", () => {
         object.parts.push({ ...object.parts[0], id: 2, faceColors: [0x1234], faceTextureIds: [43],
             faceTextureUvs: [0.25,0.25,0.75,0.25,0.25,0.75], firstTexelFaces: [] });
         const input = JSON.stringify(object);
-        const terrain = buildMapScene([source], new Map(), new Map(), [true], false).geometry;
-        const combined = buildMapScene([source], new Map([["1:10:0", object]]), new Map(), [true], true).geometry;
+        const regions = [source], preparation = new MapScenePreparation(), textures = new Map();
+        const terrain = buildMapScene(regions, new Map(), textures, [true], false, preparation).geometry;
+        const combined = buildMapScene(regions, new Map([["1:10:0", object]]), textures, [true], true, preparation).geometry;
         if (!terrain || !combined) throw new Error("Expected combined geometry");
         const terrainWeights = terrain.terrainWeights ?? [], weights = combined.terrainWeights ?? [];
         expect(terrainWeights.some(weight => weight > 0)).toBe(true);
-        expect(weights.length).toBe(combined.positions.length / 3 * 8);
-        expect(weights.slice(0, terrainWeights.length)).toEqual(terrainWeights);
-        expect(weights.slice(terrainWeights.length)).toEqual(Array(12 * 8).fill(0));
-        expect(combined.firstTexel?.slice(-12)).toEqual([1,1,1,0,0,0,1,1,1,0,0,0]);
+        expect(weights.length).toBe(terrain.positions.length / 3 * 8);
+        expect(weights).toBe(terrainWeights);
+        expect(combined.indices).toBeInstanceOf(Uint16Array);
+        expect(combined.indices.at(-1)).toBe(combined.positions.length / 3 - 1);
+        expect(combined.firstTexel?.slice(-12)).toEqual(Uint8Array.of(1,1,1,0,0,0,1,1,1,0,0,0));
         expect(combined.textureIds?.slice(-4)).toEqual([42,43,42,43]);
-        expect(combined.uvs?.slice(-6)).toEqual([0.25,0.25,0.25,0.75,0.75,0.25]);
-        expect(combined.colors?.slice(-18, -9)).not.toEqual(combined.colors?.slice(-9));
+        expect(combined.uvs?.slice(-6)).toEqual(Float32Array.of(0.25,0.25,0.25,0.75,0.75,0.25));
+        expect(combined.vertexRgba?.slice(-24, -12)).not.toEqual(combined.vertexRgba?.slice(-12));
+        expect(combined.colors).toBeUndefined();
+        expect(combined.opacities).toBeUndefined();
         expect(JSON.stringify(object)).toBe(input);
     });
 
@@ -190,12 +294,12 @@ describe("map scene geometry", () => {
         const textures = new Map<number, ModelTexture>([[7, { image: {} as ImageBitmap, alphaMode: 0, ...settings }]]);
         const changed = buildMapScene(regions, appearances, textures, [true], true, preparation).geometry;
         expect(changed).not.toBe(original);
-        expect(changed?.colors?.slice(-9)).not.toEqual(original?.colors?.slice(-9));
+        expect(changed?.vertexRgba?.slice(-12)).not.toEqual(original?.vertexRgba?.slice(-12));
         expect(changed).toEqual(buildMapScene(regions, appearances, textures, [true], true).geometry);
         const replacement = new Map<number, ModelTexture>([[7, { image: {} as ImageBitmap, alphaMode: 0, ...settings }]]);
         expect(buildMapScene(regions, appearances, replacement, [true], true, preparation).geometry).toBe(changed);
         const restored = buildMapScene(regions, appearances, new Map(), [true], true, preparation).geometry;
-        expect(restored?.colors).toEqual(original?.colors);
+        expect(restored?.vertexRgba).toEqual(original?.vertexRgba);
     });
 
     it("preserves combined warnings and rebuilds for appearance region and visibility changes", () => {

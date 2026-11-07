@@ -5,6 +5,8 @@ using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Services.Cache.Features;
 using Hagalaz.Services.Cache.Features.Models;
+using Hagalaz.Services.Cache.Features.Types;
+using Hagalaz.Services.Cache.Features.Types.Dtos;
 using Hagalaz.TestSupport;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Hagalaz.Cache.Abstractions;
@@ -23,6 +25,33 @@ namespace Hagalaz.Services.Cache.Tests.Features;
 [TestClass]
 public sealed class ModelAppearanceTests
 {
+    [TestMethod]
+    public async Task ObjectCatalog_PagesActualIdsAndSearchesNamesWithoutReadingModels()
+    {
+        var store = new MemoryFileStore();
+        var fence = Definition("objects").SkipLast(1).Concat(new byte[] { 2, 70, 101, 110, 99, 101, 0, 0 }).ToArray();
+        SeedDefinitions(store, 16, (2, Definition("objects")), (7, fence));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapGroup("/types").MapObjectDefinitionsEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        const string url = "/api/v1/cache/types/objects/catalog";
+        var page = await client.GetFromJsonAsync<SearchDefinitionsDto<GetObjectCatalogEntryDto>>($"{url}?offset=1&limit=1");
+        Assert.IsNotNull(page);
+        Assert.AreEqual(2, page.TotalMatches);
+        Assert.AreEqual(new GetObjectCatalogEntryDto(7, "Fence", 10), page.Items.Single());
+        var search = await client.GetFromJsonAsync<SearchDefinitionsDto<GetObjectCatalogEntryDto>>($"{url}?query=fEnCe");
+        Assert.IsNotNull(search);
+        Assert.AreEqual(1, search.TotalMatches);
+        Assert.AreEqual(7, search.Items.Single().Id);
+        Assert.AreEqual(0, store.GetReadCount(7, 0));
+        // The reused name index follows object-index writes.
+        (await client.PostAsJsonAsync("/api/v1/cache/types/objects/7/name", new { name = "Gate" })).EnsureSuccessStatusCode();
+        var renamed = await client.GetFromJsonAsync<SearchDefinitionsDto<GetObjectCatalogEntryDto>>($"{url}?query=gate");
+        Assert.IsNotNull(renamed);
+        Assert.AreEqual(7, renamed.Items.Single().Id);
+        var stale = await client.GetFromJsonAsync<SearchDefinitionsDto<GetObjectCatalogEntryDto>>($"{url}?query=fence");
+        Assert.AreEqual(0, stale!.TotalMatches);
+    }
+
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
@@ -206,7 +235,7 @@ public sealed class ModelAppearanceTests
     public async Task AppearanceBatch_MatchesSingleMirroredWallsDecorationsAndContourMetadata(int shape, int modelShape, int rotation)
     {
         var store = new MemoryFileStore();
-        var definition = Definition("objects").SkipLast(1).Concat(new byte[] { 62, 21, 0 }).ToArray();
+        var definition = Definition("objects").SkipLast(1).Concat(new byte[] { 62, 21, 2, 70, 101, 110, 99, 101, 0, 0 }).ToArray();
         definition[2] = (byte)modelShape;
         SeedDefinition(store, 16, definition);
         store.Set(7, 0, ContainerBytes(LegacyModel));
@@ -220,6 +249,7 @@ public sealed class ModelAppearanceTests
         Assert.AreEqual(await client.GetStringAsync($"/api/v1/cache/types/objects/0/render-appearance?shape={shape}&rotation={rotation}"),
             System.Text.Json.JsonSerializer.Serialize(rows[0].Appearance, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)));
         Assert.AreEqual(1, rows[0].Appearance?.ContourMode);
+        Assert.AreEqual("Fence", rows[0].Appearance?.Name);
     }
 
     [TestMethod]

@@ -25,7 +25,8 @@ The Maps detail MUST display available terrain and incrementally add visible lan
 - **WHEN** a batch finishes
 - **THEN** its available landscape becomes visible before unrelated batches finish
 - **AND** incomplete textures retain meaningful decoded colours
-- **AND** progress and warnings remain readable outside the viewport
+- **AND** progress remains readable outside the viewport
+- **AND** scene and appearance warnings remain in the render responses and map store without a workspace warnings panel
 
 #### Scenario: A visible texture loads
 - **WHEN** the map loader requests a visible texture image
@@ -39,6 +40,11 @@ The Maps detail MUST display available terrain and incrementally add visible lan
 - **THEN** a conditional request returns 304 before PNG conversion, allowing reuse of the cached image
 - **AND** cached images are private and require revalidation with existing authorization
 - **AND** changed source bytes or material settings return an updated image, metadata and validator
+
+#### Scenario: A texture is requested without a browser validator
+- **WHEN** an authorized client repeats an unconditional texture GET within the output cache lifetime
+- **THEN** the service may reuse the successful response from its bounded ASP.NET Core output cache
+- **AND** conditional requests continue to validate current image and material data
 
 ### Requirement: Map asset loading follows current visibility
 
@@ -199,4 +205,4 @@ Landscape expansion SHALL reuse temporary attribute values and batch its zero te
 #### Scenario: Multiple landscape parts follow terrain
 - **WHEN** landscape vertices are appended after terrain
 - **THEN** every output vertex retains its position, colour, UV, opacity and first-texel marker
-- **AND** terrain blend weights are preserved while the full landscape weight suffix contains zeros
+- **AND** terrain blend weights are preserved for terrain draw groups, and landscape vertices do not allocate terrain weights

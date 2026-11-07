@@ -5,6 +5,7 @@ import { ModelScene, type ModelTexture } from "./model-scene";
 const gpu = vi.hoisted(() => ({
     setSize: vi.fn(), setAnimationLoop: vi.fn(), dispose: vi.fn(), remove: vi.fn(),
     disconnect: vi.fn(), controlsDispose: vi.fn(), render: vi.fn(),
+    controlsListen: vi.fn(), controlsUnlisten: vi.fn(),
     gizmoRender: vi.fn(), gizmoDispose: vi.fn(),
 }));
 
@@ -19,6 +20,7 @@ vi.mock("three", async importOriginal => {
 });
 vi.mock("three/addons/controls/OrbitControls.js", () => ({ OrbitControls: class {
     target = new THREE.Vector3(); update = vi.fn(); dispose = gpu.controlsDispose;
+    addEventListener = gpu.controlsListen; removeEventListener = gpu.controlsUnlisten;
 } }));
 vi.mock("./orientation-gizmo", () => ({ OrientationGizmo: class {
     render = gpu.gizmoRender;
@@ -28,12 +30,14 @@ vi.mock("./orientation-gizmo", () => ({ OrientationGizmo: class {
 describe("ModelScene resource ownership", () => {
     let resize: ResizeObserverCallback;
     let scene: ModelScene;
-    const host = { clientWidth: 640, clientHeight: 360, appendChild: vi.fn() };
+    const host = { clientWidth: 640, clientHeight: 360, appendChild: vi.fn(), getBoundingClientRect: () => ({ left: 0, top: 0, width: 640, height: 360 }) };
     const triangle = { sourceId: 1, positions: [0, 0, 0, 10, 0, 0, 0, 10, 0], indices: [0, 1, 2] };
 
     beforeEach(() => {
         vi.clearAllMocks();
         vi.stubGlobal("window", { devicePixelRatio: 1 });
+        vi.stubGlobal("requestAnimationFrame", vi.fn((_callback: FrameRequestCallback) => 1));
+        vi.stubGlobal("cancelAnimationFrame", vi.fn());
         vi.stubGlobal("ResizeObserver", class {
             constructor(callback: ResizeObserverCallback) { resize = callback; }
             observe = vi.fn(); disconnect = gpu.disconnect;
@@ -61,6 +65,26 @@ describe("ModelScene resource ownership", () => {
         expect(gpu.gizmoRender.mock.lastCall![0].autoClear).toBe(true);
         scene.dispose();
         expect(gpu.gizmoDispose).toHaveBeenCalledOnce();
+    });
+
+    it("picks the visible source vertices behind a fully transparent face after sorting", () => {
+        const vertexRgba = new Float32Array(24).fill(1);
+        vertexRgba[3] = vertexRgba[7] = vertexRgba[11] = 0;
+        const uvs = new Float32Array(12);
+        scene.setGeometry({
+            positions: [0, 0, 4, 10, 0, 4, 0, 10, 4, ...triangle.positions],
+            indices: [0, 1, 2, 3, 4, 5],
+            vertexRgba,
+            uvs,
+        });
+        const { geometry } = renderAt(0);
+        expect(geometry.getAttribute("color").array).toBe(vertexRgba);
+        expect(geometry.getAttribute("uv").array).toBe(uvs);
+        const camera = gpu.render.mock.lastCall![1] as THREE.PerspectiveCamera;
+        camera.position.set(2, 2, 10);
+        camera.lookAt(2, 2, 0);
+        expect(scene.pickVertex(320, 180)).toBe(3);
+        expect(scene.pickVertex(639, 1)).toBeNull();
     });
     function faceOrder(mesh: THREE.Mesh<THREE.BufferGeometry>): number[] {
         return mesh.geometry.groups.flatMap(group => Array.from({length: group.count / 3}, (_, i) => mesh.geometry.index!.getX(group.start + i * 3) / 3));
@@ -146,7 +170,7 @@ describe("ModelScene resource ownership", () => {
         const map = new ModelScene({ ...host, clientWidth: 792 } as unknown as HTMLElement, "Map", "map");
         try {
             map.setSceneGeometry({ positions: [0, 0, 0, 64, 0, 0, 64, 0, 64, 0, 0, 64], indices: [0, 1, 2, 0, 2, 3] }, true);
-            gpu.setAnimationLoop.mock.lastCall![0](0);
+            vi.mocked(requestAnimationFrame).mock.lastCall![0](0);
             const camera = gpu.render.mock.lastCall![1] as THREE.PerspectiveCamera;
             camera.lookAt(32, 0, 32);
             camera.updateMatrixWorld();
@@ -160,6 +184,37 @@ describe("ModelScene resource ownership", () => {
         }
     });
 
+    it("renders maps on demand and coalesces scene, camera and resize changes", () => {
+        gpu.setAnimationLoop.mockClear();
+        const frames = vi.mocked(requestAnimationFrame);
+        const map = new ModelScene(host as unknown as HTMLElement, "Map", "map");
+        try {
+            map.setSceneGeometry({ ...triangle, firstTexel: Uint8Array.of(1, 0, 0) }, true);
+            map.setDisplay(true, false);
+            expect(gpu.setAnimationLoop).not.toHaveBeenCalled();
+            expect(frames).toHaveBeenCalledOnce();
+            frames.mock.lastCall![0](0);
+            expect(gpu.render).toHaveBeenCalledOnce();
+            expect(frames).toHaveBeenCalledOnce();
+            const mesh = (gpu.render.mock.lastCall![0] as THREE.Scene).children.find(child => child instanceof THREE.Mesh) as THREE.Mesh;
+            expect(mesh.geometry.getAttribute("cacheFirstTexel").array).toBeInstanceOf(Uint8Array);
+
+            gpu.controlsListen.mock.lastCall![1]();
+            map.showVertexBounds({ startVertex: 0, endVertex: 3 });
+            resize([], {} as ResizeObserver);
+            expect(frames).toHaveBeenCalledTimes(2);
+            frames.mock.lastCall![0](16);
+            expect(gpu.render).toHaveBeenCalledTimes(2);
+            expect(frames).toHaveBeenCalledTimes(2);
+            map.zoom(0.9);
+            expect(frames).toHaveBeenCalledTimes(3);
+        } finally {
+            map.dispose();
+        }
+        expect(cancelAnimationFrame).toHaveBeenCalledWith(1);
+        expect(gpu.controlsUnlisten).toHaveBeenCalledWith("change", gpu.controlsListen.mock.lastCall![1]);
+    });
+
     it("groups blended terrain separately and disposes its material on scene replacement", () => {
         scene.setTextures(new Map([[8, { image: {} as ImageBitmap, alphaMode: 0 as const }]]));
         scene.setGeometry({ ...triangle, textureIds: [-2], terrainWeights: Array(3).fill([1, 0, 0, 0, 0, 0, 0, 0]).flat(),
@@ -171,6 +226,34 @@ describe("ModelScene resource ownership", () => {
         scene.setGeometry({ ...triangle, sourceId: 2 });
         expect(release).toHaveBeenCalledOnce();
         expect(renderAt(16).material).toHaveLength(4);
+    });
+
+    it("keeps blend draws within the terrain-only weight buffer in a mixed mesh", () => {
+        scene.setGeometry({
+            positions: [...triangle.positions, ...triangle.positions],
+            indices: [0, 1, 2, 3, 4, 5],
+            textureIds: [-2, -1],
+            terrainWeights: Array(3).fill([1, 0, 0, 0, 0, 0, 0, 0]).flat(),
+            terrainBlends: [{ id: -2, layers: [{ textureId: 1, textureScale: 512, color: [1, 1, 1] }] }],
+        });
+        const { geometry } = renderAt(0);
+        const weights = geometry.getAttribute("terrainWeightsA");
+        expect(weights.count).toBe(3);
+        expect(geometry.getAttribute("position").count).toBe(6);
+        expect(geometry.groups).toEqual([{ start: 0, count: 3, materialIndex: 2 }, { start: 3, count: 3, materialIndex: 0 }]);
+        expect(Array.from(geometry.index!.array)).toEqual([0, 1, 2, 3, 4, 5]);
+    });
+
+    it("keeps compact source indices separate from the permuted draw index", () => {
+        const indices = Uint16Array.of(0, 1, 2, 3, 4, 5, 6, 7, 8);
+        const image = {} as ImageBitmap;
+        scene.setTextures(new Map([[7, { image, alphaMode: 0 }]]));
+        scene.setGeometry({ positions: [...triangle.positions, ...triangle.positions, ...triangle.positions], indices, textureIds: [7, -1, 7] });
+        const draw = renderAt(0).geometry.index!.array;
+        expect(draw).toBeInstanceOf(Uint16Array);
+        expect(draw).not.toBe(indices);
+        expect(draw).toEqual(Uint16Array.of(0, 1, 2, 6, 7, 8, 3, 4, 5));
+        expect(indices).toEqual(Uint16Array.of(0, 1, 2, 3, 4, 5, 6, 7, 8));
     });
 
     it("retains terrain buffers and materials through twenty progressive texture arrivals", () => {

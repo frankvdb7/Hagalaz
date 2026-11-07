@@ -6,6 +6,9 @@ import type { Observable } from "rxjs";
 import { environment } from "../../../../environments/environment";
 import type { UpdateObjectNameResultDto } from "./cache.models";
 import { cacheDefinitionResource, cacheQueryResource } from "./cache-resource";
+import type { SearchDefinitionsDto } from "./dtos/search-definitions-dto";
+
+export interface ObjectCatalogEntry { id: number; name: string; shape: number | null }
 
 @Service()
 export class CacheObjectsService {
@@ -18,6 +21,10 @@ export class CacheObjectsService {
 
     rangeResource(range: Signal<{ startId: number; endIdExclusive: number } | null>) {
         return cacheQueryResource<GetObjectDefinitionDto[]>(`${this.baseUrl}/range`, range);
+    }
+
+    catalogResource(page: Signal<{ query: string; offset: number; limit: number } | null>) {
+        return cacheQueryResource<SearchDefinitionsDto<ObjectCatalogEntry>>(`${this.baseUrl}/catalog`, page);
     }
 
     updateObjectName(id: number, name: string): Observable<UpdateObjectNameResultDto> {

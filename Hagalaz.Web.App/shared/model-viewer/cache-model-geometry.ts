@@ -1,6 +1,8 @@
-import { clampLight, lightModel, litFaceColor } from "./model-lighting";
+import { clampLight, lightModel, litFaceColor, type ModelLight } from "./model-lighting";
 import type { ModelGeometry } from "./model-scene";
 import type {ModelParticle} from "./model-particles";
+
+export const modelFaceWinding = [0, 2, 1] as const;
 
 export interface CacheModelGeometry {
     id?: number;
@@ -21,11 +23,11 @@ export interface CacheModelGeometry {
 }
 
 /** Converts the cache's downward Y axis and reverses winding exactly once. */
-export function prepareCacheModel(model: CacheModelGeometry, materials?: ReadonlyMap<number, { colorBlend?: number; brightness?: number; effectId?: number }>): ModelGeometry {
+export function prepareCacheModel(model: CacheModelGeometry, materials?: ReadonlyMap<number, { colorBlend?: number; brightness?: number; effectId?: number }>, light?: ModelLight): ModelGeometry {
     const coordinate = (index: number) => model.scale ? Math.floor(model.positions[index] * model.scale[index % 3]) : model.positions[index];
     if (model.faceColors) {
         const preparedLighting = model.ambient !== undefined || model.faceShadingTypes !== undefined;
-        const shades = preparedLighting ? lightModel({...model, positions: model.positions.map((_, index) => Math.trunc(coordinate(index) / (model.coordinateScale ?? 1)))}) : [];
+        const shades = preparedLighting ? lightModel({...model, positions: model.positions.map((_, index) => Math.trunc(coordinate(index) / (model.coordinateScale ?? 1)))}, light) : [];
         const positions: number[] = [];
         const colors: number[] = [];
         const indices: number[] = [];
@@ -44,7 +46,7 @@ export function prepareCacheModel(model: CacheModelGeometry, materials?: Readonl
             // Client alpha -1 hides helper faces; -2 uses constant shading rather than transparency.
             const type = alpha === 255 ? 2 : alpha === 254 ? 3 : model.faceShadingTypes?.[face] ?? 0;
             const opacity = alpha === 255 || type === 2 || (preparedLighting && textured && type === 3) ? 0 : alpha === 254 ? 1 : (255 - alpha) / 255;
-            for (const corner of [0, 2, 1]) {
+            for (const corner of modelFaceWinding) {
                 const vertex = model.indices[face * 3 + corner] * 3;
                 positions.push(coordinate(vertex), -coordinate(vertex + 1), coordinate(vertex + 2));
                 if (preparedLighting) {

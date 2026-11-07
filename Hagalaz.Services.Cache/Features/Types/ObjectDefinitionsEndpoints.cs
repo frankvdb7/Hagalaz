@@ -1,7 +1,13 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Types.Data;
 using Hagalaz.Services.Cache.Features.Shared;
 using Hagalaz.Services.Cache.Features.Types.Dtos;
@@ -19,6 +25,7 @@ public static class ObjectDefinitionsEndpoints
     {
         types.MapGet("/objects/{id:int}", GetObjectType);
         types.MapGet("/objects/range", GetObjectTypeRange);
+        types.MapGet("/objects/catalog", GetObjectCatalog);
         types.MapPost("/objects/{id:int}/name", SetObjectName);
         return types;
     }
@@ -33,6 +40,60 @@ public static class ObjectDefinitionsEndpoints
 
     private static GetObjectDefinitionDto MapObject(IObjectType obj) =>
         new(obj.Id, obj.Name, obj.SizeX, obj.SizeY, obj.Solid, obj.Gateway, obj.ClipType, obj.Surroundings, obj.Actions, obj.VarpBitFileId);
+
+    // Keyed by the cache's reference-table snapshot, which is replaced whenever the object index is written.
+    private static readonly ConditionalWeakTable<IReferenceTable, GetObjectCatalogEntryDto[]> CatalogNames = new();
+
+    /// <summary>Drops name indexes after writes that keep the reference table, such as raw store writes.</summary>
+    internal static void InvalidateCatalog() => CatalogNames.Clear();
+
+    private static IResult GetObjectCatalog(ICacheAPI cache, ITypeProvider<IObjectType> provider, CancellationToken cancellationToken, string query = "", int offset = 0, int limit = 40)
+    {
+        if (ValidateSearch(query, offset, limit, provider.ArchiveSize, requireQuery: false) is { } invalid) return invalid;
+
+        var data = new ObjectTypeData();
+        var table = cache.ReadReferenceTable(data.IndexId);
+        var ids = ObjectIds(table, data);
+        query = query.Trim();
+        var exactId = int.TryParse(query, out var requestedId);
+        if (query.Length == 0 || exactId)
+        {
+            int[] matches = query.Length == 0 ? ids : Array.BinarySearch(ids, requestedId) >= 0 ? [requestedId] : [];
+            var page = matches.Skip(offset).Take(limit).Select(id => CatalogEntry(provider.Get(id))).ToArray();
+            return TypedResults.Ok(new SearchDefinitionsDto<GetObjectCatalogEntryDto>(query, matches.Length, offset, limit, page));
+        }
+
+        if (!CatalogNames.TryGetValue(table, out var catalog))
+        {
+            catalog = BuildCatalog(ids, data.ArchiveEntrySize, provider, cancellationToken);
+            CatalogNames.AddOrUpdate(table, catalog);
+        }
+        return CreateSearchResponse(query, offset, limit, catalog.Where(entry => entry.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray());
+    }
+
+    private static int[] ObjectIds(IReferenceTable table, ObjectTypeData data) => table.Entries
+        .SelectMany(archive => archive.Value.Entries.Select(entry => archive.Key * data.ArchiveEntrySize + entry.Key))
+        .Order().ToArray();
+
+    private static GetObjectCatalogEntryDto[] BuildCatalog(int[] ids, int archiveEntrySize, ITypeProvider<IObjectType> provider, CancellationToken cancellationToken)
+    {
+        var entries = ids.ToHashSet();
+        var catalog = new List<GetObjectCatalogEntryDto>(ids.Length);
+        // Decode one existing archive at a time; absent archives cannot be read.
+        foreach (var archive in ids.GroupBy(id => id / archiveEntrySize))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            catalog.AddRange(provider.GetRange(archive.First(), archive.Last() + 1).Where(definition => entries.Contains(definition.Id)).Select(CatalogEntry));
+        }
+        return catalog.ToArray();
+    }
+
+    private static GetObjectCatalogEntryDto CatalogEntry(IObjectType value)
+    {
+        var definition = (ObjectType)value;
+        var shapes = (definition.Shapes ?? []).Take(definition.ModelIDs.Length).Where(shape => shape is >= 0 and <= 22).ToArray();
+        return new(definition.Id, definition.Name, shapes.Contains((sbyte)10) ? 10 : shapes.Length > 0 ? shapes[0] : null);
+    }
 
     private static IResult SetObjectName(
         int id,

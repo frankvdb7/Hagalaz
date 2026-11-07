@@ -10,19 +10,25 @@ export interface MapRenderPlane {
 }
 export interface MapPlacement { id: number; shape: number; rotation: number; x: number; y: number; plane: number; }
 export interface MapFloor { id: number; overlay: boolean; rgb: number | null; textureId: number; secondaryRgb: number | null; textureScale: number; }
+export interface MapAtmosphere {
+    lightRgb: number; intensity: number; positiveResponse: number; negativeResponse: number;
+    directionX: number; directionY: number; directionZ: number;
+}
 export interface MapRenderRegion {
     id: number; regionX: number; regionY: number;
     terrainStatus: "available" | "absent" | "failed";
     landscapeStatus: "available" | "absent" | "failed";
     planes: MapRenderPlane[]; objects: MapPlacement[]; floors: MapFloor[]; warnings: string[];
+    atmosphere?: MapAtmosphere | null;
 }
 export interface ObjectRenderAppearance {
+    name?: string | null;
     id: number; shape: number; rotation: number; sizeX: number; sizeY: number; decorDisplacement: number;
     contourMode: number; contourParameter: number; parts: GetModelDto[]; warnings: string[];
 }
 export interface MapSelection { id: number; width: number; height: number; }
 export interface MapLoadRequest extends MapSelection { keys: Record<string, number[]>; }
-export interface MapVisibility { planes: readonly boolean[]; landscape: boolean; }
+export interface MapVisibility { planes: readonly boolean[]; landscape: boolean; previewPlacements?: readonly MapPlacement[]; }
 export interface ObjectAppearanceResult {
     id: number; shape: number; rotation: number; status: number;
     appearance: ObjectRenderAppearance | null;
@@ -42,17 +48,4 @@ export function selectedMapIds(selection: MapSelection): number[] {
     const x = id >> 8, y = id & 255;
     if (x + width > 256 || y + height > 256) return [];
     return Array.from({ length: width * height }, (_, index) => id + Math.floor(index / height) * 256 + index % height);
-}
-
-export function parseMapKeys(text: string, ids: readonly number[]): Record<string, number[]> {
-    const value: unknown = text.trim() ? JSON.parse(text) : {};
-    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Enter an object keyed by selected region ID, with four signed integers per region.");
-    const result: Record<string, number[]> = {};
-    for (const [key, keys] of Object.entries(value)) {
-        if (!ids.includes(Number(key)) || String(Number(key)) !== key) throw new Error(`Region ${key} is not in the selected rectangle.`);
-        if (!Array.isArray(keys) || keys.length !== 4 || !keys.every(key => Number.isInteger(key) && key >= -2147483648 && key <= 2147483647))
-            throw new Error(`Region ${key} requires four signed 32-bit integers.`);
-        result[key] = keys;
-    }
-    return result;
 }

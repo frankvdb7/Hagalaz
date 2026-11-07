@@ -112,3 +112,13 @@ The white-tint regression failed before the fix and passed after preserving deco
 - [x] Align the region editor with the selected reference using the existing Cache Studio shell and live viewport. Verify region navigation and camera controls.
 
 - [ ] Compare the rendered Region 12850 screen with the supplied reference after a user-provided capture.
+
+- [x] Move region controls into the viewport toolbar and give the live map the available workspace height. Preserve region navigation and loading.
+
+- [x] Select a rendered landscape placement in the viewport and show its identity and tile in the inspector. Verify picking, visibility changes, and selection cleanup.
+
+- [x] Add a viewport-first object editing workspace with local transforms, placement catalog, and inspector tabs. Verify draft changes do not write to the cache.
+
+- [x] Display cache names and on-demand mesh previews in object asset cards without extra image requests.
+
+- [x] Browse the full object catalog, place objects on terrain, and list rendered placements in the sidebar.

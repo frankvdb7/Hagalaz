@@ -46,6 +46,7 @@ public class DefinitionEndpointRegistrationTests
             "GET /api/v1/cache/types/npcs/range",
             "GET /api/v1/cache/types/npcs/search",
             "GET /api/v1/cache/types/npcs/{id:int}",
+            "GET /api/v1/cache/types/objects/catalog",
             "GET /api/v1/cache/types/objects/range",
             "GET /api/v1/cache/types/objects/{id:int}",
             "GET /api/v1/cache/types/quests/range",

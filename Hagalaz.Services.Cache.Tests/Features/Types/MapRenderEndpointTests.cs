@@ -34,7 +34,7 @@ public sealed class MapRenderEndpointTests
     public async Task RenderRegion_UsesAuthoritativeNeighborBordersAndIndependentLandscapeStatus()
     {
         var data = new byte[16384];
-        var store = Store(("m1_2", data), ("m2_2", data), ("m1_3", data), ("m2_3", data), ("m3_2", data), ("m3_3", data), ("l1_2", new byte[] { 1, 128 }));
+        var store = Store(("m1_2", [..data, 0, 1, 0, 0xdd, 0xce, 0xbb]), ("m2_2", data), ("m1_3", data), ("m2_3", data), ("m3_2", data), ("m3_3", data), ("l1_2", new byte[] { 1, 128 }));
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
         using var response = await client.PostAsJsonAsync("/api/v1/cache/types/maps/258/render", new { });
@@ -42,6 +42,7 @@ public sealed class MapRenderEndpointTests
         var region = await response.Content.ReadFromJsonAsync<MapRenderRegion>();
         Assert.IsNotNull(region);
         Assert.AreEqual("available", region.TerrainStatus);
+        Assert.AreEqual(0xddcebb, region.Atmosphere?.LightRgb);
         Assert.AreEqual("failed", region.LandscapeStatus);
         Assert.HasCount(4, region.Planes);
         Assert.IsEmpty(region.Objects);
@@ -50,6 +51,7 @@ public sealed class MapRenderEndpointTests
         nextResponse.EnsureSuccessStatusCode();
         var neighbor = await nextResponse.Content.ReadFromJsonAsync<MapRenderRegion>();
         Assert.IsNotNull(neighbor);
+        Assert.IsNull(neighbor.Atmosphere);
         for (var plane = 0; plane < 4; plane++)
         for (var y = 0; y <= 64; y++)
             Assert.AreEqual(neighbor.Planes[plane].CornerHeights[y], region.Planes[plane].CornerHeights[64 * 65 + y]);
@@ -58,7 +60,7 @@ public sealed class MapRenderEndpointTests
     [TestMethod]
     public async Task RenderRegion_ReportsAbsentFilesAndIncompleteBoundaryWithoutGeneratedHeights()
     {
-        await using var app = await CacheServiceTestHost.StartAsync(Store(("m255_255", new byte[16384])), group => group.MapTypeEndpoints());
+        await using var app = await CacheServiceTestHost.StartAsync(Store(("m255_255", [..new byte[16384], 0, 1])), group => group.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
         using var absentResponse = await client.PostAsJsonAsync("/api/v1/cache/types/maps/0/render", new { });
         var absent = await absentResponse.Content.ReadFromJsonAsync<MapRenderRegion>();
@@ -70,6 +72,8 @@ public sealed class MapRenderEndpointTests
         var edge = await edgeResponse.Content.ReadFromJsonAsync<MapRenderRegion>();
         Assert.IsNotNull(edge);
         Assert.AreEqual("available", edge.TerrainStatus);
+        Assert.IsNull(edge.Atmosphere);
+        Assert.IsTrue(edge.Warnings.Any(warning => warning.Contains("atmosphere is truncated", StringComparison.Ordinal)));
         Assert.IsNull(edge.Planes[0].CornerHeights[64 * 65]);
         Assert.IsNull(edge.Planes[0].CornerHeights[64]);
         Assert.IsNotNull(edge.Planes[0].CornerHeights[0]);

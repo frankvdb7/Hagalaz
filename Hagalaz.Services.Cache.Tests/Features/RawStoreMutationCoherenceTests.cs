@@ -327,6 +327,7 @@ public sealed class RawStoreMutationCoherenceTests
             EncodeObject(objectCodec, "initial-0"),
             EncodeObject(objectCodec, "initial-1")));
         store.Set(255, 16, EncodeReferenceTable(referenceTableCodec, memberCount: 1, mapObjectToLastMember: false));
+        store.Set(16, 0, EncodeContainer(EncodeArchive(EncodeObject(objectCodec, "first"))));
         store.Set(16, 1, initialArchive);
         store.Set(16, 2, EncodeContainer(EncodeArchive(
             EncodeObject(objectCodec, "copy-0"),
@@ -344,12 +345,16 @@ public sealed class RawStoreMutationCoherenceTests
         var updatedReferenceTable = EncodeReferenceTable(referenceTableCodec, memberCount: 2, mapObjectToLastMember: true);
         await PostRawWriteAsync(client, "/api/v1/cache/store/indexes/255/files/16/actions/write-raw", updatedReferenceTable);
         Assert.AreEqual("initial-1", await ReadObjectNameAsync(client));
+        Assert.AreEqual(1, await CountCatalogMatchesAsync(client, "initial-1"));
 
         var replacementArchive = EncodeContainer(EncodeArchive(
             EncodeObject(objectCodec, "raw-write-0"),
             EncodeObject(objectCodec, "raw-write-1")));
         await PostRawWriteAsync(client, "/api/v1/cache/store/indexes/16/files/1/actions/write-raw", replacementArchive);
         Assert.AreEqual("raw-write-1", await ReadObjectNameAsync(client));
+        // Raw archive writes keep the reference table, so the catalog name index must still refresh.
+        Assert.AreEqual(1, await CountCatalogMatchesAsync(client, "raw-write-1"));
+        Assert.AreEqual(0, await CountCatalogMatchesAsync(client, "initial-1"));
         CollectionAssert.AreEqual(replacementArchive, store.GetBytes(16, 1));
 
         var copySourceArchive = EncodeContainer(EncodeArchive(
@@ -514,6 +519,15 @@ public sealed class RawStoreMutationCoherenceTests
         Assert.AreEqual((short)123, unchangedSibling.ConfigID);
         Assert.AreEqual((byte)4, unchangedSibling.BitOffset);
         Assert.AreEqual((byte)8, unchangedSibling.BitLength);
+    }
+
+    private static async Task<int> CountCatalogMatchesAsync(HttpClient client, string query)
+    {
+        using var response = await client.GetAsync($"/api/v1/cache/types/objects/catalog?query={query}");
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
+        var page = await response.Content.ReadFromJsonAsync<SearchDefinitionsDto<GetObjectCatalogEntryDto>>();
+        Assert.IsNotNull(page);
+        return page.TotalMatches;
     }
 
     private static async Task<string> ReadObjectNameAsync(HttpClient client, int id = 259)

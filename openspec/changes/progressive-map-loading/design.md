@@ -150,3 +150,17 @@ The next user capture finishes texture requests at 9.364 seconds and shows 1.056
 ## First frame transparent ordering
 
 Geometry setup builds the opaque prefix and classifies transparent faces. The render loop already orders transparent faces using the final camera before drawing. Defer the transparent index and group writes to that pass to avoid sorting and writing them during setup with the previous view matrix.
+
+### Map vertex memory
+
+Only terrain draw groups use blend weights. Keep their attribute data through the last terrain vertex and leave landscape materials on the existing standard attributes. Preserve a source index snapshot for geometry that can update in place; static geometry can reuse its immutable source indices.
+
+### Idle map rendering
+
+The map viewport uses coalesced animation-frame requests for camera, viewport, or scene changes. A stationary map keeps its last frame and samples texture effects on the next redraw. Standalone animated model viewers keep their continuous render loop.
+
+Static landscape previews publish GPU-ready RGBA and UV arrays. The renderer binds those arrays directly and preserves source geometry, material ordering, and the standalone animated model path.
+
+### Prepared landscape memory
+
+The map preparation cache stores compact typed arrays and projects shared source positions once per placement. Expanded corners retain their own colors, UVs, and opacity. Map assembly publishes the same draw data through the existing renderer.

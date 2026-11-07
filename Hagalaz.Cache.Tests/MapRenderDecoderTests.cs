@@ -30,6 +30,8 @@ public sealed class MapRenderDecoderTests
     {
         using var input = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "maps", "terrain-12850.dat"));
         var terrain = MapRenderDecoder.DecodeTerrain(input, 12850);
+        var atmosphere = MapRenderDecoder.DecodeAtmosphere(input);
+        Assert.Equal(new Hagalaz.Cache.Types.MapAtmosphere(0xddcebb, 334 / 256f, 2f, 92 / 256f, -4, -16, 1), atmosphere);
         using var semantic = new MemoryStream();
         foreach (var p in terrain)
         for (var tile = 0; tile < 4096; tile++)

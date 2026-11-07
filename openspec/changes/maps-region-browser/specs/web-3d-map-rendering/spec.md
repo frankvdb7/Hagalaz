@@ -85,17 +85,17 @@ The region scene MUST render available ordinary static landscape objects using t
 
 ### Requirement: Region availability is reported independently for terrain and landscape
 
-The render API and workspace MUST distinguish absent terrain, absent landscape, landscape decode failures and request failures for each selected region. Optional per-region XTEA keys MUST contain exactly four signed 32-bit integers and MUST remain outside URLs and persistent browser storage. Unavailable landscape MUST NOT prevent available terrain from rendering.
+The render API and workspace MUST distinguish absent terrain, absent landscape, landscape decode failures and request failures for each selected region. The render API accepts optional per-region XTEA keys, which MUST contain exactly four signed 32-bit integers and MUST remain outside URLs and persistent browser storage. Unavailable landscape MUST NOT prevent available terrain from rendering.
 
 #### Scenario: Terrain exists but landscape needs keys
 - **GIVEN** terrain is readable and landscape cannot be decoded without the region's keys
 - **WHEN** the region is loaded without working keys
 - **THEN** available terrain remains visible
-- **AND** landscape is reported as unavailable with guidance to supply or check the keys
+- **AND** landscape is reported as unavailable
 - **AND** the region is not reported as a successfully decoded empty landscape
 
 #### Scenario: Correct keys are supplied
-- **GIVEN** the administrator supplies four valid keys for an affected selected region
+- **GIVEN** the render API receives four valid keys for an affected region
 - **WHEN** the region is retried
 - **THEN** the server decrypts the landscape container before decoding its placements
 - **AND** successful placements replace the previous unavailable result without duplication
@@ -104,7 +104,7 @@ The render API and workspace MUST distinguish absent terrain, absent landscape, 
 #### Scenario: Key input is malformed
 - **WHEN** supplied keys have the wrong length, fractional values or values outside signed 32-bit bounds
 - **THEN** input validation identifies the affected region
-- **AND** neither the UI nor direct API request starts decoding that invalid input
+- **AND** the API does not start decoding that invalid input
 
 #### Scenario: A neighboring region or required border is absent
 - **GIVEN** part of a selected rectangle or its authoritative terrain border is unavailable
@@ -141,7 +141,7 @@ The table's search/page context, detail region ID and applied rectangle dimensio
 
 #### Scenario: The administrator returns to the table
 - **GIVEN** a map was opened from a non-first table page with a search context
-- **WHEN** Back to Maps or browser Back is used
+- **WHEN** shared Cache Studio navigation or browser Back is used
 - **THEN** the prior table search, page size and page are restored
 - **AND** the map detail releases its scene and pending asset work
 
@@ -192,3 +192,30 @@ The map viewer MUST retain decoded floor tint when textures load and MUST interp
 #### Scenario: Texture loading finishes
 - **WHEN** a terrain texture becomes available
 - **THEN** the decoded grass or path tint remains applied instead of turning white
+
+### Requirement: Landscape placement selection
+
+The region editor SHALL let users select a rendered landscape placement in the viewport and inspect its source identity and tile.
+
+#### Scenario: Select or clear a placement
+- **WHEN** the user clicks a visible landscape placement without dragging the camera
+- **THEN** the viewport highlights that placement and the inspector shows its object ID, shape, and tile
+- **AND** selection clears when the user clicks terrain, clears it explicitly, or hides the selected placement
+
+### Requirement: Local map placement editing
+
+The map editor SHALL support preview-only changes to rendered object placements using the inspector and the loaded object catalog.
+
+#### Scenario: Preview an object edit
+- **WHEN** the user transforms, adds, or removes a placement
+- **THEN** the map updates locally without writing to the cache
+- **AND** discarding edits restores the source placements
+
+### Requirement: Object catalog and placed object list
+
+The Objects tray SHALL browse existing object definitions across the cache independently of the loaded map. The Scene inspector SHALL list rendered placements on visible planes.
+
+#### Scenario: Place a catalog asset
+- **WHEN** the user drops a supported object asset on renderable terrain
+- **THEN** the editor adds a local placement at the target tile and loads its appearance through the scene loader
+- **AND** the Scene inspector lists the rendered placement separately from the catalog asset

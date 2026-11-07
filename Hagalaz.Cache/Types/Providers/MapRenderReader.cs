@@ -19,7 +19,7 @@ public sealed class MapRenderReader(ICacheAPI cache)
         if ((cache.ReadReferenceTable(5).Flags & ReferenceTableFlags.Identifiers) == 0)
             throw new NotSupportedException("The map index has no named reference metadata.");
         var warnings = new List<string>();
-        var terrain = ReadTerrain(id, warnings, cancellationToken, out var terrainStatus);
+        var terrain = ReadTerrain(id, warnings, cancellationToken, out var terrainStatus, out var atmosphere, readAtmosphere: true);
         var objects = Array.Empty<MapRenderPlacement>();
         var landscapeStatus = "absent";
         cancellationToken.ThrowIfCancellationRequested();
@@ -45,9 +45,9 @@ public sealed class MapRenderReader(ICacheAPI cache)
         {
             var x = id >> 8;
             var y = id & 255;
-            var east = x < 255 ? ReadTerrain(id + 256, warnings, cancellationToken, out _) : null;
-            var north = y < 255 ? ReadTerrain(id + 1, warnings, cancellationToken, out _) : null;
-            var corner = x < 255 && y < 255 ? ReadTerrain(id + 257, warnings, cancellationToken, out _) : null;
+            var east = x < 255 ? ReadTerrain(id + 256, warnings, cancellationToken, out _, out _) : null;
+            var north = y < 255 ? ReadTerrain(id + 1, warnings, cancellationToken, out _, out _) : null;
+            var corner = x < 255 && y < 255 ? ReadTerrain(id + 257, warnings, cancellationToken, out _, out _) : null;
             if (east is null || north is null || corner is null) warnings.Add($"Region {id} has an incomplete terrain boundary; tiles with unavailable corner heights cannot be drawn.");
             for (var z = 0; z < 4; z++)
             {
@@ -65,11 +65,13 @@ public sealed class MapRenderReader(ICacheAPI cache)
             ReadFloors(terrain.SelectMany(p => p.Underlays), false, floors, warnings, cancellationToken);
             ReadFloors(terrain.SelectMany(p => p.Overlays), true, floors, warnings, cancellationToken);
         }
-        return new MapRenderRegion(id, id >> 8, id & 255, terrainStatus, landscapeStatus, planes, objects, floors, warnings);
+        return new MapRenderRegion(id, id >> 8, id & 255, terrainStatus, landscapeStatus, planes, objects, floors, warnings, atmosphere);
     }
 
-    private TerrainRenderPlane[]? ReadTerrain(int id, List<string> warnings, CancellationToken cancellationToken, out string status)
+    private TerrainRenderPlane[]? ReadTerrain(int id, List<string> warnings, CancellationToken cancellationToken, out string status,
+        out MapAtmosphere? atmosphere, bool readAtmosphere = false)
     {
+        atmosphere = null;
         cancellationToken.ThrowIfCancellationRequested();
         var file = cache.GetFileId(5, $"m{id >> 8}_{id & 255}");
         status = "absent";
@@ -78,6 +80,11 @@ public sealed class MapRenderReader(ICacheAPI cache)
         {
             using var container = cache.ReadContainer(5, file);
             var terrain = MapRenderDecoder.DecodeTerrain(container.Data, id, cancellationToken);
+            if (readAtmosphere)
+            {
+                try { atmosphere = MapRenderDecoder.DecodeAtmosphere(container.Data, cancellationToken); }
+                catch (EndOfStreamException) { warnings.Add($"Region {id} atmosphere is truncated; using default lighting."); }
+            }
             status = "available";
             return terrain;
         }

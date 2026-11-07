@@ -8,20 +8,56 @@ using System.Text;
 using System.Linq;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Net.Http.Headers;
 using SixLabors.ImageSharp;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Hagalaz.Services.Cache.Features.Models;
 
 public static class TextureEndpoints
 {
+    internal const string ImageCacheTag = "texture-images";
+
     public static IEndpointRouteBuilder MapTextureEndpoints(this IEndpointRouteBuilder group)
     {
-        group.MapGet("/textures/{id:int}/image", GetTextureImage);
+        group.MapGet("/textures/{id:int}/image", GetTextureImage)
+            .CacheOutput(new TextureOutputCachePolicy());
         group.MapGet("/textures/{id:int}/material", GetMaterial);
         group.MapGet("/textures/{id:int}/hdr", GetHdr);
         return group;
+    }
+
+    private sealed class TextureOutputCachePolicy : IOutputCachePolicy
+    {
+        public ValueTask CacheRequestAsync(OutputCacheContext context, CancellationToken cancellationToken)
+        {
+            var request = context.HttpContext.Request;
+            // The cache group authorizes administrators before output caching runs.
+            // Conditional requests still check the live image and material after edits.
+            var cache = HttpMethods.IsGet(request.Method) && !request.Headers.ContainsKey(HeaderNames.IfNoneMatch);
+            context.EnableOutputCaching = cache;
+            context.AllowCacheLookup = cache;
+            context.AllowCacheStorage = cache;
+            context.AllowLocking = true;
+            context.ResponseExpirationTimeSpan = System.TimeSpan.FromSeconds(15);
+            context.Tags.Add(ImageCacheTag);
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask ServeFromCacheAsync(OutputCacheContext context, CancellationToken cancellationToken) =>
+            ValueTask.CompletedTask;
+
+        public ValueTask ServeResponseAsync(OutputCacheContext context, CancellationToken cancellationToken)
+        {
+            var response = context.HttpContext.Response;
+            context.AllowCacheStorage &= response.StatusCode == StatusCodes.Status200OK &&
+                !response.Headers.ContainsKey(HeaderNames.SetCookie);
+            return ValueTask.CompletedTask;
+        }
     }
 
     private static IResult GetHdr(int id, ICacheAPI cache)

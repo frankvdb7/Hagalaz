@@ -318,6 +318,48 @@
     }
 }
 
+@media (width > 920px) {
+    .admin-portal mat-sidenav-content:has(.map-workspace) {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .admin-portal .map-workspace,
+    .admin-portal .map-workspace > cache-shell-page,
+    .admin-portal .map-workspace mat-tab-nav-panel,
+    .admin-portal .map-workspace cache-maps-detail-page {
+        display: flex;
+        flex: 1 1 0;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .admin-portal mat-sidenav-content:has(.map-workspace) > mat-toolbar,
+    .admin-portal .map-workspace .studio-tabs {
+        flex-shrink: 0;
+    }
+}
+
+.admin-portal .map-workspace-tabs {
+    @include mat.tabs-overrides((container-height: 44px));
+
+    .mat-mdc-tab {
+        min-width: 0;
+        padding-inline: 8px;
+    }
+}
+
+@container (min-width: 680px) {
+    .admin-portal .asset-tabs .mat-mdc-tab-header {
+        padding-inline-end: 350px;
+        border-bottom: 1px solid var(--mat-tab-divider-color, var(--mat-sys-outline-variant));
+    }
+
+    .admin-portal .asset-tabs .mat-mdc-tab-label-container {
+        border-bottom: 0;
+    }
+}
+
 .studio-compact-inspector {
     @include mat.form-field-overrides(
         (

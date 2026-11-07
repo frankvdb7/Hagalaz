@@ -1,3 +1,5 @@
+using Hagalaz.Services.Cache.Features.Mutations;
+using Hagalaz.Services.Cache.Features.Mutations.Dtos;
 using Hagalaz.Services.Cache.Features.Models.Dtos;
 using System.Net.Http.Json;
 using System.Net;
@@ -99,6 +101,52 @@ public sealed class TextureMaterialEndpointsTests
         Assert.IsNotNull(response.Headers.CacheControl);
         Assert.IsTrue(response.Headers.CacheControl.Private);
         Assert.IsTrue(response.Headers.CacheControl.NoCache);
+    }
+
+    [TestMethod]
+    public async Task ImageRequest_ReusesSuccessfulOutputForUnconditionalGet()
+    {
+        var store = CreateStore();
+        AddImage(store, 9, 1, new Rgba32(100, 110, 120));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTextureEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        using var initial = await client.GetAsync("/api/v1/cache/textures/0/image");
+        Assert.AreEqual(HttpStatusCode.OK, initial.StatusCode);
+        Assert.IsNull(initial.Headers.Age);
+        var png = await initial.Content.ReadAsByteArrayAsync();
+
+        using var repeated = await client.GetAsync("/api/v1/cache/textures/0/image");
+        Assert.AreEqual(HttpStatusCode.OK, repeated.StatusCode);
+        Assert.IsNotNull(repeated.Headers.Age);
+        Assert.AreEqual(initial.Headers.ETag, repeated.Headers.ETag);
+        CollectionAssert.AreEqual(png, await repeated.Content.ReadAsByteArrayAsync());
+    }
+
+    [TestMethod]
+    public async Task ImageRequest_RawTextureWriteEvictsCachedOutput()
+    {
+        var store = CreateStore();
+        AddImage(store, 9, 1, new Rgba32(100, 110, 120));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group =>
+        {
+            group.MapTextureEndpoints();
+            group.MapStoreMutationEndpoints();
+        });
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var initial = await client.GetAsync("/api/v1/cache/textures/0/image");
+        Assert.AreEqual(HttpStatusCode.OK, initial.StatusCode);
+
+        using var image = new Image<Rgba32>(1, 1, new Rgba32(1, 2, 3));
+        using var bytes = new MemoryStream(); image.SaveAsPng(bytes);
+        using var container = new Container(new MemoryStream(bytes.ToArray()));
+        using var write = await client.PostAsJsonAsync("/api/v1/cache/store/indexes/9/files/0/actions/write-raw",
+            new WriteRawFileDto(Convert.ToBase64String(container.Encode())));
+        Assert.AreEqual(HttpStatusCode.OK, write.StatusCode, await write.Content.ReadAsStringAsync());
+
+        using var repeated = await client.GetAsync("/api/v1/cache/textures/0/image");
+        Assert.IsNull(repeated.Headers.Age);
+        Assert.AreNotEqual(initial.Headers.ETag, repeated.Headers.ETag);
     }
 
     [TestMethod]

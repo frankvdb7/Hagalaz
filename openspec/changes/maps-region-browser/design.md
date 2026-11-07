@@ -26,7 +26,7 @@ The proposal's exclusions apply. In particular, this design does not introduce a
 
 Open `/cache/types/maps/:id` and automatically load the route region in the 3D detail. Query parameters `width` and `height` default to one. The path ID is the sole region anchor; do not introduce a competing `region` query parameter. Invalid IDs/dimensions show an error rather than silently selecting another region. Derive coordinates as `x = id >> 8`, `y = id & 255`; grow the rectangle toward increasing X and Y. Require each dimension in 1..3 and reject coordinate overflow before generating packed IDs.
 
-Preserve the browser's `kind`, `query`, `offset` and `limit` context on navigation into detail. Back to Maps reconstructs `/cache/types?kind=maps` with that context and excludes detail-only dimensions; browser Back restores the same state. A direct detail link works independently and returns to the default table context when none was supplied. The shared cache breadcrumb identifies the region and links back to Maps.
+Preserve the browser's `kind`, `query`, `offset` and `limit` context on navigation into detail. The shared Cache Studio navigation links to the Maps table; browser Back restores the original table state. A direct detail link works independently and returns to the default table context when none was supplied. The shared cache breadcrumb identifies the region and links back to Maps.
 
 The router owns applied list/detail context. Signal forms own drafts. Camera and visibility stay local; keys stay in detail-component memory. Provide the list and detail stores at their own component boundaries. The list must not create a viewport or trigger render/model/texture requests. Replace the generic Maps detail content with the region viewport and controls. A scene embedded in the table would load expensive assets before the administrator selects a map and would conflict with the requested type-browser flow.
 
@@ -143,3 +143,19 @@ This is a bounded web rendering improvement, not an implementation of the client
 ### Region editor layout
 
 The region editor keeps the Cache Studio shell and the live map viewport. A compact selection row edits the region ID and dimensions, and the plane selector isolates a plane while the inspector supports multi-plane visibility. Camera and display controls sit above the canvas. Region availability and current selection counts use the scene's live data. The inspector stacks beneath the viewport on narrow screens.
+
+The viewport-first layout places region selection, dimensions, plane, and load actions in the viewport toolbar. The selection and settings dialogs reuse the existing draft fields. Region availability remains in the inspector. The workspace no longer lists scene warnings; render responses and the map store keep them for diagnostics and tests. XTEA keys are accepted through the render API. The grid starts visible and remains configurable through View.
+
+### Landscape placement selection
+
+Retain vertex ranges for rendered placements. Resolve a camera ray hit by vertex index so material batching and transparent index sorting preserve placement identity. Highlight the selected bounds and show source metadata in the inspector. Selection is local to the map view.
+
+### Object editing workspace
+
+The map editor keeps local drafts scoped to the selected region rectangle. The asset tray browses loaded objects, models, and textures. Object tools apply preview-only placement changes to the assembled landscape while reusing terrain and prepared models. The region and tools tabs retain visibility and loading controls. Cache persistence, definition-level appearance changes, and direct axis dragging are outside this pass.
+
+The object asset tray reads names from existing appearance batches and draws small Canvas 2D mesh previews for visible cards after scene loading. Cards use an icon when no preview is available. No additional WebGL contexts or image requests are needed.
+
+### Object catalog and scene placements
+
+Browse actual object definitions with bounded pages. Drag catalog assets onto terrain or place them using the toolbar. Local additions join the existing map loader's appearance and texture interest. Scene placements remain distinct from catalog assets and appear in a separate inspector tab.
