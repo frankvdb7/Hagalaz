@@ -1,3 +1,5 @@
+using Hagalaz.Services.Cache.Features.Containers;
+using Hagalaz.Services.Cache.Features.Containers.Dtos;
 using Hagalaz.Services.Cache.Features.Mutations;
 using Hagalaz.Services.Cache.Features.Mutations.Dtos;
 using Hagalaz.Services.Cache.Features.Models.Dtos;
@@ -145,6 +147,53 @@ public sealed class TextureMaterialEndpointsTests
         Assert.AreEqual(HttpStatusCode.OK, write.StatusCode, await write.Content.ReadAsStringAsync());
 
         using var repeated = await client.GetAsync("/api/v1/cache/textures/0/image");
+        Assert.IsNull(repeated.Headers.Age);
+        Assert.AreNotEqual(initial.Headers.ETag, repeated.Headers.ETag);
+    }
+
+    [TestMethod]
+    [DataRow(9)]
+    [DataRow(26)]
+    public async Task ImageRequest_ContainerWriteToTextureSourceEvictsCachedOutput(int indexId)
+    {
+        var store = CreateStore();
+        AddImage(store, 9, 1, new Rgba32(100, 110, 120));
+        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var archive = new ReferenceTableEntry(0);
+        archive.InitializeEntries(1); archive.AddEntry(0, new ReferenceTableChildEntry(0)); table.AddEntry(0, archive);
+        using var encoded = new ReferenceTableCodec().Encode(table);
+        using var reference = new Container(new MemoryStream(encoded.ToArray()));
+        store.Set(255, 9, reference.Encode());
+        await using var app = await CacheServiceTestHost.StartAsync(store, group =>
+        {
+            group.MapTextureEndpoints();
+            group.MapContainerEndpoints();
+        });
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var initial = await client.GetAsync("/api/v1/cache/textures/0/image");
+        Assert.AreEqual(HttpStatusCode.OK, initial.StatusCode);
+
+        // Rewrite the current texture image or material table with new bytes, keeping both decodable.
+        byte[] payload;
+        if (indexId == 9)
+        {
+            using var image = new Image<Rgba32>(1, 1, new Rgba32(1, 2, 3));
+            using var bytes = new MemoryStream(); image.SaveAsPng(bytes);
+            payload = bytes.ToArray();
+        }
+        else
+        {
+            using var material = store.Read(26, 0);
+            using var decoded = new ContainerDecoder().Decode(material);
+            payload = decoded.Data.ToArray();
+            payload[3 + 5] ^= 1;
+        }
+        using var write = await client.PostAsJsonAsync($"/api/v1/cache/indexes/{indexId}/files/0/actions/write-container",
+            new WriteContainerDto(Convert.ToBase64String(payload)));
+        Assert.AreEqual(HttpStatusCode.OK, write.StatusCode, await write.Content.ReadAsStringAsync());
+
+        using var repeated = await client.GetAsync("/api/v1/cache/textures/0/image");
+        Assert.AreEqual(HttpStatusCode.OK, repeated.StatusCode, await repeated.Content.ReadAsStringAsync());
         Assert.IsNull(repeated.Headers.Age);
         Assert.AreNotEqual(initial.Headers.ETag, repeated.Headers.ETag);
     }

@@ -22,6 +22,9 @@ public static class TextureEndpoints
 {
     internal const string ImageCacheTag = "texture-images";
 
+    /// <summary>Texture images are derived from the texture (9) and material (26) indexes.</summary>
+    internal static bool IsImageSource(int indexId) => indexId is 9 or 26;
+
     public static IEndpointRouteBuilder MapTextureEndpoints(this IEndpointRouteBuilder group)
     {
         group.MapGet("/textures/{id:int}/image", GetTextureImage)

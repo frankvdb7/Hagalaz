@@ -1,12 +1,17 @@
 using Hagalaz.Services.Cache.Features.Containers.Dtos;
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Models;
+using Hagalaz.Services.Cache.Features.Models;
 using Hagalaz.Services.Cache.Features.Shared;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.Routing;
 
 namespace Hagalaz.Services.Cache.Features.Containers;
@@ -38,7 +43,7 @@ public static class ContainerEndpoints
         return TypedResults.Ok(MapContainer(container));
     }
 
-    private static IResult WriteContainer(int indexId, int fileId, WriteContainerDto request, ICacheAPI cacheApi)
+    private static async Task<IResult> WriteContainer(int indexId, int fileId, WriteContainerDto request, ICacheAPI cacheApi, [FromServices] IOutputCacheStore outputCache)
     {
         if (string.IsNullOrWhiteSpace(request.DataBase64))
         {
@@ -57,7 +62,13 @@ public static class ContainerEndpoints
 
         using var payload = new MemoryStream(data);
         using var container = new Container((CompressionType)request.CompressionType, payload, request.Version ?? -1);
-        cacheApi.Write(indexId, fileId, container);
+        // A failed write may still have changed the store, as with raw store writes.
+        try { cacheApi.Write(indexId, fileId, container); }
+        finally
+        {
+            if (TextureEndpoints.IsImageSource(indexId))
+                await outputCache.EvictByTagAsync(TextureEndpoints.ImageCacheTag, CancellationToken.None);
+        }
         return TypedResults.Ok(new WriteContainerResultDto(
             Action: "write-container",
             IndexId: indexId,
