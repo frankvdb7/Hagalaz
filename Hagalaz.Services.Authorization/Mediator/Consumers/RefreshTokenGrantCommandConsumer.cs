@@ -71,6 +71,9 @@ namespace Hagalaz.Services.Authorization.Mediator.Consumers
             var grantedScopes = info.Principal is null
                 ? ImmutableArray<string>.Empty
                 : info.Principal.GetScopes();
+            // The new principal starts empty; keep the original grant so refreshed tokens keep their API scopes and audiences.
+            principal.SetScopes(grantedScopes);
+            if (info.Principal is not null) principal.SetResources(info.Principal.GetResources());
             _claimDestinationService.IncludeRoleClaimsWhenGranted(
                 principal,
                 grantedScopes);
