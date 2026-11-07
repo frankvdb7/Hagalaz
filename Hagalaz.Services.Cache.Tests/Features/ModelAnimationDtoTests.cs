@@ -48,6 +48,22 @@ public class ModelAnimationDtoTests
         CollectionAssert.AreEqual(new[] { 0 }, result.Skeleton.Groups[0]);
     }
 
+    [TestMethod]
+    public async Task FrameDto_ResolvesSparseFrameIdThroughReferenceTable()
+    {
+        var store = new MemoryFileStore();
+        // Frame member ID 7 is stored at physical position 0.
+        Seed(store, 0, 1, 7, [0, 0, 3, 0, 1, 7, 69, 70, 71]);
+        using var skeleton = new Container(new MemoryStream([0, 1, 1, 1, 255, 255, 1, 0]));
+        store.Set(1, 3, skeleton.Encode());
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        var result = await client.GetFromJsonAsync<GetAnimationFrameDto>("/api/v1/cache/animation-frames/65543");
+        Assert.IsNotNull(result);
+        Assert.AreEqual(3, result.Frame.SkeletonId);
+        CollectionAssert.AreEqual(new[] { new AnimationTransformDto(0, 5, 6, 7, -1, 0) }, result.Frame.Transforms);
+    }
+
     private static void Seed(MemoryFileStore store, int index, int group, int child, byte[] data)
     {
         var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);

@@ -57,7 +57,7 @@ public static class ModelEndpoints
     private static IResult GetAnimationFrame(int id, ICacheAPI cache)
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Frame ID must be nonnegative."));
-        using var stream = cache.Read(0, id >> 16, id & 65535);
+        using var stream = ReadMember(cache, 0, id >> 16, id & 65535);
         var bytes = stream.ToArray();
         if (bytes.Length < 5) throw new System.IO.InvalidDataException("Animation frame header is truncated.");
         var skeletonId = (bytes[1] << 8) | bytes[2];
@@ -144,7 +144,7 @@ public static class ModelEndpoints
         {
             try
             {
-                using var renderSet = cache.Read(2, 32, npc.RenderId);
+                using var renderSet = ReadMember(cache, 2, 32, npc.RenderId);
                 animationIds.AddRange(RenderAnimationSetDecoder.Decode(renderSet));
             }
             catch (Exception exception) when (exception is System.IO.IOException or NotSupportedException)
@@ -354,6 +354,14 @@ public static class ModelEndpoints
                 if (values[face] == (originals[pair] & 65535)) values[face] = replacements[pair] & 65535;
     }
 
+    // ICacheAPI.Read takes the member's physical position; archives may skip member IDs.
+    private static System.IO.MemoryStream ReadMember(ICacheAPI cache, int indexId, int fileId, int memberId)
+    {
+        var member = cache.ReadReferenceTable(indexId).GetEntry(fileId, memberId)
+            ?? throw new System.IO.FileNotFoundException($"Archive member {indexId}/{fileId}/{memberId} is absent from the cache reference table.");
+        return cache.Read(indexId, fileId, member.Index);
+    }
+
     private static ModelParticleDto[] ReadParticles(ICacheAPI cache, IEnumerable<ModelGeometryDecoder.EmitterAttachment> attachments)
     {
         var result = new List<ModelParticleDto>();
@@ -363,9 +371,7 @@ public static class ModelEndpoints
             string? warning = null;
             try
             {
-                var member = cache.ReadReferenceTable(27).GetEntry(0)?.GetEntry(group.Key)
-                    ?? throw new System.IO.FileNotFoundException($"Particle emitter #{group.Key} is absent from the cache reference table.");
-                using var data = cache.Read(27, 0, member.Index);
+                using var data = ReadMember(cache, 27, 0, group.Key);
                 var decoded = ParticleEmitterDecoder.Decode(data.ToArray());
                 definition = new ParticleEmitterDto(decoded.TextureId, decoded.ColorMin, decoded.ColorMax, decoded.LifeMin, decoded.LifeMax,
                     decoded.RateMin, decoded.RateMax, decoded.SizeMin, decoded.SizeMax, decoded.SpeedMin, decoded.SpeedMax, decoded.Angles, decoded.UnsupportedOpcodes);

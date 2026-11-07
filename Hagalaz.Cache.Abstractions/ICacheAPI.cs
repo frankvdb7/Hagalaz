@@ -67,7 +67,7 @@ namespace Hagalaz.Cache.Abstractions
         /// </summary>
         /// <param name="indexId">The identifier of the index containing the archive.</param>
         /// <param name="fileId">The identifier of the archive file.</param>
-        /// <param name="subFileId">The identifier of the member file to read from the archive.</param>
+        /// <param name="subFileId">The physical position of the member within the archive (<c>IReferenceTableChildEntry.Index</c>), not its member ID; resolve sparse member IDs through the reference table first.</param>
         /// <returns>A <see cref="MemoryStream"/> containing the data of the requested member file.</returns>
         MemoryStream Read(int indexId, int fileId, int subFileId);
 

@@ -98,12 +98,16 @@ public sealed class MapRenderReader(ICacheAPI cache)
 
     private void ReadFloors(IEnumerable<int> ids, bool overlay, List<FloorRenderDefinition> floors, List<string> warnings, CancellationToken cancellationToken)
     {
+        var group = overlay ? 4 : 1;
         foreach (var id in ids.Where(id => id > 0).Distinct().Order())
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                using var data = cache.Read(2, overlay ? 4 : 1, id - 1);
+                // Read takes the physical member position; floor IDs are member IDs and may be sparse.
+                var member = cache.ReadReferenceTable(2).GetEntry(group, id - 1)
+                    ?? throw new FileNotFoundException($"Floor definition {id} is absent from the cache reference table.");
+                using var data = cache.Read(2, group, member.Index);
                 floors.Add(MapRenderDecoder.DecodeFloor(data, id, overlay));
             }
             catch (Exception error) when (IsDataError(error))

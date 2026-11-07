@@ -109,6 +109,30 @@ public sealed class MapRenderEndpointTests
     }
 
     [TestMethod]
+    public async Task RenderRegion_ResolvesSparseFloorIdsThroughReferenceTable()
+    {
+        // Tile 0,0 on plane 0 uses underlay 6 (member ID 5), stored at physical position 0 of config group 1.
+        var store = Store(("m0_0", [87, ..new byte[16384]]));
+        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 2);
+        var entry = new ReferenceTableEntry(0);
+        entry.InitializeEntries(1);
+        entry.AddEntry(5, new ReferenceTableChildEntry(0));
+        table.AddEntry(1, entry);
+        using var encoded = new ReferenceTableCodec().Encode(table);
+        store.Set(255, 2, ContainerBytes(encoded.ToArray()));
+        store.Set(2, 1, ContainerBytes([1, 0x12, 0x34, 0x56, 0]));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var response = await client.PostAsJsonAsync("/api/v1/cache/types/maps/0/render", new { });
+        response.EnsureSuccessStatusCode();
+        var region = await response.Content.ReadFromJsonAsync<MapRenderRegion>();
+        Assert.IsNotNull(region);
+        Assert.AreEqual(6, region.Planes[0].Underlays[0]);
+        CollectionAssert.AreEqual(new[] { new FloorRenderDefinition(6, false, 0x123456, -1, null, 512) }, region.Floors.ToArray());
+        Assert.IsFalse(region.Warnings.Any(warning => warning.Contains("Underlay", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
     [DataRow(-1, "{}")]
     [DataRow(65536, "{}")]
     [DataRow(0, "{\"xteaKeys\":[1,2,3]}")]
