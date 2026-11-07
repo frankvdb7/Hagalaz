@@ -44,8 +44,19 @@ public static class ObjectDefinitionsEndpoints
     // Keyed by the cache's reference-table snapshot, which is replaced whenever the object index is written.
     private static readonly ConditionalWeakTable<IReferenceTable, GetObjectCatalogEntryDto[]> CatalogNames = new();
 
+    private static readonly Lock CatalogLock = new();
+    private static int _catalogGeneration;
+
     /// <summary>Drops name indexes after writes that keep the reference table, such as raw store writes.</summary>
-    internal static void InvalidateCatalog() => CatalogNames.Clear();
+    internal static void InvalidateCatalog()
+    {
+        lock (CatalogLock)
+        {
+            // Builds that started before this write must not store their stale result.
+            _catalogGeneration++;
+            CatalogNames.Clear();
+        }
+    }
 
     private static IResult GetObjectCatalog(ICacheAPI cache, ITypeProvider<IObjectType> provider, CancellationToken cancellationToken, string query = "", int offset = 0, int limit = 40)
     {
@@ -65,8 +76,12 @@ public static class ObjectDefinitionsEndpoints
 
         if (!CatalogNames.TryGetValue(table, out var catalog))
         {
+            var generation = Volatile.Read(ref _catalogGeneration);
             catalog = BuildCatalog(ids, data.ArchiveEntrySize, provider, cancellationToken);
-            CatalogNames.AddOrUpdate(table, catalog);
+            lock (CatalogLock)
+            {
+                if (generation == _catalogGeneration) CatalogNames.AddOrUpdate(table, catalog);
+            }
         }
         return CreateSearchResponse(query, offset, limit, catalog.Where(entry => entry.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray());
     }

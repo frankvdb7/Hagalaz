@@ -56,19 +56,10 @@
     font: var(--mat-sys-body-small);
     pointer-events: none;
 }
-.asset-tray { position: relative; container-type: inline-size; flex-shrink: 0; }
+.asset-tray { flex-shrink: 0; }
 .asset-content { padding: 8px 12px 12px; }
 .asset-toolbar { padding: 4px 12px; justify-content: flex-end; }
 .asset-search { width: min(248px, 100%); }
-@container (min-width: 680px) {
-    .asset-toolbar {
-        position: absolute;
-        z-index: 1;
-        inset: 0 12px auto auto;
-        height: 44px;
-        padding: 0;
-    }
-}
 .asset-items {
     display: flex;
     gap: 8px;

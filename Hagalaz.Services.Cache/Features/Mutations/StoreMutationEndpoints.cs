@@ -24,7 +24,7 @@ public static class StoreMutationEndpoints
         return group;
     }
 
-    private static async Task<IResult> WriteRawFile(int indexId, int fileId, WriteRawFileDto request, ICacheAPI cache, [FromServices] IOutputCacheStore outputCache, CancellationToken cancellationToken)
+    private static async Task<IResult> WriteRawFile(int indexId, int fileId, WriteRawFileDto request, ICacheAPI cache, [FromServices] IOutputCacheStore outputCache)
     {
         if (indexId < 0 || fileId < 0)
         {
@@ -47,12 +47,13 @@ public static class StoreMutationEndpoints
         }
 
         using var stream = new MemoryStream(data);
-        cache.WriteRawFile(indexId, fileId, stream);
-        await InvalidateDerivedReadsAsync(outputCache, cancellationToken);
+        // A failed write may still have changed the store, matching CacheApi's own finally invalidation.
+        try { cache.WriteRawFile(indexId, fileId, stream); }
+        finally { await InvalidateDerivedReadsAsync(outputCache); }
         return TypedResults.Ok(new WriteRawFileResultDto("write-raw", indexId, fileId));
     }
 
-    private static async Task<IResult> CopyRawFile(int indexId, int fileId, CopyRawFileDto request, ICacheAPI cache, [FromServices] IOutputCacheStore outputCache, CancellationToken cancellationToken)
+    private static async Task<IResult> CopyRawFile(int indexId, int fileId, CopyRawFileDto request, ICacheAPI cache, [FromServices] IOutputCacheStore outputCache)
     {
         if (indexId < 0 || fileId < 0)
         {
@@ -64,15 +65,15 @@ public static class StoreMutationEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("sourceIndexId and sourceFileId must be greater than or equal to 0."));
         }
 
-        cache.CopyRawFile(indexId, fileId, request.SourceIndexId, request.SourceFileId);
-        await InvalidateDerivedReadsAsync(outputCache, cancellationToken);
+        try { cache.CopyRawFile(indexId, fileId, request.SourceIndexId, request.SourceFileId); }
+        finally { await InvalidateDerivedReadsAsync(outputCache); }
         return TypedResults.Ok(new CopyRawFileResultDto("copy-raw", indexId, fileId, request.SourceIndexId, request.SourceFileId));
     }
 
     // Raw writes bypass reference-table metadata, so drop read models derived from it.
-    private static async Task InvalidateDerivedReadsAsync(IOutputCacheStore outputCache, CancellationToken cancellationToken)
+    private static async Task InvalidateDerivedReadsAsync(IOutputCacheStore outputCache)
     {
         ObjectDefinitionsEndpoints.InvalidateCatalog();
-        await outputCache.EvictByTagAsync(TextureEndpoints.ImageCacheTag, cancellationToken);
+        await outputCache.EvictByTagAsync(TextureEndpoints.ImageCacheTag, CancellationToken.None);
     }
 }

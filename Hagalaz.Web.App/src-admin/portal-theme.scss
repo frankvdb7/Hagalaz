@@ -342,22 +342,6 @@
 
 .admin-portal .map-workspace-tabs {
     @include mat.tabs-overrides((container-height: 44px));
-
-    .mat-mdc-tab {
-        min-width: 0;
-        padding-inline: 8px;
-    }
-}
-
-@container (min-width: 680px) {
-    .admin-portal .asset-tabs .mat-mdc-tab-header {
-        padding-inline-end: 350px;
-        border-bottom: 1px solid var(--mat-tab-divider-color, var(--mat-sys-outline-variant));
-    }
-
-    .admin-portal .asset-tabs .mat-mdc-tab-label-container {
-        border-bottom: 0;
-    }
 }
 
 .studio-compact-inspector {
