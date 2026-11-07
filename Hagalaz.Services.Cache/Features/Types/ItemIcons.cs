@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
+using System.Text;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic.Codecs;
@@ -18,6 +21,36 @@ namespace Hagalaz.Services.Cache.Features.Types;
 internal static class ItemIcons
 {
     internal readonly record struct Options(int Width, int Height, int Outline, int? Shadow, int Quantity, int? QuantityMode);
+
+    // Bump when the rendered output changes for the same cache contents.
+    private const string RendererVersion = "v1";
+
+    // Every index Render reads: item definitions, models, sprites, fonts, textures and materials.
+    private static readonly int[] SourceIndexes = [19, 7, 8, 13, 9, 26];
+
+    // Raw store writes bypass reference-table versions, so each cache instance carries a random generation that they replace.
+    // Being random, it also invalidates validators issued by earlier processes.
+    private static readonly ConditionalWeakTable<ICacheAPI, string> RawGenerations = new();
+
+    /// <summary>Invalidates validators after writes that keep reference-table versions, such as raw store writes.</summary>
+    internal static void InvalidateValidators(ICacheAPI cache) => RawGenerations.AddOrUpdate(cache, Guid.NewGuid().ToString("N"));
+
+    /// <summary>
+    /// A validator computed without rendering. It changes whenever a source index's reference-table version changes,
+    /// which every metadata-tracked cache write does, so a matching request can skip the render.
+    /// </summary>
+    public static string Validator(int id, Options options, ICacheAPI cache)
+    {
+        var versions = SourceIndexes.Select(index =>
+        {
+            // Absent indexes render as missing inputs, as TextureSource and Font() already handle.
+            try { return cache.ReadReferenceTable(index).Version; }
+            catch (FileNotFoundException) { return -1; }
+        });
+        var generation = RawGenerations.GetValue(cache, _ => Guid.NewGuid().ToString("N"));
+        var key = $"{RendererVersion}|{generation}|{id}|{options}|{string.Join(',', versions)}";
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(key)));
+    }
 
     /// <summary>Renders the icon as PNG bytes, or null when the item or a template item has no inventory model.</summary>
     public static byte[]? RenderPng(int id, Options options, ICacheAPI cache, ITypeProvider<IItemType> items)

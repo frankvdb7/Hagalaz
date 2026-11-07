@@ -2,7 +2,6 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
@@ -55,8 +54,18 @@ public static class ItemDefinitionEndpoints
             else return TypedResults.BadRequest(EndpointErrors.Validation("shadow must be none or a six-digit RRGGBB colour."));
         }
 
+        var options = new ItemIcons.Options(width, height, outline, shadowColor, quantity, quantityMode);
+        // Revalidation is checked before rendering, so unchanged icons cost only reference-table lookups.
+        var etag = new EntityTagHeaderValue($"\"item-icon-{ItemIcons.Validator(id, options, cache)}\"");
+        var validators = context.Request.GetTypedHeaders().IfNoneMatch;
+        if (validators?.Any(candidate => candidate.Equals(EntityTagHeaderValue.Any) || candidate.Compare(etag, useStrongComparison: false)) == true)
+        {
+            SetValidator(context, etag);
+            return TypedResults.StatusCode(StatusCodes.Status304NotModified);
+        }
+
         byte[]? png;
-        try { png = ItemIcons.RenderPng(id, new ItemIcons.Options(width, height, outline, shadowColor, quantity, quantityMode), cache, items); }
+        try { png = ItemIcons.RenderPng(id, options, cache, items); }
         catch (NotSupportedException exception)
         {
             return TypedResults.Problem(title: "Unsupported model format", detail: exception.Message, statusCode: 422);
@@ -64,13 +73,14 @@ public static class ItemDefinitionEndpoints
         catch (FileNotFoundException) { png = null; }
         if (png is null) return TypedResults.NotFound();
 
-        var etag = new EntityTagHeaderValue($"\"item-icon-{Convert.ToHexStringLower(SHA256.HashData(png))}\"");
-        context.Response.Headers.CacheControl = "private, no-cache";
-        context.Response.GetTypedHeaders().ETag = etag;
-        var validators = context.Request.GetTypedHeaders().IfNoneMatch;
-        if (validators?.Any(candidate => candidate.Equals(EntityTagHeaderValue.Any) || candidate.Compare(etag, useStrongComparison: false)) == true)
-            return TypedResults.StatusCode(StatusCodes.Status304NotModified);
+        SetValidator(context, etag);
         return TypedResults.File(png, "image/png");
+
+        static void SetValidator(HttpContext context, EntityTagHeaderValue etag)
+        {
+            context.Response.Headers.CacheControl = "private, no-cache";
+            context.Response.GetTypedHeaders().ETag = etag;
+        }
     }
 
     private static IResult GetItemTypeRange(int startId, int endIdExclusive, ITypeProvider<IItemType> provider)

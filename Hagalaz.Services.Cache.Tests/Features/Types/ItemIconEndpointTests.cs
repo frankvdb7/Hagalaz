@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
+using Hagalaz.Services.Cache.Features.Mutations;
 using Hagalaz.Services.Cache.Features.Types;
 using Hagalaz.Services.Cache.Features.Types.Dtos;
 using Hagalaz.TestSupport;
@@ -138,6 +139,36 @@ public sealed class ItemIconEndpointTests
         // Pinned renders guard the client composition order.
         Assert.AreEqual(NotedHash, Convert.ToHexStringLower(SHA256.HashData(Pixels(noted, out _, out _).Select(pixel => pixel.Argb).SelectMany(BitConverter.GetBytes).ToArray())));
         Assert.AreEqual(LentHash, Convert.ToHexStringLower(SHA256.HashData(Pixels(lent, out _, out _).Select(pixel => pixel.Argb).SelectMany(BitConverter.GetBytes).ToArray())));
+    }
+
+    [TestMethod]
+    public async Task Image_RevalidatesWithoutRenderingAndChangesValidatorAfterRawWrites()
+    {
+        var store = Seed((0, Item(zoom: 800)));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group =>
+        {
+            group.MapTypeEndpoints();
+            group.MapStoreMutationEndpoints();
+        });
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var response = await client.GetAsync(Url);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        var modelReads = store.GetReadCount(7, 0);
+
+        using var conditional = new HttpRequestMessage(HttpMethod.Get, Url);
+        conditional.Headers.IfNoneMatch.Add(response.Headers.ETag!);
+        using var notModified = await client.SendAsync(conditional);
+        Assert.AreEqual(HttpStatusCode.NotModified, notModified.StatusCode);
+        Assert.AreEqual(modelReads, store.GetReadCount(7, 0), "A matching validator must not render the model.");
+
+        // Raw writes keep reference-table versions, so the validator must still change.
+        using var raw = await client.PostAsJsonAsync("/api/v1/cache/store/indexes/7/files/0/actions/copy-raw", new { sourceIndexId = 7, sourceFileId = 0 });
+        Assert.AreEqual(HttpStatusCode.OK, raw.StatusCode, await raw.Content.ReadAsStringAsync());
+        using var afterRaw = new HttpRequestMessage(HttpMethod.Get, Url);
+        afterRaw.Headers.IfNoneMatch.Add(response.Headers.ETag!);
+        using var rerendered = await client.SendAsync(afterRaw);
+        Assert.AreEqual(HttpStatusCode.OK, rerendered.StatusCode);
+        Assert.AreNotEqual(response.Headers.ETag, rerendered.Headers.ETag);
     }
 
     [TestMethod]

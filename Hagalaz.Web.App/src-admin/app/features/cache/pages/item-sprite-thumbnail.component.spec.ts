@@ -10,9 +10,24 @@ const itemImageUrl = (id: number) => `${environment.cacheApiUrl}types/items/${id
 describe("ItemSpriteThumbnailComponent", () => {
     let http: HttpTestingController;
     let objectUrls: number;
+    let intersect: (entries: { isIntersecting: boolean }[]) => void;
+    let observerOptions: IntersectionObserverInit | undefined;
+    let disconnect: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
         objectUrls = 0;
+        disconnect = vi.fn();
+        vi.stubGlobal(
+            "IntersectionObserver",
+            class {
+                constructor(callback: typeof intersect, options?: IntersectionObserverInit) {
+                    intersect = callback;
+                    observerOptions = options;
+                }
+                observe = vi.fn();
+                disconnect = disconnect;
+            }
+        );
         vi.stubGlobal("devicePixelRatio", 2);
         vi.stubGlobal(
             "URL",
@@ -33,12 +48,16 @@ describe("ItemSpriteThumbnailComponent", () => {
         vi.unstubAllGlobals();
     });
 
-    function create(id = 42) {
+    function create(id = 42, visible = true) {
         const fixture = TestBed.createComponent(ItemSpriteThumbnailComponent);
         fixture.componentRef.setInput("id", id);
         fixture.componentRef.setInput("name", "Initial sword");
         fixture.detectChanges();
         TestBed.tick();
+        if (visible) {
+            intersect([{ isIntersecting: true }]);
+            TestBed.tick();
+        }
         return fixture;
     }
 
@@ -63,6 +82,21 @@ describe("ItemSpriteThumbnailComponent", () => {
 
         fixture.destroy();
         expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:item-preview-1");
+    });
+
+    it("waits until the thumbnail nears the viewport, then stops observing", () => {
+        const fixture = create(42, false);
+        expect(observerOptions?.rootMargin).toBe("200px");
+        http.expectNone((request) => request.url === itemImageUrl(42));
+        intersect([{ isIntersecting: false }]);
+        TestBed.tick();
+        http.expectNone((request) => request.url === itemImageUrl(42));
+        expect(fixture.nativeElement.querySelector('[role="status"]')).not.toBeNull();
+
+        intersect([{ isIntersecting: true }]);
+        TestBed.tick();
+        expect(disconnect).toHaveBeenCalled();
+        expectImage().flush(new Blob());
     });
 
     it("forwards rendering options and clamps the size to the server limit", () => {

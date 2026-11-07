@@ -49,7 +49,7 @@ public static class StoreMutationEndpoints
         using var stream = new MemoryStream(data);
         // A failed write may still have changed the store, matching CacheApi's own finally invalidation.
         try { cache.WriteRawFile(indexId, fileId, stream); }
-        finally { await InvalidateDerivedReadsAsync(outputCache); }
+        finally { await InvalidateDerivedReadsAsync(cache, outputCache); }
         return TypedResults.Ok(new WriteRawFileResultDto("write-raw", indexId, fileId));
     }
 
@@ -66,14 +66,15 @@ public static class StoreMutationEndpoints
         }
 
         try { cache.CopyRawFile(indexId, fileId, request.SourceIndexId, request.SourceFileId); }
-        finally { await InvalidateDerivedReadsAsync(outputCache); }
+        finally { await InvalidateDerivedReadsAsync(cache, outputCache); }
         return TypedResults.Ok(new CopyRawFileResultDto("copy-raw", indexId, fileId, request.SourceIndexId, request.SourceFileId));
     }
 
     // Raw writes bypass reference-table metadata, so drop read models derived from it.
-    private static async Task InvalidateDerivedReadsAsync(IOutputCacheStore outputCache)
+    private static async Task InvalidateDerivedReadsAsync(ICacheAPI cache, IOutputCacheStore outputCache)
     {
         ObjectDefinitionsEndpoints.InvalidateCatalog();
+        ItemIcons.InvalidateValidators(cache);
         await outputCache.EvictByTagAsync(TextureEndpoints.ImageCacheTag, CancellationToken.None);
     }
 }
