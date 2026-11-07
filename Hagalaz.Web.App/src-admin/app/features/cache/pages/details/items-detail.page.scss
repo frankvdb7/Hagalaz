@@ -192,7 +192,8 @@ aside h3 {
     margin: 16px 0;
 }
 .preview-image {
-    height: 100px;
+    min-height: 100px;
+    padding: 6px;
     display: grid;
     place-items: center;
     overflow: hidden;
@@ -209,6 +210,34 @@ aside h3 {
 }
 .model-inspector {
     margin-top: 8px;
+}
+.icon-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-top: 8px;
+}
+.icon-options mat-form-field {
+    width: 128px;
+}
+.shadow-colour {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font: var(--mat-sys-body-small);
+}
+.shadow-colour input {
+    width: 32px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--mat-sys-outline-variant);
+    border-radius: 4px;
+    background: none;
+}
+.icon-note {
+    margin: 6px 0 0;
+    font: var(--mat-sys-body-small);
 }
 @container (max-width: 1100px) {
     .forge-layout {

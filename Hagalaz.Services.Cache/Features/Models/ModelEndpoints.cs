@@ -95,9 +95,20 @@ public static class ModelEndpoints
         var selected = ItemAppearances(item).FirstOrDefault(value => value.Key == (appearance ?? "inventory"));
         if (selected is null) return TypedResults.BadRequest(EndpointErrors.Validation("Unknown item model appearance."));
         if (!selected.Available) return TypedResults.NotFound();
+        try { return TypedResults.Ok(BuildItemModel(item, selected, cache)); }
+        catch (NotSupportedException exception) { return TypedResults.Problem(title: "Unsupported model format", detail: exception.Message, statusCode: 422); }
+    }
+
+    /// <summary>The item's inventory appearance, or null when it has no inventory model.</summary>
+    internal static GetItemModelAppearanceDto? InventoryAppearance(ItemType item) =>
+        ItemAppearances(item).FirstOrDefault(value => value.Key == "inventory" && value.Available);
+
+    /// <summary>Assembles an item appearance with definition scale, recolours and retextures, shared by previews and rendered icons.</summary>
+    internal static GetModelDto BuildItemModel(ItemType item, GetItemModelAppearanceDto selected, ICacheAPI cache)
+    {
         var inventory = selected.Key == "inventory";
         // Item offsets have already been shifted by two in the definition codec; assembly offsets use unshifted units.
-        return AssembleModel(selected.ModelIds[0], selected.ModelIds, cache, inventory ? item.ScaleX : 128, inventory ? item.ScaleY : 128, inventory ? item.ScaleZ : 128,
+        return BuildModel(selected.ModelIds[0], selected.ModelIds, cache, inventory ? item.ScaleX : 128, inventory ? item.ScaleY : 128, inventory ? item.ScaleZ : 128,
             selected.OffsetX / 4, selected.OffsetY / 4, selected.OffsetZ / 4,
             Pairs(item.OriginalModelColors), Pairs(item.ModifiedModelColors), Pairs(item.OriginalTextureColors), Pairs(item.ModifiedTextureColors), [],
             $"{selected.Label} model with definition recolors and retextures. Equipped/head models are isolated item parts, without a player body or customization. Transparent faces use client priorities and depth ordering within each priority. Intersecting triangles and full client rendering parity remain unverified. Client model lighting uses a fixed inspection light; map atmosphere and seam lighting remain unverified."
@@ -230,6 +241,22 @@ public static class ModelEndpoints
         int offsetX, int offsetY, int offsetZ, short[]? originalColors, short[]? replacementColors, short[]? originalTextures, short[]? replacementTextures, int[] animationIds, string warning, float[]? scale = null, int ambient = 64, int contrast = 850,
         (int Shape, int Orientation, bool Mirrored)? placement = null, bool extraRotation = false)
     {
+        try
+        {
+            return TypedResults.Ok(BuildModel(id, modelIds, cache, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ, originalColors, replacementColors, originalTextures, replacementTextures,
+                animationIds, warning, scale, ambient, contrast, placement, extraRotation));
+        }
+        catch (NotSupportedException exception)
+        {
+            return TypedResults.Problem(title: "Unsupported model format", detail: exception.Message, statusCode: 422);
+        }
+    }
+
+    /// <summary>Client model assembly shared by model previews and rendered item icons. Throws <see cref="NotSupportedException"/> for undecodable models.</summary>
+    internal static GetModelDto BuildModel(int id, int[] modelIds, ICacheAPI cache, int scaleX, int scaleY, int scaleZ,
+        int offsetX, int offsetY, int offsetZ, short[]? originalColors, short[]? replacementColors, short[]? originalTextures, short[]? replacementTextures, int[] animationIds, string warning, float[]? scale = null, int ambient = 64, int contrast = 850,
+        (int Shape, int Orientation, bool Mirrored)? placement = null, bool extraRotation = false)
+    {
         var positions = new List<int>();
         var indices = new List<int>();
         var colors = new List<int>();
@@ -243,7 +270,6 @@ public static class ModelEndpoints
         var textureUvs = new List<float>();
         var firstTexelFaces = new List<int>();
         var emitters = new List<ModelGeometryDecoder.EmitterAttachment>();
-        try
         {
             foreach (var modelId in modelIds.Where(modelId => modelId >= 0))
             {
@@ -285,12 +311,8 @@ public static class ModelEndpoints
             ReplaceValues(textureIds, originalTextures, replacementTextures);
             for (var face = 0; face < textureIds.Count; face++)
                 if (textureIds[face] == 65535) textureIds[face] = -1;
-            return TypedResults.Ok(new GetModelDto(id, positions.ToArray(), indices.ToArray(), colors.ToArray(), alpha.ToArray(), skins.Any(skin => skin >= 0) ? skins.ToArray() : null,
-                new[] { warning }.Concat(ProjectionWarnings(firstTexelFaces.ToArray())).ToArray(), animationIds.Where(animationId => animationId >= 0).Distinct().ToArray(), 1, faceSkins.ToArray(), textureIds.ToArray(), textureVertices.ToArray(), textureUvs.ToArray(), scale, ReadParticles(cache, emitters), priorities.ToArray(), shadingTypes.ToArray(), ambient, contrast, firstTexelFaces.ToArray()));
-        }
-        catch (NotSupportedException exception)
-        {
-            return TypedResults.Problem(title: "Unsupported model format", detail: exception.Message, statusCode: 422);
+            return new GetModelDto(id, positions.ToArray(), indices.ToArray(), colors.ToArray(), alpha.ToArray(), skins.Any(skin => skin >= 0) ? skins.ToArray() : null,
+                new[] { warning }.Concat(ProjectionWarnings(firstTexelFaces.ToArray())).ToArray(), animationIds.Where(animationId => animationId >= 0).Distinct().ToArray(), 1, faceSkins.ToArray(), textureIds.ToArray(), textureVertices.ToArray(), textureUvs.ToArray(), scale, ReadParticles(cache, emitters), priorities.ToArray(), shadingTypes.ToArray(), ambient, contrast, firstTexelFaces.ToArray());
         }
     }
 

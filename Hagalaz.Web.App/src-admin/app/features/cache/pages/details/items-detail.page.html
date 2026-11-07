@@ -2,7 +2,7 @@
 <section aria-label="Item Forge" aria-labelledby="forge-title">
     <header class="forge-heading">
         <div class="item-identity">
-            <div class="item-portrait">@if (item(); as value) { <cache-item-sprite-thumbnail [id]="value.id" [name]="value.name || ''" [size]="88" /> } @else { <mat-icon>inventory_2</mat-icon> }</div>
+            <div class="item-portrait">@if (item(); as value) { <cache-item-sprite-thumbnail [id]="value.id" [name]="value.name || ''" [size]="88" [revision]="value" /> } @else { <mat-icon>inventory_2</mat-icon> }</div>
             <div class="identity-copy"><p class="eyebrow">Item definition #{{ id() ?? 'Invalid' }}</p><h2 id="forge-title">{{item() ? (item()?.name || 'Unnamed item') : 'Item Forge'}}</h2><p class="supporting-text subtitle">Inspect and edit the game cache definition.</p>
                 @if (item(); as value) { <mat-chip-set class="identity-chips" aria-label="Item properties"><mat-chip>Stackable: <strong>{{value.stackable == null ? 'Not supplied' : value.stackable ? 'Yes' : 'No'}}</strong></mat-chip><mat-chip>Members only: <strong>{{value.membersOnly == null ? 'Not supplied' : value.membersOnly ? 'Yes' : 'No'}}</strong></mat-chip><mat-chip>Base value: <strong>{{value.value == null ? 'Not supplied' : value.value}}</strong></mat-chip></mat-chip-set> }
             </div>
@@ -71,8 +71,20 @@
         </div>
         <aside aria-label="Item inspector">
             <mat-card appearance="outlined" class="panel preview-panel"><h3><mat-icon>view_in_ar</mat-icon>Item preview</h3>
-                <div class="preview-image">@if (item(); as value) {<div [style.transform]="'scale(' + spriteZoom() + ')'"><cache-item-sprite-thumbnail [id]="value.id" [name]="value.name || ''" [size]="88" /></div>}</div>
+                <div class="preview-image">@if (item(); as value) {<cache-item-sprite-thumbnail [id]="value.id" [name]="value.name || ''" [size]="previewSize()" [revision]="value"
+                    [quantity]="previewQuantity()" [outline]="previewOutline()" [shadow]="previewShadowParameter()" />}</div>
                 <div class="preview-controls"><span>Model: {{item()?.interfaceModelId ?? 'Not supplied'}}</span><label for="sprite-zoom">Zoom</label><mat-slider min="0.75" max="2" step="0.05"><input matSliderThumb id="sprite-zoom" [ngModel]="spriteZoom()" (ngModelChange)="spriteZoom.set($event)" aria-label="Item preview zoom" /></mat-slider></div>
+                <div class="icon-options" role="group" aria-label="Icon rendering options">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic"><mat-label>Quantity</mat-label>
+                        <input matInput type="number" min="-1" step="1" [value]="previewQuantity()" (input)="setPreviewQuantity($any($event.target).value)" /></mat-form-field>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic"><mat-label>Outline</mat-label>
+                        <mat-select [value]="previewOutline()" (selectionChange)="previewOutline.set($event.value)">
+                            <mat-option [value]="0">None</mat-option><mat-option [value]="1">Dark</mat-option><mat-option [value]="2">Dark and light</mat-option>
+                        </mat-select></mat-form-field>
+                    <mat-slide-toggle [checked]="previewShadow()" (change)="previewShadow.set($event.checked)">Shadow</mat-slide-toggle>
+                    <label class="shadow-colour">Shadow colour<input type="color" [value]="previewShadowColour()" [disabled]="!previewShadow()" (change)="previewShadowColour.set($any($event.target).value)" /></label>
+                </div>
+                <p class="supporting-text icon-note">Stackable items show their quantity. Defaults match the backpack: dark outline and the inventory shadow.</p>
                 <mat-expansion-panel class="model-inspector" flat><mat-expansion-panel-header><mat-panel-title>Inspect 3D model and particles</mat-panel-title></mat-expansion-panel-header><cache-model-preview [height]="200" [modelId]="item()?.interfaceModelId ?? null" [itemId]="item()?.id ?? null" /></mat-expansion-panel>
             </mat-card>
             <mat-card appearance="outlined" class="panel technical-panel"><h3><mat-icon>settings_applications</mat-icon>Technical details</h3><dl>@for (field of visual(); track field.label) {<div class="technical-field"><dt>{{field.label}}</dt><dd>{{field.value}}<button mat-icon-button type="button" [cdkCopyToClipboard]="field.value" aria-label="Copy {{field.label}}"><mat-icon>content_copy</mat-icon></button></dd></div>}</dl></mat-card>

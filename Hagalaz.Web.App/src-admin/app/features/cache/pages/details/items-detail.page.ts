@@ -8,6 +8,7 @@ import { ClipboardModule } from "@angular/cdk/clipboard";
 import { FormsModule } from "@angular/forms";
 import { MatDialog } from "@angular/material/dialog";
 import { MatSlideToggleModule } from "@angular/material/slide-toggle";
+import { MatSelectModule } from "@angular/material/select";
 import { firstValueFrom } from "rxjs";
 import { CachePendingChangesService } from "../../cache-pending-changes.service";
 import { CacheWriteDialogComponent } from "../cache-write-dialog";
@@ -42,6 +43,7 @@ import { CacheModelPreviewComponent } from "../cache-model-preview.component";
         MatFormFieldModule,
         MatInputModule,
         MatSliderModule,
+        MatSelectModule,
 
         MatButtonModule,
         MatIconModule,
@@ -69,6 +71,12 @@ export class ItemsDetailPageComponent {
     });
     readonly selectedTab = signal(0);
     readonly spriteZoom = signal(1);
+    readonly previewSize = computed(() => Math.round(88 * this.spriteZoom()));
+    readonly previewQuantity = signal(1);
+    readonly previewOutline = signal<0 | 1 | 2>(1);
+    readonly previewShadow = signal(true);
+    readonly previewShadowColour = signal("#302020");
+    readonly previewShadowParameter = computed(() => (this.previewShadow() ? this.previewShadowColour().slice(1) : "none"));
     readonly draft = linkedSignal<GetItemDefinitionDto | null>(() => (this.item() ? structuredClone(this.item()!) : null));
     readonly dirty = computed(() => JSON.stringify(this.draft()) !== JSON.stringify(this.item()));
     readonly valid = computed(() => {
@@ -139,6 +147,11 @@ export class ItemsDetailPageComponent {
             const id = this.id();
             if (id !== null) untracked(() => this.store.loadById(id));
         });
+    }
+
+    setPreviewQuantity(value: string): void {
+        const quantity = Number(value);
+        if (Number.isSafeInteger(quantity) && quantity >= -1 && quantity <= 2147483647) this.previewQuantity.set(quantity);
     }
 
     updateDraft(changes: Partial<GetItemDefinitionDto>): void {

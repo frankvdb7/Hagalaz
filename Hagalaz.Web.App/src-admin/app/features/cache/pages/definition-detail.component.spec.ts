@@ -31,6 +31,10 @@ class ItemSpriteBoundary {
     readonly id = input.required<number>();
     readonly name = input("");
     readonly size = input(44);
+    readonly revision = input<unknown>();
+    readonly quantity = input<number>();
+    readonly outline = input<number>();
+    readonly shadow = input<string>();
 }
 
 @Component({ selector: "cache-model-preview", template: "" })

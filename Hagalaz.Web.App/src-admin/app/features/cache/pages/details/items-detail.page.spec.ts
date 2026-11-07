@@ -10,6 +10,8 @@ import { HttpTestingController, provideHttpClientTesting } from "@angular/common
 import { TestBed } from "@angular/core/testing";
 
 import { MatTabGroupHarness } from "@angular/material/tabs/testing";
+import { MatSelectHarness } from "@angular/material/select/testing";
+import { MatSlideToggleHarness } from "@angular/material/slide-toggle/testing";
 import { By } from "@angular/platform-browser";
 import { provideRouter, Router } from "@angular/router";
 import { RouterTestingHarness } from "@angular/router/testing";
@@ -26,6 +28,10 @@ class ItemSpriteBoundary {
     readonly id = input.required<number>();
     readonly name = input("");
     readonly size = input(44);
+    readonly revision = input<unknown>();
+    readonly quantity = input<number>();
+    readonly outline = input<number>();
+    readonly shadow = input<string>();
 }
 
 @Component({ selector: "cache-model-preview", template: "" })
@@ -78,6 +84,10 @@ describe("Item Forge", () => {
         TestBed.resetTestingModule();
         http.verify({ ignoreCancelled: true });
     });
+
+    function previewSprite(harness: RouterTestingHarness): ItemSpriteBoundary {
+        return harness.fixture.debugElement.query(By.css(".preview-image cache-item-sprite-thumbnail")).componentInstance as ItemSpriteBoundary;
+    }
 
     async function open(data: Record<string, unknown> = item, failure = false) {
         const opening = RouterTestingHarness.create("/cache/types/items/7");
@@ -301,12 +311,32 @@ describe("Item Forge", () => {
         http.expectNone(`${baseUrl}/items/7/duplicate`);
     });
 
+    it("forwards preview quantity, outline and shadow and refreshes icons with the loaded definition", async () => {
+        const { page, harness, loader } = await open();
+        const sprite = previewSprite(harness);
+        expect([sprite.quantity(), sprite.outline(), sprite.shadow()]).toEqual([1, 1, "302020"]);
+        expect(sprite.revision()).toBe(page.item());
+        const portrait = harness.fixture.debugElement.query(By.css(".item-portrait cache-item-sprite-thumbnail")).componentInstance as ItemSpriteBoundary;
+        expect(portrait.revision()).toBe(page.item());
+
+        const quantity = await loader.getHarness(MatInputHarness.with({ selector: ".icon-options input[type=number]" }));
+        await quantity.setValue("25000");
+        await quantity.blur();
+        page.setPreviewQuantity("-2");
+        page.setPreviewQuantity("1.5");
+        await (await loader.getHarness(MatSelectHarness.with({ ancestor: ".icon-options" }))).clickOptions({ text: "Dark and light" });
+        await (await loader.getHarness(MatSlideToggleHarness.with({ label: "Shadow" }))).toggle();
+        harness.fixture.detectChanges();
+        expect([sprite.quantity(), sprite.outline(), sprite.shadow()]).toEqual([25000, 2, "none"]);
+    });
+
     it("zooms the actual item preview and opens the full raw definition from quick actions", async () => {
         const { page, harness, element, loader } = await open();
         const slider = await loader.getHarness(MatSliderHarness);
         await (await slider.getEndThumb()).setValue(1.5);
         expect(page.spriteZoom()).toBe(1.5);
-        expect(element.querySelector(".preview-image > div")?.getAttribute("style")).toContain("scale(1.5)");
+        // Zoom renders the icon at the larger size instead of stretching it.
+        expect(previewSprite(harness).size()).toBe(132);
         element.querySelector<HTMLButtonElement>(".quick-panel button")!.click();
         await harness.fixture.whenStable();
         expect(page.selectedTab()).toBe(4);

@@ -34,6 +34,24 @@ public static class TextureImageDecoder
     }
 
     /// <summary>Converts a cache image to PNG, retaining the material's decoded alpha.</summary>
+    /// <summary>Decodes a texture with its alpha mode applied into ARGB pixels, row by row from the top.</summary>
+    public static (int Width, int Height, int[] Argb) ToArgb(byte[] data, int alphaMode)
+    {
+        using var image = Image.Load<Rgba32>(data);
+        ApplyAlpha(image, alphaMode);
+        var pixels = new int[image.Width * image.Height];
+        image.ProcessPixelRows(accessor =>
+        {
+            for (var y = 0; y < accessor.Height; y++)
+            {
+                var row = accessor.GetRowSpan(y);
+                for (var x = 0; x < row.Length; x++)
+                    pixels[y * accessor.Width + x] = row[x].A << 24 | row[x].R << 16 | row[x].G << 8 | row[x].B;
+            }
+        });
+        return (image.Width, image.Height, pixels);
+    }
+
     public static byte[] ToPng(byte[] data, int alphaMode)
     {
         using var image = Image.Load<Rgba32>(data);
