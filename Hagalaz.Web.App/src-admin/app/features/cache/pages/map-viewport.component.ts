@@ -81,6 +81,7 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
             (pointerup)="finishPick($event)" (pointercancel)="cancelPick()" (pointerleave)="leaveBrush()"
             (dragover)="allowObjectDrop($event)" (drop)="dropObject($event)"></div>
         <ng-content select="[mapSelectionStatus]" />
+        <ng-content select="[mapLoadStatus]" />
         @if (error()) { <p role="alert" class="p-3">{{ error() }}</p> }
     `,
     styles: `

@@ -10,6 +10,7 @@ import { of } from "rxjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { environment } from "../../../../../environments/environment";
 import { CachePendingChangesService } from "../../cache-pending-changes.service";
+import { MapLoadStatusComponent } from "../map-load-status.component";
 import { MapViewportComponent } from "../map-viewport.component";
 import { MapsDetailPageComponent } from "./maps-detail.page";
 import { CacheObjectsService } from "../../services/cache-objects.service";
@@ -361,6 +362,34 @@ describe("MapsDetailPageComponent", () => {
             await saving;
         });
 
+        it("shows the save as a pending state in the viewport", async () => {
+            const { harness, page } = await loadRegion();
+            answer(true);
+            page.changeTransform("x", 5);
+            const saving = page.saveChanges();
+            const request = await vi.waitFor(() => http.expectOne(`${base}258/landscape`));
+            harness.detectChanges();
+
+            expect(harness.routeNativeElement?.textContent).toContain("Saving changes");
+
+            request.flush({ detail: "Landscape is encrypted." }, { status: 422, statusText: "Unprocessable" });
+            await saving;
+        });
+
+        it("keeps the draft and starts no load when a retry is declined", async () => {
+            const { harness, page } = await loadRegion();
+            page.changeTransform("x", 5);
+            const status = required(harness.routeDebugElement, "the routed page").query(By.directive(MapLoadStatusComponent)).componentInstance as MapLoadStatusComponent;
+
+            status.retry.emit();
+            TestBed.tick();
+            TestBed.inject(MatDialog).openDialogs[0].close(false);
+            await harness.fixture.whenStable();
+
+            expect(page.edits()).toBeDefined();
+            http.expectNone(`${base}258/render`);
+        });
+
         it("keeps edits and reports the failure", async () => {
             const { harness, page } = await loadRegion();
             answer(true);
@@ -490,6 +519,21 @@ describe("MapsDetailPageComponent", () => {
         expect(viewport.selectionKey()).toBe(key);
         http.expectNone(() => true);
     });
+    it("explains a failed region and reloads it on retry", async () => {
+        const harness = await RouterTestingHarness.create();
+        const page = await harness.navigateByUrl("/cache/types/maps/258", MapsDetailPageComponent);
+        http.expectOne(`${base}258/render`).flush({ detail: "Unavailable." }, { status: 500, statusText: "Error" });
+        harness.detectChanges();
+        expect(harness.routeNativeElement?.textContent).toContain("Region could not be loaded");
+        expect(harness.routeNativeElement?.textContent).toContain("Region 258: Unavailable.");
+        const status = required(harness.routeDebugElement, "the routed page").query(By.directive(MapLoadStatusComponent)).componentInstance as MapLoadStatusComponent;
+
+        status.retry.emit();
+
+        (await vi.waitFor(() => http.expectOne(`${base}258/render`))).flush(region(258));
+        expect(page.store.progress().failures).toBe(0);
+    });
+
     it("reports incremental progress and requests a newly visible plane without reloading its region", async () => {
         const harness = await RouterTestingHarness.create();
         const page = await harness.navigateByUrl("/cache/types/maps/258", MapsDetailPageComponent);
@@ -499,8 +543,9 @@ describe("MapsDetailPageComponent", () => {
         await harness.fixture.whenStable();
         const batch = http.expectOne(`${environment.cacheApiUrl}types/objects/render-appearances`);
         expect(batch.request.body).toEqual([{ id: 8, shape: 10, rotation: 0 }]);
-        expect(page.loadingText()).toContain("Appearances 0/1");
-        expect(harness.routeNativeElement?.textContent).toContain("Appearances 0/1");
+        expect(page.store.progress()).toMatchObject({ appearancesSettled: 0, appearancesTotal: 1 });
+        expect(harness.routeNativeElement?.textContent).toContain("Loading objects");
+        expect(harness.routeNativeElement?.textContent).toContain("0 of 1");
         batch.flush([{ id: 8, shape: 10, rotation: 0, status: 404, appearance: null, problem: { title: "No model" } }]);
         harness.detectChanges();
         expect(page.store.loading()).toBe(false);

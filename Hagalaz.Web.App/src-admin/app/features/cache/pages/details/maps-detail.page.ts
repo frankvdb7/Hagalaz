@@ -10,7 +10,6 @@ import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
 import { MatMenuModule } from "@angular/material/menu";
-import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatSelectModule } from "@angular/material/select";
 import { MatSnackBar } from "@angular/material/snack-bar";
 import { MatTabsModule } from "@angular/material/tabs";
@@ -28,6 +27,7 @@ import { CacheWriteDialogComponent } from "../cache-write-dialog";
 import { buildMapScene, mapLandscapeSaves, MapScenePreparation, unstoredEditNotes, type MapObjectRange, type MapObjectTransform, type MapSceneDraft, type MapSceneFilter } from "../map-scene-geometry";
 import { regionDetails, sceneGroups, scenePlacements, shapeLabel, terrainDetails, type SceneSelection } from "../map-scene-tree";
 import { MapAssetPanelComponent } from "../map-asset-panel.component";
+import { MapLoadStatusComponent } from "../map-load-status.component";
 import { MapRegionDetailsComponent } from "../map-region-details.component";
 import { MapScenePanelComponent } from "../map-scene-panel.component";
 import { applyBrushStroke, applyTerrainEdits, floorKey, mapTerrainSaves, paintedFloorTextures, terrainBrushOutline, terrainEditNotes, terrainStrokePreview, type BrushPoint, type TerrainBrush } from "../map-terrain-edit";
@@ -36,7 +36,7 @@ import { MapViewportComponent } from "../map-viewport.component";
 
 @Component({
     selector: "cache-maps-detail-page",
-    imports: [PortalBreadcrumbDirective, MapViewportComponent, MapScenePanelComponent, MapAssetPanelComponent, MapRegionDetailsComponent, MapTerrainPanelComponent, MatButtonModule, MatButtonToggleModule, MatCardModule, MatCheckboxModule, MatDividerModule, MatFormFieldModule, MatIconModule, MatInputModule, MatMenuModule, MatProgressBarModule, MatSelectModule, MatTabsModule, MatTooltipModule, RouterLink],
+    imports: [PortalBreadcrumbDirective, MapViewportComponent, MapLoadStatusComponent, MapScenePanelComponent, MapAssetPanelComponent, MapRegionDetailsComponent, MapTerrainPanelComponent, MatButtonModule, MatButtonToggleModule, MatCardModule, MatCheckboxModule, MatDividerModule, MatFormFieldModule, MatIconModule, MatInputModule, MatMenuModule, MatSelectModule, MatTabsModule, MatTooltipModule, RouterLink],
     providers: [CacheMapSceneStore],
     templateUrl: "./maps-detail.page.html",
     styleUrl: "./maps-detail.page.scss",
@@ -101,6 +101,7 @@ export class MapsDetailPageComponent {
     private readonly regionSaves = computed(() => [...mapTerrainSaves(this.store.regions(), this.terrainEdits()), ...mapLandscapeSaves(this.store.regions(), this.edits())].sort((left, right) => left.regionId - right.regionId));
     readonly canSave = computed(() => this.regionSaves().length > 0 && !this.store.saving());
     readonly canRebuildWorldMap = computed(() => this.store.regions().length > 0 && !this.store.worldMapRefreshing() && !this.store.saving());
+    private readonly pendingChanges = inject(CachePendingChangesService);
     private readonly dialog = inject(MatDialog);
     private readonly snackBar = inject(MatSnackBar);
     private readonly objects = inject(CacheObjectsService);
@@ -160,11 +161,7 @@ export class MapsDetailPageComponent {
         return scenePlacements(this.store.regions(), this.visiblePlanes(), draft?.additions ?? [], placement => draft?.transforms.get(placement) === null);
     });
     readonly canAddObject = computed(() => this.selectedAsset()?.shape != null && this.store.regions().length > 0);
-    readonly loadingText = computed(() => {
-        const progress = this.store.progress();
-        const stage = this.store.regions().length ? "Loading visible scene assets" : "Loading terrain";
-        return `${stage}. Regions ${progress.regionsSettled}/${progress.regionsTotal}. Appearances ${progress.appearancesSettled}/${progress.appearancesTotal}. Textures ${progress.texturesSettled}/${progress.texturesTotal}. ${progress.failures} failed reads.`;
-    });
+    readonly writeActivity = computed(() => this.store.saving() ? "Saving changes" : this.store.worldMapRefreshing() ? "Updating world map" : null);
     // Edited rotations and additions need their own appearances, independent of source plane visibility.
     // The loader only reacts when the set of appearance keys changes, not on every move or scale step.
     private readonly previewPlacements = computed(() => {
@@ -182,7 +179,7 @@ export class MapsDetailPageComponent {
     }, { equal: (left, right) => left.join() === right.join() });
 
     constructor() {
-        inject(CachePendingChangesService).register({ dirty: () => this.edits() !== undefined, saving: () => this.store.saving() || this.store.worldMapRefreshing() }, inject(DestroyRef));
+        this.pendingChanges.register({ dirty: () => this.edits() !== undefined, saving: () => this.store.saving() || this.store.worldMapRefreshing() }, inject(DestroyRef));
         effect(() => {
             const value = { planes: this.visiblePlanes(), landscape: this.landscape(), previewPlacements: this.previewPlacements(), previewTextures: this.previewTextures() };
             untracked(() => this.store.setVisibility(value));
@@ -301,7 +298,7 @@ export class MapsDetailPageComponent {
         const regionIds = [...new Set(saves.map(save => save.regionId))];
         if (!saves.length || !(await this.confirmSave(regionIds))) return;
         if (!(await this.store.saveRegions(saves))) return;
-        this.reloadSaved();
+        this.reload();
         const refresh = await this.store.refreshWorldMap(regionIds);
         this.notify(`Saved ${regionList(regionIds)} to the cache.${refresh ? ` ${describeWorldMapRefresh(refresh)}` : ""}`);
     }
@@ -330,8 +327,11 @@ export class MapsDetailPageComponent {
         // Vertex ranges shift with each draft, and an undone addition no longer exists.
         this.selectedObject.set(this.scene().geometry?.placements.find(candidate => candidate.placement === selected) ?? null);
     }
+    async retryLoad(): Promise<void> {
+        if (await this.pendingChanges.canLeave()) this.reload();
+    }
     // A new load replaces any still running, so saved regions always come back from the cache.
-    private reloadSaved(): void {
+    private reload(): void {
         this.resetEdits();
         this.store.load({ ...this.selection(), keys: {} });
     }

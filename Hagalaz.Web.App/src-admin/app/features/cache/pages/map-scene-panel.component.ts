@@ -47,7 +47,7 @@ import { buildSceneTree, type ScenePlacement, type SceneSelection, type SceneTre
                     <mat-icon>{{ isHidden(node) ? 'visibility_off' : 'visibility' }}</mat-icon>
                 </button>
             </ng-template>
-            @if (!nodes().length) { <p class="supporting-text">No region data loaded.</p> }
+            @if (!nodes().length) { <p class="supporting-text">{{ loading() ? 'Loading region data…' : 'No region data loaded.' }}</p> }
         </mat-tab-nav-panel>
     `,
     styles: `
@@ -68,6 +68,7 @@ import { buildSceneTree, type ScenePlacement, type SceneSelection, type SceneTre
     `,
 })
 export class MapScenePanelComponent {
+    readonly loading = input(false);
     readonly regions = input.required<readonly MapRenderRegion[]>();
     readonly placements = input.required<readonly ScenePlacement[]>();
     readonly names = input.required<ReadonlyMap<number, string>>();

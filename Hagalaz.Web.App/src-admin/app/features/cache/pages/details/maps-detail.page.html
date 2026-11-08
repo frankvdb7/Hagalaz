@@ -3,11 +3,10 @@
     @if (store.saveError(); as message) { <p role="alert">{{ message }}</p> }
     @if (store.worldMapError(); as message) { <p role="alert">{{ message }}</p> }
     @if (!selectedIds().length) { <p role="alert">Invalid region selection. Use a region ID from 0 to 65535 and dimensions from 1 to 3 without crossing coordinate 255.</p> }
-    @if (store.loading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading region scene" /><p role="status" class="supporting-text">{{ loadingText() }}</p> }
     <div class="region-workspace">
         <div class="region-browser">
             <mat-card appearance="outlined" class="scene-panel"><section class="contents" aria-label="Scene">
-                <cache-map-scene-panel [regions]="store.regions()" [placements]="sourcePlacements()" [names]="objectNames()" [selected]="selectedObject()?.placement"
+                <cache-map-scene-panel [loading]="store.loading()" [regions]="store.regions()" [placements]="sourcePlacements()" [names]="objectNames()" [selected]="selectedObject()?.placement"
                     [(terrainVisible)]="terrainVisible" [(hiddenGroups)]="hiddenGroups" [(hiddenPlacements)]="hiddenPlacements" (placementActivated)="selectPlacement($event)" [selection]="sceneSelection()" (selectionActivated)="selectScene($event)" />
             </section></mat-card>
             <mat-card appearance="outlined" class="asset-panel"><section class="contents" aria-label="Scene assets">
@@ -36,6 +35,7 @@
                         </div>
                     }
                 </ng-container>
+                <cache-map-load-status mapLoadStatus [loading]="store.loading()" [hasRegions]="store.regions().length > 0" [hasGeometry]="scene().geometry !== null" [progress]="store.progress()" [issues]="store.warnings()" [activity]="writeActivity()" (retry)="retryLoad()" />
             </cache-map-viewport>
             <mat-menu #layersMenu="matMenu">
                 @for (visible of planes(); track $index) {
@@ -54,7 +54,6 @@
                     <mat-icon>{{ landscape() ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>Landscape objects
                 </button>
             </mat-menu>
-            @if (!store.loading() && !scene().geometry) { <p role="status" class="p-3">No renderable tiles or objects. Check the region availability.</p> }
         </mat-card>
         <mat-card appearance="outlined" class="region-inspector map-scroll-area"><aside class="contents" aria-label="Region inspector">
             @if (editTool() === 'terrain') {
