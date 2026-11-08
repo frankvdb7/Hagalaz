@@ -16,4 +16,9 @@
 .object-card-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--mat-sys-body-small); }
 .object-card-id { color: var(--mat-sys-on-surface-variant); font: var(--mat-sys-body-small); }
 .asset-grid .is-active { outline: 1px solid var(--mat-sys-primary); outline-offset: -1px; color: var(--mat-sys-primary); }
+.is-dragging { opacity: .45; }
+// Rendered off-screen so the browser can use it as the drag image; display: none would leave nothing to capture.
+.drag-preview { position: fixed; inset: -200px auto auto -400px; display: flex; align-items: center; gap: 8px; max-width: 16rem; padding: 4px 12px 4px 4px; font: var(--mat-sys-label-large); pointer-events: none; }
+.drag-preview canvas { flex: none; width: 48px; height: 48px; }
+.drag-preview span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .catalog-pagination { display: flex; flex-shrink: 0; align-items: center; justify-content: flex-end; gap: 4px; font: var(--mat-sys-body-small); }

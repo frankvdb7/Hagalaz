@@ -45,14 +45,14 @@ export class CacheModelPreviewComponent {
             const images = new Map<number, CacheTexture>();
             let cancelled = false;
             const requests = forkJoin(params.map(id => forkJoin({
-                response: this.http.get(`${environment.cacheApiUrl}textures/${id}/image`, {responseType: "blob", observe: "response"}),
+                response: this.http.get(`${environment.cacheApiUrl}textures/${id}/image?sourceAlpha=true`, {responseType: "blob", observe: "response"}),
                 material: this.http.get<GetTextureMaterialDto>(`${environment.cacheApiUrl}textures/${id}/material`),
             }).pipe(
                 switchMap(({response, material}) => {
                     const alphaMode = material.alphaMode;
                     if (alphaMode !== 0 && alphaMode !== 1 && alphaMode !== 2) throw new Error("Unsupported texture alpha mode.");
                     if (!response.body) throw new Error("Texture image is missing.");
-                    const bitmap = from(createImageBitmap(response.body, {imageOrientation: "flipY"}).then(image => {
+                    const bitmap = from(createImageBitmap(response.body, {imageOrientation: "flipY", premultiplyAlpha: "none"}).then(image => {
                         if (cancelled) { image.close(); return; }
                         images.set(id, {image, ...material, alphaMode});
                     }));

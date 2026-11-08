@@ -37,6 +37,27 @@ public sealed class TextureMaterialEndpointsTests
     }
 
     [TestMethod]
+    [DataRow((byte)1, (byte)40)]
+    [DataRow((byte)2, (byte)255)]
+    public async Task ImageRequest_SourceAlphaKeepsOnlyTheEffectOneHighlightMask(byte effectId, byte expectedAlpha)
+    {
+        var store = CreateStore(effectId, alphaMode: 0);
+        AddImage(store, 9, 1, new Rgba32(10, 20, 30, 40));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTextureEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        using var plain = await client.GetAsync("/api/v1/cache/textures/0/image");
+        using var scene = await client.GetAsync("/api/v1/cache/textures/0/image?sourceAlpha=true");
+
+        using var plainImage = Image.Load<Rgba32>(await plain.Content.ReadAsByteArrayAsync());
+        using var sceneImage = Image.Load<Rgba32>(await scene.Content.ReadAsByteArrayAsync());
+        Assert.AreEqual((byte)255, plainImage[0, 0].A);
+        Assert.AreEqual(expectedAlpha, sceneImage[0, 0].A);
+        Assert.AreEqual(new Rgba32(10, 20, 30, expectedAlpha), sceneImage[0, 0]);
+        Assert.AreEqual(effectId == 1, plain.Headers.ETag!.Tag != scene.Headers.ETag!.Tag);
+    }
+
+    [TestMethod]
     public async Task ImageRequest_IncludesCompleteMaterialWithoutChangingPngOrLegacyHeaders()
     {
         var store = CreateStore();
@@ -317,16 +338,16 @@ public sealed class TextureMaterialEndpointsTests
         store.Set(index, 0, container.Encode());
     }
 
-    private static MemoryFileStore CreateStore()
+    private static MemoryFileStore CreateStore(byte effectId = 2, byte alphaMode = 1)
     {
         var store = new MemoryFileStore();
         var data = new byte[26];
         data[1] = 1; data[2] = 1;
         data[3 + 3] = 25; data[3 + 4] = 170;
-        data[3 + 5] = 2; data[3 + 6] = 12;
+        data[3 + 5] = effectId; data[3 + 6] = 12;
         data[3 + 9] = 255; data[3 + 10] = 4;
         data[3 + 14] = 1; data[3 + 16] = 1;
-        data[^1] = 1;
+        data[^1] = alphaMode;
         System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(data.AsSpan(21, 4), 0x12345678);
         var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
         var archive = new ReferenceTableEntry(0);

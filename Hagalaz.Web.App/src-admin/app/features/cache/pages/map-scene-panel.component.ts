@@ -5,6 +5,7 @@ import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
 import { MatTabsModule } from "@angular/material/tabs";
+import { MatTooltipModule } from "@angular/material/tooltip";
 import { type MatTree, MatTreeModule } from "@angular/material/tree";
 import type { MapPlacement, MapRenderRegion } from "../services/map-render.models";
 import { buildSceneTree, type ScenePlacement, type SceneSelection, type SceneTreeNode } from "./map-scene-tree";
@@ -12,7 +13,7 @@ import { buildSceneTree, type ScenePlacement, type SceneSelection, type SceneTre
 /** The region's terrain and placements as a tree, with visibility toggles. */
 @Component({
     selector: "cache-map-scene-panel",
-    imports: [NgTemplateOutlet, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatTabsModule, MatTreeModule],
+    imports: [NgTemplateOutlet, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatTabsModule, MatTooltipModule, MatTreeModule],
     template: `
         <nav mat-tab-nav-bar class="scene-tabs map-workspace-tabs" mat-stretch-tabs="false" aria-label="Scene view" animationDuration="0ms" [tabPanel]="scenePanel">
             <a mat-tab-link active><mat-icon class="studio-icon-small mr-2" aria-hidden="true">account_tree</mat-icon>Scene</a>
@@ -29,6 +30,9 @@ import { buildSceneTree, type ScenePlacement, type SceneSelection, type SceneTre
                         <button type="button" class="tree-label" (click)="activate(node)">
                             <mat-icon class="studio-icon-small" aria-hidden="true">{{ node.icon }}</mat-icon><span>{{ node.label }}</span>
                         </button>
+                        @if (node.placement; as item) {
+                            <button mat-icon-button type="button" class="tree-icon tree-remove" [attr.aria-label]="'Remove ' + node.label" matTooltip="Remove object" (click)="placementRemoved.emit(item.placement)"><mat-icon>delete_outline</mat-icon></button>
+                        }
                         @if (node.kind !== 'more') { <ng-container [ngTemplateOutlet]="eye" [ngTemplateOutletContext]="{ $implicit: node }" /> }
                     </mat-tree-node>
                 </ng-template>
@@ -43,7 +47,7 @@ import { buildSceneTree, type ScenePlacement, type SceneSelection, type SceneTre
                 </ng-template>
             </mat-tree>
             <ng-template #eye let-node>
-                <button mat-icon-button type="button" class="tree-icon" [attr.aria-label]="(isHidden(node) ? 'Show ' : 'Hide ') + node.label" [attr.aria-pressed]="isHidden(node)" (click)="toggle(node)">
+                <button mat-icon-button type="button" class="tree-icon tree-visibility" [attr.aria-label]="(isHidden(node) ? 'Show ' : 'Hide ') + node.label" [attr.aria-pressed]="isHidden(node)" (click)="toggle(node)">
                     <mat-icon>{{ isHidden(node) ? 'visibility_off' : 'visibility' }}</mat-icon>
                 </button>
             </ng-template>
@@ -65,6 +69,8 @@ import { buildSceneTree, type ScenePlacement, type SceneSelection, type SceneTre
         button.tree-label:not(:disabled):hover { background: var(--mat-sys-surface-container-high); }
         button.tree-label:focus-visible { outline: 2px solid var(--mat-sys-primary); outline-offset: -2px; }
         .tree-icon { flex: 0 0 auto; color: var(--mat-sys-on-surface-variant); }
+        /* A hidden row keeps its toggle, so what is hidden stays visible at a glance. */
+        @media (hover: hover) { mat-tree-node:not(:hover, :focus-within, .is-selected) :is(.tree-remove, .tree-visibility[aria-pressed="false"]) { opacity: 0; } }
     `,
 })
 export class MapScenePanelComponent {
@@ -77,6 +83,7 @@ export class MapScenePanelComponent {
     readonly hiddenGroups = model<ReadonlySet<string>>(new Set());
     readonly hiddenPlacements = model<ReadonlySet<MapPlacement>>(new Set());
     readonly placementActivated = output<MapPlacement>();
+    readonly placementRemoved = output<MapPlacement>();
     readonly selection = input<SceneSelection | null>(null);
     readonly selectionActivated = output<SceneSelection>();
     readonly query = signal("");

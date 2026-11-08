@@ -223,6 +223,9 @@ public static class ModelEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("Enter a nonnegative object ID, shape 0..22 and rotation 0..3."));
         var definition = (ObjectType)objects.Get(id);
         var name = definition.Name;
+        // The client reads these from the placed definition, before any transform variant is chosen.
+        var castsShadow = definition.CastsShadow;
+        var isStatic = definition is { AnimationIDs: null, HasAnimation: false, TransformToIDs: null, ABoolean835: false };
         var modelShape = shape is >= 4 and <= 8 ? 4 : shape == 11 ? 10 : shape;
         var warnings = new List<string>();
         if (definition.TransformToIDs is { Length: > 0 } variants)
@@ -233,7 +236,7 @@ public static class ModelEndpoints
             var state = hasSelector ? "assumed zero-valued varp/varbit state" : "the definition's default transform fallback";
             if (selected == -1)
                 return TypedResults.Ok(new GetObjectRenderAppearanceDto(id, shape, rotation, definition.SizeX, definition.SizeY, definition.DecorDisplacement,
-                    definition.GroundContoured, definition.AnInt780, [], [$"Hidden for {state}; live game state is unavailable."], name));
+                    definition.GroundContoured, definition.AnInt780, [], [$"Hidden for {state}; live game state is unavailable."], name, ShadowStrength(castsShadow, isStatic, null)));
             definition = (ObjectType)objects.Get(selected);
             warnings.Add($"Static preview uses object {selected} for {state}; live game state is unavailable.");
         }
@@ -259,7 +262,19 @@ public static class ModelEndpoints
             warnings.AddRange(ProjectionWarnings(model.FirstTexelFaces));
         }
         return TypedResults.Ok(new GetObjectRenderAppearanceDto(id, shape, rotation, definition.SizeX, definition.SizeY, definition.DecorDisplacement,
-            definition.GroundContoured, definition.AnInt780, parts.ToArray(), warnings.ToArray(), name));
+            definition.GroundContoured, definition.AnInt780, parts.ToArray(), warnings.ToArray(), name, ShadowStrength(castsShadow, isStatic, parts[0])));
+    }
+
+    // Map.addToClip: a ground object's floor shadow is its horizontal radius over 4, capped at 30, or 15 when it can animate or transform.
+    // Walls use a fixed strength, so any object that casts a shadow reports at least 1.
+    private static int ShadowStrength(bool castsShadow, bool isStatic, GetModelDto? model)
+    {
+        if (!castsShadow) return 0;
+        if (!isStatic || model is null) return 15;
+        long furthest = 0;
+        for (var vertex = 0; vertex < model.Positions.Length; vertex += 3)
+            furthest = Math.Max(furthest, (long)model.Positions[vertex] * model.Positions[vertex] + (long)model.Positions[vertex + 2] * model.Positions[vertex + 2]);
+        return Math.Max(1, Math.Min(30, (int)(Math.Sqrt(furthest) + 0.99) / 4));
     }
 
     private static IResult AssembleModel(int id, int[] modelIds, ICacheAPI cache, int scaleX, int scaleY, int scaleZ,

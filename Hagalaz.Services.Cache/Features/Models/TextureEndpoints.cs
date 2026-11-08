@@ -41,6 +41,7 @@ public static class TextureEndpoints
             // The cache group authorizes administrators before output caching runs.
             // Conditional requests still check the live image and material after edits.
             var cache = HttpMethods.IsGet(request.Method) && !request.Headers.ContainsKey(HeaderNames.IfNoneMatch);
+            context.CacheVaryByRules.QueryKeys = "sourceAlpha";
             context.EnableOutputCaching = cache;
             context.AllowCacheLookup = cache;
             context.AllowCacheStorage = cache;
@@ -70,7 +71,7 @@ public static class TextureEndpoints
         if (!material.HasHdr) return TypedResults.NotFound();
         using var image = cache.ReadContainer(9, id);
         using var companion = cache.ReadContainer(37, id);
-        var hdr = TextureImageDecoder.ToHdr(image.Data.ToArray(), companion.Data.ToArray(), material.AlphaMode);
+        var hdr = TextureImageDecoder.ToHdr(image.Data.ToArray(), companion.Data.ToArray(), RenderAlphaMode(material, sourceAlpha: true));
         return TypedResults.Ok(new GetTextureHdrDto(hdr.Width, hdr.Height, hdr.Rgba));
     }
 
@@ -84,7 +85,11 @@ public static class TextureEndpoints
             material.RepeatV, material.HasHdr, material.EffectParameter2));
     }
 
-    private static IResult GetTextureImage(int id, ICacheAPI cache, HttpContext context)
+    // The client keeps the alpha of effect 1 textures (Class73) and uses it to mask their highlight, so an opaque material's alpha is still data.
+    private static int RenderAlphaMode(MaterialDefinitionDecoder.Material material, bool sourceAlpha) =>
+        sourceAlpha && material.AlphaMode == 0 && material.EffectId == 1 ? 2 : material.AlphaMode;
+
+    private static IResult GetTextureImage(int id, ICacheAPI cache, HttpContext context, bool sourceAlpha = false)
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Texture ID must be nonnegative."));
         using var container = cache.ReadContainer(9, id);
@@ -99,7 +104,8 @@ public static class TextureEndpoints
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         hash.AppendData(source);
         hash.AppendData(Encoding.UTF8.GetBytes(metadata));
-        var etag = new EntityTagHeaderValue($"\"texture-png-v1-{System.Convert.ToHexStringLower(hash.GetHashAndReset())}\"", isWeak: true);
+        var pngAlphaMode = RenderAlphaMode(material, sourceAlpha);
+        var etag = new EntityTagHeaderValue($"\"texture-png-v1{(pngAlphaMode == alphaMode ? "" : "-source-alpha")}-{System.Convert.ToHexStringLower(hash.GetHashAndReset())}\"", isWeak: true);
         context.Response.Headers["X-Texture-Alpha-Mode"] = alphaMode.ToString(System.Globalization.CultureInfo.InvariantCulture);
         context.Response.Headers["X-Texture-Color-Blend"] = material.ColorBlend.ToString(System.Globalization.CultureInfo.InvariantCulture);
         context.Response.Headers["X-Texture-Brightness"] = material.Brightness.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -112,7 +118,7 @@ public static class TextureEndpoints
             context.Response.GetTypedHeaders().ETag = etag;
             return TypedResults.StatusCode(StatusCodes.Status304NotModified);
         }
-        var png = TextureImageDecoder.ToPng(source, alphaMode);
+        var png = TextureImageDecoder.ToPng(source, pngAlphaMode);
         context.Response.Headers.CacheControl = "private, no-cache";
         context.Response.GetTypedHeaders().ETag = etag;
         return TypedResults.File(png, "image/png");

@@ -54,6 +54,8 @@ export interface ObjectRenderAppearance {
     name?: string | null;
     id: number; shape: number; rotation: number; sizeX: number; sizeY: number; decorDisplacement: number;
     contourMode: number; contourParameter: number; parts: GetModelDto[]; warnings: string[];
+    /** Floor darkening for ground objects; zero or absent casts no shadow. */
+    shadowStrength?: number;
 }
 export interface MapSelection { id: number; width: number; height: number; }
 export interface MapLoadRequest extends MapSelection { keys: Record<string, number[]>; }

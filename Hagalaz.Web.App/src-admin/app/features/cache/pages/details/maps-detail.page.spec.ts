@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { environment } from "../../../../../environments/environment";
 import { CachePendingChangesService } from "../../cache-pending-changes.service";
 import { MapLoadStatusComponent } from "../map-load-status.component";
+import { MapScenePanelComponent } from "../map-scene-panel.component";
 import { MapViewportComponent } from "../map-viewport.component";
 import { MapsDetailPageComponent } from "./maps-detail.page";
 import { CacheObjectsService } from "../../services/cache-objects.service";
@@ -184,12 +185,31 @@ describe("MapsDetailPageComponent", () => {
             expect(viewport.canUndo()).toBe(false);
         });
 
+        it("outlines the tile under a dragged object until the drag ends", async () => {
+            const { harness, viewport } = await loadTerrain();
+            viewport.objectDragHover.emit({ x: 512, z: 512 });
+            harness.detectChanges();
+            expect(viewport.dropOutline()).toHaveLength(12);
+            viewport.objectDragHover.emit(null);
+            harness.detectChanges();
+            expect(viewport.dropOutline()).toBeNull();
+        });
+
+        it("sizes the drop outline to the dragged object's footprint", async () => {
+            vi.spyOn(TestBed.inject(CacheObjectsService), "definitionResource").mockImplementation(((id: () => number | null) => ({ hasValue: () => id() === 99, value: () => ({ sizeX: 2, sizeY: 3 }), isLoading: () => false, error: () => undefined })) as never);
+            const { harness, page, viewport } = await loadTerrain();
+            page.selectedAsset.set({ id: 99, name: "Fence", shape: 10 });
+            viewport.objectDragHover.emit({ x: 512, z: 512 });
+            harness.detectChanges();
+            expect(viewport.dropOutline()).toHaveLength((2 + 3) * 2 * 3);
+        });
+
         it("keeps terrain edits when objects are edited", async () => {
             const { page, viewport } = await loadTerrain();
             viewport.brushStroke.emit([{ x: 512, z: 512 }]);
             const terrain = page.edits()?.terrain;
             page.selectedAsset.set({ id: 99, name: "Fence", shape: 10 });
-            page.addObject();
+            page.placeDroppedObject({ id: 99, x: 512, z: 512 });
             expect(page.edits()?.terrain).toBe(terrain);
             http.match(`${environment.cacheApiUrl}types/objects/render-appearances`).forEach(batch => { batch.flush([]); });
         });
@@ -318,7 +338,7 @@ describe("MapsDetailPageComponent", () => {
             const { harness, page } = await loadRegion();
             answer(true);
             page.selectedAsset.set({ id: 99, name: "Fence", shape: 10 });
-            page.addObject();
+            page.placeDroppedObject({ id: 99, x: 512, z: 512 });
             harness.detectChanges();
             const pendingAssets = http.expectOne(`${environment.cacheApiUrl}types/objects/render-appearances`);
             expect(page.store.loading()).toBe(true);
@@ -333,6 +353,18 @@ describe("MapsDetailPageComponent", () => {
             http.expectOne(`${base}258/render`).flush({ ...region(258), landscapeStatus: "available", objects: [source] });
             harness.detectChanges();
             http.match(`${environment.cacheApiUrl}types/objects/render-appearances`).forEach(batch => { batch.flush([]); });
+        });
+
+        it("removes a placement from the scene tree and offers no toolbar add or remove", async () => {
+            const { harness, page } = await loadRegion();
+            const placement = page.store.regions()[0].objects[0];
+            const panel = required(harness.routeDebugElement, "the routed page").query(By.directive(MapScenePanelComponent)).componentInstance as MapScenePanelComponent;
+            expect(harness.routeNativeElement?.querySelector('.map-toolbar [aria-label="Remove object"], .map-toolbar [aria-label="Add object"]')).toBeNull();
+
+            panel.placementRemoved.emit(placement);
+
+            expect(page.edits()?.transforms.get(placement)).toBeNull();
+            expect(page.selectedObject()).toBeNull();
         });
 
         it("asks before leaving a draft, including one the cache cannot store", async () => {
@@ -464,7 +496,7 @@ describe("MapsDetailPageComponent", () => {
         const page = await harness.navigateByUrl("/cache/types/maps/258", MapsDetailPageComponent);
         http.expectOne(`${base}258/render`).flush(region(258));
         page.selectedAsset.set({ id: 99, name: "Fence", shape: 10 });
-        page.addObject();
+        page.placeDroppedObject({ id: 99, x: 512, z: 512 });
         harness.detectChanges();
         http.expectOne(`${environment.cacheApiUrl}types/objects/render-appearances`).flush([{ id: 99, shape: 10, rotation: 0, status: 404, appearance: null }]);
         const placement = page.edits()?.additions[0].placement;

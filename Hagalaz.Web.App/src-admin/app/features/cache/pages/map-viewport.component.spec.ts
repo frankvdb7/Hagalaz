@@ -1,7 +1,7 @@
 import { ApplicationRef } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MapViewportComponent } from "./map-viewport.component";
+import { mapObjectDragType, MapViewportComponent } from "./map-viewport.component";
 
 describe("MapViewportComponent keyboard controls", () => {
     beforeEach(() => TestBed.configureTestingModule({ imports: [MapViewportComponent] }));
@@ -24,6 +24,69 @@ describe("MapViewportComponent keyboard controls", () => {
         page.key(new KeyboardEvent("keydown", { key: "Escape" }));
         expect(page.selectedObject()).toBeNull();
         fixture.destroy();
+    });
+
+    describe("dragging an object over the viewport", () => {
+        function setup(hit: { x: number; z: number } | null) {
+            const fixture = TestBed.createComponent(MapViewportComponent);
+            const page = fixture.componentInstance;
+            const surface = { hit };
+            // Rendering the viewport calls many scene setters; only picking matters here.
+            const scene = new Proxy({ pickSurface: () => surface.hit } as Record<string | symbol, unknown>, { get: (target, name) => target[name] ?? vi.fn() });
+            (page as unknown as { scene: { set(value: unknown): void } }).scene.set(scene);
+            const frames: FrameRequestCallback[] = [];
+            vi.spyOn(globalThis, "requestAnimationFrame").mockImplementation(callback => frames.push(callback));
+            const hovers: unknown[] = [];
+            page.objectDragHover.subscribe(point => hovers.push(point));
+            const dataTransfer = { types: [mapObjectDragType], dropEffect: "", getData: () => "" };
+            const event = { dataTransfer, preventDefault: vi.fn(), clientX: 1, clientY: 2, relatedTarget: null } as unknown as DragEvent;
+            const flush = () => frames.splice(0).forEach(frame => { frame(0); });
+            return { fixture, page, surface, hovers, dataTransfer, event, flush };
+        }
+
+        it("samples the ground once a frame and reports where the object would land", () => {
+            const { fixture, page, hovers, dataTransfer, event, flush } = setup({ x: 512, z: 1024 });
+            page.allowObjectDrop(event);
+            page.allowObjectDrop(event);
+            expect(event.preventDefault).toHaveBeenCalledTimes(2);
+            expect(dataTransfer.dropEffect).toBe("copy");
+            flush();
+            expect(hovers).toEqual([{ x: 512, z: 1024 }]);
+            fixture.destroy();
+        });
+
+        it("refuses the drop away from the terrain", () => {
+            const { fixture, page, surface, hovers, dataTransfer, event, flush } = setup({ x: 512, z: 1024 });
+            page.allowObjectDrop(event);
+            flush();
+            surface.hit = null;
+            page.allowObjectDrop(event);
+            flush();
+            expect(hovers.at(-1)).toBeNull();
+            page.allowObjectDrop(event);
+            expect(dataTransfer.dropEffect).toBe("none");
+            fixture.destroy();
+        });
+
+        it("clears the target when the drag leaves, but not between its own canvases", () => {
+            const { fixture, page, hovers, event } = setup({ x: 512, z: 1024 });
+            fixture.detectChanges();
+            const canvas = fixture.nativeElement.querySelector(".map-canvas") as HTMLElement;
+            const inner = canvas.appendChild(document.createElement("canvas"));
+            page.leaveObjectDrop({ ...event, relatedTarget: inner } as unknown as DragEvent);
+            expect(hovers).toEqual([]);
+            page.leaveObjectDrop(event);
+            expect(hovers).toEqual([null]);
+            fixture.destroy();
+        });
+
+        it("ignores drags that are not objects", () => {
+            const { fixture, page, event, dataTransfer } = setup(null);
+            dataTransfer.types = ["text/plain"];
+            page.allowObjectDrop(event);
+            expect(event.preventDefault).not.toHaveBeenCalled();
+            fixture.destroy();
+        });
     });
 
     it("offers keyboard camera movement without triggering browser scrolling", () => {

@@ -738,14 +738,15 @@ export class ModelScene {
                     normal = normalize(normal + vec3(sin(cachePoint.x + cachePhase.x * 6.2831853), cos(cachePoint.y + cachePhase.y * 6.2831853), 0.0) * ${id >= 8 ? "0.18" : "cachePhase.z"});
                 `);
             }
-            if ([1, 7, 8, 9].includes(id)) {
+            if (id === 1) shader.fragmentShader = shader.fragmentShader.replace("#include <opaque_fragment>", `${clientSpecularHighlight}\n#include <opaque_fragment>`);
+            if ([7, 8, 9].includes(id)) {
                 shader.fragmentShader = shader.fragmentShader.replace("#include <opaque_fragment>", `
                     vec3 cacheReflection = inverseTransformDirection(reflect(-normalize(vViewPosition), normal), viewMatrix);
                     vec3 cacheSky = mix(vec3(0.035, 0.055, 0.08), vec3(0.55, 0.72, 0.9), clamp(cacheReflection.y * 0.5 + 0.5, 0.0, 1.0));
                     ${regionCubeSample(id)}
                     float cacheFresnel = pow(1.0 - abs(dot(normalize(vViewPosition), normal)), ${id === 8 ? "2.0" : "1.0"});
                     ${id === 9 ? "float cacheWaveShape = pow(0.5 + 0.5 * sin(cachePoint.x + cachePhase.x * 6.2831853), max(cacheWave.z, 1.0)); cacheSky += vec3(cacheWave.x * cacheWaveShape + cacheWave.y);" : ""}
-                    outgoingLight = mix(outgoingLight, cacheSky, ${id === 1 ? "clamp(cachePhase.w / 3.0, 0.0, 1.0) * 0.5" : "0.2 + cacheFresnel * 0.6"});
+                    outgoingLight = mix(outgoingLight, cacheSky, 0.2 + cacheFresnel * 0.6);
                     #include <opaque_fragment>
                 `);
             }
@@ -949,9 +950,21 @@ function strokePreviewColors(tiles: readonly number[]): number[] {
     });
 }
 
-/** GLSL overriding `cacheSky` with the region environment map. Effect 1 uses the client's built-in generated cubes instead. */
+/**
+ * Effect 1 (GameClient Class49_Sub7): adds a generated specular lobe to the lit surface, in the client's gamma space.
+ * The effect parameter picks the exponent and the texture's alpha masks the result. The lobe's cube is sampled by the eye-space reflection through a texture
+ * matrix of 26 degrees about X and -12 about Y, which puts the highlight at this view-space direction.
+ */
+const clientSpecularHighlight = `
+    float cacheLobeExponent = cachePhase.w < 0.5 ? 0.0 : cachePhase.w < 1.5 ? 128.0 : cachePhase.w < 2.5 ? 24.0 : 5.0;
+    vec3 cacheReflection = reflect(-normalize(vViewPosition), normal);
+    float cacheLobeFacing = clamp(dot(cacheReflection, normalize(vec3(0.091, 0.899, -0.428))), 0.0, 1.0);
+    float cacheSpecularLobe = cacheLobeExponent > 0.0 && cacheLobeFacing > 0.0 ? min(1.0, pow(cacheLobeFacing, cacheLobeExponent) * 400.0 / 255.0) * sampledDiffuseColor.a : 0.0;
+    outgoingLight = pow(min(pow(max(outgoingLight, vec3(0.0)), vec3(1.0 / 2.2)) + cacheSpecularLobe, vec3(1.0)), vec3(2.2));
+`;
+
+/** GLSL overriding `cacheSky` with the region environment map. */
 function regionCubeSample(effectId: number): string {
-    if (effectId === 1) return "";
     // Web Y is inverted client height; the cube is sampled in client space.
     return "if (cacheEnvironmentEnabled) cacheSky = textureCube(cacheEnvironment, vec3(cacheReflection.x, -cacheReflection.y, cacheReflection.z)).rgb;";
 }

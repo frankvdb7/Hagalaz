@@ -18,8 +18,8 @@
     @if (listView()) {
         <mat-action-list class="asset-rows map-asset-rows">
             @for (asset of catalogItems(); track asset.id) {
-                <button mat-list-item type="button" [activated]="isSelected(asset)" [class.is-active]="isSelected(asset)" [attr.draggable]="asset.shape !== null"
-                    [title]="hint(asset)" (dragstart)="dragObject($event, asset)" (click)="selectedAsset.set(asset)">
+                <button mat-list-item type="button" [activated]="isSelected(asset)" [class.is-active]="isSelected(asset)" [class.is-dragging]="draggingId() === asset.id" [attr.draggable]="asset.shape !== null"
+                    [title]="hint(asset)" (dragstart)="dragObject($event, asset)" (dragend)="draggingId.set(null)" (click)="selectedAsset.set(asset)">
                     <cache-object-model-thumbnail matListItemAvatar [id]="asset.id" [shape]="asset.shape" [name]="name(asset)" [width]="48" [height]="48" />
                     <span matListItemTitle class="asset-label">
                         <span class="asset-name" [class.active-title]="isSelected(asset)">{{ name(asset) }}</span>
@@ -31,8 +31,8 @@
     } @else {
         <div class="asset-grid">
             @for (asset of catalogItems(); track asset.id) {
-                <button mat-stroked-button type="button" class="object-card" [class.is-active]="isSelected(asset)" [attr.aria-pressed]="isSelected(asset)" [attr.draggable]="asset.shape !== null"
-                    [title]="hint(asset)" (dragstart)="dragObject($event, asset)" (click)="selectedAsset.set(asset)">
+                <button mat-stroked-button type="button" class="object-card" [class.is-active]="isSelected(asset)" [class.is-dragging]="draggingId() === asset.id" [attr.aria-pressed]="isSelected(asset)" [attr.draggable]="asset.shape !== null"
+                    [title]="hint(asset)" (dragstart)="dragObject($event, asset)" (dragend)="draggingId.set(null)" (click)="selectedAsset.set(asset)">
                     <span class="object-card-content">
                         <cache-object-model-thumbnail [id]="asset.id" [shape]="asset.shape" [name]="name(asset)" [width]="84" [height]="56" />
                         <span class="object-card-name">{{ name(asset) }}</span>
@@ -43,6 +43,10 @@
         </div>
     }
     @if (emptyMessage(); as message) { <p class="supporting-text">{{ message }}</p> }
+</div>
+<div #dragPreview class="drag-preview studio-surface" aria-hidden="true">
+    <canvas #dragPreviewImage width="96" height="96"></canvas>
+    <span #dragPreviewName></span>
 </div>
 @if (catalogPage(); as page) {
     <div class="catalog-pagination">

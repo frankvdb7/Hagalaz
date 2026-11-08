@@ -302,6 +302,42 @@ describe("map scene geometry", () => {
         ]);
         expect(ground.placements).toEqual([]);
     });
+    describe("object shadows on the floor", () => {
+        const placement = { id: 1, shape: 10, rotation: 0, plane: 0, x: 0, y: 0 };
+        const shadowed = (strength: number) => new Map([[mapAppearanceKey(placement), { ...appearance(), shadowStrength: strength }]]);
+        const withObject = () => { const source = region(); source.objects = [placement]; return source; };
+        const ground = (...args: Parameters<typeof buildLayers>) => required(buildLayers(...args).geometry?.terrain, "terrain");
+        const red = (terrain: { colors?: ArrayLike<number> }) => Array.from(required(terrain.colors, "terrain colours")).filter((_, channel) => channel % 3 === 0);
+
+        it("darkens floors at a casting object's corners and leaves others unchanged", () => {
+            const source = withObject();
+            const plain = red(ground([source], shadowed(0), new Map(), [true], true));
+            const dark = red(ground([source], shadowed(30), new Map(), [true], true));
+            expect(dark.length).toBe(plain.length);
+            dark.forEach((value, vertex) => { expect(value).toBeLessThanOrEqual(plain[vertex]); });
+            expect(dark.some((value, vertex) => value < plain[vertex])).toBe(true);
+        });
+
+        it("drops the shadow for removed, hidden or switched-off objects", () => {
+            const source = withObject(), lit = red(ground([source], shadowed(0), new Map(), [true], true));
+            expect(red(ground([source], shadowed(30), new Map(), [true], true, new MapScenePreparation(), source.id, { transforms: new Map([[placement, null]]), additions: [] }))).toEqual(lit);
+            expect(red(ground([source], shadowed(30), new Map(), [true], true, new MapScenePreparation(), source.id, undefined, { terrain: true, waterSurface: true, objectShadows: true, hiddenShapes: new Set([10]), hiddenPlacements: new Set() }))).toEqual(lit);
+            expect(red(ground([source], shadowed(30), new Map(), [true], false))).toEqual(lit);
+            expect(red(ground([source], shadowed(30), new Map(), [true], true, new MapScenePreparation(), source.id, undefined, { terrain: true, waterSurface: true, objectShadows: false, hiddenShapes: new Set(), hiddenPlacements: new Set() }))).toEqual(lit);
+        });
+
+        it("reuses the terrain while assets load and applies shadows once they settle", () => {
+            const source = withObject(), regions = [source], preparation = new MapScenePreparation();
+            const draw = (appearances: ReturnType<typeof shadowed>, loading: boolean) => ground(regions, appearances, new Map(), [true], true, preparation, source.id, undefined, undefined, loading);
+            const first = draw(new Map(), true);
+            expect(draw(shadowed(30), true)).toBe(first);
+            const settled = draw(shadowed(30), false);
+            expect(settled).not.toBe(first);
+            expect(draw(shadowed(30), true)).toBe(settled);
+            expect(draw(shadowed(30), false)).toBe(settled);
+        });
+    });
+
     it("uses only the selected anchor atmosphere, including when neighbors load first", () => {
         const anchor = region(), neighbor = region(514);
         neighbor.atmosphere = { lightRgb: 0xffffff, intensity: 0, positiveResponse: 1, negativeResponse: 1, directionX: 0, directionY: -1, directionZ: 0, skyRgb: 0xc8c0a8, fogValue: 0, environmentFaces: null };
@@ -610,7 +646,7 @@ describe("map scene geometry", () => {
         source.planes[0].overlays[1] = 3;
         const textures = new Map<number, ModelTexture>([[7, { image: {} as ImageBitmap, alphaMode: 0, effectId: 4 }], [8, { image: {} as ImageBitmap, alphaMode: 0 }]]);
         const preparation = new MapScenePreparation();
-        const vertices = (waterSurface: boolean) => buildMapScene([source], new Map(), textures, [true], false, preparation, null, undefined, { terrain: true, waterSurface, hiddenShapes: new Set(), hiddenPlacements: new Set() }).geometry?.positions.length;
+        const vertices = (waterSurface: boolean) => buildMapScene([source], new Map(), textures, [true], false, preparation, null, undefined, { terrain: true, waterSurface, objectShadows: true, hiddenShapes: new Set(), hiddenPlacements: new Set() }).geometry?.positions.length;
         expect(vertices(true)).toBe(24 * 3);
         expect(vertices(false)).toBe(12 * 3);
         expect(vertices(true)).toBe(24 * 3);
@@ -620,7 +656,7 @@ describe("map scene geometry", () => {
         const appearances = new Map([[mapAppearanceKey({ id: 1, shape: 10, rotation: 0 }), appearance()]]);
         const placed = { id: 1, shape: 10, rotation: 0, x: 0, y: 0, plane: 0 };
         source.objects = [placed];
-        const filter = (overrides: object) => ({ terrain: true, waterSurface: true, hiddenShapes: new Set<number>(), hiddenPlacements: new Set<typeof placed>(), ...overrides });
+        const filter = (overrides: object) => ({ terrain: true, waterSurface: true, objectShadows: true, hiddenShapes: new Set<number>(), hiddenPlacements: new Set<typeof placed>(), ...overrides });
         const preparation = new MapScenePreparation();
         const placements = (overrides: object) => buildMapScene([source], appearances, new Map(), [true], true, preparation, null, undefined, filter(overrides)).geometry?.placements.length;
         expect(placements({})).toBe(1);

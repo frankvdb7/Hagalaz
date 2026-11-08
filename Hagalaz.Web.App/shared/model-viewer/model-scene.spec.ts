@@ -680,8 +680,20 @@ describe("ModelScene resource ownership", () => {
         expect(material).toBeInstanceOf(THREE.MeshStandardMaterial);
         const shader = {uniforms:{},vertexShader:THREE.ShaderLib.standard.vertexShader,fragmentShader:THREE.ShaderLib.standard.fragmentShader};
         material.onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
-        expect(shader.fragmentShader.indexOf("outgoingLight = diffuseColor.rgb;")).toBeLessThan(shader.fragmentShader.indexOf("outgoingLight = mix(outgoingLight, cacheSky"));
+        expect(shader.fragmentShader.indexOf("outgoingLight = diffuseColor.rgb;")).toBeLessThan(shader.fragmentShader.indexOf("cacheSpecularLobe"));
         expect(shader.fragmentShader).toContain("cacheReflection");
+    });
+
+    it("adds the client's specular lobe for effect 1 instead of blending in a sky", () => {
+        scene.setTextures(new Map([[8,{image:{} as ImageBitmap,alphaMode:0,effectId:1,effectParameter:2}]]));
+        scene.setGeometry({...triangle,preparedLighting:true,colors:Array(9).fill(0.5),textureIds:[8]});
+        const shader = {uniforms:{},vertexShader:THREE.ShaderLib.standard.vertexShader,fragmentShader:THREE.ShaderLib.standard.fragmentShader};
+        renderAt(0).material[2].onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
+
+        expect(shader.fragmentShader).not.toContain("cacheSky");
+        expect(shader.fragmentShader).toContain("sampledDiffuseColor.a");
+        for (const exponent of ["128.0", "24.0", "5.0"]) expect(shader.fragmentShader).toContain(exponent);
+        expect((shader.uniforms as Record<string, {value: THREE.Vector4}>).cachePhase.value.w).toBe(2);
     });
 
     it("updates animation positions without replacing the mesh resources", () => {

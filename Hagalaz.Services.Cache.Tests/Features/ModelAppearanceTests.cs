@@ -144,6 +144,25 @@ public sealed class ModelAppearanceTests
     }
 
     [TestMethod]
+    public async Task ObjectRenderAppearance_ReportsTheClientFloorShadowStrength()
+    {
+        var store=new MemoryFileStore();
+        byte[] model=[1,1,10,1,0,0];
+        SeedDefinitions(store,16,(1,[..model,0]),(2,[..model,64,0]),(3,[..model,98,0]),(4,[92,255,255,255,255,0,1,0,0,1,0]));
+        store.Set(7,0,ContainerBytes(LegacyModel));
+        await using var app=await CacheServiceTestHost.StartAsync(store,group=>group.MapModelEndpoints());
+        using var client=CacheServiceTestHost.CreateClient(app);
+        async Task<GetObjectRenderAppearanceDto> Appearance(int id)=>(await client.GetFromJsonAsync<GetObjectRenderAppearanceDto>($"/api/v1/cache/types/objects/{id}/render-appearance?shape=10&rotation=0"))!;
+        var casting=await Appearance(1);
+        var positions=casting.Parts[0].Positions;
+        var radius=(int)(Math.Sqrt(Enumerable.Range(0,positions.Length/3).Max(vertex=>(long)positions[vertex*3]*positions[vertex*3]+(long)positions[vertex*3+2]*positions[vertex*3+2]))+0.99);
+        Assert.AreEqual(Math.Max(1,Math.Min(30,radius/4)),casting.ShadowStrength);
+        Assert.AreEqual(0,(await Appearance(2)).ShadowStrength);
+        Assert.AreEqual(15,(await Appearance(3)).ShadowStrength);
+        Assert.AreEqual(15,(await Appearance(4)).ShadowStrength);
+    }
+
+    [TestMethod]
     [DataRow(true,false)]
     [DataRow(false,false)]
     [DataRow(true,true)]

@@ -257,9 +257,21 @@ export function terrainBrushOutline(regions: readonly MapRenderRegion[], brush: 
     const pad = corners ? 0.5 : 0;
     const left = snap(origin.x + point.x / 512) - radius - pad, right = snap(origin.x + point.x / 512) + radius + (corners ? pad : 1);
     const bottom = snap(origin.y + point.z / 512) - radius - pad, top = snap(origin.y + point.z / 512) + radius + (corners ? pad : 1);
+    return groundOutline(regions, brush.plane, origin, left, bottom, right, top);
+}
+
+/** A closed line at ground height around the tiles an unrotated object would cover, with its south-west corner on the pointed tile. */
+export function footprintOutline(regions: readonly MapRenderRegion[], plane: number, point: BrushPoint, sizeX: number, sizeY: number): number[] | null {
+    const origin = worldOrigin(regions);
+    if (!origin) return null;
+    const left = Math.floor(origin.x + point.x / 512), bottom = Math.floor(origin.y + point.z / 512);
+    return groundOutline(regions, plane, origin, left, bottom, left + sizeX, bottom + sizeY);
+}
+
+function groundOutline(regions: readonly MapRenderRegion[], plane: number, origin: { x: number; y: number }, left: number, bottom: number, right: number, top: number): number[] | null {
     const outline: number[] = [];
     const add = (wx: number, wy: number): void => {
-        const height = mapHeight(regions, brush.plane, wx, wy);
+        const height = mapHeight(regions, plane, wx, wy);
         if (height !== null) outline.push((wx - origin.x) * 512, -height, (wy - origin.y) * 512);
     };
     for (let wx = left; wx < right; wx++) add(wx, bottom);

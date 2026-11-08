@@ -235,11 +235,12 @@ export class MapSceneLoad {
         this.textureRequests++;
         this.requests.add(
             this.service
-                .texture(id)
+                .texture(id, true)
                 .pipe(
                     switchMap(({ blob, material }) =>
                         from(
-                            createImageBitmap(blob, { imageOrientation: "flipY" }).then((image) => {
+                            // Premultiplying would destroy the colour under a low highlight-mask alpha.
+                            createImageBitmap(blob, { imageOrientation: "flipY", premultiplyAlpha: "none" }).then((image) => {
                                 if (this.cancelled) {
                                     image.close();
                                     return;

@@ -38,8 +38,9 @@ export class CacheMapsService {
         );
     }
 
-    texture(id: number) {
-        return this.http.get(`${environment.cacheApiUrl}textures/${id}/image`, { responseType: "blob", observe: "response" }).pipe(
+    /** Scene rendering needs source alpha, which masks material highlights; previews show the image as opaque. */
+    texture(id: number, sourceAlpha = false) {
+        return this.http.get(`${environment.cacheApiUrl}textures/${id}/image${sourceAlpha ? "?sourceAlpha=true" : ""}`, { responseType: "blob", observe: "response" }).pipe(
             map((response) => {
                 const metadata = response.headers.get("X-Texture-Material");
                 if (!response.body || !metadata) throw new Error("Texture image or material metadata is missing.");

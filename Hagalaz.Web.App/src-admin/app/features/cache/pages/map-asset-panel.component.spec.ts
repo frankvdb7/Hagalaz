@@ -1,8 +1,9 @@
 import { signal, type Signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CacheObjectsService } from "../services/cache-objects.service";
 import { MapAssetPanelComponent } from "./map-asset-panel.component";
+import { mapObjectDragType } from "./map-viewport.component";
 
 describe("MapAssetPanelComponent", () => {
     let query: Signal<Record<string, unknown> | null>;
@@ -37,5 +38,42 @@ describe("MapAssetPanelComponent", () => {
         expect(query()).toEqual({ query: "", offset: 0, limit: 40, shapes: "0,1,2,3,9" });
         panel.changeType("");
         expect(query()).toEqual({ query: "", offset: 0, limit: 40 });
+    });
+
+    describe("dragging an object", () => {
+        const dragEvent = () => {
+            const dataTransfer = { setData: vi.fn(), setDragImage: vi.fn(), effectAllowed: "" };
+            return { dataTransfer, event: { dataTransfer, currentTarget: document.createElement("button") } as unknown as DragEvent };
+        };
+
+        it("drags a compact preview of the object instead of its row", () => {
+            const fixture = TestBed.createComponent(MapAssetPanelComponent);
+            fixture.detectChanges();
+            const panel = fixture.componentInstance;
+            const { dataTransfer, event } = dragEvent();
+            const fence = { id: 99, name: "Fence", shape: 10 };
+
+            panel.dragObject(event, fence);
+
+            const preview = fixture.nativeElement.querySelector(".drag-preview");
+            expect(dataTransfer.setDragImage).toHaveBeenCalledWith(preview, 28, 28);
+            expect(preview.textContent).toContain("Fence");
+            expect(preview.querySelector("canvas").hidden).toBe(true);
+            expect(dataTransfer.setData).toHaveBeenCalledWith(mapObjectDragType, "99");
+            expect(dataTransfer.effectAllowed).toBe("copy");
+            expect(panel.selectedAsset()).toEqual(fence);
+            expect(panel.draggingId()).toBe(99);
+        });
+
+        it("starts no drag for an object without a placeable model", () => {
+            const fixture = TestBed.createComponent(MapAssetPanelComponent);
+            fixture.detectChanges();
+            const { dataTransfer, event } = dragEvent();
+
+            fixture.componentInstance.dragObject(event, { id: 5, name: "Nothing", shape: null });
+
+            expect(dataTransfer.setData).not.toHaveBeenCalled();
+            expect(fixture.componentInstance.draggingId()).toBeNull();
+        });
     });
 });

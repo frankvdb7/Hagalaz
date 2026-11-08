@@ -6,6 +6,7 @@ import { mixWaterFog, waterFogFactor, waterFogLookup, type WaterFog } from "./un
 import { overlayPriority, overlaySample, overlaySpreads, spreadSample, type SpreadLookup } from "./overlay-spreading";
 import type { TerrainBlend } from "../../../../../shared/model-viewer/terrain-material";
 import type { TerrainEdits } from "./map-terrain-edit";
+import { noObjectShadows, objectShadowField, shadowedFloorColor, type ObjectShadowField, type ShadowSource } from "./map-object-shadows";
 
 // Revision-742 ordinary floor topology, Class274's floor vertex and triangle tables.
 const floorX = [0, 256, 512, 512, 512, 256, 0, 0, 128, 256, 128, 384, 256];
@@ -86,10 +87,11 @@ export function mapHeight(regions: readonly MapRenderRegion[], plane: number, wo
 export interface MapSceneFilter {
     terrain: boolean;
     waterSurface: boolean;
+    objectShadows: boolean;
     hiddenShapes: ReadonlySet<number>;
     hiddenPlacements: ReadonlySet<MapPlacement>;
 }
-const showEverything: MapSceneFilter = { terrain: true, waterSurface: true, hiddenShapes: new Set(), hiddenPlacements: new Set() };
+const showEverything: MapSceneFilter = { terrain: true, waterSurface: true, objectShadows: true, hiddenShapes: new Set(), hiddenPlacements: new Set() };
 
 export interface MapObjectRange {
     regionId: number;
@@ -186,6 +188,7 @@ type SceneContext = {
     sampleTerrain: ReturnType<typeof terrainSampler>;
     spreads: SpreadLookup;
     filter: MapSceneFilter;
+    shadows: ObjectShadowField;
     waterFog: (worldX: number, worldY: number) => WaterFog | undefined;
     blends: Map<string, TerrainBlend>;
     preparation: MapScenePreparation;
@@ -246,17 +249,25 @@ function packMapPart(source: Pick<CacheModelGeometry, "positions" | "indices" | 
 
 /** Selection-scoped reuse; no global model/terrain cache. */
 export class MapScenePreparation {
+    private shadows?: ObjectShadowField;
     private ground?: { regions: readonly MapRenderRegion[]; planes: string; modes: string[]; atmosphere?: MapAtmosphere; geometry: SceneGeometry };
     private sampling?: { regions: readonly MapRenderRegion[]; sample: ReturnType<typeof terrainSampler> };
     private readonly models = new WeakMap<ObjectRenderAppearance, { dependencies: { id: number; prepared: boolean }[]; modes: string[]; atmosphere?: MapAtmosphere; parts: PreparedMapPart[] }>();
     private objects?: { inputs: readonly unknown[]; heights: readonly CornerHeights[]; result: SceneObjects };
 
-    terrain(regions: readonly MapRenderRegion[], textures: ReadonlyMap<number, ModelTexture>, planes: readonly boolean[], filter: MapSceneFilter, atmosphere: MapAtmosphere | undefined, build: () => SceneGeometry): SceneGeometry {
+    /** Keeps the last settled shadows while assets load, so arriving appearances do not rebuild the terrain. */
+    objectShadows(hold: boolean, compute: () => ObjectShadowField): ObjectShadowField {
+        if (hold) return this.shadows ?? noObjectShadows;
+        this.shadows = compute();
+        return this.shadows;
+    }
+
+    terrain(regions: readonly MapRenderRegion[], textures: ReadonlyMap<number, ModelTexture>, planes: readonly boolean[], filter: MapSceneFilter, atmosphere: MapAtmosphere | undefined, shadows: string, build: () => SceneGeometry): SceneGeometry {
         const modes = regions.flatMap(region => region.floors.map(floor => {
             const texture = textures.get(floor.textureId);
             return `${texture?.alphaMode ?? 0}:${texture?.effectId ?? 0}`;
         }));
-        const key = `${planes.join()}:${filter.terrain}:${filter.waterSurface}`;
+        const key = `${planes.join()}:${filter.terrain}:${filter.waterSurface}:${shadows}`;
         if (this.ground?.regions === regions && this.ground.planes === key && this.ground.atmosphere === atmosphere && sameValues(this.ground.modes, modes)) return this.ground.geometry;
         const geometry = build();
         this.ground = { regions, planes: key, modes, atmosphere, geometry };
@@ -389,6 +400,7 @@ export function buildMapScene(
     atmosphereRegionId: number | null = regions[0]?.id ?? null,
     draft?: MapSceneDraft,
     filter: MapSceneFilter = showEverything,
+    holdShadows = false,
 ): { geometry: MapSceneGeometry | null; warnings: string[] } {
     if (!regions.length) return { geometry: null, warnings: [] };
     const atmosphere = regions.find(region => region.id === atmosphereRegionId)?.atmosphere ?? undefined;
@@ -401,6 +413,9 @@ export function buildMapScene(
     let sampler: ReturnType<typeof terrainSampler> | undefined;
     let spreads: SpreadLookup | undefined;
     let waterFog: ReturnType<typeof waterFogLookup> | undefined;
+    const shadows = filter.objectShadows
+        ? preparation.objectShadows(holdShadows, () => landscape ? objectShadowField(regions, appearances, shadowSources(regions, draft, filter)) : noObjectShadows)
+        : noObjectShadows;
     const context: SceneContext = {
         regions,
         appearances,
@@ -412,6 +427,7 @@ export function buildMapScene(
         originY: Math.min(...regions.map((region) => region.regionY)) * 64,
         sampleTerrain: (...args) => { sampler ??= preparation.sampleTerrain(regions); return sampler(...args); },
         filter,
+        shadows,
         spreads: (...args) => { spreads ??= overlaySpreads(regions); return spreads(...args); },
         waterFog: (...args) => { waterFog ??= waterFogLookup(regions); return waterFog(...args); },
         blends: new Map(),
@@ -419,7 +435,7 @@ export function buildMapScene(
         atmosphere,
         lightTint,
     };
-    const terrain = preparation.terrain(regions, textures, visiblePlanes, filter, atmosphere, () => {
+    const terrain = preparation.terrain(regions, textures, visiblePlanes, filter, atmosphere, shadows.signature, () => {
         if (filter.terrain) addTerrain(context);
         context.geometry.indices = sequentialIndices(context.geometry.opacities.length);
         return context.geometry;
@@ -544,7 +560,10 @@ const noShade: FloorShade = { apply: color => color };
 
 function floorShade(context: SceneContext, level: number, worldX: number, worldY: number, corners: readonly FloorCorner[]): FloorShade {
     const fog = level === underwaterPlaneIndex ? context.waterFog(worldX, worldY) : undefined;
-    if (!fog) return noShade;
+    if (!fog) {
+        const shadows = corners.map(corner => context.shadows.value(level, corner.wx, corner.wy));
+        return shadows.some(shadow => shadow > 0) ? { apply: (color, index) => shadowedFloorColor(color, shadows[index]) } : noShade;
+    }
     const factors = corners.map(corner => waterFogFactor(fog, corner.height - (mapHeight(context.regions, 0, corner.wx, corner.wy) ?? corner.height)));
     return { flat: factors.every(factor => factor >= 1) ? fog.color : undefined, apply: (color, index) => mixWaterFog(color, fog, factors[index]) };
 }
@@ -581,6 +600,19 @@ function addLayeredFloor(context: SceneContext, corners: readonly FloorCorner[],
 
 function blendedFloorColor(samples: readonly FloorSample[]): number[] {
     return [0, 1, 2].map(channel => samples.reduce((sum, sample) => sum + sample.layer.color[channel] * sample.weight, 0));
+}
+
+/** Everything drawn on the landscape, so shadows follow the same drafts and filters as the objects. */
+function shadowSources(regions: readonly MapRenderRegion[], draft: MapSceneDraft | undefined, filter: MapSceneFilter): ShadowSource[] {
+    const placements = [
+        ...regions.flatMap(region => region.objects.map(placement => ({ placement, regionId: region.id }))),
+        ...draft?.additions ?? [],
+    ];
+    return placements.flatMap(({ placement, regionId }) => {
+        const moved = draft?.transforms.get(placement);
+        if (moved === null || filter.hiddenPlacements.has(placement) || filter.hiddenShapes.has(placement.shape)) return [];
+        return [{ placement, regionId, moved }];
+    });
 }
 
 function addLandscape(context: SceneContext, draft?: MapSceneDraft): void {

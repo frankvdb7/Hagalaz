@@ -79,6 +79,20 @@ describe("MapScenePanelComponent", () => {
         expect([...panel.hiddenPlacements()]).toEqual([crate]);
     });
 
+    it("removes a placement from its row without activating it", async () => {
+        const fixture = await create(crate);
+        const root = fixture.nativeElement as HTMLElement;
+        const removed: MapPlacement[] = [];
+        const activated = vi.fn();
+        fixture.componentInstance.placementRemoved.subscribe(value => removed.push(value));
+        fixture.componentInstance.placementActivated.subscribe(activated);
+
+        button(root, "Remove Crate").click();
+
+        expect(removed).toEqual([crate]);
+        expect(activated).not.toHaveBeenCalled();
+    });
+
     it("activates and marks the region row", async () => {
         const fixture = await create();
         const root = fixture.nativeElement as HTMLElement;

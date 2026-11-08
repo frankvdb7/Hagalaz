@@ -136,7 +136,7 @@ describe("CacheMapSceneStore", () => {
         store.load({ id: 1, width: 1, height: 1, keys: {} });
         http.expectOne(`${base}types/maps/1/render`).flush(region(1));
         store.setVisibility({ planes: [true], landscape: false, previewTextures: [9] });
-        http.expectOne((request) => request.url === `${base}textures/9/image`).error(new ProgressEvent("error"));
+        http.expectOne((request) => request.url === `${base}textures/9/image?sourceAlpha=true`).error(new ProgressEvent("error"));
     });
 
     it("ignores a save while another is running", async () => {
@@ -164,7 +164,7 @@ describe("CacheMapSceneStore", () => {
         vi.unstubAllGlobals();
     });
     function texture(id: number, material = { alphaMode: 0 }) {
-        http.expectOne(`${base}textures/${id}/image`).flush(new Blob(["fixture"], { type: "image/png" }), {
+        http.expectOne(`${base}textures/${id}/image?sourceAlpha=true`).flush(new Blob(["fixture"], { type: "image/png" }), {
             headers: { "X-Texture-Material": JSON.stringify(material) },
         });
         http.expectNone(`${base}textures/${id}/material`);
@@ -233,7 +233,7 @@ describe("CacheMapSceneStore", () => {
         const store = TestBed.inject(CacheMapSceneStore);
         store.load({ id: 258, width: 1, height: 1, keys: {} });
         http.expectOne(`${base}types/maps/258/render`).flush(textured(258));
-        http.expectOne(`${base}textures/7/image`).flush(new Blob(["fixture"]));
+        http.expectOne(`${base}textures/7/image?sourceAlpha=true`).flush(new Blob(["fixture"]));
         http.expectNone(`${base}textures/7/material`);
         expect(createImageBitmap).not.toHaveBeenCalled();
         expect(store.loading()).toBe(false);
@@ -252,7 +252,7 @@ describe("CacheMapSceneStore", () => {
         await vi.advanceTimersByTimeAsync(0);
         texture(24);
         await vi.advanceTimersByTimeAsync(0);
-        http.expectNone(`${base}textures/90/image`);
+        http.expectNone(`${base}textures/90/image?sourceAlpha=true`);
         expect(store.textures().size).toBe(0);
         expect(store.environmentFaces()).toHaveLength(6);
         expect(store.environmentFaces()?.[5]).toBe(store.environmentFaces()?.[0]);
@@ -270,7 +270,7 @@ describe("CacheMapSceneStore", () => {
         texture(24);
         await vi.advanceTimersByTimeAsync(250);
         expect(store.environmentFaces()).toBeNull();
-        http.expectOne(`${base}textures/25/image`).flush(new Blob(["fixture"]), { status: 404, statusText: "Missing" });
+        http.expectOne(`${base}textures/25/image?sourceAlpha=true`).flush(new Blob(["fixture"]), { status: 404, statusText: "Missing" });
         await vi.advanceTimersByTimeAsync(250);
         expect(store.environmentFaces()).toBeNull();
         expect(store.textures().size).toBe(0);
@@ -279,7 +279,7 @@ describe("CacheMapSceneStore", () => {
         store.setVisibility({ planes: [true], landscape: false });
         await vi.advanceTimersByTimeAsync(250);
         expect([...store.textures().keys()]).toEqual([7]);
-        http.expectNone(`${base}textures/7/image`);
+        http.expectNone(`${base}textures/7/image?sourceAlpha=true`);
     });
 
     it("publishes a region and its floor textures while another region and landscape batch remain pending", async () => {
@@ -371,9 +371,9 @@ describe("CacheMapSceneStore", () => {
         source.planes.push({ ...source.planes[0], underlays: [7] });
         store.load({ id: 258, width: 1, height: 1, keys: {} });
         http.expectOne(`${base}types/maps/258/render`).flush(source);
-        const fourth = http.expectOne(`${base}textures/13/image`);
-        http.expectNone(`${base}textures/14/image`);
-        http.expectNone(`${base}textures/16/image`);
+        const fourth = http.expectOne(`${base}textures/13/image?sourceAlpha=true`);
+        http.expectNone(`${base}textures/14/image?sourceAlpha=true`);
+        http.expectNone(`${base}textures/16/image?sourceAlpha=true`);
         const object = success(placement());
         http.expectOne(batchUrl).flush([
             {
@@ -395,13 +395,13 @@ describe("CacheMapSceneStore", () => {
                 },
             },
         ]);
-        http.expectNone(`${base}textures/100/image`);
+        http.expectNone(`${base}textures/100/image?sourceAlpha=true`);
         texture(10);
         await vi.advanceTimersByTimeAsync(0);
-        http.expectNone(`${base}textures/100/image`);
+        http.expectNone(`${base}textures/100/image?sourceAlpha=true`);
         texture(11);
         await vi.advanceTimersByTimeAsync(0);
-        http.expectNone(`${base}textures/100/image`);
+        http.expectNone(`${base}textures/100/image?sourceAlpha=true`);
         texture(12);
         fourth.flush(new Blob(["fixture"]), { headers: { "X-Texture-Material": JSON.stringify({ alphaMode: 0 }) } });
         texture(14);

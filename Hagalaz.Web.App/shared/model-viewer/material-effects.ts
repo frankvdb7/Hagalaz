@@ -11,7 +11,7 @@ export function describeMaterialEffect(effect: MaterialEffect): string | null {
     const id = effect.effectId ?? 0;
     switch (id) {
         case 0: return null;
-        case 1: return `Environment map #1, lobe ${effect.effectParameter ?? 0}: approximation using an inspection sky.`;
+        case 1: return `Environment map #1, lobe ${effect.effectParameter ?? 0}: client specular highlight.`;
         case 2: return "Ordinary water #2: procedural-noise approximation; client noise and scene lighting unavailable.";
         case 3: return "Effect #3 is unresolved; base-material fallback.";
         case 4: return "Underwater #4: animated-noise approximation; scene depth and fog unavailable.";

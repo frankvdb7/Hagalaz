@@ -18,7 +18,7 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
     template: `
         <div class="map-toolbar" role="group" aria-label="Map editor controls">
             <ng-content select="[mapEditTools]" />
-            <button mat-stroked-button type="button" class="view-trigger" [matMenuTriggerFor]="viewMenu"><mat-icon>visibility</mat-icon>View<mat-icon iconPositionEnd>expand_more</mat-icon></button>
+            <button mat-button type="button" class="view-trigger" [matMenuTriggerFor]="viewMenu"><mat-icon>visibility</mat-icon>View<mat-icon iconPositionEnd>expand_more</mat-icon></button>
             <span class="toolbar-gap"></span>
             <button mat-icon-button type="button" aria-label="More actions" matTooltip="More actions" [matMenuTriggerFor]="actionsMenu"><mat-icon>more_vert</mat-icon></button>
         </div>
@@ -79,7 +79,7 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
             aria-label="3D map viewport. Click an object to select it. Arrow keys orbit, Shift and arrows pan, plus and minus zoom, Home resets."
             (keydown)="key($event)" (pointerdown)="startPick($event)" (pointermove)="movePick($event)"
             (pointerup)="finishPick($event)" (pointercancel)="cancelPick()" (pointerleave)="leaveBrush()"
-            (dragover)="allowObjectDrop($event)" (drop)="dropObject($event)"></div>
+            (dragover)="allowObjectDrop($event)" (dragleave)="leaveObjectDrop($event)" (drop)="dropObject($event)"></div>
         <ng-content select="[mapSelectionStatus]" />
         <ng-content select="[mapLoadStatus]" />
         @if (error()) { <p role="alert" class="p-3">{{ error() }}</p> }
@@ -88,7 +88,7 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
         :host { display: block; position: relative; background: var(--mat-sys-surface); }
         .map-toolbar { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
         .map-toolbar button { color: var(--mat-sys-on-surface); }
-        .map-toolbar .view-trigger { height: 36px; border-radius: 8px; color: var(--mat-sys-primary); border-color: var(--mat-sys-primary); }
+        .map-toolbar .view-trigger { height: 36px; border-radius: 8px; color: var(--mat-sys-primary); }
         .toolbar-gap { flex: 1 1 0; }
         .map-canvas.is-brush { cursor: crosshair; touch-action: none; }
         .map-canvas { height: clamp(340px, 58dvh, 720px); width: 100%; outline-offset: -2px; }
@@ -109,6 +109,9 @@ export class MapViewportComponent implements OnDestroy {
     readonly gizmoMode = input<PlacementGizmoMode | null>(null);
     readonly objectGizmo = output<PlacementGizmoResult>();
     readonly objectDrop = output<{ id: number; x: number; z: number }>();
+    /** The ground under a dragged object, or null once the drag is off the terrain or over. */
+    readonly objectDragHover = output<BrushPoint | null>();
+    readonly dropOutline = input<readonly number[] | null>(null);
     readonly brushActive = input(false);
     readonly brushOutline = input<readonly number[] | null>(null);
     readonly brushHover = output<BrushPoint | null>();
@@ -158,6 +161,9 @@ export class MapViewportComponent implements OnDestroy {
     private stroke?: { id: number; points: BrushPoint[] };
     private brushFrame?: number;
     private latestBrush?: { x: number; y: number };
+    private dropFrame?: number;
+    private latestDrop?: { x: number; y: number };
+    private dropOnTerrain = true;
 
     constructor() {
         afterNextRender(async () => {
@@ -172,7 +178,7 @@ export class MapViewportComponent implements OnDestroy {
         });
         effect(() => this.scene()?.setDisplay(this.grid(), this.wireframe()));
         effect(() => this.scene()?.setPrimaryDragEnabled(!this.brushActive()));
-        effect(() => this.scene()?.setBrushOutline(this.brushActive() ? this.brushOutline() : null));
+        effect(() => this.scene()?.setBrushOutline(this.dropOutline() ?? (this.brushActive() ? this.brushOutline() : null)));
         effect(() => this.scene()?.setStrokePreview(this.brushActive() ? this.strokePreview() : null));
         effect(() => {
             const { skyRgb, fog, environmentFaces } = this.environment();
@@ -264,9 +270,29 @@ export class MapViewportComponent implements OnDestroy {
     allowObjectDrop(event: DragEvent): void {
         if (!event.dataTransfer?.types.includes(mapObjectDragType)) return;
         event.preventDefault();
-        event.dataTransfer.dropEffect = "copy";
+        event.dataTransfer.dropEffect = this.dropOnTerrain ? "copy" : "none";
+        this.latestDrop = { x: event.clientX, y: event.clientY };
+        // Ray casts against the whole scene, so sample once a frame.
+        this.dropFrame ??= requestAnimationFrame(() => {
+            this.dropFrame = undefined;
+            if (!this.latestDrop) return;
+            const hit = this.terrainHit(this.latestDrop.x, this.latestDrop.y);
+            this.dropOnTerrain = hit !== null;
+            this.objectDragHover.emit(hit);
+        });
+    }
+    leaveObjectDrop(event: DragEvent): void {
+        // Also fires when moving between the viewport's own canvases.
+        if (!this.viewport().nativeElement.contains(event.relatedTarget as Node | null)) this.endObjectDrag();
+    }
+    private endObjectDrag(): void {
+        if (this.dropFrame !== undefined) cancelAnimationFrame(this.dropFrame);
+        this.dropFrame = this.latestDrop = undefined;
+        this.dropOnTerrain = true;
+        this.objectDragHover.emit(null);
     }
     dropObject(event: DragEvent): void {
+        this.endObjectDrag();
         const id = event.dataTransfer?.getData(mapObjectDragType);
         if (!id || !/^\d+$/.test(id)) return;
         event.preventDefault();
@@ -302,6 +328,7 @@ export class MapViewportComponent implements OnDestroy {
     ngOnDestroy(): void {
         this.destroyed = true;
         if (this.brushFrame !== undefined) cancelAnimationFrame(this.brushFrame);
+        if (this.dropFrame !== undefined) cancelAnimationFrame(this.dropFrame);
         this.scene()?.dispose();
     }
 }

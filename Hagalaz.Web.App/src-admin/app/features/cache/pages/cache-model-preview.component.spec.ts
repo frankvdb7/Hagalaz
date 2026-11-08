@@ -186,7 +186,7 @@ describe("CacheModelPreviewComponent playback", () => {
         const close = vi.fn();
         vi.stubGlobal("createImageBitmap", vi.fn(() => new Promise<ImageBitmap>(resolve => { finish = resolve; })));
         await loadTexturedModel([8]);
-        http.expectOne(`${baseUrl}textures/8/image`).flush(new Blob(), { headers: { "X-Texture-Alpha-Mode": "1" } });
+        http.expectOne(`${baseUrl}textures/8/image?sourceAlpha=true`).flush(new Blob(), { headers: { "X-Texture-Alpha-Mode": "1" } });
         fixture.componentRef.setInput("modelId", 8); settle();
         http.expectOne(`${baseUrl}models/8`).flush({ ...model, id: 8, vertexSkins: null, animationIds: [] });
         finish({close} as unknown as ImageBitmap);
@@ -199,7 +199,7 @@ describe("CacheModelPreviewComponent playback", () => {
         http.expectOne(`${baseUrl}models/7`).flush({...model,vertexSkins:null,animationIds:[],particles:[{emitterId:403,face:0,definition,warning:null}]});
         await vi.waitFor(()=>{settle();expect(fixture.componentInstance.textureIds()).toEqual([744]);},{interval:1});
         http.expectOne(`${baseUrl}textures/744/material`).flush({alphaMode:2,effectId:0,hasHdr:false,scrollU:0,scrollV:0});
-        http.expectOne(`${baseUrl}textures/744/image`).flush(new Blob());
+        http.expectOne(`${baseUrl}textures/744/image?sourceAlpha=true`).flush(new Blob());
         await vi.waitFor(()=>{settle();expect(fixture.componentInstance.textureData.hasValue()).toBe(true);},{interval:1});
         expect(fixture.componentInstance.geometry()?.particles?.[0].emitterId).toBe(403);
         expect(fixture.nativeElement.textContent).toContain("Particle emitter #403");
@@ -210,7 +210,7 @@ describe("CacheModelPreviewComponent playback", () => {
     it("inspects a referenced texture using its actual material mode", async () => {
         vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue({close: vi.fn()}));
         await loadTexturedModel([8]);
-        http.expectOne(`${baseUrl}textures/8/image`).flush(new Blob());
+        http.expectOne(`${baseUrl}textures/8/image?sourceAlpha=true`).flush(new Blob());
         await vi.waitFor(() => { settle(); expect(fixture.componentInstance.textureData.hasValue()).toBe(true); }, {interval: 1});
         const choice = fixture.nativeElement.querySelector('[aria-label="Inspect texture 8"]') as HTMLButtonElement;
         choice.click(); settle();
@@ -223,9 +223,9 @@ describe("CacheModelPreviewComponent playback", () => {
         const close = vi.fn();
         vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue({close}));
         await loadTexturedModel([8, 9]);
-        http.expectOne(`${baseUrl}textures/8/image`).flush(new Blob(), { headers: { "X-Texture-Alpha-Mode": "1" } });
+        http.expectOne(`${baseUrl}textures/8/image?sourceAlpha=true`).flush(new Blob(), { headers: { "X-Texture-Alpha-Mode": "1" } });
         await Promise.resolve();
-        http.expectOne(`${baseUrl}textures/9/image`).flush(new Blob(), { status: 404, statusText: "Not Found" });
+        http.expectOne(`${baseUrl}textures/9/image?sourceAlpha=true`).flush(new Blob(), { status: 404, statusText: "Not Found" });
         await vi.waitFor(() => { settle(); expect(fixture.nativeElement.textContent).toContain("Some textures could not be loaded"); }, { interval: 1 });
         expect(close).toHaveBeenCalledTimes(1);
         fixture.destroy();
@@ -236,7 +236,7 @@ describe("CacheModelPreviewComponent playback", () => {
         const close = vi.fn();
         vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue({close}));
         await loadTexturedModel([8], {hasHdr: true});
-        http.expectOne(`${baseUrl}textures/8/image`).flush(new Blob());
+        http.expectOne(`${baseUrl}textures/8/image?sourceAlpha=true`).flush(new Blob());
         const hdr = http.expectOne(`${baseUrl}textures/8/hdr`);
         await Promise.resolve();
         fixture.componentRef.setInput("modelId", 9); settle();
@@ -249,7 +249,7 @@ describe("CacheModelPreviewComponent playback", () => {
     it("identifies approximated effects and retries a missing HDR companion", async () => {
         vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue({close: vi.fn()}));
         await loadTexturedModel([8], {effectId: 2, effectParameter: 12, scrollU: -1, hasHdr: true});
-        http.expectOne(`${baseUrl}textures/8/image`).flush(new Blob());
+        http.expectOne(`${baseUrl}textures/8/image?sourceAlpha=true`).flush(new Blob());
         http.expectOne(`${baseUrl}textures/8/hdr`).flush({}, {status: 404, statusText: "Not Found"});
         await vi.waitFor(() => { settle(); expect(fixture.componentInstance.textureData.hasValue()).toBe(true); }, {interval: 1});
         expect(fixture.nativeElement.textContent).toContain("Ordinary water #2: procedural-noise approximation");
@@ -257,7 +257,7 @@ describe("CacheModelPreviewComponent playback", () => {
         expect(fixture.componentInstance.textureImages().get(8)?.scrollU).toBe(-1);
         click("Retry textures");
         http.expectOne(`${baseUrl}textures/8/material`).flush({alphaMode: 1, effectId: 2, effectParameter: 12, scrollU: -1, hasHdr: true});
-        http.expectOne(`${baseUrl}textures/8/image`).flush(new Blob());
+        http.expectOne(`${baseUrl}textures/8/image?sourceAlpha=true`).flush(new Blob());
         http.expectOne(`${baseUrl}textures/8/hdr`).flush({width: 1, height: 1, rgba: [2, 1, 0, 1]});
         await vi.waitFor(() => { settle(); expect(fixture.componentInstance.textureImages().get(8)?.hdr?.rgba).toEqual([2, 1, 0, 1]); }, {interval: 1});
         expect(fixture.nativeElement.textContent).not.toContain("HDR companion unavailable");

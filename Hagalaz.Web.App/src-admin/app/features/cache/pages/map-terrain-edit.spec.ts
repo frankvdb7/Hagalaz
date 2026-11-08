@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MapFloor, MapRenderPlane, MapRenderRegion } from "../services/map-render.models";
 import { required } from "../../../../testing/required";
-import { applyBrushStroke, applyTerrainEdits, floorKey, mapTerrainSaves, paintedFloorTextures, terrainBrushOutline, terrainEditNotes, terrainStrokePreview, type TerrainBrush, type TerrainEdits } from "./map-terrain-edit";
+import { applyBrushStroke, applyTerrainEdits, floorKey, footprintOutline, mapTerrainSaves, paintedFloorTextures, terrainBrushOutline, terrainEditNotes, terrainStrokePreview, type TerrainBrush, type TerrainEdits } from "./map-terrain-edit";
 
 const plane = (height: number): MapRenderPlane => ({ cornerHeights: Array(4225).fill(height), flags: Array(4096).fill(0), underlays: Array(4096).fill(1), overlays: Array(4096).fill(0), overlayShapes: Array(4096).fill(0), overlayRotations: Array(4096).fill(0) });
 const region = (regionX = 1, regionY = 2, heights = [-640, -1600, -2560, -3520]): MapRenderRegion => ({ id: (regionX << 8) | regionY, regionX, regionY, terrainStatus: "available", landscapeStatus: "available", planes: heights.map(plane), objects: [], floors: [], warnings: [] });
@@ -259,5 +259,15 @@ describe("terrain edit helpers", () => {
         const height = terrainBrushOutline([start], brush({ size: 3 }), at(5, 5));
         expect(height?.slice(0, 3)).toEqual([3.5 * 512, 640, 3.5 * 512]);
         expect(terrainBrushOutline([], brush(), at(5, 5))).toBeNull();
+    });
+
+    it("outlines an object's whole footprint from the tile under the pointer", () => {
+        const outline = required(footprintOutline([region()], 0, { x: 3.5 * 512, z: 4.5 * 512 }, 2, 3), "the footprint outline");
+        expect(outline).toHaveLength((2 + 3) * 2 * 3);
+        expect(outline.slice(0, 3)).toEqual([3 * 512, 640, 4 * 512]);
+        const xs = outline.filter((_, index) => index % 3 === 0), zs = outline.filter((_, index) => index % 3 === 2);
+        expect([Math.min(...xs), Math.max(...xs)]).toEqual([3 * 512, 5 * 512]);
+        expect([Math.min(...zs), Math.max(...zs)]).toEqual([4 * 512, 7 * 512]);
+        expect(footprintOutline([], 0, at(5, 5), 2, 3)).toBeNull();
     });
 });

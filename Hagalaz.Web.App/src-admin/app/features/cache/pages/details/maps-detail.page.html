@@ -7,7 +7,7 @@
         <div class="region-browser">
             <mat-card appearance="outlined" class="scene-panel"><section class="contents" aria-label="Scene">
                 <cache-map-scene-panel [loading]="store.loading()" [regions]="store.regions()" [placements]="sourcePlacements()" [names]="objectNames()" [selected]="selectedObject()?.placement"
-                    [(terrainVisible)]="terrainVisible" [(hiddenGroups)]="hiddenGroups" [(hiddenPlacements)]="hiddenPlacements" (placementActivated)="selectPlacement($event)" [selection]="sceneSelection()" (selectionActivated)="selectScene($event)" />
+                    [(terrainVisible)]="terrainVisible" [(hiddenGroups)]="hiddenGroups" [(hiddenPlacements)]="hiddenPlacements" (placementActivated)="selectPlacement($event)" (placementRemoved)="removePlacement($event)" [selection]="sceneSelection()" (selectionActivated)="selectScene($event)" />
             </section></mat-card>
             <mat-card appearance="outlined" class="asset-panel"><section class="contents" aria-label="Scene assets">
                 <cache-map-asset-panel [active]="store.regions().length > 0" [(selectedAsset)]="selectedAsset" />
@@ -16,16 +16,13 @@
         <mat-card appearance="outlined" class="region-view">
             <cache-map-viewport [geometry]="scene().geometry" [textures]="store.textures()" [selectionKey]="selectionKey()"
                 [brushActive]="editTool() === 'terrain'" [brushOutline]="brushOutline()" (brushHover)="brushPoint.set($event)" (brushStroke)="applyStroke($event)" (brushPreview)="strokePoints.set($event)" [strokePreview]="strokePreview()" [canRebuildWorldMap]="canRebuildWorldMap()" (rebuildWorldMap)="rebuildWorldMap()" [canSave]="canSave()" (save)="saveChanges()" [canUndo]="canUndo()" (undo)="undo()" (discardEdits)="resetEdits()" [regionAtmosphere]="regionAtmosphere()" [environmentFaces]="store.environmentFaces()" [(useRegionAtmosphere)]="useRegionAtmosphere" [(snap)]="snap" [layersMenu]="layersMenu" [selectedObject]="selectedObject()" (selectedObjectChange)="selectObject($event)"
-                [objectTransform]="objectTransform()" [gizmoMode]="gizmoMode()" (objectGizmo)="applyObjectGizmo($event)" (objectDrop)="placeDroppedObject($event)">
+                [objectTransform]="objectTransform()" [gizmoMode]="gizmoMode()" (objectGizmo)="applyObjectGizmo($event)" (objectDrop)="placeDroppedObject($event)" [dropOutline]="dropOutline()" (objectDragHover)="dropPoint.set($event)">
                 <div mapEditTools class="edit-toolbar map-edit-toolbar">
                     @for (tool of editTools; track tool.id) {
                         <button mat-icon-button type="button" [class.is-active]="editTool() === tool.id" [attr.aria-label]="tool.label" [matTooltip]="tool.label" [attr.aria-pressed]="editTool() === tool.id" (click)="chooseTool(tool.id)">
                             <mat-icon>{{ tool.icon }}</mat-icon>
                         </button>
                     }
-                    <mat-divider [vertical]="true" />
-                    <button mat-icon-button type="button" aria-label="Add object" matTooltip="Add object" [disabled]="!canAddObject()" (click)="addObject()"><mat-icon>add_box</mat-icon></button>
-                    <button mat-icon-button type="button" aria-label="Remove object" matTooltip="Remove object" [disabled]="!selectedObject()" (click)="removeObject()"><mat-icon>delete_outline</mat-icon></button>
                 </div>
                 <ng-container mapSelectionStatus>
                     @if (objectTransform(); as transform) {
@@ -52,6 +49,9 @@
                 </button>
                 <button mat-menu-item type="button" [role]="'menuitemcheckbox'" [attr.aria-checked]="landscape()" (click)="$event.stopPropagation(); landscape.set(!landscape())">
                     <mat-icon>{{ landscape() ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>Landscape objects
+                </button>
+                <button mat-menu-item type="button" [role]="'menuitemcheckbox'" [attr.aria-checked]="objectShadows()" (click)="$event.stopPropagation(); objectShadows.set(!objectShadows())">
+                    <mat-icon>{{ objectShadows() ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>Object shadows
                 </button>
             </mat-menu>
         </mat-card>

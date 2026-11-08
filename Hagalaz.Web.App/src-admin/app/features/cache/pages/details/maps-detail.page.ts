@@ -30,7 +30,7 @@ import { MapAssetPanelComponent } from "../map-asset-panel.component";
 import { MapLoadStatusComponent } from "../map-load-status.component";
 import { MapRegionDetailsComponent } from "../map-region-details.component";
 import { MapScenePanelComponent } from "../map-scene-panel.component";
-import { applyBrushStroke, applyTerrainEdits, floorKey, mapTerrainSaves, paintedFloorTextures, terrainBrushOutline, terrainEditNotes, terrainStrokePreview, type BrushPoint, type TerrainBrush } from "../map-terrain-edit";
+import { applyBrushStroke, applyTerrainEdits, floorKey, footprintOutline, mapTerrainSaves, paintedFloorTextures, terrainBrushOutline, terrainEditNotes, terrainStrokePreview, type BrushPoint, type TerrainBrush } from "../map-terrain-edit";
 import { MapTerrainPanelComponent } from "../map-terrain-panel.component";
 import { MapViewportComponent } from "../map-viewport.component";
 
@@ -54,12 +54,14 @@ export class MapsDetailPageComponent {
     readonly landscape = signal(true);
     readonly underwater = signal(true);
     readonly waterSurface = signal(true);
+    readonly objectShadows = signal(true);
     readonly terrainVisible = signal(true);
     readonly hiddenGroups = signal<ReadonlySet<string>>(new Set());
     readonly hiddenPlacements = linkedSignal<ReadonlySet<MapPlacement>>(() => { this.selectionKey(); return new Set(); });
     private readonly sceneFilter = computed<MapSceneFilter>(() => ({
         terrain: this.terrainVisible(),
         waterSurface: this.waterSurface(),
+        objectShadows: this.objectShadows(),
         hiddenShapes: new Set(sceneGroups.filter(group => this.hiddenGroups().has(group.id)).flatMap(group => group.shapes)),
         hiddenPlacements: this.hiddenPlacements(),
     }));
@@ -89,6 +91,14 @@ export class MapsDetailPageComponent {
     readonly brush = signal<TerrainBrush>({ tool: "raise", plane: 0, size: 3, strength: 2, underlay: null, overlay: null, overlayShape: 0, overlayRotation: 0 });
     readonly brushPoint = signal<BrushPoint | null>(null);
     readonly strokePoints = signal<readonly BrushPoint[] | null>(null);
+    readonly dropPoint = signal<BrushPoint | null>(null);
+    private readonly dropPlane = computed(() => Math.max(0, this.planes().indexOf(true)));
+    /** The tiles a dragged object would cover, one tile until its definition has loaded. */
+    readonly dropOutline = computed(() => {
+        const point = this.dropPoint();
+        const size = this.assetDefinition.hasValue() ? this.assetDefinition.value() : { sizeX: 1, sizeY: 1 };
+        return point && footprintOutline(this.previewRegions(), this.dropPlane(), point, size.sizeX, size.sizeY);
+    });
     readonly strokePreview = computed(() => {
         const points = this.strokePoints();
         return points && terrainStrokePreview(this.previewRegions(), this.brush(), points, this.floorCatalog());
@@ -123,6 +133,8 @@ export class MapsDetailPageComponent {
     });
     private readonly selectedObjectId = computed(() => this.selectedObject()?.placement.id ?? null);
     readonly objectDefinition = this.objects.definitionResource(this.selectedObjectId);
+    private readonly selectedAssetId = computed(() => this.selectedAsset()?.id ?? null);
+    private readonly assetDefinition = this.objects.definitionResource(this.selectedAssetId);
     readonly objectProperties = computed(() => {
         const definition = this.objectDefinition.hasValue() ? this.objectDefinition.value() : undefined;
         const selected = this.selectedObject();
@@ -145,7 +157,7 @@ export class MapsDetailPageComponent {
     readonly regionAtmosphere = computed(() => this.store.regions().find(region => region.id === this.selection().id)?.atmosphere ?? null);
     readonly scene = computed(() => buildMapScene(
         this.previewRegions(), this.store.appearances(), this.store.textures(), this.visiblePlanes(), this.landscape(), this.preparation(),
-        this.useRegionAtmosphere() ? this.selection().id : null, this.edits(), this.sceneFilter(),
+        this.useRegionAtmosphere() ? this.selection().id : null, this.edits(), this.sceneFilter(), this.store.loading(),
     ));
     readonly objectNames = computed(() => {
         const names = new Map<number, string>();
@@ -160,7 +172,6 @@ export class MapsDetailPageComponent {
         if (!this.landscape()) return [];
         return scenePlacements(this.store.regions(), this.visiblePlanes(), draft?.additions ?? [], placement => draft?.transforms.get(placement) === null);
     });
-    readonly canAddObject = computed(() => this.selectedAsset()?.shape != null && this.store.regions().length > 0);
     readonly writeActivity = computed(() => this.store.saving() ? "Saving changes" : this.store.worldMapRefreshing() ? "Updating world map" : null);
     // Edited rotations and additions need their own appearances, independent of source plane visibility.
     // The loader only reacts when the set of appearance keys changes, not on every move or scale step.
@@ -248,10 +259,10 @@ export class MapsDetailPageComponent {
         if (plane !== current.plane && !this.planes()[plane]) this.togglePlane(plane, true);
         this.setObjectDraft(selected, { ...current, x, y, plane, rotation: (current.rotation + turns) % 4, scale });
     }
-    private setObjectDraft(selected: MapObjectRange, transform: MapObjectTransform | null): void {
+    private setObjectDraft({ placement }: Pick<MapObjectRange, "placement">, transform: MapObjectTransform | null): void {
         this.commitEdit(draft => {
             const transforms = new Map(draft?.transforms);
-            transforms.set(selected.placement, transform);
+            transforms.set(placement, transform);
             return { ...draft, transforms, additions: draft?.additions ?? [] };
         });
     }
@@ -260,17 +271,9 @@ export class MapsDetailPageComponent {
         this.editHistory.update(history => [...history, draft]);
         this.edits.set(change(draft));
     }
-    addObject(): void {
-        const asset = this.selectedAsset();
-        const selected = this.selectedObject();
-        const region = this.store.regions().find(candidate => candidate.id === (selected?.regionId ?? this.id()));
-        if (!asset || !region) return;
-        const transform = this.objectTransform();
-        this.placeCatalogObject(asset, region.id, transform?.x ?? 32, transform?.y ?? 32);
-    }
     private placeCatalogObject(asset: ObjectCatalogEntry, regionId: number, x: number, y: number): void {
         if (asset.shape === null) return;
-        const plane = Math.max(0, this.planes().indexOf(true));
+        const plane = this.dropPlane();
         const placement = { id: asset.id, shape: asset.shape, rotation: 0, x, y, plane };
         if (!this.planes()[plane]) this.togglePlane(plane, true);
         this.landscape.set(true);
@@ -281,11 +284,9 @@ export class MapsDetailPageComponent {
         }));
         this.pendingSelection.set(placement);
     }
-    removeObject(): void {
-        const selected = this.selectedObject();
-        if (!selected) return;
-        this.setObjectDraft(selected, null);
-        this.selectObject(null);
+    removePlacement(placement: MapPlacement): void {
+        this.setObjectDraft({ placement }, null);
+        if (this.selectedObject()?.placement === placement) this.selectObject(null);
     }
     resetEdits(): void {
         this.pendingSelection.set(null);
