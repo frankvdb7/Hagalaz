@@ -12,8 +12,10 @@ public static class FileCountEndpoints
 {
     public static IEndpointRouteBuilder MapFileCountEndpoints(this IEndpointRouteBuilder group)
     {
-        group.MapGet("/indexes/{indexId:int}/file-count", GetFileCount);
-        group.MapGet("/indexes/{indexId:int}/files/{fileId:int}/sub-file-count", GetSubFileCount);
+        group.MapGet("/indexes/{indexId:int}/file-count", GetFileCount)
+            .WithSummary("Count the files in an index");
+        group.MapGet("/indexes/{indexId:int}/files/{fileId:int}/sub-file-count", GetSubFileCount)
+            .WithSummary("Count the members of an archive");
         return group;
     }
 

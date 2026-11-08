@@ -24,13 +24,20 @@ public static class ItemDefinitionEndpoints
 {
     public static IEndpointRouteBuilder MapItemDefinitionEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/items/{id:int}", GetItemType);
-        types.MapGet("/items/{id:int}/image", GetItemTypeImage);
-        types.MapGet("/items/range", GetItemTypeRange);
-        types.MapGet("/items/search", SearchItemTypes);
-        types.MapGet("/items/{id:int}/definition", GetItemDefinition);
-        types.MapPut("/items/{id:int}/definition", UpdateItemDefinition);
-        types.MapPost("/items/{id:int}/duplicate", DuplicateItem);
+        types.MapGet("/items/{id:int}", GetItemType)
+            .WithSummary("Get an item summary").Produces<GetItemTypeDto>();
+        types.MapGet("/items/{id:int}/image", GetItemTypeImage)
+            .WithSummary("Render an item's inventory icon as PNG").Produces<System.IO.Stream>(StatusCodes.Status200OK, "image/png").Produces(StatusCodes.Status304NotModified);
+        types.MapGet("/items/range", GetItemTypeRange)
+            .WithSummary("List item summaries in a range").Produces<GetItemTypeDto[]>();
+        types.MapGet("/items/search", SearchItemTypes)
+            .WithSummary("Search items by name").Produces<SearchDefinitionsDto<GetItemTypeDto>>();
+        types.MapGet("/items/{id:int}/definition", GetItemDefinition)
+            .WithSummary("Get an item's full editable definition").Produces<GetItemDefinitionDto>();
+        types.MapPut("/items/{id:int}/definition", UpdateItemDefinition)
+            .WithSummary("Replace an item's full definition").Produces<UpdateItemDefinitionResultDto>();
+        types.MapPost("/items/{id:int}/duplicate", DuplicateItem)
+            .WithSummary("Copy an item definition to the next free ID").Produces<DuplicateItemDefinitionResultDto>(StatusCodes.Status201Created);
         return types;
     }
 
@@ -66,10 +73,6 @@ public static class ItemDefinitionEndpoints
 
         byte[]? png;
         try { png = ItemIcons.RenderPng(id, options, cache, items); }
-        catch (NotSupportedException exception)
-        {
-            return TypedResults.Problem(title: "Unsupported model format", detail: exception.Message, statusCode: 422);
-        }
         catch (FileNotFoundException) { png = null; }
         if (png is null) return TypedResults.NotFound();
 
@@ -125,11 +128,7 @@ public static class ItemDefinitionEndpoints
 
     private static IResult UpdateItemDefinition(int id, UpdateItemDefinitionDto request, IItemTypeCodec codec, ICacheAPI cacheApi)
     {
-        if (id < 0 || request.Id != id || request.Value < 0 || string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 50)
-            return TypedResults.BadRequest(EndpointErrors.Validation("Provide matching nonnegative IDs, a nonnegative base value and a display name of 1-50 characters."));
-        foreach (var character in request.Name)
-            if (character < ' ' || character > byte.MaxValue)
-                return TypedResults.BadRequest(EndpointErrors.Validation("Display name must contain printable Latin-1 characters."));
+        if (request.Validate(id) is { } error) return TypedResults.BadRequest(EndpointErrors.Validation(error));
         var item = (ItemType)DecodeRawTypeEntry(id, codec, new ItemTypeData(), cacheApi);
         request.ApplyTo(item);
         using var encoded = codec.Encode(item);

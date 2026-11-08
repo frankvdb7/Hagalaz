@@ -14,7 +14,8 @@ public static class ReferenceTableEndpoints
 {
     public static IEndpointRouteBuilder MapReferenceTableEndpoints(this IEndpointRouteBuilder group)
     {
-        group.MapGet("/indexes/{indexId:int}/reference-table", GetReferenceTable);
+        group.MapGet("/indexes/{indexId:int}/reference-table", GetReferenceTable)
+            .WithSummary("Read an index's reference table").Produces<GetReferenceTableDto>();
         return group;
     }
 

@@ -12,8 +12,10 @@ public static class Cs2DefinitionsEndpoints
 {
     public static IEndpointRouteBuilder MapCs2DefinitionsEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/cs2/{id:int}", GetCs2Type);
-        types.MapGet("/cs2/range", GetCs2TypeRange);
+        types.MapGet("/cs2/{id:int}", GetCs2Type)
+            .WithSummary("Get a CS2 script definition").Produces<GetCs2DefinitionDto>();
+        types.MapGet("/cs2/range", GetCs2TypeRange)
+            .WithSummary("List CS2 script definitions in a range").Produces<GetCs2DefinitionDto[]>();
         return types;
     }
 

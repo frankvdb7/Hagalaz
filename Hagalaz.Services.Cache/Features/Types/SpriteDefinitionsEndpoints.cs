@@ -23,11 +23,16 @@ public static class SpriteDefinitionsEndpoints
 {
     public static IEndpointRouteBuilder MapSpriteDefinitionsEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/sprites/{id:int}", GetSpriteType);
-        types.MapGet("/sprites/{id:int}/image", GetSpriteTypeImage);
-        types.MapGet("/sprites/range", GetSpriteTypeRange);
-        types.MapGet("/sprites/search", SearchSpriteTypes);
-        types.MapPost("/sprites/{id:int}/image", ReplaceSpriteImage);
+        types.MapGet("/sprites/{id:int}", GetSpriteType)
+            .WithSummary("Get a sprite definition").Produces<GetSpriteDefinitionDto>();
+        types.MapGet("/sprites/{id:int}/image", GetSpriteTypeImage)
+            .WithSummary("Render a sprite frame as PNG").Produces<System.IO.Stream>(StatusCodes.Status200OK, "image/png");
+        types.MapGet("/sprites/range", GetSpriteTypeRange)
+            .WithSummary("List sprite definitions in a range").Produces<GetSpriteDefinitionDto[]>();
+        types.MapGet("/sprites/search", SearchSpriteTypes)
+            .WithSummary("Search sprites by name or ID").Produces<SearchDefinitionsDto<GetSpriteDefinitionDto>>();
+        types.MapPost("/sprites/{id:int}/image", ReplaceSpriteImage)
+            .WithSummary("Replace a sprite frame image").Produces<ReplaceSpriteImageResultDto>();
         return types;
     }
 

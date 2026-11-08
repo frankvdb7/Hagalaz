@@ -22,17 +22,28 @@ public static class ModelEndpoints
         ? [$"First-texel texture fallback on {faces.Length} faces with invalid projection coordinates."] : [];
     public static IEndpointRouteBuilder MapModelEndpoints(this IEndpointRouteBuilder group)
     {
-        group.MapGet("/models/{id:int}", GetModel);
-        group.MapGet("/models/capacity", (ICacheAPI cache) => TypedResults.Ok(new GetModelCapacityDto(cache.ReadReferenceTable(7).Capacity)));
-        group.MapGet("/models/range", GetModelRange);
-        group.MapGet("/types/items/{id:int}/model", GetItemModel);
-        group.MapGet("/types/items/{id:int}/model-appearances", GetItemAppearances);
-        group.MapGet("/types/npcs/{id:int}/model", GetNpcModel);
-        group.MapGet("/types/objects/{id:int}/model", GetObjectModel);
-        group.MapGet("/types/objects/{id:int}/render-appearance", GetObjectRenderAppearance);
-        group.MapPost("/types/objects/render-appearances", GetObjectRenderAppearances);
-        group.MapGet("/animation-frames/{id:int}", GetAnimationFrame);
-        group.MapGet("/types/animations/{id:int}/sequence", GetAnimationSequence);
+        group.MapGet("/models/{id:int}", GetModel)
+            .WithSummary("Decode a model's geometry").Produces<GetModelDto>();
+        group.MapGet("/models/capacity", (ICacheAPI cache) => TypedResults.Ok(new GetModelCapacityDto(cache.ReadReferenceTable(7).Capacity)))
+            .WithSummary("Get the model index capacity");
+        group.MapGet("/models/range", GetModelRange)
+            .WithSummary("List model IDs in a range of at most 200").Produces<GetModelSummaryDto[]>();
+        group.MapGet("/types/items/{id:int}/model", GetItemModel)
+            .WithSummary("Assemble an item appearance model").Produces<GetModelDto>();
+        group.MapGet("/types/items/{id:int}/model-appearances", GetItemAppearances)
+            .WithSummary("List an item's model appearances").Produces<GetItemModelAppearanceDto[]>();
+        group.MapGet("/types/npcs/{id:int}/model", GetNpcModel)
+            .WithSummary("Assemble an NPC model").Produces<GetModelDto>();
+        group.MapGet("/types/objects/{id:int}/model", GetObjectModel)
+            .WithSummary("Assemble an object model for one shape").Produces<GetModelDto>();
+        group.MapGet("/types/objects/{id:int}/render-appearance", GetObjectRenderAppearance)
+            .WithSummary("Assemble an object as placed in a map region").Produces<GetObjectRenderAppearanceDto>();
+        group.MapPost("/types/objects/render-appearances", GetObjectRenderAppearances)
+            .WithSummary("Assemble up to 32 object placements, each with its own status").Produces<ObjectRenderAppearanceResultDto[]>();
+        group.MapGet("/animation-frames/{id:int}", GetAnimationFrame)
+            .WithSummary("Decode an animation frame and its skeleton").Produces<GetAnimationFrameDto>();
+        group.MapGet("/types/animations/{id:int}/sequence", GetAnimationSequence)
+            .WithSummary("Get an animation's frame sequence").Produces<GetAnimationSequenceDto>();
         return group;
     }
 
@@ -95,8 +106,7 @@ public static class ModelEndpoints
         var selected = ItemAppearances(item).FirstOrDefault(value => value.Key == (appearance ?? "inventory"));
         if (selected is null) return TypedResults.BadRequest(EndpointErrors.Validation("Unknown item model appearance."));
         if (!selected.Available) return TypedResults.NotFound();
-        try { return TypedResults.Ok(BuildItemModel(item, selected, cache)); }
-        catch (NotSupportedException exception) { return TypedResults.Problem(title: "Unsupported model format", detail: exception.Message, statusCode: 422); }
+        return TypedResults.Ok(BuildItemModel(item, selected, cache));
     }
 
     /// <summary>The item's inventory appearance, or null when it has no inventory model.</summary>
@@ -121,16 +131,9 @@ public static class ModelEndpoints
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Model ID must be nonnegative."));
         using var container = cache.ReadContainer(7, id);
-        try
-        {
-            var geometry = ModelGeometryDecoder.Decode(container.Data.ToArray(), allowFirstTexelFallback: true);
-            return TypedResults.Ok(new GetModelDto(id, geometry.Positions, geometry.Indices, geometry.FaceColors, geometry.FaceAlpha, geometry.VertexSkins,
+        var geometry = ModelGeometryDecoder.Decode(container.Data.ToArray(), allowFirstTexelFallback: true);
+        return TypedResults.Ok(new GetModelDto(id, geometry.Positions, geometry.Indices, geometry.FaceColors, geometry.FaceAlpha, geometry.VertexSkins,
                 new[] { "Geometry, projected textures and ordinary transparency preview. Transparent faces use client priorities and depth ordering within each priority. Intersecting triangles and full client rendering parity remain unverified. Client model lighting uses a fixed inspection light; map atmosphere and seam lighting remain unverified." }.Concat(ProjectionWarnings(geometry.FirstTexelFaces)).ToArray(), CoordinateScale: geometry.Version < 13 ? 0.25f : 1, FaceSkins: geometry.FaceSkins, FaceTextureIds: geometry.FaceTextureIds, FaceTextureVertices: geometry.FaceTextureVertices, FaceTextureUvs: geometry.FaceTextureUvs, Particles: ReadParticles(cache, geometry.Emitters ?? []), FacePriorities: geometry.FacePriorities, FaceShadingTypes: geometry.FaceShadingTypes, FirstTexelFaces: geometry.FirstTexelFaces));
-        }
-        catch (NotSupportedException exception)
-        {
-            return TypedResults.Problem(title: "Unsupported model format", detail: exception.Message, statusCode: 422);
-        }
     }
 
     private static IResult GetNpcModel(int id, ICacheAPI cache, ITypeProvider<INpcType> npcs)
@@ -223,13 +226,12 @@ public static class ModelEndpoints
         foreach (var orientation in orientations)
         {
             var mirrored = definition.Inverted || (modelShape == 2 && orientation > 3);
-            var result = AssembleModel(id, definition.ModelIDs[group], cache, definition.ScaleX, definition.ScaleY, definition.ScaleZ,
+            var model = BuildModel(id, definition.ModelIDs[group], cache, definition.ScaleX, definition.ScaleY, definition.ScaleZ,
                 definition.OffsetX / 4, definition.OffsetY / 4, definition.OffsetZ / 4,
                 definition.OriginalColors, definition.ModifiedColors, definition.AShortArray831, definition.AShortArray762, [],
                 "Static region appearance. Scene atmosphere, animated variants and advanced lighting are not simulated.",
                 ambient: 64 + definition.Ambient, contrast: 850 + definition.Contrast,
                 placement: (modelShape, orientation, mirrored), extraRotation: shape == 11);
-            if (result is not Ok<GetModelDto> { Value: { } model }) return result;
             parts.Add(model);
             warnings.AddRange(ProjectionWarnings(model.FirstTexelFaces));
         }
@@ -240,17 +242,8 @@ public static class ModelEndpoints
     private static IResult AssembleModel(int id, int[] modelIds, ICacheAPI cache, int scaleX, int scaleY, int scaleZ,
         int offsetX, int offsetY, int offsetZ, short[]? originalColors, short[]? replacementColors, short[]? originalTextures, short[]? replacementTextures, int[] animationIds, string warning, float[]? scale = null, int ambient = 64, int contrast = 850,
         (int Shape, int Orientation, bool Mirrored)? placement = null, bool extraRotation = false)
-    {
-        try
-        {
-            return TypedResults.Ok(BuildModel(id, modelIds, cache, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ, originalColors, replacementColors, originalTextures, replacementTextures,
-                animationIds, warning, scale, ambient, contrast, placement, extraRotation));
-        }
-        catch (NotSupportedException exception)
-        {
-            return TypedResults.Problem(title: "Unsupported model format", detail: exception.Message, statusCode: 422);
-        }
-    }
+        => TypedResults.Ok(BuildModel(id, modelIds, cache, scaleX, scaleY, scaleZ, offsetX, offsetY, offsetZ, originalColors, replacementColors, originalTextures, replacementTextures,
+            animationIds, warning, scale, ambient, contrast, placement, extraRotation));
 
     /// <summary>Client model assembly shared by model previews and rendered item icons. Throws <see cref="NotSupportedException"/> for undecodable models.</summary>
     internal static GetModelDto BuildModel(int id, int[] modelIds, ICacheAPI cache, int scaleX, int scaleY, int scaleZ,

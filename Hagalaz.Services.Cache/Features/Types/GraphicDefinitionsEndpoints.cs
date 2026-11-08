@@ -12,8 +12,10 @@ public static class GraphicDefinitionsEndpoints
 {
     public static IEndpointRouteBuilder MapGraphicDefinitionsEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/graphics/{id:int}", GetGraphicType);
-        types.MapGet("/graphics/range", GetGraphicTypeRange);
+        types.MapGet("/graphics/{id:int}", GetGraphicType)
+            .WithSummary("Get a graphic definition").Produces<GetGraphicDefinitionDto>();
+        types.MapGet("/graphics/range", GetGraphicTypeRange)
+            .WithSummary("List graphic definitions in a range").Produces<GetGraphicDefinitionDto[]>();
         return types;
     }
 

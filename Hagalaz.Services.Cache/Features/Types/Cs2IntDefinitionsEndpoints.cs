@@ -10,7 +10,8 @@ public static class Cs2IntDefinitionsEndpoints
 {
     public static IEndpointRouteBuilder MapCs2IntDefinitionsEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/cs2-int/{id:int}", GetCs2IntType);
+        types.MapGet("/cs2-int/{id:int}", GetCs2IntType)
+            .WithSummary("Get a CS2 integer definition").Produces<GetCs2IntDefinitionDto>();
         return types;
     }
 

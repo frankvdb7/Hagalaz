@@ -118,7 +118,7 @@ public sealed class ItemIconEndpointTests
         Assert.AreEqual(0, (await missingModel.Content.ReadAsByteArrayAsync()).Length);
         using var badModel = await client.GetAsync("/api/v1/cache/types/items/2/image");
         Assert.AreEqual(HttpStatusCode.UnprocessableEntity, badModel.StatusCode);
-        StringAssert.Contains(await badModel.Content.ReadAsStringAsync(), "Unsupported model format");
+        StringAssert.Contains(await badModel.Content.ReadAsStringAsync(), "Unsupported cache data.");
     }
 
     [TestMethod]
@@ -180,8 +180,7 @@ public sealed class ItemIconEndpointTests
 
         var definition = await client.GetFromJsonAsync<UpdateItemDefinitionDto>("/api/v1/cache/types/items/0/definition");
         Assert.IsNotNull(definition);
-        definition.ModelZoom = 1200;
-        using var update = await client.PutAsJsonAsync("/api/v1/cache/types/items/0/definition", definition);
+        using var update = await client.PutAsJsonAsync("/api/v1/cache/types/items/0/definition", definition with { ModelZoom = 1200 });
         Assert.AreEqual(HttpStatusCode.OK, update.StatusCode, await update.Content.ReadAsStringAsync());
         var (after, afterTag) = await GetAsync(client, "");
         CollectionAssert.AreNotEqual(before, after);

@@ -23,10 +23,14 @@ public static class ObjectDefinitionsEndpoints
 {
     public static IEndpointRouteBuilder MapObjectDefinitionsEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/objects/{id:int}", GetObjectType);
-        types.MapGet("/objects/range", GetObjectTypeRange);
-        types.MapGet("/objects/catalog", GetObjectCatalog);
-        types.MapPost("/objects/{id:int}/name", SetObjectName);
+        types.MapGet("/objects/{id:int}", GetObjectType)
+            .WithSummary("Get an object definition").Produces<GetObjectDefinitionDto>();
+        types.MapGet("/objects/range", GetObjectTypeRange)
+            .WithSummary("List object definitions in a range").Produces<GetObjectDefinitionDto[]>();
+        types.MapGet("/objects/catalog", GetObjectCatalog)
+            .WithSummary("Search the object catalog by name or ID").Produces<SearchDefinitionsDto<GetObjectCatalogEntryDto>>();
+        types.MapPost("/objects/{id:int}/name", SetObjectName)
+            .WithSummary("Rename an object").Produces<UpdateObjectNameResultDto>();
         return types;
     }
 

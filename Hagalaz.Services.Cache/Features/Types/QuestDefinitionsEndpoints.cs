@@ -12,8 +12,10 @@ public static class QuestDefinitionsEndpoints
 {
     public static IEndpointRouteBuilder MapQuestDefinitionsEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/quests/{id:int}", GetQuestType);
-        types.MapGet("/quests/range", GetQuestTypeRange);
+        types.MapGet("/quests/{id:int}", GetQuestType)
+            .WithSummary("Get a quest definition").Produces<GetQuestDefinitionDto>();
+        types.MapGet("/quests/range", GetQuestTypeRange)
+            .WithSummary("List quest definitions in a range").Produces<GetQuestDefinitionDto[]>();
         return types;
     }
 

@@ -3,6 +3,7 @@ using System.IO;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using SixLabors.ImageSharp;
 
 namespace Hagalaz.Services.Cache.Features.Shared;
 
@@ -22,6 +23,11 @@ internal static class EndpointErrors
     {
         return exception switch
         {
+            // Cache content the decoders cannot read: an unsupported format or malformed data, not a client or server fault.
+            NotSupportedException or InvalidDataException or UnknownImageFormatException => TypedResults.Problem(
+                title: "Unsupported cache data.",
+                detail: exception.Message,
+                statusCode: StatusCodes.Status422UnprocessableEntity),
             FileNotFoundException => TypedResults.NotFound(new ProblemDetails
             {
                 Title = "Cache file not found.",

@@ -17,9 +17,12 @@ public static class VarpBitDefinitionsEndpoints
 {
     public static IEndpointRouteBuilder MapVarpBitDefinitionsEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/varp-bits/{id:int}", GetVarpBitType);
-        types.MapGet("/varp-bits/range", GetVarpBitTypeRange);
-        types.MapPost("/varp-bits/{id:int}", UpdateVarpBitDefinition);
+        types.MapGet("/varp-bits/{id:int}", GetVarpBitType)
+            .WithSummary("Get a varp bit definition").Produces<GetVarpBitDefinitionDto>();
+        types.MapGet("/varp-bits/range", GetVarpBitTypeRange)
+            .WithSummary("List varp bit definitions in a range").Produces<GetVarpBitDefinitionDto[]>();
+        types.MapPost("/varp-bits/{id:int}", UpdateVarpBitDefinition)
+            .WithSummary("Update a varp bit definition").Produces<UpdateVarpBitDefinitionResultDto>();
         return types;
     }
 

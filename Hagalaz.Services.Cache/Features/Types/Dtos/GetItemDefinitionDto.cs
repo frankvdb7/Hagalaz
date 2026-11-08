@@ -3,80 +3,80 @@ using Hagalaz.Cache.Types;
 
 namespace Hagalaz.Services.Cache.Features.Types.Dtos;
 
-public sealed class GetItemDefinitionDto
+public sealed record GetItemDefinitionDto
 {
-    public int Id { get; set; }
-    public IReadOnlyDictionary<int, object>? ExtraData { get; set; }
-    public int InterfaceModelId { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public int ModelZoom { get; set; }
-    public int ModelRotation1 { get; set; }
-    public int ModelRotation2 { get; set; }
-    public int ModelOffset1 { get; set; }
-    public int ModelOffset2 { get; set; }
-    public int StackableType { get; set; }
-    public int Value { get; set; }
-    public bool MembersOnly { get; set; }
-    public int MaleWornModelId1 { get; set; }
-    public int MaleWornModelId2 { get; set; }
-    public int FemaleWornModelId1 { get; set; }
-    public int FemaleWornModelId2 { get; set; }
-    public string?[] GroundOptions { get; set; } = [];
-    public string?[] InventoryOptions { get; set; } = [];
-    public int[]? OriginalModelColors { get; set; }
-    public int[]? ModifiedModelColors { get; set; }
-    public int[]? OriginalTextureColors { get; set; }
-    public int[]? ModifiedTextureColors { get; set; }
-    public sbyte[]? UnknownArray1 { get; set; }
-    public int[]? QuestIDs { get; set; }
-    public bool Unnoted { get; set; }
-    public int MaleWornModelId3 { get; set; }
-    public int FemaleWornModelId3 { get; set; }
-    public int MultiStackSize { get; set; }
-    public int MaleHeadModel { get; set; }
-    public int FemaleHeadModel { get; set; }
-    public int MaleHeadModel2 { get; set; }
-    public int FemaleHeadModel2 { get; set; }
-    public int Zan2D { get; set; }
-    public int UnknownInt6 { get; set; }
-    public int NoteId { get; set; }
-    public int NoteTemplateId { get; set; }
-    public int[]? StackIds { get; set; }
-    public int[]? StackAmounts { get; set; }
-    public int ScaleX { get; set; }
-    public int ScaleY { get; set; }
-    public int ScaleZ { get; set; }
-    public int Ambient { get; set; }
-    public int Contrast { get; set; }
-    public int TeamId { get; set; }
-    public int LendId { get; set; }
-    public int LendTemplateId { get; set; }
-    public int MaleWearXOffset { get; set; }
-    public int MaleWearYOffset { get; set; }
-    public int MaleWearZOffset { get; set; }
-    public int FemaleWearXOffset { get; set; }
-    public int FemaleWearYOffset { get; set; }
-    public int FemaleWearZOffset { get; set; }
-    public int UnknownInt18 { get; set; }
-    public int UnknownInt19 { get; set; }
-    public int UnknownInt20 { get; set; }
-    public int UnknownInt21 { get; set; }
-    public int UnknownInt22 { get; set; }
-    public int UnknownInt23 { get; set; }
-    public int UnknownInt24 { get; set; }
-    public int UnknownInt25 { get; set; }
-    public int PickSizeShift { get; set; }
-    public int BoughtItemId { get; set; }
-    public int BoughtTemplateId { get; set; }
-    public sbyte EquipSlot { get; set; }
-    public sbyte EquipType { get; set; }
-    public sbyte SomeEquipInt { get; set; }
-    public bool Noted { get; set; }
-    public bool Stackable { get; set; }
-    public bool HasWearModel { get; set; }
-    public int DegradeType { get; set; }
-    public int RenderAnimationId { get; set; }
-    public bool HasDestroyOption { get; set; }
+    public int Id { get; init; }
+    public IReadOnlyDictionary<int, object>? ExtraData { get; init; }
+    public int InterfaceModelId { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public int ModelZoom { get; init; }
+    public int ModelRotation1 { get; init; }
+    public int ModelRotation2 { get; init; }
+    public int ModelOffset1 { get; init; }
+    public int ModelOffset2 { get; init; }
+    public int StackableType { get; init; }
+    public int Value { get; init; }
+    public bool MembersOnly { get; init; }
+    public int MaleWornModelId1 { get; init; }
+    public int MaleWornModelId2 { get; init; }
+    public int FemaleWornModelId1 { get; init; }
+    public int FemaleWornModelId2 { get; init; }
+    public string?[] GroundOptions { get; init; } = [];
+    public string?[] InventoryOptions { get; init; } = [];
+    public int[]? OriginalModelColors { get; init; }
+    public int[]? ModifiedModelColors { get; init; }
+    public int[]? OriginalTextureColors { get; init; }
+    public int[]? ModifiedTextureColors { get; init; }
+    public sbyte[]? UnknownArray1 { get; init; }
+    public int[]? QuestIDs { get; init; }
+    public bool Unnoted { get; init; }
+    public int MaleWornModelId3 { get; init; }
+    public int FemaleWornModelId3 { get; init; }
+    public int MultiStackSize { get; init; }
+    public int MaleHeadModel { get; init; }
+    public int FemaleHeadModel { get; init; }
+    public int MaleHeadModel2 { get; init; }
+    public int FemaleHeadModel2 { get; init; }
+    public int Zan2D { get; init; }
+    public int UnknownInt6 { get; init; }
+    public int NoteId { get; init; }
+    public int NoteTemplateId { get; init; }
+    public int[]? StackIds { get; init; }
+    public int[]? StackAmounts { get; init; }
+    public int ScaleX { get; init; }
+    public int ScaleY { get; init; }
+    public int ScaleZ { get; init; }
+    public int Ambient { get; init; }
+    public int Contrast { get; init; }
+    public int TeamId { get; init; }
+    public int LendId { get; init; }
+    public int LendTemplateId { get; init; }
+    public int MaleWearXOffset { get; init; }
+    public int MaleWearYOffset { get; init; }
+    public int MaleWearZOffset { get; init; }
+    public int FemaleWearXOffset { get; init; }
+    public int FemaleWearYOffset { get; init; }
+    public int FemaleWearZOffset { get; init; }
+    public int UnknownInt18 { get; init; }
+    public int UnknownInt19 { get; init; }
+    public int UnknownInt20 { get; init; }
+    public int UnknownInt21 { get; init; }
+    public int UnknownInt22 { get; init; }
+    public int UnknownInt23 { get; init; }
+    public int UnknownInt24 { get; init; }
+    public int UnknownInt25 { get; init; }
+    public int PickSizeShift { get; init; }
+    public int BoughtItemId { get; init; }
+    public int BoughtTemplateId { get; init; }
+    public sbyte EquipSlot { get; init; }
+    public sbyte EquipType { get; init; }
+    public sbyte SomeEquipInt { get; init; }
+    public bool Noted { get; init; }
+    public bool Stackable { get; init; }
+    public bool HasWearModel { get; init; }
+    public int DegradeType { get; init; }
+    public int RenderAnimationId { get; init; }
+    public bool HasDestroyOption { get; init; }
 
     public static GetItemDefinitionDto FromItem(ItemType item) => new()
     {

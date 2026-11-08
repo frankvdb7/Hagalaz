@@ -12,8 +12,10 @@ public static class AnimationDefinitionsEndpoints
 {
     public static IEndpointRouteBuilder MapAnimationDefinitionsEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/animations/{id:int}", GetAnimationType);
-        types.MapGet("/animations/range", GetAnimationTypeRange);
+        types.MapGet("/animations/{id:int}", GetAnimationType)
+            .WithSummary("Get an animation definition").Produces<GetAnimationDefinitionDto>();
+        types.MapGet("/animations/range", GetAnimationTypeRange)
+            .WithSummary("List animation definitions in a range").Produces<GetAnimationDefinitionDto[]>();
         return types;
     }
 

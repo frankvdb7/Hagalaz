@@ -13,7 +13,8 @@ public static class ChecksumEndpoints
 {
     public static IEndpointRouteBuilder MapChecksumEndpoints(this IEndpointRouteBuilder group)
     {
-        group.MapGet("/checksum-table", GetChecksumTable);
+        group.MapGet("/checksum-table", GetChecksumTable)
+            .WithSummary("Compute the checksum table for every index").Produces<GetChecksumTableDto>();
         return group;
     }
 

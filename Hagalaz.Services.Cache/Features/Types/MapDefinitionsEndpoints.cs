@@ -19,10 +19,14 @@ public static class MapDefinitionsEndpoints
 {
     public static IEndpointRouteBuilder MapMapDefinitionsEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/maps", GetRegions);
-        types.MapGet("/maps/{id:int}", GetMapType);
-        types.MapPost("/maps/{id:int}/decode", DecodeMapType);
-        types.MapPost("/maps/{id:int}/render", GetRenderRegion);
+        types.MapGet("/maps", GetRegions)
+            .WithSummary("List named map regions").Produces<GetMapRegionsDto>();
+        types.MapGet("/maps/{id:int}", GetMapType)
+            .WithSummary("Decode a map region without keys").Produces<GetMapDefinitionDto>();
+        types.MapPost("/maps/{id:int}/decode", DecodeMapType)
+            .WithSummary("Decode a map region with XTEA keys").Produces<GetMapDefinitionDto>();
+        types.MapPost("/maps/{id:int}/render", GetRenderRegion)
+            .WithSummary("Read a region's terrain, placements and floors for rendering").Produces<Hagalaz.Cache.Types.MapRenderRegion>();
         return types;
     }
 

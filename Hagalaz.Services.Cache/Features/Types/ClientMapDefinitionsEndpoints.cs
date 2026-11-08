@@ -13,8 +13,10 @@ public static class ClientMapDefinitionsEndpoints
 {
     public static IEndpointRouteBuilder MapClientMapDefinitionsEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/client-map-definitions/{id:int}", GetClientMapDefinitionType);
-        types.MapGet("/client-map-definitions/range", GetClientMapDefinitionTypeRange);
+        types.MapGet("/client-map-definitions/{id:int}", GetClientMapDefinitionType)
+            .WithSummary("Get a client map definition").Produces<GetClientMapDefinitionDto>();
+        types.MapGet("/client-map-definitions/range", GetClientMapDefinitionTypeRange)
+            .WithSummary("List client map definitions in a range").Produces<GetClientMapDefinitionDto[]>();
         return types;
     }
 

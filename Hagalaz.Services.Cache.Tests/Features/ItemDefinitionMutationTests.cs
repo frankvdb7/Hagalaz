@@ -26,8 +26,8 @@ public class ItemDefinitionMutationTests
         var definitionJson = await client.GetStringAsync("/api/v1/cache/types/items/0/definition");
         Assert.IsFalse(definitionJson.Contains("preservedOpcodes", StringComparison.OrdinalIgnoreCase));
         var item=await client.GetFromJsonAsync<UpdateItemDefinitionDto>("/api/v1/cache/types/items/0/definition");
-        Assert.IsNotNull(item);item.Name="Updated";item.Value=789;item.MaleHeadModel=60000;item.ScaleX=256;item.MembersOnly=true;
-        item.ExtraData=new Dictionary<int,object>{{451,42},{452,"text"}};
+        Assert.IsNotNull(item);item=item with{Name="Updated",Value=789,MaleHeadModel=60000,ScaleX=256,MembersOnly=true,
+            ExtraData=new Dictionary<int,object>{{451,42},{452,"text"}}};
         using var result=await client.PutAsJsonAsync("/api/v1/cache/types/items/0/definition",item);
         Assert.AreEqual(HttpStatusCode.OK,result.StatusCode,await result.Content.ReadAsStringAsync());
         var saved=await client.GetFromJsonAsync<GetItemDefinitionDto>("/api/v1/cache/types/items/0/definition");
@@ -76,6 +76,38 @@ public class ItemDefinitionMutationTests
             Assert.AreEqual(HttpStatusCode.BadRequest,response.StatusCode);
         }
         var saved=await client.GetFromJsonAsync<GetItemDefinitionDto>("/api/v1/cache/types/items/0/definition");Assert.IsNotNull(saved);Assert.AreEqual("A",saved.Name);
+    }
+
+    [TestMethod]
+    public async Task SaveFullDefinition_RejectsFieldsTheCodecCannotEncodeWithoutMutatingSource()
+    {
+        var store=Seed(0,[2,(byte)'A',0,0]);
+        await using var app=await CacheServiceTestHost.StartAsync(store,group=>group.MapTypeEndpoints());
+        using var client=CacheServiceTestHost.CreateClient(app);
+        byte[] Stored(){using var stream=store.Read(19,0);return stream.ToArray();}
+        var source=Stored();
+        var cases=new (string Name, Func<UpdateItemDefinitionDto,UpdateItemDefinitionDto> Change)[]
+        {
+            ("sixth ground option overlaps inventory opcodes", item=>item with{GroundOptions=[null,null,"Take",null,null,"Extra"]}),
+            ("missing inventory options", item=>item with{InventoryOptions=null!}),
+            ("non-Latin-1 option", item=>item with{InventoryOptions=["Wield ☃",null,null,null,"Drop"]}),
+            ("unpaired model recolors", item=>item with{OriginalModelColors=[1],ModifiedModelColors=null}),
+            ("mismatched texture recolors", item=>item with{OriginalTextureColors=[1,2],ModifiedTextureColors=[3]}),
+            ("recolor count exceeds a byte", item=>item with{OriginalModelColors=new int[256],ModifiedModelColors=new int[256]}),
+            ("stack variants exceed opcodes 100-109", item=>item with{StackIds=new int[11],StackAmounts=new int[11]}),
+            ("quest ID count exceeds a byte", item=>item with{QuestIDs=new int[256]}),
+            ("boolean extra data", item=>item with{ExtraData=new Dictionary<int,object>{{1,true}}}),
+            ("extra data outside int32", item=>item with{ExtraData=new Dictionary<int,object>{{1,5_000_000_000L}}}),
+            ("extra data count exceeds a byte", item=>item with{ExtraData=Enumerable.Range(0,256).ToDictionary(key=>key,key=>(object)key)}),
+        };
+        foreach(var (name,change) in cases)
+        {
+            var item=await client.GetFromJsonAsync<UpdateItemDefinitionDto>("/api/v1/cache/types/items/0/definition");
+            Assert.IsNotNull(item);
+            using var response=await client.PutAsJsonAsync("/api/v1/cache/types/items/0/definition",change(item));
+            Assert.AreEqual(HttpStatusCode.BadRequest,response.StatusCode,name);
+            CollectionAssert.AreEqual(source,Stored(),name);
+        }
     }
 
     [TestMethod]

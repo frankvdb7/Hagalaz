@@ -10,7 +10,8 @@ public static class EquipmentDefaultsEndpoints
 {
     public static IEndpointRouteBuilder MapEquipmentDefaultsEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/equipment-defaults", GetEquipmentDefaults);
+        types.MapGet("/equipment-defaults", GetEquipmentDefaults)
+            .WithSummary("Get the equipment defaults").Produces<GetEquipmentDefaultsDto>();
         return types;
     }
 

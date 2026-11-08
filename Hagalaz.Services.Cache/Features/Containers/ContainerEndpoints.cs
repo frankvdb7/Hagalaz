@@ -20,9 +20,12 @@ public static class ContainerEndpoints
 {
     public static IEndpointRouteBuilder MapContainerEndpoints(this IEndpointRouteBuilder group)
     {
-        group.MapGet("/indexes/{indexId:int}/files/{fileId:int}/container", GetContainer);
-        group.MapPost("/indexes/{indexId:int}/files/{fileId:int}/container/decrypt", GetContainerWithXtea);
-        group.MapPost("/indexes/{indexId:int}/files/{fileId:int}/actions/write-container", WriteContainer);
+        group.MapGet("/indexes/{indexId:int}/files/{fileId:int}/container", GetContainer)
+            .WithSummary("Read and decompress a cache container").Produces<GetContainerDto>();
+        group.MapPost("/indexes/{indexId:int}/files/{fileId:int}/container/decrypt", GetContainerWithXtea)
+            .WithSummary("Read a container decrypted with XTEA keys").Produces<GetContainerDto>();
+        group.MapPost("/indexes/{indexId:int}/files/{fileId:int}/actions/write-container", WriteContainer)
+            .WithSummary("Write a container and update the reference table").Produces<WriteContainerResultDto>();
         return group;
     }
 

@@ -10,8 +10,10 @@ public static class RawFileEndpoints
 {
     public static IEndpointRouteBuilder MapRawFileEndpoints(this IEndpointRouteBuilder group)
     {
-        group.MapGet("/indexes/{indexId:int}/files/{fileId:int}/raw", GetRawFile);
-        group.MapGet("/indexes/{indexId:int}/files/{fileId:int}/sub-files/{subFileId:int}/raw", GetRawSubFile);
+        group.MapGet("/indexes/{indexId:int}/files/{fileId:int}/raw", GetRawFile)
+            .WithSummary("Download a file's raw bytes").Produces<System.IO.Stream>(StatusCodes.Status200OK, "application/octet-stream");
+        group.MapGet("/indexes/{indexId:int}/files/{fileId:int}/sub-files/{subFileId:int}/raw", GetRawSubFile)
+            .WithSummary("Download an archive member's raw bytes").Produces<System.IO.Stream>(StatusCodes.Status200OK, "application/octet-stream");
         return group;
     }
 

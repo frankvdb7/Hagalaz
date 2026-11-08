@@ -303,10 +303,10 @@ public sealed class ModelAppearanceTests
         response.EnsureSuccessStatusCode();
         var rows = await response.Content.ReadFromJsonAsync<ObjectRenderAppearanceResultDto[]>();
         Assert.IsNotNull(rows);
-        CollectionAssert.AreEqual(new[] { 404, 200, 500 }, rows.Select(row => row.Status).ToArray());
+        CollectionAssert.AreEqual(new[] { 404, 200, 422 }, rows.Select(row => row.Status).ToArray());
         Assert.IsNotNull(rows[1].Appearance);
         Assert.AreEqual("Cache file not found.", rows[0].Problem?.Title);
-        Assert.AreEqual("Unexpected cache error.", rows[2].Problem?.Title);
+        Assert.AreEqual("Unsupported cache data.", rows[2].Problem?.Title);
     }
 
     private sealed class FaultingObjects : ITypeProvider<IObjectType>

@@ -10,7 +10,8 @@ public static class HuffmanDefinitionsEndpoints
 {
     public static IEndpointRouteBuilder MapHuffmanDefinitionsEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/huffman/coding", GetHuffmanCoding);
+        types.MapGet("/huffman/coding", GetHuffmanCoding)
+            .WithSummary("Get the chat Huffman coding").Produces<GetHuffmanCodingDto>();
         return types;
     }
 

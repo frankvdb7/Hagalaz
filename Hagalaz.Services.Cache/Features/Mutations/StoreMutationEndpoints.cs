@@ -19,8 +19,10 @@ public static class StoreMutationEndpoints
 {
     public static IEndpointRouteBuilder MapStoreMutationEndpoints(this IEndpointRouteBuilder group)
     {
-        group.MapPost("/store/indexes/{indexId:int}/files/{fileId:int}/actions/write-raw", WriteRawFile);
-        group.MapPost("/store/indexes/{indexId:int}/files/{fileId:int}/actions/copy-raw", CopyRawFile);
+        group.MapPost("/store/indexes/{indexId:int}/files/{fileId:int}/actions/write-raw", WriteRawFile)
+            .WithSummary("Write raw file bytes without updating metadata").Produces<WriteRawFileResultDto>();
+        group.MapPost("/store/indexes/{indexId:int}/files/{fileId:int}/actions/copy-raw", CopyRawFile)
+            .WithSummary("Copy raw file bytes without updating metadata").Produces<CopyRawFileResultDto>();
         return group;
     }
 
