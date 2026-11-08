@@ -98,6 +98,8 @@ public class ItemDefinitionMutationTests
             ("quest ID count exceeds a byte", item=>item with{QuestIDs=new int[256]}),
             ("boolean extra data", item=>item with{ExtraData=new Dictionary<int,object>{{1,true}}}),
             ("extra data outside int32", item=>item with{ExtraData=new Dictionary<int,object>{{1,5_000_000_000L}}}),
+            ("extra data key wider than 24 bits", item=>item with{ExtraData=new Dictionary<int,object>{{0x1000001,1}}}),
+            ("negative extra data key", item=>item with{ExtraData=new Dictionary<int,object>{{-1,1}}}),
             ("extra data count exceeds a byte", item=>item with{ExtraData=Enumerable.Range(0,256).ToDictionary(key=>key,key=>(object)key)}),
         };
         foreach(var (name,change) in cases)

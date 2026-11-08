@@ -12,5 +12,6 @@
     "**/Migrations/**",
     "**/*.g.cs",
     "**/*.Designer.cs"
-  ]
+  ],
+  "ignorePattern": ["using [A-Za-z0-9_.= ]+;"]
 }

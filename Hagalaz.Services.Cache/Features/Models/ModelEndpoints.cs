@@ -22,28 +22,17 @@ public static class ModelEndpoints
         ? [$"First-texel texture fallback on {faces.Length} faces with invalid projection coordinates."] : [];
     public static IEndpointRouteBuilder MapModelEndpoints(this IEndpointRouteBuilder group)
     {
-        group.MapGet("/models/{id:int}", GetModel)
-            .WithSummary("Decode a model's geometry").Produces<GetModelDto>();
-        group.MapGet("/models/capacity", (ICacheAPI cache) => TypedResults.Ok(new GetModelCapacityDto(cache.ReadReferenceTable(7).Capacity)))
-            .WithSummary("Get the model index capacity");
-        group.MapGet("/models/range", GetModelRange)
-            .WithSummary("List model IDs in a range of at most 200").Produces<GetModelSummaryDto[]>();
-        group.MapGet("/types/items/{id:int}/model", GetItemModel)
-            .WithSummary("Assemble an item appearance model").Produces<GetModelDto>();
-        group.MapGet("/types/items/{id:int}/model-appearances", GetItemAppearances)
-            .WithSummary("List an item's model appearances").Produces<GetItemModelAppearanceDto[]>();
-        group.MapGet("/types/npcs/{id:int}/model", GetNpcModel)
-            .WithSummary("Assemble an NPC model").Produces<GetModelDto>();
-        group.MapGet("/types/objects/{id:int}/model", GetObjectModel)
-            .WithSummary("Assemble an object model for one shape").Produces<GetModelDto>();
-        group.MapGet("/types/objects/{id:int}/render-appearance", GetObjectRenderAppearance)
-            .WithSummary("Assemble an object as placed in a map region").Produces<GetObjectRenderAppearanceDto>();
-        group.MapPost("/types/objects/render-appearances", GetObjectRenderAppearances)
-            .WithSummary("Assemble up to 32 object placements, each with its own status").Produces<ObjectRenderAppearanceResultDto[]>();
-        group.MapGet("/animation-frames/{id:int}", GetAnimationFrame)
-            .WithSummary("Decode an animation frame and its skeleton").Produces<GetAnimationFrameDto>();
-        group.MapGet("/types/animations/{id:int}/sequence", GetAnimationSequence)
-            .WithSummary("Get an animation's frame sequence").Produces<GetAnimationSequenceDto>();
+        group.MapGet("/models/{id:int}", GetModel).WithSummary("Decode a model's geometry").Produces<GetModelDto>();
+        group.MapGet("/models/capacity", (ICacheAPI cache) => TypedResults.Ok(new GetModelCapacityDto(cache.ReadReferenceTable(7).Capacity))).WithSummary("Get the model index capacity");
+        group.MapGet("/models/range", GetModelRange).WithSummary("List model IDs in a range of at most 200").Produces<GetModelSummaryDto[]>();
+        group.MapGet("/types/items/{id:int}/model", GetItemModel).WithSummary("Assemble an item appearance model").Produces<GetModelDto>();
+        group.MapGet("/types/items/{id:int}/model-appearances", GetItemAppearances).WithSummary("List an item's model appearances").Produces<GetItemModelAppearanceDto[]>();
+        group.MapGet("/types/npcs/{id:int}/model", GetNpcModel).WithSummary("Assemble an NPC model").Produces<GetModelDto>();
+        group.MapGet("/types/objects/{id:int}/model", GetObjectModel).WithSummary("Assemble an object model for one shape").Produces<GetModelDto>();
+        group.MapGet("/types/objects/{id:int}/render-appearance", GetObjectRenderAppearance).WithSummary("Assemble an object as placed in a map region").Produces<GetObjectRenderAppearanceDto>();
+        group.MapPost("/types/objects/render-appearances", GetObjectRenderAppearances).WithSummary("Assemble up to 32 object placements, each with its own status").Produces<ObjectRenderAppearanceResultDto[]>();
+        group.MapGet("/animation-frames/{id:int}", GetAnimationFrame).WithSummary("Decode an animation frame and its skeleton").Produces<GetAnimationFrameDto>();
+        group.MapGet("/types/animations/{id:int}/sequence", GetAnimationSequence).WithSummary("Get an animation's frame sequence").Produces<GetAnimationSequenceDto>();
         return group;
     }
 

@@ -26,13 +26,10 @@ public static class TextureEndpoints
 
     public static IEndpointRouteBuilder MapTextureEndpoints(this IEndpointRouteBuilder group)
     {
-        group.MapGet("/textures/{id:int}/image", GetTextureImage)
-            .WithSummary("Render a texture as PNG with its material in headers").Produces<System.IO.Stream>(StatusCodes.Status200OK, "image/png").Produces(StatusCodes.Status304NotModified)
+        group.MapGet("/textures/{id:int}/image", GetTextureImage).WithSummary("Render a texture as PNG with its material in headers").Produces<System.IO.Stream>(StatusCodes.Status200OK, "image/png").Produces(StatusCodes.Status304NotModified)
             .CacheOutput(new TextureOutputCachePolicy());
-        group.MapGet("/textures/{id:int}/material", GetMaterial)
-            .WithSummary("Get a texture's material definition").Produces<GetTextureMaterialDto>();
-        group.MapGet("/textures/{id:int}/hdr", GetHdr)
-            .WithSummary("Decode a texture's HDR companion image").Produces<GetTextureHdrDto>();
+        group.MapGet("/textures/{id:int}/material", GetMaterial).WithSummary("Get a texture's material definition").Produces<GetTextureMaterialDto>();
+        group.MapGet("/textures/{id:int}/hdr", GetHdr).WithSummary("Decode a texture's HDR companion image").Produces<GetTextureHdrDto>();
         return group;
     }
 

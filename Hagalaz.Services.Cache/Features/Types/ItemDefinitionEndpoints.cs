@@ -10,7 +10,6 @@ using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Types.Data;
 using Hagalaz.Services.Cache.Features.Shared;
 using Hagalaz.Services.Cache.Features.Types.Dtos;
-using Hagalaz.Services.Extensions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -24,20 +23,13 @@ public static class ItemDefinitionEndpoints
 {
     public static IEndpointRouteBuilder MapItemDefinitionEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/items/{id:int}", GetItemType)
-            .WithSummary("Get an item summary").Produces<GetItemTypeDto>();
-        types.MapGet("/items/{id:int}/image", GetItemTypeImage)
-            .WithSummary("Render an item's inventory icon as PNG").Produces<System.IO.Stream>(StatusCodes.Status200OK, "image/png").Produces(StatusCodes.Status304NotModified);
-        types.MapGet("/items/range", GetItemTypeRange)
-            .WithSummary("List item summaries in a range").Produces<GetItemTypeDto[]>();
-        types.MapGet("/items/search", SearchItemTypes)
-            .WithSummary("Search items by name").Produces<SearchDefinitionsDto<GetItemTypeDto>>();
-        types.MapGet("/items/{id:int}/definition", GetItemDefinition)
-            .WithSummary("Get an item's full editable definition").Produces<GetItemDefinitionDto>();
-        types.MapPut("/items/{id:int}/definition", UpdateItemDefinition)
-            .WithSummary("Replace an item's full definition").Produces<UpdateItemDefinitionResultDto>();
-        types.MapPost("/items/{id:int}/duplicate", DuplicateItem)
-            .WithSummary("Copy an item definition to the next free ID").Produces<DuplicateItemDefinitionResultDto>(StatusCodes.Status201Created);
+        types.MapGet("/items/{id:int}", GetItemType).WithSummary("Get an item summary").Produces<GetItemTypeDto>();
+        types.MapGet("/items/{id:int}/image", GetItemTypeImage).WithSummary("Render an item's inventory icon as PNG").Produces<System.IO.Stream>(StatusCodes.Status200OK, "image/png").Produces(StatusCodes.Status304NotModified);
+        types.MapGet("/items/range", GetItemTypeRange).WithSummary("List item summaries in a range").Produces<GetItemTypeDto[]>();
+        types.MapGet("/items/search", SearchItemTypes).WithSummary("Search items by name").Produces<SearchDefinitionsDto<GetItemTypeDto>>();
+        types.MapGet("/items/{id:int}/definition", GetItemDefinition).WithSummary("Get an item's full editable definition").Produces<GetItemDefinitionDto>();
+        types.MapPut("/items/{id:int}/definition", UpdateItemDefinition).WithSummary("Replace an item's full definition").Produces<UpdateItemDefinitionResultDto>();
+        types.MapPost("/items/{id:int}/duplicate", DuplicateItem).WithSummary("Copy an item definition to the next free ID").Produces<DuplicateItemDefinitionResultDto>(StatusCodes.Status201Created);
         return types;
     }
 

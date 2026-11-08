@@ -12,8 +12,7 @@ public static class FileLookupEndpoints
 {
     public static IEndpointRouteBuilder MapFileLookupEndpoints(this IEndpointRouteBuilder group)
     {
-        group.MapGet("/indexes/{indexId:int}/files/id", GetFileId)
-            .WithSummary("Find a file ID by its name hash");
+        group.MapGet("/indexes/{indexId:int}/files/id", GetFileId).WithSummary("Find a file ID by its name hash");
         return group;
     }
 

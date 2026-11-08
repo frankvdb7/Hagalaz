@@ -11,8 +11,7 @@ public static class DefinitionArchiveEndpoints
 {
     public static IEndpointRouteBuilder MapDefinitionArchiveEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/archive-sizes", GetArchiveSizes)
-            .WithSummary("Get the size of each definition archive").Produces<GetArchiveSizesDto>();
+        types.MapGet("/archive-sizes", GetArchiveSizes).WithSummary("Get the size of each definition archive").Produces<GetArchiveSizesDto>();
         return types;
     }
 

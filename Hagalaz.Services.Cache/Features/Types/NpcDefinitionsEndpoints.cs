@@ -18,14 +18,10 @@ public static class NpcDefinitionsEndpoints
 {
     public static IEndpointRouteBuilder MapNpcDefinitionsEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/npcs/{id:int}", GetNpcType)
-            .WithSummary("Get an NPC definition").Produces<GetNpcDefinitionDto>();
-        types.MapGet("/npcs/range", GetNpcTypeRange)
-            .WithSummary("List NPC definitions in a range").Produces<GetNpcDefinitionDto[]>();
-        types.MapGet("/npcs/search", SearchNpcTypes)
-            .WithSummary("Search NPCs by name").Produces<SearchDefinitionsDto<GetNpcDefinitionDto>>();
-        types.MapPost("/npcs/{id:int}/combat-level", SetNpcCombatLevel)
-            .WithSummary("Set an NPC's combat level").Produces<UpdateNpcCombatLevelResultDto>();
+        types.MapGet("/npcs/{id:int}", GetNpcType).WithSummary("Get an NPC definition").Produces<GetNpcDefinitionDto>();
+        types.MapGet("/npcs/range", GetNpcTypeRange).WithSummary("List NPC definitions in a range").Produces<GetNpcDefinitionDto[]>();
+        types.MapGet("/npcs/search", SearchNpcTypes).WithSummary("Search NPCs by name").Produces<SearchDefinitionsDto<GetNpcDefinitionDto>>();
+        types.MapPost("/npcs/{id:int}/combat-level", SetNpcCombatLevel).WithSummary("Set an NPC's combat level").Produces<UpdateNpcCombatLevelResultDto>();
         return types;
     }
 

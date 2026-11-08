@@ -54,48 +54,18 @@ namespace Hagalaz.Services.Authorization.Tests
             // Arrange
             var existingNormalClient = new object();
             var existingCacheServiceClient = new object();
-            var applicationManager = new Mock<IOpenIddictApplicationManager>();
-            applicationManager
-                .Setup(manager => manager.FindByClientIdAsync("storm-app", It.IsAny<CancellationToken>()))
-                .Returns(() => ValueTask.FromResult<object?>(existingNormalClient));
-            applicationManager
-                .Setup(manager => manager.FindByClientIdAsync("storm-admin", It.IsAny<CancellationToken>()))
-                .Returns(() => ValueTask.FromResult<object?>(null));
-            applicationManager
-                .Setup(manager => manager.FindByClientIdAsync("cache-service-1", It.IsAny<CancellationToken>()))
-                .Returns(() => ValueTask.FromResult<object?>(existingCacheServiceClient));
-            applicationManager
-                .Setup(manager => manager.ValidateClientSecretAsync(
-                    existingCacheServiceClient,
-                    "cache-service-test-secret",
-                    It.IsAny<CancellationToken>()))
-                .Returns(() => ValueTask.FromResult(true));
-            applicationManager
-                .Setup(manager => manager.PopulateAsync(
-                    It.IsAny<OpenIddictApplicationDescriptor>(),
-                    existingNormalClient,
-                    It.IsAny<CancellationToken>()))
-                .Callback<OpenIddictApplicationDescriptor, object, CancellationToken>((descriptor, _, _) =>
-                {
-                    descriptor.ApplicationType = OpenIddictConstants.ApplicationTypes.Web;
-                    descriptor.ClientId = "storm-app";
-                    descriptor.ClientType = OpenIddictConstants.ClientTypes.Public;
-                    descriptor.ClientSecret = "preserved-secret";
-                    descriptor.DisplayName = "Existing normal client";
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + HagalazScopes.CharactersApi);
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + HagalazScopes.CacheApi);
-                })
-                .Returns(() => new ValueTask());
-
-            OpenIddictApplicationDescriptor? updatedDescriptor = null;
-            applicationManager
-                .Setup(manager => manager.UpdateAsync(
-                    existingNormalClient,
-                    It.IsAny<OpenIddictApplicationDescriptor>(),
-                    It.IsAny<CancellationToken>()))
-                .Callback<object, OpenIddictApplicationDescriptor, CancellationToken>((_, descriptor, _) =>
-                    updatedDescriptor = descriptor)
-                .Returns(() => new ValueTask());
+            var applicationManager = CreateManager(existingNormalClient, existingAdminClient: null, existingCacheServiceClient, cacheSecretMatches: true);
+            SetupPopulate(applicationManager, existingNormalClient, descriptor =>
+            {
+                descriptor.ApplicationType = OpenIddictConstants.ApplicationTypes.Web;
+                descriptor.ClientId = "storm-app";
+                descriptor.ClientType = OpenIddictConstants.ClientTypes.Public;
+                descriptor.ClientSecret = "preserved-secret";
+                descriptor.DisplayName = "Existing normal client";
+                descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + HagalazScopes.CharactersApi);
+                descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + HagalazScopes.CacheApi);
+            });
+            var updated = CaptureUpdate(applicationManager, existingNormalClient);
             applicationManager
                 .Setup(manager => manager.CreateAsync(
                     It.IsAny<OpenIddictApplicationDescriptor>(),
@@ -108,6 +78,7 @@ namespace Hagalaz.Services.Authorization.Tests
             await registration.RegisterIfMissingAsync();
 
             // Assert
+            var updatedDescriptor = updated();
             Assert.IsNotNull(updatedDescriptor);
             Assert.AreEqual("storm-app", updatedDescriptor.ClientId);
             Assert.AreEqual("Existing normal client", updatedDescriptor.DisplayName);
@@ -136,32 +107,10 @@ namespace Hagalaz.Services.Authorization.Tests
         {
             // Arrange
             var existingNormalClient = new object();
-            var existingAdminClient = new object();
             var existingCacheServiceClient = new object();
-            var applicationManager = new Mock<IOpenIddictApplicationManager>();
-            applicationManager
-                .Setup(manager => manager.FindByClientIdAsync("storm-app", It.IsAny<CancellationToken>()))
-                .Returns(() => ValueTask.FromResult<object?>(existingNormalClient));
-            applicationManager
-                .Setup(manager => manager.FindByClientIdAsync("storm-admin", It.IsAny<CancellationToken>()))
-                .Returns(() => ValueTask.FromResult<object?>(existingAdminClient));
-            applicationManager
-                .Setup(manager => manager.FindByClientIdAsync("cache-service-1", It.IsAny<CancellationToken>()))
-                .Returns(() => ValueTask.FromResult<object?>(existingCacheServiceClient));
-            applicationManager
-                .Setup(manager => manager.ValidateClientSecretAsync(
-                    existingCacheServiceClient,
-                    "cache-service-test-secret",
-                    It.IsAny<CancellationToken>()))
-                .Returns(() => ValueTask.FromResult(true));
-            applicationManager
-                .Setup(manager => manager.PopulateAsync(
-                    It.IsAny<OpenIddictApplicationDescriptor>(),
-                    existingNormalClient,
-                    It.IsAny<CancellationToken>()))
-                .Callback<OpenIddictApplicationDescriptor, object, CancellationToken>((descriptor, _, _) =>
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + HagalazScopes.CharactersApi))
-                .Returns(() => new ValueTask());
+            var applicationManager = CreateManager(existingNormalClient, new object(), existingCacheServiceClient, cacheSecretMatches: true);
+            SetupPopulate(applicationManager, existingNormalClient, descriptor =>
+                descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + HagalazScopes.CharactersApi));
 
             var registration = CreateRegistration(applicationManager.Object);
 
@@ -195,61 +144,25 @@ namespace Hagalaz.Services.Authorization.Tests
         public async Task RegisterIfMissingAsync_WhenCacheClientSecretChanged_UpdatesSecretAndPreservesPermissions()
         {
             var existingNormalClient = new object();
-            var existingAdminClient = new object();
             var existingCacheServiceClient = new object();
-            var applicationManager = new Mock<IOpenIddictApplicationManager>();
-            applicationManager
-                .Setup(manager => manager.FindByClientIdAsync("storm-app", It.IsAny<CancellationToken>()))
-                .Returns(() => ValueTask.FromResult<object?>(existingNormalClient));
-            applicationManager
-                .Setup(manager => manager.FindByClientIdAsync("storm-admin", It.IsAny<CancellationToken>()))
-                .Returns(() => ValueTask.FromResult<object?>(existingAdminClient));
-            applicationManager
-                .Setup(manager => manager.FindByClientIdAsync("cache-service-1", It.IsAny<CancellationToken>()))
-                .Returns(() => ValueTask.FromResult<object?>(existingCacheServiceClient));
-            applicationManager
-                .Setup(manager => manager.ValidateClientSecretAsync(
-                    existingCacheServiceClient,
-                    "cache-service-test-secret",
-                    It.IsAny<CancellationToken>()))
-                .Returns(() => ValueTask.FromResult(false));
-            applicationManager
-                .Setup(manager => manager.PopulateAsync(
-                    It.IsAny<OpenIddictApplicationDescriptor>(),
-                    existingNormalClient,
-                    It.IsAny<CancellationToken>()))
-                .Callback<OpenIddictApplicationDescriptor, object, CancellationToken>((descriptor, _, _) =>
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + HagalazScopes.CharactersApi))
-                .Returns(() => new ValueTask());
-            applicationManager
-                .Setup(manager => manager.PopulateAsync(
-                    It.IsAny<OpenIddictApplicationDescriptor>(),
-                    existingCacheServiceClient,
-                    It.IsAny<CancellationToken>()))
-                .Callback<OpenIddictApplicationDescriptor, object, CancellationToken>((descriptor, _, _) =>
-                {
-                    descriptor.ApplicationType = OpenIddictConstants.ApplicationTypes.Web;
-                    descriptor.ClientId = "cache-service-1";
-                    descriptor.ClientType = OpenIddictConstants.ClientTypes.Confidential;
-                    descriptor.DisplayName = "Hagalaz Cache Service";
-                    descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Introspection);
-                })
-                .Returns(() => new ValueTask());
-
-            OpenIddictApplicationDescriptor? updatedDescriptor = null;
-            applicationManager
-                .Setup(manager => manager.UpdateAsync(
-                    existingCacheServiceClient,
-                    It.IsAny<OpenIddictApplicationDescriptor>(),
-                    It.IsAny<CancellationToken>()))
-                .Callback<object, OpenIddictApplicationDescriptor, CancellationToken>((_, descriptor, _) =>
-                    updatedDescriptor = descriptor)
-                .Returns(() => new ValueTask());
+            var applicationManager = CreateManager(existingNormalClient, new object(), existingCacheServiceClient, cacheSecretMatches: false);
+            SetupPopulate(applicationManager, existingNormalClient, descriptor =>
+                descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + HagalazScopes.CharactersApi));
+            SetupPopulate(applicationManager, existingCacheServiceClient, descriptor =>
+            {
+                descriptor.ApplicationType = OpenIddictConstants.ApplicationTypes.Web;
+                descriptor.ClientId = "cache-service-1";
+                descriptor.ClientType = OpenIddictConstants.ClientTypes.Confidential;
+                descriptor.DisplayName = "Hagalaz Cache Service";
+                descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Introspection);
+            });
+            var updated = CaptureUpdate(applicationManager, existingCacheServiceClient);
 
             var registration = CreateRegistration(applicationManager.Object);
 
             await registration.RegisterIfMissingAsync();
 
+            var updatedDescriptor = updated();
             Assert.IsNotNull(updatedDescriptor);
             Assert.AreEqual("cache-service-test-secret", updatedDescriptor.ClientSecret);
             Assert.AreEqual(OpenIddictConstants.ApplicationTypes.Web, updatedDescriptor.ApplicationType);
@@ -268,6 +181,54 @@ namespace Hagalaz.Services.Authorization.Tests
                     It.IsAny<OpenIddictApplicationDescriptor>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
+        }
+
+        /// <summary>A manager that finds the given clients (null when missing) and checks the cache client's secret.</summary>
+        private static Mock<IOpenIddictApplicationManager> CreateManager(
+            object? existingNormalClient,
+            object? existingAdminClient,
+            object existingCacheServiceClient,
+            bool cacheSecretMatches)
+        {
+            var applicationManager = new Mock<IOpenIddictApplicationManager>();
+            foreach (var (clientId, client) in new[] { ("storm-app", existingNormalClient), ("storm-admin", existingAdminClient), ("cache-service-1", (object?)existingCacheServiceClient) })
+            {
+                applicationManager
+                    .Setup(manager => manager.FindByClientIdAsync(clientId, It.IsAny<CancellationToken>()))
+                    .Returns(() => ValueTask.FromResult(client));
+            }
+            applicationManager
+                .Setup(manager => manager.ValidateClientSecretAsync(
+                    existingCacheServiceClient,
+                    "cache-service-test-secret",
+                    It.IsAny<CancellationToken>()))
+                .Returns(() => ValueTask.FromResult(cacheSecretMatches));
+            return applicationManager;
+        }
+
+        private static void SetupPopulate(Mock<IOpenIddictApplicationManager> applicationManager, object client, System.Action<OpenIddictApplicationDescriptor> populate)
+        {
+            applicationManager
+                .Setup(manager => manager.PopulateAsync(
+                    It.IsAny<OpenIddictApplicationDescriptor>(),
+                    client,
+                    It.IsAny<CancellationToken>()))
+                .Callback<OpenIddictApplicationDescriptor, object, CancellationToken>((descriptor, _, _) => populate(descriptor))
+                .Returns(() => new ValueTask());
+        }
+
+        /// <summary>Captures the descriptor passed to UpdateAsync for the client; call the returned function after the act step.</summary>
+        private static System.Func<OpenIddictApplicationDescriptor?> CaptureUpdate(Mock<IOpenIddictApplicationManager> applicationManager, object client)
+        {
+            OpenIddictApplicationDescriptor? updated = null;
+            applicationManager
+                .Setup(manager => manager.UpdateAsync(
+                    client,
+                    It.IsAny<OpenIddictApplicationDescriptor>(),
+                    It.IsAny<CancellationToken>()))
+                .Callback<object, OpenIddictApplicationDescriptor, CancellationToken>((_, descriptor, _) => updated = descriptor)
+                .Returns(() => new ValueTask());
+            return () => updated;
         }
 
         private static void AssertClientDescriptor(

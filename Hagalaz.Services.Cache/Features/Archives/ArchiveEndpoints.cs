@@ -13,8 +13,7 @@ public static class ArchiveEndpoints
 {
     public static IEndpointRouteBuilder MapArchiveEndpoints(this IEndpointRouteBuilder group)
     {
-        group.MapGet("/indexes/{indexId:int}/files/{fileId:int}/archive", GetArchive)
-            .WithSummary("Read an archive and its member files").Produces<GetArchiveDto>();
+        group.MapGet("/indexes/{indexId:int}/files/{fileId:int}/archive", GetArchive).WithSummary("Read an archive and its member files").Produces<GetArchiveDto>();
         return group;
     }
 

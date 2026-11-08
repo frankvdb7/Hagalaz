@@ -18,12 +18,9 @@ public static class ConfigDefinitionsEndpoints
 {
     public static IEndpointRouteBuilder MapConfigDefinitionsEndpoints(this IEndpointRouteBuilder types)
     {
-        types.MapGet("/config-definitions/{id:int}", GetConfigDefinitionType)
-            .WithSummary("Get a config definition").Produces<GetConfigDefinitionDto>();
-        types.MapGet("/config-definitions/range", GetConfigDefinitionTypeRange)
-            .WithSummary("List config definitions in a range").Produces<GetConfigDefinitionDto[]>();
-        types.MapPost("/config-definitions/{id:int}", UpdateConfigDefinition)
-            .WithSummary("Update a config definition").Produces<UpdateConfigDefinitionResultDto>();
+        types.MapGet("/config-definitions/{id:int}", GetConfigDefinitionType).WithSummary("Get a config definition").Produces<GetConfigDefinitionDto>();
+        types.MapGet("/config-definitions/range", GetConfigDefinitionTypeRange).WithSummary("List config definitions in a range").Produces<GetConfigDefinitionDto[]>();
+        types.MapPost("/config-definitions/{id:int}", UpdateConfigDefinition).WithSummary("Update a config definition").Produces<UpdateConfigDefinitionResultDto>();
         return types;
     }
 
