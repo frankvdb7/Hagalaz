@@ -66,13 +66,7 @@
                                         (dragstart)="dragCatalogObject($event, asset)" (click)="selectCatalogObject(asset)">
                                         <span class="object-card-content">
                                             @if (!assetList()) {
-                                                @let geometry = scene().geometry;
-                                                @let range = objectRanges().get(asset.id);
-                                                @if (geometry && range) {
-                                                    <cache-map-object-thumbnail [geometry]="geometry" [range]="range" [ready]="!store.loading()" [colourKey]="thumbnailColourKey()" />
-                                                } @else {
-                                                    <span class="catalog-object-icon"><mat-icon aria-hidden="true">view_in_ar</mat-icon></span>
-                                                }
+                                                <cache-object-model-thumbnail [id]="asset.id" [shape]="asset.shape" [name]="name" />
                                             }
                                             <span class="object-card-name" [title]="name">{{ name }}</span>
                                             <span class="object-card-id">{{ asset.id }}</span>

@@ -1,6 +1,6 @@
 import type { UpdateObjectNameDto } from "./dtos";
 import type { GetObjectDefinitionDto } from "./dtos";
-import { HttpClient } from "@angular/common/http";
+import { HttpClient, HttpParams } from "@angular/common/http";
 import { inject, Service, type Signal } from "@angular/core";
 import type { Observable } from "rxjs";
 import { environment } from "../../../../environments/environment";
@@ -25,6 +25,10 @@ export class CacheObjectsService {
 
     catalogResource(page: Signal<{ query: string; offset: number; limit: number } | null>) {
         return cacheQueryResource<SearchDefinitionsDto<ObjectCatalogEntry>>(`${this.baseUrl}/catalog`, page);
+    }
+
+    getObjectImage(id: number, options: { width: number; height: number; shape: number }): Observable<Blob> {
+        return this.http.get(`${this.baseUrl}/${id}/image`, { params: new HttpParams({ fromObject: options }), responseType: "blob" });
     }
 
     updateObjectName(id: number, name: string): Observable<UpdateObjectNameResultDto> {

@@ -6,6 +6,7 @@ using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
+using Hagalaz.Services.Cache.Features.Types;
 using Hagalaz.Services.Cache.Features.Shared;
 using Hagalaz.Services.Cache.Features.Models.Dtos;
 using Microsoft.AspNetCore.Builder;
@@ -23,12 +24,14 @@ public static class ModelEndpoints
     public static IEndpointRouteBuilder MapModelEndpoints(this IEndpointRouteBuilder group)
     {
         group.MapGet("/models/{id:int}", GetModel).WithSummary("Decode a model's geometry").Produces<GetModelDto>();
+        group.MapGet("/models/{id:int}/image", GetModelImage).WithSummary("Render a model to a centred PNG preview").Produces<System.IO.Stream>(StatusCodes.Status200OK, "image/png");
         group.MapGet("/models/capacity", (ICacheAPI cache) => TypedResults.Ok(new GetModelCapacityDto(cache.ReadReferenceTable(7).Capacity))).WithSummary("Get the model index capacity");
         group.MapGet("/models/range", GetModelRange).WithSummary("List model IDs in a range of at most 200").Produces<GetModelSummaryDto[]>();
         group.MapGet("/types/items/{id:int}/model", GetItemModel).WithSummary("Assemble an item appearance model").Produces<GetModelDto>();
         group.MapGet("/types/items/{id:int}/model-appearances", GetItemAppearances).WithSummary("List an item's model appearances").Produces<GetItemModelAppearanceDto[]>();
         group.MapGet("/types/npcs/{id:int}/model", GetNpcModel).WithSummary("Assemble an NPC model").Produces<GetModelDto>();
         group.MapGet("/types/objects/{id:int}/model", GetObjectModel).WithSummary("Assemble an object model for one shape").Produces<GetModelDto>();
+        group.MapGet("/types/objects/{id:int}/image", GetObjectImage).WithSummary("Render an object shape to a centred PNG preview").Produces<System.IO.Stream>(StatusCodes.Status200OK, "image/png");
         group.MapGet("/types/objects/{id:int}/render-appearance", GetObjectRenderAppearance).WithSummary("Assemble an object as placed in a map region").Produces<GetObjectRenderAppearanceDto>();
         group.MapPost("/types/objects/render-appearances", GetObjectRenderAppearances).WithSummary("Assemble up to 32 object placements, each with its own status").Produces<ObjectRenderAppearanceResultDto[]>();
         group.MapGet("/animation-frames/{id:int}", GetAnimationFrame).WithSummary("Decode an animation frame and its skeleton").Produces<GetAnimationFrameDto>();
@@ -37,6 +40,14 @@ public static class ModelEndpoints
     }
 
     private static IResult GetModel(int id, ICacheAPI cache) => ReadModel(id, cache);
+
+    private static IResult GetModelImage(int id, HttpContext context, ICacheAPI cache, int width = 128, int height = 128)
+    {
+        if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Model ID must be nonnegative."));
+        if (ValidateImageSize(width, height) is { } invalid) return invalid;
+        var options = new ModelImages.Options(width, height);
+        return RenderedImageResponse.Create(context, $"model-image-{ItemIcons.Validator(id, options, cache)}", () => ModelImages.RenderPng(id, options, cache));
+    }
 
     private static IResult GetModelRange(int startId, int endIdExclusive, ICacheAPI cache)
     {
@@ -155,13 +166,36 @@ public static class ModelEndpoints
         var definition = (ObjectType)objects.Get(id);
         if (definition.Shapes is not { Length: > 0 }) return TypedResults.NotFound();
         var selectedShape = shape ?? definition.Shapes[0];
-        var group = Array.FindIndex(definition.Shapes, value => value == selectedShape);
-        if (group < 0 || group >= definition.ModelIDs.Length) return TypedResults.NotFound();
-        if (definition.Inverted) return TypedResults.Problem(title: "Unsupported object appearance", detail: "Inverted object models are not yet supported.", statusCode: 422);
-        return AssembleModel(id, definition.ModelIDs[group], cache, definition.ScaleX, definition.ScaleY, definition.ScaleZ,
+        if (ObjectShapeModels(definition, selectedShape) is not { } modelIds) return TypedResults.NotFound();
+        if (definition.Inverted) return InvertedObjectProblem();
+        return AssembleModel(id, modelIds, cache, definition.ScaleX, definition.ScaleY, definition.ScaleZ,
             definition.OffsetX, definition.OffsetY, definition.OffsetZ, definition.OriginalColors, definition.ModifiedColors, definition.AShortArray831, definition.AShortArray762, definition.AnimationIDs ?? [],
             $"Object shape {selectedShape} preview with projected textures. Placement rotation, contouring, variant transforms are not yet supported. Client model lighting uses a fixed inspection light; map atmosphere and seam lighting remain unverified.", ambient: 64 + definition.Ambient, contrast: 850 + definition.Contrast);
     }
+
+    private static IResult GetObjectImage(int id, HttpContext context, ICacheAPI cache, ITypeProvider<IObjectType> objects, int width = 128, int height = 128, int? shape = null)
+    {
+        if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Object ID must be nonnegative."));
+        if (ValidateImageSize(width, height) is { } invalid) return invalid;
+        var definition = (ObjectType)objects.Get(id);
+        if (definition.Shapes is not { Length: > 0 }) return TypedResults.NotFound();
+        if (ObjectShapeModels(definition, shape ?? definition.Shapes[0]) is not { } modelIds) return TypedResults.NotFound();
+        if (definition.Inverted) return InvertedObjectProblem();
+        var tag = $"object-image-{ItemIcons.Validator(id, new ModelImages.ObjectOptions(width, height, shape), cache)}";
+        return RenderedImageResponse.Create(context, tag, () => ModelImages.RenderObjectPng(definition, modelIds, new ModelImages.Options(width, height), cache));
+    }
+
+    private static int[]? ObjectShapeModels(ObjectType definition, int shape)
+    {
+        var group = Array.FindIndex(definition.Shapes!, value => value == shape);
+        return group < 0 || group >= definition.ModelIDs.Length ? null : definition.ModelIDs[group];
+    }
+
+    private static IResult InvertedObjectProblem() =>
+        TypedResults.Problem(title: "Unsupported object appearance", detail: "Inverted object models are not yet supported.", statusCode: 422);
+
+    private static IResult? ValidateImageSize(int width, int height) =>
+        width is < 8 or > 512 || height is < 8 or > 512 ? TypedResults.BadRequest(EndpointErrors.Validation("width and height must be between 8 and 512.")) : null;
 
     private static IResult GetObjectRenderAppearances(ObjectRenderAppearanceKeyDto?[]? request, ICacheAPI cache, ITypeProvider<IObjectType> objects, CancellationToken cancellationToken)
     {

@@ -25,8 +25,8 @@ internal static class ItemIcons
     // Bump when the rendered output changes for the same cache contents.
     private const string RendererVersion = "v1";
 
-    // Every index Render reads: item definitions, models, sprites, fonts, textures and materials.
-    private static readonly int[] SourceIndexes = [19, 7, 8, 13, 9, 26];
+    // Every index a rendered image reads: item and object definitions, models, sprites, fonts, textures and materials.
+    private static readonly int[] SourceIndexes = [19, 16, 7, 8, 13, 9, 26];
 
     // Raw store writes bypass reference-table versions, so each cache instance carries a random generation that they replace.
     // Being random, it also invalidates validators issued by earlier processes.
@@ -39,7 +39,7 @@ internal static class ItemIcons
     /// A validator computed without rendering. It changes whenever a source index's reference-table version changes,
     /// which every metadata-tracked cache write does, so a matching request can skip the render.
     /// </summary>
-    public static string Validator(int id, Options options, ICacheAPI cache)
+    public static string Validator(int id, object options, ICacheAPI cache)
     {
         var versions = SourceIndexes.Select(index =>
         {
@@ -57,8 +57,12 @@ internal static class ItemIcons
     {
         var textures = new TextureSource(cache);
         var pixels = Render(id, options.Quantity, options.QuantityMode, noteContent: false, options.Outline, options.Shadow, options, cache, items, textures, depth: 0);
-        if (pixels is null) return null;
-        using var image = new Image<Rgba32>(options.Width, options.Height);
+        return pixels is null ? null : EncodePng(pixels, options.Width, options.Height);
+    }
+
+    internal static byte[] EncodePng(int[] pixels, int width, int height)
+    {
+        using var image = new Image<Rgba32>(width, height);
         image.ProcessPixelRows(accessor =>
         {
             for (var y = 0; y < accessor.Height; y++)
@@ -66,7 +70,7 @@ internal static class ItemIcons
                 var row = accessor.GetRowSpan(y);
                 for (var x = 0; x < row.Length; x++)
                 {
-                    var argb = pixels[y * options.Width + x];
+                    var argb = pixels[y * width + x];
                     row[x] = new Rgba32((byte)(argb >> 16), (byte)(argb >> 8), (byte)argb, (byte)(argb >>> 24));
                 }
             }
@@ -121,7 +125,7 @@ internal static class ItemIcons
     }
 
     /// <summary>Decodes each texture, the material table and the quantity font at most once per icon.</summary>
-    private sealed class TextureSource(ICacheAPI cache)
+    internal sealed class TextureSource(ICacheAPI cache)
     {
         private readonly Dictionary<int, ItemIconRenderer.Texture?> _textures = [];
         private byte[]? _materials;

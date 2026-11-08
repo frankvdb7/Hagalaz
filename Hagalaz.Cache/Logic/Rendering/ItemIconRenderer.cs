@@ -17,6 +17,9 @@ public static class ItemIconRenderer
 
     // ItemDefinition.method6279: IA(0.95..1.05), m(0xFFFFFF, 0.95..1.05, 0.95..1.05, -50, -10, -50). The random range is fixed at its centre.
     private static readonly ClientModelShading.Light IconLight = new(1f, 1f, 1f, -50, -10, -50);
+    // Cached models face -Z, so a half turn plus an eighth shows the front three-quarters from slightly above.
+    private static readonly Camera PreviewCamera = new(0, 128, 1024 + 256, 0, 0, 0);
+    private const float PreviewFill = 0.92f;
     private static readonly int[] Sine = new int[16384];
     private static readonly int[] Cosine = new int[16384];
 
@@ -46,13 +49,90 @@ public static class ItemIconRenderer
     /// <summary>Draws the model only, before outline and shadow passes. Untouched pixels are 0.</summary>
     public static int[] RenderModel(Model model, Camera camera, IReadOnlyDictionary<int, Texture> textures, ZoomMode zoomMode, int width, int height)
     {
+        if (model.Positions.Length == 0) return new int[width * height];
+        return Rasterize(model, Project(model, camera, zoomMode, width, height), textures, width, height);
+    }
+
+    /// <summary>Draws a model with no authored camera, centred from a fixed three-quarter view and filling most of the image.</summary>
+    public static int[] RenderFitted(Model model, IReadOnlyDictionary<int, Texture> textures, int width, int height)
+    {
+        // Hidden faces and unused vertices must not shrink the framing.
+        var drawn = DrawnVertices(model);
+        if (drawn.Length == 0) return new int[width * height];
+        var centred = model with { Positions = CentredPositions(model.Positions, drawn) };
+        var radius = 0d;
+        foreach (var vertex in drawn)
+            radius = Math.Max(radius, Math.Sqrt(Math.Pow(centred.Positions[vertex * 3], 2) + Math.Pow(centred.Positions[vertex * 3 + 1], 2) + Math.Pow(centred.Positions[vertex * 3 + 2], 2)));
+        // Zoom is a quarter of the camera distance, so half the radius keeps every vertex in front of the camera.
+        var minimumZoom = Math.Max(1, (int)Math.Ceiling(radius / 2));
+        var zoom = Math.Max(minimumZoom, (int)(radius * 8));
+        var screen = Project(centred, PreviewCamera with { Zoom = zoom }, ZoomMode.Normal, width, height);
+        for (var pass = 0; pass < 6; pass++)
+        {
+            var bounds = ScreenBounds(screen, drawn);
+            var fill = Math.Max((bounds.MaxX - bounds.MinX) / (width * PreviewFill), (bounds.MaxY - bounds.MinY) / (height * PreviewFill));
+            if (fill == 0 || Math.Abs(fill - 1) < 0.01f) break;
+            zoom = Math.Max(minimumZoom, (int)Math.Round(zoom * fill));
+            screen = Project(centred, PreviewCamera with { Zoom = zoom }, ZoomMode.Normal, width, height);
+        }
+        var final = ScreenBounds(screen, drawn);
+        var shiftX = width / 2f - (final.MinX + final.MaxX) / 2;
+        var shiftY = height / 2f - (final.MinY + final.MaxY) / 2;
+        for (var offset = 0; offset < screen.Length; offset += 3)
+        {
+            screen[offset] += shiftX;
+            screen[offset + 1] += shiftY;
+        }
+        return Rasterize(centred, screen, textures, width, height);
+    }
+
+    private static int[] DrawnVertices(Model model)
+    {
+        var drawn = new HashSet<int>();
+        for (var face = 0; face < model.Indices.Length / 3; face++)
+        {
+            if (face < model.FaceAlpha.Length && model.FaceAlpha[face] == 255) continue;
+            if (model.FaceShadingTypes is { } types && face < types.Length && types[face] == 2) continue;
+            for (var corner = 0; corner < 3; corner++) drawn.Add(model.Indices[face * 3 + corner]);
+        }
+        return [.. drawn];
+    }
+
+    private static int[] CentredPositions(int[] positions, int[] drawn)
+    {
+        var centred = (int[])positions.Clone();
+        for (var axis = 0; axis < 3; axis++)
+        {
+            int min = int.MaxValue, max = int.MinValue;
+            foreach (var vertex in drawn)
+            {
+                min = Math.Min(min, positions[vertex * 3 + axis]);
+                max = Math.Max(max, positions[vertex * 3 + axis]);
+            }
+            var middle = (int)(((long)min + max) / 2);
+            for (var offset = axis; offset < positions.Length; offset += 3) centred[offset] -= middle;
+        }
+        return centred;
+    }
+
+    private static (float MinX, float MinY, float MaxX, float MaxY) ScreenBounds(float[] screen, int[] drawn)
+    {
+        float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+        foreach (var vertex in drawn)
+        {
+            minX = Math.Min(minX, screen[vertex * 3]);
+            maxX = Math.Max(maxX, screen[vertex * 3]);
+            minY = Math.Min(minY, screen[vertex * 3 + 1]);
+            maxY = Math.Max(maxY, screen[vertex * 3 + 1]);
+        }
+        return (minX, minY, maxX, maxY);
+    }
+
+    private static int[] Rasterize(Model model, float[] screen, IReadOnlyDictionary<int, Texture> textures, int width, int height)
+    {
         var pixels = new int[width * height];
         var depth = new float[width * height];
         Array.Fill(depth, float.PositiveInfinity);
-        var vertexCount = model.Positions.Length / 3;
-        if (vertexCount == 0) return pixels;
-
-        var screen = Project(model, camera, zoomMode, width, height);
 
         var shades = ClientModelShading.LightModel(model.Positions, model.Indices, model.FaceShadingTypes ?? [], model.Contrast, IconLight);
         var translucent = new List<(int Face, float Depth)>();
@@ -92,8 +172,8 @@ public static class ItemIconRenderer
         for (var vertex = 0; vertex < vertexCount; vertex++) minY = Math.Min(minY, model.Positions[vertex * 3 + 1]);
         var pitch = camera.Rotation1 << 3 & 0x3fff;
         float tx = camera.Offset1 << 2;
-        float ty = (zoom * Sine[pitch] >> 14) - minY / 2 + (camera.Offset2 << 2);
-        float tz = (camera.Offset2 << 2) + (Cosine[pitch] * zoom >> 14);
+        float ty = (int)((long)zoom * Sine[pitch] >> 14) - minY / 2 + (camera.Offset2 << 2);
+        float tz = (camera.Offset2 << 2) + (int)((long)Cosine[pitch] * zoom >> 14);
 
         var roll = Radians(-(camera.Zan2d << 3));
         var yaw = Radians(camera.Rotation2 << 3);

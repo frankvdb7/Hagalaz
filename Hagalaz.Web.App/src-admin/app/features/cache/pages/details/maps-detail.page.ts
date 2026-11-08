@@ -22,11 +22,11 @@ import { CacheMapSceneStore } from "../../stores/cache-map-scene.store";
 import { injectCacheDefinitionId } from "../cache-definition-id";
 import { buildMapScene, MapScenePreparation, type MapObjectRange, type MapObjectTransform, type MapSceneDraft } from "../map-scene-geometry";
 import { MapViewportComponent, mapObjectDragType } from "../map-viewport.component";
-import { MapObjectThumbnailComponent } from "../map-object-thumbnail.component";
+import { ObjectModelThumbnailComponent } from "../object-model-thumbnail.component";
 
 @Component({
     selector: "cache-maps-detail-page",
-    imports: [A11yModule, OverlayModule, DecimalPipe, NgTemplateOutlet, FormField, PortalBreadcrumbDirective, MapViewportComponent, MapObjectThumbnailComponent, MatButtonModule, MatCardModule, MatCheckboxModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressBarModule, MatSelectModule, MatTabsModule, RouterLink],
+    imports: [A11yModule, OverlayModule, DecimalPipe, NgTemplateOutlet, FormField, PortalBreadcrumbDirective, MapViewportComponent, ObjectModelThumbnailComponent, MatButtonModule, MatCardModule, MatCheckboxModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressBarModule, MatSelectModule, MatTabsModule, RouterLink],
     providers: [CacheMapSceneStore],
     templateUrl: "./maps-detail.page.html",
     styleUrl: "./maps-detail.page.scss",
@@ -114,13 +114,6 @@ export class MapsDetailPageComponent {
         }
         return names;
     });
-    readonly objectRanges = computed(() => {
-        const ranges = new Map<number, MapObjectRange>();
-        for (const range of this.scene().geometry?.placements ?? []) {
-            if (!ranges.has(range.placement.id)) ranges.set(range.placement.id, range);
-        }
-        return ranges;
-    });
     readonly scenePlacements = computed(() => {
         const query = this.placementSearch().trim().toLowerCase();
         const ranges = this.scene().geometry?.placements ?? [];
@@ -136,7 +129,6 @@ export class MapsDetailPageComponent {
             : [];
         return [...new Set(ids)].filter(id => String(id).includes(query)).sort((a, b) => a - b);
     });
-    readonly thumbnailColourKey = computed(() => ({ appearances: this.store.appearances(), textures: this.store.textures(), atmosphere: this.useRegionAtmosphere() }));
     readonly visibleAssets = computed(() => this.assetItems().slice(0, this.assetLimit()));
     readonly canAddObject = computed(() => this.selectedAsset()?.shape != null && this.store.regions().length > 0);
     readonly loadingText = computed(() => {

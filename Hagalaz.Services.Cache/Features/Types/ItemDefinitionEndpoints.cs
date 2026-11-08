@@ -13,7 +13,7 @@ using Hagalaz.Services.Cache.Features.Types.Dtos;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Net.Http.Headers;
+using Hagalaz.Services.Cache.Features.Models;
 using static Hagalaz.Services.Cache.Features.Types.TypeQueryUtilities;
 using static Hagalaz.Services.Cache.Features.Types.TypeMutationUtilities;
 
@@ -54,28 +54,7 @@ public static class ItemDefinitionEndpoints
         }
 
         var options = new ItemIcons.Options(width, height, outline, shadowColor, quantity, quantityMode);
-        // Revalidation is checked before rendering, so unchanged icons cost only reference-table lookups.
-        var etag = new EntityTagHeaderValue($"\"item-icon-{ItemIcons.Validator(id, options, cache)}\"");
-        var validators = context.Request.GetTypedHeaders().IfNoneMatch;
-        if (validators?.Any(candidate => candidate.Equals(EntityTagHeaderValue.Any) || candidate.Compare(etag, useStrongComparison: false)) == true)
-        {
-            SetValidator(context, etag);
-            return TypedResults.StatusCode(StatusCodes.Status304NotModified);
-        }
-
-        byte[]? png;
-        try { png = ItemIcons.RenderPng(id, options, cache, items); }
-        catch (FileNotFoundException) { png = null; }
-        if (png is null) return TypedResults.NotFound();
-
-        SetValidator(context, etag);
-        return TypedResults.File(png, "image/png");
-
-        static void SetValidator(HttpContext context, EntityTagHeaderValue etag)
-        {
-            context.Response.Headers.CacheControl = "private, no-cache";
-            context.Response.GetTypedHeaders().ETag = etag;
-        }
+        return RenderedImageResponse.Create(context, $"item-icon-{ItemIcons.Validator(id, options, cache)}", () => ItemIcons.RenderPng(id, options, cache, items));
     }
 
     private static IResult GetItemTypeRange(int startId, int endIdExclusive, ITypeProvider<IItemType> provider)

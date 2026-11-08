@@ -71,7 +71,6 @@
 .object-card-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .object-card-id { color: var(--mat-sys-on-surface-variant); font: var(--mat-sys-body-small); }
 .asset-icon-label { display: inline-flex; align-items: center; gap: 6px; }
-.catalog-object-icon { display: grid; place-items: center; height: 64px; color: var(--mat-sys-on-surface-variant); }
 .catalog-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font: var(--mat-sys-body-small); }
 .scene-placements { display: grid; gap: 6px; }
 .scene-placements button { height: auto; padding-block: 6px; text-align: start; justify-content: flex-start; }

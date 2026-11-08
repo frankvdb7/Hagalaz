@@ -37,6 +37,39 @@ public sealed class ItemIconRendererTests
     }
 
     [Fact]
+    public void RenderFitted_CentresAndFillsTheImageRegardlessOfModelPositionAndSize()
+    {
+        static (int MinX, int MinY, int MaxX, int MaxY) Covered(int[] pixels, int width)
+        {
+            var points = pixels.Select((pixel, index) => (pixel, index)).Where(entry => entry.pixel != 0).Select(entry => (X: entry.index % width, Y: entry.index / width)).ToArray();
+            return (points.Min(point => point.X), points.Min(point => point.Y), points.Max(point => point.X), points.Max(point => point.Y));
+        }
+        // A closed box, so faces toward the fixed preview angle are always drawn.
+        static Model Box(int size, int shift)
+        {
+            int[] positions = [0, 0, 0, size, 0, 0, size, size, 0, 0, size, 0, 0, 0, size, size, 0, size, size, size, size, 0, size, size];
+            for (var offset = 0; offset < positions.Length; offset++) positions[offset] += shift;
+            int[] indices = [0, 1, 2, 0, 2, 3, 5, 4, 7, 5, 7, 6, 4, 0, 3, 4, 3, 7, 1, 5, 6, 1, 6, 2, 4, 5, 1, 4, 1, 0, 3, 2, 6, 3, 6, 7, 2, 1, 0, 3, 2, 0, 7, 4, 5, 6, 7, 5, 3, 0, 4, 7, 3, 4, 6, 5, 1, 2, 6, 1, 1, 5, 4, 0, 1, 4, 6, 2, 3, 7, 6, 3];
+            var faces = indices.Length / 3;
+            return new Model(positions, indices, Enumerable.Repeat(0x7f7f & 0xffff, faces).ToArray(), new int[faces], null, null, null, 64, 850);
+        }
+        var near = Covered(RenderFitted(Box(100, 0), NoTextures, 64, 64), 64);
+        var large = Covered(RenderFitted(Box(40000, 9000), NoTextures, 64, 64), 64);
+        foreach (var bounds in new[] { near, large })
+        {
+            Assert.InRange(bounds.MaxX - bounds.MinX + 1, 50, 62);
+            Assert.InRange(bounds.MaxY - bounds.MinY + 1, 40, 62);
+            Assert.InRange(bounds.MinX + bounds.MaxX, 60, 66);
+            Assert.InRange(bounds.MinY + bounds.MaxY, 60, 66);
+        }
+        Assert.All(RenderFitted(new Model([], [], [], [], null, null, null, 64, 850), NoTextures, 8, 8), pixel => Assert.Equal(0, pixel));
+        // A far-away vertex that only hidden faces use does not affect the framing.
+        var box = Box(100, 0);
+        var stray = box with { Positions = [.. box.Positions, 90000, 90000, 90000], Indices = [.. box.Indices, 0, 1, 8], FaceColors = [.. box.FaceColors, 0], FaceAlpha = [.. box.FaceAlpha, 255] };
+        Assert.Equal(near, Covered(RenderFitted(stray, NoTextures, 64, 64), 64));
+    }
+
+    [Fact]
     public void Project_UsesTheClientIconCameraAndPreservesFramingWhenScaled()
     {
         var model = Triangle([0, 1, 2]);

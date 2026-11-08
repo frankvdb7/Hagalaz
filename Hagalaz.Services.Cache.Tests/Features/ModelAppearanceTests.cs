@@ -53,6 +53,31 @@ public sealed class ModelAppearanceTests
     }
 
     [TestMethod]
+    public async Task ObjectImage_RendersARealObjectShapeAndRejectsMissingShapes()
+    {
+        const int objectId = 45291, modelId = 48743;
+        var store = new MemoryFileStore();
+        SeedDefinition(store, 16, [1, 1, 10, 1, 0x80, 0, modelId >> 8 & 255, modelId & 255, 0], id: objectId);
+        store.Set(7, modelId, ContainerBytes(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "models", $"model-{modelId}.dat"))));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        using var response = await client.GetAsync($"/api/v1/cache/types/objects/{objectId}/image?width=192&height=128&shape=10");
+        Assert.AreEqual(System.Net.HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
+        Assert.AreEqual("image/png", response.Content.Headers.ContentType?.MediaType);
+        using var image = SixLabors.ImageSharp.Image.Load<SixLabors.ImageSharp.PixelFormats.Rgba32>(await response.Content.ReadAsByteArrayAsync());
+        Assert.AreEqual((192, 128), (image.Width, image.Height));
+        var drawn = 0;
+        image.ProcessPixelRows(rows => { for (var y = 0; y < rows.Height; y++) foreach (var pixel in rows.GetRowSpan(y)) if (pixel.A > 0) drawn++; });
+        Assert.IsGreaterThan(1000, drawn);
+
+        using var missing = await client.GetAsync($"/api/v1/cache/types/objects/{objectId}/image?shape=22");
+        Assert.AreEqual(System.Net.HttpStatusCode.NotFound, missing.StatusCode);
+        using var invalid = await client.GetAsync($"/api/v1/cache/types/objects/{objectId}/image?width=7");
+        Assert.AreEqual(System.Net.HttpStatusCode.BadRequest, invalid.StatusCode);
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public void ObjectTransformId_DistinguishesHiddenShortFromRealExtendedId(bool extended)
