@@ -1,8 +1,181 @@
 import { describe, expect, it } from "vitest";
-import { buildMapScene, mapHeight, MapScenePreparation } from "./map-scene-geometry";
-import type { ModelTexture } from "../../../../../shared/model-viewer/model-scene";
+import { buildMapScene as buildLayers, mapHeight, mapLandscapeSaves, MapScenePreparation, unstoredEditNotes, type MapSceneGeometry, type MapSceneObjects } from "./map-scene-geometry";
+import { applyTerrainEdits } from "./map-terrain-edit";
+import type { ModelGeometry, ModelTexture } from "../../../../../shared/model-viewer/model-scene";
 import { mapAppearanceKey, type MapRenderRegion, type ObjectRenderAppearance } from "../services/map-render.models";
 import { required } from "../../../../testing/required";
+
+describe("rebuilding after terrain edits", () => {
+    const tileKey = (x: number, y: number) => (x << 6) | y;
+    const near = { id: 1, shape: 10, rotation: 0, x: 1, y: 1, plane: 0 };
+    const far = { ...near, x: 40, y: 40 };
+    function scene() {
+        const source = region();
+        source.objects = [near, far];
+        const appearances = new Map([[mapAppearanceKey(near), appearance()]]);
+        const preparation = new MapScenePreparation();
+        const draw = (regions: readonly MapRenderRegion[], draft?: Parameters<typeof buildLayers>[7]) => required(buildLayers(regions, appearances, new Map(), [true], true, preparation, source.id, draft).geometry, "the scene");
+        return { source, draw, first: draw([source]) };
+    }
+    const edit = (id: number, tile: number, change: object) => new Map([[id, new Map([[tile, change]])]]);
+
+    it("keeps object geometry across a floor stroke", () => {
+        const { source, draw, first } = scene();
+        const painted = draw(applyTerrainEdits([source], edit(source.id, tileKey(5, 5), { underlay: 1, overlay: 0 }), new Map()));
+        expect(painted.objects).toBe(first.objects);
+        expect(painted.terrain).not.toBe(first.terrain);
+    });
+
+    it("treats an empty edit list like no edits", () => {
+        const { source, draw, first } = scene();
+        expect(draw([source], { transforms: new Map(), additions: [] }).objects).toBe(first.objects);
+    });
+
+    it("re-fits only the objects on changed ground", () => {
+        const { source, draw, first } = scene();
+        const objects = required(first.objects, "the objects");
+        const [nearRange, farRange] = first.placements;
+        const raised = required(draw(applyTerrainEdits([source], edit(source.id, tileKey(2, 2), { height: 60 }), new Map())).objects, "the raised objects");
+        expect(raised.patchOf?.base).toBe(objects);
+        expect(raised.patchOf?.ranges).toEqual([[nearRange.startVertex, nearRange.endVertex]]);
+        expect(raised.positions.slice(nearRange.startVertex * 3, nearRange.endVertex * 3)).not.toEqual(objects.positions.slice(nearRange.startVertex * 3, nearRange.endVertex * 3));
+        expect(raised.positions.slice(farRange.startVertex * 3, farRange.endVertex * 3)).toEqual(objects.positions.slice(farRange.startVertex * 3, farRange.endVertex * 3));
+    });
+
+    it("keeps only the newest patch", () => {
+        const { source, draw, first } = scene();
+        const once = required(draw(applyTerrainEdits([source], edit(source.id, tileKey(2, 2), { height: 60 }), new Map())).objects, "the raised objects");
+        const twice = required(draw(applyTerrainEdits([source], edit(source.id, tileKey(2, 2), { height: 90 }), new Map())).objects, "the raised objects");
+        expect(twice.patchOf?.base).toBe(once);
+        expect(once.patchOf).toBeUndefined();
+        expect(first.objects).not.toBe(twice);
+    });
+
+    it("leaves objects alone when the heights are equal", () => {
+        const { source, draw, first } = scene();
+        const copy = { ...source, planes: source.planes.map(plane => ({ ...plane, cornerHeights: [...plane.cornerHeights] })) };
+        expect(draw([copy]).objects).toBe(first.objects);
+    });
+
+    it("rebuilds when a change removes an object's vertices", () => {
+        const { source, draw, first } = scene();
+        const heights = [...source.planes[0].cornerHeights];
+        heights[65 + 1] = null;
+        const changed = { ...source, planes: [{ ...source.planes[0], cornerHeights: heights }, ...source.planes.slice(1)] };
+        const objects = required(draw([changed]).objects, "the objects");
+        expect(objects.patchOf).toBeUndefined();
+        expect(objects).not.toBe(first.objects);
+    });
+});
+
+describe("mapLandscapeSaves", () => {
+    const placement = (id: number) => ({ id, shape: 10, rotation: 0, x: id, y: id, plane: 0 });
+    const withObjects = (id: number, ...objects: ReturnType<typeof placement>[]) => ({ ...region(id), objects });
+
+    it("has nothing to save without a draft", () => {
+        expect(mapLandscapeSaves([withObjects(1, placement(1))], undefined)).toEqual([]);
+    });
+
+    it("sends only edited regions with moves, rotations, removals and additions applied", () => {
+        const moved = placement(1), removed = placement(2), kept = placement(3), added = placement(4), addedThenMoved = placement(5);
+        const saves = mapLandscapeSaves([withObjects(1, moved, removed, kept), withObjects(2, placement(9))], {
+            transforms: new Map([
+                [moved, { x: 20, y: 21, plane: 2, rotation: 3, scale: 2 }],
+                [removed, null],
+                [addedThenMoved, { x: 30, y: 31, plane: 1, rotation: 1, scale: 1 }],
+            ]),
+            additions: [{ regionId: 1, placement: added }, { regionId: 1, placement: addedThenMoved }],
+        });
+        expect(saves).toEqual([{ kind: "landscape", regionId: 1, objects: [
+            { id: 1, shape: 10, rotation: 3, x: 20, y: 21, plane: 2 },
+            kept,
+            added,
+            { id: 5, shape: 10, rotation: 1, x: 30, y: 31, plane: 1 },
+        ] }]);
+    });
+
+    it("keeps underwater objects out of the surface landscape", () => {
+        const surface = placement(1), underwater = { ...placement(2), plane: 4 };
+        const moved = { x: 9, y: 9, plane: 0, rotation: 0, scale: 1 };
+        const regions = [withObjects(1, surface, underwater)];
+        expect(mapLandscapeSaves(regions, { transforms: new Map([[underwater, moved]]), additions: [] })).toEqual([]);
+        expect(mapLandscapeSaves(regions, { transforms: new Map([[surface, moved]]), additions: [] })).toEqual([{ kind: "landscape", regionId: 1, objects: [{ id: 1, shape: 10, rotation: 0, x: 9, y: 9, plane: 0 }] }]);
+    });
+
+    it("notes the edits saving cannot store", () => {
+        const surface = placement(1), underwater = { ...placement(2), plane: 4 };
+        const same = { x: 1, y: 1, plane: 0, rotation: 0, scale: 1 };
+        expect(unstoredEditNotes(undefined)).toEqual([]);
+        expect(unstoredEditNotes({ transforms: new Map([[surface, same], [placement(3), null]]), additions: [] })).toEqual([]);
+        expect(unstoredEditNotes({ transforms: new Map([[surface, { ...same, scale: 2 }]]), additions: [] })).toEqual(["Scale changes are not stored."]);
+        expect(unstoredEditNotes({ transforms: new Map([[underwater, same]]), additions: [] })).toEqual(["Underwater object changes are not stored."]);
+        expect(unstoredEditNotes({ transforms: new Map(), additions: [{ regionId: 1, placement: underwater }] })).toEqual(["Underwater object changes are not stored."]);
+    });
+
+    it("skips drafts that leave the stored placements unchanged", () => {
+        const scaled = placement(1), added = placement(2);
+        expect(mapLandscapeSaves([withObjects(1, scaled)], {
+            transforms: new Map([[scaled, { x: 1, y: 1, plane: 0, rotation: 0, scale: 3 }], [added, null]]),
+            additions: [{ regionId: 1, placement: added }],
+        })).toEqual([]);
+    });
+});
+
+const merged = new WeakMap<object, WeakMap<object, CombinedScene>>();
+type CombinedScene = ReturnType<typeof combine>;
+
+const noLayer = { positions: [], indices: [], colors: [], opacities: [], uvs: [], textureIds: [], facePriorities: [], placements: [] };
+
+function terrainRgba(terrain: ModelGeometry): number[] {
+    const colors = terrain.colors ?? [], opacities = terrain.opacities ?? [];
+    return opacities.flatMap((opacity, vertex) => [colors[vertex * 3], colors[vertex * 3 + 1], colors[vertex * 3 + 2], opacity]);
+}
+
+function sequence(count: number): Uint16Array | Uint32Array {
+    const indices = count > 65535 ? new Uint32Array(count) : new Uint16Array(count);
+    return indices.map((_, index) => index);
+}
+
+function combineObjects(terrain: ModelGeometry, objects: MapSceneObjects, offset: number) {
+    return {
+        terrainBlends: terrain.terrainBlends ?? [],
+        terrainWeights: terrain.terrainWeights ?? [],
+        firstTexel: objects.firstTexel && Uint8Array.of(...Array(offset).fill(0), ...objects.firstTexel),
+        vertexRgba: Float32Array.of(...terrainRgba(terrain), ...objects.vertexRgba ?? []),
+        uvs: Float32Array.of(...terrain.uvs ?? [], ...objects.uvs ?? []),
+    };
+}
+
+/** The two layers read as one buffer, terrain first, which is how most of these expectations are stated. */
+function combine(layers: MapSceneGeometry) {
+    const terrain: ModelGeometry = layers.terrain ?? noLayer;
+    const objects: ModelGeometry = layers.objects ?? noLayer;
+    const offset = terrain.positions.length / 3;
+    const joined = {
+        positions: [...terrain.positions, ...objects.positions],
+        indices: sequence(offset + objects.positions.length / 3),
+        textureIds: [...terrain.textureIds ?? [], ...objects.textureIds ?? []],
+        facePriorities: [...terrain.facePriorities ?? [], ...objects.facePriorities ?? []],
+        placements: layers.placements.map(range => ({ ...range, startVertex: range.startVertex + offset, endVertex: range.endVertex + offset })),
+    };
+    return layers.objects ? { ...layers.objects, ...joined, ...combineObjects(terrain, layers.objects, offset) } : { ...terrain, ...joined };
+}
+
+function combined(layers: MapSceneGeometry): CombinedScene {
+    const terrainKey = layers.terrain ?? merged, objectsKey = layers.objects ?? merged;
+    const byObjects = merged.get(terrainKey) ?? new WeakMap();
+    merged.set(terrainKey, byObjects);
+    const existing = byObjects.get(objectsKey);
+    if (existing) return existing;
+    const created = combine(layers);
+    byObjects.set(objectsKey, created);
+    return created;
+}
+
+function buildMapScene(...args: Parameters<typeof buildLayers>) {
+    const scene = buildLayers(...args);
+    return { ...scene, geometry: scene.geometry && combined(scene.geometry) };
+}
 
 function region(id = 258): MapRenderRegion {
     return {
@@ -437,10 +610,24 @@ describe("map scene geometry", () => {
         source.planes[0].overlays[1] = 3;
         const textures = new Map<number, ModelTexture>([[7, { image: {} as ImageBitmap, alphaMode: 0, effectId: 4 }], [8, { image: {} as ImageBitmap, alphaMode: 0 }]]);
         const preparation = new MapScenePreparation();
-        const vertices = (waterSurface: boolean) => buildMapScene([source], new Map(), textures, [true], false, preparation, null, undefined, waterSurface).geometry?.positions.length;
+        const vertices = (waterSurface: boolean) => buildMapScene([source], new Map(), textures, [true], false, preparation, null, undefined, { terrain: true, waterSurface, hiddenShapes: new Set(), hiddenPlacements: new Set() }).geometry?.positions.length;
         expect(vertices(true)).toBe(24 * 3);
         expect(vertices(false)).toBe(12 * 3);
         expect(vertices(true)).toBe(24 * 3);
+    });
+    it("hides terrain, object shapes and single placements through the scene filter", () => {
+        const source = region();
+        const appearances = new Map([[mapAppearanceKey({ id: 1, shape: 10, rotation: 0 }), appearance()]]);
+        const placed = { id: 1, shape: 10, rotation: 0, x: 0, y: 0, plane: 0 };
+        source.objects = [placed];
+        const filter = (overrides: object) => ({ terrain: true, waterSurface: true, hiddenShapes: new Set<number>(), hiddenPlacements: new Set<typeof placed>(), ...overrides });
+        const preparation = new MapScenePreparation();
+        const placements = (overrides: object) => buildMapScene([source], appearances, new Map(), [true], true, preparation, null, undefined, filter(overrides)).geometry?.placements.length;
+        expect(placements({})).toBe(1);
+        expect(placements({ hiddenShapes: new Set([10]) })).toBe(0);
+        expect(placements({ hiddenPlacements: new Set([placed]) })).toBe(0);
+        const noTerrain = buildMapScene([source], appearances, new Map(), [true], true, preparation, null, undefined, filter({ terrain: false })).geometry;
+        expect(noTerrain?.placements[0].startVertex).toBe(0);
     });
     it("omits unavailable boundaries and absent floors rather than inventing geometry", () => {
         const source = region();
@@ -467,6 +654,18 @@ describe("map scene geometry", () => {
             "Object 1: unsupported contour mode 3."
         );
     });
+    it("contours objects to terrain edits without touching the stored region", () => {
+        const source = region(),
+            placement = { id: 1, shape: 10, rotation: 0, x: 0, y: 0, plane: 0 };
+        source.planes[0].underlays[0] = 0;
+        source.objects = [placement];
+        const raised = new Map(Array.from({ length: 16 }, (_, tile) => [(tile >> 2) << 6 | (tile & 3), { height: 40 }] as const));
+        const [preview] = applyTerrainEdits([source], new Map([[source.id, raised]]), new Map());
+        const appearances = new Map([[mapAppearanceKey(placement), appearance()]]);
+        expect(buildMapScene([source], appearances, new Map(), [true], true).geometry?.positions.slice(0, 9)).toEqual([256, 48, 256, 256, 560, 256, 768, 80, 256]);
+        expect(buildMapScene([preview], appearances, new Map(), [true], true).geometry?.positions.slice(0, 9)).toEqual([256, 1280, 256, 256, 1792, 256, 768, 1280, 256]);
+    });
+
     it("uses wall displacement for decorations and keeps paired decoration parts independent", () => {
         const source = region(),
             asset = appearance();

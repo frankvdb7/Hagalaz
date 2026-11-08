@@ -1,0 +1,53 @@
+<mat-form-field appearance="outline" subscriptSizing="dynamic" class="studio-compact-inspector">
+    <mat-label>Search objects by name or ID</mat-label>
+    <mat-icon matPrefix>search</mat-icon>
+    <input matInput [value]="search()" (input)="searchAssets($any($event.target).value)" />
+</mat-form-field>
+<div class="asset-toolbar map-asset-toolbar">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="asset-type studio-compact-inspector">
+        <mat-label>Type</mat-label>
+        <mat-select [value]="objectType()" (selectionChange)="changeType($event.value)">
+            <mat-option value="">All</mat-option>
+            @for (type of objectTypes; track type.id) { <mat-option [value]="type.id">{{ type.label }}</mat-option> }
+        </mat-select>
+    </mat-form-field>
+    <button mat-icon-button type="button" class="view-choice" aria-label="Asset grid" matTooltip="Grid" [class.is-chosen]="!listView()" [attr.aria-pressed]="!listView()" (click)="listView.set(false)"><mat-icon>grid_view</mat-icon></button>
+    <button mat-icon-button type="button" class="view-choice" aria-label="Asset list" matTooltip="List" [class.is-chosen]="listView()" [attr.aria-pressed]="listView()" (click)="listView.set(true)"><mat-icon>view_list</mat-icon></button>
+</div>
+<div class="asset-results map-scroll-area">
+    @if (listView()) {
+        <mat-action-list class="asset-rows map-asset-rows">
+            @for (asset of catalogItems(); track asset.id) {
+                <button mat-list-item type="button" [activated]="isSelected(asset)" [class.is-active]="isSelected(asset)" [attr.draggable]="asset.shape !== null"
+                    [title]="hint(asset)" (dragstart)="dragObject($event, asset)" (click)="selectedAsset.set(asset)">
+                    <cache-object-model-thumbnail matListItemAvatar [id]="asset.id" [shape]="asset.shape" [name]="name(asset)" [width]="48" [height]="48" />
+                    <span matListItemTitle class="asset-label">
+                        <span class="asset-name" [class.active-title]="isSelected(asset)">{{ name(asset) }}</span>
+                        <span class="asset-id">{{ asset.id }}</span>
+                    </span>
+                </button>
+            }
+        </mat-action-list>
+    } @else {
+        <div class="asset-grid">
+            @for (asset of catalogItems(); track asset.id) {
+                <button mat-stroked-button type="button" class="object-card" [class.is-active]="isSelected(asset)" [attr.aria-pressed]="isSelected(asset)" [attr.draggable]="asset.shape !== null"
+                    [title]="hint(asset)" (dragstart)="dragObject($event, asset)" (click)="selectedAsset.set(asset)">
+                    <span class="object-card-content">
+                        <cache-object-model-thumbnail [id]="asset.id" [shape]="asset.shape" [name]="name(asset)" [width]="84" [height]="56" />
+                        <span class="object-card-name">{{ name(asset) }}</span>
+                        <span class="object-card-id">{{ asset.id }}</span>
+                    </span>
+                </button>
+            }
+        </div>
+    }
+    @if (emptyMessage(); as message) { <p class="supporting-text">{{ message }}</p> }
+</div>
+@if (catalogPage(); as page) {
+    <div class="catalog-pagination">
+        <span>{{ page.totalMatches | number }} objects</span>
+        <button mat-icon-button type="button" aria-label="Previous object page" [disabled]="page.offset === 0" (click)="catalogOffset.set(page.offset - catalogPageSize)"><mat-icon>chevron_left</mat-icon></button>
+        <button mat-icon-button type="button" aria-label="Next object page" [disabled]="page.offset + page.limit >= page.totalMatches" (click)="catalogOffset.set(page.offset + catalogPageSize)"><mat-icon>chevron_right</mat-icon></button>
+    </div>
+}

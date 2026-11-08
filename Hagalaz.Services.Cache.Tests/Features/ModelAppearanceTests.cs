@@ -53,6 +53,26 @@ public sealed class ModelAppearanceTests
     }
 
     [TestMethod]
+    public async Task ObjectCatalog_FiltersByShapeWithNameAndIdSearchAndRejectsInvalidShapes()
+    {
+        static byte[] Definition(byte shape, string name) => [1, 1, shape, 1, 0x80, 0, 0, 5, 2, .. System.Text.Encoding.ASCII.GetBytes(name), 0, 0];
+        var store = new MemoryFileStore();
+        SeedDefinitions(store, 16, (1, Definition(0, "Stone wall")), (2, Definition(0, "Oak wall")), (3, Definition(10, "Stone table")), (4, Definition(22, "Rug")));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapGroup("/types").MapObjectDefinitionsEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        const string url = "/api/v1/cache/types/objects/catalog";
+        async Task<int[]> Ids(string parameters) => (await client.GetFromJsonAsync<SearchDefinitionsDto<GetObjectCatalogEntryDto>>($"{url}?{parameters}"))!.Items.Select(entry => entry.Id).ToArray();
+
+        CollectionAssert.AreEqual(new[] { 1, 2 }, await Ids("shapes=0,1,2,3,9"));
+        CollectionAssert.AreEqual(new[] { 1 }, await Ids("shapes=0&query=stone"));
+        CollectionAssert.AreEqual(new[] { 3 }, await Ids("shapes=10&query=3"));
+        CollectionAssert.AreEqual(Array.Empty<int>(), await Ids("shapes=10&query=1"));
+        CollectionAssert.AreEqual(new[] { 2 }, await Ids("shapes=0&offset=1&limit=1"));
+        using var invalid = await client.GetAsync($"{url}?shapes=23");
+        Assert.AreEqual(System.Net.HttpStatusCode.BadRequest, invalid.StatusCode);
+    }
+
+    [TestMethod]
     public async Task ObjectImage_RendersARealObjectShapeAndRejectsMissingShapes()
     {
         const int objectId = 45291, modelId = 48743;

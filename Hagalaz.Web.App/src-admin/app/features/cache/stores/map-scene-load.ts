@@ -116,7 +116,7 @@ export class MapSceneLoad {
 
     private interest(): { placements: Map<string, MapPlacement>; textures: Set<number>; environment: number[] } {
         const placements = new Map<string, MapPlacement>();
-        const textures = new Set<number>();
+        const textures = new Set<number>(this.visibility.previewTextures);
         for (const region of this.regionList) this.floorTextures(region, textures);
         const environment = this.anchorEnvironmentFaces();
         if (!this.visibility.landscape) return { placements, textures, environment };

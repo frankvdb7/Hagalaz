@@ -9,6 +9,13 @@ export interface MapRenderPlane {
     overlayRotations: number[];
 }
 export interface MapPlacement { id: number; shape: number; rotation: number; x: number; y: number; plane: number; }
+export interface MapLandscapeSave { kind: "landscape"; regionId: number; objects: readonly MapPlacement[]; }
+export interface MapTerrainTileChange { plane: number; x: number; y: number; height?: number; underlay?: number; overlay?: number; overlayShape?: number; overlayRotation?: number; }
+export interface MapTerrainSave { kind: "terrain"; regionId: number; tiles: readonly MapTerrainTileChange[]; }
+export type MapRegionSave = MapLandscapeSave | MapTerrainSave;
+export interface MapWorldMapRefreshResult { refreshed: number[]; unchanged: number[]; skipped: { id: number; reason: string }[]; }
+export interface UpdateMapTerrainResultDto { operation: string; id: number; tiles: number; }
+export interface UpdateMapLandscapeResultDto { operation: string; id: number; placements: number; }
 export interface MapOverlayProperties {
     priority: number; spreadsToNeighbours: boolean;
     waterFogRgb: number; waterFogScale: number; waterFogBias: number;
@@ -50,7 +57,7 @@ export interface ObjectRenderAppearance {
 }
 export interface MapSelection { id: number; width: number; height: number; }
 export interface MapLoadRequest extends MapSelection { keys: Record<string, number[]>; }
-export interface MapVisibility { planes: readonly boolean[]; landscape: boolean; previewPlacements?: readonly MapPlacement[]; }
+export interface MapVisibility { planes: readonly boolean[]; landscape: boolean; previewPlacements?: readonly MapPlacement[]; previewTextures?: readonly number[]; }
 export interface ObjectAppearanceResult {
     id: number; shape: number; rotation: number; status: number;
     appearance: ObjectRenderAppearance | null;

@@ -2,29 +2,45 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { ModelScene, type ModelTexture } from "./model-scene";
 
+function required<T>(value: T | undefined, what: string): T {
+    if (value === undefined) throw new Error(`Missing ${what}`);
+    return value;
+}
+
 const gpu = vi.hoisted(() => ({
     setSize: vi.fn(), setAnimationLoop: vi.fn(), dispose: vi.fn(), remove: vi.fn(),
     disconnect: vi.fn(), controlsDispose: vi.fn(), render: vi.fn(),
     controlsListen: vi.fn(), controlsUnlisten: vi.fn(),
     gizmoRender: vi.fn(), gizmoDispose: vi.fn(),
+    placementShow: vi.fn(), placementDispose: vi.fn(), placementCreated: vi.fn(), placementFit: vi.fn(),
 }));
 
 vi.mock("three", async importOriginal => {
     const actual = await importOriginal<typeof import("three")>();
     return { ...actual, WebGLRenderer: class {
         autoClear = true;
-        domElement = { setAttribute: vi.fn(), remove: gpu.remove };
+        domElement = { setAttribute: vi.fn(), remove: gpu.remove, toDataURL: () => "data:image/png;base64,frame" };
         setPixelRatio = vi.fn(); setSize = gpu.setSize; setAnimationLoop = gpu.setAnimationLoop;
         render = gpu.render; dispose = gpu.dispose;
     } };
 });
 vi.mock("three/addons/controls/OrbitControls.js", () => ({ OrbitControls: class {
     target = new THREE.Vector3(); update = vi.fn(); dispose = gpu.controlsDispose;
+    mouseButtons = {}; touches = {};
     addEventListener = gpu.controlsListen; removeEventListener = gpu.controlsUnlisten;
 } }));
 vi.mock("./orientation-gizmo", () => ({ OrientationGizmo: class {
     render = gpu.gizmoRender;
     dispose = gpu.gizmoDispose;
+} }));
+
+vi.mock("./placement-gizmo", () => ({ PlacementGizmo: class {
+    readonly helper = new THREE.Object3D();
+    readonly dragging = true;
+    show = gpu.placementShow;
+    fitToCamera = gpu.placementFit;
+    dispose = gpu.placementDispose;
+    constructor() { gpu.placementCreated(this); }
 } }));
 
 describe("ModelScene resource ownership", () => {
@@ -52,6 +68,28 @@ describe("ModelScene resource ownership", () => {
         indices: [0,1,2,3,4,5,6,7,8],
         opacities: Array(9).fill(0.5),
     };
+
+    it("creates placement handles on first use, keeps them out of saved images and releases them", () => {
+        scene.showPlacementGizmo(null);
+        expect(gpu.placementCreated).not.toHaveBeenCalled();
+        expect(scene.placementGizmoDragging).toBe(false);
+
+        const target = { mode: "translate", range: { startVertex: 0, endVertex: 3 }, tile: { x: 1, y: 2, plane: 0 }, scale: 1, snap: 1, onRelease: vi.fn() } as const;
+        scene.showPlacementGizmo(target);
+        expect(gpu.placementShow).toHaveBeenCalledWith(target);
+        expect(scene.placementGizmoDragging).toBe(true);
+
+        const { helper } = gpu.placementCreated.mock.lastCall![0] as { helper: THREE.Object3D };
+        let visibleInImage: boolean | undefined;
+        gpu.render.mockImplementationOnce(() => { visibleInImage = helper.visible; });
+        scene.captureImage();
+        expect(visibleInImage).toBe(false);
+        expect(gpu.placementFit.mock.invocationCallOrder[0]).toBeLessThan(gpu.render.mock.invocationCallOrder.at(-1)!);
+        expect(helper.visible).toBe(true);
+
+        scene.dispose();
+        expect(gpu.placementDispose).toHaveBeenCalledOnce();
+    });
 
     it("draws the optional orientation gizmo after the scene without clearing the scene color", () => {
         gpu.gizmoRender.mockImplementation((renderer: THREE.WebGLRenderer) => expect(renderer.autoClear).toBe(false));
@@ -149,7 +187,7 @@ describe("ModelScene resource ownership", () => {
     });
 
     it("preserves a navigated map camera on visibility updates and reframes a new selection", () => {
-        scene.setSceneGeometry(triangle, true);
+        scene.setSceneGeometry({ terrain: null, objects: triangle }, true);
         renderAt(0);
         const camera = gpu.render.mock.lastCall![1] as THREE.PerspectiveCamera;
         const initial = camera.position.clone();
@@ -160,16 +198,16 @@ describe("ModelScene resource ownership", () => {
         expect(camera.position.distanceTo(orbited)).toBeGreaterThan(0);
         scene.zoom(0.8);
         const navigated = camera.position.clone();
-        scene.setSceneGeometry({...triangle, positions: triangle.positions.map(value => value * 2)}, false);
+        scene.setSceneGeometry({ terrain: null, objects: {...triangle, positions: triangle.positions.map(value => value * 2)} }, false);
         expect(camera.position).toEqual(navigated);
-        scene.setSceneGeometry(triangle, true);
+        scene.setSceneGeometry({ terrain: null, objects: triangle }, true);
         expect(camera.position).toEqual(initial);
     });
 
     it("frames a flat map tightly without clipping its bounds", () => {
         const map = new ModelScene({ ...host, clientWidth: 792 } as unknown as HTMLElement, "Map", "map");
         try {
-            map.setSceneGeometry({ positions: [0, 0, 0, 64, 0, 0, 64, 0, 64, 0, 0, 64], indices: [0, 1, 2, 0, 2, 3] }, true);
+            map.setSceneGeometry({ terrain: null, objects: { positions: [0, 0, 0, 64, 0, 0, 64, 0, 64, 0, 0, 64], indices: [0, 1, 2, 0, 2, 3] } }, true);
             vi.mocked(requestAnimationFrame).mock.lastCall![0](0);
             const camera = gpu.render.mock.lastCall![1] as THREE.PerspectiveCamera;
             camera.lookAt(32, 0, 32);
@@ -189,7 +227,7 @@ describe("ModelScene resource ownership", () => {
         const frames = vi.mocked(requestAnimationFrame);
         const map = new ModelScene(host as unknown as HTMLElement, "Map", "map");
         try {
-            map.setSceneGeometry({ ...triangle, firstTexel: Uint8Array.of(1, 0, 0) }, true);
+            map.setSceneGeometry({ terrain: null, objects: { ...triangle, firstTexel: Uint8Array.of(1, 0, 0) } }, true);
             map.setDisplay(true, false);
             expect(gpu.setAnimationLoop).not.toHaveBeenCalled();
             expect(frames).toHaveBeenCalledOnce();
@@ -219,7 +257,7 @@ describe("ModelScene resource ownership", () => {
         const frames = vi.mocked(requestAnimationFrame);
         const map = new ModelScene(host as unknown as HTMLElement, "Map", "map");
         try {
-            map.setSceneGeometry(triangle, true);
+            map.setSceneGeometry({ terrain: null, objects: triangle }, true);
             frames.mock.lastCall![0](0);
             const rendered = () => gpu.render.mock.lastCall![0] as THREE.Scene;
             expect(rendered().background).toBeNull();
@@ -294,6 +332,138 @@ describe("ModelScene resource ownership", () => {
         };
         expect(compile(1)).not.toContain("textureCube(cacheEnvironment");
         expect(compile(7)).toContain("textureCube(cacheEnvironment");
+    });
+
+    it("hands a primary drag to the page and restores orbiting", () => {
+        const controls = (scene as unknown as { controls: { mouseButtons: { LEFT: unknown }; touches: { ONE: unknown } } }).controls;
+        scene.setPrimaryDragEnabled(false);
+        expect(controls.mouseButtons.LEFT).toBeNull();
+        expect(controls.touches.ONE).toBeNull();
+        scene.setPrimaryDragEnabled(true);
+        expect(controls.mouseButtons.LEFT).toBe(THREE.MOUSE.ROTATE);
+        expect(controls.touches.ONE).toBe(THREE.TOUCH.ROTATE);
+    });
+
+    describe("terrain and object surfaces", () => {
+        const square = (y: number, sourceId?: number) => ({ positions: [-1, y, -1, 1, y, -1, 0, y, 1], indices: [0, 1, 2], ...(sourceId === undefined ? {} : { sourceId }) });
+        const meshes = (rendered: THREE.Scene) => rendered.children.filter(child => child instanceof THREE.Mesh) as THREE.Mesh<THREE.BufferGeometry>[];
+        let map: ModelScene;
+        const lastScene = () => { gpu.render.mockClear(); map.captureImage(); return gpu.render.mock.lastCall![0] as THREE.Scene; };
+
+        beforeEach(() => { map = new ModelScene(host as unknown as HTMLElement, "Map", "map"); });
+        afterEach(() => map.dispose());
+
+        it("draws terrain under objects as separate meshes", () => {
+            map.setSceneGeometry({ terrain: square(0), objects: square(5) }, true);
+            const [first, second] = meshes(lastScene());
+            expect([first.renderOrder, second.renderOrder].sort()).toEqual([-1, 0]);
+        });
+
+        it("replaces terrain without touching the object buffers", () => {
+            const objects = square(5);
+            map.setSceneGeometry({ terrain: square(0), objects }, true);
+            const before = meshes(lastScene()).find(mesh => mesh.renderOrder === 0);
+            const release = vi.spyOn(required(before, "objects").geometry, "dispose");
+            map.setSceneGeometry({ terrain: square(1), objects }, false);
+            expect(meshes(lastScene()).find(mesh => mesh.renderOrder === 0)).toBe(before);
+            expect(release).not.toHaveBeenCalled();
+        });
+
+        it("removes a surface that is no longer present", () => {
+            map.setSceneGeometry({ terrain: square(0), objects: square(5) }, true);
+            map.setSceneGeometry({ terrain: square(0), objects: null }, false);
+            expect(meshes(lastScene())).toHaveLength(1);
+            map.setSceneGeometry({ terrain: null, objects: null }, false);
+            expect(meshes(lastScene())).toHaveLength(0);
+        });
+
+        it("patches only the named vertices in place", () => {
+            const base = square(5);
+            map.setSceneGeometry({ terrain: null, objects: base }, true);
+            const mesh = required(meshes(lastScene())[0], "the mesh");
+            const position = mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
+            const patched = { ...base, positions: [-1, 9, -1, 1, 5, -1, 0, 5, 1], patchOf: { base, ranges: [[0, 1]] as const } };
+            map.setSceneGeometry({ terrain: null, objects: patched }, false);
+            expect(meshes(lastScene())[0]).toBe(mesh);
+            expect(position.getY(0)).toBe(9);
+            expect(position.updateRanges).toEqual([{ start: 0, count: 3 }]);
+        });
+
+        it("rebuilds when a patch does not match what is drawn", () => {
+            const base = square(5);
+            map.setSceneGeometry({ terrain: null, objects: square(6) }, true);
+            const mesh = meshes(lastScene())[0];
+            map.setSceneGeometry({ terrain: null, objects: { ...base, patchOf: { base, ranges: [[0, 1]] as const } } }, false);
+            expect(meshes(lastScene())[0]).not.toBe(mesh);
+        });
+
+        it("picks the nearest surface for objects and looks through them for the ground", () => {
+            const wide = (y: number) => ({ positions: [-500, y, -500, 500, y, -500, 0, y, 500], indices: [0, 2, 1] });
+            const lookDown = () => {
+                lastScene();
+                const camera = gpu.render.mock.lastCall![1] as THREE.PerspectiveCamera;
+                camera.position.set(0, 200, 1);
+                camera.lookAt(0, 0, 0);
+            };
+            map.setSceneGeometry({ terrain: wide(0), objects: wide(40) }, true);
+            lookDown();
+            expect(map.pickVertex(320, 180)).not.toBeNull();
+            expect(map.pickSurface(320, 180)?.vertex).toBeDefined();
+            map.setSceneGeometry({ terrain: wide(40), objects: wide(0) }, true);
+            lookDown();
+            expect(map.pickVertex(320, 180)).toBeNull();
+        });
+
+        it("fits the camera to both surfaces", () => {
+            map.setSceneGeometry({ terrain: { positions: [-100, 0, -100, 100, 0, -100, 0, 0, 100], indices: [0, 1, 2] }, objects: square(0) }, true);
+            map.captureImage();
+            expect((gpu.render.mock.lastCall![1] as THREE.Camera).position.length()).toBeGreaterThan(100);
+        });
+    });
+
+    it("draws, replaces and hides a stroke preview", () => {
+        const tile = { positions: Array(18).fill(1), uvs: Array(12).fill(0), rgb: [0xffb800], textureId: null, opacity: 0.45 };
+        scene.setStrokePreview(null);
+        scene.setStrokePreview(tile);
+        const preview = (scene as unknown as { strokePreview: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> }).strokePreview;
+        expect(preview.visible).toBe(true);
+        expect(preview.material.transparent).toBe(true);
+        expect(preview.geometry.getAttribute("color").count).toBe(6);
+        scene.setStrokePreview({ ...tile, positions: Array(36).fill(1), uvs: Array(24).fill(0), rgb: [1, 2], opacity: 1 });
+        expect(preview.geometry.getAttribute("position").count).toBe(12);
+        expect(preview.material.transparent).toBe(false);
+        scene.setStrokePreview(null);
+        expect(preview.visible).toBe(false);
+    });
+
+    it("uses a loaded texture for a stroke preview and releases the preview on dispose", () => {
+        scene.setTextures(new Map([[8, { image: {} as ImageBitmap, alphaMode: 0 as const }]]));
+        const tile = { positions: Array(18).fill(1), uvs: Array(12).fill(0), rgb: [0xffffff], textureId: 8, opacity: 1 };
+        scene.setStrokePreview(tile);
+        const preview = (scene as unknown as { strokePreview: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> }).strokePreview;
+        expect(preview.material.map).not.toBeNull();
+        scene.setStrokePreview({ ...tile, textureId: 9 });
+        expect(preview.material.map).toBeNull();
+        const release = vi.spyOn(preview.material, "dispose");
+        scene.dispose();
+        expect(release).toHaveBeenCalledOnce();
+    });
+
+    it("draws and hides the brush outline", () => {
+        scene.setBrushOutline(null);
+        scene.setBrushOutline([0, 0, 0, 512, 0, 0, 512, 0, 512]);
+        const outline = (scene as unknown as { brushOutline: THREE.LineLoop }).brushOutline;
+        expect(outline.visible).toBe(true);
+        expect(outline.geometry.getAttribute("position").count).toBe(3);
+        scene.setBrushOutline(null);
+        expect(outline.visible).toBe(false);
+    });
+
+    it("captures a freshly drawn frame", () => {
+        gpu.render.mockClear();
+        scene.setGeometry(triangle);
+        expect(scene.captureImage()).toBe("data:image/png;base64,frame");
+        expect(gpu.render).toHaveBeenCalledOnce();
     });
 
     it("groups blended terrain separately and disposes its material on scene replacement", () => {

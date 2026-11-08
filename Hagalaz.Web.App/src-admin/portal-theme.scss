@@ -319,25 +319,73 @@
 }
 
 @media (width > 920px) {
-    .admin-portal mat-sidenav-content:has(.map-workspace) {
+    mat-sidenav-content:has(.map-workspace) {
         display: flex;
         flex-direction: column;
     }
 
-    .admin-portal .map-workspace,
-    .admin-portal .map-workspace > cache-shell-page,
-    .admin-portal .map-workspace mat-tab-nav-panel,
-    .admin-portal .map-workspace cache-maps-detail-page {
+    .map-workspace,
+    .map-workspace > cache-shell-page,
+    .map-workspace mat-tab-nav-panel,
+    .map-workspace cache-maps-detail-page {
         display: flex;
         flex: 1 1 0;
         flex-direction: column;
         min-height: 0;
     }
 
-    .admin-portal mat-sidenav-content:has(.map-workspace) > mat-toolbar,
-    .admin-portal .map-workspace .studio-tabs {
+    mat-sidenav-content > mat-toolbar,
+    .map-workspace .studio-tabs {
         flex-shrink: 0;
     }
+}
+
+.admin-portal .map-scroll-area {
+    scrollbar-color: var(--mat-sys-outline-variant) transparent;
+    scrollbar-width: thin;
+}
+
+.admin-portal .map-scene-tree {
+    @include mat.tree-overrides((container-background-color: transparent, node-min-height: 32px, node-text-size: 13px));
+    @include mat.icon-button-overrides((state-layer-size: 22px, icon-size: 18px, touch-target-display: none));
+
+    mat-icon { width: 18px; height: 18px; font-size: 18px; }
+}
+
+.admin-portal .map-asset-toolbar {
+    @include mat.icon-button-overrides((state-layer-size: 32px, icon-size: 20px, touch-target-display: none, container-shape: 8px));
+    @include mat.select-overrides((trigger-text-size: 12px, trigger-text-line-height: 18px));
+
+    // The select arrow is 24px tall, so 4px padding is what yields a 32px field.
+    mat-form-field { @include mat.form-field-overrides((container-vertical-padding: 4px)); }
+    mat-icon { width: 20px; height: 20px; font-size: 20px; }
+}
+
+.admin-portal .map-edit-toolbar {
+    @include mat.icon-button-overrides((state-layer-size: 36px, icon-size: 20px, touch-target-display: none, container-shape: 8px));
+
+    mat-icon { width: 20px; height: 20px; font-size: 20px; }
+}
+
+.admin-portal .map-asset-rows {
+    @include mat.list-overrides((
+        list-item-container-shape: 8px,
+        list-item-leading-avatar-size: 48px,
+        list-item-leading-avatar-shape: 8px,
+        list-item-leading-avatar-color: var(--mat-sys-surface-container-high),
+        list-item-one-line-container-height: 60px,
+        active-indicator-color: transparent,
+    ));
+}
+
+.admin-portal .map-position-mode {
+    @include mat.button-toggle-overrides((
+        height: 34px,
+        shape: 8px,
+        selected-state-background-color: var(--mat-sys-primary),
+        selected-state-text-color: var(--mat-sys-on-primary),
+        label-text-size: 13px,
+    ));
 }
 
 .admin-portal .map-workspace-tabs {

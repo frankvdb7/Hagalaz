@@ -2,26 +2,47 @@ import { afterNextRender, Component, computed, effect, ElementRef, inject, input
 import { MatButtonModule } from "@angular/material/button";
 import { MatDividerModule } from "@angular/material/divider";
 import { MatIconModule } from "@angular/material/icon";
-import { MatMenuModule } from "@angular/material/menu";
-import type { ModelScene, ModelTexture } from "../../../../../shared/model-viewer/model-scene";
+import { type MatMenu, MatMenuModule } from "@angular/material/menu";
+import { MatTooltipModule } from "@angular/material/tooltip";
+import type { ModelScene, ModelTexture, StrokePreviewGeometry } from "../../../../../shared/model-viewer/model-scene";
 import { type MapAtmosphere, mapFogRange } from "../services/map-render.models";
-import type { MapObjectRange, MapSceneGeometry } from "./map-scene-geometry";
+import type { PlacementGizmoMode, PlacementGizmoResult } from "../../../../../shared/model-viewer/placement-gizmo";
+import type { MapObjectRange, MapObjectTransform, MapSceneGeometry } from "./map-scene-geometry";
+import type { BrushPoint } from "./map-terrain-edit";
 
 export const mapObjectDragType = "application/x-hagalaz-map-object";
 
 @Component({
     selector: "cache-map-viewport",
-    imports: [MatButtonModule, MatDividerModule, MatIconModule, MatMenuModule],
+    imports: [MatButtonModule, MatDividerModule, MatIconModule, MatMenuModule, MatTooltipModule],
     template: `
         <div class="map-toolbar" role="group" aria-label="Map editor controls">
             <ng-content select="[mapEditTools]" />
-            <button mat-stroked-button type="button" [matMenuTriggerFor]="cameraMenu"><mat-icon>my_location</mat-icon>Camera</button>
-            <button mat-stroked-button type="button" [matMenuTriggerFor]="lightingMenu">
-                <mat-icon>light_mode</mat-icon>Lighting: {{ regionLightingActive() ? 'Region atmosphere' : 'Default' }}{{ fogActive() ? ' with fog' : '' }}<mat-icon iconPositionEnd>expand_more</mat-icon>
-            </button>
-            <button mat-stroked-button type="button" [matMenuTriggerFor]="viewMenu"><mat-icon>view_in_ar</mat-icon>View: {{ wireframe() ? 'Wireframe' : 'Textured' }}<mat-icon iconPositionEnd>expand_more</mat-icon></button>
-            <button mat-icon-button type="button" aria-label="Toggle fullscreen" [disabled]="!fullscreenAvailable" (click)="fullscreen()"><mat-icon>fullscreen</mat-icon></button>
+            <button mat-stroked-button type="button" class="view-trigger" [matMenuTriggerFor]="viewMenu"><mat-icon>visibility</mat-icon>View<mat-icon iconPositionEnd>expand_more</mat-icon></button>
+            <span class="toolbar-gap"></span>
+            <button mat-icon-button type="button" aria-label="More actions" matTooltip="More actions" [matMenuTriggerFor]="actionsMenu"><mat-icon>more_vert</mat-icon></button>
         </div>
+        <mat-menu #actionsMenu="matMenu">
+            <button mat-menu-item type="button" [disabled]="!canSave()" (click)="save.emit()"><mat-icon>save</mat-icon>Save changes</button>
+            <button mat-menu-item type="button" [disabled]="!canUndo()" (click)="undo.emit()"><mat-icon>undo</mat-icon>Undo</button>
+            <button mat-menu-item type="button" [disabled]="!canUndo()" (click)="discardEdits.emit()"><mat-icon>delete_sweep</mat-icon>Discard all edits</button>
+            <button mat-menu-item type="button" [disabled]="!canRebuildWorldMap()" (click)="rebuildWorldMap.emit()"><mat-icon>map</mat-icon>Rebuild world map</button>
+            <mat-divider />
+            <button mat-menu-item type="button" [disabled]="!geometry()" (click)="saveImage()"><mat-icon>photo_camera</mat-icon>Save image</button>
+            <button mat-menu-item type="button" [disabled]="!fullscreenAvailable" (click)="fullscreen()"><mat-icon>fullscreen</mat-icon>Toggle fullscreen</button>
+        </mat-menu>
+        <mat-menu #viewMenu="matMenu" class="map-view-menu">
+            <button mat-menu-item type="button" [matMenuTriggerFor]="gridMenu"><mat-icon>grid_on</mat-icon>Grid ({{ snap() }})</button>
+            <button mat-menu-item type="button" [matMenuTriggerFor]="lightingMenu"><mat-icon>light_mode</mat-icon>Lighting: {{ regionLightingActive() ? 'Region atmosphere' : 'Default' }}{{ fogActive() ? ' with fog' : '' }}</button>
+            <button mat-menu-item type="button" [matMenuTriggerFor]="displayMenu"><mat-icon>texture</mat-icon>{{ wireframe() ? 'Wireframe' : 'Textured' }}</button>
+            @if (layersMenu(); as layers) { <button mat-menu-item type="button" [matMenuTriggerFor]="layers"><mat-icon>layers</mat-icon>Layers</button> }
+            <button mat-menu-item type="button" [matMenuTriggerFor]="cameraMenu"><mat-icon>my_location</mat-icon>Camera</button>
+        </mat-menu>
+        <mat-menu #gridMenu="matMenu">
+            @for (size of snapSizes; track size) { <button mat-menu-item type="button" role="menuitemradio" [attr.aria-checked]="snap() === size" (click)="snap.set(size)">Snap to grid ({{ size }})</button> }
+            <mat-divider />
+            <button mat-menu-item type="button" role="menuitemcheckbox" [attr.aria-checked]="grid()" (click)="grid.set(!grid())">Show grid</button>
+        </mat-menu>
         <mat-menu #cameraMenu="matMenu">
             <button mat-menu-item type="button" [matMenuTriggerFor]="orbitMenu">Orbit</button>
             <button mat-menu-item type="button" [matMenuTriggerFor]="panMenu">Pan</button>
@@ -50,23 +71,25 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
             <mat-divider />
             <button mat-menu-item type="button" role="menuitemcheckbox" [attr.aria-checked]="fogActive()" [disabled]="!regionLightingActive()" (click)="fog.set(!fog())">Client fog</button>
         </mat-menu>
-        <mat-menu #viewMenu="matMenu">
-            <button mat-menu-item type="button" (click)="wireframe.set(false)">Textured</button>
-            <button mat-menu-item type="button" (click)="wireframe.set(true)">Wireframe</button>
-            <button mat-menu-item type="button" (click)="grid.set(!grid())">{{ grid() ? 'Hide grid' : 'Show grid' }}</button>
+        <mat-menu #displayMenu="matMenu">
+            <button mat-menu-item type="button" role="menuitemradio" [attr.aria-checked]="!wireframe()" (click)="wireframe.set(false)">Textured</button>
+            <button mat-menu-item type="button" role="menuitemradio" [attr.aria-checked]="wireframe()" (click)="wireframe.set(true)">Wireframe</button>
         </mat-menu>
-        <div #viewport class="map-canvas" tabindex="0" role="img"
+        <div #viewport class="map-canvas" [class.is-brush]="brushActive()" tabindex="0" role="img"
             aria-label="3D map viewport. Click an object to select it. Arrow keys orbit, Shift and arrows pan, plus and minus zoom, Home resets."
             (keydown)="key($event)" (pointerdown)="startPick($event)" (pointermove)="movePick($event)"
-            (pointerup)="finishPick($event)" (pointercancel)="cancelPick()"
+            (pointerup)="finishPick($event)" (pointercancel)="cancelPick()" (pointerleave)="leaveBrush()"
             (dragover)="allowObjectDrop($event)" (drop)="dropObject($event)"></div>
         <ng-content select="[mapSelectionStatus]" />
         @if (error()) { <p role="alert" class="p-3">{{ error() }}</p> }
     `,
     styles: `
         :host { display: block; position: relative; background: var(--mat-sys-surface); }
-        .map-toolbar { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 12px 12px 4px; }
+        .map-toolbar { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
         .map-toolbar button { color: var(--mat-sys-on-surface); }
+        .map-toolbar .view-trigger { height: 36px; border-radius: 8px; color: var(--mat-sys-primary); border-color: var(--mat-sys-primary); }
+        .toolbar-gap { flex: 1 1 0; }
+        .map-canvas.is-brush { cursor: crosshair; touch-action: none; }
         .map-canvas { height: clamp(340px, 58dvh, 720px); width: 100%; outline-offset: -2px; }
         :host(:fullscreen) { display: flex; flex-direction: column; }
         :host(:fullscreen) .map-canvas { flex: 1; height: auto; min-height: 0; }
@@ -81,7 +104,24 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
 export class MapViewportComponent implements OnDestroy {
     readonly geometry = input<MapSceneGeometry | null>(null);
     readonly selectedObject = model<MapObjectRange | null>(null);
+    readonly objectTransform = input<MapObjectTransform | null>(null);
+    readonly gizmoMode = input<PlacementGizmoMode | null>(null);
+    readonly objectGizmo = output<PlacementGizmoResult>();
     readonly objectDrop = output<{ id: number; x: number; z: number }>();
+    readonly brushActive = input(false);
+    readonly brushOutline = input<readonly number[] | null>(null);
+    readonly brushHover = output<BrushPoint | null>();
+    readonly brushStroke = output<readonly BrushPoint[]>();
+    /** The stroke so far, or null when one was cancelled. */
+    readonly brushPreview = output<readonly BrushPoint[] | null>();
+    readonly strokePreview = input<StrokePreviewGeometry | null>(null);
+    readonly canRebuildWorldMap = input(false);
+    readonly rebuildWorldMap = output<void>();
+    readonly canSave = input(false);
+    readonly save = output<void>();
+    readonly canUndo = input(false);
+    readonly undo = output<void>();
+    readonly discardEdits = output<void>();
     readonly textures = input<ReadonlyMap<number, ModelTexture>>(new Map());
     readonly selectionKey = input("");
     readonly regionAtmosphere = input<MapAtmosphere | null>(null);
@@ -100,6 +140,10 @@ export class MapViewportComponent implements OnDestroy {
             environmentFaces: atmosphere ? this.environmentFaces() : null,
         };
     });
+    readonly snap = model(1);
+    /** Layer visibility belongs to the page, which supplies its own menu. */
+    readonly layersMenu = input<MatMenu>();
+    readonly snapSizes = [1, 2, 4];
     readonly wireframe = signal(false);
     readonly grid = signal(true);
     readonly error = signal<string | null>(null);
@@ -110,6 +154,9 @@ export class MapViewportComponent implements OnDestroy {
     private destroyed = false;
     private fittedSelection: string | null = null;
     private pickStart?: { id: number; x: number; y: number };
+    private stroke?: { id: number; points: BrushPoint[] };
+    private brushFrame?: number;
+    private latestBrush?: { x: number; y: number };
 
     constructor() {
         afterNextRender(async () => {
@@ -123,6 +170,9 @@ export class MapViewportComponent implements OnDestroy {
             } catch { this.error.set("3D rendering is unavailable. Enable WebGL in a supported browser."); }
         });
         effect(() => this.scene()?.setDisplay(this.grid(), this.wireframe()));
+        effect(() => this.scene()?.setPrimaryDragEnabled(!this.brushActive()));
+        effect(() => this.scene()?.setBrushOutline(this.brushActive() ? this.brushOutline() : null));
+        effect(() => this.scene()?.setStrokePreview(this.brushActive() ? this.strokePreview() : null));
         effect(() => {
             const { skyRgb, fog, environmentFaces } = this.environment();
             this.scene()?.setEnvironment(skyRgb, fog, environmentFaces);
@@ -131,27 +181,37 @@ export class MapViewportComponent implements OnDestroy {
             const scene = this.scene(), geometry = this.geometry(), key = this.selectionKey();
             if (!scene) return;
             scene.setTextures(this.textures());
-            scene.setSceneGeometry(geometry ?? { positions: [], indices: [] }, geometry !== null && key !== this.fittedSelection);
+            scene.setSceneGeometry(geometry ?? { terrain: null, objects: null }, geometry !== null && key !== this.fittedSelection);
             if (geometry) this.fittedSelection = key;
         });
         effect(() => {
             const selected = this.selectedObject();
             const range = selected && this.geometry()?.placements.find(candidate => candidate.placement === selected.placement);
             this.scene()?.showVertexBounds(range ?? null);
+            const transform = this.objectTransform(), mode = this.gizmoMode();
+            this.scene()?.showPlacementGizmo(range && transform && mode ? { mode, range, tile: transform, scale: transform.scale, snap: this.snap(), onRelease: result => this.objectGizmo.emit(result) } : null);
             if (selected && !range) this.selectedObject.set(null);
         });
     }
     startPick(event: PointerEvent): void {
-        this.pickStart = event.isPrimary && event.button === 0 ? { id: event.pointerId, x: event.clientX, y: event.clientY } : undefined;
+        if (this.brushActive()) { this.startStroke(event); return; }
+        // A press on the handles belongs to the gizmo, not to picking.
+        this.pickStart = event.isPrimary && event.button === 0 && !this.scene()?.placementGizmoDragging ? { id: event.pointerId, x: event.clientX, y: event.clientY } : undefined;
     }
     movePick(event: PointerEvent): void {
+        if (this.brushActive()) { this.queueBrushSample(event); return; }
         if (this.pickStart?.id !== event.pointerId) return;
         // OrbitControls listens on the document. Hold movement until this gesture becomes a drag.
         if (this.isPickClick(event)) event.stopPropagation();
         else this.cancelPick();
     }
-    cancelPick(): void { this.pickStart = undefined; }
+    cancelPick(): void {
+        this.pickStart = undefined;
+        if (this.stroke) this.brushPreview.emit(null);
+        this.stroke = undefined;
+    }
     finishPick(event: PointerEvent): void {
+        if (this.brushActive()) { this.finishStroke(event); return; }
         if (this.pickStart?.id !== event.pointerId) return;
         const click = this.isPickClick(event);
         this.cancelPick();
@@ -159,6 +219,42 @@ export class MapViewportComponent implements OnDestroy {
         const vertex = this.scene()?.pickVertex(event.clientX, event.clientY);
         const range = vertex == null ? null : this.geometry()?.placements.find(candidate => vertex >= candidate.startVertex && vertex < candidate.endVertex);
         this.selectedObject.set(range ?? null);
+    }
+    private startStroke(event: PointerEvent): void {
+        if (!event.isPrimary || event.button !== 0) return;
+        this.stroke = { id: event.pointerId, points: [] };
+        // Keeps the stroke's pointerup when the drag ends outside the viewport.
+        this.viewport().nativeElement.setPointerCapture?.(event.pointerId);
+        this.sampleBrush(event.clientX, event.clientY);
+    }
+    private queueBrushSample(event: PointerEvent): void {
+        this.latestBrush = { x: event.clientX, y: event.clientY };
+        // Ray casts against the whole scene, so sample once a frame.
+        this.brushFrame ??= requestAnimationFrame(() => {
+            this.brushFrame = undefined;
+            if (this.latestBrush) this.sampleBrush(this.latestBrush.x, this.latestBrush.y);
+        });
+    }
+    private sampleBrush(x: number, y: number): void {
+        const point = this.terrainHit(x, y);
+        this.brushHover.emit(point);
+        if (!point || !this.stroke) return;
+        this.stroke.points.push(point);
+        this.brushPreview.emit([...this.stroke.points]);
+    }
+    private finishStroke(event: PointerEvent): void {
+        if (this.stroke?.id !== event.pointerId) return;
+        this.sampleBrush(event.clientX, event.clientY);
+        const { points } = this.stroke;
+        this.stroke = undefined;
+        if (points.length) this.brushStroke.emit(points);
+    }
+    leaveBrush(): void {
+        if (this.brushActive() && !this.stroke) this.brushHover.emit(null);
+    }
+    private terrainHit(clientX: number, clientY: number): BrushPoint | null {
+        const hit = this.scene()?.pickSurface(clientX, clientY);
+        return hit ? { x: hit.x, z: hit.z } : null;
     }
     private isPickClick(event: PointerEvent): boolean {
         const start = this.pickStart;
@@ -173,16 +269,21 @@ export class MapViewportComponent implements OnDestroy {
         const id = event.dataTransfer?.getData(mapObjectDragType);
         if (!id || !/^\d+$/.test(id)) return;
         event.preventDefault();
-        const geometry = this.geometry();
-        if (!geometry) return;
-        const terrainEnd = geometry.placements[0]?.startVertex ?? geometry.positions.length / 3;
-        const hit = this.scene()?.pickSurface(event.clientX, event.clientY, terrainEnd);
+        const hit = this.terrainHit(event.clientX, event.clientY);
         if (hit) this.objectDrop.emit({ id: Number(id), x: hit.x, z: hit.z });
     }
     orbit(x: number, y: number): void { this.scene()?.orbit(x, y); }
     pan(x: number, y: number): void { this.scene()?.pan(x, y); }
     zoom(factor: number): void { this.scene()?.zoom(factor); }
     reset(): void { this.scene()?.resetCamera(); }
+    saveImage(): void {
+        const image = this.scene()?.captureImage();
+        if (!image) return;
+        const link = this.host.nativeElement.ownerDocument.createElement("a");
+        link.href = image;
+        link.download = `region-${this.selectionKey().replaceAll(":", "-")}.png`;
+        link.click();
+    }
     async fullscreen(): Promise<void> {
         const element = this.host.nativeElement;
         if (element.ownerDocument.fullscreenElement === element) await element.ownerDocument.exitFullscreen();
@@ -197,5 +298,9 @@ export class MapViewportComponent implements OnDestroy {
         else if (event.key === "Home") { event.preventDefault(); this.reset(); }
         else if (event.key === "Escape") this.selectedObject.set(null);
     }
-    ngOnDestroy(): void { this.destroyed = true; this.scene()?.dispose(); }
+    ngOnDestroy(): void {
+        this.destroyed = true;
+        if (this.brushFrame !== undefined) cancelAnimationFrame(this.brushFrame);
+        this.scene()?.dispose();
+    }
 }

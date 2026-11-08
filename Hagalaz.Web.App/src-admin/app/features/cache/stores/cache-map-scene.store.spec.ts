@@ -43,6 +43,111 @@ function textured(id: number, texture = 7): MapRenderRegion {
 
 describe("CacheMapSceneStore", () => {
     let http: HttpTestingController;
+    const landscapeUrl = (id: number) => `${base}types/maps/${id}/landscape`;
+    const flushed = () => vi.advanceTimersByTimeAsync(0);
+
+    it("saves each region in order and reports success", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        const objects = [placement(4)];
+        const result = store.saveRegions([{ kind: "landscape", regionId: 1, objects }, { kind: "landscape", regionId: 2, objects: [] }]);
+        expect(store.saving()).toBe(true);
+        const first = http.expectOne(landscapeUrl(1));
+        expect(first.request.body).toEqual({ objects });
+        http.expectNone(landscapeUrl(2));
+        first.flush({});
+        await flushed();
+        http.expectOne(landscapeUrl(2)).flush({});
+        await expect(result).resolves.toBe(true);
+        expect(store.saving()).toBe(false);
+        expect(store.saveError()).toBeNull();
+    });
+
+    it("stops at the first failure and names what was saved", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        const result = store.saveRegions([{ kind: "landscape", regionId: 1, objects: [] }, { kind: "landscape", regionId: 2, objects: [] }, { kind: "landscape", regionId: 3, objects: [] }]);
+        http.expectOne(landscapeUrl(1)).flush({});
+        await flushed();
+        http.expectOne(landscapeUrl(2)).flush({ detail: "Landscape is encrypted." }, { status: 422, statusText: "Unprocessable" });
+        await expect(result).resolves.toBe(false);
+        http.expectNone(landscapeUrl(3));
+        expect(store.saving()).toBe(false);
+        expect(store.saveError()).toBe("Could not save region 2 objects. Landscape is encrypted. Already saved: region 1 objects.");
+
+        const retry = store.saveRegions([{ kind: "landscape", regionId: 2, objects: [] }]);
+        expect(store.saveError()).toBeNull();
+        http.expectOne(landscapeUrl(2)).flush({});
+        await expect(retry).resolves.toBe(true);
+    });
+
+    it("saves a region's terrain before its objects", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        const tiles = [{ plane: 0, x: 1, y: 2, height: 4 }];
+        const result = store.saveRegions([{ kind: "terrain", regionId: 1, tiles }, { kind: "landscape", regionId: 1, objects: [] }]);
+        const terrain = http.expectOne(`${base}types/maps/1/terrain`);
+        expect(terrain.request.body).toEqual({ tiles });
+        http.expectNone(landscapeUrl(1));
+        terrain.flush({});
+        await flushed();
+        http.expectOne(landscapeUrl(1)).flush({});
+        await expect(result).resolves.toBe(true);
+    });
+
+    it("refreshes the world map and reports a failure separately", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        const url = `${base}types/maps/worldmap/refresh`;
+        const result = { refreshed: [1], unchanged: [], skipped: [] };
+        const done = store.refreshWorldMap([1]);
+        expect(store.worldMapRefreshing()).toBe(true);
+        await expect(store.refreshWorldMap([2])).resolves.toBeNull();
+        const request = http.expectOne(url);
+        expect(request.request.body).toEqual({ regions: [1] });
+        request.flush(result);
+        await expect(done).resolves.toEqual(result);
+        expect(store.worldMapRefreshing()).toBe(false);
+
+        const failed = store.refreshWorldMap([1]);
+        http.expectOne(url).flush({ detail: "Unavailable." }, { status: 500, statusText: "Error" });
+        await expect(failed).resolves.toBeNull();
+        expect(store.worldMapError()).toBe("The world map was not updated. Unavailable.");
+        expect(store.saveError()).toBeNull();
+    });
+
+    it("loads the floor catalog once and reports a failure", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        const failed = store.loadFloors();
+        expect(store.floorsLoading()).toBe(true);
+        http.expectOne(`${base}types/maps/floors`).flush({ detail: "Unavailable." }, { status: 500, statusText: "Error" });
+        await failed;
+        expect(store.floorsError()).toBe("Unavailable.");
+        expect(store.floorsLoading()).toBe(false);
+
+        const floor = { id: 3, overlay: false, rgb: 1, textureId: -1, secondaryRgb: null, textureScale: 512 };
+        const loaded = store.loadFloors();
+        http.expectOne(`${base}types/maps/floors`).flush([floor]);
+        await loaded;
+        expect(store.floors()).toEqual([floor]);
+        await store.loadFloors();
+        http.expectNone(`${base}types/maps/floors`);
+    });
+
+    it("loads textures for painted floors that the stored terrain does not use", () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        store.setVisibility({ planes: [true], landscape: false });
+        store.load({ id: 1, width: 1, height: 1, keys: {} });
+        http.expectOne(`${base}types/maps/1/render`).flush(region(1));
+        store.setVisibility({ planes: [true], landscape: false, previewTextures: [9] });
+        http.expectOne((request) => request.url === `${base}textures/9/image`).error(new ProgressEvent("error"));
+    });
+
+    it("ignores a save while another is running", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        const first = store.saveRegions([{ kind: "landscape", regionId: 1, objects: [] }]);
+        await expect(store.saveRegions([{ kind: "landscape", regionId: 9, objects: [] }])).resolves.toBe(false);
+        http.expectNone(landscapeUrl(9));
+        http.expectOne(landscapeUrl(1)).flush({});
+        await expect(first).resolves.toBe(true);
+    });
+
     beforeEach(() => {
         vi.useFakeTimers();
         TestBed.configureTestingModule({ providers: [CacheMapSceneStore, provideHttpClient(withXhr()), provideHttpClientTesting()] });

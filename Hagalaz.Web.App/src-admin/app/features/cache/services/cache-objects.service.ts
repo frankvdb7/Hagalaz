@@ -23,7 +23,7 @@ export class CacheObjectsService {
         return cacheQueryResource<GetObjectDefinitionDto[]>(`${this.baseUrl}/range`, range);
     }
 
-    catalogResource(page: Signal<{ query: string; offset: number; limit: number } | null>) {
+    catalogResource(page: Signal<{ query: string; offset: number; limit: number; shapes?: string } | null>) {
         return cacheQueryResource<SearchDefinitionsDto<ObjectCatalogEntry>>(`${this.baseUrl}/catalog`, page);
     }
 

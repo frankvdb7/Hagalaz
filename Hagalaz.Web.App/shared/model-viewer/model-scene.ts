@@ -3,6 +3,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { sampleMaterialEffect, type MaterialEffect } from "./material-effects";
 import {ModelParticles, type ModelParticle} from "./model-particles";
 import { OrientationGizmo } from "./orientation-gizmo";
+import { PlacementGizmo, type PlacementGizmoTarget } from "./placement-gizmo";
 import { applyTerrainMaterials, TerrainMaterial, terrainSurfaceMaterial, type TerrainBlend } from "./terrain-material";
 
 type SurfaceMaterial = THREE.MeshStandardMaterial | THREE.MeshBasicMaterial;
@@ -24,6 +25,35 @@ export interface ModelGeometry {
     facePriorities?: readonly number[];
     particles?: readonly ModelParticle[];
     particleScale?: number;
+    /** This geometry equals `base` except for the vertices in `ranges`, as [start, end) pairs. */
+    patchOf?: { base: ModelGeometry; ranges: readonly (readonly [number, number])[] };
+}
+
+/** Unindexed triangles drawn over a scene: six vertices and one sRGB colour per tile. */
+export interface StrokePreviewGeometry {
+    positions: number[];
+    uvs: number[];
+    rgb: number[];
+    textureId: number | null;
+    opacity: number;
+}
+
+/** One mesh and the state that belongs to it. */
+interface MeshSurface {
+    mesh?: THREE.Mesh<THREE.BufferGeometry, SurfaceMaterial[]>;
+    currentModel?: ModelGeometry;
+    orderingDirty: boolean;
+    sourceIndices: ModelGeometry["indices"];
+    opaqueGroups: { start: number; count: number; materialIndex: number }[];
+    blendedSurfaces: { sourceStart: number; material: number; depth: number; priority: number }[];
+    materials: Map<string, { material: SurfaceMaterial; texture?: THREE.Texture; asset?: ModelTexture }>;
+    texturesDirty: boolean;
+}
+
+interface SurfaceHit { surface: MeshSurface; vertex: number; x: number; z: number; distance: number; }
+
+function createMeshSurface(): MeshSurface {
+    return { orderingDirty: true, sourceIndices: [], opaqueGroups: [], blendedSurfaces: [], materials: new Map(), texturesDirty: false };
 }
 
 export interface ModelTexture extends MaterialEffect {
@@ -43,26 +73,26 @@ export class ModelScene {
     private readonly camera = new THREE.PerspectiveCamera(40, 1, 0.01, 100000);
     private readonly controls: OrbitControls;
     private readonly resizeObserver: ResizeObserver;
-    private mesh?: THREE.Mesh<THREE.BufferGeometry, (THREE.MeshStandardMaterial | THREE.MeshBasicMaterial)[]>;
-    private orderingDirty = true;
-    private sourceIndices: ModelGeometry["indices"] = [];
-    private opaqueGroups: { start: number; count: number; materialIndex: number }[] = [];
-    private blendedSurfaces: { sourceStart: number; material: number; depth: number; priority: number }[] = [];
+    /** Holds the model, or a map scene's objects. */
+    private readonly primary = createMeshSurface();
+    /** Only map scenes use it, so strokes can replace the ground without touching objects. */
+    private readonly terrain = createMeshSurface();
     private readonly viewMatrix = new THREE.Matrix4();
     private readonly centroid = new THREE.Vector3();
     private epoch?: number;
     private lastTime?: number;
-    private currentModel?: ModelGeometry;
     private particles?: ModelParticles;
     private readonly effectUpdates = new Map<THREE.Material, (seconds: number) => void>();
-    private readonly materials = new Map<string, { material: SurfaceMaterial; texture?: THREE.Texture; asset?: ModelTexture }>();
-    private texturesDirty = false;
     private disposed = false;
     private textureImages?: ReadonlyMap<number, ModelTexture>;
     private readonly textures = new Map<number, THREE.Texture>();
     private grid?: THREE.GridHelper;
+    private readonly gridFittedTo = new THREE.Box3();
     private orientationGizmo?: OrientationGizmo;
     private selectionBounds?: THREE.Box3Helper;
+    private placementGizmo?: PlacementGizmo;
+    private brushOutline?: THREE.LineLoop<THREE.BufferGeometry, THREE.LineBasicMaterial>;
+    private strokePreview?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
     private wireframe = false;
     private pendingFrame?: number;
     private environmentFaces?: readonly ModelTexture[];
@@ -84,27 +114,37 @@ export class ModelScene {
         this.requestRender();
     }
 
+    /** The primary surface's vertex under the point, unless other geometry is in front of it. */
     pickVertex(clientX: number, clientY: number): number | null {
-        return this.pickSurface(clientX, clientY)?.vertex ?? null;
+        const hit = this.nearestHit(clientX, clientY, this.surfaces);
+        return hit?.surface === this.primary ? hit.vertex : null;
     }
 
-    pickSurface(clientX: number, clientY: number, endVertex = Infinity): { vertex: number; x: number; z: number } | null {
-        if (!this.mesh?.visible) return null;
+    /** The ground under the point, looking through objects. */
+    pickSurface(clientX: number, clientY: number): { vertex: number; x: number; z: number } | null {
+        const hit = this.nearestHit(clientX, clientY, [this.terrain]);
+        return hit ? { vertex: hit.vertex, x: hit.x, z: hit.z } : null;
+    }
+
+    private nearestHit(clientX: number, clientY: number, surfaces: readonly MeshSurface[]): SurfaceHit | null {
+        const ray = this.pointerRay(clientX, clientY);
+        if (!ray) return null;
+        const hits = surfaces.flatMap(surface => visibleHit(ray, surface));
+        return hits.reduce<SurfaceHit | null>((nearest, hit) => !nearest || hit.distance < nearest.distance ? hit : nearest, null);
+    }
+
+    private pointerRay(clientX: number, clientY: number): THREE.Raycaster | null {
         const { left, top, width, height } = this.host.getBoundingClientRect();
         if (!width || !height) return null;
         this.orderSurfaces();
         const ray = new THREE.Raycaster();
         ray.setFromCamera(new THREE.Vector2(2 * (clientX - left) / width - 1, 1 - 2 * (clientY - top) / height), this.camera);
-        const rgba = this.currentModel?.vertexRgba;
-        const opacity = rgba ?? this.currentModel?.opacities;
-        const stride = rgba ? 4 : 1, offset = rgba ? 3 : 0;
-        const hit = ray.intersectObject(this.mesh, false).find(({ face }) =>
-            face && face.a < endVertex && (!opacity || opacity[face.a * stride + offset] > 0 || opacity[face.b * stride + offset] > 0 || opacity[face.c * stride + offset] > 0));
-        return hit?.face ? { vertex: hit.face.a, x: hit.point.x, z: hit.point.z } : null;
+        return ray;
     }
 
     showVertexBounds(range: { startVertex: number; endVertex: number } | null): void {
-        if (!range || !this.mesh) {
+        const mesh = this.primary.mesh;
+        if (!range || !mesh) {
             if (this.selectionBounds?.visible) {
                 this.selectionBounds.visible = false;
                 this.requestRender();
@@ -121,7 +161,7 @@ export class ModelScene {
             this.scene.add(helper);
             this.selectionBounds = helper;
         }
-        const position = this.mesh.geometry.getAttribute("position");
+        const position = mesh.geometry.getAttribute("position");
         const bounds = this.selectionBounds.box.makeEmpty();
         const point = new THREE.Vector3();
         for (let vertex = range.startVertex; vertex < range.endVertex; vertex++) {
@@ -132,10 +172,103 @@ export class ModelScene {
         this.requestRender();
     }
 
+    /** Shows move, rotate or scale handles on a placement, or removes them. */
+    showPlacementGizmo(target: PlacementGizmoTarget | null): void {
+        if (!target && !this.placementGizmo) return;
+        this.placementGizmo ??= new PlacementGizmo({
+            scene: this.scene,
+            camera: this.camera,
+            element: this.renderer.domElement,
+            positions: () => this.primary.mesh?.geometry.getAttribute("position") as THREE.BufferAttribute | undefined,
+            setOrbitEnabled: enabled => { this.controls.enabled = enabled; },
+            rangeMoved: range => this.showVertexBounds(range),
+            redraw: this.requestRender,
+        });
+        this.placementGizmo.show(target);
+        this.requestRender();
+    }
+
+    get placementGizmoDragging(): boolean {
+        return this.placementGizmo?.dragging ?? false;
+    }
+
+    /** Draws a closed line over the scene from x, y, z triples, or removes it. */
+    setBrushOutline(points: readonly number[] | null): void {
+        if (!points) {
+            if (this.brushOutline?.visible) {
+                this.brushOutline.visible = false;
+                this.requestRender();
+            }
+            return;
+        }
+        if (!this.brushOutline) {
+            this.brushOutline = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffb800, depthTest: false, depthWrite: false, transparent: true }));
+            this.brushOutline.renderOrder = 1;
+            this.brushOutline.frustumCulled = false;
+            this.scene.add(this.brushOutline);
+        }
+        this.brushOutline.geometry.setAttribute("position", new THREE.Float32BufferAttribute(points, 3));
+        this.brushOutline.visible = true;
+        this.requestRender();
+    }
+
+    /** Draws an in-progress stroke over the ground, or removes it. Cost follows the tiles drawn, not the scene. */
+    setStrokePreview(preview: StrokePreviewGeometry | null): void {
+        if (!preview) {
+            if (this.strokePreview?.visible) {
+                this.strokePreview.visible = false;
+                this.requestRender();
+            }
+            return;
+        }
+        this.strokePreview ??= this.createStrokePreview();
+        const { geometry, material } = this.strokePreview;
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute(preview.positions, 3));
+        geometry.setAttribute("uv", new THREE.Float32BufferAttribute(preview.uvs, 2));
+        geometry.setAttribute("color", new THREE.Float32BufferAttribute(strokePreviewColors(preview.rgb), 3));
+        const map = (preview.textureId === null ? undefined : this.textures.get(preview.textureId)) ?? null;
+        if (material.map !== map) {
+            material.map = map;
+            material.needsUpdate = true;
+        }
+        material.opacity = preview.opacity;
+        material.transparent = preview.opacity < 1;
+        this.strokePreview.visible = true;
+        this.requestRender();
+    }
+
+    private createStrokePreview(): THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> {
+        const material = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+        const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
+        mesh.frustumCulled = false;
+        mesh.renderOrder = 1;
+        this.scene.add(mesh);
+        return mesh;
+    }
+
+    /** While off, a primary drag or one-finger touch is left to the page instead of orbiting. */
+    setPrimaryDragEnabled(enabled: boolean): void {
+        this.controls.mouseButtons.LEFT = enabled ? THREE.MOUSE.ROTATE : null;
+        this.controls.touches.ONE = enabled ? THREE.TOUCH.ROTATE : null;
+    }
+
+    /** Draws a frame and reads it in the same task, because the drawing buffer is cleared once the browser composites. */
+    captureImage(): string {
+        const handles = this.placementGizmo?.helper;
+        const handlesVisible = handles?.visible ?? false;
+        if (handles) handles.visible = false;
+        this.renderFrame(performance.now());
+        const image = this.renderer.domElement.toDataURL("image/png");
+        if (handles) handles.visible = handlesVisible;
+        this.requestRender();
+        return image;
+    }
+
     setDisplay(grid: boolean, wireframe: boolean): void {
         this.wireframe = wireframe;
         if (grid && !this.grid) {
             this.grid = new THREE.GridHelper(20, 40, 0x253141, 0x121a24);
+            this.gridFittedTo.makeEmpty();
             this.scene.add(this.grid);
             this.fitGrid();
         }
@@ -188,15 +321,19 @@ export class ModelScene {
     }
 
     private applyWireframe(): void {
-        if (this.mesh) for (const material of this.mesh.material) material.wireframe = this.wireframe;
+        for (const { mesh } of this.surfaces) if (mesh) for (const material of mesh.material) material.wireframe = this.wireframe;
     }
 
     private fitGrid(): void {
-        const bounds = this.mesh?.geometry.boundingSphere;
-        if (this.grid && this.mesh && bounds) {
-            this.grid.scale.setScalar(Math.max(bounds.radius, 1) / 2);
-            this.grid.position.set(bounds.center.x, new THREE.Box3().setFromObject(this.mesh).min.y, bounds.center.z);
-        }
+        if (!this.grid) return;
+        const box = this.sceneBox();
+        // Strokes rarely change the scene's extent, and measuring every vertex is not free.
+        if (box.isEmpty() || box.equals(this.gridFittedTo)) return;
+        this.gridFittedTo.copy(box);
+        const bounds = this.sceneSphere();
+        if (!bounds) return;
+        this.grid.scale.setScalar(Math.max(bounds.radius, 1) / 2);
+        this.grid.position.set(bounds.center.x, box.min.y, bounds.center.z);
     }
 
     setTextures(images: ReadonlyMap<number, ModelTexture>): void {
@@ -204,13 +341,15 @@ export class ModelScene {
         const previous = this.textureImages;
         this.textureImages = images;
         if (images.size === this.textures.size && [...images].every(([id, asset]) => previous?.get(id) === asset)) return;
-        this.texturesDirty = true;
         this.syncTextures(images, previous);
-        // Callers publish the matching geometry next; do not draw retired image bindings meanwhile.
-        if (this.mesh) this.mesh.visible = false;
         const liveTextures = new Set(this.textures.values());
-        for (const entry of this.materials.values()) {
-            if (entry.texture && !liveTextures.has(entry.texture)) this.effectUpdates.delete(entry.material);
+        for (const surface of this.surfaces) {
+            surface.texturesDirty = true;
+            // Callers publish the matching geometry next; do not draw retired image bindings meanwhile.
+            if (surface.mesh) surface.mesh.visible = false;
+            for (const entry of surface.materials.values()) {
+                if (entry.texture && !liveTextures.has(entry.texture)) this.effectUpdates.delete(entry.material);
+            }
         }
     }
 
@@ -251,10 +390,11 @@ export class ModelScene {
             texture.offset.set(phase.u, phase.v);
         }
         for (const update of this.effectUpdates.values()) update(seconds);
-        if (this.currentModel) this.particles?.update(this.lastTime === undefined ? 0 : (time-this.lastTime)/1000, this.currentModel,
+        if (this.primary.currentModel) this.particles?.update(this.lastTime === undefined ? 0 : (time-this.lastTime)/1000, this.primary.currentModel,
             this.host.clientHeight * Math.min(window.devicePixelRatio,2) * this.camera.projectionMatrix.elements[5] / 2);
         this.lastTime = time;
         this.controls.update();
+        this.placementGizmo?.fitToCamera();
         this.orderSurfaces();
         this.renderer.render(this.scene, this.camera);
         if (this.orientationGizmo) {
@@ -268,91 +408,36 @@ export class ModelScene {
         }
     };
 
-    setGeometry(model: ModelGeometry, fitCamera = true): void {
+    setGeometry(model: ModelGeometry, fitCamera = true, surface = this.primary): void {
         if (this.disposed) throw new Error("The model scene has been disposed.");
-        const previousModel = this.currentModel;
-        if (previousModel === model && this.mesh && !this.texturesDirty) return;
-        this.currentModel = model;
-        this.orderingDirty = true;
+        const previousModel = surface.currentModel;
+        if (previousModel === model && surface.mesh && !surface.texturesDirty) return;
+        if (this.applyPositionPatch(surface, model)) return;
+        surface.currentModel = model;
+        surface.orderingDirty = true;
         this.requestRender();
-        const existing = this.mesh;
+        const existing = surface.mesh;
         const firstTexel = model.firstTexel?.some(value => value !== 0) ?? false;
-        if (!this.texturesDirty && !model.vertexRgba && !previousModel?.vertexRgba && existing && existing.userData["firstTexel"] === firstTexel && existing.userData["preparedLighting"] === !!model.preparedLighting && model.sourceId !== undefined && existing.name === String(model.sourceId)
-            && existing.geometry.index?.count === model.indices.length
-            && model.indices.every((index, offset) => this.sourceIndices[offset] === index)) {
-            const positions = existing.geometry.getAttribute("position");
-            if (positions.count * 3 === model.positions.length) {
-                for (let vertex = 0; vertex < positions.count; vertex++)
-                    positions.setXYZ(vertex, model.positions[vertex * 3], model.positions[vertex * 3 + 1], model.positions[vertex * 3 + 2]);
-                positions.needsUpdate = true;
-                if (firstTexel) {
-                    const markers = existing.geometry.getAttribute("cacheFirstTexel");
-                    for (let vertex = 0; vertex < markers.count; vertex++) markers.setX(vertex, model.firstTexel?.[vertex] ?? 0);
-                    markers.needsUpdate = true;
-                }
-                const colors = existing.geometry.getAttribute("color");
-                if (colors) {
-                    for (let vertex = 0; vertex < colors.count; vertex++) {
-                        colors.setXYZ(vertex, model.colors?.[vertex * 3] ?? 1, model.colors?.[vertex * 3 + 1] ?? 1, model.colors?.[vertex * 3 + 2] ?? 1);
-                        if (colors.itemSize === 4) colors.setW(vertex, model.opacities?.[vertex] ?? 1);
-                    }
-                    colors.needsUpdate = true;
-                }
-                this.assignSurfaceGroups(existing.geometry, model);
-                // Normal computation needs a complete index before the next frame.
-                this.orderBlendedSurfaces(existing.geometry, model);
-                existing.geometry.computeVertexNormals();
-                existing.geometry.computeBoundingSphere();
-                if (existing.geometry.boundingBox) existing.geometry.computeBoundingBox();
-                return;
-            }
-        }
+        if (this.updateInPlace(surface, model, previousModel, firstTexel)) return;
         const retainedGeometry = previousModel === model ? existing?.geometry : undefined;
-        this.clear(true, !!retainedGeometry);
-        this.epoch = undefined;
-        this.lastTime = undefined;
-        const geometry = retainedGeometry ?? new THREE.BufferGeometry();
-        if (!retainedGeometry) {
-            geometry.setAttribute("position", new THREE.Float32BufferAttribute(model.positions, 3));
-            geometry.setIndex(ArrayBuffer.isView(model.indices)
-                ? new THREE.BufferAttribute(model.indices.slice(), 1)
-                : Array.from(model.indices));
-            if (model.uvs) geometry.setAttribute("uv", model.uvs instanceof Float32Array
-                ? new THREE.BufferAttribute(model.uvs, 2)
-                : new THREE.Float32BufferAttribute(model.uvs, 2));
-            if (firstTexel) {
-                const markers = model.firstTexel!;
-                geometry.setAttribute("cacheFirstTexel", markers instanceof Uint8Array
-                    ? new THREE.BufferAttribute(markers, 1)
-                    : new THREE.Float32BufferAttribute(markers, 1));
-            }
-            if (model.vertexRgba) geometry.setAttribute("color", new THREE.BufferAttribute(model.vertexRgba, 4));
-            else if (model.opacities) {
-                const rgba = new Float32Array(model.opacities.length * 4);
-                for (let vertex = 0; vertex < model.opacities.length; vertex++) {
-                    const rgbOffset = vertex * 3;
-                    const rgbaOffset = vertex * 4;
-                    rgba[rgbaOffset] = model.colors?.[rgbOffset] ?? 1;
-                    rgba[rgbaOffset + 1] = model.colors?.[rgbOffset + 1] ?? 1;
-                    rgba[rgbaOffset + 2] = model.colors?.[rgbOffset + 2] ?? 1;
-                    rgba[rgbaOffset + 3] = model.opacities[vertex];
-                }
-                geometry.setAttribute("color", new THREE.BufferAttribute(rgba, 4));
-            } else if (model.colors) geometry.setAttribute("color", new THREE.Float32BufferAttribute(model.colors, 3));
-            geometry.computeVertexNormals();
-            geometry.computeBoundingSphere();
+        this.clear(true, !!retainedGeometry, surface);
+        if (surface === this.primary) {
+            this.epoch = undefined;
+            this.lastTime = undefined;
         }
+        const geometry = retainedGeometry ?? new THREE.BufferGeometry();
+        if (!retainedGeometry) fillGeometry(geometry, model, firstTexel);
         const usedMaterials = new Set<string>();
         const useMaterial = <T extends SurfaceMaterial>(key: string, create: () => T, texture?: THREE.Texture, asset?: ModelTexture): T => {
             usedMaterials.add(key);
-            const existing = this.materials.get(key);
+            const existing = surface.materials.get(key);
             if (existing && existing.texture === texture && existing.asset === asset) return existing.material as T;
             if (existing) {
                 existing.material.dispose();
                 this.effectUpdates.delete(existing.material);
             }
             const material = create();
-            this.materials.set(key, { material, texture, asset });
+            surface.materials.set(key, { material, texture, asset });
             return material;
         };
         const colorSize = model.vertexRgba || model.opacities ? 4 : model.colors ? 3 : 0;
@@ -384,32 +469,120 @@ export class ModelScene {
             material.updateTextures(this.textures);
             return material;
         });
-        for (const [key, entry] of this.materials) {
+        for (const [key, entry] of surface.materials) {
             if (usedMaterials.has(key)) continue;
             entry.material.dispose();
             this.effectUpdates.delete(entry.material);
-            this.materials.delete(key);
+            surface.materials.delete(key);
         }
-        this.assignSurfaceGroups(geometry, model);
-        this.mesh = new THREE.Mesh(geometry, materials);
-        this.mesh.userData["preparedLighting"] = !!model.preparedLighting;
-        this.mesh.userData["firstTexel"] = firstTexel;
+        this.assignSurfaceGroups(geometry, model, surface);
+        surface.mesh = new THREE.Mesh(geometry, materials);
+        // Translucent ground draws first, then translucent objects sort among themselves.
+        if (surface === this.terrain) surface.mesh.renderOrder = -1;
+        surface.mesh.userData["preparedLighting"] = !!model.preparedLighting;
+        surface.mesh.userData["firstTexel"] = firstTexel;
         this.applyWireframe();
-        this.mesh.name = model.sourceId === undefined ? "" : String(model.sourceId);
-        this.scene.add(this.mesh);
-        this.texturesDirty = false;
+        surface.mesh.name = model.sourceId === undefined ? "" : String(model.sourceId);
+        this.scene.add(surface.mesh);
+        surface.texturesDirty = false;
         this.fitGrid();
         if (model.particles?.length) this.particles = new ModelParticles(this.scene, model.particles, this.textures);
         if (fitCamera) this.resetCamera();
     }
 
-    setSceneGeometry(model: ModelGeometry, fitCamera: boolean): void {
-        this.setGeometry(model, false);
+    /** Models with a source ID and an unchanged layout only need their buffers rewritten. */
+    private updateInPlace(surface: MeshSurface, model: ModelGeometry, previousModel: ModelGeometry | undefined, firstTexel: boolean): boolean {
+        const existing = surface.mesh;
+        if (!existing || !this.canUpdateInPlace(surface, existing, model, previousModel, firstTexel)) return false;
+        const positions = existing.geometry.getAttribute("position");
+        if (positions.count * 3 !== model.positions.length) return false;
+        writePositions(positions, model);
+        if (firstTexel) writeFirstTexel(existing.geometry.getAttribute("cacheFirstTexel"), model);
+        const colors = existing.geometry.getAttribute("color");
+        if (colors) writeColors(colors, model);
+        this.assignSurfaceGroups(existing.geometry, model, surface);
+        // Normal computation needs a complete index before the next frame.
+        this.orderBlendedSurfaces(existing.geometry, model, surface);
+        existing.geometry.computeVertexNormals();
+        existing.geometry.computeBoundingSphere();
+        if (existing.geometry.boundingBox) existing.geometry.computeBoundingBox();
+        return true;
+    }
+
+    private canUpdateInPlace(surface: MeshSurface, existing: NonNullable<MeshSurface["mesh"]>, model: ModelGeometry, previousModel: ModelGeometry | undefined, firstTexel: boolean): boolean {
+        if (surface.texturesDirty || model.vertexRgba || previousModel?.vertexRgba || model.sourceId === undefined) return false;
+        return usesSameMaterials(existing, model, firstTexel) && hasSameLayout(surface, existing, model);
+    }
+
+    /** Terrain and objects are separate surfaces, so changing one leaves the other's buffers alone. */
+    setSceneGeometry({ terrain, objects }: { terrain: ModelGeometry | null; objects: ModelGeometry | null }, fitCamera: boolean): void {
+        this.setSurface(this.terrain, terrain);
+        this.setSurface(this.primary, objects);
         if (fitCamera) this.resetCamera();
     }
 
+    private setSurface(surface: MeshSurface, model: ModelGeometry | null): void {
+        if (model) this.setGeometry(model, false, surface);
+        else if (surface.mesh) {
+            this.clear(true, false, surface);
+            surface.currentModel = undefined;
+            this.fitGrid();
+            this.requestRender();
+        }
+    }
+
+    /** Rewrites only the vertices a patch names, for changes that keep the surface's layout. */
+    private applyPositionPatch(surface: MeshSurface, model: ModelGeometry): boolean {
+        const patch = model.patchOf;
+        if (!patch || !surface.mesh || surface.currentModel !== patch.base || surface.texturesDirty) return false;
+        const positions = surface.mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
+        positions.clearUpdateRanges();
+        for (const [start, end] of patch.ranges) {
+            for (let vertex = start; vertex < end; vertex++)
+                positions.setXYZ(vertex, model.positions[vertex * 3], model.positions[vertex * 3 + 1], model.positions[vertex * 3 + 2]);
+            positions.addUpdateRange(start * 3, (end - start) * 3);
+        }
+        positions.needsUpdate = true;
+        surface.mesh.geometry.computeBoundingSphere();
+        surface.currentModel = model;
+        surface.orderingDirty = true;
+        this.requestRender();
+        return true;
+    }
+
+    private get surfaces(): MeshSurface[] {
+        return [this.terrain, this.primary];
+    }
+
+    /** The sphere one buffer holding every surface would have; merging spheres would overestimate it. */
+    private sceneSphere(): THREE.Sphere | undefined {
+        const box = this.sceneBox();
+        if (box.isEmpty()) return undefined;
+        const center = box.getCenter(new THREE.Vector3());
+        let furthest = 0;
+        for (const { mesh } of this.surfaces) {
+            if (!mesh) continue;
+            const position = mesh.geometry.getAttribute("position");
+            for (let vertex = 0; vertex < position.count; vertex++) {
+                const dx = position.getX(vertex) - center.x, dy = position.getY(vertex) - center.y, dz = position.getZ(vertex) - center.z;
+                furthest = Math.max(furthest, dx * dx + dy * dy + dz * dz);
+            }
+        }
+        return new THREE.Sphere(center, Math.sqrt(furthest));
+    }
+
+    private sceneBox(): THREE.Box3 {
+        const box = new THREE.Box3();
+        for (const { mesh } of this.surfaces) {
+            if (!mesh) continue;
+            if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+            box.union(mesh.geometry.boundingBox!);
+        }
+        return box;
+    }
+
     resetCamera(): void {
-        const bounds = this.mesh?.geometry.boundingSphere;
+        const bounds = this.sceneSphere();
         if (!bounds) return;
         const radius = Math.max(bounds.radius, 1);
         this.controls.target.copy(bounds.center);
@@ -428,9 +601,7 @@ export class ModelScene {
     }
 
     private fitMapDistance(direction: THREE.Vector3, horizontalSlope: number, verticalSlope: number): number {
-        const geometry = this.mesh!.geometry;
-        if (!geometry.boundingBox) geometry.computeBoundingBox();
-        const box = geometry.boundingBox!;
+        const box = this.sceneBox();
         if (box.isEmpty()) return 1;
         const { min, max } = box;
         box.getCenter(this.controls.target);
@@ -485,10 +656,9 @@ export class ModelScene {
         this.resizeObserver.disconnect();
         this.controls.dispose();
         this.orientationGizmo?.dispose();
-        if (this.selectionBounds) {
-            this.scene.remove(this.selectionBounds);
-            this.selectionBounds.dispose();
-        }
+        this.placementGizmo?.dispose();
+        this.releaseOverlays();
+        this.clear(false, false, this.terrain);
         this.clear();
         if (this.grid) {
             this.scene.remove(this.grid);
@@ -504,18 +674,32 @@ export class ModelScene {
         this.renderer.domElement.remove();
     }
 
-    private clear(preserveMaterials = false, preserveGeometry = false): void {
-        this.particles?.dispose();
-        this.particles = undefined;
+    private releaseOverlays(): void {
+        if (this.selectionBounds) {
+            this.scene.remove(this.selectionBounds);
+            this.selectionBounds.dispose();
+        }
+        if (this.strokePreview) {
+            this.scene.remove(this.strokePreview);
+            this.strokePreview.geometry.dispose();
+            this.strokePreview.material.dispose();
+        }
+    }
+
+    private clear(preserveMaterials = false, preserveGeometry = false, surface = this.primary): void {
+        if (surface === this.primary) {
+            this.particles?.dispose();
+            this.particles = undefined;
+        }
         if (!preserveMaterials) {
-            for (const entry of this.materials.values()) entry.material.dispose();
-            this.materials.clear();
+            for (const entry of surface.materials.values()) entry.material.dispose();
+            surface.materials.clear();
             this.effectUpdates.clear();
         }
-        if (!this.mesh) return;
-        this.scene.remove(this.mesh);
-        if (!preserveGeometry) this.mesh.geometry.dispose();
-        this.mesh = undefined;
+        if (!surface.mesh) return;
+        this.scene.remove(surface.mesh);
+        if (!preserveGeometry) surface.mesh.geometry.dispose();
+        surface.mesh = undefined;
     }
 
     private applyEffect(material: THREE.MeshStandardMaterial, asset: MaterialEffect, preparedLighting = false): void {
@@ -578,24 +762,26 @@ export class ModelScene {
     }
 
     private orderSurfaces(): void {
-        if (!this.mesh || !this.currentModel) return;
         this.camera.updateMatrixWorld();
-        if (!this.orderingDirty && this.viewMatrix.equals(this.camera.matrixWorldInverse)) return;
-        this.viewMatrix.copy(this.camera.matrixWorldInverse);
-        this.orderingDirty = false;
-        this.orderBlendedSurfaces(this.mesh.geometry, this.currentModel);
+        const moved = !this.viewMatrix.equals(this.camera.matrixWorldInverse);
+        if (moved) this.viewMatrix.copy(this.camera.matrixWorldInverse);
+        for (const surface of this.surfaces) {
+            if (!surface.mesh || !surface.currentModel || (!moved && !surface.orderingDirty)) continue;
+            surface.orderingDirty = false;
+            this.orderBlendedSurfaces(surface.mesh.geometry, surface.currentModel, surface);
+        }
     }
 
-    private assignSurfaceGroups(geometry: THREE.BufferGeometry, model: ModelGeometry): void {
+    private assignSurfaceGroups(geometry: THREE.BufferGeometry, model: ModelGeometry, surface: MeshSurface): void {
         geometry.clearGroups();
         // Only models with a source ID can update an existing index layout in place.
-        this.sourceIndices = model.sourceId === undefined ? model.indices : Uint32Array.from(model.indices);
-        this.opaqueGroups = [];
-        this.blendedSurfaces = [];
+        surface.sourceIndices = model.sourceId === undefined ? model.indices : Uint32Array.from(model.indices);
+        surface.opaqueGroups = [];
+        surface.blendedSurfaces = [];
         const textureIds = [...this.textures.keys()];
         const textureIndices = new Map(textureIds.map((id, index) => [id, index]));
         const opaque = new Map<number, number[]>();
-        const sourceIndices = this.sourceIndices;
+        const sourceIndices = surface.sourceIndices;
         const opacities = model.vertexRgba ?? model.opacities;
         const stride = model.vertexRgba ? 4 : 1, offset = model.vertexRgba ? 3 : 0;
         for (let start = 0; start < model.indices.length; start += 3) {
@@ -609,7 +795,7 @@ export class ModelScene {
             const material = terrainSurfaceMaterial(textureId, model.terrainBlends, textureIds.length, (textureIndex < 0 ? 0 : (textureIndex + 1) * 2) + (translucent ? 1 : 0));
             const transparent = translucent || (textureIndex >= 0 && this.textureImages?.get(textureId)?.alphaMode === 2);
             if (transparent) {
-                this.blendedSurfaces.push({ sourceStart: start, material, depth: 0, priority: model.facePriorities?.[face] ?? 0 });
+                surface.blendedSurfaces.push({ sourceStart: start, material, depth: 0, priority: model.facePriorities?.[face] ?? 0 });
             } else {
                 let indices = opaque.get(material);
                 if (!indices) { indices = []; opaque.set(material, indices); }
@@ -620,7 +806,7 @@ export class ModelScene {
         const index = geometry.index!;
         let cursor = 0;
         for (const [materialIndex, indices] of opaque) {
-            this.opaqueGroups.push({ start: cursor, count: indices.length, materialIndex });
+            surface.opaqueGroups.push({ start: cursor, count: indices.length, materialIndex });
             index.array.set(indices, cursor);
             cursor += indices.length;
         }
@@ -628,12 +814,12 @@ export class ModelScene {
         // The next frame writes the transparent tail using its final camera transform.
     }
 
-    private orderBlendedSurfaces(geometry: THREE.BufferGeometry, model: ModelGeometry): void {
+    private orderBlendedSurfaces(geometry: THREE.BufferGeometry, model: ModelGeometry, surface: MeshSurface): void {
         // Opaque/cutout draw ranges are camera-independent; never rescan them during an orbit.
-        if (!this.blendedSurfaces.length && geometry.groups.length) return;
+        if (!surface.blendedSurfaces.length && geometry.groups.length) return;
         geometry.clearGroups();
-        for (const group of this.opaqueGroups) geometry.addGroup(group.start, group.count, group.materialIndex);
-        for (const face of this.blendedSurfaces) {
+        for (const group of surface.opaqueGroups) geometry.addGroup(group.start, group.count, group.materialIndex);
+        for (const face of surface.blendedSurfaces) {
             this.centroid.set(0, 0, 0);
             for (let corner = 0; corner < 3; corner++) {
                 const vertex = model.indices[face.sourceStart + corner] * 3;
@@ -645,16 +831,16 @@ export class ModelScene {
             face.depth = -this.centroid.z;
         }
         // Groups share one object/depth in Three's stable transparent render list.
-        this.blendedSurfaces.sort((a, b) => a.priority - b.priority || b.depth - a.depth || a.sourceStart - b.sourceStart);
+        surface.blendedSurfaces.sort((a, b) => a.priority - b.priority || b.depth - a.depth || a.sourceStart - b.sourceStart);
         const index = geometry.index!;
         const drawIndices = index.array;
-        let cursor = this.opaqueGroups.reduce((count, group) => count + group.count, 0);
+        let cursor = surface.opaqueGroups.reduce((count, group) => count + group.count, 0);
         let changed = false;
         let previous = geometry.groups[geometry.groups.length - 1];
-        for (const face of this.blendedSurfaces) {
+        for (const face of surface.blendedSurfaces) {
             const start = cursor;
             for (let corner = 0; corner < 3; corner++) {
-                const vertex = this.sourceIndices[face.sourceStart + corner];
+                const vertex = surface.sourceIndices[face.sourceStart + corner];
                 if (drawIndices[cursor] !== vertex) {
                     drawIndices[cursor] = vertex;
                     changed = true;
@@ -670,6 +856,97 @@ export class ModelScene {
         }
         if (changed) index.needsUpdate = true;
     }
+}
+
+function writePositions(positions: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, model: ModelGeometry): void {
+    for (let vertex = 0; vertex < positions.count; vertex++)
+        positions.setXYZ(vertex, model.positions[vertex * 3], model.positions[vertex * 3 + 1], model.positions[vertex * 3 + 2]);
+    positions.needsUpdate = true;
+}
+
+function writeFirstTexel(markers: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, model: ModelGeometry): void {
+    for (let vertex = 0; vertex < markers.count; vertex++) markers.setX(vertex, model.firstTexel?.[vertex] ?? 0);
+    markers.needsUpdate = true;
+}
+
+function writeColors(colors: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, model: ModelGeometry): void {
+    for (let vertex = 0; vertex < colors.count; vertex++) {
+        colors.setXYZ(vertex, channel(model.colors, vertex * 3), channel(model.colors, vertex * 3 + 1), channel(model.colors, vertex * 3 + 2));
+        if (colors.itemSize === 4) colors.setW(vertex, channel(model.opacities, vertex));
+    }
+    colors.needsUpdate = true;
+}
+
+function channel(values: readonly number[] | undefined, index: number): number {
+    return values?.[index] ?? 1;
+}
+
+function usesSameMaterials(existing: NonNullable<MeshSurface["mesh"]>, model: ModelGeometry, firstTexel: boolean): boolean {
+    return existing.userData["firstTexel"] === firstTexel && existing.userData["preparedLighting"] === !!model.preparedLighting && existing.name === String(model.sourceId);
+}
+
+function hasSameLayout(surface: MeshSurface, existing: NonNullable<MeshSurface["mesh"]>, model: ModelGeometry): boolean {
+    return existing.geometry.index?.count === model.indices.length && model.indices.every((index, offset) => surface.sourceIndices[offset] === index);
+}
+
+function fillGeometry(geometry: THREE.BufferGeometry, model: ModelGeometry, firstTexel: boolean): void {
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(model.positions, 3));
+    geometry.setIndex(ArrayBuffer.isView(model.indices) ? new THREE.BufferAttribute(model.indices.slice(), 1) : Array.from(model.indices));
+    if (model.uvs) geometry.setAttribute("uv", floatAttribute(model.uvs, 2));
+    if (firstTexel) geometry.setAttribute("cacheFirstTexel", markerAttribute(model.firstTexel));
+    const colors = colorAttribute(model);
+    if (colors) geometry.setAttribute("color", colors);
+    geometry.computeVertexNormals();
+    geometry.computeBoundingSphere();
+}
+
+function floatAttribute(values: readonly number[] | Float32Array, size: number): THREE.BufferAttribute {
+    return values instanceof Float32Array ? new THREE.BufferAttribute(values, size) : new THREE.Float32BufferAttribute(values, size);
+}
+
+function markerAttribute(markers: ModelGeometry["firstTexel"]): THREE.BufferAttribute {
+    return markers instanceof Uint8Array ? new THREE.BufferAttribute(markers, 1) : new THREE.Float32BufferAttribute(markers ?? [], 1);
+}
+
+function colorAttribute(model: ModelGeometry): THREE.BufferAttribute | undefined {
+    if (model.vertexRgba) return new THREE.BufferAttribute(model.vertexRgba, 4);
+    if (model.opacities) return new THREE.BufferAttribute(colorsWithOpacity(model, model.opacities), 4);
+    return model.colors ? new THREE.Float32BufferAttribute(model.colors, 3) : undefined;
+}
+
+function colorsWithOpacity(model: ModelGeometry, opacities: readonly number[]): Float32Array {
+    const rgba = new Float32Array(opacities.length * 4);
+    const colors = model.colors;
+    for (let vertex = 0; vertex < opacities.length; vertex++) {
+        rgba.set(colors ? [colors[vertex * 3], colors[vertex * 3 + 1], colors[vertex * 3 + 2]] : [1, 1, 1], vertex * 4);
+        rgba[vertex * 4 + 3] = opacities[vertex];
+    }
+    return rgba;
+}
+
+/** The closest face that is not fully transparent, since invisible surfaces must not block a pick. */
+function visibleHit(ray: THREE.Raycaster, surface: MeshSurface): SurfaceHit[] {
+    if (!surface.mesh?.visible) return [];
+    const shown = vertexVisibility(surface.currentModel);
+    const hit = ray.intersectObject(surface.mesh, false).find(({ face }) => face && (shown(face.a) || shown(face.b) || shown(face.c)));
+    return hit?.face ? [{ surface, vertex: hit.face.a, x: hit.point.x, z: hit.point.z, distance: hit.distance }] : [];
+}
+
+function vertexVisibility(model: ModelGeometry | undefined): (vertex: number) => boolean {
+    if (model?.vertexRgba) {
+        const rgba = model.vertexRgba;
+        return vertex => rgba[vertex * 4 + 3] > 0;
+    }
+    const opacities = model?.opacities;
+    return vertex => !opacities || opacities[vertex] > 0;
+}
+
+function strokePreviewColors(tiles: readonly number[]): number[] {
+    const color = new THREE.Color();
+    return tiles.flatMap(rgb => {
+        color.setHex(rgb);
+        return Array.from({ length: 6 }, () => [color.r, color.g, color.b]).flat();
+    });
 }
 
 /** GLSL overriding `cacheSky` with the region environment map. Effect 1 uses the client's built-in generated cubes instead. */

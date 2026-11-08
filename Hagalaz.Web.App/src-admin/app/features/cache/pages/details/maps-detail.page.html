@@ -1,131 +1,94 @@
 <ng-template portalBreadcrumb><span>Region {{ id() ?? 'Invalid ID' }}</span></ng-template>
 <section class="region-editor" aria-label="Map region detail" [attr.aria-busy]="store.loading()">
-    @if (!regionPanel() && error(); as message) { <p role="alert">{{ message }}</p> }
+    @if (store.saveError(); as message) { <p role="alert">{{ message }}</p> }
+    @if (store.worldMapError(); as message) { <p role="alert">{{ message }}</p> }
     @if (!selectedIds().length) { <p role="alert">Invalid region selection. Use a region ID from 0 to 65535 and dimensions from 1 to 3 without crossing coordinate 255.</p> }
     @if (store.loading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading region scene" /><p role="status" class="supporting-text">{{ loadingText() }}</p> }
     <div class="region-workspace">
-        <div class="region-stage">
-            <mat-card appearance="outlined" class="region-view">
-                <cache-map-viewport [geometry]="scene().geometry" [textures]="store.textures()" [selectionKey]="selectionKey()"
-                    [regionAtmosphere]="regionAtmosphere()" [environmentFaces]="store.environmentFaces()" [(useRegionAtmosphere)]="useRegionAtmosphere" [selectedObject]="selectedObject()" (selectedObjectChange)="selectObject($event)"
-                    (objectDrop)="placeDroppedObject($event)">
-                    <div mapEditTools class="edit-toolbar">
-                        @for (tool of editTools; track tool.id) {
-                            <button mat-button type="button" [class.active-tool]="editTool() === tool.id" [attr.aria-pressed]="editTool() === tool.id" (click)="chooseTool(tool.id)">
-                                <mat-icon>{{ tool.icon }}</mat-icon>{{ tool.label }}
-                            </button>
-                        }
-                        <button mat-button type="button" [disabled]="!canAddObject()" (click)="addObject()"><mat-icon>add_box</mat-icon>Add object</button>
-                        <button mat-button type="button" [disabled]="!selectedObject()" (click)="removeObject()"><mat-icon>delete_outline</mat-icon>Remove</button>
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="snap-select studio-compact-inspector">
-                            <mat-label>Snap</mat-label>
-                            <mat-select [value]="snap()" (selectionChange)="snap.set($event.value)">
-                                <mat-option [value]="1">Grid (1)</mat-option><mat-option [value]="2">Grid (2)</mat-option><mat-option [value]="4">Grid (4)</mat-option>
-                            </mat-select>
-                        </mat-form-field>
-                    </div>
-                    <ng-container mapSelectionStatus>
-                        @if (objectTransform(); as transform) {
-                            <div class="map-selection-status studio-surface" role="status">
-                                <mat-icon class="studio-icon-small">layers</mat-icon>
-                                <div><strong>1 object selected</strong><br />Tile {{ transform.x }}, {{ transform.y }} · Plane {{ transform.plane }}</div>
-                            </div>
-                        }
-                    </ng-container>
-                </cache-map-viewport>
-                @if (!store.loading() && !scene().geometry) { <p role="status" class="p-3">No renderable tiles or objects. Check the region availability.</p> }
-            </mat-card>
-            <mat-card appearance="outlined" class="asset-tray"><section class="contents" aria-label="Scene assets">
-                <div class="asset-toolbar">
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="asset-search studio-compact-inspector">
-                        <mat-label>{{ assetKind() === 'objects' ? 'Search objects by name or ID' : 'Search ' + assetKind() + ' by ID' }}</mat-label>
-                        <mat-icon matPrefix>search</mat-icon>
-                        <input matInput [value]="assetSearch()" (input)="searchAssets($any($event.target).value)" />
-                    </mat-form-field>
-                    <button mat-icon-button type="button" aria-label="Asset grid" [attr.aria-pressed]="!assetList()" (click)="assetList.set(false)"><mat-icon>grid_view</mat-icon></button>
-                    <button mat-icon-button type="button" aria-label="Asset list" [attr.aria-pressed]="assetList()" (click)="assetList.set(true)"><mat-icon>view_list</mat-icon></button>
-                </div>
-                <mat-tab-group class="asset-tabs map-workspace-tabs" mat-stretch-tabs="false" aria-label="Asset type" animationDuration="0ms"
-                    [selectedIndex]="assetTab()" (selectedIndexChange)="changeAssetKind(assetTabs[$event].kind)">
-                    @for (tab of assetTabs; track tab.kind) {
-                        <mat-tab>
-                            <ng-template mat-tab-label><mat-icon class="studio-icon-small mr-2" aria-hidden="true">{{ tab.icon }}</mat-icon>{{ tab.label }}</ng-template>
-                            <ng-template matTabContent><ng-container [ngTemplateOutlet]="assetContent" /></ng-template>
-                        </mat-tab>
-                    }
-                </mat-tab-group>
-                <ng-template #assetContent>
-                    <div class="asset-content">
-                        @if (assetKind() === 'objects') {
-                            <div class="asset-items" [class.asset-list]="assetList()">
-                                @for (asset of catalogPage()?.items ?? []; track asset.id) {
-                                    @let name = asset.name.trim() && asset.name.toLowerCase() !== 'null' ? asset.name : 'Unnamed object';
-                                    <button mat-stroked-button type="button" class="object-card" [class.active-tool]="selectedAsset()?.id === asset.id"
-                                        [attr.aria-pressed]="selectedAsset()?.id === asset.id" [attr.draggable]="asset.shape !== null"
-                                        [title]="asset.shape === null ? 'No placeable model in this definition' : 'Drag onto the map to place'"
-                                        (dragstart)="dragCatalogObject($event, asset)" (click)="selectCatalogObject(asset)">
-                                        <span class="object-card-content">
-                                            @if (!assetList()) {
-                                                <cache-object-model-thumbnail [id]="asset.id" [shape]="asset.shape" [name]="name" />
-                                            }
-                                            <span class="object-card-name" [title]="name">{{ name }}</span>
-                                            <span class="object-card-id">{{ asset.id }}</span>
-                                        </span>
-                                    </button>
-                                } @empty {
-                                    <p class="supporting-text">{{ catalog.isLoading() ? 'Loading objects…' : catalog.error() ? 'Could not load the object catalog.' : 'No matching objects.' }}</p>
-                                }
-                            </div>
-                            @if (catalogPage(); as page) {
-                                <div class="catalog-pagination">
-                                    <span>{{ page.totalMatches | number }} objects</span>
-                                    <button mat-icon-button type="button" aria-label="Previous object page" [disabled]="page.offset === 0" (click)="catalogOffset.set(page.offset - catalogPageSize)"><mat-icon>chevron_left</mat-icon></button>
-                                    <button mat-icon-button type="button" aria-label="Next object page" [disabled]="page.offset + page.limit >= page.totalMatches" (click)="catalogOffset.set(page.offset + catalogPageSize)"><mat-icon>chevron_right</mat-icon></button>
-                                </div>
-                            }
-                        } @else {
-                            <div class="asset-items" [class.asset-list]="assetList()">
-                                @for (asset of visibleAssets(); track asset) {
-                                    <button mat-stroked-button type="button" [class.active-tool]="assetId() === asset" [attr.aria-pressed]="assetId() === asset" (click)="selectAsset(asset)">
-                                        <span class="asset-icon-label"><mat-icon>{{ assetKind() === 'models' ? 'layers' : 'texture' }}</mat-icon>{{ asset }}</span>
-                                    </button>
-                                } @empty {
-                                    <p class="supporting-text">No matching scene assets.</p>
-                                }
-                                @if (assetItems().length > visibleAssets().length) {
-                                    <button mat-button type="button" (click)="assetLimit.set(assetLimit() + 60)">Show more</button>
-                                }
-                            </div>
-                        }
-                    </div>
-                </ng-template>
+        <div class="region-browser">
+            <mat-card appearance="outlined" class="scene-panel"><section class="contents" aria-label="Scene">
+                <cache-map-scene-panel [regions]="store.regions()" [placements]="sourcePlacements()" [names]="objectNames()" [selected]="selectedObject()?.placement"
+                    [(terrainVisible)]="terrainVisible" [(hiddenGroups)]="hiddenGroups" [(hiddenPlacements)]="hiddenPlacements" (placementActivated)="selectPlacement($event)" [selection]="sceneSelection()" (selectionActivated)="selectScene($event)" />
+            </section></mat-card>
+            <mat-card appearance="outlined" class="asset-panel"><section class="contents" aria-label="Scene assets">
+                <cache-map-asset-panel [active]="store.regions().length > 0" [(selectedAsset)]="selectedAsset" />
             </section></mat-card>
         </div>
-        <mat-card appearance="outlined" class="region-inspector"><aside class="contents" aria-label="Region inspector">
-            <mat-tab-group class="inspector-tabs map-workspace-tabs" mat-stretch-tabs="true" aria-label="Inspector view" animationDuration="0ms" [selectedIndex]="inspectorTab()" (selectedIndexChange)="inspectorTab.set($event)">
+        <mat-card appearance="outlined" class="region-view">
+            <cache-map-viewport [geometry]="scene().geometry" [textures]="store.textures()" [selectionKey]="selectionKey()"
+                [brushActive]="editTool() === 'terrain'" [brushOutline]="brushOutline()" (brushHover)="brushPoint.set($event)" (brushStroke)="applyStroke($event)" (brushPreview)="strokePoints.set($event)" [strokePreview]="strokePreview()" [canRebuildWorldMap]="canRebuildWorldMap()" (rebuildWorldMap)="rebuildWorldMap()" [canSave]="canSave()" (save)="saveChanges()" [canUndo]="canUndo()" (undo)="undo()" (discardEdits)="resetEdits()" [regionAtmosphere]="regionAtmosphere()" [environmentFaces]="store.environmentFaces()" [(useRegionAtmosphere)]="useRegionAtmosphere" [(snap)]="snap" [layersMenu]="layersMenu" [selectedObject]="selectedObject()" (selectedObjectChange)="selectObject($event)"
+                [objectTransform]="objectTransform()" [gizmoMode]="gizmoMode()" (objectGizmo)="applyObjectGizmo($event)" (objectDrop)="placeDroppedObject($event)">
+                <div mapEditTools class="edit-toolbar map-edit-toolbar">
+                    @for (tool of editTools; track tool.id) {
+                        <button mat-icon-button type="button" [class.is-active]="editTool() === tool.id" [attr.aria-label]="tool.label" [matTooltip]="tool.label" [attr.aria-pressed]="editTool() === tool.id" (click)="chooseTool(tool.id)">
+                            <mat-icon>{{ tool.icon }}</mat-icon>
+                        </button>
+                    }
+                    <mat-divider [vertical]="true" />
+                    <button mat-icon-button type="button" aria-label="Add object" matTooltip="Add object" [disabled]="!canAddObject()" (click)="addObject()"><mat-icon>add_box</mat-icon></button>
+                    <button mat-icon-button type="button" aria-label="Remove object" matTooltip="Remove object" [disabled]="!selectedObject()" (click)="removeObject()"><mat-icon>delete_outline</mat-icon></button>
+                </div>
+                <ng-container mapSelectionStatus>
+                    @if (objectTransform(); as transform) {
+                        <div class="map-selection-status studio-surface" role="status">
+                            <mat-icon class="studio-icon-small">layers</mat-icon>
+                            <div><strong>1 object selected</strong><br />Tile {{ transform.x }}, {{ transform.y }} · Plane {{ transform.plane }}</div>
+                        </div>
+                    }
+                </ng-container>
+            </cache-map-viewport>
+            <mat-menu #layersMenu="matMenu">
+                @for (visible of planes(); track $index) {
+                    <button mat-menu-item type="button" [role]="'menuitemcheckbox'" [attr.aria-checked]="visible" (click)="$event.stopPropagation(); togglePlane($index, !visible)">
+                        <mat-icon>{{ visible ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>Plane {{ $index }}
+                    </button>
+                }
+                <mat-divider />
+                <button mat-menu-item type="button" [role]="'menuitemcheckbox'" [attr.aria-checked]="underwater()" (click)="$event.stopPropagation(); underwater.set(!underwater())">
+                    <mat-icon>{{ underwater() ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>Underwater terrain
+                </button>
+                <button mat-menu-item type="button" [role]="'menuitemcheckbox'" [attr.aria-checked]="waterSurface()" (click)="$event.stopPropagation(); waterSurface.set(!waterSurface())">
+                    <mat-icon>{{ waterSurface() ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>Water surface
+                </button>
+                <button mat-menu-item type="button" [role]="'menuitemcheckbox'" [attr.aria-checked]="landscape()" (click)="$event.stopPropagation(); landscape.set(!landscape())">
+                    <mat-icon>{{ landscape() ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>Landscape objects
+                </button>
+            </mat-menu>
+            @if (!store.loading() && !scene().geometry) { <p role="status" class="p-3">No renderable tiles or objects. Check the region availability.</p> }
+        </mat-card>
+        <mat-card appearance="outlined" class="region-inspector map-scroll-area"><aside class="contents" aria-label="Region inspector">
+            @if (editTool() === 'terrain') {
+                <cache-map-terrain-panel [brush]="brush()" (brushChange)="changeBrush($event)" [floors]="store.floors()" [loading]="store.floorsLoading()" [error]="store.floorsError()" />
+            } @else {
+            <mat-tab-group class="inspector-tabs map-workspace-tabs" mat-stretch-tabs="false" aria-label="Inspector view" animationDuration="0ms">
                 <mat-tab>
-                    <ng-template mat-tab-label><mat-icon class="studio-icon-small mr-2" aria-hidden="true">view_in_ar</mat-icon>Object</ng-template>
+                    <ng-template mat-tab-label><mat-icon class="studio-icon-small mr-2" aria-hidden="true">view_in_ar</mat-icon>Inspector</ng-template>
                     @if (selectedObject(); as selected) {
                         <section aria-label="Selected object">
-                            <h3><mat-icon class="studio-icon-small">view_in_ar</mat-icon>Object (ID {{ selected.placement.id }})</h3>
+                            <h3><mat-icon class="studio-icon-small">view_in_ar</mat-icon>Object identity</h3>
                             <dl class="region-stats">
+                                <div><dt>Name</dt><dd>{{ objectNames().get(selected.placement.id) ?? 'Unnamed object' }}</dd></div>
                                 <div><dt>Object ID</dt><dd><a href="/cache/types/objects/{{ selected.placement.id }}" [routerLink]="['/cache/types/objects', selected.placement.id]">{{ selected.placement.id }}</a></dd></div>
                                 @for (part of objectModels(); track $index) {
                                     <div><dt>Model</dt><dd><a href="/cache/models/{{ part.id }}" [routerLink]="['/cache/models', part.id]">{{ part.id }}</a></dd></div>
                                 }
-                                <div><dt>Shape</dt><dd>{{ selected.placement.shape }}</dd></div>
+                                <div><dt>Shape</dt><dd>{{ shapeLabel(selected.placement.shape) }}</dd></div>
                                 <div><dt>Region</dt><dd>{{ selected.regionId }}</dd></div>
                             </dl>
                         </section>
                         @if (objectTransform(); as transform) {
                             <section>
-                                <h3><mat-icon class="studio-icon-small">my_location</mat-icon>Transform</h3>
+                                <h3><mat-icon class="studio-icon-small">open_with</mat-icon>Transform</h3>
+                                <mat-button-toggle-group class="position-mode map-position-mode" aria-label="Position coordinates" hideSingleSelectionIndicator [value]="positionMode()" (change)="positionMode.set($event.value)">
+                                    <mat-button-toggle value="tile">Tile position</mat-button-toggle>
+                                    <mat-button-toggle value="world">World position</mat-button-toggle>
+                                </mat-button-toggle-group>
                                 <div class="transform-fields studio-compact-inspector">
                                     <mat-form-field appearance="outline" subscriptSizing="dynamic" [class.active-field]="editTool() === 'move'">
-                                        <mat-label>Tile X</mat-label><input #tileX matInput type="number" min="0" max="63" [step]="snap()" [value]="transform.x" (change)="changeTransform('x', tileX.valueAsNumber)" />
+                                        <mat-label>X</mat-label><input #tileX matInput type="number" [min]="positionBase().x" [max]="positionBase().x + 63" [step]="snap()" [value]="transform.x + positionBase().x" (change)="changeTransform('x', tileX.valueAsNumber - positionBase().x)" />
                                     </mat-form-field>
                                     <mat-form-field appearance="outline" subscriptSizing="dynamic" [class.active-field]="editTool() === 'move'">
-                                        <mat-label>Tile Z</mat-label><input #tileZ matInput type="number" min="0" max="63" [step]="snap()" [value]="transform.y" (change)="changeTransform('y', tileZ.valueAsNumber)" />
+                                        <mat-label>Y</mat-label><input #tileZ matInput type="number" [min]="positionBase().y" [max]="positionBase().y + 63" [step]="snap()" [value]="transform.y + positionBase().y" (change)="changeTransform('y', tileZ.valueAsNumber - positionBase().y)" />
                                     </mat-form-field>
                                     <mat-form-field appearance="outline" subscriptSizing="dynamic" [class.active-field]="editTool() === 'rotate'">
                                         <mat-label>Rotation</mat-label><mat-select [value]="transform.rotation" (selectionChange)="changeTransform('rotation', $event.value)">
@@ -144,113 +107,31 @@
                                 <button mat-button type="button" (click)="selectObject(null)">Clear selection</button>
                             </section>
                         }
+                        <section>
+                            <h3><mat-icon class="studio-icon-small">tune</mat-icon>Properties</h3>
+                            @if (objectProperties(); as properties) {
+                                <div class="property-grid">
+                                    @for (property of properties; track property.label) { <mat-checkbox disabled [checked]="property.value">{{ property.label }}</mat-checkbox> }
+                                </div>
+                            } @else {
+                                <p class="supporting-text">{{ objectDefinition.error() ? 'Could not load the object definition.' : 'Loading object definition…' }}</p>
+                            }
+                        </section>
+                        <section>
+                            <h3><mat-icon class="studio-icon-small">open_in_new</mat-icon>Open in Cache Studio</h3>
+                            <div class="open-actions">
+                                <a mat-stroked-button href="/cache/types/objects/{{ selected.placement.id }}" [routerLink]="['/cache/types/objects', selected.placement.id]"><mat-icon>data_object</mat-icon>Definition</a>
+                                @if (objectModels()[0]; as model) { <a mat-stroked-button href="/cache/models/{{ model.id }}" [routerLink]="['/cache/models', model.id]"><mat-icon>deployed_code</mat-icon>Model</a> }
+                            </div>
+                        </section>
+                    } @else if (sceneSelection()) {
+                        <cache-map-region-details [details]="selectedSceneDetails()" />
                     } @else {
-                        <section><h3>Select an object</h3><p class="supporting-text">Click a placement in the map or choose an object from the asset tray.</p></section>
+                        <section><h3>Nothing selected</h3><p class="supporting-text">Click a placement in the map, or any region, terrain or placement row in the scene tree.</p></section>
                     }
                 </mat-tab>
-                <mat-tab>
-                    <ng-template mat-tab-label><mat-icon class="studio-icon-small mr-2" aria-hidden="true">layers</mat-icon>Region</ng-template>
-                    <section>
-                        <h3><mat-icon class="studio-icon-small">layers</mat-icon>Layers &amp; visibility</h3>
-                        <div class="region-layers">
-                            @for (visible of planes(); track $index) { <mat-checkbox [checked]="visible" (change)="togglePlane($index, $event.checked)">Plane {{ $index }}</mat-checkbox> }
-                            <mat-checkbox [checked]="underwater()" (change)="underwater.set($event.checked)">Underwater terrain</mat-checkbox>
-                            <mat-checkbox [checked]="waterSurface()" (change)="waterSurface.set($event.checked)">Water surface</mat-checkbox>
-                            <mat-checkbox [checked]="landscape()" (change)="landscape.set($event.checked)">Landscape objects</mat-checkbox>
-                        </div>
-                    </section>
-                    <section>
-                        <h3><mat-icon class="studio-icon-small">info_outline</mat-icon>Region details</h3>
-                        @for (region of store.regions(); track region.id) {
-                            <div class="region-details">
-                                <h4><mat-icon class="studio-icon-small region-available" aria-hidden="true">check_circle</mat-icon>Region {{ region.id }}</h4>
-                                <p><mat-icon class="studio-icon-small" [class.region-available]="region.terrainStatus === 'available'">{{ region.terrainStatus === 'available' ? 'check_circle' : 'info_outline' }}</mat-icon>Terrain {{ region.terrainStatus }}</p>
-                                <p><mat-icon class="studio-icon-small" [class.region-available]="region.landscapeStatus === 'available'">{{ region.landscapeStatus === 'available' ? 'check_circle' : 'info_outline' }}</mat-icon>Landscape {{ region.landscapeStatus }}</p>
-                                <p><mat-icon class="studio-icon-small">layers</mat-icon>{{ region.objects.length | number }} source placements</p>
-                            </div>
-                        } @empty { <p class="supporting-text">No region data loaded.</p> }
-                    </section>
-                    <section>
-                        <h3><mat-icon class="studio-icon-small">bar_chart</mat-icon>Scene stats</h3>
-                        <dl class="region-stats">
-                            <div><dt><mat-icon class="studio-icon-small">view_in_ar</mat-icon>Visible placements</dt><dd>{{ visiblePlacements() | number }}</dd></div>
-                            <div><dt><mat-icon class="studio-icon-small">grid_view</mat-icon>Tiles</dt><dd>{{ visibleTiles() | number }}</dd></div>
-                        </dl>
-                    </section>
-                </mat-tab>
-                <mat-tab>
-                    <ng-template mat-tab-label><mat-icon class="studio-icon-small mr-2" aria-hidden="true">build</mat-icon>Tools</ng-template>
-                    <section>
-                        <h3><mat-icon class="studio-icon-small">build</mat-icon>Region tools</h3>
-                        <div class="region-toolbar" cdkOverlayOrigin #regionOrigin="cdkOverlayOrigin">
-                            <button mat-stroked-button type="button" aria-haspopup="dialog" [attr.aria-expanded]="regionPanel() === 'region'" (click)="regionPanel.set('region')">
-                                <mat-icon>view_in_ar</mat-icon>Region {{ id() ?? '—' }}<mat-icon iconPositionEnd>expand_more</mat-icon>
-                            </button>
-                            <button mat-icon-button type="button" class="studio-control-surface" aria-label="Region settings" aria-haspopup="dialog"
-                                [attr.aria-expanded]="regionPanel() === 'settings'" (click)="regionPanel.set('settings')"><mat-icon>tune</mat-icon></button>
-                            <button mat-flat-button type="button" (click)="apply()"><mat-icon>play_arrow</mat-icon>Load</button>
-                        </div>
-                        <ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="regionOrigin" [cdkConnectedOverlayOpen]="regionPanel() !== null"
-                            [cdkConnectedOverlayHasBackdrop]="true" cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
-                            [cdkConnectedOverlayViewportMargin]="16" [cdkConnectedOverlayPush]="true"
-                            (backdropClick)="regionPanel.set(null)" (overlayKeydown)="$event.key === 'Escape' && regionPanel.set(null)">
-                            <form novalidate (submit)="$event.preventDefault(); apply()" class="region-controls studio-surface studio-compact-inspector"
-                                role="dialog" aria-modal="true" [attr.aria-label]="regionPanel() === 'region' ? 'Choose region' : 'Region settings'"
-                                cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
-                                @if (regionPanel() === 'region') {
-                                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                                        <mat-label>Region</mat-label><input matInput type="number" cdkFocusInitial [formField]="dimensions.id" />
-                                    </mat-form-field>
-                                } @else {
-                                    <div class="region-dimensions">
-                                        <mat-form-field appearance="outline" subscriptSizing="dynamic"><mat-label>Regions wide</mat-label><input matInput type="number" cdkFocusInitial [formField]="dimensions.width" /></mat-form-field>
-                                        <mat-form-field appearance="outline" subscriptSizing="dynamic"><mat-label>Regions high</mat-label><input matInput type="number" [formField]="dimensions.height" /></mat-form-field>
-                                    </div>
-                                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                                        <mat-label>Plane</mat-label>
-                                        <mat-select [value]="selectedPlane()" (selectionChange)="isolatePlane($event.value)">
-                                            <mat-option [value]="-1" disabled>{{ planes().includes(true) ? 'Multiple planes' : 'No planes' }}</mat-option>
-                                            @for (visible of planes(); track $index) { <mat-option [value]="$index">Plane {{ $index }}</mat-option> }
-                                        </mat-select>
-                                    </mat-form-field>
-                                }
-                                @if (error(); as message) { <p role="alert">{{ message }}</p> }
-                                <div class="region-dialog-actions">
-                                    <button mat-button type="button" (click)="regionPanel.set(null)">Close</button>
-                                    <button mat-flat-button type="submit">Load regions</button>
-                                </div>
-                            </form>
-                        </ng-template>
-                    </section>
-                    <section>
-                        <h3>Local edits</h3>
-                        <p class="supporting-text">Changes are previewed for this region selection.</p>
-                        <button mat-stroked-button type="button" [disabled]="!edits()" (click)="resetEdits()">Discard edits</button>
-                    </section>
-                </mat-tab>
-                <mat-tab>
-                    <ng-template mat-tab-label><mat-icon class="studio-icon-small mr-2" aria-hidden="true">list</mat-icon>Scene</ng-template>
-                    <section class="scene-placements">
-                        <h3>Scene placements</h3>
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="studio-compact-inspector">
-                            <mat-label>Filter placements</mat-label>
-                            <input matInput [value]="placementSearch()" (input)="placementSearch.set($any($event.target).value); placementLimit.set(50)" />
-                        </mat-form-field>
-                        @for (range of visibleScenePlacements(); track range.placement) {
-                            @let position = edits()?.transforms?.get(range.placement) ?? range.placement;
-                            <button mat-button type="button" [class.active-tool]="selectedObject()?.placement === range.placement" (click)="selectObject(range)">
-                                <span>{{ objectNames().get(range.placement.id) ?? 'Object ' + range.placement.id }}</span>
-                                <small>{{ range.placement.id }} · Region {{ range.regionId }} · {{ position.x }}, {{ position.y }} · Plane {{ position.plane }}</small>
-                            </button>
-                        } @empty {
-                            <p class="supporting-text">No matching placements on visible planes.</p>
-                        }
-                        @if (scenePlacements().length > visibleScenePlacements().length) {
-                            <button mat-button type="button" (click)="placementLimit.set(placementLimit() + 50)">Show more</button>
-                        }
-                    </section>
-                </mat-tab>
             </mat-tab-group>
+            }
         </aside></mat-card>
     </div>
 </section>

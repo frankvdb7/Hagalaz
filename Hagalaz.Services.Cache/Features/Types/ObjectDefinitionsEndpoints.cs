@@ -58,32 +58,54 @@ public static class ObjectDefinitionsEndpoints
         }
     }
 
-    private static IResult GetObjectCatalog(ICacheAPI cache, ITypeProvider<IObjectType> provider, CancellationToken cancellationToken, string query = "", int offset = 0, int limit = 40)
+    private static IResult GetObjectCatalog(ICacheAPI cache, ITypeProvider<IObjectType> provider, CancellationToken cancellationToken, string query = "", int offset = 0, int limit = 40, string? shapes = null)
     {
         if (ValidateSearch(query, offset, limit, provider.ArchiveSize, requireQuery: false) is { } invalid) return invalid;
+        if (!TryParseShapes(shapes, out var shapeFilter))
+            return TypedResults.BadRequest(EndpointErrors.Validation("shapes must be a comma-separated list of object shapes from 0 to 22."));
 
         var data = new ObjectTypeData();
         var table = cache.ReadReferenceTable(data.IndexId);
         var ids = ObjectIds(table, data);
         query = query.Trim();
         var exactId = int.TryParse(query, out var requestedId);
-        if (query.Length == 0 || exactId)
+        if (shapeFilter is null && (query.Length == 0 || exactId))
         {
             int[] matches = query.Length == 0 ? ids : Array.BinarySearch(ids, requestedId) >= 0 ? [requestedId] : [];
             var page = matches.Skip(offset).Take(limit).Select(id => CatalogEntry(provider.Get(id))).ToArray();
             return TypedResults.Ok(new SearchDefinitionsDto<GetObjectCatalogEntryDto>(query, matches.Length, offset, limit, page));
         }
 
-        if (!CatalogNames.TryGetValue(table, out var catalog))
+        var filtered = LoadCatalog(table, ids, data, provider, cancellationToken).Where(entry =>
+            (shapeFilter is null || (entry.Shape is { } shape && shapeFilter.Contains(shape)))
+            && (query.Length == 0 || (exactId ? entry.Id == requestedId : entry.Name.Contains(query, StringComparison.OrdinalIgnoreCase))));
+        return CreateSearchResponse(query, offset, limit, filtered.ToArray());
+    }
+
+    private static bool TryParseShapes(string? value, out HashSet<int>? shapes)
+    {
+        shapes = null;
+        if (string.IsNullOrWhiteSpace(value)) return true;
+        var parsed = new HashSet<int>();
+        foreach (var part in value.Split(','))
         {
-            var generation = Volatile.Read(ref _catalogGeneration);
-            catalog = BuildCatalog(ids, data.ArchiveEntrySize, provider, cancellationToken);
-            lock (CatalogLock)
-            {
-                if (generation == _catalogGeneration) CatalogNames.AddOrUpdate(table, catalog);
-            }
+            if (!int.TryParse(part, out var shape) || shape is < 0 or > 22) return false;
+            parsed.Add(shape);
         }
-        return CreateSearchResponse(query, offset, limit, catalog.Where(entry => entry.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray());
+        shapes = parsed;
+        return true;
+    }
+
+    private static GetObjectCatalogEntryDto[] LoadCatalog(IReferenceTable table, int[] ids, ObjectTypeData data, ITypeProvider<IObjectType> provider, CancellationToken cancellationToken)
+    {
+        if (CatalogNames.TryGetValue(table, out var catalog)) return catalog;
+        var generation = Volatile.Read(ref _catalogGeneration);
+        catalog = BuildCatalog(ids, data.ArchiveEntrySize, provider, cancellationToken);
+        lock (CatalogLock)
+        {
+            if (generation == _catalogGeneration) CatalogNames.AddOrUpdate(table, catalog);
+        }
+        return catalog;
     }
 
     private static int[] ObjectIds(IReferenceTable table, ObjectTypeData data) => table.Entries

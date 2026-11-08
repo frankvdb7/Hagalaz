@@ -2,30 +2,28 @@ import { afterNextRender, Component, DestroyRef, ElementRef, effect, inject, inp
 import { MatIconModule } from "@angular/material/icon";
 import { CacheObjectsService } from "../services/cache-objects.service";
 
-const displayWidth = 96;
-const displayHeight = 64;
-
 /** Server-rendered object preview, requested once the tile nears the viewport. */
 @Component({
     selector: "cache-object-model-thumbnail",
     imports: [MatIconModule],
     template: `@if (imageUrl(); as source) {
-        <img [src]="source" [alt]="name()" [width]="width" [height]="height" />
+        <img [src]="source" [alt]="name()" [width]="width()" [height]="height()" />
     } @else {
         <mat-icon aria-hidden="true">view_in_ar</mat-icon>
     }`,
     styles: `
-        :host { display: grid; place-items: center; width: 96px; height: 64px; color: var(--mat-sys-on-surface-variant); }
+        :host { display: grid; place-items: center; color: var(--mat-sys-on-surface-variant); }
         img { display: block; object-fit: contain; }
     `,
+    host: { "[style.width.px]": "width()", "[style.height.px]": "height()" },
 })
 export class ObjectModelThumbnailComponent {
     readonly id = input.required<number>();
     /** The object's placeable shape; objects without one have no model to draw. */
     readonly shape = input.required<number | null>();
     readonly name = input("");
-    readonly width = displayWidth;
-    readonly height = displayHeight;
+    readonly width = input(96);
+    readonly height = input(64);
     readonly imageUrl = signal<string | null>(null);
     private readonly objects = inject(CacheObjectsService);
     private readonly visible = signal(false);
@@ -54,7 +52,7 @@ export class ObjectModelThumbnailComponent {
             if (shape === null || !this.visible()) return;
             const scale = globalThis.devicePixelRatio || 1;
             const request = this.objects
-                .getObjectImage(id, { width: Math.min(512, Math.round(displayWidth * scale)), height: Math.min(512, Math.round(displayHeight * scale)), shape })
+                .getObjectImage(id, { width: Math.min(512, Math.round(this.width() * scale)), height: Math.min(512, Math.round(this.height() * scale)), shape })
                 .subscribe({ next: (image) => this.replaceImage(URL.createObjectURL(image)), error: () => this.replaceImage(null) });
             onCleanup(() => request.unsubscribe());
         });

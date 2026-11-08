@@ -1,10 +1,11 @@
 import { modelFaceWinding, prepareCacheModel, type CacheModelGeometry } from "../../../../../shared/model-viewer/cache-model-geometry";
 import type { ModelGeometry, ModelTexture } from "../../../../../shared/model-viewer/model-scene";
-import { mapAppearanceKey, underwaterPlaneIndex, type MapAtmosphere, type MapPlacement, type MapRenderRegion, type ObjectRenderAppearance } from "../services/map-render.models";
+import { mapAppearanceKey, underwaterPlaneIndex, type MapAtmosphere, type MapLandscapeSave, type MapPlacement, type MapRenderRegion, type ObjectRenderAppearance } from "../services/map-render.models";
 import { terrainSampler, linearFloorColor, isVisibleFloor, type VisibleFloor, type FloorSample } from "./terrain-blending";
 import { mixWaterFog, waterFogFactor, waterFogLookup, type WaterFog } from "./underwater-fog";
 import { overlayPriority, overlaySample, overlaySpreads, spreadSample, type SpreadLookup } from "./overlay-spreading";
 import type { TerrainBlend } from "../../../../../shared/model-viewer/terrain-material";
+import type { TerrainEdits } from "./map-terrain-edit";
 
 // Revision-742 ordinary floor topology, Class274's floor vertex and triangle tables.
 const floorX = [0, 256, 512, 512, 512, 256, 0, 0, 128, 256, 128, 384, 256];
@@ -81,6 +82,15 @@ export function mapHeight(regions: readonly MapRenderRegion[], plane: number, wo
     return null;
 }
 
+/** Editor visibility choices; the default draws everything. */
+export interface MapSceneFilter {
+    terrain: boolean;
+    waterSurface: boolean;
+    hiddenShapes: ReadonlySet<number>;
+    hiddenPlacements: ReadonlySet<MapPlacement>;
+}
+const showEverything: MapSceneFilter = { terrain: true, waterSurface: true, hiddenShapes: new Set(), hiddenPlacements: new Set() };
+
 export interface MapObjectRange {
     regionId: number;
     placement: MapPlacement;
@@ -99,13 +109,59 @@ export interface MapObjectTransform {
 export interface MapSceneDraft {
     transforms: ReadonlyMap<MapPlacement, MapObjectTransform | null>;
     additions: readonly Pick<MapObjectRange, "regionId" | "placement">[];
+    terrain?: TerrainEdits;
 }
 
-export interface MapSceneGeometry extends ModelGeometry {
+/** Each region whose surface landscape the draft would change, with its complete resulting list. Scale has no stored form and underwater objects are a separate archive. */
+export function mapLandscapeSaves(regions: readonly MapRenderRegion[], draft: MapSceneDraft | undefined): MapLandscapeSave[] {
+    if (!draft) return [];
+    return regions.flatMap(region => {
+        const added = draft.additions.filter(addition => addition.regionId === region.id).map(addition => addition.placement);
+        const surface = region.objects.filter(isSurfacePlacement);
+        const objects = [...surface, ...added.filter(isSurfacePlacement)].flatMap(placement => {
+            const transform = draft.transforms.get(placement);
+            if (transform === null) return [];
+            const { id, shape } = placement;
+            const { rotation, x, y, plane } = transform ?? placement;
+            return [{ id, shape, rotation, x, y, plane }];
+        });
+        const unchanged = objects.length === surface.length && objects.every((object, index) => samePlacement(object, surface[index]));
+        return unchanged ? [] : [{ kind: "landscape" as const, regionId: region.id, objects }];
+    });
+}
+
+/** What the draft changes that saving cannot store, phrased for the save confirmation. */
+export function unstoredEditNotes(draft: MapSceneDraft | undefined): string[] {
+    if (!draft) return [];
+    const transforms = [...draft.transforms];
+    const scaled = transforms.some(([, transform]) => transform !== null && transform.scale !== 1);
+    const underwater = [...transforms.map(([placement]) => placement), ...draft.additions.map(addition => addition.placement)].some(placement => !isSurfacePlacement(placement));
+    return [...scaled ? ["Scale changes are not stored."] : [], ...underwater ? ["Underwater object changes are not stored."] : []];
+}
+
+function isSurfacePlacement(placement: MapPlacement): boolean {
+    return placement.plane !== underwaterPlaneIndex;
+}
+
+function samePlacement(left: MapPlacement, right: MapPlacement): boolean {
+    return left.id === right.id && left.shape === right.shape && left.rotation === right.rotation && left.x === right.x && left.y === right.y && left.plane === right.plane;
+}
+
+export interface MapSceneObjects extends ModelGeometry {
     placements: readonly MapObjectRange[];
 }
 
-type SceneGeometry = Omit<MapSceneGeometry, "uvs"> & {
+/** Terrain and objects build and draw separately; placement ranges are relative to the objects. */
+export interface MapSceneGeometry {
+    terrain: ModelGeometry | null;
+    objects: MapSceneObjects | null;
+    placements: readonly MapObjectRange[];
+}
+
+type SceneObjects = { geometry: MapSceneObjects | null; warnings: string[] };
+type CornerHeights = readonly (number | null)[];
+
+type SceneGeometry = Omit<MapSceneObjects, "uvs"> & {
     placements: MapObjectRange[];
     firstTexelVertices: number[];
     positions: number[];
@@ -129,7 +185,7 @@ type SceneContext = {
     originY: number;
     sampleTerrain: ReturnType<typeof terrainSampler>;
     spreads: SpreadLookup;
-    waterSurface: boolean;
+    filter: MapSceneFilter;
     waterFog: (worldX: number, worldY: number) => WaterFog | undefined;
     blends: Map<string, TerrainBlend>;
     preparation: MapScenePreparation;
@@ -193,14 +249,14 @@ export class MapScenePreparation {
     private ground?: { regions: readonly MapRenderRegion[]; planes: string; modes: string[]; atmosphere?: MapAtmosphere; geometry: SceneGeometry };
     private sampling?: { regions: readonly MapRenderRegion[]; sample: ReturnType<typeof terrainSampler> };
     private readonly models = new WeakMap<ObjectRenderAppearance, { dependencies: { id: number; prepared: boolean }[]; modes: string[]; atmosphere?: MapAtmosphere; parts: PreparedMapPart[] }>();
-    private combined?: { terrain: SceneGeometry; appearances: ReadonlyMap<string, ObjectRenderAppearance>; parts: PreparedMapPart[][]; draft?: MapSceneDraft; result: { geometry: MapSceneGeometry; warnings: string[] } };
+    private objects?: { inputs: readonly unknown[]; heights: readonly CornerHeights[]; result: SceneObjects };
 
-    terrain(regions: readonly MapRenderRegion[], textures: ReadonlyMap<number, ModelTexture>, planes: readonly boolean[], waterSurface: boolean, atmosphere: MapAtmosphere | undefined, build: () => SceneGeometry): SceneGeometry {
+    terrain(regions: readonly MapRenderRegion[], textures: ReadonlyMap<number, ModelTexture>, planes: readonly boolean[], filter: MapSceneFilter, atmosphere: MapAtmosphere | undefined, build: () => SceneGeometry): SceneGeometry {
         const modes = regions.flatMap(region => region.floors.map(floor => {
             const texture = textures.get(floor.textureId);
             return `${texture?.alphaMode ?? 0}:${texture?.effectId ?? 0}`;
         }));
-        const key = `${planes.join()}:${waterSurface}`;
+        const key = `${planes.join()}:${filter.terrain}:${filter.waterSurface}`;
         if (this.ground?.regions === regions && this.ground.planes === key && this.ground.atmosphere === atmosphere && sameValues(this.ground.modes, modes)) return this.ground.geometry;
         const geometry = build();
         this.ground = { regions, planes: key, modes, atmosphere, geometry };
@@ -229,22 +285,98 @@ export class MapScenePreparation {
         return parts;
     }
 
-    landscape(terrain: SceneGeometry, appearances: ReadonlyMap<string, ObjectRenderAppearance>, textures: ReadonlyMap<number, ModelTexture>, atmosphere: MapAtmosphere | undefined, draft: MapSceneDraft | undefined, build: () => { geometry: MapSceneGeometry; warnings: string[] }): { geometry: MapSceneGeometry; warnings: string[] } {
-        const parts = [...appearances.values()].map(appearance => this.appearance(appearance, textures, atmosphere));
-        const previous = this.combined;
-        if (previous?.terrain === terrain && previous.appearances === appearances && previous.draft === draft && sameValues(previous.parts, parts)) return previous.result;
-        const result = build();
-        this.combined = { terrain, appearances, parts, draft, result };
+    /** Floors do not affect objects, so only their inputs and the ground heights invalidate them. */
+    landscape(regions: readonly MapRenderRegion[], planes: readonly boolean[], appearances: ReadonlyMap<string, ObjectRenderAppearance>, textures: ReadonlyMap<number, ModelTexture>, atmosphere: MapAtmosphere | undefined, draft: MapSceneDraft | undefined, filter: MapSceneFilter, build: () => SceneObjects, refit: (previous: SceneObjects, changed: ReadonlySet<number>) => SceneObjects | null): SceneObjects {
+        const parts = [...appearances.values()].flatMap(appearance => this.appearance(appearance, textures, atmosphere));
+        const inputs = objectInputs(regions, planes, appearances, draft, filter, parts);
+        const heights = regions.flatMap(region => region.planes.map(plane => plane.cornerHeights));
+        const previous = this.objects && sameValues(this.objects.inputs, inputs) ? this.objects : undefined;
+        if (previous && sameValues(previous.heights, heights)) return previous.result;
+        const result = (previous && refit(previous.result, changedCorners(regions, previous.heights))) ?? build();
+        this.objects = { inputs, heights, result };
         return result;
     }
+}
+
+// An empty edit list means the same as none, and a terrain stroke creates one.
+function objectInputs(regions: readonly MapRenderRegion[], planes: readonly boolean[], appearances: ReadonlyMap<string, ObjectRenderAppearance>, draft: MapSceneDraft | undefined, filter: MapSceneFilter, parts: readonly PreparedMapPart[]): readonly unknown[] {
+    return [planes.join(), appearances, draft?.transforms.size ? draft.transforms : undefined, draft?.additions.length ? draft.additions : undefined, filter, ...regions.map(region => region.objects), ...parts];
+}
+
+const worldCorner = (x: number, y: number): number => x * 65536 + y;
+
+/** World corners whose height differs on any plane. */
+function changedCorners(regions: readonly MapRenderRegion[], previous: readonly CornerHeights[]): Set<number> {
+    const changed = new Set<number>();
+    let plane = 0;
+    for (const region of regions) {
+        for (const { cornerHeights } of region.planes) {
+            const before = previous[plane++];
+            if (before === cornerHeights) continue;
+            for (let corner = 0; corner < cornerHeights.length; corner++)
+                if (before[corner] !== cornerHeights[corner]) changed.add(worldCorner(region.regionX * 64 + Math.floor(corner / 65), region.regionY * 64 + corner % 65));
+        }
+    }
+    return changed;
 }
 
 function sameValues<T>(left: readonly T[], right: readonly T[]): boolean {
     return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function copyTerrain(source: SceneGeometry): SceneGeometry {
-    return { placements: [], firstTexelVertices: [], positions: source.positions.slice(), indices: source.indices, colors: source.colors.slice(), opacities: source.opacities.slice(), uvs: source.uvs.slice(), textureIds: source.textureIds.slice(), facePriorities: source.facePriorities.slice(), terrainWeights: source.terrainWeights, terrainBlends: source.terrainBlends, preparedLighting: true };
+function emptySceneGeometry(): SceneGeometry {
+    return { placements: [], firstTexelVertices: [], positions: [], indices: [], colors: [], opacities: [], uvs: [], textureIds: [], facePriorities: [], preparedLighting: true, terrainBlends: [], terrainWeights: [] };
+}
+
+function buildObjects(context: SceneContext, draft: MapSceneDraft | undefined): SceneObjects {
+    context.geometry = emptySceneGeometry();
+    addLandscape(context, draft);
+    const { firstTexelVertices, colors, opacities, uvs, ...attributes } = context.geometry;
+    const firstTexel = firstTexelVertices.length ? new Uint8Array(opacities.length) : undefined;
+    if (firstTexel) for (const vertex of firstTexelVertices) firstTexel[vertex] = 1;
+    const vertexRgba = new Float32Array(opacities.length * 4);
+    for (let vertex = 0; vertex < opacities.length; vertex++) {
+        const rgb = vertex * 3, rgba = vertex * 4;
+        vertexRgba[rgba] = colors[rgb];
+        vertexRgba[rgba + 1] = colors[rgb + 1];
+        vertexRgba[rgba + 2] = colors[rgb + 2];
+        vertexRgba[rgba + 3] = opacities[vertex];
+    }
+    return { geometry: { ...attributes, indices: sequentialIndices(opacities.length), firstTexel, vertexRgba, uvs: Float32Array.from(uvs) }, warnings: [...context.warnings] };
+}
+
+/** Moves only the objects on changed ground. Null means an object's vertices changed, so a full build is needed. */
+function refitObjects(context: SceneContext, draft: MapSceneDraft | undefined, previous: SceneObjects, changed: ReadonlySet<number>): SceneObjects | null {
+    const geometry = previous.geometry;
+    if (!geometry) return null;
+    const positions = geometry.positions.slice();
+    const ranges: [number, number][] = [];
+    const prepared = new Map<string, PreparedMapPart[]>();
+    for (const range of geometry.placements) {
+        const region = context.regions.find(candidate => candidate.id === range.regionId);
+        if (!region || !touchesChangedGround(context, region, range.placement, draft, changed)) continue;
+        context.geometry = emptySceneGeometry();
+        addVisiblePlacement(context, region, range.placement, prepared, draft);
+        const fresh = context.geometry.positions;
+        if (fresh.length !== (range.endVertex - range.startVertex) * 3) return null;
+        for (let value = 0; value < fresh.length; value++) positions[range.startVertex * 3 + value] = fresh[value];
+        ranges.push([range.startVertex, range.endVertex]);
+    }
+    if (!ranges.length) return previous;
+    // Only the newest patch is needed, so older geometry can be released.
+    geometry.patchOf = undefined;
+    return { geometry: { ...geometry, positions, patchOf: { base: geometry, ranges } }, warnings: previous.warnings };
+}
+
+function touchesChangedGround(context: SceneContext, region: MapRenderRegion, source: MapPlacement, draft: MapSceneDraft | undefined, changed: ReadonlySet<number>): boolean {
+    const placement = draft?.transforms.get(source) ?? source;
+    const appearance = context.appearances.get(mapAppearanceKey(source));
+    const size = Math.max(appearance?.sizeX ?? 1, appearance?.sizeY ?? 1);
+    // Contoured models can overhang their footprint a little.
+    const reach = 2;
+    const left = region.regionX * 64 + placement.x - reach, bottom = region.regionY * 64 + placement.y - reach;
+    for (let x = left; x <= left + size + reach * 2; x++) for (let y = bottom; y <= bottom + size + reach * 2; y++) if (changed.has(worldCorner(x, y))) return true;
+    return false;
 }
 
 export function buildMapScene(
@@ -256,7 +388,7 @@ export function buildMapScene(
     preparation = new MapScenePreparation(),
     atmosphereRegionId: number | null = regions[0]?.id ?? null,
     draft?: MapSceneDraft,
-    waterSurface = true,
+    filter: MapSceneFilter = showEverything,
 ): { geometry: MapSceneGeometry | null; warnings: string[] } {
     if (!regions.length) return { geometry: null, warnings: [] };
     const atmosphere = regions.find(region => region.id === atmosphereRegionId)?.atmosphere ?? undefined;
@@ -265,20 +397,7 @@ export function buildMapScene(
         const linear = value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
         return linear * (atmosphere.intensity / 1.1523438);
     });
-    const geometry: SceneGeometry = {
-        placements: [],
-        firstTexelVertices: [],
-        positions: [],
-        indices: [],
-        colors: [],
-        opacities: [],
-        uvs: [],
-        textureIds: [],
-        facePriorities: [],
-        preparedLighting: true,
-        terrainBlends: [],
-        terrainWeights: [],
-    };
+    const geometry = emptySceneGeometry();
     let sampler: ReturnType<typeof terrainSampler> | undefined;
     let spreads: SpreadLookup | undefined;
     let waterFog: ReturnType<typeof waterFogLookup> | undefined;
@@ -292,7 +411,7 @@ export function buildMapScene(
         originX: Math.min(...regions.map((region) => region.regionX)) * 64,
         originY: Math.min(...regions.map((region) => region.regionY)) * 64,
         sampleTerrain: (...args) => { sampler ??= preparation.sampleTerrain(regions); return sampler(...args); },
-        waterSurface,
+        filter,
         spreads: (...args) => { spreads ??= overlaySpreads(regions); return spreads(...args); },
         waterFog: (...args) => { waterFog ??= waterFogLookup(regions); return waterFog(...args); },
         blends: new Map(),
@@ -300,29 +419,18 @@ export function buildMapScene(
         atmosphere,
         lightTint,
     };
-    const terrain = preparation.terrain(regions, textures, visiblePlanes, waterSurface, atmosphere, () => {
-        addTerrain(context);
+    const terrain = preparation.terrain(regions, textures, visiblePlanes, filter, atmosphere, () => {
+        if (filter.terrain) addTerrain(context);
         context.geometry.indices = sequentialIndices(context.geometry.opacities.length);
         return context.geometry;
     });
-    const result = landscape ? preparation.landscape(terrain, appearances, textures, atmosphere, draft, () => {
-        context.geometry = copyTerrain(terrain);
-        addLandscape(context, draft);
-        const { firstTexelVertices, colors, opacities, uvs, ...attributes } = context.geometry;
-        const firstTexel = firstTexelVertices.length ? new Uint8Array(opacities.length) : undefined;
-        if (firstTexel) for (const vertex of firstTexelVertices) firstTexel[vertex] = 1;
-        const vertexRgba = new Float32Array(opacities.length * 4);
-        for (let vertex = 0; vertex < opacities.length; vertex++) {
-            const rgb = vertex * 3, rgba = vertex * 4;
-            vertexRgba[rgba] = colors[rgb];
-            vertexRgba[rgba + 1] = colors[rgb + 1];
-            vertexRgba[rgba + 2] = colors[rgb + 2];
-            vertexRgba[rgba + 3] = opacities[vertex];
-        }
-        const indices = sequentialIndices(opacities.length);
-        return { geometry: { ...attributes, indices, firstTexel, vertexRgba, uvs: Float32Array.from(uvs) }, warnings: [...context.warnings] };
-    }) : { geometry: terrain, warnings: [...context.warnings] };
-    return { geometry: result.geometry.positions.length ? result.geometry : null, warnings: result.warnings };
+    const objects = landscape
+        ? preparation.landscape(regions, visiblePlanes, appearances, textures, atmosphere, draft, filter, () => buildObjects(context, draft), (previous, changed) => refitObjects(context, draft, previous, changed))
+        : { geometry: null, warnings: [...context.warnings] };
+    const drawnTerrain = terrain.positions.length ? terrain : null;
+    const drawnObjects = objects.geometry?.positions.length ? objects.geometry : null;
+    if (!drawnTerrain && !drawnObjects) return { geometry: null, warnings: objects.warnings };
+    return { geometry: { terrain: drawnTerrain, objects: drawnObjects, placements: drawnObjects?.placements ?? [] }, warnings: objects.warnings };
 }
 
 function sequentialIndices(count: number): Uint16Array | Uint32Array {
@@ -413,7 +521,7 @@ function addFloorTriangle(
 const waterEffects = [2, 4, 5, 8, 9];
 
 function isHiddenWater(context: SceneContext, level: number, floor: VisibleFloor): boolean {
-    return !context.waterSurface && level !== underwaterPlaneIndex && waterEffects.includes(context.textures.get(floor.textureId)?.effectId ?? 0);
+    return !context.filter.waterSurface && level !== underwaterPlaneIndex && waterEffects.includes(context.textures.get(floor.textureId)?.effectId ?? 0);
 }
 
 function addPlainFloor(context: SceneContext, texture: number, textureScale: number, corners: readonly FloorCorner[], tint: (index: number) => readonly number[]): void {
@@ -479,12 +587,17 @@ function addLandscape(context: SceneContext, draft?: MapSceneDraft): void {
     const prepared = new Map<string, PreparedMapPart[]>();
     for (const region of context.regions)
         for (const placement of region.objects) {
-            addPlacement(context, region, placement, prepared, draft?.transforms.get(placement));
+            addVisiblePlacement(context, region, placement, prepared, draft);
         }
     for (const { regionId, placement } of draft?.additions ?? []) {
         const region = context.regions.find(candidate => candidate.id === regionId);
-        if (region) addPlacement(context, region, placement, prepared, draft?.transforms.get(placement));
+        if (region) addVisiblePlacement(context, region, placement, prepared, draft);
     }
+}
+
+function addVisiblePlacement(context: SceneContext, region: MapRenderRegion, placement: MapPlacement, prepared: Map<string, PreparedMapPart[]>, draft?: MapSceneDraft): void {
+    if (context.filter.hiddenPlacements.has(placement) || context.filter.hiddenShapes.has(placement.shape)) return;
+    addPlacement(context, region, placement, prepared, draft?.transforms.get(placement));
 }
 
 function addPlacement(context: SceneContext, region: MapRenderRegion, source: MapPlacement, prepared: Map<string, PreparedMapPart[]>, transform?: MapObjectTransform | null): void {

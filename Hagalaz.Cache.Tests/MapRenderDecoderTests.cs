@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Security.Cryptography;
 using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Types;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests;
@@ -23,6 +24,39 @@ public sealed class MapRenderDecoderTests
             semantic.Write(bytes);
         }
         Assert.Equal("bee90dfdcbf5e934e4d0c9faac97959490dbb2da4a44882c5891892513374077", Convert.ToHexStringLower(SHA256.HashData(semantic.ToArray())));
+    }
+
+    [Fact]
+    public void LandscapeEncoder_ReproducesARealRegionExactly()
+    {
+        var original = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "maps", "landscape-12850.dat"));
+        var placements = MapRenderDecoder.DecodeLandscape(new MemoryStream(original));
+        using var encoded = MapLandscapeEncoder.Encode(placements);
+        Assert.Equal(original, encoded.ToArray());
+    }
+
+    [Fact]
+    public void LandscapeEncoder_RoundTripsSortedPlacementsAcrossLargeIdGapsAndPlanes()
+    {
+        MapRenderPlacement[] placements =
+        [
+            new(70000, 22, 3, 63, 63, 3),
+            new(5, 10, 1, 7, 9, 1),
+            new(5, 0, 0, 1, 2, 0),
+            new(32770, 4, 2, 0, 0, 2),
+            new(5, 11, 2, 1, 2, 0),
+        ];
+        using var encoded = MapLandscapeEncoder.Encode(placements);
+        Assert.Equal(
+            [new(5, 0, 0, 1, 2, 0), new(5, 11, 2, 1, 2, 0), new(5, 10, 1, 7, 9, 1), new(32770, 4, 2, 0, 0, 2), new(70000, 22, 3, 63, 63, 3)],
+            MapRenderDecoder.DecodeLandscape(encoded));
+    }
+
+    [Fact]
+    public void LandscapeEncoder_WritesAnEmptyLandscape()
+    {
+        using var encoded = MapLandscapeEncoder.Encode([]);
+        Assert.Empty(MapRenderDecoder.DecodeLandscape(encoded));
     }
 
     [Fact]

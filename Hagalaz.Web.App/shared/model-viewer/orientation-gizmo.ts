@@ -1,9 +1,12 @@
 import * as THREE from "three";
 
+export const axisColors = { x: "#ff4242", up: "#72df43", north: "#45a8ff" } as const;
+
+/** Named as RuneScape map coordinates, where Z is the plane and Y runs north-south. */
 const axes = [
-    { label: "X", color: "#ff4242", direction: [1, 0, 0] },
-    { label: "Y", color: "#72df43", direction: [0, 1, 0] },
-    { label: "Z", color: "#45a8ff", direction: [0, 0, 1] },
+    { label: "X", color: axisColors.x, direction: [1, 0, 0] },
+    { label: "Z", color: axisColors.up, direction: [0, 1, 0] },
+    { label: "Y", color: axisColors.north, direction: [0, 0, 1] },
 ] as const;
 
 export class OrientationGizmo {

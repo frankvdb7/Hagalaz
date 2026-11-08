@@ -6,6 +6,8 @@ namespace Hagalaz.Cache.Types;
 public sealed record TerrainRenderPlane(int[] Heights, int[] Flags, int[] Underlays, int[] Overlays, int[] OverlayShapes, int[] OverlayRotations);
 public sealed record MapRenderPlane(int?[] CornerHeights, int[] Flags, int[] Underlays, int[] Overlays, int[] OverlayShapes, int[] OverlayRotations);
 public sealed record MapRenderPlacement(int Id, int Shape, int Rotation, int X, int Y, int Plane);
+// An omitted value stays as stored; underlay or overlay 0 clears that floor. Height is the stored value: steps of 32 above the plane below.
+public sealed record MapTerrainTileChange(int Plane, int X, int Y, int? Height = null, int? Underlay = null, int? Overlay = null, int? OverlayShape = null, int? OverlayRotation = null);
 // Parameters 20-22 feed the client's underwater pass but have no proven physical name.
 public sealed record OverlayRenderProperties(int Priority, bool SpreadsToNeighbours, int WaterFogRgb, int WaterFogScale, int WaterFogBias,
     int WaterParameter20, int WaterParameter21, int WaterParameter22);

@@ -4,7 +4,7 @@ import { map } from "rxjs";
 import { environment } from "../../../../environments/environment";
 import { cacheDefinitionResource, cacheQueryResource } from "./cache-resource";
 import type { GetMapDefinitionDto, GetMapRegionsDto, GetTextureMaterialDto } from "./dtos";
-import type { MapPlacement, MapRenderRegion, ObjectAppearanceResult } from "./map-render.models";
+import type { MapFloor, MapPlacement, MapRenderRegion, MapTerrainTileChange, MapWorldMapRefreshResult, ObjectAppearanceResult, UpdateMapLandscapeResultDto, UpdateMapTerrainResultDto } from "./map-render.models";
 
 @Service()
 export class CacheMapsService {
@@ -13,6 +13,22 @@ export class CacheMapsService {
 
     render(id: number, xteaKeys?: number[]) {
         return this.http.post<MapRenderRegion>(`${this.baseUrl}/${id}/render`, { xteaKeys });
+    }
+
+    saveLandscape(id: number, objects: readonly MapPlacement[]) {
+        return this.http.post<UpdateMapLandscapeResultDto>(`${this.baseUrl}/${id}/landscape`, { objects });
+    }
+
+    saveTerrain(id: number, tiles: readonly MapTerrainTileChange[]) {
+        return this.http.post<UpdateMapTerrainResultDto>(`${this.baseUrl}/${id}/terrain`, { tiles });
+    }
+
+    refreshWorldMap(regions: readonly number[]) {
+        return this.http.post<MapWorldMapRefreshResult>(`${this.baseUrl}/worldmap/refresh`, { regions });
+    }
+
+    floors() {
+        return this.http.get<MapFloor[]>(`${this.baseUrl}/floors`);
     }
 
     appearances(placements: readonly MapPlacement[]) {

@@ -77,6 +77,28 @@ public sealed class MapRenderReader(ICacheAPI cache)
         return new MapRenderRegion(id, id >> 8, id & 255, terrainStatus, landscapeStatus, planes, objects, floors, warnings, atmosphere, underwaterPlane, underwaterObjects);
     }
 
+    /// <summary>Every floor a terrain tile can store; underlay opcodes end at 174 and overlay IDs are one byte.</summary>
+    public IReadOnlyList<FloorRenderDefinition> ReadFloorCatalog(CancellationToken cancellationToken = default)
+    {
+        var floors = new List<FloorRenderDefinition>();
+        var table = cache.ReadReferenceTable(2);
+        foreach (var (group, overlay, limit) in new[] { (1, false, 174), (4, true, 255) })
+        {
+            foreach (var (member, entry) in table.GetEntry(group)?.Entries ?? [])
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (member + 1 > limit) break;
+                try
+                {
+                    using var data = cache.Read(2, group, entry.Index);
+                    floors.Add(MapRenderDecoder.DecodeFloor(data, member + 1, overlay));
+                }
+                catch (Exception error) when (IsDataError(error)) { /* An unreadable definition cannot be previewed or offered. */ }
+            }
+        }
+        return floors;
+    }
+
     private MapRenderPlane ComposeUnderwaterPlane(int id, TerrainRenderPlane underwater, MapRenderPlane surface, List<string> warnings, CancellationToken cancellationToken)
     {
         // The client adds depths to surface heights across the whole scene; a neighbour without `um` adds nothing.
@@ -176,5 +198,5 @@ public sealed class MapRenderReader(ICacheAPI cache)
         }
     }
 
-    private static bool IsDataError(Exception error) => error is IOException or NotSupportedException or OverflowException or ICSharpCode.SharpZipLib.SharpZipBaseException;
+    internal static bool IsDataError(Exception error) => error is IOException or NotSupportedException or OverflowException or ICSharpCode.SharpZipLib.SharpZipBaseException;
 }
