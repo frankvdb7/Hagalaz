@@ -148,8 +148,33 @@ describe("CacheMapSceneStore", () => {
         texture(24);
         await vi.advanceTimersByTimeAsync(0);
         http.expectNone(`${base}textures/90/image`);
-        expect([...store.textures().keys()].sort()).toEqual([20, 21, 22, 23, 24]);
+        expect(store.textures().size).toBe(0);
+        expect(store.environmentFaces()).toHaveLength(6);
+        expect(store.environmentFaces()?.[5]).toBe(store.environmentFaces()?.[0]);
         expect(store.progress()).toMatchObject({ texturesSettled: 5, texturesTotal: 5, failures: 0 });
+    });
+
+    it("withholds the cube until every face loads and publishes a face a visible floor also uses", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        store.setVisibility({ planes: [false], landscape: false });
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        const atmosphere = { lightRgb: 0xffffff, intensity: 1, positiveResponse: 1, negativeResponse: 1, directionX: 0, directionY: -1, directionZ: 0, skyRgb: 0xc8c0a8, fogValue: 0, environmentFaces: [7, 21, 22, 23, 24, 25] };
+        http.expectOne(`${base}types/maps/258/render`).flush({ ...textured(258), atmosphere });
+        for (const id of [7, 21, 22, 23]) texture(id);
+        await vi.advanceTimersByTimeAsync(0);
+        texture(24);
+        await vi.advanceTimersByTimeAsync(250);
+        expect(store.environmentFaces()).toBeNull();
+        http.expectOne(`${base}textures/25/image`).flush(new Blob(["fixture"]), { status: 404, statusText: "Missing" });
+        await vi.advanceTimersByTimeAsync(250);
+        expect(store.environmentFaces()).toBeNull();
+        expect(store.textures().size).toBe(0);
+        expect(store.progress()).toMatchObject({ failures: 1 });
+
+        store.setVisibility({ planes: [true], landscape: false });
+        await vi.advanceTimersByTimeAsync(250);
+        expect([...store.textures().keys()]).toEqual([7]);
+        http.expectNone(`${base}textures/7/image`);
     });
 
     it("publishes a region and its floor textures while another region and landscape batch remain pending", async () => {

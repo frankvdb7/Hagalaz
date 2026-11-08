@@ -12,6 +12,7 @@ export const CacheMapSceneStore = signalStore(
         regions: [] as MapRenderRegion[],
         appearances: new Map<string, ObjectRenderAppearance>(),
         textures: new Map<number, ModelTexture>(),
+        environmentFaces: null as readonly ModelTexture[] | null,
         warnings: [] as string[],
         loading: false,
         progress: emptyMapProgress(),

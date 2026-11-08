@@ -20,6 +20,7 @@ class ViewportBoundary {
     readonly textures = input<unknown>();
     readonly selectionKey = input<string>();
     readonly regionAtmosphere = input<unknown>(null);
+    readonly environmentFaces = input<unknown>(null);
     readonly useRegionAtmosphere = model(true);
     readonly selectedObject = model<unknown>(null);
     readonly objectDrop = output<{ id: number; x: number; z: number }>();
@@ -76,6 +77,7 @@ describe("MapsDetailPageComponent", () => {
         const viewport = required(harness.routeDebugElement, "the routed page").query(By.directive(ViewportBoundary)).componentInstance as ViewportBoundary;
         const key = viewport.selectionKey();
         expect(viewport.regionAtmosphere()).toEqual(atmosphere);
+        expect(viewport.environmentFaces()).toBeNull();
         expect(viewport.useRegionAtmosphere()).toBe(true);
         viewport.useRegionAtmosphere.set(false);
         harness.detectChanges();

@@ -85,6 +85,7 @@ export class MapViewportComponent implements OnDestroy {
     readonly textures = input<ReadonlyMap<number, ModelTexture>>(new Map());
     readonly selectionKey = input("");
     readonly regionAtmosphere = input<MapAtmosphere | null>(null);
+    readonly environmentFaces = input<readonly ModelTexture[] | null>(null);
     readonly hasRegionAtmosphere = computed(() => this.regionAtmosphere() !== null);
     readonly useRegionAtmosphere = model(true);
     readonly regionLightingActive = computed(() => this.hasRegionAtmosphere() && this.useRegionAtmosphere());
@@ -93,13 +94,10 @@ export class MapViewportComponent implements OnDestroy {
     readonly fogActive = computed(() => this.regionLightingActive() && this.fog());
     readonly environment = computed(() => {
         const atmosphere = this.regionLightingActive() ? this.regionAtmosphere() : null;
-        const textures = this.textures();
-        // Like the client, use the cube only once every face image is available.
-        const faces = atmosphere?.environmentFaces?.map(id => textures.get(id)) ?? [];
         return {
             skyRgb: atmosphere?.skyRgb ?? null,
             fog: atmosphere && this.fog() ? mapFogRange(atmosphere.fogValue) : null,
-            environmentFaces: faces.length === 6 && faces.every(face => face !== undefined) ? faces as ModelTexture[] : null,
+            environmentFaces: atmosphere ? this.environmentFaces() : null,
         };
     });
     readonly wireframe = signal(false);

@@ -557,10 +557,8 @@ export class ModelScene {
             if ([1, 7, 8, 9].includes(id)) {
                 shader.fragmentShader = shader.fragmentShader.replace("#include <opaque_fragment>", `
                     vec3 cacheReflection = inverseTransformDirection(reflect(-normalize(vViewPosition), normal), viewMatrix);
-                    // Web Y is inverted client height; the cube is sampled in client space.
-                    vec3 cacheSky = cacheEnvironmentEnabled
-                        ? textureCube(cacheEnvironment, vec3(cacheReflection.x, -cacheReflection.y, cacheReflection.z)).rgb
-                        : mix(vec3(0.035, 0.055, 0.08), vec3(0.55, 0.72, 0.9), clamp(cacheReflection.y * 0.5 + 0.5, 0.0, 1.0));
+                    vec3 cacheSky = mix(vec3(0.035, 0.055, 0.08), vec3(0.55, 0.72, 0.9), clamp(cacheReflection.y * 0.5 + 0.5, 0.0, 1.0));
+                    ${regionCubeSample(id)}
                     float cacheFresnel = pow(1.0 - abs(dot(normalize(vViewPosition), normal)), ${id === 8 ? "2.0" : "1.0"});
                     ${id === 9 ? "float cacheWaveShape = pow(0.5 + 0.5 * sin(cachePoint.x + cachePhase.x * 6.2831853), max(cacheWave.z, 1.0)); cacheSky += vec3(cacheWave.x * cacheWaveShape + cacheWave.y);" : ""}
                     outgoingLight = mix(outgoingLight, cacheSky, ${id === 1 ? "clamp(cachePhase.w / 3.0, 0.0, 1.0) * 0.5" : "0.2 + cacheFresnel * 0.6"});
@@ -672,6 +670,13 @@ export class ModelScene {
         }
         if (changed) index.needsUpdate = true;
     }
+}
+
+/** GLSL overriding `cacheSky` with the region environment map. Effect 1 uses the client's built-in generated cubes instead. */
+function regionCubeSample(effectId: number): string {
+    if (effectId === 1) return "";
+    // Web Y is inverted client height; the cube is sampled in client space.
+    return "if (cacheEnvironmentEnabled) cacheSky = textureCube(cacheEnvironment, vec3(cacheReflection.x, -cacheReflection.y, cacheReflection.z)).rgb;";
 }
 
 function applyFirstTexelSampling(material: THREE.MeshBasicMaterial | THREE.MeshStandardMaterial, asset: ModelTexture): void {

@@ -284,6 +284,18 @@ describe("ModelScene resource ownership", () => {
         expect(shader.uniforms.cacheEnvironment.value).toBeNull();
     });
 
+    it("keeps effect 1 off the region cube while effect 7 samples it", () => {
+        const compile = (effectId: number) => {
+            scene.setTextures(new Map([[effectId, { image: {} as ImageBitmap, alphaMode: 0, effectId }]]));
+            scene.setGeometry({ ...triangle, preparedLighting: true, textureIds: [effectId] });
+            const shader = { uniforms: {}, vertexShader: THREE.ShaderLib.standard.vertexShader, fragmentShader: THREE.ShaderLib.standard.fragmentShader };
+            renderAt(0).material[2].onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
+            return shader.fragmentShader;
+        };
+        expect(compile(1)).not.toContain("textureCube(cacheEnvironment");
+        expect(compile(7)).toContain("textureCube(cacheEnvironment");
+    });
+
     it("groups blended terrain separately and disposes its material on scene replacement", () => {
         scene.setTextures(new Map([[8, { image: {} as ImageBitmap, alphaMode: 0 as const }]]));
         scene.setGeometry({ ...triangle, textureIds: [-2], terrainWeights: Array(3).fill([1, 0, 0, 0, 0, 0, 0, 0]).flat(),

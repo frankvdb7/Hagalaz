@@ -18,6 +18,7 @@ export interface MapSceneState {
     regions: MapRenderRegion[];
     appearances: Map<string, ObjectRenderAppearance>;
     textures: Map<number, ModelTexture>;
+    environmentFaces: readonly ModelTexture[] | null;
     warnings: string[];
     loading: boolean;
     progress: MapLoadProgress;
@@ -40,6 +41,8 @@ export class MapSceneLoad {
     private readonly appearances = new Map<string, ObjectRenderAppearance>();
     private readonly appearanceTextureIds = new WeakMap<ObjectRenderAppearance, readonly number[]>();
     private readonly textures = new Map<number, ModelTexture>();
+    // Hidden planes keep their published textures; environment-only images stay out of surface rendering.
+    private readonly surfaceTextureIds = new Set<number>();
     private readonly attemptedAppearances = new Set<string>();
     private readonly attemptedTextures = new Set<number>();
     private readonly settledAppearances = new Set<string>();
@@ -54,9 +57,9 @@ export class MapSceneLoad {
     private pumpAgain = false;
     private publication?: ReturnType<typeof setTimeout>;
     private appearancesDirty = true;
-    private texturesDirty = true;
     private publishedAppearances = new Map<string, ObjectRenderAppearance>();
     private publishedTextures = new Map<number, ModelTexture>();
+    private publishedEnvironmentFaces: readonly ModelTexture[] | null = null;
     private failures = 0;
 
     constructor(
@@ -109,13 +112,12 @@ export class MapSceneLoad {
         this.flush();
     }
 
-    private interest(): { placements: Map<string, MapPlacement>; textures: Set<number> } {
+    private interest(): { placements: Map<string, MapPlacement>; textures: Set<number>; environment: number[] } {
         const placements = new Map<string, MapPlacement>();
         const textures = new Set<number>();
         for (const region of this.regionList) this.floorTextures(region, textures);
-        // The viewer takes its environment from the anchor region.
-        for (const id of this.regions.get(this.request.id)?.atmosphere?.environmentFaces ?? []) textures.add(id);
-        if (!this.visibility.landscape) return { placements, textures };
+        const environment = this.anchorEnvironmentFaces();
+        if (!this.visibility.landscape) return { placements, textures, environment };
         for (const region of this.regionList) {
             for (const placement of region.objects) {
                 if (!this.visibility.planes[placement.plane]) continue;
@@ -131,7 +133,12 @@ export class MapSceneLoad {
             placements.set(key, placement);
             this.appearanceTextures(key, textures);
         }
-        return { placements, textures };
+        return { placements, textures, environment };
+    }
+
+    // The viewer takes its environment from the anchor region.
+    private anchorEnvironmentFaces(): number[] {
+        return this.regions.get(this.request.id)?.atmosphere?.environmentFaces ?? [];
     }
 
     private floorTextures(region: MapRenderRegion, textures: Set<number>): void {
@@ -157,7 +164,7 @@ export class MapSceneLoad {
         for (const id of ids) textures.add(id);
     }
 
-    private loadPendingTextures(textures: Set<number>): void {
+    private loadPendingTextures(textures: Iterable<number>): void {
         for (const id of textures) {
             if (this.textureRequests >= 4) break;
             if (!this.attemptedTextures.has(id)) this.loadTexture(id);
@@ -173,8 +180,8 @@ export class MapSceneLoad {
         this.pumping = true;
         do {
             this.pumpAgain = false;
-            const { placements, textures } = this.interest();
-            this.loadPendingTextures(textures);
+            const { placements, textures, environment } = this.interest();
+            this.loadPendingTextures(new Set([...textures, ...environment]));
             const pending = [...placements].filter(([key]) => !this.attemptedAppearances.has(key));
             while (this.appearanceRequests < 2 && pending.length) this.loadAppearances(pending.splice(0, 32));
         } while (this.pumpAgain && !this.cancelled);
@@ -241,7 +248,6 @@ export class MapSceneLoad {
                                     throw new Error("Unsupported texture alpha mode.");
                                 }
                                 this.textures.set(id, { image, ...material, alphaMode: mode });
-                                this.texturesDirty = true;
                             })
                         )
                     ),
@@ -279,6 +285,17 @@ export class MapSceneLoad {
         return this.remainingRegions > 0 || this.appearanceRequests > 0 || this.textureRequests > 0;
     }
 
+    private publishTextures(surface: ReadonlySet<number>, environment: readonly number[]): void {
+        for (const id of surface) this.surfaceTextureIds.add(id);
+        const surfaces = [...this.textures].filter(([id]) => this.surfaceTextureIds.has(id));
+        // Both sets only grow during a load, so an equal size means the published map is current.
+        if (surfaces.length !== this.publishedTextures.size) this.publishedTextures = new Map(surfaces);
+        if (this.publishedEnvironmentFaces) return;
+        // Like the client, expose the cube only once every face image is available.
+        const faces = environment.flatMap((id) => this.textures.get(id) ?? []);
+        if (faces.length === 6) this.publishedEnvironmentFaces = faces;
+    }
+
     private flush(): void {
         if (this.cancelled) return;
         clearTimeout(this.publication);
@@ -287,15 +304,14 @@ export class MapSceneLoad {
             this.publishedAppearances = new Map(this.appearances);
             this.appearancesDirty = false;
         }
-        if (this.texturesDirty) {
-            this.publishedTextures = new Map(this.textures);
-            this.texturesDirty = false;
-        }
         const interest = this.interest();
+        const requestedTextures = new Set([...interest.textures, ...interest.environment]);
+        this.publishTextures(interest.textures, interest.environment);
         this.publish({
             regions: this.regionList,
             appearances: this.publishedAppearances,
             textures: this.publishedTextures,
+            environmentFaces: this.publishedEnvironmentFaces,
             warnings: [...this.warnings],
             loading: this.isLoading(),
             progress: {
@@ -303,8 +319,8 @@ export class MapSceneLoad {
                 regionsTotal: this.ids.length,
                 appearancesSettled: [...interest.placements.keys()].filter((key) => this.settledAppearances.has(key)).length,
                 appearancesTotal: interest.placements.size,
-                texturesSettled: [...interest.textures].filter((id) => this.settledTextures.has(id)).length,
-                texturesTotal: interest.textures.size,
+                texturesSettled: [...requestedTextures].filter((id) => this.settledTextures.has(id)).length,
+                texturesTotal: requestedTextures.size,
                 failures: this.failures,
             },
         });
