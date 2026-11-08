@@ -70,7 +70,7 @@ describe("MapsDetailPageComponent", () => {
     it("switches lighting from the viewport without reloading the region or changing its camera key", async () => {
         const harness = await RouterTestingHarness.create();
         const page = await harness.navigateByUrl("/cache/types/maps/258", MapsDetailPageComponent);
-        const atmosphere = { lightRgb: 0xddcebb, intensity: 1.3, positiveResponse: 2, negativeResponse: 0.36, directionX: -4, directionY: -16, directionZ: 1, skyRgb: 0x8da4c2, fogValue: 600 };
+        const atmosphere = { lightRgb: 0xddcebb, intensity: 1.3, positiveResponse: 2, negativeResponse: 0.36, directionX: -4, directionY: -16, directionZ: 1, skyRgb: 0x8da4c2, fogValue: 600, environmentFaces: null };
         http.expectOne(`${base}258/render`).flush({ ...region(258), atmosphere });
         harness.detectChanges();
         const viewport = required(harness.routeDebugElement, "the routed page").query(By.directive(ViewportBoundary)).componentInstance as ViewportBoundary;

@@ -17,6 +17,8 @@ export interface MapAtmosphere {
     skyRgb: number;
     /** Raw revision-742 fog input, not a density. */
     fogValue: number;
+    /** Cache texture IDs in OpenGL cube-face order: +X, -X, +Y, -Y, +Z, -Z. */
+    environmentFaces: number[] | null;
 }
 export interface MapRenderRegion {
     id: number; regionX: number; regionY: number;

@@ -136,6 +136,22 @@ describe("CacheMapSceneStore", () => {
         expect(store.warnings()).toContain("Texture 7: Texture image or material metadata is missing.");
     });
 
+    it("loads the anchor region's environment-map faces but not a neighbour's", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        store.setVisibility({ planes: [true], landscape: false });
+        store.load({ id: 258, width: 2, height: 1, keys: {} });
+        const atmosphere = { lightRgb: 0xffffff, intensity: 1, positiveResponse: 1, negativeResponse: 1, directionX: 0, directionY: -1, directionZ: 0, skyRgb: 0xc8c0a8, fogValue: 0 };
+        http.expectOne(`${base}types/maps/514/render`).flush({ ...region(514), atmosphere: { ...atmosphere, environmentFaces: [90, 91, 92, 93, 94, 95] } });
+        http.expectOne(`${base}types/maps/258/render`).flush({ ...region(258), atmosphere: { ...atmosphere, environmentFaces: [20, 21, 22, 23, 24, 20] } });
+        for (const id of [20, 21, 22, 23]) texture(id);
+        await vi.advanceTimersByTimeAsync(0);
+        texture(24);
+        await vi.advanceTimersByTimeAsync(0);
+        http.expectNone(`${base}textures/90/image`);
+        expect([...store.textures().keys()].sort()).toEqual([20, 21, 22, 23, 24]);
+        expect(store.progress()).toMatchObject({ texturesSettled: 5, texturesTotal: 5, failures: 0 });
+    });
+
     it("publishes a region and its floor textures while another region and landscape batch remain pending", async () => {
         const store = TestBed.inject(CacheMapSceneStore);
         store.load({ id: 258, width: 2, height: 1, keys: { 258: [1, 2, 3, 4] } });

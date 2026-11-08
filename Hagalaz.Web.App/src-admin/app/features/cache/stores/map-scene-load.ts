@@ -113,6 +113,8 @@ export class MapSceneLoad {
         const placements = new Map<string, MapPlacement>();
         const textures = new Set<number>();
         for (const region of this.regionList) this.floorTextures(region, textures);
+        // The viewer takes its environment from the anchor region.
+        for (const id of this.regions.get(this.request.id)?.atmosphere?.environmentFaces ?? []) textures.add(id);
         if (!this.visibility.landscape) return { placements, textures };
         for (const region of this.regionList) {
             for (const placement of region.objects) {

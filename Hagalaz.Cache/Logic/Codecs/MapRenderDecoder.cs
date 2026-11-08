@@ -69,8 +69,14 @@ public static class MapRenderDecoder
                     // The scene clears to this colour and fades linearly towards it.
                     var skyRgb = (flags & 32) != 0 ? (ReadByte(stream) << 24 | ReadMedium(stream)) & 0xffffff : 0xc8c0a8;
                     var fogValue = (flags & 64) != 0 ? ReadShort(stream) : 0;
-                    if ((flags & 128) != 0) SkipBytes(stream, 12); // Environment-map faces.
-                    atmosphere = new MapAtmosphere(rgb, intensity, positive, negative, x, y, z, skyRgb, fogValue);
+                    // Texture IDs in OpenGL cube-face order: +X, -X, +Y, -Y, +Z, -Z.
+                    int[]? environmentFaces = null;
+                    if ((flags & 128) != 0)
+                    {
+                        environmentFaces = new int[6];
+                        for (var face = 0; face < 6; face++) environmentFaces[face] = ReadShort(stream);
+                    }
+                    atmosphere = new MapAtmosphere(rgb, intensity, positive, negative, x, y, z, skyRgb, fogValue, environmentFaces);
                     break;
                 case 1:
                     var lights = ReadByte(stream);

@@ -245,6 +245,45 @@ describe("ModelScene resource ownership", () => {
         }
     });
 
+    it("builds one environment cube from source-ordered faces, binds it to reflective effects and releases it", async () => {
+        const decoded: { close: ReturnType<typeof vi.fn> }[] = [];
+        const decode = vi.fn(async () => { const image = { close: vi.fn() }; decoded.push(image); return image; });
+        vi.stubGlobal("createImageBitmap", decode);
+        const face = (width: number): ModelTexture => ({ image: { width, height: width } as ImageBitmap, alphaMode: 0 });
+        const faces = [face(64), face(128), face(64), face(64), face(64), face(64)];
+        scene.setTextures(new Map([[8, { image: {} as ImageBitmap, alphaMode: 0, effectId: 8 }]]));
+        scene.setGeometry({ ...triangle, preparedLighting: true, textureIds: [8] });
+        const material = renderAt(0).material[2];
+        const shader = { uniforms: {} as Record<string, THREE.IUniform>, vertexShader: THREE.ShaderLib.standard.vertexShader, fragmentShader: THREE.ShaderLib.standard.fragmentShader };
+        material.onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
+        expect(shader.fragmentShader).toContain("textureCube(cacheEnvironment, vec3(cacheReflection.x, -cacheReflection.y, cacheReflection.z))");
+        expect(shader.uniforms.cacheEnvironmentEnabled.value).toBe(false);
+
+        scene.setEnvironment(0xc8c0a8, null, faces);
+        scene.setEnvironment(0xc8c0a8, null, [...faces]);
+        await new Promise(resolve => setTimeout(resolve));
+        expect(decode).toHaveBeenCalledTimes(6);
+        expect(decode).toHaveBeenCalledWith(faces[0].image, { imageOrientation: "flipY", resizeWidth: 128, resizeHeight: 128, resizeQuality: "pixelated" });
+        const cube = shader.uniforms.cacheEnvironment.value as THREE.CubeTexture;
+        expect(cube).toBeInstanceOf(THREE.CubeTexture);
+        expect(cube.images).toEqual(decoded);
+        expect(cube.colorSpace).toBe(THREE.SRGBColorSpace);
+        expect(shader.uniforms.cacheEnvironmentEnabled.value).toBe(true);
+
+        const release = vi.spyOn(cube, "dispose");
+        scene.setEnvironment(0xc8c0a8, null, null);
+        expect(release).toHaveBeenCalledOnce();
+        expect(decoded.every(image => image.close.mock.calls.length === 1)).toBe(true);
+        expect(shader.uniforms.cacheEnvironment.value).toBeNull();
+        expect(shader.uniforms.cacheEnvironmentEnabled.value).toBe(false);
+
+        scene.setEnvironment(0xc8c0a8, null, faces);
+        scene.setEnvironment(0xc8c0a8, null, null);
+        await new Promise(resolve => setTimeout(resolve));
+        expect(decoded.slice(6).every(image => image.close.mock.calls.length === 1)).toBe(true);
+        expect(shader.uniforms.cacheEnvironment.value).toBeNull();
+    });
+
     it("groups blended terrain separately and disposes its material on scene replacement", () => {
         scene.setTextures(new Map([[8, { image: {} as ImageBitmap, alphaMode: 0 as const }]]));
         scene.setGeometry({ ...triangle, textureIds: [-2], terrainWeights: Array(3).fill([1, 0, 0, 0, 0, 0, 0, 0]).flat(),

@@ -50,22 +50,41 @@ describe("MapViewportComponent keyboard controls", () => {
     it("derives the region sky and opt-in client fog only while region atmosphere is active", () => {
         const fixture = TestBed.createComponent(MapViewportComponent);
         const page = fixture.componentInstance;
-        const atmosphere = { lightRgb: 0xffffff, intensity: 1, positiveResponse: 1, negativeResponse: 1, directionX: 0, directionY: -1, directionZ: 0, skyRgb: 0x8da4c2, fogValue: 600 };
+        const atmosphere = { lightRgb: 0xffffff, intensity: 1, positiveResponse: 1, negativeResponse: 1, directionX: 0, directionY: -1, directionZ: 0, skyRgb: 0x8da4c2, fogValue: 600, environmentFaces: null };
         page.fog.set(true);
-        expect(page.environment()).toEqual({ skyRgb: null, fog: null });
+        expect(page.environment()).toEqual({ skyRgb: null, fog: null, environmentFaces: null });
         expect(page.fogActive()).toBe(false);
 
         fixture.componentRef.setInput("regionAtmosphere", atmosphere);
         expect(page.fogActive()).toBe(true);
-        expect(page.environment()).toEqual({ skyRgb: 0x8da4c2, fog: { start: 10908, end: 14332 } });
+        expect(page.environment()).toEqual({ skyRgb: 0x8da4c2, fog: { start: 10908, end: 14332 }, environmentFaces: null });
 
         page.fog.set(false);
-        expect(page.environment()).toEqual({ skyRgb: 0x8da4c2, fog: null });
+        expect(page.environment()).toEqual({ skyRgb: 0x8da4c2, fog: null, environmentFaces: null });
 
         page.fog.set(true);
         page.useRegionAtmosphere.set(false);
         expect(page.fogActive()).toBe(false);
-        expect(page.environment()).toEqual({ skyRgb: null, fog: null });
+        expect(page.environment()).toEqual({ skyRgb: null, fog: null, environmentFaces: null });
+        fixture.destroy();
+    });
+
+    it("passes the region environment-map faces in cube order once every face image has loaded", () => {
+        const fixture = TestBed.createComponent(MapViewportComponent);
+        const page = fixture.componentInstance;
+        const texture = (id: number) => ({ image: { width: id } as ImageBitmap, alphaMode: 0 as const });
+        const faces = [5, 4, 3, 2, 1, 5];
+        fixture.componentRef.setInput("regionAtmosphere", { lightRgb: 0xffffff, intensity: 1, positiveResponse: 1, negativeResponse: 1, directionX: 0, directionY: -1, directionZ: 0, skyRgb: 0xc8c0a8, fogValue: 0, environmentFaces: faces });
+        const partial = new Map([1, 2, 3, 4].map(id => [id, texture(id)]));
+        fixture.componentRef.setInput("textures", partial);
+        expect(page.environment().environmentFaces).toBeNull();
+
+        const complete = new Map([...partial, [5, texture(5)]]);
+        fixture.componentRef.setInput("textures", complete);
+        expect(page.environment().environmentFaces).toEqual(faces.map(id => complete.get(id)));
+
+        page.useRegionAtmosphere.set(false);
+        expect(page.environment().environmentFaces).toBeNull();
         fixture.destroy();
     });
 

@@ -131,7 +131,7 @@ describe("map scene geometry", () => {
     });
     it("uses only the selected anchor atmosphere, including when neighbors load first", () => {
         const anchor = region(), neighbor = region(514);
-        neighbor.atmosphere = { lightRgb: 0xffffff, intensity: 0, positiveResponse: 1, negativeResponse: 1, directionX: 0, directionY: -1, directionZ: 0, skyRgb: 0xc8c0a8, fogValue: 0 };
+        neighbor.atmosphere = { lightRgb: 0xffffff, intensity: 0, positiveResponse: 1, negativeResponse: 1, directionX: 0, directionY: -1, directionZ: 0, skyRgb: 0xc8c0a8, fogValue: 0, environmentFaces: null };
         anchor.atmosphere = { ...neighbor.atmosphere, intensity: 1.1523438, lightRgb: 0xff0000 };
         const regions = [neighbor, anchor], preparation = new MapScenePreparation();
         const draw = (loaded: MapRenderRegion[], id: number | null) => required(buildMapScene(loaded, new Map(), new Map(), [true], false, preparation, id).geometry, "terrain geometry");

@@ -65,6 +65,10 @@ export class ModelScene {
     private selectionBounds?: THREE.Box3Helper;
     private wireframe = false;
     private pendingFrame?: number;
+    private environmentFaces?: readonly ModelTexture[];
+    // Shared by every reflective effect program; an empty sampler keeps the procedural sky.
+    private readonly environmentMap = { value: null as THREE.CubeTexture | null };
+    private readonly environmentEnabled = { value: false };
 
     private readonly requestRender = (): void => {
         if (this.framing !== "map" || this.disposed || this.pendingFrame !== undefined) return;
@@ -140,11 +144,47 @@ export class ModelScene {
         this.requestRender();
     }
 
-    /** Clears to `skyRgb` and fades geometry towards it over an eye-depth range. Null restores the transparent canvas. */
-    setEnvironment(skyRgb: number | null, fog: { start: number; end: number } | null): void {
+    /**
+     * Clears to `skyRgb` and fades geometry towards it over an eye-depth range. Null restores the transparent canvas.
+     * `environmentFaces` (+X, -X, +Y, -Y, +Z, -Z in client space) replace the procedural sky in reflective effects.
+     */
+    setEnvironment(skyRgb: number | null, fog: { start: number; end: number } | null, environmentFaces: readonly ModelTexture[] | null = null): void {
         this.scene.background = skyRgb === null ? null : new THREE.Color(skyRgb);
         this.scene.fog = skyRgb === null || !fog ? null : new THREE.Fog(skyRgb, fog.start, fog.end);
+        this.setEnvironmentMap(environmentFaces);
         this.requestRender();
+    }
+
+    private setEnvironmentMap(faces: readonly ModelTexture[] | null): void {
+        const current = this.environmentFaces;
+        if (faces?.length === current?.length && (faces ?? []).every((face, index) => face === current?.[index])) return;
+        this.environmentFaces = faces ?? undefined;
+        this.releaseEnvironmentMap();
+        if (!faces) return;
+        const size = Math.max(...faces.map(face => Math.max(face.image.width, face.image.height)));
+        // Cache bitmaps are flipped for 2D sampling; cube faces take source row order. The client upscales smaller faces by repetition.
+        Promise.all(faces.map(face => createImageBitmap(face.image, { imageOrientation: "flipY", resizeWidth: size, resizeHeight: size, resizeQuality: "pixelated" })))
+            .then(images => {
+                if (this.disposed || this.environmentFaces !== faces) {
+                    for (const image of images) image.close();
+                    return;
+                }
+                const cube = new THREE.CubeTexture(images);
+                cube.colorSpace = THREE.SRGBColorSpace;
+                cube.needsUpdate = true;
+                this.environmentMap.value = cube;
+                this.environmentEnabled.value = true;
+                this.requestRender();
+            }, () => undefined);
+    }
+
+    private releaseEnvironmentMap(): void {
+        const cube = this.environmentMap.value;
+        if (!cube) return;
+        this.environmentMap.value = null;
+        this.environmentEnabled.value = false;
+        cube.dispose();
+        for (const image of cube.images as ImageBitmap[]) image.close();
     }
 
     private applyWireframe(): void {
@@ -458,6 +498,8 @@ export class ModelScene {
         }
         for (const texture of this.textures.values()) texture.dispose();
         this.textures.clear();
+        this.environmentFaces = undefined;
+        this.releaseEnvironmentMap();
         this.renderer.dispose();
         this.renderer.domElement.remove();
     }
@@ -499,8 +541,10 @@ export class ModelScene {
             shader.uniforms.cachePhase = phase;
             shader.uniforms.cacheWave = wave;
             shader.uniforms.cacheLake = lake;
+            shader.uniforms.cacheEnvironment = this.environmentMap;
+            shader.uniforms.cacheEnvironmentEnabled = this.environmentEnabled;
             shader.vertexShader = `varying vec3 cachePosition;\n${shader.vertexShader}`.replace("#include <begin_vertex>", "#include <begin_vertex>\ncachePosition = vec3(position.x, -position.y, position.z);");
-            shader.fragmentShader = `uniform vec4 cachePhase;\nuniform vec3 cacheWave;\nuniform vec2 cacheLake;\nvarying vec3 cachePosition;\n${shader.fragmentShader}`;
+            shader.fragmentShader = `uniform vec4 cachePhase;\nuniform vec3 cacheWave;\nuniform vec2 cacheLake;\nuniform samplerCube cacheEnvironment;\nuniform bool cacheEnvironmentEnabled;\nvarying vec3 cachePosition;\n${shader.fragmentShader}`;
             if (preparedLighting) shader.fragmentShader = shader.fragmentShader.replace("#include <opaque_fragment>", "outgoingLight = diffuseColor.rgb;\n#include <opaque_fragment>");
             if ([2, 4, 5, 8, 9].includes(id)) {
                 // Procedural inspection noise replaces the client's unavailable generated volume texture.
@@ -513,7 +557,10 @@ export class ModelScene {
             if ([1, 7, 8, 9].includes(id)) {
                 shader.fragmentShader = shader.fragmentShader.replace("#include <opaque_fragment>", `
                     vec3 cacheReflection = inverseTransformDirection(reflect(-normalize(vViewPosition), normal), viewMatrix);
-                    vec3 cacheSky = mix(vec3(0.035, 0.055, 0.08), vec3(0.55, 0.72, 0.9), clamp(cacheReflection.y * 0.5 + 0.5, 0.0, 1.0));
+                    // Web Y is inverted client height; the cube is sampled in client space.
+                    vec3 cacheSky = cacheEnvironmentEnabled
+                        ? textureCube(cacheEnvironment, vec3(cacheReflection.x, -cacheReflection.y, cacheReflection.z)).rgb
+                        : mix(vec3(0.035, 0.055, 0.08), vec3(0.55, 0.72, 0.9), clamp(cacheReflection.y * 0.5 + 0.5, 0.0, 1.0));
                     float cacheFresnel = pow(1.0 - abs(dot(normalize(vViewPosition), normal)), ${id === 8 ? "2.0" : "1.0"});
                     ${id === 9 ? "float cacheWaveShape = pow(0.5 + 0.5 * sin(cachePoint.x + cachePhase.x * 6.2831853), max(cacheWave.z, 1.0)); cacheSky += vec3(cacheWave.x * cacheWaveShape + cacheWave.y);" : ""}
                     outgoingLight = mix(outgoingLight, cacheSky, ${id === 1 ? "clamp(cachePhase.w / 3.0, 0.0, 1.0) * 0.5" : "0.2 + cacheFresnel * 0.6"});

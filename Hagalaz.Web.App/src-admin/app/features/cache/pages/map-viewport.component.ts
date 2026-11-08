@@ -93,7 +93,14 @@ export class MapViewportComponent implements OnDestroy {
     readonly fogActive = computed(() => this.regionLightingActive() && this.fog());
     readonly environment = computed(() => {
         const atmosphere = this.regionLightingActive() ? this.regionAtmosphere() : null;
-        return { skyRgb: atmosphere?.skyRgb ?? null, fog: atmosphere && this.fog() ? mapFogRange(atmosphere.fogValue) : null };
+        const textures = this.textures();
+        // Like the client, use the cube only once every face image is available.
+        const faces = atmosphere?.environmentFaces?.map(id => textures.get(id)) ?? [];
+        return {
+            skyRgb: atmosphere?.skyRgb ?? null,
+            fog: atmosphere && this.fog() ? mapFogRange(atmosphere.fogValue) : null,
+            environmentFaces: faces.length === 6 && faces.every(face => face !== undefined) ? faces as ModelTexture[] : null,
+        };
     });
     readonly wireframe = signal(false);
     readonly grid = signal(true);
@@ -119,8 +126,8 @@ export class MapViewportComponent implements OnDestroy {
         });
         effect(() => this.scene()?.setDisplay(this.grid(), this.wireframe()));
         effect(() => {
-            const { skyRgb, fog } = this.environment();
-            this.scene()?.setEnvironment(skyRgb, fog);
+            const { skyRgb, fog, environmentFaces } = this.environment();
+            this.scene()?.setEnvironment(skyRgb, fog, environmentFaces);
         });
         effect(() => {
             const scene = this.scene(), geometry = this.geometry(), key = this.selectionKey();

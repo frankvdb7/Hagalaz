@@ -31,7 +31,8 @@ public sealed class MapRenderDecoderTests
         using var input = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "maps", "terrain-12850.dat"));
         var terrain = MapRenderDecoder.DecodeTerrain(input, 12850);
         var atmosphere = MapRenderDecoder.DecodeAtmosphere(input);
-        Assert.Equal(new Hagalaz.Cache.Types.MapAtmosphere(0xddcebb, 334 / 256f, 2f, 92 / 256f, -4, -16, 1, 0x8da4c2, 600), atmosphere);
+        Assert.Equal(new Hagalaz.Cache.Types.MapAtmosphere(0xddcebb, 334 / 256f, 2f, 92 / 256f, -4, -16, 1, 0x8da4c2, 600, null), atmosphere with { EnvironmentFaces = null });
+        Assert.Equal([682, 683, 684, 685, 686, 687], atmosphere!.EnvironmentFaces);
         using var semantic = new MemoryStream();
         foreach (var p in terrain)
         for (var tile = 0; tile < 4096; tile++)
@@ -55,6 +56,17 @@ public sealed class MapRenderDecoderTests
         Assert.Equal(skyRgb, atmosphere.SkyRgb);
         Assert.Equal(fogValue, atmosphere.FogValue);
         Assert.Equal(0xffffff, atmosphere.LightRgb);
+        Assert.Null(atmosphere.EnvironmentFaces);
+    }
+
+    [Fact]
+    public void AtmosphereProjection_ReadsEnvironmentFacesInCubeOrderBeforeLaterRecords()
+    {
+        // Faces 1..6 and 65535, then an HDR record (opcode 2) and a terminating unknown opcode.
+        var atmosphere = MapRenderDecoder.DecodeAtmosphere(new MemoryStream([0, 0x80, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0xff, 0xff, 2, 9, 9, 9, 255]));
+        Assert.NotNull(atmosphere);
+        Assert.Equal([1, 2, 3, 4, 5, 65535], atmosphere.EnvironmentFaces);
+        Assert.Equal(0xc8c0a8, atmosphere.SkyRgb);
     }
 
     [Fact]
