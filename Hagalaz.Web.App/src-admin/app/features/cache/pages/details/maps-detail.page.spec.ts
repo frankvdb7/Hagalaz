@@ -19,7 +19,7 @@ class ViewportBoundary {
     readonly geometry = input<unknown>();
     readonly textures = input<unknown>();
     readonly selectionKey = input<string>();
-    readonly hasRegionAtmosphere = input(false);
+    readonly regionAtmosphere = input<unknown>(null);
     readonly useRegionAtmosphere = model(true);
     readonly selectedObject = model<unknown>(null);
     readonly objectDrop = output<{ id: number; x: number; z: number }>();
@@ -70,14 +70,12 @@ describe("MapsDetailPageComponent", () => {
     it("switches lighting from the viewport without reloading the region or changing its camera key", async () => {
         const harness = await RouterTestingHarness.create();
         const page = await harness.navigateByUrl("/cache/types/maps/258", MapsDetailPageComponent);
-        http.expectOne(`${base}258/render`).flush({
-            ...region(258),
-            atmosphere: { lightRgb: 0xddcebb, intensity: 1.3, positiveResponse: 2, negativeResponse: 0.36, directionX: -4, directionY: -16, directionZ: 1 },
-        });
+        const atmosphere = { lightRgb: 0xddcebb, intensity: 1.3, positiveResponse: 2, negativeResponse: 0.36, directionX: -4, directionY: -16, directionZ: 1, skyRgb: 0x8da4c2, fogValue: 600 };
+        http.expectOne(`${base}258/render`).flush({ ...region(258), atmosphere });
         harness.detectChanges();
         const viewport = required(harness.routeDebugElement, "the routed page").query(By.directive(ViewportBoundary)).componentInstance as ViewportBoundary;
         const key = viewport.selectionKey();
-        expect(viewport.hasRegionAtmosphere()).toBe(true);
+        expect(viewport.regionAtmosphere()).toEqual(atmosphere);
         expect(viewport.useRegionAtmosphere()).toBe(true);
         viewport.useRegionAtmosphere.set(false);
         harness.detectChanges();

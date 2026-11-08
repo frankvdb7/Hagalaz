@@ -66,10 +66,11 @@ public static class MapRenderDecoder
                     var x = (flags & 16) != 0 ? (short)ReadShort(stream) : -50;
                     var y = (flags & 16) != 0 ? (short)ReadShort(stream) : -60;
                     var z = (flags & 16) != 0 ? (short)ReadShort(stream) : -50;
-                    if ((flags & 32) != 0) SkipBytes(stream, 4); // Sky/fog RGB.
-                    if ((flags & 64) != 0) SkipBytes(stream, 2); // Fog distance input.
+                    // The scene clears to this colour and fades linearly towards it.
+                    var skyRgb = (flags & 32) != 0 ? (ReadByte(stream) << 24 | ReadMedium(stream)) & 0xffffff : 0xc8c0a8;
+                    var fogValue = (flags & 64) != 0 ? ReadShort(stream) : 0;
                     if ((flags & 128) != 0) SkipBytes(stream, 12); // Environment-map faces.
-                    atmosphere = new MapAtmosphere(rgb, intensity, positive, negative, x, y, z);
+                    atmosphere = new MapAtmosphere(rgb, intensity, positive, negative, x, y, z, skyRgb, fogValue);
                     break;
                 case 1:
                     var lights = ReadByte(stream);

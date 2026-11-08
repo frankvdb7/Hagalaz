@@ -43,6 +43,8 @@ public sealed class MapRenderEndpointTests
         Assert.IsNotNull(region);
         Assert.AreEqual("available", region.TerrainStatus);
         Assert.AreEqual(0xddcebb, region.Atmosphere?.LightRgb);
+        Assert.AreEqual(0xc8c0a8, region.Atmosphere?.SkyRgb);
+        Assert.AreEqual(0, region.Atmosphere?.FogValue);
         Assert.AreEqual("failed", region.LandscapeStatus);
         Assert.HasCount(4, region.Planes);
         Assert.IsEmpty(region.Objects);

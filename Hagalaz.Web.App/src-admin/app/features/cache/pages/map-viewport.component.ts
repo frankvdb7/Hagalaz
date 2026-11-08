@@ -1,21 +1,23 @@
 import { afterNextRender, Component, computed, effect, ElementRef, inject, input, model, type OnDestroy, output, signal, viewChild } from "@angular/core";
 import { MatButtonModule } from "@angular/material/button";
+import { MatDividerModule } from "@angular/material/divider";
 import { MatIconModule } from "@angular/material/icon";
 import { MatMenuModule } from "@angular/material/menu";
 import type { ModelScene, ModelTexture } from "../../../../../shared/model-viewer/model-scene";
+import { type MapAtmosphere, mapFogRange } from "../services/map-render.models";
 import type { MapObjectRange, MapSceneGeometry } from "./map-scene-geometry";
 
 export const mapObjectDragType = "application/x-hagalaz-map-object";
 
 @Component({
     selector: "cache-map-viewport",
-    imports: [MatButtonModule, MatIconModule, MatMenuModule],
+    imports: [MatButtonModule, MatDividerModule, MatIconModule, MatMenuModule],
     template: `
         <div class="map-toolbar" role="group" aria-label="Map editor controls">
             <ng-content select="[mapEditTools]" />
             <button mat-stroked-button type="button" [matMenuTriggerFor]="cameraMenu"><mat-icon>my_location</mat-icon>Camera</button>
             <button mat-stroked-button type="button" [matMenuTriggerFor]="lightingMenu">
-                <mat-icon>light_mode</mat-icon>Lighting: {{ regionLightingActive() ? 'Region atmosphere' : 'Default' }}<mat-icon iconPositionEnd>expand_more</mat-icon>
+                <mat-icon>light_mode</mat-icon>Lighting: {{ regionLightingActive() ? 'Region atmosphere' : 'Default' }}{{ fogActive() ? ' with fog' : '' }}<mat-icon iconPositionEnd>expand_more</mat-icon>
             </button>
             <button mat-stroked-button type="button" [matMenuTriggerFor]="viewMenu"><mat-icon>view_in_ar</mat-icon>View: {{ wireframe() ? 'Wireframe' : 'Textured' }}<mat-icon iconPositionEnd>expand_more</mat-icon></button>
             <button mat-icon-button type="button" aria-label="Toggle fullscreen" [disabled]="!fullscreenAvailable" (click)="fullscreen()"><mat-icon>fullscreen</mat-icon></button>
@@ -45,6 +47,8 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
         <mat-menu #lightingMenu="matMenu">
             <button mat-menu-item type="button" role="menuitemradio" [attr.aria-checked]="regionLightingActive()" [disabled]="!hasRegionAtmosphere()" (click)="useRegionAtmosphere.set(true)">Region atmosphere</button>
             <button mat-menu-item type="button" role="menuitemradio" [attr.aria-checked]="!regionLightingActive()" (click)="useRegionAtmosphere.set(false)">Default lighting</button>
+            <mat-divider />
+            <button mat-menu-item type="button" role="menuitemcheckbox" [attr.aria-checked]="fogActive()" [disabled]="!regionLightingActive()" (click)="fog.set(!fog())">Client fog</button>
         </mat-menu>
         <mat-menu #viewMenu="matMenu">
             <button mat-menu-item type="button" (click)="wireframe.set(false)">Textured</button>
@@ -80,9 +84,17 @@ export class MapViewportComponent implements OnDestroy {
     readonly objectDrop = output<{ id: number; x: number; z: number }>();
     readonly textures = input<ReadonlyMap<number, ModelTexture>>(new Map());
     readonly selectionKey = input("");
-    readonly hasRegionAtmosphere = input(false);
+    readonly regionAtmosphere = input<MapAtmosphere | null>(null);
+    readonly hasRegionAtmosphere = computed(() => this.regionAtmosphere() !== null);
     readonly useRegionAtmosphere = model(true);
     readonly regionLightingActive = computed(() => this.hasRegionAtmosphere() && this.useRegionAtmosphere());
+    // Off by default: the fitted overview camera sits beyond the client's far plane.
+    readonly fog = signal(false);
+    readonly fogActive = computed(() => this.regionLightingActive() && this.fog());
+    readonly environment = computed(() => {
+        const atmosphere = this.regionLightingActive() ? this.regionAtmosphere() : null;
+        return { skyRgb: atmosphere?.skyRgb ?? null, fog: atmosphere && this.fog() ? mapFogRange(atmosphere.fogValue) : null };
+    });
     readonly wireframe = signal(false);
     readonly grid = signal(true);
     readonly error = signal<string | null>(null);
@@ -106,6 +118,10 @@ export class MapViewportComponent implements OnDestroy {
             } catch { this.error.set("3D rendering is unavailable. Enable WebGL in a supported browser."); }
         });
         effect(() => this.scene()?.setDisplay(this.grid(), this.wireframe()));
+        effect(() => {
+            const { skyRgb, fog } = this.environment();
+            this.scene()?.setEnvironment(skyRgb, fog);
+        });
         effect(() => {
             const scene = this.scene(), geometry = this.geometry(), key = this.selectionKey();
             if (!scene) return;

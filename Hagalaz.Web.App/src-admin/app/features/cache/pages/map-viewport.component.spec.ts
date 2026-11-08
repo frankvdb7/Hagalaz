@@ -47,6 +47,28 @@ describe("MapViewportComponent keyboard controls", () => {
         fixture.destroy();
     });
 
+    it("derives the region sky and opt-in client fog only while region atmosphere is active", () => {
+        const fixture = TestBed.createComponent(MapViewportComponent);
+        const page = fixture.componentInstance;
+        const atmosphere = { lightRgb: 0xffffff, intensity: 1, positiveResponse: 1, negativeResponse: 1, directionX: 0, directionY: -1, directionZ: 0, skyRgb: 0x8da4c2, fogValue: 600 };
+        page.fog.set(true);
+        expect(page.environment()).toEqual({ skyRgb: null, fog: null });
+        expect(page.fogActive()).toBe(false);
+
+        fixture.componentRef.setInput("regionAtmosphere", atmosphere);
+        expect(page.fogActive()).toBe(true);
+        expect(page.environment()).toEqual({ skyRgb: 0x8da4c2, fog: { start: 10908, end: 14332 } });
+
+        page.fog.set(false);
+        expect(page.environment()).toEqual({ skyRgb: 0x8da4c2, fog: null });
+
+        page.fog.set(true);
+        page.useRegionAtmosphere.set(false);
+        expect(page.fogActive()).toBe(false);
+        expect(page.environment()).toEqual({ skyRgb: null, fog: null });
+        fixture.destroy();
+    });
+
     it("does not create a canvas after destruction before asynchronous initialization", async () => {
         const fixture = TestBed.createComponent(MapViewportComponent);
         const element = fixture.nativeElement as HTMLElement;

@@ -140,6 +140,13 @@ export class ModelScene {
         this.requestRender();
     }
 
+    /** Clears to `skyRgb` and fades geometry towards it over an eye-depth range. Null restores the transparent canvas. */
+    setEnvironment(skyRgb: number | null, fog: { start: number; end: number } | null): void {
+        this.scene.background = skyRgb === null ? null : new THREE.Color(skyRgb);
+        this.scene.fog = skyRgb === null || !fog ? null : new THREE.Fog(skyRgb, fog.start, fog.end);
+        this.requestRender();
+    }
+
     private applyWireframe(): void {
         if (this.mesh) for (const material of this.mesh.material) material.wireframe = this.wireframe;
     }

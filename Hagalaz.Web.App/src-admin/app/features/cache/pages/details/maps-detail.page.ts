@@ -98,7 +98,7 @@ export class MapsDetailPageComponent {
         const rotation = this.objectTransform()?.rotation ?? placement.rotation;
         return (appearances.get(mapAppearanceKey({ ...placement, rotation })) ?? appearances.get(mapAppearanceKey(placement)))?.parts ?? [];
     });
-    readonly hasRegionAtmosphere = computed(() => !!this.store.regions().find(region => region.id === this.selection().id)?.atmosphere);
+    readonly regionAtmosphere = computed(() => this.store.regions().find(region => region.id === this.selection().id)?.atmosphere ?? null);
     readonly scene = computed(() => buildMapScene(
         this.store.regions(), this.store.appearances(), this.store.textures(), this.planes(), this.landscape(), this.preparation(),
         this.useRegionAtmosphere() ? this.selection().id : null, this.edits(),

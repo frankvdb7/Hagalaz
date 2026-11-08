@@ -215,6 +215,36 @@ describe("ModelScene resource ownership", () => {
         expect(gpu.controlsUnlisten).toHaveBeenCalledWith("change", gpu.controlsListen.mock.lastCall![1]);
     });
 
+    it("clears a map to the sky colour, fogs towards it and restores the transparent canvas", () => {
+        const frames = vi.mocked(requestAnimationFrame);
+        const map = new ModelScene(host as unknown as HTMLElement, "Map", "map");
+        try {
+            map.setSceneGeometry(triangle, true);
+            frames.mock.lastCall![0](0);
+            const rendered = () => gpu.render.mock.lastCall![0] as THREE.Scene;
+            expect(rendered().background).toBeNull();
+            expect(rendered().fog).toBeNull();
+
+            map.setEnvironment(0x8da4c2, null);
+            frames.mock.lastCall![0](16);
+            expect((rendered().background as THREE.Color).getHex()).toBe(0x8da4c2);
+            expect(rendered().fog).toBeNull();
+
+            map.setEnvironment(0x8da4c2, { start: 10908, end: 14332 });
+            frames.mock.lastCall![0](32);
+            const fog = rendered().fog as THREE.Fog;
+            expect([fog.color.getHex(), fog.near, fog.far]).toEqual([0x8da4c2, 10908, 14332]);
+
+            map.setEnvironment(null, { start: 10908, end: 14332 });
+            frames.mock.lastCall![0](48);
+            expect(rendered().background).toBeNull();
+            expect(rendered().fog).toBeNull();
+            expect(gpu.render).toHaveBeenCalledTimes(4);
+        } finally {
+            map.dispose();
+        }
+    });
+
     it("groups blended terrain separately and disposes its material on scene replacement", () => {
         scene.setTextures(new Map([[8, { image: {} as ImageBitmap, alphaMode: 0 as const }]]));
         scene.setGeometry({ ...triangle, textureIds: [-2], terrainWeights: Array(3).fill([1, 0, 0, 0, 0, 0, 0, 0]).flat(),

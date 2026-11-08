@@ -31,7 +31,7 @@ public sealed class MapRenderDecoderTests
         using var input = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "maps", "terrain-12850.dat"));
         var terrain = MapRenderDecoder.DecodeTerrain(input, 12850);
         var atmosphere = MapRenderDecoder.DecodeAtmosphere(input);
-        Assert.Equal(new Hagalaz.Cache.Types.MapAtmosphere(0xddcebb, 334 / 256f, 2f, 92 / 256f, -4, -16, 1), atmosphere);
+        Assert.Equal(new Hagalaz.Cache.Types.MapAtmosphere(0xddcebb, 334 / 256f, 2f, 92 / 256f, -4, -16, 1, 0x8da4c2, 600), atmosphere);
         using var semantic = new MemoryStream();
         foreach (var p in terrain)
         for (var tile = 0; tile < 4096; tile++)
@@ -43,6 +43,18 @@ public sealed class MapRenderDecoderTests
         }
         // Captured by calling GameClient Class274.readLandscapeData, not by this decoder.
         Assert.Equal("bafd725f7085f1f8ffe9349d523c9704b007dd8de1a7900c536c6623d51baceb", Convert.ToHexStringLower(SHA256.HashData(semantic.ToArray())));
+    }
+
+    [Theory]
+    [InlineData(new byte[] { 0, 0 }, 0xc8c0a8, 0)]
+    [InlineData(new byte[] { 0, 0x60, 0xff, 0x12, 0x34, 0x56, 0x02, 0x58 }, 0x123456, 600)]
+    public void AtmosphereProjection_ReadsSkyColourAndRawFogValue(byte[] record, int skyRgb, int fogValue)
+    {
+        var atmosphere = MapRenderDecoder.DecodeAtmosphere(new MemoryStream(record));
+        Assert.NotNull(atmosphere);
+        Assert.Equal(skyRgb, atmosphere.SkyRgb);
+        Assert.Equal(fogValue, atmosphere.FogValue);
+        Assert.Equal(0xffffff, atmosphere.LightRgb);
     }
 
     [Fact]

@@ -13,6 +13,10 @@ export interface MapFloor { id: number; overlay: boolean; rgb: number | null; te
 export interface MapAtmosphere {
     lightRgb: number; intensity: number; positiveResponse: number; negativeResponse: number;
     directionX: number; directionY: number; directionZ: number;
+    /** Scene clear and fog colour. */
+    skyRgb: number;
+    /** Raw revision-742 fog input, not a density. */
+    fogValue: number;
 }
 export interface MapRenderRegion {
     id: number; regionX: number; regionY: number;
@@ -39,6 +43,14 @@ export interface MapLoadProgress {
     appearancesSettled: number; appearancesTotal: number;
     texturesSettled: number; texturesTotal: number;
     failures: number;
+}
+// Revision-742 projection planes for the standard 104-tile scene, in scene units.
+const clientNearPlane = 200;
+const clientFarPlane = Math.floor(34.46 * 104) << 2;
+
+/** Linear eye-depth fog range used by the client's OpenGL toolkit. */
+export function mapFogRange(fogValue: number): { start: number; end: number } {
+    return { start: Math.max(clientNearPlane, clientFarPlane - ((fogValue + 256) << 2)), end: clientFarPlane };
 }
 export const mapAppearanceKey = (placement: Pick<MapPlacement, "id" | "shape" | "rotation">) => `${placement.id}:${placement.shape}:${placement.rotation}`;
 

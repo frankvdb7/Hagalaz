@@ -7,7 +7,7 @@
         <div class="region-stage">
             <mat-card appearance="outlined" class="region-view">
                 <cache-map-viewport [geometry]="scene().geometry" [textures]="store.textures()" [selectionKey]="selectionKey()"
-                    [hasRegionAtmosphere]="hasRegionAtmosphere()" [(useRegionAtmosphere)]="useRegionAtmosphere" [selectedObject]="selectedObject()" (selectedObjectChange)="selectObject($event)"
+                    [regionAtmosphere]="regionAtmosphere()" [(useRegionAtmosphere)]="useRegionAtmosphere" [selectedObject]="selectedObject()" (selectedObjectChange)="selectObject($event)"
                     (objectDrop)="placeDroppedObject($event)">
                     <div mapEditTools class="edit-toolbar">
                         @for (tool of editTools; track tool.id) {
